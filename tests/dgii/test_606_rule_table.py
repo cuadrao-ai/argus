@@ -34,7 +34,12 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.dgii_606_rules import RULES, Context, broken, itbis_limit
 from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
-from argus.domain.business.dgii_export import fiscal_manifest, line_values, line_verdicts
+from argus.domain.business.dgii_export import (
+    fiscal_manifest,
+    line_assessments,
+    line_values,
+    line_verdicts,
+)
 from argus.domain.business.dgii_line import DETAIL_MISSING, MISSING_ORDER
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.reporting_file import RecordsExport, build_file
@@ -703,7 +708,7 @@ class TestTodayIsTheDominicanDay:
 class TestRegistrosAndTheExcelAgree:
     @pytest.mark.parametrize("case", named(CASES))
     def test_the_excel_carries_a_row_only_when_registros_says_listo(self, case):
-        verdicts = line_verdicts(case.records, rnc=FILER, captured_on=TODAY)
+        verdicts = line_assessments(case.records, rnc=FILER, captured_on=TODAY)
         rows = tuple(
             ReportRecord(
                 row_id=f"activity:{subject.activity_id}",

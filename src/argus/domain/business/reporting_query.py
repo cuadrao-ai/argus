@@ -20,8 +20,8 @@ from argus.domain.business.reporting import (
     summarize_fiscal,
 )
 from argus.domain.business.reporting_columns import (
-    SPECS,
     TableColumn,
+    column_label,
     offered_columns,
     offering_families,
 )
@@ -90,6 +90,8 @@ class ReportRecord(Contract):
     report_date: date | None
     date_basis: Literal["document_issue", "activity_effective"]
     family: Family | None = None
+    ready: bool = False
+    missing: tuple[str, ...] = ()
     stage: Stage | None = None
     #: Current 606/607 verdict, independent of downloaded export history.
     fiscal_data: FiscalData | None = None
@@ -185,12 +187,13 @@ class FundingOption(Contract):
 
 
 class ReportOverview(Contract):
-    """Fiscal count uses all table filters before pagination.
+    """Readiness and fiscal counts use all table filters before pagination.
     Other counts cover the period's recorded rows."""
 
     needs_review: int = 0
     ready_for_export: int = 0
     needs_fiscal_data: int = 0
+    not_ready: int = 0
     exported: int = 0
     export_lines: int = 0
 
@@ -224,7 +227,7 @@ def report_columns(
     return tuple(
         ReportColumn(
             key=key,
-            label_key=SPECS[key].label,
+            label_key=column_label(key, families),
             shown=key not in presentation.hidden,
             families=offering_families(key),
         )
@@ -317,6 +320,8 @@ def _matches_period(row: ReportRecord, period: ResolvedPeriod) -> bool:
 
 
 def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) -> bool:
+    if filters.ready is not None and row.ready != filters.ready:
+        return False
     if filters.fiscal_data is not None and row.fiscal_data != filters.fiscal_data:
         return False
     if not _matches_period(row, period):
@@ -613,6 +618,10 @@ def _document_totals(
     return totals
 
 
+def count_not_ready(records: tuple[ReportRecord, ...] | list[ReportRecord]) -> int:
+    return sum(not row.ready for row in records)
+
+
 def matching_records(
     records: tuple[ReportRecord, ...] | list[ReportRecord],
     request: ReportRequest | ReportRequestV2,
@@ -742,6 +751,7 @@ def run_query(
     offset = (request.page - 1) * request.page_size
     overview_rows = [row for row in records if _matches_period(row, period)]
     overview = ReportOverview(
+        not_ready=count_not_ready(rows),
         needs_fiscal_data=sum(row.fiscal_data == "missing" for row in rows),
         **{
             stage: sum(row.stage == stage for row in overview_rows)

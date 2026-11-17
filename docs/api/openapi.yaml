@@ -1,5 +1,8 @@
 # Checked OpenAPI compatibility artifact. Generated from the canonical
 # FastAPI app.openapi() document by scripts/generate_openapi_artifact.py.
+# Business date refusals: business_date_before_minimum, business_date_after_today.
+# Request errors carry min_date/today in context.errors[].ctx; bank and fiscal
+# refusals carry them in context. Reader correction blockers carry min_date/today.
 # Structural gate: tests/test_openapi_compatibility.py (#234).
 openapi: 3.1.0
 info:
@@ -2859,7 +2862,8 @@ paths:
             while the original result is unknown.'
         '422':
           description: '`business_document_not_deleted` outside Eliminados; `business_document_ambiguous`
-            for shared attachments; `business_document_purge_busy` while the Business changes custody.'
+            for shared attachments; `business_document_purge_busy` while the Business changes
+            custody.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -4575,45 +4579,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/business/guide-cards/{card_id}:
-    get:
-      tags:
-      - financial-accounts
-      - business
-      description: Read the signed-in person's guide state. The Business grant is ignored.
-      parameters:
-      - name: card_id
-        in: path
-        required: true
-        schema:
-          enum:
-          - actividad-intro
-          - bandeja-intro
-          - registros-intro
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BusinessGuideState'
-        '403':
-          description: A registered account is required.
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/business/guide-cards/{card_id}/dismiss:
     post:
       tags:
@@ -4628,6 +4593,7 @@ paths:
           enum:
           - actividad-intro
           - bandeja-intro
+          - exportar-guardar
           - registros-intro
           type: string
       responses:
@@ -6771,6 +6737,15 @@ paths:
       - financial-accounts
       - business
       parameters:
+      - name: Accept-Language
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Language for the filename and table text. Send en or es-419 (default).
+        description: Language for the filename and table text. Send en or es-419 (default).
       - name: X-Business-Grant
         in: header
         required: false
@@ -15029,105 +15004,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/search:
-    get:
-      tags:
-      - conversations
-      parameters:
-      - name: q
-        in: query
-        required: true
-        schema:
-          type: string
-          maxLength: 512
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 100
-          minimum: 1
-          default: 20
-      - name: cursor
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-      - name: decision_state
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - enum:
-            - watching
-            - promising
-            - rejected
-            - revisit_later
-            type: string
-          - type: 'null'
-      - name: include_ledger_groups
-        in: query
-        required: false
-        schema:
-          type: boolean
-          default: false
-      - name: conversation_id
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: array
-            items:
-              type: string
-              format: uuid
-            minItems: 1
-            maxItems: 50
-          - type: 'null'
-      - name: surface
-        in: query
-        required: false
-        schema:
-          enum:
-          - personal
-          - business
-          type: string
-          default: business
-      - name: X-Argus-Client-Capabilities
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-            maxLength: 1024
-          - type: 'null'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedSearch'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          description: Search temporarily unavailable because exact bounded recall could not
-            be completed, or authentication-session verification is temporarily unavailable.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/webhooks/fiscal-sandbox/emission:
     post:
       tags:
@@ -15780,7 +15656,22 @@ components:
     ActivityActor:
       properties:
         display_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
+          anyOf:
+          - type: string
+            enum:
+            - name
+            - email
+            - member
+            - former
+          - type: 'null'
         kind:
           type: string
           enum:
@@ -15810,7 +15701,22 @@ components:
           type: string
           pattern: ^[0-9a-f]{32}$
         display_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
+          anyOf:
+          - type: string
+            enum:
+            - name
+            - email
+            - member
+            - former
+          - type: 'null'
         kind:
           type: string
           enum:
@@ -15931,6 +15837,13 @@ components:
         include:
           anyOf:
           - type: boolean
+          - type: 'null'
+        decision:
+          anyOf:
+          - type: string
+            enum:
+            - different_purchase
+            - same_purchase
           - type: 'null'
       additionalProperties: false
       type: object
@@ -16164,7 +16077,7 @@ components:
       - recorded_at
       - recorded_by
       - coverage
-    ActorProvenance:
+    ActorView:
       properties:
         actor_id:
           type: string
@@ -16175,25 +16088,54 @@ components:
           - owner_via_agent
           - member
           - extractor
-        display_name:
-          type: string
         grant_id:
           type: string
           format: uuid
         issuer_id:
           type: string
           format: uuid
-        issuer_display_name:
+        display_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
           type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
+        issuer_display_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        issuer_email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        issuer_shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
       additionalProperties: false
       type: object
       required:
       - actor_id
       - actor_kind
-      - display_name
       - grant_id
       - issuer_id
+      - display_name
+      - shown_as
       - issuer_display_name
+      - issuer_shown_as
+      description: Who acted and who granted their access, each named live for the viewer.
     AliasBody:
       properties:
         alias:
@@ -16284,93 +16226,6 @@ components:
       type: object
       required:
       - version
-    AnswerDecisionAction:
-      properties:
-        type:
-          type: string
-          const: answer_decision
-          default: answer_decision
-        availability:
-          type: string
-          enum:
-          - available
-          - account_conversion_required
-        message_id:
-          type: string
-        decision_state:
-          anyOf:
-          - type: string
-            enum:
-            - watching
-            - promising
-            - rejected
-            - revisit_later
-          - type: 'null'
-        note:
-          anyOf:
-          - type: string
-            maxLength: 2000
-          - type: 'null'
-      type: object
-      required:
-      - availability
-      - message_id
-      description: The decision a computed answer offers; it posts to the message route.
-    AnswerDossier:
-      properties:
-        message_id:
-          type: string
-        conversation_id:
-          type: string
-        asked:
-          anyOf:
-          - type: string
-            maxLength: 500
-          - type: 'null'
-        computed_at:
-          type: string
-          format: date-time
-        symbols:
-          items:
-            type: string
-          type: array
-          maxItems: 5
-        cards:
-          items:
-            additionalProperties: true
-            type: object
-          type: array
-          maxItems: 4
-          minItems: 1
-        decision:
-          anyOf:
-          - $ref: '#/components/schemas/SearchDossierDecision'
-          - type: 'null'
-        decision_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        actions:
-          items:
-            $ref: '#/components/schemas/AnswerDecisionAction'
-          type: array
-          maxItems: 1
-      type: object
-      required:
-      - message_id
-      - conversation_id
-      - computed_at
-      - cards
-      description: 'A computed answer beside the run dossier: asked, used, came out, decided.
-
-
-        Its cards, one per calculation in the answer''s order, carry what Argus used
-
-        with its sources and what came out; recompute goes through the message
-
-        computation route and never rewrites the stored answer. The run dossier is
-
-        unchanged.'
     AppleAuthorizationCodeRequest:
       properties:
         authorization_code:
@@ -16413,6 +16268,10 @@ components:
         action:
           type: string
           const: record_expense
+        suggestions:
+          anyOf:
+          - $ref: '#/components/schemas/DeclarationSuggestions'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -16885,6 +16744,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
             - reading
             - not_read
@@ -17311,6 +17171,14 @@ components:
             - receipt_state
             - category_id
           - type: 'null'
+        min_date:
+          anyOf:
+          - type: string
+          - type: 'null'
+        today:
+          anyOf:
+          - type: string
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -17734,7 +17602,9 @@ components:
           - type: string
           - type: 'null'
         display_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         photo_url:
           anyOf:
           - type: string
@@ -18096,7 +17966,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -18117,7 +17987,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -18216,7 +18086,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -18234,7 +18104,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -18259,7 +18129,7 @@ components:
         currency:
           $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__'
         occurred_on:
-          $ref: '#/components/schemas/FactInput_date_'
+          $ref: '#/components/schemas/FactInput_Annotated_date__AfterValidator__'
         counterparty:
           $ref: '#/components/schemas/FactInput_str_'
         funding:
@@ -18803,6 +18673,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
           - type: 'null'
         label:
@@ -19245,6 +19116,87 @@ components:
       - household_id
       - state
       - replayed
+    ComparedDocument:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        counterparty:
+          anyOf:
+          - type: string
+          - type: 'null'
+        occurred_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+        fiscal_number:
+          anyOf:
+          - type: string
+          - type: 'null'
+        file:
+          anyOf:
+          - $ref: '#/components/schemas/ComparedFile'
+          - type: 'null'
+        received_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        approved_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        state:
+          type: string
+          enum:
+          - open
+          - accepted
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - state
+      description: 'The main data of one document of a possible repeat, as its draft
+
+        holds it now. An unknown value is null.'
+    ComparedFile:
+      properties:
+        connection_id:
+          type: string
+          format: uuid
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        media_type:
+          type: string
+        channel:
+          type: string
+          enum:
+          - web
+          - whatsapp
+          - email
+        received_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - connection_id
+      - filename
+      - media_type
+      - channel
+      - received_at
     ConditionalPayoff:
       properties:
         state:
@@ -19941,12 +19893,15 @@ components:
           items:
             $ref: '#/components/schemas/ExportColumn'
           type: array
+        filenames:
+          $ref: '#/components/schemas/ExportFileNames'
       additionalProperties: false
       type: object
       required:
       - record_count
       - currencies
       - columns
+      - filenames
     CurrencySummaryResponse:
       properties:
         currency:
@@ -20618,6 +20573,11 @@ components:
           type: string
         previous_state:
           $ref: '#/components/schemas/PreviousDocumentState'
+        reason:
+          anyOf:
+          - type: string
+            const: duplicate
+          - type: 'null'
         purge_at:
           type: string
           format: date-time
@@ -20636,12 +20596,29 @@ components:
           type: string
           format: uuid
         display_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
+          anyOf:
+          - type: string
+            enum:
+            - name
+            - email
+            - member
+            - former
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
       - actor_id
-      - display_name
+      description: 'Who deleted the document, named live for the viewer as ``PersonName``
+
+        reads. The stored marker keeps only the id (``people.named_deletion``).'
     DeliveryPreparation:
       properties:
         to:
@@ -20726,6 +20703,8 @@ components:
           items:
             $ref: '#/components/schemas/RncSupplier'
           type: array
+        filenames:
+          $ref: '#/components/schemas/ExportFileNames'
       additionalProperties: false
       type: object
       required:
@@ -20738,6 +20717,7 @@ components:
       - rnc_warning_count
       - rnc_supplier_count
       - rnc_suppliers
+      - filenames
     DgiiForeignCurrency:
       properties:
         '606':
@@ -21016,7 +20996,7 @@ components:
           type: integer
           minimum: 1.0
         actor:
-          $ref: '#/components/schemas/ActorProvenance'
+          $ref: '#/components/schemas/ActorView'
         before:
           anyOf:
           - $ref: '#/components/schemas/BusinessFacts'
@@ -21080,6 +21060,10 @@ components:
           - type: string
             const: business_rnc_set
           - type: 'null'
+        duplicate:
+          anyOf:
+          - $ref: '#/components/schemas/DuplicateRevision'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -21098,11 +21082,85 @@ components:
         version:
           type: integer
           minimum: 1.0
+        basis:
+          type: string
+          enum:
+          - read_facts
+          - fiscal_number
+        decisions:
+          items:
+            type: string
+            enum:
+            - different_purchase
+            - same_purchase
+          type: array
+          default: []
+        comparison:
+          $ref: '#/components/schemas/DuplicateComparison'
       additionalProperties: false
       type: object
       required:
       - draft_id
       - version
+      - basis
+      - comparison
+    DuplicateComparison:
+      properties:
+        document:
+          $ref: '#/components/schemas/ComparedDocument'
+        other:
+          $ref: '#/components/schemas/ComparedDocument'
+        differences:
+          items:
+            type: string
+            enum:
+            - counterparty
+            - occurred_on
+            - amount
+            - currency
+            - fiscal_number
+            - file
+          type: array
+          default: []
+        recommendation:
+          anyOf:
+          - type: string
+            enum:
+            - different_purchase
+            - same_purchase
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - document
+      - other
+      description: 'The reviewed document beside the one it may repeat. The server owns
+
+        which values differ and what it recommends; a client renders both.'
+    DuplicateRevision:
+      properties:
+        decision:
+          type: string
+          const: different_purchase
+        other_draft_id:
+          type: string
+          format: uuid
+        other_counterparty:
+          anyOf:
+          - type: string
+          - type: 'null'
+        other_filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - decision
+      - other_draft_id
+      description: 'The revision a person''s duplicate decision wrote, read from the command
+
+        its web action source recorded; the other document as it reads now.'
     EcfCheck:
       properties:
         name:
@@ -21627,7 +21685,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -21645,7 +21703,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -21715,7 +21773,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -21733,7 +21791,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -21807,6 +21865,7 @@ components:
           enum:
           - last_choice
           - receipt
+          - reading
       additionalProperties: false
       type: object
       required:
@@ -21825,6 +21884,7 @@ components:
           - itbis_amount
           - gross_amount
           - stage
+          - missing
           - fiscal_number
           - note
           - attachment
@@ -21844,6 +21904,18 @@ components:
       - label_key
       - required
       - shown
+    ExportFileNames:
+      properties:
+        xlsx:
+          type: string
+        csv:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - xlsx
+      - csv
+      description: The name the export gives this choice's file in each format.
     ExportPreview:
       properties:
         table:
@@ -21908,6 +21980,16 @@ components:
           known: '#/components/schemas/KnownInput_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
           owner_does_not_know: '#/components/schemas/UncertainInput'
           unknown: '#/components/schemas/UncertainInput'
+    FactInput_Annotated_date__AfterValidator__:
+      oneOf:
+      - $ref: '#/components/schemas/KnownInput_Annotated_date__AfterValidator__'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_Annotated_date__AfterValidator__'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
     FactInput_Annotated_str__StringConstraints__:
       oneOf:
       - $ref: '#/components/schemas/KnownInput_Annotated_str__StringConstraints__'
@@ -21946,16 +22028,6 @@ components:
         propertyName: state
         mapping:
           known: '#/components/schemas/KnownInput_Literal__fiscal_receipt____informal_receipt____no_receipt___'
-          owner_does_not_know: '#/components/schemas/UncertainInput'
-          unknown: '#/components/schemas/UncertainInput'
-    FactInput_date_:
-      oneOf:
-      - $ref: '#/components/schemas/KnownInput_date_'
-      - $ref: '#/components/schemas/UncertainInput'
-      discriminator:
-        propertyName: state
-        mapping:
-          known: '#/components/schemas/KnownInput_date_'
           owner_does_not_know: '#/components/schemas/UncertainInput'
           unknown: '#/components/schemas/UncertainInput'
     FactInput_str_:
@@ -24926,6 +24998,19 @@ components:
       type: object
       required:
       - value
+    KnownInput_Annotated_date__AfterValidator__:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          format: date
+      additionalProperties: false
+      type: object
+      required:
+      - value
     KnownInput_Annotated_str__StringConstraints__:
       properties:
         state:
@@ -24988,19 +25073,6 @@ components:
           - fiscal_receipt
           - informal_receipt
           - no_receipt
-      additionalProperties: false
-      type: object
-      required:
-      - value
-    KnownInput_date_:
-      properties:
-        state:
-          type: string
-          const: known
-          default: known
-        value:
-          type: string
-          format: date
       additionalProperties: false
       type: object
       required:
@@ -26858,6 +26930,12 @@ components:
           items:
             $ref: '#/components/schemas/FiscalDataRow'
           type: array
+        not_ready_rows:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/FiscalDataRow'
+            type: array
+          - type: 'null'
         cuentas_por_cobrar:
           anyOf:
           - items:
@@ -27845,32 +27923,6 @@ components:
       type: object
       required:
       - items
-    PaginatedSearch:
-      properties:
-        items:
-          items:
-            oneOf:
-            - $ref: '#/components/schemas/SearchItem'
-            - $ref: '#/components/schemas/SearchAssetRollup'
-            discriminator:
-              propertyName: type
-              mapping:
-                asset_rollup: '#/components/schemas/SearchAssetRollup'
-                conversation: '#/components/schemas/SearchItem'
-          type: array
-        next_cursor:
-          anyOf:
-          - type: string
-          - type: 'null'
-        ledger_groups:
-          anyOf:
-          - items:
-              $ref: '#/components/schemas/SearchLedgerGroup'
-            type: array
-          - type: 'null'
-      type: object
-      required:
-      - items
     PartialBusinessShare:
       properties:
         kind:
@@ -27938,6 +27990,7 @@ components:
           enum:
           - last_choice
           - receipt
+          - reading
       additionalProperties: false
       type: object
       required:
@@ -28025,6 +28078,31 @@ components:
       required:
       - membership_id
       - display_name
+    PersonName:
+      properties:
+        display_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
+      additionalProperties: false
+      type: object
+      required:
+      - display_name
+      - shown_as
+      description: 'A person as one viewer of a Business reads them now: ``shown_as`` says
+
+        whether the name, the email, a member or a former member shows.'
     PlanCommand:
       properties:
         membership_id:
@@ -28282,6 +28360,7 @@ components:
             - itbis_amount
             - gross_amount
             - stage
+            - missing
             - fiscal_number
             - note
             - attachment
@@ -28300,6 +28379,7 @@ components:
             - itbis_amount
             - gross_amount
             - stage
+            - missing
             - fiscal_number
             - note
             - attachment
@@ -28566,6 +28646,18 @@ components:
           - type: string
             format: uuid
           - type: 'null'
+        suggestion_sources:
+          additionalProperties:
+            type: string
+            enum:
+            - last_choice
+            - receipt
+            - reading
+          propertyNames:
+            enum:
+            - category
+            - payment_method
+          type: object
       additionalProperties: false
       type: object
       required:
@@ -29046,6 +29138,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        uploaded_by:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
+          - type: 'null'
         media_type:
           type: string
         size_bytes:
@@ -29087,6 +29183,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
           - type: 'null'
         duplicate_of:
@@ -29155,7 +29252,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -29173,7 +29270,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -29338,6 +29435,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        uploaded_by:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
+          - type: 'null'
         media_type:
           type: string
         size_bytes:
@@ -29379,6 +29480,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
           - type: 'null'
         duplicate_of:
@@ -29447,7 +29549,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -29465,7 +29567,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -29608,6 +29710,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        uploaded_by:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
+          - type: 'null'
         media_type:
           type: string
         size_bytes:
@@ -29649,6 +29755,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
           - type: 'null'
         duplicate_of:
@@ -29717,7 +29824,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -29735,7 +29842,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -29960,7 +30067,7 @@ components:
           type: string
           format: date-time
         actor:
-          $ref: '#/components/schemas/ActorProvenance'
+          $ref: '#/components/schemas/ActorView'
       additionalProperties: false
       type: object
       required:
@@ -29997,6 +30104,7 @@ components:
             - itbis_amount
             - gross_amount
             - stage
+            - missing
             - fiscal_number
             - note
             - attachment
@@ -30229,6 +30337,7 @@ components:
             needs_review: 0
             ready_for_export: 0
             needs_fiscal_data: 0
+            not_ready: 0
             exported: 0
             export_lines: 0
         effective_sort:
@@ -30357,6 +30466,7 @@ components:
           - itbis_amount
           - gross_amount
           - stage
+          - missing
           - fiscal_number
           - note
           - attachment
@@ -30399,6 +30509,10 @@ components:
             - purchase
           type: array
           default: []
+        ready:
+          anyOf:
+          - type: boolean
+          - type: 'null'
         review_stages:
           items:
             type: string
@@ -30508,6 +30622,10 @@ components:
             - purchase
           type: array
           default: []
+        ready:
+          anyOf:
+          - type: boolean
+          - type: 'null'
         review_stages:
           items:
             type: string
@@ -30610,6 +30728,9 @@ components:
         needs_fiscal_data:
           type: integer
           default: 0
+        not_ready:
+          type: integer
+          default: 0
         exported:
           type: integer
           default: 0
@@ -30618,7 +30739,7 @@ components:
           default: 0
       additionalProperties: false
       type: object
-      description: 'Fiscal count uses all table filters before pagination.
+      description: 'Readiness and fiscal counts use all table filters before pagination.
 
         Other counts cover the period''s recorded rows.'
     ReportRecipe-Input:
@@ -30807,6 +30928,14 @@ components:
             - sale
             - purchase
           - type: 'null'
+        ready:
+          type: boolean
+          default: false
+        missing:
+          items:
+            type: string
+          type: array
+          default: []
         stage:
           anyOf:
           - type: string
@@ -31133,7 +31262,9 @@ components:
           minimum: 1.0
         decision:
           type: string
-          const: different_purchase
+          enum:
+          - different_purchase
+          - same_purchase
       additionalProperties: false
       type: object
       required:
@@ -31277,12 +31408,12 @@ components:
         due_on:
           anyOf:
           - oneOf:
-            - $ref: '#/components/schemas/KnownInput_date_'
+            - $ref: '#/components/schemas/KnownInput_Annotated_date__AfterValidator__'
             - $ref: '#/components/schemas/UnknownInput'
             discriminator:
               propertyName: state
               mapping:
-                known: '#/components/schemas/KnownInput_date_'
+                known: '#/components/schemas/KnownInput_Annotated_date__AfterValidator__'
                 unknown: '#/components/schemas/UnknownInput'
           - type: 'null'
         montos:
@@ -31419,80 +31550,6 @@ components:
       - estado
       - status
       - record_count
-    RunDossier:
-      properties:
-        run_id:
-          type: string
-        run_label:
-          type: string
-          maxLength: 160
-        completed_at:
-          type: string
-          format: date-time
-        result_message_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        tested:
-          $ref: '#/components/schemas/RunDossierTested'
-        outcome:
-          $ref: '#/components/schemas/SearchDossierOutcome'
-        decision:
-          anyOf:
-          - $ref: '#/components/schemas/SearchDossierDecision'
-          - type: 'null'
-        actions:
-          items:
-            oneOf:
-            - $ref: '#/components/schemas/SearchRetestAction'
-            - $ref: '#/components/schemas/SearchDecisionAction'
-            discriminator:
-              propertyName: type
-              mapping:
-                decision: '#/components/schemas/SearchDecisionAction'
-                retest_run: '#/components/schemas/SearchRetestAction'
-          type: array
-          maxItems: 2
-      type: object
-      required:
-      - run_id
-      - run_label
-      - completed_at
-      - tested
-      - outcome
-    RunDossierTested:
-      properties:
-        symbols:
-          items:
-            type: string
-          type: array
-          maxItems: 5
-        strategy_family:
-          anyOf:
-          - type: string
-            maxLength: 80
-          - type: 'null'
-        cadence:
-          anyOf:
-          - type: string
-            maxLength: 24
-          - type: 'null'
-        timeframe:
-          anyOf:
-          - type: string
-            maxLength: 24
-          - type: 'null'
-        start_date:
-          anyOf:
-          - type: string
-            format: date
-          - type: 'null'
-        end_date:
-          anyOf:
-          - type: string
-            format: date
-          - type: 'null'
-      type: object
     SalePaymentSplit:
       properties:
         cash:
@@ -31796,54 +31853,6 @@ components:
       required:
       - cadence
       - start_date
-    SearchAssetDecisionCounts:
-      properties:
-        promising:
-          type: integer
-          minimum: 0.0
-        watching:
-          type: integer
-          minimum: 0.0
-        rejected:
-          type: integer
-          minimum: 0.0
-        revisit_later:
-          type: integer
-          minimum: 0.0
-      type: object
-      required:
-      - promising
-      - watching
-      - rejected
-      - revisit_later
-    SearchAssetRollup:
-      properties:
-        type:
-          type: string
-          const: asset_rollup
-          default: asset_rollup
-        symbol:
-          type: string
-          maxLength: 24
-          minLength: 1
-        run_count:
-          type: integer
-          minimum: 0.0
-        result_count:
-          type: integer
-          minimum: 0.0
-          default: 0
-        decision_counts:
-          $ref: '#/components/schemas/SearchAssetDecisionCounts'
-        last_touched_at:
-          type: string
-          format: date-time
-      type: object
-      required:
-      - symbol
-      - run_count
-      - decision_counts
-      - last_touched_at
     SearchCursors:
       properties:
         expenses:
@@ -31880,104 +31889,6 @@ components:
       - email_deliveries
       - email_senders
       description: Per list, the cursor to its next page; null when it has no more.
-    SearchDecisionAction:
-      properties:
-        type:
-          type: string
-          const: decision
-          default: decision
-        availability:
-          type: string
-          enum:
-          - available
-          - account_conversion_required
-        evidence_artifact_id:
-          type: string
-        decision_state:
-          anyOf:
-          - type: string
-            enum:
-            - watching
-            - promising
-            - rejected
-            - revisit_later
-          - type: 'null'
-        note:
-          anyOf:
-          - type: string
-            maxLength: 2000
-          - type: 'null'
-        run_label:
-          type: string
-          maxLength: 160
-      type: object
-      required:
-      - availability
-      - evidence_artifact_id
-      - run_label
-    SearchDossierDecision:
-      properties:
-        state:
-          type: string
-          enum:
-          - watching
-          - promising
-          - rejected
-          - revisit_later
-        note:
-          anyOf:
-          - type: string
-            maxLength: 2000
-          - type: 'null'
-        run_label:
-          anyOf:
-          - type: string
-            maxLength: 160
-          - type: 'null'
-      type: object
-      required:
-      - state
-    SearchDossierMetric:
-      properties:
-        name:
-          type: string
-          maxLength: 80
-        value:
-          anyOf:
-          - type: string
-          - type: integer
-          - type: number
-      type: object
-      required:
-      - name
-      - value
-    SearchDossierOutcome:
-      properties:
-        run_label:
-          type: string
-          maxLength: 160
-        completed_at:
-          type: string
-          format: date-time
-        benchmark_symbol:
-          anyOf:
-          - type: string
-            maxLength: 24
-          - type: 'null'
-        result_fact_bank:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-        metrics:
-          items:
-            $ref: '#/components/schemas/SearchDossierMetric'
-          type: array
-          maxItems: 4
-      type: object
-      required:
-      - run_label
-      - completed_at
     SearchHit:
       properties:
         id:
@@ -32008,174 +31919,6 @@ components:
       - kind
       - title
       - account_id
-    SearchItem:
-      properties:
-        type:
-          type: string
-          const: conversation
-        id:
-          type: string
-        title:
-          type: string
-        archived:
-          type: boolean
-        matched_text:
-          type: string
-        preview:
-          anyOf:
-          - $ref: '#/components/schemas/ConversationPreview'
-          - type: 'null'
-        updated_at:
-          type: string
-          format: date-time
-        conversation_id:
-          type: string
-        match:
-          $ref: '#/components/schemas/SearchMatch'
-        dossier:
-          anyOf:
-          - $ref: '#/components/schemas/RunDossier'
-          - type: 'null'
-        answer_dossier:
-          anyOf:
-          - $ref: '#/components/schemas/AnswerDossier'
-          - type: 'null'
-        total_runs:
-          type: integer
-          minimum: 0.0
-        decided_runs:
-          type: integer
-          minimum: 0.0
-        decision_states:
-          items:
-            type: string
-            enum:
-            - watching
-            - promising
-            - rejected
-            - revisit_later
-          type: array
-          default: []
-      type: object
-      required:
-      - type
-      - id
-      - title
-      - archived
-      - matched_text
-      - updated_at
-      - conversation_id
-      - match
-      - dossier
-      - total_runs
-      - decided_runs
-    SearchLedgerGroup:
-      properties:
-        decision_state:
-          type: string
-          enum:
-          - watching
-          - promising
-          - rejected
-          - revisit_later
-        count:
-          type: integer
-      type: object
-      required:
-      - decision_state
-      - count
-    SearchMatch:
-      properties:
-        layer:
-          type: string
-          enum:
-          - conversation
-          - message
-          - run
-          - idea
-          - evidence
-          - decision
-        fragment:
-          type: string
-          maxLength: 500
-        count:
-          type: integer
-          minimum: 1.0
-        message_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-      type: object
-      required:
-      - layer
-      - fragment
-      - count
-    SearchRetestAction:
-      properties:
-        type:
-          type: string
-          const: retest_run
-          default: retest_run
-        source_run_id:
-          type: string
-        run_label:
-          type: string
-          maxLength: 160
-        window_policy:
-          type: string
-          const: preserve_start_ending_latest_available
-          default: preserve_start_ending_latest_available
-        contract_version:
-          type: string
-          const: argus_retest_run/v2
-          default: argus_retest_run/v2
-        state:
-          type: string
-          enum:
-          - new_data_available
-          - no_new_data
-          - cant_do_it
-        reason_code:
-          anyOf:
-          - type: string
-            enum:
-            - provider_history_start_unavailable
-            - kraken_ohlc_window_exceeded
-            - provider_timeframe_unavailable
-          - type: 'null'
-        repair:
-          anyOf:
-          - $ref: '#/components/schemas/SearchRetestRepair'
-          - type: 'null'
-      type: object
-      required:
-      - source_run_id
-      - run_label
-      - state
-      description: 'Bounded typed retest envelope (spec 2.2).
-
-
-        Carries identity and policy only. The executable setup is reloaded
-
-        server-side from the owner-scoped source run, so no client value can
-
-        reach canonical state.'
-    SearchRetestRepair:
-      properties:
-        kind:
-          type: string
-          const: clamp_start
-          default: clamp_start
-        start_date:
-          type: string
-          format: date
-        end_date:
-          type: string
-          format: date
-      type: object
-      required:
-      - start_date
-      - end_date
     Selection:
       properties:
         version:
@@ -33184,9 +32927,35 @@ components:
           - type: string
           - type: 'null'
         owner_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        owner_email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        owner_shown_as:
           type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         target_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        target_email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        target_shown_as:
           type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         role:
           type: string
           enum:
@@ -33201,7 +32970,9 @@ components:
       - status
       - business_name
       - owner_name
+      - owner_shown_as
       - target_name
+      - target_shown_as
       - role
       - grant_id
     TransferListResponse:
@@ -33218,7 +32989,20 @@ components:
         grant_id:
           type: string
         name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
           type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         eligible:
           type: boolean
         reason:
@@ -33234,6 +33018,7 @@ components:
       required:
       - grant_id
       - name
+      - shown_as
       - eligible
       - reason
       description: 'A live member, who loses access on close; only an eligible one may be
@@ -33577,6 +33362,19 @@ components:
           - type: 'null'
           description: A signed URL to the person's 256 px profile photo, valid for about
             an hour; null without one.
+        dismissed_guide_cards:
+          anyOf:
+          - items:
+              type: string
+              enum:
+              - actividad-intro
+              - bandeja-intro
+              - exportar-guardar
+              - registros-intro
+            type: array
+          - type: 'null'
+          description: The Business guide cards this person dismissed; null when they could
+            not be read.
       type: object
       required:
       - user

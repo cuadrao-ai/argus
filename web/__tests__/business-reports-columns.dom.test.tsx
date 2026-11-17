@@ -16,13 +16,13 @@ afterEach(async () => { await cleanup(); (await import("@/components/layout/over
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
 
 const renderedColumnKeys = () => [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
-test("an old saved URL shows the server's upgrade: the net amount before the total, RNC o Cédula, NCF and ITBIS hidden, and later edits kept", async () => {
+test("an old saved URL shows the server's upgrade: Motivo after Estado, the net amount before the total, and optional fiscal columns hidden, and later edits kept", async () => {
   // A link from before RNC o Cédula, NCF, the net amount and ITBIS were columns.
   const presentation = { order: ["counterparty", "funding", "payment_form", "expense_type", "attachment", "note", "stage", "gross_amount", "date"], hidden: ["date"], density: 40 as const };
   const request = reportRequestSchema.parse({ schema_version: 2, presentation });
   window.history.replaceState(null, "", `/biz?report=${encodeURIComponent(JSON.stringify(request))}`);
   const page = await mount();
-  const expectedColumns = ["counterparty", "funding", "payment_form", "expense_type", "attachment", "note", "stage", "net_amount", "gross_amount"];
+  const expectedColumns = ["counterparty", "funding", "payment_form", "expense_type", "attachment", "note", "stage", "missing", "net_amount", "gross_amount"];
   assert.deepEqual(renderedColumnKeys(), expectedColumns);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
@@ -37,18 +37,18 @@ test("an old saved URL shows the server's upgrade: the net amount before the tot
   await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
   assert.deepEqual(renderedColumnKeys(), [...expectedColumns, "fiscal_number"]);
   const restored = restoreReportLocation(new URLSearchParams(window.location.search)).request;
-  const upgraded = presentation.order.flatMap((key) => key === "gross_amount" ? ["net_amount", key] : [key]);
+  const upgraded = presentation.order.flatMap((key) => key === "gross_amount" ? ["net_amount", key] : key === "stage" ? [key, "missing"] : [key]);
   assert.deepEqual(restored.schema_version === 2 && restored.presentation, { ...presentation, order: [...upgraded, "counterparty_id", "itbis_amount", "fiscal_number"], hidden: ["date", "counterparty_id", "itbis_amount"] });
 });
 
 for (const language of ["es-419", "en"] as const) test(`server defaults start with RNC o Cédula and every other column stays in the menu in ${language}`, async () => {
   const page = await mount({ language });
-  assert.deepEqual(renderedColumnKeys(), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.deepEqual(renderedColumnKeys(), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
   assert.equal(document.querySelector("thead th")?.textContent, language === "en" ? "RNC or ID" : "RNC o Cédula");
   assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).every((call) => !Object.hasOwn(call.body as object, "presentation")), "fresh V1 and V2 requests leave defaults to the server");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  const shown = ["counterparty_id", "expense_type"];
-  for (const [key, label] of language === "en" ? [["counterparty_id", "RNC or ID"], ["expense_type", "Expense type"], ["counterparty", "Counterparty"], ["fiscal_number", "NCF"], ["note", "Notes"], ["attachment", "Attachment"], ["payment_form", "Payment method"], ["funding", "Account"]] : [["counterparty_id", "RNC o Cédula"], ["expense_type", "Tipo de gasto"], ["counterparty", "Contraparte"], ["fiscal_number", "NCF"], ["note", "Notas"], ["attachment", "Adjunto"], ["payment_form", "Forma de pago"], ["funding", "Cuenta"]]) {
+  const shown = ["counterparty_id", "expense_type", "missing"];
+  for (const [key, label] of language === "en" ? [["missing", "Reason"], ["counterparty_id", "RNC or ID"], ["expense_type", "Expense type"], ["counterparty", "Supplier"], ["fiscal_number", "NCF"], ["note", "Notes"], ["attachment", "Attachment"], ["payment_form", "Payment method"], ["funding", "Account"]] : [["missing", "Motivo"], ["counterparty_id", "RNC o Cédula"], ["expense_type", "Tipo de gasto"], ["counterparty", "Emisor"], ["fiscal_number", "NCF"], ["note", "Notas"], ["attachment", "Adjunto"], ["payment_form", "Forma de pago"], ["funding", "Cuenta"]]) {
     const row = document.querySelector(`[data-column-setting="${key}"]`);
     assert.ok(row?.textContent?.includes(label));
     const checkbox = row?.querySelector<HTMLInputElement>('input[type="checkbox"]');
@@ -57,10 +57,30 @@ for (const language of ["es-419", "en"] as const) test(`server defaults start wi
   }
 });
 
+for (const [language, family, name] of [["es-419", "purchase", "Emisor"], ["es-419", "sale", "Cliente"], ["en", "purchase", "Supplier"], ["en", "sale", "Customer"]] as const) test(`the name column reads ${name} on the ${family} tab in ${language}: header, column menu, filter and export columns`, async () => {
+  const presentation = { ...recordedReportAnswer.presentation, hidden: recordedReportAnswer.presentation.hidden.filter((key) => key !== "counterparty") };
+  const page = await mount({ language, presentation, initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family] } }) });
+  assert.equal(document.querySelector('thead th[data-col="counterparty"]')?.textContent, name);
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  assert.equal(document.querySelector('[data-column-setting="counterparty"]')?.textContent?.trim(), name);
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  const filters = [...document.querySelectorAll('button[aria-haspopup="dialog"]')].find((button) => button.textContent?.startsWith(language === "en" ? "Filters" : "Filtros"));
+  await page.click(filters);
+  assert.equal(document.querySelector('[data-group="counterparty"]')?.textContent?.trim(), name);
+  await page.click(document.querySelector('[data-group="counterparty"]'));
+  assert.equal(document.querySelector('[role="dialog"] h3')?.textContent, name);
+  await page.click(filters);
+  await page.click(document.querySelector('[data-testid="records-export"]'));
+  await page.settle(() => document.querySelector('[data-testid="records-export-edit-columns"]') !== null);
+  await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
+  await page.settle(() => document.querySelector('[data-testid="records-export-columns"]') !== null);
+  assert.ok([...document.querySelectorAll('[data-testid="records-export-columns"] label')].some((label) => label.textContent === name));
+});
+
 test("server layout changes render, saved views retain the effective layout, and Restore asks for fresh defaults", async () => {
   const chosen: typeof recordedReportAnswer.presentation = { ...recordedReportAnswer.presentation, order: [...recordedReportAnswer.presentation.order].reverse(), hidden: [], density: 40 as const };
   const page = await mount({ presentation: chosen });
-  assert.deepEqual(renderedColumnKeys(), ["funding", "payment_form", "attachment", "note", "fiscal_number", "stage", "gross_amount", "itbis_amount", "net_amount", "expense_type", "date", "counterparty", "counterparty_id"]);
+  assert.deepEqual(renderedColumnKeys(), ["funding", "payment_form", "attachment", "note", "fiscal_number", "missing", "stage", "gross_amount", "itbis_amount", "net_amount", "expense_type", "date", "counterparty", "counterparty_id"]);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista actual"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Mi diseño"); await page.click(page.button("Guardar"));
@@ -108,17 +128,38 @@ for (const outcome of ["ready", "failed"] as const) test(`Restore cannot save a 
 });
 
 
-test("a fresh connected table waits for server columns and offers no layout before the answer", async () => {
+const skeletonHeaders = () => [...document.querySelectorAll('[data-testid="transacciones-loading"] thead th')];
+
+test("a fresh connected table names no column and offers no layout controls before the server answer", async () => {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
   const page = await mount({ queryGate: gate, waitForAnswer: false });
   try {
-    assert.equal(document.querySelector("th[data-col]"), null);
+    await page.settle(() => skeletonHeaders().length > 0);
+    assert.ok(skeletonHeaders().every((header) => header.textContent === "" && header.querySelector(".shimmer")), "each pending header is a placeholder bar");
+    assert.equal(document.querySelector("thead th[data-col]"), null, "no column is named before the server answers");
     assert.equal(document.querySelector('[data-testid="transacciones-view-options"]'), null);
     assert.equal(document.querySelector("[data-column-setting]"), null);
-    await page.settle(() => document.querySelector('[data-testid="fullscreen-loading"]') !== null);
+    assert.equal(document.querySelector('[data-testid="records-count"]'), null);
   } finally { await act(async () => release()); }
-  await page.settle(() => document.querySelector('th[data-col="gross_amount"]') !== null);
+  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
+  assert.equal(document.querySelector('[data-testid="transacciones-loading"]'), null);
+  assert.deepEqual(renderedColumnKeys(), recordedReportAnswer.presentation.order.filter((key) => !recordedReportAnswer.presentation.hidden.includes(key)));
+});
+
+test("once the server's columns are known, the pending table heads them in the server's order", async () => {
+  let hold: Promise<void> | null = null;
+  let release = () => {};
+  const page = await mount({ queryAnswer: async (_request, answer) => { await hold; return answer; } });
+  const loaded = renderedColumnKeys();
+  hold = new Promise<void>((resolve) => { release = resolve; });
+  try {
+    await page.click(page.button("Ventas"));
+    await page.settle(() => skeletonHeaders().length > 0);
+    assert.deepEqual(skeletonHeaders().map((header) => header.getAttribute("data-col")), loaded);
+    assert.ok(skeletonHeaders().every((header) => header.textContent !== ""));
+  } finally { release(); }
+  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
 });
 
 for (const family of ["purchase", "sale"] as const) {

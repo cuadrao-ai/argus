@@ -283,9 +283,14 @@ def read_recorded(
         return result
 
 
-def _projected(
+def projected_records(
     authority: BusinessAuthority, context: ActionContext, connection: Connection
 ) -> tuple[RecordedSnapshot, tuple[ReportRecord, ...], RncRegistrySnapshot]:
+    """Project Registros on the caller's authorized transaction snapshot.
+
+    Raises ``business_report_too_large`` when the projection cannot cover it.
+    """
+
     from argus.domain.business.actions.dossier import record_context, workflow_blockers
     from argus.domain.business.contracts.dossier import ReviewQuestion
     from argus.domain.business.contracts.facts import (
@@ -420,7 +425,7 @@ def _projected(
             )
         )
     from argus.domain.business.contracts.dgii import PurchaseDeclaration
-    from argus.domain.business.dgii_export import fiscal_form, line_verdicts
+    from argus.domain.business.dgii_export import fiscal_form, line_assessments
     from argus.domain.business.dgii_line import confirmed_declaration
     from argus.domain.business.dgii_validation import fact_value
     from argus.domain.business.fiscal_identity import identity_digits
@@ -452,7 +457,7 @@ def _projected(
         rnc_snapshot = RncRegistrySnapshot(
             {digits: registry.lookup(digits) for digits in sorted(identities)}
         )
-        verdicts = line_verdicts(
+        verdicts = line_assessments(
             tuple(record.approved for record in snapshot.records),
             rnc=filer_identity,
             captured_on=business_day(snapshot.observed_at),
@@ -550,7 +555,7 @@ def read_export_source(
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         authorize(connection, context.actor, context.grant_id).require("export")
-        snapshot, records, rnc_registry = _projected(authority, context, connection)
+        snapshot, records, rnc_registry = projected_records(authority, context, connection)
         authorize(connection, context.actor, context.grant_id).require("export")
     return ExportSource(
         records,
@@ -580,7 +585,7 @@ def read_report_snapshot(
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         authorize(connection, context.actor, context.grant_id).require(capability)
-        snapshot, records, _ = _projected(authority, context, connection)
+        snapshot, records, _ = projected_records(authority, context, connection)
         result = run_query(
             snapshot.identity(""),
             records,

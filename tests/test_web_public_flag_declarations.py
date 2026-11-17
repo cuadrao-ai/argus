@@ -19,7 +19,6 @@ UNSET_WEB_FLAG_SURFACES = {
     "NEXT_PUBLIC_OMNISEARCH_ENABLED": {"render.yaml", "manifest staging"},
     "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED": {"render.yaml", "manifest staging"},
     "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED": {"render.yaml", "manifest staging"},
-    "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED": {".env.example"},
     # Fallback alias read after NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED;
     # the hosted files declare only the Cuadrao name.
     "NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED": {

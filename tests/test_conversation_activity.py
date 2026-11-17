@@ -516,7 +516,6 @@ def test_supabase_activity_gateway_mutation_passes_verified_source_identity() ->
 
 @pytest.fixture(autouse=True)
 def business_conversation_scope(monkeypatch):
-    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "true")
     monkeypatch.setenv("CUADRAO_BUSINESS_CHAT_ENABLED", "true")
     previous = business_spaces()
     configure_business_spaces(InMemorySpaceStore())

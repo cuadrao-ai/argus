@@ -57,7 +57,7 @@ import {
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
 import { commitShellLanguage } from "@/lib/language-features";
-import { businessPilotEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
+import { omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
 import { isLeavingSession, leaveSession } from "@/lib/logout-flow";
 import { createSessionRecovery } from "@/lib/session-recovery";
 import { SessionRecoveryScreen } from "@/components/status/SessionRecoveryScreen";
@@ -291,11 +291,11 @@ function ChatInterfaceContent() {
     if (nextAccount === null) return null;
     authenticatedUserIdRef.current = nextAccount.user.id;
     setAccount(nextAccount);
-    await commitShellLanguage(i18n, businessPilotEnabled, nextAccount.user.language);
+    await commitShellLanguage(i18n, true, nextAccount.user.language);
     setProfileState("established");
     return nextAccount;
   }, [i18n]);
-  const { onProfileUpdated, greetingName } = useProfileUpdates(account, setAccount);
+  const { onProfileUpdated, dismissGuideCard, greetingName } = useProfileUpdates(account, setAccount);
   const [messages, setMessages] = useState<Message[]>([]);
   // Long-lived handlers (the undo toast) need the current transcript, not
   // the render that created them.
@@ -611,7 +611,7 @@ function ChatInterfaceContent() {
   const openPersonalInvitation = useCallback((trigger: HTMLElement) => {
     setInvitationOpenRequest((previous) => ({ id: (previous?.id ?? 0) + 1, trigger }));
   }, []);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, openSearch: searchEntryEnabled ? openSearch : undefined, openPersonalInvitation, resetToEmptyChatSurface, closeTransientSidebar });
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, memberId: account?.user.id, dismissedGuideCards: account?.dismissed_guide_cards, dismissGuideCard, openSearch: searchEntryEnabled ? openSearch : undefined, openPersonalInvitation, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;
@@ -1719,7 +1719,7 @@ function ChatInterfaceContent() {
       },
       navigate: (href) => { window.location.href = href; },
       onFailed: () => showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error"),
-      businessBuild: businessPilotEnabled,
+      businessBuild: true,
       accountDeleted: Boolean(options.sessionEnded),
     });
   };

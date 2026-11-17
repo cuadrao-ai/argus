@@ -15,6 +15,7 @@ from argus.api.business import (
 )
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
+from argus.domain.business.contracts.authority import PersonShown
 from argus.domain.business.lifecycle import (
     BusinessLifecycleError,
     LifecycleResult,
@@ -42,7 +43,10 @@ class TransferMember(BaseModel):
     asked to take ownership, and ``reason`` says why another may not."""
 
     grant_id: str
-    name: str
+    #: The profile name, null without one; the email then stands in.
+    name: str | None
+    email: str | None = None
+    shown_as: PersonShown
     eligible: bool
     reason: TransferIneligible | None
 

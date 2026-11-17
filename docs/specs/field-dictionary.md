@@ -11,7 +11,7 @@ The label map is locked for the Dominican Republic Business pilot as of November
 - Tipo de gasto codes 01–11 and Forma de pago codes 01–07 are fixed across locales.
 - The 12-column pilot export keeps its exact Spanish headers as that file format, even in EN UI.
 - `category` and `payment_method` are edited on "Para el 606", not inside the Más datos editor. Their rows below describe shared field semantics, not extra editor controls.
-- Tipo Id displays `1 - RNC` / `2 - Cédula`.
+- Tipo Id displays `01 - RNC` / `02 - Cédula`, with two digits like every DGII list. The file keeps the one-digit code.
 
 The tables preserve the confirmed engineering map's keys. Registros column keys and derived values are identified separately from stored fields.
 
@@ -19,9 +19,9 @@ The tables preserve the confirmed engineering map's keys. Registros column keys 
 
 | Canonical key | Dossier main (ES / EN) | Más datos fiscales (ES / EN) | Registros column (ES / EN) | Pilot 12-column export (exact) | DGII 606/23 (exact) | Notes |
 |---|---|---|---|---|---|---|
-| counterparty | Contraparte / Counterparty | — | Contraparte / Counterparty | — | — | Name only. Never show RNC here. Use Contraparte on both dossier and Registros. Optional helper: "comercio o persona del comprobante". "Comercio o persona" is not the label. |
+| counterparty | Emisor on a Compra, Cliente on a Venta / Supplier, Customer | — | Emisor on Compras, Cliente on Ventas / Supplier, Customer | — | — | Name only. Never show RNC here. One key, `business.terms.counterparty` with the record type as its i18next context, names it on every screen; a record with no type reads Contraparte / Counterparty. Optional helper: "comercio o persona del comprobante". "Comercio o persona" is not the label. |
 | rnc | RNC / RNC | — | — (not a column) | RNC EMISOR | RNC o Cédula | Identity number. Distinct from Contraparte. |
-| id_type | — | Tipo Id / ID type | — | — (the pilot sheet has none) | Tipo Id | Values: `1` = RNC, `2` = Cédula. Show as "1 - RNC" / "2 - Cédula". |
+| id_type | — | Tipo Id / ID type | — | — (the pilot sheet has none) | Tipo Id | Values: `1` = RNC, `2` = Cédula. Show as "01 - RNC" / "02 - Cédula". |
 | occurred_on | Fecha del comprobante / Receipt date | — | Fecha / Date | FECHA DEL COMPROBANTE | Fecha Comprobante | One meaning; column shortens the same phrase. "Fecha de actividad" is not the label. |
 | amount | Monto / Amount | — | Monto {{currency}} / Amount {{currency}} | TOTAL | — | **Gross** (what the receipt shows). The pilot TOTAL export rule: use `amount` when present; else servicios+bienes+itbis. Not DGII net. |
 | (derived) total_monto_facturado | — | — | — | — | Total Monto Facturado | **Net** = servicios + bienes. Never label this "Monto" or "TOTAL". |
@@ -112,7 +112,7 @@ No column is locked by name. The person can hide or move any column, and every t
 | Key | Name (ES / EN) | Default | Rule |
 |---|---|---|---|
 | `counterparty_id` | RNC o Cédula / RNC or ID | Shown | The supplier's or client's taxpayer id. The table adds the DGII's hyphens (`1-01-00157-7`, `001-0000000-1`); the file writes plain digits. Hovering shows the name. |
-| `counterparty` | Contraparte / Counterparty | Hidden | Always in the "Lo que ves" file |
+| `counterparty` | Emisor on Compras, Cliente on Ventas / Supplier, Customer | Hidden | Always in the "Lo que ves" file |
 | `date` | Fecha / Date | Shown | Short for Fecha del comprobante |
 | `expense_type` | Tipo de gasto / Expense type | Shown | Compras only |
 | `net_amount` | Monto sin ITBIS / Amount before ITBIS | Shown | |
@@ -125,7 +125,7 @@ No column is locked by name. The person can hide or move any column, and every t
 | `payment_form` | Forma de pago / Payment method | Hidden | Compras only. Checked by default in the "Lo que ves" file, where it goes last while the table hides it |
 | `funding` | Cuenta / Account | Hidden | Forma de pago ≠ Cuenta |
 
-The names in the table are today's words; the locale files own them. A per-type name, such as Emisor on Compras and Cliente on Ventas, is one more registry field, resolved where the answer sets `label_key`. The export modal lists the preview's columns for the chosen currencies: the table's, then Moneda after the total when the file holds every currency. The registry's file rule (`as_shown`, `default` or `always`) says which the file always holds and which it offers checked while the table hides it. NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client's workflow. See `docs/API_CONTRACT.md` for the answer and export contracts.
+The names in the table are today's words; the locale files own them. A column with `named_by_family` has a name per tab: the answer and the file name it `<label>_<family>` (the i18next context form, such as `business.terms.counterparty_purchase`) on a one-family table and `<label>` on a mixed one. Every other screen that names the counterparty (the filter and its chip, the narrow sort menu, the open record, Historial, the delete dialog) reads the same term through `web/lib/counterparty-term.ts`, with the tab or the record's type as its context. The export modal lists the preview's columns for the chosen currencies: the table's, then Moneda after the total when the file holds every currency. The registry's file rule (`as_shown`, `default` or `always`) says which the file always holds and which it offers checked while the table hides it. NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client's workflow. See `docs/API_CONTRACT.md` for the answer and export contracts.
 
 ## Score cards
 
@@ -140,7 +140,7 @@ Registros has six summary cards. Lucas approved the purchase-side meanings on 20
 | Cantidad | The server's `matching_count` for the current table filters, as a whole number. Static. |
 | Bienes | Populated net (pre-tax) goods amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
 | Servicios | Populated net (pre-tax) services amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
-| Faltan datos fiscales | Server count by the existing fiscal-completeness definition within all current table filters, across all pages. It is the only action card. Its action selects Datos fiscales, Faltan datos. A second click restores the previous fiscal selection and any legacy review-stage selection and preserves the other current filters. The active filter stays visible and clearable. |
+| Faltan datos | The server’s `overview.not_ready`: records whose projected `ready` verdict is false within all current table filters, across all pages. It is the only action card. Its action selects Estado, Faltan datos (`ready: false`). A second click restores the previous readiness selection and preserves the other current filters. The active filter stays visible and clearable. |
 
 Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Registros always selects exactly one currency, DOP, USD or EUR. Without a valid single-currency URL or view, the server workspace `records_default_currency` supplies the selection, currently DOP. Never add incompatible currencies. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
 

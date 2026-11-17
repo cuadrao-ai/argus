@@ -8,9 +8,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, get_args
 from uuid import UUID
 
+from argus.domain.business.contracts.actions import DuplicateDecision
 from argus.domain.business.contracts.activity import (
     ActionGroup,
     ActivityActor,
@@ -21,12 +22,12 @@ from argus.domain.business.contracts.activity import (
     Membership,
     ObjectKind,
 )
-from argus.domain.business.contracts.authority import ActorKind
+from argus.domain.business.contracts.authority import ActorKind, PersonShown
 from argus.domain.business.roles import BusinessRole
 
 Audience = Literal["member", "manager"]
 Path = tuple[str | int, ...]
-Detail = Literal["role", "personal", "include"]
+Detail = Literal["role", "personal", "include", "decision"]
 
 
 class EventRow(TypedDict):
@@ -36,8 +37,13 @@ class EventRow(TypedDict):
     created_at: datetime
     actor_key: str | None
     actor_kind: ActorKind | None
-    #: ``None`` when the source stored no name for a recorded actor.
+    #: The person as the reader reads them now (``people``), filled live,
+    #: never from the ledger; all null for automated work.
     display_name: str | None
+    email: str | None
+    shown_as: PersonShown | None
+    #: The id names a profile or a departure; else the row names no one.
+    known: bool
     membership: Membership | None
     action: Any
     command: Any
@@ -89,7 +95,9 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "settle_remainder": ActionSpec("records", "edits", object=_DRAFT),
         "mark_personal": ActionSpec("records", "edits", object=_DRAFT, detail="personal"),
         "decide_606": ActionSpec("records", "approvals", object=_DRAFT, detail="include"),
-        "resolve_duplicate": ActionSpec("documents", "reviews", object=_DRAFT),
+        "resolve_duplicate": ActionSpec(
+            "documents", "reviews", object=_DRAFT, detail="decision"
+        ),
         "edit_current_note": ActionSpec("records", "edits", object=_DRAFT),
         "append_supporting_file": ActionSpec("documents", "files", object=_DRAFT),
         "receipt_upload": ActionSpec("documents", "uploads", object=_SUBJECT),
@@ -150,6 +158,7 @@ _DETAILS: Mapping[Detail, Path] = MappingProxyType(
         "role": ("command", "business_role"),
         "personal": ("command", "request", "personal"),
         "include": ("command", "request", "include"),
+        "decision": ("command", "request", "decision"),
     }
 )
 
@@ -217,10 +226,12 @@ def with_labels(
 
 
 def _actor(row: EventRow) -> ActivityActor | None:
-    if row["display_name"] is None or row["actor_kind"] is None:
+    if not row["known"] or row["actor_kind"] is None:
         return None
     return ActivityActor(
         display_name=row["display_name"],
+        email=row["email"],
+        shown_as=row["shown_as"],
         kind=row["actor_kind"],
         id=row["actor_key"],
         membership=row["membership"],
@@ -250,6 +261,8 @@ def _detail(row: EventRow, detail: Detail) -> dict[str, Any]:
             return {"role": BusinessRole(value)}
         except ValueError:
             return {}
+    if detail == "decision":
+        return {"decision": value} if value in get_args(DuplicateDecision) else {}
     return {detail: value} if isinstance(value, bool) else {}
 
 

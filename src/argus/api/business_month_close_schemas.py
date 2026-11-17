@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from argus.domain.business.accepted_dates import PastBusinessDate
+
 
 class _Wire(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -25,7 +27,7 @@ def _settlement() -> Any:  # noqa: ANN401
 
 class SettlementUpdate(_Wire):
     status: str
-    settled_on: date | None = None
+    settled_on: PastBusinessDate | None = None
     payment_method: str | None = None
 
 
@@ -214,6 +216,8 @@ class MonthClose(_Wire):
     # The same documents counted per Registros tab and currency, in order:
     # Compras, then Ventas.
     missing_fiscal_rows: list[FiscalDataRow] = Field(default_factory=list)
+    # Current report readiness per tab and currency; null when unavailable.
+    not_ready_rows: list[FiscalDataRow] | None = None
     # The month's documents still pendiente; absent while settlement is off.
     cuentas_por_cobrar: list[DocumentLine] | None = _settlement()
     cuentas_por_pagar: list[DocumentLine] | None = _settlement()

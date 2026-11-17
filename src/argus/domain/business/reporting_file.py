@@ -31,6 +31,7 @@ from argus.domain.business.dgii_export import line_values
 from argus.domain.business.dgii_line import REQUIRED_ZERO_606, line_review
 from argus.domain.business.dgii_validation import (
     DECLARABLE_CURRENCY,
+    FiscalRecord,
     declarable,
     fact_value,
 )
@@ -68,11 +69,6 @@ _WORDS = json.loads(
     Path(__file__).with_name("records_file_words.generated.json").read_text("utf-8")
 )
 FileLocale = Literal["en", "es-419"]
-_STAGE_PATHS = {
-    "needs_review": "business.transactions.layout.workflow.review",
-    "ready_for_export": "business.transactions.layout.workflow.ready",
-    "exported": "business.transactions.layout.workflow.exported",
-}
 _DGII_TEXT = frozenset(
     {
         "rnc",
@@ -125,11 +121,19 @@ class ExportColumn(Contract):
     shown: bool
 
 
+class ExportFileNames(Contract):
+    """The name the export gives this choice's file in each format."""
+
+    xlsx: str
+    csv: str
+
+
 class CurrencySelection(Contract):
     record_count: int
     currencies: tuple[str, ...]
     #: The file's columns for this choice, in file order.
     columns: tuple[ExportColumn, ...]
+    filenames: ExportFileNames
 
 
 class TableExport(Contract):
@@ -153,7 +157,7 @@ class DgiiExport(Contract):
     record_count: int
     #: Every record the 606/607 holds back, for either reason below.
     pending_count: int
-    #: Pesos records the 606/607 holds for missing fiscal data, the card's count.
+    #: Pesos records the 606/607 holds for missing fiscal data.
     pending_fiscal_count: int
     #: Foreign-currency records the 606/607 holds until they have a rate.
     pending_rate_count: int
@@ -161,6 +165,7 @@ class DgiiExport(Contract):
     rnc_warning_count: int
     rnc_supplier_count: int
     rnc_suppliers: tuple[RncSupplier, ...]
+    filenames: ExportFileNames
 
 
 class ExportPreview(Contract):
@@ -300,13 +305,59 @@ def _dgii_selection(
     )
 
 
+def _dgii_records(source: ExportSource, selection: _DgiiSelection) -> list[FiscalRecord]:
+    return sorted(
+        (source.approved[row.linked_activity_ids[0]] for row in selection.lines),
+        key=lambda record: (record.occurred_on, record.activity_id),
+    )
+
+
 def _currencies(rows: Sequence[ReportRecord]) -> tuple[str, ...]:
     return tuple(sorted({row.currency for row in rows if row.currency}))
 
 
+def _table_dates(rows: Sequence[ReportRecord]) -> list[date]:
+    return [row.report_date for row in rows if row.report_date is not None]
+
+
+def _filename(
+    source: ExportSource,
+    request: ReportRequest | ReportRequestV2,
+    mode: Literal["table", "dgii"],
+    dates: Sequence[date],
+    extension: Literal["xlsx", "csv"],
+    business_name: str | None,
+    locale: FileLocale,
+) -> str:
+    """The one name a file of this selection gets, offered before it is built."""
+    period = resolve_period(request.filters.period, source.records, source.observed_at)
+    return records_filename(
+        business_name=business_name,
+        families=request.filters.record_families,
+        start=period.from_date or min(dates, default=None),
+        end=period.to_date or max(dates, default=None),
+        mode=mode,
+        extension=extension,
+        observed_at=source.observed_at,
+        locale=locale,
+    )
+
+
 def summarize_export(
-    source: ExportSource, request: ReportRequest | ReportRequestV2
+    source: ExportSource,
+    request: ReportRequest | ReportRequestV2,
+    *,
+    business_name: str | None = None,
+    locale: FileLocale = "es-419",
 ) -> ExportPreview:
+    def filenames(
+        mode: Literal["table", "dgii"], dates: Sequence[date]
+    ) -> ExportFileNames:
+        return ExportFileNames(
+            xlsx=_filename(source, request, mode, dates, "xlsx", business_name, locale),
+            csv=_filename(source, request, mode, dates, "csv", business_name, locale),
+        )
+
     def selection(
         selected: ReportRequest | ReportRequestV2, all_: bool
     ) -> CurrencySelection:
@@ -315,6 +366,7 @@ def summarize_export(
             record_count=len(rows),
             currencies=_currencies(rows),
             columns=_file_columns(request, source.country, all_),
+            filenames=filenames("table", _table_dates(rows)),
         )
 
     every = _with_currencies(request, "all")
@@ -336,20 +388,19 @@ def summarize_export(
             ),
             rnc_supplier_count=len(dgii.rnc_suppliers),
             rnc_suppliers=dgii.rnc_suppliers,
+            filenames=filenames(
+                "dgii", [record.occurred_on for record in _dgii_records(source, dgii)]
+            ),
         ),
     )
 
 
-def _stage_word(row: ReportRecord, locale: FileLocale) -> str | None:
-    words = _WORDS[locale]
-    if row.stage == "needs_fiscal_data":
-        missing = words["business.transactions.layout.workflow.missing"]
-        if row.export_missing_several:
-            return missing["several"]
-        if row.export_missing in missing and row.export_missing != "several":
-            return missing[row.export_missing]
-        return missing["detail_missing"]
-    return words[_STAGE_PATHS[row.stage]] if row.stage else None
+def _missing_word(row: ReportRecord, locale: FileLocale) -> str:
+    if row.ready or not row.missing:
+        return ""
+    words = _WORDS[locale]["business.transactions.layout.workflow.missing"]
+    first = words.get(row.missing[0], words["detail_missing"])
+    return f"{first} +{len(row.missing) - 1}" if len(row.missing) > 1 else first
 
 
 def _dgii_word(
@@ -388,7 +439,10 @@ def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
     if key == "itbis_amount":
         return _amount(row.itbis_amount) if row.currency else None
     if key == "stage":
-        return _stage_word(row, locale)
+        state = "ready" if row.ready else "not_ready"
+        return _WORDS[locale][f"business.transactions.layout.workflow.{state}"]
+    if key == "missing":
+        return _missing_word(row, locale)
     if key == "note":
         return row.note
     if key == "attachment":
@@ -541,13 +595,7 @@ def build_file(
         headers = (
             _PURCHASE_HEADERS if form == "606" else tuple(label for _, label in columns)
         )
-        records = sorted(
-            (
-                source.approved[row.linked_activity_ids[0]]
-                for row in _dgii_selection(source, request).lines
-            ),
-            key=lambda record: (record.occurred_on, record.activity_id),
-        )
+        records = _dgii_records(source, _dgii_selection(source, request))
         rows = [
             [
                 cell
@@ -582,21 +630,13 @@ def build_file(
         ]
         matching = matching_records(source.records, selected, source.observed_at)
         rows = [[_table_cell(row, key, locale) for key in keys] for row in matching]
-        dates = [row.report_date for row in matching if row.report_date is not None]
+        dates = _table_dates(matching)
         sheet = words[
             "business.transactions.layout.overview."
             + ("sales" if family == "sale" else "purchases")
         ]
-    period = resolve_period(request.filters.period, source.records, source.observed_at)
-    filename = records_filename(
-        business_name=business_name,
-        families=request.filters.record_families,
-        start=period.from_date or min(dates, default=None),
-        end=period.to_date or max(dates, default=None),
-        mode=choice.mode,
-        extension=choice.format,
-        observed_at=source.observed_at,
-        locale=locale,
+    filename = _filename(
+        source, request, choice.mode, dates, choice.format, business_name, locale
     )
     if choice.format == "csv":
         return RecordsFile(filename, CSV, _csv(headers, rows), len(rows))
@@ -607,8 +647,16 @@ def preview_export(
     authority: BusinessAuthority,
     context: ActionContext,
     request: ReportRequest | ReportRequestV2,
+    *,
+    business_name: str | None = None,
+    locale: FileLocale = "es-419",
 ) -> ExportPreview:
-    return summarize_export(read_export_source(authority, context), request)
+    return summarize_export(
+        read_export_source(authority, context),
+        request,
+        business_name=business_name,
+        locale=locale,
+    )
 
 
 def export_file(

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -15,11 +14,18 @@ from pydantic import (
     model_validator,
 )
 
+from argus.domain.business.accepted_dates import PastBusinessDate
 from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
 from .deletion import DocumentCommand
-from .dgii import FiscalReview, Money, PurchaseReview, SalePaymentSplit
+from .dgii import (
+    DeclarationSuggestions,
+    FiscalReview,
+    Money,
+    PurchaseReview,
+    SalePaymentSplit,
+)
 from .facts import (
     BusinessFactPatch,
     BusinessShare,
@@ -183,6 +189,11 @@ class ApproveExpense(Contract):
         default=None, exclude_if=lambda value: value is None
     )
     action: Literal["record_expense"]
+    #: The dossier's suggestions the person saw filled in. The approval saves
+    #: each into its 606 answer, with its source, while that answer is blank.
+    suggestions: DeclarationSuggestions | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ApproveIncome(Contract):
@@ -269,11 +280,16 @@ class DecideFiscalInclusionCommand(Contract):
     request: DecideFiscalInclusion
 
 
+DuplicateDecision = Literal["different_purchase", "same_purchase"]
+
+
 class ResolveDuplicate(Contract):
     version: int = Field(ge=1, strict=True)
     other_draft_id: UUID
     other_version: int = Field(ge=1, strict=True)
-    decision: Literal["different_purchase"]
+    #: ``same_purchase`` deletes the reviewed document as a duplicate and is
+    #: the owner's alone, like any delete.
+    decision: DuplicateDecision
 
 
 class ResolveDuplicateCommand(Contract):
@@ -303,7 +319,7 @@ class TypedPurchase(Contract):
     supplier or description."""
 
     amount: Money
-    occurred_on: date
+    occurred_on: PastBusinessDate
 
 
 #: The longest note a person writes, typed or on a record, in characters.
@@ -465,6 +481,7 @@ class Refused(Contract):
     existing_record_id: UUID | None = None
     # The review flags an approval_confirmation_required refusal names.
     flags: tuple[str, ...] = ()
+    context: dict[str, str] | None = None
 
     @model_serializer(mode="wrap")
     def omit_absent_record(
@@ -473,6 +490,8 @@ class Refused(Contract):
         payload = handler(self)
         if self.existing_record_id is None:
             payload.pop("existing_record_id", None)
+        if self.context is None:
+            payload.pop("context", None)
         if not self.flags:
             payload.pop("flags", None)
         return payload

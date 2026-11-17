@@ -382,6 +382,97 @@ is the only reader, and it runs the sweep. The API records the read and never
 starts, imports or wakes a reader, so a burst of reads cannot hold up its
 health check.
 
+### When a receipt read fails
+
+Designed 2026-11-15 with the founder and built in #2192. The design is sized
+for pilot scale. What the person sees lives in
+[the Business web app design](../.agent/designs/cuadrao-business-app/DESIGN.md#when-a-read-fails).
+Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
+
+- **Transient or permanent.** `classify` in `failures.py` gives every failure
+  its kind. The worker retries a timeout, an interrupted read, a 5xx answer and
+  a 429 answer. After a 429 it waits at least the `Retry-After` time. It fails
+  fast on an unreadable or unsupported file, a missing source file, a file that
+  is not a receipt and an answer that came back wrong. It also fails fast on an
+  auth or configuration error (401, 403, a missing model or key). That error
+  writes an error log with the tag `document_read_config_alert` and the
+  document id, because the fault is ours, not the receipt's.
+- **Bounded, jittered backoff.** The numbers live in `config.py`, beside
+  `PROVIDER_CALLS_PER_READ`. One read gets at most 4 provider calls in total
+  (`MAX_PROVIDER_CALLS`). One take of a read still makes at most 2: the first,
+  and one more at once when it times out. Every other retry waits in the queue.
+  The wait starts at 15 seconds and grows 4 times for each call already made
+  (15, 60, 240 seconds). Half of each wait is random. The waits of one read
+  never add up to more than 10 minutes. A `Retry-After` that does not fit
+  inside that total ends the read.
+- **The wait is in the queue.** A take that failed for now puts the receipt
+  back to `queued` with a `not_before` time on its `preparation_job`, in one
+  write. No worker sleeps on it and it holds no read slot. `store.pull` skips
+  it until that time. The count of calls (`provider_calls`) is written before
+  each call, so a worker that dies does not reset it. The owner's "Leer de
+  nuevo" starts a new read with a new count.
+- **Dead letter.** When the calls run out, the receipt goes to Necesitan
+  atención with its reason, the same failed state as before. That tab is the
+  dead letter, and people already work it. The worker logs the final error as
+  `document_read_failed` with the document id. There is no separate
+  dead-letter queue.
+- **Circuit breaker.** `breaker.py` owns the rules and
+  `public.document_read_breaker` owns the state, one row. 5 failed provider
+  calls inside 2 minutes stop all sends for 5 minutes. Then one read probes
+  the provider: its answer closes the breaker, and its failure starts the 5
+  minutes again. Only the probe moves an open breaker. Its admission carries
+  the probe's id (`probe_id` on the row), and the call reports its end with
+  that id. A call sent before the breaker opened, or a probe that was given
+  up, carries no id or an old one, so its late answer does not close the
+  breaker and its late failure does not start the 5 minutes again.
+  Every admitted call ends at the breaker once, at one place
+  (`AdmittedCall` in `breaker.py`, ended where `extract` returns in
+  `service.py`). It has three ends. It failed for now: a failure.
+  The provider answered: every other end of a sent call, including an answer
+  that came back wrong, a refusal and a refused key (401, 403). It was never
+  sent (the read budget or a lost lease stopped it after the admission): the
+  probe gives its turn back, the breaker stays open and the next read probes.
+  `provider_answered` in `failures.py` owns the line between a failure and an
+  answer. A refused key is an answer: the provider is up, so the probe that
+  gets one closes the breaker, and it never counts toward opening it. The key
+  is ours to fix, and `document_read_config_alert` is its signal. A read the
+  breaker held back was not admitted and reports nothing.
+  Every worker and every new deploy read the same row. A read
+  the breaker holds back goes back to the queue and is charged no call, no
+  wait and no read budget. The breaker has no timer of its own. It changes
+  only when a read asks to be sent or reports how its call ended. If the
+  breaker row cannot be read, reads continue.
+- **Read deadline.** A read still waiting in the queue 6 hours after it was
+  asked for goes to Necesitan atención with the code
+  `document_read_deadline_passed` (attention `read_deadline_passed`): the read
+  waited too long with the service unavailable, and the receipt did not fail.
+  `READ_DEADLINE_SECONDS` in `config.py` owns the 6 hours. `asked_at` on the
+  `preparation_job` owns the start: the upload for the read an upload starts,
+  and the owner's ask for a later "Leer de nuevo". The first try, a retry and
+  a rerun after a dead worker do not move it. The worker's existing sweep
+  (`read_expired` in `jobs.py`) checks it on the rows it already loads, so a
+  read that a retry's wait, the open breaker or a stopped worker holds still
+  expires. No new loop or timer runs. The sweep leaves a read alone once a
+  worker took it. That read ends by its own answer, and a take that fails for
+  now goes back to the queue, where the next sweep ends it. This code must not
+  count against the owner's manual "Leer de nuevo" limit, which ships in
+  #1681.
+- **Idempotent writes.** Each extraction write is keyed by the document:
+  `financial_document_extractions` has one row for each document, and the
+  canonical Business bridge is keyed by the document's binding and checks the
+  read hash that #2067 made stable. A retry writes into the same row and never
+  adds a second one. Tests prove it in memory and on Postgres.
+- **Escalation, not blind retries.** A read that returns a wrong answer is not
+  retried. The review checks catch it. When the automatic calls run out, the
+  next step belongs to the person, as the web design says. A second model is out
+  of scope until it has its own receipt scorecard.
+- **Concurrency and budget unchanged.** The worker keeps 3 reads at a time
+  (`max_reads=3`), and uploads keep 3 in flight. A worker that pulls a read
+  while the breaker is open puts it straight back in the queue, so the breaker
+  sits in front of those shared read slots. An idle worker does not read the
+  breaker.
+  Every provider call, a retry included, is charged to the Business read budget.
+
 ---
 # 7. Communication Protocols
 

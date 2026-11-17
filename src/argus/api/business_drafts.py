@@ -29,13 +29,14 @@ from argus.domain.business.actions.dossier import record_context
 from argus.domain.business.actions.marks import (
     MARKER_COLUMNS,
     MARKER_JOIN,
+    marker_people,
     record_marks,
 )
 from argus.domain.business.actions.receipts import draft_for_receipt
 from argus.domain.business.authority import ActionContext, ActionError, authorize
 from argus.domain.business.contracts.actions import Refused
-from argus.domain.business.contracts.authority import TrustedActor
-from argus.domain.business.contracts.deletion import deletion
+from argus.domain.business.contracts.authority import PersonName, TrustedActor
+from argus.domain.business.contracts.deletion import DeletedDocument, deletion
 from argus.domain.business.contracts.dossier import AccountChoice, RecordContext
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
@@ -43,6 +44,7 @@ from argus.domain.business.contracts.facts import (
     Known,
     personal_mark_admits,
 )
+from argus.domain.business.people import named, named_deletion, people
 from argus.domain.business.receipts import read_attention
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
@@ -76,11 +78,11 @@ def action_problem(request: Request, refusal: Refused) -> HTTPException:
         code=refusal.code,
         title=refusal.code.replace("_", " ").capitalize(),
         detail=refusal.code,
-        context={"existing_record_id": str(refusal.existing_record_id)}
+        context=refusal.context or ({"existing_record_id": str(refusal.existing_record_id)}
         if refusal.existing_record_id
         else {"flags": list(refusal.flags)}
         if refusal.flags
-        else None,
+        else None),
         headers=NO_STORE,
     )
 
@@ -352,6 +354,26 @@ def upload_recorder(context: BusinessContext, request):  # noqa: ANN001, ANN201
     return record
 
 
+def uploaders(tx, views: list[dict]) -> dict[str, PersonName]:  # noqa: ANN001
+    """Who uploaded each web upload, from the first ledger row its upload wrote,
+    named for the caller. A WhatsApp or email arrival names nobody."""
+
+    ids = [view["id"] for view in views if view.get("channel") == "web"]
+    if not ids:
+        return {}
+    rows = tx.rows(
+        "select distinct on (subject) subject, actor_id"
+        " from public.business_action_receipts,"
+        " jsonb_array_elements_text(command->'subjects') subject"
+        " where space_id=%s and command->>'action'='receipt_upload'"
+        " and outcome->>'outcome'='applied' and subject = any(%s)"
+        " order by subject, created_at",
+        (tx.context.actor.space_id, ids),
+    )
+    found = people(tx.connection, tx.authorization, [row["actor_id"] for row in rows])
+    return {row["subject"]: named(found, row["actor_id"]) for row in rows}
+
+
 def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> None:
     store = context.service.imports.store
     if isinstance(store, GrantImportStore):
@@ -405,6 +427,7 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
         ),
     )
     found: dict[str, list[dict]] = {}
+    markers = marker_people(tx, rows)
     for row in rows:
         if row["attention"] == "possible_duplicate":
             from argus.domain.business.actions.duplicate_resolution import (
@@ -418,7 +441,7 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
             ):
                 row["attention"] = None
         facts = BusinessResolution.model_validate(row["resolution"]["business"]).facts
-        row["marks"] = record_marks(facts, row, tx.context.owner_id)
+        row["marks"] = record_marks(facts, row, tx.context.owner_id, markers)
         found.setdefault(str(row["connection_id"]), []).append(row)
     return found
 
@@ -503,6 +526,30 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     return out
 
 
+def _named_deletions(context: BusinessContext, views: list[dict]) -> list[dict]:
+    """Who deleted each document, named live, never by a label a marker stored."""
+
+    markers = [
+        DeletedDocument.model_validate(view["deleted"]) if view.get("deleted") else None
+        for view in views
+    ]
+    if not any(markers):
+        return views
+    found = {}
+    store = context.service.imports.store
+    if isinstance(store, GrantImportStore):
+        with transaction(store.authority, store.context) as tx:
+            found = people(
+                tx.connection,
+                tx.authorization,
+                [marker.actor.actor_id for marker in markers if marker],
+            )
+    return [
+        {**view, "deleted": named_deletion(marker, found)} if marker else view
+        for view, marker in zip(views, markers, strict=False)
+    ]
+
+
 def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
     """Every receipt view the API returns passes here: with the hosted bridge,
     a linked draft owns the receipt's state."""
@@ -511,7 +558,7 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
 
     if not summaries:
         return summaries
-    views = project(context, summaries)
+    views = _named_deletions(context, project(context, summaries))
     can_delete = "approve" in (
         context.record_context.capabilities if context.record_context else ()
     )
@@ -647,6 +694,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
     drafts: dict[str, set[str]] = {}
     receipts: dict[str, set[str]] = {}
     marks: dict[str, dict] = {}
+    markers = marker_people(tx, rows)
     for row in rows:
         activity = str(row["activity_id"])
         drafts.setdefault(activity, set()).add(str(row["draft_id"]))
@@ -655,7 +703,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
         typed = (row.get("resolution") or {}).get("business")
         if typed and activity not in marks:
             facts = BusinessResolution.model_validate(typed).facts
-            marks[activity] = record_marks(facts, row, tx.context.owner_id)
+            marks[activity] = record_marks(facts, row, tx.context.owner_id, markers)
     return {
         activity: {
             "draft_id": ids.pop() if len(ids) == 1 else None,
@@ -781,20 +829,55 @@ def receipt_detail(context: BusinessContext, receipt) -> dict:
     return detail
 
 
+def _compared_files(dossier, channel):  # noqa: ANN001, ANN202
+    """The duplicate candidates, each compared document's file with the channel
+    ``channel`` gives it by the same rule as the dossier's attachment sources."""
+
+    def document(item):  # noqa: ANN001, ANN202
+        if item.file is None:
+            return item
+        file = item.file.model_copy(update={"channel": channel(item.file)})
+        return item.model_copy(update={"file": file})
+
+    return tuple(
+        candidate.model_copy(
+            update={
+                "comparison": candidate.comparison.model_copy(
+                    update={
+                        "document": document(candidate.comparison.document),
+                        "other": document(candidate.comparison.other),
+                    }
+                )
+            }
+        )
+        for candidate in dossier.duplicate_candidates
+    )
+
+
 def with_whatsapp_sources(dossier, captured: frozenset[str]):  # noqa: ANN001, ANN201
-    """The dossier's attachment sources that arrived by WhatsApp say so, from the
-    intake store's captured connections, the fact /business/receipts reads; the
-    stored source row says web for every attachment and is never written back."""
+    """The dossier's attachment sources and compared files that arrived by
+    WhatsApp say so, from the intake store's captured connections, the fact
+    /business/receipts reads; the stored source row says web for every
+    attachment and is never written back."""
 
     if not captured:
         return dossier
+
+    def channel(item):  # noqa: ANN001, ANN202
+        return "whatsapp" if str(item.connection_id) in captured else item.channel
+
     sources = tuple(
-        source.model_copy(update={"channel": "whatsapp"})
-        if source.kind == "attachment" and str(source.connection_id) in captured
+        source.model_copy(update={"channel": channel(source)})
+        if source.kind == "attachment"
         else source
         for source in dossier.sources
     )
-    return dossier.model_copy(update={"sources": sources})
+    return dossier.model_copy(
+        update={
+            "sources": sources,
+            "duplicate_candidates": _compared_files(dossier, channel),
+        }
+    )
 
 
 def with_source_channels(dossier, *, space_id: str, owner_id: str, service=None):  # noqa: ANN001, ANN201
@@ -828,9 +911,10 @@ def _stored_review_note(dossier, space_id: str, pool):  # noqa: ANN001, ANN202
 
 
 def with_email_sources(dossier, space_id: str, pool=None):  # noqa: ANN001, ANN201
-    """The dossier's attachment sources that arrived by email say so, with their
-    deliveries, from the email queue; the stored source row says web for every
-    attachment, so this is decided here and never written back."""
+    """The dossier's attachment sources and compared files that arrived by
+    email say so, the sources with their deliveries, from the email queue; the
+    stored source row says web for every attachment, so this is decided here
+    and never written back."""
 
     from argus.api.email_intake import (
         arrived_by_email,
@@ -847,14 +931,19 @@ def with_email_sources(dossier, space_id: str, pool=None):  # noqa: ANN001, ANN2
         if source.kind == "attachment" and str(source.connection_id) in flags
         for delivery_id in flags[str(source.connection_id)][0]
     }
+
+    def channel(item):  # noqa: ANN001, ANN202
+        flag = flags.get(str(item.connection_id))
+        return (
+            "email"
+            if flag is not None and arrived_by_email(item.received_at, flag[2])
+            else item.channel
+        )
+
     sources = tuple(
         source.model_copy(
             update={
-                "channel": "email"
-                if arrived_by_email(
-                    source.received_at, flags[str(source.connection_id)][2]
-                )
-                else source.channel,
+                "channel": channel(source),
                 "email_delivery_ids": flags[str(source.connection_id)][0],
             }
         )
@@ -865,6 +954,7 @@ def with_email_sources(dossier, space_id: str, pool=None):  # noqa: ANN001, ANN2
     return dossier.model_copy(
         update={
             "sources": sources,
+            "duplicate_candidates": _compared_files(dossier, channel),
             "review_note": email_review_note(space_id, delivery_ids),
         }
     )

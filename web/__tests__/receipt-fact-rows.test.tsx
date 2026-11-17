@@ -141,7 +141,7 @@ describe("the form marks the fields the server's blockers name; the attention st
   test("a blocker marks its row and a read value nobody confirmed does not", async () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, counterparty: known("extracted"), amount: unknown }, blockers: [{ code: "missing_fields", field: "amount" }], questions: [] } as BusinessDossier;
-    const attention = dossierAttention(dossier, (await i18n("es-419")).t);
+    const attention = dossierAttention(dossier, (await i18n("es-419")).t, "es-419");
     assert.deepEqual(attention.map((item) => item.field), ["amount"]);
     const { html } = await render(dossier, "es-419", true, attention, true);
     assert.ok(html.includes('data-fact="amount" data-standing="empty" data-blocked="true" data-attention="true"'));
@@ -183,7 +183,7 @@ describe("the record facts on the review page", () => {
     const dossier = { ...base, facts: { ...base.facts, fiscal: { rnc: { ...known("qr_decoded"), value: "131999888" }, ncf: known("extracted"), ecf: unknown, itbis: known("extracted") } }, fiscal_value: "ncf", blockers: [], questions: [] } as unknown as BusinessDossier;
     const { html } = await render(dossier, "es-419", true, [], true);
     assert.deepEqual([...html.matchAll(/data-fact="([a-z_0-9]+)"/g)].map((match) => match[1]), ["counterparty", "occurred_on", "currency", "net_amount", "itbis", "amount", "rnc", "fiscal_number"]);
-    for (const row of ["Contraparte", "Fecha", "Monto sin ITBIS", "Total (con ITBIS)", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
+    for (const row of ["Emisor", "Fecha", "Monto sin ITBIS", "Total (con ITBIS)", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
   });
 
   test("an open draft brings a row back only while the server waits on it, so a blocker always has a way forward", async () => {

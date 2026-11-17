@@ -1177,6 +1177,21 @@ These three states look different:
 
 A month with no receipts is not a closed month at RD$0.00. Unknown is never shown as zero.
 
+### Loading views
+
+This rule holds for every surface. A surface's loading view is that surface
+rendered with its data still pending: the same components in the same positions,
+so nothing moves when data arrives.
+
+- The loading view never invents what the server owns: column names, labels, and
+  whether a card or a guide shows. Those stay placeholder bars until the server answers.
+- Visibility the server owns comes with the first page's data, as `/me` carries guide
+  dismissals. A block that will show holds its place while pending; a block that will
+  not show never takes one.
+- Each main block carries `data-surface-block` on the component both views share.
+  `web/__tests__/surface-loading-parity.dom.test.tsx` fails when a covered surface's
+  loading view has a missing, extra or reordered block.
+
 ### Entry into Home
 
 Keep the sign-in button busy while checking credentials. During Business startup,
@@ -1189,8 +1204,8 @@ The loader uses the destination canvas in each theme. Its bar is indeterminate
 unless progress is measured. Reduced motion shows a static indicator. Announce
 loading once per episode with a polite status; do not move or trap keyboard focus.
 Consent prompts and actionable errors replace loading as soon as they are known.
-Once Home can render its structure, any remaining data placeholders stay inside
-their final positions. Unknown values remain distinct from zero.
+Once Home can render its structure, it follows [Loading views](#loading-views).
+Unknown values remain distinct from zero.
 
 ### Growing lists
 
@@ -1279,7 +1294,7 @@ Order: Necesita atención, then the month card. While settlement is on, Cobros y
 
 Two columns once the canvas is 56rem or wider: Necesita atención on the left, flexible, and the month card on the right at a fixed 440px, 24px apart. Both cards have a 57px header band in the same tint over one divider, so their tops and dividers line up; their bottoms keep their natural heights. Narrower, one column in the order above.
 
-Necesita atención shows the server's Bandeja count (the sidebar's), "Ver todo", and up to six rows of about 62px, problems first: the source's icon, the supplier or the source, the Bandeja's reason as a tag with when it arrived, and Resolver or Revisar for someone who may prepare. A row never shows an amount. The month card shows Ingresos and Gastos, then Resultado neto (the largest figure, right-aligned), then ITBIS en ventas and ITBIS en compras, and a footer: "Incluye n de total documentos", "n en la Bandeja · Revisar" and "Faltan datos fiscales en n registros · Ver", which names compras or ventas when both tabs hold documents. Each label has a dotted-underline definition on hover and focus. The currency pill shows the ISO code whenever the Business holds documents in more than one currency in some month; its list holds this month's currencies, and the choice holds per Business for the session. There is no month close on Inicio.
+Necesita atención shows the server's Bandeja count (the sidebar's), "Ver todo", and up to six rows of about 62px, problems first: the source's icon, the supplier or the source, the Bandeja's reason as a tag with when it arrived, and Resolver or Revisar for someone who may prepare. A row never shows an amount. The month card shows Ingresos and Gastos, then Resultado neto (the largest figure, right-aligned), then ITBIS en ventas and ITBIS en compras, and a footer: "Incluye n de total documentos", "n en la Bandeja · Revisar" and "Faltan datos en n registros · Ver", which names compras or ventas when both tabs hold documents. Each label has a dotted-underline definition on hover and focus. The currency pill shows the ISO code whenever the Business holds documents in more than one currency in some month; its list holds this month's currencies, and the choice holds per Business for the session. There is no month close on Inicio.
 
 - A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
 - A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
@@ -1326,8 +1341,12 @@ is now an unread dot.
   Inicio's Necesita atención reads the same number, and the sidebar counts every
   waiting row. Tabs own status: Filtros has only Canal and Remitente, and picking
   a tab adds no chip.
+- A fourth tab, **Eliminados**, holds the documents the owner deleted. They leave
+  the other tabs and every count. The owner can restore one for 7 days. After 7
+  days the document worker purges it, and Borrar definitivamente purges it
+  sooner. Owner: `PURGE_AFTER` in `src/argus/domain/business/contracts/deletion.py`.
 - A receipt still being read shows only on Todos, as Leyendo, and no tab counts it.
-  A failed read stays in Necesitan atención.
+  A read that fails follows [When a read fails](#when-a-read-fails).
 - Estado follows the tab. Todos shows the soft tag. Necesitan atención shows only
   the reason, as plain text. Listos has no Estado column.
 - Tags are soft and fully rounded: Necesita atención `#9e2f39` on `#f6dfe0`, Leyendo
@@ -1343,8 +1362,9 @@ is now an unread dot.
   saves a receipt, that receipt is the row. An email is a row of its own only
   while it is read (on Todos, like a receipt being read) or when it brought no
   receipt (in Necesitan atención and Todos, counted there): the sender, the
-  subject and why. A repeat of a saved file is no row. Reintentar sits on the
-  email's record when the server allows a retry.
+  subject and why. A file saved before is no new row, as
+  [Duplicados](#duplicados) says. Reintentar sits on the email's record when the
+  server allows a retry.
 - The full email history lives in Negocio > Correo de recibos, under the
   receiving address, as a quiet Historial with its refresh.
 - What arrived since the last visit carries an unread dot on the row's left edge.
@@ -1359,6 +1379,124 @@ is now an unread dot.
 
 **Behavior rules (pending from Product).** Product may add a "Falta información"
 state here. Until Product defines it, it is not a status.
+
+#### When a read fails
+
+Designed 2026-11-15. #2192 built steps 1 and 2 on the server. Steps 3 and 4
+are pending #1681.
+
+1. While the automatic retries run, the receipt stays Leyendo on Todos. The
+   person never sees a retry or a failure in that time. The retry rules live in
+   [the architecture guide](../../../docs/ARCHITECTURE.md#when-a-receipt-read-fails).
+2. When the retries run out, or the failure is permanent, the receipt moves to
+   Necesitan atención with its reason, as plain text.
+3. The receipt offers one manual Leer de nuevo. It is no longer unlimited.
+4. If that read also fails, the person types the data by hand with Escribir los
+   datos (#1681).
+
+A read that is not finished 6 hours after the upload also moves to Necesitan
+atención, with its own reason: the reading service was unavailable, and the
+receipt did not fail (founder, 2026-11-16, built in #2192). This reason does
+not count against the one manual Leer de nuevo of step 3. The Bandeja row says
+"La lectura no terminó" (`business.attention_short.read_deadline_passed`). The
+open receipt's failed-read box shows that title, the line "El servicio de
+lectura no estuvo disponible. Puedes leerlo de nuevo."
+(`business.file_read.read_deadline_passed_body`) and Leer de nuevo (founder
+copy, 2026-11-16).
+
+Today, Leer de nuevo has no limit, and each press spends one read.
+
+### Duplicados
+
+Several layers catch a repeated document. Each layer catches a different kind
+of repeat at a different moment. The first four run before any read is spent.
+The list follows the order a document meets them, as the code at `f9a85da21`
+does it.
+
+1. **The same file twice in one upload list.** The web queue drops a file whose
+   name, size and last change match a file already in the list for this
+   Business. The person sees nothing (#1600). Owner: `add` in
+   `web/components/business-app/receipt-upload-queue.ts`.
+2. **The same file uploaded again.** The server finds the same bytes already
+   saved in this Business. It makes no new document and starts no read. The
+   upload row says "Ya estaba guardado. Este es ese recibo." When that document
+   is in Eliminados, the row says "Eliminado antes" and sits in a closed group
+   with its count, such as "2 eliminados antes". The owner can Restaurar it or
+   use Restaurar todos. After the purge, the same bytes save as a new document.
+   Owner: `upload` in
+   `src/argus/domain/ingestion/documents/service.py`, and
+   `web/components/business-app/ReceiptIntakeDialog.tsx`.
+3. **The same file by email.** An attachment goes through the same upload
+   check, so it makes no new document and no Bandeja row. In Negocio > Correo de
+   recibos, the Historial line for that file says "Ya recibiste este archivo"
+   when an earlier email brought it, or "Ya habías guardado este archivo" when
+   it was saved another way. Owner: `part_repeat` in
+   `src/argus/api/email_intake.py`.
+4. **The same file by WhatsApp.** WhatsApp is off by default. The same upload
+   check runs. The reply is "Ya lo teníamos. Revísalo aquí:" with a link. Owner: `upload` in
+   `src/argus/api/whatsapp.py`.
+5. **After the read: same purchase.** The read gives comercio, fecha, total and
+   moneda. When all four are known and equal those of another open or approved
+   document in the Business, the server marks the newer document
+   `possible_duplicate`. A restore marks both. The document goes to Necesitan
+   atención as "Parece repetido", and Aprobar stays closed until a person
+   decides. Today the panel offers "Ver el recibo ya guardado" and "Es otra
+   compra". [After the read](#after-the-read-parece-repetido) replaces those
+   buttons. Owner: `flag_receipt_duplicates` in
+   `src/argus/domain/business/duplicates.py`, and the `possible_duplicate`
+   blocker in `src/argus/domain/business/actions/dossier.py`.
+6. **Before Listos: same comprobante.** A purchase with the same supplier RNC
+   and NCF as another open or approved purchase stays out of Listos. It shows in
+   Necesitan atención as "Parece repetido". This layer does not close Aprobar.
+   Only a `possible_duplicate` mark does. Owner: `same_comprobante` in
+   `src/argus/domain/business/actions/fiscal.py`, read through
+   `repeated_purchases`.
+7. **At approval: same comprobante already approved.** The server refuses a
+   purchase whose supplier RNC and NCF or e-CF match an approved purchase. A
+   database unique index backs the check. The dossier says "Ya registraste este
+   comprobante." with "Ver el registrado". Aprobar todos marks that row "Este
+   comprobante ya está registrado". A sale with an NCF already approved gets
+   "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo
+   antes de aprobar." Owner: `require_distinct_fiscal_document` in
+   `src/argus/domain/business/actions/fiscal.py`, and the refusal in
+   `src/argus/domain/business/actions/approval.py`.
+8. **In the 606 or 607.** Two records of the period with the same comprobante
+   stay out of the file with `fiscal_duplicate_document`. Registros shows "Este
+   NCF ya está registrado este mes". Owner: `src/argus/domain/business/dgii_export.py`.
+
+#### After the read: Parece repetido
+
+Designed 2026-11-15, build pending #1676. The founder locked it on the canvas
+"Inicio redesign mock", row "Parece repetido" (boards FlujoDuplicado and
+FlujoComparar). It changes layer 5 only. Every other layer stays as it is.
+
+1. In the review panel, the amber box says "Parece repetido" with one line on
+   why (same comercio, fecha and total) and one button, Comparar. The box has no
+   decision buttons. Más does not change.
+2. Comparar turns the same panel into a compare view. It shows a recommendation
+   line and a split diff of the main data only: comercio, fecha, total, moneda
+   and NCF. There is no Archivo row: the column heads name the files and the
+   previews show them. Each column head shows its document's file name, with a
+   smaller line under it. Left: "Este · {canal} · {fecha de subida}". Right:
+   "{Guardado antes | Aprobado} · {canal} · {fecha}". The server gives the
+   channel, the date and the state. The marker sits on the left, right after
+   the field name. Only a Diferente row gets a chip: the shared fixed-width
+   status chip (`web/components/business-app/foundation/StatusChip.tsx`, the
+   same chip as Estado in Registros) in the amber tone of Faltan datos, and the
+   row keeps its amber tint. A matching row gets a quiet check, read as
+   "Igual". Nothing marks a row on the right. Both documents show in the
+   existing preview, with rotate, zoom, full screen and open original.
+3. The NCF decides the recommendation. A different NCF means two purchases, so
+   "Son compras distintas" is the primary action. The same NCF means the same
+   document, so "Eliminar este duplicado" is the primary action. With no NCF,
+   the person decides.
+4. "Eliminar este duplicado" sends the document to Eliminados with the reason.
+   The owner can restore it for 7 days. No extra label sits next to the button.
+5. The flow says "documento", not "recibo".
+
+Only the owner sees Eliminar. The server adds a `same_purchase` decision that
+deletes the document with a reason, and stores the reason on the deletion
+marker.
 
 ### Receipt detail
 
@@ -1385,8 +1523,14 @@ ves; Formato DGII 606 or 607), the Columnas line, Monedas and Formato as
 segmented controls, the DGII line "La DGII define las columnas. Solo en pesos.",
 notices only when their count is above zero, and the green action with its
 count. Editar opens the column choice inside the same dialog with a back arrow. Revisar on
-the DGII notice shows exactly the records it counted: the tab, the period, pesos
-and Faltan datos fiscales, with the other filters and the search cleared.
+the DGII notice opens the tab and period in the form’s currency, with
+`fiscal_data: missing` and the other filters and the search cleared. This fiscal
+selection appears as the clearable chip "Datos fiscales: Faltan", outside the
+filter picker. Its x or Limpiar clears it; other filter changes preserve it.
+The notice counts records held for missing fiscal data with the server’s
+`dgii.pending_fiscal_count`. Records held for a rate have their own notice; the
+summary alone uses `dgii.pending_count` (fiscal plus rate). Table filters do not
+change these counts.
 A finished download closes the dialog and says so in a toast with "Descargar de
 nuevo". The period ZIP has no sheet in Registros. Only the close-a-Business
 dialog downloads it, as the handover of the original receipts.
@@ -1447,7 +1591,7 @@ Desktop preview table preferences are local memory only, including saved views. 
 
 Activity dates in the Registros preview show the year in the selected language, for example `25 oct 2026` or `Oct 25, 2026`. A calendar day does not shift with the device time zone. Missing or invalid dates show a dash. This rule applies to the table, narrow list and loaded-record glance; other recent-time displays keep their existing wording.
 
-Estado uses a small colored text label from the top overview palette. Registros is an explicit exception to the global status-dot rule above; its labels have no inner dot. Review uses peach, approval uses yellow, and ready uses soft sage (#B8D0BE) with forest-green ink (#2f5a49), with the corresponding dark colors. The ready overview card and Listo status pill share the #B8D0BE background in the light theme. The overview keeps the same neutral text and icon colors as the other cards; the shared dark background stays muted deep green. Overview selection edges and keyboard focus rings use that same neutral card ink in both themes. The Listo label uses green ink; the primary action keeps its solid green fill. The row label is Listo or Ready. The top card keeps Listos para exportar. Workflow does not describe payment state.
+Estado uses a fixed-width, non-clickable chip with exactly one label: Listo or Faltan datos (Ready or Missing data in English), read directly from the server's `ready` field. Registros keeps its exception to the status-dot rule: no inner dot. Listo uses the existing soft-sage and green palette; Faltan datos shares the missing-data overview palette, with corresponding dark colors. The separate Motivo column shows the first item of the server's ordered `missing` list as plain text and a non-truncating +N for the remaining items. The existing tooltip and the open record show the full list. Listo rows have no Motivo. The chip and reason stay on one line at all three row heights (40, 48 and 56 px), owned by `table-density.ts`; column and chip widths belong to `RECORDS_COLUMN_LAYOUT`. Phone cards show only the chip. The overview says Faltan datos, with Complétalos antes de declarar below it; its count reads `not_ready` and its click selects `ready: false`. Workflow does not describe payment state.
 
 The desktop table shows separate Monto and Moneda columns, adjacent by default. Monto shows the exact original-currency number, aligned right with tabular digits and the shared privacy mask. Moneda shows RD$ or US$ through `currencySymbol`; filters retain DOP and USD. Both columns remain visible. Each column moves independently through its own drag handle or keyboard controls. Narrow rows keep the amount and currency together at the upper right.
 
@@ -1502,7 +1646,7 @@ and interaction.
 
 Keep the existing compact content width. Show six separate, equal summary cards
 in two rows of three: Total, ITBIS and Cantidad in the first row; Bienes,
-Servicios and Faltan datos fiscales in the second. Below them, keep the existing
+Servicios and Faltan datos in the second. Below them, keep the existing
 filters, active filter chips and column picker, then the table. Total and payment
 subcards do not show.
 
@@ -1511,15 +1655,14 @@ value below left and footer or helper at the bottom left. Make the cards shallow
 while keeping the same readability. Use Cuadrao's own typography, soft fills,
 rounded corners and colors, with the corresponding dark-theme treatment.
 
-Faltan datos fiscales is the only action card. Clicking it or pressing Enter or
-Space applies its table filter. A second activation restores the prior status
-selection. The active filter remains
-visible and clearable. A mixed status selection is not an active Fiscal card.
-An inactive Fiscal card with zero matches is disabled; an active card remains
-clearable at zero. Editing statuses directly, clearing their chip, choosing a
-saved view or navigating history discards the previous status selection saved by
-the card. Changing other filters keeps it.
-The Fiscal card shows a directional cue at the bottom right, hover feedback, a
+Faltan datos is the only action card. Clicking it or pressing Enter or
+Space applies Estado: Faltan datos (`ready: false`). A second activation restores
+the prior readiness selection. The active filter remains visible and clearable.
+The card is active only for `ready: false`. An inactive card with zero matches
+is disabled; an active card remains clearable at zero. Editing Estado directly,
+clearing its chip, choosing a saved view or navigating history discards the
+previous readiness selection saved by the card. Changing other filters keeps it.
+The Faltan datos card shows a directional cue at the bottom right, hover feedback, a
 visible focus state, and an active state. Do not add a "Ver..." label or make the
 arrow a separate target.
 
@@ -1682,7 +1825,7 @@ screen. Nothing the person is doing moves: the first row in view stays where it
 is, also at the start of the list and behind an open record, rows already shown
 keep their order, and selected rows, an open record and keyboard focus are kept
 by record, never by position.
-A failed read still offers Reintentar. A phone keeps the pull gesture. Returning
+A failed read follows [When a read fails](#when-a-read-fails). A phone keeps the pull gesture. Returning
 from detail preserves position.
 
 Narrow Bandeja adapts to a compact list instead of compressing desktop columns.

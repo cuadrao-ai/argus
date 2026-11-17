@@ -107,6 +107,9 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
     ".emptyArt | border-radius | 50%",
     ".emptyTitle:focus-visible | border-radius | 4px"
   ],
+  "components/business-app/foundation/status-chip.module.css": [
+    ".workflow | border-radius | 999px"
+  ],
   "components/business-app/transacciones/records-filter-preview.module.css": [
     ".trigger | border-radius | 999px",
     ".count | border-radius | 999px",
@@ -159,7 +162,6 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
   ],
   "components/business-app/transacciones/transacciones-cells.module.css": [
     ".detail:focus-visible | border-radius | 4px",
-    ".workflow | border-radius | 999px",
     ".noteButton:focus-visible | border-radius | 4px"
   ]
 };
@@ -220,5 +222,5 @@ test("Reception geometry accepts only the cleared checkpoint selectors and value
   assert.deepEqual(unapprovedGeometry(path, ".count { border-radius:5px; }"), []);
   assert.ok(unapprovedGeometry(path, ".count { border-radius:6px; }").length);
   assert.ok(unapprovedGeometry(path, ".new { border-radius:5px; }").length);
-  assert.ok(unapprovedGeometry("components/business-app/recepcion/ReceptionSkeleton.tsx", "style={{ borderRadius: 4 }}").length);
+  assert.ok(unapprovedGeometry("components/business-app/recepcion/ReceptionArrivalRow.tsx", "style={{ borderRadius: 4 }}").length);
 });

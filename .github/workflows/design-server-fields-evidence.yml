@@ -7,6 +7,20 @@ on:
     paths:
       - web/scripts/design-server-fields-evidence.ts
       - .github/workflows/design-server-fields-evidence.yml
+      - web/argus_display_contract/support_contact.json
+      - web/components/business-app/BusinessMonthClosePanel.tsx
+      - web/components/business-app/BusinessOverviewPanel.tsx
+      - web/components/business-app/fixture-data.ts
+      - web/components/business-app/inicio/**
+      - web/components/business-app/recepcion/**
+      - web/e2e/support/breakpoint-fixture.ts
+      - web/e2e/support/design-server-fields-reception.ts
+      - web/e2e/support/month-close-wire.ts
+      - web/e2e/support/synthetic-business-fallback.ts
+      - web/lib/business-month-close.ts
+      - web/lib/business-reports-api.ts
+      - web/lib/support-email.ts
+      - web/public/locales/es-419/common.json
 
 permissions:
   contents: read
@@ -17,7 +31,6 @@ jobs:
     timeout-minutes: 15
     env:
       NEXT_PUBLIC_MOCK_AUTH: "true"
-      NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true"
       NEXT_PUBLIC_ARGUS_API_URL: http://127.0.0.1:3198/api/v1
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:3198
       NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic

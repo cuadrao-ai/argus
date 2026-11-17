@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from typing import Any, get_args
 from uuid import UUID
 
 from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
+from argus.domain.business.actions.duplicate_comparison import (
+    compare,
+    duplicate_revisions,
+)
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.fiscal import RememberedField, last_choice
+from argus.domain.business.actions.fiscal import last_choice, repeated_purchases
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
@@ -21,15 +25,20 @@ from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_settlement_enabled
-from argus.domain.business.contracts.actions import APPROVAL_ACTION
+from argus.domain.business.contracts.actions import APPROVAL_ACTION, DuplicateDecision
+from argus.domain.business.contracts.authority import PersonName
 from argus.domain.business.contracts.deletion import deletion
-from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
+from argus.domain.business.contracts.dgii import (
+    DeclarationSuggestions,
+    DgiiDeclaration,
+    PurchaseDeclaration,
+    SuggestedField,
+)
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
     ApprovalResult,
     Blocker,
     BusinessDossier,
-    DeclarationSuggestions,
     DraftRevision,
     DuplicateCandidate,
     RecordContext,
@@ -38,12 +47,19 @@ from argus.domain.business.contracts.dossier import (
     SourceEvidence,
     UnsettledApproval,
 )
-from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    BusinessResolution,
+    Known,
+)
 from argus.domain.business.document_type import kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers
+from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
 from argus.domain.business.purchase_review import (
+    blank_answer,
     net_amount,
+    saves_suggestions,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -116,10 +132,12 @@ def approval_of(
     receipt: Mapping[str, Any] | None,
     activity_id: UUID | None,
     approved_revision: Callable[[int], int],
+    found: Mapping[str, PersonName | None],
 ) -> ApprovalResult | None:
     """What the latest approval receipt says: recorded once the draft holds its
     activity, else the unsettled outcome it left, else nothing to show.
-    ``approved_revision`` reads the revision approved at a reviewed version."""
+    ``approved_revision`` reads the revision approved at a reviewed version;
+    ``found`` names the receipt's people."""
 
     if receipt is None:
         return None
@@ -131,7 +149,7 @@ def approval_of(
             reviewed_version=version,
             approved_revision=approved_revision(version),
             approved_at=receipt["created_at"],
-            actor=receipt["actor"],
+            actor=actor_view(receipt["actor"], found),
         )
     if outcome.get("outcome") == "outcome_unknown":
         return UnsettledApproval(
@@ -146,24 +164,74 @@ def approval_of(
     return None
 
 
+def approval_receipts(tx: ActionTransaction, event: ImportEvent) -> list[dict[str, Any]]:
+    """The draft's latest approval receipt: the one it points at, else the
+    newest one that names it."""
+
+    pointer = event.resolution.get("approval_receipt")
+    approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
+    approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
+    return tx.rows(
+        "select actor,command,outcome,created_at from public.business_action_receipts"
+        " where space_id=%s and command->>'action' in ('approve_expense','approve_income','approve_refund')"
+        " and command->>'draft_id'=%s"
+        + approval_filter
+        + " order by created_at desc limit 1",
+        (tx.context.actor.space_id, event.id, *approval_params),
+    )
+
+
 def duplicate_candidates(
-    tx: ActionTransaction, event: ImportEvent, ids: tuple[str, ...]
+    tx: ActionTransaction,
+    event: ImportEvent,
+    pending: tuple[str, ...],
+    *,
+    can_prepare: bool,
+    can_delete: bool,
 ) -> tuple[DuplicateCandidate, ...]:
-    if event.attention not in (None, "possible_duplicate") or not (
+    """The documents this open draft may repeat, each with why and what the
+    reader may decide. ``pending`` are the read-facts warnings still open; a
+    read-facts pair settled as different purchases is none until its evidence
+    changes. A shared RNC and fiscal number is one comprobante: it is the
+    stronger reason when both hold, no answer settles it, and keeping one is
+    the only decision."""
+
+    if event.state != "open":
+        return ()
+    warned = event.attention in (None, "possible_duplicate") and bool(
         (event.attention_detail or {}).get("basis") == "read_facts"
         or event.resolution.get("different_purchases")
-    ):
-        return ()
+    )
+    read = pending if warned else ()
+    draft_id = UUID(event.id)
+    fiscal = tuple(str(i) for i in repeated_purchases(tx, [event]).get(draft_id, ()))
     candidates = []
-    for other_id in ids:
+    for other_id in dict.fromkeys((*read, *fiscal)):
         try:
             other = tx.imports.event(other_id)
         except EventNotFound:
             continue
-        if other.state in ("open", "accepted") and "business" in other.resolution:
-            candidates.append(
-                DuplicateCandidate(draft_id=other.id, version=other.version)
+        if other.state not in ("open", "accepted") or "business" not in other.resolution:
+            continue
+        decisions: tuple[DuplicateDecision, ...] = ()
+        if other_id in read and other_id not in fiscal and can_prepare:
+            decisions += ("different_purchase",)
+        if can_delete:
+            decisions += ("same_purchase",)
+        candidates.append(
+            DuplicateCandidate(
+                draft_id=other.id,
+                version=other.version,
+                basis="fiscal_number" if other_id in fiscal else "read_facts",
+                decisions=decisions,
+                comparison=compare(
+                    tx,
+                    event,
+                    other,
+                    approval_receipts(tx, other) if other.state == "accepted" else [],
+                ),
             )
+        )
     return tuple(candidates)
 
 
@@ -203,6 +271,21 @@ def workflow_blockers(
     return blocked, tuple(duplicate_ids)
 
 
+def takes_suggestions(
+    state: str, facts: BusinessFacts, resolution: BusinessResolution
+) -> bool:
+    """Whether the draft's approval would save a suggestion: an open expense
+    the approval writes a 606 declaration for. Anywhere else a suggestion
+    would show a value that never reaches the 606."""
+
+    return (
+        state == "open"
+        and isinstance(facts.kind, Known)
+        and facts.kind.value == "expense"
+        and saves_suggestions(resolution.document_type, facts, resolution.dgii)
+    )
+
+
 def shown_bill_mark(resolution: BusinessResolution) -> str | None:
     """The due-notice mark a person sees. Factura por pagar and Factura pagada
     are settlement state, so none shows while settlement is off; the draft
@@ -211,22 +294,17 @@ def shown_bill_mark(resolution: BusinessResolution) -> str | None:
     return resolution.bill_mark if business_settlement_enabled() else None
 
 
-def _suggestions(
+def offered_suggestions(
     tx: ActionTransaction, draft_id: UUID, declaration: DgiiDeclaration | None
 ) -> DeclarationSuggestions:
-    """The last choice for this RNC, for each answer the draft has not got. A
-    tipo de gasto nobody confirmed is not the draft's own."""
+    """The last choice for this RNC, for each answer the draft has not got:
+    what the dossier shows and what a bulk approval saves."""
 
     purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
-    own: dict[RememberedField, bool] = {
-        "category": bool(
-            purchase and purchase.category and not purchase.category_suggested
-        ),
-        "payment_method": bool(purchase and purchase.payment_method),
-    }
-    remembered = {
-        field: last_choice(tx, draft_id, field) for field in own if not own[field]
-    }
+    blank: tuple[SuggestedField, ...] = tuple(
+        field for field in get_args(SuggestedField) if blank_answer(purchase, field)
+    )
+    remembered = {field: last_choice(tx, draft_id, field) for field in blank}
     return DeclarationSuggestions.model_validate(
         {
             field: {"value": value, "source": "last_choice"}
@@ -290,18 +368,25 @@ def dossier(
     blocked, duplicate_ids = workflow_blockers(
         tx, event, facts, context.accounts, questions
     )
-    pointer = event.resolution.get("approval_receipt")
-    approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
-    approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
-    approvals = tx.rows(
-        "select actor,command,outcome,created_at from public.business_action_receipts"
-        " where space_id=%s and command->>'action' in ('approve_expense','approve_income','approve_refund')"
-        " and command->>'draft_id'=%s"
-        + approval_filter
-        + " order by created_at desc limit 1",
-        (tx.context.actor.space_id, str(draft_id), *approval_params),
+    approvals = approval_receipts(tx, event)
+    decided = duplicate_revisions(tx, evidence)
+    found = people(
+        tx.connection,
+        tx.authorization,
+        actor_ids([row["actor"] for row in (*history, *approvals)]),
     )
-    revisions = tuple(DraftRevision.model_validate(row) for row in history)
+    revisions = tuple(
+        DraftRevision.model_validate(
+            {
+                **row,
+                "actor": actor_view(row["actor"], found),
+                "duplicate": next(
+                    (decided[i] for i in row["source_ids"] if i in decided), None
+                ),
+            }
+        )
+        for row in history
+    )
 
     def approved_revision(reviewed: int) -> int:
         [row] = tx.rows(
@@ -314,6 +399,7 @@ def dossier(
         approvals[0] if approvals else None,
         event.activity_id if event.accept_key else None,
         approved_revision,
+        found,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
     paid = draft_is_paid(tx, event.activity_id, resolution.bill_mark)
@@ -332,13 +418,20 @@ def dossier(
     )
     from argus.domain.business.actions.document_deletion import is_reading
 
-    deleted = deletion(event.state, event.resolution)
-    return BusinessDossier(
-        deleted=deleted,
-        delete_available=event.state == "open"
+    marker = deletion(event.state, event.resolution)
+    deleted = named_deletion(
+        marker,
+        people(tx.connection, tx.authorization, [marker and marker.actor.actor_id]),
+    )
+    delete_available = (
+        event.state == "open"
         and "approve" in tx.authorization.capabilities
         and not any(row["shared"] for row in source_rows)
-        and not is_reading(tx, source_rows),
+        and not is_reading(tx, source_rows)
+    )
+    return BusinessDossier(
+        deleted=deleted,
+        delete_available=delete_available,
         restore_available=deleted is not None
         and "approve" in tx.authorization.capabilities,
         **context.model_dump(),
@@ -360,7 +453,13 @@ def dossier(
         blockers=tuple(blocked),
         review_flags=review_flags(facts, rnc_registry(tx), declaration=resolution.dgii),
         approval_available=approvable,
-        duplicate_candidates=duplicate_candidates(tx, event, duplicate_ids),
+        duplicate_candidates=duplicate_candidates(
+            tx,
+            event,
+            duplicate_ids,
+            can_prepare=can_prepare,
+            can_delete=delete_available,
+        ),
         approval_action=APPROVAL_ACTION[facts.kind.value] if approvable else None,
         approval_result=approval,
         fiscal_inclusion_available=fiscal_inclusion_available(tx, facts, event.state),
@@ -378,8 +477,8 @@ def dossier(
         document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open" and can_prepare,
         declaration_editable=declaration_editable,
-        declaration_suggestions=_suggestions(tx, draft_id, resolution.dgii)
-        if declaration_editable
+        declaration_suggestions=offered_suggestions(tx, draft_id, resolution.dgii)
+        if declaration_editable and takes_suggestions(event.state, facts, resolution)
         else DeclarationSuggestions(),
         payment_split_editable=fiscal_writable
         and takes_payment_split(resolution.document_type),

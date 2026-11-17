@@ -30,7 +30,6 @@ def test_required_api_router_modules_exist() -> None:
         "profile",
         "business_conversations",
         "history",
-        "search",
         "feedback",
         "dev",
     ]
@@ -40,6 +39,7 @@ def test_required_api_router_modules_exist() -> None:
         assert "router = APIRouter(" in path.read_text(encoding="utf-8")
 
     for retired_name in (
+        "search",
         "strategies",
         "collections",
         "backtest",

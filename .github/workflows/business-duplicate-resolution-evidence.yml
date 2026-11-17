@@ -7,7 +7,14 @@ on:
     paths:
       - .github/workflows/business-duplicate-resolution-evidence.yml
       - web/scripts/receipt-duplicate-resolution-evidence.ts
+      - web/components/business-app/DossierAttentionStrip.tsx
       - web/components/business-app/ReceiptDossierReview.tsx
+      - web/components/business-app/ReceiptDuplicateCompare.tsx
+      - web/components/business-app/ReceiptReviewFrame.tsx
+      - web/components/business-app/ReceiptSourcePreview.tsx
+      - web/components/business-app/dossier-attention.ts
+      - web/components/business-app/foundation/StatusChip.tsx
+      - web/components/business-app/foundation/status-chip.module.css
       - web/lib/business-api.ts
       - web/lib/business-dossier.ts
       - web/public/locales/en/common.json
@@ -22,7 +29,6 @@ jobs:
     timeout-minutes: 15
     env:
       NEXT_PUBLIC_MOCK_AUTH: "true"
-      NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true"
       NEXT_PUBLIC_ARGUS_API_URL: http://127.0.0.1:3198/api/v1
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:3198
       NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic

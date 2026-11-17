@@ -1,0 +1,12 @@
+.workflow { display:inline-flex; align-items:center; max-width:100%; border-radius:999px; padding:3px 8px; color:var(--workflow-ink,#422f29); font-size:12px; font-weight:500; line-height:1.4; white-space:nowrap; }
+:global(.dark) .workflow { color:var(--workflow-ink,#f8eee7); }
+/* A fixed-width chip wider than its column cuts with an ellipsis; it never spills past its pill or widens the table. */
+.stage { display:inline-block; box-sizing:border-box; text-align:center; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; }
+/* Bandeja's locked status pairs, softer than Registros' tones. Readiness stays neutral. */
+.attention { --workflow-ink:#9e2f39; background:#f6dfe0; }
+.reading { --workflow-ink:#735c14; background:#f2e8c9; }
+.approved { --workflow-ink:#2f5a49; background:#e3ebe1; }
+.neutral { --workflow-ink:var(--muted); background:color-mix(in srgb,var(--fg) 7%,transparent); }
+:global(.dark) .attention { --workflow-ink:#ec9aa0; background:#4a2a2f; }
+:global(.dark) .reading { --workflow-ink:#f6e7c1; background:#49412a; }
+:global(.dark) .approved { --workflow-ink:#8fcbb0; background:#293b32; }

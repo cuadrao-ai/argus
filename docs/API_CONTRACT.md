@@ -11,8 +11,8 @@
 
 ## Active conversation endpoint table
 
-As of #1996, `business_conversations.py` owns the retained conversation,
-history and search operations below. This table lists mounted operations, not
+After #1996 and #2001, `business_conversations.py` owns the retained conversation
+and history operations below. This table lists mounted operations, not
 permission to start a chat: Business creation remains flag-gated, and Personal
 chat creation is closed. Other API families remain documented in their sections.
 The generic conversation catch-all is a refusal handler, not a restored operation.
@@ -26,7 +26,6 @@ The generic conversation catch-all is a refusal handler, not a restored operatio
 | `DELETE` | `/api/v1/conversations/{conversation_id}` | Active |
 | `GET` | `/api/v1/conversations/{conversation_id}/messages` | Active |
 | `GET` | `/api/v1/history` | Active |
-| `GET` | `/api/v1/search` | Active |
 
 ## Retired operations (#1996)
 
@@ -172,7 +171,6 @@ All list endpoints must use cursor-based pagination.
 - `GET /conversations`
 - `GET /conversations/{id}/messages`
 - `GET /history`
-- `GET /search`
 - future archived/deleted lists
 
 **Standard response shape:**
@@ -2260,22 +2258,11 @@ The canonical backtest config used by the engine for execution and reproducibili
   only the bounds the card carries.
 - The `unsupported_starting_capital` recovery offers the nearest accepted
   amount: the minimum for an amount under it, the maximum for one over it.
-- **Result money precision:** the result card decides once, from the run's
-  portfolio peak, how many decimals its money shows and stores the answer as
-  `conversation_result_card.currency_fraction_digits`: `2` when the peak is
-  under `currency_cents_below` (`web/argus_display_contract/result_display_policy.json`,
-  1,000), otherwise the policy's `currency_fraction_digits` (`0`). The card
-  rows, the web hero, details, equity chart and exploration summary, and the
-  readout facts all read that stored value and round half up
-  (`currency_rounding_mode: halfExpand`), with or without a chart, so a $10 run
-  reads `$10.00 -> $12.05`. A card stored before the field existed reads whole
-  dollars. New cards also carry numeric `profit`, taken directly from the run's
-  `metrics.aggregate.performance.profit` and rounded half up at the card's
-  stored precision. The web renders this gain or loss; it never subtracts
-  rounded start/end row text. Older cards without `profit` show the return
-  percentage alone in the hero detail.
-- > [!NOTE]
-  > Starting capital is simulation capital only. It does not imply real brokerage trading or account balance. The global default is `$1,000` for runnable drafts. DCA/recurring-buy contribution amounts are strategy-specific user inputs and remain separate from default starting capital.
+- **Retired result money display:** backend result-card generation and its money
+  formatter were removed in #2001. Retained web result cards still read their
+  stored `currency_fraction_digits` and `profit`; the web formatter continues to
+  use `web/argus_display_contract/result_display_policy.json` until the chat-shell
+  retirement. Business search and receipt amounts do not use this policy.
 
 ### DCA / Recurring-Buy Capital Semantics
 
@@ -2727,7 +2714,8 @@ omitting it denies permanent accounts rather than allowing them.
   gated durable mutations fail with `403 account_conversion_required`;
   owner-scoped reads and the guest Start over route remain available.
 - `GET /api/v1/me` returns the verified account kind, guest expiry and limits,
-  and server capabilities with the ordinary profile.
+  and server capabilities with the ordinary profile. It also returns the
+  person's dismissed Business guide cards (see Business guide cards).
 
 The response includes `user`, `account_kind`, a nullable `guest` summary with
 expiry plus limits `1/2/5`, typed `capabilities`, and the
@@ -5721,318 +5709,12 @@ sign-in path for keeping history.
 
 # 17. Search
 
-## `GET /search`
+## Retired conversation search
 
-Deterministic omni-search over a conversation-shaped memory read model. Each
-conversation appears at most once; its runs, ideas, evidence, and decisions
-feed the dossier and never become separate rows.
-
-For guests, this endpoint is current-workspace search, not Grounded Discovery:
-results are restricted to the one owned temporary conversation and its
-conversation-linked canonical records. Ledger groups, other owners,
-and provider/model/runtime metadata are excluded. Grounded Discovery remains a
-separate chat capability and reports `can_use_grounded_discovery=true` for both
-account classes; its backend allowance and typed limit recovery do not alter
-the `/search` contract.
-
-**Query Params:**
-- `q`: required string, maximum 512 Unicode code points
-- `limit`
-- `cursor`
-- `decision_state`: optional conversation decision filter. It returns
-  conversations holding that state. Valid values:
-  `watching`, `promising`, `rejected`, `revisit_later`.
-- `include_ledger_groups`: optional boolean. When true, the response includes
-  backend-owned conversation decision-state groups and exact counts.
-- `conversation_id`: optional repeated conversation id for bounded Recents
-  dossier hydration. At most 50 ids are accepted. This mode requires empty
-  `q`, no `cursor` or `decision_state`, and `limit` greater than or equal to
-  the number of unique requested ids. Returned conversation rows include
-  canonical `archived` state so an already-open Recents surface can remove a
-  conversation archived elsewhere without hiding archived conversations from
-  ordinary Omnisearch.
-- `surface=business`: optional, default `business`; `personal` returns 404. Every
-  conversation, message, run, idea, evidence and decision match, the asset row
-  and computed answers come only from that side's conversations. The `/biz`
-  client never asks for ledger groups, because Business chats hold no saved
-  decisions.
-
-**Response:**
-```json
-{
-  "items": [
-    {
-      "type": "asset_rollup",
-      "symbol": "GLD",
-      "run_count": 2,
-      "decision_counts": {
-        "promising": 0,
-        "watching": 1,
-        "rejected": 0,
-        "revisit_later": 0
-      },
-      "last_touched_at": "timestamp"
-    },
-    {
-      "type": "conversation",
-      "id": "uuid",
-      "title": "Gold pullback ideas",
-      "archived": false,
-      "matched_text": "Hold through earnings.",
-      "preview": { "kind": "result", "symbols": ["GLD"], "text": null },
-      "updated_at": "timestamp",
-      "conversation_id": "uuid",
-      "match": {
-        "layer": "message",
-        "fragment": "Hold through earnings.",
-        "count": 2,
-        "message_id": "uuid"
-      },
-      "decision_states": ["watching"],
-      "total_runs": 2,
-      "decided_runs": 1,
-      "dossier": {
-        "run_id": "uuid",
-        "run_label": "Weekly GLD pullback",
-        "completed_at": "timestamp",
-        "result_message_id": "uuid",
-        "tested": {
-          "symbols": ["GLD"],
-          "strategy_family": "indicator_threshold",
-          "cadence": null,
-          "timeframe": "1D",
-          "start_date": "2025-01-01",
-          "end_date": "2026-07-29"
-        },
-        "outcome": {
-          "run_label": "Weekly GLD pullback",
-          "completed_at": "timestamp",
-          "benchmark_symbol": "SPY",
-          "quick_take": "GLD held up better than SPY.",
-          "metrics": [
-            { "name": "total_return_pct", "value": 8.4 }
-          ]
-        },
-        "decision": {
-          "state": "watching",
-          "note": "Hold through earnings.\nReview risk first.",
-          "run_label": "Weekly GLD pullback"
-        },
-        "actions": [
-          {
-            "type": "retest_run",
-            "source_run_id": "uuid",
-            "run_label": "Weekly GLD pullback",
-            "window_policy": "preserve_start_ending_latest_available",
-            "contract_version": "argus_retest_run/v2"
-          },
-          {
-            "type": "decision",
-            "availability": "available",
-            "evidence_artifact_id": "uuid",
-            "decision_state": "watching",
-            "note": "Hold through earnings.\nReview risk first.",
-            "run_label": "Weekly GLD pullback"
-          }
-        ]
-      }
-    }
-  ],
-  "next_cursor": null,
-  "ledger_groups": [
-    { "decision_state": "promising", "count": 2 },
-    { "decision_state": "watching", "count": 1 },
-    { "decision_state": "rejected", "count": 0 },
-    { "decision_state": "revisit_later", "count": 0 }
-  ]
-}
-```
-
-`type` is `asset_rollup` or `conversation`. When a single-token exact or
-unambiguous prefix query matches a canonical symbol from the owner's completed
-runs, the response places one `asset_rollup` above the conversation rows. It
-summarizes completed runs involving that symbol; a multi-asset run counts once
-under each involved symbol. Each decision count comes from the latest
-owner-scoped DecisionNote reached through that run's EvidenceArtifact, so one
-run contributes to at most one decision state. `last_touched_at` is the latest
-activity on those runs or their evidence/decision lineage.
-
-Conversation search rows carry the same typed `preview` as Recents. Public
-`matched_text` and `match.fragment` retain text only for a `message` match,
-which is an owner-authored user message. Other match layers return empty
-fragments because their search corpus can contain retained artifact prose.
-Ranking, match layer/count, pagination and message anchors are preserved;
-user-authored DecisionNote text remains available through the dossier's
-decision projection. Search templates must render typed previews for those
-non-message matches and never fall back to the private search corpus.
-
-Text recall requires at least one normalized token with three characters. A
-single symbol-shaped query is separately eligible at two characters so stored
-symbols such as `BA` can resolve through the bounded symbol index without
-opening broad two-character text search. An exact stored-symbol query returns
-the rollup plus the normal bounded, cursor-safe conversation rows whose
-completed runs contain that symbol. A merely unambiguous symbol prefix may
-still return only the rollup. One-character, whitespace-containing, and
-non-alphanumeric symbol queries remain deferred.
-
-The asset rollup is an additive presentation row. It is outside the
-conversation `limit`, ranking, decision filter, ledger grouping, and cursor
-sequence; it has no conversation id or management actions and cannot become a
-cursor pivot. Conversation `id` and `conversation_id` are always the same
-canonical conversation id.
-
-`match` is the bounded provenance for the winning searchable layer. `layer` is
-one of `conversation`, `message`, `run`, `idea`, `evidence`, or `decision`;
-`fragment` is the bounded display text and `count` is the number of matches in
-that winning layer. `message_id` is present only when `layer = message`. It is
-an owner-scoped jump anchor for the normal conversation message read above.
-
-`dossier` is either `null` or one completed evidence-backed run. It is `null`
-only for ordinary conversation/message/idea recall that has no finalized
-evidence-backed run; in that case `total_runs = 0` and `decided_runs = 0`.
-Every present dossier anchors its run identity, tested setup, outcome, current
-decision, result-message anchor, and actions to the same run/evidence pair.
-Lists are bounded to five symbols and four typed metrics. A decision note is
-the user's exact bounded note with internal newlines preserved. New writes are
-bounded to 500 characters, while read projections retain the existing 2,000-
-character compatibility bound for legacy notes. `total_runs`
-and `decided_runs` are backend-owned full-lineage counts, not page totals.
-
-`dossier.actions` is a bounded, backend-owned list. It contains at most one
-`retest_run` action followed by at most one `decision` action:
-
-- `retest_run` is projected only from the selected supported completed
-  evidence-backed run dossier. It carries identity and policy only:
-  `source_run_id`, a display-only `run_label`, the fixed
-  `window_policy: "preserve_start_ending_latest_available"`, and
-  `contract_version: "argus_retest_run/v2"`, plus a required server-owned
-  `state` (`new_data_available`, `no_new_data`, or `cant_do_it`). It carries no
-  executable setup and no generated prompt, so a client cannot supply canonical state. The backend
-  reloads every executable field from the owner-scoped stored run when the
-  action is submitted, preserves the original start, and requests the current
-  date only as the candidate end before provider coverage resolves the latest
-  available bar. Eligibility and admission
-  share one reconstruction, so the action is offered only when the backend can
-  faithfully classify and materialize the action - including under the
-  execution-realism kill switch, which would otherwise idealize a costed run.
-  `new_data_available` is enabled and reaches normal confirmation.
-  `no_new_data` is informational and disabled, so it creates no chat turn,
-  simulation request, job, or backtest row. `cant_do_it` requires a canonical
-  `reason_code`. History-start and Kraken-candle violations also require one
-  server-computed `repair = { kind: "clamp_start", start_date, end_date }`; that
-  guided action is enabled and admission applies the advertised repair before
-  preflight. A timeframe violation carries no repair and is disabled. If stored
-  facts are absent, conflicting, or unfaithful, the backend omits the action
-  instead of guessing. Submitting an enabled action reaches the normal
-  Ready-to-run confirmation and never directly executes a backtest.
-- `decision` targets the latest evidence artifact for that same latest run.
-  Its optional state and note describe the current decision on that exact
-  artifact. Its required `availability` is either `available` or
-  `account_conversion_required`. Only `available` may reach the existing
-  owner-checked, idempotent
-  `POST /evidence-artifacts/{artifact_id}/decision` contract; the client then
-  re-reads `/search` as canonical truth. Activating
-  `account_conversion_required` opens the account-conversion gate without
-  attempting the mutation. After successful conversion, the client re-reads
-  canonical dossier truth and may resume the same run/artifact action once.
-
-The action ids are narrow, opaque mutation targets for those two explicit
-owner actions. They are not searchable content and do not authorize access by
-themselves. Eligible guest dossiers retain the `decision` action with
-`availability: "account_conversion_required"`; `can_save_decision` remains
-false and direct guest writes still fail with `403 account_conversion_required`.
-Asset rollups have no `actions` field. Unsupported or incomplete stored run
-shapes omit `retest_run` rather than guessing.
-
-During rolling frontend/API deployments, conversion-gated decision actions are
-projected only when the request advertises
-`X-Argus-Client-Capabilities: dossier_decision_conversion_v1`. A missing or
-unknown signal preserves the legacy omission for accounts that cannot save
-decisions, so an already-open older client cannot mistake action presence for
-write access. Overlong signals are rejected by request validation. Registered
-`availability: "available"` projection is unchanged. This header is an additive
-presentation-compatibility handshake, not authorization or account-policy
-truth; the account context and mutation endpoint continue to own those
-boundaries. The same rule applies to `GET /search` and
-`GET /conversations/{conversation_id}/run-dossiers`.
-
-**Ranking Logic:**
-Results are ranked by:
-1. **Pinned Boost**: Pinned items always appear first.
-2. **Exact Match**: Full title/name match.
-3. **Symbol Match**: Match against symbols in backtests.
-4. **Object Priority**: Decision/evidence/idea/run matches beat user-message
-   matches, which beat conversation wrapper text.
-5. **Recency**: Sorted by latest canonical activity.
-6. **Basic Text Relevance**: Exact and prefix-oriented metadata matching.
-
-**Search Scope:**
-Search is limited to:
-- Titles and Names
-- Symbols
-- Last message preview (Conversations)
-- User-authored message content (assistant/system/tool content is excluded)
-- Backtest symbols and strategy families
-- Evidence digests, idea summaries, and decision state/note text.
-
-Alpha search does not return raw transcript rows or expose full transcripts in
-the search response. It selects one bounded user-message fragment and count for
-the conversation row; opening that row uses the typed message anchor. Complex
-template parameters remain outside the search index.
-
-The dossier is an owner-scoped, bounded projection. It never exposes raw
-context packets, route receipts, provider/model metadata, retry payloads,
-conversation transcripts, or general internal ids. The only id exceptions are
-the opaque latest-run and latest-evidence targets inside the typed actions
-described above. Search and dossier/action assembly make zero LLM or
-market-data provider calls. Asset recognition uses only canonical symbols
-stored on owned completed BacktestRuns; it does not resolve aliases or call an
-asset resolver/provider. Archived conversations remain eligible, soft-deleted
-conversations are excluded, and guest rollups are restricted to the active
-owned guest workspace.
-
-Persistent asset rollups resolve a bounded set of raw-casefolded symbol
-prefixes through the five canonical BacktestRun symbol slots before reading
-evidence or decisions. Once an exact or unambiguous stored symbol is selected,
-only that symbol's indexed run lineage is aggregated. Memory mode mirrors this
-shape with a non-durable, revision-keyed in-process index over canonical
-records: canonical writes invalidate it, while consecutive palette keystrokes
-read bounded postings rather than copying or projecting the full transcript.
-Exact Idea Ledger counts use the same revision snapshot's non-durable SQLite
-FTS5 trigram index plus per-candidate normalized-token rechecks and pre-indexed
-conversation/decision-state membership. Each revision indexes at most 20,000
-eligible, non-empty normalized ledger candidates. If a revision contains more,
-every non-empty indexable ledger query fails closed before FTS traversal,
-exact or short-token rechecks, deduplication, or aggregation, returning
-`503 search_temporarily_unavailable` with no partial counts. Registered
-empty-query counts are precomputed with the revision, while guest empty-query
-counts use the single keyed conversation membership. Under the cap, the query
-returns all four exact aggregate groups directly without a per-keystroke Python
-candidate scan.
-This cache is runtime acceleration only; it is not a durable recall model,
-summary, RAG surface, or alternate source of truth.
-
-When `include_ledger_groups=true`, `ledger_groups` is the source of truth for
-Idea Ledger group order and counts. Empty groups must be returned with
-`count = 0`; clients must not synthesize missing groups or counts locally.
-Clients localize the stable `decision_state` enum for display, but must keep the
-enum value from the backend attached to filters, pills, and grouped rows.
-
-Empty `q` returns recents-first conversation rows. Archived conversations remain
-eligible and soft-deleted conversations are excluded before ranking and limits.
-When `conversation_id` is supplied, ranking and cursor pagination do not apply:
-the response contains only those requested, owner-visible, non-deleted
-conversation dossiers and `next_cursor = null`. Missing, foreign, or deleted
-ids are omitted without revealing ownership. This is one bounded read for the
-at-most-50 chats already visible in History; clients must not replace it with
-one request per row or an automatic walk through unrelated ranked pages.
-For a non-empty query, text recall begins only when at least one normalized
-token has three characters. One- and two-character ordinary or partial text
-does not read transcript or artifact haystacks; the palette asks the user to
-keep typing. The exact stored-symbol exception above reads only completed-run
-symbol lineage. This protects the bounded per-keystroke read contract.
-
-*Future semantic retrieval may extend this endpoint.*
+`GET /api/v1/search` is retired under #2001 and returns 404. Conversation recall,
+investing dossiers, decision groups, and run retest actions are no longer served
+by this endpoint. Business record matching remains owned by
+`GET /api/v1/business/search`; its request and response contract is unchanged.
 
 ---
 
@@ -8538,6 +8220,45 @@ HTTP request already sent. Model/composition/send unknown outcomes retain the
 existing no-blind-retry rule. Business checkpoint persistence remains disabled
 pending proof of its authorization and deletion lifecycle.
 
+### Business accepted dates (#2175, part 1)
+
+`src/argus/domain/business/accepted_dates.py` owns acceptance at fresh input:
+`PastBusinessDate` accepts the inclusive interval from ten calendar years before
+`ledger.today()` through that Dominican day. The leap-day floor clamps to
+February 28. `DueDate` uses the same floor with no future ceiling. Query filters
+are not record input and keep their existing behavior.
+
+Receipt fact patches and typed purchases, settlement updates, invoice writes
+and normalized bank imports use these types. Fiscal reviews accept date shapes
+at the request boundary, then compare payment/withholding dates with the stored
+declaration inside the authorized review transaction. Only changed values use
+the accepted range; clearing a date is allowed. Both full fiscal reviews and
+partial purchase reviews preserve unchanged legacy dates when other fields are
+edited. Internal previews likewise retain saved declarations without validating
+them as fresh input.
+Stored declarations, QR evidence, read purchases and response projections remain
+readable even when an old date would no longer be accepted as fresh input.
+`covered_through` is a derived response value, not a writable date field.
+
+| Refusal code | Meaning | Metadata |
+| --- | --- | --- |
+| `business_date_after_today` | A past-event date is later than the Dominican day. | `min_date`, `today` |
+| `business_date_before_minimum` | A date precedes the accepted floor. | `min_date`, `today` |
+
+Request validation returns HTTP 422 with the code in
+`context.errors[].type`, the field path in `loc`, and bounds in `ctx`.
+Bank import and changed fiscal-date refusals carry the code and
+`context.{field,min_date,today}`. Fiscal refusal metadata is retained in the
+action receipt, including an idempotent replay.
+The web renders those bounds; it does not calculate another rolling range.
+The two locale files own the refusal sentences.
+
+An out-of-range receipt read remains evidence on the draft. Its `occurred_on`
+blocker carries the same code and `min_date`/`today`, and its list anchor is null.
+The dossier asks for correction and retains the upload-year shortcut. Approval
+requires that correction; the read itself succeeds. No extraction prompt changes.
+Amounts remain outside this change (#2176).
+
 ### Business document deletion and restore
 
 `POST /business/drafts/{draft_id}/delete` and
@@ -8561,7 +8282,9 @@ returns 404 `business_document_purged`.
 
 Receipt summary, detail and dossier responses expose `deleted`,
 `delete_available` and `restore_available`. The deletion metadata contains
-`actor: {actor_id, display_name}`, `at`, `key`, and `previous_state: {state, group}`.
+`actor: {actor_id, display_name, email, shown_as}` (named live for the reader, as in the dossier), `at`, `key`, and `previous_state: {state, group}`,
+plus `reason: "duplicate"` when the owner deleted it as a duplicate (absent
+for a plain delete).
 The previous group is `attention` or `listo`. For several generic read
 candidates, `previous_state.events` retains their IDs and prior states for
 restore under the document's one marker. Server availability uses the
@@ -8623,16 +8346,20 @@ documents older than 7 days in batches of 25, at most 500 per run.
 
 ### Business guide cards
 
-`GET /api/v1/business/guide-cards/{card_id}` returns `{dismissed: boolean}`
-for the signed-in person. `POST /api/v1/business/guide-cards/{card_id}/dismiss`
-takes no body. After a dismissal commits, it returns `{dismissed: true}`.
-Repeating the request keeps the first dismissal time.
+`GET /api/v1/me` returns `dismissed_guide_cards`: the IDs of the guide cards
+the signed-in person dismissed, in card ID order. It is `null` when the server
+could not read them; `/me` still answers, and the web then shows no guide.
+`PATCH /api/v1/me` and `PUT /api/v1/me/photo` return the same field; other
+responses with this shape return `null`. There is no per-card read.
+`POST /api/v1/business/guide-cards/{card_id}/dismiss` takes no body. After a
+dismissal commits, it returns `{dismissed: true}`. Repeating the request keeps
+the first dismissal time.
 
-The card IDs are `actividad-intro`, `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
+The card IDs are `actividad-intro`, `bandeja-intro`, `exportar-guardar` and `registros-intro`. An unknown ID returns 422. The preference
 follows the registered person across Businesses and sessions. The server takes
-the person ID from the session and ignores `X-Business-Grant` for these routes.
-Both responses use `Cache-Control: no-store`. If storage is unavailable, both
-routes return 503 `business_guide_unavailable` with a request reference.
+the person ID from the session and ignores `X-Business-Grant` for the dismiss
+route. Its response uses `Cache-Control: no-store`. If storage is unavailable,
+it returns 503 `business_guide_unavailable` with a request reference.
 
 ### Business receipt automatic reading and attention
 
@@ -8876,14 +8603,28 @@ gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
 is `{value, source}` or null. `source` says where the value came from:
 `last_choice` is the answer a person last gave for this draft's supplier RNC
 in this Business, on another open, accepting or accepted purchase; `receipt`
-is reserved for a value read from the receipt, and nothing sends it yet. A
-suggestion is read fresh and stored nowhere: it is null while
-`declaration_editable` is false or the draft has that answer of its own, and
-it never reads another Business. A suggested type on a declaration
-(`category_suggested`) is no answer, on this draft or as a memory. A
-suggestion reaches the 606 only when a person writes it as
-`purchase.category` or `purchase.payment_method`, so an approval never takes
-one and neither field blocks approval.
+is reserved for a value read from the receipt and `reading` for the AI
+reading's pick, and nothing sends either yet. A suggestion is read fresh: it
+is null unless the draft is an open expense whose approval writes a 606
+declaration (`declaration_editable` true, and a saved purchase declaration or
+an RNC and a 606-reported fiscal number), null where the draft has that answer
+of its own, and it never reads another Business. A suggested type on a
+declaration (`category_suggested`) is no answer, on this draft or as a memory:
+that answer reads blank. The approval is what saves a suggestion. The approve
+request's `suggestions` carries the ones the person saw, in the same shape;
+the approval saves each into its answer with its source. It refuses with 422
+`suggestion_stale`, and saves nothing, when an answer it names is no longer
+blank or the approval writes no 606 declaration; a changed version is 409
+`stale_version` as before. A value outside the codes or the sources is 422
+`validation_error`. Approving a list of Listos receipts
+(`POST /business/drafts/approve-listos`) saves the server's own suggestion,
+read at approval time, into each blank answer. Neither path writes over an
+answer a person gave, and neither field blocks approval. The saved source
+stays on the declaration as `suggestion_sources`, `{category?,
+payment_method?}` with the same source values, in the approval's revision
+under the approver. A person's write that changes an answer drops its source;
+nobody writes a source, and one sent on a review is replaced by the stored
+one.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
 enforces: a member holding `prepare` who is not the owner, on an `open` or
@@ -8908,9 +8649,31 @@ scoped idempotent command and assigns `member_set` fact provenance with the
 actual human actor; browser requests never supply source IDs or provenance.
 It is neither extracted evidence nor an agent proposal. Questions can reference
 that web action as their answer source. Questions carry stable IDs, field, recipient,
-channel, state, prompt and allowed answer states. History includes readable actor
-and issuer labels with grant provenance, time and before/after facts. A failed
-history read is an error, never an empty successful history.
+channel, state, prompt and allowed answer states. History includes the actor and
+issuer with grant provenance, time and before/after facts. A failed history read
+is an error, never an empty successful history.
+
+People are named live for the reader (#2219). A ledger row stores who acted
+(`actor_id`, `issuer_id`), never a label a reader sees; the stored
+`display_name` and `issuer_display_name` slots stay empty on new rows. Every
+response that names a person reads the profile at response time and says how
+the person shows in `shown_as`:
+
+- `name`: the person has a profile name, in `display_name`, for every reader.
+- `former`: no name, and the person holds no live grant on this Business (they
+  left), or the departure flow erased the account.
+- `email`: no name, a live grant, and the reader manages the Business (owner or
+  admin, the roles with `manage`) or is that person. The email is in `email`.
+- `member`: no name, a live grant, and any other reader (editor or viewer).
+
+`display_name` is set only for `name` and `email` only for `email`; both are
+`null` otherwise, so an editor or viewer never receives a teammate's email. A
+name added later shows on past rows. The client picks the words: the name, the
+email, its member word or its former-member word. No response uses a fixed
+stand-in such as "Member". The dossier's `history[].actor` and
+`approval_result.actor` are `{actor_id, actor_kind, grant_id, issuer_id,
+display_name, email, shown_as, issuer_display_name, issuer_email,
+issuer_shown_as}`.
 A recorded `approval_result` carries `activity_id`, the approving `actor`,
 `reviewed_version` (the draft version the approval named, which also counts
 approvals and settlements), `approved_revision` (the latest `history` version
@@ -8935,18 +8698,69 @@ undo cannot run, the next approval writes from that earlier declaration
 instead of keeping the failed approval's.
 
 `POST /business/drafts/{draft_id}/duplicate-resolution` takes
-`{version, other_draft_id, other_version, decision: "different_purchase"}` and
-`Idempotency-Key`. Both versions are strict positive integers. A live human
-with `prepare` may decide one existing receipt-fact duplicate pair in the same
+`{version, other_draft_id, other_version, decision}` and `Idempotency-Key`.
+`decision` is `different_purchase` or `same_purchase`. Both versions are
+strict positive integers. A live human with `prepare` may decide
+`different_purchase` for one existing receipt-fact duplicate pair in the same
 Business. The target must be open; the comparison may be open or accepted and
 is read-only. A stale version answers 409; a foreign or personal ID answers
 404 without disclosing its state. A bank or source-change warning cannot be
-cleared through this action. The returned `BusinessDossier` adds optional
-`duplicate_candidates: [{draft_id, version}]` (empty by default) for the
-remaining supported pairs; model-facing views omit this human control.
+cleared through this action. Two purchases with one supplier RNC and fiscal
+number are one comprobante, which approval accepts once, so
+`different_purchase` on such a pair answers 422 `duplicate_same_comprobante`.
 
-A successful decision adds one revision, source and action receipt and clears
-only the selected pair. It creates no financial activity. The durable decision
+`same_purchase` deletes the target document as a duplicate. It is the
+owner's alone and follows every rule of
+`POST /business/drafts/{draft_id}/delete`: it needs `approve`, an open
+document that is not being read and shares no attachment, and it answers the
+same refusals. The pair must be a pending receipt-fact pair or share one
+supplier RNC and fiscal number; any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
+`deleted.reason = "duplicate"`, restorable until the purge. The other
+document is not changed. It writes no revision. A repeat with the same key
+replays the result; a repeat with a new key on a document already deleted for
+this reason changes nothing. The Activity entry is `resolve_duplicate` with
+`decision`.
+
+The returned `BusinessDossier` carries `duplicate_candidates` (empty by
+default) for an open draft; model-facing views omit this human control. Each
+candidate is `{draft_id, version, basis, decisions, comparison}`:
+
+- `basis` says why the two look like one: `read_facts` (the read gave both the
+  same merchant, date, amount and currency) or `fiscal_number` (both purchases
+  carry one supplier RNC and fiscal number). `fiscal_number` wins when both
+  hold. A `fiscal_number` pair needs no `possible_duplicate` blocker.
+  A `read_facts` pair settled with `different_purchase` is no candidate on
+  either side until either document's read facts, live evidence or attached
+  files change. A `fiscal_number` pair is one comprobante: it stays a
+  candidate on both sides, and Bandeja's repeated-comprobante reason stays,
+  whatever answer a document stored before. Approval reads the same rule.
+- `decisions` lists what this reader may decide now: `different_purchase` for
+  a pending `read_facts` pair with `prepare`, never for a `fiscal_number`
+  pair, and `same_purchase` when `delete_available` is true. A client offers
+  no other decision.
+- `comparison` is `{document, other, differences, recommendation}`.
+  `document` is the reviewed draft and `other` the candidate, each
+  `{draft_id, counterparty, occurred_on, amount, currency, fiscal_number, file: {connection_id, filename, media_type, channel, received_at} | null, received_at, approved_at, state}`
+  with null for an unknown value. `fiscal_number` is the NCF, else the e-CF
+  number. `file` is the first attached file; its `channel` (`web`,
+  `whatsapp` or `email`) and `received_at` follow the same rule as the
+  dossier's attachment sources, so the stored `web` becomes `whatsapp` or
+  `email` at the API boundary. `state` is `accepted` once the document is
+  approved, else `open`; the reviewed document is always `open`. `differences` lists the fields that differ, of `counterparty`,
+  `occurred_on`, `amount`, `currency`, `fiscal_number` and `file` (the file is
+  compared by its stored digest); a field not listed is equal.
+  `recommendation` follows the fiscal number alone: `same_purchase` when both
+  carry the same one, `different_purchase` when they differ, null when either
+  has none. The server owns `differences` and `recommendation`; a client
+  renders them and computes neither.
+
+A successful `different_purchase` decision adds one revision, source and action receipt and clears
+only the selected pair. That revision's `history` entry carries
+`duplicate: {decision: "different_purchase", other_draft_id, other_counterparty, other_filename}`,
+read from the command its web action source recorded, with the other
+document's merchant and first file name as they read now (null when unknown).
+Every other entry carries `duplicate: null`. The web shows that entry as one
+Historial line and never infers it from the facts. It creates no financial activity. The durable decision
 binds both normalized merchant/date/amount/currency keys, live import evidence,
 and attached source IDs, source hashes and saved extraction batches. Ordinary
 review and unchanged preparation retry preserve it; changed facts or attached
@@ -9090,10 +8904,17 @@ still needs, first fix first, a missing value before a wrong one:
 `detail_missing`, the same words Registros shows as `export_missing`. The
 server may add a word; a client shows `detail_missing` for one it has no text
 for) and `missing_fiscal_rows` (those documents counted for
-Inicio's "Faltan datos fiscales" rows as `{family, currency, count,
+the legacy fiscal rows as `{family, currency, count,
 by_currency}`, Compras then Ventas: one row per family, split by currency only
 when that family's held documents span more than one, so each row opens exactly
-the Registros list it counts). `filing_ready` is removed. Each currency block
+the Registros list it counts). `not_ready_rows` uses the same row shape and
+ordering for Inicio's "Faltan datos" line, but its counts come from the current
+report projection and `ready: false` selection in the requested month. Each
+row opens Registros with that month, family, currency and `ready: false`;
+its count matches `overview.not_ready` for that selection. `[]` means no
+not-ready rows; `null` means projection refused with `business_report_too_large`,
+so Inicio shows unknown while the other month-card fields remain available. Legacy fiscal
+lists remain unchanged. `filing_ready` is removed. Each currency block
 carries `documents_counted`, `documents_total` and `documents_in_bandeja`
 (ints): of the month's documents in that currency, from the same list as the
 figures, how many the figures count, how many there are in all (approved ones
@@ -9141,7 +8962,9 @@ The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union
 `ApproveExpense | ApproveIncome`: `{version, action: "record_expense"}` or
 `{version, action: "record_income"}`, with the existing required
-`Idempotency-Key`. The route resolves the actual actor and live named grant from
+`Idempotency-Key`. `record_expense` also takes `suggestions`, the dossier's
+`declaration_suggestions` the person saw, which the approval saves (see
+`declaration_suggestions`). The route resolves the actual actor and live named grant from
 the canonical draft, then dispatches to the matching human command; the caller
 supplies no actor, space or grant. A document that arrived by email from a
 sender who is not yet authorized is refused with 403 `email_sender_unauthorized`
@@ -9273,7 +9096,9 @@ optional ITBIS override does not rewrite the main ITBIS fact. Main amount
 updates refresh inherited fields on every revision. Payment-date inheritance
 uses the stored document settlement or the existing paid-bill mark, never the
 selected account. Reads and exports refresh inherited values when settlement
-changes. An explicit fiscal date remains an override. The existing monthly
+changes. An explicit fiscal date remains an override. An `occurred_on` outside
+the accepted date range is never inherited as `paid_on`: the inherited value is
+null, the fact keeps its evidence, and its date blocker stays. The existing monthly
 sin-comprobante purchase cost remains the gross amount because its ITBIS is
 not creditable; all other monthly net calculations use the same net owner.
 
@@ -9318,15 +9143,15 @@ changes. The page is `{items: [...], next_cursor: string|null, actors: [...]|nul
 `id` is an opaque, stable string per row. `occurred_at` is the row's server
 timestamp.
 
-`actor` is `{display_name, kind, id, membership}`, or `null` when the source
-recorded no actor at all, or names an account with no profile and no departure
-record (the client shows "Actor no registrado"; no row says who when the record
-does not). `display_name` is the name the ledger stored when the action ran, so
-a member who later left keeps their name, and an account the departure flow
-erased shows `Exmiembro`; the server never joins the account table for a ledger
-row. The two derived events store no name: the server names the person from
-their profile, and `Exmiembro` once the departure flow replaced them with an
-alias in this Business. `kind` is `member`, `owner_via_agent` or `extractor`
+`actor` is `{display_name, email, shown_as, kind, id, membership}`, or `null` when the
+source recorded no actor at all, or names an account with no profile and no
+departure record (the client shows "Actor no registrado"; no row says who when
+the record does not). Every row names its person live for the reader, as the
+dossier does (#2219): a name added later shows on older rows, a member who
+later left keeps their profile name, an unnamed member shows their email only
+to a reader who manages the Business or is that member, and an account the
+departure flow erased shows as a former member. Automated work (`extractor`)
+has `display_name`, `email` and `shown_as` all `null`; the client words it. `kind` is `member`, `owner_via_agent` or `extractor`
 (automated processing; the client names it Cuadrao). `id` is an opaque id per
 person and Business, the same on every row of that person and in `actors`, never
 an account id or an email; every `extractor` row of a Business shares one `id`.
@@ -9381,11 +9206,13 @@ document purge removed the draft or upload, read from the purge record; its
 `label` is then always `null`. It is `false` otherwise. No amount, email or other
 field of the command leaves the ledger.
 
-Three actions carry one typed field of the stored command, `null` elsewhere:
+Some actions carry one typed field of the stored command, `null` elsewhere:
 `role` (`owner|admin|editor|viewer`) on `grant_access`, `invite_access` and
 `change_role`; `personal` on `mark_personal` (`true`: marked personal; `false`:
 returned to the Business); `include` on `decide_606` (`true`: included in the
-606). The client localizes them.
+606); `decision` on `resolve_duplicate` (`different_purchase`, or
+`same_purchase`: the document was deleted as a duplicate). The client
+localizes them.
 
 Filters, all optional query parameters, narrow the page on the server:
 `from` and `to` (`YYYY-MM-DD`, calendar days in the Business time zone,
@@ -9418,9 +9245,8 @@ not narrow `actors`.
 `actors` lists, on the first page only (`null` on a cursor page), every actor
 with at least one row the reader may see under the `from`, `to`, `area` and
 `action_group` filters (the `actor` filter does not narrow it), as
-`{id, display_name, kind, membership}` sorted by name, with the name the
-newest such row stored, or the derived-event name above when no such row
-stored one. An actor whose only rows are manager-only never appears in a
+`{id, display_name, email, shown_as, kind, membership}` sorted by name, else
+email, each named live for the reader. An actor whose only rows are manager-only never appears in a
 member's `actors`.
 
 Only rows whose outcome is `applied` list; refused, failed, stale, replayed and
@@ -9670,7 +9496,7 @@ The finalizer reads and locks the saved extraction batch and original binding. I
 
 Original access, issuer, current source/consent and document lease are checked before extraction and again in the completion transaction. A new grant cannot substitute for the captured grant. Exact replay requires current access and returns the original settled result without another revision. Source, draft revision/link and action receipt commit together; a failed completion check rolls them back.
 
-Existing `ARGUS_BUSINESS_PILOT_ENABLED`, `ARGUS_INGESTION_ENABLED` and `ARGUS_DOCUMENT_EXTRACTION_ENABLED` gates remain the rollout controls and default off. This candidate adds no separate bridge switch: enabling those gates makes a consented Business upload use the bridge. The extraction setting blocks new model calls; a direct resume of an already-saved batch can still reach completion. Integration delivery keeps the existing gates off. Enabling, connected UI acceptance and model-quality acceptance remain separate decisions.
+Existing `ARGUS_INGESTION_ENABLED` and `ARGUS_DOCUMENT_EXTRACTION_ENABLED` gates remain the rollout controls and default off. This candidate adds no separate bridge switch: enabling those gates makes a consented Business upload use the bridge. The extraction setting blocks new model calls; a direct resume of an already-saved batch can still reach completion. Integration delivery keeps the existing gates off. Enabling, connected UI acceptance and model-quality acceptance remain separate decisions.
 
 **Evidence limit.** An invoice amount due is not proof that payment occurred. This candidate's unverified extraction and draft creation do not establish payment, fiscal validity or accounting acceptance. The current receipt/invoice interpretation quality gate remains open; these contract paragraphs do not claim it is solved.
 
@@ -9779,9 +9605,8 @@ new top-level review UI is introduced.
 
 #### Existing pilot behavior
 
-Off unless `ARGUS_BUSINESS_PILOT_ENABLED` and `ARGUS_INGESTION_ENABLED` are
-both true. While either is off every route below answers 404
-`business_unavailable`; the pilot flag is checked before authentication. With
+The pilot-wide availability gate is retired. Ingestion and extraction keep their
+own controls. With
 `ARGUS_DOCUMENT_EXTRACTION_ENABLED` off, only receipt upload and preparation
 answer 404. Saved receipts stay readable and downloadable, and review,
 confirm, hand entry, expenses and the space routes keep working. Every response is
@@ -10066,9 +9891,10 @@ person starts their space, every route below except POST `/space` answers 404
     carry `personal`,
     `fiscal_value` (`ncf`, `ecf` or null) and `include_606` (true, false or
     null when not applicable or unanswered), present only when set, and
-    `personal_marked_by`, the display name of whoever last changed the mark
-    when that was not the owner (absent otherwise), `include_606_by`, the
-    display name of whoever last changed the 606 answer while one applies,
+    `personal_marked_by`, whoever last changed the mark when that was not the
+    owner (absent otherwise), `include_606_by`, whoever last changed the 606
+    answer while one applies, each `{display_name, email, shown_as}` named
+    live for the reader as in the dossier,
     and `fiscal_known`: on a receipt summary or detail, present and true once
     a draft owns the receipt (absent before anything is read); on the dossier,
     always true; on an expense, its detail and a search expense, always
@@ -10099,7 +9925,9 @@ person starts their space, every route below except POST `/space` answers 404
   - GET `/api/v1/business/access` returns the existing `grants` and `invites`
     lists. Grants add `business_role` and `permissions`; invitations add
     `requested_role`. Legacy `owner`, `capabilities`, profile photo and timestamp
-    fields remain. Pending invitations expose the same shape for known and
+    fields remain. A grant's `display_name` is the profile name, or `null`
+    when the person set none (the row then shows its `email`; #2219). Pending
+    invitations expose the same shape for known and
     unknown recipient accounts. `invitations_available` matches
     `GET /business/spaces`.
   - POST `/api/v1/business/access`, POST `/api/v1/business/access/invitations`,
@@ -10517,6 +10345,11 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
+- Each `ReceiptSummary` carries `uploaded_by`, the person who uploaded a web
+  upload, as `{display_name, email, shown_as}` named live for the reader by
+  the same rule as `personal_marked_by`. It comes from the first applied
+  `receipt_upload` ledger row for the receipt. It is null for a WhatsApp or
+  email arrival, and null where no ledger is kept (the in-memory app).
 - Duplicates never record money twice. Uploading the same bytes again, from
   any entry point, answers with the receipt already saved and `replayed:
   true`; nothing new is stored. A second document whose read merchant, date,
@@ -10743,7 +10576,11 @@ accept path recorded.
   the day or the month was spent before this read could start; `error_code`
   is `business_read_budget_day` or `business_read_budget_month`, the receipt
   is saved unread with `preparable: true`, and a consented `/prepare` reads it
-  once the budget allows) or `other`. `error_code` stays the precise cause.
+  once the budget allows), `read_deadline_passed` (the read waited 6 hours
+  from the upload, or from the owner's own ask, with the reading service
+  unavailable; `error_code` is `document_read_deadline_passed`, the receipt
+  did not fail, `preparable` is true, and this reason never counts against
+  the owner's own retries) or `other`. `error_code` stays the precise cause.
   Nothing is retried automatically because of it.
 - The Business read budget counts every provider read a Business starts,
   whichever channel the receipt came from (web, email, WhatsApp, `/prepare`,
@@ -10852,6 +10689,11 @@ accept path recorded.
   defaulting to `["purchase"]`, and normalizes old empty or both-type selections
   to that screen default. Its selected type scopes the table, all six cards,
   expanded Total and export. Malformed or unknown values are rejected.
+  The nullable `ready` filter accepts true (ready), false (missing data), or null
+  (all). It reads each row's `ready` verdict from `readiness` in
+  `reporting_projection.py`; `overview.not_ready` counts false verdicts over
+  the same filtered rows before pagination. Search, period, family, currency
+  and every other filter apply to that count too.
   The nullable `fiscal_data` filter accepts `complete`, `missing` or null (all).
   Each row's `fiscal_data` comes from its current 606/607 verdict, independently
   of downloads. `complete` means the current report carries a complete fiscal line;
@@ -10941,7 +10783,25 @@ accept path recorded.
   whose month's 606 or 607 holds it: `export_missing` names the first value
   that is missing or that DGII's tools reject, in the month close's
   `missing_fiscal_data` words, and `export_missing_several` is true when there
-  is more than one. After the verdict a `ready_for_export` purchase is a 606
+  is more than one.
+  Independently of these legacy fields, every row carries `ready` and `missing`,
+  the full ordered list of reason keys. `readiness` is their one owner. Fiscal
+  reasons and their order come from `missing_items` in `dgii_line.py`, reading
+  the original issues preserved by `dgii_export.py`. Distinct blocker reasons
+  follow in the projection's blocker-table order; repeated reasons appear once.
+  The `possible_duplicate` blocker (a repeated read) yields its own word,
+  `possible_duplicate`; `duplicate_document` stays the fiscal number already
+  recorded.
+  Unmapped blockers yield `detail_missing` and log a warning. Technical failures
+  also yield `detail_missing`. Blocker rows and old exported rows receive the
+  current verdict; export history cannot make missing data ready. Rows excluded
+  by a fiscal rule are ready unless they have a blocker or technical failure.
+  `fiscal_conversion_required` alone leaves a complete foreign-currency row
+  ready. Other fiscal issues still make it not ready, with their usual reasons.
+  This does not change `fiscal_data`, `export_line`, the export dialog, or the
+  606/607 files: a foreign-currency row still waits for a rate. All legacy fields
+  remain available and the web continues to read them in this additive slice.
+  After the export verdict a `ready_for_export` purchase is a 606
   row that passes every rule of the 606 rule table
   (`src/argus/domain/business/dgii_606_rules.py`): the ITBIS ceiling (18% of
   Total Monto Facturado plus Impuesto Selectivo al Consumo, rounded to cents
@@ -11051,13 +10911,18 @@ accept path recorded.
   currency (`DOP`), `record_count` the records whose
   current `fiscal_data` is `complete` (a line on its month's form),
   `pending_count` every record the form holds back, the two counts below,
-  `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing` (the
-  Faltan datos fiscales card for the same tab, period and DOP), and
+  `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing`, and
   `pending_rate_count` with `pending_rate_currencies` the foreign-currency
   records the form holds until they have a rate. No count is computed on the web.
-  The notice's Revisar queries exactly those records: the tab, the period,
-  `currency` and `fiscal_data: missing`, with every other filter and the search
-  cleared. `rnc_warning_count` counts exported purchase rows with an inactive
+  The fiscal-data notice reads `dgii.pending_fiscal_count`; the summary reads
+  `dgii.pending_count` (fiscal plus rate). Rate-held records have their own notice.
+  Revisar keeps only the tab and period, selects the form’s currency and
+  `fiscal_data: missing`, and clears every other filter and search. That fiscal
+  selection appears as a clearable chip, not a filter-picker option. Other filter
+  changes retain it until its chip or Limpiar clears it. Lo que ves retains the
+  table request.
+  These form inclusion and rate counts remain separate from report readiness.
+  `rnc_warning_count` counts exported purchase rows with an inactive
   or unverified RNC, and `rnc_supplier_count` counts their unique normalized
   supplier identities. `rnc_suppliers` groups those rows by normalized `rnc`,
   with `name` (registry name, else projected counterparty), `estado` (raw registry
@@ -11066,6 +10931,12 @@ accept path recorded.
   snapshot and line review as fiscal selection. Pending and excluded rows do
   not count. Sales return zero counts and an empty list. The notice does not
   block download.
+  `table.current`, `table.all` and `dgii` each carry `filenames`, `{xlsx, csv}`:
+  the name the export below gives that choice's file in each format, from the
+  same `records_filename` with the same Business name, period, dates and
+  `Accept-Language`. The web offers it in the Save As window before the file is
+  built and never composes a name. The name's time is the preview's read; an
+  export read in a later minute names its own file with its own time.
 
 - POST `/api/v1/business/reports/export` takes `{report, mode, columns, currencies,
   format}` and returns one no-store file. `Content-Disposition`, exposed to
@@ -11154,11 +11025,16 @@ accept path recorded.
   layout, including when the original request omitted it. Explicit saved layouts
   keep their order, hidden columns and density. A column a saved or linked
   layout does not name joins it at the end, hidden. The
-  net amount instead joins just before the total, shown.
+  net amount instead joins just before the total, shown; `missing` (Motivo)
+  joins just after `stage`, shown.
 
   `presentation.order` contains each supported table key once, in any order.
   The default visible order is `counterparty_id` (RNC o Cédula), date, expense
-  type, net amount, ITBIS, total, stage. The name, fiscal number, note,
+  type, net amount, ITBIS, total, stage, missing. `stage` renders the fixed-width
+  Listo/Faltan datos chip from `ready`. `missing` renders the first ordered
+  reason and +N for remaining reasons, blank when ready; the full list is
+  available on hover and in the open record. The table export renders the
+  same two columns using locale-owned words. The name, fiscal number, note,
   attachment, payment form and account are hidden by default.
   Expense type and payment form are offered and rendered only on Compras.
   `family` and `currency` are removed from table order and hidden keys when reading
@@ -11186,12 +11062,15 @@ accept path recorded.
   `test_recorded_preview_answer_matches_backend`, `records-default-authority.test.ts`
   and `business-reports-connected.dom.test.tsx` enforce these boundaries.
 
-  Every report answer adds `overview` with `needs_review`, `needs_fiscal_data`,
+  Every report answer adds `overview` with `not_ready`, `needs_review`, `needs_fiscal_data`,
   `ready_for_export`, `exported` and `export_lines` counts from the authorized
   projection. `needs_fiscal_data` counts rows whose current `fiscal_data` is
   `missing`, matching every table filter, including search, fiscal choice and
   legacy review stages, before pagination. A row can count here while its
-  historical stage is `exported`. The Fiscal card renders this count. The other overview counts remain scoped to
+  historical stage is `exported`. The Faltan datos card renders `not_ready`
+  and applies `ready: false` when selected.
+  `not_ready` uses the row readiness predicate and every table filter before
+  pagination, including the `ready` filter. The other overview counts remain scoped to
   Business and period only. The Bandeja line reads `pending_review_count` from
   receipt activity, never this answer.
   Literal search ignores case and accents, and covers counterparty, current note,
@@ -11438,7 +11317,7 @@ The October 18 transfer email successor adds authenticated
 `GET /business/ownership-transfers`. It returns only transfers where the actor
 is an original participant and still has a live grant to the open Business.
 Each item includes `id`, `space_id`, server-computed `status`, `expires_at`,
-`business_name`, `owner_name`, `target_name`, the actor's live `grant_id` and `owner` or `target`
+`business_name`, `owner_name`, `owner_email`, `owner_shown_as`, `target_name`, `target_email`, `target_shown_as` (each person named live for the reader as in the dossier), the actor's live `grant_id` and `owner` or `target`
 role. GET does not accept, decline, withdraw, expire or send mail.
 
 A request expires exactly 168 hours after creation. At or after the deadline,
@@ -11517,16 +11396,16 @@ for this delivery.
 #### Business lifecycle backend checkpoint, October 21, 2026
 
 This checkpoint supersedes the readiness status above. `require_lifecycle_ready`
-is removed. The nine lifecycle and transfer operations answer behind the existing
-Business surface gate only: with the pilot switch
-(`CUADRAO_BUSINESS_PILOT_ENABLED`, falling back to `ARGUS_BUSINESS_PILOT_ENABLED`)
-off they answer `404 business_unavailable`, as every Business route does. Global
-account deletion keeps its own switch and is unchanged.
+is removed. The nine lifecycle and transfer operations use the Business surface dependency.
+Global account deletion keeps its own switch and is unchanged.
 
 `GET /business/owned-spaces` is the close preview. Each Business now also carries
 `member_count` (the live members who lose access on close), `reopen_until` (the
 deadline a close now would set, from the database clock) and `export_windows`.
-`members` lists every live member as `{grant_id, name, eligible, reason}`.
+`members` lists every live member as `{grant_id, name, email, shown_as, eligible, reason}`;
+`name` is the profile name or `null`, and `email` stands in only without one
+(only the owner reads this list, so `shown_as` is `name`, `email`, or `member`
+for an account with no email).
 `reason` is null for an eligible member, otherwise `account_unavailable`,
 `not_editor`, `email_unconfirmed` or `owns_open_business`. Eligibility and the
 transfer request read one shared query, so a request naming an ineligible member

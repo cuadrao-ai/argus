@@ -3,6 +3,7 @@
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptAttention } from "@/lib/business-api";
+import { personName, type PersonName } from "@/lib/person-name";
 import { BusinessContext } from "./BusinessWorkspace";
 import { FOCUS_RING } from "./foundation/presentation";
 export { StatusPill } from "./foundation/StatusPill";
@@ -57,15 +58,15 @@ export function useCategoryLabel() {
       : t("business.category.none", "No category");
 }
 
-/** Title and body for a terminal read. Other attention values keep their short word. */
+/**
+ * Title, body and next steps for a read that ended with something to say. Other attention values keep their short word.
+ * `discard` offers the delete there, shown only where the server allows it.
+ */
 export function useTerminalRead() {
   const { t } = useTranslation();
-  return (attention: ReceiptAttention | null, errorCode: string | null) => {
-    const uploadLabel = t("business.file_read.upload_another", "Upload another file");
-    if (
-      attention === "unreadable" &&
-      (errorCode === "unreadable_document" || errorCode === "receipt_requires_review")
-    ) {
+  return (attention: ReceiptAttention | null) => {
+    const uploadLabel = t("business.file_read.upload_another");
+    if (attention === "unreadable") {
       return {
         title: t("business.file_read.unreadable_title", "We couldn't read this file"),
         body: t(
@@ -74,6 +75,7 @@ export function useTerminalRead() {
         ),
         upload: true,
         uploadLabel,
+        discard: true,
       };
     }
     if (attention === "not_a_receipt") {
@@ -85,6 +87,19 @@ export function useTerminalRead() {
         ),
         upload: true,
         uploadLabel,
+        discard: false,
+      };
+    }
+    if (attention === "read_deadline_passed") {
+      return {
+        title: t("business.attention_short.read_deadline_passed", "Reading didn't finish"),
+        body: t(
+          "business.file_read.read_deadline_passed_body",
+          "The reading service wasn't available. You can read it again.",
+        ),
+        upload: false,
+        uploadLabel,
+        discard: false,
       };
     }
     return null;
@@ -161,12 +176,12 @@ export function recordFiscalMark(record: { sin_comprobante?: boolean; fiscal_kno
   return record.fiscal_known && !record.fiscal_value ? "missing_ncf" : null;
 }
 
-export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: string | null; className?: string }) {
+export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: PersonName | null; className?: string }) {
   const { t } = useTranslation();
   const owner = useOwnerView();
   const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-mark border px-2 text-[11px] font-medium";
   if (!personal && !fiscal) return null;
-  const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: markedBy }) : null;
+  const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: personName(t, markedBy) }) : null;
   return (
     <span className={`flex flex-wrap items-center gap-1.5 ${className}`} data-testid="record-marks">
       {personal ? (

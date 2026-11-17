@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { createHttpMonthCloseClient, type MonthCloseClient, type MonthCloseFigures, type MonthCloseSnapshot } from "../lib/business-month-close";
+import { createHttpMonthCloseClient, type MonthCloseClient } from "../lib/business-month-close";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -74,7 +74,7 @@ function serverClient(server: Server): { client: MonthCloseClient; asked: string
   return { client, asked };
 }
 
-async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"], layout: "inicio" | "finance" = "inicio", language: "es-419" | "en" = "es-419", prepares = true) {
+async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"], layout: "finance" = "finance", language: "es-419" | "en" = "es-419", prepares = true) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -88,7 +88,7 @@ async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof
   document.body.appendChild(host);
   const root = createRoot(host);
   const opened: unknown[] = [];
-  const render = () => root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={browser} scopeKey="own" businessCurrency="DOP" review={review} layout={layout} openRecords={prepares ? (focus) => opened.push(focus) : undefined} openBandeja={prepares ? () => opened.push("bandeja") : undefined} /></I18nextProvider>);
+  const render = () => root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={browser} scopeKey="own" businessCurrency="DOP" review={review} layout={layout} arrange={({ month, money }) => <>{month}{money}</>} openRecords={prepares ? (focus) => opened.push(focus) : undefined} openBandeja={prepares ? () => opened.push("bandeja") : undefined} /></I18nextProvider>);
   await act(async () => { render(); });
   const setReview = async (next: typeof review) => { review = next; await act(async () => { render(); }); };
   const settle = async () => { for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); }); };
@@ -118,7 +118,7 @@ describe("Inicio reads today from the server", () => {
       assert.equal(asked.at(-1), "2026-11");
       assert.equal(view.find("month-close-month-next")?.hasAttribute("disabled"), true, "the server's month is the last one");
       const overdue = view.text("month-close-receivable-overdue");
-      assert.match(overdue, /^7 vencidas/, "the count is the server's, not the two rows on the page");
+      assert.match(overdue, /^Incluye 7 vencidas/, "the count is the server's, not the two rows on the page");
       assert.match(overdue, /RD\$\s?12,300\.00/);
       assert.match(overdue, /US\$\s?50\.00/);
       const late = view.host.querySelector('[data-document-id="late"] [data-testid="month-close-lateness"]');
@@ -142,7 +142,7 @@ describe("Inicio reads today from the server", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
-    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={ahead} scopeKey="own" /></I18nextProvider>); });
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView layout="finance" arrange={({ month, money }) => <>{month}{money}</>} settlement client={client} now={ahead} scopeKey="own" /></I18nextProvider>); });
     for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); });
     try {
       assert.equal(host.querySelector('[data-testid="month-close-month"]')?.textContent, "Octubre 2026");
@@ -168,13 +168,13 @@ describe("Inicio reads today from the server", () => {
 });
 
 describe("the net result follows net_result_final", () => {
-  test("false shows the waiting line with the server's count, even when the web holds no pending row", async () => {
+  test("false leaves the net unknown, even when the web holds no pending row", async () => {
     const { client } = serverClient({ month: () => ({ currencies: [block("DOP", false, 3)] }) });
     const view = await renderInicio(client);
     try {
-      assert.equal(view.find("month-close-net")?.dataset.state, "pending");
-      assert.match(view.text("month-close-net"), /Falta marcar 3 documentos/);
-      assert.doesNotMatch(view.text("month-close-net"), /2,500/);
+      assert.equal(view.find("home-month-net")?.dataset.state, "unknown");
+      assert.doesNotMatch(view.text("home-month-net"), /Falta marcar/);
+      assert.doesNotMatch(view.text("home-month-net"), /2,500/);
     } finally {
       await view.unmount();
     }
@@ -184,125 +184,25 @@ describe("the net result follows net_result_final", () => {
     const { client } = serverClient({ month: () => ({ currencies: [block("DOP", true)], cuentas_por_cobrar: [line("still", null)] }) });
     const view = await renderInicio(client);
     try {
-      assert.equal(view.find("month-close-net")?.dataset.state, "final");
-      assert.match(view.text("month-close-net"), /RD\$\s?2,500(?![.\d])/);
+      assert.equal(view.find("home-month-net")?.dataset.amount, "2500.00");
+      assert.match(view.text("home-month-net"), /RD\$\s?2,500(?![.\d])/);
     } finally {
       await view.unmount();
     }
   });
 
-  test("ITBIS cobrado sits under ITBIS en ventas, from the block", async () => {
-    const { client } = serverClient({});
-    const view = await renderInicio(client);
-    try {
-      assert.match(view.text("month-close-itbis-sales"), /ITBIS cobrado/);
-      assert.match(view.text("month-close-itbis-sales"), /RD\$\s?450(?![.\d])/);
-    } finally {
-      await view.unmount();
-    }
-  });
 });
 
-describe("a non-final block with no documents left names the pending rate", () => {
-  const aside = "Estos montos no están incluidos en el resultado.";
-
-  function rateClient(currencies: string[]) {
-    return serverClient({ month: () => ({ currencies: currencies.map((currency) => block(currency, false, 0)) }) }).client;
-  }
-
-  function unreadableClient(): MonthCloseClient {
-    const figure: MonthCloseFigures = {
-      currency: "usd",
-      income_before_itbis: null,
-      expense_before_itbis: null,
-      net_before_itbis: null,
-      itbis_paid: null,
-      itbis_cobrado: null,
-      net_result_final: false,
-      pending_count: 0,
-    };
-    const snapshot: MonthCloseSnapshot = {
-      month: "2026-10",
-      from: "2026-10-01",
-      to: "2026-10-31",
-      today: null,
-      earliest_month: null,
-      payment_methods: METHODS,
-      dgii_forms: null,
-      documents: [],
-      unreviewed_movements: 0,
-      figures: [figure],
-    };
-    const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] };
-    return {
-      mode: "mock",
-      async load() { return snapshot; },
-      async openItems() { return { today: null, cuentas_por_cobrar: none, cuentas_por_pagar: none }; },
-      async markCobrado() { throw new Error("unused"); },
-      async markPagado() { throw new Error("unused"); },
-      async markPendiente() { return undefined; },
-    };
-  }
-
-  async function expectRate(client: MonthCloseClient, headline: string, layout: "inicio" | "finance", plain = false) {
-    const view = await renderInicio(client, undefined, layout);
-    try {
-      const net = view.text("month-close-net");
-      assert.equal(view.find("month-close-net")?.dataset.state, "pending");
-      assert.ok(net.includes(headline), net);
-      assert.ok(net.includes(aside), net);
-      assert.equal(net.includes("pendiente de tasa en"), !plain, net);
-      assert.doesNotMatch(net, /Falta marcar/);
-      assert.doesNotMatch(net, /2,500/);
-    } finally {
-      await view.unmount();
-    }
-  }
-
-  // Inicio's month card shows no caption under the net: its own tests cover a pending rate.
-  for (const layout of ["inicio"] as const) {
-    test(`${layout} shows one currency`, async () => {
-      await expectRate(rateClient(["USD"]), "Moneda extranjera: pendiente de tasa en USD", layout);
-    });
-
-    test(`${layout} shows two currencies in alphabetical order`, async () => {
-      await expectRate(rateClient(["USD", "EUR"]), "Moneda extranjera: pendiente de tasa en EUR y USD", layout);
-    });
-
-    test(`${layout} shows three currencies with a final y`, async () => {
-      await expectRate(rateClient(["USD", "DOP", "EUR"]), "Moneda extranjera: pendiente de tasa en DOP, EUR y USD", layout);
-    });
-
-    test(`${layout} drops an unreadable code`, async () => {
-      await expectRate(unreadableClient(), "Moneda extranjera: pendiente de tasa", layout, true);
-    });
-  }
-});
-
-describe("a mark sends the server's day and a method the server lists", () => {
-  const open = (items: unknown[]) => ({ today: SERVER_TODAY, cuentas_por_cobrar: { count: items.length, totals: [{ currency: "DOP", total_minor: 590000 }], overdue: { count: 0, totals: [] }, items }, cuentas_por_pagar: { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] } });
-
-  test("the PATCH carries the server's today, not the browser's, and the listed method", async () => {
+test("Inicio never offers a one-tap mark regardless of the server's payment methods", async () => {
+  for (const payment_methods of [["otro"], ["efectivo", "transferencia"]]) {
     const patches: { path: string; body: unknown }[] = [];
-    const { client } = serverClient({ open: open([line("act-1", "2026-11-05")]), patches });
-    const view = await renderInicio(client);
-    try {
-      await view.act(async () => { view.find("month-close-mark-cobrado")!.click(); });
-      await view.settle();
-      assert.deepEqual(patches, [{ path: "/business/month-close/documents/act-1", body: { status: "cobrado", settled_on: SERVER_TODAY, payment_method: "otro" } }]);
-    } finally {
-      await view.unmount();
-    }
-  });
-
-  test("a server whose list has no method for a one-tap mark offers no mark", async () => {
-    const { client } = serverClient({ month: () => ({ payment_methods: ["efectivo", "transferencia"] }), open: open([line("act-1", null)]) });
+    const { client } = serverClient({ month: () => ({ payment_methods }), patches,
+      open: { today: SERVER_TODAY, cuentas_por_cobrar: { count: 1, totals: [], items: [line("act-1", null)] }, cuentas_por_pagar: { count: 0, totals: [], items: [] } } });
     const view = await renderInicio(client);
     try {
       assert.ok(view.host.querySelector('[data-document-id="act-1"]'));
       assert.equal(view.find("month-close-mark-cobrado"), null);
-    } finally {
-      await view.unmount();
-    }
-  });
+      assert.deepEqual(patches, []);
+    } finally { await view.unmount(); }
+  }
 });

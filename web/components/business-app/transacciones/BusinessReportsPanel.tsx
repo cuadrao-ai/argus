@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SlidersHorizontal } from "lucide-react";
-import { getMe } from "@/lib/argus-api";
 import { getChosenGrant } from "@/lib/business-grant";
-import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
+import { usePanelShell } from "@/components/chat/ChatWorkspace";
 import { isProgrammaticPop } from "@/lib/overlay-history";
 import { businessReportRow, liveReportingTransport, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportFailure, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport, type ViewWriteResult } from "@/lib/business-reporting-wire";
 import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, reportPeriodSchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand } from "@/lib/business-reports-api";
@@ -21,15 +20,15 @@ import { periodRange, todayIso, type Period } from "../business-format";
 import { cardClass, quietButtonClass } from "../business-ui";
 import { EmptyState } from "../foundation/EmptyState";
 import GuideCard from "../foundation/GuideCard";
-import FullscreenLoading from "@/components/FullscreenLoading";
-import { activeFilterGroups, emptyPreviewFilters, REVIEW_FILTERS, STAGE_OF, type PreviewFilters } from "./records-filter-preview-model";
+import { activeFilterGroups, emptyPreviewFilters, type PreviewFilters } from "./records-filter-preview-model";
 import { showToast } from "../foundation/toasts";
-import { RecordsToolbar, type RecordsFilter } from "./RecordsToolbar";
+import { RecordsToolbar, RecordsToolbarPending, type RecordsFilter } from "./RecordsToolbar";
 import { sameRecipe, type RecordsViews } from "./RecordsViewsPreview";
 import RecordsTypeTabs from "./RecordsTypeTabs";
 import RecordsSettingsPreview from "./RecordsSettingsPreview";
 import RecordsPagePreview from "./RecordsPagePreview";
-import RecordsLoadingPreview from "./RecordsLoadingPreview";
+import RecordsLoadingPreview, { RecordsLoadingBar } from "./RecordsLoadingPreview";
+import loading from "./records-loading-preview.module.css";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { RecordsAnnotationsPreview } from "./RecordsAnnotationsPreview";
 import { RecordArrivalsContext, RecordEvidenceContext, RecordGlanceContext } from "./RecordGlanceContext";
@@ -40,6 +39,7 @@ import type { RecordRow } from "./transacciones-model";
 import { useFiscalStageToggle } from "./useFiscalStageToggle";
 import { useBusinessReport } from "./useBusinessReport";
 import { useTransaccionesWords } from "./transacciones-words";
+import { useDelayedPending } from "../business-skeletons";
 
 const REPORTING = "business.transactions.reporting.";
 const EMPTY_COPY = "business.transactions.records.empty_placeholder";
@@ -60,8 +60,8 @@ function periodForUi(period: ReportPeriod, answer?: ReportAnswer): Period {
 export function reportFiltersForUi(filters: ReportFilters): PreviewFilters {
   const currency = recordsCurrencySchema.parse(filters.currencies[0]);
   const result = emptyPreviewFilters(currency);
+  result.ready = filters.ready;
   result.fiscal_data = filters.fiscal_data;
-  result.review = REVIEW_FILTERS.filter((key) => filters.review_stages.includes(STAGE_OF[key]));
   result.attachment = filters.has_document === null ? "any" : filters.has_document ? "with" : "without";
   result.amount = { currency, min: filters.amount_min ?? "", max: filters.amount_max ?? "" };
   result.counterparty = filters.counterparties; result.expense_type = filters.expense_types; result.account = filters.funding_sources;
@@ -69,7 +69,48 @@ export function reportFiltersForUi(filters: ReportFilters): PreviewFilters {
   return result;
 }
 export function reportFiltersFromUi(current: ReportFilters, filters: PreviewFilters, kind: RecordsFilter["kind"]): ReportFilters {
-  return { ...current, record_families: [kind === "venta" ? "sale" : "purchase"], fiscal_data: filters.fiscal_data, review_stages: filters.fiscal_data ? [] : filters.review.map((key) => STAGE_OF[key]), has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: [filters.amount.currency], amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, categories: [], expense_types: kind === "venta" ? [] : filters.expense_type, funding_sources: filters.account, document_kinds: filters.document as ReportFilters["document_kinds"], fiscal_classifications: filters.fiscal.map((value) => /^[be]\d\d$/i.test(value) ? value.toUpperCase() : value) };
+  return { ...current, record_families: [kind === "venta" ? "sale" : "purchase"], ready: filters.ready, fiscal_data: filters.fiscal_data, review_stages: [], has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: [filters.amount.currency], amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, categories: [], expense_types: kind === "venta" ? [] : filters.expense_type, funding_sources: filters.account, document_kinds: filters.document as ReportFilters["document_kinds"], fiscal_classifications: filters.fiscal.map((value) => /^[be]\d\d$/i.test(value) ? value.toUpperCase() : value) };
+}
+
+/** The list Registros opens on: a focus another screen opened, else this scope's saved address, else the latest month. A scope not known yet reads the address as it stands. */
+function startingReport(scopeKey: string | null, initial?: ReportRequest) {
+  const params = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
+  const other = scopeKey !== null && params.has("report_scope") && params.get("report_scope") !== scopeKey;
+  const saved = restoreReportLocation(other ? new URLSearchParams() : params);
+  return { ...saved, request: initial ?? (params.has("report") && !other ? saved.request : reportRequestSchema.parse({ filters: { period: { kind: "latest_month" } } })) };
+}
+
+/** A phone's heading and Agregar; from the tablet stop up the top bar holds both, also beside an open record. */
+function RecordsHeading() {
+  const { isBelowTablet: phone } = useResponsiveLayout();
+  const { t } = useTransaccionesWords();
+  return phone ? <div data-surface-block="heading" className="mb-5 flex flex-wrap items-end justify-between gap-3"><h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2><BusinessAddMenu placement="header" /></div> : null;
+}
+
+/** Until the first wait has lasted the shared delay, the screen paints nothing, then all of its placeholders at once. */
+const unseen = (shown: boolean) => shown ? undefined : { visibility: "hidden" as const };
+
+/** The guide's place is known before the page draws: the person's account says whether it was dismissed. */
+function RecordsGuide({ pending }: { pending: boolean }) {
+  const { t } = useTransaccionesWords();
+  return <GuideCard cardId="registros-intro" pending={pending} title={t(`${GUIDE}title`)} points={[
+    { label: t(`${GUIDE}browse.label`), body: t(`${GUIDE}browse.body`) },
+    { label: t(`${GUIDE}find.label`), body: t(`${GUIDE}find.body`) },
+    { label: t(`${GUIDE}pending.label`), body: t(`${GUIDE}pending.body`) },
+  ]} />;
+}
+
+/** Before the report can be asked, Registros is its own layout with pending values: the guide's place, the tabs, the overview cards, the toolbar, then the table. */
+function RecordsPendingLayout({ family, shown }: { family: ReportFilters["record_families"][0]; shown: boolean }) {
+  const { isBelowDesktop } = useResponsiveLayout();
+  return <section className="pb-6" style={unseen(shown)}>
+    <RecordsHeading />
+    <RecordsGuide pending />
+    <RecordsTypeTabs value={family === "sale" ? "venta" : "gasto"} />
+    <RecordsOverviewPreview family={family} notReadyCount={null} selected={false} loading shown={shown} onChoose={() => undefined} />
+    <RecordsToolbarPending options={<><RecordsExportButton pending />{isBelowDesktop ? null : <RecordsLoadingBar className={`${loading.control} ${loading.iconControl} !rounded-full`} />}</>} />
+    <RecordsLoadingPreview shown={shown} />
+  </section>;
 }
 
 export function RecordsWorkspaceUnavailable() {
@@ -81,40 +122,39 @@ export function RecordsWorkspaceUnavailable() {
 export default function BusinessReportsPanel() {
   const { chosen, records, panel } = useBusiness();
   const focus = panel.kind === "transactions" ? panel.focus : undefined;
-  const [person, setPerson] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  // The shell renders its screens only after its account answers, so the person is known on the first render.
+  const person = usePanelShell()?.memberId ?? null;
   const { t } = useTransaccionesWords();
-  useEffect(() => {
-    let active = true;
-    const generation = browserAuthGeneration();
-    void getMe().then((me) => { requireBrowserAuthGeneration(generation); if (active) { setPerson(me.user.id); setFailed(false); } }).catch(() => { if (active) setFailed(true); });
-    return () => { active = false; };
-  }, [attempt]);
-  if (failed) return <div className={cardClass}><EmptyState kind="error" compact title={t(`${REPORTING}access_unavailable`)} action={{ label: t("common.retry"), run: () => { setFailed(false); setAttempt((value) => value + 1); } }} /></div>;
   const defaultCurrency = recordsCurrencySchema.safeParse(records.workspace?.records_default_currency);
+  const connectedKey = person && chosen && records.workspaceGrant === getChosenGrant() && defaultCurrency.success ? `${person}:${chosen.space_id}:${getChosenGrant()}:${focusKey(focus)}` : null;
+  // One wait from the first paint to the first answer, so the placeholders never restart when the report is asked.
+  const [answered, setAnswered] = useState<string | null>(null);
+  const firstLoadShown = useDelayedPending(connectedKey === null || answered !== connectedKey);
+  const onFirstLoad = useCallback(() => setAnswered(connectedKey), [connectedKey]);
+  if (!person) return <div className={cardClass}><EmptyState kind="error" compact title={t(`${REPORTING}access_unavailable`)} /></div>;
   if ((!defaultCurrency.success || records.workspaceGrant !== getChosenGrant()) && (records.error || records.workspaceGrant === getChosenGrant() && records.workspace)) return <RecordsWorkspaceUnavailable />;
-  if (!person || !chosen || records.workspaceGrant !== getChosenGrant() || !defaultCurrency.success) return <FullscreenLoading />;
-  const scope = { userId: person, businessId: chosen.space_id, grantId: getChosenGrant() };
   // A focus another screen opened starts Registros on exactly that list.
-  return <ConnectedBusinessReports key={`${person}:${chosen.space_id}:${scope.grantId}:${focusKey(focus)}`} scope={scope} defaultCurrency={defaultCurrency.data} initial={focus ? focusRequest(focus) : undefined} />;
+  const initial = focus ? focusRequest(focus) : undefined;
+  if (!chosen || connectedKey === null || !defaultCurrency.success) return <RecordsPendingLayout family={startingReport(chosen ? `${person}:${chosen.space_id}` : null, initial).request.filters.record_families[0]} shown={firstLoadShown} />;
+  const scope = { userId: person, businessId: chosen.space_id, grantId: getChosenGrant() };
+  return <ConnectedBusinessReports key={connectedKey} scope={scope} defaultCurrency={defaultCurrency.data} initial={initial} firstLoadShown={firstLoadShown} onFirstLoad={onFirstLoad} />;
 }
 
-export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest }) {
+export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency, firstLoadShown, onFirstLoad }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest; firstLoadShown?: boolean; onFirstLoad?: () => void }) {
+  const openSelectedRow = useContext(RecordGlanceContext);
   const { t } = useTransaccionesWords();
   const { panel, openPanel, revision, records } = useBusiness();
-  const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
+  const { isBelowDesktop } = useResponsiveLayout();
   const { userId, businessId, grantId } = scope;
   const scopeKey = `${userId}:${businessId}`;
   const singleCurrency = useCallback((request: ReportRequest): ReportRequest => {
+    request = { ...request, filters: { ...request.filters, review_stages: [] } };
     if (request.filters.currencies.length === 1 && recordsCurrencySchema.safeParse(request.filters.currencies[0]).success) return request;
     return { ...request, filters: { ...request.filters, currencies: [defaultCurrency], amount_min: null, amount_max: null } };
   }, [defaultCurrency]);
   const [restored] = useState(() => {
-    const params = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
-    const other = params.has("report_scope") && params.get("report_scope") !== scopeKey;
-    const saved = restoreReportLocation(other ? new URLSearchParams() : params);
-    return { ...saved, request: singleCurrency(initial ?? (params.has("report") && !other ? saved.request : reportRequestSchema.parse({ filters: { period: { kind: "latest_month" } } }))) };
+    const start = startingReport(scopeKey, initial);
+    return { ...start, request: singleCurrency(start.request) };
   });
   const { controller, state } = useBusinessReport(scope, restored.request, transport);
   const answer = state.load.kind === "ready" ? state.load.answer : undefined;
@@ -140,7 +180,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const selectedPeriod = periodForUi(state.request.filters.period, periodAnswer);
   const updateUrl = (request: ReportRequest, anchor = state.anchor, push = false) => writeReportLocation(request, anchor, scopeKey, push);
   const load = (request: ReportRequest, push = true) => { updateUrl(request, state.anchor, push); void controller.load(request); };
-  const { toggle: toggleFiscal, clear: clearFiscal } = useFiscalStageToggle(filters, (selection) => load(reportRequestSchema.parse({ ...state.request, filters: { ...state.request.filters, fiscal_data: selection.fiscal_data, review_stages: selection.review.map((key) => STAGE_OF[key]) }, page: 1 })));
+  const { toggle: toggleFiscal, clear: clearFiscal } = useFiscalStageToggle(filters, (selection) => load(reportRequestSchema.parse({ ...state.request, filters: { ...state.request.filters, ready: selection.ready, review_stages: [] }, page: 1 })));
   useEffect(() => { updateUrl(state.request); }, [state.request, state.anchor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const restore = (event: PopStateEvent) => { if (isProgrammaticPop(event)) return; const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); clearFiscal(); controller.rememberAnchor(next.anchor); void controller.load(singleCurrency(next.request)); };
@@ -168,33 +208,38 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
       arrived(landed);
     }).finally(() => { if (asked.current === listChanges) asked.current = null; });
   }, [listChanges, records.listChecks, controller, arrived]);
+  // A first-version answer from a server that has the current format is asked again in it, so it is not the answer yet.
+  const upgrading = state.load.kind === "ready" && state.request.schema_version === 1 && Boolean(state.load.answer.overview && state.load.answer.effective_sort);
   useEffect(() => {
-    if (state.load.kind === "ready" && state.request.schema_version === 1 && state.load.answer.overview && state.load.answer.effective_sort) {
-      void controller.load(reportRequestSchema.parse({ ...state.request, schema_version: 2 }));
-    }
-  }, [controller, state.load, state.request]);
+    if (upgrading) void controller.load(reportRequestSchema.parse({ ...state.request, schema_version: 2 }));
+  }, [controller, upgrading, state.request]);
   // A record that left the current view says so once, in a toast; nothing above the table moves.
   useEffect(() => {
     if (state.load.kind !== "ready" || !state.missingAnchor) return;
     showToast({ kind: "info", text: t("business.search.record_unavailable") });
     controller.rememberAnchor(null);
   }, [controller, state.load.kind, state.missingAnchor, t]);
-  useEffect(() => {
-    if (panel.kind !== "transactions" || state.load.kind !== "ready" || !state.anchor || focused.current === state.anchor) return;
-    focused.current = state.anchor;
-    (rowNodes.current.get(state.anchor) ?? screen.current)?.focus();
-  }, [panel.kind, state.load, state.anchor]);
   const recipe = (patch: Partial<ReportRequest>, push = true) => {
-    if (patch.filters && (patch.filters.fiscal_data !== state.request.filters.fiscal_data || JSON.stringify(patch.filters.review_stages) !== JSON.stringify(state.request.filters.review_stages))) clearFiscal();
+    if (patch.filters && patch.filters.ready !== state.request.filters.ready) clearFiscal();
     load(singleCurrency(reportRequestSchema.parse({ ...state.request, ...patch, page: 1 })), push);
   };
-  const open = (row: RecordRow) => { if (!row.opens) return; const id = recordRowKey(row); focused.current = null; controller.rememberAnchor(id); updateUrl(state.request, id); openPanel(row.opens); };
+  const open = (row: RecordRow) => {
+    if (!row.opens) return;
+    const id = recordRowKey(row);
+    focused.current = null; controller.rememberAnchor(id); updateUrl(state.request, id);
+    if (openSelectedRow) openSelectedRow(row, async (signal) => {
+      const answer = await (transport ?? liveReportingTransport).query(scope, state.request, signal);
+      const next = answer.items.find((item) => item.row_id === row.report?.row_id);
+      return next ? businessReportRow(next) : null;
+    });
+    else openPanel(row.opens);
+  };
   const rowRef = (id: string, node: HTMLElement | null) => { if (node) rowNodes.current.set(id, node); else rowNodes.current.delete(id); };
   const periodLabel = useRecordsPeriodLabel();
   // The export works on the table's request as it stood when Exportar was pressed.
   const [exporting, setExporting] = useState<{ request: ReportRequest; scope: ReportScope; periodLabel: string; filterCount: number } | null>(null);
   const exportRequested = useRecordsExportRequested();
-  // The DGII notice counts by tab and period only; Revisar clears the rest so the list shows exactly those records.
+  // Revisar restores the DGII fiscal scope and clears the other table filters.
   const reviewDgiiPending = (currency: string) => recipe({ filters: reportFiltersSchema.parse({ period: state.request.filters.period, record_families: state.request.filters.record_families, currencies: [currency], fiscal_data: "missing" }) });
   const openExport = () => { if (presentation) setExporting({ scope: { userId, businessId, grantId }, request: reportRequestSchema.parse({ ...state.request, schema_version: 2, presentation }), periodLabel: periodLabel(selectedPeriod, state.request.filters.period), filterCount: activeFilterGroups(filters).length + (filter.query.trim() ? 1 : 0) }); };
   const views = state.views.kind === "ready" ? state.views.items : [];
@@ -304,6 +349,22 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const probeAccessFailure = emptyProbe && "request" in emptyProbe && emptyProbe.request === state.request ? emptyProbe.accessFailure : undefined;
   const probePending = Boolean(probeAnswer && !probeResult);
   const probeFailure = typeof probeResult === "object" ? probeResult : undefined;
+  const answerPending = state.load.kind === "idle" || state.load.kind === "loading" || upgrading;
+  // The table draws once the answer, its columns and any empty-list check are all in.
+  const table = state.load.kind === "ready" && !upgrading && preferences && !probePending ? { answer: state.load.answer, preferences } : null;
+  const tablePending = state.load.kind !== "failed" && !table;
+  const [drawn, setDrawn] = useState(false);
+  if (!tablePending && !drawn) setDrawn(true);
+  const firstWait = tablePending && !drawn;
+  const skeletonPending = tablePending || firstWait;
+  const tableWaited = useDelayedPending(skeletonPending);
+  const skeletonShown = skeletonPending && (tableWaited || firstLoadShown === true);
+  useEffect(() => { if (!firstWait) onFirstLoad?.(); }, [firstWait, onFirstLoad]);
+  useEffect(() => {
+    if (panel.kind !== "transactions" || state.load.kind !== "ready" || firstWait || !state.anchor || focused.current === state.anchor) return;
+    focused.current = state.anchor;
+    (rowNodes.current.get(state.anchor) ?? screen.current)?.focus();
+  }, [panel.kind, state.load, state.anchor, firstWait]);
   const emptyContent = <div className={cardClass}>{probeResult === "filters" ? (
     <EmptyState kind="filtered" mark="search" illustration="/brand/records-search.webp" compact title={t(`${EMPTY_COPY}.filters.title`)} body={t(`${EMPTY_COPY}.filters.body`)}
       action={{ label: t("business.transactions.layout.clear"), run: () => applyFilters(emptyPreviewFilters(filters.amount.currency)) }} />
@@ -320,23 +381,17 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     clearRecordsExportRequest();
     openExport();
   }, [exportRequested, state.load.kind, presentation]); // eslint-disable-line react-hooks/exhaustive-deps
-  const add = <BusinessAddMenu placement="header" />;
-  // Agregar lives in the top bar; the toolbar keeps Export as its own button, same gate. A phone keeps Agregar here.
+  // Agregar lives in the top bar; the toolbar keeps Export as its own button, same gate. A phone keeps Agregar in the heading.
   const toolbarAction = <RecordsExportButton onExport={openExport} enabled={state.load.kind === "ready"} />;
-  if (!preferences && state.load.kind !== "failed") return <FullscreenLoading />;
   return <RecordsAnnotationsPreview connected={{ scope, rows, refresh: controller.refresh, revoke: recheckAnnotationAccess }}><PullToRefresh onRefresh={async () => { await controller.refresh(); return controller.getSnapshot().load.kind === "ready" ? "updated" : "failed"; }}>
-    <section ref={screen} tabIndex={-1} data-testid="transacciones" data-report-connected data-report-schema={state.request.schema_version} className="pb-6 outline-none">
-      {phone || panel.kind !== "transactions" ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2>{add}</div> : null}
-      <GuideCard cardId="registros-intro" userId={userId} title={t(`${GUIDE}title`)} points={[
-        { label: t(`${GUIDE}browse.label`), body: t(`${GUIDE}browse.body`) },
-        { label: t(`${GUIDE}find.label`), body: t(`${GUIDE}find.body`) },
-        { label: t(`${GUIDE}pending.label`), body: t(`${GUIDE}pending.body`) },
-      ]} />
+    <section ref={screen} tabIndex={-1} data-testid="transacciones" data-report-connected data-report-schema={state.request.schema_version} className="pb-6 outline-none" style={unseen(!firstWait || skeletonShown)}>
+      <RecordsHeading />
+      <RecordsGuide pending={firstWait} />
       <RecordsTypeTabs value={filter.kind} onChange={(kind) => recipe({ filters: { ...state.request.filters, record_families: [kind === "venta" ? "sale" : "purchase"] } }, false)} />
-      <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} fiscalCount={overview?.needs_fiscal_data ?? null} selected={filters.fiscal_data === "missing" ? ["fiscal"] : []} loading={state.load.kind === "loading"} onChoose={toggleFiscal} />
+      <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} notReadyCount={overview?.not_ready ?? null} selected={filters.ready === false} loading={answerPending || firstWait} shown={skeletonShown} onChoose={toggleFiscal} />
       <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: savedViews }} />
-      {state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : state.load.kind !== "ready" || !preferences || probePending ? (preferences ? <RecordsLoadingPreview preferences={preferences} density={preferences.density} /> : <FullscreenLoading />) : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordArrivalsContext.Provider value={arrivals.fresh}><RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
-        <RecordsPagePreview records={rows} preferences={preferences} onSortChange={() => undefined} density={preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: state.load.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
+      {firstWait ? <RecordsLoadingPreview preferences={preferences} density={preferences?.density} shown={skeletonShown} /> : state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : !table ? <RecordsLoadingPreview preferences={preferences} density={preferences?.density} shown={skeletonShown} /> : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordArrivalsContext.Provider value={arrivals.fresh}><RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
+        <RecordsPagePreview records={rows} preferences={table.preferences} onSortChange={() => undefined} density={table.preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: table.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
       </RecordEvidenceContext.Provider></RecordGlanceContext.Provider></RecordArrivalsContext.Provider>}
     </section>
     {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={reviewDgiiPending} onClose={() => setExporting(null)} /> : null}

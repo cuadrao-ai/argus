@@ -14,7 +14,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 let cleanup = async () => {};
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; });
 
-async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initialFilters = emptyPreviewFilters("DOP")) {
+async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initialFilters = emptyPreviewFilters("DOP"), family: "purchase" | "sale" = "purchase") {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 844 });
   const { act, useState } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -28,7 +28,7 @@ async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initial
   function FilterHarness() {
     const [value, setValue] = useState<PreviewFilters>(initialFilters);
     const recordKind = "gasto";
-    return <><Filters options={null} value={value} onChange={setValue} /><output data-testid="applied-record-kind">{recordKind}</output><output data-testid="applied-filters">{JSON.stringify(value)}</output></>;
+    return <><Filters options={null} family={family} value={value} onChange={setValue} /><output data-testid="applied-record-kind">{recordKind}</output><output data-testid="applied-filters">{JSON.stringify(value)}</output></>;
   }
   function ToolbarHarness() {
     const [record, setRecord] = useState<{ query: string; kind: "gasto" | "venta" }>({ query: "", kind: "gasto" });
@@ -47,12 +47,12 @@ async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initial
 test("filter draft is discarded on Escape, committed by Apply, and removable by group", async () => {
   const page = await mount("filters");
   await page.click(page.button("Filtros"));
-  await page.click(page.button("Datos fiscales"));
+  await page.click(page.button("Estado"));
   await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")?.querySelector("input"));
   await page.escape();
   assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
   await page.click(page.button("Filtros"));
-  await page.click(page.button("Datos fiscales"));
+  await page.click(page.button("Estado"));
   assert.equal([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")!.querySelector<HTMLInputElement>("input")!.checked, false);
   await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")?.querySelector("input"));
   await page.click(page.button("Adjunto"));
@@ -62,7 +62,7 @@ test("filter draft is discarded on Escape, committed by Apply, and removable by 
   assert.match(chips.textContent ?? "", /Faltan datos/);
   assert.match(chips.textContent ?? "", /Sin documento/);
   assert.equal(page.host.querySelector('button[aria-haspopup="dialog"]')?.textContent, "Filtros2");
-  await page.click(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
+  await page.click(document.querySelector('button[aria-label="Quitar filtro Estado"]'));
   assert.doesNotMatch(chips.textContent ?? "", /Faltan datos/);
   await page.click(page.button("Limpiar filtros"));
   assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
@@ -198,8 +198,19 @@ test("checkbox parents derive mixed/all/none from label clicks and bulk changes"
 });
 
 
+for (const [family, name] of [["purchase", "Emisor"], ["sale", "Cliente"]] as const) test(`the name filter and its chip read ${name} on a ${family} tab`, async () => {
+  const page = await mount("filters", 1440, emptyPreviewFilters("DOP"), family);
+  await page.click(page.button("Filtros")); await page.click(page.button(name));
+  assert.equal(document.querySelector('[role="dialog"] h3')?.textContent, name);
+  await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Nube Hosting"));
+  await page.click(page.button("Aplicar"));
+  const chip = document.querySelector('[data-testid="records-preview-filter-chips"] button');
+  assert.equal(chip?.textContent, `${name} · 1`);
+  assert.equal(chip?.getAttribute("aria-label"), `Quitar filtro ${name}`);
+});
+
 test("bulk selection applies only to visible matches and keeps hidden choices", async () => {
-  const page = await mount("filters"); await page.click(page.button("Filtros")); await page.click(page.button("Contraparte"));
+  const page = await mount("filters"); await page.click(page.button("Filtros")); await page.click(page.button("Emisor"));
   const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
   await page.click(label("Nube Hosting"));
   const field = document.querySelector<HTMLInputElement>('input[type="search"]')!;
@@ -328,4 +339,18 @@ test("the desktop filter trigger toggles and Escape restores focus", async () =>
   await page.click(trigger); await page.escape();
   assert.equal(document.querySelector('[role="dialog"]'), null);
   assert.equal(document.activeElement, trigger);
+});
+
+for (const width of [1440, 390]) test(`Estado offers only server readiness at ${width}px`, async () => {
+  const page = await mount("filters", width);
+  await page.click(page.button("Filtros"));
+  await page.click(page.button("Estado"));
+  const choices = [...document.querySelectorAll('input[type="radio"]')];
+  assert.deepEqual(choices.map((input) => input.closest("label")?.textContent), ["Todos", "Listo", "Faltan datos"]);
+  await page.click(choices[1]);
+  await page.click(page.button("Aplicar"));
+  const applied = JSON.parse(document.querySelector('[data-testid="applied-filters"]')!.textContent!);
+  assert.equal(applied.ready, true);
+  assert.equal("review" in applied, false);
+  assert.equal(applied.fiscal_data, null);
 });

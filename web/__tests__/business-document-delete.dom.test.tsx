@@ -30,7 +30,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const ready = await fixture.receipt("rcpt-ferreteria");
   const blurry = await fixture.receipt("rcpt-blurry");
-  const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez" }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
+  const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez", shown_as: "name" }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
   let dossierDeleted = true;
   let items: ReceiptDetail[] = [
     { ...blurry, id: "attention", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
@@ -182,6 +182,37 @@ test("Más offers deletion for a ready document with the same dialog and no view
   assert.equal(page.button("Ver documento", dialog), null);
 });
 
+test("Más is one menu: Agregar nota, then Personal, then Eliminar documento last in red, a line between groups, every row 44px with its icon", async () => {
+  const page = await mount();
+  const ready = await page.source.receipt("ready");
+  await page.act(async () => page.api().openPanel({ kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
+  await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
+  const trigger = document.querySelector<HTMLButtonElement>('[data-testid="receipt-more"] > button')!;
+  assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
+  await page.click(trigger);
+  const menu = document.getElementById("receipt-more-panel")!;
+  assert.equal(menu.getAttribute("role"), "menu");
+  assert.deepEqual([...menu.children].map(node => node.getAttribute("role")), ["menuitem", "separator", "menuitemcheckbox", "separator", "menuitem"]);
+  const rows = [...menu.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]')];
+  assert.deepEqual(rows.map(row => row.firstChild?.nextSibling?.textContent), ["Agregar nota", "PersonalNo cuenta en los totales del negocio.", "Eliminar documento"]);
+  for (const row of rows) {
+    assert.ok(row.className.includes("min-h-11"), `${row.textContent} is 44px high`);
+    assert.equal(row.firstElementChild?.tagName.toLowerCase(), "svg", `${row.textContent} starts with its icon`);
+  }
+  assert.ok(rows[2].className.includes("text-[#9e2f39]"), "delete reads red");
+  assert.equal(document.activeElement, rows[0], "opening the menu focuses its first row");
+  await page.act(async () => { rows[0].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
+  assert.equal(document.activeElement, rows[1], "arrow keys walk the rows");
+  await page.act(async () => { rows[1].dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })); });
+  assert.equal(document.activeElement, rows[2]);
+  await page.act(async () => { rows[2].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
+  assert.equal(document.activeElement, rows[0], "and wrap around");
+  assert.ok(!/Pendiente del contador|Esperando al contable|Sin responder/.test(menu.textContent ?? ""), menu.textContent ?? "");
+  await page.click(rows[2]);
+  assert.ok(document.querySelector('[role="alertdialog"]'), "delete still asks first");
+  assert.equal(page.calls.length, 0);
+});
+
 test("a failed delete retries its action key and the deleted document leaves Todos", async () => {
   const page = await mount("owner", true);
   await page.click(document.querySelector('button[aria-label="Eliminar Documento equivocado"]'));
@@ -271,6 +302,20 @@ test("the dialog preview renders the source through a CSP-safe data URL", async 
 });
 
 for (const kind of ["draft", "receipt"] as const) {
+  test(`the ${kind} dossier delete menu keeps its dark hover on the Danger tint`, async () => {
+    const page = await mount();
+    const ready = await page.source.receipt("ready");
+    assert.ok(ready.draft_id);
+    await page.act(async () => page.api().openPanel(kind === "receipt"
+      ? { kind: "receipt", receiptId: ready.id, list: "inbox" }
+      : { kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
+    await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
+    await page.click(document.querySelector('[data-testid="receipt-more"] > button'));
+    const menuItem = document.querySelector<HTMLButtonElement>('[data-testid="delete-document-menu"]')!;
+    assert.ok(menuItem.classList.contains("hover:bg-[#f6dfe0]/50"), "keep the light hover treatment");
+    assert.ok(menuItem.classList.contains("dark:hover:bg-[#ec9aa0]/10"), "dark hover must not inherit the light fill behind the Danger label");
+  });
+
   test(`restoring an open ${kind} dossier updates the same panel and the toast Ver keeps it editable`, async () => {
     const page = await mount("owner", false, 1, true);
     await page.act(async () => page.api().openPanel(kind === "receipt"

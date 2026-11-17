@@ -97,6 +97,14 @@ async function openRow(page: Page, merchant: string) {
   await page.settle(() => page.recordTitle() === merchant, `${merchant} in the tray`);
 }
 
+/** A press on the page beside the tray: pointerdown, then the click where it lands. */
+async function pressBeside(page: Page, target: Element) {
+  await page.act(async () => {
+    target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0 }));
+    target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+  });
+}
+
 describe("a record in the desktop tray", () => {
   test("a receipt opens beside the Bandeja: the list stays, the row is marked open, and focus moves to the tray title", async () => {
     const page = await mount();
@@ -157,14 +165,69 @@ describe("a record in the desktop tray", () => {
     assert.equal(document.activeElement, page.row("Ferretería La Esquina")?.querySelector("button"), "focus is back on the row");
   });
 
-  test("an Escape outside the tray leaves it open: the page keeps its own keys", async () => {
+  test("an Escape the page claims stays with the page; an unclaimed one beside the tray closes it", async () => {
     const page = await mount();
     await openInbox(page);
     await openRow(page, "Ferretería La Esquina");
     const listButton = page.action("Papelería Central")!;
     listButton.focus();
-    await page.act(async () => { listButton.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    listButton.addEventListener("keydown", (event) => event.preventDefault(), { once: true });
+    await page.act(async () => { listButton.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); });
     assert.ok(page.tray(), "the tray is still open");
+    await page.act(async () => { listButton.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); });
+    await page.settle(() => page.tray() === null, "the tray to close");
+    assert.deepEqual(page.panel(), { kind: "inbox" });
+  });
+
+  test("Bandeja: a click on the page beside the dossier closes it, with focus on the row", async () => {
+    const page = await mount();
+    await openInbox(page);
+    await openRow(page, "Ferretería La Esquina");
+    await pressBeside(page, page.host.querySelector('[data-testid="panel"]')!);
+    await page.settle(() => page.tray() === null, "the dossier to close");
+    assert.deepEqual(page.panel(), { kind: "inbox" });
+    assert.equal(document.activeElement, page.row("Ferretería La Esquina")?.querySelector("button"), "focus is back on the row");
+  });
+
+  test("Registros: a click on blank page closes the record, and a click on another row swaps it", async () => {
+    const page = await mount();
+    await page.open({ kind: "transactions" });
+    const saved = (text: string) => [...page.host.querySelectorAll<HTMLElement>("[data-record-id]")].find((item) => item.textContent?.includes(text)) ?? null;
+    await page.settle(() => saved("Estación Ruta 3") !== null, "the saved records");
+    await page.click(saved("Estación Ruta 3"));
+    await page.settle(() => page.recordTitle() === "Estación Ruta 3", "Estación Ruta 3 in the tray");
+    const tray = page.tray();
+    await pressBeside(page, saved("Nube Hosting")!.querySelector("td")!);
+    await page.click(saved("Nube Hosting"));
+    await page.settle(() => page.tray()?.querySelector('[data-testid="business-record-review"]') != null, "the receipt in the tray");
+    assert.equal(page.tray(), tray, "the row swapped the record in the same tray");
+    await pressBeside(page, page.host.querySelector('[data-testid="panel"]')!);
+    await page.settle(() => page.tray() === null, "the record to close");
+    assert.deepEqual(page.panel(), { kind: "transactions" });
+    assert.equal(document.activeElement, saved("Nube Hosting"), "focus is back on the row");
+  });
+
+  test("an unsaved edit in the dossier asks before a click beside it or Escape closes it, and keeping it stays", async () => {
+    const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+    const page = await mount();
+    await openInbox(page);
+    await page.open({ kind: "draft", draftId: dossierFixtureIds.fiscal, list: "inbox" });
+    await page.settle(() => page.tray()?.querySelector('[data-fact="counterparty"] button') != null, "the dossier rows");
+    await page.click(page.tray()!.querySelector<HTMLElement>('[data-fact="counterparty"] button'));
+    const input = page.tray()!.querySelector<HTMLInputElement>('[data-testid="edit-counterparty"] input')!;
+    await page.act(async () => {
+      input.focus();
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Otro nombre");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const dialog = () => document.querySelector<HTMLElement>('[role="alertdialog"]');
+    await pressBeside(page, page.host.querySelector('[data-testid="panel"]')!);
+    assert.ok(dialog()?.textContent?.includes("¿Descartar los cambios?"), "a click beside it asks");
+    await page.click([...dialog()!.querySelectorAll("button")].find((button) => button.textContent === "Seguir editando"));
+    assert.ok(page.tray(), "keeping the edit keeps the dossier");
+    assert.equal(page.tray()!.querySelector<HTMLInputElement>('[data-testid="edit-counterparty"] input')?.value, "Otro nombre", "and what was typed");
+    await page.act(async () => { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); });
+    assert.ok(dialog(), "Escape asks too");
   });
 
   test("an expense opens beside Transacciones, and the close control returns to Transacciones with focus on its row", async () => {
@@ -226,12 +289,26 @@ describe("a record in the desktop tray", () => {
     assert.deepEqual(page.panel(), { kind: "transactions" });
   });
 
-  test("a link to a recorded receipt opens it beside Transacciones once it has loaded", async () => {
+  test("a link to a recorded receipt draws only the tray until it has loaded, then Transacciones beside it, never the Bandeja", async () => {
     const page = await mount();
+    const lists: string[] = [];
+    const seen = new WeakSet<Element>();
+    const record = () => {
+      for (const list of page.host.querySelectorAll('[data-testid="reception-preview"], [data-testid="transacciones"]')) {
+        if (!seen.has(list)) { seen.add(list); lists.push(list.getAttribute("data-testid")!); }
+      }
+    };
+    const observer = new MutationObserver(record);
+    observer.observe(page.host, { subtree: true, childList: true });
     await page.open({ kind: "receipt", receiptId: "rcpt-confirmed" });
+    assert.ok(page.tray(), "the tray opens at once");
+    assert.equal(page.host.querySelector('[data-testid="reception-preview"], [data-testid="transacciones"]'), null, "no list is drawn before the receipt says which");
     await page.settle(() => page.host.querySelector('[data-record-id="exp-hosting"]') !== null, "the list beside the receipt");
+    record();
+    observer.disconnect();
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" });
-    assert.ok(page.tray());
+    assert.equal(page.recordTitle(), "Nube Hosting");
+    assert.deepEqual(lists, ["transacciones"]);
   });
 });
 

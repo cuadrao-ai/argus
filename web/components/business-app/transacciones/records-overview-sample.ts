@@ -1,7 +1,7 @@
 import { minorToDecimal } from "@/lib/money-entry";
 import type { ReportAnswer, ReportFiscalTotal, ReportTotal } from "@/lib/business-reports-api";
 import type { BusinessDataSource } from "../business-data";
-import { exactMinor, matchesPreviewWorkflow, previewRecordMetadata, summarizePreviewRecords, type SettlementSummary } from "./records-results-preview";
+import { exactMinor, matchesPreviewReady, previewRecordMetadata, summarizePreviewRecords, type SettlementSummary } from "./records-results-preview";
 import type { RecordRow } from "./transacciones-model";
 
 type FiscalSample = { currency: string; total: string; net: string; itbis: string; goods: string | null; services: string | null };
@@ -10,7 +10,7 @@ const FISCAL_SAMPLES: Readonly<Record<string, FiscalSample>> = {
   "exp-imprenta": { currency: "DOP", total: "4800.00", net: "4067.80", itbis: "732.20", goods: null, services: "4067.80" },
   "exp-hosting": { currency: "USD", total: "24.00", net: "24.00", itbis: "0.00", goods: null, services: "24.00" },
 };
-type SampleOverview = { answer: Pick<ReportAnswer, "matching_count" | "totals" | "fiscal_totals">; fiscalCount: number; summary: SettlementSummary };
+type SampleOverview = { answer: Pick<ReportAnswer, "matching_count" | "totals" | "fiscal_totals">; notReadyCount: number; summary: SettlementSummary };
 
 export function sampleRecordsOverview({ sourceMode, businessId, rows, kind }: { sourceMode: BusinessDataSource["mode"]; businessId: string | null; rows: readonly RecordRow[]; kind: RecordRow["kind"] }): SampleOverview | undefined {
   if (sourceMode !== "fixture" || businessId !== "fixture-space") return undefined;
@@ -58,7 +58,7 @@ export function sampleRecordsOverview({ sourceMode, businessId, rows, kind }: { 
   }
   return {
     answer: { matching_count: selected.length, totals, fiscal_totals: fiscalTotals },
-    fiscalCount: selected.filter((row) => matchesPreviewWorkflow(row, businessId, ["fiscal"])).length,
+    notReadyCount: selected.filter((row) => matchesPreviewReady(row, businessId, false)).length,
     summary: {
       currencies: totals.filter((line) => line.basis === "document_family_amount").map((line) => ({ currency: line.currency ?? "", total: line.amount, known: line.known_amount, settled: null, balance: null })),
       exclusions: summarizePreviewRecords(selected, businessId).excludedByKind[kind === "venta" ? "sales" : "expenses"],

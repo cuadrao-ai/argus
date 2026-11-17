@@ -14,6 +14,7 @@ from argus.domain.business.contracts.actions import ActionOutcome, Applied
 from argus.domain.business.contracts.deletion import (
     DeletedDocument,
     DeletingActor,
+    DeletionReason,
     DocumentCommand,
     PreviousDocumentState,
     deletion,
@@ -164,7 +165,22 @@ def _purge(tx: ActionTransaction, command: DocumentCommand) -> Applied:
     return Applied(outcome="applied" if purged else "replayed")
 
 
-def _change(tx: ActionTransaction, command: DocumentCommand, key: str) -> Applied:
+def delete(
+    tx: ActionTransaction, document_id: UUID, key: str, reason: DeletionReason
+) -> Applied:
+    """Delete one document for a reason, inside the caller's command."""
+
+    return _change(
+        tx, DocumentCommand(action="delete_document", document_id=document_id), key, reason
+    )
+
+
+def _change(
+    tx: ActionTransaction,
+    command: DocumentCommand,
+    key: str,
+    reason: DeletionReason | None = None,
+) -> Applied:
     from argus.domain.business.actions.document_purge import was_purged
 
     if was_purged(tx.connection, tx.context.actor.space_id, command.document_id):
@@ -200,10 +216,7 @@ def _change(tx: ActionTransaction, command: DocumentCommand, key: str) -> Applie
             standing = draft_standings(tx, (event,))[event.id]
             group = "attention" if listo_reason(standing) else "listo"
         marker = DeletedDocument(
-            actor=DeletingActor(
-                actor_id=tx.context.actor.actor_id,
-                display_name=tx.authorization.provenance.display_name,
-            ),
+            actor=DeletingActor(actor_id=tx.context.actor.actor_id),
             at=datetime.now(timezone.utc),
             key=key,
             previous_state=PreviousDocumentState(
@@ -211,6 +224,7 @@ def _change(tx: ActionTransaction, command: DocumentCommand, key: str) -> Applie
                 group=group,
                 events={candidate.id: candidate.state for candidate in candidates},
             ),
+            reason=reason,
         )
         resolution["deleted"] = marker.stored()
         state = "dismissed"

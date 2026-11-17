@@ -9,6 +9,7 @@
       "itbis_amount",
       "gross_amount",
       "stage",
+      "missing",
       "fiscal_number",
       "note",
       "attachment",
@@ -37,7 +38,7 @@
     },
     {
       "key": "counterparty",
-      "label_key": "business.transactions.columns.contraparte",
+      "label_key": "business.terms.counterparty",
       "shown": false,
       "families": [
         "sale",
@@ -98,6 +99,15 @@
       ]
     },
     {
+      "key": "missing",
+      "label_key": "business.transactions.layout.column_reason",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
       "key": "fiscal_number",
       "label_key": "business.transactions.columns.ncf",
       "shown": false,
@@ -147,6 +157,7 @@
     "needs_review": 0,
     "ready_for_export": 0,
     "needs_fiscal_data": 0,
+    "not_ready": 0,
     "exported": 0,
     "export_lines": 0
   },
@@ -158,7 +169,7 @@
   "page_count": 0,
   "totals": [],
   "fiscal_totals": [],
-  "fingerprint": "e5513eecbbf0cbe3d6450123abedd7f75ae21572c5f98c1b1c3b70b74d85b73c",
+  "fingerprint": "d3fa5da11896dba455a57ac5eccd8274e7cb0664a386fdf5af685340f05db61d",
   "captured_at": "2026-11-06T00:00:00Z",
   "resolved_period": {
     "from_date": null,

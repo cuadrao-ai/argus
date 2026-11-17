@@ -35,6 +35,7 @@ def take(service: DocumentsService, user_id: str, connection_id: str) -> str | N
         or not draft.source_available
         or job.dispatched_at is not None
         or job.draft_version != draft.version
+        or (job.not_before is not None and job.not_before > now)
     ):
         return None
     taken = job.model_copy(update={"dispatched_at": now})

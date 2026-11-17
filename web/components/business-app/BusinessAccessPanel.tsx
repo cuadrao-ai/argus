@@ -46,7 +46,7 @@ export function AccessList({
           <li key={grant.id} className={rowClass}>
             <Avatar name={grant.display_name || grant.email} size={40} testId="access-avatar" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium text-black dark:text-white">{grant.display_name}{grant.email ? ` · ${grant.email}` : ""}</span>
+              <span className="block truncate text-[15px] font-medium text-black dark:text-white">{grant.display_name ? `${grant.display_name}${grant.email ? ` · ${grant.email}` : ""}` : grant.email}</span>
               <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
                 {grant.owner ? t("business_access.owner", "Owner") : t("business_access.member", "Member")} · {t("business_access.since", "Since {{date}}", { date: formatDay(grant.created_at, locale) })}
               </span>

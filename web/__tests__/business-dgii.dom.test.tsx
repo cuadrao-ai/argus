@@ -4,6 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
+import { dgiiChoiceLabel } from "@/lib/dgii-labels";
 import { I18nextProvider } from "react-i18next";
 import FiscalDeclarationEditor from "@/components/business-app/FiscalDeclarationEditor";
 import { reviewDgii, reviewPurchase, type DgiiFields } from "@/lib/business-dgii";
@@ -22,9 +23,9 @@ const fields = { "606": [
   { name: "itbis_cost", label: "ITBIS llevado al Costo", kind: "money", options: [] },
 ], "607": [] } as const satisfies Record<"606" | "607", readonly unknown[]>;
 
-function registerDom() {
+function registerDom(width?: number) {
   const original = { fetch: globalThis.fetch, mock: process.env.NEXT_PUBLIC_MOCK_AUTH };
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  GlobalRegistrator.register({ url: "http://localhost/biz", ...(width ? { width } : {}) });
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { value: true, configurable: true, writable: true });
   return async () => {
@@ -35,8 +36,8 @@ function registerDom() {
   };
 }
 
-async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiFields; dossier?: (dossier: BusinessDossier) => BusinessDossier } = {}) {
-  const release = registerDom();
+async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiFields; width?: number; dossier?: (dossier: BusinessDossier) => BusinessDossier } = {}) {
+  const release = registerDom(shape.width);
   const fixture = await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "PRÁCTICA caja" }]).dossier(dossierFixtureIds.fiscal);
   const dossier = shape.dossier?.(fixture) ?? fixture;
   const writes: { key: string | null; input: Record<string, unknown> }[] = [];
@@ -49,8 +50,8 @@ async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiField
   };
   const options = shape.productionI18n ? (await import("@/lib/i18n")).default.options : {};
   const namespace = shape.productionI18n ? "common" : "translation";
-  const i18n = i18next.createInstance();
-  await i18n.init({ ...options, lng: "es-419", resources: { "es-419": { [namespace]: spanish }, en: { [namespace]: english } } });
+  const i18n = i18next.createInstance().use(dgiiChoiceLabel);
+  await i18n.init({ postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true, ...options, lng: "es-419", resources: { "es-419": { [namespace]: spanish }, en: { [namespace]: english } } });
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const changes: BusinessDossier[] = [];
@@ -65,7 +66,7 @@ async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiField
       control.dispatchEvent(new Event("input", { bubbles: true }));
     });
   };
-  const save = async () => { const button = [...host.querySelectorAll("button")].find((node) => node.textContent === "Guardar revisión fiscal"); assert.ok(button); await act(async () => button.click()); };
+  const save = async () => { const button = [...host.querySelectorAll("button")].find((node) => node.textContent === "Guardar"); assert.ok(button); await act(async () => button.click()); };
   return { host, dossier, writes, dirty, changes, input, save, i18n, fail: () => { fail = true; }, dispose: async () => { await act(async () => root.unmount()); host.remove(); await release(); } };
 }
 
@@ -95,7 +96,7 @@ const fullForm: DgiiFields = {
   ],
   "607": [field("income_type", "Tipo de Ingreso", "select", ["1"]), field("withheld_on", "Fecha de Retención", "date")],
 };
-const groupsOf = (host: Element) => [...host.querySelectorAll<HTMLElement>("[data-group]")].map((group) => [group.dataset.group, group.querySelector("h4")?.textContent]);
+const groupsOf = (host: Element) => [...host.querySelectorAll<HTMLElement>("[data-group]")].map((group) => [group.dataset.group, (group.querySelector("h4 button > span") ?? group.querySelector("h4"))?.textContent]);
 
 test("the fields read in five groups, every field the server sends stays, and no date is a native input", async () => {
   const view = await mountEditor({ fields: fullForm });
@@ -106,6 +107,68 @@ test("the fields read in five groups, every field the server sends stays, and no
     assert.equal(view.host.querySelectorAll('input[type="date"]').length, 0);
     assert.ok(view.host.querySelector('[data-group="identity"] [aria-label="Abrir calendario"]'), "the date is our calendar");
     assert.ok(view.host.querySelector('[data-testid="fiscal-declaration-services_amount"]'), "an amount is our money field");
+  } finally { await view.dispose(); }
+});
+
+const foldOf = (host: Element) => host.querySelector<HTMLButtonElement>('[data-group="retentions"] h4 > button[aria-expanded]');
+const shown = (host: Element, id: string) => { const control = host.querySelector(`#fiscal-declaration-${id}, [data-testid="fiscal-declaration-${id}"]`); return Boolean(control && !control.closest("[hidden]")); };
+const purchaseWithheld = (value: string) => (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, dgii: { form: "606", itbis_withheld: value } });
+
+test("a purchase with no withholdings folds them behind one row that opens and closes", async () => {
+  const view = await mountEditor({ fields: fullForm });
+  try {
+    const fold = foldOf(view.host);
+    assert.ok(fold, "the group is one row");
+    assert.equal(fold.getAttribute("aria-expanded"), "false");
+    assert.equal(fold.textContent, "RetencionesSin retenciones");
+    assert.equal(shown(view.host, "itbis_withheld"), false, "its fields wait behind the row");
+    await act(async () => fold.click());
+    assert.equal(fold.getAttribute("aria-expanded"), "true");
+    assert.equal(fold.textContent, "Retenciones", "an open row says nothing more than its title");
+    assert.equal(shown(view.host, "itbis_withheld"), true);
+    await act(async () => fold.click());
+    assert.equal(fold.getAttribute("aria-expanded"), "false");
+    assert.equal(shown(view.host, "itbis_withheld"), false);
+  } finally { await view.dispose(); }
+});
+
+test("a purchase that holds a withholding shows the group open, with no row to fold it", async () => {
+  const saved = await mountEditor({ fields: fullForm, dossier: purchaseWithheld("150.00") });
+  try {
+    assert.equal(foldOf(saved.host), null);
+    assert.equal(saved.host.querySelector('[data-group="retentions"] h4')?.textContent, "Retenciones");
+    assert.equal(shown(saved.host, "itbis_withheld"), true);
+  } finally { await saved.dispose(); }
+  const typed = await mountEditor({ fields: fullForm });
+  try {
+    await act(async () => foldOf(typed.host)!.click());
+    await typed.input("ITBIS Retenido", "10.00");
+    assert.equal(foldOf(typed.host), null, "a value typed into the open group keeps it open");
+    assert.equal(shown(typed.host, "itbis_withheld"), true);
+    await typed.input("ITBIS Retenido", "");
+    assert.equal(foldOf(typed.host)?.getAttribute("aria-expanded"), "true", "cleared, it may fold again");
+  } finally { await typed.dispose(); }
+});
+
+test("a sale keeps its withholdings open: they never fold", async () => {
+  const view = await mountEditor({ fields: fullForm, dossier: (dossier) => ({ ...dossier, facts: { ...dossier.facts, kind: { ...dossier.facts.kind, state: "known", value: "income" } as never } }) });
+  try {
+    assert.equal(foldOf(view.host), null);
+    assert.equal(view.host.querySelector('[data-group="retentions"] h4')?.textContent, "Retenciones");
+    assert.equal(shown(view.host, "withheld_on"), true);
+  } finally { await view.dispose(); }
+});
+
+test("on a phone the fold is the same row, and it opens into the same column as every group", async () => {
+  const view = await mountEditor({ fields: fullForm, width: 375 });
+  try {
+    const fold = foldOf(view.host);
+    assert.ok(fold);
+    assert.equal(fold.textContent, "RetencionesSin retenciones");
+    await act(async () => fold.click());
+    const grid = (group: string) => view.host.querySelector(`[data-group="${group}"] > div`)?.className;
+    assert.ok(grid("identity"));
+    assert.equal(grid("retentions"), grid("identity"));
   } finally { await view.dispose(); }
 });
 
@@ -279,7 +342,7 @@ test("the 606 editor localizes labels and ID choices without inventing backend o
     assert.ok(view.host.textContent?.includes("NCF ó Documento Modificado"));
     assert.ok(view.host.textContent?.includes("Monto Facturado en Servicios"));
     const ids = view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!;
-    assert.deepEqual([...ids.options].map((option) => [option.value, option.text]), [["", "Desconocido"], ["1", "1 - RNC"], ["2", "2 - Cédula"]]);
+    assert.deepEqual([...ids.options].map((option) => [option.value, option.text]), [["", "Desconocido"], ["1", "01 - RNC"], ["2", "02 - Cédula"]]);
     await act(async () => { await view.i18n.changeLanguage("en"); });
     assert.ok(view.host.textContent?.includes("ID type"));
     assert.ok(view.host.textContent?.includes("Modified NCF or document"));
@@ -300,12 +363,12 @@ test("the 607 editor uses its form-specific dictionary labels in both languages"
     await act(async () => { await view.i18n.changeLanguage("en"); });
     for (const label of ["Identification type", "Modified fiscal receipt number", "ITBIS perceived", "Other taxes/fees", "Check·transfer·deposit", "Vouchers…"]) assert.ok(view.host.textContent?.includes(label), label);
     assert.ok(!view.host.textContent?.includes("Número Comprobante"));
-    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3"]]);
+    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "01 - RNC"], ["2", "02 - Cédula"], ["3", "03 - Passport or tax ID"]]);
   } finally { await view.dispose(); }
 });
 
 for (const form of ["606", "607"] as const) {
-  const title = `the ${form} editor preserves untranslated option codes with production i18n`;
+  const title = `the ${form} editor names each DGII withholding, income and ID code with production i18n and saves only the code`;
   test(title, async () => {
     // Production initialization changes the shared singleton; keep it out of other tests.
     if (process.env.CUADRAO_TEST_FISCAL_I18N !== "true") {
@@ -328,19 +391,28 @@ for (const form of ["606", "607"] as const) {
       fields: { "606": [], "607": [], [form]: formFields },
       dossier: (dossier) => ({ ...dossier, dgii: { form } }),
     });
+    const options = (id: string) => [...view.host.querySelector<HTMLSelectElement>(`#fiscal-declaration-${id}`)!.options].filter((option) => option.value).map((option) => [option.value, option.text]);
     try {
-      for (const language of ["es-419", "en"]) {
+      for (const [language, catalog] of [["es-419", spanish], ["en", english]] as const) {
         await act(async () => { await view.i18n.changeLanguage(language); });
-        assert.equal(view.i18n.t(`business.dgii.option.${name}.${codes[0]}`, { defaultValue: codes[0] }), "", "the real missing-key handler overrides defaultValue");
-        const select = view.host.querySelector<HTMLSelectElement>(`#fiscal-declaration-${name}`);
-        assert.ok(select);
-        assert.deepEqual([...select.options].filter((option) => option.value).map((option) => [option.value, option.text]), codes.map((code) => [code, code]));
-        if (form === "607") {
-          const ids = view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type");
-          assert.ok(ids);
-          assert.deepEqual([...ids.options].filter((option) => option.value).map((option) => [option.value, option.text]), [["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3"]]);
-        }
+        assert.equal(view.i18n.t(`business.dgii.option.${name}.99`, { defaultValue: "99" }), "", "the real missing-key handler overrides defaultValue");
+        const names = catalog.business.dgii.option[name] as Record<string, string>;
+        assert.deepEqual(options(name), codes.map((code) => [code, `${code.padStart(2, "0")} - ${names[code]}`]));
+        if (form === "607") assert.deepEqual(options("id_type"), Object.entries(catalog.business.dgii.option.id_type).map(([code, label]) => [code, `${code.padStart(2, "0")} - ${label}`]));
       }
+      await act(async () => { await view.i18n.changeLanguage("es-419"); });
+      assert.deepEqual(options(name)[1], form === "606" ? ["02", "02 - Honorarios por servicios"] : ["2", "02 - Ingresos financieros"]);
+      if (form === "607") assert.deepEqual(options("id_type"), [["1", "01 - RNC"], ["2", "02 - Cédula"], ["3", "03 - Pasaporte o ID tributaria"]]);
+      const choose = async (id: string, value: string) => {
+        const select = view.host.querySelector<HTMLSelectElement>(`#fiscal-declaration-${id}`)!;
+        await act(async () => { select.value = value; select.dispatchEvent(new Event("change", { bubbles: true })); });
+      };
+      await choose(name, codes[1]);
+      if (form === "607") await choose("id_type", "3");
+      await view.save();
+      const declaration = (view.writes.at(-1)?.input as { dgii: { declaration: Record<string, unknown> } }).dgii.declaration;
+      assert.equal(declaration[name], codes[1]);
+      if (form === "607") assert.equal(declaration.id_type, "3");
     } finally { await view.dispose(); }
   });
 }

@@ -44,7 +44,6 @@ def _user(request: Request) -> User:
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "true")
     monkeypatch.setenv("CUADRAO_BUSINESS_CHAT_ENABLED", "true")
     previous_spaces = business_spaces()
     api_state.store.reset()
@@ -114,7 +113,7 @@ def _personal_record() -> str:
     return item.id
 
 
-@pytest.mark.parametrize("path", ["/conversations", "/history", "/search?q=ledger"])
+@pytest.mark.parametrize("path", ["/conversations", "/history"])
 def test_business_is_the_default_and_personal_rows_stay_hidden(client, path):
     _start_space(ALICE)
     personal = _personal_record()
@@ -180,7 +179,7 @@ def test_another_person_cannot_read_business_conversations(client):
     _start_space(ALICE)
     _start_space(BOB)
     business = _create(client, ALICE, "Shop ledger", surface="business")
-    for path in ("/conversations", "/history", "/search?q=ledger"):
+    for path in ("/conversations", "/history"):
         assert _listed(client, BOB, "/api/v1" + path) == []
     assert (
         client.get(
@@ -190,11 +189,10 @@ def test_another_person_cannot_read_business_conversations(client):
     )
 
 
-def test_business_surface_needs_flag_and_started_space(client, monkeypatch):
+def test_business_surface_needs_started_space(client):
     calls = (
         ("POST", "/conversations", {}),
         ("GET", "/conversations", None),
-        ("GET", "/search?q=ledger", None),
         ("GET", "/history", None),
         ("DELETE", "/conversations", None),
     )
@@ -202,12 +200,6 @@ def test_business_surface_needs_flag_and_started_space(client, monkeypatch):
         response = client.request(method, "/api/v1" + path, json=body, headers=_as(ALICE))
         assert response.status_code == 404
         assert response.json()["code"] == "business_space_missing"
-    _start_space(ALICE)
-    monkeypatch.delenv("CUADRAO_BUSINESS_PILOT_ENABLED")
-    for method, path, body in calls:
-        response = client.request(method, "/api/v1" + path, json=body, headers=_as(ALICE))
-        assert response.status_code == 404
-        assert response.json()["code"] == "business_unavailable"
 
 
 def test_business_transcript_and_updates_keep_surface(client):
@@ -221,18 +213,6 @@ def test_business_transcript_and_updates_keep_surface(client):
         f"/api/v1/conversations/{business}", json={"pinned": True}, headers=_as(ALICE)
     )
     assert patched.json()["conversation"]["surface"] == "business"
-
-
-def test_business_record_is_kept_when_business_turns_off(client, monkeypatch):
-    _start_space(ALICE)
-    business = _create(client, ALICE, "Shop ledger", surface="business")
-    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "false")
-    response = client.get(
-        f"/api/v1/conversations/{business}/messages", headers=_as(ALICE)
-    )
-    assert response.status_code == 404
-    assert business in api_state.store.conversations
-    assert api_state.store.conversations[business].deleted_at is None
 
 
 @pytest.mark.parametrize(

@@ -35,7 +35,6 @@ const pathname = value => { try { return new URL(value).pathname; } catch { retu
 const environment = {
   PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR,
   NEXT_PUBLIC_MOCK_AUTH: "true",
-  NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true",
   NEXT_PUBLIC_CUADRAO_API_URL: `${fixture.origin}/api/v1`, NEXT_TELEMETRY_DISABLED: "1",
 };
 const probe = createServer();
@@ -122,7 +121,7 @@ try {
       stage = "owned runtime loading";
       await page.goto(`${web.origin}/biz?view=inbox`, { waitUntil: "domcontentloaded", timeout: 60000 });
       await page.waitForLoadState("load", { timeout: 60000 });
-      const skeleton = page.getByTestId("reception-skeleton");
+      const skeleton = page.getByTestId("reception-pending");
       await skeleton.waitFor();
       assert.equal(await skeleton.locator("li").count(), 5);
       assert.equal(await skeleton.getByRole("button").count(), 0);

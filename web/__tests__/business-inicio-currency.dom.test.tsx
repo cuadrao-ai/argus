@@ -50,7 +50,7 @@ async function renderView(client: MonthCloseClient, options: { scopeKey: string;
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessMonthCloseView settlement client={client} now={now} scopeKey={options.scopeKey} businessCurrency={options.businessCurrency ?? null} />
+        <BusinessMonthCloseView layout="finance" arrange={({ month, money }) => <>{month}{money}</>} settlement client={client} now={now} scopeKey={options.scopeKey} businessCurrency={options.businessCurrency ?? null} />
       </I18nextProvider>,
     );
   });
@@ -68,11 +68,11 @@ async function renderView(client: MonthCloseClient, options: { scopeKey: string;
 describe("Inicio figures in every currency the month holds", () => {
   test("a USD-only month shows its own figures, not unknown, with no menu", async () => {
     const view = await renderView(serverWith([block("USD", 120000, 2400, 21600)]), { scopeKey: "usd-only" });
-    assert.equal(view.host.querySelector('[data-testid="month-close-income"]')?.getAttribute("data-state"), "final");
-    assert.match(view.text("month-close-income"), /US\$ 1,200(?![.\d])/);
-    assert.match(view.text("month-close-expenses"), /US\$ 24(?![.\d])/);
-    assert.match(view.text("month-close-net"), /US\$ 1,176(?![.\d])/);
-    assert.match(view.text("month-close-itbis-sales"), /US\$ 216(?![.\d])/);
+    assert.equal(view.host.querySelector('[data-testid="home-month-income"]')?.getAttribute("data-amount"), "1200.00");
+    assert.match(view.text("home-month-income"), /US\$ 1,200(?![.\d])/);
+    assert.match(view.text("home-month-expenses"), /US\$ 24(?![.\d])/);
+    assert.match(view.text("home-month-net"), /US\$ 1,176(?![.\d])/);
+    assert.match(view.text("home-month-itbis-sales"), /US\$ 216(?![.\d])/);
     assert.equal(view.host.querySelector('[data-testid="month-close-currency"]'), null, "one currency needs no menu");
     assert.doesNotMatch(view.host.textContent ?? "", /RD\$/);
     await view.unmount();
@@ -80,7 +80,7 @@ describe("Inicio figures in every currency the month holds", () => {
 
   test("a DOP and USD month shows DOP by default, then USD once the person chooses it, and remembers it for this Business", async () => {
     const view = await renderView(serverWith(DOP_AND_USD), { scopeKey: "two-currencies" });
-    assert.match(view.text("month-close-income"), /RD\$ 4,000(?![.\d])/);
+    assert.match(view.text("home-month-income"), /RD\$ 4,000(?![.\d])/);
     const button = view.host.querySelector('[data-testid="month-close-currency"]');
     assert.ok(button instanceof HTMLButtonElement);
     assert.equal(button.getAttribute("aria-haspopup"), "listbox");
@@ -92,26 +92,26 @@ describe("Inicio figures in every currency the month holds", () => {
     assert.equal(options[0]?.getAttribute("aria-selected"), "true");
     await view.act(async () => (options[1] as HTMLElement).click());
     assert.equal(document.querySelector('[data-testid="month-close-currency-picker"]'), null, "the menu closes on a choice");
-    assert.match(view.text("month-close-income"), /US\$ 1,200(?![.\d])/);
-    assert.match(view.text("month-close-expenses"), /US\$ 24(?![.\d])/);
-    assert.match(view.text("month-close-net"), /US\$ 1,176(?![.\d])/);
-    assert.match(view.text("month-close-itbis-sales"), /US\$ 216(?![.\d])/);
-    assert.doesNotMatch(view.text("month-close-cards-month"), /RD\$/);
+    assert.match(view.text("home-month-income"), /US\$ 1,200(?![.\d])/);
+    assert.match(view.text("home-month-expenses"), /US\$ 24(?![.\d])/);
+    assert.match(view.text("home-month-net"), /US\$ 1,176(?![.\d])/);
+    assert.match(view.text("home-month-itbis-sales"), /US\$ 216(?![.\d])/);
+    assert.doesNotMatch(view.text("home-month"), /RD\$/);
     assert.equal(view.host.querySelector('[data-testid="month-close-currency"]')?.getAttribute("aria-label"), "Moneda: USD");
     assert.match(view.text("month-close-currency-announce"), /USD/);
     await view.unmount();
 
     const again = await renderView(serverWith(DOP_AND_USD), { scopeKey: "two-currencies" });
-    assert.match(again.text("month-close-income"), /US\$ 1,200(?![.\d])/, "the choice is kept for this Business");
+    assert.match(again.text("home-month-income"), /US\$ 1,200(?![.\d])/, "the choice is kept for this Business");
     await again.unmount();
     const other = await renderView(serverWith(DOP_AND_USD), { scopeKey: "another-business" });
-    assert.match(other.text("month-close-income"), /RD\$ 4,000(?![.\d])/, "another Business keeps its own default");
+    assert.match(other.text("home-month-income"), /RD\$ 4,000(?![.\d])/, "another Business keeps its own default");
     await other.unmount();
   });
 
   test("the Business currency is the default when the month holds it", async () => {
     const view = await renderView(serverWith(DOP_AND_USD), { scopeKey: "us-business", businessCurrency: "USD" });
-    assert.match(view.text("month-close-income"), /US\$ 1,200(?![.\d])/);
+    assert.match(view.text("home-month-income"), /US\$ 1,200(?![.\d])/);
     await view.act(async () => (view.host.querySelector('[data-testid="month-close-currency"]') as HTMLButtonElement).click());
     const options = [...document.querySelectorAll('[data-testid="month-close-currency-picker"] [role="option"]')];
     assert.deepEqual(options.map((option) => option.getAttribute("data-currency")), ["USD", "DOP"], "the Business currency leads the list");
@@ -119,27 +119,27 @@ describe("Inicio figures in every currency the month holds", () => {
     await view.unmount();
   });
 
-  test("a pending USD document holds back only the USD net, and the waiting line names its currency", async () => {
+  test("a pending USD document holds back only the USD net, without a waiting caption", async () => {
     const view = await renderView(serverWith([DOP_AND_USD[0], block("USD", 120000, 2400, 21600, 1)], { cobrar: [line("usd-pending", "invoice", "USD", 5000)] }), { scopeKey: "pending-usd" });
-    const net = view.host.querySelector('[data-testid="month-close-net"]');
-    assert.equal(net?.getAttribute("data-state"), "final");
+    const net = view.host.querySelector('[data-testid="home-month-net"]');
+    assert.equal(net?.getAttribute("data-amount"), "2500.00");
     assert.match(net?.textContent ?? "", /RD\$ 2,500(?![.\d])/);
     await view.act(async () => (view.host.querySelector('[data-testid="month-close-currency"]') as HTMLButtonElement).click());
     await view.act(async () => (document.querySelector('[data-testid="month-close-currency-picker"] [data-currency="USD"]') as HTMLElement).click());
-    assert.equal(view.host.querySelector('[data-testid="month-close-net"]')?.getAttribute("data-state"), "pending");
-    assert.match(view.text("month-close-net"), /Falta marcar 1 documento en US\$/);
+    assert.equal(view.host.querySelector('[data-testid="home-month-net"]')?.getAttribute("data-state"), "unknown");
+    assert.doesNotMatch(view.text("home-month-net"), /US\$|Falta marcar/);
     await view.unmount();
   });
 
   test("zero and three decimal currencies show in whole units, like every Inicio total", async () => {
     const view = await renderView(serverWith([block("BHD", 12345678, 1050, 50), block("JPY", 1500, 25, 0)]), { scopeKey: "odd-digits", businessCurrency: "JPY" });
-    assert.match(view.text("month-close-income"), /¥ 1,500(?![.\d])/);
-    assert.match(view.text("month-close-expenses"), /¥ 25(?![.\d])/);
+    assert.match(view.text("home-month-income"), /¥ 1,500(?![.\d])/);
+    assert.match(view.text("home-month-expenses"), /¥ 25(?![.\d])/);
     await view.act(async () => (view.host.querySelector('[data-testid="month-close-currency"]') as HTMLButtonElement).click());
     await view.act(async () => (document.querySelector('[data-testid="month-close-currency-picker"] [data-currency="BHD"]') as HTMLElement).click());
-    assert.match(view.text("month-close-expenses"), /BHD 1(?![.\d])/);
-    assert.match(view.text("month-close-income"), /BHD 12,346(?![.\d])/, "12,345.678 rounds half up");
-    assert.equal(view.host.querySelector('[data-testid="month-close-income"]')?.getAttribute("data-amount"), "12345.678", "the exact amount stays on the figure");
+    assert.match(view.text("home-month-expenses"), /BHD 1(?![.\d])/);
+    assert.match(view.text("home-month-income"), /BHD 12,346(?![.\d])/, "12,345.678 rounds half up");
+    assert.equal(view.host.querySelector('[data-testid="home-month-income"]')?.getAttribute("data-amount"), "12345.678", "the exact amount stays on the figure");
     await view.unmount();
   });
 
@@ -161,7 +161,7 @@ describe("a document with no counterparty", () => {
       }), { scopeKey: `nameless-${language}`, language });
       assert.match(view.host.querySelector('[data-document-id="sale"]')?.textContent ?? "", new RegExp(invoice));
       assert.match(view.host.querySelector('[data-document-id="cost"]')?.textContent ?? "", new RegExp(expense));
-      assert.match(view.host.querySelector('[data-document-id="sale"] [data-testid="month-close-mark-cobrado"]')?.getAttribute("aria-label") ?? "", new RegExp(invoice));
+      assert.equal(view.host.querySelector('[data-testid="month-close-mark-cobrado"]'), null);
       await view.unmount();
     });
   }

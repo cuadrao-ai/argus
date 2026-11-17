@@ -704,3 +704,30 @@ def test_one_parse_reads_every_receipt_amount_and_only_a_total_must_be_positive(
 
     [after] = saved
     assert (after.amount.value, after.net_amount.value, after.fiscal.itbis.value) == expected
+
+
+def test_bad_read_date_reaches_a_draft_with_a_correction_reason(
+    checked, monkeypatch, faker, freeze_new_york_clock
+):
+    from argus.domain.business.fact_blockers import blockers
+    from argus.domain.ingestion.documents.extractor import batch_from_result
+    from argus.domain.ingestion.documents.models import ExtractionResult
+
+    freeze_new_york_clock(datetime(2026, 11, 16, 2, tzinfo=timezone.utc))
+    from tests.test_business_multi_purchase import _prepared
+
+    _, tx, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    result = ExtractionResult.model_validate({
+        "complete": True, "readable": True, "pages_read": [1],
+        "observations": [{"page": 1, "row": 1, "evidence": "transaction", "amount": "100", "currency": "DOP", "direction": "outflow", "kind_hint": "expense", "merchant": faker.company(), "occurred_on": "0026-10-05"}],
+    })
+    batch = batch_from_result(result, draft.sha256, draft.connection_id, draft.created_at, 1)
+    outcome, resolution, _ = _prepared(checked, monkeypatch, batch)
+    assert outcome.outcome == "applied"
+    assert tx.imports.put_event.call_args.args[0].anchor_on is None
+    facts = resolution.facts
+    assert facts.occurred_on.value.isoformat() == "0026-10-05"
+    [reason] = [item for item in blockers(facts, ()) if item.field == "occurred_on"]
+    assert reason.code == "business_date_before_minimum"
+    assert reason.min_date == "2016-11-15"

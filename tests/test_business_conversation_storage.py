@@ -20,7 +20,6 @@ _ = client
         ("patch", "/conversations/{id}", {"title": "Should not change"}),
         ("delete", "/conversations/{id}", None),
         ("get", "/history?surface=business", None),
-        ("get", "/search?surface=business&q=ledger", None),
     ],
 )
 def test_unavailable_durable_store_refuses_instead_of_using_memory(

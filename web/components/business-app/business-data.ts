@@ -7,7 +7,7 @@ import { getBusinessSetup } from "@/lib/business-setup-api";
 import * as searchApi from "@/lib/business-search-api";
 import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
 import type { ArgusLanguage } from "@/lib/language-features";
-import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
+import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch, ShownSuggestions } from "@/lib/business-dossier";
 import { getDgiiFields, getFiscalProfile, lookupRegistry, reviewDgii, reviewPurchase, setFiscalProfile, setLegalName, type DgiiFields, type DgiiReview, type FiscalProfile, type FiscalProfileInput, type FiscalProfileSaved, type LegalNameInput, type PurchaseChoice, type RegistryAnswer, type TaxId } from "@/lib/business-dgii";
 import type {
   GrantedSpace,
@@ -61,7 +61,7 @@ export type BusinessDataSource = Readonly<{
   reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>;
   reviewPurchase: (id: string, version: number, purchase: PurchaseChoice, key: string) => Promise<BusinessDossier>;
   setDocumentType: (id: string, version: number, documentType: "recibo" | "venta", key: string) => Promise<BusinessDossier>;
-  approveDraft: (id: string, version: number, key: string, action: BusinessApprovalAction, approveAnyway?: boolean) => Promise<BusinessDossier>;
+  approveDraft: (id: string, version: number, key: string, action: BusinessApprovalAction, approveAnyway?: boolean, suggestions?: ShownSuggestions) => Promise<BusinessDossier>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner returns an approved record to the Bandeja; the server reverses its money row. */
   reopenDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;

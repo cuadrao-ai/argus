@@ -1,11 +1,49 @@
 import type { BusinessAccount, DocumentDeleteAccess } from "./business-api";
-import type { DgiiDeclaration } from "./business-dgii";
+import type { DgiiDeclaration, SuggestedField, SuggestionSource } from "./business-dgii";
+import type { PersonName, PersonShown } from "./person-name";
 
 export type BusinessFact<T> =
   | { state: "known"; value: T; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | "default"; verified: boolean; source_ids: string[] }
   | { state: "unknown"; value: null; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | null; verified: false; source_ids: string[] }
   | { state: "owner_does_not_know"; value: null; origin: "owner_stated" | "member_set"; verified: false; source_ids: string[] };
 
+/** What a reader may decide for a possible repeat. The server lists the allowed ones on each candidate. */
+export type BusinessDuplicateDecision = "same_purchase" | "different_purchase";
+/** The main data the compare view's diff shows, in its order. The server compares the file too; the column heads and previews show it. */
+export const BUSINESS_COMPARED_FIELDS = ["counterparty", "occurred_on", "amount", "currency", "fiscal_number"] as const;
+export type BusinessComparedField = (typeof BUSINESS_COMPARED_FIELDS)[number];
+/** One document of a possible repeat as its draft holds it now; null is unknown. */
+export type BusinessComparedDocument = {
+  draft_id: string;
+  counterparty: string | null;
+  occurred_on: string | null;
+  amount: string | null;
+  currency: string | null;
+  /** The NCF, else the e-CF number. */
+  fiscal_number: string | null;
+  /** The first file, with where and when it arrived. */
+  file: { connection_id: string; filename: string | null; media_type: string; channel: "web" | "whatsapp" | "email"; received_at: string } | null;
+  received_at: string | null;
+  approved_at: string | null;
+  /** `accepted` once approved; the reviewed document is always `open`. */
+  state: "open" | "accepted";
+};
+/**
+ * A document the reviewed one may repeat. The server owns why (`basis`), what this reader may decide
+ * (`decisions`), which values differ and what the fiscal numbers recommend; the web renders them and computes none.
+ */
+export type BusinessDuplicateCandidate = {
+  draft_id: string;
+  version: number;
+  basis: "read_facts" | "fiscal_number";
+  decisions: BusinessDuplicateDecision[];
+  comparison: {
+    document: BusinessComparedDocument;
+    other: BusinessComparedDocument;
+    differences: (BusinessComparedField | "file")[];
+    recommendation: BusinessDuplicateDecision | null;
+  };
+};
 export type BusinessFunding = { kind: "business_account"; account_id: string } | { kind: "owner_funds" };
 export type BusinessFacts = {
   kind: BusinessFact<"expense" | "income" | "transfer" | "refund" | "owner_contribution" | "owner_withdrawal" | "credit_purchase" | "payable_payment" | "loan_received" | "loan_payment">;
@@ -34,7 +72,8 @@ export type BusinessFactField = Exclude<keyof BusinessFacts, "fiscal">;
 export type BusinessFactInput<T> = { state: "known"; value: T } | { state: "unknown" | "owner_does_not_know"; value: null };
 export type BusinessFactPatch = { [K in BusinessFactField]?: BusinessFactInput<NonNullable<NonNullable<BusinessFacts[K]>["value"]>> };
 export type BusinessMontosReview = { net_amount?: BusinessFactInput<string>; legal_tip?: BusinessFactInput<string>; restore_inherited?: string[]; override_inherited?: string[] };
-export type BusinessActor = { actor_id: string; actor_kind: "owner_via_agent" | "member" | "extractor"; display_name: string; grant_id: string; issuer_id: string; issuer_display_name: string };
+/** Who acted and who granted their access, each named live by the server (`PersonName`). */
+export type BusinessActor = PersonName & { actor_id: string; actor_kind: "owner_via_agent" | "member" | "extractor"; grant_id: string; issuer_id: string; issuer_display_name: string | null; issuer_email?: string | null; issuer_shown_as: PersonShown };
 
 export type BusinessReviewQuestion = {
   id: string;
@@ -64,6 +103,8 @@ export type BusinessDraftRevision = {
   created_at: string;
   /** Why the server made a revision no person and no read made. */
   reason?: "business_rnc_set" | null;
+  /** The person's duplicate decision this revision records, with the other document as the server reads it now. */
+  duplicate?: { decision: "different_purchase"; other_draft_id: string; other_counterparty: string | null; other_filename: string | null } | null;
 };
 
 export type BusinessRecordContext = {
@@ -115,8 +156,10 @@ export type BusinessApprovalAction = "record_expense" | "record_income" | "recor
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
 export type RefundCandidate = { id: string; merchant: string | null; occurred_on: string; amount: string; currency: string };
 
-/** A value the server suggests and where it came from: the last answer a person gave for this RNC, or what the receipt shows. */
-export type DeclarationSuggestion = { value: string; source: "last_choice" | "receipt" };
+/** A value the server suggests and where it came from. */
+export type DeclarationSuggestion = { value: string; source: SuggestionSource };
+/** The suggestions a person saw filled in, which an expense approval saves into its blank answers. */
+export type ShownSuggestions = Partial<Record<SuggestedField, DeclarationSuggestion>>;
 
 export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
@@ -130,8 +173,8 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   declaration_editable?: boolean;
   /** The caller may return this approved record to the Bandeja now: it holds approve and no bank match, credit note or refund is linked to it. */
   reopen_available?: boolean;
-  /** What the server offers for each 606 answer this record lacks, under the declaration's field name. A suggestion: it reaches the 606 only when a person writes it. */
-  declaration_suggestions?: Partial<Record<"category" | "payment_method", DeclarationSuggestion | null>>;
+  /** What the server offers for each 606 answer this open expense lacks, under the declaration's field name. The approval saves the ones the person saw. */
+  declaration_suggestions?: Partial<Record<SuggestedField, DeclarationSuggestion | null>>;
   /** What the e-CF XML proved by itself; null for any other source. */
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */
@@ -140,7 +183,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   bill_mark?: "Factura por pagar" | "Factura pagada" | null;
   /** The record's marks from the server, the same reading every list shows: Personal, who last changed it when not the owner, the fiscal number, the 606 answer. */
   personal?: boolean;
-  personal_marked_by?: string | null;
+  personal_marked_by?: PersonName | null;
   /** The record's facts exist, so an empty fiscal_value means no fiscal number. */
   fiscal_known?: boolean;
   fiscal_value?: "ncf" | "ecf" | null;
@@ -149,7 +192,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   fiscal_question_applies?: boolean;
   include_606?: boolean | null;
   /** Who gave the 606 answer, while one applies. */
-  include_606_by?: string | null;
+  include_606_by?: PersonName | null;
   read_purchases?: BusinessReadPurchase[];
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;
@@ -167,11 +210,11 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   sources: BusinessSourceEvidence[];
   questions: BusinessReviewQuestion[];
   history: BusinessDraftRevision[];
-  blockers: { code: string; field: BusinessFactField | null }[];
+  blockers: { code: string; field: BusinessFactField | null; min_date?: string; today?: string }[];
   /** Computed on every read, after approval too. Absent from servers older than #1590. */
   review_flags?: ReviewFlag[];
   approval_available: boolean;
-  duplicate_candidates?: { draft_id: string; version: number }[];
+  duplicate_candidates?: BusinessDuplicateCandidate[];
   /** The approve action this draft takes, by its kind; null while approval is not available. Absent from servers older than #1353. */
   approval_action?: BusinessApprovalAction | null;
   /** The server's sentence for this draft. Absent and null mean there is none. The web shows the words as sent. */

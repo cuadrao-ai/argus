@@ -1,6 +1,6 @@
 """Business chat reads keep the shapes the web app already parses.
 
-getConversationMessages, receipt follow-up paging, listHistory and searchGlobal
+getConversationMessages, receipt follow-up paging and listHistory
 all read these routes. The keys are the ones the base memory handlers return.
 """
 
@@ -18,7 +18,7 @@ from tests.test_conversation_surfaces import (
 _ = client
 
 
-def test_business_messages_history_and_search_match_the_base_shape(client) -> None:
+def test_business_messages_and_history_match_the_base_shape(client) -> None:
     _start_space(ALICE)
     conversation_id = _create(client, ALICE, "Shop ledger", surface="business")
     seed_message(
@@ -79,35 +79,6 @@ def test_business_messages_history_and_search_match_the_base_shape(client) -> No
     }
     assert set(item["activity"]) == {"operation", "attention", "latest_message_id"}
     assert set(item["preview"]) >= {"kind", "text", "symbols"}
-
-    search = client.get(
-        "/api/v1/search",
-        params={"q": "ledger", "limit": 20, "surface": "business"},
-        headers=_as(ALICE),
-    )
-    assert search.status_code == 200, search.text
-    found = search.json()
-    assert set(found) == {"items", "next_cursor", "ledger_groups"}
-    assert found["next_cursor"] is None
-    assert found["ledger_groups"] is None
-    hit = found["items"][0]
-    assert hit["type"] == "conversation"
-    assert hit["conversation_id"] == conversation_id
-    assert set(hit) >= {
-        "type",
-        "id",
-        "title",
-        "archived",
-        "matched_text",
-        "preview",
-        "updated_at",
-        "conversation_id",
-        "match",
-        "dossier",
-        "total_runs",
-        "decided_runs",
-    }
-    assert set(hit["match"]) >= {"layer", "fragment", "count"}
 
     activity = client.get(
         f"/api/v1/conversations/{conversation_id}/activity", headers=_as(ALICE)

@@ -15,7 +15,8 @@ import TransaccionesPanel from "./transacciones/TransaccionesPanel";
 import InvoiceWorkspaceEntry from "./invoicing/InvoiceWorkspaceEntry";
 import ActivityDraft from "./actividad/ActivityDraft";
 import { RecordsAnnotationsPreview } from "./transacciones/RecordsAnnotationsPreview";
-import { RecordEvidenceContext, RecordGlanceContext } from "./transacciones/RecordGlanceContext";
+import { RecordEvidenceContext, RecordGlanceContext, RecordReadinessContext, RecordRowsContext, type RefreshRecordRow } from "./transacciones/RecordGlanceContext";
+import { previewRecordMetadata } from "./transacciones/records-results-preview";
 import type { RecordRow } from "./transacciones/transacciones-model";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessSettingsPanel from "./BusinessSettingsPanel";
@@ -23,7 +24,7 @@ import ReceiptReviewPanel from "./ReceiptReviewPanel";
 import { EmailRecord } from "./BusinessEmailDeliveries";
 import PanelErrorBoundary from "./PanelErrorBoundary";
 import { formatBusinessName } from "./business-format";
-import { RecordTrayContext, recordList } from "./record-tray";
+import { RecordTrayContext, isRecordPanel, recordInTray, recordList, shownScreen, type RecordPanel } from "./record-tray";
 import { primaryButtonClass } from "./business-ui";
 
 /**
@@ -51,8 +52,6 @@ export function BusinessContextCue() {
   );
 }
 
-type RecordPanel = Extract<BusinessPanelState, { kind: "receipt" | "draft" | "expense" | "email" }>;
-
 function recordKey(panel: RecordPanel): string {
   switch (panel.kind) {
     case "receipt": return `receipt:${panel.receiptId}`;
@@ -60,6 +59,10 @@ function recordKey(panel: RecordPanel): string {
     case "expense": return `expense:${panel.expenseId}`;
     case "email": return `email:${panel.emailId}`;
   }
+}
+
+function rowTarget(row: RecordRow): string | null {
+  return row.opens ? recordKey(row.opens) : null;
 }
 
 function RecordContent({ panel, preview }: { panel: RecordPanel; preview?: RecordRow }) {
@@ -71,11 +74,11 @@ function RecordContent({ panel, preview }: { panel: RecordPanel; preview?: Recor
 
 /**
  * A record on a desktop: beside Registros, which it came from, or in the wide dossier over the
- * Bandeja. The tray is not modal:
- * a click on another row swaps the record, and closing returns to the list
- * with focus on the row that was open.
+ * Bandeja. The tray is not modal: a click on another row swaps the record. AdaptivePanel closes it
+ * and puts focus back on the row that was open; the workspace's panel guard asks first while the
+ * record holds an unsaved edit.
  */
-function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: RecordPanel; list: RecordList; listRef: RefObject<HTMLDivElement | null>; returnFocusRef: RefObject<HTMLElement | null>; preview?: RecordRow }) {
+function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: RecordPanel; list: RecordList | null; listRef: RefObject<HTMLDivElement | null>; returnFocusRef: RefObject<HTMLElement | null>; preview?: RecordRow }) {
   const { t } = useTranslation();
   const { openPanel } = useBusiness();
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
@@ -85,18 +88,18 @@ function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: 
   // A receipt's dossier makes the drawer's header its own: its name, total, status, origin and place in the list.
   const receiptHeader = panel.kind === "receipt" || panel.kind === "draft";
   const settleList = useCallback((next: RecordList) => {
-    if ((panel.kind === "receipt" || panel.kind === "draft") && panel.list === undefined && next !== list) openPanel({ ...panel, list: next });
-  }, [list, openPanel, panel]);
+    if ((panel.kind === "receipt" || panel.kind === "draft") && panel.list === undefined) openPanel({ ...panel, list: next });
+  }, [openPanel, panel]);
   const tray = useMemo(() => ({ footer, summary: receiptHeader ? summary : null, headerActions: receiptHeader ? headerActions : null, setTitle, settleList }), [footer, summary, headerActions, receiptHeader, settleList]);
   const close = () => {
     const host = listRef.current;
     returnFocusRef.current = host?.querySelector<HTMLElement>('[aria-current="true"] button, tr[aria-selected="true"]') ?? host;
-    openPanel({ kind: list });
+    openPanel({ kind: list ?? "inbox" });
   };
   return (
     <AdaptivePanel
       modal={false}
-      width={list === "inbox" ? "dossier" : "record"}
+      width={list === "transactions" ? "record" : "dossier"}
       title={(receiptHeader ? title : null) ?? t("business.tray.title", "Details")}
       titleId={receiptHeader ? "receipt-review-title" : undefined}
       headerSize={receiptHeader ? "large" : "default"}
@@ -104,6 +107,7 @@ function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: 
       headerActions={receiptHeader ? <div ref={setHeaderActions} data-header-actions="" className="flex items-center empty:hidden" /> : undefined}
       closeLabel={t("common.close", "Close")}
       onClose={close}
+      returnFocusRef={returnFocusRef}
       footer={<div ref={setFooter} data-footer-slot="" />}
     >
       <RecordTrayContext.Provider value={tray}>
@@ -122,20 +126,34 @@ const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as co
 const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", inbox: "canvas", transactions: "canvas", invoicing: "canvas", activity: "canvas", receipt: "canvas", draft: "canvas", business: "canvas", expense: "form" };
 
 export default function BusinessPanel() {
-  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus, invoicing } = useBusiness();
+  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus, invoicing, revision } = useBusiness();
   const previewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-  const scope = chosen?.space_id ?? "own";
-  const [glance, setGlance] = useState<{ scope: string; row: RecordRow } | null>(null);
-  const openGlance = (row: RecordRow) => { if (!row.opens) return; setGlance({ scope, row }); openPanel(row.opens); };
+  const scope = JSON.stringify([userId, chosen?.space_id ?? "own", chosen?.grant_id ?? null]);
+  const [glance, setGlance] = useState<{ scope: string; row: RecordRow; revision: number; refresh?: RefreshRecordRow } | null>(null);
+  const openGlance = (row: RecordRow, refresh?: RefreshRecordRow) => { if (!row.opens) return; setGlance({ scope, row, revision, refresh }); openPanel(row.opens); };
+  const refreshSelectedRow = useCallback((rows: readonly RecordRow[]) => {
+    setGlance((selected) => {
+      if (!selected || selected.scope !== scope) return selected;
+      const next = rows.find((row) => rowTarget(row) === rowTarget(selected.row));
+      if (!next) return null;
+      return next.report === selected.row.report ? selected : { ...selected, row: next };
+    });
+  }, [scope]);
   const { isBelowDesktop } = useResponsiveLayout();
-  const listRef = useRef<HTMLDivElement>(null);
-  // The list is inert while a dossier covers it, so focus goes back to its row once the tray has gone.
-  const returnFocusRef = useRef<HTMLElement | null>(null);
+  // A phone unmounts Registros while the record is open. Ask the same report for its new answer after a save.
   useEffect(() => {
-    const target = returnFocusRef.current;
-    returnFocusRef.current = null;
-    if (target?.isConnected) target.focus();
-  }, [panel]);
+    if (!isBelowDesktop || previewEnabled || !glance?.refresh || glance.scope !== scope || glance.revision === revision) return;
+    const selected = glance;
+    const abort = new AbortController();
+    void glance.refresh(abort.signal).then((row) => {
+      if (!abort.signal.aborted) setGlance((current) => current === selected ? row ? { ...selected, row, revision } : null : current);
+    }, () => {
+      if (!abort.signal.aborted) setGlance((current) => current === selected ? null : current);
+    });
+    return () => abort.abort();
+  }, [glance, isBelowDesktop, previewEnabled, revision, scope]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   if (records.closed) {
     return (
       <div className={`flex w-full justify-center pb-6 ${COLUMN.reading}`}>
@@ -151,35 +169,40 @@ export default function BusinessPanel() {
       </div>
     );
   }
-  const record = panel.kind === "receipt" || panel.kind === "draft" || panel.kind === "expense" || panel.kind === "email" ? panel : null;
-  // The local Registros preview keeps its list beneath a phone record sheet.
-  const recordsPhonePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && record && recordList(record) === "transactions";
-  const tray = record && (!isBelowDesktop || recordsPhonePreview) ? recordList(record) : null;
-  const shown = tray ?? panel.kind;
-  const preview = previewEnabled && record?.kind === "expense" && glance?.scope === scope && glance.row.opens?.kind === "expense" && glance.row.opens.expenseId === record.expenseId ? glance.row : undefined;
+  const record = isRecordPanel(panel) ? panel : null;
+  const inTray = recordInTray(panel, isBelowDesktop);
+  const tray = inTray ? recordList(panel) : null;
+  const shown = shownScreen(panel, isBelowDesktop);
+  const preview = previewEnabled && !glance?.row.report && record?.kind === "expense" && glance?.scope === scope && glance.row.opens?.kind === "expense" && glance.row.opens.expenseId === record.expenseId ? glance.row : undefined;
+  const selectedRow = record && glance?.scope === scope && rowTarget(glance.row) === recordKey(record) ? glance.row : null;
+  const readiness = selectedRow ? selectedRow.report ?? (previewEnabled ? previewRecordMetadata(selectedRow, chosen?.space_id ?? null) : null) : null;
   // Negocio bounds its own columns through SettingsLayout, so every tab shares one left edge and width.
   const column = SCREEN_COLUMN[shown] ?? "reading";
   return (
-    <RecordGlanceContext.Provider value={previewEnabled ? openGlance : null}>
+    <RecordGlanceContext.Provider value={openGlance}>
+      <RecordRowsContext.Provider value={refreshSelectedRow}>
+      <RecordReadinessContext.Provider value={readiness}>
       <RecordEvidenceContext.Provider value={(row) => { if (row.opens) { setGlance(null); openPanel(row.opens); } }}>
-        <RecordsAnnotationsPreview><div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
+        <RecordsAnnotationsPreview><div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !inTray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />
       {/* A dossier tray lies over the list, so what it covers leaves the Tab order and the accessibility tree. */}
       <div inert={tray === "inbox" ? true : undefined}>
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
-      <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>
+      <PanelErrorBoundary key={record && !inTray ? recordKey(record) : shown}>
         {shown === "overview" ? <BusinessOverviewPanel /> : null}
         {shown === "inbox" ? <BusinessInboxPanel /> : null}
         {shown === "transactions" ? <TransaccionesPanel /> : null}
         {shown === "invoicing" && invoicingShown(invoicing) ? <InvoiceWorkspaceEntry directoryStatus={directoryStatus} onRetry={reload} scope={userId && chosen?.permissions?.includes("read") === true ? { userId, businessId: chosen.space_id, grantId: chosen.grant_id } : null} business={chosen?.name ?? ""} capabilities={{ prepare: chosen?.permissions?.includes("prepare") === true, issue: chosen?.permissions?.includes("approve") === true, download: chosen?.permissions?.includes("download") === true }} sample={invoicing === "sample"} /> : null}
         {shown === "activity" ? <ActivityDraft /> : null}
         {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
-        {record && !tray ? <RecordContent panel={record} /> : null}
+        {record && !inTray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>
       </div>
-      {record && tray ? <RecordTray panel={record} list={tray} listRef={listRef} returnFocusRef={returnFocusRef} preview={preview} /> : null}
+      {record && inTray ? <RecordTray panel={record} list={tray} listRef={listRef} returnFocusRef={returnFocusRef} preview={preview} /> : null}
         </div></RecordsAnnotationsPreview>
       </RecordEvidenceContext.Provider>
+      </RecordReadinessContext.Provider>
+      </RecordRowsContext.Provider>
     </RecordGlanceContext.Provider>
   );
 }

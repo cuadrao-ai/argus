@@ -28,7 +28,7 @@ The API stays lean. A request saves the file and answers. Reading runs apart fro
 1. The owner drops 70 photos. The browser sends them, and the server takes 3 file bodies at a time. The rest wait seconds in the browser. Every file saves.
 2. Each receipt appears in Bandeja at once as Leyendo.
 3. The worker reads 3 at a time, oldest first. 70 photos take about 13 minutes by arithmetic, at 33 seconds each. The owner can keep working.
-4. A failed read shows a reason, a `Ref.`, and a retry. A stopped worker leaves receipts waiting, and nothing is lost.
+4. A failed read follows [When a read fails](../../.agent/designs/cuadrao-business-app/DESIGN.md#when-a-read-fails). A stopped worker leaves receipts waiting, and nothing is lost.
 
 So there are two separate 3s: uploads in flight protect API memory, and reads at once protect the provider and the budget.
 
@@ -63,7 +63,7 @@ Over a Business budget the file is still saved, unread, with a reason. No captur
 1. Queue semantics: a queued read is waiting, not dead. Worker entry, cap, drain, and the sweep moves to the worker.
 2. Lean upload: gate before the body, lighter checks in the request.
 3. Limits: split the counters, add the Business read budget.
-4. Provider refusals: a 429 or 503 requeues the receipt and pauses pulls.
+4. Provider refusals: the retry design in [When a receipt read fails](../ARCHITECTURE.md#when-a-receipt-read-fails) (#2192).
 5. WhatsApp: cap its background work, and keep the locked follow-up.
 6. Bandeja: one counts query, and fix the 530 statement list.
 7. Hosted milestone: new service, same SHA, then a 70 photo rehearsal with synthetic files.

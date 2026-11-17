@@ -156,8 +156,8 @@ describe("one receipt review page", () => {
 
   test("a terminal read offers only another upload, whatever the viewer can prepare", async () => {
     for (const [attention, errorCode, withPrepare, labels] of [
-      ["unreadable", "unreadable_document", true, ["Subir otro archivo"]],
-      ["unreadable", "unreadable_document", false, ["Subir otro archivo"]],
+      ["unreadable", "unreadable_document", true, ["Subir otro documento"]],
+      ["unreadable", "unreadable_document", false, ["Subir otro documento"]],
       ["not_a_receipt", "not_a_receipt", true, []],
       ["not_a_receipt", "not_a_receipt", false, []],
     ] as const) {
@@ -181,7 +181,7 @@ describe("one receipt review page", () => {
       await page.open(
         { kind: "receipt", receiptId: "rcpt-blurry" },
         () => page.host.querySelector('[data-testid="receipt-attention"]') !== null
-          && (attention !== "unreadable" || page.host.textContent?.includes("Subir otro archivo") === true),
+          && (attention !== "unreadable" || page.host.textContent?.includes("Subir otro documento") === true),
       );
       const shown = [...page.host.querySelector('[data-testid="receipt-attention"]')!.querySelectorAll("button")].map((button) => button.textContent);
       assert.deepEqual(shown, [...labels], `${attention} prepare=${withPrepare}`);
@@ -198,7 +198,7 @@ describe("one receipt review page", () => {
           : found;
       },
     }));
-    await page.open({ kind: "receipt", receiptId: "rcpt-blurry" }, () => page.host.textContent?.includes("Subir otro archivo") === true);
+    await page.open({ kind: "receipt", receiptId: "rcpt-blurry" }, () => page.host.textContent?.includes("Subir otro documento") === true);
     const unreadable = page.host.querySelector('[data-testid="receipt-attention"]');
     assert.equal(unreadable?.querySelector(".font-medium")?.textContent, "No pudimos leer este archivo");
     assert.equal(
@@ -206,7 +206,7 @@ describe("one receipt review page", () => {
       "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz.",
     );
     const unreadableLabels = [...unreadable!.querySelectorAll("button")].map((button) => button.textContent);
-    assert.deepEqual(unreadableLabels, ["Subir otro archivo"]);
+    assert.deepEqual(unreadableLabels, ["Subir otro documento"]);
 
     await page.open(
       { kind: "receipt", receiptId: "rcpt-unknown" },
@@ -218,7 +218,7 @@ describe("one receipt review page", () => {
     assert.equal(notice?.textContent?.includes("No pudimos leer este archivo"), false);
     assert.equal(notice?.textContent?.includes("borroso, cortado o dañado"), false);
     const noticeLabels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
-    assert.deepEqual(noticeLabels, ["Subir otro archivo"]);
+    assert.deepEqual(noticeLabels, ["Subir otro documento"]);
     await page.act(async () => page.root.unmount());
   });
 
@@ -228,14 +228,12 @@ describe("one receipt review page", () => {
     await page.open({ kind: "draft", draftId: dossierFixtureIds.ready }, () => page.host.querySelector('[data-testid="receipt-mark-personal"]') !== null);
     const toggle = () => page.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
     const saved = (on: boolean) => toggle().getAttribute("aria-checked") === String(on) && !toggle().hasAttribute("aria-busy");
-    const chip = () => page.host.querySelector('[data-testid="receipt-marks-card"] [data-mark="personal"]');
-    assert.equal(toggle().getAttribute("role"), "switch");
+    assert.equal(toggle().getAttribute("role"), "menuitemcheckbox");
     assert.equal(toggle().getAttribute("aria-checked"), "false");
-    assert.equal(chip(), null);
     await page.act(async () => toggle().click());
-    await page.wait(() => saved(true) && chip() !== null);
+    await page.wait(() => saved(true));
     await page.act(async () => toggle().click());
-    await page.wait(() => saved(false) && chip() === null);
+    await page.wait(() => saved(false));
     await page.act(async () => page.root.unmount());
   });
 });

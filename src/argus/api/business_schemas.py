@@ -16,6 +16,7 @@ from pydantic import (
 
 from argus.api.schemas import Language
 from argus.domain.business.bandeja_group import BandejaGroupName, BandejaReason
+from argus.domain.business.contracts.authority import PersonName
 from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.country import CountryCode
@@ -155,7 +156,8 @@ class BusinessWorkspace(_Wire):
 class BusinessAccessGrant(_Wire):
     id: str
     email: str | None
-    display_name: str
+    #: The profile name, null without one: the row shows the email (#2219).
+    display_name: str | None
     photo_url: str | None = Field(
         default=None,
         description="A signed URL to the member's 256 px profile photo, valid for about an hour; null without one, and null until the member has dismissed their access line (access_seen).",
@@ -317,6 +319,8 @@ class ReceiptSummary(_Wire):
     filename: str | None
     # The sender's own words sent with the file (a WhatsApp caption), verbatim.
     source_text: str | None = None
+    # Who uploaded a web upload, named for the caller; null for any other arrival.
+    uploaded_by: PersonName | None = None
     media_type: str
     size_bytes: int
     received_at: datetime
@@ -359,7 +363,7 @@ class ReceiptSummary(_Wire):
     # Marked by a person as no part of the Business: left out of the totals, kept visible.
     personal: bool = Field(default=False, exclude_if=lambda value: value is False)
     # Who marked it, when that was someone other than the owner; absent otherwise.
-    personal_marked_by: str | None = Field(
+    personal_marked_by: PersonName | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     # The receipt's facts exist (a draft owns it), so an absent fiscal_value
@@ -372,7 +376,7 @@ class ReceiptSummary(_Wire):
     # The accountant's 606 answer for a personal receipt with a fiscal number; absent until given or not applicable.
     include_606: bool | None = Field(default=None, exclude_if=lambda value: value is None)
     # Who gave that answer; absent while there is none.
-    include_606_by: str | None = Field(
+    include_606_by: PersonName | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     # Marked in review as having no comprobante fiscal; absent otherwise.
@@ -439,7 +443,7 @@ class BusinessExpense(_Wire):
     # the expense names no single receipt.
     draft_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
     personal: bool = Field(default=False, exclude_if=lambda value: value is False)
-    personal_marked_by: str | None = Field(
+    personal_marked_by: PersonName | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     # A saved expense's fiscal standing is settled on the server: the number it
@@ -449,7 +453,7 @@ class BusinessExpense(_Wire):
         default=None, exclude_if=lambda value: value is None
     )
     include_606: bool | None = Field(default=None, exclude_if=lambda value: value is None)
-    include_606_by: str | None = Field(
+    include_606_by: PersonName | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     sin_comprobante: bool = Field(default=False, exclude_if=lambda value: value is False)

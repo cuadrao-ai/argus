@@ -65,12 +65,13 @@ describe("Business report transport", () => {
     expect(calls).toHaveLength(0);
   });
   test("v2 sends complete presentation and keeps intended sort separate from the server fallback", async () => {
-    const calls = respond({ ...answer(), overview: { needs_review: 40, needs_fiscal_data: 60, ready_for_export: 2, exported: 1 }, effective_sort: "date_desc", sort_unavailable_reason: "amount_sort_requires_single_known_currency" });
+    const calls = respond({ ...answer(), overview: { not_ready: 61, needs_review: 40, needs_fiscal_data: 60, ready_for_export: 2, exported: 1 }, effective_sort: "date_desc", sort_unavailable_reason: "amount_sort_requires_single_known_currency" });
     const report = reportRequestSchema.parse({ schema_version: 2, sort: "amount_asc", page_size: 100, presentation: { ...recordedReportAnswer.presentation, density: 56, hidden: ["funding", "note"] } });
     const result = await queryBusinessReport(scope, report);
     expect(JSON.parse(String(calls[0].options.body))).toEqual(report);
     expect(result.effective_sort).toBe("date_desc");
     expect(result.overview?.needs_review).toBe(40);
+    expect(result.overview?.not_ready).toBe(61);
     expect(report.sort).toBe("amount_asc");
     expect(report.schema_version === 2 && report.presentation?.density).toBe(56);
   });
@@ -94,9 +95,11 @@ describe("Business report transport", () => {
   });
   test("previews the export from the table's request and saves the file under the server's name", async () => {
     const report = reportRequestSchema.parse({ schema_version: 2, page: 4, filters: { record_families: ["purchase"], currencies: ["DOP"] } });
-    const preview = { table: { current: { record_count: 3, currencies: ["DOP"], columns: [{ key: "counterparty", label_key: "business.transactions.columns.contraparte", required: true, shown: true }] }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [] } };
+    const preview = { table: { current: { record_count: 3, currencies: ["DOP"], columns: [{ key: "counterparty", label_key: "business.terms.counterparty_purchase", required: true, shown: true }], filenames: { xlsx: "Compras_noviembre-2026.xlsx", csv: "Compras_noviembre-2026.csv" } }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [], filenames: { xlsx: "606_noviembre-2026.xlsx", csv: "606_noviembre-2026.csv" } } };
     const previewCalls = respond(preview);
-    expect(await previewRecordsExport(scope, report)).toEqual(preview);
+    const parsedPreview = await previewRecordsExport(scope, report);
+    expect(parsedPreview).toEqual(preview);
+    expect(parsedPreview).not.toHaveProperty("not_ready");
     expect(previewCalls[0].path).toEndWith("/business/reports/export/preview");
     expect(JSON.parse(String(previewCalls[0].options.body))).toEqual({ report });
     const calls: Call[] = [];
@@ -125,6 +128,9 @@ describe("Business report transport", () => {
       const file = await downloadRecordsExport(scope, report, { mode: "dgii", format: "xlsx" });
       expect(file.filename).toBe(name);
       expect(new Headers(calls[0].options.headers).get("Accept-Language")).toBe(language);
+      // The preview names the file in the same language the export will.
+      await previewRecordsExport(scope, report).catch(() => undefined);
+      expect(new Headers(calls[1].options.headers).get("Accept-Language")).toBe(language);
     } finally { i18n.resolvedLanguage = previous; }
   });
   test("private view CRUD preserves preset, expected version and replay key, including an empty DELETE", async () => {

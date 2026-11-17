@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tests import test_business_actions_postgres as shared
+from tests.business.test_records_export_filename import one_stem
 from tests.test_business_dgii_postgres import cash_account
 from tests.test_business_reporting_postgres import record_expense, viewer_context
 
@@ -125,7 +126,7 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
         unquote(encoded),
     )
     assert fallback == f'attachment; filename="{unquote(encoded)}"'
-    assert written[0] == ["Contraparte", "Fecha", "Total", "Moneda"]
+    assert written[0] == ["Emisor", "Fecha", "Total", "Moneda"]
     assert len(written) == 27
     assert {line[3] for line in written[1:]} == {"DOP"}
     excel = export(http, format="xlsx")
@@ -174,6 +175,9 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     card = query(http, filters=month)["overview"]["needs_fiscal_data"]
     unrelated = {**month, "q": "nothing matches this", "has_document": True}
     summary = preview(http, unrelated)["dgii"]
+    assert (
+        one_stem(summary.pop("filenames")) == f"{PRACTICE_NAME} - Compras 2026-09 - DGII"
+    )
     assert summary == {
         "form": "606",
         "currency": "DOP",
@@ -216,7 +220,7 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
         "0.00",
         "01",
     )
-    official[2] = "02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS "
+    official[2] = "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS"
     official[22] = "01 - EFECTIVO"
     official[5:7] = [official[5][:6], official[5][6:], official[6][:6], official[6][6:]]
     assert written[1:] == [official]

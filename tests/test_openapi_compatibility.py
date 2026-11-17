@@ -35,93 +35,15 @@ def test_generated_and_checked_artifacts_are_structurally_compatible(
     assert failures == [], "\n".join(failures)
 
 
-def test_search_declares_bounded_visible_conversation_recall(
-    generated: dict,
-) -> None:
-    operation = generated["paths"]["/api/v1/search"]["get"]
-    parameters = {parameter["name"]: parameter for parameter in operation["parameters"]}
-
-    query = parameters["q"]
-    assert query["in"] == "query"
-    assert query["required"] is True
-    assert query["schema"]["maxLength"] == 512
-
-    conversation_ids = parameters["conversation_id"]
-    assert conversation_ids["in"] == "query"
-    assert conversation_ids["required"] is False
-    assert conversation_ids["schema"] == {
-        "anyOf": [
-            {
-                "items": {"type": "string", "format": "uuid"},
-                "type": "array",
-                "minItems": 1,
-                "maxItems": 50,
-            },
-            {"type": "null"},
-        ],
-        "title": "Conversation Id",
-    }
-    search_item = generated["components"]["schemas"]["SearchItem"]
-    assert search_item["properties"]["archived"] == {
-        "type": "boolean",
-        "title": "Archived",
-    }
-    assert "archived" in search_item["required"]
-    unavailable = operation["responses"]["503"]
-    assert "search temporarily unavailable" in unavailable["description"].lower()
-    assert unavailable["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/Error"
-    }
-
-
 def test_business_guide_openapi_is_person_scoped_with_the_shared_outage(
     generated: dict,
 ) -> None:
-    base = "/api/v1/business/guide-cards/{card_id}"
-    for method, path in (("get", base), ("post", f"{base}/dismiss")):
-        operation = generated["paths"][path][method]
-        assert {parameter["name"] for parameter in operation["parameters"]} == {
-            "card_id"
-        }
-        assert operation["responses"]["503"] == {
-            "$ref": "#/components/responses/AuthSessionVerificationUnavailable"
-        }
-
-
-def test_decision_note_write_schema_caps_new_notes_without_narrowing_reads(
-    generated: dict,
-) -> None:
-    schemas = generated["components"]["schemas"]
-    assert "DecisionNoteCreate" not in schemas
-    dossier_note = schemas["SearchDossierDecision"]["properties"]["note"]["anyOf"][0]
-    action_note = schemas["SearchDecisionAction"]["properties"]["note"]["anyOf"][0]
-
-    assert dossier_note["maxLength"] == 2000
-    assert action_note["maxLength"] == 2000
-
-
-def test_dossier_decision_action_requires_typed_availability(generated: dict) -> None:
-    schema = generated["components"]["schemas"]["SearchDecisionAction"]
-
-    assert "availability" in schema["required"]
-    assert schema["properties"]["availability"] == {
-        "type": "string",
-        "enum": ["available", "account_conversion_required"],
-        "title": "Availability",
-    }
-
-
-def test_dossier_reads_declare_client_capability_negotiation(generated: dict) -> None:
-    parameters = {
-        parameter["name"]: parameter
-        for parameter in generated["paths"]["/api/v1/search"]["get"]["parameters"]
-    }
-    capability = parameters["X-Argus-Client-Capabilities"]
-    assert capability["in"] == "header"
-    assert capability["required"] is False
-    assert capability["schema"]["anyOf"][0] == {
-        "type": "string",
-        "maxLength": 1024,
+    operation = generated["paths"]["/api/v1/business/guide-cards/{card_id}/dismiss"][
+        "post"
+    ]
+    assert {parameter["name"] for parameter in operation["parameters"]} == {"card_id"}
+    assert operation["responses"]["503"] == {
+        "$ref": "#/components/responses/AuthSessionVerificationUnavailable"
     }
 
 
@@ -330,19 +252,6 @@ def test_response_schema_drift_fails_with_named_difference(
     assert any(
         "GET /api/v1/me/responses/200" in failure for failure in failures
     ), failures
-
-
-def test_openapi_contract_exposes_lazy_run_dossier_history(
-    generated: dict,
-) -> None:
-    assert "/api/v1/conversations/{conversation_id}/run-dossiers" not in generated["paths"]
-    search_item = generated["components"]["schemas"]["SearchItem"]
-    assert search_item["properties"]["dossier"]["anyOf"] == [
-        {"$ref": "#/components/schemas/RunDossier"},
-        {"type": "null"},
-    ]
-    assert {"dossier", "total_runs", "decided_runs"}.issubset(search_item["required"])
-    assert "actions" not in search_item["properties"]
 
 
 def test_openapi_exposes_conversation_activity_and_read_contract(

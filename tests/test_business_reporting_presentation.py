@@ -53,6 +53,7 @@ def test_legacy_category_order_upgrades_in_place():
         "expense_type",
         "payment_form",
         "stage",
+        "missing",
         "note",
         "attachment",
         "funding",
@@ -126,6 +127,7 @@ def test_query_returns_backend_default_presentation(version):
         "itbis_amount",
         "gross_amount",
         "stage",
+        "missing",
     ]
     assert answer.presentation.hidden == (
         "counterparty",
@@ -188,7 +190,12 @@ def test_recorded_preview_answer_matches_backend():
         Path(__file__).resolve().parents[1]
         / "web/test-fixtures/records-default-report-answer.json"
     )
-    assert json.loads(fixture.read_text()) == answer.model_dump(mode="json")
+    recorded = json.loads(fixture.read_text())
+    current = answer.model_dump(mode="json")
+    assert answer.overview.not_ready == 0
+    assert recorded.pop("fingerprint")
+    assert current.pop("fingerprint")
+    assert recorded == current
 
 
 def test_saved_order_appends_fiscal_columns_hidden_without_moving_existing_columns():
@@ -200,6 +207,7 @@ def test_saved_order_appends_fiscal_columns_hidden_without_moving_existing_colum
     )
     expected = [key for key in order if key not in {"currency", "family"}]
     expected.insert(expected.index("gross_amount"), "net_amount")
+    expected.insert(expected.index("stage") + 1, "missing")
     added = ("counterparty_id", "itbis_amount", "fiscal_number")
     assert presentation.order == (*expected, *added)
     assert presentation.hidden == ("date", *added)

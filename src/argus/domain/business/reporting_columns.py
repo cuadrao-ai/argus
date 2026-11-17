@@ -24,6 +24,7 @@ TableColumn = Literal[
     "itbis_amount",
     "gross_amount",
     "stage",
+    "missing",
     "fiscal_number",
     "note",
     "attachment",
@@ -48,6 +49,9 @@ class ColumnSpec:
     key: TableColumn
     #: Locale path of the column's name; the web and the file read its words.
     label: str
+    #: Its name changes with the tab: a one-family table reads `<label>_<family>`,
+    #: the i18next context form, and a mixed one reads `label`.
+    named_by_family: bool = False
     #: Hidden in the default layout and when a stored layout first meets it.
     hidden: bool = False
     #: The record families whose table offers it.
@@ -60,7 +64,8 @@ COLUMNS: tuple[ColumnSpec, ...] = (
     ColumnSpec("counterparty_id", "business.transactions.columns.rnc_cedula"),
     ColumnSpec(
         "counterparty",
-        "business.transactions.columns.contraparte",
+        "business.terms.counterparty",
+        named_by_family=True,
         hidden=True,
         file="always",
     ),
@@ -72,6 +77,7 @@ COLUMNS: tuple[ColumnSpec, ...] = (
     ColumnSpec("itbis_amount", "business.terms.itbis"),
     ColumnSpec("gross_amount", "business.terms.total"),
     ColumnSpec("stage", "business.transactions.layout.column_state"),
+    ColumnSpec("missing", "business.transactions.layout.column_reason"),
     ColumnSpec("fiscal_number", "business.transactions.columns.ncf", hidden=True),
     ColumnSpec("note", "business.transactions.columns.notas", hidden=True),
     ColumnSpec(
@@ -89,6 +95,24 @@ COLUMNS: tuple[ColumnSpec, ...] = (
 SPECS: dict[TableColumn, ColumnSpec] = {spec.key: spec for spec in COLUMNS}
 TABLE_COLUMNS: tuple[TableColumn, ...] = tuple(SPECS)
 HIDDEN_COLUMNS = tuple(spec.key for spec in COLUMNS if spec.hidden)
+
+
+def column_label(key: TableColumn, families: Iterable[Family]) -> str:
+    """The locale path that names this column in a table of these families."""
+
+    spec = SPECS[key]
+    named = frozenset(families)
+    if spec.named_by_family and len(named) == 1:
+        return f"{spec.label}_{next(iter(named))}"
+    return spec.label
+
+
+#: Every locale path a column name can take.
+COLUMN_LABELS: frozenset[str] = frozenset(
+    column_label(spec.key, families)
+    for spec in COLUMNS
+    for families in ((), *((family,) for family in get_args(Family)))
+)
 
 
 def offered_columns(families: Iterable[Family], country: str) -> frozenset[TableColumn]:

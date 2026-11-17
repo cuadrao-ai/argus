@@ -23,7 +23,7 @@ async function mount(props: Partial<Parameters<typeof RecordsOverviewPreview>[0]
   const { createRoot } = await import("react-dom/client");
   const i18n = i18next.createInstance(); await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host); const chosen: string[] = [];
-  const render = async (extra: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}) => act(async () => root.render(<I18nextProvider i18n={i18n}><RecordsOverviewPreview family="purchase" answer={answer} fiscalCount={71} selected={[]} onChoose={(key) => chosen.push(key)} {...props} {...extra} /></I18nextProvider>));
+  const render = async (extra: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}) => act(async () => root.render(<I18nextProvider i18n={i18n}><RecordsOverviewPreview family="purchase" answer={answer} notReadyCount={71} selected={false} onChoose={() => chosen.push("fiscal")} {...props} {...extra} /></I18nextProvider>));
   await render(); cleanup = async () => act(async () => root.unmount()); return { chosen, render };
 }
 const card = (key: string) => document.querySelector<HTMLElement>(`[data-overview-card="${key}"]`)!;
@@ -52,12 +52,25 @@ test("coverage is per metric, partial and unsupported stay explicit, absent valu
   await mount(); assert.match(card("goods").textContent!, /12 de 25 compras/); assert.match(card("services").textContent!, /7 de 25 compras/);
   assert.match(card("goods").textContent!, /5\.00.*Parcial.*12 de 25 compras/); assert.match(card("services").textContent!, /2.*no compatibles/);
   assert.equal(card("goods").querySelector(".cuadrao-amount .sr-only")?.textContent, "DOP 5.00"); assert.ok(card("goods").querySelector(".cuadrao-amount")); assert.ok(card("goods").querySelector("sup"));
-  await cleanup(); await mount({ answer: undefined, fiscalCount: null }); assert.doesNotMatch(card("total").textContent!, /0\.00/); assert.equal((card("fiscal") as HTMLButtonElement).disabled, true);
+  await cleanup(); await mount({ answer: undefined, notReadyCount: null }); assert.doesNotMatch(card("total").textContent!, /0\.00/); assert.equal((card("fiscal") as HTMLButtonElement).disabled, true);
 });
 test("loading clears every old card count", async () => {
   await mount({ loading: true }); assert.doesNotMatch(card("total").textContent!, /111\.11/); assert.doesNotMatch(card("quantity").textContent!, /1,828/); assert.doesNotMatch(card("fiscal").textContent!, /71/);
 });
 
+
+test("pending cards hold the loaded slots, so nothing moves when numbers arrive", async () => {
+  const slots = () => [...document.querySelectorAll<HTMLElement>("[data-overview-card]")].map((el) => [el.dataset.overviewCard, [...el.querySelectorAll<HTMLElement>("[data-overview-slot]")].map((slot) => `${slot.dataset.overviewSlot}.${slot.className}`)]);
+  const page = await mount({ loading: true });
+  const pending = slots();
+  const money = ["currency", "amount"]; const count = ["count"];
+  assert.deepEqual(pending.map(([key, list]) => [key, (list as string[]).map((slot) => slot.split(".")[0])]), [["total", money], ["itbis", money], ["quantity", count], ["goods", money], ["services", money], ["fiscal", count]]);
+  for (const slot of document.querySelectorAll("[data-overview-slot]")) assert.equal(slot.textContent, "\u00a0", "a pending slot holds one line of its own text box");
+  await page.render({ loading: false });
+  assert.deepEqual(slots(), pending);
+  await page.render({ loading: false, answer: undefined, notReadyCount: null });
+  assert.deepEqual(slots(), pending);
+});
 
 test("known zero is an amount while missing and unusable populated values remain unknown", async () => {
   const rows = [fiscal({ applicable_count: 1, populated_count: 1, unknown_count: 0, complete: true, amount: "0.00", known_amount: "0.00" })];
@@ -155,11 +168,11 @@ for (const language of ["es-419", "en"]) {
 }
 
 test("Fiscal only marks an exclusive stage active and keeps an active zero clearable", async () => {
-  const page = await mount({ fiscalCount: 0, selected: ["export"] });
+  const page = await mount({ notReadyCount: 0, selected: false });
   assert.equal((card("fiscal") as HTMLButtonElement).disabled, true);
-  await page.render({ fiscalCount: 4, selected: ["fiscal", "export"] });
+  await page.render({ notReadyCount: 4, selected: false });
   assert.equal(card("fiscal").getAttribute("aria-pressed"), "false");
-  await page.render({ fiscalCount: 0, selected: ["fiscal"] });
+  await page.render({ notReadyCount: 0, selected: true });
   assert.equal((card("fiscal") as HTMLButtonElement).disabled, false);
   assert.equal(card("fiscal").getAttribute("aria-pressed"), "true");
   await act(async () => card("fiscal").click());
@@ -185,15 +198,28 @@ test("sales use income amounts and absent sales goods and services stay unknown"
   for (const metric of ["goods", "services"]) assert.equal(card(metric).querySelector('.cuadrao-amount'), null);
 });
 
+for (const [language, title] of [["es-419", "Faltan datos"], ["en", "Missing data"]]) {
+  test(`${language} missing-data card is titled ${title}, like Inicio and the Estado chip`, async () => {
+    await mount({}, language);
+    assert.equal(card("fiscal").querySelector("span > span")?.textContent, title);
+  });
+}
+
+test("no locale word keeps the retired Faltan datos fiscales label", () => {
+  const retired = ["Faltan datos fiscales", "Missing fiscal data", "Fiscal details missing"];
+  const words = (node: unknown): string[] => typeof node === "string" ? [node] : Object.values(node as object).flatMap(words);
+  assert.deepEqual([spanish, english].flatMap(words).filter((word) => retired.includes(word)), []);
+});
+
 for (const language of ["es-419", "en"]) {
-  test(`${language} fiscal helper follows the selected tab`, async () => {
+  test(`${language} readiness helper stays the same for both tabs`, async () => {
     const page = await mount({}, language);
-    const helper = (form: string) => language === "es-419" ? `Complétalos antes del ${form}` : `Complete them before the ${form}`;
-    assert.ok(card("fiscal").textContent?.includes(helper("606")));
+    const helper = language === "es-419" ? "Complétalos antes de declarar" : "Complete them before filing";
+    assert.ok(card("fiscal").textContent?.includes(helper));
     await page.render({ family: "sale" });
-    assert.ok(card("fiscal").textContent?.includes(helper("607")));
+    assert.ok(card("fiscal").textContent?.includes(helper));
     assert.equal(card("fiscal").textContent?.includes("606"), false);
     await page.render({ family: "purchase" });
-    assert.ok(card("fiscal").textContent?.includes(helper("606")));
+    assert.ok(card("fiscal").textContent?.includes(helper));
   });
 }

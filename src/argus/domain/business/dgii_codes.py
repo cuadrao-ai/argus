@@ -8,28 +8,28 @@ class _Choice(NamedTuple):
     tool_label: str
 
 
-# The workbook labels are the exact choices in the DGII Formato 606 v2020.2.
+# The workbook labels follow the DGII Formato 606 v2020.2 choices.
 # Sheet "Herramienta Formato 606": category AD2:AD12, payment AF2:AF8.
-# Its validation lists use inconsistent spacing, including trailing spaces.
+# Spacing is normalized; the workbook reads the first two characters as the code.
 _CHOICES = {
     "category": {
-        "01": _Choice("Gastos de personal", "01-GASTOS DE PERSONAL "),
+        "01": _Choice("Gastos de personal", "01 - GASTOS DE PERSONAL"),
         "02": _Choice(
             "Gastos por trabajos, suministros y servicios",
-            "02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS ",
+            "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS",
         ),
-        "03": _Choice("Arrendamientos", "03-ARRENDAMIENTOS "),
-        "04": _Choice("Gastos de activos fijo", "04-GASTOS DE ACTIVOS FIJO "),
-        "05": _Choice("Gastos de representación", "05 -GASTOS DE REPRESENTACIÓN "),
-        "06": _Choice("Otras deducciones admitidas", "06 -OTRAS DEDUCCIONES ADMITIDAS "),
-        "07": _Choice("Gastos financieros", "07 -GASTOS FINANCIEROS "),
-        "08": _Choice("Gastos extraordinarios", "08 -GASTOS EXTRAORDINARIOS "),
+        "03": _Choice("Arrendamientos", "03 - ARRENDAMIENTOS"),
+        "04": _Choice("Gastos de activos fijo", "04 - GASTOS DE ACTIVOS FIJO"),
+        "05": _Choice("Gastos de representación", "05 - GASTOS DE REPRESENTACIÓN"),
+        "06": _Choice("Otras deducciones admitidas", "06 - OTRAS DEDUCCIONES ADMITIDAS"),
+        "07": _Choice("Gastos financieros", "07 - GASTOS FINANCIEROS"),
+        "08": _Choice("Gastos extraordinarios", "08 - GASTOS EXTRAORDINARIOS"),
         "09": _Choice(
             "Compras y gastos que formarán parte del costo de venta",
-            "09 -COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA ",
+            "09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA",
         ),
-        "10": _Choice("Adquisiciones de activos", "10 -ADQUISICIONES DE ACTIVOS "),
-        "11": _Choice("Gastos de seguros", "11- GASTOS DE SEGUROS"),
+        "10": _Choice("Adquisiciones de activos", "10 - ADQUISICIONES DE ACTIVOS"),
+        "11": _Choice("Gastos de seguros", "11 - GASTOS DE SEGUROS"),
     },
     "payment_method": {
         "01": _Choice("Efectivo", "01 - EFECTIVO"),
@@ -38,7 +38,7 @@ _CHOICES = {
         ),
         "03": _Choice("Tarjeta crédito/débito", "03 - TARJETA CRÉDITO/DÉBITO"),
         "04": _Choice("Compra a crédito", "04 - COMPRA A CREDITO"),
-        "05": _Choice("Permuta", "05 -\u00a0 PERMUTA"),
+        "05": _Choice("Permuta", "05 - PERMUTA"),
         "06": _Choice("Nota de crédito", "06 - NOTA DE CREDITO"),
         "07": _Choice("Mixto", "07 - MIXTO"),
     },

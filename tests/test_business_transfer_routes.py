@@ -30,7 +30,9 @@ class Service:
             "pending",
             business_name="Taller Luna",
             owner_name="Ana",
+            owner_shown_as="name",
             target_name="Rosa",
+            target_shown_as="name",
             role="target",
         )
 
@@ -74,18 +76,6 @@ def client():
     app.dependency_overrides[require_transfer] = lambda: service
     with TestClient(app) as transport:
         yield transport, service, person, app
-
-
-def test_the_business_surface_gate_precedes_transport(client, monkeypatch):
-    transport, service, _, app = client
-    for name in ("CUADRAO_BUSINESS_PILOT_ENABLED", "ARGUS_BUSINESS_PILOT_ENABLED"):
-        monkeypatch.setenv(name, "false")
-    del app.dependency_overrides[require_business_surface]
-    reply = transport.post(
-        f"/api/v1/business/ownership-transfers/{service.result.id}/accept"
-    )
-    assert reply.status_code == 404 and not service.calls
-    assert reply.json()["detail"]["code"] == "business_unavailable"
 
 
 def test_request_passes_actual_actor_target_and_original_key(client):

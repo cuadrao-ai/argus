@@ -17,6 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
   ChatWorkspaceProvider,
+  PanelShellProvider,
   type ChatShellBridge,
   type ChatShellView,
   type ChatWorkspace,
@@ -37,6 +38,8 @@ import { enteredIn, getChosenGrant, setChosenGrant, soleClientGrantId, subscribe
 import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import { shownScreen } from "./record-tray";
 import { browserAuthGeneration } from "@/lib/browser-auth-generation";
 import { withBusinessSession, withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
@@ -651,8 +654,10 @@ function BusinessWorkspaceContent({
   );
 
   const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
-  // The top bar's heading follows the screen, except Facturación's waits for the server's answer like its screen does.
-  const headerScreen = panel.kind === "invoicing" && !invoicingShown(invoicing) ? undefined : panel.kind;
+  // The top bar names the screen on the page, also the list under an open record; Facturación's waits for the server's answer like its screen does.
+  const { isBelowDesktop } = useResponsiveLayout();
+  const screen = shownScreen(panel, isBelowDesktop);
+  const headerScreen = screen === "invoicing" && !invoicingShown(invoicing) ? undefined : screen;
   // A deep link to Facturación the server does not offer lands on Inicio, never on a refusal.
   useEffect(() => {
     if (panel.kind !== "invoicing" || invoicing !== "unavailable") return;
@@ -709,7 +714,7 @@ function BusinessWorkspaceContent({
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
   // The list on screen lends its query (wide screens with bar search); the search then starts scoped to it.
   // Actividad has no query to lend, so its scope has nothing to filter the screen by.
-  const scopedList = useScopedList(panel.kind);
+  const scopedList = useScopedList(screen);
   const listScope = useMemo(() => (scopedList ? { list: scopedList, apply: SEARCHABLE_LISTS[scopedList].ownQuery === false ? undefined : (query: string) => applyListSearch(scopedList, query) } : null), [scopedList]);
   const businessSearch = useBusinessSearch({
     source,
@@ -760,7 +765,8 @@ function BusinessWorkspaceContent({
         {notificationsAvailable ? <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen ? businessTitle : undefined} emailAvailable={receivingChannels.email.available} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} /> : null}
       </>,
       headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={businessTitle} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
-      panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
+      // The screens read the bridge this render was given: the stored `bridge` arrives one commit later.
+      panel: (shell) => <PanelShellProvider value={shell}>{closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>}</PanelShellProvider>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
       search: businessSearch,
@@ -801,7 +807,7 @@ function BusinessWorkspaceContent({
           }}
           onReview={(saved) => {
             setIntakeTarget(null);
-            openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id } : { kind: "inbox" });
+            openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id, list: "inbox" } : { kind: "inbox" });
           }}
         />
         <ToastViewport />

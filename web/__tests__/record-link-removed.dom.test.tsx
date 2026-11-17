@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, describe, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 
@@ -22,6 +22,10 @@ const cleanups: (() => Promise<void>)[] = [];
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz", width: DESKTOP.width, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+beforeEach(async () => {
+  const { clearToasts } = await import("@/components/business-app/foundation/toasts");
+  clearToasts();
 });
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();

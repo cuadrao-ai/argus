@@ -153,7 +153,7 @@ describe("the receipt dossier on an open draft", () => {
   test("the Spanish review uses the dictionary fact labels and official 606 options", async () => {
     const page = await setup();
     try {
-      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Contraparte");
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Emisor");
       assert.equal(page.row("occurred_on").querySelector("dt")?.textContent, "Fecha del comprobante");
       const spanish = (await import("@/public/locales/es-419/common.json")).default;
       for (const field of ["category", "payment_method"] as const) {
@@ -169,7 +169,7 @@ describe("the receipt dossier on an open draft", () => {
     const page = await setup();
     try {
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
-      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Counterparty");
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Supplier");
       assert.equal(page.row("occurred_on").querySelector("dt")?.textContent, "Receipt date");
       const english = (await import("@/public/locales/en/common.json")).default;
       const spanish = (await import("@/public/locales/es-419/common.json")).default;
@@ -252,45 +252,128 @@ describe("the receipt dossier on an open draft", () => {
       assert.equal(options("category")[2], "Gastos por trabajos, suministros y servicios");
       assert.equal(options("payment_method").length, 8, "Elegir and José's 7");
       assert.equal(options("payment_method")[3], "Tarjeta crédito/débito");
-      assert.equal(page.row("category").querySelector("select")?.value, "", "a suggestion is not a choice");
-      assert.equal(button(page.host, "Aprobar").disabled, false, "blank choices do not block");
-      assert.ok(page.host.querySelector('[data-testid="expense-type-suggestion"]')?.textContent?.includes("Gastos por trabajos, suministros y servicios"));
-      await page.act(async () => button(page.row("category"), "Usar").click());
+      assert.equal(button(page.host, "Aprobar").disabled, false, "suggested choices do not block");
+      await fill(page, '[data-fact="category"] select', "05", HTMLSelectElement);
       await page.wait(() => Boolean(page.row("category").querySelector('[data-testid="row-saved"]')));
-      assert.deepEqual(page.writes.map(({ kind, body }) => [kind, body]), [["purchase", { category: "02" }]]);
-      assert.equal(page.row("category").querySelector("select")?.value, "02");
-      assert.equal(page.host.querySelector('[data-testid="expense-type-suggestion"]'), null);
-      await fill(page, '[data-fact="payment_method"] select', "03", HTMLSelectElement);
+      assert.deepEqual(page.writes.map(({ kind, body }) => [kind, body]), [["purchase", { category: "05" }]]);
+      await fill(page, '[data-fact="payment_method"] select', "01", HTMLSelectElement);
       await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
-      assert.deepEqual(page.writes[1].body, { payment_method: "03" });
+      assert.deepEqual(page.writes[1].body, { payment_method: "01" });
       assert.equal(page.writes[1].version, page.writes[0].version + 1, "each save stands on the last one");
     } finally { await page.close(); }
   });
 
-  test("both choices show the server's suggestion with its source, and Usar writes it", async () => {
+  const sourceIcon = (row: HTMLElement) => row.querySelector<HTMLElement>('[role="img"]');
+
+  test("a suggestion arrives filled, with an icon that names its source and no helper line", async () => {
     const page = await setup();
     try {
-      const rows = [["category", "expense-type-suggestion", "Gastos por trabajos, suministros y servicios", "02"], ["payment_method", "payment-form-suggestion", "Tarjeta crédito/débito", "03"]] as const;
-      for (const [index, [choice, id, label, code]] of rows.entries()) {
-        const offered = page.row(choice).querySelector(`[data-testid="${id}"]`);
-        assert.ok(offered?.textContent?.includes(`Sugerido: ${label}`), choice);
-        assert.equal(offered?.querySelector('[data-suggestion-source="last_choice"]')?.textContent, "Última elección para este RNC");
-        assert.equal(page.row(choice).querySelector("select")?.value, "", "a suggestion is not a choice");
-        await page.act(async () => button(page.row(choice), "Usar").click());
-        await page.wait(() => Boolean(page.row(choice).querySelector('[data-testid="row-saved"]')));
-        assert.deepEqual([page.writes[index].kind, page.writes[index].body], ["purchase", { [choice]: code }]);
-        assert.equal(page.row(choice).querySelector("select")?.value, code);
-        assert.equal(page.host.querySelector(`[data-testid="${id}"]`), null);
+      for (const [choice, code] of [["category", "02"], ["payment_method", "03"]] as const) {
+        const row = page.row(choice);
+        assert.equal(row.querySelector("select")?.value, code, choice);
+        const icon = sourceIcon(row);
+        assert.equal(icon?.getAttribute("aria-label"), "Última elección para este RNC");
+        assert.equal(icon?.getAttribute("title"), "Última elección para este RNC");
+        assert.ok(icon?.querySelector("svg.lucide-history"), "history marks the last choice");
+        assert.equal(row.textContent?.includes("Sugerido"), false, "no helper line");
+        assert.equal([...row.querySelectorAll("button")].some((item) => item.textContent === "Usar"), false, "no Usar");
       }
+      assert.equal(page.writes.length, 0, "showing a suggestion saves nothing");
     } finally { await page.close(); }
   });
 
-  test("with no suggestion from the server neither choice offers one", async () => {
+  test("each source has its own icon and accessible name", async () => {
+    const page = await setup("fiscal", (dossier) => { dossier.declaration_suggestions = { category: { value: "02", source: "reading" }, payment_method: { value: "03", source: "receipt" } }; });
+    try {
+      const category = sourceIcon(page.row("category"));
+      assert.equal(category?.getAttribute("aria-label"), "Sugerido por la lectura");
+      assert.ok(category?.querySelector("svg.lucide-square-sparkles"));
+      const payment = sourceIcon(page.row("payment_method"));
+      assert.equal(payment?.getAttribute("aria-label"), "Leído del recibo");
+      assert.ok(payment?.querySelector("svg.lucide-receipt-text"));
+      await page.act(async () => { await page.i18n.changeLanguage("en"); });
+      assert.equal(sourceIcon(page.row("category"))?.getAttribute("aria-label"), "Suggested by the reading");
+      assert.equal(sourceIcon(page.row("payment_method"))?.getAttribute("title"), "Read from the receipt");
+      await page.act(async () => { await page.i18n.changeLanguage("es-419"); });
+    } finally { await page.close(); }
+  });
+
+  test("a value chosen by hand has no icon", async () => {
+    const page = await setup();
+    try {
+      await fill(page, '[data-fact="payment_method"] select', "01", HTMLSelectElement);
+      await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
+      assert.equal(page.row("payment_method").querySelector("select")?.value, "01");
+      assert.equal(sourceIcon(page.row("payment_method")), null);
+      assert.ok(sourceIcon(page.row("category")), "the other suggestion keeps its icon");
+    } finally { await page.close(); }
+  });
+
+  test("with no suggestion each choice reads Elegir, with no icon", async () => {
     const page = await setup("fiscal", (dossier) => { dossier.declaration_suggestions = { category: null, payment_method: null }; });
     try {
-      assert.equal(page.host.querySelector('[data-testid="expense-type-suggestion"]'), null);
-      assert.equal(page.host.querySelector('[data-testid="payment-form-suggestion"]'), null);
+      for (const choice of ["category", "payment_method"]) {
+        const select = page.row(choice).querySelector("select")!;
+        assert.equal(select.value, "");
+        assert.equal(select.selectedOptions[0]?.textContent, "Elegir");
+        assert.equal(sourceIcon(page.row(choice)), null);
+      }
       assert.equal(button(page.host, "Aprobar").disabled, false);
+    } finally { await page.close(); }
+  });
+
+  test("an old unconfirmed tipo de gasto reads Elegir, with no icon", async () => {
+    const page = await setup("fiscal", (dossier) => {
+      dossier.dgii = { form: "606", category: "09", category_suggested: true, payment_method: null };
+      dossier.declaration_suggestions = { category: null, payment_method: null };
+    });
+    try {
+      assert.equal(page.row("category").querySelector("select")?.value, "");
+      assert.equal(sourceIcon(page.row("category")), null);
+    } finally { await page.close(); }
+  });
+
+  test("a saved answer keeps its source icon; a saved answer with no source has none", async () => {
+    const page = await setup("fiscal", (dossier) => {
+      dossier.dgii = { form: "606", category: "02", payment_method: "01", suggestion_sources: { category: "last_choice" } };
+      dossier.declaration_suggestions = { category: null, payment_method: null };
+    });
+    try {
+      assert.equal(page.row("category").querySelector("select")?.value, "02");
+      assert.equal(sourceIcon(page.row("category"))?.getAttribute("aria-label"), "Última elección para este RNC");
+      assert.equal(sourceIcon(page.row("payment_method")), null);
+    } finally { await page.close(); }
+  });
+
+  test("approving sends the suggestions shown, and the approved record keeps their icons", async () => {
+    const sent: unknown[] = [];
+    const page = await setup("fiscal", () => undefined, (fixture) => ({
+      approveDraft: async (id, version, key, action, anyway, suggestions) => { sent.push(suggestions); return fixture.approveDraft(id, version, key, action, anyway, suggestions); },
+    }));
+    try {
+      await page.act(async () => button(page.host, "Aprobar").click());
+      await page.wait(() => sent.length === 1 && !page.host.querySelector('[data-testid="receipt-facts-choices"] [aria-busy="true"]'));
+      assert.deepEqual(sent, [{ category: { value: "02", source: "last_choice" }, payment_method: { value: "03", source: "last_choice" } }]);
+      await page.wait(() => Boolean(page.host.textContent?.includes("Aprobado") && page.row("category")?.querySelector("select")));
+      assert.equal(page.row("category").querySelector("select")?.value, "02");
+      assert.equal(sourceIcon(page.row("category"))?.getAttribute("aria-label"), "Última elección para este RNC");
+      assert.equal(sourceIcon(page.row("payment_method"))?.getAttribute("aria-label"), "Última elección para este RNC");
+    } finally { await page.close(); }
+  });
+
+  test("a refusal for a stale suggestion reloads the record instead of saving it", async () => {
+    let calls = 0;
+    const page = await setup("fiscal", () => undefined, () => ({
+      approveDraft: async () => { calls += 1; throw Object.assign(new Error("suggestion_stale"), { status: 422, code: "suggestion_stale", requestId: "sample-suggestion_stale" }); },
+    }));
+    try {
+      await page.act(async () => button(page.host, "Aprobar").click());
+      await page.wait(() => Boolean(page.host.querySelector('[data-testid="receipt-load-error"]')));
+      assert.equal(calls, 1);
+      assert.match(page.host.querySelector('[data-testid="receipt-load-error"]')?.textContent ?? "", /cambió/);
+      await page.act(async () => button(page.host.querySelector('[data-testid="receipt-load-error"]')!, "Reintentar").click());
+      await page.wait(() => Boolean(page.host.querySelector('[data-fact="category"] select')));
+      assert.equal(page.row("category").querySelector("select")?.value, "02", "the current record is shown again");
     } finally { await page.close(); }
   });
 
@@ -388,7 +471,7 @@ describe("the receipt dossier on an open draft", () => {
       await page.press('[data-testid="edit-counterparty"] input', "Enter");
       await page.wait(() => Boolean(page.host.querySelector('[data-testid="row-save-failed"]')));
       const failure = page.row("counterparty").querySelector('[data-testid="row-save-failed"]')!;
-      assert.ok(failure.textContent?.includes("No pudimos confirmar si Contraparte se guardó."));
+      assert.ok(failure.textContent?.includes("No pudimos confirmar si Emisor se guardó."));
       assert.ok(failure.querySelector('[data-testid="error-reference"]'), "a lost answer still shows a reference");
       assert.equal(button(page.host, "Aprobar").disabled, true);
       assert.equal(page.action("counterparty", "Cancelar").disabled, true, "nothing may be dropped while its outcome is unknown");
@@ -545,6 +628,7 @@ describe("the receipt dossier on an open draft", () => {
     try {
       assert.equal(page.host.querySelector('[role="radiogroup"], [data-segment]'), null);
       assert.match(page.row("document_type").textContent ?? "", /Tipo\s*Compra/);
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Emisor");
       await page.openRow("document_type");
       const select = () => page.row("document_type").querySelector("select")!;
       assert.deepEqual([...select().options].map((option) => option.textContent), ["Compra", "Venta"]);
@@ -562,6 +646,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.deepEqual(typed.map(({ version, documentType }) => [version, documentType]), [[2, "venta"]]);
       assert.ok(page.row("document_type").querySelector('[data-testid="row-saved"]'));
       assert.equal(page.row("document_type").getAttribute("data-type"), "venta");
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Cliente");
     } finally { await page.close(); }
   });
 
@@ -779,15 +864,17 @@ describe("the receipt dossier on an open draft", () => {
     const page = await setup("fiscalDeclared");
     try {
       const fold = page.host.querySelector('[data-testid="receipt-history"]');
-      await page.wait(() => Boolean(fold?.querySelector("details dd")));
-      const shown = fold?.querySelector("details")?.textContent ?? "";
+      await page.wait(() => Boolean(fold?.querySelector('[data-testid="history-more"]')));
+      await page.act(async () => fold!.querySelector<HTMLButtonElement>('[data-testid="history-more"]')!.click());
+      const changes = () => fold?.querySelector('[data-testid="history-changes"]')?.textContent ?? "";
+      const shown = changes();
       assert.match(shown, /Gastos por trabajos, suministros y servicios/);
       assert.match(shown, /Tarjeta crédito\/débito/);
-      const values = [...fold!.querySelectorAll("details dd")].map((item) => item.textContent);
+      const values = [...fold!.querySelectorAll('[data-testid="history-change"] ins')].map((item) => item.textContent);
       assert.equal(values.includes("02"), false);
       assert.equal(values.includes("03"), false);
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
-      const translated = fold?.querySelector("details")?.textContent ?? "";
+      const translated = changes();
       assert.match(translated, /Work, supplies and services/);
       assert.match(translated, /Credit or debit card/);
       assert.ok(!translated.includes("Gastos por trabajos"));

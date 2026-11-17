@@ -8,7 +8,6 @@ import { primaryButtonClass } from "@/components/business-app/business-ui";
 import { FOCUS_RING } from "@/components/business-app/foundation/presentation";
 import { leaveSession } from "@/lib/logout-flow";
 import { logoutFromApi } from "@/lib/argus-api";
-import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 
 function closedBody(body: string) {
@@ -46,7 +45,7 @@ export function BusinessClosedNotice({
       onFailed() {
         setSignOutFailed(true);
       },
-      businessBuild: businessPilotEnabled,
+      businessBuild: true,
     });
   };
   return (

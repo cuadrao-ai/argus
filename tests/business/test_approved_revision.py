@@ -38,7 +38,7 @@ def test_recorded_approval_names_the_revision_approved_at_its_version() -> None:
         asked.append(version)
         return 2
 
-    result = approval_of(_receipt(3), activity, approved)
+    result = approval_of(_receipt(3), activity, approved, {})
 
     assert result is not None
     assert result.model_dump(mode="json", exclude={"actor"}) == {
@@ -60,6 +60,7 @@ def test_unsettled_approval_reports_its_outcome_without_a_revision() -> None:
         _receipt(2, {"outcome": "outcome_unknown", "code": "ledger_unreachable"}),
         None,
         _unread,
+        {},
     )
 
     assert result is not None
@@ -68,4 +69,4 @@ def test_unsettled_approval_reports_its_outcome_without_a_revision() -> None:
         "code": "ledger_unreachable",
         "reviewed_version": 2,
     }
-    assert approval_of(None, None, _unread) is None
+    assert approval_of(None, None, _unread, {}) is None

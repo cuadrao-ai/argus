@@ -18,6 +18,9 @@ type ShellBridgeInput = {
   sidebarCollapsed: boolean;
   greetingName: string | null;
   memberEmail?: string | null;
+  memberId?: string | null;
+  dismissedGuideCards?: ChatShellBridge["dismissedGuideCards"];
+  dismissGuideCard?: ChatShellBridge["dismissGuideCard"];
   openSearch?: (query?: string) => void;
   openPersonalInvitation?: (trigger: HTMLElement) => void;
   resetToEmptyChatSurface: (conversationId?: string | null, view?: ChatShellView) => void;
@@ -38,6 +41,9 @@ export function useChatShellBridge({
   sidebarCollapsed,
   greetingName,
   memberEmail,
+  memberId,
+  dismissedGuideCards,
+  dismissGuideCard,
   openSearch,
   openPersonalInvitation,
   resetToEmptyChatSurface,
@@ -53,6 +59,9 @@ export function useChatShellBridge({
       sidebarCollapsed,
       greetingName,
       memberEmail,
+      memberId,
+      dismissedGuideCards,
+      dismissGuideCard,
       openSearch,
       openPersonalInvitation,
       showWorkspace: () => {
@@ -75,6 +84,9 @@ export function useChatShellBridge({
       currentView,
       greetingName,
       memberEmail,
+      memberId,
+      dismissedGuideCards,
+      dismissGuideCard,
       isBelowTablet,
       openSearch,
       openPersonalInvitation,

@@ -2217,6 +2217,10 @@
     }
   },
   "business": {
+    "accepted_dates": {
+      "business_date_after_today": "{{field}} can't be after today.",
+      "business_date_before_minimum": "{{field}} can't be more than 10 years old. Use {{min_date}} or a later date."
+    },
     "date_range": {
       "complete_dates": "Complete both dates",
       "confirm": "Confirm period",
@@ -2287,7 +2291,6 @@
       "business_name_required": "Enter the business name.",
       "save_profile": "Save",
       "profile_failed": "We couldn't read or save the RNC. Check the open business before you try again.",
-      "details": "Tax details for 606 / 607",
       "review_note": "Use the amounts on the receipt and your tax classification. Leave blank anything you don't know. Saving creates a revision; approving is a separate step.",
       "field": {
         "category": "$t(business.dossier.placeholder.expense_type)",
@@ -2344,6 +2347,7 @@
         "tag_verified": "Verified"
       },
       "load_failed": "We couldn't load the tax fields.",
+      "no_withholdings": "No withholdings",
       "save_failed": "We couldn't confirm the tax details were saved. Check the current record before you approve.",
       "actual_refund": "A refund was received…",
       "option": {
@@ -2361,8 +2365,28 @@
           "11": "Insurance expenses"
         },
         "id_type": {
-          "1": "1 - RNC",
-          "2": "2 - Cédula"
+          "1": "RNC",
+          "2": "Cédula",
+          "3": "Passport or tax ID"
+        },
+        "income_type": {
+          "1": "Operating income (non-financial)",
+          "2": "Financial income",
+          "3": "Extraordinary income",
+          "4": "Lease income",
+          "5": "Income from sale of depreciable assets",
+          "6": "Other income"
+        },
+        "income_withholding_type": {
+          "01": "Rent",
+          "02": "Professional services fees",
+          "03": "Other income",
+          "04": "Other income (presumed income)",
+          "05": "Interest paid to resident legal entities",
+          "06": "Interest paid to resident individuals",
+          "07": "Withholding by government suppliers",
+          "08": "Telephone games",
+          "09": "Beef cattle subsector withholdings"
         },
         "payment_method": {
           "01": "Cash",
@@ -2377,8 +2401,7 @@
       "original_purchase": "Original purchase",
       "refund_candidate_refused": "That purchase can't be used for this refund. Pick another one.",
       "refund_candidates_none": "There are no approved purchases to pick.",
-      "suggested": "Suggested",
-      "save": "Save tax review",
+      "save": "Save",
       "approve_income": "Approve income",
       "approve_refund": "Approve refund",
       "recorded_income": "Income was recorded after revision {{version}} was approved.",
@@ -2601,6 +2624,9 @@
     "terms": {
       "calculated_hint": "Calculated: Total − ITBIS",
       "calculated_hint_with_tip": "Calculated: Total − ITBIS − legal tip",
+      "counterparty": "Counterparty",
+      "counterparty_purchase": "Supplier",
+      "counterparty_sale": "Customer",
       "currency_choose": "Choose",
       "currency_fiscal_warning": "In {{currency}}, this document is excluded from {{form}} (the DGII requires pesos).",
       "currency_missing": "Currency missing",
@@ -2657,6 +2683,7 @@
         "clear": "Clear filters",
         "clear_search": "Clear search",
         "column_attachment": "Attachment",
+        "column_reason": "Reason",
         "column_state": "Status",
         "column_type": "Type",
         "count_one": "{{count}} record",
@@ -2688,8 +2715,6 @@
             "other": "Other",
             "transport": "Transport"
           },
-          "counterparty_short_one": "Counterparty · {{count}}",
-          "counterparty_short_other": "Counterparty · {{count}}",
           "currency": "Currency",
           "date": {
             "from": "From",
@@ -2710,20 +2735,23 @@
           "fiscal_data": {
             "all": "All",
             "complete": "Complete",
-            "missing": "Missing data"
+            "missing": "Missing"
           },
           "groups": {
             "account": "Account",
             "amount": "Amount",
             "attachment": "Attachment",
             "category": "Category",
-            "counterparty": "Counterparty",
             "document": "Document type",
             "fiscal": "Fiscal type",
             "fiscal_data": "Fiscal data",
+            "ready": "Status",
             "review": "Review"
           },
           "no_matches": "No options match this search.",
+          "ready": {
+            "all": "All"
+          },
           "record": "Record",
           "remove": "Remove filter",
           "search": "Search…",
@@ -2742,9 +2770,9 @@
             "title": "Already exported"
           },
           "fiscal": {
+            "description": "Complete them before filing",
             "description_purchase": "Complete them before the 606",
-            "description_sale": "Complete them before the 607",
-            "title": "Missing fiscal data"
+            "description_sale": "Complete them before the 607"
           },
           "goods": {
             "title": "Goods"
@@ -2836,11 +2864,11 @@
         },
         "workflow": {
           "exported": "Exported",
+          "not_ready": "Missing data",
           "ready": "Ready",
           "review": "To review",
           "unknown": "Status unavailable",
           "missing": {
-            "several": "Fiscal details missing",
             "expense_type_missing": "Expense type is missing",
             "rnc_missing": "RNC is missing",
             "rnc_invalid": "RNC has an error",
@@ -2856,6 +2884,7 @@
             "date_in_future": "The receipt date is in the future",
             "date_too_old": "The date is not valid for this NCF",
             "duplicate_document": "This NCF is already recorded this month",
+            "possible_duplicate": "Looks repeated",
             "itbis_cost_over_itbis": "ITBIS carried to cost is more than the ITBIS",
             "itbis_over_limit": "The ITBIS is too high for this amount",
             "itbis_proportionality_over_itbis": "Proportionality is more than the ITBIS",
@@ -2917,6 +2946,8 @@
           "rnc_notice_title_one": "{{count}} supplier with an inactive or unverified RNC",
           "rnc_notice_title_other": "{{count}} suppliers with an inactive or unverified RNC",
           "rnc_view_suppliers": "View suppliers",
+          "save_failed": "Couldn't save the file.",
+          "saved": "Saved",
           "summary_currencies_one": "{{count}} currency",
           "summary_currencies_other": "{{count}} currencies",
           "summary_dgii_pending_one": "{{count}} pending",
@@ -2950,7 +2981,7 @@
       "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
       "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
       "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
-      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "rnc_cedula": "RNC or ID", "comprobante": "Proof" },
+      "columns": { "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "rnc_cedula": "RNC or ID", "comprobante": "Proof" },
       "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of_one": "of {{count}}", "of_other": "of {{count}}" },
       "sign": { "in": "Money in", "out": "Money out" },
       "detail": {
@@ -2975,8 +3006,8 @@
         "first": "First page",
         "label": "Record pages",
         "last": "Last page",
-        "name_ascending": "Counterparty: A–Z",
-        "name_descending": "Counterparty: Z–A",
+        "name_ascending": "{{column}}: A–Z",
+        "name_descending": "{{column}}: Z–A",
         "newest": "Newest first",
         "next": "Next page",
         "oldest": "Oldest first",
@@ -3039,7 +3070,6 @@
       "empty_title": "No deleted documents",
       "failed": "The document could not be deleted. Try again.",
       "fields": {
-        "counterparty": "Counterparty",
         "date": "Date",
         "file": "File",
         "state": "Status",
@@ -3113,7 +3143,6 @@
       "messages_title_one": "Original message",
       "messages_title_other": "Original messages",
       "proposals": "Agent proposals",
-      "fiscal_details": "Fiscal details",
       "web_message": "Web message",
       "email": "Email",
       "arrived_by_email": "Arrived by email",
@@ -3256,7 +3285,6 @@
       "field": {
         "collection_method": "Collection method",
         "kind": "Activity",
-        "counterparty": "Counterparty",
         "occurred_on": "Receipt date",
         "amount": "Amount",
         "currency": "Currency",
@@ -3299,9 +3327,10 @@
         "group_other": "Other",
         "section_choices": "For the 606",
         "suggestion_source": {
-          "last_choice": "Last choice for this RNC"
+          "last_choice": "Your last choice for this RNC",
+          "reading": "Suggested by the reading",
+          "receipt": "Read from the receipt"
         },
-        "use_suggestion": "Use",
         "mark_no_receipt": "Mark as no receipt"
       },
       "place": "{{index}} of {{total}}",
@@ -3414,9 +3443,23 @@
           "label": "Upload your documents"
         }
       },
+      "exportar_guardar": {
+        "ask": {
+          "body": "Turn on the option to ask where to save each file. Then you pick the folder when you export.",
+          "label": "Turn on asking"
+        },
+        "downloads": {
+          "body": "Go to the downloads section.",
+          "label": "Find Downloads"
+        },
+        "settings": {
+          "body": "In your browser, open Settings or Preferences.",
+          "label": "Open settings"
+        },
+        "title": "Choose where to save each file"
+      },
       "placeholder": {
         "dismiss": "Hide guide",
-        "read_failed": "We couldn't load the guide.",
         "save_failed": "We couldn't hide the guide."
       },
       "registros_intro": {
@@ -3430,7 +3473,7 @@
           "label": "Find what you need"
         },
         "pending": {
-          "body": "\"Missing fiscal data\" shows which ones need details for the 606 on Purchases or the 607 on Sales.",
+          "body": "\"Missing data\" shows which records need details. Complete them before filing.",
           "label": "Finish what's pending"
         },
         "title": "Your purchases and sales, in order"
@@ -3443,6 +3486,10 @@
       "changed_female": "{{field}} changed from {{before}} to {{after}}",
       "channel_email": "Email",
       "channel_web": "Uploaded",
+      "duplicate": { "different_purchase": "Marked as a different purchase from {{other}}" },
+      "fiscal_saved": "{{form}} data saved",
+      "more_changes_one": "See {{count}} more change",
+      "more_changes_other": "See {{count}} more changes",
       "pm": "PM",
       "read": "Read",
       "reason": { "business_rnc_set": "Your business issued it" },
@@ -3480,17 +3527,15 @@
       "shopping": "Shopping",
       "interest_fees": "Interest and fees"
     },
-    "attention": {
-      "duplicate": "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense."
-    },
     "file_read": {
       "unreadable_title": "We couldn't read this file",
       "not_a_receipt_title": "This doesn't look like a receipt.",
       "not_a_receipt_body": "Upload the photo or the PDF of a receipt.",
+      "read_deadline_passed_body": "The reading service wasn't available. You can read it again.",
       "placeholder": {
         "unreadable_body": "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light."
       },
-      "upload_another": "Upload another file"
+      "upload_another": "Upload another document"
     },
     "actions": {
       "add": "Add",
@@ -4200,12 +4245,13 @@
       "month": {
         "expenses": "Expenses",
         "first_day": "The figures fill in when you approve your first documents.",
-        "fiscal_one": "Fiscal data missing on 1 record",
-        "fiscal_other": "Fiscal data missing on {{count}} records",
-      "fiscal_purchases_one": "Fiscal data missing on 1 purchase",
-      "fiscal_purchases_other": "Fiscal data missing on {{count}} purchases",
-      "fiscal_sales_one": "Fiscal data missing on 1 sale",
-      "fiscal_sales_other": "Fiscal data missing on {{count}} sales",
+        "fiscal_one": "Missing data on 1 record",
+        "fiscal_other": "Missing data on {{count}} records",
+      "fiscal_purchases_one": "Missing data on 1 purchase",
+      "fiscal_purchases_other": "Missing data on {{count}} purchases",
+      "fiscal_sales_one": "Missing data on 1 sale",
+      "fiscal_sales_other": "Missing data on {{count}} sales",
+        "fiscal_unknown": "Missing data: can't be calculated yet.",
         "in_bandeja_one": "1 in the Inbox",
       "in_bandeja_other": "{{count}} in the Inbox",
         "included": "Documents included: {{counted}} of {{total}}",
@@ -4217,7 +4263,7 @@
         "see": "See",
         "terms": {
           "expenses": "Approved purchases and expenses for the month, before ITBIS.",
-          "fiscal": "The RNC or NCF the 606 or 607 needs.",
+          "fiscal": "Complete the missing data before filing.",
           "income": "Approved sales for the month, before ITBIS.",
           "itbis_purchases": "ITBIS paid on your approved purchases.",
           "itbis_sales": "ITBIS charged on your approved sales.",
@@ -4290,8 +4336,9 @@
       "source_unavailable": "Original file missing",
       "check_details": "Check the details",
       "duplicate": "Looks like a repeat",
-      "read_budget_day": "[COPY PENDING] Reads tomorrow: today's read limit was reached",
-      "read_budget_month": "[COPY PENDING] Reads next month: this month's read limit was reached",
+      "read_budget_day": "Reads tomorrow: today's read limit was reached",
+      "read_budget_month": "Reads next month: this month's read limit was reached",
+      "read_deadline_passed": "Reading didn't finish",
       "other": "Needs attention"
     },
     "inbox": {
@@ -4414,8 +4461,43 @@
     },
     "receipts": {
       "duplicate_resolution": {
-        "button": "This is a different purchase",
-        "explanation": "Confirm that these receipts are for different purchases. The expense still needs review and approval."
+        "basis": {
+          "fiscal_number": "Same RNC and NCF as another document.",
+          "read_facts": "Same supplier, date and total as another document."
+        },
+        "column": {
+          "saved_before": "Saved before",
+          "this": "This"
+        },
+        "compare": "Compare",
+        "decision": {
+          "different_purchase": "They are different purchases",
+          "same_purchase": "Delete this duplicate"
+        },
+        "different": "Different",
+        "documents": {
+          "other": "Deleted document"
+        },
+        "field": {
+          "amount": "Total",
+          "counterparty": "Merchant",
+          "currency": "Currency",
+          "fiscal_number": "NCF",
+          "occurred_on": "Date"
+        },
+        "marked_different": "Marked as different purchases.",
+        "no_file": "This document has no file.",
+        "recommendation": {
+          "different_purchase": "Same merchant, date, total and currency. The NCF is different: these are probably two different purchases.",
+          "same_purchase": "It is the same document."
+        },
+        "refused_same_comprobante": "Same RNC and NCF: it's the same receipt. Keep one.",
+        "same": "Same",
+        "table": {
+          "caption": "Main data of both documents",
+          "field": "Field"
+        },
+        "title": "Looks repeated"
       }
     },
     "reception": {
@@ -4754,6 +4836,7 @@
       "reopen_retained": "Reopen retained note",
       "write": "Save a note",
       "append": "Add a note to this record",
+      "add_note": "Add note",
       "help": "Save your original words for review. This creates no assistant reply and records no money movement.",
       "text": "Original note",
       "save": "Save note",
@@ -4872,6 +4955,7 @@
       "undo": "Undo",
       "mark_failed": "We could not save the change. Try again.",
       "question_606": "Include in 606?",
+      "include_606": "Include in the 606",
       "yes": "Yes",
       "no": "No",
       "pending_606": "Waiting for the accountant",

@@ -7,7 +7,10 @@ from zipfile import ZipFile
 
 import pytest
 from argus.domain.business.contracts.actions import ReviewDraft
-from argus.domain.business.contracts.dgii import PurchaseDeclaration, PurchaseReview
+from argus.domain.business.contracts.dgii import (
+    PurchaseDeclaration,
+    PurchaseReview,
+)
 from argus.domain.business.contracts.facts import BusinessFactPatch, Unknown
 from argus.domain.business.dgii_line import reason
 from argus.domain.business.purchase_review import apply_purchase, derived_amount
@@ -451,12 +454,13 @@ class TestReviewChecklist:
 
     def test_the_review_names_every_606_field_the_declaration_has(self):
         """One list of 606 fields: a field added to the declaration without its
-        review twin, or typed differently, fails here."""
+        review twin, or typed differently, fails here. The suggestion sources
+        have none: only an approval writes them."""
 
         declared = {
             name: field
             for name, field in PurchaseDeclaration.model_fields.items()
-            if name != "form"
+            if name not in {"form", "suggestion_sources"}
         }
         assert set(PurchaseReview.model_fields) == set(declared)
         for name, field in declared.items():

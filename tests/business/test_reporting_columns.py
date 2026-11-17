@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +13,7 @@ import pytest
 from argus.domain.business import country
 from argus.domain.business.reporting import ReportIdentity
 from argus.domain.business.reporting_columns import (
+    COLUMN_LABELS,
     COLUMNS,
     CURRENCY_LABEL,
     HIDDEN_COLUMNS,
@@ -19,6 +22,7 @@ from argus.domain.business.reporting_columns import (
     Family,
     TableColumn,
 )
+from argus.domain.business.reporting_file import RecordsExport, build_file
 from argus.domain.business.reporting_preferences import (
     Presentation,
     RecipeInput,
@@ -26,6 +30,7 @@ from argus.domain.business.reporting_preferences import (
     ReportRequestV2,
 )
 from argus.domain.business.reporting_query import run_query
+from argus.domain.business.reporting_store import ExportSource
 from pydantic import TypeAdapter, ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,7 +55,7 @@ def test_the_registry_is_the_one_ordered_key_list():
 )
 def test_every_column_has_a_name_in_every_locale(language):
     words = json.loads((LOCALES / language / "common.json").read_text("utf-8"))
-    for path in (*(spec.label for spec in COLUMNS), CURRENCY_LABEL):
+    for path in (*COLUMN_LABELS, CURRENCY_LABEL):
         value = words
         for part in path.split("."):
             value = value[part]
@@ -93,6 +98,7 @@ OLD_HIDDEN = ["fiscal_number", "expense_type", "payment_form", "funding"]
                 "itbis_amount",
                 "gross_amount",
                 "stage",
+                "missing",
             ],
             [
                 "counterparty",
@@ -112,6 +118,7 @@ OLD_HIDDEN = ["fiscal_number", "expense_type", "payment_form", "funding"]
                 "itbis_amount",
                 "gross_amount",
                 "stage",
+                "missing",
             ],
             ["counterparty", "fiscal_number", "note", "attachment", "funding"],
         ),
@@ -122,6 +129,37 @@ def test_the_default_table_starts_with_the_taxpayer_id(family, shown, menu):
     assert [column.key for column in columns if column.shown] == shown
     assert [column.key for column in columns if not column.shown] == menu
     assert columns[0].label_key == "business.transactions.columns.rnc_cedula"
+
+
+@pytest.mark.parametrize(
+    ("family", "language", "name"),
+    [
+        ("purchase", "es-419", "Emisor"),
+        ("sale", "es-419", "Cliente"),
+        ("purchase", "en", "Supplier"),
+        ("sale", "en", "Customer"),
+    ],
+)
+def test_the_name_column_is_emisor_on_compras_and_cliente_on_ventas(
+    family, language, name
+):
+    words = json.loads((LOCALES / language / "common.json").read_text("utf-8"))
+    request = ReportRequestV2(filters={"record_families": [family]})
+    path = next(c.label_key for c in answer(request).columns if c.key == "counterparty")
+    value = words
+    for part in path.split("."):
+        value = value[part]
+    assert value == name
+
+    def header(mode: str, locale: str) -> list[str]:
+        columns = ("counterparty",) if mode == "table" else ()
+        choice = RecordsExport(report=request, mode=mode, columns=columns, format="csv")
+        built = build_file(ExportSource((), {}, NOW), choice, locale=locale)
+        return next(csv.reader(io.StringIO(built.content.decode("utf-8-sig"))))
+
+    assert header("table", language)[0] == name
+    assert header("dgii", language) == header("dgii", "es-419")
+    assert name not in header("dgii", language)
 
 
 def test_the_answer_names_no_column_the_person_cannot_hide_or_move():
@@ -197,7 +235,9 @@ def test_a_column_one_country_omits_cannot_be_the_only_one_shown(monkeypatch):
 def test_a_layout_from_before_the_taxpayer_id_still_loads():
     stored = {"order": OLD_ORDER, "hidden": OLD_HIDDEN, "density": 40}
     result = answer(ReportRequestV2.model_validate({"presentation": stored}))
-    assert result.presentation.order == (*OLD_ORDER, "counterparty_id")
+    expected = list(OLD_ORDER)
+    expected.insert(expected.index("stage") + 1, "missing")
+    assert result.presentation.order == (*expected, "counterparty_id")
     assert result.presentation.hidden == (*OLD_HIDDEN, "counterparty_id")
     assert result.presentation.density == 40
     assert result.columns[0].key == "counterparty" and result.columns[0].shown

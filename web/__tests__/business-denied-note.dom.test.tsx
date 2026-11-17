@@ -58,7 +58,7 @@ test("a denied note keeps the typed text and says the current access does not al
   try {
     await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId={dossier.draft_id} /></BusinessContext.Provider></I18nextProvider>); });
     await settle();
-    const append = button("Agregar una nota a este registro");
+    const append = button("Agregar nota");
     assert.ok(append, "the member can add a note");
     await act(async () => append.click());
     const typed = "Compré pintura para el taller";

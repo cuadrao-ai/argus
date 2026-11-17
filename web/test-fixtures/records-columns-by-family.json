@@ -11,7 +11,7 @@
     },
     {
       "key": "counterparty",
-      "label_key": "business.transactions.columns.contraparte",
+      "label_key": "business.terms.counterparty_purchase",
       "shown": false,
       "families": [
         "sale",
@@ -65,6 +65,15 @@
     {
       "key": "stage",
       "label_key": "business.transactions.layout.column_state",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "missing",
+      "label_key": "business.transactions.layout.column_reason",
       "shown": true,
       "families": [
         "sale",
@@ -128,7 +137,7 @@
     },
     {
       "key": "counterparty",
-      "label_key": "business.transactions.columns.contraparte",
+      "label_key": "business.terms.counterparty_sale",
       "shown": false,
       "families": [
         "sale",
@@ -174,6 +183,15 @@
     {
       "key": "stage",
       "label_key": "business.transactions.layout.column_state",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "missing",
+      "label_key": "business.transactions.layout.column_reason",
       "shown": true,
       "families": [
         "sale",

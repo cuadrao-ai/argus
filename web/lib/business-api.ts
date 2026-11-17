@@ -5,7 +5,8 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-a
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, apiFetchIfChanged, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
-import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
+import type { PersonName } from "./person-name";
+import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessDuplicateDecision, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode, type ShownSuggestions } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -42,6 +43,7 @@ export const RECEIPT_ATTENTIONS = [
   "duplicate",
   "read_budget_day",
   "read_budget_month",
+  "read_deadline_passed",
   "other",
 ] as const;
 export type ReceiptAttention = (typeof RECEIPT_ATTENTIONS)[number];
@@ -90,7 +92,7 @@ export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; l
 /** The server's one Bandeja group of an open receipt: `reason` is its one plain word, null when Listos. A closed receipt has no group. `draft_id` and `version` are what an approval of this row names. */
 export type BandejaGroup = { group: "listo" | "attention" | "reading" | "eliminados" | null; reason: string | null; draft_id: string | null; version: number | null };
 /** `purge_at` is when the server purges the document for good. */
-export type DocumentDeletion = { actor: { actor_id: string; display_name: string }; at: string; purge_at: string; key: string; previous_state: { state: string; group: "attention" | "listo" } };
+export type DocumentDeletion = { actor: PersonName & { actor_id: string }; at: string; purge_at: string; key: string; previous_state: { state: string; group: "attention" | "listo" } };
 export type DocumentDeleteAccess = { deleted?: DocumentDeletion | null; delete_available?: boolean; restore_available?: boolean };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
@@ -114,10 +116,12 @@ export type ReceiptSummary = ReceiptReviewFields & DocumentDeleteAccess & {
   bandeja?: BandejaMembership | null;
   bandeja_group?: BandejaGroup | null;
   channel: ReceiptChannel;
+  /** Who uploaded a web upload, as the server names them for this viewer; null for any other arrival. */
+  uploaded_by?: PersonName | null;
   /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
   personal?: boolean;
   /** Who marked it, when that was someone other than the owner; absent otherwise. */
-  personal_marked_by?: string | null;
+  personal_marked_by?: PersonName | null;
   /** The server says the receipt's facts exist (a draft owns it), so an empty fiscal_value means no fiscal number; absent before a read. */
   fiscal_known?: boolean;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one or before a read. */
@@ -127,7 +131,7 @@ export type ReceiptSummary = ReceiptReviewFields & DocumentDeleteAccess & {
   /** The accountant's 606 answer for a personal receipt with a fiscal number; absent until given. */
   include_606?: boolean | null;
   /** Who gave the 606 answer; absent while there is none. */
-  include_606_by?: string | null;
+  include_606_by?: PersonName | null;
   /** The caller may mark or unmark it: anyone holding prepare, on a receipt that has a draft. */
   personal_editable?: boolean;
   /** `venta` is an invoice this business already issued. Absent means a receipt. */
@@ -229,11 +233,11 @@ export async function reviewBusinessDraft(draftId: string, version: number, fact
   });
 }
 
-export async function resolveBusinessDuplicate(draftId: string, version: number, otherDraftId: string, otherVersion: number, idempotencyKey: string): Promise<BusinessDossier> {
+export async function resolveBusinessDuplicate(draftId: string, version: number, otherDraftId: string, otherVersion: number, decision: BusinessDuplicateDecision, idempotencyKey: string): Promise<BusinessDossier> {
   return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/duplicate-resolution`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify({ version, other_draft_id: otherDraftId, other_version: otherVersion, decision: "different_purchase" }),
+    body: JSON.stringify({ version, other_draft_id: otherDraftId, other_version: otherVersion, decision }),
   });
 }
 
@@ -249,12 +253,13 @@ export async function setBusinessDraftDocumentType(draftId: string, version: num
 /**
  * `action` is the dossier's `approval_action`: the server names the approve action the draft takes.
  * `approveAnyway` passes the draft's confirm flags; servers older than #1590 refuse the field, so it is sent only when true.
+ * `suggestions` are the ones the screen showed filled in, which the approval saves; sent only when there are some.
  */
-export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction, approveAnyway = false): Promise<BusinessDossier> {
+export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction, approveAnyway = false, suggestions?: ShownSuggestions): Promise<BusinessDossier> {
   return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify(approveAnyway ? { version, action, approve_anyway: true } : { version, action }),
+    body: JSON.stringify({ version, action, ...(approveAnyway ? { approve_anyway: true } : {}), ...(suggestions ? { suggestions } : {}) }),
   });
 }
 
@@ -409,7 +414,7 @@ export type BusinessExpense = {
   /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
   personal?: boolean;
   /** Who marked it, when that was someone other than the owner; absent otherwise. */
-  personal_marked_by?: string | null;
+  personal_marked_by?: PersonName | null;
   /** The server settles a saved expense's fiscal standing: the number it carries, or none. */
   fiscal_known?: boolean;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one. */
@@ -419,7 +424,7 @@ export type BusinessExpense = {
   /** The accountant's 606 answer for a personal expense with a fiscal number; absent until given. */
   include_606?: boolean | null;
   /** Who gave the 606 answer; absent while there is none. */
-  include_606_by?: string | null;
+  include_606_by?: PersonName | null;
 };
 
 /** One saved expense with when it was recorded and its revision; both null when the money read does not say. `dgii_606` is its Registros row's 606 answers, null for a record the 606 never lists; absent from an older backend. */
@@ -816,7 +821,8 @@ export type BusinessPermission = "read" | "prepare" | "approve" | "manage" | "as
 export type BusinessAccessGrant = {
   id: string;
   email: string | null;
-  display_name: string;
+  /** The profile name, null without one: the row shows the email. */
+  display_name: string | null;
   capabilities: BusinessAccessCapability[];
   created_at: string;
   owner: boolean;
@@ -833,7 +839,7 @@ export type BusinessAccess = {
 const businessRole = z.enum(["owner","admin","editor","viewer"]);
 const permission = z.enum(["read","prepare","approve","manage","download","export","assign_owner"]);
 const accessProjection = z.object({
-  grants:z.array(z.object({id:z.string(),email:z.string().nullable(),display_name:z.string(),capabilities:z.array(z.enum(["read","prepare","approve"])),created_at:z.string(),owner:z.boolean(),business_role:businessRole.optional(),permissions:z.array(permission).optional()}).passthrough()),
+  grants:z.array(z.object({id:z.string(),email:z.string().nullable(),display_name:z.string().nullable(),capabilities:z.array(z.enum(["read","prepare","approve"])),created_at:z.string(),owner:z.boolean(),business_role:businessRole.optional(),permissions:z.array(permission).optional()}).passthrough()),
   invites:z.array(z.object({id:z.string(),email:z.string(),created_at:z.string(),expires_at:z.string(),state:z.enum(["pending","expired"]),requested_role:businessRole.optional()})),
   invite_delivery:z.enum(["not_configured","accepted","failed","uncertain"]).nullable().optional(),
   invitations_available: z.boolean().optional().default(false),

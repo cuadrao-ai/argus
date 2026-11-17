@@ -89,21 +89,6 @@ def test_business_chat_off_refuses_every_turn_but_keeps_reading_and_deleting(
     assert removed.status_code == 200, removed.text
 
 
-def test_business_chat_is_nested_inside_the_pilot(
-    client: TestClient,  # noqa: F811
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _start_space(ALICE)
-    business = _create(client, ALICE, "Shop ledger", surface="business")
-    monkeypatch.delenv("CUADRAO_BUSINESS_PILOT_ENABLED")
-
-    started = client.post(
-        "/api/v1/conversations", json={"surface": "business"}, headers=_as(ALICE)
-    )
-    assert _code(started) == (404, "business_unavailable")
-    assert _turns(client, business) == [UNAVAILABLE] * 5
-
-
 def test_every_conversation_write_route_names_its_side() -> None:
     """A new POST under a conversation must declare which side it serves."""
     from argus.api.conversation_surface import (

@@ -10,7 +10,12 @@ from uuid import UUID
 
 from pydantic import BeforeValidator, StringConstraints, field_validator, model_validator
 
-from argus.domain.business.contracts.authority import ActorKind
+from argus.domain.business.contracts.actions import DuplicateDecision
+from argus.domain.business.contracts.authority import (
+    ActorKind,
+    PersonShown,
+    require_shown,
+)
 from argus.domain.business.contracts.facts import Contract
 from argus.domain.business.roles import BusinessRole
 
@@ -80,11 +85,27 @@ def _query_integer(value: object) -> object:
 PageSize = Annotated[Literal[25, 50, 100], BeforeValidator(_query_integer)]
 
 
+def _require_named(actor: ActivityActor | ActivityFacetActor) -> None:
+    """A person reads as ``PersonName`` does; automated work names no one,
+    and the screen words it from ``kind``."""
+
+    if (actor.shown_as is None) != (actor.kind == "extractor"):
+        raise ValueError("only automated work names no one")
+    require_shown(actor.display_name, actor.email, actor.shown_as)
+
+
 class ActivityActor(Contract):
-    display_name: str
+    display_name: str | None
+    email: str | None = None
+    shown_as: PersonShown | None = None
     kind: ActorKind
     id: ActorId | None = None
     membership: Membership | None = None
+
+    @model_validator(mode="after")
+    def named(self) -> ActivityActor:
+        _require_named(self)
+        return self
 
 
 class ActivityObject(Contract):
@@ -108,13 +129,22 @@ class ActivityItem(Contract):
     role: BusinessRole | None = None
     personal: bool | None = None
     include: bool | None = None
+    #: How a possible repeat was settled; ``same_purchase`` deleted the document.
+    decision: DuplicateDecision | None = None
 
 
 class ActivityFacetActor(Contract):
     id: ActorId
-    display_name: str
+    display_name: str | None
+    email: str | None = None
+    shown_as: PersonShown | None = None
     kind: ActorKind
     membership: Membership | None = None
+
+    @model_validator(mode="after")
+    def named(self) -> ActivityFacetActor:
+        _require_named(self)
+        return self
 
 
 class ActivityPage(Contract):

@@ -11,10 +11,10 @@ from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.space_name import GivenName
 
-from .actions import ApprovalAction
-from .authority import ActorProvenance, Capability
+from .actions import ApprovalAction, DuplicateDecision
+from .authority import ActorView, Capability, PersonName
 from .checks import DgiiQr, EcfVerification
-from .dgii import DgiiDeclaration, ExpenseType, PaymentForm
+from .dgii import DeclarationSuggestions, DgiiDeclaration
 from .facts import (
     HUMAN_AMOUNT_FIELDS,
     BusinessFacts,
@@ -100,10 +100,20 @@ class ReviewQuestion(Contract):
 RevisionReason = Literal["business_rnc_set"]
 
 
+class DuplicateRevision(Contract):
+    """The revision a person's duplicate decision wrote, read from the command
+    its web action source recorded; the other document as it reads now."""
+
+    decision: Literal["different_purchase"]
+    other_draft_id: UUID
+    other_counterparty: str | None = None
+    other_filename: str | None = None
+
+
 class DraftRevision(Contract):
     draft_id: UUID
     version: int = Field(ge=1)
-    actor: ActorProvenance
+    actor: ActorView
     before: BusinessFacts | None
     after: BusinessFacts
     source_ids: tuple[UUID, ...]
@@ -116,11 +126,14 @@ class DraftRevision(Contract):
     before_due_on: date | None = None
     after_due_on: date | None = None
     reason: RevisionReason | None = None
+    duplicate: DuplicateRevision | None = None
 
 
 class Blocker(Contract):
     code: str
     field: FactField | None = None
+    min_date: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    today: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ReviewFlag(Contract):
@@ -141,7 +154,7 @@ class RecordedApproval(Contract):
     #: below reviewed_version, which also counts approvals and settlements.
     approved_revision: int = Field(ge=1)
     approved_at: datetime
-    actor: ActorProvenance
+    actor: ActorView
 
 
 class UnsettledApproval(Contract):
@@ -180,32 +193,65 @@ class RefundCandidate(Contract):
     currency: str
 
 
+class ComparedFile(Contract):
+    connection_id: UUID
+    filename: str | None
+    media_type: str
+    #: Where and when the file arrived, as ``AttachmentSource`` says it: the
+    #: stored row says ``web``; the API boundary sets ``whatsapp`` and ``email``.
+    channel: Literal["web", "whatsapp", "email"]
+    received_at: datetime
+
+
+class ComparedDocument(Contract):
+    """The main data of one document of a possible repeat, as its draft
+    holds it now. An unknown value is null."""
+
+    draft_id: UUID
+    counterparty: str | None = None
+    occurred_on: date | None = None
+    amount: str | None = None
+    currency: str | None = None
+    #: The NCF, else the e-CF number.
+    fiscal_number: str | None = None
+    file: ComparedFile | None = None
+    received_at: datetime | None = None
+    approved_at: datetime | None = None
+    #: ``accepted`` once approved. The reviewed document is always ``open``.
+    state: Literal["open", "accepted"]
+
+
+ComparedField = Literal[
+    "counterparty", "occurred_on", "amount", "currency", "fiscal_number", "file"
+]
+
+
+class DuplicateComparison(Contract):
+    """The reviewed document beside the one it may repeat. The server owns
+    which values differ and what it recommends; a client renders both."""
+
+    document: ComparedDocument
+    other: ComparedDocument
+    differences: tuple[ComparedField, ...] = ()
+    #: By the fiscal number alone: ``same_purchase`` when both carry the same
+    #: one, ``different_purchase`` when they differ, null when either has none.
+    recommendation: DuplicateDecision | None = None
+
+
+#: Why two documents look like one: the read gave both the same merchant,
+#: date, amount and currency, or both carry one supplier RNC and fiscal number.
+DuplicateBasis = Literal["read_facts", "fiscal_number"]
+
+
 class DuplicateCandidate(Contract):
     draft_id: UUID
     version: int = Field(ge=1)
-
-
-#: Where a suggested 606 answer came from: the last one a person gave for this
-#: RNC in this Business, or what the receipt shows. Nothing sends ``receipt`` yet.
-SuggestionSource = Literal["last_choice", "receipt"]
-
-
-class ExpenseTypeSuggestion(Contract):
-    value: ExpenseType
-    source: SuggestionSource
-
-
-class PaymentFormSuggestion(Contract):
-    value: PaymentForm
-    source: SuggestionSource
-
-
-class DeclarationSuggestions(Contract):
-    """One suggestion per 606 answer a person gives, under the declaration's
-    own field name. Null where the server has none or the draft has its own."""
-
-    category: ExpenseTypeSuggestion | None = None
-    payment_method: PaymentFormSuggestion | None = None
+    basis: DuplicateBasis
+    #: What this reader may decide for the pair now. ``same_purchase`` deletes
+    #: the reviewed document and is the owner's alone; ``different_purchase``
+    #: settles only a ``read_facts`` warning.
+    decisions: tuple[DuplicateDecision, ...] = ()
+    comparison: DuplicateComparison
 
 
 class BusinessDossier(RecordContext):
@@ -257,12 +303,12 @@ class BusinessDossier(RecordContext):
     #: the accountant's 606 answer with who gave it, and whether the record is
     #: sin comprobante.
     personal: bool = False
-    personal_marked_by: str | None = None
+    personal_marked_by: PersonName | None = None
     fiscal_known: bool = False
     fiscal_value: Literal["ncf", "ecf"] | None = None
     fiscal_question_applies: bool = False
     include_606: bool | None = None
-    include_606_by: str | None = None
+    include_606_by: PersonName | None = None
     sin_comprobante: bool = False
     #: The document type: a receipt (recibo) or an invoice the business issued
     #: (venta). Detected when no person named it. Editable while the draft is
@@ -273,8 +319,8 @@ class BusinessDossier(RecordContext):
     #: The caller may write the 606 declaration now: open or approved, and the
     #: caller holds prepare. A download changes nothing here.
     declaration_editable: bool = False
-    #: What the server offers for each 606 answer this draft lacks, with where
-    #: it came from. A suggestion: it is stored only when a person writes it.
+    #: What the server offers for each 606 answer this open expense lacks, with
+    #: where it came from. The approval saves it, so only an approval takes one.
     declaration_suggestions: DeclarationSuggestions = DeclarationSuggestions()
     #: The caller may write the 607 payment split now, on the same terms as
     #: declaration_editable, on a sale.
@@ -307,7 +353,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "net_amount": True,
     "inheritance": True,
     "facts": set(HUMAN_AMOUNT_FIELDS),
-    "dgii": {"itbis"},
+    "dgii": {"itbis", "suggestion_sources"},
     "deleted": True,
     "delete_available": True,
     "restore_available": True,
@@ -333,8 +379,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
             "after_current_note": True,
             "before": set(HUMAN_AMOUNT_FIELDS),
             "after": set(HUMAN_AMOUNT_FIELDS),
-            "before_dgii": {"itbis"},
-            "after_dgii": {"itbis"},
+            "before_dgii": {"itbis", "suggestion_sources"},
+            "after_dgii": {"itbis", "suggestion_sources"},
         }
     },
 }

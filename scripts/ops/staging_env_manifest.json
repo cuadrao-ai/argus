@@ -170,14 +170,6 @@
           }
         },
         {
-          "name": "CUADRAO_BUSINESS_PILOT_ENABLED",
-          "kind": "plain",
-          "value": "true",
-          "production": {
-            "value": "true"
-          }
-        },
-        {
           "name": "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
           "kind": "plain",
           "value": "true",
@@ -922,7 +914,11 @@
           }
         }
       ],
-      "remove": [],
+      "remove": [
+        {
+          "name": "CUADRAO_BUSINESS_PILOT_ENABLED"
+        }
+      ],
       "hold": [
         {
           "name": "CUADRAO-DEV-KEY-PILOT",
@@ -977,17 +973,6 @@
           "value": "skedzwocnmrhfigiwyzi",
           "production": {
             "value": "lgdhvepyrzbnscqssgqq"
-          }
-        },
-        {
-          "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED",
-          "kind": "plain",
-          "value": "true",
-          "production": {
-            "value": "true"
-          },
-          "local": {
-            "value": "true"
           }
         },
         {
@@ -1109,6 +1094,9 @@
       ],
       "remove": [
         {
+          "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED"
+        },
+        {
           "name": "CUADRAO_RESEND_WEBHOOK_SECRET"
         }
       ],
@@ -1197,6 +1185,38 @@
       },
       "entries": [
         {
+          "name": "APP_ENV",
+          "kind": "plain",
+          "production": {
+            "copy_from": "APP_ENV",
+            "service": "api"
+          }
+        },
+        {
+          "name": "CUADRAO_BUSINESS_READS_PER_DAY",
+          "kind": "plain",
+          "production": {
+            "copy_from": "CUADRAO_BUSINESS_READS_PER_DAY",
+            "service": "api"
+          }
+        },
+        {
+          "name": "CUADRAO_BUSINESS_READS_PER_MONTH",
+          "kind": "plain",
+          "production": {
+            "copy_from": "CUADRAO_BUSINESS_READS_PER_MONTH",
+            "service": "api"
+          }
+        },
+        {
+          "name": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
+          "kind": "plain",
+          "production": {
+            "copy_from": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
+            "service": "api"
+          }
+        },
+        {
           "name": "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS",
           "kind": "plain",
           "production": {
@@ -1226,6 +1246,38 @@
           }
         },
         {
+          "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
+          "kind": "secret",
+          "production": {
+            "copy_from": "CUADRAO_OPENROUTER_API_KEY_PROD",
+            "service": "api"
+          }
+        },
+        {
+          "name": "CUADRAO_PROD_OPENROUTER_API_KEY",
+          "kind": "secret",
+          "production": {
+            "copy_from": "CUADRAO_PROD_OPENROUTER_API_KEY",
+            "service": "api"
+          }
+        },
+        {
+          "name": "CUADRAO_VISION_MODEL",
+          "kind": "plain",
+          "production": {
+            "copy_from": "CUADRAO_VISION_MODEL",
+            "service": "api"
+          }
+        },
+        {
+          "name": "DATABASE_URL",
+          "kind": "secret",
+          "production": {
+            "copy_from": "DATABASE_URL",
+            "service": "api"
+          }
+        },
+        {
           "name": "POSTHOG_PROJECT_TOKEN",
           "kind": "secret",
           "keep_current": true,
@@ -1239,6 +1291,22 @@
           "value": "us",
           "production": {
             "value": "us"
+          }
+        },
+        {
+          "name": "SUPABASE_SERVICE_ROLE_KEY",
+          "kind": "secret",
+          "production": {
+            "copy_from": "SUPABASE_SERVICE_ROLE_KEY",
+            "service": "api"
+          }
+        },
+        {
+          "name": "SUPABASE_URL",
+          "kind": "plain",
+          "production": {
+            "copy_from": "SUPABASE_URL",
+            "service": "api"
           }
         }
       ]

@@ -27,7 +27,7 @@ export default function InvoiceResultsSummary({ currencies }: { currencies: read
   const { word, t } = useInvoiceWords();
   const [expanded, setExpanded] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const close = () => { setExpanded(false); trigger.current?.focus(); };
+  const close = () => setExpanded(false);
 
   if (!currencies.length) return null;
 

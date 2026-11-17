@@ -8,6 +8,7 @@ import type {
 } from "@/lib/business-api";
 import { createDossierFixtures } from "./dossier-fixtures";
 import type { FiscalProfile } from "@/lib/business-dgii";
+import type { PersonName } from "@/lib/person-name";
 import { normalizeSearchText } from "@/lib/search-text";
 import { projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
 import type { BusinessDataSource } from "./business-data";
@@ -38,11 +39,16 @@ function dayOnly(iso: string): string {
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
+/** Who uploaded the sample's web uploads; WhatsApp and email arrivals name nobody, as on the server. */
+const SAMPLE_UPLOADER: PersonName = { display_name: "Marta", email: null, shown_as: "name" };
+
 function receipt(
   partial: Partial<ReceiptDetail> & Pick<ReceiptDetail, "id" | "status">,
 ): ReceiptDetail {
+  const channel = partial.channel ?? "web";
   return {
-    channel: "web",
+    channel,
+    uploaded_by: channel === "web" ? SAMPLE_UPLOADER : null,
     filename: `${partial.id}.jpg`,
     media_type: "image/jpeg",
     size_bytes: 412_000,
@@ -143,7 +149,7 @@ function seedReceipts(): ReceiptDetail[] {
       status: "review_ready",
       // The accountant marked it Personal; the owner sees who and can take it back.
       personal: true,
-      personal_marked_by: "Marta",
+      personal_marked_by: { display_name: "Marta", email: null, shown_as: "name" },
       personal_editable: true,
       filename: "papeleria-oct.pdf",
       media_type: "application/pdf",
@@ -320,7 +326,7 @@ function seedExpenses(): BusinessExpense[] {
       receipt_id: null,
       draft_id: null,
       personal: true,
-      personal_marked_by: "Marta",
+      personal_marked_by: { display_name: "Marta", email: null, shown_as: "name" },
     },
   ];
 }
@@ -436,8 +442,8 @@ export function createFixtureBusinessDataSource(
   return {
     mode: "fixture",
     ...dossierSource,
-    approveDraft: async (id, version, key, action) => {
-      const dossier = await dossierSource.approveDraft(id, version, action);
+    approveDraft: async (id, version, key, action, _anyway, suggestions) => {
+      const dossier = await dossierSource.approveDraft(id, version, action, suggestions);
       const receipt = receipts.find((item) => item.draft_id === id);
       if (receipt && dossier.approval_result?.status === "recorded") {
         const facts = dossier.facts;
@@ -621,6 +627,7 @@ export function createFixtureBusinessDataSource(
       counter += 1;
       const created = receipt({
         id: `rcpt-new-${counter}`,
+        uploaded_by: { display_name: "Lucía", email: null, shown_as: "name" },
         status: consentToPrepare ? "queued" : "saved",
         filename: file.name,
         media_type: file.type,

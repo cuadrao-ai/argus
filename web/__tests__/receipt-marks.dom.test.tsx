@@ -57,7 +57,7 @@ describe("the chips", () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const render = (role: "owner" | "accountant") => env.act(async () => {
       const value = { chosen: role === "owner" ? { space_id: "s", name: "Mi negocio", grant_id: "own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true } : { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true } } as unknown as BusinessContextValue;
-      env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><RecordMarks fiscal={null} personal markedBy="Marta" /></BusinessContext.Provider></env.I18nextProvider>);
+      env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><RecordMarks fiscal={null} personal markedBy={{ display_name: "Marta", email: null, shown_as: "name" }} /></BusinessContext.Provider></env.I18nextProvider>);
     });
     await render("owner");
     const chip = env.host.querySelector('[data-mark="personal"]')!;
@@ -91,8 +91,8 @@ describe("the Overview's two totals", () => {
 });
 
 describe("the receipt page's marks card", () => {
-  const OWNER = { actor_id: "o", actor_kind: "member", display_name: "Dueño", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño" };
-  const ACCOUNTANT = { actor_id: "a", actor_kind: "member", display_name: "Lía", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" };
+  const OWNER = { actor_id: "o", actor_kind: "member", display_name: "Dueño", shown_as: "name", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" };
+  const ACCOUNTANT = { actor_id: "a", actor_kind: "member", display_name: "Lía", shown_as: "name", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" };
   const share = (kind: "all" | "none", origin: string) => ({ state: "known", value: { kind }, origin, verified: true, source_ids: ["s"] });
   const dossier = (over: Partial<BusinessDossier> = {}, personal = false, ncf = true, answer: boolean | null = null, markedBy: "owner" | "accountant" = "owner"): BusinessDossier =>
     ({
@@ -105,11 +105,11 @@ describe("the receipt page's marks card", () => {
       ],
       // The marks as the server reads them: the card renders these, never its own reading of the facts.
       personal,
-      personal_marked_by: personal && markedBy === "accountant" ? "Lía" : null,
+      personal_marked_by: personal && markedBy === "accountant" ? { display_name: "Lía", email: null, shown_as: "name" } : null,
       fiscal_value: ncf ? "ncf" : null,
       fiscal_question_applies: personal && ncf,
       include_606: personal && ncf ? answer : null,
-      include_606_by: personal && ncf && answer !== null ? "Lía" : null,
+      include_606_by: personal && ncf && answer !== null ? { display_name: "Lía", email: null, shown_as: "name" } : null,
       fiscal_known: true,
       facts: {
         business_share: share(personal ? "none" : "all", markedBy === "owner" ? "owner_stated" : "member_set"),
@@ -118,7 +118,7 @@ describe("the receipt page's marks card", () => {
       ...over,
     }) as unknown as BusinessDossier;
 
-  async function mountCard(d: BusinessDossier, role: "owner" | "accountant", { refuseAfter }: { refuseAfter?: Promise<void> } = {}) {
+  async function mountCard(d: BusinessDossier, role: "owner" | "accountant", { refuseAfter, bare = false }: { refuseAfter?: Promise<void>; bare?: boolean } = {}) {
     const env = await setup();
     const React = await import("react");
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
@@ -137,14 +137,18 @@ describe("the receipt page's marks card", () => {
           if (refuseAfter) { await refuseAfter; throw new Error("conflict"); }
           return dossier({ version: version + 1 }, personal, current.fiscal_value !== null, null);
         },
-        decideFiscalInclusion: async (id: string, version: number, include: boolean) => { calls.push(`606:${include}:${version}`); return dossier({}, true, true, include); },
+        decideFiscalInclusion: async (id: string, version: number, include: boolean) => {
+          calls.push(`606:${include}:${version}`);
+          if (refuseAfter) { await refuseAfter; throw new Error("conflict"); }
+          return dossier({ version: version + 1, fiscal_inclusion_available: current.fiscal_inclusion_available }, true, true, include);
+        },
       },
     } as unknown as BusinessContextValue;
     const changed: BusinessDossier[] = [];
     // The receipt page keeps the dossier the server returns and renders the card from it.
     function Page() {
       const [shown, setShown] = React.useState(d);
-      return <ReceiptMarksCard dossier={shown} onChanged={(next) => { changed.push(next); current = next; setShown(next); }} />;
+      return <ReceiptMarksCard dossier={shown} bare={bare} onChanged={(next) => { changed.push(next); current = next; setShown(next); }} />;
     }
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><Page /><ToastViewport /></BusinessContext.Provider></env.I18nextProvider>); });
     const toggle = () => env.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
@@ -272,6 +276,104 @@ describe("the receipt page's marks card", () => {
     assert.equal(older.host.querySelector('[data-testid="receipt-606-yes"]'), null, "a server that sends no flag answers no");
     await older.act(async () => older.root.unmount());
   });
+
+  describe("inside Más", () => {
+    const row606 = (host: HTMLElement) => host.querySelector<HTMLButtonElement>('[data-testid="receipt-606"]');
+    const switchOf = (row: HTMLElement) => row.querySelector("[data-switch-indicator]")?.getAttribute("data-switch-indicator");
+
+    test("Personal is a 44px row with its icon and a small switch on the right; a tap anywhere on the row toggles it", async () => {
+      const page = await mountCard(dossier({}, false, true), "owner", { bare: true });
+      const personal = page.toggle();
+      assert.equal(personal.getAttribute("role"), "menuitemcheckbox");
+      assert.equal(personal.getAttribute("aria-checked"), "false");
+      assert.ok(personal.className.includes("min-h-11"));
+      assert.equal(personal.firstElementChild?.tagName.toLowerCase(), "svg");
+      assert.equal(personal.lastElementChild?.getAttribute("data-switch-indicator"), "off", "the switch sits on the right");
+      assert.equal(personal.querySelector('[role="switch"], button'), null, "the row is the one control");
+      assert.equal(page.host.querySelector('[data-testid="record-marks"]'), null, "rows only, no chips");
+      await page.act(async () => { (personal.querySelector("span span") as HTMLElement).click(); });
+      await page.settle();
+      assert.deepEqual(page.calls, ["mark:true:3"]);
+      assert.equal(page.toggle().getAttribute("aria-checked"), "true");
+      assert.equal(switchOf(page.toggle()), "on");
+      const toast = page.host.querySelector('[data-testid="toast-viewport"]')!;
+      assert.ok([...toast.querySelectorAll("button")].some((b) => b.textContent === "Deshacer"), "the saved change still offers Deshacer");
+      await page.act(async () => page.root.unmount());
+      const { clearToasts } = await import("@/components/business-app/foundation/toasts");
+      clearToasts();
+    });
+
+    test("Incluir en el 606 shows only under Personal on, when the question applies; null and false show off, true shows on, with no other words", async () => {
+      const off = await mountCard(dossier({ fiscal_inclusion_available: true }, false, true), "accountant", { bare: true });
+      assert.equal(row606(off.host), null, "Personal off: no 606 row");
+      await off.act(async () => off.root.unmount());
+      const sale = await mountCard(dossier({ document_type: "venta", fiscal_question_applies: false, fiscal_inclusion_available: true }, true, true, null), "accountant", { bare: true });
+      assert.equal(row606(sale.host), null, "the question does not apply: no 606 row");
+      await sale.act(async () => sale.root.unmount());
+      for (const [answer, shown] of [[null, "false"], [false, "false"], [true, "true"]] as const) {
+        const page = await mountCard(dossier({ fiscal_inclusion_available: true }, true, true, answer), "accountant", { bare: true });
+        const row = row606(page.host)!;
+        assert.ok(row, `answer ${answer}: the row is there`);
+        assert.equal(row.getAttribute("role"), "menuitemcheckbox");
+        assert.equal(row.getAttribute("aria-checked"), shown, `answer ${answer}`);
+        assert.equal(row.textContent, "Incluir en el 606");
+        assert.equal(row.previousElementSibling, page.toggle(), "right under Personal");
+        assert.ok(row.className.includes("min-h-11") && row.firstElementChild?.tagName.toLowerCase() === "svg");
+        assert.ok(!/Pendiente del contador|Esperando al contable|Sin responder|¿/.test(page.host.textContent ?? ""), page.host.textContent ?? "");
+        await page.act(async () => page.root.unmount());
+      }
+    });
+
+    test("the person who may answer flips the 606 switch both ways through the same 606 answer", async () => {
+      const page = await mountCard(dossier({ fiscal_inclusion_available: true }, true, true, null), "accountant", { bare: true });
+      await page.act(async () => { row606(page.host)!.click(); });
+      await page.settle();
+      assert.equal(row606(page.host)!.getAttribute("aria-checked"), "true");
+      await page.act(async () => { row606(page.host)!.click(); });
+      await page.settle();
+      assert.deepEqual(page.calls, ["606:true:3", "606:false:4"]);
+      assert.equal(row606(page.host)!.getAttribute("aria-checked"), "false");
+      await page.act(async () => page.root.unmount());
+    });
+
+    test("someone who cannot answer sees the 606 switch locked, with no words", async () => {
+      for (const [who, record] of [
+        ["the owner", dossier({ fiscal_inclusion_available: false }, true, true, true)],
+        ["a read-only grant", dossier({ capabilities: ["read"], fiscal_inclusion_available: true } as Partial<BusinessDossier>, true, true, null, "accountant")],
+      ] as const) {
+        const page = await mountCard(record, who === "the owner" ? "owner" : "accountant", { bare: true });
+        const row = row606(page.host)!;
+        assert.ok(row, who);
+        assert.equal(row.disabled, true, `${who}: locked`);
+        assert.equal(row.textContent, "Incluir en el 606", who);
+        await page.act(async () => row.click());
+        await page.settle();
+        assert.deepEqual(page.calls, [], `${who}: nothing is sent`);
+        await page.act(async () => page.root.unmount());
+      }
+    });
+
+    test("a refused 606 answer rolls the switch back and says so in the menu with Reintentar", async () => {
+      let answer!: () => void;
+      const page = await mountCard(dossier({ fiscal_inclusion_available: true }, true, true, null), "accountant", { bare: true, refuseAfter: new Promise<void>((done) => { answer = done; }) });
+      await page.act(async () => { row606(page.host)!.click(); });
+      assert.equal(row606(page.host)!.getAttribute("aria-checked"), "true", "flips before the server answers");
+      assert.equal(row606(page.host)!.getAttribute("aria-busy"), "true");
+      assert.equal(page.toggle().disabled, true, "Personal waits for the 606 answer");
+      await page.act(async () => { answer(); });
+      await page.settle();
+      assert.equal(row606(page.host)!.getAttribute("aria-checked"), "false", "rolled back");
+      const error = page.host.querySelector('[data-testid="receipt-marks-problem"]')!;
+      assert.equal(error.getAttribute("role"), "alert");
+      assert.ok(error.textContent?.includes("No pudimos guardar la respuesta."), error.textContent ?? "");
+      const retry = [...error.querySelectorAll("button")].find((b) => b.textContent === "Reintentar");
+      assert.ok(retry, "with Reintentar");
+      await page.act(async () => retry.click());
+      await page.settle();
+      assert.deepEqual(page.calls, ["606:true:3", "606:true:3"], "Reintentar sends the same answer again");
+      await page.act(async () => page.root.unmount());
+    });
+  });
 });
 
 describe("the review page's fiscal details", () => {
@@ -329,7 +431,7 @@ describe("one owner for the marks", () => {
       { name: "unmarked", personal: false, by: null },
     ];
     for (const item of cases) {
-      const server = { personal: item.personal, personal_marked_by: item.by, fiscal_value: "ncf" as const, include_606: null };
+      const server = { personal: item.personal, personal_marked_by: item.by ? { display_name: item.by, email: null, shown_as: "name" } : null, fiscal_value: "ncf" as const, include_606: null };
       const env = await setup();
       await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ReceiptMarksCard dossier={{ draft_id: "d-1", version: 3, capabilities: ["read", "prepare"], history: [], facts: { business_share: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, fiscal: null }, ...server } as unknown as BusinessDossier} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
       assert.equal(env.host.querySelector('[data-mark="personal"]') !== null, item.personal, item.name);
@@ -345,8 +447,8 @@ describe("the server states what the browser used to guess", () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { default: ReceiptMarksCard } = await import("@/components/business-app/ReceiptMarksCard");
     const accountant = { chosen: { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true }, reload: () => undefined, source: {} } as unknown as BusinessContextValue;
-    const ownerEdit = { draft_id: "d-1", version: 5, actor: { actor_id: "o", actor_kind: "member", display_name: "Dueño", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño" }, before: {}, after: {}, source_ids: [], turn_key: null, created_at: "2026-10-13T11:00:00Z" };
-    const record = { draft_id: "d-1", version: 5, capabilities: ["read", "prepare"], history: [ownerEdit], facts: {}, personal: true, fiscal_known: true, fiscal_value: "ncf", fiscal_question_applies: true, include_606: false, include_606_by: "Lía" } as unknown as BusinessDossier;
+    const ownerEdit = { draft_id: "d-1", version: 5, actor: { actor_id: "o", actor_kind: "member", display_name: "Dueño", shown_as: "name", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" }, before: {}, after: {}, source_ids: [], turn_key: null, created_at: "2026-10-13T11:00:00Z" };
+    const record = { draft_id: "d-1", version: 5, capabilities: ["read", "prepare"], history: [ownerEdit], facts: {}, personal: true, fiscal_known: true, fiscal_value: "ncf", fiscal_question_applies: true, include_606: false, include_606_by: { display_name: "Lía", email: null, shown_as: "name" } } as unknown as BusinessDossier;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={accountant}><ReceiptMarksCard dossier={record} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
     assert.equal(env.host.querySelector('[data-testid="receipt-606-state"]')?.textContent, "Fuera del 606 por Lía");
     await env.act(async () => env.root.unmount());
@@ -358,7 +460,7 @@ describe("the server states what the browser used to guess", () => {
     const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
     const base = { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown };
     const fiscal = (answer: unknown) => ({ rnc: unknown, ncf: { state: "known", value: "B01", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: unknown, itbis: unknown, include_606: answer });
-    const revision = { draft_id: "d-1", version: 4, actor: { actor_id: "a", actor_kind: "member", display_name: "Lía", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" }, before: { ...base, fiscal: fiscal(unknown) }, after: { ...base, fiscal: fiscal({ state: "known", value: true, origin: "member_set", verified: true, source_ids: ["s"] }) }, source_ids: ["s"], turn_key: null, created_at: "2026-10-13T10:00:00Z" };
+    const revision = { draft_id: "d-1", version: 4, actor: { actor_id: "a", actor_kind: "member", display_name: "Lía", shown_as: "name", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" }, before: { ...base, fiscal: fiscal(unknown) }, after: { ...base, fiscal: fiscal({ state: "known", value: true, origin: "member_set", verified: true, source_ids: ["s"] }) }, source_ids: ["s"], turn_key: null, created_at: "2026-10-13T10:00:00Z" };
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptHistory history={[revision] as never} accounts={[]} /></env.I18nextProvider>); });
     const text = env.host.textContent ?? "";
     assert.ok(text.includes("Sí"), text);

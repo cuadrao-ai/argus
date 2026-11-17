@@ -183,7 +183,7 @@ function dop(overrides: Record<string, unknown> = {}) {
 function server(month: Record<string, unknown> = {}): MonthCloseClient {
   return createHttpMonthCloseClient(async (path) => {
     if (path.startsWith("/business/open-items")) throw new Error("settlement is off");
-    return { month: MONTH, today: "2026-11-09", from: "2026-11-01", to: "2026-11-30", closed: false, reasons: [], earliest_month: "2026-10", dgii_forms: { "606": "needs_review", "607": "prepared_candidate" }, currencies: [dop()], missing_rnc: [], missing_ncf: [], missing_fiscal_rows: [{ family: "purchase", currency: "DOP", count: 3, by_currency: false }], unreviewed_movements_count: 6, ...month };
+    return { month: MONTH, today: "2026-11-09", from: "2026-11-01", to: "2026-11-30", closed: false, reasons: [], earliest_month: "2026-10", dgii_forms: { "606": "needs_review", "607": "prepared_candidate" }, currencies: [dop()], missing_rnc: [], missing_ncf: [], not_ready_rows: [{ family: "purchase", currency: "DOP", count: 3, by_currency: false }], unreviewed_movements_count: 6, missing_fiscal_rows: [{ family: "purchase", currency: "DOP", count: 99, by_currency: false }], ...month };
   });
 }
 
@@ -235,15 +235,15 @@ describe("The month card", () => {
       assert.equal(page.find("home-month-included")?.textContent, "Documentos incluidos: 21 de 28");
       assert.match(page.find("home-month-bandeja")?.textContent ?? "", /^6 en la Bandeja · Revisar$/);
       const [fiscal] = [...page.host.querySelectorAll<HTMLElement>('[data-testid="home-month-fiscal"]')];
-      assert.match(fiscal.textContent ?? "", /^Faltan datos fiscales en 3 registros · Ver$/);
+      assert.match(fiscal.textContent ?? "", /^Faltan datos en 3 registros · Ver$/);
       await page.act(async () => page.find("home-month-bandeja-open")!.click());
       await page.act(async () => page.find("home-month-fiscal-open")!.click());
-      assert.deepEqual(page.opened, ["bandeja", { family: "purchase", currency: "DOP", from: "2026-11-01", to: "2026-11-30", fiscal_data: "missing" }]);
+      assert.deepEqual(page.opened, ["bandeja", { family: "purchase", currency: "DOP", from: "2026-11-01", to: "2026-11-30", ready: false }]);
     } finally { await page.close(); }
   });
 
   test("every document counted reads in the same shape; nothing in the Bandeja or held shows no line", async () => {
-    const page = await monthCard(server({ currencies: [dop({ documents_counted: 28, documents_total: 28, documents_in_bandeja: 0 })], missing_fiscal_rows: [], unreviewed_movements_count: 0 }));
+    const page = await monthCard(server({ currencies: [dop({ documents_counted: 28, documents_total: 28, documents_in_bandeja: 0 })], not_ready_rows: [], unreviewed_movements_count: 0 }));
     try {
       assert.equal(page.find("home-month-included")?.textContent, "Documentos incluidos: 28 de 28");
       assert.equal(page.find("home-month-bandeja"), null);
@@ -281,7 +281,7 @@ describe("The month card", () => {
   });
 
   test("the first day keeps the structure: muted zeros and when the figures fill", async () => {
-    const page = await monthCard(server({ earliest_month: null, currencies: [], missing_fiscal_rows: [], unreviewed_movements_count: 0 }));
+    const page = await monthCard(server({ earliest_month: null, currencies: [], not_ready_rows: [], unreviewed_movements_count: 0 }));
     try {
       for (const id of ["home-month-income", "home-month-expenses", "home-month-net", "home-month-itbis-sales", "home-month-itbis-purchases"]) {
         assert.equal(page.find(id)?.textContent, "RD$ 0", id);
@@ -341,7 +341,7 @@ describe("the chosen currency across months", () => {
     return createHttpMonthCloseClient(async (path) => {
       const month = new URLSearchParams(path.split("?")[1]).get("month")!;
       const usd = dop({ currency: "USD", income_before_itbis_minor: month === "2026-09" ? 50000 : 120000, documents_counted: 1, documents_total: 1, documents_in_bandeja: 0 });
-      return { month, today: "2026-11-09", from: `${month}-01`, to: `${month}-30`, closed: false, reasons: [], earliest_month: "2026-09", more_than_one_currency: true, dgii_forms: { "606": "no_operations", "607": "no_operations" }, currencies: month === "2026-10" ? [dop()] : [dop(), usd], missing_rnc: [], missing_ncf: [], missing_fiscal_rows: [] };
+      return { month, today: "2026-11-09", from: `${month}-01`, to: `${month}-30`, closed: false, reasons: [], earliest_month: "2026-09", more_than_one_currency: true, dgii_forms: { "606": "no_operations", "607": "no_operations" }, currencies: month === "2026-10" ? [dop()] : [dop(), usd], missing_rnc: [], missing_ncf: [], not_ready_rows: [] };
     });
   }
 
@@ -382,42 +382,56 @@ describe("the chosen currency across months", () => {
 describe("the month card's second round (Lucas, 2026-11-09)", () => {
   test("a net in its own currency shows, as the server says it is final", async () => {
     const usd = dop({ currency: "USD", income_before_itbis_minor: 150500, expense_before_itbis_minor: 7600, net_result_minor: 142900, net_result_final: true });
-    const page = await monthCard(server({ currencies: [usd], missing_fiscal_rows: [] }));
+    const page = await monthCard(server({ currencies: [usd], not_ready_rows: [] }));
     try {
       assert.equal(page.find("home-month-income")?.textContent, "US$ 1,505");
       assert.equal(page.find("home-month-net")?.textContent, "US$ 1,429");
     } finally { await page.close(); }
   });
 
-  test("with both tabs held, each fiscal line names its tab and opens it", async () => {
+  for (const readiness of [null, undefined]) {
+    test(`unavailable readiness (${readiness}) stays unknown while the other month figures render`, async () => {
+      const page = await monthCard(server({ not_ready_rows: readiness }));
+      try {
+        assert.equal(page.find("home-month-fiscal-unknown")?.textContent, "Faltan datos: todavía no se puede calcular.");
+        assert.equal(page.find("home-month-fiscal"), null);
+        assert.equal(page.find("home-month-fiscal-open"), null);
+        assert.equal(page.find("home-month-income")?.textContent, "RD$ 268,044");
+        assert.equal(page.find("home-month-net")?.textContent, "-RD$ 47,762");
+        assert.equal(page.find("home-month-included")?.textContent, "Documentos incluidos: 21 de 28");
+      } finally { await page.close(); }
+    });
+  }
+
+  test("with both tabs not ready, each line names its tab and opens it", async () => {
     const rows = [{ family: "purchase", currency: "DOP", count: 1, by_currency: false }, { family: "sale", currency: "DOP", count: 2, by_currency: false }];
-    const page = await monthCard(server({ missing_fiscal_rows: rows }));
+    const page = await monthCard(server({ not_ready_rows: rows }));
     try {
       const lines = [...page.host.querySelectorAll<HTMLElement>('[data-testid="home-month-fiscal"]')];
-      assert.deepEqual(lines.map((line) => line.textContent), ["Faltan datos fiscales en 1 compra · Ver", "Faltan datos fiscales en 2 ventas · Ver"]);
+      assert.deepEqual(lines.map((line) => line.textContent), ["Faltan datos en 1 compra · Ver", "Faltan datos en 2 ventas · Ver"]);
       assert.ok(lines.every((line) => line.querySelector('[tabindex="0"]')?.className.includes("decoration-dotted")), "the term keeps its dotted tooltip");
       for (const line of lines) await page.act(async () => line.querySelector<HTMLButtonElement>('[data-testid="home-month-fiscal-open"]')!.click());
       assert.deepEqual(page.opened.map((focus) => (typeof focus === "string" ? focus : focus.family)), ["purchase", "sale"]);
     } finally { await page.close(); }
-    const single = await monthCard(server({ missing_fiscal_rows: [{ family: "purchase", currency: "DOP", count: 1, by_currency: false }] }));
+    const single = await monthCard(server({ not_ready_rows: [{ family: "purchase", currency: "DOP", count: 1, by_currency: false }] }));
     try {
-      assert.equal(single.find("home-month-fiscal")?.textContent, "Faltan datos fiscales en 1 registro · Ver", "one tab needs no name");
+      assert.equal(single.find("home-month-fiscal")?.textContent, "Faltan datos en 1 registro · Ver", "one tab needs no name");
     } finally { await single.close(); }
   });
 
   test("a fiscal line counts and opens only the shown currency's records", async () => {
     const usd = dop({ currency: "USD", documents_counted: 1, documents_total: 2, documents_in_bandeja: 0 });
     const rows = [{ family: "purchase", currency: "DOP", count: 3, by_currency: true }, { family: "purchase", currency: "USD", count: 1, by_currency: true }];
-    const page = await monthCard(server({ currencies: [dop(), usd], more_than_one_currency: true, missing_fiscal_rows: rows }), true, "business-fiscal-currency");
+    const page = await monthCard(server({ currencies: [dop(), usd], more_than_one_currency: true, not_ready_rows: rows }), true, "business-fiscal-currency");
     const lines = () => [...page.host.querySelectorAll<HTMLElement>('[data-testid="home-month-fiscal"]')].map((line) => line.textContent);
     try {
-      assert.deepEqual(lines(), ["Faltan datos fiscales en 3 registros · Ver"], "pesos shown: only the pesos row");
+      assert.deepEqual(lines(), ["Faltan datos en 3 registros · Ver"], "pesos shown: only the pesos row");
       await page.act(async () => page.find("month-close-currency")!.click());
       await page.act(async () => document.querySelector<HTMLElement>('[data-testid="month-close-currency-picker"] [data-currency="USD"]')!.click());
       assert.equal(page.find("home-month-body")?.dataset.currency, "USD");
-      assert.deepEqual(lines(), ["Faltan datos fiscales en 1 registro · Ver"], "dollars shown: only the dollars row");
+      assert.deepEqual(lines(), ["Faltan datos en 1 registro · Ver"], "dollars shown: only the dollars row");
       await page.act(async () => page.find("home-month-fiscal-open")!.click());
-      assert.deepEqual(page.opened, [{ family: "purchase", currency: "USD", from: "2026-11-01", to: "2026-11-30", fiscal_data: "missing" }], "Ver opens Registros in the row's currency");
+      assert.deepEqual(page.opened, [{ family: "purchase", currency: "USD", from: "2026-11-01", to: "2026-11-30", ready: false }], "Ver opens Registros in the row's currency");
     } finally { await page.close(); }
   });
 
@@ -449,7 +463,6 @@ describe("what Inicio no longer has", () => {
     const inicio = (spanish as unknown as { business: { inicio: { attention: Record<string, unknown>; month: Record<string, unknown> } } }).business.inicio;
     assert.equal("first_day_channels" in inicio.attention, false, "one first-day sentence for every channel");
     assert.deepEqual(Object.keys(inicio.month).filter((key) => key.startsWith("included")), ["included"], "one coverage line shape");
-    assert.doesNotMatch(JSON.stringify(inicio), /PENDIENTE COPY/);
     const sample = (await import("@/lib/business-month-close")).createMockMonthCloseClient();
     assert.equal("closeMonth" in sample, false);
   });

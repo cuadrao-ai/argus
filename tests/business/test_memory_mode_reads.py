@@ -90,6 +90,7 @@ def test_each_read_answers_its_empty_shape_once_the_business_exists(alice: Owner
             "missing_payment_form": [],
             "missing_fiscal_data": [],
             "missing_fiscal_rows": [],
+            "not_ready_rows": [],
             "cuentas_por_cobrar": [],
             "cuentas_por_pagar": [],
             "unreviewed_movements_count": 0,

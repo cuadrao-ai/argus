@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import os
+from types import SimpleNamespace
 from uuid import uuid4
 
 import psycopg
+import psycopg_pool
 import pytest
+from argus.api.business_guide import dismissed_guide_cards
 from argus.api.main import app
 from fastapi.testclient import TestClient
 from psycopg_pool import PoolTimeout
+from starlette.requests import Request
 
 from tests import test_business_scope_switch_routes_postgres as scope
 from tests import test_financial_accounts_postgres as shared
@@ -22,6 +26,7 @@ web = scope.web
 users = shared.users
 
 CARD = f"{API}/business/guide-cards/bandeja-intro"
+ME = f"{API}/me"
 INSERT = (
     "insert into public.business_guide_dismissals (user_id, card_id)"
     " values (%s, 'bandeja-intro') on conflict (user_id, card_id) do nothing"
@@ -31,28 +36,29 @@ SELECT = "select user_id::text, dismissed_at from public.business_guide_dismissa
 pytestmark = pytest.mark.skipif(not DSN, reason="Disposable database required")
 
 
+def _dismissed(client: TestClient, headers: dict[str, str]) -> list[str]:
+    response = client.get(ME, headers=headers)
+    assert response.status_code == 200, response.text
+    return response.json()["dismissed_guide_cards"]
+
+
 @pytest.mark.skipif(
     not os.getenv("ARGUS_LOCAL_SUPABASE_URL"), reason="Local Supabase Auth required"
 )
 def test_guide_http_uses_the_person_across_grants_and_browser_sessions(web, monkeypatch):
     bob_on_a = {**web.bob.headers, GRANT: web.grant_a}
-    fresh = web.client.get(CARD, headers=bob_on_a)
-    assert fresh.status_code == 200, fresh.text
-    assert fresh.json() == {"dismissed": False}
-    assert fresh.headers["cache-control"] == "no-store"
+    assert _dismissed(web.client, bob_on_a) == []
+    assert web.client.get(CARD, headers=bob_on_a).status_code in (404, 405)
 
     second_browser = TestClient(app, base_url="http://localhost:3000")
-    unauthenticated = second_browser.get(
-        CARD, headers={**ORIGIN, "X-User-Id": web.bob.id}
+    unauthenticated = second_browser.post(
+        f"{CARD}/dismiss", headers={**ORIGIN, "X-User-Id": web.bob.id}
     )
     assert unauthenticated.status_code == 401
     assert unauthenticated.headers["cache-control"] == "no-store"
-    for response in (
-        web.client.get(f"{API}/business/guide-cards/unknown", headers=bob_on_a),
-        web.client.post(f"{API}/business/guide-cards/unknown/dismiss", headers=bob_on_a),
-    ):
-        assert response.status_code == 422
-        assert response.headers["cache-control"] == "no-store"
+    unknown = web.client.post(f"{API}/business/guide-cards/unknown/dismiss", headers=bob_on_a)
+    assert unknown.status_code == 422
+    assert unknown.headers["cache-control"] == "no-store"
 
     spoofed = {**bob_on_a, "X-User-Id": web.alice.id}
     dismissed = web.client.post(f"{CARD}/dismiss", headers=spoofed)
@@ -63,19 +69,14 @@ def test_guide_http_uses_the_person_across_grants_and_browser_sessions(web, monk
         "dismissed": True
     }
 
-    assert second_browser.get(
-        CARD, headers={**web.bob.headers, GRANT: web.grant_c}
-    ).json() == {"dismissed": True}
-    assert second_browser.get(CARD, headers=web.alice.headers).json() == {
-        "dismissed": False
-    }
-    assert second_browser.get(
-        CARD, headers={**web.dave.headers, GRANT: web.grant_d}
-    ).json() == {"dismissed": False}
-
-    assert second_browser.get(
-        CARD, headers={**web.bob.headers, GRANT: str(uuid4())}
-    ).json() == {"dismissed": True}
+    assert _dismissed(second_browser, {**web.bob.headers, GRANT: web.grant_c}) == [
+        "bandeja-intro"
+    ]
+    assert _dismissed(second_browser, web.alice.headers) == []
+    assert _dismissed(second_browser, {**web.dave.headers, GRANT: web.grant_d}) == []
+    assert _dismissed(second_browser, {**web.bob.headers, GRANT: str(uuid4())}) == [
+        "bandeja-intro"
+    ]
 
     pool = app.state.financial_accounts_pool
 
@@ -86,39 +87,49 @@ def test_guide_http_uses_the_person_across_grants_and_browser_sessions(web, monk
         with monkeypatch.context() as patch:
             patch.setattr(app.state, "financial_accounts_pool", unavailable_pool)
             patch.setattr(pool, "connection", exhausted_pool)
-            for response in (
-                web.client.get(CARD, headers=bob_on_a),
-                web.client.post(f"{CARD}/dismiss", headers=bob_on_a),
-            ):
-                assert response.status_code == 503
-                assert response.json()["code"] == "business_guide_unavailable"
-                assert response.headers["x-request-id"] == response.json()["request_id"]
-                assert response.headers["cache-control"] == "no-store"
-
+            response = web.client.post(f"{CARD}/dismiss", headers=bob_on_a)
+            assert response.status_code == 503
+            assert response.json()["code"] == "business_guide_unavailable"
+            assert response.headers["x-request-id"] == response.json()["request_id"]
+            assert response.headers["cache-control"] == "no-store"
+    with monkeypatch.context() as patch:
+        patch.setattr(app.state, "financial_accounts_pool", None)
+        assert _dismissed(web.client, bob_on_a) is None
 
 
 @pytest.mark.skipif(
     not os.getenv("ARGUS_LOCAL_SUPABASE_URL"), reason="Local Supabase Auth required"
 )
 def test_each_guide_card_keeps_its_own_dismissal(web):
-    bandeja, registros = (
-        f"{API}/business/guide-cards/{card}"
-        for card in ("bandeja-intro", "registros-intro")
-    )
     headers = web.alice.headers
-
-    def dismissed(card: str) -> bool:
-        response = web.client.get(card, headers=headers)
-        assert response.status_code == 200, response.text
-        return response.json()["dismissed"]
-
-    assert (dismissed(bandeja), dismissed(registros)) == (False, False)
-    response = web.client.post(f"{registros}/dismiss", headers=headers)
+    assert _dismissed(web.client, headers) == []
+    response = web.client.post(
+        f"{API}/business/guide-cards/registros-intro/dismiss", headers=headers
+    )
     assert response.status_code == 200, response.text
     assert response.json() == {"dismissed": True}
-    assert (dismissed(bandeja), dismissed(registros)) == (False, True)
-    web.client.post(f"{bandeja}/dismiss", headers=headers)
-    assert (dismissed(bandeja), dismissed(registros)) == (True, True)
+    assert _dismissed(web.client, headers) == ["registros-intro"]
+    web.client.post(f"{CARD}/dismiss", headers=headers)
+    assert _dismissed(web.client, headers) == ["bandeja-intro", "registros-intro"]
+
+
+def test_me_reads_only_the_persons_own_dismissals(users):
+    owner, other = users["owner"], users["other"]
+    with psycopg.connect(DSN) as db:
+        db.execute(INSERT, (owner,))
+        db.execute(
+            "insert into public.business_guide_dismissals (user_id, card_id)"
+            " values (%s, 'registros-intro')",
+            (other,),
+        )
+    with psycopg_pool.ConnectionPool(DSN, min_size=0, max_size=2, open=True) as pool:
+        request = Request(
+            {"type": "http", "app": SimpleNamespace(state=SimpleNamespace(financial_accounts_pool=pool))}
+        )
+        assert dismissed_guide_cards(request, owner) == ["bandeja-intro"]
+        assert dismissed_guide_cards(request, other) == ["registros-intro"]
+        assert dismissed_guide_cards(request, users["guest"]) == []
+
 
 def test_guide_row_security_and_retry_keep_the_first_dismissal(users):
     owner, other, guest = (users[label] for label in ("owner", "other", "guest"))

@@ -16,9 +16,9 @@ import { movementName, type TransaccionesController } from "./useTransacciones";
 /** The ledger's columns. Five share Registros' server keys; the detail and category columns are the ledger's own. */
 export type ColumnKey = "counterparty" | "date" | "gross_amount" | "detail" | "category" | "funding" | "attachment";
 
-/** The columns, left to right: text left, numbers right; Contraparte pins left and Comprobante right. */
+/** The columns, left to right: text left, numbers right; the name pins left and Comprobante right. */
 export const COLUMNS: readonly { key: ColumnKey; label_key: string; width: number | null; align: "left" | "right"; pin?: "left" | "right" }[] = [
-  { key: "counterparty", label_key: "business.transactions.columns.contraparte", width: 260, align: "left", pin: "left" },
+  { key: "counterparty", label_key: "business.terms.counterparty", width: 260, align: "left", pin: "left" },
   { key: "date", label_key: "business.transactions.columns.fecha", width: 84, align: "left" },
   { key: "gross_amount", label_key: "business.transactions.columns.monto", width: 136, align: "right" },
   { key: "detail", label_key: "business.transactions.columns.detalle", width: null, align: "left" },
@@ -30,6 +30,8 @@ export const COLUMNS: readonly { key: ColumnKey; label_key: string; width: numbe
 export const PIN_CLASS = { left: "sticky left-0 z-10 shadow-[inset_-1px_0_0_#DCE0DA] dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.1)]", right: "sticky right-0 z-10 shadow-[inset_1px_0_0_#DCE0DA] dark:shadow-[inset_1px_0_0_rgba(255,255,255,0.1)]" } as const;
 /** Registros column titles: every one bold, in one style. */
 export const RECORDS_TITLE = "sticky top-0 h-11 border-b border-[#DCE0DA] bg-white px-3 text-[13px] font-semibold text-[#172b26] dark:border-white/10 dark:bg-[#1f2225] dark:text-white";
+/** The Registros table frame, loaded or pending: as tall as its rows, scrolling inside past a screenful. */
+export const RECORDS_FRAME = "argus-thin-scrollbar relative max-h-[calc(100dvh-15rem)] overflow-auto rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]";
 /** Opaque cells, so a pinned column covers what scrolls under it. Hover lights the row in 80ms; the open row is green-tinted. */
 export const CELL = "border-b border-[#DCE0DA] bg-white px-3 transition-colors duration-[80ms] ease-out group-hover:bg-[#F7F5EE] group-aria-selected:bg-[#eef3ec] motion-reduce:transition-none dark:border-white/10 dark:bg-[#1f2225] dark:group-hover:bg-[#25292c] dark:group-aria-selected:bg-[#24302b]";
 const ACTION = "inline-flex h-7 items-center whitespace-nowrap rounded-full border border-[#7d8a84]/50 bg-white px-2.5 text-[13px] font-medium text-[#172b26] transition-colors duration-100 hover:bg-[#F7F5EE] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/[0.06]";
@@ -91,7 +93,6 @@ export function TransaccionesTable({ controller, view, density, onSegmentStep, o
       if (event.key === "ArrowUp") return move(index - 1), true;
       if (event.key === "]") return onSegmentStep(1), true;
       if (event.key === "[") return onSegmentStep(-1), true;
-      if (event.key === "Escape" && controller.tray) return controller.close(), true;
       const movement = id ? controller.byId.get(id) : undefined;
       if (!movement) return false;
       if (event.key === "Enter") return controller.open(movement.id), true;

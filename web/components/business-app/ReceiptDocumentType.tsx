@@ -9,8 +9,9 @@ import { DOCUMENT_TYPE_LABELS } from "./receipt-fact-rows";
 
 /**
  * Compra or Venta on one record, as a fact row. `row` is the shared edit row on
- * a draft whose type can still change; after approval it is fixed. A type read
- * from the document says so, so a wrong guess is easy to spot and fix.
+ * a draft whose type can still change; after approval it is fixed. While the
+ * record is open, a type read from the document says so, so a wrong guess is
+ * easy to spot and fix.
  */
 export default function ReceiptDocumentType({ dossier, row, note }: {
   dossier: BusinessDossier;
@@ -23,7 +24,7 @@ export default function ReceiptDocumentType({ dossier, row, note }: {
   if (!current) return null;
   const label = t("business.dossier.type_label", "Type");
   const value = t(DOCUMENT_TYPE_LABELS[current]);
-  const detected = dossier.document_type_detected
+  const detected = dossier.document_type_detected && dossier.review_state === "open"
     ? current === "venta"
       ? t("business.dossier.type_detected_venta", "We read it as a sale from your business's RNC. Add the client's RNC.")
       : t("business.dossier.type_detected_recibo", "We read it as a purchase. Change it if it is a sale.")

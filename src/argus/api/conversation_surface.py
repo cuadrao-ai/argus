@@ -31,7 +31,7 @@ from argus.api.business import (
 from argus.api.business_spaces import business_spaces, space_missing_problem
 from argus.api.dependencies import current_user, problem
 from argus.api.schemas import ConversationSurface, User
-from argus.domain.business.config import business_chat_enabled, business_pilot_enabled
+from argus.domain.business.config import business_chat_enabled
 from argus.domain.business.scope import resolve_business_scope
 from argus.domain.owner_scope import PERSONAL, OwnerScope, holds, scope_of
 
@@ -54,7 +54,7 @@ def surface_scope(
     if surface != "business":
         raise conversation_not_found(request)
     spaces = business_spaces()
-    if not business_pilot_enabled() or spaces is None:
+    if spaces is None:
         raise unavailable_problem(request)
     # A stored conversation belongs to its space's creator
     # (conversations_owner_space_fkey pins owner_space_id to spaces.created_by),

@@ -26,6 +26,7 @@ from argus.domain.business.memberships import (
 )
 from argus.domain.business.notifications.events import memory_invitation
 from argus.domain.business.notifications.store import InMemoryNotificationStore
+from argus.domain.business.people import profile_name
 from argus.domain.business.roles import (
     ROLE_PERMISSIONS,
     BusinessRole,
@@ -108,7 +109,8 @@ class AccessGrant:
     id: str
     grantee_id: str
     email: str | None
-    display_name: str
+    #: The profile name, or None when they set none: the screen shows the email.
+    display_name: str | None
     capabilities: tuple[str, ...]
     created_at: datetime
     owner: bool
@@ -245,25 +247,11 @@ def _closed(row: tuple, person_id: str) -> ClosedSpace:
     return ClosedSpace(space, name, grant, role, closed_at)
 
 
-def _label(display_name: str | None, username: str | None) -> str:
-    return (display_name or "").strip() or (username or "").strip() or "Member"
-
-
 def _lock(connection: Connection, space_id: str) -> None:
     connection.execute(
         "select id from public.spaces where id=%s for update",
         (space_id,),
     )
-
-
-def _profiles(connection: Connection, *ids: str) -> dict[str, str]:
-    with connection.cursor(row_factory=dict_row) as cursor:
-        rows = cursor.execute(
-            "select id::text, display_name, username from public.profiles where id = any(%s::uuid[])",
-            (list(ids),),
-        ).fetchall()
-    found = {row["id"]: _label(row["display_name"], row["username"]) for row in rows}
-    return {person: found.get(person, "Member") for person in ids}
 
 
 def _record(
@@ -277,14 +265,11 @@ def _record(
 ) -> None:
     """One ledger row per change; the key makes a repeat a no-op."""
 
-    labels = _profiles(connection, actor_id, issuer_id)
     actor = ActorProvenance(
         actor_id=UUID(actor_id),
         actor_kind="member",
-        display_name=labels[actor_id],
         grant_id=UUID(grant_id),
         issuer_id=UUID(issuer_id),
-        issuer_display_name=labels[issuer_id],
     )
     subject = command.invite_id or command.grant_id
     if command.membership_version is not None:
@@ -375,7 +360,7 @@ class PostgresAccessStore(PostgresMembershipCommands):
     def _list(self, connection: Connection, space_id: str, owner_id: str) -> AccessList:
         with connection.cursor(row_factory=dict_row) as cursor:
             grants = cursor.execute(
-                "select g.id::text, g.grantee_id::text, u.email, p.display_name, p.username,"
+                "select g.id::text, g.grantee_id::text, u.email, p.display_name,"
                 " g.capabilities, g.created_at, g.business_role, g.grantee_id = %s::uuid or exists("
                 "  select 1 from public.business_action_receipts r"
                 "  where r.actor_id=g.grantee_id and r.turn_key is null"
@@ -402,7 +387,7 @@ class PostgresAccessStore(PostgresMembershipCommands):
                     row["id"],
                     row["grantee_id"],
                     row["email"],
-                    _label(row["display_name"], row["username"]),
+                    profile_name(row["display_name"]),
                     tuple(row["capabilities"]),
                     row["created_at"],
                     row["business_role"] == "owner",
@@ -752,7 +737,7 @@ class InMemoryAccessStore:
                     g["id"],
                     g["grantee_id"],
                     emails.get(g["grantee_id"]),
-                    "Member",
+                    None,
                     legacy_capabilities(g["business_role"]),
                     g["created_at"],
                     g["business_role"] == BusinessRole.OWNER,

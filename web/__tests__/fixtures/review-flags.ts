@@ -34,6 +34,8 @@ export async function flaggedReceipt(codes: readonly ReviewFlagCode[], accounts:
   };
   dossier.fiscal_value = "ncf";
   dossier.ecf_checks = null;
+  // No suggestion, so the approve request carries the flags alone.
+  dossier.declaration_suggestions = { category: null, payment_method: null };
   dossier.dgii_qr = null;
   dossier.review_flags = codes.map((code) => REVIEW_FLAGS[code]);
   return dossier;

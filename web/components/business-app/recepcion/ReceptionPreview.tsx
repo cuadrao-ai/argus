@@ -30,12 +30,12 @@ import ReceptionEmptyState from "./ReceptionEmptyState";
 import { canAddRecords, quietButtonClass } from "../business-ui";
 import { listoItem, receptionDocumentTitle, receptionMatches, receptionRows, receptionSearchText, receptionTarget, rowDeleteTarget, type ReceptionRow, type ReceptionView } from "./reception-model";
 import { bandejaAttentionCount, bandejaListoCount } from "../inbox-count";
-import ReceptionArrivalRow from "./ReceptionArrivalRow";
+import ReceptionArrivalRow, { ReceptionPendingRow } from "./ReceptionArrivalRow";
 import ReceptionDeletedRow, { DeletedColumns } from "./ReceptionDeletedRow";
 import { useDeletedNotes } from "./useDeletedNotes";
 import { useDocumentDelete } from "../DocumentDeleteControls";
 import { useReceiptStateWord } from "../receipt-state-word";
-import ReceptionSkeleton from "./ReceptionSkeleton";
+import { useDelayedPending } from "../business-skeletons";
 import { ReceptionSearch, ReceptionSettings } from "./ReceptionControls";
 import ReceptionColumnsHeading from "./ReceptionColumnsHeading";
 import { shownReceptionColumns, useReceptionPreferences } from "./reception-columns";
@@ -126,6 +126,9 @@ function ReceptionWorkspace() {
   }, []);
   const pending = !arrivals || records.notes === null || records.emails === null || (view === "eliminados" && deletedNotes.items === null);
   const failed = !!arrivals?.failure || records.error || !!records.notesFailure || !!records.emailsFailure || (view === "eliminados" && !!deletedNotes.failure);
+  // The first page's wait: the screen is its own layout, with placeholder rows shown after the shared delay.
+  const waiting = pending && !failed;
+  const placeholdersShown = useDelayedPending(waiting);
   const refused = records.refused || arrivals?.failure?.refused;
   const reference = deletedNotes.failure?.reference ?? arrivals?.failure?.reference ?? records.notesFailure?.reference ?? records.emailsFailure?.reference ?? null;
   const retryableSources = (["notes", "emails"] as const).filter(key => {
@@ -188,7 +191,6 @@ function ReceptionWorkspace() {
   const counts = { attention: bandejaAttentionCount(records), listos: bandejaListoCount(records), eliminados: records.receiptActivity?.bandeja_eliminados_count };
   const unseenIds = new Set(rows.filter(row => row.kind === "receipt" && row.receipt.activity?.unread === true && row.receipt.bandeja?.leyendo !== true).map(rowKey));
   const reviewNext = canAddRecords(chosen) && !chosen?.capabilities.includes("approve") ? rows.find(row => row.kind === "receipt" && row.receipt.bandeja?.por_revisar === true) : undefined;
-  const inPanel = phone || panel.kind !== "inbox";
   const retry = () => {
     if (deletedNotes.failure) deletedNotes.retry();
     if (retryableArrivals) setAttempt(value => value + 1);
@@ -211,9 +213,9 @@ function ReceptionWorkspace() {
   useLendListSearch("inbox", searchInBar ? { query, setQuery: searchQuery } : null);
   return <PullToRefresh onRefresh={refresh}>
     <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-columns={shownReceptionColumns(preferences, { status: showStatus }).join(" ")} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width, RECORDS_PREVIEW_COLUMNS.find(column => column.key === "moneda")!.width!), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
-      {inPanel ? <div className={styles.phoneHeading}><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
+      {phone ? <div className={styles.phoneHeading} data-surface-block="heading"><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       {source.mode === "live" && userId && chosen ? (
-        <GuideCard cardId="bandeja-intro" userId={userId} title={guide("title")}
+        <GuideCard cardId="bandeja-intro" pending={waiting} title={guide("title")}
           points={[
             { label: guide("upload.label"), body: guide("upload.body") },
             { label: guide("review.label"), body: guide("review.body") },
@@ -221,10 +223,10 @@ function ReceptionWorkspace() {
           ]}
         />
       ) : null}
-      <div className={styles.topline}>
+      <div className={styles.topline} data-surface-block="tabs">
         <BusinessListTabs label={word("views")} idPrefix="reception-tab" controls="reception-list" value={view} onChange={chooseTab} items={VIEWS.map(value => ({ value, label: <>{word(VIEW_WORD[value])}{value !== "all" ? <span className={styles.count} data-testid={`reception-count-${value}`}>{pending || failed ? "-" : counts[value] ?? "-"}</span> : null}</> }))} />
       </div>
-      <div className={styles.toolbar} data-selecting={selected.length > 0}>
+      <div className={styles.toolbar} data-surface-block="toolbar" data-selecting={selected.length > 0}>
         {searchInBar ? null : <ReceptionSearch value={query} onChange={searchQuery} />}
         <div role="group" aria-label={word("arrival_date")}><RecordsDatePreview period={period} value={period} title={word("arrival_date")} onChange={next => { setSelectedIds([]); setPage(1); setPeriod(next); }} /></div>
         <ReceptionFilters key={scope} senders={senders} value={filters} onChange={applyFilters} />
@@ -236,14 +238,16 @@ function ReceptionWorkspace() {
       {view === "eliminados" ? <p className="text-[14px] text-[#56635e] dark:text-white/70">{t("business.document_delete.list_help")}</p> : <ReceiptReadingControl />}
       {approval.failed.length ? <ReceptionApprovalFailure failed={approval.failed} attempted={approval.attempted} onRetry={approval.retry} onDismiss={approval.dismiss} /> : null}
       {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : onlySourcesFailed ? t(`business.inbox.${sourcesLine}`) : word("error")}{refusedForGood ? <> {t("auth.business_unavailable.body", { supportEmail })}</> : null}{reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
-      <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${view}`} tabIndex={0} className={styles.list}>
+      <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${view}`} tabIndex={0} className={styles.list} data-surface-block="list">
         {view === "eliminados" ? <DeletedColumns /> : <ReceptionColumnsHeading preferences={preferences} view={view} status={showStatus}>{!selectable ? null : pageListos.length ? <label className={styles.checkbox}><input type="checkbox" checked={allSelected} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageListos.map(row => row.rowId))} /></label> : <span className={styles.checkbox} />}</ReceptionColumnsHeading>}
-        {pending && !failed ? <ReceptionSkeleton preferences={preferences} selectable={selectable} status={showStatus} /> : <ul aria-label={word("list_label")}>
+        {waiting ? <ul role="status" aria-label={word("loading")} aria-busy="true" data-testid="reception-pending" style={{ visibility: placeholdersShown ? "visible" : "hidden" }}>
+          {[0, 1, 2, 3, 4].map(index => <ReceptionPendingRow key={index} index={index} preferences={preferences} view={view} selectable={selectable} />)}
+        </ul> : <ul aria-label={word("list_label")}>
           {shown.map(row => view === "eliminados" ? <ReceptionDeletedRow key={`${row.kind}-${row.id}`} row={row} title={titleOf(row)} openPanel={navigateFrom} /> : <ReceptionArrivalRow key={`${row.kind}-${row.id}`} row={row} rowKey={rowKey(row)} arrived={fresh.has(rowKey(row))} view={view} onDelete={(row.kind === "receipt" ? row.receipt.bandeja_group?.group === "attention" && row.receipt.delete_available : row.kind === "note" && row.note.bandeja_group?.group === "attention" && row.note.delete_available) && chosen?.capabilities.includes("approve") && source.deleteDocument ? () => { setDeleting(row); deletion.ask(); } : undefined} panel={panel} openPanel={navigateFrom} preferences={preferences} selectable={selectable} checkable={selectable && listoItem(row) !== null} checked={selectedIds.includes(rowKey(row))} unseen={unseenIds.has(rowKey(row))} onCheck={() => setSelectedIds(current => current.includes(rowKey(row)) ? current.filter(id => id !== rowKey(row)) : [...current, rowKey(row)])} />)}
         </ul>}
         {!pending && !failed && !shown.length ? <ReceptionEmptyState {...empty} /> : null}
       </div>
-      {!pending && !failed ? <RecordsPaginationControls page={currentPage} pages={pages} pageSize={pageSize} rangeLabel={t("business.reception_preview.document_range", { from: matched.length ? (currentPage - 1) * pageSize + 1 : 0, to: Math.min(currentPage * pageSize, matched.length), count: matched.length })} label={word("pagination")} pageSizeLabel={word("page_size")} onPageChange={next => { setSelectedIds([]); setPage(next); }} onPageSizeChange={size => { setSelectedIds([]); setPageSize(size); setPage(1); }} /> : null}
+      {!failed ? <RecordsPaginationControls loading={waiting} shown={placeholdersShown} count={matched.length} page={currentPage} pages={pages} pageSize={pageSize} rangeLabel={t("business.reception_preview.document_range", { from: matched.length ? (currentPage - 1) * pageSize + 1 : 0, to: Math.min(currentPage * pageSize, matched.length), count: matched.length })} label={word("pagination")} pageSizeLabel={word("page_size")} onPageChange={next => { setSelectedIds([]); setPage(next); }} onPageSizeChange={size => { setSelectedIds([]); setPageSize(size); setPage(1); }} /> : null}
       {(view !== "eliminados" && records.notesTruncated) ? <p className={styles.historyNote}>{t("business.inbox.notes_latest")}</p> : null}
       {deletion.dialog}
       <ConfirmDialog isOpen={approval.asking !== null} tone="primary" isBusy={approval.busy} title={t("business.reception_preview.placeholder.approve_confirm", { count: approval.asking?.length ?? 0 })} description={t("business.reception_preview.placeholder.approve_confirm_help", { count: approval.asking?.length ?? 0 })} confirmLabel={t("business.dossier.approve_action")} cancelLabel={t("common.cancel")} onCancel={approval.cancel} onConfirm={approval.confirm} />

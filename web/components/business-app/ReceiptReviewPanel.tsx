@@ -28,7 +28,7 @@ import type { ReceiptDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
 import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
-import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass, StatusPill, useTerminalRead } from "./business-ui";
+import { canAddRecords, dangerButtonClass, primaryButtonClass, quietButtonClass, secondaryButtonClass, StatusPill, useTerminalRead } from "./business-ui";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -119,7 +119,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     );
   }
   if (!detail) return <Settle pending layout="detail" />;
-  const terminal = terminalRead(detail.attention, detail.error_code);
+  const terminal = terminalRead(detail.attention);
   const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (openDraft) {
     const notice = failure === null ? null : (
@@ -147,7 +147,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       origin={{ channel: detail.channel, receivedAt: detail.received_at }}
       place={place}
       source={source}
-      footer={deletion.confirmBar ?? (canDelete ? <ReceiptReviewFooter actions={<ReceiptMoreMenu><DeleteDocumentMenuItem disabled={busy !== null || deletion.busy} onClick={deletion.ask} /></ReceiptMoreMenu>} /> : detail.restore_available ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} /> : undefined)}
+      footer={deletion.confirmBar ?? (canDelete ? <ReceiptReviewFooter actions={<ReceiptMoreMenu groups={[<DeleteDocumentMenuItem key="delete" disabled={busy !== null || deletion.busy} onClick={deletion.ask} />]} />} /> : detail.restore_available ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} /> : undefined)}
     >
       {children}
     </ReceiptReviewFrame>{deletion.dialog}</ContentFade>
@@ -248,13 +248,20 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                       <span className="mt-1 block">{terminal.body}</span>
                     </span>
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {terminal.upload && uploadAnother ? (
-                      <button type="button" className={primaryButtonClass} onClick={uploadAnother.run}>
-                        {terminal.uploadLabel}
-                      </button>
-                    ) : null}
-                  </div>
+                  {(terminal.upload && uploadAnother) || (terminal.discard && canDelete) ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {terminal.upload && uploadAnother ? (
+                        <button type="button" className={primaryButtonClass} onClick={uploadAnother.run}>
+                          {terminal.uploadLabel}
+                        </button>
+                      ) : null}
+                      {terminal.discard && canDelete ? (
+                        <button type="button" className={dangerButtonClass} disabled={busy !== null || deletion.busy} onClick={deletion.ask}>
+                          {t("business.document_delete.menu")}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <p className="flex gap-2.5">

@@ -1,11 +1,4 @@
-"""Compute kernels a decision can re-run, keyed by computation kind.
-
-The backtest is the first kind, not an exception. Its re-run is the typed
-retest projection, which never executes anything: a backtest earns its
-confirmation by cost (operating rule 2). Cheap kinds compute in-process when
-the decision is opened. Kinds are registered as data, and the dispatcher
-never branches on a name.
-"""
+"""Compute kernels keyed by computation kind and registered as data."""
 
 from __future__ import annotations
 
@@ -14,16 +7,13 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from argus.api.decision_contract import (
     DecisionCalculation,
     DecisionComputation,
     DecisionRerun,
     DecisionRerunReasonCode,
-)
-from argus.domain.decision_attachment import (
-    BACKTEST_COMPUTATION_KIND as BACKTEST_COMPUTATION_KIND,
 )
 
 
@@ -42,7 +32,6 @@ class ComputationKernel:
     kind: str
     inputs_model: type[BaseModel]
     compute: Callable[[BaseModel, RerunContext], DecisionRerun]
-    # A backtest's inputs are its immutable run; editing them is a new run.
     inputs_editable: bool = True
     # How overrides merge over stored inputs; a calculation keeps its unknown
     # and marks the edited input as stated, through its declaration.
@@ -214,43 +203,3 @@ def rerun_calculation(
             calculation.kind, [{"type": "value_error", "msg": str(exc), "loc": []}]
         ) from exc
     return kernel.compute(typed_inputs, context)
-
-
-class BacktestRerunInputs(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    source_run_id: str = Field(min_length=1)
-
-
-def _rerun_backtest(inputs: BaseModel, context: RerunContext) -> DecisionRerun:
-    # Imported lazily: run_dossiers reaches into agent_runtime for the
-    # retest materializer, and this module must stay importable from schemas.
-    from argus.domain.run_dossiers import project_retest_action
-
-    typed = BacktestRerunInputs.model_validate(inputs.model_dump())
-    calculation = DecisionCalculation(
-        kind=BACKTEST_COMPUTATION_KIND,
-        inputs={"source_run_id": typed.source_run_id},
-    )
-    run = context.load_run(typed.source_run_id)
-    if run is None:
-        return unavailable_rerun(calculation, reason_code="run_unavailable")
-    action = project_retest_action(run=run, today=context.today)
-    if action is None:
-        return unavailable_rerun(calculation, reason_code="retest_unavailable")
-    return DecisionRerun(
-        kind=calculation.kind,
-        inputs=dict(calculation.inputs),
-        status="confirmation_required",
-        retest=action,
-    )
-
-
-register_kernel(
-    ComputationKernel(
-        kind=BACKTEST_COMPUTATION_KIND,
-        inputs_model=BacktestRerunInputs,
-        compute=_rerun_backtest,
-        inputs_editable=False,
-    )
-)

@@ -17,6 +17,7 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.ledger import today
 from argus.domain.business.transactions import transaction
 from faker import Faker
 
@@ -60,7 +61,7 @@ def test_existing_draft_binding_survives_each_action_restart_and_replay(actions)
     )
     target = BoundDraft(draft_id=draft, base_version=before.version)
     evidence = shared.source(service, agent)
-    date = fake.date_object()
+    date = today()
     commands = [
         ProposeActivity(
             draft=target,

@@ -21,7 +21,6 @@ from tests.ingestion.conftest import (  # noqa: F401
 @pytest.fixture
 def business_env(ingestion_env, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001, F811
     monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
 
 
 @pytest.fixture

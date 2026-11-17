@@ -55,7 +55,8 @@ function PlaceNav({ place }: { place: ReceiptPlace }) {
  * footer goes to the drawer's pinned footer. A wide drawer puts the form and
  * its history on the left and the original on the right, held in view while
  * the form scrolls. On a full page the header sticks to the top, and below the
- * tablet stop the form and the original are two tabs.
+ * tablet stop the form and the original are two tabs. A view with no
+ * original of its own (comparing two documents) fills the frame in one column.
  */
 export default function ReceiptReviewFrame({ recordId, back, title, business, badge, amount, mark, origin, place, source, children, history, footer }: {
   recordId: string;
@@ -70,7 +71,8 @@ export default function ReceiptReviewFrame({ recordId, back, title, business, ba
   origin?: ReceiptOrigin | null;
   /** Absent without a list to move through. */
   place?: ReceiptPlace | null;
-  source: ReactNode;
+  /** Absent when the view shows its documents itself. */
+  source?: ReactNode;
   children: ReactNode;
   /** Under the fields on a desktop; last of all on a phone. */
   history?: ReactNode;
@@ -114,16 +116,16 @@ export default function ReceiptReviewFrame({ recordId, back, title, business, ba
       <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="tray" className="@container">
         <TraySlot slot="summary">{meta}</TraySlot>
         {place ? <TraySlot slot="headerActions"><PlaceNav place={place} /></TraySlot> : null}
-        <div className="grid gap-6 @[44rem]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @[44rem]:items-start">
+        {source === undefined ? <div className="min-w-0 space-y-5" data-testid="receipt-review-fields">{children}</div> : <div className="grid gap-6 @[44rem]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @[44rem]:items-start">
           <div className="min-w-0 space-y-4 @[44rem]:sticky @[44rem]:top-0 @[44rem]:col-start-2 @[44rem]:row-span-2 @[44rem]:row-start-1 @[44rem]:max-h-[calc(100dvh-13rem)] @[44rem]:overflow-y-auto" data-testid="receipt-review-source">{source}</div>
           <div className="min-w-0 space-y-5 @[44rem]:col-start-1 @[44rem]:row-start-1" data-testid="receipt-review-fields">{children}</div>
           {history ? <div className="min-w-0 empty:hidden @[44rem]:col-start-1 @[44rem]:row-start-2" data-testid="receipt-review-history">{history}</div> : null}
-        </div>
+        </div>}
         {footer ? <TrayFooter><div data-testid="receipt-review-footer">{footer}</div></TrayFooter> : null}
       </section>
     );
   }
-  const tabs = isBelowTablet;
+  const tabs = isBelowTablet && source !== undefined;
   return (
     <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="page">
       {/* Opaque, and its shadow fills the see-through app bar above it, so the form never shows through either while it scrolls under. */}
@@ -149,11 +151,11 @@ export default function ReceiptReviewFrame({ recordId, back, title, business, ba
           </div>
         ) : null}
       </header>
-      <div className="grid items-start gap-4 tablet:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] tablet:grid-rows-[auto_1fr] desktop:gap-6">
+      {source === undefined ? <div className="min-w-0 space-y-5" data-testid="receipt-review-fields">{children}</div> : <div className="grid items-start gap-4 tablet:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] tablet:grid-rows-[auto_1fr] desktop:gap-6">
         <div hidden={tabs && tab !== "form"} className="min-w-0 space-y-5 tablet:col-start-2 tablet:row-start-1" data-testid="receipt-review-fields">{children}</div>
         <div hidden={tabs && tab !== "original"} className="min-w-0 space-y-4 tablet:sticky tablet:top-64 tablet:col-start-1 tablet:row-span-2 tablet:row-start-1 tablet:max-h-[calc(100dvh-22rem)] tablet:overflow-y-auto desktop:space-y-6" data-testid="receipt-review-source">{source}</div>
         {history ? <div hidden={tabs && tab !== "form"} className="min-w-0 empty:hidden tablet:col-start-2 tablet:row-start-2" data-testid="receipt-review-history">{history}</div> : null}
-      </div>
+      </div>}
       {footer ? (
         // The workspace region pads its bottom by 48px and sticky offsets count from inside that padding; -48px on both puts the footer on the pane's edge.
         <div data-testid="receipt-review-footer" className="sticky bottom-[-48px] z-10 -mx-4 -mb-12 mt-6 border-t border-[#DCE0DA] bg-[#FFFEFA] px-4 py-3 tablet:-mx-8 tablet:px-6 dark:border-white/10 dark:bg-[#1f2225]">

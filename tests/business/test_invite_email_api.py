@@ -2,9 +2,21 @@
 from datetime import datetime, timedelta
 
 import pytest
+from argus.api.business_spaces import business_access
 
-from tests.business.test_business_access_api import alice  # noqa: F401
+from tests.business.test_business_access_api import ALICE, alice  # noqa: F401
 from tests.business.test_business_api import Owner, bob  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def owner_email(request: pytest.FixtureRequest) -> None:
+    """The in-memory twin learns the owner's email as the auth row holds it:
+    an owner with no name is named by it in the invitation."""
+
+    if "alice" in request.fixturenames:
+        owner = request.getfixturevalue("alice")
+        email = request.getfixturevalue("identities")[ALICE]["email"]
+        business_access().confirm(owner.person, email)
 
 
 @pytest.fixture(autouse=True)
@@ -30,7 +42,8 @@ def test_configured_create_and_resend_call_actual_adapter_with_canonical_labels(
     invite = first.json()["invites"][0]
     assert sent[0]["recipient"] == "contadora@example.test"
     assert "Colmado La Esquina" in sent[0]["subject"]
-    assert "Member" in sent[0]["subject"]
+    # The owner set no name: their email names them.
+    assert f"{ALICE}@example.test" in sent[0]["subject"]
     assert "https://app.example.test/" in sent[0]["html"]
     assert "token" not in sent[0]["html"]
     assert alice.post("/access", {"email": invite["email"]}).status_code == 200

@@ -196,7 +196,7 @@ describe("the gate", () => {
   });
 
   test("long money widens its column and full account/detail labels remain available in tooltips", async () => {
-    const source = await recordsOf([{ id: "long-money", merchant: "Sample supplier", amount: "123456789012345.67", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null, funding: "owner_funds", personal: true, personal_marked_by: "Ana", fiscal_known: true, fiscal_value: null }]);
+    const source = await recordsOf([{ id: "long-money", merchant: "Sample supplier", amount: "123456789012345.67", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null, funding: "owner_funds", personal: true, personal_marked_by: { display_name: "Ana", email: null, shown_as: "name" }, fiscal_known: true, fiscal_value: null }]);
     const page = await mount({ enabled: false, transacciones: source });
     await page.settle(() => page.records().length === 1, "the saved record");
     const row = page.records()[0];
@@ -254,8 +254,8 @@ describe("the gate", () => {
       await page.click(category);
       assert.equal(document.querySelector('th[data-col="expense_type"]'), null);
       assert.equal(page.records()[0].querySelector('[data-col="expense_type"]'), null);
-      assert.equal(document.querySelectorAll('colgroup col').length, 6);
-      await page.click(category); assert.equal(document.querySelectorAll('colgroup col').length, 7);
+      assert.equal(document.querySelectorAll('colgroup col').length, 7);
+      await page.click(category); assert.equal(document.querySelectorAll('colgroup col').length, 8);
       for (const setting of document.querySelectorAll("[data-column-setting]")) assert.ok(setting.querySelector<HTMLInputElement>('input[type="checkbox"]')?.disabled === false && setting.querySelector("button[draggable]") && !/Siempre visible/.test(setting.textContent ?? ""), "no column is locked by name");
       const categoryGrip = document.querySelector('[data-column-setting="expense_type"] button[draggable]')!;
       assert.equal(categoryGrip.closest("label"), null, "reorder grip is separate from the checkbox label");
@@ -353,9 +353,10 @@ describe("the gate", () => {
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
       await page.settle(() => page.records().length === 2, "purchase scope summary");
       assert.equal(summary(), null, "Total has no subcard");
-      assert.equal(document.querySelectorAll('thead th').length, 7);
+      assert.equal(document.querySelectorAll('thead th').length, 8);
+      assert.equal(document.querySelector('th[data-col="missing"]')?.textContent, "Motivo");
       assert.equal(document.querySelector('th[data-col="funding"]'), null);
-      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
       const amount = page.records().find((row) => row.dataset.kind === "gasto")!.querySelector('[data-col="gross_amount"]')!;
       assert.equal(amount.textContent, "2,100.00");
       assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]'), null);
@@ -566,7 +567,7 @@ describe("Transacciones table", () => {
     check({ "mv-ferreteria": "Sugerencia", "mv-colmado": "Falta comprobante", "mv-estacion": "Igualada", "mv-dgii": "No lleva comprobante" });
   });
 
-  test("the header pins on vertical scroll, Contraparte pins left and Comprobante pins right", async () => {
+  test("the header pins on vertical scroll, the name pins left and Comprobante pins right", async () => {
     const page = await mount();
     await page.ready();
     const grid = page.grid()!;
@@ -1092,7 +1093,7 @@ for (const language of ["es-419", "en"] as const) test(`shared currency filter u
 });
 
 
-for (const width of [1440, 390]) test(`fixture overview shows sample purchases and toggles only fiscal expenses at ${width}px`, async () => {
+for (const width of [1440, 390]) test(`fixture overview shows sample purchases and toggles only not-ready purchases at ${width}px`, async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -1114,13 +1115,13 @@ for (const width of [1440, 390]) test(`fixture overview shows sample purchases a
     assert.equal(fiscal.disabled, false);
     assert.equal(fiscal.querySelector(".font-display")?.textContent, "1");
     await page.click(fiscal);
-    assert.deepEqual(page.records().map((row) => ({ kind: row.dataset.kind, id: row.dataset.recordId })), [{ kind: "gasto", id: "exp-gas" }], "the same-id sale is outside fiscal review");
+    assert.deepEqual(page.records().map((row) => ({ kind: row.dataset.kind, id: row.dataset.recordId })), [{ kind: "gasto", id: "exp-gas" }], "the same-id sale is outside the purchase readiness filter");
     assert.equal(fiscal.getAttribute("aria-pressed"), "true");
-    assert.ok(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
+    assert.ok(document.querySelector('button[aria-label="Quitar filtro Estado"]'));
     await page.click(fiscal);
     assert.equal(page.records().length, 2);
     assert.equal(fiscal.getAttribute("aria-pressed"), "false");
-    assert.equal(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'), null);
+    assert.equal(document.querySelector('button[aria-label="Quitar filtro Estado"]'), null);
     assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, "1–2 de 2 registros");
     assert.equal(overview.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "2");
     await page.unmount();
@@ -1158,7 +1159,7 @@ test("local header and phone sorts share preference state, reset pages and resto
     const surface = document.querySelector<HTMLElement>('[data-testid="records-page-preview"] > div')!;
     await page.act(async () => { surface.style.setProperty("--records-narrow", "1"); window.dispatchEvent(new Event("resize")); });
     assert.equal(document.querySelector('th[data-col="counterparty"]'), null);
-    await clickText("Contraparte: Z–A"); await clickText("Monto: menor primero");
+    await clickText("Emisor: Z–A"); await clickText("Monto: menor primero");
     assert.equal(page.records()[0].dataset.recordId, "sort-0");
     await page.act(async () => { surface.style.setProperty("--records-narrow", "0"); window.dispatchEvent(new Event("resize")); });
     assert.equal(document.querySelector('th[data-col="gross_amount"]')?.getAttribute("aria-sort"), "ascending");

@@ -17,7 +17,7 @@ import pytest
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.facts import Unknown
 from argus.domain.business.dgii_codes import LABELS
-from argus.domain.business.dgii_export import fiscal_manifest, line_verdicts
+from argus.domain.business.dgii_export import fiscal_manifest, line_assessments
 from argus.domain.business.reporting import ReportIdentity
 from argus.domain.business.reporting_file import (
     RecordsExport,
@@ -43,24 +43,24 @@ SEPTEMBER = {"kind": "custom", "from_date": "2026-09-01", "to_date": "2026-09-30
 FILER = "199990013"
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 TOOL_CATEGORIES = (
-    "01-GASTOS DE PERSONAL ",
-    "02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS ",
-    "03-ARRENDAMIENTOS ",
-    "04-GASTOS DE ACTIVOS FIJO ",
-    "05 -GASTOS DE REPRESENTACIÓN ",
-    "06 -OTRAS DEDUCCIONES ADMITIDAS ",
-    "07 -GASTOS FINANCIEROS ",
-    "08 -GASTOS EXTRAORDINARIOS ",
-    "09 -COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA ",
-    "10 -ADQUISICIONES DE ACTIVOS ",
-    "11- GASTOS DE SEGUROS",
+    "01 - GASTOS DE PERSONAL",
+    "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS",
+    "03 - ARRENDAMIENTOS",
+    "04 - GASTOS DE ACTIVOS FIJO",
+    "05 - GASTOS DE REPRESENTACIÓN",
+    "06 - OTRAS DEDUCCIONES ADMITIDAS",
+    "07 - GASTOS FINANCIEROS",
+    "08 - GASTOS EXTRAORDINARIOS",
+    "09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA",
+    "10 - ADQUISICIONES DE ACTIVOS",
+    "11 - GASTOS DE SEGUROS",
 )
 TOOL_PAYMENTS = (
     "01 - EFECTIVO",
     "02 - CHEQUES/TRANSFERENCIAS/DEPÓSITO",
     "03 - TARJETA CRÉDITO/DÉBITO",
     "04 - COMPRA A CREDITO",
-    "05 -\u00a0 PERMUTA",
+    "05 - PERMUTA",
     "06 - NOTA DE CREDITO",
     "07 - MIXTO",
 )
@@ -135,7 +135,7 @@ def books(*, exported_then_duplicated: bool = False) -> ExportSource:
     exported = (
         frozenset({purchase.activity_id}) if exported_then_duplicated else frozenset()
     )
-    verdicts = line_verdicts(records, rnc=FILER, captured_on=NOW.date())
+    verdicts = line_assessments(records, rnc=FILER, captured_on=NOW.date())
     rows = tuple(
         ReportRecord(
             row_id=f"activity:{record.activity_id}",
@@ -221,7 +221,7 @@ def test_lo_que_ves_follows_every_filter_and_the_chosen_columns(fake):
     )
     cells = xlsx(built.content)
     assert [value for _, value, _ in cells[0]] == [
-        "Contraparte",
+        "Emisor",
         "Fecha",
         "Total",
         "Notas",
@@ -238,7 +238,7 @@ def test_lo_que_ves_follows_every_filter_and_the_chosen_columns(fake):
         source(*rows), table(request, ("gross_amount",), currencies="all", format="csv")
     )
     lines = list(csv.reader(io.StringIO(every.content.decode("utf-8-sig"))))
-    assert lines[0] == ["Contraparte", "Total", "Moneda"]
+    assert lines[0] == ["Emisor", "Total", "Moneda"]
     assert sorted(line[2] for line in lines[1:]) == ["DOP", "USD"]
 
 
@@ -248,13 +248,13 @@ def test_with_all_currencies_moneda_is_in_even_when_not_asked(fake):
         table(report(currencies=["DOP"]), ("note",), currencies="all", format="csv"),
     )
     header = next(csv.reader(io.StringIO(built.content.decode("utf-8-sig"))))
-    assert header == ["Contraparte", "Moneda", "Notas"]
+    assert header == ["Emisor", "Moneda", "Notas"]
     only = build_file(
         source(row(fake), row(fake, currency="EUR")),
         table(report(currencies=["DOP"]), ("note",), currencies="current", format="csv"),
     )
     assert next(csv.reader(io.StringIO(only.content.decode("utf-8-sig")))) == [
-        "Contraparte",
+        "Emisor",
         "Notas",
     ]
 
@@ -300,6 +300,7 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
         ("fiscal_number", False, False),
         ("itbis_amount", False, False),
         ("stage", False, True),
+        ("missing", False, True),
         ("attachment", False, True),
         ("funding", False, False),
         ("counterparty_id", False, False),
@@ -317,7 +318,7 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
         table(request, ("gross_amount", "note"), currencies="current", format="csv"),
     )
     assert next(csv.reader(io.StringIO(built.content.decode("utf-8-sig")))) == [
-        "Contraparte",
+        "Cliente",
         "Notas",
         "Total",
     ]
@@ -369,6 +370,7 @@ def test_the_default_file_keeps_the_name_and_ends_with_forma_de_pago(fake):
         ("itbis_amount", False, True),
         ("gross_amount", False, True),
         ("stage", False, True),
+        ("missing", False, True),
         ("fiscal_number", False, False),
         ("note", False, False),
         ("attachment", False, False),
@@ -382,13 +384,14 @@ def test_the_default_file_keeps_the_name_and_ends_with_forma_de_pago(fake):
     header, values = csv.reader(io.StringIO(built.content.decode("utf-8-sig")))
     assert header == [
         "RNC o Cédula",
-        "Contraparte",
+        "Emisor",
         "Fecha",
         "Tipo de gasto",
         "Monto sin ITBIS",
         "ITBIS",
         "Total",
         "Estado",
+        "Motivo",
         "Forma de pago",
     ]
     assert values[:2] == ["101001577", "Ferretería Ozama"]
@@ -416,7 +419,7 @@ def test_a_sales_file_keeps_the_name_and_has_no_forma_de_pago(fake):
 def test_required_columns_join_the_file_even_when_not_chosen(fake):
     built = build_file(source(row(fake)), table(report(), ("note",), format="csv"))
     assert next(csv.reader(io.StringIO(built.content.decode("utf-8-sig")))) == [
-        "Contraparte",
+        "Emisor",
         "Moneda",
         "Notas",
     ]
@@ -454,7 +457,7 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         ).content
     )
     assert [value for _, value, _ in cells[0]] == [
-        "Contraparte",
+        "Emisor",
         "Fecha",
         "Tipo de gasto",
         "ITBIS",
@@ -469,7 +472,7 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     assert kinds[3:5] == [("n", "#,##0.00"), ("n", "#,##0.00")]
     assert [value for _, value, _ in cells[1]][2::3] == [
         "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS",
-        "Falta el NCF",
+        "Faltan datos",
         "03 - TARJETA CRÉDITO/DÉBITO",
     ]
     assert [value for _, value, _ in cells[1][6:8]] == ["Sí", "Cuenta de operaciones"]
@@ -568,7 +571,7 @@ def test_csv_has_a_bom_and_keeps_accents(fake):
     )
     assert built.content.startswith(b"\xef\xbb\xbf")
     assert built.content.decode("utf-8-sig").splitlines() == [
-        "Contraparte",
+        "Emisor",
         "Panadería Ñoño",
     ]
     assert built.media_type == "text/csv; charset=utf-8"
@@ -722,6 +725,7 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
     assert preview.dgii.pending_rate_count == foreign_cards == 2
     assert preview.dgii.pending_rate_currencies == ("EUR", "USD")
     assert preview.dgii.pending_count == peso_card + foreign_cards
+    assert set(preview.model_dump()) == {"table", "dgii"}
     manifest, lines = fiscal_manifest(
         tuple(month.approved.values()),
         rnc=FILER,
@@ -854,7 +858,7 @@ def test_zero_records_is_a_file_with_only_headers(fake):
     built = build_file(
         source(), table(report(currencies=["DOP"]), currencies="current", format="csv")
     )
-    assert built.content.decode("utf-8-sig").splitlines() == ["Contraparte"]
+    assert built.content.decode("utf-8-sig").splitlines() == ["Emisor"]
 
 
 def test_an_amount_range_ties_the_export_to_the_screen_currency(fake):
@@ -970,5 +974,5 @@ def test_lo_que_ves_exports_server_net_itbis_and_total_in_table_order(fake):
         ),
     ).content.decode("utf-8-sig")
     header, values = csv.reader(io.StringIO(written))
-    assert header == ["Contraparte", "Monto sin ITBIS", "ITBIS", "Total"]
+    assert header == ["Emisor", "Monto sin ITBIS", "ITBIS", "Total"]
     assert values[1:] == ["1000.00", "180.00", "1280.00"]

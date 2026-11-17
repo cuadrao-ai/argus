@@ -10,17 +10,21 @@ import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { referenceCode } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import type { ReceiptSummary } from "@/lib/business-api";
+import { counterpartyTerm, documentFamily, type RecordFamily } from "@/lib/counterparty-term";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
 import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { resolveLanguage } from "@/lib/language-features";
 import { secondaryButtonClass, quietButtonClass } from "./business-ui";
 import { CONFIRM_ACTION, FOCUS_RING } from "./foundation/presentation";
 import { showToast } from "./foundation/toasts";
+import { MenuItem } from "./ReceiptReviewFooter";
 
 export type DeleteDocumentTarget = {
   id: string;
   name: string;
   merchant: string | null;
+  /** Names the merchant row: Emisor on a purchase, Cliente on a sale. */
+  family: RecordFamily | null;
   date: string | null;
   amount: string | null;
   currency: string | null;
@@ -30,7 +34,7 @@ export type DeleteDocumentTarget = {
 };
 
 export function receiptDeleteTarget(receipt: ReceiptSummary, state: string, unnamed: string): DeleteDocumentTarget {
-  return { id: receipt.id, name: receipt.merchant || receipt.filename || unnamed, merchant: receipt.merchant, date: receipt.occurred_on, amount: receipt.amount, currency: receipt.currency, filename: receipt.filename, state, receipt };
+  return { id: receipt.id, name: receipt.merchant || receipt.filename || unnamed, merchant: receipt.merchant, family: documentFamily(receipt.document_type), date: receipt.occurred_on, amount: receipt.amount, currency: receipt.currency, filename: receipt.filename, state, receipt };
 }
 
 function DocumentThumbnail({ receipt }: { receipt?: ReceiptSummary }) {
@@ -68,7 +72,7 @@ function DeleteFacts({ target, withState = true }: { target: DeleteDocumentTarge
   return <div className="mt-4 flex items-start gap-3" data-testid="document-delete-facts">
     <DocumentThumbnail receipt={target.receipt} />
     <dl className="min-w-0 flex-1 space-y-2 text-[14px]">
-      {Object.entries(facts).map(([key, value]) => <div key={key} className="flex flex-wrap justify-between gap-x-3"><dt className="text-[#56635e] dark:text-white/70">{t(`business.document_delete.fields.${key}`)}</dt><dd className={`min-w-0 break-words text-right ${key === "total" ? "cuadrao-amount tabular-nums" : ""}`}>{value}</dd></div>)}
+      {Object.entries(facts).map(([key, value]) => <div key={key} className="flex flex-wrap justify-between gap-x-3"><dt className="text-[#56635e] dark:text-white/70">{key === "counterparty" ? counterpartyTerm(t, target.family) : t(`business.document_delete.fields.${key}`)}</dt><dd className={`min-w-0 break-words text-right ${key === "total" ? "cuadrao-amount tabular-nums" : ""}`}>{value}</dd></div>)}
     </dl>
   </div>;
 }
@@ -115,7 +119,7 @@ export function useDocumentDelete(target: DeleteDocumentTarget | null, { initial
 
 export function DeleteDocumentMenuItem({ disabled, onClick }: { disabled?: boolean; onClick: () => void }) {
   const { t } = useTranslation();
-  return <button type="button" data-testid="delete-document-menu" onClick={onClick} disabled={disabled} className={`flex min-h-11 w-full items-center gap-2 rounded-item px-3 text-left text-[14px] text-[#9e2f39] hover:bg-[#f6dfe0]/50 disabled:opacity-50 dark:text-[#ec9aa0] ${FOCUS_RING}`}><Trash2 size={16} aria-hidden="true" />{t("business.document_delete.menu")}</button>;
+  return <MenuItem icon={Trash2} label={t("business.document_delete.menu")} onSelect={onClick} disabled={disabled} danger testId="delete-document-menu" />;
 }
 
 /** The server's answer when the document was already purged: the row leaves on the next read. */

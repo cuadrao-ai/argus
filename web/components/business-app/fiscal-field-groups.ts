@@ -34,6 +34,15 @@ const GROUP_OF: Readonly<Record<string, FiscalGroup>> = {
   withheld_on: "retentions",
 };
 
+/**
+ * Whether a group sits behind one row: a purchase's withholdings, while none
+ * of them holds anything saved or typed. Most purchases carry none; a sale's
+ * stay open.
+ */
+export function foldsBehindRow(form: "606" | "607", group: FiscalGroup, fields: readonly DgiiField[], values: Readonly<Record<string, string>>, broken: ReadonlySet<string>): boolean {
+  return form === "606" && group === "retentions" && !fields.some((field) => values[field.name] || broken.has(field.name));
+}
+
 /** The form's fields by group, each group in the server's order; a group with nothing to show is left out. */
 export function fiscalFieldGroups(fields: readonly DgiiField[]): { group: FiscalGroup; fields: DgiiField[] }[] {
   return ORDER

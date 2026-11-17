@@ -1,6 +1,5 @@
 "use client";
 
-import FullscreenLoading from "@/components/FullscreenLoading";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Check, SlidersHorizontal } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -30,7 +29,7 @@ import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
 import { emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment, type PreviewFilters } from "./records-filter-preview-model";
 import { useRecordPreviewSearch } from "./RecordsAnnotationsPreview";
-import { matchesPreviewFiscalData, matchesPreviewExpenseType, matchesPreviewPeriod, matchesPreviewWorkflow } from "./records-results-preview";
+import { matchesPreviewReady, matchesPreviewExpenseType, matchesPreviewPeriod } from "./records-results-preview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { useFiscalStageToggle } from "./useFiscalStageToggle";
 import { sampleRecordsOverview } from "./records-overview-sample";
@@ -54,7 +53,7 @@ export default function TransaccionesPanel() {
   const { source, records } = useBusiness();
   const igualar = useIgualarEnabled();
   if (source.mode === "live" && !igualar) return <BusinessReportsPanel />;
-  if (!recordsCurrencySchema.safeParse(records.workspace?.records_default_currency).success) return records.error || records.workspace ? <RecordsWorkspaceUnavailable /> : <FullscreenLoading />;
+  if (!recordsCurrencySchema.safeParse(records.workspace?.records_default_currency).success) return records.error || records.workspace ? <RecordsWorkspaceUnavailable /> : <RecordsLoadingPreview />;
   return <LegacyTransaccionesPanel />;
 }
 
@@ -101,7 +100,7 @@ function LegacyTransaccionesPanel() {
   const [previewRevision, setPreviewRevision] = useState(0);
   const shownPreferences = useMemo(() => viewPreferences && { ...viewPreferences, columns: sampleRecordsColumns(filter.kind === "venta" ? "sale" : "purchase") }, [viewPreferences, filter.kind]);
   const localPaging = viewPreferences !== undefined && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-  const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.review, previewFilters.fiscal_data, previewFilters.attachment, previewFilters.expense_type]);
+  const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.ready, previewFilters.attachment, previewFilters.expense_type]);
   const query = filter.query.trim().toLocaleLowerCase(locale);
   const matchesPreviewSearch = useRecordPreviewSearch();
   const periodRecords = localPaging ? saved?.filter((row) => matchesPreviewPeriod(row, previewPeriod)) ?? null : saved;
@@ -110,8 +109,7 @@ function LegacyTransaccionesPanel() {
   const filteredRecords = localPaging ? selectionRecords?.filter((row) =>
     matchesPreviewAttachment(row.hasProof, previewFilters.attachment)
     && matchesPreviewAmount(row.money, previewFilters.amount)
-    && matchesPreviewFiscalData(row, chosen?.space_id ?? null, previewFilters.fiscal_data)
-    && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review)
+    && matchesPreviewReady(row, chosen?.space_id ?? null, previewFilters.ready)
     && matchesPreviewExpenseType(row, chosen?.space_id ?? null, previewFilters.expense_type)) : selectionRecords;
   const visibleRecords = filteredRecords?.filter((row) =>
     localPaging ? matchesPreviewSearch(row, query) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) ?? null;
@@ -129,7 +127,7 @@ function LegacyTransaccionesPanel() {
     (restored ? rowNodes.current.get(recordRowKey(restored)) : screen.current)?.focus();
   }, [cameFrom, saved]);
   const changePreviewFilters = (next: PreviewFilters) => {
-    if (next.fiscal_data !== previewFilters.fiscal_data || JSON.stringify(next.review) !== JSON.stringify(previewFilters.review)) fiscalToggle.clear();
+    if (next.ready !== previewFilters.ready) fiscalToggle.clear();
     setPreviewFilters(next);
   };
   const previewChanged = () => setPreviewRevision((value) => value + 1);
@@ -158,9 +156,9 @@ function LegacyTransaccionesPanel() {
   return (
     <PullToRefresh onRefresh={controller.refresh}>
       <section ref={screen} tabIndex={-1} data-testid="transacciones" className="pb-6 outline-none">
-        {phone || igualar || panel.kind !== "transactions" ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        {phone || igualar ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            {phone || panel.kind !== "transactions" ? <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2> : null}
+            {phone ? <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2> : null}
             {igualar ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-3">{phone ? null : run}{phone ? <BusinessAddMenu placement="header" /> : null}</div>
@@ -178,7 +176,7 @@ function LegacyTransaccionesPanel() {
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
         {!igualar ? <RecordsTypeTabs value={filter.kind} onChange={(kind) => { if (kind === "venta") setPreviewFilters((current) => ({ ...current, expense_type: [] })); setFilter((current) => ({ ...current, kind })); }} /> : null}
-        {!igualar && source.mode === "fixture" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview family={filter.kind === "venta" ? "sale" : "purchase"} loading={list.kind === "loading"} answer={sampleOverview?.answer} fiscalCount={sampleOverview?.fiscalCount ?? null} selected={previewFilters.fiscal_data === "missing" ? ["fiscal"] : []} onChoose={fiscalToggle.toggle} /> : null}
+        {!igualar && source.mode === "fixture" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview family={filter.kind === "venta" ? "sale" : "purchase"} loading={list.kind === "loading"} answer={sampleOverview?.answer} notReadyCount={sampleOverview?.notReadyCount ?? null} selected={previewFilters.ready === false} onChoose={fiscalToggle.toggle} /> : null}
         {!igualar ? <RecordsToolbar onViewRestore={fiscalToggle.clear} appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={changePreviewFilters} preferences={shownPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={previewChanged} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{localPaging && shownPreferences ? <RecordsSettingsPreview value={shownPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (

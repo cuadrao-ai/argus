@@ -3480,6 +3480,47 @@ boundary proposal is approved.
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
 
+### Business date floor (#2175)
+
+`supabase/migrations/20261115060328_business_dates_floor.sql` owns the fixed
+stored-date floor. Its `enforce_business_date_floor()` function requires dates
+on or after 2000-01-01 for inserts and changed date values. Client roles have no
+EXECUTE grant on this function; the server role does. Six AFTER row triggers
+call that owner. They compare each date with OLD on updates, including the update
+selected by an upsert. Unchanged grandfathered dates remain editable through
+metadata changes such as delete/restore; changing one date does not revalidate
+another unchanged date in the same JSON object. `business_draft_revisions` and
+`business_invoice_revisions` append one row per edit and copy unchanged dates
+forward, so an insert there has no OLD. Their triggers pass `previous_by=draft_id`
+or `previous_by=invoice_id`, and the function compares the new row with the same
+parent's latest earlier revision. It reads that revision only when a date is below
+the floor. A note or another field saved on a record with a grandfathered date
+therefore succeeds; a first revision, or a date that differs from the previous
+revision, is new input. A newly inserted row or a changed
+date below the floor raises SQLSTATE 23514. A CHECK with `NOT VALID` cannot express
+this distinction, because it still checks every updated row.
+
+| Table | Current dates checked |
+| --- | --- |
+| `business_bank_line_outcomes` | `applied_settled_on` |
+| `business_bank_lines` | `occurred_on` |
+| `business_document_settlements` | `settled_on` |
+| `business_draft_revisions` | `after_due_on` |
+| `business_invoice_revisions` | Nonempty `data.issued_on`, `data.due_on` |
+| `financial_import_events` | Business `anchor_on`, person-stated `facts.occurred_on`; resolution `due_on`, `dgii.paid_on`, `dgii.withheld_on` |
+
+Null dates remain unknown. Other products' imports are unaffected. Prior values
+in correction history and raw reader evidence are retained, including a wrong
+year: correcting a record must not erase or refuse its history. A read date
+outside the application range remains review evidence with a null list anchor
+and a correction blocker. Response models continue to read old stored dates.
+
+The application range has one separate owner, `accepted_dates.py`, which uses
+the Dominican business day. No rolling date expression is stored in the database guard.
+This migration performs no cleanup or validation scan. It does not certify
+historical rows as valid. No hosted count or migration application was performed
+for this change.
+
 ### Business name prompt
 
 `spaces.business_name_prompt_seen_at` recorded the first owner visit that
@@ -3532,7 +3573,11 @@ it is `financial_document_extractions.draft.status = dismissed` together with
 counts already load that document JSON. A linked draft does not copy its marker
 onto the receipt. A dismissed item without this marker is not deleted.
 
-The marker holds `{actor: {actor_id, display_name}, at, key, previous_state}`.
+The marker holds `{actor: {actor_id}, at, key, previous_state}` and an
+optional `reason`. A marker written before #2219 also holds the actor's
+`display_name`; no reader uses it, and every response names the person live for the reader, never storing `shown_as`. The only reason is `duplicate`, written when the
+owner settles a possible repeat as the same purchase; a plain delete stores no
+`reason` key. It needs no migration: the marker is JSON.
 The actor uses the existing account-deletion identity shape, so departure replaces
 its ID with the Business alias and its name with `Exmiembro`. Delete and restore
 action receipts keep the existing `ActorProvenance` snapshot; restore removes the
@@ -3860,7 +3905,7 @@ open items read the date from the resolution, not from the revision.
 | `business_fiscal_operations` | Synthetic sandbox operational intent with stable `(space_id,document_key)`, pinned manifest case/payload/fixture hashes, immutable account/company/issuer/type/number, preparation/approval provenance, first-contact token/time, first validated external ID and bounded read-only reconciliation attempts/lease. Unique issuer/type/number and company/type/number identities cross actors and Businesses. Contact cannot reset and external ID cannot be replaced. Server-only RLS and no browser-role privileges. `spaces` cascade handles Business purge; nested actor provenance is included in the existing audited custody/departure inventory, with Auth deletion blocked until detached. No balances, financial acceptance or invoice-number allocation. Migration `20261024095154_business_fiscal_sandbox_operations.sql`. |
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
-| `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income`, `reopen_draft` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
+| `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Since #2219 its `display_name` and `issuer_display_name` are empty strings (the check still requires the keys): readers name both people live from the ids. Human `review_draft`, `approve_expense`, `approve_income`, `reopen_draft` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
 | `business_dgii_export_lines` | Read-only history. One row per 606 or 607 line per download of the retired DGII TXT: `space_id`, `activity_id`, `form`, `period` (`YYYYMM`), `actor_id`, `exported_at`. Nothing writes it now: the handover package (`GET /business/exports`) carries no DGII file and records no line. Registros still reads it to mark a record `exported`, so rows written before the TXT was retired keep that label, and a row refuses no edit. Append-only, service role only. The key to spaces restricts and the purge deletes these rows with the other money rows; deleting the activity cascades them; the actor reference clears when that person is deleted. Migration `20261101010000_business_dgii_export_lines.sql`. |
 | `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the activity cascades the row; deleting the space is refused while the row exists (`20261101000100`). Both owner keys are custody-deferred: account deletion moves `owner_id` to the record custodian with the Business, and the day-30 purge deletes the row itself before the space. |
 | `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
@@ -3951,7 +3996,13 @@ earlier download recorded the record's line
 and the next export carries it; the recorded facts stay refused. The tipo de gasto suggested for an RNC has no column: the dossier
 reads it from the declarations in this Business through
 `financial_import_events.business_rnc`, and a typed purchase is a draft with
-`receipt_state` `no_receipt` and no declaration. No second tax ledger or fiscal approval bypass is added. New human-only action receipt
+`receipt_state` `no_receipt` and no declaration. An approval that saves a
+suggested tipo de gasto or forma de pago keeps its source in the 606
+declaration JSON (`resolution.business.dgii.suggestion_sources`, and the
+revision's `after_dgii`): `{category?, payment_method?}`, each `last_choice`,
+`receipt` or `reading`. The key is absent when no answer came from a
+suggestion, and a person's change to an answer drops its entry. No column or
+migration. No second tax ledger or fiscal approval bypass is added. New human-only action receipt
 types `approve_refund` and `set_business_rnc` retain the existing immutable actor,
 command hash and idempotency rules. The migration uses five-second lock and
 60-second statement timeouts. It creates no table, role, policy, client grant or
@@ -4031,6 +4082,26 @@ version. Existing exact-version references and creation-only `from_action`
 references keep their prior semantics and replay. This changes no table, grant,
 approval contract or ownership of current facts.
 
+### Document read breaker
+
+`document_read_breaker` is server-only, with RLS, no policy and no client
+grants. It holds one row (`singleton` is its primary key and is always true),
+so every document worker and every new deploy read the same state. `failures`
+holds the times of the recent failed provider calls while the breaker is
+closed. `opened_at` is set while sends are stopped, and null while it is
+closed. `probe_at` is when the one probing read was sent, and it is null unless
+`opened_at` is set. `probe_id` names that probe and is set exactly when
+`probe_at` is: only the call that carries this id closes the breaker or starts
+its cooldown again. A probe that was admitted and never sent clears both and
+leaves `opened_at` as it was. Migration `20261116063000_document_read_breaker.sql` adds
+the table and its row. `src/argus/domain/ingestion/documents/breaker.py` owns
+the rules, and `config.py` beside it owns the numbers (5 failures in 120
+seconds, a 300-second cooldown). A closed breaker costs one single-row read
+for each read a worker pulls and one before each provider call. A worker with
+nothing to pull does not read it. A write happens only when a call fails or
+the state changes. The table holds no customer data, so account
+deletion and Business purge do not touch it.
+
 ### Existing ingestion persistence
 
 `financial_document_extractions` owns the durable draft, the immutable preparation
@@ -4041,8 +4112,21 @@ or split proposals. `batch` holds typed observations, receipt itemization,
 projection issues and compatible canonical candidates. It may be null before
 preparation. `preparation_job` names the current preparation attempt (number,
 ID, the draft version it was dispatched for, dispatch time, when its provider
-call started, a retry request, and `reruns`). Every read goes through it: no
-setting leaves a read outside the attempt record.
+call started, a retry request, `reruns`, `provider_calls`, `not_before`,
+`retry_waited` and `asked_at`). Every read goes through it: no setting leaves a
+read outside the attempt record.
+`provider_calls` counts the provider calls this read was admitted for, across
+every take. It is written with the provider-call time, before the provider can
+be reached, and it stops at 4 (`MAX_PROVIDER_CALLS`). `not_before` is when a
+take that waits out a temporary failure, or an open read breaker, may be
+pulled; a puller skips the row until then. `retry_waited` is the seconds of
+such waits the read was charged, at most 600. `asked_at` is when the read was
+asked for: the upload for the read an upload starts, the owner's ask for a
+later one. Every take of the same read keeps it, and the read deadline (6
+hours, `READ_DEADLINE_SECONDS`) counts from it. The first three are omitted
+from the JSON when zero or null, like `reruns`, and `asked_at` when null, with
+the same rollback effect. The owner's "Leer de nuevo" starts a new preparation
+with the first three cleared and a new `asked_at`.
 `reruns` counts the paid attempts of this preparation the sweep started because
 an earlier attempt died past its provider-call time with no saved batch; it
 bounds them at one (`MAX_RERUNS`). It is omitted from the JSON when zero, so a

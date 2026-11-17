@@ -130,7 +130,7 @@ def test_unknown_kind_and_locale_fail_closed(context):
 
 
 class _Outbox:
-    """Keeps what close mail queues; answers the owner's name lookup."""
+    """Keeps what close mail queues; answers the owner's name and email lookup."""
 
     def __init__(self):
         self.queued = []
@@ -141,7 +141,7 @@ class _Outbox:
         return self
 
     def fetchone(self):
-        return ("Ana",)
+        return ("Ana", "ana@example.test")
 
 
 @pytest.mark.parametrize(
@@ -154,3 +154,21 @@ def test_close_mail_names_an_unnamed_business_mi_negocio(stored, spoken):
     enqueue_close_mail(outbox, "space", "owner", stored, closed_at)
     assert outbox.queued
     assert {mail["context"].obj["businessName"] for mail in outbox.queued} == {spoken}
+
+
+@pytest.mark.parametrize(
+    "display_name,named",
+    [
+        ("Ana", "Ana"),
+        ("  Ana  ", "Ana"),
+        (None, "ana@example.test"),
+        ("  ", "ana@example.test"),
+    ],
+)
+def test_close_mail_names_the_owner_by_name_else_email(display_name, named):
+    outbox = _Outbox()
+    outbox.fetchone = lambda: (display_name, "ana@example.test")
+    closed_at = datetime(2026, 10, 18, 2, 0, 1, tzinfo=timezone.utc)
+    enqueue_close_mail(outbox, "space", "owner", "Colmado", closed_at)
+    assert outbox.queued
+    assert {mail["context"].obj["ownerName"] for mail in outbox.queued} == {named}

@@ -118,7 +118,7 @@ describe("a Cuadrao Business build has no guest chat", () => {
     expect(landingEntry.guestEntryAvailable({ ...open, businessBuild: false, guestAccessEnabled: false })).toBe(false);
     expect(landingEntry.guestEntryAvailable({ ...open, businessBuild: false, guestCaptchaConfigured: false })).toBe(false);
     const rootPage = readFileSync(join(root, "app/page.tsx"), "utf-8");
-    expect(rootPage).toContain("guestEntryAvailable: guestEntryAvailable({ businessBuild: businessPilotEnabled,");
+    expect(rootPage).toContain("guestEntryAvailable: guestEntryAvailable({ businessBuild: true,");
   });
 
   test("a Personal conversation on a Business build goes nowhere but the notice: the page stays, the conversation is dropped, and no shell can ask for it again", () => {

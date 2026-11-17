@@ -3,7 +3,9 @@ import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
+import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDossier, BusinessDraftRevision, BusinessFacts } from "@/lib/business-dossier";
+import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
 
 mock.module("next/navigation", () => ({
   usePathname: () => "/biz",
@@ -19,14 +21,17 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-async function render(node: ReactNode) {
+async function render(node: ReactNode, { dgiiNames = false, lng = "es-419" } = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
+  const { dgiiChoiceLabel } = await import("@/lib/dgii-labels");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const english = (await import("@/public/locales/en/common.json")).default;
   const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  if (dgiiNames) i18n.use(dgiiChoiceLabel);
+  await i18n.init({ lng, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false }, ...(dgiiNames ? { postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true } : {}) });
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -34,7 +39,7 @@ async function render(node: ReactNode) {
   return { host, act, close: () => act(async () => { root.unmount(); host.remove(); }) };
 }
 
-const actor = (name: string, kind: "member" | "extractor" = "member") => ({ actor_id: name, actor_kind: kind, display_name: name, grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" });
+const actor = (name: string, kind: "member" | "extractor" = "member") => ({ actor_id: name, actor_kind: kind, display_name: name, shown_as: "name", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" });
 const known = <T,>(value: T) => ({ state: "known" as const, value, origin: "member_set" as const, verified: false, source_ids: [] });
 const unknown = { state: "unknown" as const, value: null, origin: null, verified: false as const, source_ids: [] };
 
@@ -124,6 +129,14 @@ describe("Historial", () => {
     await page.close();
   });
 
+  for (const [documentType, name] of [["recibo", "Emisor"], ["venta", "Cliente"]] as const) test(`a name change on a ${documentType} reads ${name} cambiado`, async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const renamed = { ...facts("100.00"), counterparty: known("Colmado Duarte") } as unknown as BusinessFacts;
+    const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), facts("100.00"), renamed)]} accounts={[]} documentType={documentType} />);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), [`${name} cambiado de Ferretería La Esquina a Colmado Duarte`]);
+    await page.close();
+  });
+
   test("a confirmation that keeps the value adds no correction line", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const read = facts("500.00");
@@ -200,11 +213,180 @@ test("a draft the first Business RNC moved reads as a change through Cuadrao wit
   const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
   assert.deepEqual(lines, [
     ["Actividad cambiada de Gasto a Ingreso", "Lo emitió tu negocio", "Ana Peña vía Cuadrao · 11/10, 8:00 a.m."],
-    ["Leído", "Ana Peña · 10/10, 9:25 a.m."],
+    ["Leído", "Cuadrao · 10/10, 9:25 a.m."],
   ]);
   const chips = page.host.querySelector('[data-testid="history-diff"]')!;
   assert.deepEqual([chips.querySelector("del")?.textContent, chips.querySelector("ins")?.textContent], ["Gasto", "Ingreso"]);
   assert.equal(page.host.querySelector('[data-testid="history-note"]')?.textContent, "Lo emitió tu negocio");
   assert.ok(!(page.host.textContent ?? "").includes("Venta"));
   await page.close();
+});
+
+test("a pair settled as different purchases reads as one line naming the other document, not a generic change", async () => {
+  const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+  const duplicate = { decision: "different_purchase" as const, other_draft_id: "draft-original", other_counterparty: "Ferretería Ochoa", other_filename: "factura.pdf" };
+  const history = [
+    revision(1, at(10, 9, 25), actor("Ana Peña", "extractor"), null, facts("1200.00")),
+    { ...revision(2, at(11, 8, 0), actor("Ana Peña"), facts("1200.00"), facts("1200.00")), duplicate },
+  ];
+  const page = await render(<ReceiptHistory history={history} accounts={[]} />);
+  const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
+  assert.deepEqual(lines, [
+    ["Marcado como compra distinta de Ferretería Ochoa, factura.pdf", "Ana Peña · 11/10, 8:00 a.m."],
+    ["Leído", "Cuadrao · 10/10, 9:25 a.m."],
+  ]);
+  await page.close();
+});
+
+test("a pair settled as different purchases names a purged other document as deleted, never a raw key", async () => {
+  const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+  const duplicate = { decision: "different_purchase" as const, other_draft_id: "draft-purged", other_counterparty: null, other_filename: null };
+  const history = [{ ...revision(2, at(11, 8, 0), actor("Ana Peña"), facts("1200.00"), facts("1200.00")), duplicate }];
+  const page = await render(<ReceiptHistory history={history} accounts={[]} />);
+  const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
+  assert.deepEqual(lines, [["Marcado como compra distinta de Documento eliminado", "Ana Peña · 11/10, 8:00 a.m."]]);
+  await page.close();
+});
+
+describe("a fiscal save in Historial", () => {
+  const field = (name: string, kind: DgiiField["kind"] = "money", options: string[] = []): DgiiField => ({ name, label: name, kind, options });
+  const fields: DgiiFields = {
+    "606": [field("id_type", "select", ["1", "2"]), field("category", "select", ["02"]), field("goods_amount"), field("itbis_withheld"), field("itbis_cost"), field("income_withholding_type", "select", ["02"]), field("payment_method", "select", ["03"])],
+    "607": [field("income_type", "select", ["1"]), field("card")],
+  };
+  const declared = (form: "606" | "607", values: Record<string, string | null>) => ({ form, ...values }) as DgiiDeclaration;
+  const save = (version: number, before: DgiiDeclaration | null, after: DgiiDeclaration): BusinessDraftRevision => ({ ...revision(version, at(12, 20, version), actor("Ana Pérez"), facts("3450.00"), facts("3450.00")), before_dgii: before, after_dgii: after });
+  const entries = (host: HTMLElement) => [...host.querySelectorAll('[data-testid="receipt-history"] ol > li')];
+  const changes = (entry: Element) => [...entry.querySelectorAll('[data-testid="history-change"]')].map((item) => [item.querySelector("span")?.textContent, item.querySelector("del")?.textContent ?? null, item.querySelector("ins")?.textContent]);
+
+  test("a 606 save names the 606 and shows each field it changed, old struck through", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const after = declared("606", { id_type: "1", goods_amount: "3450.00", itbis_cost: null });
+    const page = await render(<ReceiptHistory history={[save(3, declared("606", { id_type: null }), after)]} accounts={[]} dgiiFields={fields} />, { dgiiNames: true });
+    const [entry] = entries(page.host);
+    assert.equal(entry.querySelector("p")?.textContent, "Datos del 606 guardados");
+    assert.deepEqual(changes(entry), [["Tipo Id", "Desconocido", "01 - RNC"], ["Monto Facturado en Bienes", null, "RD$ 3,450.00"]]);
+    assert.equal(entry.querySelector('[data-testid="history-more"]'), null, "two changes need no button");
+    await page.close();
+  });
+
+  test("a 607 save names the 607", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const page = await render(<ReceiptHistory history={[save(3, null, declared("607", { income_type: "1", card: "12980.00" }))]} accounts={[]} dgiiFields={fields} documentType="venta" />);
+    const [entry] = entries(page.host);
+    assert.equal(entry.querySelector("p")?.textContent, "Datos del 607 guardados");
+    assert.deepEqual(changes(entry).map(([name]) => name), ["Tipo de Ingreso", "Tarjeta"]);
+    await page.close();
+  });
+
+  test("more than two changes show two, then a button reveals the rest", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const before = declared("606", { itbis_withheld: "0.00", income_withholding_type: null, category: null, payment_method: null });
+    const after = declared("606", { itbis_withheld: "270.00", income_withholding_type: "02", category: "02", payment_method: "03" });
+    const page = await render(<ReceiptHistory history={[save(4, before, after)]} accounts={[]} dgiiFields={fields} />);
+    const [entry] = entries(page.host);
+    assert.deepEqual(changes(entry).map(([name]) => name), ["Tipo de gasto", "ITBIS Retenido"]);
+    const more = entry.querySelector<HTMLButtonElement>('[data-testid="history-more"]')!;
+    assert.equal(more.tagName, "BUTTON");
+    assert.equal(more.textContent, "Ver 2 cambios más");
+    assert.equal(more.getAttribute("aria-expanded"), "false");
+    assert.ok(more.querySelector("svg"), "the app's chevron");
+    assert.equal(document.getElementById(more.getAttribute("aria-controls")!), entry.querySelector('[data-testid="history-changes"]'));
+    await page.act(async () => { more.click(); });
+    assert.equal(more.getAttribute("aria-expanded"), "true");
+    assert.equal(more.textContent, "Ver menos");
+    assert.deepEqual(changes(entry), [
+      ["Tipo de gasto", "Desconocido", "Gastos por trabajos, suministros y servicios"],
+      ["ITBIS Retenido", "RD$ 0.00", "RD$ 270.00"],
+      ["Tipo de Retención en ISR", "Desconocido", "Honorarios por servicios"],
+      ["Forma de pago", "Desconocido", "Tarjeta crédito/débito"],
+    ]);
+    await page.close();
+    const three = await render(<ReceiptHistory history={[save(4, before, { ...after, payment_method: null })]} accounts={[]} dgiiFields={fields} />);
+    assert.equal(three.host.querySelector('[data-testid="history-more"]')?.textContent, "Ver 1 cambio más");
+    await three.close();
+  });
+
+  test("a withholding, income and ID code reads with its DGII name", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const named: DgiiFields = { "606": [field("income_withholding_type", "select", ["02"])], "607": [field("id_type", "select", ["1", "2", "3"]), field("income_type", "select", ["1"])] };
+    const page = await render(<>
+      <ReceiptHistory history={[save(3, null, declared("606", { income_withholding_type: "02" }))]} accounts={[]} dgiiFields={named} />
+      <ReceiptHistory history={[save(4, null, declared("607", { id_type: "3", income_type: "1" }))]} accounts={[]} dgiiFields={named} documentType="venta" />
+    </>, { dgiiNames: true });
+    assert.deepEqual(entries(page.host).map((entry) => changes(entry)), [
+      [["Tipo de Retención en ISR", null, "02 - Honorarios por servicios"]],
+      [["Tipo Identificación", null, "03 - Pasaporte o ID tributaria"], ["Tipo de Ingreso", null, "01 - Ingresos por operaciones (no financieros)"]],
+    ]);
+    await page.close();
+  });
+
+  test.each([
+    ["es-419", ["01 - RNC", "02 - Cédula", "03 - Pasaporte o ID tributaria"]],
+    ["en", ["01 - RNC", "02 - Cédula", "03 - Passport or tax ID"]],
+  ])("Tipo Id reads with two digits in %s", async (lng, shown) => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const ids: DgiiFields = { "606": [], "607": [field("id_type", "select", ["1", "2", "3"])] };
+    const page = await render(<>{["1", "2", "3"].map((code) => <ReceiptHistory key={code} history={[save(3, null, declared("607", { id_type: code }))]} accounts={[]} dgiiFields={ids} documentType="venta" />)}</>, { dgiiNames: true, lng });
+    assert.deepEqual(entries(page.host).map((entry) => changes(entry)[0]?.[2]), shown);
+    await page.close();
+  });
+
+  test("a save that changed no field reads Se revisó esta versión.", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const same = declared("606", { itbis_cost: "180.00", category: null });
+    const page = await render(<ReceiptHistory history={[save(5, same, { ...same }), save(6, null, declared("607", { income_type: null }))]} accounts={[]} dgiiFields={fields} />);
+    assert.deepEqual(entries(page.host).map((entry) => entry.querySelector("p")?.textContent), ["Se revisó esta versión.", "Se revisó esta versión."]);
+    await page.close();
+  });
+
+  test("Leído is Cuadrao's, not the person's", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const page = await render(<ReceiptHistory history={[revision(1, at(12, 20, 0), actor("QA Owner", "extractor"), null, facts("3450.00"))]} accounts={[]} />);
+    const [entry] = entries(page.host);
+    assert.deepEqual([...entry.querySelectorAll("p")].map((line) => line.textContent), ["Leído", "Cuadrao · 12/10, 8:00 p.m."]);
+    await page.close();
+  });
+
+  test("the card never says 606 / 607 and has no field dump", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const history = [save(3, null, declared("606", { id_type: "1" })), save(4, null, declared("607", { card: "1.00" }))];
+    const page = await render(<ReceiptHistory history={history} accounts={[]} dgiiFields={fields} />);
+    const card = page.host.querySelector('[data-testid="receipt-history"]')!;
+    assert.doesNotMatch(card.textContent ?? "", /606 \/ 607|Datos fiscales/);
+    assert.equal(card.querySelector("details"), null);
+    await page.close();
+  });
+
+  /** What the fiscal declaration editor shows for one field: an amount with its currency symbol, the chosen option, or the typed text. */
+  const editorShows = (host: HTMLElement, name: string) => {
+    const control = host.querySelector<HTMLInputElement | HTMLSelectElement>(`#fiscal-declaration-${name}, [data-testid="fiscal-declaration-${name}"]`)!;
+    if (control instanceof HTMLSelectElement) return control.selectedOptions[0]?.textContent;
+    const symbol = control.getAttribute("inputmode") === "decimal" ? control.parentElement?.querySelector("span")?.textContent : null;
+    return symbol ? `${symbol} ${control.value}` : control.value;
+  };
+
+  test.each([
+    { kind: "money", field: field("itbis_withheld"), value: "12980.5" },
+    { kind: "select", field: field("id_type", "select", ["1", "2"]), value: "2" },
+    { kind: "select with a DGII name", field: field("income_withholding_type", "select", ["02"]), value: "02" },
+    { kind: "date", field: field("paid_on", "date"), value: "2026-11-12" },
+    { kind: "text", field: field("modified_ncf", "text"), value: "B0100000123" },
+  ])("a $kind value reads in Historial as the fiscal editor shows it", async ({ field: shown, value }) => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const { default: FiscalDeclarationEditor } = await import("@/components/business-app/FiscalDeclarationEditor");
+    const { createDossierFixtures, dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+    const fixture = await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "Caja" }] as BusinessAccount[]).dossier(dossierFixtureIds.fiscal);
+    const dossier: BusinessDossier = { ...fixture, dgii: declared("606", { [shown.name]: value }), inheritance: {} };
+    const only: DgiiFields = { "606": [shown], "607": [] };
+    const saved = { ...revision(3, at(12, 20, 0), actor("Ana Pérez"), dossier.facts, dossier.facts), before_dgii: null, after_dgii: dossier.dgii };
+    const page = await render(<>
+      <FiscalDeclarationEditor dossier={dossier} fields={only} disabled={false} reviewFiscal={async () => dossier} onChanged={() => {}} onBusy={() => {}} onDirty={() => {}} />
+      <ReceiptHistory history={[saved]} accounts={[]} dgiiFields={only} />
+    </>);
+    const [entry] = entries(page.host);
+    const [[, , history]] = changes(entry);
+    assert.equal(history, editorShows(page.host, shown.name));
+    await page.close();
+  });
 });

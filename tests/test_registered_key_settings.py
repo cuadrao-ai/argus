@@ -193,7 +193,7 @@ def test_declarations_are_optional_and_server_only() -> None:
     blueprint = yaml.safe_load((root / "render.yaml").read_text())
     for service in blueprint["services"]:
         entries = {entry["key"]: entry for entry in service.get("envVars", [])}
-        if service["name"] == "cuadrao-api":
+        if service["name"] == "cuadrao-api" or service["type"] == "worker":
             assert entries[read_in_production] == {"key": read_in_production, "sync": False}
             assert not (set(NEW_NAMES) - {read_in_production}) & entries.keys()
         elif "CUADRAO_PROD_OPENROUTER_API_KEY" in entries:
@@ -225,7 +225,8 @@ def test_declarations_are_optional_and_server_only() -> None:
             assert production == {"not_set": True}
     for label in ("web", "marketing", "documents_worker"):
         names = {entry["name"] for entry in manifest["services"][label]["entries"]}
-        assert not set(NEW_NAMES) & names
+        reads = {read_in_production} if label == "documents_worker" else set()
+        assert set(NEW_NAMES) & names == reads
 
 
 @pytest.mark.parametrize(

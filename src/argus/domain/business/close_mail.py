@@ -22,6 +22,7 @@ from psycopg.types.json import Jsonb
 
 from argus.domain import resend_email
 from argus.domain.business.lifecycle import REOPEN_WINDOW
+from argus.domain.business.people import mail_name
 from argus.domain.business.space_name import spanish_name
 from argus.domain.business.transfer_mail import _origin
 from argus.settings_names import setting_value
@@ -164,13 +165,14 @@ def render_close_mail(
 
 
 def _context(db, space_id: str, owner_id: str, name: str, closed_at: datetime) -> dict:
-    owner = db.execute(
-        "select coalesce(nullif(btrim(display_name),''),username,'Member') from public.profiles where id=%s",
+    display_name, email = db.execute(
+        "select p.display_name,u.email from auth.users u"
+        " left join public.profiles p on p.id=u.id where u.id=%s",
         (owner_id,),
     ).fetchone()
     return {
         "businessName": spanish_name(name),
-        "ownerName": owner[0] if owner else "Member",
+        "ownerName": mail_name(display_name, email),
         "closedAt": closed_at.isoformat(),
         "purgeAt": (closed_at + REOPEN_WINDOW).isoformat(),
         "reopenPath": reopen_path(space_id),
