@@ -91,7 +91,6 @@ export function TransaccionesTable({ controller, view, density, onSegmentStep, o
       if (event.key === "ArrowUp") return move(index - 1), true;
       if (event.key === "]") return onSegmentStep(1), true;
       if (event.key === "[") return onSegmentStep(-1), true;
-      if (event.key === "Escape" && controller.tray) return controller.close(), true;
       const movement = id ? controller.byId.get(id) : undefined;
       if (!movement) return false;
       if (event.key === "Enter") return controller.open(movement.id), true;

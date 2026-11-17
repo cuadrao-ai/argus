@@ -219,8 +219,18 @@ test("a pair settled as different purchases reads as one line naming the other d
   const page = await render(<ReceiptHistory history={history} accounts={[]} />);
   const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
   assert.deepEqual(lines, [
-    ["[PENDIENTE COPY] Marcado como compra distinta de Ferretería Ochoa, factura.pdf", "Ana Peña · 11/10, 8:00 a.m."],
+    ["Marcado como compra distinta de Ferretería Ochoa, factura.pdf", "Ana Peña · 11/10, 8:00 a.m."],
     ["Leído", "Ana Peña · 10/10, 9:25 a.m."],
   ]);
+  await page.close();
+});
+
+test("a pair settled as different purchases names a purged other document as deleted, never a raw key", async () => {
+  const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+  const duplicate = { decision: "different_purchase" as const, other_draft_id: "draft-purged", other_counterparty: null, other_filename: null };
+  const history = [{ ...revision(2, at(11, 8, 0), actor("Ana Peña"), facts("1200.00"), facts("1200.00")), duplicate }];
+  const page = await render(<ReceiptHistory history={history} accounts={[]} />);
+  const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
+  assert.deepEqual(lines, [["Marcado como compra distinta de Documento eliminado", "Ana Peña · 11/10, 8:00 a.m."]]);
   await page.close();
 });

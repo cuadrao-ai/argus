@@ -3430,18 +3430,18 @@
       },
       "exportar_guardar": {
         "ask": {
-          "body": "[PENDIENTE COPY] Turn on the option to ask where to save each file. Then you pick the folder when you export.",
-          "label": "[PENDIENTE COPY] Turn on asking"
+          "body": "Turn on the option to ask where to save each file. Then you pick the folder when you export.",
+          "label": "Turn on asking"
         },
         "downloads": {
-          "body": "[PENDIENTE COPY] Go to the downloads section.",
-          "label": "[PENDIENTE COPY] Find Downloads"
+          "body": "Go to the downloads section.",
+          "label": "Find Downloads"
         },
         "settings": {
-          "body": "[PENDIENTE COPY] In your browser, open Settings or Preferences.",
-          "label": "[PENDIENTE COPY] Open settings"
+          "body": "In your browser, open Settings or Preferences.",
+          "label": "Open settings"
         },
-        "title": "[PENDIENTE COPY] Choose where to save each file"
+        "title": "Choose where to save each file"
       },
       "placeholder": {
         "dismiss": "Hide guide",
@@ -3471,7 +3471,7 @@
       "changed_female": "{{field}} changed from {{before}} to {{after}}",
       "channel_email": "Email",
       "channel_web": "Uploaded",
-      "duplicate": { "different_purchase": "[PENDIENTE COPY] Marked as a different purchase from {{other}}" },
+      "duplicate": { "different_purchase": "Marked as a different purchase from {{other}}" },
       "pm": "PM",
       "read": "Read",
       "reason": { "business_rnc_set": "Your business issued it" },
@@ -4233,7 +4233,7 @@
       "fiscal_purchases_other": "Missing data on {{count}} purchases",
       "fiscal_sales_one": "Missing data on 1 sale",
       "fiscal_sales_other": "Missing data on {{count}} sales",
-        "fiscal_unknown": "[PENDIENTE COPY] Missing data: can't be calculated yet.",
+        "fiscal_unknown": "Missing data: can't be calculated yet.",
         "in_bandeja_one": "1 in the Inbox",
       "in_bandeja_other": "{{count}} in the Inbox",
         "included": "Documents included: {{counted}} of {{total}}",
@@ -4318,8 +4318,8 @@
       "source_unavailable": "Original file missing",
       "check_details": "Check the details",
       "duplicate": "Looks like a repeat",
-      "read_budget_day": "[COPY PENDING] Reads tomorrow: today's read limit was reached",
-      "read_budget_month": "[COPY PENDING] Reads next month: this month's read limit was reached",
+      "read_budget_day": "Reads tomorrow: today's read limit was reached",
+      "read_budget_month": "Reads next month: this month's read limit was reached",
       "read_deadline_passed": "Reading didn't finish",
       "other": "Needs attention"
     },
@@ -4444,12 +4444,12 @@
     "receipts": {
       "duplicate_resolution": {
         "basis": {
-          "fiscal_number": "[PENDIENTE COPY] Same RNC and NCF as another document.",
-          "read_facts": "[PENDIENTE COPY] Same merchant, date and total as another document."
+          "fiscal_number": "Same RNC and NCF as another document.",
+          "read_facts": "Same supplier, date and total as another document."
         },
         "column": {
-          "saved_before": "[PENDIENTE COPY] Saved before",
-          "this": "[PENDIENTE COPY] This"
+          "saved_before": "Saved before",
+          "this": "This"
         },
         "compare": "Compare",
         "decision": {
@@ -4457,6 +4457,9 @@
           "same_purchase": "Delete this duplicate"
         },
         "different": "Different",
+        "documents": {
+          "other": "Deleted document"
+        },
         "field": {
           "amount": "Total",
           "counterparty": "Merchant",
@@ -4464,17 +4467,17 @@
           "fiscal_number": "NCF",
           "occurred_on": "Date"
         },
-        "marked_different": "[PENDIENTE COPY] Marked as different purchases.",
-        "no_file": "[PENDIENTE COPY] This document has no file.",
+        "marked_different": "Marked as different purchases.",
+        "no_file": "This document has no file.",
         "recommendation": {
           "different_purchase": "Same merchant, date, total and currency. The NCF is different: these are probably two different purchases.",
           "same_purchase": "It is the same document."
         },
-        "refused_same_comprobante": "[PENDIENTE COPY] Same RNC and NCF: this is one comprobante. Keep one.",
+        "refused_same_comprobante": "Same RNC and NCF: it's the same receipt. Keep one.",
         "same": "Same",
         "table": {
-          "caption": "[PENDIENTE COPY] Main data of both documents",
-          "field": "[PENDIENTE COPY] Field"
+          "caption": "Main data of both documents",
+          "field": "Field"
         },
         "title": "Looks repeated"
       }
