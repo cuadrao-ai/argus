@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
+import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDossier, BusinessDraftRevision, BusinessFacts } from "@/lib/business-dossier";
 import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
 
@@ -253,7 +254,7 @@ describe("a fiscal save in Historial", () => {
     const page = await render(<ReceiptHistory history={[save(3, declared("606", { id_type: null }), after)]} accounts={[]} dgiiFields={fields} />);
     const [entry] = entries(page.host);
     assert.equal(entry.querySelector("p")?.textContent, "Datos del 606 guardados");
-    assert.deepEqual(changes(entry), [["Tipo Id", "Desconocido", "1 - RNC"], ["Monto Facturado en Bienes", null, "3450.00"]]);
+    assert.deepEqual(changes(entry), [["Tipo Id", "Desconocido", "1 - RNC"], ["Monto Facturado en Bienes", null, "RD$ 3,450.00"]]);
     assert.equal(entry.querySelector('[data-testid="history-more"]'), null, "two changes need no button");
     await page.close();
   });
@@ -285,7 +286,7 @@ describe("a fiscal save in Historial", () => {
     assert.equal(more.textContent, "Ver menos");
     assert.deepEqual(changes(entry), [
       ["Tipo de gasto", "Desconocido", "Gastos por trabajos, suministros y servicios"],
-      ["ITBIS Retenido", "0.00", "270.00"],
+      ["ITBIS Retenido", "RD$ 0.00", "RD$ 270.00"],
       ["Tipo de Retención en ISR", "Desconocido", "02"],
       ["Forma de pago", "Desconocido", "Tarjeta crédito/débito"],
     ]);
@@ -318,6 +319,38 @@ describe("a fiscal save in Historial", () => {
     const card = page.host.querySelector('[data-testid="receipt-history"]')!;
     assert.doesNotMatch(card.textContent ?? "", /606 \/ 607|Datos fiscales/);
     assert.equal(card.querySelector("details"), null);
+    await page.close();
+  });
+
+  /** What the fiscal declaration editor shows for one field: an amount with its currency symbol, the chosen option, or the typed text. */
+  const editorShows = (host: HTMLElement, name: string) => {
+    const control = host.querySelector<HTMLInputElement | HTMLSelectElement>(`#fiscal-declaration-${name}, [data-testid="fiscal-declaration-${name}"]`)!;
+    if (control instanceof HTMLSelectElement) return control.selectedOptions[0]?.textContent;
+    const symbol = control.getAttribute("inputmode") === "decimal" ? control.parentElement?.querySelector("span")?.textContent : null;
+    return symbol ? `${symbol} ${control.value}` : control.value;
+  };
+
+  test.each([
+    { kind: "money", field: field("itbis_withheld"), value: "12980.5" },
+    { kind: "select", field: field("id_type", "select", ["1", "2"]), value: "2" },
+    { kind: "select without an option name", field: field("income_withholding_type", "select", ["02"]), value: "02" },
+    { kind: "date", field: field("paid_on", "date"), value: "2026-11-12" },
+    { kind: "text", field: field("modified_ncf", "text"), value: "B0100000123" },
+  ])("a $kind value reads in Historial as the fiscal editor shows it", async ({ field: shown, value }) => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const { default: FiscalDeclarationEditor } = await import("@/components/business-app/FiscalDeclarationEditor");
+    const { createDossierFixtures, dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+    const fixture = await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "Caja" }] as BusinessAccount[]).dossier(dossierFixtureIds.fiscal);
+    const dossier: BusinessDossier = { ...fixture, dgii: declared("606", { [shown.name]: value }), inheritance: {} };
+    const only: DgiiFields = { "606": [shown], "607": [] };
+    const saved = { ...revision(3, at(12, 20, 0), actor("Ana Pérez"), dossier.facts, dossier.facts), before_dgii: null, after_dgii: dossier.dgii };
+    const page = await render(<>
+      <FiscalDeclarationEditor dossier={dossier} fields={only} disabled={false} reviewFiscal={async () => dossier} onChanged={() => {}} onBusy={() => {}} onDirty={() => {}} />
+      <ReceiptHistory history={[saved]} accounts={[]} dgiiFields={only} />
+    </>);
+    const [entry] = entries(page.host);
+    const [[, , history]] = changes(entry);
+    assert.equal(history, editorShows(page.host, shown.name));
     await page.close();
   });
 });

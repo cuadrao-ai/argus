@@ -6,11 +6,11 @@ import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
-import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFiscalField } from "@/lib/business-dossier";
+import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFacts, type BusinessFiscalField } from "@/lib/business-dossier";
 import { BUSINESS_STATUS, FOCUS_RING, MUTED_TEXT } from "./foundation/presentation";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { useCategoryLabel } from "./business-ui";
-import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
+import { presentBusinessFact, presentDgiiValue, presentFiscalFact } from "./receipt-fact-presentation";
 import { resolveLanguage } from "@/lib/language-features";
 
 /** One DGII field a fiscal save changed: `before` is null when the field had no value to strike. */
@@ -94,17 +94,19 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   /** A correction that replaced one value with another shows both, old struck through; a first value or a cleared one is the sentence alone. */
   const diffOf = (before: string, after: string) => before && after && before !== after ? { before, after } : undefined;
-  const dgiiValue = (field: DgiiField, value: DgiiDeclaration[string] | undefined) => value === null || value === undefined ? t("business.dossier.unknown", "Unknown")
-    : field.kind === "select" ? t(`business.dgii.option.${field.name}.${String(value)}`, { defaultValue: String(value) }) || String(value) : String(value);
-  /** The dictionary's fields a save changed, in its order; a field the earlier declaration lacked has nothing to strike. */
-  const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration): FiscalChange[] | null => dgiiFields && dgiiFields[after.form]
-    .filter((field) => (before?.[field.name] ?? null) !== (after[field.name] ?? null))
-    .map((field) => ({
-      name: field.name,
-      field: t([`business.dgii.field_${after.form}.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name }),
-      before: before && field.name in before ? dgiiValue(field, before[field.name]) : null,
-      after: dgiiValue(field, after[field.name]),
-    }));
+  /** The dictionary's fields a save changed, in its order, worded as the fiscal editor shows them; a field the earlier declaration lacked has nothing to strike. */
+  const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration, facts: BusinessFacts): FiscalChange[] | null => {
+    if (!dgiiFields) return null;
+    const shown = (field: DgiiField, value: DgiiDeclaration[string] | undefined) => presentDgiiValue(field, value, facts, locale, t, t("business.dossier.unknown", "Unknown"));
+    return dgiiFields[after.form]
+      .filter((field) => (before?.[field.name] ?? null) !== (after[field.name] ?? null))
+      .map((field) => ({
+        name: field.name,
+        field: t([`business.dgii.field_${after.form}.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name }),
+        before: before && field.name in before ? shown(field, before[field.name]) : null,
+        after: shown(field, after[field.name]),
+      }));
+  };
 
   const events: HistoryEvent[] = [];
   // What arrived is a file or a WhatsApp message; a chat proposal or a web action is not a receipt coming in.
@@ -164,7 +166,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.map((source) => source?.kind === "attachment" ? source.filename ?? t("business.transactions.layout.annotations.received_document") : "").join(", ")}`, who, testId: "history-supporting" });
     }
     if (revision.after_dgii) {
-      const changes = fiscalChanges(revision.before_dgii, revision.after_dgii);
+      const changes = fiscalChanges(revision.before_dgii, revision.after_dgii, revision.after);
       // Until the dictionary loads, any difference is a save; then only a field it names counts.
       if (changes ? changes.length : !same(revision.before_dgii, revision.after_dgii)) {
         events.push({ id: `${revision.version}-dgii`, at, line: t("business.history.fiscal_saved", { form: revision.after_dgii.form }), who, changes: changes ?? undefined });
