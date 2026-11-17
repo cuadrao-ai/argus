@@ -226,7 +226,7 @@ function ModalDrawer(props: DrawerProps & StackPlace) {
 function TrayDrawer(props: DrawerProps & StackPlace) {
   const { panelRef, onClose, dismissible, initialFocusRef, returnFocusRef, drawn } = props;
   const titleRef = useRef<HTMLHeadingElement>(null);
-  const markInside = useTrayDismiss({ panelRef, onClose: dismissible ? onClose : null, returnFocusRef });
+  const markInside = useTrayDismiss({ panelRef, onClose: dismissible && drawn ? onClose : null, returnFocusRef });
   useEffect(() => {
     (initialFocusRef?.current ?? titleRef.current)?.focus();
   }, [initialFocusRef]);
@@ -245,10 +245,13 @@ function TrayDrawer(props: DrawerProps & StackPlace) {
   );
 }
 
-/** A press on one of these does its own job beside the tray (a row swaps the record), so it does not close it. */
+/**
+ * A press on one of these does its own job beside the tray (a row swaps the record), so it does not close it.
+ * A tab panel takes focus to hold its list, not to do a job: a press on its blank space is a press on the page.
+ */
 const OWN_JOB = [
   "a[href]", "button", "input", "select", "textarea", "summary", "label",
-  "[contenteditable]:not([contenteditable='false'])", "[tabindex]:not([tabindex='-1'])", "tr[tabindex]",
+  "[contenteditable]:not([contenteditable='false'])", "[tabindex]:not([tabindex='-1']):not([role='tabpanel'])", "tr[tabindex]",
   ...["button", "link", "tab", "option", "menuitem", "checkbox", "radio", "switch", "row"].map((role) => `[role='${role}']`),
 ].join(",");
 

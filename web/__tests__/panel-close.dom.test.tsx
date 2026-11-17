@@ -181,6 +181,64 @@ describe("a dossier beside its list on a desktop", () => {
   });
 });
 
+describe("two trays open beside the page", () => {
+  /** An invoice dossier, then the currency breakdown opened from the page beside it: the breakdown is drawn, the dossier waits beneath. */
+  async function mountTwo() {
+    (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: 1280, height: 900 });
+    const { act, useState } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("@/public/locales/es-419/common.json")).default;
+    const AdaptivePanel = (await import("@/components/ui/AdaptivePanel")).default;
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    function Page() {
+      const [invoice, setInvoice] = useState(false);
+      const [breakdown, setBreakdown] = useState(false);
+      return (
+        <main>
+          <button type="button" data-testid="open-invoice" onClick={() => setInvoice(true)}>M-002</button>
+          <button type="button" data-testid="open-breakdown" onClick={() => setBreakdown(true)}>Ver 3 monedas</button>
+          <p data-testid="page-text">Facturación</p>
+          {invoice ? <AdaptivePanel modal={false} width="record" title="Colmado Aurora" closeLabel="Cerrar" onClose={() => setInvoice(false)}><p>M-002</p></AdaptivePanel> : null}
+          {breakdown ? <AdaptivePanel modal={false} width="md" title="Por moneda" closeLabel="Cerrar" onClose={() => setBreakdown(false)}><p>DOP, USD, EUR</p></AdaptivePanel> : null}
+        </main>
+      );
+    }
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><Page /></I18nextProvider>); });
+    unmounts.push(() => act(async () => root.unmount()));
+    const get = (testId: string) => document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)!;
+    const trays = () => [...document.querySelectorAll<HTMLElement>('[data-testid="side-drawer"]')].map((tray) => ({ title: tray.querySelector("h2")?.textContent, drawn: !tray.hidden }));
+    const openBoth = async () => {
+      await act(async () => get("open-invoice").click());
+      await act(async () => get("open-breakdown").click());
+      assert.deepEqual(trays(), [{ title: "Colmado Aurora", drawn: false }, { title: "Por moneda", drawn: true }], "the breakdown is drawn over the waiting dossier");
+    };
+    return { act, get, trays, openBoth };
+  }
+
+  test("Escape closes only the drawn tray, and the one beneath comes back", async () => {
+    const page = await mountTwo();
+    await page.openBoth();
+    await page.act(async () => { page.get("page-text").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); });
+    assert.deepEqual(page.trays(), [{ title: "Colmado Aurora", drawn: true }], "the breakdown closed and the dossier is back");
+  });
+
+  test("a click on the page closes only the drawn tray", async () => {
+    const page = await mountTwo();
+    await page.openBoth();
+    await page.act(async () => {
+      page.get("page-text").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0 }));
+      page.get("page-text").dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+    });
+    assert.deepEqual(page.trays(), [{ title: "Colmado Aurora", drawn: true }], "the breakdown closed and the dossier is back");
+  });
+});
+
 describe("a modal side panel on a desktop", () => {
   test("a click beside it and Escape close it, focus goes back to its opener, and an unsaved edit asks", async () => {
     const page = await mount({ modal: true });
