@@ -21,16 +21,17 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-async function render(node: ReactNode, { dgiiNames = false } = {}) {
+async function render(node: ReactNode, { dgiiNames = false, lng = "es-419" } = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const { dgiiChoiceLabel } = await import("@/lib/dgii-labels");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const english = (await import("@/public/locales/en/common.json")).default;
   const i18n = i18next.createInstance();
   if (dgiiNames) i18n.use(dgiiChoiceLabel);
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false }, ...(dgiiNames ? { postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true } : {}) });
+  await i18n.init({ lng, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false }, ...(dgiiNames ? { postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true } : {}) });
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -253,10 +254,10 @@ describe("a fiscal save in Historial", () => {
   test("a 606 save names the 606 and shows each field it changed, old struck through", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const after = declared("606", { id_type: "1", goods_amount: "3450.00", itbis_cost: null });
-    const page = await render(<ReceiptHistory history={[save(3, declared("606", { id_type: null }), after)]} accounts={[]} dgiiFields={fields} />);
+    const page = await render(<ReceiptHistory history={[save(3, declared("606", { id_type: null }), after)]} accounts={[]} dgiiFields={fields} />, { dgiiNames: true });
     const [entry] = entries(page.host);
     assert.equal(entry.querySelector("p")?.textContent, "Datos del 606 guardados");
-    assert.deepEqual(changes(entry), [["Tipo Id", "Desconocido", "1 - RNC"], ["Monto Facturado en Bienes", null, "RD$ 3,450.00"]]);
+    assert.deepEqual(changes(entry), [["Tipo Id", "Desconocido", "01 - RNC"], ["Monto Facturado en Bienes", null, "RD$ 3,450.00"]]);
     assert.equal(entry.querySelector('[data-testid="history-more"]'), null, "two changes need no button");
     await page.close();
   });
@@ -307,8 +308,19 @@ describe("a fiscal save in Historial", () => {
     </>, { dgiiNames: true });
     assert.deepEqual(entries(page.host).map((entry) => changes(entry)), [
       [["Tipo de Retención en ISR", null, "02 - Honorarios por servicios"]],
-      [["Tipo Identificación", null, "3 - Pasaporte o ID tributaria"], ["Tipo de Ingreso", null, "01 - Ingresos por operaciones (no financieros)"]],
+      [["Tipo Identificación", null, "03 - Pasaporte o ID tributaria"], ["Tipo de Ingreso", null, "01 - Ingresos por operaciones (no financieros)"]],
     ]);
+    await page.close();
+  });
+
+  test.each([
+    ["es-419", ["01 - RNC", "02 - Cédula", "03 - Pasaporte o ID tributaria"]],
+    ["en", ["01 - RNC", "02 - Cédula", "03 - Passport or tax ID"]],
+  ])("Tipo Id reads with two digits in %s", async (lng, shown) => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const ids: DgiiFields = { "606": [], "607": [field("id_type", "select", ["1", "2", "3"])] };
+    const page = await render(<>{["1", "2", "3"].map((code) => <ReceiptHistory key={code} history={[save(3, null, declared("607", { id_type: code }))]} accounts={[]} dgiiFields={ids} documentType="venta" />)}</>, { dgiiNames: true, lng });
+    assert.deepEqual(entries(page.host).map((entry) => changes(entry)[0]?.[2]), shown);
     await page.close();
   });
 
