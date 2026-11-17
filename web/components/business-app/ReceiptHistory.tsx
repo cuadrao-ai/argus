@@ -5,6 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import type { BusinessAccount } from "@/lib/business-api";
+import { documentFamily, factLabel } from "@/lib/counterparty-term";
 import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
 import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFacts, type BusinessFiscalField } from "@/lib/business-dossier";
 import { BUSINESS_STATUS, FOCUS_RING, MUTED_TEXT } from "./foundation/presentation";
@@ -86,7 +87,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   /** One correction as a sentence, or null when the shown value did not change (a confirmation changes only who stated it). */
   const changed = (key: string, before: string, after: string): string | null => {
     if (before === after) return null;
-    const field = key === "net_amount" || key === "legal_tip" ? t(`business.terms.${key}`) : key === "amount" ? t("business.terms.total_review") : t(`business.dossier.field.${key}`, key);
+    const field = key === "net_amount" || key === "legal_tip" ? t(`business.terms.${key}`) : key === "amount" ? t("business.terms.total_review") : factLabel(t, key, documentFamily(documentType));
     if (!before) return t("business.history.set", "{{field}}: {{after}}", { field, after });
     if (!after) after = t("business.dossier.not_recorded", "Not recorded");
     return t(FEMININE.has(key) ? "business.history.changed_female" : "business.history.changed", "{{field}} changed from {{before}} to {{after}}", { field, before, after });

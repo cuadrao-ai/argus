@@ -1,6 +1,7 @@
 """606 spreadsheet formatting and RNC warnings in exported records."""
 
 import csv
+import hashlib
 import io
 from dataclasses import replace
 from datetime import date
@@ -11,10 +12,18 @@ from argus.domain.business.reporting_file import (
     build_file,
     summarize_export,
 )
+from argus.domain.business.reporting_query import ReportRequestV2
 from argus.domain.business.reporting_store import ExportSource
 from faker import Faker
 
-from tests.business.test_records_file import books, report, row, source, xlsx
+from tests.business.test_records_file import (
+    SEPTEMBER,
+    books,
+    report,
+    row,
+    source,
+    xlsx,
+)
 from tests.dgii.test_packet import practice_records
 
 
@@ -221,3 +230,36 @@ def test_dgii_file_writes_the_withholding_income_and_id_codes_without_names(
     column = headers.index(dict(COLUMNS[form])[name])
     assert lines
     assert {line[column] for line in lines} == {code}
+
+
+#: The 606/607 files of the practice month, hashed at 5877fc650 before the name
+#: column took Emisor and Cliente. A screen word must never reach these files.
+DGII_FILES = {
+    ("purchase", "csv"): (
+        3,
+        "06fd86335dbbcbdbd5da242f64e2e0f0c85b2f0f30323ac66a3d86694f4b7b67",
+    ),
+    ("purchase", "xlsx"): (
+        3,
+        "522622fd10960d89dd9570c92dd89e3596816572a58e56ed7bd05e80db76f9b0",
+    ),
+    ("sale", "csv"): (
+        1,
+        "e8f1fceb4f311c7fd212c8d66ba2d0bb1fac4297c52327b27b40b4cea9ebf521",
+    ),
+    ("sale", "xlsx"): (
+        1,
+        "145c642d4639261b49f4e931515f9a4605d422517b2a085838ac549ec2da863a",
+    ),
+}
+
+
+@pytest.mark.parametrize("locale", ("es-419", "en"))
+@pytest.mark.parametrize(("family", "format"), sorted(DGII_FILES))
+def test_the_dgii_files_are_byte_identical_to_before_the_rename(family, format, locale):
+    request = ReportRequestV2(filters={"period": SEPTEMBER, "record_families": [family]})
+    built = build_file(
+        books(), RecordsExport(report=request, mode="dgii", format=format), locale=locale
+    )
+    digest = hashlib.sha256(built.content).hexdigest()
+    assert (built.row_count, digest) == DGII_FILES[family, format]

@@ -1,5 +1,7 @@
+import type { TFunction } from "i18next";
 import { businessDateMessage } from "@/lib/business-date-errors";
 import type { BusinessDossier, BusinessFactField } from "@/lib/business-dossier";
+import { documentFamily, factLabel } from "@/lib/counterparty-term";
 
 /** The words of the "Parece repetido" flow: the top box and the compare view. */
 export const DUPLICATE_KEYS = "business.receipts.duplicate_resolution";
@@ -13,7 +15,7 @@ export type AttentionItem = {
   duplicates?: readonly { draftId: string; text: string }[];
 };
 
-type T = (key: string, fallback: string, options?: Record<string, unknown>) => string;
+type T = TFunction;
 
 /**
  * What stops approval, as the server's blockers say it, and the documents this
@@ -22,7 +24,7 @@ type T = (key: string, fallback: string, options?: Record<string, unknown>) => s
  * lists without a blocker (an RNC and NCF pair) comes last. A recorded approval
  * leaves nothing to do.
  */
-export function dossierAttention(dossier: Pick<BusinessDossier, "blockers" | "review_state" | "approval_result" | "duplicate_candidates">, t: T, locale: string): AttentionItem[] {
+export function dossierAttention(dossier: Pick<BusinessDossier, "blockers" | "review_state" | "approval_result" | "duplicate_candidates" | "document_type">, t: T, locale: string): AttentionItem[] {
   if (dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return [];
   const candidates = dossier.review_state === "open" ? dossier.duplicate_candidates ?? [] : [];
   const duplicate: AttentionItem = {
@@ -33,7 +35,7 @@ export function dossierAttention(dossier: Pick<BusinessDossier, "blockers" | "re
   };
   const items = dossier.blockers.map((blocker, index): AttentionItem => {
     if (blocker.code === "possible_duplicate") return duplicate;
-    const label = blocker.field ? t(`business.dossier.field.${blocker.field}`, blocker.field) : null;
+    const label = blocker.field ? factLabel(t, blocker.field, documentFamily(dossier.document_type)) : null;
     const dateMessage = businessDateMessage(blocker, t, locale, label ?? undefined);
     if (dateMessage) return { key: `blocker-${blocker.code}-${index}`, field: blocker.field, text: dateMessage };
     const reason = blocker.code === "fact_required" && label ? null

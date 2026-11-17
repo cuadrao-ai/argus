@@ -2624,6 +2624,9 @@
     "terms": {
       "calculated_hint": "Calculated: Total − ITBIS",
       "calculated_hint_with_tip": "Calculated: Total − ITBIS − legal tip",
+      "counterparty": "Counterparty",
+      "counterparty_purchase": "Supplier",
+      "counterparty_sale": "Customer",
       "currency_choose": "Choose",
       "currency_fiscal_warning": "In {{currency}}, this document is excluded from {{form}} (the DGII requires pesos).",
       "currency_missing": "Currency missing",
@@ -2712,8 +2715,6 @@
             "other": "Other",
             "transport": "Transport"
           },
-          "counterparty_short_one": "Counterparty · {{count}}",
-          "counterparty_short_other": "Counterparty · {{count}}",
           "currency": "Currency",
           "date": {
             "from": "From",
@@ -2741,7 +2742,6 @@
             "amount": "Amount",
             "attachment": "Attachment",
             "category": "Category",
-            "counterparty": "Counterparty",
             "document": "Document type",
             "fiscal": "Fiscal type",
             "fiscal_data": "Fiscal data",
@@ -2981,7 +2981,7 @@
       "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
       "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
       "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
-      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "rnc_cedula": "RNC or ID", "comprobante": "Proof" },
+      "columns": { "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "rnc_cedula": "RNC or ID", "comprobante": "Proof" },
       "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of_one": "of {{count}}", "of_other": "of {{count}}" },
       "sign": { "in": "Money in", "out": "Money out" },
       "detail": {
@@ -3006,8 +3006,8 @@
         "first": "First page",
         "label": "Record pages",
         "last": "Last page",
-        "name_ascending": "Counterparty: A–Z",
-        "name_descending": "Counterparty: Z–A",
+        "name_ascending": "{{column}}: A–Z",
+        "name_descending": "{{column}}: Z–A",
         "newest": "Newest first",
         "next": "Next page",
         "oldest": "Oldest first",
@@ -3070,7 +3070,6 @@
       "empty_title": "No deleted documents",
       "failed": "The document could not be deleted. Try again.",
       "fields": {
-        "counterparty": "Counterparty",
         "date": "Date",
         "file": "File",
         "state": "Status",
@@ -3286,7 +3285,6 @@
       "field": {
         "collection_method": "Collection method",
         "kind": "Activity",
-        "counterparty": "Counterparty",
         "occurred_on": "Receipt date",
         "amount": "Amount",
         "currency": "Currency",

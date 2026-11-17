@@ -48,13 +48,33 @@ for (const language of ["es-419", "en"] as const) test(`server defaults start wi
   assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).every((call) => !Object.hasOwn(call.body as object, "presentation")), "fresh V1 and V2 requests leave defaults to the server");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   const shown = ["counterparty_id", "expense_type", "missing"];
-  for (const [key, label] of language === "en" ? [["missing", "Reason"], ["counterparty_id", "RNC or ID"], ["expense_type", "Expense type"], ["counterparty", "Counterparty"], ["fiscal_number", "NCF"], ["note", "Notes"], ["attachment", "Attachment"], ["payment_form", "Payment method"], ["funding", "Account"]] : [["missing", "Motivo"], ["counterparty_id", "RNC o Cédula"], ["expense_type", "Tipo de gasto"], ["counterparty", "Contraparte"], ["fiscal_number", "NCF"], ["note", "Notas"], ["attachment", "Adjunto"], ["payment_form", "Forma de pago"], ["funding", "Cuenta"]]) {
+  for (const [key, label] of language === "en" ? [["missing", "Reason"], ["counterparty_id", "RNC or ID"], ["expense_type", "Expense type"], ["counterparty", "Supplier"], ["fiscal_number", "NCF"], ["note", "Notes"], ["attachment", "Attachment"], ["payment_form", "Payment method"], ["funding", "Account"]] : [["missing", "Motivo"], ["counterparty_id", "RNC o Cédula"], ["expense_type", "Tipo de gasto"], ["counterparty", "Emisor"], ["fiscal_number", "NCF"], ["note", "Notas"], ["attachment", "Adjunto"], ["payment_form", "Forma de pago"], ["funding", "Cuenta"]]) {
     const row = document.querySelector(`[data-column-setting="${key}"]`);
     assert.ok(row?.textContent?.includes(label));
     const checkbox = row?.querySelector<HTMLInputElement>('input[type="checkbox"]');
     assert.equal(checkbox?.checked, shown.includes(key));
     assert.equal(checkbox?.disabled, false, "no column is locked by name");
   }
+});
+
+for (const [language, family, name] of [["es-419", "purchase", "Emisor"], ["es-419", "sale", "Cliente"], ["en", "purchase", "Supplier"], ["en", "sale", "Customer"]] as const) test(`the name column reads ${name} on the ${family} tab in ${language}: header, column menu, filter and export columns`, async () => {
+  const presentation = { ...recordedReportAnswer.presentation, hidden: recordedReportAnswer.presentation.hidden.filter((key) => key !== "counterparty") };
+  const page = await mount({ language, presentation, initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family] } }) });
+  assert.equal(document.querySelector('thead th[data-col="counterparty"]')?.textContent, name);
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  assert.equal(document.querySelector('[data-column-setting="counterparty"]')?.textContent?.trim(), name);
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  const filters = [...document.querySelectorAll('button[aria-haspopup="dialog"]')].find((button) => button.textContent?.startsWith(language === "en" ? "Filters" : "Filtros"));
+  await page.click(filters);
+  assert.equal(document.querySelector('[data-group="counterparty"]')?.textContent?.trim(), name);
+  await page.click(document.querySelector('[data-group="counterparty"]'));
+  assert.equal(document.querySelector('[role="dialog"] h3')?.textContent, name);
+  await page.click(filters);
+  await page.click(document.querySelector('[data-testid="records-export"]'));
+  await page.settle(() => document.querySelector('[data-testid="records-export-edit-columns"]') !== null);
+  await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
+  await page.settle(() => document.querySelector('[data-testid="records-export-columns"]') !== null);
+  assert.ok([...document.querySelectorAll('[data-testid="records-export-columns"] label')].some((label) => label.textContent === name));
 });
 
 test("server layout changes render, saved views retain the effective layout, and Restore asks for fresh defaults", async () => {

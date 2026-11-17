@@ -14,7 +14,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 let cleanup = async () => {};
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; });
 
-async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initialFilters = emptyPreviewFilters("DOP")) {
+async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initialFilters = emptyPreviewFilters("DOP"), family: "purchase" | "sale" = "purchase") {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 844 });
   const { act, useState } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -28,7 +28,7 @@ async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initial
   function FilterHarness() {
     const [value, setValue] = useState<PreviewFilters>(initialFilters);
     const recordKind = "gasto";
-    return <><Filters options={null} value={value} onChange={setValue} /><output data-testid="applied-record-kind">{recordKind}</output><output data-testid="applied-filters">{JSON.stringify(value)}</output></>;
+    return <><Filters options={null} family={family} value={value} onChange={setValue} /><output data-testid="applied-record-kind">{recordKind}</output><output data-testid="applied-filters">{JSON.stringify(value)}</output></>;
   }
   function ToolbarHarness() {
     const [record, setRecord] = useState<{ query: string; kind: "gasto" | "venta" }>({ query: "", kind: "gasto" });
@@ -198,8 +198,19 @@ test("checkbox parents derive mixed/all/none from label clicks and bulk changes"
 });
 
 
+for (const [family, name] of [["purchase", "Emisor"], ["sale", "Cliente"]] as const) test(`the name filter and its chip read ${name} on a ${family} tab`, async () => {
+  const page = await mount("filters", 1440, emptyPreviewFilters("DOP"), family);
+  await page.click(page.button("Filtros")); await page.click(page.button(name));
+  assert.equal(document.querySelector('[role="dialog"] h3')?.textContent, name);
+  await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Nube Hosting"));
+  await page.click(page.button("Aplicar"));
+  const chip = document.querySelector('[data-testid="records-preview-filter-chips"] button');
+  assert.equal(chip?.textContent, `${name} · 1`);
+  assert.equal(chip?.getAttribute("aria-label"), `Quitar filtro ${name}`);
+});
+
 test("bulk selection applies only to visible matches and keeps hidden choices", async () => {
-  const page = await mount("filters"); await page.click(page.button("Filtros")); await page.click(page.button("Contraparte"));
+  const page = await mount("filters"); await page.click(page.button("Filtros")); await page.click(page.button("Emisor"));
   const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
   await page.click(label("Nube Hosting"));
   const field = document.querySelector<HTMLInputElement>('input[type="search"]')!;

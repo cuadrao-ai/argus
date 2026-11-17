@@ -20,8 +20,8 @@ from argus.domain.business.reporting import (
     summarize_fiscal,
 )
 from argus.domain.business.reporting_columns import (
-    SPECS,
     TableColumn,
+    column_label,
     offered_columns,
     offering_families,
 )
@@ -227,7 +227,7 @@ def report_columns(
     return tuple(
         ReportColumn(
             key=key,
-            label_key=SPECS[key].label,
+            label_key=column_label(key, families),
             shown=key not in presentation.hidden,
             families=offering_families(key),
         )

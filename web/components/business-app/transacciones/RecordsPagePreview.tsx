@@ -17,7 +17,8 @@ import styles from "./records-page.module.css";
 /** Preview and server pages share the same table and footer. */
 export default function RecordsPagePreview({ records, density, resetKey, rowRef, emptyContent, preferences, onSortChange, connected }: { connected?: { answer: ReportAnswer; onPage: (page: number) => void; onPageSize: (size: ReportRequest["page_size"]) => void; onSort?: (sort: RecordsSort) => void }; preferences: RecordsViewPreferences; onSortChange: (sort: RecordsSort) => void; emptyContent?: ReactNode; records: readonly RecordRow[]; density: Density; resetKey: string; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
-  const word = (key: string) => t(`business.transactions.pagination.${key}`);
+  const named = preferences.columns.find((column) => column.key === "counterparty");
+  const word = (key: string) => t(`business.transactions.pagination.${key}`, { column: named ? t(named.label_key) : "" });
   const chosenSort = preferences.sort ?? DEFAULT_RECORDS_SORT;
   const scope = `${resetKey}:${chosenSort.key}:${chosenSort.direction}`;
   const noticeId = useId();
@@ -56,7 +57,7 @@ export default function RecordsPagePreview({ records, density, resetKey, rowRef,
         {(close) => <>{RECORDS_SORT_OPTIONS.map(({ key, direction, label }) => <button type="button" key={`${key}-${direction}`} className={styles.option} disabled={connected !== undefined && !connected.onSort && (key !== "fecha" || direction !== "desc")} aria-disabled={key === "monto" && !result.amountSortAvailable || undefined} onClick={() => { sort({ key, direction }); close(); }}>{word(label)}{result.effectiveSort.key === key && result.effectiveSort.direction === direction ? <Check size={16} aria-hidden="true" /> : null}</button>)}{!result.amountSortAvailable ? <p className={styles.sortHelp}>{word("amount_requires_currency")}</p> : null}</>}
       </ToolbarPicker></div> : null}
       {result.count === 0 ? emptyContent : narrow ? <RecordsNarrowList records={result.items} rowRef={rowRef} /> : <RecordsTable preferences={preferences} records={result.items} density={density} rowRef={rowRef} sort={result.effectiveSort} onSortChange={sort} amountSortAvailable={result.amountSortAvailable} sortNoticeId={showNotice ? noticeId : undefined} serverSorted={connected !== undefined && !connected.onSort} />}
-      <RecordsPaginationControls page={result.page} pages={result.pages} pageSize={connected?.answer.page_size ?? state.pageSize} rangeLabel={label} onPageChange={changePage} onPageSizeChange={(pageSize) => { if (connected) connected.onPageSize(pageSize); else setState((current) => ({ ...current, pageSize, page: 1 })); }} />
+      <RecordsPaginationControls count={result.count} page={result.page} pages={result.pages} pageSize={connected?.answer.page_size ?? state.pageSize} rangeLabel={label} onPageChange={changePage} onPageSizeChange={(pageSize) => { if (connected) connected.onPageSize(pageSize); else setState((current) => ({ ...current, pageSize, page: 1 })); }} />
     </div>
   </div>;
 }

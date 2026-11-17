@@ -153,7 +153,7 @@ describe("the receipt dossier on an open draft", () => {
   test("the Spanish review uses the dictionary fact labels and official 606 options", async () => {
     const page = await setup();
     try {
-      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Contraparte");
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Emisor");
       assert.equal(page.row("occurred_on").querySelector("dt")?.textContent, "Fecha del comprobante");
       const spanish = (await import("@/public/locales/es-419/common.json")).default;
       for (const field of ["category", "payment_method"] as const) {
@@ -169,7 +169,7 @@ describe("the receipt dossier on an open draft", () => {
     const page = await setup();
     try {
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
-      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Counterparty");
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Supplier");
       assert.equal(page.row("occurred_on").querySelector("dt")?.textContent, "Receipt date");
       const english = (await import("@/public/locales/en/common.json")).default;
       const spanish = (await import("@/public/locales/es-419/common.json")).default;
@@ -544,7 +544,7 @@ describe("the receipt dossier on an open draft", () => {
       await page.press('[data-testid="edit-counterparty"] input', "Enter");
       await page.wait(() => Boolean(page.host.querySelector('[data-testid="row-save-failed"]')));
       const failure = page.row("counterparty").querySelector('[data-testid="row-save-failed"]')!;
-      assert.ok(failure.textContent?.includes("No pudimos confirmar si Contraparte se guardó."));
+      assert.ok(failure.textContent?.includes("No pudimos confirmar si Emisor se guardó."));
       assert.ok(failure.querySelector('[data-testid="error-reference"]'), "a lost answer still shows a reference");
       assert.equal(button(page.host, "Aprobar").disabled, true);
       assert.equal(page.action("counterparty", "Cancelar").disabled, true, "nothing may be dropped while its outcome is unknown");
@@ -701,6 +701,7 @@ describe("the receipt dossier on an open draft", () => {
     try {
       assert.equal(page.host.querySelector('[role="radiogroup"], [data-segment]'), null);
       assert.match(page.row("document_type").textContent ?? "", /Tipo\s*Compra/);
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Emisor");
       await page.openRow("document_type");
       const select = () => page.row("document_type").querySelector("select")!;
       assert.deepEqual([...select().options].map((option) => option.textContent), ["Compra", "Venta"]);
@@ -718,6 +719,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.deepEqual(typed.map(({ version, documentType }) => [version, documentType]), [[2, "venta"]]);
       assert.ok(page.row("document_type").querySelector('[data-testid="row-saved"]'));
       assert.equal(page.row("document_type").getAttribute("data-type"), "venta");
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Cliente");
     } finally { await page.close(); }
   });
 

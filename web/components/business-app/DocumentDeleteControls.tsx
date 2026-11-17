@@ -10,6 +10,7 @@ import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { referenceCode } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import type { ReceiptSummary } from "@/lib/business-api";
+import { counterpartyTerm, documentFamily, type RecordFamily } from "@/lib/counterparty-term";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
 import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { resolveLanguage } from "@/lib/language-features";
@@ -22,6 +23,8 @@ export type DeleteDocumentTarget = {
   id: string;
   name: string;
   merchant: string | null;
+  /** Names the merchant row: Emisor on a purchase, Cliente on a sale. */
+  family: RecordFamily | null;
   date: string | null;
   amount: string | null;
   currency: string | null;
@@ -31,7 +34,7 @@ export type DeleteDocumentTarget = {
 };
 
 export function receiptDeleteTarget(receipt: ReceiptSummary, state: string, unnamed: string): DeleteDocumentTarget {
-  return { id: receipt.id, name: receipt.merchant || receipt.filename || unnamed, merchant: receipt.merchant, date: receipt.occurred_on, amount: receipt.amount, currency: receipt.currency, filename: receipt.filename, state, receipt };
+  return { id: receipt.id, name: receipt.merchant || receipt.filename || unnamed, merchant: receipt.merchant, family: documentFamily(receipt.document_type), date: receipt.occurred_on, amount: receipt.amount, currency: receipt.currency, filename: receipt.filename, state, receipt };
 }
 
 function DocumentThumbnail({ receipt }: { receipt?: ReceiptSummary }) {
@@ -69,7 +72,7 @@ function DeleteFacts({ target, withState = true }: { target: DeleteDocumentTarge
   return <div className="mt-4 flex items-start gap-3" data-testid="document-delete-facts">
     <DocumentThumbnail receipt={target.receipt} />
     <dl className="min-w-0 flex-1 space-y-2 text-[14px]">
-      {Object.entries(facts).map(([key, value]) => <div key={key} className="flex flex-wrap justify-between gap-x-3"><dt className="text-[#56635e] dark:text-white/70">{t(`business.document_delete.fields.${key}`)}</dt><dd className={`min-w-0 break-words text-right ${key === "total" ? "cuadrao-amount tabular-nums" : ""}`}>{value}</dd></div>)}
+      {Object.entries(facts).map(([key, value]) => <div key={key} className="flex flex-wrap justify-between gap-x-3"><dt className="text-[#56635e] dark:text-white/70">{key === "counterparty" ? counterpartyTerm(t, target.family) : t(`business.document_delete.fields.${key}`)}</dt><dd className={`min-w-0 break-words text-right ${key === "total" ? "cuadrao-amount tabular-nums" : ""}`}>{value}</dd></div>)}
     </dl>
   </div>;
 }
