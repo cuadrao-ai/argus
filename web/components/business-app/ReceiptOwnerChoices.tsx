@@ -2,7 +2,7 @@
 
 import { History, ReceiptText, SquareSparkles, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BusinessDossier, ShownSuggestions } from "@/lib/business-dossier";
+import type { BusinessDossier, DeclarationSuggestion, ShownSuggestions } from "@/lib/business-dossier";
 import type { DgiiField, DgiiFields, PurchaseChoice, SuggestedField, SuggestionSource } from "@/lib/business-dgii";
 import { UNKNOWN_VALUE } from "./business-format";
 import { quietButtonClass } from "./business-ui";
@@ -21,19 +21,31 @@ function savedChoice(dossier: BusinessDossier, choice: Choice): string {
   return choice === "category" && declared?.category_suggested === true ? "" : String(declared?.[choice] ?? "");
 }
 
-/** What a 606 answer shows: the saved value, else the server's suggestion, with where it came from. */
-function shownChoice(dossier: BusinessDossier, choice: Choice): { value: string; source: SuggestionSource | null } {
-  const saved = savedChoice(dossier, choice);
-  if (saved) return { value: saved, source: dossier.dgii?.suggestion_sources?.[choice] ?? null };
-  const suggestion = dossier.declaration_suggestions?.[choice] ?? null;
-  return suggestion ? { value: suggestion.value, source: suggestion.source } : { value: "", source: null };
+/** What the rows draw from: the record, the field codes, and whether those failed to load. */
+export type ChoicesView = { dossier: BusinessDossier; fields: DgiiFields | null; failed: boolean; readOnly?: boolean };
+
+function catalogField(fields: DgiiFields | null, choice: Choice): DgiiField | undefined {
+  return fields?.["606"].find((item) => item.name === choice);
 }
 
-/** The suggestions the screen shows filled in: what the approve request carries so the approval saves them. */
-export function shownSuggestions(dossier: BusinessDossier): ShownSuggestions | undefined {
+/**
+ * What a 606 answer's row shows: the saved value, else the server's suggestion with where it
+ * came from. A suggestion counts only when the row draws it: as text when read only, else as
+ * an option of a loaded select. While the codes load or after they failed, nothing is shown.
+ */
+function shownChoice({ dossier, fields, failed, readOnly }: ChoicesView, choice: Choice): { value: string; source: SuggestionSource | null; suggestion: DeclarationSuggestion | null } {
+  const saved = savedChoice(dossier, choice);
+  if (saved) return { value: saved, source: dossier.dgii?.suggestion_sources?.[choice] ?? null, suggestion: null };
+  const suggestion = dossier.declaration_suggestions?.[choice] ?? null;
+  const drawn = suggestion && !failed && (readOnly || catalogField(fields, choice)?.options.includes(suggestion.value));
+  return drawn ? { value: suggestion.value, source: suggestion.source, suggestion } : { value: "", source: null, suggestion: null };
+}
+
+/** The suggestions the rows show filled in: what the approve request carries so the approval saves them. */
+export function shownSuggestions(view: ChoicesView): ShownSuggestions | undefined {
   const shown = CHOICES.flatMap((choice) => {
-    const suggestion = dossier.declaration_suggestions?.[choice];
-    return suggestion && !savedChoice(dossier, choice) ? [[choice, suggestion] as const] : [];
+    const { suggestion } = shownChoice(view, choice);
+    return suggestion ? [[choice, suggestion] as const] : [];
   });
   return shown.length ? Object.fromEntries(shown) : undefined;
 }
@@ -54,14 +66,8 @@ function SourceChip({ source }: { source: SuggestionSource }) {
  * blocks approval. A suggestion shows filled, with an icon for its source, and the approval
  * saves it; a value the person chose has no icon.
  */
-export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled, readOnly = false, saves, onChoose, onRetry, onCancel, onReload }: {
-  dossier: BusinessDossier;
-  fields: DgiiFields | null;
-  /** The codes could not be loaded. */
-  failed: boolean;
+export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled, readOnly = false, saves, onChoose, onRetry, onCancel, onReload }: ChoicesView & {
   disabled: boolean;
-  /** The values as text, with no control. */
-  readOnly?: boolean;
   saves: Partial<Record<SaveRow, RowSave>>;
   onChoose: (choice: Choice, value: string | null) => void;
   onRetry: (choice: Choice) => void;
@@ -70,8 +76,8 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
 }) {
   const { t } = useTranslation();
   const row = (choice: Choice, label: string) => {
-    const field: DgiiField | undefined = fields?.["606"].find((item) => item.name === choice);
-    const { value, source } = shownChoice(dossier, choice);
+    const field = catalogField(fields, choice);
+    const { value, source } = shownChoice({ dossier, fields, failed, readOnly }, choice);
     const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code }) || code;
     const chip = source ? <SourceChip source={source} /> : null;
     if (readOnly) return (
