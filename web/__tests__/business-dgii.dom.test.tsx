@@ -22,9 +22,9 @@ const fields = { "606": [
   { name: "itbis_cost", label: "ITBIS llevado al Costo", kind: "money", options: [] },
 ], "607": [] } as const satisfies Record<"606" | "607", readonly unknown[]>;
 
-function registerDom() {
+function registerDom(width?: number) {
   const original = { fetch: globalThis.fetch, mock: process.env.NEXT_PUBLIC_MOCK_AUTH };
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  GlobalRegistrator.register({ url: "http://localhost/biz", ...(width ? { width } : {}) });
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { value: true, configurable: true, writable: true });
   return async () => {
@@ -35,8 +35,8 @@ function registerDom() {
   };
 }
 
-async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiFields; dossier?: (dossier: BusinessDossier) => BusinessDossier } = {}) {
-  const release = registerDom();
+async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiFields; width?: number; dossier?: (dossier: BusinessDossier) => BusinessDossier } = {}) {
+  const release = registerDom(shape.width);
   const fixture = await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "PRÁCTICA caja" }]).dossier(dossierFixtureIds.fiscal);
   const dossier = shape.dossier?.(fixture) ?? fixture;
   const writes: { key: string | null; input: Record<string, unknown> }[] = [];
@@ -95,7 +95,7 @@ const fullForm: DgiiFields = {
   ],
   "607": [field("income_type", "Tipo de Ingreso", "select", ["1"]), field("withheld_on", "Fecha de Retención", "date")],
 };
-const groupsOf = (host: Element) => [...host.querySelectorAll<HTMLElement>("[data-group]")].map((group) => [group.dataset.group, group.querySelector("h4")?.textContent]);
+const groupsOf = (host: Element) => [...host.querySelectorAll<HTMLElement>("[data-group]")].map((group) => [group.dataset.group, (group.querySelector("h4 button > span") ?? group.querySelector("h4"))?.textContent]);
 
 test("the fields read in five groups, every field the server sends stays, and no date is a native input", async () => {
   const view = await mountEditor({ fields: fullForm });
@@ -106,6 +106,68 @@ test("the fields read in five groups, every field the server sends stays, and no
     assert.equal(view.host.querySelectorAll('input[type="date"]').length, 0);
     assert.ok(view.host.querySelector('[data-group="identity"] [aria-label="Abrir calendario"]'), "the date is our calendar");
     assert.ok(view.host.querySelector('[data-testid="fiscal-declaration-services_amount"]'), "an amount is our money field");
+  } finally { await view.dispose(); }
+});
+
+const foldOf = (host: Element) => host.querySelector<HTMLButtonElement>('[data-group="retentions"] h4 > button[aria-expanded]');
+const shown = (host: Element, id: string) => { const control = host.querySelector(`#fiscal-declaration-${id}, [data-testid="fiscal-declaration-${id}"]`); return Boolean(control && !control.closest("[hidden]")); };
+const purchaseWithheld = (value: string) => (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, dgii: { form: "606", itbis_withheld: value } });
+
+test("a purchase with no withholdings folds them behind one row that opens and closes", async () => {
+  const view = await mountEditor({ fields: fullForm });
+  try {
+    const fold = foldOf(view.host);
+    assert.ok(fold, "the group is one row");
+    assert.equal(fold.getAttribute("aria-expanded"), "false");
+    assert.equal(fold.textContent, "RetencionesSin retenciones");
+    assert.equal(shown(view.host, "itbis_withheld"), false, "its fields wait behind the row");
+    await act(async () => fold.click());
+    assert.equal(fold.getAttribute("aria-expanded"), "true");
+    assert.equal(fold.textContent, "Retenciones", "an open row says nothing more than its title");
+    assert.equal(shown(view.host, "itbis_withheld"), true);
+    await act(async () => fold.click());
+    assert.equal(fold.getAttribute("aria-expanded"), "false");
+    assert.equal(shown(view.host, "itbis_withheld"), false);
+  } finally { await view.dispose(); }
+});
+
+test("a purchase that holds a withholding shows the group open, with no row to fold it", async () => {
+  const saved = await mountEditor({ fields: fullForm, dossier: purchaseWithheld("150.00") });
+  try {
+    assert.equal(foldOf(saved.host), null);
+    assert.equal(saved.host.querySelector('[data-group="retentions"] h4')?.textContent, "Retenciones");
+    assert.equal(shown(saved.host, "itbis_withheld"), true);
+  } finally { await saved.dispose(); }
+  const typed = await mountEditor({ fields: fullForm });
+  try {
+    await act(async () => foldOf(typed.host)!.click());
+    await typed.input("ITBIS Retenido", "10.00");
+    assert.equal(foldOf(typed.host), null, "a value typed into the open group keeps it open");
+    assert.equal(shown(typed.host, "itbis_withheld"), true);
+    await typed.input("ITBIS Retenido", "");
+    assert.equal(foldOf(typed.host)?.getAttribute("aria-expanded"), "true", "cleared, it may fold again");
+  } finally { await typed.dispose(); }
+});
+
+test("a sale keeps its withholdings open: they never fold", async () => {
+  const view = await mountEditor({ fields: fullForm, dossier: (dossier) => ({ ...dossier, facts: { ...dossier.facts, kind: { ...dossier.facts.kind, state: "known", value: "income" } as never } }) });
+  try {
+    assert.equal(foldOf(view.host), null);
+    assert.equal(view.host.querySelector('[data-group="retentions"] h4')?.textContent, "Retenciones");
+    assert.equal(shown(view.host, "withheld_on"), true);
+  } finally { await view.dispose(); }
+});
+
+test("on a phone the fold is the same row, and it opens into the same column as every group", async () => {
+  const view = await mountEditor({ fields: fullForm, width: 375 });
+  try {
+    const fold = foldOf(view.host);
+    assert.ok(fold);
+    assert.equal(fold.textContent, "RetencionesSin retenciones");
+    await act(async () => fold.click());
+    const grid = (group: string) => view.host.querySelector(`[data-group="${group}"] > div`)?.className;
+    assert.ok(grid("identity"));
+    assert.equal(grid("retentions"), grid("identity"));
   } finally { await view.dispose(); }
 });
 

@@ -2348,6 +2348,7 @@
         "tag_verified": "Verificado"
       },
       "load_failed": "No se pudieron cargar los campos fiscales.",
+      "no_withholdings": "Sin retenciones",
       "save_failed": "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aprobar.",
       "actual_refund": "Se recibió un reembolso…",
       "option": {
