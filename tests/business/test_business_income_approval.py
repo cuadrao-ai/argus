@@ -7,7 +7,8 @@ from argus.domain.business.actions.approval import _money_request
 from argus.domain.business.actions.dossier import blockers
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dossier import AccountChoice
-from argus.domain.business.contracts.facts import BusinessFacts
+from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts
+from faker import Faker
 
 
 def _known(value):
@@ -154,6 +155,52 @@ def test_a_refund_needs_funding(state) -> None:
     ]
     with pytest.raises(ActionError, match="fact_required"):
         _money_request(facts, uuid4(), "refund")
+
+
+@pytest.fixture
+def unfunded_purchase(faker: Faker) -> BusinessFacts:
+    facts = _unstated("expense", "unknown").model_dump(mode="json")
+    facts["amount"] = _known(str(faker.pydecimal(left_digits=4, right_digits=2, positive=True)))
+    facts["counterparty"] = _known(faker.company())
+    return BusinessFacts.model_validate(facts)
+
+
+@pytest.mark.parametrize(
+    "ecf_prefix,ncf_prefix,needs_funding",
+    [("E34", None, True), ("E34", "B01", True), ("E31", "B04", False)],
+)
+def test_approval_uses_the_ecf_before_the_ncf_for_credit_note_funding(
+    unfunded_purchase: BusinessFacts,
+    faker: Faker,
+    ecf_prefix: str,
+    ncf_prefix: str | None,
+    needs_funding: bool,
+) -> None:
+    fiscal = {"ecf": _known(faker.numerify(ecf_prefix + "##########"))}
+    if ncf_prefix is not None:
+        fiscal["ncf"] = _known(faker.numerify(ncf_prefix + "########"))
+    facts = unfunded_purchase.model_copy(update={"fiscal": FiscalFacts.model_validate(fiscal)})
+
+    assert [(item.code, item.field) for item in blockers(facts, ())] == (
+        [("fact_required", "funding")] if needs_funding else []
+    )
+
+
+@pytest.mark.parametrize("ncf_prefix,needs_funding", [("B04", True), ("B01", False)])
+def test_approval_requires_funding_for_a_credit_note_even_when_kind_is_expense(
+    unfunded_purchase: BusinessFacts,
+    faker: Faker,
+    ncf_prefix: str,
+    needs_funding: bool,
+) -> None:
+    fiscal = FiscalFacts.model_validate(
+        {"ncf": _known(faker.numerify(ncf_prefix + "########"))}
+    )
+    facts = unfunded_purchase.model_copy(update={"fiscal": fiscal})
+
+    assert [(item.code, item.field) for item in blockers(facts, ())] == (
+        [("fact_required", "funding")] if needs_funding else []
+    )
 
 
 def test_expense_money_request_keeps_owner_funds_path() -> None:
