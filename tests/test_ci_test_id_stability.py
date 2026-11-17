@@ -46,6 +46,70 @@ class TestIdStabilityTests(unittest.TestCase):
         self.assertIn("Test IDs differ", result.stderr)
         self.assertIn("test_value[", result.stderr)
 
+    def test_seeded_generated_parameters_require_explicit_ids(self) -> None:
+        samples = [
+            "from faker import Faker\nfake = Faker()\nFaker.seed(42)\n"
+            "@pytest.mark.parametrize('value', [fake.name()])\n",
+            "import random as rng\nrng.seed(42)\n"
+            "@pytest.mark.parametrize('value', [rng.randint(0, 100)])\n",
+            "from random import randint as draw, seed\nseed(42)\n"
+            "values = [(draw(0, 100), None)]\n"
+            "@pytest.mark.parametrize(argnames='value,other', argvalues=values)\n",
+        ]
+        for sample in samples:
+            with self.subTest(sample=sample):
+                result = self.run_check(
+                    "import pytest\n"
+                    + sample
+                    + (
+                        "def test_value(value, other):\n    pass\n"
+                        if "value,other" in sample
+                        else "def test_value(value):\n    pass\n"
+                    )
+                )
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("explicit parameter IDs", result.stderr)
+
+    def test_generated_parameter_lint_handles_ids_aliases_and_containers(self) -> None:
+        from scripts.ci.check_test_ids import generated_parameter_lines
+
+        prelude = (
+            "import pytest as pt\nfrom faker import Faker as Factory\n"
+            "import random as rng\nfake = Factory()\n"
+        )
+        cases = [
+            ("'value', [fake.name()]", True),
+            ("'value', [fake.name()], ids=None", True),
+            ("'value', [fake.name()], ids=['name']", False),
+            ("'value', [fake.name()], False, ['name']", False),
+            ("'value', [pt.param(fake.name(), id='name')]", False),
+            ("'value', [pt.param(fake.name(), id=None)]", True),
+            ("'value', [pt.param(fake.name(), id='name'), fake.name()]", True),
+            ("'value', [{'name': fake.name()}]", False),
+            ("'value', [(fake.name(),)]", False),
+            ("'value,other', [(fake.name(), None)]", True),
+            ("['value'], [(fake.name(),)]", True),
+            ("'value,', [(fake.name(),)]", False),
+            ("['value', 'other'], [({'name': fake.name()}, None)]", False),
+            ("'value', [fake.name() for _ in range(2)]", True),
+            ("'value', [rng.Random(42).randint(0, 100)]", True),
+            ("'value', ['literal']", False),
+        ]
+        for arguments, rejected in cases:
+            with self.subTest(arguments=arguments):
+                source = (
+                    prelude
+                    + f"@pt.mark.parametrize({arguments})\ndef test_value(): pass\n"
+                )
+                self.assertEqual(bool(generated_parameter_lines(source)), rejected)
+        self.assertEqual(
+            generated_parameter_lines(
+                "import pytest\nclass Stub: pass\nfake = Stub()\n"
+                "@pytest.mark.parametrize('value', [fake.name()])\ndef test_value(): pass\n"
+            ),
+            [],
+        )
+
     def test_random_explicit_ids_are_rejected(self) -> None:
         result = self.run_check(
             "import pytest\nfrom uuid import uuid4\n"
