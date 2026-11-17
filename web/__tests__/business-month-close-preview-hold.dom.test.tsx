@@ -52,7 +52,7 @@ async function inicioFor(env: { NODE_ENV: string; NEXT_PUBLIC_MOCK_AUTH: string 
   const { BusinessContext } = await import("../components/business-app/BusinessWorkspace");
   const { default: MonthClosePanel, useMonthCloseSource } = await import("../components/business-app/BusinessMonthClosePanel");
   function Panel() {
-    return <MonthClosePanel monthClose={useMonthCloseSource()} />;
+    return <MonthClosePanel layout="finance" arrange={({ month, money }) => <>{month}{money}</>} monthClose={useMonthCloseSource()} />;
   }
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
@@ -89,8 +89,8 @@ describe("Inicio ?monthClose= review hold", () => {
       try {
         assert.ok(page.urls.some((url) => url.includes("/business/month-close?")), `${hold}: the live month was read`);
         assert.ok(page.urls.some((url) => url.includes("/business/open-items")), `${hold}: the live open items were read`);
-        assert.ok(page.read("month-close"), `${hold}: live Inicio is shown`);
-        assert.equal(page.read("month-close-error"), null, `${hold}: no invented error`);
+        assert.ok(page.read("home-month"), `${hold}: live Inicio is shown`);
+        assert.equal(page.read("home-month-body")?.getAttribute("data-state"), "ready", `${hold}: no held state`);
         assert.equal(page.read("month-close-loading"), null, `${hold}: no held loading`);
         assert.equal(page.read("month-close-empty"), null, `${hold}: no invented empty month`);
       } finally {
@@ -103,13 +103,13 @@ describe("Inicio ?monthClose= review hold", () => {
     const loading = await inicioFor(preview, "loading");
     try {
       assert.equal(loading.urls.some((url) => url.includes("/business/month-close?")), false);
-      assert.ok(loading.read("month-close-loading"));
+      assert.equal(loading.read("home-month-body")?.getAttribute("data-state"), "loading");
     } finally {
       await loading.close();
     }
     const error = await inicioFor(preview, "error");
     try {
-      assert.ok(error.read("month-close-error"));
+      assert.equal(error.read("home-month-body")?.getAttribute("data-state"), "error");
     } finally {
       await error.close();
     }
