@@ -4,12 +4,35 @@ import { createContext, useContext, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { BusinessPanelState, RecordList } from "./BusinessWorkspace";
 
-/** The list a record sits beside on a desktop; null for a panel that is not a record. */
+export type RecordPanel = Extract<BusinessPanelState, { kind: "receipt" | "draft" | "expense" | "email" }>;
+
+export function isRecordPanel(panel: BusinessPanelState): panel is RecordPanel {
+  return panel.kind === "receipt" || panel.kind === "draft" || panel.kind === "expense" || panel.kind === "email";
+}
+
+/** The list a record belongs beside; null for a panel that is not a record, or a record opened without one that has not loaded yet. */
 export function recordList(panel: BusinessPanelState): RecordList | null {
   if (panel.kind === "expense") return "transactions";
-  if (panel.kind === "receipt" || panel.kind === "draft") return panel.list ?? "inbox";
+  if (panel.kind === "receipt" || panel.kind === "draft") return panel.list ?? null;
   if (panel.kind === "email") return "inbox";
   return null;
+}
+
+/** On a desktop a record opens in the tray over its list; below it the record is the page. */
+export function recordInTray(panel: BusinessPanelState, isBelowDesktop: boolean): panel is RecordPanel {
+  if (!isRecordPanel(panel)) return false;
+  // The local Registros preview keeps its list beneath a phone record sheet.
+  const recordsPhonePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && recordList(panel) === "transactions";
+  return !isBelowDesktop || recordsPhonePreview;
+}
+
+/**
+ * The one screen on the page, which the top bar names. Under a record in the tray it is the record's list; a
+ * record opened without one (a link, Actividad) shows no list until it has loaded and said which. Otherwise it is
+ * the panel itself.
+ */
+export function shownScreen(panel: BusinessPanelState, isBelowDesktop: boolean): BusinessPanelState["kind"] {
+  return (recordInTray(panel, isBelowDesktop) ? recordList(panel) : null) ?? panel.kind;
 }
 
 /** Whether a row that opens `target` is the record open now. */

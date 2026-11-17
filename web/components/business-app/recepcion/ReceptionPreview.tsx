@@ -191,7 +191,6 @@ function ReceptionWorkspace() {
   const counts = { attention: bandejaAttentionCount(records), listos: bandejaListoCount(records), eliminados: records.receiptActivity?.bandeja_eliminados_count };
   const unseenIds = new Set(rows.filter(row => row.kind === "receipt" && row.receipt.activity?.unread === true && row.receipt.bandeja?.leyendo !== true).map(rowKey));
   const reviewNext = canAddRecords(chosen) && !chosen?.capabilities.includes("approve") ? rows.find(row => row.kind === "receipt" && row.receipt.bandeja?.por_revisar === true) : undefined;
-  const inPanel = phone || panel.kind !== "inbox";
   const retry = () => {
     if (deletedNotes.failure) deletedNotes.retry();
     if (retryableArrivals) setAttempt(value => value + 1);
@@ -214,7 +213,7 @@ function ReceptionWorkspace() {
   useLendListSearch("inbox", searchInBar ? { query, setQuery: searchQuery } : null);
   return <PullToRefresh onRefresh={refresh}>
     <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-columns={shownReceptionColumns(preferences, { status: showStatus }).join(" ")} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width, RECORDS_PREVIEW_COLUMNS.find(column => column.key === "moneda")!.width!), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
-      {inPanel ? <div className={styles.phoneHeading} data-surface-block="heading"><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
+      {phone ? <div className={styles.phoneHeading} data-surface-block="heading"><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       {source.mode === "live" && userId && chosen ? (
         <GuideCard cardId="bandeja-intro" pending={waiting} title={guide("title")}
           points={[

@@ -298,7 +298,7 @@ function useTrayDismiss({ panelRef, onClose, returnFocusRef }: { panelRef: RefOb
       // Read at close: the owner names the row that is open now, which may not be the one that opened the tray.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       const target = [returnFocusRef?.current, opener].find((element): element is HTMLElement => element instanceof HTMLElement && element.isConnected);
-      target?.focus();
+      target?.focus({ preventScroll: true });
     };
   }, [opener, panelRef, returnFocusRef]);
   // React carries a press inside a menu the tray portals elsewhere back through the tray, so it counts as inside.
