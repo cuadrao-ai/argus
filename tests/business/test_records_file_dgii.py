@@ -187,3 +187,35 @@ def test_rnc_snapshot_copies_entries_and_preserves_misses():
     assert dict(snapshot.entries) == {"101001577": None}
     with pytest.raises(TypeError):
         snapshot.entries["101001577"] = None
+
+
+@pytest.mark.parametrize(
+    ("form", "name", "code"),
+    [
+        *(("606", "income_withholding_type", f"{n:02}") for n in range(1, 10)),
+        *(("607", "income_type", str(n)) for n in range(1, 7)),
+    ],
+)
+def test_dgii_file_writes_the_withholding_and_income_codes_without_names(
+    form, name, code
+):
+    from argus.domain.business.dgii_columns import COLUMNS
+
+    month = books()
+    approved = {
+        key: replace(
+            record, declaration=record.declaration.model_copy(update={name: code})
+        )
+        if record.declaration.form == form
+        else record
+        for key, record in month.approved.items()
+    }
+    request = report(record_families=["sale" if form == "607" else "purchase"])
+    built = build_file(
+        replace(month, approved=approved),
+        RecordsExport(report=request, mode="dgii", format="csv"),
+    )
+    headers, *lines = csv.reader(io.StringIO(built.content.decode("utf-8-sig")))
+    column = headers.index(dict(COLUMNS[form])[name])
+    assert lines
+    assert {line[column] for line in lines} == {code}
