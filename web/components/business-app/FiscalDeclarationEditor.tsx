@@ -20,6 +20,7 @@ import { REVIEW_INPUT_CLASS, ReviewSelect } from "./ReceiptFieldControls";
 import ReceiptRowSave from "./ReceiptRowSave";
 import type { RowSave } from "./receipt-review-save";
 import { fiscalFieldGroups, foldsBehindRow, type FiscalGroup } from "./fiscal-field-groups";
+import { dgiiOptionLabel } from "./receipt-fact-presentation";
 
 const EDITOR_ID = "fiscal-declaration";
 const GROUP_TITLE_CLASS = "text-[12px] font-medium uppercase leading-4 tracking-[0.06em] text-[#56635e] dark:text-white/60";
@@ -147,7 +148,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     if (field.kind === "money") return <label key={field.name} className={`block ${MONEY_NOTE_CLASS}`}>{title}<MoneyInput flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} /></label>;
     return <label key={field.name} className="block">{title}
       {field.kind === "select"
-        ? <ReviewSelect id={id} name={field.name} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{t(`business.dgii.option.${field.name}.${option}`, { defaultValue: option }) || option}</option>)}</ReviewSelect>
+        ? <ReviewSelect id={id} name={field.name} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{dgiiOptionLabel(t, field.name, option)}</option>)}</ReviewSelect>
         : <input id={id} name={field.name} className={REVIEW_INPUT_CLASS} autoComplete="off" value={value} disabled={locked} onChange={(event) => setValue(event.target.value)} />}
       <span className={FIELD_NOTE_CLASS} />
     </label>;

@@ -1,4 +1,5 @@
 import type { BusinessAccount } from "@/lib/business-api";
+import type { DgiiDeclaration, DgiiField } from "@/lib/business-dgii";
 import type { BusinessFacts, BusinessFactField, BusinessFiscalField } from "@/lib/business-dossier";
 import { formatAmount, formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 
@@ -44,4 +45,21 @@ export function presentFiscalFact(key: BusinessFiscalField, facts: BusinessFacts
   // The 606 answer reads as the Sí or No the accountant chose.
   if (typeof fact.value === "boolean") return (fact.value ? labels.yes : labels.no) ?? String(fact.value);
   return key === "itbis" ? moneyOrUnknown(fact.value, facts, locale, labels.noCurrency) : fact.value;
+}
+
+type Translate = (key: string, options: { defaultValue: string }) => string;
+
+/** A DGII option as the fiscal editor's select names it: its locale label, or the bare code where the locale has none. */
+export function dgiiOptionLabel(t: Translate, field: string, code: string): string {
+  return t(`business.dgii.option.${field}.${code}`, { defaultValue: code }) || code;
+}
+
+/** A DGII declaration value as the fiscal editor shows it at rest, with `unknown` for a value nobody gave. */
+export function presentDgiiValue(field: DgiiField, value: DgiiDeclaration[string] | undefined, facts: BusinessFacts, locale: string, t: Translate, unknown: string): string {
+  if (value === null || value === undefined) return unknown;
+  const text = String(value);
+  if (field.kind === "select") return dgiiOptionLabel(t, field.name, text);
+  if (field.kind === "date") return formatDay(text, locale);
+  if (field.kind === "money") return moneyOrUnknown(text, facts, locale);
+  return text;
 }
