@@ -4,6 +4,7 @@ import pytest
 from argus.domain.business.actions.amounts_preview import preview_amounts
 from argus.domain.business.contracts.amounts import AmountsPreviewRequest
 from argus.domain.business.contracts.facts import BusinessResolution
+from faker import Faker
 
 from tests.business.test_montos import receipt
 
@@ -29,3 +30,14 @@ def test_preview_recalculates_calculated_net_and_clears_mismatch():
     assert result.net_amount.amount == '980.00'
     assert result.net_amount.source == 'calculated'
     assert result.mismatch is None
+
+
+def test_preview_warns_while_typing_a_net_the_total_cannot_hold_with_itbis_unknown():
+    fake = Faker()
+    fake.seed_instance(2288)
+    total = Decimal(fake.random_int(100, 10_000_000)) / 100
+    excess = Decimal(fake.random_int(2, 1_000_000)) / 100
+    typed = format(total + excess, ".2f")
+    result = preview_amounts(BusinessResolution(facts=receipt(format(total, ".2f"), None)), AmountsPreviewRequest(version=1, net_amount={'state': 'known', 'value': typed}), paid=False)
+    assert result.net_amount.amount == typed
+    assert result.mismatch.difference == format(-excess, ".2f")
