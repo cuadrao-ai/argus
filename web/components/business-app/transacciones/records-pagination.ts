@@ -13,7 +13,8 @@ export const RECORDS_SORT_OPTIONS: readonly (RecordsSort & { label: string })[] 
   { key: "contraparte", direction: "asc", label: "name_ascending" },
   { key: "contraparte", direction: "desc", label: "name_descending" },
 ];
-export type PaginationState = { page: number; pageSize: 25 | 50 | 100 };
+export const PAGE_SIZES = [25, 50, 100] as const;
+export type PaginationState = { page: number; pageSize: (typeof PAGE_SIZES)[number] };
 export const INITIAL_PAGINATION: PaginationState = { page: 1, pageSize: 25 };
 export function paginateRecords(records: readonly RecordRow[], state: PaginationState, sort: RecordsSort = DEFAULT_RECORDS_SORT, locale = "es-419") {
   const currencies = new Set(records.map((row) => row.money.currency));

@@ -23,7 +23,7 @@ import RecordWorkflowBadge from "./RecordWorkflowBadge";
 import RecordDgiiCell from "./RecordDgiiCell";
 import { RecordAnnotationActions, RecordAttachmentPreview, RecordNotePreview } from "./RecordsAnnotationsPreview";
 import type { RecordsSort } from "./records-pagination";
-import { CELL, COLUMNS, PIN_CLASS, RECORDS_TITLE } from "./TransaccionesTable";
+import { CELL, COLUMNS, PIN_CLASS, RECORDS_FRAME, RECORDS_TITLE } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN_VALUE;
@@ -93,7 +93,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
   };
 
   return (
-    <div data-testid="transacciones-scroll" className="argus-thin-scrollbar relative max-h-[calc(100dvh-15rem)] min-h-[16rem] overflow-auto rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
+    <div data-testid="transacciones-scroll" className={RECORDS_FRAME}>
       <table role="grid" aria-label={t("business.transactions.title")} aria-rowcount={rows.length} data-testid="transacciones-records" data-density={density} onKeyDown={onKeyDown} style={{ minWidth: recordsMinimumWidth(columns, amountSize) }} className={`w-full ${preferences ? "" : "min-w-[1100px]"} table-fixed border-separate border-spacing-0 text-[14px] text-[#172b26] dark:text-white`}>
         <colgroup>{columns.map((column) => <col key={column.key} style={column.key === "gross_amount" ? { width: amountSize.width } : column.width ? { width: column.width } : undefined} />)}</colgroup>
         <thead>

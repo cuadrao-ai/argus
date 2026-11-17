@@ -2,7 +2,7 @@
 
 import { useDelayedPending } from "../business-skeletons";
 import skeleton from "../business-skeletons.module.css";
-import { CELL, PIN_CLASS, RECORDS_TITLE } from "./TransaccionesTable";
+import { CELL, PIN_CLASS, RECORDS_FRAME, RECORDS_TITLE } from "./TransaccionesTable";
 import { recordsMinimumWidth, visibleRecordsColumns, type RecordsViewPreferences } from "./records-view-preferences";
 import { DEFAULT_DENSITY, DENSITY_ROW_PX, type Density } from "./table-density";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -26,7 +26,7 @@ export default function RecordsLoadingPreview({ density = DEFAULT_DENSITY, prefe
   return <div className={page.container} role="status" aria-label={t("common.loading")} data-testid="transacciones-loading" data-surface-block="table">
     <div aria-hidden="true" className={visible ? undefined : styles.waiting}>
       <div className={styles.table}>
-        <div className="argus-thin-scrollbar relative max-h-[calc(100dvh-15rem)] min-h-[16rem] overflow-auto rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
+        <div className={RECORDS_FRAME}>
           <table data-density={density} style={columns ? { minWidth: recordsMinimumWidth(columns, { units: 0, width: "104px" }) } : undefined} className="w-full table-fixed border-separate border-spacing-0 text-[14px]">
             {columns ? <colgroup>{columns.map((column) => <col key={column.key} style={{ width: column.width ?? undefined }} />)}</colgroup> : null}
             <thead><tr>{columns ? columns.map((column) => <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} className={`${RECORDS_TITLE} z-20 ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${PIN_CLASS[column.pin]} z-30` : ""}`}>{t(column.label_key, { currency: "" }).trim()}</th>) : SLOTS.map((slot) => <th key={slot} scope="col" data-pinned="top" className={`${RECORDS_TITLE} z-20 text-left`}><RecordsLoadingBar className={styles.heading} /></th>)}</tr></thead>
