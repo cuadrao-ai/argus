@@ -22,6 +22,13 @@ pytestmark = shared.pytestmark
         ("   ", None),
         (None, None),
     ],
+    ids=[
+        "name-only",
+        "name-and-username",
+        "username-only",
+        "blank-name",
+        "no-profile-name",
+    ],
 )
 def test_the_stored_actor_keeps_who_and_never_a_label(
     actions, role: str, display_name: str | None, username: str | None
