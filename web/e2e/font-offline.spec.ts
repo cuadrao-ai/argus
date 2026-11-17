@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const BILINGUAL_SAMPLE =
   "English UI: Backtest your idea. Español: ¿Qué pasó? ¡Sí! Acción, corazón, pingüino, Müller.";
 
-test("renders bilingual text with local canonical font faces", async ({ page }, testInfo) => {
+test("renders bilingual text with local canonical font faces", async ({ page, baseURL }, testInfo) => {
   const fontRequests: string[] = [];
   const unexpectedExternalRequests: string[] = [];
   const consoleWarnings: string[] = [];
@@ -14,7 +14,12 @@ test("renders bilingual text with local canonical font faces", async ({ page }, 
       url.hostname,
     );
     if (request.resourceType() === "font" || isKnownExternalFontService) {
-      fontRequests.push(request.url());
+      // The development overlay loads its own fonts when it becomes visible.
+      // They are tooling assets, not font faces used by the page.
+      const isDevOverlayFont =
+        url.origin === new URL(baseURL!).origin &&
+        url.pathname.startsWith("/__nextjs_font/");
+      if (!isDevOverlayFont) fontRequests.push(request.url());
       if (url.hostname !== "127.0.0.1" && url.hostname !== "localhost") {
         unexpectedExternalRequests.push(request.url());
       }
@@ -63,7 +68,13 @@ test("renders bilingual text with local canonical font faces", async ({ page }, 
   }, BILINGUAL_SAMPLE);
 
   expect(fontRequests.length).toBeGreaterThanOrEqual(2);
-  expect(fontRequests.every((url) => url.includes("/_next/static/media/"))).toBe(true);
+  const unexpectedFontRequests = fontRequests.filter(
+    (url) => !new URL(url).pathname.startsWith("/_next/static/media/"),
+  );
+  expect(
+    unexpectedFontRequests,
+    `Expected local page fonts under /_next/static/media/. Font requests:\n${fontRequests.join("\n")}`,
+  ).toEqual([]);
   expect(unexpectedExternalRequests).toEqual([]);
   expect(typography.bodyFamily).toMatch(/Inter/i);
   expect(typography.displayFamily).toMatch(/spaceGrotesk|Space_Grotesk|Space Grotesk/i);

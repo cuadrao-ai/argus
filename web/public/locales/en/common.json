@@ -2366,7 +2366,27 @@
         },
         "id_type": {
           "1": "1 - RNC",
-          "2": "2 - Cédula"
+          "2": "2 - Cédula",
+          "3": "3 - Passport or tax ID"
+        },
+        "income_type": {
+          "1": "Operating income (non-financial)",
+          "2": "Financial income",
+          "3": "Extraordinary income",
+          "4": "Lease income",
+          "5": "Income from sale of depreciable assets",
+          "6": "Other income"
+        },
+        "income_withholding_type": {
+          "01": "Rent",
+          "02": "Professional services fees",
+          "03": "Other income",
+          "04": "Other income (presumed income)",
+          "05": "Interest paid to resident legal entities",
+          "06": "Interest paid to resident individuals",
+          "07": "Withholding by government suppliers",
+          "08": "Telephone games",
+          "09": "Beef cattle subsector withholdings"
         },
         "payment_method": {
           "01": "Cash",

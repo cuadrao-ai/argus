@@ -68,7 +68,10 @@ UNLINKED_EN = (
 
 class Clock:
     def __init__(self) -> None:
-        self.now = datetime.now(timezone.utc)
+        # Keep short waits within one UTC reply day, regardless of the run time.
+        self.now = datetime.now(timezone.utc).replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
 
     def __call__(self) -> datetime:
         return self.now
