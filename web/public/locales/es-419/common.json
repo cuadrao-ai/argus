@@ -2365,9 +2365,9 @@
           "11": "Gastos de seguros"
         },
         "id_type": {
-          "1": "1 - RNC",
-          "2": "2 - Cédula",
-          "3": "3 - Pasaporte o ID tributaria"
+          "1": "RNC",
+          "2": "Cédula",
+          "3": "Pasaporte o ID tributaria"
         },
         "income_type": {
           "1": "Ingresos por operaciones (no financieros)",
