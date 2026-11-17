@@ -6,7 +6,7 @@ import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, apiFetchIfChanged, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
 import type { PersonName } from "./person-name";
-import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessDuplicateDecision, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
+import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessDuplicateDecision, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode, type ShownSuggestions } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -251,12 +251,13 @@ export async function setBusinessDraftDocumentType(draftId: string, version: num
 /**
  * `action` is the dossier's `approval_action`: the server names the approve action the draft takes.
  * `approveAnyway` passes the draft's confirm flags; servers older than #1590 refuse the field, so it is sent only when true.
+ * `suggestions` are the ones the screen showed filled in, which the approval saves; sent only when there are some.
  */
-export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction, approveAnyway = false): Promise<BusinessDossier> {
+export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction, approveAnyway = false, suggestions?: ShownSuggestions): Promise<BusinessDossier> {
   return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify(approveAnyway ? { version, action, approve_anyway: true } : { version, action }),
+    body: JSON.stringify({ version, action, ...(approveAnyway ? { approve_anyway: true } : {}), ...(suggestions ? { suggestions } : {}) }),
   });
 }
 

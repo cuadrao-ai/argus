@@ -1,8 +1,9 @@
 "use client";
 
+import { History, ReceiptText, SquareSparkles, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BusinessDossier } from "@/lib/business-dossier";
-import type { DgiiField, DgiiFields, PurchaseChoice } from "@/lib/business-dgii";
+import type { BusinessDossier, ShownSuggestions } from "@/lib/business-dossier";
+import type { DgiiField, DgiiFields, PurchaseChoice, SuggestedField, SuggestionSource } from "@/lib/business-dgii";
 import { UNKNOWN_VALUE } from "./business-format";
 import { quietButtonClass } from "./business-ui";
 import { ReviewSelect } from "./ReceiptFieldControls";
@@ -11,12 +12,47 @@ import ReceiptRowSave from "./ReceiptRowSave";
 import type { RowSave, SaveRow } from "./receipt-review-save";
 
 type Choice = keyof PurchaseChoice;
-const SUGGESTION_TEST_ID: Record<Choice, string> = { category: "expense-type-suggestion", payment_method: "payment-form-suggestion" };
+const CHOICES: readonly SuggestedField[] = ["category", "payment_method"];
+const SOURCE_ICON: Record<SuggestionSource, LucideIcon> = { last_choice: History, receipt: ReceiptText, reading: SquareSparkles };
+
+/** The answer the record holds. A legacy unconfirmed tipo de gasto is no answer. */
+function savedChoice(dossier: BusinessDossier, choice: Choice): string {
+  const declared = dossier.dgii;
+  return choice === "category" && declared?.category_suggested === true ? "" : String(declared?.[choice] ?? "");
+}
+
+/** What a 606 answer shows: the saved value, else the server's suggestion, with where it came from. */
+function shownChoice(dossier: BusinessDossier, choice: Choice): { value: string; source: SuggestionSource | null } {
+  const saved = savedChoice(dossier, choice);
+  if (saved) return { value: saved, source: dossier.dgii?.suggestion_sources?.[choice] ?? null };
+  const suggestion = dossier.declaration_suggestions?.[choice] ?? null;
+  return suggestion ? { value: suggestion.value, source: suggestion.source } : { value: "", source: null };
+}
+
+/** The suggestions the screen shows filled in: what the approve request carries so the approval saves them. */
+export function shownSuggestions(dossier: BusinessDossier): ShownSuggestions | undefined {
+  const shown = CHOICES.flatMap((choice) => {
+    const suggestion = dossier.declaration_suggestions?.[choice];
+    return suggestion && !savedChoice(dossier, choice) ? [[choice, suggestion] as const] : [];
+  });
+  return shown.length ? Object.fromEntries(shown) : undefined;
+}
+
+function SourceChip({ source }: { source: SuggestionSource }) {
+  const { t } = useTranslation();
+  const Icon = SOURCE_ICON[source];
+  const label = t(`business.dossier.placeholder.suggestion_source.${source}`);
+  return (
+    <span role="img" aria-label={label} title={label} data-suggestion-source={source} className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#eceeea] text-[#56635e] dark:bg-white/10 dark:text-white/80">
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+    </span>
+  );
+}
 
 /**
  * Tipo de gasto and forma de pago, from the server's codes and the locale's text. Neither
- * blocks approval. A suggestion comes from the server with its source and stays a
- * suggestion until a person takes it, because only a person's write reaches the 606.
+ * blocks approval. A suggestion shows filled, with an icon for its source, and the approval
+ * saves it; a value the person chose has no icon.
  */
 export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled, readOnly = false, saves, onChoose, onRetry, onCancel, onReload }: {
   dossier: BusinessDossier;
@@ -35,13 +71,13 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
   const { t } = useTranslation();
   const row = (choice: Choice, label: string) => {
     const field: DgiiField | undefined = fields?.["606"].find((item) => item.name === choice);
-    const value = String(dossier.dgii?.[choice] ?? "");
+    const { value, source } = shownChoice(dossier, choice);
     const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code }) || code;
-    const suggestion = value ? null : dossier.declaration_suggestions?.[choice] ?? null;
+    const chip = source ? <SourceChip source={source} /> : null;
     if (readOnly) return (
       <div key={choice} data-fact={choice} className={FACT_ROW_CLASS}>
         <dt className={FACT_LABEL_CLASS}>{label}</dt>
-        <dd className="min-w-0 break-words py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white">{value ? name(value) : UNKNOWN_VALUE}</dd>
+        <dd className="flex min-w-0 items-center gap-2 py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white"><span className="min-w-0 break-words">{value ? name(value) : UNKNOWN_VALUE}</span>{chip}</dd>
       </div>
     );
     return (
@@ -49,12 +85,11 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
         <dt className={FACT_LABEL_CLASS}>{label}</dt>
         <dd className="min-w-0 py-1">
           {field ? <label className="block"><span className="sr-only">{label}</span>
-            <ReviewSelect value={value} disabled={disabled} onChange={(event) => onChoose(choice, event.target.value || null)}>
+            <ReviewSelect value={value} disabled={disabled} adornment={chip} onChange={(event) => onChoose(choice, event.target.value || null)}>
               <option value="">{t("business.review.choose", "Choose")}</option>
               {field.options.map((code) => <option key={code} value={code}>{name(code)}</option>)}
             </ReviewSelect>
           </label> : null}
-          {suggestion && field ? <p data-testid={SUGGESTION_TEST_ID[choice]} className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70"><span>{t("business.dgii.suggested", "Suggested")}: {name(suggestion.value)}</span><span data-suggestion-source={suggestion.source}>{t(`business.dossier.placeholder.suggestion_source.${suggestion.source}`, { defaultValue: "" })}</span>{disabled ? null : <button type="button" className={quietButtonClass} onClick={() => onChoose(choice, suggestion.value)}>{t("business.dossier.placeholder.use_suggestion", "Use")}</button>}</p> : null}
           <ReceiptRowSave save={saves[choice]} onRetry={() => onRetry(choice)} onCancel={() => onCancel(choice)} />
         </dd>
       </div>

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from typing import Any, get_args
 from uuid import UUID
 
 from psycopg.rows import dict_row
@@ -12,11 +12,7 @@ from argus.domain.business.actions.duplicate_comparison import (
     duplicate_revisions,
 )
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.fiscal import (
-    RememberedField,
-    last_choice,
-    repeated_purchases,
-)
+from argus.domain.business.actions.fiscal import last_choice, repeated_purchases
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
@@ -32,13 +28,17 @@ from argus.domain.business.config import business_settlement_enabled
 from argus.domain.business.contracts.actions import APPROVAL_ACTION, DuplicateDecision
 from argus.domain.business.contracts.authority import PersonName
 from argus.domain.business.contracts.deletion import deletion
-from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
+from argus.domain.business.contracts.dgii import (
+    DeclarationSuggestions,
+    DgiiDeclaration,
+    PurchaseDeclaration,
+    SuggestedField,
+)
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
     ApprovalResult,
     Blocker,
     BusinessDossier,
-    DeclarationSuggestions,
     DraftRevision,
     DuplicateCandidate,
     RecordContext,
@@ -47,13 +47,19 @@ from argus.domain.business.contracts.dossier import (
     SourceEvidence,
     UnsettledApproval,
 )
-from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    BusinessResolution,
+    Known,
+)
 from argus.domain.business.document_type import kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers
 from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
 from argus.domain.business.purchase_review import (
+    blank_answer,
     net_amount,
+    saves_suggestions,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -265,6 +271,21 @@ def workflow_blockers(
     return blocked, tuple(duplicate_ids)
 
 
+def takes_suggestions(
+    state: str, facts: BusinessFacts, resolution: BusinessResolution
+) -> bool:
+    """Whether the draft's approval would save a suggestion: an open expense
+    the approval writes a 606 declaration for. Anywhere else a suggestion
+    would show a value that never reaches the 606."""
+
+    return (
+        state == "open"
+        and isinstance(facts.kind, Known)
+        and facts.kind.value == "expense"
+        and saves_suggestions(resolution.document_type, facts, resolution.dgii)
+    )
+
+
 def shown_bill_mark(resolution: BusinessResolution) -> str | None:
     """The due-notice mark a person sees. Factura por pagar and Factura pagada
     are settlement state, so none shows while settlement is off; the draft
@@ -273,22 +294,17 @@ def shown_bill_mark(resolution: BusinessResolution) -> str | None:
     return resolution.bill_mark if business_settlement_enabled() else None
 
 
-def _suggestions(
+def offered_suggestions(
     tx: ActionTransaction, draft_id: UUID, declaration: DgiiDeclaration | None
 ) -> DeclarationSuggestions:
-    """The last choice for this RNC, for each answer the draft has not got. A
-    tipo de gasto nobody confirmed is not the draft's own."""
+    """The last choice for this RNC, for each answer the draft has not got:
+    what the dossier shows and what a bulk approval saves."""
 
     purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
-    own: dict[RememberedField, bool] = {
-        "category": bool(
-            purchase and purchase.category and not purchase.category_suggested
-        ),
-        "payment_method": bool(purchase and purchase.payment_method),
-    }
-    remembered = {
-        field: last_choice(tx, draft_id, field) for field in own if not own[field]
-    }
+    blank: tuple[SuggestedField, ...] = tuple(
+        field for field in get_args(SuggestedField) if blank_answer(purchase, field)
+    )
+    remembered = {field: last_choice(tx, draft_id, field) for field in blank}
     return DeclarationSuggestions.model_validate(
         {
             field: {"value": value, "source": "last_choice"}
@@ -461,8 +477,8 @@ def dossier(
         document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open" and can_prepare,
         declaration_editable=declaration_editable,
-        declaration_suggestions=_suggestions(tx, draft_id, resolution.dgii)
-        if declaration_editable
+        declaration_suggestions=offered_suggestions(tx, draft_id, resolution.dgii)
+        if declaration_editable and takes_suggestions(event.state, facts, resolution)
         else DeclarationSuggestions(),
         payment_split_editable=fiscal_writable
         and takes_payment_split(resolution.document_type),

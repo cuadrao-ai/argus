@@ -8603,14 +8603,28 @@ gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
 is `{value, source}` or null. `source` says where the value came from:
 `last_choice` is the answer a person last gave for this draft's supplier RNC
 in this Business, on another open, accepting or accepted purchase; `receipt`
-is reserved for a value read from the receipt, and nothing sends it yet. A
-suggestion is read fresh and stored nowhere: it is null while
-`declaration_editable` is false or the draft has that answer of its own, and
-it never reads another Business. A suggested type on a declaration
-(`category_suggested`) is no answer, on this draft or as a memory. A
-suggestion reaches the 606 only when a person writes it as
-`purchase.category` or `purchase.payment_method`, so an approval never takes
-one and neither field blocks approval.
+is reserved for a value read from the receipt and `reading` for the AI
+reading's pick, and nothing sends either yet. A suggestion is read fresh: it
+is null unless the draft is an open expense whose approval writes a 606
+declaration (`declaration_editable` true, and a saved purchase declaration or
+an RNC and a 606-reported fiscal number), null where the draft has that answer
+of its own, and it never reads another Business. A suggested type on a
+declaration (`category_suggested`) is no answer, on this draft or as a memory:
+that answer reads blank. The approval is what saves a suggestion. The approve
+request's `suggestions` carries the ones the person saw, in the same shape;
+the approval saves each into its answer with its source. It refuses with 422
+`suggestion_stale`, and saves nothing, when an answer it names is no longer
+blank or the approval writes no 606 declaration; a changed version is 409
+`stale_version` as before. A value outside the codes or the sources is 422
+`validation_error`. Approving a list of Listos receipts
+(`POST /business/drafts/approve-listos`) saves the server's own suggestion,
+read at approval time, into each blank answer. Neither path writes over an
+answer a person gave, and neither field blocks approval. The saved source
+stays on the declaration as `suggestion_sources`, `{category?,
+payment_method?}` with the same source values, in the approval's revision
+under the approver. A person's write that changes an answer drops its source;
+nobody writes a source, and one sent on a review is replaced by the stored
+one.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
 enforces: a member holding `prepare` who is not the owner, on an `open` or
@@ -8948,7 +8962,9 @@ The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union
 `ApproveExpense | ApproveIncome`: `{version, action: "record_expense"}` or
 `{version, action: "record_income"}`, with the existing required
-`Idempotency-Key`. The route resolves the actual actor and live named grant from
+`Idempotency-Key`. `record_expense` also takes `suggestions`, the dossier's
+`declaration_suggestions` the person saw, which the approval saves (see
+`declaration_suggestions`). The route resolves the actual actor and live named grant from
 the canonical draft, then dispatches to the matching human command; the caller
 supplies no actor, space or grant. A document that arrived by email from a
 sender who is not yet authorized is refused with 403 `email_sender_unauthorized`

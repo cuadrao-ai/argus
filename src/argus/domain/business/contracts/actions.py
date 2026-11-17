@@ -19,7 +19,13 @@ from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
 from .deletion import DocumentCommand
-from .dgii import FiscalReview, Money, PurchaseReview, SalePaymentSplit
+from .dgii import (
+    DeclarationSuggestions,
+    FiscalReview,
+    Money,
+    PurchaseReview,
+    SalePaymentSplit,
+)
 from .facts import (
     BusinessFactPatch,
     BusinessShare,
@@ -183,6 +189,11 @@ class ApproveExpense(Contract):
         default=None, exclude_if=lambda value: value is None
     )
     action: Literal["record_expense"]
+    #: The dossier's suggestions the person saw filled in. The approval saves
+    #: each into its 606 answer, with its source, while that answer is blank.
+    suggestions: DeclarationSuggestions | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ApproveIncome(Contract):

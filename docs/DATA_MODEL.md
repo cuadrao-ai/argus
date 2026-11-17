@@ -3996,7 +3996,13 @@ earlier download recorded the record's line
 and the next export carries it; the recorded facts stay refused. The tipo de gasto suggested for an RNC has no column: the dossier
 reads it from the declarations in this Business through
 `financial_import_events.business_rnc`, and a typed purchase is a draft with
-`receipt_state` `no_receipt` and no declaration. No second tax ledger or fiscal approval bypass is added. New human-only action receipt
+`receipt_state` `no_receipt` and no declaration. An approval that saves a
+suggested tipo de gasto or forma de pago keeps its source in the 606
+declaration JSON (`resolution.business.dgii.suggestion_sources`, and the
+revision's `after_dgii`): `{category?, payment_method?}`, each `last_choice`,
+`receipt` or `reading`. The key is absent when no answer came from a
+suggestion, and a person's change to an answer drops its entry. No column or
+migration. No second tax ledger or fiscal approval bypass is added. New human-only action receipt
 types `approve_refund` and `set_business_rnc` retain the existing immutable actor,
 command hash and idempotency rules. The migration uses five-second lock and
 60-second statement timeouts. It creates no table, role, policy, client grant or

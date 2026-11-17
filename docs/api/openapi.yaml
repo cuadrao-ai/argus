@@ -16268,6 +16268,10 @@ components:
         action:
           type: string
           const: record_expense
+        suggestions:
+          anyOf:
+          - $ref: '#/components/schemas/DeclarationSuggestions'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -21861,6 +21865,7 @@ components:
           enum:
           - last_choice
           - receipt
+          - reading
       additionalProperties: false
       type: object
       required:
@@ -27985,6 +27990,7 @@ components:
           enum:
           - last_choice
           - receipt
+          - reading
       additionalProperties: false
       type: object
       required:
@@ -28640,6 +28646,18 @@ components:
           - type: string
             format: uuid
           - type: 'null'
+        suggestion_sources:
+          additionalProperties:
+            type: string
+            enum:
+            - last_choice
+            - receipt
+            - reading
+          propertyNames:
+            enum:
+            - category
+            - payment_method
+          type: object
       additionalProperties: false
       type: object
       required:

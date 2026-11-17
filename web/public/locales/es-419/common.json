@@ -2381,7 +2381,6 @@
       "original_purchase": "Compra original",
       "refund_candidate_refused": "Esa compra no se puede usar para este reembolso. Elige otra.",
       "refund_candidates_none": "No hay compras aprobadas para elegir.",
-      "suggested": "Sugerido",
       "save": "Guardar revisión fiscal",
       "approve_income": "Aprobar ingreso",
       "approve_refund": "Aprobar reembolso",
@@ -3312,9 +3311,10 @@
         "group_other": "Otros",
         "section_choices": "Para el 606",
         "suggestion_source": {
-          "last_choice": "Última elección para este RNC"
+          "last_choice": "Última elección para este RNC",
+          "reading": "Sugerido por la lectura",
+          "receipt": "Leído del recibo"
         },
-        "use_suggestion": "Usar",
         "mark_no_receipt": "Marcar sin recibo"
       },
       "place": "{{index}} de {{total}}",

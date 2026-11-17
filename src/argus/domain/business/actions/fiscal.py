@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from argus.domain.business.accepted_dates import reader_date_reason
@@ -11,6 +11,7 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     FiscalReview,
     PurchaseDeclaration,
+    SuggestedField,
     printed_identifier,
 )
 from argus.domain.business.contracts.facts import (
@@ -81,11 +82,7 @@ def reviewed_fiscal_facts(
     return facts.model_copy(update={"fiscal": FiscalFacts.model_validate(values)})
 
 
-#: The 606 answers a person gives one by one, each remembered per supplier RNC.
-RememberedField = Literal["category", "payment_method"]
-
-
-def last_choice(tx, draft_id, field: RememberedField) -> str | None:
+def last_choice(tx, draft_id, field: SuggestedField) -> str | None:
     """The answer a person last gave for this draft's RNC in this Business.
     The only reader of that memory. Nothing stores it: it reaches the 606 only
     when a person writes it on the draft.

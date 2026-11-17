@@ -14,7 +14,7 @@ from argus.domain.business.space_name import GivenName
 from .actions import ApprovalAction, DuplicateDecision
 from .authority import ActorView, Capability, PersonName
 from .checks import DgiiQr, EcfVerification
-from .dgii import DgiiDeclaration, ExpenseType, PaymentForm
+from .dgii import DeclarationSuggestions, DgiiDeclaration
 from .facts import (
     HUMAN_AMOUNT_FIELDS,
     BusinessFacts,
@@ -254,29 +254,6 @@ class DuplicateCandidate(Contract):
     comparison: DuplicateComparison
 
 
-#: Where a suggested 606 answer came from: the last one a person gave for this
-#: RNC in this Business, or what the receipt shows. Nothing sends ``receipt`` yet.
-SuggestionSource = Literal["last_choice", "receipt"]
-
-
-class ExpenseTypeSuggestion(Contract):
-    value: ExpenseType
-    source: SuggestionSource
-
-
-class PaymentFormSuggestion(Contract):
-    value: PaymentForm
-    source: SuggestionSource
-
-
-class DeclarationSuggestions(Contract):
-    """One suggestion per 606 answer a person gives, under the declaration's
-    own field name. Null where the server has none or the draft has its own."""
-
-    category: ExpenseTypeSuggestion | None = None
-    payment_method: PaymentFormSuggestion | None = None
-
-
 class BusinessDossier(RecordContext):
     deleted: DeletedDocument | None = None
     delete_available: bool = False
@@ -342,8 +319,8 @@ class BusinessDossier(RecordContext):
     #: The caller may write the 606 declaration now: open or approved, and the
     #: caller holds prepare. A download changes nothing here.
     declaration_editable: bool = False
-    #: What the server offers for each 606 answer this draft lacks, with where
-    #: it came from. A suggestion: it is stored only when a person writes it.
+    #: What the server offers for each 606 answer this open expense lacks, with
+    #: where it came from. The approval saves it, so only an approval takes one.
     declaration_suggestions: DeclarationSuggestions = DeclarationSuggestions()
     #: The caller may write the 607 payment split now, on the same terms as
     #: declaration_editable, on a sale.
@@ -376,7 +353,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "net_amount": True,
     "inheritance": True,
     "facts": set(HUMAN_AMOUNT_FIELDS),
-    "dgii": {"itbis"},
+    "dgii": {"itbis", "suggestion_sources"},
     "deleted": True,
     "delete_available": True,
     "restore_available": True,
@@ -402,8 +379,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
             "after_current_note": True,
             "before": set(HUMAN_AMOUNT_FIELDS),
             "after": set(HUMAN_AMOUNT_FIELDS),
-            "before_dgii": {"itbis"},
-            "after_dgii": {"itbis"},
+            "before_dgii": {"itbis", "suggestion_sources"},
+            "after_dgii": {"itbis", "suggestion_sources"},
         }
     },
 }

@@ -1,7 +1,13 @@
 import { apiFetch } from "./argus-api-transport";
 import { readBusinessDossier, type BusinessDossier, type BusinessMontosReview } from "./business-dossier";
 
-export type DgiiDeclaration = Record<string, string | boolean | null> & { form: "606" | "607" };
+/** Where a suggested 606 answer came from: the last answer a person gave for this RNC, what the receipt shows, or the AI reading's pick. */
+export type SuggestionSource = "last_choice" | "receipt" | "reading";
+/** The 606 answers the server may suggest, by the declaration's field name. */
+export type SuggestedField = "category" | "payment_method";
+/** The source of each answer an approval saved from a suggestion. A person's change drops it. */
+export type SuggestionSources = Partial<Record<SuggestedField, SuggestionSource>>;
+export type DgiiDeclaration = Record<string, string | boolean | null | SuggestionSources> & { form: "606" | "607"; suggestion_sources?: SuggestionSources };
 export type DgiiReview = {
   fiscal: { rnc: string | null; ncf: string | null; itbis: string | null };
   declaration: DgiiDeclaration;

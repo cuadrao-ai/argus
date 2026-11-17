@@ -28,7 +28,7 @@ import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import { useAmountsPreview } from "./useAmountsPreview";
 import ReceiptFactEditor from "./ReceiptFactEditor";
-import ReceiptOwnerChoices from "./ReceiptOwnerChoices";
+import ReceiptOwnerChoices, { shownSuggestions } from "./ReceiptOwnerChoices";
 import ReceiptRowSave from "./ReceiptRowSave";
 import ReceiptEditRow, { type RowShown } from "./ReceiptEditRow";
 import ReceiptReviewDone from "./ReceiptReviewDone";
@@ -299,7 +299,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       const previous = approvalKey.current;
       const sent = previous?.version === dossier.version && previous.anyway === request.anyway ? previous : { version: dossier.version, anyway: request.anyway, key: randomId() };
       approvalKey.current = sent;
-      const next = await source.approveDraft(draftId, dossier.version, sent.key, approval, request.anyway);
+      const next = await source.approveDraft(draftId, dossier.version, sent.key, approval, request.anyway, approval === "record_expense" ? shownSuggestions(dossier) : undefined);
       setDossier(next);
       setOperation(next.approval_result?.status === "outcome_unknown" ? { kind: "uncertain", version: dossier.version } : { kind: "idle" });
       reload();
@@ -308,7 +308,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       const { code, status } = error as { code?: string; status?: number };
       const flagged = request.anyway ? [] : confirmationFlags(error);
       const reference = referenceCode(error);
-      if (code === "stale_version") {
+      if (code === "stale_version" || code === "suggestion_stale") {
         setOperation({ kind: "idle" });
         setProblem({ text: t("business.dossier.stale", "This record changed. Open the current revision and review it before taking another action."), reference });
         setDossier(null);

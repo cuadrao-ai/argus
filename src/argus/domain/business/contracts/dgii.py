@@ -70,6 +70,36 @@ PaymentForm = Literal["01", "02", "03", "04", "05", "06", "07"]
 IsrWithholding = Literal["01", "02", "03", "04", "05", "06", "07", "08", "09"]
 #: Servicios y suministros, alquiler, gastos financieros, seguros.
 SERVICE_EXPENSE_TYPES = frozenset({"02", "03", "07", "11"})
+#: The 606 answers a person gives one by one, which the server may suggest.
+SuggestedField = Literal["category", "payment_method"]
+#: Where a suggested 606 answer came from: the last one a person gave for this
+#: RNC in this Business, what the receipt shows, or the AI reading's pick.
+#: Nothing sends ``receipt`` or ``reading`` yet.
+SuggestionSource = Literal["last_choice", "receipt", "reading"]
+
+
+class ExpenseTypeSuggestion(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    value: ExpenseType
+    source: SuggestionSource
+
+
+class PaymentFormSuggestion(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    value: PaymentForm
+    source: SuggestionSource
+
+
+class DeclarationSuggestions(BaseModel):
+    """One suggestion per 606 answer a person gives, under the declaration's
+    own field name. Null where the server has none or the draft has its own."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    category: ExpenseTypeSuggestion | None = None
+    payment_method: PaymentFormSuggestion | None = None
 
 
 class PurchaseDeclaration(Declaration):
@@ -91,6 +121,13 @@ class PurchaseDeclaration(Declaration):
     payment_method: PaymentForm | None
     actual_refund: bool = False
     purchase_activity_id: UUID | None = None
+    #: The suggestion each answer an approval saved came from. A person's
+    #: change to that answer drops its source; nobody writes one by hand, so
+    #: a write's own value (null included) is replaced by the stored one.
+    suggestion_sources: Annotated[
+        dict[SuggestedField, SuggestionSource],
+        BeforeValidator(lambda value: {} if value is None else value),
+    ] = Field(default_factory=dict, exclude_if=lambda value: not value)
 
 
 class PurchaseReview(BaseModel):

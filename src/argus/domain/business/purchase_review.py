@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import get_args
 
 from argus.domain.business.contracts.dgii import (
     MONEY_LIMIT,
     SERVICE_EXPENSE_TYPES,
+    DeclarationSuggestions,
     DgiiDeclaration,
     PurchaseDeclaration,
     PurchaseReview,
     SalePaymentSplit,
     SalesDeclaration,
+    SuggestedField,
     amount_or_zero,
     money_text,
 )
@@ -32,6 +35,20 @@ def takes_purchase_declaration(document_type: DocumentType, facts: BusinessFacts
     the review's 606 write."""
 
     return direction(document_type) is PURCHASE and not is_sin_comprobante(facts)
+
+
+def saves_suggestions(
+    document_type: DocumentType, facts: BusinessFacts, declaration: DgiiDeclaration | None
+) -> bool:
+    """Whether an approval saves a suggested 606 answer on this record: it
+    takes a 606 declaration and the approval writes one, the person's or the
+    one built from its facts. The one rule behind the dossier's suggestions
+    and the approval's save, so a suggestion shows only where it is saved."""
+
+    return takes_purchase_declaration(document_type, facts) and (
+        isinstance(declaration, PurchaseDeclaration)
+        or declaration_from_facts(facts, None) is not None
+    )
 
 
 def takes_payment_split(document_type: DocumentType) -> bool:
@@ -58,7 +75,12 @@ def apply_purchase(
 ) -> PurchaseDeclaration:
     if current is None:
         data = {name: None for name in PurchaseDeclaration.model_fields}
-        data.update(form="606", actual_refund=False, category_suggested=False)
+        data.update(
+            form="606",
+            actual_refund=False,
+            category_suggested=False,
+            suggestion_sources={},
+        )
     else:
         data = current.model_dump()
     written = review.model_fields_set
@@ -66,6 +88,65 @@ def apply_purchase(
     if "category" in written and "category_suggested" not in written:
         data["category_suggested"] = False
     return PurchaseDeclaration.model_validate(data)
+
+
+def blank_answer(declaration: PurchaseDeclaration | None, field: SuggestedField) -> bool:
+    """Whether a 606 answer is still to give: none saved, or a tipo de gasto
+    nobody confirmed."""
+
+    if declaration is None:
+        return True
+    if field == "category":
+        return _confirmed_type(declaration) is None
+    return declaration.payment_method is None
+
+
+def take_suggestions(
+    current: PurchaseDeclaration | None, suggestions: DeclarationSuggestions
+) -> PurchaseDeclaration | None:
+    """``current`` with each suggestion saved into its blank answer, as a
+    person's choice of it would be, and its source kept beside it. A saved
+    answer is never replaced."""
+
+    taken = {
+        field: suggestion
+        for field in get_args(SuggestedField)
+        if (suggestion := getattr(suggestions, field)) is not None
+        and blank_answer(current, field)
+    }
+    if not taken:
+        return current
+    declared = apply_purchase(
+        current,
+        PurchaseReview(**{field: suggestion.value for field, suggestion in taken.items()}),
+    )
+    return declared.model_copy(
+        update={
+            "suggestion_sources": {
+                **declared.suggestion_sources,
+                **{field: suggestion.source for field, suggestion in taken.items()},
+            }
+        }
+    )
+
+
+def kept_sources(
+    stored: DgiiDeclaration | None, declared: DgiiDeclaration | None
+) -> DgiiDeclaration | None:
+    """``declared`` as a person's write leaves it: a suggestion's source stays
+    only beside an answer the write left as it was. Nobody writes a source."""
+
+    if not isinstance(declared, PurchaseDeclaration):
+        return declared
+    before = stored if isinstance(stored, PurchaseDeclaration) else None
+    sources = {
+        field: source
+        for field, source in (before.suggestion_sources if before else {}).items()
+        if getattr(declared, field) == getattr(before, field)
+    }
+    if sources == declared.suggestion_sources:
+        return declared
+    return declared.model_copy(update={"suggestion_sources": sources})
 
 
 def amount_is_derived(
