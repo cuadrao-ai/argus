@@ -64,7 +64,7 @@ export function useCategoryLabel() {
 export function useTerminalRead() {
   const { t } = useTranslation();
   return (attention: ReceiptAttention | null) => {
-    const uploadLabel = t("business.file_read.upload_another", "Upload another file");
+    const uploadLabel = t("business.file_read.upload_another");
     if (attention === "unreadable") {
       return {
         title: t("business.file_read.unreadable_title", "We couldn't read this file"),

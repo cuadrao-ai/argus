@@ -150,7 +150,7 @@ function notReceipt(): ReceiptSummary {
   };
 }
 
-test("a client's record for a file that is not a receipt says so and offers Subir otro archivo", async () => {
+test("a client's record for a file that is not a receipt says so and offers Subir otro documento", async () => {
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
   const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
@@ -164,8 +164,8 @@ test("a client's record for a file that is not a receipt says so and offers Subi
     assert.equal(notice?.querySelector(".font-medium")?.textContent, "Esto no parece un recibo.");
     assert.equal(notice?.textContent?.includes("borroso"), false);
     const labels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
-    assert.deepEqual(labels, ["Subir otro archivo"], "a prepare grant can upload another file");
-    await page.act(async () => page.button("Subir otro archivo")!.click());
+    assert.deepEqual(labels, ["Subir otro documento"], "a prepare grant can upload another document");
+    await page.act(async () => page.button("Subir otro documento")!.click());
     assert.deepEqual(page.uploads, ["upload"]);
   } finally {
     await page.close();
@@ -248,7 +248,7 @@ test("a read that passed its deadline says the read did not finish, why, and rea
   try {
     assert.equal(notice().querySelector("span.font-medium")?.textContent, "La lectura no terminó");
     assert.match(notice().textContent ?? "", /El servicio de lectura no estuvo disponible\. Puedes leerlo de nuevo\./);
-    assert.equal(/PENDIENTE|Subir otro archivo/.test(notice().textContent ?? ""), false);
+    assert.equal(/PENDIENTE|Subir otro documento/.test(notice().textContent ?? ""), false);
     assert.deepEqual([...notice().querySelectorAll("button")].map((button) => button.textContent), ["Leer de nuevo"]);
     await page.act(async () => page.button("Leer de nuevo")!.click());
     await page.settle();
@@ -289,8 +289,8 @@ for (const errorCode of ["unreadable_document", "encrypted_document"]) {
       assert.equal(notice().querySelector("span.font-medium")?.textContent, "No pudimos leer este archivo");
       assert.match(notice().textContent ?? "", /Sube una foto más clara del recibo completo/);
       assert.equal(/No se pudo leer/.test(notice().textContent ?? ""), false, "the shared short word gives way to the step");
-      assert.deepEqual(labels(), ["Subir otro archivo", "Eliminar documento"]);
-      await page.act(async () => page.button("Subir otro archivo")!.click());
+      assert.deepEqual(labels(), ["Subir otro documento", "Eliminar documento"]);
+      await page.act(async () => page.button("Subir otro documento")!.click());
       assert.deepEqual(page.uploads, ["upload"]);
     } finally {
       await page.close();
@@ -321,7 +321,7 @@ test("an unreadable read offers no Eliminar the server or the grant did not allo
   for (const [state, chosen] of [[{ delete_available: false }, owner], [{}, client]] as const) {
     const { page, labels } = await openFailed({ attention: "unreadable", error_code: "unreadable_document", ...state }, chosen);
     try {
-      assert.deepEqual(labels(), ["Subir otro archivo"]);
+      assert.deepEqual(labels(), ["Subir otro documento"]);
     } finally {
       await page.close();
     }
@@ -332,7 +332,7 @@ test("other reasons keep their words and their one way out, with no Eliminar on 
   const cases = [
     [{ attention: "read_deadline_passed", error_code: "document_read_deadline_passed", preparable: true }, "La lectura no terminó", ["Leer de nuevo"]],
     [{ attention: "ai_unavailable", error_code: "extraction_provider_failed", preparable: true }, null, ["Leer de nuevo"]],
-    [{ attention: "not_a_receipt", error_code: "not_a_receipt" }, "Esto no parece un recibo.", ["Subir otro archivo"]],
+    [{ attention: "not_a_receipt", error_code: "not_a_receipt" }, "Esto no parece un recibo.", ["Subir otro documento"]],
   ] as const;
   for (const [state, title, buttons] of cases) {
     const { page, notice, labels } = await openFailed(state);
