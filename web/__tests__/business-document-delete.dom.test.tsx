@@ -182,6 +182,37 @@ test("Más offers deletion for a ready document with the same dialog and no view
   assert.equal(page.button("Ver documento", dialog), null);
 });
 
+test("Más is one menu: Agregar nota, then Personal, then Eliminar documento last in red, a line between groups, every row 44px with its icon", async () => {
+  const page = await mount();
+  const ready = await page.source.receipt("ready");
+  await page.act(async () => page.api().openPanel({ kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
+  await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
+  const trigger = document.querySelector<HTMLButtonElement>('[data-testid="receipt-more"] > button')!;
+  assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
+  await page.click(trigger);
+  const menu = document.getElementById("receipt-more-panel")!;
+  assert.equal(menu.getAttribute("role"), "menu");
+  assert.deepEqual([...menu.children].map(node => node.getAttribute("role")), ["menuitem", "separator", "menuitemcheckbox", "separator", "menuitem"]);
+  const rows = [...menu.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]')];
+  assert.deepEqual(rows.map(row => row.firstChild?.nextSibling?.textContent), ["Agregar nota", "PersonalNo cuenta en los totales del negocio.", "Eliminar documento"]);
+  for (const row of rows) {
+    assert.ok(row.className.includes("min-h-11"), `${row.textContent} is 44px high`);
+    assert.equal(row.firstElementChild?.tagName.toLowerCase(), "svg", `${row.textContent} starts with its icon`);
+  }
+  assert.ok(rows[2].className.includes("text-[#9e2f39]"), "delete reads red");
+  assert.equal(document.activeElement, rows[0], "opening the menu focuses its first row");
+  await page.act(async () => { rows[0].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
+  assert.equal(document.activeElement, rows[1], "arrow keys walk the rows");
+  await page.act(async () => { rows[1].dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })); });
+  assert.equal(document.activeElement, rows[2]);
+  await page.act(async () => { rows[2].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
+  assert.equal(document.activeElement, rows[0], "and wrap around");
+  assert.ok(!/Pendiente del contador|Esperando al contable|Sin responder/.test(menu.textContent ?? ""), menu.textContent ?? "");
+  await page.click(rows[2]);
+  assert.ok(document.querySelector('[role="alertdialog"]'), "delete still asks first");
+  assert.equal(page.calls.length, 0);
+});
+
 test("a failed delete retries its action key and the deleted document leaves Todos", async () => {
   const page = await mount("owner", true);
   await page.click(document.querySelector('button[aria-label="Eliminar Documento equivocado"]'));

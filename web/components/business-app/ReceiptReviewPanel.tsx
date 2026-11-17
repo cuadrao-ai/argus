@@ -147,7 +147,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       origin={{ channel: detail.channel, receivedAt: detail.received_at }}
       place={place}
       source={source}
-      footer={deletion.confirmBar ?? (canDelete ? <ReceiptReviewFooter actions={<ReceiptMoreMenu><DeleteDocumentMenuItem disabled={busy !== null || deletion.busy} onClick={deletion.ask} /></ReceiptMoreMenu>} /> : detail.restore_available ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} /> : undefined)}
+      footer={deletion.confirmBar ?? (canDelete ? <ReceiptReviewFooter actions={<ReceiptMoreMenu groups={[<DeleteDocumentMenuItem key="delete" disabled={busy !== null || deletion.busy} onClick={deletion.ask} />]} />} /> : detail.restore_available ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} /> : undefined)}
     >
       {children}
     </ReceiptReviewFrame>{deletion.dialog}</ContentFade>

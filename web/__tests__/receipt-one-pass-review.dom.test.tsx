@@ -779,15 +779,17 @@ describe("the receipt dossier on an open draft", () => {
     const page = await setup("fiscalDeclared");
     try {
       const fold = page.host.querySelector('[data-testid="receipt-history"]');
-      await page.wait(() => Boolean(fold?.querySelector("details dd")));
-      const shown = fold?.querySelector("details")?.textContent ?? "";
+      await page.wait(() => Boolean(fold?.querySelector('[data-testid="history-more"]')));
+      await page.act(async () => fold!.querySelector<HTMLButtonElement>('[data-testid="history-more"]')!.click());
+      const changes = () => fold?.querySelector('[data-testid="history-changes"]')?.textContent ?? "";
+      const shown = changes();
       assert.match(shown, /Gastos por trabajos, suministros y servicios/);
       assert.match(shown, /Tarjeta crédito\/débito/);
-      const values = [...fold!.querySelectorAll("details dd")].map((item) => item.textContent);
+      const values = [...fold!.querySelectorAll('[data-testid="history-change"] ins')].map((item) => item.textContent);
       assert.equal(values.includes("02"), false);
       assert.equal(values.includes("03"), false);
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
-      const translated = fold?.querySelector("details")?.textContent ?? "";
+      const translated = changes();
       assert.match(translated, /Work, supplies and services/);
       assert.match(translated, /Credit or debit card/);
       assert.ok(!translated.includes("Gastos por trabajos"));
