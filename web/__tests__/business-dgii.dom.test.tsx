@@ -65,7 +65,7 @@ async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiField
       control.dispatchEvent(new Event("input", { bubbles: true }));
     });
   };
-  const save = async () => { const button = [...host.querySelectorAll("button")].find((node) => node.textContent === "Guardar revisión fiscal"); assert.ok(button); await act(async () => button.click()); };
+  const save = async () => { const button = [...host.querySelectorAll("button")].find((node) => node.textContent === "Guardar"); assert.ok(button); await act(async () => button.click()); };
   return { host, dossier, writes, dirty, changes, input, save, i18n, fail: () => { fail = true; }, dispose: async () => { await act(async () => root.unmount()); host.remove(); await release(); } };
 }
 
