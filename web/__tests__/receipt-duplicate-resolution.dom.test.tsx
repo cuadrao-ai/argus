@@ -242,13 +242,13 @@ test("each column head names its document's file, with Este or the other's state
   const saved = await mount();
   const approved = await mount("success", { approved: true });
   try {
-    for (const [ui, state] of [[saved, "[PENDIENTE COPY] Guardado antes"], [approved, "Aprobado"]] as const) {
+    for (const [ui, state] of [[saved, "Guardado antes"], [approved, "Aprobado"]] as const) {
       await ui.compare();
       const heads = Array.from(ui.view()!.querySelectorAll<HTMLElement>("thead [data-compare-side]"));
       assert.deepEqual(heads.map((head) => head.dataset.compareSide), ["document", "other"]);
       const [mine, theirs] = heads;
       assert.equal(mine.querySelector("[data-compare-file]")?.textContent, "factura-nueva.pdf");
-      assert.equal(mine.querySelector("[data-compare-arrival]")?.textContent, `[PENDIENTE COPY] Este · Carga web · ${formatTimestamp("2026-11-04T12:00:00Z", "es-419")}`);
+      assert.equal(mine.querySelector("[data-compare-arrival]")?.textContent, `Este · Carga web · ${formatTimestamp("2026-11-04T12:00:00Z", "es-419")}`);
       assert.equal(theirs.querySelector("[data-compare-file]")?.textContent, "factura.pdf");
       assert.equal(theirs.querySelector("[data-compare-arrival]")?.textContent, `${state} · WhatsApp · ${formatTimestamp("2026-11-03T12:00:00Z", "es-419")}`);
       assert.doesNotMatch(ui.view()?.textContent ?? "", /Este documento|El otro documento/);
@@ -569,7 +569,7 @@ for (const outcome of ["settled", "failed"] as const) {
         assert.equal(host.querySelector('[data-testid="duplicate-compare"]'), null, "the compare view closed");
         assert.equal(host.querySelector('[data-testid="duplicate-entry"]'), null, "no amber Parece repetido entry");
         assert.equal(repeats(host.querySelector('[data-testid="dossier-attention"]')), 0);
-        assert.equal(toasts(), "[PENDIENTE COPY] Marcado como compras distintas.");
+        assert.equal(toasts(), "Marcado como compras distintas.");
         const approve = button("Aprobar");
         assert.ok(approve && !approve.disabled, "Aprobar is ready");
         assert.equal(document.activeElement, approve, "focus is on the review's main action");
