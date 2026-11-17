@@ -1,0 +1,15 @@
+{
+  "id": "production-apply-2026-11-17-dates-floor-read-breaker",
+  "project_ref": "lgdhvepyrzbnscqssgqq",
+  "hosts": [
+    "db.lgdhvepyrzbnscqssgqq.supabase.co",
+    "aws-1-us-east-2.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "4934f9a3cc897d8f768e0b6397626e39e4f9b5e1",
+  "versions_sha256": "dea748b75b64a5d29c2619f809290a109d52453dd80dbff438f0b0e9b153d82e",
+  "issued_at": "2026-11-17T13:44:00Z",
+  "expires_at": "2026-11-19T13:44:00Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas approved on 2026-11-17 (\"Approved\") applying the business date floor migration (20261115060328, PR 2179) and the document read breaker migration (20261116063000, PR 2203) to production lgdhvepyrzbnscqssgqq only, before the production promotion of integration 0db383a38 (PR 2290). Staging has had both since its record (PR 2287). Dry run first."
+}
