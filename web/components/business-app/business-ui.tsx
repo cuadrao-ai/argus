@@ -57,15 +57,15 @@ export function useCategoryLabel() {
       : t("business.category.none", "No category");
 }
 
-/** Title and body for a read that ended with something to say. Other attention values keep their short word. */
+/**
+ * Title, body and next steps for a read that ended with something to say. Other attention values keep their short word.
+ * `discard` offers the delete there, shown only where the server allows it.
+ */
 export function useTerminalRead() {
   const { t } = useTranslation();
-  return (attention: ReceiptAttention | null, errorCode: string | null) => {
-    const uploadLabel = t("business.file_read.upload_another", "Upload another file");
-    if (
-      attention === "unreadable" &&
-      (errorCode === "unreadable_document" || errorCode === "receipt_requires_review")
-    ) {
+  return (attention: ReceiptAttention | null) => {
+    const uploadLabel = t("business.file_read.upload_another");
+    if (attention === "unreadable") {
       return {
         title: t("business.file_read.unreadable_title", "We couldn't read this file"),
         body: t(
@@ -74,6 +74,7 @@ export function useTerminalRead() {
         ),
         upload: true,
         uploadLabel,
+        discard: true,
       };
     }
     if (attention === "not_a_receipt") {
@@ -85,6 +86,7 @@ export function useTerminalRead() {
         ),
         upload: true,
         uploadLabel,
+        discard: false,
       };
     }
     if (attention === "read_deadline_passed") {
@@ -96,6 +98,7 @@ export function useTerminalRead() {
         ),
         upload: false,
         uploadLabel,
+        discard: false,
       };
     }
     return null;
