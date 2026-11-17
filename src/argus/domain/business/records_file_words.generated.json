@@ -79,7 +79,6 @@
       "purchase_receipt_needs_cedula": "A B11 needs the supplier's cédula",
       "rnc_invalid": "RNC has an error",
       "rnc_missing": "RNC is missing",
-      "several": "Fiscal details missing",
       "tip_over_limit": "The tip is over 10%"
     },
     "business.transactions.layout.workflow.not_ready": "Missing data",
@@ -167,7 +166,6 @@
       "purchase_receipt_needs_cedula": "Un B11 necesita la cédula del proveedor",
       "rnc_invalid": "RNC con error",
       "rnc_missing": "Falta el RNC",
-      "several": "Faltan datos fiscales",
       "tip_over_limit": "La propina pasa del 10%"
     },
     "business.transactions.layout.workflow.not_ready": "Faltan datos",
