@@ -18,6 +18,7 @@ import { afterListCheck, useReceiptInboxRefresh } from "@/components/business-ap
 import type { ReceiptActivityCounts, ReceiptDetail, ReceiptReading } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import english from "@/public/locales/en/common.json";
+import spanish from "@/public/locales/es-419/common.json";
 
 let hidden = false;
 let focused = true;
@@ -365,6 +366,41 @@ test.each(["success", "failure"])("Business switches reset back-off and ignore a
 test("the badge uses the server count and an unknown count is never 0", () => {
   assert.equal(inboxCount({ receiptActivity: null }), null);
   assert.equal(inboxCount({ receiptActivity: { ...counts, pending_review_count: 1 } }), 1);
+});
+
+test("an unread receipt has no manual read button and is marked automatically when visible with focus", async () => {
+  const detail = await receipt();
+  const spanishI18n = i18next.createInstance();
+  await spanishI18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const requests: { id: string; cursor: string }[] = [];
+  let finish!: () => void;
+  let reloaded = 0;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), markReceiptRead: (id, cursor) => {
+    requests.push({ id, cursor });
+    return new Promise((resolve) => { finish = () => resolve({ state: "ready", unread: false, completion_cursor: cursor }); });
+  } };
+  const page = await host();
+  hidden = false; focused = false;
+  try {
+    await act(async () => page.root.render(<I18nextProvider i18n={spanishI18n}><BusinessContext.Provider value={context(source, () => { reloaded++; })}><ReceiptSeenBoundary receipt={detail} hydrated /></BusinessContext.Provider></I18nextProvider>));
+    assert.equal(page.element.querySelector("button")?.textContent ?? null, null, "an unread receipt must not show a Marcar como leído button");
+    assert.equal(page.element.textContent?.includes("Marcar como leído"), false);
+    assert.equal(requests.length, 0);
+    await act(async () => intersect(page.element));
+    assert.equal(requests.length, 0);
+    focused = true;
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    assert.deepEqual(requests, [{ id: "r1", cursor: "a".repeat(64) }]);
+    assert.equal(reloaded, 0);
+    assert.equal(page.element.querySelector("button")?.textContent ?? null, null);
+    await act(async () => finish());
+    assert.equal(reloaded, 1);
+    assert.equal(page.element.querySelector("button")?.textContent ?? null, null);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+    hidden = false; focused = true;
+  }
 });
 
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {
