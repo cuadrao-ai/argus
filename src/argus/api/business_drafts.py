@@ -35,7 +35,7 @@ from argus.domain.business.actions.marks import (
 from argus.domain.business.actions.receipts import draft_for_receipt
 from argus.domain.business.authority import ActionContext, ActionError, authorize
 from argus.domain.business.contracts.actions import Refused
-from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.contracts.authority import PersonName, TrustedActor
 from argus.domain.business.contracts.deletion import DeletedDocument, deletion
 from argus.domain.business.contracts.dossier import AccountChoice, RecordContext
 from argus.domain.business.contracts.facts import (
@@ -44,7 +44,7 @@ from argus.domain.business.contracts.facts import (
     Known,
     personal_mark_admits,
 )
-from argus.domain.business.people import named_deletion, people
+from argus.domain.business.people import named, named_deletion, people
 from argus.domain.business.receipts import read_attention
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
@@ -352,6 +352,26 @@ def upload_recorder(context: BusinessContext, request):  # noqa: ANN001, ANN201
         record_legacy_action(connection, live, "receipt_upload", [receipt_id], key)
 
     return record
+
+
+def uploaders(tx, views: list[dict]) -> dict[str, PersonName]:  # noqa: ANN001
+    """Who uploaded each web upload, from the first ledger row its upload wrote,
+    named for the caller. A WhatsApp or email arrival names nobody."""
+
+    ids = [view["id"] for view in views if view.get("channel") == "web"]
+    if not ids:
+        return {}
+    rows = tx.rows(
+        "select distinct on (subject) subject, actor_id"
+        " from public.business_action_receipts,"
+        " jsonb_array_elements_text(command->'subjects') subject"
+        " where space_id=%s and command->>'action'='receipt_upload'"
+        " and outcome->>'outcome'='applied' and subject = any(%s)"
+        " order by subject, created_at",
+        (tx.context.actor.space_id, ids),
+    )
+    found = people(tx.connection, tx.authorization, [row["actor_id"] for row in rows])
+    return {row["subject"]: named(found, row["actor_id"]) for row in rows}
 
 
 def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> None:

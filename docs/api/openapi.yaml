@@ -29120,6 +29120,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        uploaded_by:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
+          - type: 'null'
         media_type:
           type: string
         size_bytes:
@@ -29413,6 +29417,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        uploaded_by:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
+          - type: 'null'
         media_type:
           type: string
         size_bytes:
@@ -29683,6 +29691,10 @@ components:
         source_text:
           anyOf:
           - type: string
+          - type: 'null'
+        uploaded_by:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         media_type:
           type: string
