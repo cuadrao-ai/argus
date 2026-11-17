@@ -15,6 +15,54 @@ const RAIL_W = KNOB * 2 + PAD * 2;
 const RAIL_H = KNOB + PAD * 2;
 
 /**
+ * Every toggle's one way to change: it flips first and asks the server after.
+ * While `onChange` is pending it is busy and ignores another flip; once the
+ * promise settles the caller's `checked` shows again, so a refusal rolls back.
+ */
+export function useOptimisticToggle(checked: boolean, onChange: (next: boolean) => void | Promise<unknown>, disabled: boolean) {
+  const [optimistic, setOptimistic] = useState<boolean | null>(null);
+  const [pending, setPending] = useState(false);
+  const on = optimistic ?? checked;
+  const flip = () => {
+    if (disabled || pending) return;
+    const next = !on;
+    setOptimistic(next);
+    let result: void | Promise<unknown>;
+    try {
+      result = onChange(next);
+    } catch {
+      setOptimistic(null);
+      return;
+    }
+    if (!result || typeof (result as Promise<unknown>).then !== "function") {
+      setOptimistic(null);
+      return;
+    }
+    setPending(true);
+    (result as Promise<unknown>).then(
+      () => { setPending(false); setOptimistic(null); },
+      () => { setPending(false); setOptimistic(null); },
+    );
+  };
+  return { on, pending, flip };
+}
+
+/**
+ * The small switch drawn inside a row that is itself the control, such as a
+ * menu's checkbox row: the same colours and spinner as `Switch`, no words, and
+ * hidden from assistive tech because the row announces its state.
+ */
+export function SwitchIndicator({ on, pending }: { on: boolean; pending: boolean }) {
+  return (
+    <span aria-hidden="true" data-switch-indicator={on ? "on" : "off"} className={`relative block h-5 w-9 shrink-0 rounded-full transition-colors duration-[250ms] ease-out motion-reduce:transition-none ${on ? "bg-[#2f5a49] dark:bg-[#8fcbb0]" : "bg-[#c9cec9] dark:bg-white/20"}`}>
+      <span className={`absolute left-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-[0_1px_2px_rgba(23,43,38,0.2)] transition-transform duration-[250ms] ease-out motion-reduce:transition-none ${on ? "translate-x-4" : ""}`}>
+        {pending ? <Loader2 className="h-3 w-3 animate-spin text-[#2f5a49] motion-reduce:animate-none" aria-hidden="true" /> : null}
+      </span>
+    </span>
+  );
+}
+
+/**
  * The one on/off switch. It flips first and asks the server after: while
  * `onChange` is pending the knob holds a spinner, and if it rejects the switch
  * rolls back (the caller says why, in a toast). The rail colour, the knob's
@@ -31,9 +79,7 @@ export function Switch({ checked, onChange, label, stateLabels, disabled = false
   disabled?: boolean;
   testId?: string;
 }) {
-  const [optimistic, setOptimistic] = useState<boolean | null>(null);
-  const [pending, setPending] = useState(false);
-  const on = optimistic ?? checked;
+  const { on, pending, flip } = useOptimisticToggle(checked, onChange, disabled);
   const { t } = useTranslation();
   const words = useSwitchLabelsShown() ? stateLabels ?? { on: t("common.yes", "Yes"), off: t("common.no", "No") } : null;
   const knob = useRef<HTMLSpanElement>(null);
@@ -71,28 +117,6 @@ export function Switch({ checked, onChange, label, stateLabels, disabled = false
     driver.current?.set(on ? { l: rest.l - PRESS_GROW } : { r: rest.r + PRESS_GROW });
   };
   const release = () => driver.current?.set(restFor(on));
-
-  const flip = () => {
-    if (disabled || pending) return;
-    const next = !on;
-    setOptimistic(next);
-    let result: void | Promise<unknown>;
-    try {
-      result = onChange(next);
-    } catch {
-      setOptimistic(null);
-      return;
-    }
-    if (!result || typeof (result as Promise<unknown>).then !== "function") {
-      setOptimistic(null);
-      return;
-    }
-    setPending(true);
-    (result as Promise<unknown>).then(
-      () => { setPending(false); setOptimistic(null); },
-      () => { setPending(false); setOptimistic(null); },
-    );
-  };
 
   return (
     <button
