@@ -7,7 +7,7 @@ import { originPlace, receptionPlaces } from "./reception-grid";
 import type { ReceptionView } from "./reception-model";
 import styles from "./reception.module.css";
 
-const HEADING_CLASS: Partial<Record<ReceptionColumnKey, string>> = { source: styles.channelHeading, sender: styles.senderHeading, amount: styles.amountHeading, currency: styles.currencyHeading };
+const HEADING_CLASS: Partial<Record<ReceptionColumnKey, string>> = { source: styles.channelHeading, sender: styles.senderHeading, amount: styles.amountHeading };
 
 /** The column titles, in the person's order. `children` is the box column; it and Contenido stay first, the action title last. */
 export default function ReceptionColumnsHeading({ preferences, view, status, children }: { preferences: ReceptionPreferences; view: ReceptionView; status: boolean; children: ReactNode }) {
