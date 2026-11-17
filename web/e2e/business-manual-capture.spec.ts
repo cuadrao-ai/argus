@@ -70,10 +70,10 @@ async function newNote(page: Page) {
   await page.getByTestId("intake-write-open").click();
   return page.getByTestId("intake-write");
 }
-/** A record keeps "Agregar una nota a este registro" in its Más menu. */
+/** A record keeps "Agregar nota" in its Más menu. */
 async function openAppend(page: Page) {
   await openMore(page);
-  await page.getByRole("button", { name: "Agregar una nota a este registro", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Agregar nota", exact: true }).click();
 }
 /** A phone shows a record's form or its original, one at a time. */
 async function showOriginal(page: Page, width: number) {
@@ -189,12 +189,12 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await page.goto(`/biz?draft=${dossierFixtureIds.readOnly}`);
   await expect(page.getByTestId("business-record-review")).toBeVisible();
   await openMore(page);
-  await expect(page.getByRole("button", { name: "Agregar una nota a este registro", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);
   await source.approveDraft(dossierFixtureIds.ready, 2, "fixture-explicit-approval", "record_expense");
   await page.goto(`/biz?draft=${dossierFixtureIds.ready}`);
   await expect(page.getByTestId("business-record-review")).toContainText("Se registró un gasto");
   await openMore(page);
-  await expect(page.getByRole("button", { name: "Agregar una nota a este registro", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);
 });
 
 test("new-note entry waits for successful own-workspace load", async ({ page }) => {

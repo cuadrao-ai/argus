@@ -228,14 +228,12 @@ describe("one receipt review page", () => {
     await page.open({ kind: "draft", draftId: dossierFixtureIds.ready }, () => page.host.querySelector('[data-testid="receipt-mark-personal"]') !== null);
     const toggle = () => page.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
     const saved = (on: boolean) => toggle().getAttribute("aria-checked") === String(on) && !toggle().hasAttribute("aria-busy");
-    const chip = () => page.host.querySelector('[data-testid="receipt-marks-card"] [data-mark="personal"]');
-    assert.equal(toggle().getAttribute("role"), "switch");
+    assert.equal(toggle().getAttribute("role"), "menuitemcheckbox");
     assert.equal(toggle().getAttribute("aria-checked"), "false");
-    assert.equal(chip(), null);
     await page.act(async () => toggle().click());
-    await page.wait(() => saved(true) && chip() !== null);
+    await page.wait(() => saved(true));
     await page.act(async () => toggle().click());
-    await page.wait(() => saved(false) && chip() === null);
+    await page.wait(() => saved(false));
     await page.act(async () => page.root.unmount());
   });
 });

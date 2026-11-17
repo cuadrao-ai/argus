@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ReceiptText, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import type { BusinessDossier } from "@/lib/business-dossier";
@@ -8,6 +9,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import { primaryButtonClass, quietButtonClass, RecordMarks, recordFiscalMark, secondaryButtonClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { showToast } from "./foundation/toasts";
+import { MenuCheckItem } from "./ReceiptReviewFooter";
 import { Switch } from "@/components/ui/Switch";
 
 /**
@@ -18,7 +20,7 @@ import { Switch } from "@/components/ui/Switch";
  * answers whether a personal receipt with a fiscal number goes into the 606,
  * when the server says the caller may. The owner reads that answer; the app never gives it.
  */
-export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bare = false }: { dossier: BusinessDossier; busy?: boolean; onChanged: (next: BusinessDossier) => void; /** Inside a surface that is already a panel, such as the footer's Más. */ bare?: boolean }) {
+export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bare = false }: { dossier: BusinessDossier; busy?: boolean; onChanged: (next: BusinessDossier) => void; /** As rows of the footer's Más menu: a switch per decision, the 606 only under Personal, no chips and no words for an open answer. */ bare?: boolean }) {
   const { t } = useTranslation();
   const { source, chosen, reload } = useBusiness();
   const [working, setWorking] = useState(false);
@@ -67,14 +69,51 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bar
       throw error;
     }
   };
+  const problemLine = problem ? (
+    <p role="alert" data-testid="receipt-marks-problem" className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0] ${bare ? "px-3 py-2" : "mt-3"}`}>
+      {problem}
+      {retry ? <button type="button" role={bare ? "menuitem" : undefined} disabled={disabled} onClick={retry} className={quietButtonClass}>{t("common.retry", "Retry")}</button> : null}
+    </p>
+  ) : null;
+
+  if (bare) {
+    // In Más the two decisions are rows; one change at a time, and the 606 answer flips first like Personal.
+    const once = (change: (next: boolean) => Promise<void>) => async (next: boolean) => {
+      setWorking(true);
+      try {
+        await change(next);
+      } finally {
+        setWorking(false);
+      }
+    };
+    const decide606 = async (next: boolean) => {
+      setProblem(null);
+      try {
+        onChanged(await source.decideFiscalInclusion(dossier.draft_id, dossier.version, next, crypto.randomUUID()));
+        reload();
+      } catch (error) {
+        fail(t("business.marks.decide_failed", "We could not save the answer. Try again."), () => void once(decide606)(next).catch(() => undefined));
+        throw error;
+      }
+    };
+    return (
+      <>
+        <MenuCheckItem icon={UserRound} testId="receipt-mark-personal" label={t("business.marks.mark_personal", "Personal")} hint={t("business.marks.personal_help", "It does not count in the Business totals.")} checked={personal} disabled={disabled || !canPrepare} onChange={once(markPersonal)} />
+        {personal && dossier.fiscal_question_applies === true ? (
+          <MenuCheckItem icon={ReceiptText} testId="receipt-606" label={t("business.marks.include_606", "Include in the 606")} checked={inclusion === true} disabled={disabled || !canPrepare || !dossier.fiscal_inclusion_available} onChange={once(decide606)} />
+        ) : null}
+        {problemLine}
+      </>
+    );
+  }
 
   return (
-    <div className={bare ? "" : SURFACE_CARD} data-testid="receipt-marks-card">
+    <div className={SURFACE_CARD} data-testid="receipt-marks-card">
       <div className="flex flex-wrap items-center justify-between gap-3 empty:hidden">
         <RecordMarks personal={personal} fiscal={recordFiscalMark(dossier)} markedBy={markedBy} />
       </div>
       {canPrepare ? (
-        <div className={`flex items-center justify-between gap-4 ${bare ? "" : "mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10"}`}>
+        <div className="flex items-center justify-between gap-4 mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">
           <span className="min-w-0">
             <span className="block text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.marks.mark_personal", "Personal")}</span>
             <span className="block text-[13px] text-[#56635e] dark:text-white/70">{t("business.marks.personal_help", "It does not count in the Business totals.")}</span>
@@ -103,12 +142,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bar
           )}
         </div>
       ) : null}
-      {problem ? (
-        <p role="alert" data-testid="receipt-marks-problem" className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
-          {problem}
-          {retry ? <button type="button" disabled={disabled} onClick={retry} className={quietButtonClass}>{t("common.retry", "Retry")}</button> : null}
-        </p>
-      ) : null}
+      {problemLine}
     </div>
   );
 }
