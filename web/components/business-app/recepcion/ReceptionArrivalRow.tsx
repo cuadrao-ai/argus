@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { currencySymbol } from "@/lib/money-entry";
 import { Unknown } from "../transacciones/transacciones-parts";
 import { resolveLanguage } from "@/lib/language-features";
+import { personName } from "@/lib/person-name";
 import type { BusinessPanelState } from "../BusinessWorkspace";
 import { formatAmount, formatMoney, formatRelativeTime, UNKNOWN_VALUE } from "../business-format";
 import { isOpenRecord } from "../record-tray";
@@ -73,7 +74,7 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
   const places = receptionPlaces(preferences, { status: view !== "listos" });
   const has = places.has;
   const money = receipt && has("amount") ? formatMoney(receipt.amount, receipt.currency, locale) : null;
-  const sender = receptionSender(row);
+  const sender = receptionSender(row) ?? (receipt?.uploaded_by ? personName(t, receipt.uploaded_by) : null);
   const SourceIcon = CHANNEL_ICON[row.source];
   const selected = isOpenRecord(panel, target);
   const [titleRef, titleCut] = useCutOff<HTMLSpanElement>(title);

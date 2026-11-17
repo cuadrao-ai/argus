@@ -116,6 +116,8 @@ export type ReceiptSummary = ReceiptReviewFields & DocumentDeleteAccess & {
   bandeja?: BandejaMembership | null;
   bandeja_group?: BandejaGroup | null;
   channel: ReceiptChannel;
+  /** Who uploaded a web upload, as the server names them for this viewer; null for any other arrival. */
+  uploaded_by?: PersonName | null;
   /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
   personal?: boolean;
   /** Who marked it, when that was someone other than the owner; absent otherwise. */
