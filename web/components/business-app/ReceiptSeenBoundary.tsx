@@ -1,14 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { useTranslation } from "react-i18next";
 import type { ReceiptDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { secondaryButtonClass } from "./business-ui";
 
 export default function ReceiptSeenBoundary({ receipt, hydrated }: { receipt: ReceiptDetail; hydrated: boolean }) {
   const { source, reload } = useBusiness();
-  const { t } = useTranslation();
   const sentinel = useRef<HTMLDivElement>(null);
   const acknowledged = useRef<string | null>(null);
   const inFlight = useRef<{ id: string; cursor: string } | null>(null);
@@ -38,7 +35,5 @@ export default function ReceiptSeenBoundary({ receipt, hydrated }: { receipt: Re
     document.addEventListener("visibilitychange", visible);
     return () => { observer.disconnect(); window.removeEventListener("focus", visible); document.removeEventListener("visibilitychange", visible); };
   }, [hydrated, cursor, mark]);
-  return <div ref={sentinel} data-testid="receipt-canonical-content">
-    {hydrated && receipt.activity?.unread && cursor ? <button type="button" className={secondaryButtonClass} onClick={() => void mark()}>{t("business.activity.mark_read", "Mark as read")}</button> : null}
-  </div>;
+  return <div ref={sentinel} data-testid="receipt-canonical-content" />;
 }
