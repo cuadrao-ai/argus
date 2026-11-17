@@ -4,7 +4,7 @@ import hashlib
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, time, timezone
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, get_args
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -39,7 +39,12 @@ from argus.domain.business.contracts.actions import (
     RefundApprovalCommand,
     Refused,
 )
-from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
+from argus.domain.business.contracts.dgii import (
+    DeclarationSuggestions,
+    DgiiDeclaration,
+    PurchaseDeclaration,
+    SuggestedField,
+)
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessFacts,
@@ -53,7 +58,12 @@ from argus.domain.business.contracts.listos import (
     ListosApproved,
 )
 from argus.domain.business.document_type import require_type_kind
-from argus.domain.business.purchase_review import declaration_from_facts
+from argus.domain.business.purchase_review import (
+    blank_answer,
+    declaration_from_facts,
+    saves_suggestions,
+    take_suggestions,
+)
 from argus.domain.business.review_flags import unconfirmed
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import ImportEvent
@@ -145,15 +155,20 @@ def _approval_declaration(
     event: ImportEvent,
     facts: BusinessFacts,
     failed: dict | None,
+    shown: DeclarationSuggestions | None,
 ) -> PurchaseDeclaration | None:
     """The 606 declaration an expense approval writes from its stored facts.
 
-    A declaration a person saved stays theirs: only the Tipo Id and Forma de
-    Pago it left unknown are filled in. Forma de Pago comes only from an
-    account a person stated, so with no stated funding it stays blank. None
-    when there is nothing to write. After a ``failed`` approval whose revision
-    was never undone, the person's declaration is the one before that
-    revision, and it is written back.
+    A declaration a person saved stays theirs: only its blank answers are
+    filled. A suggestion goes in first: the ones the person was ``shown``, or
+    for a bulk approval (None) the server's own, read now. Then the Tipo Id,
+    and the Forma de Pago of an account a person stated. None when there is
+    nothing to write. After a ``failed`` approval whose revision was never
+    undone, the person's declaration is the one before that revision, and it
+    is written back.
+
+    A suggestion the person saw is refused when its answer is no longer
+    blank or this approval writes no 606 declaration: the record changed.
     """
 
     if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
@@ -174,22 +189,37 @@ def _approval_declaration(
         if failed is not None
         else (event.resolution.get("business") or {}).get("dgii")
     )
-    if not saved:
-        return built
-    current = _declaration(saved)
-    if not isinstance(current, PurchaseDeclaration):
-        # Saved for the other form: no declaration of this purchase.
+    current = _declaration(saved) if saved else None
+    # Saved for the other form: no declaration of this purchase.
+    person = current if isinstance(current, PurchaseDeclaration) else None
+    document_type = (event.resolution.get("business") or {}).get("document_type", "recibo")
+    saves = saves_suggestions(document_type, facts, person)
+    if shown is None:
+        offered = (
+            dossier.offered_suggestions(tx, event.id, person)
+            if saves
+            else DeclarationSuggestions()
+        )
+    else:
+        named = [f for f in get_args(SuggestedField) if getattr(shown, f) is not None]
+        if named and not (saves and all(blank_answer(person, f) for f in named)):
+            raise ActionError("invalid_input", "suggestion_stale")
+        offered = shown
+    taken = take_suggestions(person, offered)
+    if taken is None:
         return built
     if built is None:
+        if taken != person:
+            return taken
         return current if failed is not None else None
-    filled = current.model_copy(
+    filled = taken.model_copy(
         update={
             name: getattr(built, name)
             for name in ("id_type", "payment_method")
-            if getattr(current, name) is None
+            if getattr(taken, name) is None
         }
     )
-    if failed is None and filled == current:
+    if failed is None and filled == person:
         return None
     return filled
 
@@ -298,6 +328,9 @@ def approve(
         if isinstance(request, ApproveIncome)
         else "expense"
     )
+    shown = (
+        request.suggestions if isinstance(request, ApproveExpense) else None
+    ) or DeclarationSuggestions()
     command = (
         RefundApprovalCommand(draft_id=draft_id, request=request)
         if isinstance(request, ApproveRefund)
@@ -371,9 +404,12 @@ def approve(
                             bool(request.approve_anyway),
                             listo,
                         )
+                        failed = _failed_approval_revision(tx, event)
+                        declared = _approval_declaration(
+                            tx, event, facts, failed, None if listo else shown
+                        )
                     except ActionError as error:
                         return plans.finish_receipt(tx, key, error.result)
-                    failed = _failed_approval_revision(tx, event)
                     claim_key = hashlib.sha256(
                         f"{context.actor.actor_id}:{key}".encode()
                     ).hexdigest()
@@ -392,7 +428,6 @@ def approve(
                             },
                         },
                     )
-                    declared = _approval_declaration(tx, event, facts, failed)
                     if declared is None and failed is None:
                         tx.imports.put_event(event)
                     else:

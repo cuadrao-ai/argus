@@ -442,8 +442,8 @@ export function createFixtureBusinessDataSource(
   return {
     mode: "fixture",
     ...dossierSource,
-    approveDraft: async (id, version, key, action) => {
-      const dossier = await dossierSource.approveDraft(id, version, action);
+    approveDraft: async (id, version, key, action, _anyway, suggestions) => {
+      const dossier = await dossierSource.approveDraft(id, version, action, suggestions);
       const receipt = receipts.find((item) => item.draft_id === id);
       if (receipt && dossier.approval_result?.status === "recorded") {
         const facts = dossier.facts;

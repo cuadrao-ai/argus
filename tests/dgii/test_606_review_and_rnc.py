@@ -454,12 +454,13 @@ class TestReviewChecklist:
 
     def test_the_review_names_every_606_field_the_declaration_has(self):
         """One list of 606 fields: a field added to the declaration without its
-        review twin, or typed differently, fails here."""
+        review twin, or typed differently, fails here. The suggestion sources
+        have none: only an approval writes them."""
 
         declared = {
             name: field
             for name, field in PurchaseDeclaration.model_fields.items()
-            if name != "form"
+            if name not in {"form", "suggestion_sources"}
         }
         assert set(PurchaseReview.model_fields) == set(declared)
         for name, field in declared.items():

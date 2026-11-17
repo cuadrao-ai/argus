@@ -12,7 +12,7 @@ import type { ReceiptDetail } from "@/lib/business-api";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import { Check, CircleAlert, Loader2, RotateCcw, StickyNote } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { factsRevision, readReviewNote, type BusinessDossier, type ReviewFlagCode } from "@/lib/business-dossier";
+import { factsRevision, readReviewNote, type BusinessDossier, type ReviewFlagCode, type ShownSuggestions } from "@/lib/business-dossier";
 import { documentFamily, factLabel } from "@/lib/counterparty-term";
 import type { DgiiFields } from "@/lib/business-dgii";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
@@ -29,7 +29,7 @@ import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import { useAmountsPreview } from "./useAmountsPreview";
 import ReceiptFactEditor from "./ReceiptFactEditor";
-import ReceiptOwnerChoices from "./ReceiptOwnerChoices";
+import ReceiptOwnerChoices, { shownSuggestions, type ChoicesView } from "./ReceiptOwnerChoices";
 import ReceiptRowSave from "./ReceiptRowSave";
 import ReceiptEditRow, { type RowShown } from "./ReceiptEditRow";
 import ReceiptReviewDone from "./ReceiptReviewDone";
@@ -68,6 +68,8 @@ function rowValues(target: EventTarget): string[] {
 type Operation = { kind: "idle" | "approving" } | { kind: "uncertain"; version: number };
 type Problem = { text: string; reference?: string };
 type ApprovalRequest = { next: boolean; anyway: boolean };
+/** One approve request: the suggestions it carries are the ones on screen when the person approved. */
+type ApprovalSend = ApprovalRequest & { suggestions?: ShownSuggestions };
 /** The step shown before approving one revision: the missing or wrong-length RNC warning, or the dossier's confirm flags. */
 type ApprovalCheck = { draftId: string; version: number; next: boolean } & ({ kind: "rnc"; status: "missing" | "invalid_length" } | { kind: "flags"; codes: ReviewFlagCode[] });
 
@@ -162,7 +164,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const releaseGuard = useRef<(() => void) | null>(null);
   const inFlight = useRef(false);
   // One key per request body: a retry repeats it, and approving anyway is a different request with its own key.
-  const approvalKey = useRef<{ version: number; anyway: boolean; key: string } | null>(null);
+  const approvalKey = useRef<{ version: number; anyway: boolean; suggestions: string; key: string } | null>(null);
 
   // A draft that is gone closes onto its list, so a dead link never leaves a panel whose Reintentar cannot work.
   // Only a refusal says the person's access; any other failure can pass, so it offers Reintentar.
@@ -290,7 +292,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     } finally { setChecking(false); }
   };
 
-  const approveRecord = async (request: ApprovalRequest = { next: false, anyway: false }): Promise<BusinessDossier | null> => {
+  const approveRecord = async (request: ApprovalSend): Promise<BusinessDossier | null> => {
     const approval = dossier?.approval_action;
     if (!dossier || !approval || inFlight.current || duplicateBusy || fiscalBusy || fiscalDirty || dirty || autosave.busy || autosave.failed || operation.kind !== "idle") return null;
     inFlight.current = true;
@@ -299,9 +301,11 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     setDuplicate(null);
     try {
       const previous = approvalKey.current;
-      const sent = previous?.version === dossier.version && previous.anyway === request.anyway ? previous : { version: dossier.version, anyway: request.anyway, key: randomId() };
+      const suggestions = approval === "record_expense" ? request.suggestions : undefined;
+      const body = JSON.stringify(suggestions ?? null);
+      const sent = previous?.version === dossier.version && previous.anyway === request.anyway && previous.suggestions === body ? previous : { version: dossier.version, anyway: request.anyway, suggestions: body, key: randomId() };
       approvalKey.current = sent;
-      const next = await source.approveDraft(draftId, dossier.version, sent.key, approval, request.anyway);
+      const next = await source.approveDraft(draftId, dossier.version, sent.key, approval, request.anyway, suggestions);
       setDossier(next);
       setOperation(next.approval_result?.status === "outcome_unknown" ? { kind: "uncertain", version: dossier.version } : { kind: "idle" });
       reload();
@@ -310,7 +314,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       const { code, status } = error as { code?: string; status?: number };
       const flagged = request.anyway ? [] : confirmationFlags(error);
       const reference = referenceCode(error);
-      if (code === "stale_version") {
+      if (code === "stale_version" || code === "suggestion_stale") {
         setOperation({ kind: "idle" });
         setProblem({ text: t("business.dossier.stale", "This record changed. Open the current revision and review it before taking another action."), reference });
         setDossier(null);
@@ -342,12 +346,12 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     return () => { pageOpen.current = false; };
   }, []);
 
-  const approveAndNext = async (anyway: boolean) => {
+  const approveAndNext = async (request: ApprovalSend) => {
     if (!receipt) return;
     const seen = origin?.receiptIds?.map(id => ({ id })) ?? records.inbox;
     setAdvancing(true);
     try {
-      const approved = await approveRecord({ next: true, anyway });
+      const approved = await approveRecord(request);
       if (approved?.approval_result?.status !== "recorded" || !pageOpen.current) return;
       const fresh = await source.receipts("inbox").catch(() => null);
       if (!pageOpen.current) return;
@@ -397,9 +401,13 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
 
   const flags = dossier.review_flags ?? [];
   const confirmCodes = flags.filter((flag) => flag.confirm).map((flag) => flag.code);
+  // Approval needs no 606 data, so a recorded purchase keeps these choices.
+  const showsChoices = (reviewing || dossier.review_state === "accepted") && !dossier.sin_comprobante && (dossier.declaration_editable === true || dossier.dgii?.form === "606");
+  const choicesView: ChoicesView | null = showsChoices ? { dossier, fields, failed: fieldsFailed, readOnly: !reviewing && !canPrepare } : null;
   const approve = ({ next, anyway }: ApprovalRequest) => {
-    if (next) void approveAndNext(anyway);
-    else void approveRecord({ next, anyway });
+    const request = { next, anyway, suggestions: choicesView ? shownSuggestions(choicesView) : undefined };
+    if (next) void approveAndNext(request);
+    else void approveRecord(request);
   };
   // The server flags no check digit on a missing or wrong-length RNC, so that step comes first and the flags step follows it.
   const requestApproval = (next = false) => {
@@ -479,8 +487,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       </ReceiptEditRow>
     );
   };
-  // Approval needs no 606 data, so a recorded purchase keeps these choices.
-  const showsChoices = (reviewing || dossier.review_state === "accepted") && !dossier.sin_comprobante && (dossier.declaration_editable === true || dossier.dgii?.form === "606");
   const rowNote = (row: ReviewRow) => <ReceiptRowSave save={autosave.saves[row]?.state === "saving" ? undefined : autosave.saves[row]} onRetry={() => rows.retry(row)} />;
   const head = {
     recordId: receipt?.id ?? draftId,
@@ -563,7 +569,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
             onMouseLeave={() => setHighlight([])}
             onBlur={() => setHighlight([])}
           >
-            <ReceiptRecordFacts dossier={dossier} accounts={accounts} attention={attention} choices={showsChoices ? <ReceiptOwnerChoices dossier={dossier} fields={fields} failed={fieldsFailed} disabled={!dossier.declaration_editable || (reviewing && !mutable)} readOnly={!reviewing && !canPrepare} saves={autosave.saves} onChoose={(choice, value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } })} onRetry={(choice) => void autosave.retry(choice)} onCancel={autosave.clear} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} row={reviewing ? (shown) => rowControl("document_type", shown) : undefined} note={reviewing ? rowNote("document_type") : undefined} /> : undefined} review={reviewing ? {
+            <ReceiptRecordFacts dossier={dossier} accounts={accounts} attention={attention} choices={choicesView ? <ReceiptOwnerChoices {...choicesView} disabled={!dossier.declaration_editable || (reviewing && !mutable)} saves={autosave.saves} onChoose={(choice, value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } })} onRetry={(choice) => void autosave.retry(choice)} onCancel={autosave.clear} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} row={reviewing ? (shown) => rowControl("document_type", shown) : undefined} note={reviewing ? rowNote("document_type") : undefined} /> : undefined} review={reviewing ? {
               amountsPreview,
               onEdit: canPrepare && mutable ? rows.open : undefined,
               row: rowControl,

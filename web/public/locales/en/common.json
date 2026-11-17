@@ -2401,7 +2401,6 @@
       "original_purchase": "Original purchase",
       "refund_candidate_refused": "That purchase can't be used for this refund. Pick another one.",
       "refund_candidates_none": "There are no approved purchases to pick.",
-      "suggested": "Suggested",
       "save": "Save",
       "approve_income": "Approve income",
       "approve_refund": "Approve refund",
@@ -3328,9 +3327,10 @@
         "group_other": "Other",
         "section_choices": "For the 606",
         "suggestion_source": {
-          "last_choice": "Last choice for this RNC"
+          "last_choice": "Your last choice for this RNC",
+          "reading": "Suggested by the reading",
+          "receipt": "Read from the receipt"
         },
-        "use_suggestion": "Use",
         "mark_no_receipt": "Mark as no receipt"
       },
       "place": "{{index}} of {{total}}",

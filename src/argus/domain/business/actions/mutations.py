@@ -73,6 +73,7 @@ from argus.domain.business.purchase_review import (
     apply_payment_split,
     apply_purchase,
     changes_recorded_refund,
+    kept_sources,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -375,6 +376,7 @@ def revise(
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         declared = apply_payment_split(current, payment_split)
     validate_changed_dates(stored, declared)
+    declared = kept_sources(stored, declared)
     return save_revision(
         tx,
         event,

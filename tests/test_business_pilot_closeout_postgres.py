@@ -303,27 +303,98 @@ def test_the_type_a_person_chose_for_an_rnc_comes_back_as_a_suggestion(world) ->
     )
 
 
-def test_a_suggestion_is_stored_only_when_a_person_keeps_it(world) -> None:  # noqa: ANN001
+def _approve_shown(world, dossier: dict, suggestions: dict):  # noqa: ANN001, ANN202
+    """The approve request the review screen sends: the suggestions it showed."""
+
+    return world.client.post(
+        f"{API}/business/drafts/{dossier['draft_id']}/approve",
+        json={
+            "version": dossier["version"],
+            "action": "record_expense",
+            "suggestions": suggestions,
+        },
+        headers={**world.alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+
+
+def test_an_approval_saves_the_suggestion_it_was_shown(world) -> None:  # noqa: ANN001
     _fiscal_profile(world)
     earlier = _chosen(world, "B0100000061", "02")
     _declare(world, earlier["draft_id"], payment_method="01")
     dossier = _purchase(world, world.alice, "B0100000062", payment_method="01")
     assert _suggested_type(dossier) == "02"
 
+    answer = _approve_shown(world, dossier, dossier["declaration_suggestions"])
+
+    assert answer.status_code == 200, answer.text
+    recorded = answer.json()
+    assert recorded["dgii"]["category"] == "02"
+    assert recorded["dgii"]["category_suggested"] is False
+    assert recorded["dgii"]["suggestion_sources"] == {"category": "last_choice"}
+    assert recorded["declaration_suggestions"] == {
+        "category": None,
+        "payment_method": None,
+    }
+    rows = {row["NCF"]: row for row in _export(world)[1]}
+    assert rows["B0100000062"]["Tipo de gasto"].startswith("02")
+    assert _month(world)["dgii_forms"]["606"] == "prepared_candidate"
+
+    changed = _declare(world, dossier["draft_id"], category="05")
+    assert changed["dgii"]["category"] == "05"
+    assert "suggestion_sources" not in changed["dgii"]
+
+
+def test_an_approval_without_the_suggestion_leaves_the_answer_blank(world) -> None:  # noqa: ANN001
+    _fiscal_profile(world)
+    _chosen(world, "B0100000063", "02")
+    dossier = _purchase(world, world.alice, "B0100000064", payment_method="01")
+    assert _suggested_type(dossier) == "02"
+
     answer = _approve(world, dossier["draft_id"], dossier["version"], "expense")
+
     assert answer.status_code == 200, answer.text
     recorded = answer.json()
     assert recorded["dgii"]["category"] is None
-    assert _suggested_type(recorded) == "02"
+    assert recorded["declaration_suggestions"]["category"] is None
     rows = {row["NCF"]: row for row in _export(world)[1]}
-    assert rows["B0100000062"]["Tipo de gasto"] == ""
+    assert rows["B0100000064"]["Tipo de gasto"] == ""
     assert _month(world)["dgii_forms"]["606"] == "needs_review"
 
-    kept = _declare(world, dossier["draft_id"], category="02")
-    assert kept["dgii"]["category"] == "02"
-    assert kept["dgii"]["category_suggested"] is False
-    assert _suggested_type(kept) is None
-    assert _month(world)["dgii_forms"]["606"] == "prepared_candidate"
+
+@pytest.mark.parametrize(
+    "shown",
+    [
+        {"category": {"value": "12", "source": "last_choice"}},
+        {"category": {"value": "02", "source": "guess"}},
+    ],
+)
+def test_an_approval_refuses_an_invalid_suggestion(world, shown: dict) -> None:  # noqa: ANN001
+    dossier = _purchase(world, world.alice, "B0100000065")
+
+    answer = _approve_shown(world, dossier, shown)
+
+    assert answer.status_code == 422, answer.text
+    assert _purchase_state(world, dossier["draft_id"]) == ("open", None)
+
+
+def test_an_approval_refuses_a_suggestion_for_an_answer_the_draft_has(world) -> None:  # noqa: ANN001
+    _chosen(world, "B0100000066", "02")
+    dossier = _purchase(world, world.alice, "B0100000067", category="03")
+
+    answer = _approve_shown(
+        world, dossier, {"category": {"value": "02", "source": "last_choice"}}
+    )
+
+    assert answer.status_code == 422, answer.text
+    assert answer.json()["code"] == "suggestion_stale"
+    assert _purchase_state(world, dossier["draft_id"]) == ("open", "03")
+
+
+def _purchase_state(world, draft: str) -> tuple:  # noqa: ANN001
+    dossier = world.client.get(
+        f"{API}/business/drafts/{draft}/dossier", headers=world.alice.headers
+    ).json()
+    return dossier["review_state"], (dossier["dgii"] or {}).get("category")
 
 
 def test_a_type_nobody_confirmed_is_no_choice(world) -> None:  # noqa: ANN001

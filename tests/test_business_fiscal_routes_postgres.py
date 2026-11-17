@@ -337,7 +337,10 @@ def test_an_edit_after_the_tipo_de_gasto_reaches_the_606_line(world) -> None:  #
     )
     assert current["dgii"]["goods_amount"] == "600.00"
     current = reviewed(purchase={"payment_method": "01"})
-    assert set(current["dgii"]) == set(PurchaseDeclaration.model_fields)
+    # No answer came from a suggestion, so no source is listed.
+    assert set(current["dgii"]) == set(PurchaseDeclaration.model_fields) - {
+        "suggestion_sources"
+    }
 
     approved = _post(
         world,

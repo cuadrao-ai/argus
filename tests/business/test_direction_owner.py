@@ -20,6 +20,7 @@ from argus.domain.business.actions import dossier as dossier_actions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import CaptureNote
 from argus.domain.business.contracts.dgii import (
+    DeclarationSuggestions,
     FiscalReview,
     PurchaseReview,
     SalePaymentSplit,
@@ -611,5 +612,7 @@ def test_an_expense_approval_writes_its_606_over_a_stray_607():
         }
     )
     event = _holding("recibo", "expense", STRAY_607)
-    written = approval._approval_declaration(_tx(OWN), event, facts, None)
+    written = approval._approval_declaration(
+        _tx(OWN), event, facts, None, DeclarationSuggestions()
+    )
     assert written is not None and written.form == "606"

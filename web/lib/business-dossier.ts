@@ -1,5 +1,5 @@
 import type { BusinessAccount, DocumentDeleteAccess } from "./business-api";
-import type { DgiiDeclaration } from "./business-dgii";
+import type { DgiiDeclaration, SuggestedField, SuggestionSource } from "./business-dgii";
 import type { PersonName, PersonShown } from "./person-name";
 
 export type BusinessFact<T> =
@@ -156,8 +156,10 @@ export type BusinessApprovalAction = "record_expense" | "record_income" | "recor
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
 export type RefundCandidate = { id: string; merchant: string | null; occurred_on: string; amount: string; currency: string };
 
-/** A value the server suggests and where it came from: the last answer a person gave for this RNC, or what the receipt shows. */
-export type DeclarationSuggestion = { value: string; source: "last_choice" | "receipt" };
+/** A value the server suggests and where it came from. */
+export type DeclarationSuggestion = { value: string; source: SuggestionSource };
+/** The suggestions a person saw filled in, which an expense approval saves into its blank answers. */
+export type ShownSuggestions = Partial<Record<SuggestedField, DeclarationSuggestion>>;
 
 export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
@@ -171,8 +173,8 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   declaration_editable?: boolean;
   /** The caller may return this approved record to the Bandeja now: it holds approve and no bank match, credit note or refund is linked to it. */
   reopen_available?: boolean;
-  /** What the server offers for each 606 answer this record lacks, under the declaration's field name. A suggestion: it reaches the 606 only when a person writes it. */
-  declaration_suggestions?: Partial<Record<"category" | "payment_method", DeclarationSuggestion | null>>;
+  /** What the server offers for each 606 answer this open expense lacks, under the declaration's field name. The approval saves the ones the person saw. */
+  declaration_suggestions?: Partial<Record<SuggestedField, DeclarationSuggestion | null>>;
   /** What the e-CF XML proved by itself; null for any other source. */
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */
