@@ -173,6 +173,7 @@ def test_deleted_document_actor_is_anonymous_after_owner_account_departure(
             assert view["deleted"]["actor"] == {
                 "actor_id": alias,
                 "display_name": "Exmiembro",
+                "email": None,
             }
             assert former not in response.text and former_name not in response.text
         feed = read_activity(

@@ -3,6 +3,7 @@
 import { Fragment, useContext, useEffect, useState, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, FileText } from "lucide-react";
 import { currencySymbol } from "@/lib/money-entry";
+import { personName } from "@/lib/person-name";
 import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { useBusiness } from "../BusinessWorkspace";
 import { formatAmount, formatMoney, formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
@@ -135,7 +136,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
               itbis_amount: (<td {...at("itbis_amount", "text-right font-normal tabular-nums")}>{row.report?.itbis_amount == null || row.report.currency === null ? <Unknown /> : <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report.itbis_amount, row.report.currency, locale)}</span>}</td>),
               note: (<td {...at("note", "text-left")}><RecordNotePreview row={row} /></td>),
               detail: (<td {...at("detail", "text-left text-[#56635e] dark:text-white/65")}>
-                  {row.report?.family === null ? <Unknown /> : preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>
+                  {row.report?.family === null ? <Unknown /> : preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: personName(t, row.marks.markedBy) }) : null].filter(Boolean).join(" · ")}>
                     <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
                   </Tooltip>}
                 </td>),

@@ -18,7 +18,7 @@ from argus.domain.business.contracts.actions import (
     DecideFiscalInclusion,
     MarkPersonal,
 )
-from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.contracts.authority import PersonName, TrustedActor
 from argus.domain.business.contracts.facts import (
     fiscal_inclusion,
     fiscal_value,
@@ -34,6 +34,12 @@ from tests.test_business_actions_postgres import ready
 actions = shared.actions
 users = shared.users
 pytestmark = shared.pytestmark
+
+
+def _person(actor) -> PersonName:  # noqa: ANN001
+    """How a mark names the person a history row names: the same live read."""
+
+    return PersonName(display_name=actor.display_name, email=actor.email)
 
 
 def _owner(service, context, users):  # noqa: ANN001, ANN201
@@ -227,8 +233,8 @@ def test_a_prepare_grantee_marks_personal_the_ledger_names_them_and_the_owner_un
     with transaction(service.authority, owner) as tx:
         marks = linked_records(tx, [str(approved.activity_id)])
     assert marks[str(approved.activity_id)]["personal"] is True
-    assert marks[str(approved.activity_id)]["personal_marked_by"] == marker.display_name
-    assert service.dossier(owner, draft).personal_marked_by == marker.display_name
+    assert marks[str(approved.activity_id)]["personal_marked_by"] == _person(marker)
+    assert service.dossier(owner, draft).personal_marked_by == _person(marker)
     # The owner takes the accountant's mark back in one action, the same unmark.
     recorded = service.dossier(owner, draft).version
     back = service.mark_personal(
@@ -392,7 +398,7 @@ def test_the_list_row_and_the_record_read_the_same_marks(actions, users):  # noq
     grantee = both()
     assert grantee.personal is True
     assert grantee.personal_marked_by == next(
-        revision.actor.display_name
+        _person(revision.actor)
         for revision in reversed(grantee.history)
         if revision.actor.actor_id == accountant.actor.actor_id
     )
@@ -452,7 +458,7 @@ def test_the_606_answer_names_the_accountant_after_the_owner_edits_something_els
     after = service.dossier(owner, draft)
     assert after.history[-1].actor.actor_id == owner.actor.actor_id
     accountant_name = next(
-        revision.actor.display_name
+        _person(revision.actor)
         for revision in after.history
         if revision.actor.actor_id == accountant.actor.actor_id
         and revision.after.fiscal is not None

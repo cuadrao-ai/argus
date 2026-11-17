@@ -2,6 +2,7 @@
 // it, and the invented rows the local preview and its search show.
 
 import type { BusinessActivityItem } from "@/lib/business-activity-api";
+import type { PersonName } from "@/lib/person-name";
 import { dossierFixtureIds } from "../dossier-fixtures";
 
 /* ---------- Contract shape: GET /business/activity (PR #1407) ---------- */
@@ -16,7 +17,7 @@ export type LedgerAction =
 export type ActivityItem = {
   id: string;
   occurred_at: string;
-  actor: { display_name: string; kind: ActorKind };
+  actor: PersonName & { kind: ActorKind };
   action: LedgerAction;
   object: { kind: "draft" | "receipt" | "grant" | "invite"; id: string; label?: string; purged?: boolean } | null;
 };

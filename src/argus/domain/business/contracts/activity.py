@@ -82,7 +82,10 @@ PageSize = Annotated[Literal[25, 50, 100], BeforeValidator(_query_integer)]
 
 
 class ActivityActor(Contract):
-    display_name: str
+    #: The profile name now; ``None`` when they set none or left (#2219).
+    display_name: str | None
+    #: Stands in for a missing name while they hold access to the Business.
+    email: str | None = None
     kind: ActorKind
     id: ActorId | None = None
     membership: Membership | None = None
@@ -115,7 +118,8 @@ class ActivityItem(Contract):
 
 class ActivityFacetActor(Contract):
     id: ActorId
-    display_name: str
+    display_name: str | None
+    email: str | None = None
     kind: ActorKind
     membership: Membership | None = None
 

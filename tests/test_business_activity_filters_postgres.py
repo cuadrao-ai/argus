@@ -249,8 +249,8 @@ def test_facets_name_only_actors_with_a_row_the_reader_may_see(
 
     viewer = _seen(authority, people["viewer"], business)
     assert _facet(viewer) == [
-        ("Ana Editora", "extractor", None),
         ("Ana Editora", "member", "former"),
+        ("Cuadrao", "extractor", None),
         ("Dueño", "member", "current"),
     ]
     keys = {a.id for a in viewer.actors}
@@ -273,24 +273,22 @@ def test_facets_name_only_actors_with_a_row_the_reader_may_see(
         for i in _seen(authority, people["viewer"], business, by_ana).items
     ] == [("review_draft", "member")]
 
-    # The owner's newest visible row is the owner_grant, stored under the
-    # profile label, so a manager's facet names the owner by that row.
+    # A manager also sees the owner_grant row; it names the owner as every row does.
     owner = _seen(authority, people["owner"], business)
-    owner_name = "fin-owner-" + people["owner"][:8]
     assert _facet(owner) == [
-        ("Ana Editora", "extractor", None),
         ("Ana Editora", "member", "former"),
         ("Carlos Admin", "member", "current"),
-        (owner_name, "member", "current"),
+        ("Cuadrao", "extractor", None),
+        ("Dueño", "member", "current"),
     ]
-    assert _actor_id(owner, owner_name) == _actor_id(viewer, "Dueño")
+    assert _actor_id(owner, "Dueño") == _actor_id(viewer, "Dueño")
     for person in ("admin", "owner"):
         records = _seen(
             authority, people[person], business, ActivityFilters(areas=("records",))
         )
         assert [name for name, *_ in _facet(records)] == [
             "Ana Editora",
-            "Ana Editora",
+            "Cuadrao",
             "Dueño",
         ]
     with pytest.raises(ActionError):
@@ -621,29 +619,31 @@ def test_a_deleted_creator_keeps_the_departure_name(people, business, authority)
             db.commit()
 
 
-def test_a_facet_names_the_actor_by_their_newest_stored_name(people, business, authority):
-    """A derived row stores no name, so the facet keeps the name the newest
-    ledger row stored instead of falling back to the profile."""
+def test_a_facet_and_every_row_name_the_actor_by_their_profile_now(
+    people, business, authority
+):
+    """A ledger row's stored label is never read: a ledger row and a derived
+    row of one person both carry the profile name, and so does the facet."""
 
     with Connection.connect(shared.DSN) as db:
-        name(db, people["admin"], "Carlos Méndez")
         receipt(
             db,
             business,
             people["admin"],
             {"action": "review_draft", "draft_id": str(uuid4())},
             seconds_ago=20,
-            display_name="Carlos Admin",
+            stored_label="Carlos Admin",
         )
         transfer(db, business, people["owner"], people["admin"], seconds_ago=10)
+        name(db, people["admin"], "Carlos Méndez")
         db.commit()
     page = _seen(authority, people["owner"], business)
     assert [(i.action, i.actor.display_name) for i in page.items[1:]] == [
         ("ownership_transferred", "Carlos Méndez"),
-        ("review_draft", "Carlos Admin"),
+        ("review_draft", "Carlos Méndez"),
     ]
-    assert ("Carlos Admin", "member", "current") in _facet(page)
-    assert "Carlos Méndez" not in [a.display_name for a in page.actors]
+    assert ("Carlos Méndez", "member", "current") in _facet(page)
+    assert "Carlos Admin" not in page.model_dump_json()
 
 
 def test_a_grant_label_names_only_a_grant_of_this_business(people, business, authority):
@@ -735,7 +735,12 @@ def test_a_query_finds_rows_by_who_and_by_the_named_object(people, business, aut
     def found(person: str, q: str) -> list[str]:
         return _actions(_seen(authority, people[person], business, ActivityFilters(q=q)))
 
-    assert found("owner", "lucia pena") == ["change_role", "receipt_upload"]
+    # The owner's own grant row names her too: every row reads the profile now.
+    assert found("owner", "lucia pena") == [
+        "owner_grant",
+        "change_role",
+        "receipt_upload",
+    ]
     assert found("viewer", "LUCÍA") == ["receipt_upload"]
     assert found("viewer", "ferreteria") == ["review_draft"]
     assert found("viewer", "ana ferretería") == ["review_draft"]
@@ -756,8 +761,13 @@ def test_a_query_pages_through_the_whole_history_in_bounded_reads(
     monkeypatch.setattr(queries, "_SCAN_READS", 2)
     with Connection.connect(shared.DSN) as db:
         for age in range(30):
+            ana = age % 10 == 9
             _upload(
-                db, business, people["owner"], "Ana" if age % 10 == 9 else "Dueño", age
+                db,
+                business,
+                people["admin" if ana else "owner"],
+                "Ana" if ana else "Dueño",
+                age,
             )
         db.commit()
 

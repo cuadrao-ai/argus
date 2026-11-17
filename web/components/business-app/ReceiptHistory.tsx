@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { personName } from "@/lib/person-name";
 import type { BusinessAccount } from "@/lib/business-api";
 import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFiscalField } from "@/lib/business-dossier";
 import { BUSINESS_STATUS, MUTED_TEXT } from "./foundation/presentation";
@@ -95,7 +96,8 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   for (const revision of history) {
     const at = revision.created_at;
     // A revision the server made for a stated reason is a change like any other, made through Cuadrao for the person who caused it.
-    const who = revision.reason ? t("business.history.via_cuadrao", { name: revision.actor.display_name }) : revision.actor.display_name;
+    const name = personName(t, revision.actor);
+    const who = revision.reason ? t("business.history.via_cuadrao", { name }) : name;
     const start = events.length;
     if (revision.duplicate) {
       const { other_counterparty: counterparty, other_filename: filename } = revision.duplicate;
@@ -149,7 +151,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     if (explained) explained.note = t(`business.history.reason.${revision.reason}`);
   }
   if (approval?.status === "recorded") {
-    events.push({ id: "approved", at: approval.approved_at, line: t("business.history.approved", "Approved"), who: approval.actor.display_name, approved: true });
+    events.push({ id: "approved", at: approval.approved_at, line: t("business.history.approved", "Approved"), who: personName(t, approval.actor), approved: true });
   }
   const kept = events.filter((event): event is HistoryEvent & { line: string } => event.line !== null);
   if (!kept.length) return null;

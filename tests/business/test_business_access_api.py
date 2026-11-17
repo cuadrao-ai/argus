@@ -81,7 +81,10 @@ def test_spaces_and_access_report_the_same_invitations_capability(
 def test_an_unknown_email_becomes_one_pending_invite_the_owner_can_revoke(
     alice: Owner,  # noqa: F811
     invitations_configured: None,
+    identities,  # noqa: ANN001
 ) -> None:  # noqa: F811
+    # The invitation names an owner with no name by their email.
+    business_access().confirm(alice.person, identities[ALICE]["email"])
     first = alice.post("/access", {"email": "  Contadora@Example.TEST "})
     assert first.status_code == 201, first.text
     invites = first.json()["invites"]

@@ -38,9 +38,35 @@ class TrustedActor(Contract):
 
 
 class ActorProvenance(Contract):
+    """Who acted, as a ledger row stores it. A reader names both people live
+    from their ids (``people.py``); the two name slots stay empty on new rows
+    and only exist because the tables' checks still require the keys."""
+
     actor_id: UUID
     actor_kind: ActorKind
-    display_name: str
+    display_name: str = ""
     grant_id: UUID
     issuer_id: UUID
-    issuer_display_name: str
+    issuer_display_name: str = ""
+
+
+class PersonName(Contract):
+    """A person as the members of one Business read them now: the profile
+    name, else null; the email only when there is no name and they still
+    hold access to this Business. Both null: they left it."""
+
+    display_name: str | None
+    email: str | None = None
+
+
+class ActorView(Contract):
+    """Who acted and who granted their access, each named live."""
+
+    actor_id: UUID
+    actor_kind: ActorKind
+    grant_id: UUID
+    issuer_id: UUID
+    display_name: str | None
+    email: str | None = None
+    issuer_display_name: str | None
+    issuer_email: str | None = None

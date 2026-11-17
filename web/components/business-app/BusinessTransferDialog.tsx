@@ -8,6 +8,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { businessDeadlineParts } from "@/lib/business-lifecycle-api";
 import { resolveLanguage } from "@/lib/language-features";
+import { personName } from "@/lib/person-name";
 import { useTranslation } from "react-i18next";
 import type { OwnedBusiness } from "@/lib/business-lifecycle-api";
 import { Avatar } from "@/components/ui/Avatar";
@@ -103,9 +104,9 @@ export default function BusinessTransferDialog({ businessName, copy, view, state
           <div className="mt-2 space-y-2" role="radiogroup" aria-label={copy.member}>
             {view.members.map((member, index) => <label key={member.grant_id} className="flex min-h-14 items-center gap-3 rounded-item border border-black/15 px-3 py-2 dark:border-white/20">
               <input ref={index === firstEligible ? memberRef : undefined} type="radio" name={memberId} value={member.grant_id} checked={grantId === member.grant_id && member.eligible} disabled={submitting || !member.eligible} onChange={() => setGrantId(member.grant_id)} aria-describedby={!member.eligible ? `${memberId}-${member.grant_id}` : undefined} />
-              <Avatar name={member.name} size={32} />
+              <Avatar name={personName(t, { display_name: member.name, email: member.email })} size={32} />
               <span className="min-w-0 text-[14px]">
-                <span className="block break-words">{member.name}</span>
+                <span className="block break-words">{personName(t, { display_name: member.name, email: member.email })}</span>
                 {member.eligible ? <span className="block text-black/60 dark:text-white/60">{t("business.switcher.role_editor")}</span> : <span id={`${memberId}-${member.grant_id}`} className="block text-black/60 dark:text-white/60">{t(`business.lifecycle.transfer.ineligible.${member.reason}`)}</span>}
               </span>
             </label>)}

@@ -29,7 +29,6 @@ from argus.domain.business.authority import (
     ActionContext,
     ActionError,
     BusinessAuthority,
-    _profile_label,
     authorize,
 )
 from argus.domain.business.contracts.activity import (
@@ -41,7 +40,7 @@ from argus.domain.business.contracts.activity import (
     ObjectKind,
     PageSize,
 )
-from argus.domain.business.custody_graph import ERASED_NAME
+from argus.domain.business.people import people, person_label
 from argus.domain.business.reporting_query import CALENDAR
 
 
@@ -87,7 +86,8 @@ _EVENTS = f"""
     with events as (
         select {_ROW_ID} as id, space_id, created_at, actor_id,
                actor->>'actor_kind' as actor_kind,
-               actor->>'display_name' as display_name,
+               case when actor->>'actor_kind' = 'extractor' then 'Cuadrao' end
+                   as display_name,
                command->>'action' as action, command, outcome
         from public.business_action_receipts
         where space_id = %(space_id)s
@@ -142,27 +142,14 @@ _FACETS = f"""
     from visible
     order by actor_key, display_name is null, created_at desc, id desc
 """
-#: A departure leaves an alias in the derived columns: a member's from the
-#: departure flow, a deleted creator's from the custody reservation.
-_NAMES = """
-    select i.id, p.id is not null as named, p.display_name, p.username,
-           d.actor_id is not null or r.deleted_actor_id is not null as erased
-    from unnest(%(ids)s::uuid[]) as i(id)
-    left join public.profiles p on p.id = i.id
-    left join argus_private.business_departure_aliases d
-           on d.space_id = %(space_id)s and d.actor_id = i.id
-    left join argus_private.business_custody_reservations r
-           on r.space_id = %(space_id)s and r.deleted_actor_id = i.id
-"""
 _DRAFT_LABELS = """
     select id, resolution->'business'->'facts'->'counterparty' as counterparty
     from public.financial_import_events
     where owner_space_id = %(space_id)s and id = any(%(ids)s::uuid[])
 """
 _GRANT_LABELS = """
-    select g.id, p.display_name, p.username
+    select g.id, g.grantee_id
     from public.business_client_grants g
-    left join public.profiles p on p.id = g.grantee_id
     where g.space_id = %(space_id)s and g.id = any(%(ids)s::uuid[])
 """
 
@@ -267,7 +254,10 @@ def holds(query: search.SearchQuery, item: ActivityItem) -> bool:
     """The query's words are in what the row says of who and of which object,
     read as the Business search reads a record."""
 
-    said = (item.actor and item.actor.display_name, item.object and item.object.label)
+    said = (
+        item.actor and (item.actor.display_name or item.actor.email),
+        item.object and item.object.label,
+    )
     return search.matches(query, " ".join(part for part in said if part))
 
 
@@ -415,36 +405,37 @@ def _purged(
 
 
 def _fill_names(cursor, space_id: UUID, rows: list[dict]) -> None:
-    """A derived source stores the actor's id, not a name: the profile names
-    the person, and a departure alias keeps the departure name."""
+    """Every row stores the actor's id, never a name the feed reads: the
+    profile names the person now (``people``). Automated work is Cuadrao."""
 
-    unnamed = {str(row["actor_id"]) for row in rows if row["display_name"] is None}
-    if not unnamed:
-        return
-    cursor.execute(_NAMES, {"space_id": space_id, "ids": sorted(unnamed)})
-    names = {
-        str(row["id"]): ERASED_NAME
-        if row["erased"]
-        else _profile_label(row["display_name"], row["username"])
-        if row["named"]
-        else None
-        for row in cursor.fetchall()
-    }
+    unnamed = [row["actor_id"] for row in rows if row["display_name"] is None]
+    found = people(cursor.connection, space_id, unnamed)
     for row in rows:
-        if row["display_name"] is None:
-            row["display_name"] = names.get(str(row["actor_id"]))
+        if row["display_name"] is not None:
+            row.update(email=None, known=True)
+            continue
+        person = found.get(str(row["actor_id"]))
+        row.update(
+            display_name=person and person.display_name,
+            email=person and person.email,
+            known=person is not None,
+        )
 
 
 def _facet(rows: Iterable[EventRow]) -> tuple[ActivityFacetActor, ...]:
-    named = [row for row in rows if row["display_name"] is not None]
+    known = [row for row in rows if row["known"]]
     return tuple(
         ActivityFacetActor(
             id=row["actor_key"],
             display_name=row["display_name"],
+            email=row["email"],
             kind=row["actor_kind"],
             membership=row["membership"],
         )
-        for row in sorted(named, key=lambda row: (row["display_name"], row["actor_key"]))
+        for row in sorted(
+            known,
+            key=lambda row: (row["display_name"] or row["email"] or "", row["actor_key"]),
+        )
     )
 
 
@@ -501,10 +492,12 @@ def _labels(
                 labels[("receipt", row["connection_id"])] = row["label"]
     if ids["grant"]:
         cursor.execute(_GRANT_LABELS, {"space_id": space_id, "ids": sorted(ids["grant"])})
-        for row in cursor.fetchall():
-            labels[("grant", row["id"])] = _profile_label(
-                row["display_name"], row["username"]
-            )
+        grantees = {row["id"]: row["grantee_id"] for row in cursor.fetchall()}
+        found = people(cursor.connection, space_id, grantees.values())
+        for grant, grantee in grantees.items():
+            label = person_label(found.get(str(grantee)))
+            if label:
+                labels[("grant", grant)] = label
     return labels
 
 

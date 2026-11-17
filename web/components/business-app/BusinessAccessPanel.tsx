@@ -5,6 +5,7 @@ import { useBusinessNaming } from "./BusinessNamingProvider";
 import { useEffect, useState, type FormEvent } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useTranslation } from "react-i18next";
+import { personName } from "@/lib/person-name";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { EmptyState } from "./foundation/EmptyState";
@@ -44,9 +45,9 @@ export function AccessList({
       <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-access-grants">
         {access.grants.map((grant) => (
           <li key={grant.id} className={rowClass}>
-            <Avatar name={grant.display_name || grant.email} size={40} testId="access-avatar" />
+            <Avatar name={personName(t, grant)} size={40} testId="access-avatar" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium text-black dark:text-white">{grant.display_name}{grant.email ? ` · ${grant.email}` : ""}</span>
+              <span className="block truncate text-[15px] font-medium text-black dark:text-white">{grant.display_name ? `${grant.display_name}${grant.email ? ` · ${grant.email}` : ""}` : personName(t, grant)}</span>
               <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
                 {grant.owner ? t("business_access.owner", "Owner") : t("business_access.member", "Member")} · {t("business_access.since", "Since {{date}}", { date: formatDay(grant.created_at, locale) })}
               </span>
@@ -176,7 +177,7 @@ export default function BusinessAccessPanel({ embedded = false }: { embedded?: b
     }
   };
 
-  const who = pending ? (pending.kind === "grant" ? pending.item.email ?? pending.item.display_name : pending.item.email) : "";
+  const who = pending ? (pending.kind === "grant" ? pending.item.email ?? personName(t, pending.item) : pending.item.email) : "";
 
   return (
     <section>

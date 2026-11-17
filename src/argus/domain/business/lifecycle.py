@@ -10,6 +10,7 @@ from typing import Any, Literal
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.people import person_name
 from argus.domain.business.space_name import typed_name
 
 REOPEN_WINDOW = timedelta(days=30)
@@ -141,10 +142,12 @@ class PostgresBusinessLifecycle:
                     )
                     if found is None:
                         continue
+                    person = person_name(member.display_name, member.email)
                     members.append(
                         {
                             "grant_id": member.id,
-                            "name": member.display_name,
+                            "name": person.display_name,
+                            "email": person.email,
                             "eligible": found[1] is None,
                             "reason": found[1],
                         }

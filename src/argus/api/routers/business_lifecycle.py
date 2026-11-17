@@ -42,7 +42,9 @@ class TransferMember(BaseModel):
     asked to take ownership, and ``reason`` says why another may not."""
 
     grant_id: str
-    name: str
+    #: The profile name, null without one; the email then stands in.
+    name: str | None
+    email: str | None = None
     eligible: bool
     reason: TransferIneligible | None
 

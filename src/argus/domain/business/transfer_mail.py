@@ -16,6 +16,7 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from argus.domain import resend_email
+from argus.domain.business.people import mail_name
 from argus.domain.business.space_name import spanish_name
 from argus.settings_names import setting_value
 
@@ -97,20 +98,20 @@ def enqueue_transfer_mail(db: Connection, transfer_id: str, status: str) -> None
     }
     row = db.execute(
         "select t.owner_id::text,t.target_id::text,t.space_id::text,s.name,"
-        " coalesce(nullif(btrim(p.display_name),''),p.username,'Member'),"
-        " coalesce(nullif(btrim(q.display_name),''),q.username,'Member'),"
+        " p.display_name,ou.email,q.display_name,qu.email,"
         " coalesce(t.resolved_at,t.created_at),t.expires_at"
         " from public.business_ownership_transfers t join public.spaces s on s.id=t.space_id"
+        " join auth.users ou on ou.id=t.owner_id join auth.users qu on qu.id=t.target_id"
         " left join public.profiles p on p.id=t.owner_id"
         " left join public.profiles q on q.id=t.target_id where t.id=%s",
         (transfer_id,),
     ).fetchone()
     context = dict(
         businessName=spanish_name(row[3]),
-        ownerName=row[4],
-        targetName=row[5],
-        occurredAt=row[6].isoformat(),
-        expiresAt=row[7].isoformat(),
+        ownerName=mail_name(row[4], row[5]),
+        targetName=mail_name(row[6], row[7]),
+        occurredAt=row[8].isoformat(),
+        expiresAt=row[9].isoformat(),
         transferId=transfer_id,
         spaceId=row[2],
     )

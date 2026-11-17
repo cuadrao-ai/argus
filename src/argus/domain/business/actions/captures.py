@@ -23,6 +23,7 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.document_type import resolved_document_type, typed_facts
+from argus.domain.business.people import named_deletion, people
 from argus.domain.business.transactions import ActionTransaction, transaction
 
 if TYPE_CHECKING:
@@ -206,8 +207,14 @@ def page(
             + " order by n.received_at desc,n.source_id desc limit %s offset %s",
             (context.actor.space_id, context.owner_id, query, limit + 1, offset),
         )
-        for row in rows:
-            marker = deletion(row["review_state"], row.pop("resolution"))
+        markers = [deletion(row["review_state"], row.pop("resolution")) for row in rows]
+        found = people(
+            tx.connection,
+            context.actor.space_id,
+            [marker.actor.actor_id for marker in markers if marker],
+        )
+        for row, marker in zip(rows, markers, strict=False):
+            marker = named_deletion(marker, found)
             group = (
                 "eliminados"
                 if marker

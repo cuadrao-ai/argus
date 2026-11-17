@@ -17,8 +17,13 @@ DeletionReason = Literal["duplicate"]
 
 
 class DeletingActor(Contract):
+    """Who deleted the document, named as members read them now: the profile
+    name, else the email while they hold access to this Business."""
+
+    # The stored marker keeps only the id; readers name it (people.named_deletion).
     actor_id: UUID
-    display_name: str
+    display_name: str | None = None
+    email: str | None = None
 
 
 class PreviousDocumentState(Contract):
@@ -54,7 +59,9 @@ class DeletedDocument(Contract):
         return self.at + PURGE_AFTER
 
     def stored(self) -> dict:
-        return self.model_dump(mode="json", exclude={"purge_at"})
+        return self.model_dump(
+            mode="json", exclude={"purge_at": True, "actor": {"display_name", "email"}}
+        )
 
 
 class DocumentCommand(Contract):

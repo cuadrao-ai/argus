@@ -1,10 +1,11 @@
 import { apiFetch } from "./argus-api-transport";
+import type { PersonName } from "./person-name";
 
 /**
  * GET /business/activity (#1407): who changed what in the working Business, newest first. The working Business is
  * the chosen grant's (apiFetch sends X-Business-Grant), else the caller's own. Read-only; 25 rows a page.
  */
-export type BusinessActivityActor = { display_name: string; kind: "member" | "owner_via_agent" | "extractor" };
+export type BusinessActivityActor = PersonName & { kind: "member" | "owner_via_agent" | "extractor" };
 export type BusinessActivityItem = {
   id: string;
   occurred_at: string;

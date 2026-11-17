@@ -42,8 +42,12 @@ class TransferListResponse(BaseModel):
 
 class TransferDetailsResponse(TransferResponse):
     business_name: GivenName
-    owner_name: str
-    target_name: str
+    #: Each person's profile name, null without one; the email then stands
+    #: in while they hold access to the Business, and the screen picks the words.
+    owner_name: str | None
+    owner_email: str | None = None
+    target_name: str | None
+    target_email: str | None = None
     role: Literal["owner", "target"]
     grant_id: str
 

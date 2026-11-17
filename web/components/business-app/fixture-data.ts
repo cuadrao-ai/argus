@@ -143,7 +143,7 @@ function seedReceipts(): ReceiptDetail[] {
       status: "review_ready",
       // The accountant marked it Personal; the owner sees who and can take it back.
       personal: true,
-      personal_marked_by: "Marta",
+      personal_marked_by: { display_name: "Marta", email: null },
       personal_editable: true,
       filename: "papeleria-oct.pdf",
       media_type: "application/pdf",
@@ -320,7 +320,7 @@ function seedExpenses(): BusinessExpense[] {
       receipt_id: null,
       draft_id: null,
       personal: true,
-      personal_marked_by: "Marta",
+      personal_marked_by: { display_name: "Marta", email: null },
     },
   ];
 }

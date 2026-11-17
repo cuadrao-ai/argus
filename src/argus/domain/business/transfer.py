@@ -18,6 +18,7 @@ from argus.domain.business.lifecycle import (
     PostgresBusinessLifecycle,
 )
 from argus.domain.business.notifications.events import invitation_changed
+from argus.domain.business.people import named, people
 from argus.domain.business.space_name import typed_name
 from argus.domain.business.transfer_mail import (
     deliver_transfer_mail,
@@ -38,8 +39,11 @@ class TransferResult:
 @dataclass(frozen=True)
 class TransferDetails(TransferResult):
     business_name: str = ""
-    owner_name: str = ""
-    target_name: str = ""
+    #: Each person's profile name, else their email while they hold access.
+    owner_name: str | None = None
+    owner_email: str | None = None
+    target_name: str | None = None
+    target_email: str | None = None
     role: Literal["owner", "target"] = "target"
     grant_id: str = ""
 
@@ -172,19 +176,16 @@ class PostgresBusinessTransfer:
                 " and 'read'=any(g.capabilities) and coalesce(u.is_anonymous,false)=false"
                 " and (u.banned_until is null or u.banned_until<=clock_timestamp()))"
                 " order by created_at desc,id)"
-                " select t.*,s.name,coalesce(nullif(btrim(p.display_name),''),p.username,'Member'),"
-                " coalesce(nullif(btrim(q.display_name),''),q.username,'Member'),"
+                " select t.*,s.name,"
                 " (select g.id::text from public.business_client_grants g where g.space_id=t.space_id::uuid"
                 " and g.grantee_id=%s and g.revoked_at is null and 'read'=any(g.capabilities)"
                 " and (g.expires_at is null or g.expires_at>clock_timestamp()) order by g.created_at,g.id limit 1)"
-                " from participant t join public.spaces s on s.id=t.space_id::uuid"
-                " left join public.profiles p on p.id=t.owner_id::uuid"
-                " left join public.profiles q on q.id=t.target_id::uuid",
+                " from participant t join public.spaces s on s.id=t.space_id::uuid",
                 (actor_id, actor_id, actor_id, actor_id),
             ).fetchall()
             details = []
             for row in rows:
-                if not row[9]:
+                if not row[7]:
                     continue
                 try:
                     authorize(
@@ -194,13 +195,21 @@ class PostgresBusinessTransfer:
                             actor_kind="member",
                             space_id=UUID(row[1]),
                         ),
-                        UUID(row[9]),
+                        UUID(row[7]),
                     ).require("read")
                 except ActionError:
                     continue
+                found = people(db, row[1], (row[2], row[3]))
+                owner, target = named(found, row[2]), named(found, row[3])
                 details.append(
                     TransferDetails(
-                        *row[:9], "owner" if actor_id == row[2] else "target", row[9]
+                        *row[:7],
+                        owner_name=owner.display_name,
+                        owner_email=owner.email,
+                        target_name=target.display_name,
+                        target_email=target.email,
+                        role="owner" if actor_id == row[2] else "target",
+                        grant_id=row[7],
                     )
                 )
         return tuple(details)

@@ -3,6 +3,7 @@
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptAttention } from "@/lib/business-api";
+import { personName, type PersonName } from "@/lib/person-name";
 import { BusinessContext } from "./BusinessWorkspace";
 import { FOCUS_RING } from "./foundation/presentation";
 export { StatusPill } from "./foundation/StatusPill";
@@ -172,12 +173,12 @@ export function recordFiscalMark(record: { sin_comprobante?: boolean; fiscal_kno
   return record.fiscal_known && !record.fiscal_value ? "missing_ncf" : null;
 }
 
-export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: string | null; className?: string }) {
+export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: PersonName | null; className?: string }) {
   const { t } = useTranslation();
   const owner = useOwnerView();
   const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-mark border px-2 text-[11px] font-medium";
   if (!personal && !fiscal) return null;
-  const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: markedBy }) : null;
+  const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: personName(t, markedBy) }) : null;
   return (
     <span className={`flex flex-wrap items-center gap-1.5 ${className}`} data-testid="record-marks">
       {personal ? (

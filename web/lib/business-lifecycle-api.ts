@@ -29,7 +29,7 @@ export async function getClosedBusinessSpaces(signal?: AbortSignal): Promise<Bus
   return closedBusinesses.parse(await apiFetch<unknown>("/business/closed-spaces", { signal })).spaces;
 }
 
-const memberIdentity = z.object({ grant_id: z.uuid(), name: z.string() });
+const memberIdentity = z.object({ grant_id: z.uuid(), name: z.string().nullable(), email: z.string().nullable().optional() });
 const transferMember = z.discriminatedUnion("eligible", [
   memberIdentity.extend({ eligible: z.literal(true), reason: z.null() }),
   memberIdentity.extend({ eligible: z.literal(false), reason: z.enum(["account_unavailable", "not_editor", "email_unconfirmed", "owns_open_business"]) }),
