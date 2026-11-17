@@ -15,7 +15,7 @@ const TYPES: Record<SaveAsFormat, { id: string; accept: Record<string, string[]>
 /** A place the person chose in the system Save As window, for the file named `filename`. */
 export type SaveAsPlace = {
   filename: string;
-  write(blob: Blob): Promise<void>;
+  write(blob: Blob, signal: AbortSignal): Promise<void>;
   /** Removes the file the window made on the pick, only while it is still empty and no write landed in it. */
   discard(): Promise<void>;
 };
@@ -53,10 +53,16 @@ export async function chooseSavePlace(filename: string, format: SaveAsFormat): P
   let settled = false;
   return {
     filename,
-    async write(blob) {
+    async write(blob, signal) {
+      signal.throwIfAborted();
       const writable = await handle.createWritable();
       // The browser commits the file only on close; abort leaves no partial file.
-      try { await writable.write(blob); await writable.close(); } catch (error) { await writable.abort().catch(() => undefined); throw error; }
+      try {
+        signal.throwIfAborted();
+        await writable.write(blob);
+        signal.throwIfAborted();
+        await writable.close();
+      } catch (error) { await writable.abort().catch(() => undefined); throw error; }
       settled = true;
     },
     async discard() {
@@ -72,11 +78,17 @@ export async function chooseSavePlace(filename: string, format: SaveAsFormat): P
   };
 }
 
-/** Writes into the chosen place; with none, or when the write fails, the place's empty file goes and the file downloads as before. */
-export async function saveToPlace(place: SaveAsPlace | null, blob: Blob, filename: string): Promise<"saved" | "downloaded"> {
-  if (place) {
-    try { await place.write(blob); return "saved"; } catch { await place.discard(); }
-  }
+/** Writes into the chosen place; failed writes fall back to a download unless the run was aborted. */
+export async function saveToPlace(place: SaveAsPlace | null, blob: Blob, filename: string, signal: AbortSignal): Promise<"saved" | "downloaded" | "aborted"> {
+  try {
+    signal.throwIfAborted();
+    if (place) {
+      await place.write(blob, signal);
+      signal.throwIfAborted();
+      return "saved";
+    }
+  } catch { await place?.discard(); }
+  if (signal.aborted) return "aborted";
   saveBlobDownload(blob, filename);
   return "downloaded";
 }
