@@ -1,20 +1,29 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import type { BusinessAccount } from "@/lib/business-api";
+import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
 import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFiscalField } from "@/lib/business-dossier";
-import { BUSINESS_STATUS, MUTED_TEXT } from "./foundation/presentation";
+import { BUSINESS_STATUS, FOCUS_RING, MUTED_TEXT } from "./foundation/presentation";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
-import FiscalRevision from "./FiscalRevision";
 import { resolveLanguage } from "@/lib/language-features";
 
+/** One DGII field a fiscal save changed: `before` is null when the field had no value to strike. */
+type FiscalChange = { name: string; field: string; before: string | null; after: string };
+
 /** One thing that happened to the record, as the rail shows it. Only an approval changes the status, so only it gets a status dot. */
-type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; note?: string; approved?: boolean; testId?: string; detail?: ReactNode; diff?: { before: string; after: string } };
+type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; note?: string; approved?: boolean; testId?: string; diff?: { before: string; after: string }; changes?: FiscalChange[] };
+
+const STRUCK = "rounded-mark bg-[#f6dfe0] px-1.5 text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]";
+const ADDED = "rounded-mark bg-[#e3ebe1] px-1.5 text-[#2f5a49] no-underline dark:bg-[#293b32] dark:text-[#8fcbb0]";
+const ARROW = "text-[#56635e] dark:text-white/60";
+/** A fiscal save shows this many changes before the rest wait behind a button. */
+const CHANGES_SHOWN = 2;
 
 /** Spanish agrees the participle with the field's name. */
 const FEMININE = new Set<string>(["occurred_on", "currency", "category_id", "kind", "business_share"]);
@@ -34,12 +43,14 @@ export function historyWhen(iso: string, am: string, pm: string): string {
  * revision, one correction per changed field from a person's revision, and
  * Aprobado from the recorded approval. Nothing here can be edited.
  */
-export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType }: {
+export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null }: {
   history: BusinessDraftRevision[];
   documentType?: BusinessDossier["document_type"];
   accounts: BusinessAccount[];
   sources?: BusinessDossier["sources"];
   approval?: BusinessDossier["approval_result"];
+  /** The DGII field dictionary that names and orders a fiscal save's changes; until it loads a save shows no field list. */
+  dgiiFields?: DgiiFields | null;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -83,6 +94,17 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   /** A correction that replaced one value with another shows both, old struck through; a first value or a cleared one is the sentence alone. */
   const diffOf = (before: string, after: string) => before && after && before !== after ? { before, after } : undefined;
+  const dgiiValue = (field: DgiiField, value: DgiiDeclaration[string] | undefined) => value === null || value === undefined ? t("business.dossier.unknown", "Unknown")
+    : field.kind === "select" ? t(`business.dgii.option.${field.name}.${String(value)}`, { defaultValue: String(value) }) || String(value) : String(value);
+  /** The dictionary's fields a save changed, in its order; a field the earlier declaration lacked has nothing to strike. */
+  const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration): FiscalChange[] | null => dgiiFields && dgiiFields[after.form]
+    .filter((field) => (before?.[field.name] ?? null) !== (after[field.name] ?? null))
+    .map((field) => ({
+      name: field.name,
+      field: t([`business.dgii.field_${after.form}.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name }),
+      before: before && field.name in before ? dgiiValue(field, before[field.name]) : null,
+      after: dgiiValue(field, after[field.name]),
+    }));
 
   const events: HistoryEvent[] = [];
   // What arrived is a file or a WhatsApp message; a chat proposal or a web action is not a receipt coming in.
@@ -106,7 +128,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       continue;
     }
     if (!revision.reason && revision.actor.actor_kind === "extractor") {
-      events.push({ id: `read-${revision.version}`, at, line: t("business.history.read", "Read"), who });
+      events.push({ id: `read-${revision.version}`, at, line: t("business.history.read", "Read"), who: t("business.activity_feed.extractor_name") });
       continue;
     }
     const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal") as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
@@ -141,8 +163,12 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     if (revision.before && attachments.length && same(revision.before, revision.after)) {
       events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.map((source) => source?.kind === "attachment" ? source.filename ?? t("business.transactions.layout.annotations.received_document") : "").join(", ")}`, who, testId: "history-supporting" });
     }
-    if (revision.after_dgii && !same(revision.before_dgii, revision.after_dgii)) {
-      events.push({ id: `${revision.version}-dgii`, at, line: `${t("business.dossier.fiscal_details", "Fiscal details")} · ${revision.after_dgii.form}`, who, detail: <FiscalRevision declaration={revision.after_dgii} /> });
+    if (revision.after_dgii) {
+      const changes = fiscalChanges(revision.before_dgii, revision.after_dgii);
+      // Until the dictionary loads, any difference is a save; then only a field it names counts.
+      if (changes ? changes.length : !same(revision.before_dgii, revision.after_dgii)) {
+        events.push({ id: `${revision.version}-dgii`, at, line: t("business.history.fiscal_saved", { form: revision.after_dgii.form }), who, changes: changes ?? undefined });
+      }
     }
     if (!events.some((event) => event.line !== null && event.id.startsWith(`${revision.version}-`))) {
       events.push({ id: `${revision.version}-reviewed`, at, line: t("business.dossier.reviewed_revision", "This revision was reviewed."), who });
@@ -171,22 +197,49 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       </h3>
       <ol ref={list} hidden={!open} className="mt-4">
         {shown.map((event, index) => (
-          <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative rounded-item pb-4 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
-            {index < shown.length - 1 ? <span aria-hidden="true" className="absolute bottom-0 left-[5px] top-3 w-px bg-[#DCE0DA] dark:bg-white/15" /> : null}
+          <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative rounded-item pb-5 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
+            {index < shown.length - 1 ? <span aria-hidden="true" data-testid="history-rail" className="absolute bottom-0 left-[5px] top-3 w-px bg-[#56635e]/40 dark:bg-white/25" /> : null}
             <span aria-hidden="true" data-testid="history-dot" className="absolute left-0 top-[5px] h-3 w-3 rounded-full" style={{ backgroundColor: event.approved ? BUSINESS_STATUS.approved.ink : MUTED_TEXT }} />
             <p className="break-words text-[15px] leading-[22px] text-[#172b26] dark:text-white">{event.line}</p>
             {/* The sentence says it for every reader; the diff shows it at a glance. */}
             {event.diff ? <div aria-hidden="true" data-testid="history-diff" className="mt-1 flex flex-wrap items-center gap-1.5 text-[14px] leading-5">
-              <del className="rounded-mark bg-[#f6dfe0] px-1.5 text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]">{event.diff.before}</del>
-              <span className="text-[#56635e] dark:text-white/60">→</span>
-              <ins className="rounded-mark bg-[#e3ebe1] px-1.5 text-[#2f5a49] no-underline dark:bg-[#293b32] dark:text-[#8fcbb0]">{event.diff.after}</ins>
+              <del className={STRUCK}>{event.diff.before}</del>
+              <span className={ARROW}>→</span>
+              <ins className={ADDED}>{event.diff.after}</ins>
             </div> : null}
+            {event.changes?.length ? <FiscalChanges changes={event.changes} /> : null}
             {event.note ? <p data-testid="history-note" className="mt-1 text-[14px] leading-5 text-[#172b26] dark:text-white">{event.note}</p> : null}
             <p className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{[event.who, historyWhen(event.at, am, pm)].filter(Boolean).join(" · ")}</p>
-            {event.detail}
           </li>
         ))}
       </ol>
     </section>
+  );
+}
+
+/** What one fiscal save changed, field by field; past two, the rest wait behind one button. */
+function FiscalChanges({ changes }: { changes: FiscalChange[] }) {
+  const { t } = useTranslation();
+  const [all, setAll] = useState(false);
+  const listId = useId();
+  const more = changes.length - CHANGES_SHOWN;
+  return (
+    <>
+      <ul id={listId} data-testid="history-changes" className="mt-1.5 flex flex-col gap-1">
+        {(all || more <= 0 ? changes : changes.slice(0, CHANGES_SHOWN)).map((change) => (
+          <li key={change.name} data-testid="history-change" className="flex flex-wrap items-center gap-1.5 text-[14px] leading-5">
+            <span className="text-[#56635e] dark:text-white/70">{change.field}</span>
+            {change.before === null ? null : <><del className={STRUCK}>{change.before}</del><span aria-hidden="true" className={ARROW}>→</span></>}
+            <ins className={ADDED}>{change.after}</ins>
+          </li>
+        ))}
+      </ul>
+      {more > 0 ? (
+        <button type="button" data-testid="history-more" aria-expanded={all} aria-controls={listId} onClick={() => setAll((value) => !value)} className={`-mb-2 -ml-2 mt-0.5 inline-flex min-h-8 items-center gap-1 rounded-item px-2 text-[13px] font-medium leading-[18px] text-[var(--cuadrao-green)] hover:bg-black/[0.03] dark:hover:bg-white/[0.05] ${FOCUS_RING}`}>
+          {all ? t("business.search.show_less", "See less") : t("business.history.more_changes", { count: more })}
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform motion-reduce:transition-none ${all ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
+      ) : null}
+    </>
   );
 }

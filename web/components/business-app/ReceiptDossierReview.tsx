@@ -520,7 +520,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     {captureRecovery}
     <ReceiptReviewFrame
       {...head}
-      history={<ReceiptHistory documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
+      history={<ReceiptHistory documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} dgiiFields={fields} />}
       place={position ? { ...position, previous: moves.previous, next: moves.next } : null}
       footer={deletion.confirmBar ?? <ReceiptReviewFooter
         reviewNote={reviewNote}
