@@ -124,7 +124,8 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     }
     if (abort.signal.aborted) return;
     unwritten.current = null;
-    const saved = await saveToPlace(place, file.blob, file.filename);
+    const saved = await saveToPlace(place, file.blob, file.filename, abort.signal);
+    if (saved === "aborted" || abort.signal.aborted) return;
     running.current = null;
     onClose();
     if (saved === "saved") showToast({ kind: "success", text: t("business.transactions.reporting.export.saved") });
