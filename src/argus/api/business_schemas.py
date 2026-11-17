@@ -319,6 +319,8 @@ class ReceiptSummary(_Wire):
     filename: str | None
     # The sender's own words sent with the file (a WhatsApp caption), verbatim.
     source_text: str | None = None
+    # Who uploaded a web upload, named for the caller; null for any other arrival.
+    uploaded_by: PersonName | None = None
     media_type: str
     size_bytes: int
     received_at: datetime

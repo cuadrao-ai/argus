@@ -30,13 +30,21 @@ async function mount(dossier: BusinessDossier) {
 
 const fixtures = () => createDossierFixtures([{ id: "account-fixture", nickname: "Caja", type: "cash", currency: "DOP" }]);
 
-test("a type read from the document says so", async () => {
-  const source = fixtures();
-  const view = await mount({ ...await source.dossier(dossierFixtureIds.ready), document_type_detected: true });
-  try {
-    assert.match(view.host.textContent ?? "", /Lo detectamos como compra/);
-  } finally { await view.close(); }
-});
+const hints = { recibo: /Lo detectamos como compra/, venta: /La detectamos por el RNC/ } as const;
+const records = { open: dossierFixtureIds.ready, approved: dossierFixtureIds.recordedThenMarked } as const;
+
+for (const [state, id] of Object.entries(records)) {
+  for (const [documentType, hint] of Object.entries(hints)) {
+    test(`a type read from the document ${state === "open" ? "says so while the record is open" : "says nothing once the record is approved"} (${documentType})`, async () => {
+      const source = fixtures();
+      const view = await mount({ ...await source.dossier(id), document_type: documentType as keyof typeof hints, document_type_detected: true });
+      try {
+        if (state === "open") assert.match(view.host.textContent ?? "", hint);
+        else assert.doesNotMatch(view.host.textContent ?? "", hint);
+      } finally { await view.close(); }
+    });
+  }
+}
 
 test("a record the server marks fixed shows its type as text, with no control", async () => {
   const source = fixtures();

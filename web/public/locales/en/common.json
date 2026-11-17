@@ -2365,9 +2365,9 @@
           "11": "Insurance expenses"
         },
         "id_type": {
-          "1": "1 - RNC",
-          "2": "2 - Cédula",
-          "3": "3 - Passport or tax ID"
+          "1": "RNC",
+          "2": "Cédula",
+          "3": "Passport or tax ID"
         },
         "income_type": {
           "1": "Operating income (non-financial)",
@@ -2401,7 +2401,7 @@
       "original_purchase": "Original purchase",
       "refund_candidate_refused": "That purchase can't be used for this refund. Pick another one.",
       "refund_candidates_none": "There are no approved purchases to pick.",
-      "save": "Save tax review",
+      "save": "Save",
       "approve_income": "Approve income",
       "approve_refund": "Approve refund",
       "recorded_income": "Income was recorded after revision {{version}} was approved.",
@@ -2772,8 +2772,7 @@
           "fiscal": {
             "description": "Complete them before filing",
             "description_purchase": "Complete them before the 606",
-            "description_sale": "Complete them before the 607",
-            "title": "Missing fiscal data"
+            "description_sale": "Complete them before the 607"
           },
           "goods": {
             "title": "Goods"
@@ -2870,7 +2869,6 @@
           "review": "To review",
           "unknown": "Status unavailable",
           "missing": {
-            "several": "Fiscal details missing",
             "expense_type_missing": "Expense type is missing",
             "rnc_missing": "RNC is missing",
             "rnc_invalid": "RNC has an error",

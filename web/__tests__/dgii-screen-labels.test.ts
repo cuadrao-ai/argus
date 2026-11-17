@@ -26,7 +26,7 @@ const approved = {
       "5": "05 - Ingresos por venta de activo depreciable",
       "6": "06 - Otros ingresos",
     },
-    id_type: { "1": "1 - RNC", "2": "2 - Cédula", "3": "3 - Pasaporte o ID tributaria" },
+    id_type: { "1": "01 - RNC", "2": "02 - Cédula", "3": "03 - Pasaporte o ID tributaria" },
   },
   en: {
     income_withholding_type: {
@@ -48,7 +48,7 @@ const approved = {
       "5": "05 - Income from sale of depreciable assets",
       "6": "06 - Other income",
     },
-    id_type: { "1": "1 - RNC", "2": "2 - Cédula", "3": "3 - Passport or tax ID" },
+    id_type: { "1": "01 - RNC", "2": "02 - Cédula", "3": "03 - Passport or tax ID" },
   },
 } as const;
 
@@ -72,7 +72,12 @@ for (const [language, catalog] of [["es-419", es], ["en", en]] as const) {
     test("unknown codes and other DGII lists keep their existing rendering", () => {
       expect(instance.t("business.dgii.option.category.99", { defaultValue: "99" }) || "99").toBe("99");
       expect(instance.t("business.dgii.option.income_type.7", { defaultValue: "7" }) || "7").toBe("7");
-      expect(instance.t("business.dgii.option.id_type.1")).toBe(catalog.business.dgii.option.id_type["1"]);
+      expect(instance.t("business.dgii.option.id_type.4", { defaultValue: "4" }) || "4").toBe("4");
+    });
+    test("every DGII list holds the name alone; the screen adds the code", () => {
+      for (const names of Object.values(catalog.business.dgii.option)) {
+        for (const name of Object.values(names)) expect(name).not.toMatch(/^\d+ - /);
+      }
     });
   });
 }

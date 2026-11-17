@@ -2365,9 +2365,9 @@
           "11": "Gastos de seguros"
         },
         "id_type": {
-          "1": "1 - RNC",
-          "2": "2 - Cédula",
-          "3": "3 - Pasaporte o ID tributaria"
+          "1": "RNC",
+          "2": "Cédula",
+          "3": "Pasaporte o ID tributaria"
         },
         "income_type": {
           "1": "Ingresos por operaciones (no financieros)",
@@ -2401,7 +2401,7 @@
       "original_purchase": "Compra original",
       "refund_candidate_refused": "Esa compra no se puede usar para este reembolso. Elige otra.",
       "refund_candidates_none": "No hay compras aprobadas para elegir.",
-      "save": "Guardar revisión fiscal",
+      "save": "Guardar",
       "approve_income": "Aprobar ingreso",
       "approve_refund": "Aprobar reembolso",
       "recorded_income": "Se registró un ingreso después de aprobar la revisión {{version}}.",
@@ -2772,8 +2772,7 @@
           "fiscal": {
             "description": "Complétalos antes de declarar",
             "description_purchase": "Complétalos antes del 606",
-            "description_sale": "Complétalos antes del 607",
-            "title": "Faltan datos fiscales"
+            "description_sale": "Complétalos antes del 607"
           },
           "goods": {
             "title": "Bienes"
@@ -2870,7 +2869,6 @@
           "review": "Por revisar",
           "unknown": "Estado no disponible",
           "missing": {
-            "several": "Faltan datos fiscales",
             "expense_type_missing": "Falta el tipo de gasto",
             "rnc_missing": "Falta el RNC",
             "rnc_invalid": "RNC con error",

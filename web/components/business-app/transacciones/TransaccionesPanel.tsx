@@ -156,9 +156,9 @@ function LegacyTransaccionesPanel() {
   return (
     <PullToRefresh onRefresh={controller.refresh}>
       <section ref={screen} tabIndex={-1} data-testid="transacciones" className="pb-6 outline-none">
-        {phone || igualar || panel.kind !== "transactions" ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        {phone || igualar ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            {phone || panel.kind !== "transactions" ? <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2> : null}
+            {phone ? <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2> : null}
             {igualar ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-3">{phone ? null : run}{phone ? <BusinessAddMenu placement="header" /> : null}</div>

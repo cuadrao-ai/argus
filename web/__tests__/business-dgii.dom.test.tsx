@@ -4,6 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
+import { dgiiChoiceLabel } from "@/lib/dgii-labels";
 import { I18nextProvider } from "react-i18next";
 import FiscalDeclarationEditor from "@/components/business-app/FiscalDeclarationEditor";
 import { reviewDgii, reviewPurchase, type DgiiFields } from "@/lib/business-dgii";
@@ -49,8 +50,8 @@ async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiField
   };
   const options = shape.productionI18n ? (await import("@/lib/i18n")).default.options : {};
   const namespace = shape.productionI18n ? "common" : "translation";
-  const i18n = i18next.createInstance();
-  await i18n.init({ ...options, lng: "es-419", resources: { "es-419": { [namespace]: spanish }, en: { [namespace]: english } } });
+  const i18n = i18next.createInstance().use(dgiiChoiceLabel);
+  await i18n.init({ postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true, ...options, lng: "es-419", resources: { "es-419": { [namespace]: spanish }, en: { [namespace]: english } } });
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const changes: BusinessDossier[] = [];
@@ -65,7 +66,7 @@ async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiField
       control.dispatchEvent(new Event("input", { bubbles: true }));
     });
   };
-  const save = async () => { const button = [...host.querySelectorAll("button")].find((node) => node.textContent === "Guardar revisión fiscal"); assert.ok(button); await act(async () => button.click()); };
+  const save = async () => { const button = [...host.querySelectorAll("button")].find((node) => node.textContent === "Guardar"); assert.ok(button); await act(async () => button.click()); };
   return { host, dossier, writes, dirty, changes, input, save, i18n, fail: () => { fail = true; }, dispose: async () => { await act(async () => root.unmount()); host.remove(); await release(); } };
 }
 
@@ -341,7 +342,7 @@ test("the 606 editor localizes labels and ID choices without inventing backend o
     assert.ok(view.host.textContent?.includes("NCF ó Documento Modificado"));
     assert.ok(view.host.textContent?.includes("Monto Facturado en Servicios"));
     const ids = view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!;
-    assert.deepEqual([...ids.options].map((option) => [option.value, option.text]), [["", "Desconocido"], ["1", "1 - RNC"], ["2", "2 - Cédula"]]);
+    assert.deepEqual([...ids.options].map((option) => [option.value, option.text]), [["", "Desconocido"], ["1", "01 - RNC"], ["2", "02 - Cédula"]]);
     await act(async () => { await view.i18n.changeLanguage("en"); });
     assert.ok(view.host.textContent?.includes("ID type"));
     assert.ok(view.host.textContent?.includes("Modified NCF or document"));
@@ -362,7 +363,7 @@ test("the 607 editor uses its form-specific dictionary labels in both languages"
     await act(async () => { await view.i18n.changeLanguage("en"); });
     for (const label of ["Identification type", "Modified fiscal receipt number", "ITBIS perceived", "Other taxes/fees", "Check·transfer·deposit", "Vouchers…"]) assert.ok(view.host.textContent?.includes(label), label);
     assert.ok(!view.host.textContent?.includes("Número Comprobante"));
-    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3 - Passport or tax ID"]]);
+    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "01 - RNC"], ["2", "02 - Cédula"], ["3", "03 - Passport or tax ID"]]);
   } finally { await view.dispose(); }
 });
 
@@ -397,11 +398,11 @@ for (const form of ["606", "607"] as const) {
         assert.equal(view.i18n.t(`business.dgii.option.${name}.99`, { defaultValue: "99" }), "", "the real missing-key handler overrides defaultValue");
         const names = catalog.business.dgii.option[name] as Record<string, string>;
         assert.deepEqual(options(name), codes.map((code) => [code, `${code.padStart(2, "0")} - ${names[code]}`]));
-        if (form === "607") assert.deepEqual(options("id_type"), Object.entries(catalog.business.dgii.option.id_type));
+        if (form === "607") assert.deepEqual(options("id_type"), Object.entries(catalog.business.dgii.option.id_type).map(([code, label]) => [code, `${code.padStart(2, "0")} - ${label}`]));
       }
       await act(async () => { await view.i18n.changeLanguage("es-419"); });
       assert.deepEqual(options(name)[1], form === "606" ? ["02", "02 - Honorarios por servicios"] : ["2", "02 - Ingresos financieros"]);
-      if (form === "607") assert.deepEqual(options("id_type")[2], ["3", "3 - Pasaporte o ID tributaria"]);
+      if (form === "607") assert.deepEqual(options("id_type"), [["1", "01 - RNC"], ["2", "02 - Cédula"], ["3", "03 - Pasaporte o ID tributaria"]]);
       const choose = async (id: string, value: string) => {
         const select = view.host.querySelector<HTMLSelectElement>(`#fiscal-declaration-${id}`)!;
         await act(async () => { select.value = value; select.dispatchEvent(new Event("change", { bubbles: true })); });

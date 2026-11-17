@@ -48,10 +48,17 @@ def project(
                 + (" for update of c,d" if acknowledge_id else ""),
                 (person, business, context.scope.person_id, ids),
             )
-            from argus.api.business_drafts import draft_overlay, linked_drafts
+            from argus.api.business_drafts import draft_overlay, linked_drafts, uploaders
 
             drafts = linked_drafts(tx, [view["id"] for view in views])
-            views = [draft_overlay(view, drafts.get(view["id"], [])) for view in views]
+            uploaded_by = uploaders(tx, views)
+            views = [
+                {
+                    **draft_overlay(view, drafts.get(view["id"], [])),
+                    "uploaded_by": uploaded_by.get(view["id"]),
+                }
+                for view in views
+            ]
             states = {str(row["connection_id"]): row for row in rows}
             baseline = tx.rows(
                 "select established_at from public.business_receipt_activity_baseline where singleton=true"
