@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { createMockMonthCloseClient, openItemsFrom, type MonthCloseClient, type MonthCloseDocument } from "../lib/business-month-close";
+import { createMockMonthCloseClient, openItemsFrom, type MonthCloseClient, type MonthCloseSnapshot } from "../lib/business-month-close";
 import { clearToasts, useToasts } from "../components/business-app/foundation/toasts";
 
 beforeAll(() => {
@@ -34,63 +34,60 @@ async function renderScopes(client: MonthCloseClient) {
   const render = async (scopeKey: "A" | "B") => {
     await act(async () => root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessMonthCloseView settlement client={client} now={now} scopeKey={scopeKey} businessCurrency="DOP" review={{ count: 0, detail: null, open() {} }} />
+        <BusinessMonthCloseView layout="finance" arrange={({ month, money }) => <>{month}{money}</>} settlement client={client} now={now} scopeKey={scopeKey} businessCurrency="DOP" review={{ count: 0 }} />
         <ToastProbe />
       </I18nextProvider>,
     ));
     for (let index = 0; index < 5; index += 1) await act(async () => { await Promise.resolve(); });
   };
-  const mark = async () => {
-    const button = host.querySelector<HTMLButtonElement>('[data-document-id="inv-taller"] button[data-testid="month-close-mark-cobrado"]');
-    assert.ok(button, "A pending invoice is visible");
-    await act(async () => { button.click(); });
-  };
   const settle = async () => { for (let index = 0; index < 5; index += 1) await act(async () => { await Promise.resolve(); }); };
   const unmount = async () => { await act(async () => root.unmount()); host.remove(); clearToasts(); };
-  return { act, host, render, mark, settle, unmount };
+  return { act, host, render, settle, unmount };
 }
 
-test("Business A's failed mark and Retry do not remain after switching to B", async () => {
-  const inner = createMockMonthCloseClient({ now: new Date(2026, 9, 18), failIds: ["inv-taller"] });
+test("Business A's failed read and Retry do not remain after switching to B", async () => {
+  const inner = createMockMonthCloseClient({ now: new Date(2026, 9, 18) });
   const scopes: string[] = [];
   const client: MonthCloseClient = {
     ...inner,
+    async load(month, scope) { scopes.push(scope ?? "none"); if (scope === "A") throw new Error("offline"); return inner.load(month, scope); },
     async openItems(scope) { return scope === "B" ? openItemsFrom([], "2026-10-18") : inner.openItems(scope); },
-    async markCobrado(id, scope, settlement) { scopes.push(scope ?? "none"); return inner.markCobrado(id, scope, settlement); },
   };
   const view = await renderScopes(client);
   try {
     await view.render("A");
-    await view.mark();
-    assert.equal(view.host.querySelectorAll('[data-testid="month-close-work-problem"]').length, 1);
+    assert.equal(view.host.querySelector('[data-testid="home-month-body"]')?.getAttribute("data-state"), "error");
+    assert.ok(view.host.querySelector('[role="alert"] button'));
     await view.render("B");
-    assert.equal(view.host.querySelectorAll('[data-testid="month-close-work-problem"]').length, 0);
-    assert.ok(view.host.querySelector('[data-testid="month-close-nothing-open"]'), "B has no open items");
-    assert.deepEqual(scopes, ["A"], "B never retries A's activity id");
+    assert.equal(view.host.querySelector('[data-testid="home-month-body"]')?.getAttribute("data-state"), "ready");
+    assert.equal(view.host.querySelector('[role="alert"]'), null);
+    assert.ok(view.host.querySelector('[data-testid="month-close-nothing-open"]'));
+    assert.deepEqual(scopes, ["A", "B"]);
   } finally { await view.unmount(); }
 });
 
-test("a late Business A success cannot publish A's counterparty toast under B", async () => {
+test("late Business A reads cannot replace B's figures, rows or toasts", async () => {
   const inner = createMockMonthCloseClient({ now: new Date(2026, 9, 18) });
-  let resolveMark!: (document: MonthCloseDocument) => void;
-  const pending = new Promise<MonthCloseDocument>((resolve) => { resolveMark = resolve; });
-  const scopes: string[] = [];
+  let resolveMonth!: (snapshot: MonthCloseSnapshot) => void;
+  let resolveOpen!: (items: Awaited<ReturnType<MonthCloseClient["openItems"]>>) => void;
   const client: MonthCloseClient = {
     ...inner,
-    async openItems(scope) { return scope === "B" ? openItemsFrom([], "2026-10-18") : inner.openItems(scope); },
-    async markCobrado(_id, scope) { scopes.push(scope ?? "none"); return pending; },
+    async load(month, scope) {
+      if (scope === "A") return new Promise(resolve => { resolveMonth = resolve; });
+      const snapshot = await inner.load(month, scope);
+      return { ...snapshot, figures: snapshot.figures.map(block => ({ ...block, income_before_itbis: "42.00" })) };
+    },
+    async openItems(scope) { return scope === "A" ? new Promise(resolve => { resolveOpen = resolve; }) : openItemsFrom([], "2026-10-18"); },
   };
   const view = await renderScopes(client);
   try {
     await view.render("A");
-    await view.mark();
     await view.render("B");
-    const invoice = (await inner.openItems("A")).cuentas_por_cobrar.items.find((item) => item.id === "inv-taller");
-    assert.ok(invoice);
-    await view.act(async () => { resolveMark({ ...invoice, status: "cobrado" }); await pending; });
+    await view.act(async () => { resolveMonth(await inner.load("2026-10", "A")); resolveOpen(await inner.openItems("A")); });
     await view.settle();
-    assert.equal(view.host.querySelectorAll('[data-testid="month-close-work-problem"]').length, 0);
-    assert.doesNotMatch(view.host.querySelector('[data-testid="scope-toasts"]')?.textContent ?? "", /Taller Hermanos Peña/);
-    assert.deepEqual(scopes, ["A"]);
+    assert.equal(view.host.querySelector('[data-testid="home-month-income"]')?.getAttribute("data-amount"), "42.00");
+    assert.ok(view.host.querySelector('[data-testid="month-close-nothing-open"]'));
+    assert.equal(view.host.querySelector('[data-testid="month-close-row"]'), null);
+    assert.equal(view.host.querySelector('[data-testid="scope-toasts"]')?.textContent, "");
   } finally { await view.unmount(); }
 });

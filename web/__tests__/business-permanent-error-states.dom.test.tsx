@@ -109,7 +109,7 @@ describe("Inicio's month when a read fails", () => {
     const { client } = failing({ month: BUSINESS_OFF });
     const { act, host, root } = await renderMonthCloseView(client, now);
     unmounts.push(() => act(async () => root.unmount()));
-    const error = () => host.querySelector('[data-testid="month-close-error"]');
+    const error = () => host.querySelector('[data-testid="home-month-body"][data-state="error"]');
     await settle(act, () => error() !== null, "the month error");
     assert.deepEqual(buttons(error()), [], "asking again gets the same refusal");
     assert.doesNotMatch(error()!.textContent ?? "", CONNECTION_BLAME);
@@ -124,7 +124,7 @@ describe("Inicio's month when a read fails", () => {
       const { client, calls } = failing({ month: fail });
       const { act, host, root } = await renderMonthCloseView(client, now);
       unmounts.push(() => act(async () => root.unmount()));
-      const error = () => host.querySelector('[data-testid="month-close-error"]');
+      const error = () => host.querySelector('[data-testid="home-month-body"][data-state="error"]');
       await settle(act, () => error() !== null, "the month error");
       assert.deepEqual(buttons(error()), ["Reintentar"]);
       assert.match(error()!.textContent ?? "", REF, "the failure carries a reference");
@@ -145,7 +145,7 @@ describe("Inicio's month when a read fails", () => {
     assert.match(error()!.textContent ?? "", /hola@cuadrao\.ai/);
     assert.match(error()!.textContent ?? "", REF, "and the reference to quote");
     assert.equal(host.querySelector('[data-testid="month-close-receivable"]'), null, "no Todo cobrado beside a refusal");
-    assert.ok(host.querySelector('[data-testid="month-close-cards"]'), "the month's own read still shows");
+    assert.ok(host.querySelector('[data-testid="home-month"]'), "the month's own read still shows");
   });
 
   test("a 500 on Por cobrar and Por pagar keeps Reintentar", async () => {
@@ -158,13 +158,13 @@ describe("Inicio's month when a read fails", () => {
     assert.match(error()!.textContent ?? "", REF, "the failure carries a reference");
   });
 
-  for (const [name, testId, fail] of [["the month", "month-close-error", "month"], ["Por cobrar y Por pagar", "month-close-money-error", "open"]] as const) {
+  for (const [name, testId, fail] of [["the month", "home-month-body", "month"], ["Por cobrar y Por pagar", "month-close-money-error", "open"]] as const) {
     test(`the server's request id is the reference shown on ${name}`, async () => {
       const withId = () => Object.assign(SERVER_DOWN(), { requestId: "req-4d8e1f60" });
       const { client } = failing({ [fail]: withId });
       const { act, host, root } = await renderMonthCloseView(client, now);
       unmounts.push(() => act(async () => root.unmount()));
-      await settle(act, () => host.querySelector(`[data-testid="${testId}"]`) !== null, "the error");
+      await settle(act, () => host.querySelector(`[data-testid="${testId}"] [data-empty-kind="error"]`) !== null, "the error");
       assert.match(host.querySelector(`[data-testid="${testId}"]`)!.textContent ?? "", /Ref\. req-4d8e/);
     });
   }
