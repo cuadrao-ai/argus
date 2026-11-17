@@ -58,7 +58,7 @@ async function showToasts() {
  * Chromium, picking a new place makes the file at once, empty; picking an
  * `existing` file and confirming Replace keeps its bytes until a write lands.
  */
-function chromiumPicker(page: Page, outcome: { cancel?: boolean; writeFails?: boolean; remove?: "missing" | "fails"; existing?: string; getFile?: "missing" | "fails" } = {}) {
+function chromiumPicker(page: Page, outcome: { cancel?: boolean; writeFails?: boolean; writeGate?: Promise<void>; remove?: "missing" | "fails"; existing?: string; getFile?: "missing" | "fails" } = {}) {
   const picked: Picked[] = [];
   const written: Blob[] = [];
   const aborted: number[] = [];
@@ -83,7 +83,7 @@ function chromiumPicker(page: Page, outcome: { cancel?: boolean; writeFails?: bo
         writables += 1;
         const pending: Blob[] = [];
         return {
-          write: async (blob: Blob) => { if (outcome.writeFails) throw new DOMException("The disk is full.", "QuotaExceededError"); pending.push(blob); },
+          write: async (blob: Blob) => { await outcome.writeGate; if (outcome.writeFails) throw new DOMException("The disk is full.", "QuotaExceededError"); pending.push(blob); },
           close: async () => { written.push(...pending); contents = new Blob(pending); },
           abort: async () => { aborted.push(pending.length); },
         };
@@ -159,6 +159,33 @@ test("a failed write discards the partial file, removes the empty one, and falls
   assert.equal(await page.downloads[0].text(), "Contraparte 1");
   assert.equal(exportCalls(page), 1, "no second request");
   assert.match(toasts.textContent!, /Listo\. Revisa tus descargas/);
+});
+
+test.each([
+  { result: "fails", writeFails: true, existing: "" },
+  { result: "fails while replacing an existing file", writeFails: true, existing: "last month's 606" },
+  { result: "succeeds", writeFails: false, existing: "" },
+])("closing mid-write stays silent when the write $result", async ({ writeFails, existing }) => {
+  let release = () => {};
+  const writeGate = new Promise<void>((resolve) => { release = resolve; });
+  const toasts = await showToasts();
+  const page = await mount();
+  const save = chromiumPicker(page, { writeFails, existing, writeGate });
+  await open(page);
+  await page.click(downloadButton());
+  await page.settle(() => save.writables() === 1);
+  assert.equal(save.written.length, 0, "the write is still pending");
+  await page.click(page.button("Cerrar"));
+  await page.settle(() => panel() === null);
+  await open(page);
+  const reopened = panel();
+  await act(async () => release());
+  if (writeFails) assert.deepEqual(save.removed, existing ? [] : ["Compras todas las monedas.xlsx"], "only an empty file is discarded");
+  assert.equal(page.downloads.length, 0, "a closed export never starts a download");
+  assert.equal(toasts.textContent, "", "a closed export never shows a toast");
+  assert.equal(panel(), reopened, "the old run cannot close the reopened dialog");
+  assert.equal(downloadButton()!.disabled, false, "the old run cannot change the new dialog's state");
+  assert.equal(alert(), null);
 });
 
 test("a failed build writes nothing and Reintentar asks the server again for the place already chosen", async () => {
