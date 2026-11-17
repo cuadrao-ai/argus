@@ -11,10 +11,10 @@ import RecordsFilterSelection from "./RecordsFilterSelection";
 import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, validPreviewAmount, type FilterGroup, type ActiveFilterGroup, type PreviewFilters } from "./records-filter-preview-model";
 import { SAMPLE_EXPENSE_TYPES } from "./records-results-preview";
 import { useTransaccionesWords } from "./transacciones-words";
-import { REPORT_DOCUMENT_KINDS, type DgiiChoice, type ReportFilters } from "@/lib/business-reports-api";
+import { REPORT_DOCUMENT_KINDS, type DgiiChoice } from "@/lib/business-reports-api";
+import { counterpartyTerm, type RecordFamily, type Translate } from "@/lib/counterparty-term";
 import styles from "./records-filter-preview.module.css";
 
-type RecordFamily = ReportFilters["record_families"][0];
 export type ReportFilterCatalogues = { counterparties: { key: string; labels: string[] }[]; expense_types: DgiiChoice[]; funding_sources: { key: string; label: string | null; kind: string | null }[] };
 /** A filter group that reads one table column shows only while the table offers that column. */
 const GROUP_COLUMN: Partial<Record<FilterGroup, string>> = { expense_type: "expense_type", account: "funding" };
@@ -22,6 +22,8 @@ const ICONS: Record<FilterGroup, LucideIcon> = { ready: CheckCheck, attachment: 
 const COUNTERPARTIES = ["Estación Ruta 3", "Nube Hosting", "Comedor Doña Ana"];
 const ACCOUNTS = ["checking", "card", "owner"];
 /** The tipo de gasto choices: every type the records carry, then `missing` for a purchase that still needs one. */
+/** A filter group's name, in the editor and on its chip. The name group is the tab's counterparty word. */
+const filterGroupLabel = (t: Translate, group: ActiveFilterGroup, family: RecordFamily) => group === "expense_type" ? t("business.dossier.placeholder.expense_type") : group === "counterparty" ? counterpartyTerm(t, family) : t(`business.transactions.layout.filters.groups.${group}`);
 const expenseTypeValues = (types: readonly DgiiChoice[]) => [...types.map((choice) => choice.code), "missing"];
 
 function FilterEditor({ initial, apply, close, phone = false, catalogues, offered, family, initialGroup = "ready" }: { offered?: readonly string[]; family: RecordFamily; initialGroup?: FilterGroup | "filters"; catalogues?: ReportFilterCatalogues; phone?: boolean; initial: PreviewFilters; apply: (next: PreviewFilters) => void; close: () => void }) {
@@ -42,7 +44,7 @@ function FilterEditor({ initial, apply, close, phone = false, catalogues, offere
     else back.current?.focus();
   }, [phone, choosingGroup, group]);
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
-  const groupLabel = (key: FilterGroup) => key === "expense_type" ? t("business.dossier.placeholder.expense_type") : key === "counterparty" ? t("business.terms.counterparty", { context: family }) : word(`groups.${key}`);
+  const groupLabel = (key: FilterGroup) => filterGroupLabel(t, key, family);
   const expenseTypes = catalogues?.expense_types ?? SAMPLE_EXPENSE_TYPES;
   const labelFor = (kind: FilterGroup, value: string): string => value === "unknown" ? t("business.transactions.unknown") : value === "no_comprobante" ? t("business.marks.sin_comprobante_chip") : value === "owner_funds" ? t("business.dossier.owner_funds") : kind === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels[0] ?? value : kind === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : kind === "expense_type" ? value === "missing" ? t("business.dossier.standing.missing") : (t(`business.dgii.option.category.${value}`, { defaultValue: value }) || value) : t(`business.transactions.layout.filters.${kind}.${value}`, { defaultValue: value.toUpperCase() });
   const selection = (kind: "counterparty" | "expense_type" | "account" | "document" | "fiscal", values: string[]) => <RecordsFilterSelection options={values.map((value) => ({ value, label: labelFor(kind, value) }))} selected={draft[kind]} query={query} onChange={(selected) => setDraft({ ...draft, [kind]: selected })} />;
@@ -115,7 +117,7 @@ export default function RecordsFiltersPreview({ options, value: filters, onChang
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
   const active = activeFilterGroups(filters);
   const canClear = active.length > 0;
-  const chipLabel = (group: ActiveFilterGroup) => group === "expense_type" ? t("business.dossier.placeholder.expense_type") : word(`groups.${group}`);
+  const chipLabel = (group: ActiveFilterGroup) => filterGroupLabel(t, group, family);
   const valueLabel = (group: ActiveFilterGroup) => {
     if (group === "fiscal_data") return word(`fiscal_data.${filters.fiscal_data}`);
     if (group === "ready") return t(`business.transactions.layout.workflow.${filters.ready ? "ready" : "not_ready"}`);
@@ -128,6 +130,6 @@ export default function RecordsFiltersPreview({ options, value: filters, onChang
     <button type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={(event) => openEditor(event.currentTarget, "filters")}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span>{active.length > 0 ? <span className={styles.count}>{active.length}</span> : null}<ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
     {editor !== null ? phone ? <FilterEditor offered={offered} family={family} key={editor} catalogues={catalogues} phone initialGroup={editor} initial={filters} apply={setFilters} close={close} /> : createPortal(<div ref={panel} role="dialog" aria-label={word("title")} className={styles.popover} style={position}><FilterEditor offered={offered} family={family} key={editor} catalogues={catalogues} initialGroup={editor} initial={filters} apply={setFilters} close={close} /></div>, document.body) : null}
     <div className={styles.toolbarOptions}>{options}</div>
-    <div className={styles.chips} data-testid="records-preview-filter-chips">{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={group === "amount" ? undefined : word("remove") + " " + chipLabel(group)} aria-haspopup={group === "amount" ? "dialog" : undefined} onClick={(event) => group === "amount" ? openEditor(event.currentTarget, "amount") : setFilters({ ...filters, [group]: emptyPreviewFilters(filters.amount.currency)[group] })}><span>{group === "counterparty" ? t("business.transactions.layout.filters.counterparty_short", { count: filters.counterparty.length }) : `${chipLabel(group)}${group === "fiscal_data" ? ": " : " · "}${valueLabel(group)}`}</span>{group !== "amount" ? <X size={14} aria-hidden="true" /> : null}</button>)}{canClear ? <button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(filters.amount.currency))}>{t("business.transactions.layout.clear")}</button> : null}</div>
+    <div className={styles.chips} data-testid="records-preview-filter-chips">{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={group === "amount" ? undefined : word("remove") + " " + chipLabel(group)} aria-haspopup={group === "amount" ? "dialog" : undefined} onClick={(event) => group === "amount" ? openEditor(event.currentTarget, "amount") : setFilters({ ...filters, [group]: emptyPreviewFilters(filters.amount.currency)[group] })}><span>{`${chipLabel(group)}${group === "fiscal_data" ? ": " : " · "}${valueLabel(group)}`}</span>{group !== "amount" ? <X size={14} aria-hidden="true" /> : null}</button>)}{canClear ? <button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(filters.amount.currency))}>{t("business.transactions.layout.clear")}</button> : null}</div>
   </>;
 }

@@ -567,7 +567,7 @@ describe("Transacciones table", () => {
     check({ "mv-ferreteria": "Sugerencia", "mv-colmado": "Falta comprobante", "mv-estacion": "Igualada", "mv-dgii": "No lleva comprobante" });
   });
 
-  test("the header pins on vertical scroll, Contraparte pins left and Comprobante pins right", async () => {
+  test("the header pins on vertical scroll, the name pins left and Comprobante pins right", async () => {
     const page = await mount();
     await page.ready();
     const grid = page.grid()!;
@@ -1159,7 +1159,7 @@ test("local header and phone sorts share preference state, reset pages and resto
     const surface = document.querySelector<HTMLElement>('[data-testid="records-page-preview"] > div')!;
     await page.act(async () => { surface.style.setProperty("--records-narrow", "1"); window.dispatchEvent(new Event("resize")); });
     assert.equal(document.querySelector('th[data-col="counterparty"]'), null);
-    await clickText("Contraparte: Z–A"); await clickText("Monto: menor primero");
+    await clickText("Emisor: Z–A"); await clickText("Monto: menor primero");
     assert.equal(page.records()[0].dataset.recordId, "sort-0");
     await page.act(async () => { surface.style.setProperty("--records-narrow", "0"); window.dispatchEvent(new Event("resize")); });
     assert.equal(document.querySelector('th[data-col="gross_amount"]')?.getAttribute("aria-sort"), "ascending");

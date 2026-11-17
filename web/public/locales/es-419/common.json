@@ -2716,8 +2716,6 @@
             "other": "Otros",
             "transport": "Transporte"
           },
-          "counterparty_short_one": "Contraparte · {{count}}",
-          "counterparty_short_other": "Contraparte · {{count}}",
           "currency": "Moneda",
           "date": {
             "from": "Desde",
@@ -2745,7 +2743,6 @@
             "amount": "Monto",
             "attachment": "Adjunto",
             "category": "Categoría",
-            "counterparty": "Contraparte",
             "document": "Tipo de documento",
             "fiscal": "Tipo fiscal",
             "fiscal_data": "Datos fiscales",
@@ -2987,7 +2984,7 @@
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
       "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
-      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "ncf": "NCF", "itbis": "ITBIS", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "rnc_cedula": "RNC o Cédula", "comprobante": "Comprobante" },
+      "columns": { "fecha": "Fecha", "moneda": "Moneda", "ncf": "NCF", "itbis": "ITBIS", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "rnc_cedula": "RNC o Cédula", "comprobante": "Comprobante" },
       "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of_one": "de {{count}}", "of_other": "de {{count}}" },
       "sign": { "in": "Entrada de", "out": "Salida de" },
       "detail": {
@@ -3012,8 +3009,8 @@
         "first": "Primera página",
         "label": "Páginas de registros",
         "last": "Última página",
-        "name_ascending": "Contraparte: A–Z",
-        "name_descending": "Contraparte: Z–A",
+        "name_ascending": "{{column}}: A–Z",
+        "name_descending": "{{column}}: Z–A",
         "newest": "Más recientes primero",
         "next": "Página siguiente",
         "oldest": "Más antiguos primero",
@@ -3076,7 +3073,6 @@
       "empty_title": "No hay documentos eliminados",
       "failed": "No se pudo eliminar el documento. Intenta de nuevo.",
       "fields": {
-        "counterparty": "Contraparte",
         "date": "Fecha",
         "file": "Archivo",
         "state": "Estado",
@@ -3292,7 +3288,6 @@
       "field": {
         "collection_method": "Forma de cobro",
         "kind": "Actividad",
-        "counterparty": "Contraparte",
         "occurred_on": "Fecha del comprobante",
         "amount": "Monto",
         "currency": "Moneda",

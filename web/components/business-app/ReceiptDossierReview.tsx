@@ -13,6 +13,7 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "rea
 import { Check, CircleAlert, Loader2, RotateCcw, StickyNote } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, readReviewNote, type BusinessDossier, type ReviewFlagCode } from "@/lib/business-dossier";
+import { documentFamily, factLabel } from "@/lib/counterparty-term";
 import type { DgiiFields } from "@/lib/business-dgii";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
@@ -122,6 +123,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     id: draftId,
     name: dossier.facts.counterparty.value || receipt?.filename || t("business.document_delete.unnamed"),
     merchant: dossier.facts.counterparty.value,
+    family: documentFamily(dossier.document_type),
     date: dossier.facts.occurred_on.value,
     amount: dossier.facts.amount.value,
     currency: dossier.facts.currency.value,
@@ -204,7 +206,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     : row === "fiscal_number" ? `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`
     : row === "net_amount" || row === "legal_tip" ? t(`business.terms.${row}`)
     : row === "amount" ? t("business.terms.total_review")
-    : t(`business.dossier.field.${row}`, row);
+    : factLabel(t, row, documentFamily(dossier?.document_type));
   const autosave = useReviewAutosave({
     source, draftId, dossier, fields, label: rowName,
     onSaved: (next) => { setDossier(next); reload(); },

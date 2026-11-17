@@ -6,6 +6,7 @@ import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDossier, BusinessFact, BusinessFactField } from "@/lib/business-dossier";
+import { documentFamily, factLabel } from "@/lib/counterparty-term";
 import { rncStatus } from "@/lib/rnc-status";
 import RncStatusBlock from "./RncStatusBlock";
 import type { RowShown } from "./ReceiptEditRow";
@@ -123,7 +124,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   );
 
   const recordField = (key: BusinessFactField) => {
-    const label = key === "funding" && sale ? t("business.dossier.field.collection_method") : t(`business.dossier.field.${key}`, key);
+    const label = key === "funding" && sale ? t("business.dossier.field.collection_method") : factLabel(t, key, documentFamily(dossier.document_type));
     const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
     const currency = review && key === "amount" ? rows.get("currency") : undefined;
     const own = rows.get(key);

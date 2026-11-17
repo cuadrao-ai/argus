@@ -128,6 +128,14 @@ describe("Historial", () => {
     await page.close();
   });
 
+  for (const [documentType, name] of [["recibo", "Emisor"], ["venta", "Cliente"]] as const) test(`a name change on a ${documentType} reads ${name} cambiado`, async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const renamed = { ...facts("100.00"), counterparty: known("Colmado Duarte") } as unknown as BusinessFacts;
+    const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), facts("100.00"), renamed)]} accounts={[]} documentType={documentType} />);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), [`${name} cambiado de Ferretería La Esquina a Colmado Duarte`]);
+    await page.close();
+  });
+
   test("a confirmation that keeps the value adds no correction line", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const read = facts("500.00");

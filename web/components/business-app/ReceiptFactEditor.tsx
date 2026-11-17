@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import MoneyInput from "@/components/money/MoneyInput";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessFacts, BusinessFactField, BusinessFactInput, BusinessFactPatch } from "@/lib/business-dossier";
+import { documentFamily, factLabel } from "@/lib/counterparty-term";
 import { DatePicker } from "./foundation/DatePicker";
 import { REVIEW_INPUT_CLASS, ReviewSelect } from "./ReceiptFieldControls";
 import { DOCUMENT_TYPE_LABELS, type DocumentType, type ReviewRow } from "./receipt-fact-rows";
@@ -44,7 +45,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
   const funding = patch.funding ?? facts.funding;
   const fundingValue = funding.state === "owner_does_not_know" ? "owner_does_not_know" : funding.state !== "known" ? "" : funding.value.kind === "owner_funds" ? "owner_funds" : `account:${funding.value.account_id}`;
   const share = patch.business_share ?? facts.business_share;
-  const label = (key: BusinessFactField) => t(`business.dossier.field.${key}`, key);
+  const label = (key: BusinessFactField) => factLabel(t, key, documentFamily(documentType));
   const choose = t("business.review.choose", "Choose");
 
   return (
