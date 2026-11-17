@@ -15656,7 +15656,22 @@ components:
     ActivityActor:
       properties:
         display_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
+          anyOf:
+          - type: string
+            enum:
+            - name
+            - email
+            - member
+            - former
+          - type: 'null'
         kind:
           type: string
           enum:
@@ -15686,7 +15701,22 @@ components:
           type: string
           pattern: ^[0-9a-f]{32}$
         display_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
+          anyOf:
+          - type: string
+            enum:
+            - name
+            - email
+            - member
+            - former
+          - type: 'null'
         kind:
           type: string
           enum:
@@ -16047,7 +16077,7 @@ components:
       - recorded_at
       - recorded_by
       - coverage
-    ActorProvenance:
+    ActorView:
       properties:
         actor_id:
           type: string
@@ -16058,25 +16088,54 @@ components:
           - owner_via_agent
           - member
           - extractor
-        display_name:
-          type: string
         grant_id:
           type: string
           format: uuid
         issuer_id:
           type: string
           format: uuid
-        issuer_display_name:
+        display_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
           type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
+        issuer_display_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        issuer_email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        issuer_shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
       additionalProperties: false
       type: object
       required:
       - actor_id
       - actor_kind
-      - display_name
       - grant_id
       - issuer_id
+      - display_name
+      - shown_as
       - issuer_display_name
+      - issuer_shown_as
+      description: Who acted and who granted their access, each named live for the viewer.
     AliasBody:
       properties:
         alias:
@@ -17539,7 +17598,9 @@ components:
           - type: string
           - type: 'null'
         display_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         photo_url:
           anyOf:
           - type: string
@@ -17901,7 +17962,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -17922,7 +17983,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -18021,7 +18082,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -18039,7 +18100,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -20531,12 +20592,29 @@ components:
           type: string
           format: uuid
         display_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
+          anyOf:
+          - type: string
+            enum:
+            - name
+            - email
+            - member
+            - former
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
       - actor_id
-      - display_name
+      description: 'Who deleted the document, named live for the viewer as ``PersonName``
+
+        reads. The stored marker keeps only the id (``people.named_deletion``).'
     DeliveryPreparation:
       properties:
         to:
@@ -20914,7 +20992,7 @@ components:
           type: integer
           minimum: 1.0
         actor:
-          $ref: '#/components/schemas/ActorProvenance'
+          $ref: '#/components/schemas/ActorView'
         before:
           anyOf:
           - $ref: '#/components/schemas/BusinessFacts'
@@ -21603,7 +21681,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -21621,7 +21699,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -21691,7 +21769,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -21709,7 +21787,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -27994,6 +28072,31 @@ components:
       required:
       - membership_id
       - display_name
+    PersonName:
+      properties:
+        display_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
+      additionalProperties: false
+      type: object
+      required:
+      - display_name
+      - shown_as
+      description: 'A person as one viewer of a Business reads them now: ``shown_as`` says
+
+        whether the name, the email, a member or a former member shows.'
     PlanCommand:
       properties:
         membership_id:
@@ -29127,7 +29230,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -29145,7 +29248,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -29420,7 +29523,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -29438,7 +29541,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -29691,7 +29794,7 @@ components:
           default: false
         personal_marked_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         fiscal_known:
           type: boolean
@@ -29709,7 +29812,7 @@ components:
           - type: 'null'
         include_606_by:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/PersonName'
           - type: 'null'
         sin_comprobante:
           type: boolean
@@ -29934,7 +30037,7 @@ components:
           type: string
           format: date-time
         actor:
-          $ref: '#/components/schemas/ActorProvenance'
+          $ref: '#/components/schemas/ActorView'
       additionalProperties: false
       type: object
       required:
@@ -32794,9 +32897,35 @@ components:
           - type: string
           - type: 'null'
         owner_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        owner_email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        owner_shown_as:
           type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         target_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        target_email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        target_shown_as:
           type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         role:
           type: string
           enum:
@@ -32811,7 +32940,9 @@ components:
       - status
       - business_name
       - owner_name
+      - owner_shown_as
       - target_name
+      - target_shown_as
       - role
       - grant_id
     TransferListResponse:
@@ -32828,7 +32959,20 @@ components:
         grant_id:
           type: string
         name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        shown_as:
           type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         eligible:
           type: boolean
         reason:
@@ -32844,6 +32988,7 @@ components:
       required:
       - grant_id
       - name
+      - shown_as
       - eligible
       - reason
       description: 'A live member, who loses access on close; only an eligible one may be

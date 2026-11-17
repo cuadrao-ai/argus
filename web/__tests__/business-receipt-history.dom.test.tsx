@@ -34,7 +34,7 @@ async function render(node: ReactNode) {
   return { host, act, close: () => act(async () => { root.unmount(); host.remove(); }) };
 }
 
-const actor = (name: string, kind: "member" | "extractor" = "member") => ({ actor_id: name, actor_kind: kind, display_name: name, grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" });
+const actor = (name: string, kind: "member" | "extractor" = "member") => ({ actor_id: name, actor_kind: kind, display_name: name, shown_as: "name", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" });
 const known = <T,>(value: T) => ({ state: "known" as const, value, origin: "member_set" as const, verified: false, source_ids: [] });
 const unknown = { state: "unknown" as const, value: null, origin: null, verified: false as const, source_ids: [] };
 

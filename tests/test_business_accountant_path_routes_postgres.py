@@ -353,17 +353,17 @@ def test_an_invited_accountant_is_admitted_by_the_invite_and_works_from_the_firs
         chosen,
     )
     assert answered.status_code == 200, answered.text
-    # A newcomer with no display name is named by the shared fallback.
+    # A newcomer with no display name reads their own email; so does the owner,
+    # who manages the Business (#2219).
+    by_email = {"display_name": None, "email": accountant.email, "shown_as": "email"}
     assert (answered.json()["include_606"], answered.json()["include_606_by"]) == (
         True,
-        "Member",
+        by_email,
     )
-    assert (
-        client.get(
-            f"{API}/business/drafts/{draft}/dossier", headers=owner.headers
-        ).json()["include_606"]
-        is True
-    )
+    owner_view = client.get(
+        f"{API}/business/drafts/{draft}/dossier", headers=owner.headers
+    ).json()
+    assert (owner_view["include_606"], owner_view["include_606_by"]) == (True, by_email)
 
     # The export package downloads under the grant.
     export = client.get(

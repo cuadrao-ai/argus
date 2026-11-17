@@ -85,7 +85,7 @@ async function mount(query: string, overrides: Partial<BusinessDataSource> = {},
 }
 
 const item = (id: string, name: string, action: string, minutesAgo: number) => ({
-  id, occurred_at: new Date(Date.now() - minutesAgo * 60_000).toISOString(), actor: { display_name: name, kind: "member" }, action, object: { kind: "draft", id: `d-${id}` },
+  id, occurred_at: new Date(Date.now() - minutesAgo * 60_000).toISOString(), actor: { display_name: name, shown_as: "name", kind: "member" }, action, object: { kind: "draft", id: `d-${id}` },
 });
 
 describe("Actividad on a live Business", () => {
@@ -215,7 +215,7 @@ describe("an Actividad row opens what it is about", () => {
 
 for (const [action, words] of [["purge_document", "borró definitivamente un documento."], ["expire_document", "borró definitivamente un documento después de 7 días en Eliminados."]] as const) {
   test(`Actividad shows ${action} with no name and no link`, async () => {
-    const actor = action === "expire_document" ? { display_name: "Cuadrao", kind: "extractor" } : { display_name: "Lucía Peña", kind: "member" };
+    const actor = action === "expire_document" ? { display_name: null, shown_as: null, kind: "extractor" } : { display_name: "Lucía Peña", shown_as: "name", kind: "member" };
     feed = async () => ({ items: [{ ...item("purge-event", "Lucía Peña", action, 5), actor, object: null }], next_cursor: null });
     const page = await mount("view=activity");
     try {

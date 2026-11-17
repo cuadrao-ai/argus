@@ -28,8 +28,8 @@ from argus.domain.business.activity.catalog import (
 from argus.domain.business.authority import (
     ActionContext,
     ActionError,
+    Authorization,
     BusinessAuthority,
-    _profile_label,
     authorize,
 )
 from argus.domain.business.contracts.activity import (
@@ -41,7 +41,7 @@ from argus.domain.business.contracts.activity import (
     ObjectKind,
     PageSize,
 )
-from argus.domain.business.custody_graph import ERASED_NAME
+from argus.domain.business.people import people, person_label
 from argus.domain.business.reporting_query import CALENDAR
 
 
@@ -87,31 +87,30 @@ _EVENTS = f"""
     with events as (
         select {_ROW_ID} as id, space_id, created_at, actor_id,
                actor->>'actor_kind' as actor_kind,
-               actor->>'display_name' as display_name,
                command->>'action' as action, command, outcome
         from public.business_action_receipts
         where space_id = %(space_id)s
           and outcome->>'outcome' = 'applied'
         union all
         select {_key("space_id::text || ':transfer:' || id::text")}, space_id,
-               resolved_at, target_id, 'member', null::text,
+               resolved_at, target_id, 'member',
                'ownership_transferred', '{{}}'::jsonb, null::jsonb
         from public.business_ownership_transfers
         where space_id = %(space_id)s and status = 'accepted'
         union all
         select {_key("space_id::text || ':reading:' || id::text")}, space_id,
-               consented_at, owner_id, 'member', null::text,
+               consented_at, owner_id, 'member',
                'receipt_reading_enabled', '{{}}'::jsonb, null::jsonb
         from public.business_receipt_reading_consents
         where space_id = %(space_id)s
         union all
         select {_key("space_id::text || ':purge:' || id::text")}, space_id,
-               purged_at, null::uuid, 'extractor', 'Cuadrao',
+               purged_at, null::uuid, 'extractor',
                'expire_document', '{{}}'::jsonb, null::jsonb
         from argus_private.business_document_purges
         where space_id = %(space_id)s and reason = 'expiry'
     ), visible as (
-        select e.id, e.created_at, e.actor_id, e.actor_kind, e.display_name,
+        select e.id, e.created_at, e.actor_id, e.actor_kind,
                e.action, e.command, e.outcome, {_ACTOR_KEY} as actor_key,
                case when e.actor_kind = 'extractor' then null
                     when exists ({_LIVE_GRANT}) then 'current'
@@ -126,7 +125,7 @@ _EVENTS = f"""
 """
 _PAGE = f"""
     {_EVENTS}
-    select id, created_at, actor_id, actor_key, actor_kind, display_name,
+    select id, created_at, actor_id, actor_key, actor_kind,
            membership, action, command, outcome
     from visible
     where (%(actors)s::text[] is null or actor_key = any(%(actors)s::text[]))
@@ -138,21 +137,9 @@ _PAGE = f"""
 _FACETS = f"""
     {_EVENTS}
     select distinct on (actor_key)
-           actor_id, actor_key, actor_kind, display_name, membership
+           actor_id, actor_key, actor_kind, membership
     from visible
-    order by actor_key, display_name is null, created_at desc, id desc
-"""
-#: A departure leaves an alias in the derived columns: a member's from the
-#: departure flow, a deleted creator's from the custody reservation.
-_NAMES = """
-    select i.id, p.id is not null as named, p.display_name, p.username,
-           d.actor_id is not null or r.deleted_actor_id is not null as erased
-    from unnest(%(ids)s::uuid[]) as i(id)
-    left join public.profiles p on p.id = i.id
-    left join argus_private.business_departure_aliases d
-           on d.space_id = %(space_id)s and d.actor_id = i.id
-    left join argus_private.business_custody_reservations r
-           on r.space_id = %(space_id)s and r.deleted_actor_id = i.id
+    order by actor_key, created_at desc, id desc
 """
 _DRAFT_LABELS = """
     select id, resolution->'business'->'facts'->'counterparty' as counterparty
@@ -160,9 +147,8 @@ _DRAFT_LABELS = """
     where owner_space_id = %(space_id)s and id = any(%(ids)s::uuid[])
 """
 _GRANT_LABELS = """
-    select g.id, p.display_name, p.username
+    select g.id, g.grantee_id
     from public.business_client_grants g
-    left join public.profiles p on p.id = g.grantee_id
     where g.space_id = %(space_id)s and g.id = any(%(ids)s::uuid[])
 """
 
@@ -245,12 +231,12 @@ def read_activity(
             "until": until,
         }
         with connection.cursor(row_factory=dict_row) as cursor:
-            read = _Read(cursor, context.actor.space_id, scope, filters)
+            read = _Read(cursor, live, scope, filters)
             facets = None
             if before is None:
                 cursor.execute(_FACETS, scope)
                 facets = cursor.fetchall()
-                _fill_names(cursor, context.actor.space_id, facets)
+                _fill_names(cursor, live, facets)
             if filters.q:
                 items, last = read.matching(search.parse(filters.q), before, limit)
             else:
@@ -267,14 +253,17 @@ def holds(query: search.SearchQuery, item: ActivityItem) -> bool:
     """The query's words are in what the row says of who and of which object,
     read as the Business search reads a record."""
 
-    said = (item.actor and item.actor.display_name, item.object and item.object.label)
+    said = (
+        item.actor and (item.actor.display_name or item.actor.email),
+        item.object and item.object.label,
+    )
     return search.matches(query, " ".join(part for part in said if part))
 
 
 @dataclass(frozen=True)
 class _Read:
     cursor: Any
-    space_id: UUID
+    viewer: Authorization
     scope: dict[str, Any]
     filters: ActivityFilters
 
@@ -295,13 +284,14 @@ class _Read:
         )
         rows = self.cursor.fetchall()
         page = rows[:limit]
-        _fill_names(self.cursor, self.space_id, page)
+        _fill_names(self.cursor, self.viewer, page)
+        space_id = self.viewer.context.actor.space_id
         items = _receipt_targets(
             self.cursor,
-            self.space_id,
-            _purged(self.cursor, self.space_id, tuple(project(row) for row in page)),
+            space_id,
+            _purged(self.cursor, space_id, tuple(project(row) for row in page)),
         )
-        labels = _labels(self.cursor, self.space_id, items)
+        labels = _labels(self.cursor, self.viewer, items)
         return tuple(with_labels(item, labels) for item in items), len(rows) > limit
 
     def matching(
@@ -414,46 +404,50 @@ def _purged(
     )
 
 
-def _fill_names(cursor, space_id: UUID, rows: list[dict]) -> None:
-    """A derived source stores the actor's id, not a name: the profile names
-    the person, and a departure alias keeps the departure name."""
+def _fill_names(cursor, viewer: Authorization, rows: list[dict]) -> None:
+    """Every row stores the actor's id, never a name the feed reads: the
+    profile names the person now, as ``viewer`` reads them (``people``).
+    Automated work names no one; the screen words it."""
 
-    unnamed = {str(row["actor_id"]) for row in rows if row["display_name"] is None}
-    if not unnamed:
-        return
-    cursor.execute(_NAMES, {"space_id": space_id, "ids": sorted(unnamed)})
-    names = {
-        str(row["id"]): ERASED_NAME
-        if row["erased"]
-        else _profile_label(row["display_name"], row["username"])
-        if row["named"]
-        else None
-        for row in cursor.fetchall()
-    }
+    named = [row["actor_id"] for row in rows if row["actor_kind"] != "extractor"]
+    found = people(cursor.connection, viewer, named)
     for row in rows:
-        if row["display_name"] is None:
-            row["display_name"] = names.get(str(row["actor_id"]))
+        automated = row["actor_kind"] == "extractor"
+        person = None if automated else found.get(str(row["actor_id"]))
+        row.update(
+            display_name=person and person.display_name,
+            email=person and person.email,
+            shown_as=person and person.shown_as,
+            known=automated or person is not None,
+        )
 
 
 def _facet(rows: Iterable[EventRow]) -> tuple[ActivityFacetActor, ...]:
-    named = [row for row in rows if row["display_name"] is not None]
+    known = [row for row in rows if row["known"]]
     return tuple(
         ActivityFacetActor(
             id=row["actor_key"],
             display_name=row["display_name"],
+            email=row["email"],
+            shown_as=row["shown_as"],
             kind=row["actor_kind"],
             membership=row["membership"],
         )
-        for row in sorted(named, key=lambda row: (row["display_name"], row["actor_key"]))
+        for row in sorted(
+            known,
+            key=lambda row: (row["display_name"] or row["email"] or "", row["actor_key"]),
+        )
     )
 
 
 def _labels(
-    cursor, space_id: UUID, items: Iterable[ActivityItem]
+    cursor, viewer: Authorization, items: Iterable[ActivityItem]
 ) -> dict[tuple[ObjectKind, UUID], str]:
     """A human label per object the page names, from records the reader may
-    read: a draft's counterparty, a grant's person. An invite names only an
-    email, which never leaves the ledger."""
+    read: a draft's counterparty, a grant's person as the reader reads them.
+    An invite names only an email, which never leaves the ledger."""
+
+    space_id = viewer.context.actor.space_id
 
     ids: dict[ObjectKind, set[UUID]] = {"draft": set(), "receipt": set(), "grant": set()}
     document_ids = set()
@@ -501,10 +495,12 @@ def _labels(
                 labels[("receipt", row["connection_id"])] = row["label"]
     if ids["grant"]:
         cursor.execute(_GRANT_LABELS, {"space_id": space_id, "ids": sorted(ids["grant"])})
-        for row in cursor.fetchall():
-            labels[("grant", row["id"])] = _profile_label(
-                row["display_name"], row["username"]
-            )
+        grantees = {row["id"]: row["grantee_id"] for row in cursor.fetchall()}
+        found = people(cursor.connection, viewer, grantees.values())
+        for grant, grantee in grantees.items():
+            label = person_label(found.get(str(grantee)))
+            if label:
+                labels[("grant", grant)] = label
     return labels
 
 

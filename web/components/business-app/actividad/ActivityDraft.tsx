@@ -175,7 +175,6 @@ export default function ActivityDraft() {
     formerMember: t("business.activity_feed.former_member"),
     unmarkPersonal: t("business.activity_feed.unmark_personal"),
     managersOnly: t("business.activity_feed.managers_only"),
-    noActor: t("business.activity_feed.no_actor"),
     noRecord: t("business.activity_feed.no_record"),
     loadMore: t("business.activity_feed.load_more"),
     am: t("business.activity_feed.am"),
@@ -207,7 +206,7 @@ export default function ActivityDraft() {
       const since = new Date(); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - DATE_DAYS[date]);
       if (new Date(item.occurred_at) < since) return false;
     }
-    if (people.length && !people.includes(item.actor?.display_name ?? c.noActor)) return false;
+    if (people.length && !people.includes(activityActorName(t, item.actor))) return false;
     if (areas.length && !areas.includes(meta.area)) return false;
     if (groups.length && !groups.includes(meta.group)) return false;
     return true;
@@ -233,7 +232,7 @@ export default function ActivityDraft() {
   };
 
   const filterOptions = {
-    people: [...new Set(all.map((item) => item.actor?.display_name ?? c.noActor))].map((name) => ({ value: name, label: name })),
+    people: [...new Set(all.map((item) => activityActorName(t, item.actor)))].map((name) => ({ value: name, label: name })),
     areas: (Object.keys(c.areas) as Area[]).filter((value) => value !== "invoicing" || invoicingShown(invoicing)).map((value) => ({ value, label: c.areas[value] })),
     actions: (Object.keys(c.groups) as Group[]).filter((g) => all.some((item) => ACTION_META[item.action].group === g)).map((value) => ({ value, label: c.groups[value] })),
   };
@@ -264,11 +263,11 @@ export default function ActivityDraft() {
   const actor = (item: DraftItem, size: 24 | 32) => {
     if (!item.actor) return { mark: <Avatar name={null} size={size} />, name: <span className="text-[#56635e] dark:text-white/60">{activityActorName(t, item.actor)}</span> };
     if (item.actor.kind === "extractor") return { mark: <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#e3ebe1] dark:bg-white/10 ${size === 24 ? "h-6 w-6" : "h-8 w-8"}`}><CuadraoMark size={size === 24 ? 14 : 18} /></span>, name: <span>{activityActorName(t, item.actor)}</span> };
-    // An erased account reaches us already renamed; a member who left keeps the name the ledger stored.
-    const erased = item.actor.display_name === "Exmiembro";
+    // Someone who left with no name, or an erased account, reads as a former member; a named one keeps their name.
+    const erased = item.actor.shown_as === "former";
     const former = item.actor.membership === "former" && !erased;
     return {
-      mark: <Avatar name={erased ? null : item.actor.display_name} size={size} />,
+      mark: <Avatar name={erased ? null : activityActorName(t, item.actor)} size={size} />,
       name: <span className={erased ? "text-[#56635e] dark:text-white/60" : undefined}>{activityActorName(t, item.actor)}{former ? <span className="text-[#56635e] dark:text-white/60"> · {c.formerMember}</span> : null}</span>,
     };
   };

@@ -46,6 +46,12 @@ def people():
             ("viewer", False),
             ("stranger", False),
         )
+        # Everyone is named by their handle; a test that needs another name sets it.
+        db.execute(
+            "update public.profiles set display_name=username where id=any(%s::uuid[])",
+            (list(ids.values()),),
+        )
+        db.commit()
         try:
             yield ids
         finally:
@@ -94,12 +100,22 @@ def receipt(
     at: datetime | None = None,
     outcome: str | None = "applied",
     draft_id: str | None = None,
-    display_name: str = "Synthetic member",
+    display_name: str | None = None,
     kind: str = "member",
     planned: bool = False,
+    stored_label: str = "",
 ) -> None:
+    """A ledger row by ``person``. ``display_name`` names them on their
+    profile, where the feed reads it live; the row stores no name (#2219),
+    or ``stored_label`` as a row written before then did."""
+
     key = f"act-{uuid4().hex[:12]}"
-    actor = _actor(person, display_name, kind)
+    actor = _actor(person, stored_label, kind)
+    if display_name is not None:
+        db.execute(
+            "update public.profiles set display_name=%s where id=%s",
+            (display_name, person),
+        )
     if planned:
         db.execute(
             "insert into public.business_turns"
@@ -243,9 +259,19 @@ def _drafts(page) -> set[str]:
     }
 
 
-def _facet(page) -> list[tuple[str, str, str | None]]:
+def who(actor) -> str | None:
+    """What the screen words for an actor: the name or email shown, else how
+    the person shows (``member``, ``former``); ``None`` for automated work."""
+
+    return actor.display_name or actor.email or actor.shown_as
+
+
+def _facet(page) -> list[tuple[str | None, str, str | None]]:
     assert page.actors is not None
-    return sorted((a.display_name, a.kind, a.membership) for a in page.actors)
+    return sorted(
+        ((who(a), a.kind, a.membership) for a in page.actors),
+        key=lambda facet: (facet[0] or "", facet[1]),
+    )
 
 
 def _actor_id(page, display_name: str) -> str:
@@ -532,31 +558,39 @@ def test_pages_stay_put_when_newer_rows_land(people, business, authority):
     ] == newer
 
 
-def test_the_stored_name_shows_not_the_profile(people, business, authority):
+def test_the_profile_name_shows_on_every_row_never_a_stored_label(
+    people, business, authority
+):
+    """A row written before #2219 still holds the label it was written with;
+    the feed reads the profile instead, so a later name shows on older rows."""
+
     with Connection.connect(shared.DSN) as db:
+        for seconds_ago in (2, 1):
+            receipt(
+                db,
+                business,
+                people["editor"],
+                {"action": "mark_personal", "draft_id": str(uuid4())},
+                seconds_ago=seconds_ago,
+                stored_label="Member",
+            )
         name(db, people["editor"], "Ana Después")
-        receipt(
-            db,
-            business,
-            people["editor"],
-            {"action": "mark_personal", "draft_id": str(uuid4())},
-            seconds_ago=2,
-            display_name="Ana Antes",
-        )
-        receipt(
-            db,
-            business,
-            people["editor"],
-            {"action": "mark_personal", "draft_id": str(uuid4())},
-            seconds_ago=1,
-            display_name="Exmiembro",
-        )
         db.commit()
 
     page = _seen(authority, people["viewer"], business)
-    assert [i.actor.display_name for i in page.items] == ["Exmiembro", "Ana Antes"]
+    assert [i.actor.display_name for i in page.items] == ["Ana Después"] * 2
     assert len({i.actor.id for i in page.items}) == 1
-    assert _facet(page) == [("Exmiembro", "member", "current")]
+    assert _facet(page) == [("Ana Después", "member", "current")]
+    with Connection.connect(shared.DSN) as db:
+        name(db, people["editor"], None)
+        db.commit()
+    email = f"fin-editor-{people['editor']}@example.test"
+    for reader_role, shown in (("owner", email), ("viewer", "member")):
+        unnamed = _seen(authority, people[reader_role], business)
+        marked = [i for i in unnamed.items if i.action == "mark_personal"]
+        assert [who(i.actor) for i in marked] == [shown] * 2, reader_role
+        assert "Member" not in unnamed.model_dump_json()
+    assert email not in unnamed.model_dump_json()
 
 
 def test_an_action_the_feed_does_not_know_lists_as_other_for_managers_only(
@@ -680,7 +714,14 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
                 "include",
                 "decision",
             }
-            assert set(item["actor"]) == {"display_name", "kind", "id", "membership"}
+            assert set(item["actor"]) == {
+                "display_name",
+                "email",
+                "shown_as",
+                "kind",
+                "id",
+                "membership",
+            }
             assert item["object"] is None or set(item["object"]) == {
                 "kind",
                 "id",
@@ -688,10 +729,17 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
                 "purged",
             }
         assert {a["display_name"] for a in page["actors"]} == {
-            "Synthetic member",
+            "fin-editor-" + people["editor"][:8],
             "fin-owner-" + people["owner"][:8],
         }
-        assert set(page["actors"][0]) == {"id", "display_name", "kind", "membership"}
+        assert set(page["actors"][0]) == {
+            "id",
+            "display_name",
+            "email",
+            "shown_as",
+            "kind",
+            "membership",
+        }
         for leak in (
             EMAIL,
             people["owner"],
@@ -706,7 +754,9 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
         acting_as(people["viewer"])
         viewed = client.get("/business/activity").json()
         assert [i["action"] for i in viewed["items"]] == ["review_draft"]
-        assert [a["display_name"] for a in viewed["actors"]] == ["Synthetic member"]
+        assert [a["display_name"] for a in viewed["actors"]] == [
+            "fin-editor-" + people["editor"][:8]
+        ]
         narrowed = client.get(
             "/business/activity",
             params={"area": ["business", "documents"], "action_group": "access"},

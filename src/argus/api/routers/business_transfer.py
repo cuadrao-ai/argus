@@ -17,6 +17,7 @@ from argus.api.routers.business_lifecycle import (
     lifecycle_problem,
     no_store,
 )
+from argus.domain.business.contracts.authority import PersonShown
 from argus.domain.business.lifecycle import BusinessLifecycleError
 from argus.domain.business.space_name import GivenName
 from argus.domain.business.transfer import PostgresBusinessTransfer, TransferResult
@@ -42,8 +43,15 @@ class TransferListResponse(BaseModel):
 
 class TransferDetailsResponse(TransferResponse):
     business_name: GivenName
-    owner_name: str
-    target_name: str
+    #: Each person as the reader reads them: ``*_shown_as`` says which of the
+    #: name, the email (only for a reader who manages the Business or is that
+    #: person), a member or a former member shows, and the screen picks the words.
+    owner_name: str | None
+    owner_email: str | None = None
+    owner_shown_as: PersonShown
+    target_name: str | None
+    target_email: str | None = None
+    target_shown_as: PersonShown
     role: Literal["owner", "target"]
     grant_id: str
 

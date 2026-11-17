@@ -8282,7 +8282,7 @@ returns 404 `business_document_purged`.
 
 Receipt summary, detail and dossier responses expose `deleted`,
 `delete_available` and `restore_available`. The deletion metadata contains
-`actor: {actor_id, display_name}`, `at`, `key`, and `previous_state: {state, group}`,
+`actor: {actor_id, display_name, email, shown_as}` (named live for the reader, as in the dossier), `at`, `key`, and `previous_state: {state, group}`,
 plus `reason: "duplicate"` when the owner deleted it as a duplicate (absent
 for a plain delete).
 The previous group is `attention` or `listo`. For several generic read
@@ -8635,9 +8635,31 @@ scoped idempotent command and assigns `member_set` fact provenance with the
 actual human actor; browser requests never supply source IDs or provenance.
 It is neither extracted evidence nor an agent proposal. Questions can reference
 that web action as their answer source. Questions carry stable IDs, field, recipient,
-channel, state, prompt and allowed answer states. History includes readable actor
-and issuer labels with grant provenance, time and before/after facts. A failed
-history read is an error, never an empty successful history.
+channel, state, prompt and allowed answer states. History includes the actor and
+issuer with grant provenance, time and before/after facts. A failed history read
+is an error, never an empty successful history.
+
+People are named live for the reader (#2219). A ledger row stores who acted
+(`actor_id`, `issuer_id`), never a label a reader sees; the stored
+`display_name` and `issuer_display_name` slots stay empty on new rows. Every
+response that names a person reads the profile at response time and says how
+the person shows in `shown_as`:
+
+- `name`: the person has a profile name, in `display_name`, for every reader.
+- `former`: no name, and the person holds no live grant on this Business (they
+  left), or the departure flow erased the account.
+- `email`: no name, a live grant, and the reader manages the Business (owner or
+  admin, the roles with `manage`) or is that person. The email is in `email`.
+- `member`: no name, a live grant, and any other reader (editor or viewer).
+
+`display_name` is set only for `name` and `email` only for `email`; both are
+`null` otherwise, so an editor or viewer never receives a teammate's email. A
+name added later shows on past rows. The client picks the words: the name, the
+email, its member word or its former-member word. No response uses a fixed
+stand-in such as "Member". The dossier's `history[].actor` and
+`approval_result.actor` are `{actor_id, actor_kind, grant_id, issuer_id,
+display_name, email, shown_as, issuer_display_name, issuer_email,
+issuer_shown_as}`.
 A recorded `approval_result` carries `activity_id`, the approving `actor`,
 `reviewed_version` (the draft version the approval named, which also counts
 approvals and settlements), `approved_revision` (the latest `history` version
@@ -9105,15 +9127,15 @@ changes. The page is `{items: [...], next_cursor: string|null, actors: [...]|nul
 `id` is an opaque, stable string per row. `occurred_at` is the row's server
 timestamp.
 
-`actor` is `{display_name, kind, id, membership}`, or `null` when the source
-recorded no actor at all, or names an account with no profile and no departure
-record (the client shows "Actor no registrado"; no row says who when the record
-does not). `display_name` is the name the ledger stored when the action ran, so
-a member who later left keeps their name, and an account the departure flow
-erased shows `Exmiembro`; the server never joins the account table for a ledger
-row. The two derived events store no name: the server names the person from
-their profile, and `Exmiembro` once the departure flow replaced them with an
-alias in this Business. `kind` is `member`, `owner_via_agent` or `extractor`
+`actor` is `{display_name, email, shown_as, kind, id, membership}`, or `null` when the
+source recorded no actor at all, or names an account with no profile and no
+departure record (the client shows "Actor no registrado"; no row says who when
+the record does not). Every row names its person live for the reader, as the
+dossier does (#2219): a name added later shows on older rows, a member who
+later left keeps their profile name, an unnamed member shows their email only
+to a reader who manages the Business or is that member, and an account the
+departure flow erased shows as a former member. Automated work (`extractor`)
+has `display_name`, `email` and `shown_as` all `null`; the client words it. `kind` is `member`, `owner_via_agent` or `extractor`
 (automated processing; the client names it Cuadrao). `id` is an opaque id per
 person and Business, the same on every row of that person and in `actors`, never
 an account id or an email; every `extractor` row of a Business shares one `id`.
@@ -9207,9 +9229,8 @@ not narrow `actors`.
 `actors` lists, on the first page only (`null` on a cursor page), every actor
 with at least one row the reader may see under the `from`, `to`, `area` and
 `action_group` filters (the `actor` filter does not narrow it), as
-`{id, display_name, kind, membership}` sorted by name, with the name the
-newest such row stored, or the derived-event name above when no such row
-stored one. An actor whose only rows are manager-only never appears in a
+`{id, display_name, email, shown_as, kind, membership}` sorted by name, else
+email, each named live for the reader. An actor whose only rows are manager-only never appears in a
 member's `actors`.
 
 Only rows whose outcome is `applied` list; refused, failed, stale, replayed and
@@ -9854,9 +9875,10 @@ person starts their space, every route below except POST `/space` answers 404
     carry `personal`,
     `fiscal_value` (`ncf`, `ecf` or null) and `include_606` (true, false or
     null when not applicable or unanswered), present only when set, and
-    `personal_marked_by`, the display name of whoever last changed the mark
-    when that was not the owner (absent otherwise), `include_606_by`, the
-    display name of whoever last changed the 606 answer while one applies,
+    `personal_marked_by`, whoever last changed the mark when that was not the
+    owner (absent otherwise), `include_606_by`, whoever last changed the 606
+    answer while one applies, each `{display_name, email, shown_as}` named
+    live for the reader as in the dossier,
     and `fiscal_known`: on a receipt summary or detail, present and true once
     a draft owns the receipt (absent before anything is read); on the dossier,
     always true; on an expense, its detail and a search expense, always
@@ -9887,7 +9909,9 @@ person starts their space, every route below except POST `/space` answers 404
   - GET `/api/v1/business/access` returns the existing `grants` and `invites`
     lists. Grants add `business_role` and `permissions`; invitations add
     `requested_role`. Legacy `owner`, `capabilities`, profile photo and timestamp
-    fields remain. Pending invitations expose the same shape for known and
+    fields remain. A grant's `display_name` is the profile name, or `null`
+    when the person set none (the row then shows its `email`; #2219). Pending
+    invitations expose the same shape for known and
     unknown recipient accounts. `invitations_available` matches
     `GET /business/spaces`.
   - POST `/api/v1/business/access`, POST `/api/v1/business/access/invitations`,
@@ -11272,7 +11296,7 @@ The October 18 transfer email successor adds authenticated
 `GET /business/ownership-transfers`. It returns only transfers where the actor
 is an original participant and still has a live grant to the open Business.
 Each item includes `id`, `space_id`, server-computed `status`, `expires_at`,
-`business_name`, `owner_name`, `target_name`, the actor's live `grant_id` and `owner` or `target`
+`business_name`, `owner_name`, `owner_email`, `owner_shown_as`, `target_name`, `target_email`, `target_shown_as` (each person named live for the reader as in the dossier), the actor's live `grant_id` and `owner` or `target`
 role. GET does not accept, decline, withdraw, expire or send mail.
 
 A request expires exactly 168 hours after creation. At or after the deadline,
@@ -11357,7 +11381,10 @@ Global account deletion keeps its own switch and is unchanged.
 `GET /business/owned-spaces` is the close preview. Each Business now also carries
 `member_count` (the live members who lose access on close), `reopen_until` (the
 deadline a close now would set, from the database clock) and `export_windows`.
-`members` lists every live member as `{grant_id, name, eligible, reason}`.
+`members` lists every live member as `{grant_id, name, email, shown_as, eligible, reason}`;
+`name` is the profile name or `null`, and `email` stands in only without one
+(only the owner reads this list, so `shown_as` is `name`, `email`, or `member`
+for an account with no email).
 `reason` is null for an eligible member, otherwise `account_unavailable`,
 `not_editor`, `email_unconfirmed` or `owns_open_business`. Eligibility and the
 transfer request read one shared query, so a request naming an ineligible member

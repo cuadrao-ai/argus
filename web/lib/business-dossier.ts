@@ -1,5 +1,6 @@
 import type { BusinessAccount, DocumentDeleteAccess } from "./business-api";
 import type { DgiiDeclaration } from "./business-dgii";
+import type { PersonName, PersonShown } from "./person-name";
 
 export type BusinessFact<T> =
   | { state: "known"; value: T; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | "default"; verified: boolean; source_ids: string[] }
@@ -71,7 +72,8 @@ export type BusinessFactField = Exclude<keyof BusinessFacts, "fiscal">;
 export type BusinessFactInput<T> = { state: "known"; value: T } | { state: "unknown" | "owner_does_not_know"; value: null };
 export type BusinessFactPatch = { [K in BusinessFactField]?: BusinessFactInput<NonNullable<NonNullable<BusinessFacts[K]>["value"]>> };
 export type BusinessMontosReview = { net_amount?: BusinessFactInput<string>; legal_tip?: BusinessFactInput<string>; restore_inherited?: string[]; override_inherited?: string[] };
-export type BusinessActor = { actor_id: string; actor_kind: "owner_via_agent" | "member" | "extractor"; display_name: string; grant_id: string; issuer_id: string; issuer_display_name: string };
+/** Who acted and who granted their access, each named live by the server (`PersonName`). */
+export type BusinessActor = PersonName & { actor_id: string; actor_kind: "owner_via_agent" | "member" | "extractor"; grant_id: string; issuer_id: string; issuer_display_name: string | null; issuer_email?: string | null; issuer_shown_as: PersonShown };
 
 export type BusinessReviewQuestion = {
   id: string;
@@ -179,7 +181,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   bill_mark?: "Factura por pagar" | "Factura pagada" | null;
   /** The record's marks from the server, the same reading every list shows: Personal, who last changed it when not the owner, the fiscal number, the 606 answer. */
   personal?: boolean;
-  personal_marked_by?: string | null;
+  personal_marked_by?: PersonName | null;
   /** The record's facts exist, so an empty fiscal_value means no fiscal number. */
   fiscal_known?: boolean;
   fiscal_value?: "ncf" | "ecf" | null;
@@ -188,7 +190,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   fiscal_question_applies?: boolean;
   include_606?: boolean | null;
   /** Who gave the 606 answer, while one applies. */
-  include_606_by?: string | null;
+  include_606_by?: PersonName | null;
   read_purchases?: BusinessReadPurchase[];
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;

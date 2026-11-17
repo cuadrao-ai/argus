@@ -22,6 +22,7 @@ from argus.domain.business.contracts.actions import (
     TurnPlan,
     canonical_input_hash,
 )
+from argus.domain.business.contracts.authority import ActorProvenance
 from argus.domain.business.contracts.dossier import (
     BusinessDossier,
     ReviewQuestion,
@@ -46,6 +47,18 @@ FIXTURE = Path(__file__).parent / "fixtures" / "hosted_business_dossier.json"
 @pytest.fixture
 def dossier() -> BusinessDossier:
     return BusinessDossier.model_validate_json(FIXTURE.read_text())
+
+
+def _stored(dossier: BusinessDossier) -> ActorProvenance:
+    """The dossier's first actor as a ledger row stores it: ids, no names."""
+
+    view = dossier.history[0].actor
+    return ActorProvenance(
+        actor_id=view.actor_id,
+        actor_kind=view.actor_kind,
+        grant_id=view.grant_id,
+        issuer_id=view.issuer_id,
+    )
 
 
 def test_dossier_retains_uncertainty_and_separates_receipt_time(
@@ -405,7 +418,7 @@ def test_completed_turn_needs_persisted_plan(dossier: BusinessDossier) -> None:
         DurableTurn.model_validate(value)
     with pytest.raises(ValidationError, match="actor provenance"):
         DurableTurn.model_validate({**value, "plan": {"actions": []}})
-    saved = {**value, "plan": {"actions": []}, "plan_actor": dossier.history[0].actor}
+    saved = {**value, "plan": {"actions": []}, "plan_actor": _stored(dossier)}
     assert DurableTurn.model_validate(saved).plan is not None
     with pytest.raises(ValidationError, match="actual actor"):
         DurableTurn.model_validate({**saved, "actor_id": fake.uuid4()})
@@ -480,7 +493,7 @@ def test_web_action_source_preserves_human_command_and_rejects_whatsapp(
 def test_receipt_provenance_is_required_and_bound_to_actual_actor(
     dossier: BusinessDossier,
 ) -> None:
-    actor = dossier.history[0].actor
+    actor = _stored(dossier)
     payload = {
         "space_id": dossier.space_id,
         "actor_id": actor.actor_id,
@@ -507,7 +520,7 @@ def test_receipt_provenance_is_required_and_bound_to_actual_actor(
 
 
 def test_agent_receipt_requires_a_persisted_turn(dossier: BusinessDossier) -> None:
-    actor = dossier.history[0].actor
+    actor = _stored(dossier)
     payload = {
         "space_id": dossier.space_id,
         "actor_id": actor.actor_id,
@@ -636,7 +649,7 @@ def test_manual_capture_rejects_caller_authority_and_sources(field: str) -> None
 def test_manual_capture_receipt_requires_human_without_turn(
     dossier: BusinessDossier, actor_kind: str, with_turn: bool
 ) -> None:
-    actor = dossier.history[0].actor.model_copy(update={"actor_kind": actor_kind})
+    actor = _stored(dossier).model_copy(update={"actor_kind": actor_kind})
     payload = {
         "space_id": dossier.space_id,
         "actor_id": actor.actor_id,
@@ -735,7 +748,7 @@ def test_income_approval_is_not_a_model_action_or_a_turn_plan():
     ],
 )
 def test_income_receipt_retains_actual_human_authority_and_recovery(dossier, outcome):
-    actor = dossier.history[0].actor.model_copy(update={"actor_kind": "member"})
+    actor = _stored(dossier).model_copy(update={"actor_kind": "member"})
     command = IncomeApprovalCommand(
         draft_id=dossier.draft_id,
         request=ApproveIncome(action="record_income", version=dossier.version),
@@ -774,7 +787,7 @@ def attachment_binding(dossier: BusinessDossier) -> AttachmentPreparationBinding
         owner_id=fake.uuid4(),
         connection_id=fake.uuid4(),
         source_sha256=fake.sha256(),
-        actor=dossier.history[0].actor.model_copy(update={"actor_kind": "extractor"}),
+        actor=_stored(dossier).model_copy(update={"actor_kind": "extractor"}),
         target=None,
         consent=True,
         captured_at=dossier.sources[0].received_at,

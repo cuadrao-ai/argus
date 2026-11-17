@@ -12,7 +12,7 @@ from argus.domain.business.document_type import DocumentType
 from argus.domain.business.space_name import GivenName
 
 from .actions import ApprovalAction, DuplicateDecision
-from .authority import ActorProvenance, Capability
+from .authority import ActorView, Capability, PersonName
 from .checks import DgiiQr, EcfVerification
 from .dgii import DgiiDeclaration, ExpenseType, PaymentForm
 from .facts import (
@@ -113,7 +113,7 @@ class DuplicateRevision(Contract):
 class DraftRevision(Contract):
     draft_id: UUID
     version: int = Field(ge=1)
-    actor: ActorProvenance
+    actor: ActorView
     before: BusinessFacts | None
     after: BusinessFacts
     source_ids: tuple[UUID, ...]
@@ -154,7 +154,7 @@ class RecordedApproval(Contract):
     #: below reviewed_version, which also counts approvals and settlements.
     approved_revision: int = Field(ge=1)
     approved_at: datetime
-    actor: ActorProvenance
+    actor: ActorView
 
 
 class UnsettledApproval(Contract):
@@ -326,12 +326,12 @@ class BusinessDossier(RecordContext):
     #: the accountant's 606 answer with who gave it, and whether the record is
     #: sin comprobante.
     personal: bool = False
-    personal_marked_by: str | None = None
+    personal_marked_by: PersonName | None = None
     fiscal_known: bool = False
     fiscal_value: Literal["ncf", "ecf"] | None = None
     fiscal_question_applies: bool = False
     include_606: bool | None = None
-    include_606_by: str | None = None
+    include_606_by: PersonName | None = None
     sin_comprobante: bool = False
     #: The document type: a receipt (recibo) or an invoice the business issued
     #: (venta). Detected when no person named it. Editable while the draft is

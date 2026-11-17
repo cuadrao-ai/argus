@@ -196,7 +196,7 @@ describe("the gate", () => {
   });
 
   test("long money widens its column and full account/detail labels remain available in tooltips", async () => {
-    const source = await recordsOf([{ id: "long-money", merchant: "Sample supplier", amount: "123456789012345.67", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null, funding: "owner_funds", personal: true, personal_marked_by: "Ana", fiscal_known: true, fiscal_value: null }]);
+    const source = await recordsOf([{ id: "long-money", merchant: "Sample supplier", amount: "123456789012345.67", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null, funding: "owner_funds", personal: true, personal_marked_by: { display_name: "Ana", email: null, shown_as: "name" }, fiscal_known: true, fiscal_value: null }]);
     const page = await mount({ enabled: false, transacciones: source });
     await page.settle(() => page.records().length === 1, "the saved record");
     const row = page.records()[0];

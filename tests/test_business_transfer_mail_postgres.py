@@ -368,3 +368,34 @@ def test_racing_terminal_commands_mail_only_the_winning_resolution(
             )
         } == expected
     assert len(provider.messages) == len(provider.attempts) == len(expected)
+
+
+def test_the_mail_names_each_person_by_name_else_email(world, provider):
+    """No fixed word stands in for a person with no name (#2219)."""
+
+    pool, _, people, _, _ = world
+    with pool.connection() as db:
+        db.execute(
+            "update public.profiles set display_name='Dueña Prueba' where id=%s",
+            (people["owner"],),
+        )
+        db.execute(
+            "update public.profiles set display_name=null where id=%s",
+            (people["other"],),
+        )
+        email = db.execute(
+            "select email from auth.users where id=%s", (people["other"],)
+        ).fetchone()[0]
+    transfer = request(world)
+    with pool.connection() as db:
+        contexts = [
+            row[0]
+            for row in db.execute(
+                "select context from public.business_transfer_mail_outbox"
+                " where transfer_id=%s",
+                (transfer.id,),
+            ).fetchall()
+        ]
+    assert contexts
+    for context in contexts:
+        assert (context["ownerName"], context["targetName"]) == ("Dueña Prueba", email)

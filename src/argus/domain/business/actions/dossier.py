@@ -30,6 +30,7 @@ from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_settlement_enabled
 from argus.domain.business.contracts.actions import APPROVAL_ACTION, DuplicateDecision
+from argus.domain.business.contracts.authority import PersonName
 from argus.domain.business.contracts.deletion import deletion
 from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
 from argus.domain.business.contracts.dossier import (
@@ -50,6 +51,7 @@ from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolut
 from argus.domain.business.document_type import kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers
+from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
 from argus.domain.business.purchase_review import (
     net_amount,
     takes_payment_split,
@@ -124,10 +126,12 @@ def approval_of(
     receipt: Mapping[str, Any] | None,
     activity_id: UUID | None,
     approved_revision: Callable[[int], int],
+    found: Mapping[str, PersonName | None],
 ) -> ApprovalResult | None:
     """What the latest approval receipt says: recorded once the draft holds its
     activity, else the unsettled outcome it left, else nothing to show.
-    ``approved_revision`` reads the revision approved at a reviewed version."""
+    ``approved_revision`` reads the revision approved at a reviewed version;
+    ``found`` names the receipt's people."""
 
     if receipt is None:
         return None
@@ -139,7 +143,7 @@ def approval_of(
             reviewed_version=version,
             approved_revision=approved_revision(version),
             approved_at=receipt["created_at"],
-            actor=receipt["actor"],
+            actor=actor_view(receipt["actor"], found),
         )
     if outcome.get("outcome") == "outcome_unknown":
         return UnsettledApproval(
@@ -350,10 +354,16 @@ def dossier(
     )
     approvals = approval_receipts(tx, event)
     decided = duplicate_revisions(tx, evidence)
+    found = people(
+        tx.connection,
+        tx.authorization,
+        actor_ids([row["actor"] for row in (*history, *approvals)]),
+    )
     revisions = tuple(
         DraftRevision.model_validate(
             {
                 **row,
+                "actor": actor_view(row["actor"], found),
                 "duplicate": next(
                     (decided[i] for i in row["source_ids"] if i in decided), None
                 ),
@@ -373,6 +383,7 @@ def dossier(
         approvals[0] if approvals else None,
         event.activity_id if event.accept_key else None,
         approved_revision,
+        found,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
     paid = draft_is_paid(tx, event.activity_id, resolution.bill_mark)
@@ -391,7 +402,11 @@ def dossier(
     )
     from argus.domain.business.actions.document_deletion import is_reading
 
-    deleted = deletion(event.state, event.resolution)
+    marker = deletion(event.state, event.resolution)
+    deleted = named_deletion(
+        marker,
+        people(tx.connection, tx.authorization, [marker and marker.actor.actor_id]),
+    )
     delete_available = (
         event.state == "open"
         and "approve" in tx.authorization.capabilities

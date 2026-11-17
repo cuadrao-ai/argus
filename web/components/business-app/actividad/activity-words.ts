@@ -1,18 +1,19 @@
 import type { TFunction } from "i18next";
+import type { BusinessActivityActor } from "@/lib/business-activity-api";
+import { personName } from "@/lib/person-name";
 import type { BusinessPanelState } from "../BusinessWorkspace";
 
 type Row = Readonly<{
-  actor: { display_name: string; kind: string } | null;
+  actor: BusinessActivityActor | null;
   action: string;
   object: { kind: string; id: string; label?: string; purged?: boolean } | null;
 }>;
 
-/** Who a row names: Cuadrao for automated work, the erased account's stand-in, or that no one was recorded. */
+/** Who a row names: Cuadrao for automated work, the person as the server shows them, or that no one was recorded. */
 export function activityActorName(t: TFunction, actor: Row["actor"]): string {
   if (!actor) return t("business.activity_feed.no_actor");
   if (actor.kind === "extractor") return t("business.activity_feed.extractor_name");
-  // An erased account reaches us already renamed.
-  return actor.display_name === "Exmiembro" ? t("business.activity_feed.former_member") : actor.display_name;
+  return personName(t, actor);
 }
 
 /** What a row did, in words. A purged document is "un documento": it has no name. An action with no words yet reads as a change. */
