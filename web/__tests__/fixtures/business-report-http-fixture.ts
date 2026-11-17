@@ -1,4 +1,5 @@
 import { recordedReportAnswer } from "./recorded-report-answer";
+import { sampleRecordsColumns } from "@/components/business-app/transacciones/sample-records-preferences";
 import { reportAnswerSchema, reportRequestSchema, type ExportPreview, type ReportColumn, type ReportPresentation, type ReportRecord, type ReportRequest, type ReportTotal } from "@/lib/business-reports-api";
 
 export const fixtureId = (value: number) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
@@ -33,9 +34,10 @@ function serverLayout(presentation: ReportPresentation): ReportPresentation {
   for (const { key } of recordedReportAnswer.columns) if (!order.includes(key)) { order.push(key); if (!hidden.includes(key)) hidden.push(key); }
   return { ...presentation, order, hidden };
 }
-/** The columns the server answers: the recorded specs in the layout's order, for the tab's family. */
+/** The columns the server answers: the tab's recorded specs in the layout's order. */
 function serverColumns(presentation: ReportPresentation, sale: boolean): ReportColumn[] {
-  return presentation.order.flatMap((key) => recordedReportAnswer.columns.filter((column) => column.key === key && column.families.includes(sale ? "sale" : "purchase")).map((column) => ({ ...column, shown: !presentation.hidden.includes(key) })));
+  const offered = sampleRecordsColumns(sale ? "sale" : "purchase");
+  return presentation.order.flatMap((key) => offered.filter((column) => column.key === key).map((column) => ({ ...column, shown: !presentation.hidden.includes(key) })));
 }
 function latestMonth(rows: readonly ReportRecord[]) {
   const newest = rows.flatMap((row) => row.report_date ?? []).sort().at(-1) ?? "2026-10-26";

@@ -120,7 +120,7 @@ test("Exportar registros from search opens Registros and its export dialog, not 
   assert.match(workspace, /const exportRegistros = useCallback\(\(\) => openRecordsExport\(openPanel\)/);
 });
 
-test("Editar chooses columns in the table's order inside the same panel, with Contraparte and Moneda locked and Forma de pago last and checked", async () => {
+test("Editar chooses columns in the table's order inside the same panel, with Emisor and Moneda locked and Forma de pago last and checked", async () => {
   const page = await mount();
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
@@ -128,7 +128,7 @@ test("Editar chooses columns in the table's order inside the same panel, with Co
   assert.equal(document.querySelectorAll('[role="dialog"]').length, 1, "a sub-view, not a second modal");
   const boxes = () => [...document.querySelectorAll<HTMLInputElement>('[data-testid="records-export-columns"] input[type="checkbox"]')];
   const labels = () => [...document.querySelectorAll('[data-testid="records-export-columns"] label')].map((label) => label.textContent);
-  assert.deepEqual(labels(), ["RNC o Cédula", "Contraparte", "Fecha", "Tipo de gasto", "Monto sin ITBIS", "ITBIS", "Total", "Moneda", "Estado", "Motivo", "NCF", "Notas", "Adjunto", "Cuenta", "Forma de pago"]);
+  assert.deepEqual(labels(), ["RNC o Cédula", "Emisor", "Fecha", "Tipo de gasto", "Monto sin ITBIS", "ITBIS", "Total", "Moneda", "Estado", "Motivo", "NCF", "Notas", "Adjunto", "Cuenta", "Forma de pago"]);
   assert.equal(boxes()[1].checked && boxes()[1].disabled, true, "the name stays in the file though the table hides it");
   assert.equal(boxes()[7].checked && boxes()[7].disabled, true, "Moneda is locked on with every currency");
   assert.equal(boxes()[14].checked && !boxes()[14].disabled, true, "Forma de pago is offered checked");

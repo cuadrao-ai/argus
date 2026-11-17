@@ -17,7 +17,8 @@ import styles from "./records-page.module.css";
 /** Preview and server pages share the same table and footer. */
 export default function RecordsPagePreview({ records, density, resetKey, rowRef, emptyContent, preferences, onSortChange, connected }: { connected?: { answer: ReportAnswer; onPage: (page: number) => void; onPageSize: (size: ReportRequest["page_size"]) => void; onSort?: (sort: RecordsSort) => void }; preferences: RecordsViewPreferences; onSortChange: (sort: RecordsSort) => void; emptyContent?: ReactNode; records: readonly RecordRow[]; density: Density; resetKey: string; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
-  const word = (key: string) => t(`business.transactions.pagination.${key}`);
+  const named = preferences.columns.find((column) => column.key === "counterparty");
+  const word = (key: string) => t(`business.transactions.pagination.${key}`, { column: named ? t(named.label_key) : "" });
   const chosenSort = preferences.sort ?? DEFAULT_RECORDS_SORT;
   const scope = `${resetKey}:${chosenSort.key}:${chosenSort.direction}`;
   const noticeId = useId();

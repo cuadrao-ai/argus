@@ -16,9 +16,9 @@ import { movementName, type TransaccionesController } from "./useTransacciones";
 /** The ledger's columns. Five share Registros' server keys; the detail and category columns are the ledger's own. */
 export type ColumnKey = "counterparty" | "date" | "gross_amount" | "detail" | "category" | "funding" | "attachment";
 
-/** The columns, left to right: text left, numbers right; Contraparte pins left and Comprobante right. */
+/** The columns, left to right: text left, numbers right; the name pins left and Comprobante right. */
 export const COLUMNS: readonly { key: ColumnKey; label_key: string; width: number | null; align: "left" | "right"; pin?: "left" | "right" }[] = [
-  { key: "counterparty", label_key: "business.transactions.columns.contraparte", width: 260, align: "left", pin: "left" },
+  { key: "counterparty", label_key: "business.terms.counterparty", width: 260, align: "left", pin: "left" },
   { key: "date", label_key: "business.transactions.columns.fecha", width: 84, align: "left" },
   { key: "gross_amount", label_key: "business.transactions.columns.monto", width: 136, align: "right" },
   { key: "detail", label_key: "business.transactions.columns.detalle", width: null, align: "left" },

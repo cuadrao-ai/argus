@@ -1081,7 +1081,7 @@ test("counterparty chips stay short and selecting every option clears the filter
   await page.click(page.button("Aplicar"));
   await page.settle(() => sentFilters(page).at(-1)?.counterparties.length === 3);
   const chips = document.querySelector('[data-testid="records-preview-filter-chips"]')!;
-  assert.match(chips.textContent!, /Contraparte · 3/);
+  assert.match(chips.textContent!, /Emisor · 3/);
   assert.doesNotMatch(chips.textContent!, /Proveedor sintético/);
   await page.click(page.button("Filtros"));
   await page.click(document.querySelector('[data-group="counterparty"]'));

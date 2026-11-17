@@ -127,13 +127,13 @@ describe("Business stays in Spanish for an en-US browser", () => {
     return visible;
   }
 
-  const spanishCopy = ["Mi negocio", "Resultado neto", "Necesita atención", "Ingresos", "Agregar", "Escríbelo", "Se guardan como", "Compra", "Contraparte", "Fecha"];
-  const englishCopy = ["Net result", "Needs attention", "Income", "Add", "Write it", "Saved as", "Purchase", "Counterparty", "Receipt date"];
+  const spanishCopy = ["Mi negocio", "Resultado neto", "Necesita atención", "Ingresos", "Agregar", "Escríbelo", "Se guardan como", "Compra", "Emisor", "Fecha"];
+  const englishCopy = ["Net result", "Needs attention", "Income", "Add", "Write it", "Saved as", "Purchase", "Supplier", "Receipt date"];
   const retiredEnglishCopy = ["Upload receipts", "Record expense", "Open inbox", "Actual expenses", "to review"];
 
   test("an en-US browser with a Spanish account sees overview, the Agregar sheet, and receipt review in Spanish", async () => {
     const greeting = spanish.business.overview.greetings[greetingPeriod(new Date().getHours())];
-    const visible = await renderShown("es-419", [greeting, "Necesita atención", "Ingresos", "Agregar", "Se guardan como", "Contraparte"]);
+    const visible = await renderShown("es-419", [greeting, "Necesita atención", "Ingresos", "Agregar", "Se guardan como", "Emisor"]);
     assert.ok(visible.includes(greeting), greeting);
     for (const spanishText of spanishCopy) assert.ok(visible.includes(spanishText), spanishText);
     for (const englishText of [...englishCopy, ...retiredEnglishCopy]) assert.equal(visible.includes(englishText), false, englishText);
@@ -142,7 +142,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
 
   test("an English account sees the same surfaces in English", async () => {
     const greeting = english.business.overview.greetings[greetingPeriod(new Date().getHours())];
-    const visible = await renderShown("en", [greeting, "Needs attention", "Income", "Counterparty", "Saved as"]);
+    const visible = await renderShown("en", [greeting, "Needs attention", "Income", "Supplier", "Saved as"]);
     assert.ok(visible.includes(greeting), greeting);
     for (const englishText of englishCopy) assert.ok(visible.includes(englishText), englishText);
     // The sample Business name is shared across languages.

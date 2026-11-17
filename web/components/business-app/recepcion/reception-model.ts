@@ -78,5 +78,5 @@ export function receptionDocumentTitle(row: ReceptionRow, labels: { untitled: st
 export function rowDeleteTarget(row: Exclude<ReceptionRow, { kind: "email" }>, state: string, unnamed: string): DeleteDocumentTarget {
   return row.kind === "receipt"
     ? receiptDeleteTarget(row.receipt, state, unnamed)
-    : { id: row.id, name: row.note.text, merchant: null, date: null, amount: null, currency: null, filename: null, state };
+    : { id: row.id, name: row.note.text, merchant: null, family: null, date: null, amount: null, currency: null, filename: null, state };
 }

@@ -168,7 +168,7 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   await page.getByTestId("home-attention-rows").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   const review = page.getByTestId("side-drawer");
-  await expect(review).toContainText("Contraparte");
+  await expect(review).toContainText("Emisor");
   await expect(review).toContainText("Fecha del comprobante");
   await expect(review).toContainText("Categoría");
   await expect(review).toContainText("Moneda");
@@ -207,12 +207,12 @@ test("an English account opens Business in English", async ({ page }) => {
 
   await page.getByTestId("home-attention-rows").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   const review = page.getByTestId("side-drawer");
-  await expect(review).toContainText(en("business.dossier.field.counterparty"));
+  await expect(review).toContainText(en("business.terms.counterparty_purchase"));
   await expect(review).toContainText(en("business.dossier.field.occurred_on"));
   await expect(review).toContainText(en("business.dossier.field.category_id"));
   await expect(review).toContainText(en("business.review.currency"));
   await expect(review).toContainText("How it was paid");
-  await expect(review).not.toContainText("Contraparte");
+  await expect(review).not.toContainText("Emisor");
   await expect(review).not.toContainText("Pagado desde");
 });
 

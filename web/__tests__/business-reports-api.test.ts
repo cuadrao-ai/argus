@@ -95,7 +95,7 @@ describe("Business report transport", () => {
   });
   test("previews the export from the table's request and saves the file under the server's name", async () => {
     const report = reportRequestSchema.parse({ schema_version: 2, page: 4, filters: { record_families: ["purchase"], currencies: ["DOP"] } });
-    const preview = { table: { current: { record_count: 3, currencies: ["DOP"], columns: [{ key: "counterparty", label_key: "business.transactions.columns.contraparte", required: true, shown: true }], filenames: { xlsx: "Compras_noviembre-2026.xlsx", csv: "Compras_noviembre-2026.csv" } }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [], filenames: { xlsx: "606_noviembre-2026.xlsx", csv: "606_noviembre-2026.csv" } } };
+    const preview = { table: { current: { record_count: 3, currencies: ["DOP"], columns: [{ key: "counterparty", label_key: "business.terms.counterparty_purchase", required: true, shown: true }], filenames: { xlsx: "Compras_noviembre-2026.xlsx", csv: "Compras_noviembre-2026.csv" } }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [], filenames: { xlsx: "606_noviembre-2026.xlsx", csv: "606_noviembre-2026.csv" } } };
     const previewCalls = respond(preview);
     const parsedPreview = await previewRecordsExport(scope, report);
     expect(parsedPreview).toEqual(preview);

@@ -221,7 +221,7 @@ def test_lo_que_ves_follows_every_filter_and_the_chosen_columns(fake):
     )
     cells = xlsx(built.content)
     assert [value for _, value, _ in cells[0]] == [
-        "Contraparte",
+        "Emisor",
         "Fecha",
         "Total",
         "Notas",
@@ -238,7 +238,7 @@ def test_lo_que_ves_follows_every_filter_and_the_chosen_columns(fake):
         source(*rows), table(request, ("gross_amount",), currencies="all", format="csv")
     )
     lines = list(csv.reader(io.StringIO(every.content.decode("utf-8-sig"))))
-    assert lines[0] == ["Contraparte", "Total", "Moneda"]
+    assert lines[0] == ["Emisor", "Total", "Moneda"]
     assert sorted(line[2] for line in lines[1:]) == ["DOP", "USD"]
 
 
@@ -248,13 +248,13 @@ def test_with_all_currencies_moneda_is_in_even_when_not_asked(fake):
         table(report(currencies=["DOP"]), ("note",), currencies="all", format="csv"),
     )
     header = next(csv.reader(io.StringIO(built.content.decode("utf-8-sig"))))
-    assert header == ["Contraparte", "Moneda", "Notas"]
+    assert header == ["Emisor", "Moneda", "Notas"]
     only = build_file(
         source(row(fake), row(fake, currency="EUR")),
         table(report(currencies=["DOP"]), ("note",), currencies="current", format="csv"),
     )
     assert next(csv.reader(io.StringIO(only.content.decode("utf-8-sig")))) == [
-        "Contraparte",
+        "Emisor",
         "Notas",
     ]
 
@@ -318,7 +318,7 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
         table(request, ("gross_amount", "note"), currencies="current", format="csv"),
     )
     assert next(csv.reader(io.StringIO(built.content.decode("utf-8-sig")))) == [
-        "Contraparte",
+        "Cliente",
         "Notas",
         "Total",
     ]
@@ -384,7 +384,7 @@ def test_the_default_file_keeps_the_name_and_ends_with_forma_de_pago(fake):
     header, values = csv.reader(io.StringIO(built.content.decode("utf-8-sig")))
     assert header == [
         "RNC o Cédula",
-        "Contraparte",
+        "Emisor",
         "Fecha",
         "Tipo de gasto",
         "Monto sin ITBIS",
@@ -419,7 +419,7 @@ def test_a_sales_file_keeps_the_name_and_has_no_forma_de_pago(fake):
 def test_required_columns_join_the_file_even_when_not_chosen(fake):
     built = build_file(source(row(fake)), table(report(), ("note",), format="csv"))
     assert next(csv.reader(io.StringIO(built.content.decode("utf-8-sig")))) == [
-        "Contraparte",
+        "Emisor",
         "Moneda",
         "Notas",
     ]
@@ -457,7 +457,7 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         ).content
     )
     assert [value for _, value, _ in cells[0]] == [
-        "Contraparte",
+        "Emisor",
         "Fecha",
         "Tipo de gasto",
         "ITBIS",
@@ -571,7 +571,7 @@ def test_csv_has_a_bom_and_keeps_accents(fake):
     )
     assert built.content.startswith(b"\xef\xbb\xbf")
     assert built.content.decode("utf-8-sig").splitlines() == [
-        "Contraparte",
+        "Emisor",
         "Panadería Ñoño",
     ]
     assert built.media_type == "text/csv; charset=utf-8"
@@ -858,7 +858,7 @@ def test_zero_records_is_a_file_with_only_headers(fake):
     built = build_file(
         source(), table(report(currencies=["DOP"]), currencies="current", format="csv")
     )
-    assert built.content.decode("utf-8-sig").splitlines() == ["Contraparte"]
+    assert built.content.decode("utf-8-sig").splitlines() == ["Emisor"]
 
 
 def test_an_amount_range_ties_the_export_to_the_screen_currency(fake):
@@ -974,5 +974,5 @@ def test_lo_que_ves_exports_server_net_itbis_and_total_in_table_order(fake):
         ),
     ).content.decode("utf-8-sig")
     header, values = csv.reader(io.StringIO(written))
-    assert header == ["Contraparte", "Monto sin ITBIS", "ITBIS", "Total"]
+    assert header == ["Emisor", "Monto sin ITBIS", "ITBIS", "Total"]
     assert values[1:] == ["1000.00", "180.00", "1280.00"]
