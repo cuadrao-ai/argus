@@ -289,12 +289,26 @@ describe("a record in the desktop tray", () => {
     assert.deepEqual(page.panel(), { kind: "transactions" });
   });
 
-  test("a link to a recorded receipt opens it beside Transacciones once it has loaded", async () => {
+  test("a link to a recorded receipt draws only the tray until it has loaded, then Transacciones beside it, never the Bandeja", async () => {
     const page = await mount();
+    const lists: string[] = [];
+    const seen = new WeakSet<Element>();
+    const record = () => {
+      for (const list of page.host.querySelectorAll('[data-testid="reception-preview"], [data-testid="transacciones"]')) {
+        if (!seen.has(list)) { seen.add(list); lists.push(list.getAttribute("data-testid")!); }
+      }
+    };
+    const observer = new MutationObserver(record);
+    observer.observe(page.host, { subtree: true, childList: true });
     await page.open({ kind: "receipt", receiptId: "rcpt-confirmed" });
+    assert.ok(page.tray(), "the tray opens at once");
+    assert.equal(page.host.querySelector('[data-testid="reception-preview"], [data-testid="transacciones"]'), null, "no list is drawn before the receipt says which");
     await page.settle(() => page.host.querySelector('[data-record-id="exp-hosting"]') !== null, "the list beside the receipt");
+    record();
+    observer.disconnect();
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" });
-    assert.ok(page.tray());
+    assert.equal(page.recordTitle(), "Nube Hosting");
+    assert.deepEqual(lists, ["transacciones"]);
   });
 });
 

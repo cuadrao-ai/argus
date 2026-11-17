@@ -133,7 +133,7 @@ describe("the original purchase picker in the tax details", () => {
     const rows = () => [...view.host.querySelectorAll<HTMLElement>('[data-testid="refund-candidate"]')];
     const pick = (index: number) => act(async () => rows()[index].querySelector<HTMLInputElement>('input[type="radio"]')!.click());
     const save = async () => {
-      const button = [...view.host.querySelectorAll("button")].find((node) => node.textContent === "Guardar revisión fiscal");
+      const button = [...view.host.querySelectorAll("button")].find((node) => node.textContent === "Guardar");
       assert.ok(button);
       await act(async () => button.click());
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
