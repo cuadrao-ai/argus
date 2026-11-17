@@ -2773,8 +2773,7 @@
           "fiscal": {
             "description": "Complétalos antes de declarar",
             "description_purchase": "Complétalos antes del 606",
-            "description_sale": "Complétalos antes del 607",
-            "title": "Faltan datos fiscales"
+            "description_sale": "Complétalos antes del 607"
           },
           "goods": {
             "title": "Bienes"
@@ -2871,7 +2870,6 @@
           "review": "Por revisar",
           "unknown": "Estado no disponible",
           "missing": {
-            "several": "Faltan datos fiscales",
             "expense_type_missing": "Falta el tipo de gasto",
             "rnc_missing": "Falta el RNC",
             "rnc_invalid": "RNC con error",

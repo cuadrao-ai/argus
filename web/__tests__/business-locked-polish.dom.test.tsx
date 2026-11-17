@@ -359,7 +359,8 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     ));
     await page.settle(() => page.host.querySelectorAll('[data-testid="reception-row"]').length > 0 && page.buttons("Quitar acceso").length > 0);
     const headings = [...page.host.querySelectorAll("h1,h2,h3,h4,h5,h6,[role=heading]")];
-    assert.ok(headings.length >= 5);
+    // From the tablet stop up the Bandeja and Registros titles live in the top bar, which this mount leaves out.
+    assert.ok(headings.length >= 3);
     assert.deepEqual(headings.filter((heading) => !heading.textContent?.trim()).map((heading) => heading.outerHTML), []);
     const labels = [...page.host.querySelectorAll("[aria-label],[title],[placeholder]")].flatMap((element) =>
       ["aria-label", "title", "placeholder"].map((name) => element.getAttribute(name)).filter((value): value is string => Boolean(value)),

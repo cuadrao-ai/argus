@@ -198,6 +198,19 @@ test("sales use income amounts and absent sales goods and services stay unknown"
   for (const metric of ["goods", "services"]) assert.equal(card(metric).querySelector('.cuadrao-amount'), null);
 });
 
+for (const [language, title] of [["es-419", "Faltan datos"], ["en", "Missing data"]]) {
+  test(`${language} missing-data card is titled ${title}, like Inicio and the Estado chip`, async () => {
+    await mount({}, language);
+    assert.equal(card("fiscal").querySelector("span > span")?.textContent, title);
+  });
+}
+
+test("no locale word keeps the retired Faltan datos fiscales label", () => {
+  const retired = ["Faltan datos fiscales", "Missing fiscal data", "Fiscal details missing"];
+  const words = (node: unknown): string[] => typeof node === "string" ? [node] : Object.values(node as object).flatMap(words);
+  assert.deepEqual([spanish, english].flatMap(words).filter((word) => retired.includes(word)), []);
+});
+
 for (const language of ["es-419", "en"]) {
   test(`${language} readiness helper stays the same for both tabs`, async () => {
     const page = await mount({}, language);
