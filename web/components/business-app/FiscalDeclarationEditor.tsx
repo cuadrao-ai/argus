@@ -2,7 +2,7 @@
 
 import { businessDateMessage } from "@/lib/business-date-errors";
 
-import { secondaryButtonClass } from "./business-ui";
+import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Link2, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -177,10 +177,10 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     </div>
     {form === "606" ? <div className="my-4 space-y-3"><label className="flex min-h-11 items-center gap-2 text-[13px]"><input type="checkbox" checked={actualRefund} disabled={!editable || uncertain} onChange={(event) => { change(); setActualRefund(event.target.checked); }} />{t("business.dgii.actual_refund", "Money was refunded for this credit note")}</label>{actualRefund ? <RefundCandidates candidates={candidates} chosen={values.purchase_activity_id ?? ""} refused={refused} disabled={!editable || uncertain} locale={locale} onChoose={(id) => { change(); setRefused(null); setValues((current) => ({ ...current, purchase_activity_id: id })); }} /> : null}</div> : null}
     {preparing ? <div className="mt-3 flex flex-wrap gap-2">
-      <button type="button" className={secondaryButtonClass} aria-busy={busy === "save"} disabled={!editable || !fields || restoring !== null} onClick={() => void save()}>
+      <button type="button" className={primaryButtonClass} aria-busy={busy === "save"} disabled={!editable || !fields || restoring !== null} onClick={() => void save()}>
         {/* The resting label keeps its width while saving, so Cancelar stays where it was. */}
         <span className="grid justify-items-center [&>*]:col-start-1 [&>*]:row-start-1">
-          <span className={busy === "save" ? "invisible" : undefined}>{t("business.dgii.save", "Save tax review")}</span>
+          <span className={busy === "save" ? "invisible" : undefined}>{t("business.dgii.save", "Save")}</span>
           {busy === "save" ? <span className="flex items-center gap-2"><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" /><span role="status">{t("business.capture.saving", "Saving…")}</span></span> : null}
         </span>
       </button>
