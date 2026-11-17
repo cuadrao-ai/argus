@@ -441,7 +441,21 @@ def test_an_accountant_holding_prepare_adds_606_data_after_approval(world) -> No
         "03",
     )
     assert declared["history"][-1]["actor"]["actor_id"] == bob.id
-    assert declared["approval_result"] == recorded["approval_result"]
+    # The same approval, the owner's; the accountant reads an unnamed owner
+    # as a member, never by email (#2219).
+    shown = ("display_name", "email", "shown_as")
+    owner_shown = (*shown, *(f"issuer_{key}" for key in shown))
+    approval = declared["approval_result"]
+    assert {k: v for k, v in approval.items() if k != "actor"} == {
+        k: v for k, v in recorded["approval_result"].items() if k != "actor"
+    }
+    assert {k: v for k, v in approval["actor"].items() if k not in owner_shown} == {
+        k: v
+        for k, v in recorded["approval_result"]["actor"].items()
+        if k not in owner_shown
+    }
+    assert recorded["approval_result"]["actor"]["shown_as"] == "email"
+    assert [approval["actor"][k] for k in owner_shown] == [None, None, "member"] * 2
 
     with Connection.connect(shared.DSN) as db:
         db.execute(

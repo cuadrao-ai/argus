@@ -50,17 +50,41 @@ class ActorProvenance(Contract):
     issuer_display_name: str = ""
 
 
+#: How a person reads to the viewer: by ``name``; by ``email`` when they have
+#: none and the viewer manages the Business or is that person; as a
+#: ``member`` to any other viewer; as a ``former`` member once they left or
+#: were erased.
+PersonShown = Literal["name", "email", "member", "former"]
+
+
+def require_shown(
+    display_name: str | None, email: str | None, shown_as: PersonShown | None
+) -> None:
+    """``display_name`` is set only when ``shown_as`` is ``name``, ``email``
+    only when it is ``email``; the screen words the rest."""
+
+    if (display_name is not None) != (shown_as == "name") or (email is not None) != (
+        shown_as == "email"
+    ):
+        raise ValueError("a person shows exactly what shown_as says")
+
+
 class PersonName(Contract):
-    """A person as the members of one Business read them now: the profile
-    name, else null; the email only when there is no name and they still
-    hold access to this Business. Both null: they left it."""
+    """A person as one viewer of a Business reads them now: ``shown_as`` says
+    whether the name, the email, a member or a former member shows."""
 
     display_name: str | None
     email: str | None = None
+    shown_as: PersonShown
+
+    @model_validator(mode="after")
+    def shown(self) -> PersonName:
+        require_shown(self.display_name, self.email, self.shown_as)
+        return self
 
 
 class ActorView(Contract):
-    """Who acted and who granted their access, each named live."""
+    """Who acted and who granted their access, each named live for the viewer."""
 
     actor_id: UUID
     actor_kind: ActorKind
@@ -68,5 +92,13 @@ class ActorView(Contract):
     issuer_id: UUID
     display_name: str | None
     email: str | None = None
+    shown_as: PersonShown
     issuer_display_name: str | None
     issuer_email: str | None = None
+    issuer_shown_as: PersonShown
+
+    @model_validator(mode="after")
+    def shown(self) -> ActorView:
+        require_shown(self.display_name, self.email, self.shown_as)
+        require_shown(self.issuer_display_name, self.issuer_email, self.issuer_shown_as)
+        return self

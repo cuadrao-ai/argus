@@ -1,6 +1,6 @@
 import type { BusinessAccount, DocumentDeleteAccess } from "./business-api";
 import type { DgiiDeclaration } from "./business-dgii";
-import type { PersonName } from "./person-name";
+import type { PersonName, PersonShown } from "./person-name";
 
 export type BusinessFact<T> =
   | { state: "known"; value: T; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | "default"; verified: boolean; source_ids: string[] }
@@ -73,7 +73,7 @@ export type BusinessFactInput<T> = { state: "known"; value: T } | { state: "unkn
 export type BusinessFactPatch = { [K in BusinessFactField]?: BusinessFactInput<NonNullable<NonNullable<BusinessFacts[K]>["value"]>> };
 export type BusinessMontosReview = { net_amount?: BusinessFactInput<string>; legal_tip?: BusinessFactInput<string>; restore_inherited?: string[]; override_inherited?: string[] };
 /** Who acted and who granted their access, each named live by the server (`PersonName`). */
-export type BusinessActor = { actor_id: string; actor_kind: "owner_via_agent" | "member" | "extractor"; display_name: string | null; email?: string | null; grant_id: string; issuer_id: string; issuer_display_name: string | null; issuer_email?: string | null };
+export type BusinessActor = PersonName & { actor_id: string; actor_kind: "owner_via_agent" | "member" | "extractor"; grant_id: string; issuer_id: string; issuer_display_name: string | null; issuer_email?: string | null; issuer_shown_as: PersonShown };
 
 export type BusinessReviewQuestion = {
   id: string;

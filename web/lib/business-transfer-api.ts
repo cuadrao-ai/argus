@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiFetch } from "./argus-api-transport";
+import { personShown } from "./person-name";
 
 const transferResult = z.object({
   id: z.uuid(),
@@ -8,7 +9,7 @@ const transferResult = z.object({
   expires_at: z.iso.datetime({ offset: true }).nullable().optional(),
 });
 export type BusinessTransferResult = z.infer<typeof transferResult>;
-const transferDetails = transferResult.extend({ business_name: z.string().nullable(), owner_name: z.string().nullable(), owner_email: z.string().nullable().optional(), target_name: z.string().nullable(), target_email: z.string().nullable().optional(), role: z.enum(["owner", "target"]), grant_id: z.uuid() });
+const transferDetails = transferResult.extend({ business_name: z.string().nullable(), owner_name: z.string().nullable(), owner_email: z.string().nullable().optional(), owner_shown_as: personShown, target_name: z.string().nullable(), target_email: z.string().nullable().optional(), target_shown_as: personShown, role: z.enum(["owner", "target"]), grant_id: z.uuid() });
 export type BusinessTransferDetails = z.infer<typeof transferDetails>;
 
 export async function discoverBusinessTransfers(signal?: AbortSignal): Promise<BusinessTransferDetails[]> {

@@ -259,9 +259,19 @@ def _drafts(page) -> set[str]:
     }
 
 
-def _facet(page) -> list[tuple[str, str, str | None]]:
+def who(actor) -> str | None:
+    """What the screen words for an actor: the name or email shown, else how
+    the person shows (``member``, ``former``); ``None`` for automated work."""
+
+    return actor.display_name or actor.email or actor.shown_as
+
+
+def _facet(page) -> list[tuple[str | None, str, str | None]]:
     assert page.actors is not None
-    return sorted((a.display_name, a.kind, a.membership) for a in page.actors)
+    return sorted(
+        ((who(a), a.kind, a.membership) for a in page.actors),
+        key=lambda facet: (facet[0] or "", facet[1]),
+    )
 
 
 def _actor_id(page, display_name: str) -> str:
@@ -574,12 +584,13 @@ def test_the_profile_name_shows_on_every_row_never_a_stored_label(
     with Connection.connect(shared.DSN) as db:
         name(db, people["editor"], None)
         db.commit()
-    unnamed = _seen(authority, people["viewer"], business)
     email = f"fin-editor-{people['editor']}@example.test"
-    assert [(i.actor.display_name, i.actor.email) for i in unnamed.items] == [
-        (None, email)
-    ] * 2
-    assert "Member" not in unnamed.model_dump_json()
+    for reader_role, shown in (("owner", email), ("viewer", "member")):
+        unnamed = _seen(authority, people[reader_role], business)
+        marked = [i for i in unnamed.items if i.action == "mark_personal"]
+        assert [who(i.actor) for i in marked] == [shown] * 2, reader_role
+        assert "Member" not in unnamed.model_dump_json()
+    assert email not in unnamed.model_dump_json()
 
 
 def test_an_action_the_feed_does_not_know_lists_as_other_for_managers_only(
@@ -706,6 +717,7 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
             assert set(item["actor"]) == {
                 "display_name",
                 "email",
+                "shown_as",
                 "kind",
                 "id",
                 "membership",
@@ -724,6 +736,7 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
             "id",
             "display_name",
             "email",
+            "shown_as",
             "kind",
             "membership",
         }

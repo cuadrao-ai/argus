@@ -28,6 +28,7 @@ from tests.test_business_activity_postgres import (
     reading_consent,
     receipt,
     transfer,
+    who,
 )
 from tests.test_business_spaces_migration_postgres import owned_space
 
@@ -249,8 +250,8 @@ def test_facets_name_only_actors_with_a_row_the_reader_may_see(
 
     viewer = _seen(authority, people["viewer"], business)
     assert _facet(viewer) == [
+        (None, "extractor", None),
         ("Ana Editora", "member", "former"),
-        ("Cuadrao", "extractor", None),
         ("Dueño", "member", "current"),
     ]
     keys = {a.id for a in viewer.actors}
@@ -276,9 +277,9 @@ def test_facets_name_only_actors_with_a_row_the_reader_may_see(
     # A manager also sees the owner_grant row; it names the owner as every row does.
     owner = _seen(authority, people["owner"], business)
     assert _facet(owner) == [
+        (None, "extractor", None),
         ("Ana Editora", "member", "former"),
         ("Carlos Admin", "member", "current"),
-        ("Cuadrao", "extractor", None),
         ("Dueño", "member", "current"),
     ]
     assert _actor_id(owner, "Dueño") == _actor_id(viewer, "Dueño")
@@ -287,8 +288,8 @@ def test_facets_name_only_actors_with_a_row_the_reader_may_see(
             authority, people[person], business, ActivityFilters(areas=("records",))
         )
         assert [name for name, *_ in _facet(records)] == [
+            None,
             "Ana Editora",
-            "Cuadrao",
             "Dueño",
         ]
     with pytest.raises(ActionError):
@@ -416,9 +417,7 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
                 listed = [
                     (
                         i.action,
-                        None
-                        if i.actor is None
-                        else (i.actor.display_name, i.actor.membership),
+                        None if i.actor is None else (who(i.actor), i.actor.membership),
                         i.area,
                         i.restricted,
                         None if i.object is None else i.object.kind,
@@ -447,7 +446,7 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
                     ("ownership_transferred", None, "business", True, None),
                     (
                         "ownership_transferred",
-                        ("Exmiembro", None),
+                        ("former", None),
                         "business",
                         True,
                         None,
@@ -464,7 +463,7 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
                     [
                         ("Ana Editora", "member", "current"),
                         (owner_name, "member", "current"),
-                        ("Exmiembro", "member", None),
+                        ("former", "member", None),
                         ("Carlos Méndez", "member", "current"),
                     ]
                 )
@@ -500,12 +499,12 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
             db.commit()
 
 
-def test_a_member_who_left_keeps_the_departure_name_on_every_row(
+def test_a_member_who_left_reads_as_a_former_member_on_every_row(
     people, business, authority
 ):
     """The departure flow rewrites the person's ledger rows and the derived
-    columns to one alias; the feed names that alias Exmiembro everywhere and
-    lists it once in `actors`."""
+    columns to one alias; the feed shows that alias as a former member
+    everywhere and lists it once in `actors`."""
 
     admin = people["admin"]
     with Connection.connect(shared.DSN) as db:
@@ -547,26 +546,26 @@ def test_a_member_who_left_keeps_the_departure_name_on_every_row(
         assert [
             (
                 i.action,
-                None if i.actor is None else (i.actor.display_name, i.actor.membership),
+                None if i.actor is None else (who(i.actor), i.actor.membership),
             )
             for i in page.items
         ] == [
             ("owner_grant", (owner_name, "current")),
             ("ownership_transferred", (owner_name, "current")),
-            ("receipt_reading_enabled", ("Exmiembro", None)),
-            ("ownership_transferred", ("Exmiembro", None)),
-            ("review_draft", ("Exmiembro", None)),
+            ("receipt_reading_enabled", ("former", None)),
+            ("ownership_transferred", ("former", None)),
+            ("review_draft", ("former", None)),
         ]
         assert _facet(page) == [
-            ("Exmiembro", "member", None),
             (owner_name, "member", "current"),
+            ("former", "member", None),
         ]
         assert len({i.actor.id for i in page.items[2:]}) == 1
         member = _seen(authority, people["viewer"], business)
-        assert [(i.action, i.actor.display_name) for i in member.items] == [
-            ("review_draft", "Exmiembro")
+        assert [(i.action, who(i.actor)) for i in member.items] == [
+            ("review_draft", "former")
         ]
-        assert _facet(member) == [("Exmiembro", "member", None)]
+        assert _facet(member) == [("former", "member", None)]
         for text in (page.model_dump_json(), member.model_dump_json()):
             for leak in (alias, alias.replace("-", ""), admin, "Carlos Admin"):
                 assert leak not in text, leak
@@ -583,9 +582,9 @@ def test_a_member_who_left_keeps_the_departure_name_on_every_row(
             db.commit()
 
 
-def test_a_deleted_creator_keeps_the_departure_name(people, business, authority):
+def test_a_deleted_creator_reads_as_a_former_member(people, business, authority):
     """Account deletion of a Business creator rewrites the derived columns to
-    the custody reservation's deleted actor; the feed names it Exmiembro."""
+    the custody reservation's deleted actor; the feed shows a former member."""
 
     gone = str(uuid4())
     with Connection.connect(shared.DSN) as db:
@@ -599,11 +598,11 @@ def test_a_deleted_creator_keeps_the_departure_name(people, business, authority)
     try:
         page = _seen(authority, people["admin"], business)
         assert [
-            None if i.actor is None else i.actor.display_name
+            None if i.actor is None else who(i.actor)
             for i in page.items
             if i.action == "ownership_transferred"
-        ] == ["Exmiembro"]
-        assert ("Exmiembro", "member", None) in _facet(page)
+        ] == ["former"]
+        assert ("former", "member", None) in _facet(page)
         assert gone not in page.model_dump_json()
     finally:
         with Connection.connect(shared.DSN) as db:

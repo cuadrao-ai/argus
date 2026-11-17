@@ -39,7 +39,9 @@ pytestmark = shared.pytestmark
 def _person(actor) -> PersonName:  # noqa: ANN001
     """How a mark names the person a history row names: the same live read."""
 
-    return PersonName(display_name=actor.display_name, email=actor.email)
+    return PersonName(
+        display_name=actor.display_name, email=actor.email, shown_as=actor.shown_as
+    )
 
 
 def _owner(service, context, users):  # noqa: ANN001, ANN201

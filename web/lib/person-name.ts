@@ -1,19 +1,23 @@
 import type { TFunction } from "i18next";
+import { z } from "zod";
 
-/** A person as the server reads them now: the profile name, else null; the email only while they hold access to the Business. */
-export type PersonName = { display_name: string | null; email?: string | null };
+/** How the server says a person reads to this viewer: by name, by email, as a member, or as a former member. */
+export const personShown = z.enum(["name", "email", "member", "former"]);
+export type PersonShown = z.infer<typeof personShown>;
 
-/** The name the server gives an account the departure flow erased. */
-const ERASED_NAME = "Exmiembro";
+/** A person as the server reads them for this viewer; `display_name` is set only for `name`, `email` only for `email`. */
+export type PersonName = { display_name: string | null; email?: string | null; shown_as: PersonShown };
 
-/** The person left the Business or was erased: no name and no email to show. */
-export function personGone(person: PersonName | null | undefined): boolean {
-  const name = person?.display_name?.trim();
-  return name === ERASED_NAME || (!name && !person?.email);
-}
-
-/** The words for a person: their name, else their email, else the former-member word for someone who left or was erased. */
+/** The words for a person: their name, their email, the member word or the former-member word, as the server says. */
 export function personName(t: TFunction, person: PersonName | null | undefined): string {
-  if (personGone(person)) return t("business.activity_feed.former_member");
-  return person?.display_name?.trim() || person?.email || "";
+  switch (person?.shown_as) {
+    case "name":
+      return person.display_name ?? "";
+    case "email":
+      return person.email ?? "";
+    case "member":
+      return t("business_access.member");
+    default:
+      return t("business.activity_feed.former_member");
+  }
 }

@@ -356,7 +356,7 @@ def dossier(
     decided = duplicate_revisions(tx, evidence)
     found = people(
         tx.connection,
-        tx.context.actor.space_id,
+        tx.authorization,
         actor_ids([row["actor"] for row in (*history, *approvals)]),
     )
     revisions = tuple(
@@ -405,7 +405,7 @@ def dossier(
     marker = deletion(event.state, event.resolution)
     deleted = named_deletion(
         marker,
-        people(tx.connection, tx.context.actor.space_id, [marker and marker.actor.actor_id]),
+        people(tx.connection, tx.authorization, [marker and marker.actor.actor_id]),
     )
     delete_available = (
         event.state == "open"

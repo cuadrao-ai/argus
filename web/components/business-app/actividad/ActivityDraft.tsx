@@ -24,7 +24,6 @@ import { secondaryButtonClass } from "../business-ui";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
 import ActivityFilters, { ActivityFilterChips, EMPTY_ACTIVITY_FILTERS, type ActivityFilterValue, type ActivityFilterWords } from "./ActivityFilters";
 import { fixtureItems, toContract, type ActivityItem, type DraftItem, type LedgerAction } from "./activity-sample";
-import { personGone } from "@/lib/person-name";
 import { activityActorName, activityPhrase, activityTarget } from "./activity-words";
 
 type Area = "documents" | "records" | "invoicing" | "business";
@@ -265,7 +264,7 @@ export default function ActivityDraft() {
     if (!item.actor) return { mark: <Avatar name={null} size={size} />, name: <span className="text-[#56635e] dark:text-white/60">{activityActorName(t, item.actor)}</span> };
     if (item.actor.kind === "extractor") return { mark: <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#e3ebe1] dark:bg-white/10 ${size === 24 ? "h-6 w-6" : "h-8 w-8"}`}><CuadraoMark size={size === 24 ? 14 : 18} /></span>, name: <span>{activityActorName(t, item.actor)}</span> };
     // Someone who left with no name, or an erased account, reads as a former member; a named one keeps their name.
-    const erased = personGone(item.actor);
+    const erased = item.actor.shown_as === "former";
     const former = item.actor.membership === "former" && !erased;
     return {
       mark: <Avatar name={erased ? null : activityActorName(t, item.actor)} size={size} />,

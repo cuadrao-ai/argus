@@ -74,7 +74,7 @@ try {
         if (state === "pending") await held;
         if (state === "failure") return route.fulfill({ status: 409, json: { code: "stale_version" } });
         dossier = state === "deleted"
-          ? { ...dossier, version: 8, duplicate_candidates: [], deleted: { actor: { actor_id: "synthetic-owner", display_name: "Dueña de prueba" }, at: "2026-11-16T12:00:00Z", purge_at: "2026-11-23T12:00:00Z", key: "synthetic-key", previous_state: { state: "open", group: "attention" } } }
+          ? { ...dossier, version: 8, duplicate_candidates: [], deleted: { actor: { actor_id: "synthetic-owner", display_name: "Dueña de prueba", shown_as: "name" }, at: "2026-11-16T12:00:00Z", purge_at: "2026-11-23T12:00:00Z", key: "synthetic-key", previous_state: { state: "open", group: "attention" } } }
           : { ...dossier, version: 8, duplicate_candidates: [], blockers: [{ code: "fact_required", field: "funding" }] };
         return route.fulfill({ json: dossier });
       }

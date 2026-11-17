@@ -1,8 +1,7 @@
 // Actividad's sample: the feed's shape (GET /business/activity, #1407), the fields the design still needs on top of
 // it, and the invented rows the local preview and its search show.
 
-import type { BusinessActivityItem } from "@/lib/business-activity-api";
-import type { PersonName } from "@/lib/person-name";
+import type { BusinessActivityActor, BusinessActivityItem } from "@/lib/business-activity-api";
 import { dossierFixtureIds } from "../dossier-fixtures";
 
 /* ---------- Contract shape: GET /business/activity (PR #1407) ---------- */
@@ -17,7 +16,7 @@ export type LedgerAction =
 export type ActivityItem = {
   id: string;
   occurred_at: string;
-  actor: PersonName & { kind: ActorKind };
+  actor: BusinessActivityActor;
   action: LedgerAction;
   object: { kind: "draft" | "receipt" | "grant" | "invite"; id: string; label?: string; purged?: boolean } | null;
 };
@@ -40,9 +39,9 @@ export type DraftItem = Omit<ActivityItem, "action" | "actor" | "object"> & {
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const DAY = 24 * 60;
-const LUCIA = { display_name: "Lucía Peña", kind: "member" as const };
-const CARLOS = { display_name: "Carlos Méndez", kind: "member" as const };
-const READER = { display_name: "Cuadrao", kind: "extractor" as const };
+const LUCIA = { display_name: "Lucía Peña", shown_as: "name" as const, kind: "member" as const };
+const CARLOS = { display_name: "Carlos Méndez", shown_as: "name" as const, kind: "member" as const };
+const READER = { display_name: null, shown_as: null, kind: "extractor" as const };
 const draft = (key: keyof typeof dossierFixtureIds) => ({ kind: "draft" as const, id: dossierFixtureIds[key] });
 
 export function fixtureItems(): DraftItem[] {
@@ -61,12 +60,12 @@ export function fixtureItems(): DraftItem[] {
     { id: "a11", occurred_at: minutesAgo(2 * DAY + 90), actor: CARLOS, action: "accept_invite", object: { kind: "invite", id: "i-carlos" }, missing: { object_label: "Carlos Méndez" } },
     { id: "a12", occurred_at: minutesAgo(3 * DAY + 30), actor: LUCIA, action: "invite_access", object: { kind: "invite", id: "i-carlos" }, missing: { object_label: "Carlos Méndez", detail: "Editor" } },
     { id: "a13", occurred_at: minutesAgo(3 * DAY + 50), actor: LUCIA, action: "set_business_rnc", object: null },
-    { id: "a14", occurred_at: minutesAgo(3 * DAY + 400), actor: { display_name: "Ana Rosario", kind: "member", membership: "former" }, action: "edit_current_note", object: draft("fiscal"), missing: { object_label: "Estación Ruta 3" } },
+    { id: "a14", occurred_at: minutesAgo(3 * DAY + 400), actor: { display_name: "Ana Rosario", shown_as: "name", kind: "member", membership: "former" }, action: "edit_current_note", object: draft("fiscal"), missing: { object_label: "Estación Ruta 3" } },
     { id: "a15", occurred_at: minutesAgo(5 * DAY + 20), actor: LUCIA, action: "mark_personal", object: draft("unknownKind"), missing: { object_label: "Supermercado Nacional", personal: true } },
     { id: "a19", occurred_at: minutesAgo(4 * DAY + 10), actor: LUCIA, action: "receipt_reading_enabled", object: null },
     { id: "a21", occurred_at: minutesAgo(7 * DAY + 15), actor: LUCIA, action: "ownership_transferred", object: null },
     { id: "a22", occurred_at: minutesAgo(8 * DAY + 40), actor: LUCIA, action: "receipt_reading_disabled", object: null },
-    { id: "a20", occurred_at: minutesAgo(6 * DAY + 45), actor: { display_name: "Exmiembro", kind: "member", membership: "former" }, action: "receipt_upload", object: draft("stale"), missing: { object_label: "Colmado El Progreso" } },
+    { id: "a20", occurred_at: minutesAgo(6 * DAY + 45), actor: { display_name: null, shown_as: "former", kind: "member", membership: "former" }, action: "receipt_upload", object: draft("stale"), missing: { object_label: "Colmado El Progreso" } },
     { id: "a16", occurred_at: minutesAgo(5 * DAY + 70), actor: CARLOS, action: "invoice_revision_saved", object: { kind: "invoice", id: "inv-0041" }, missing: { object_label: "Factura a Colmado Peña" } },
     { id: "a17", occurred_at: minutesAgo(9 * DAY), actor: null, action: "receipt_upload", object: draft("readOnly"), missing: { object_label: "Nube Hosting" } },
     { id: "a18", occurred_at: minutesAgo(9 * DAY + 30), actor: LUCIA, action: "decide_606", object: draft("readOnly"), missing: { object_label: "Nube Hosting" } },
@@ -75,12 +74,19 @@ export function fixtureItems(): DraftItem[] {
 
 const MISSING_ACTIONS = new Set<string>(["invoice_draft_created", "invoice_revision_saved", "document_read", "document_read_failed", "receipt_reading_enabled", "receipt_reading_disabled", "ownership_transferred"]);
 /** `?activity=contract` shows only what #1407 returns today: no labels, no events it does not carry. */
-export const toContract = (items: DraftItem[]) => items.filter((item) => !MISSING_ACTIONS.has(item.action) && item.actor).map((item) => ({ ...item, actor: item.actor?.membership === "former" ? { display_name: "Exmiembro", kind: item.actor.kind } : item.actor && { display_name: item.actor.display_name, kind: item.actor.kind }, missing: undefined }));
+export const toContract = (items: DraftItem[]) => items.filter((item) => !MISSING_ACTIONS.has(item.action) && item.actor).map((item) => ({ ...item, actor: item.actor && contractActor(item.actor), missing: undefined }));
+
+/** A sample actor as the feed answers it, without the fields the design adds. */
+function contractActor(actor: NonNullable<DraftItem["actor"]>): BusinessActivityActor {
+  const contract = { ...actor };
+  delete contract.membership;
+  return contract;
+}
 
 /** The sample's rows as the feed answers them, each named record as its label, for the sample's search. */
 export const sampleActivityFeed = (): BusinessActivityItem[] =>
   fixtureItems().flatMap((item) => {
     if (MISSING_ACTIONS.has(item.action) || item.object?.kind === "invoice") return [];
     const object = item.object ? { ...item.object, label: item.missing?.object_label } as BusinessActivityItem["object"] : null;
-    return [{ id: item.id, occurred_at: item.occurred_at, actor: item.actor && { display_name: item.actor.display_name, kind: item.actor.kind }, action: item.action, object }];
+    return [{ id: item.id, occurred_at: item.occurred_at, actor: item.actor && contractActor(item.actor), action: item.action, object }];
   });

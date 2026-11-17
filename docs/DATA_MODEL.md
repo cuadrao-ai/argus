@@ -3575,7 +3575,7 @@ onto the receipt. A dismissed item without this marker is not deleted.
 
 The marker holds `{actor: {actor_id}, at, key, previous_state}` and an
 optional `reason`. A marker written before #2219 also holds the actor's
-`display_name`; no reader uses it, and every response names the person live. The only reason is `duplicate`, written when the
+`display_name`; no reader uses it, and every response names the person live for the reader, never storing `shown_as`. The only reason is `duplicate`, written when the
 owner settles a possible repeat as the same purchase; a plain delete stores no
 `reason` key. It needs no migration: the marker is JSON.
 The actor uses the existing account-deletion identity shape, so departure replaces

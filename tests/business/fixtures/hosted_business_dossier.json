@@ -121,9 +121,11 @@
         "actor_id": "7ce4707b-e757-434f-83d6-9a67f23e9345",
         "actor_kind": "owner_via_agent",
         "display_name": "Elisabet Cortina",
+        "shown_as": "name",
         "grant_id": "f1a29c25-8a28-4e8e-9df4-8d7985a59294",
         "issuer_id": "7ba7827b-d284-4a08-8de7-a9399add7744",
-        "issuer_display_name": "Fortunato Natalio Doménech Pino"
+        "issuer_display_name": "Fortunato Natalio Doménech Pino",
+        "issuer_shown_as": "name"
       },
       "before": {
         "kind": {

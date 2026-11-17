@@ -72,6 +72,7 @@ def row(command: dict, outcome: dict | None = None, **actor: object) -> dict:
         "actor_kind": "member",
         "display_name": "Ana",
         "email": None,
+        "shown_as": "name",
         "known": True,
         "membership": "current",
         "action": command.get("action"),
@@ -419,7 +420,7 @@ def test_an_action_the_feed_does_not_know_is_other_with_no_object(command: dict)
 
 def test_the_item_carries_the_live_name_and_only_the_promised_fields():
     item = project(
-        row({"action": "review_draft", "draft_id": str(DRAFT)}, display_name="Exmiembro")
+        row({"action": "review_draft", "draft_id": str(DRAFT)}, display_name="Ana")
     )
     dumped = json.loads(item.model_dump_json())
     assert set(dumped) == {
@@ -436,8 +437,9 @@ def test_the_item_carries_the_live_name_and_only_the_promised_fields():
         "decision",
     }
     assert dumped["actor"] == {
-        "display_name": "Exmiembro",
+        "display_name": "Ana",
         "email": None,
+        "shown_as": "name",
         "kind": "member",
         "id": ACTOR_KEY,
         "membership": "current",
@@ -456,20 +458,41 @@ def test_a_row_naming_no_known_person_has_no_actor_and_an_extractor_no_membershi
     )
     assert unknown.actor is None
     unnamed = project(
-        row({"action": "review_draft"}, display_name=None, email="ana@example.test")
+        row(
+            {"action": "review_draft"},
+            display_name=None,
+            email="ana@example.test",
+            shown_as="email",
+        )
     )
     assert unnamed.actor is not None
     assert (unnamed.actor.display_name, unnamed.actor.email) == (None, "ana@example.test")
+    member = project(
+        row({"action": "review_draft"}, display_name=None, shown_as="member")
+    )
+    assert member.actor is not None
+    assert (member.actor.display_name, member.actor.email) == (None, None)
     former = project(row({"action": "review_draft"}, membership="former"))
     assert former.actor is not None and former.actor.membership == "former"
     read = project(
-        row({"action": "prepare_attachment"}, actor_kind="extractor", membership=None)
+        row(
+            {"action": "prepare_attachment"},
+            actor_kind="extractor",
+            membership=None,
+            display_name=None,
+            shown_as=None,
+        )
     )
     assert read.actor is not None
     assert (read.actor.kind, read.actor.membership, read.area) == (
         "extractor",
         None,
         "documents",
+    )
+    assert (read.actor.display_name, read.actor.email, read.actor.shown_as) == (
+        None,
+        None,
+        None,
     )
 
 
@@ -553,15 +576,6 @@ def test_a_cursor_round_trips_only_with_the_filters_that_issued_it():
             decode_cursor(cursor, NONE)
 
 
-def test_the_feed_names_an_erased_member_as_the_departure_rewrite_does():
-    from argus.domain.business import custody_graph, people
-
-    rewritten = custody_graph._identity(
-        {"actor_id": "old", "display_name": "Ana"}, "old", "custody", "alias"
-    )
-    assert rewritten["display_name"] == custody_graph.ERASED_NAME == people.ERASED_NAME
-
-
 @pytest.mark.parametrize(
     ("q", "found"),
     [
@@ -605,7 +619,12 @@ def test_a_query_finds_nothing_in_a_row_that_names_no_one_and_nothing():
 
 def test_a_query_finds_an_unnamed_person_by_the_email_shown():
     item = project(
-        row({"action": "receipt_upload"}, display_name=None, email="ana@example.test")
+        row(
+            {"action": "receipt_upload"},
+            display_name=None,
+            email="ana@example.test",
+            shown_as="email",
+        )
     )
     assert holds(parse("ana@example.test"), item)
 

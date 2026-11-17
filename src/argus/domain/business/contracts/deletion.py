@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import Field, computed_field, model_validator
 
+from argus.domain.business.contracts.authority import PersonShown
 from argus.domain.business.contracts.facts import Contract
 
 #: How long a deleted document stays in Eliminados before it is purged. The
@@ -17,13 +18,13 @@ DeletionReason = Literal["duplicate"]
 
 
 class DeletingActor(Contract):
-    """Who deleted the document, named as members read them now: the profile
-    name, else the email while they hold access to this Business."""
+    """Who deleted the document, named live for the viewer as ``PersonName``
+    reads. The stored marker keeps only the id (``people.named_deletion``)."""
 
-    # The stored marker keeps only the id; readers name it (people.named_deletion).
     actor_id: UUID
     display_name: str | None = None
     email: str | None = None
+    shown_as: PersonShown | None = None
 
 
 class PreviousDocumentState(Contract):
@@ -60,7 +61,8 @@ class DeletedDocument(Contract):
 
     def stored(self) -> dict:
         return self.model_dump(
-            mode="json", exclude={"purge_at": True, "actor": {"display_name", "email"}}
+            mode="json",
+            exclude={"purge_at": True, "actor": {"display_name", "email", "shown_as"}},
         )
 
 

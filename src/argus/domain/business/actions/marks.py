@@ -43,11 +43,11 @@ MARKER_COLUMNS = " m.marker_id, a.answer_id"
 
 
 def marker_people(tx, rows: list[dict[str, Any]]) -> dict[str, PersonName | None]:  # noqa: ANN001
-    """The people the rows' MARKER_JOIN columns name, read live."""
+    """The people the rows' MARKER_JOIN columns name, read live for the caller."""
 
     return people(
         tx.connection,
-        tx.context.actor.space_id,
+        tx.authorization,
         [row.get(key) for row in rows for key in ("marker_id", "answer_id")],
     )
 

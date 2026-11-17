@@ -339,10 +339,10 @@ def test_every_wire_that_carries_marks_declares_every_mark_and_answers_200():
         marked,
         {"marker_id": lia, "answer_id": lia},
         str(uuid4()),
-        {lia: PersonName(display_name="Lía")},
+        {lia: PersonName(display_name="Lía", shown_as="name")},
     )
     assert marks["fiscal_known"]
-    assert marks["personal_marked_by"] == PersonName(display_name="Lía")
+    assert marks["personal_marked_by"] == PersonName(display_name="Lía", shown_as="name")
     for model in (
         ReceiptSummary,
         ReceiptDetail,
@@ -419,7 +419,7 @@ def test_every_wire_that_carries_marks_declares_every_mark_and_answers_200():
     assert (body["fiscal_known"], body["personal"], body["include_606_by"]) == (
         True,
         True,
-        {"display_name": "Lía", "email": None},
+        {"display_name": "Lía", "email": None, "shown_as": "name"},
     )
 
 
@@ -437,6 +437,7 @@ def test_dossier_marks_expose_canonical_606_applicability(kind: str, applies: bo
         context=SimpleNamespace(owner_id=uuid4(), actor=SimpleNamespace(space_id=uuid4())),
         rows=lambda *_: [],
         connection=None,
+        authorization=None,
     )
     marks = draft_marks(tx, uuid4(), personal)
     assert marks["fiscal_question_applies"] is applies

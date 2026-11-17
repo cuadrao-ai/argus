@@ -521,7 +521,7 @@ def _named_deletions(context: BusinessContext, views: list[dict]) -> list[dict]:
         with transaction(store.authority, store.context) as tx:
             found = people(
                 tx.connection,
-                tx.context.actor.space_id,
+                tx.authorization,
                 [marker.actor.actor_id for marker in markers if marker],
             )
     return [

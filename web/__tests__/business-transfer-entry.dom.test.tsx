@@ -12,7 +12,7 @@ import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 const originalFetch = globalThis.fetch;
 const originalAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
 const id = "4100626b-f480-4249-97bd-04bdc03f1a15";
-const transfer = { id, space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", status: "pending", expires_at: "2026-10-26T01:05:00+00:00", business_name: "Colmado Rosa", owner_name: "Ana", target_name: "Rosa", role: "target", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0" };
+const transfer = { id, space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", status: "pending", expires_at: "2026-10-26T01:05:00+00:00", business_name: "Colmado Rosa", owner_name: "Ana", owner_shown_as: "name", target_name: "Rosa", target_shown_as: "name", role: "target", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0" };
 beforeAll(() => { GlobalRegistrator.register({ url: `https://app.example.test/biz?transfer=${id}` }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; });
 afterAll(async () => { globalThis.fetch = originalFetch; if (originalAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalAuth; await GlobalRegistrator.unregister(); });
 

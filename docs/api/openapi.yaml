@@ -15663,6 +15663,15 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        shown_as:
+          anyOf:
+          - type: string
+            enum:
+            - name
+            - email
+            - member
+            - former
+          - type: 'null'
         kind:
           type: string
           enum:
@@ -15698,6 +15707,15 @@ components:
         email:
           anyOf:
           - type: string
+          - type: 'null'
+        shown_as:
+          anyOf:
+          - type: string
+            enum:
+            - name
+            - email
+            - member
+            - former
           - type: 'null'
         kind:
           type: string
@@ -16084,6 +16102,13 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         issuer_display_name:
           anyOf:
           - type: string
@@ -16092,6 +16117,13 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        issuer_shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
       additionalProperties: false
       type: object
       required:
@@ -16100,8 +16132,10 @@ components:
       - grant_id
       - issuer_id
       - display_name
+      - shown_as
       - issuer_display_name
-      description: Who acted and who granted their access, each named live.
+      - issuer_shown_as
+      description: Who acted and who granted their access, each named live for the viewer.
     AliasBody:
       properties:
         alias:
@@ -20565,13 +20599,22 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        shown_as:
+          anyOf:
+          - type: string
+            enum:
+            - name
+            - email
+            - member
+            - former
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
       - actor_id
-      description: 'Who deleted the document, named as members read them now: the profile
+      description: 'Who deleted the document, named live for the viewer as ``PersonName``
 
-        name, else the email while they hold access to this Business.'
+        reads. The stored marker keeps only the id (``people.named_deletion``).'
     DeliveryPreparation:
       properties:
         to:
@@ -28039,15 +28082,21 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
       additionalProperties: false
       type: object
       required:
       - display_name
-      description: 'A person as the members of one Business read them now: the profile
+      - shown_as
+      description: 'A person as one viewer of a Business reads them now: ``shown_as`` says
 
-        name, else null; the email only when there is no name and they still
-
-        hold access to this Business. Both null: they left it.'
+        whether the name, the email, a member or a former member shows.'
     PlanCommand:
       properties:
         membership_id:
@@ -32855,6 +32904,13 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        owner_shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         target_name:
           anyOf:
           - type: string
@@ -32863,6 +32919,13 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        target_shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         role:
           type: string
           enum:
@@ -32877,7 +32940,9 @@ components:
       - status
       - business_name
       - owner_name
+      - owner_shown_as
       - target_name
+      - target_shown_as
       - role
       - grant_id
     TransferListResponse:
@@ -32901,6 +32966,13 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        shown_as:
+          type: string
+          enum:
+          - name
+          - email
+          - member
+          - former
         eligible:
           type: boolean
         reason:
@@ -32916,6 +32988,7 @@ components:
       required:
       - grant_id
       - name
+      - shown_as
       - eligible
       - reason
       description: 'A live member, who loses access on close; only an eligible one may be

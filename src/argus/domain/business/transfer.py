@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -12,7 +12,7 @@ from psycopg_pool import ConnectionPool
 
 from argus.domain.business.access import MEMBER_CAPABILITIES, OWNER_CAPABILITIES, _lock
 from argus.domain.business.authority import ActionError, authorize
-from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.contracts.authority import PersonShown, TrustedActor
 from argus.domain.business.lifecycle import (
     BusinessLifecycleError,
     PostgresBusinessLifecycle,
@@ -39,11 +39,13 @@ class TransferResult:
 @dataclass(frozen=True)
 class TransferDetails(TransferResult):
     business_name: str = ""
-    #: Each person's profile name, else their email while they hold access.
+    #: Each person as the reader reads them (``people.PersonName``).
     owner_name: str | None = None
     owner_email: str | None = None
+    owner_shown_as: PersonShown = field(kw_only=True)
     target_name: str | None = None
     target_email: str | None = None
+    target_shown_as: PersonShown = field(kw_only=True)
     role: Literal["owner", "target"] = "target"
     grant_id: str = ""
 
@@ -188,7 +190,7 @@ class PostgresBusinessTransfer:
                 if not row[7]:
                     continue
                 try:
-                    authorize(
+                    viewer = authorize(
                         db,
                         TrustedActor(
                             actor_id=UUID(actor_id),
@@ -196,18 +198,21 @@ class PostgresBusinessTransfer:
                             space_id=UUID(row[1]),
                         ),
                         UUID(row[7]),
-                    ).require("read")
+                    )
+                    viewer.require("read")
                 except ActionError:
                     continue
-                found = people(db, row[1], (row[2], row[3]))
+                found = people(db, viewer, (row[2], row[3]))
                 owner, target = named(found, row[2]), named(found, row[3])
                 details.append(
                     TransferDetails(
                         *row[:7],
                         owner_name=owner.display_name,
                         owner_email=owner.email,
+                        owner_shown_as=owner.shown_as,
                         target_name=target.display_name,
                         target_email=target.email,
+                        target_shown_as=target.shown_as,
                         role="owner" if actor_id == row[2] else "target",
                         grant_id=row[7],
                     )

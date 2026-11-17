@@ -142,12 +142,16 @@ class PostgresBusinessLifecycle:
                     )
                     if found is None:
                         continue
-                    person = person_name(member.display_name, member.email)
+                    # Only the owner reads this list.
+                    person = person_name(
+                        member.display_name, member.email, member=True, sees_email=True
+                    )
                     members.append(
                         {
                             "grant_id": member.id,
                             "name": person.display_name,
                             "email": person.email,
+                            "shown_as": person.shown_as,
                             "eligible": found[1] is None,
                             "reason": found[1],
                         }

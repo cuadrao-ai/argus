@@ -210,7 +210,7 @@ def page(
         markers = [deletion(row["review_state"], row.pop("resolution")) for row in rows]
         found = people(
             tx.connection,
-            context.actor.space_id,
+            tx.authorization,
             [marker.actor.actor_id for marker in markers if marker],
         )
         for row, marker in zip(rows, markers, strict=False):

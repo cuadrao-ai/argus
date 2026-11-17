@@ -1,14 +1,15 @@
 import type { TFunction } from "i18next";
-import { personName, type PersonName } from "@/lib/person-name";
+import type { BusinessActivityActor } from "@/lib/business-activity-api";
+import { personName } from "@/lib/person-name";
 import type { BusinessPanelState } from "../BusinessWorkspace";
 
 type Row = Readonly<{
-  actor: (PersonName & { kind: string }) | null;
+  actor: BusinessActivityActor | null;
   action: string;
   object: { kind: string; id: string; label?: string; purged?: boolean } | null;
 }>;
 
-/** Who a row names: Cuadrao for automated work, the person by name or email, or that no one was recorded. */
+/** Who a row names: Cuadrao for automated work, the person as the server shows them, or that no one was recorded. */
 export function activityActorName(t: TFunction, actor: Row["actor"]): string {
   if (!actor) return t("business.activity_feed.no_actor");
   if (actor.kind === "extractor") return t("business.activity_feed.extractor_name");

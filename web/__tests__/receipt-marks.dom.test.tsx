@@ -57,7 +57,7 @@ describe("the chips", () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const render = (role: "owner" | "accountant") => env.act(async () => {
       const value = { chosen: role === "owner" ? { space_id: "s", name: "Mi negocio", grant_id: "own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true } : { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true } } as unknown as BusinessContextValue;
-      env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><RecordMarks fiscal={null} personal markedBy={{ display_name: "Marta", email: null }} /></BusinessContext.Provider></env.I18nextProvider>);
+      env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><RecordMarks fiscal={null} personal markedBy={{ display_name: "Marta", email: null, shown_as: "name" }} /></BusinessContext.Provider></env.I18nextProvider>);
     });
     await render("owner");
     const chip = env.host.querySelector('[data-mark="personal"]')!;
@@ -91,8 +91,8 @@ describe("the Overview's two totals", () => {
 });
 
 describe("the receipt page's marks card", () => {
-  const OWNER = { actor_id: "o", actor_kind: "member", display_name: "Dueño", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño" };
-  const ACCOUNTANT = { actor_id: "a", actor_kind: "member", display_name: "Lía", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" };
+  const OWNER = { actor_id: "o", actor_kind: "member", display_name: "Dueño", shown_as: "name", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" };
+  const ACCOUNTANT = { actor_id: "a", actor_kind: "member", display_name: "Lía", shown_as: "name", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" };
   const share = (kind: "all" | "none", origin: string) => ({ state: "known", value: { kind }, origin, verified: true, source_ids: ["s"] });
   const dossier = (over: Partial<BusinessDossier> = {}, personal = false, ncf = true, answer: boolean | null = null, markedBy: "owner" | "accountant" = "owner"): BusinessDossier =>
     ({
@@ -105,11 +105,11 @@ describe("the receipt page's marks card", () => {
       ],
       // The marks as the server reads them: the card renders these, never its own reading of the facts.
       personal,
-      personal_marked_by: personal && markedBy === "accountant" ? { display_name: "Lía", email: null } : null,
+      personal_marked_by: personal && markedBy === "accountant" ? { display_name: "Lía", email: null, shown_as: "name" } : null,
       fiscal_value: ncf ? "ncf" : null,
       fiscal_question_applies: personal && ncf,
       include_606: personal && ncf ? answer : null,
-      include_606_by: personal && ncf && answer !== null ? { display_name: "Lía", email: null } : null,
+      include_606_by: personal && ncf && answer !== null ? { display_name: "Lía", email: null, shown_as: "name" } : null,
       fiscal_known: true,
       facts: {
         business_share: share(personal ? "none" : "all", markedBy === "owner" ? "owner_stated" : "member_set"),
@@ -329,7 +329,7 @@ describe("one owner for the marks", () => {
       { name: "unmarked", personal: false, by: null },
     ];
     for (const item of cases) {
-      const server = { personal: item.personal, personal_marked_by: item.by ? { display_name: item.by, email: null } : null, fiscal_value: "ncf" as const, include_606: null };
+      const server = { personal: item.personal, personal_marked_by: item.by ? { display_name: item.by, email: null, shown_as: "name" } : null, fiscal_value: "ncf" as const, include_606: null };
       const env = await setup();
       await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ReceiptMarksCard dossier={{ draft_id: "d-1", version: 3, capabilities: ["read", "prepare"], history: [], facts: { business_share: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, fiscal: null }, ...server } as unknown as BusinessDossier} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
       assert.equal(env.host.querySelector('[data-mark="personal"]') !== null, item.personal, item.name);
@@ -345,8 +345,8 @@ describe("the server states what the browser used to guess", () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { default: ReceiptMarksCard } = await import("@/components/business-app/ReceiptMarksCard");
     const accountant = { chosen: { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true }, reload: () => undefined, source: {} } as unknown as BusinessContextValue;
-    const ownerEdit = { draft_id: "d-1", version: 5, actor: { actor_id: "o", actor_kind: "member", display_name: "Dueño", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño" }, before: {}, after: {}, source_ids: [], turn_key: null, created_at: "2026-10-13T11:00:00Z" };
-    const record = { draft_id: "d-1", version: 5, capabilities: ["read", "prepare"], history: [ownerEdit], facts: {}, personal: true, fiscal_known: true, fiscal_value: "ncf", fiscal_question_applies: true, include_606: false, include_606_by: { display_name: "Lía", email: null } } as unknown as BusinessDossier;
+    const ownerEdit = { draft_id: "d-1", version: 5, actor: { actor_id: "o", actor_kind: "member", display_name: "Dueño", shown_as: "name", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" }, before: {}, after: {}, source_ids: [], turn_key: null, created_at: "2026-10-13T11:00:00Z" };
+    const record = { draft_id: "d-1", version: 5, capabilities: ["read", "prepare"], history: [ownerEdit], facts: {}, personal: true, fiscal_known: true, fiscal_value: "ncf", fiscal_question_applies: true, include_606: false, include_606_by: { display_name: "Lía", email: null, shown_as: "name" } } as unknown as BusinessDossier;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={accountant}><ReceiptMarksCard dossier={record} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
     assert.equal(env.host.querySelector('[data-testid="receipt-606-state"]')?.textContent, "Fuera del 606 por Lía");
     await env.act(async () => env.root.unmount());
@@ -358,7 +358,7 @@ describe("the server states what the browser used to guess", () => {
     const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
     const base = { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown };
     const fiscal = (answer: unknown) => ({ rnc: unknown, ncf: { state: "known", value: "B01", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: unknown, itbis: unknown, include_606: answer });
-    const revision = { draft_id: "d-1", version: 4, actor: { actor_id: "a", actor_kind: "member", display_name: "Lía", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" }, before: { ...base, fiscal: fiscal(unknown) }, after: { ...base, fiscal: fiscal({ state: "known", value: true, origin: "member_set", verified: true, source_ids: ["s"] }) }, source_ids: ["s"], turn_key: null, created_at: "2026-10-13T10:00:00Z" };
+    const revision = { draft_id: "d-1", version: 4, actor: { actor_id: "a", actor_kind: "member", display_name: "Lía", shown_as: "name", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" }, before: { ...base, fiscal: fiscal(unknown) }, after: { ...base, fiscal: fiscal({ state: "known", value: true, origin: "member_set", verified: true, source_ids: ["s"] }) }, source_ids: ["s"], turn_key: null, created_at: "2026-10-13T10:00:00Z" };
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptHistory history={[revision] as never} accounts={[]} /></env.I18nextProvider>); });
     const text = env.host.textContent ?? "";
     assert.ok(text.includes("Sí"), text);
