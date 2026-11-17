@@ -302,7 +302,7 @@ test("on a desktop browser without Save As, the tip shows once and stays dismiss
   const page = await mount();
   await open(page);
   assert.ok(tip(), "the tip shows in the dialog");
-  assert.match(tip()!.textContent!, /PENDIENTE COPY/);
+  assert.match(tip()!.textContent!, /Elige dónde guardar cada archivo/);
   await page.click(tip()!.querySelector("button"));
   assert.equal(tip(), null);
   assert.deepEqual(page.guideRequests, ["POST /business/guide-cards/exportar-guardar/dismiss"]);

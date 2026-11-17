@@ -3464,18 +3464,18 @@
       },
       "exportar_guardar": {
         "ask": {
-          "body": "[PENDIENTE COPY] Activa la opción de preguntar dónde guardar cada archivo. Así eliges la carpeta al exportar.",
-          "label": "[PENDIENTE COPY] Activa la pregunta"
+          "body": "Activa la opción de preguntar dónde guardar cada archivo. Así eliges la carpeta al exportar.",
+          "label": "Activa la pregunta"
         },
         "downloads": {
-          "body": "[PENDIENTE COPY] Entra en la sección de descargas.",
-          "label": "[PENDIENTE COPY] Busca Descargas"
+          "body": "Entra en la sección de descargas.",
+          "label": "Busca Descargas"
         },
         "settings": {
-          "body": "[PENDIENTE COPY] En tu navegador, abre la configuración o las preferencias.",
-          "label": "[PENDIENTE COPY] Abre la configuración"
+          "body": "En tu navegador, abre la configuración o las preferencias.",
+          "label": "Abre la configuración"
         },
-        "title": "[PENDIENTE COPY] Elige dónde guardar cada archivo"
+        "title": "Elige dónde guardar cada archivo"
       },
       "placeholder": {
         "dismiss": "Ocultar guía",
@@ -3505,7 +3505,7 @@
       "changed_female": "{{field}} cambiada de {{before}} a {{after}}",
       "channel_email": "Correo",
       "channel_web": "Subido",
-      "duplicate": { "different_purchase": "[PENDIENTE COPY] Marcado como compra distinta de {{other}}" },
+      "duplicate": { "different_purchase": "Marcado como compra distinta de {{other}}" },
       "pm": "p.m.",
       "read": "Leído",
       "reason": { "business_rnc_set": "Lo emitió tu negocio" },
@@ -3585,7 +3585,7 @@
       "fiscal_purchases_other": "Faltan datos en {{count}} compras",
       "fiscal_sales_one": "Faltan datos en 1 venta",
       "fiscal_sales_other": "Faltan datos en {{count}} ventas",
-        "fiscal_unknown": "[PENDIENTE COPY] Faltan datos: todavía no se puede calcular.",
+        "fiscal_unknown": "Faltan datos: todavía no se puede calcular.",
         "in_bandeja_one": "1 en la Bandeja",
       "in_bandeja_other": "{{count}} en la Bandeja",
         "included": "Documentos incluidos: {{counted}} de {{total}}",
@@ -3667,8 +3667,8 @@
       "source_unavailable": "Falta el archivo original",
       "check_details": "Revisa los datos",
       "duplicate": "Parece repetido",
-      "read_budget_day": "[PENDIENTE COPY] Se lee mañana: hoy se alcanzó el límite de lecturas",
-      "read_budget_month": "[PENDIENTE COPY] Se lee el próximo mes: se alcanzó el límite de lecturas",
+      "read_budget_day": "Se lee mañana: hoy se alcanzó el límite de lecturas",
+      "read_budget_month": "Se lee el próximo mes: se alcanzó el límite de lecturas",
       "read_deadline_passed": "La lectura no terminó",
       "other": "Necesita atención"
     },
@@ -4541,12 +4541,12 @@
     "receipts": {
       "duplicate_resolution": {
         "basis": {
-          "fiscal_number": "[PENDIENTE COPY] Mismo RNC y NCF que otro documento.",
-          "read_facts": "[PENDIENTE COPY] Mismo comercio, fecha y total que otro documento."
+          "fiscal_number": "Mismo RNC y NCF que otro documento.",
+          "read_facts": "Mismo suplidor, fecha y total que otro documento."
         },
         "column": {
-          "saved_before": "[PENDIENTE COPY] Guardado antes",
-          "this": "[PENDIENTE COPY] Este"
+          "saved_before": "Guardado antes",
+          "this": "Este"
         },
         "compare": "Comparar",
         "decision": {
@@ -4554,6 +4554,9 @@
           "same_purchase": "Eliminar este duplicado"
         },
         "different": "Diferente",
+        "documents": {
+          "other": "Documento eliminado"
+        },
         "field": {
           "amount": "Total",
           "counterparty": "Comercio",
@@ -4561,17 +4564,17 @@
           "fiscal_number": "NCF",
           "occurred_on": "Fecha"
         },
-        "marked_different": "[PENDIENTE COPY] Marcado como compras distintas.",
-        "no_file": "[PENDIENTE COPY] Este documento no tiene archivo.",
+        "marked_different": "Marcado como compras distintas.",
+        "no_file": "Este documento no tiene archivo.",
         "recommendation": {
           "different_purchase": "Mismo comercio, fecha, total y moneda. El NCF es distinto: probablemente son dos compras distintas.",
           "same_purchase": "Es el mismo documento."
         },
-        "refused_same_comprobante": "[PENDIENTE COPY] Mismo RNC y NCF: es un solo comprobante. Quédate con uno.",
+        "refused_same_comprobante": "Mismo RNC y NCF: es el mismo comprobante. Quédate con uno.",
         "same": "Igual",
         "table": {
-          "caption": "[PENDIENTE COPY] Datos principales de los dos documentos",
-          "field": "[PENDIENTE COPY] Dato"
+          "caption": "Datos principales de los dos documentos",
+          "field": "Dato"
         },
         "title": "Parece repetido"
       }
