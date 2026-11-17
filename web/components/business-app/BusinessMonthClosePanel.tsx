@@ -78,14 +78,12 @@ export function MonthSwitcher({
   current,
   earliest,
   onMonth,
-  openRequest = 0,
   heading = false,
 }: {
   month: string;
   current: string;
   earliest: string | null;
   onMonth: (month: string) => void;
-  openRequest?: number;
   /** In Inicio's month card band, the label takes the card-title type. */
   heading?: boolean;
 }) {
@@ -93,7 +91,6 @@ export function MonthSwitcher({
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const options = useMemo(() => monthPickerMonths(current, earliest), [current, earliest]);
   const [open, setOpen] = useState(false);
-  const [seenRequest, setSeenRequest] = useState(0);
   const [active, setActive] = useState(0);
   const [position, setPosition] = useState({ left: 8, top: 48 });
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -146,14 +143,6 @@ export function MonthSwitcher({
       setOpen(false);
     },
   });
-
-  useEffect(() => {
-    if (openRequest === seenRequest) return;
-    setSeenRequest(openRequest);
-    if (openRequest < 1) return;
-    setActive(Math.max(0, options.findIndex((option) => option.month === month)));
-    setOpen(true);
-  }, [month, openRequest, options, seenRequest]);
 
   useEffect(() => {
     if (!open) return;
