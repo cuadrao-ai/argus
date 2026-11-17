@@ -54,9 +54,8 @@ async function mount({ width = 1280, grant = null, overrides = {}, renderPanel =
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const source = { ...createFixtureBusinessDataSource({ chatAvailable: true }), captures: async () => ({ items: [] }), ...overrides };
   const searches: string[] = [];
-  const invitationTriggers: HTMLElement[] = [];
   const below = width < 720;
-  const shell = { currentView: "workspace", conversationId: null, greetingName: "Ana", isBelowTablet: below, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: () => searches.push("open"), openPersonalInvitation: (trigger: HTMLElement) => invitationTriggers.push(trigger) };
+  const shell = { currentView: "workspace", conversationId: null, greetingName: "Ana", isBelowTablet: below, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: () => searches.push("open") };
   let api: ReturnType<typeof useBusiness> | null = null;
   function TopBar() {
     const workspace = useChatWorkspace();
@@ -106,7 +105,7 @@ async function mount({ width = 1280, grant = null, overrides = {}, renderPanel =
     await act(async () => within.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!.click());
     return menuItems();
   };
-  return { act, wait, ready, host, bar, screen, settle, open, openMenu, menuItems, searches, invitationTriggers, unmount, api: () => api! };
+  return { act, wait, ready, host, bar, screen, settle, open, openMenu, menuItems, searches, unmount, api: () => api! };
 }
 
 describe("the Business top bar on a desktop", () => {
@@ -412,41 +411,4 @@ describe("the Business top bar on a phone", () => {
       assert.equal(page.screen().querySelectorAll('[data-testid="business-primary-upload"]').length, 1, kind);
     }
   });
-});
-
-for (const width of [1280, 390]) {
-  test(`personal invitation shortcut is desktop-only at ${width}px`, async () => {
-    const previousMode = process.env.NODE_ENV;
-    const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
-    Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
-    try {
-      const page = await mount({ width, renderPanel: false });
-      const shortcut = page.bar().querySelector<HTMLButtonElement>('[data-testid="personal-invitation-shortcut"]');
-      assert.equal(Boolean(shortcut), width >= 720);
-      if (shortcut) {
-        const actions = [...page.bar().querySelectorAll('[data-testid="personal-invitation-shortcut"], [data-testid="amounts-toggle"]')];
-        assert.equal(actions[0], shortcut);
-        assert.equal(shortcut.getAttribute("aria-label"), "Invitar a Cuadrao");
-        await page.act(async () => shortcut.click());
-        assert.deepEqual(page.invitationTriggers, [shortcut]);
-      }
-      await page.unmount();
-    } finally {
-      Object.assign(process.env, { NODE_ENV: previousMode });
-      if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
-      else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock;
-    }
-  });
-}
-
-test("personal invitation shortcut stays hidden outside mock auth", async () => {
-  const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
-  process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
-  try {
-    const page = await mount();
-    assert.equal(page.bar().querySelector('[data-testid="personal-invitation-shortcut"]'), null);
-  } finally {
-    if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
-    else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock;
-  }
 });

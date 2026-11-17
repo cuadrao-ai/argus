@@ -34,7 +34,6 @@ export type ChatShellBridge = Readonly<{
   dismissGuideCard?: (cardId: BusinessGuideCardId) => Promise<void>;
   /** Opens the shared search, optionally starting from a typed query. Absent when this shell has no search. */
   openSearch?: (query?: string) => void;
-  openPersonalInvitation?: (trigger: HTMLElement) => void;
   /** Shows the workspace's main panel, leaving any open conversation. */
   showWorkspace: () => void;
   /** Opens an empty conversation, like New chat. */

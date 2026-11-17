@@ -13,7 +13,6 @@ import ChatCommandPalette from "@/components/sidebar/ChatCommandPalette";
 import { KeyboardShortcutSurfaces } from "@/components/keyboard/KeyboardShortcutSurfaces";
 import { useChatKeyboardShortcuts } from "@/components/keyboard/useChatKeyboardShortcuts";
 import ChatSidebar from "@/components/sidebar/ChatSidebar";
-import type { InvitationOpenRequest } from "@/components/sidebar/ProfileMenu";
 import ConversationActivityAnnouncement from "@/components/chat/ConversationActivityAnnouncement";
 import ConversationActivityRail from "@/components/chat/ConversationActivityRail";
 import { ConversationActivityPresentationProvider } from "@/components/chat/ConversationActivityIndicator";
@@ -607,11 +606,7 @@ function ChatInterfaceContent() {
   // A click handler may pass its event: only a string seeds the search.
   const [searchSeed, setSearchSeed] = useState("");
   const openSearch = useCallback((query?: unknown) => { if (!searchEntryEnabled) return; setSearchSeed(typeof query === "string" ? query : ""); setSearchOverlayOpen(true); }, [searchEntryEnabled]);
-  const [invitationOpenRequest, setInvitationOpenRequest] = useState<InvitationOpenRequest | null>(null);
-  const openPersonalInvitation = useCallback((trigger: HTMLElement) => {
-    setInvitationOpenRequest((previous) => ({ id: (previous?.id ?? 0) + 1, trigger }));
-  }, []);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, memberId: account?.user.id, dismissedGuideCards: account?.dismissed_guide_cards, dismissGuideCard, openSearch: searchEntryEnabled ? openSearch : undefined, openPersonalInvitation, resetToEmptyChatSurface, closeTransientSidebar });
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, memberId: account?.user.id, dismissedGuideCards: account?.dismissed_guide_cards, dismissGuideCard, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;
@@ -2139,7 +2134,6 @@ function ChatInterfaceContent() {
           keyboardShortcuts.setKeyboardShortcutsOpen(true)
         }
         settingsOpenRequest={keyboardShortcuts.settingsOpenRequest}
-        invitationOpenRequest={invitationOpenRequest}
         mode={sidebarMode}
         omnisearchEnabled={
           searchEntryEnabled && (!isGuest || canUseOmnisearch) && !(workspace?.headerSearch && !mobileShell.isBelowTablet)

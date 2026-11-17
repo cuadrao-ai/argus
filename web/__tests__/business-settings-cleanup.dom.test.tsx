@@ -74,6 +74,21 @@ for (const business of [true, false]) {
   });
 }
 
+test("the Business profile menu in the local preview offers no Cuadrao invitation", async () => {
+  const previousMode = process.env.NODE_ENV;
+  Object.assign(process.env, { NODE_ENV: "development" });
+  try {
+    const { default: ProfileMenu } = await import("@/components/sidebar/ProfileMenu");
+    const anchor = document.createElement("button");
+    document.body.appendChild(anchor);
+    await mount(<ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: anchor }} />);
+    assert.ok(button("Ajustes"), "the menu rendered its rows");
+    assert.doesNotMatch(document.body.textContent ?? "", /Invitar a Cuadrao/);
+  } finally {
+    Object.assign(process.env, { NODE_ENV: previousMode });
+  }
+});
+
 test("Ayuda y legal links the published Cuadrao pages, and a setting overrides them", async () => {
   const terms = process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL;
   const privacy = process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL;

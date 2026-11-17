@@ -22,7 +22,6 @@ type ShellBridgeInput = {
   dismissedGuideCards?: ChatShellBridge["dismissedGuideCards"];
   dismissGuideCard?: ChatShellBridge["dismissGuideCard"];
   openSearch?: (query?: string) => void;
-  openPersonalInvitation?: (trigger: HTMLElement) => void;
   resetToEmptyChatSurface: (conversationId?: string | null, view?: ChatShellView) => void;
   closeTransientSidebar: () => void;
 };
@@ -45,7 +44,6 @@ export function useChatShellBridge({
   dismissedGuideCards,
   dismissGuideCard,
   openSearch,
-  openPersonalInvitation,
   resetToEmptyChatSurface,
   closeTransientSidebar,
 }: ShellBridgeInput): ShellBridgeWithSlots {
@@ -63,7 +61,6 @@ export function useChatShellBridge({
       dismissedGuideCards,
       dismissGuideCard,
       openSearch,
-      openPersonalInvitation,
       showWorkspace: () => {
         resetToEmptyChatSurface(null, "workspace");
         closeTransientSidebar();
@@ -89,7 +86,6 @@ export function useChatShellBridge({
       dismissGuideCard,
       isBelowTablet,
       openSearch,
-      openPersonalInvitation,
       resetToEmptyChatSurface,
       sidebarCollapsed,
     ],

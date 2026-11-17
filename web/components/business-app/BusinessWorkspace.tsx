@@ -65,8 +65,6 @@ import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
 import { intakeWork } from "./intake-work";
 import { TypedNoteQueue } from "./typed-note-queue";
 import { openRecordsExport } from "./transacciones/records-export-request";
-import { HandHeart } from "lucide-react";
-import { Tooltip } from "@/components/ui/Tooltip";
 import { AmountsToggle } from "./foundation/AmountsToggle";
 import BusinessNotifications from "./foundation/BusinessNotifications";
 import BusinessHeader from "./foundation/BusinessHeader";
@@ -756,11 +754,6 @@ function BusinessWorkspaceContent({
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
         {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
-        {localPreview && !shell.isBelowTablet && shell.openPersonalInvitation ? <Tooltip content={t("cuadrao_invitation.title")} side="bottom">
-          <button type="button" data-testid="personal-invitation-shortcut" aria-label={t("cuadrao_invitation.title")} aria-haspopup="dialog" onClick={(event) => shell.openPersonalInvitation?.(event.currentTarget)} className="flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0]">
-            <HandHeart className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </Tooltip> : null}
         <AmountsToggle />
         {notificationsAvailable ? <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen ? businessTitle : undefined} emailAvailable={receivingChannels.email.available} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} /> : null}
       </>,

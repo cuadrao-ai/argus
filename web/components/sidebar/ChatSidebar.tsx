@@ -25,7 +25,7 @@ import { useQuickJump } from "@/components/keyboard/useQuickJump";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import SidebarNavButton from "./SidebarNavButton";
 import SidebarHeader, { type SidebarVariant } from "./SidebarHeader";
-import ProfileMenu, { type InvitationOpenRequest } from "./ProfileMenu";
+import ProfileMenu from "./ProfileMenu";
 import type { SidebarPreference } from "./ProfileSettingsPanels";
 import RecentChatActions from "./RecentChatActions";
 import {
@@ -121,7 +121,6 @@ export type ChatSidebarProps = {
   sidebarPreference?: SidebarPreference;
   onOpenKeyboardShortcuts?: () => void;
   settingsOpenRequest?: number;
-  invitationOpenRequest?: InvitationOpenRequest | null;
   omnisearchEnabled?: boolean;
   /** Keep background shortcut hints visually quiet while a foreground surface owns focus. */
   shortcutHintsSuppressed?: boolean;
@@ -187,7 +186,6 @@ export default function ChatSidebar({
   sidebarPreference,
   onOpenKeyboardShortcuts,
   settingsOpenRequest = 0,
-  invitationOpenRequest,
   omnisearchEnabled = false,
   shortcutHintsSuppressed = false,
   canManageConversation = true,
@@ -907,7 +905,6 @@ export default function ChatSidebar({
                 onOpenKeyboardShortcuts={onOpenKeyboardShortcuts}
                 anchorRef={profileButtonRef}
                 sidebarCollapsed={!isOpen}
-                invitationOpenRequest={invitationOpenRequest}
                 placement="header"
               />
               <button
