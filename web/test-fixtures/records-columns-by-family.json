@@ -11,7 +11,7 @@
     },
     {
       "key": "counterparty",
-      "label_key": "business.transactions.columns.contraparte",
+      "label_key": "business.terms.counterparty_purchase",
       "shown": false,
       "families": [
         "sale",
@@ -137,7 +137,7 @@
     },
     {
       "key": "counterparty",
-      "label_key": "business.transactions.columns.contraparte",
+      "label_key": "business.terms.counterparty_sale",
       "shown": false,
       "families": [
         "sale",

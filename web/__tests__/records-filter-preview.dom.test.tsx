@@ -28,7 +28,7 @@ async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initial
   function FilterHarness() {
     const [value, setValue] = useState<PreviewFilters>(initialFilters);
     const recordKind = "gasto";
-    return <><Filters options={null} value={value} onChange={setValue} /><output data-testid="applied-record-kind">{recordKind}</output><output data-testid="applied-filters">{JSON.stringify(value)}</output></>;
+    return <><Filters options={null} family="purchase" value={value} onChange={setValue} /><output data-testid="applied-record-kind">{recordKind}</output><output data-testid="applied-filters">{JSON.stringify(value)}</output></>;
   }
   function ToolbarHarness() {
     const [record, setRecord] = useState<{ query: string; kind: "gasto" | "venta" }>({ query: "", kind: "gasto" });
@@ -199,7 +199,7 @@ test("checkbox parents derive mixed/all/none from label clicks and bulk changes"
 
 
 test("bulk selection applies only to visible matches and keeps hidden choices", async () => {
-  const page = await mount("filters"); await page.click(page.button("Filtros")); await page.click(page.button("Contraparte"));
+  const page = await mount("filters"); await page.click(page.button("Filtros")); await page.click(page.button("Emisor"));
   const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
   await page.click(label("Nube Hosting"));
   const field = document.querySelector<HTMLInputElement>('input[type="search"]')!;

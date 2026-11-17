@@ -112,7 +112,7 @@ No column is locked by name. The person can hide or move any column, and every t
 | Key | Name (ES / EN) | Default | Rule |
 |---|---|---|---|
 | `counterparty_id` | RNC o Cédula / RNC or ID | Shown | The supplier's or client's taxpayer id. The table adds the DGII's hyphens (`1-01-00157-7`, `001-0000000-1`); the file writes plain digits. Hovering shows the name. |
-| `counterparty` | Contraparte / Counterparty | Hidden | Always in the "Lo que ves" file |
+| `counterparty` | Emisor on Compras, Cliente on Ventas / Supplier, Customer | Hidden | Always in the "Lo que ves" file |
 | `date` | Fecha / Date | Shown | Short for Fecha del comprobante |
 | `expense_type` | Tipo de gasto / Expense type | Shown | Compras only |
 | `net_amount` | Monto sin ITBIS / Amount before ITBIS | Shown | |
@@ -125,7 +125,7 @@ No column is locked by name. The person can hide or move any column, and every t
 | `payment_form` | Forma de pago / Payment method | Hidden | Compras only. Checked by default in the "Lo que ves" file, where it goes last while the table hides it |
 | `funding` | Cuenta / Account | Hidden | Forma de pago ≠ Cuenta |
 
-The names in the table are today's words; the locale files own them. A per-type name, such as Emisor on Compras and Cliente on Ventas, is one more registry field, resolved where the answer sets `label_key`. The export modal lists the preview's columns for the chosen currencies: the table's, then Moneda after the total when the file holds every currency. The registry's file rule (`as_shown`, `default` or `always`) says which the file always holds and which it offers checked while the table hides it. NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client's workflow. See `docs/API_CONTRACT.md` for the answer and export contracts.
+The names in the table are today's words; the locale files own them. A column with `named_by_family` has a name per tab: the answer and the file name it `<label>_<family>` (the i18next context form, such as `business.terms.counterparty_purchase`) on a one-family table and `<label>` on a mixed one. The filter's group for the same column reads the same term with the tab as its context. The export modal lists the preview's columns for the chosen currencies: the table's, then Moneda after the total when the file holds every currency. The registry's file rule (`as_shown`, `default` or `always`) says which the file always holds and which it offers checked while the table hides it. NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client's workflow. See `docs/API_CONTRACT.md` for the answer and export contracts.
 
 ## Score cards
 

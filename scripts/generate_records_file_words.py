@@ -11,7 +11,7 @@ import json
 import sys
 from pathlib import Path
 
-from argus.domain.business.reporting_columns import COLUMNS, CURRENCY_LABEL
+from argus.domain.business.reporting_columns import COLUMN_LABELS, CURRENCY_LABEL
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCALES = ROOT / "web" / "public" / "locales"
@@ -21,7 +21,7 @@ TARGET = (
 )
 #: Every column's name comes from the registry; these are the file's other words.
 PATHS = (
-    *sorted({spec.label for spec in COLUMNS} | {CURRENCY_LABEL}),
+    *sorted(COLUMN_LABELS | {CURRENCY_LABEL}),
     "business.dgii.option.category",
     "business.dgii.option.payment_method",
     "business.dossier.standing.missing",

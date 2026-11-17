@@ -2605,6 +2605,9 @@
     "terms": {
       "calculated_hint": "Calculated: Total − ITBIS",
       "calculated_hint_with_tip": "Calculated: Total − ITBIS − legal tip",
+      "counterparty": "Counterparty",
+      "counterparty_purchase": "Supplier",
+      "counterparty_sale": "Customer",
       "currency_choose": "Choose",
       "currency_fiscal_warning": "In {{currency}}, this document is excluded from {{form}} (the DGII requires pesos).",
       "currency_missing": "Currency missing",
