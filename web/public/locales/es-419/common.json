@@ -2402,7 +2402,7 @@
       "refund_candidate_refused": "Esa compra no se puede usar para este reembolso. Elige otra.",
       "refund_candidates_none": "No hay compras aprobadas para elegir.",
       "suggested": "Sugerido",
-      "save": "Guardar revisión fiscal",
+      "save": "Guardar",
       "approve_income": "Aprobar ingreso",
       "approve_refund": "Aprobar reembolso",
       "recorded_income": "Se registró un ingreso después de aprobar la revisión {{version}}.",
