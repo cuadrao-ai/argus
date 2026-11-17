@@ -9104,8 +9104,10 @@ not creditable; all other monthly net calculations use the same net owner.
 
 `amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
 false` and `difference`. The signed exact decimal difference is gross minus
-net minus the same `AMOUNT_PARTS` components. It appears only when the absolute
-difference exceeds 0.01 and is recomputed for every read and revision. The
+net minus the same `AMOUNT_PARTS` components. With ITBIS known it appears when
+the absolute difference exceeds 0.01. With ITBIS unknown that part counts as
+zero, and it appears only when the difference is below -0.01: ITBIS is never
+negative, so it cannot close that gap. It is recomputed for every read and revision. The
 existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
 overrides are excluded from the model-facing dossier and source text.
 
