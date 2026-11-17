@@ -21,14 +21,16 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-async function render(node: ReactNode) {
+async function render(node: ReactNode, { dgiiNames = false } = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
+  const { dgiiChoiceLabel } = await import("@/lib/dgii-labels");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  if (dgiiNames) i18n.use(dgiiChoiceLabel);
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false }, ...(dgiiNames ? { postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true } : {}) });
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -287,13 +289,27 @@ describe("a fiscal save in Historial", () => {
     assert.deepEqual(changes(entry), [
       ["Tipo de gasto", "Desconocido", "Gastos por trabajos, suministros y servicios"],
       ["ITBIS Retenido", "RD$ 0.00", "RD$ 270.00"],
-      ["Tipo de Retención en ISR", "Desconocido", "02"],
+      ["Tipo de Retención en ISR", "Desconocido", "Honorarios por servicios"],
       ["Forma de pago", "Desconocido", "Tarjeta crédito/débito"],
     ]);
     await page.close();
     const three = await render(<ReceiptHistory history={[save(4, before, { ...after, payment_method: null })]} accounts={[]} dgiiFields={fields} />);
     assert.equal(three.host.querySelector('[data-testid="history-more"]')?.textContent, "Ver 1 cambio más");
     await three.close();
+  });
+
+  test("a withholding, income and ID code reads with its DGII name", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const named: DgiiFields = { "606": [field("income_withholding_type", "select", ["02"])], "607": [field("id_type", "select", ["1", "2", "3"]), field("income_type", "select", ["1"])] };
+    const page = await render(<>
+      <ReceiptHistory history={[save(3, null, declared("606", { income_withholding_type: "02" }))]} accounts={[]} dgiiFields={named} />
+      <ReceiptHistory history={[save(4, null, declared("607", { id_type: "3", income_type: "1" }))]} accounts={[]} dgiiFields={named} documentType="venta" />
+    </>, { dgiiNames: true });
+    assert.deepEqual(entries(page.host).map((entry) => changes(entry)), [
+      [["Tipo de Retención en ISR", null, "02 - Honorarios por servicios"]],
+      [["Tipo Identificación", null, "3 - Pasaporte o ID tributaria"], ["Tipo de Ingreso", null, "01 - Ingresos por operaciones (no financieros)"]],
+    ]);
+    await page.close();
   });
 
   test("a save that changed no field reads Se revisó esta versión.", async () => {
@@ -333,7 +349,7 @@ describe("a fiscal save in Historial", () => {
   test.each([
     { kind: "money", field: field("itbis_withheld"), value: "12980.5" },
     { kind: "select", field: field("id_type", "select", ["1", "2"]), value: "2" },
-    { kind: "select without an option name", field: field("income_withholding_type", "select", ["02"]), value: "02" },
+    { kind: "select with a DGII name", field: field("income_withholding_type", "select", ["02"]), value: "02" },
     { kind: "date", field: field("paid_on", "date"), value: "2026-11-12" },
     { kind: "text", field: field("modified_ncf", "text"), value: "B0100000123" },
   ])("a $kind value reads in Historial as the fiscal editor shows it", async ({ field: shown, value }) => {

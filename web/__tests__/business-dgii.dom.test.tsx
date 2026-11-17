@@ -362,12 +362,12 @@ test("the 607 editor uses its form-specific dictionary labels in both languages"
     await act(async () => { await view.i18n.changeLanguage("en"); });
     for (const label of ["Identification type", "Modified fiscal receipt number", "ITBIS perceived", "Other taxes/fees", "Check·transfer·deposit", "Vouchers…"]) assert.ok(view.host.textContent?.includes(label), label);
     assert.ok(!view.host.textContent?.includes("Número Comprobante"));
-    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3"]]);
+    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3 - Passport or tax ID"]]);
   } finally { await view.dispose(); }
 });
 
 for (const form of ["606", "607"] as const) {
-  const title = `the ${form} editor preserves untranslated option codes with production i18n`;
+  const title = `the ${form} editor names each DGII withholding, income and ID code with production i18n and saves only the code`;
   test(title, async () => {
     // Production initialization changes the shared singleton; keep it out of other tests.
     if (process.env.CUADRAO_TEST_FISCAL_I18N !== "true") {
@@ -390,19 +390,28 @@ for (const form of ["606", "607"] as const) {
       fields: { "606": [], "607": [], [form]: formFields },
       dossier: (dossier) => ({ ...dossier, dgii: { form } }),
     });
+    const options = (id: string) => [...view.host.querySelector<HTMLSelectElement>(`#fiscal-declaration-${id}`)!.options].filter((option) => option.value).map((option) => [option.value, option.text]);
     try {
-      for (const language of ["es-419", "en"]) {
+      for (const [language, catalog] of [["es-419", spanish], ["en", english]] as const) {
         await act(async () => { await view.i18n.changeLanguage(language); });
-        assert.equal(view.i18n.t(`business.dgii.option.${name}.${codes[0]}`, { defaultValue: codes[0] }), "", "the real missing-key handler overrides defaultValue");
-        const select = view.host.querySelector<HTMLSelectElement>(`#fiscal-declaration-${name}`);
-        assert.ok(select);
-        assert.deepEqual([...select.options].filter((option) => option.value).map((option) => [option.value, option.text]), codes.map((code) => [code, code]));
-        if (form === "607") {
-          const ids = view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type");
-          assert.ok(ids);
-          assert.deepEqual([...ids.options].filter((option) => option.value).map((option) => [option.value, option.text]), [["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3"]]);
-        }
+        assert.equal(view.i18n.t(`business.dgii.option.${name}.99`, { defaultValue: "99" }), "", "the real missing-key handler overrides defaultValue");
+        const names = catalog.business.dgii.option[name] as Record<string, string>;
+        assert.deepEqual(options(name), codes.map((code) => [code, `${code.padStart(2, "0")} - ${names[code]}`]));
+        if (form === "607") assert.deepEqual(options("id_type"), Object.entries(catalog.business.dgii.option.id_type));
       }
+      await act(async () => { await view.i18n.changeLanguage("es-419"); });
+      assert.deepEqual(options(name)[1], form === "606" ? ["02", "02 - Honorarios por servicios"] : ["2", "02 - Ingresos financieros"]);
+      if (form === "607") assert.deepEqual(options("id_type")[2], ["3", "3 - Pasaporte o ID tributaria"]);
+      const choose = async (id: string, value: string) => {
+        const select = view.host.querySelector<HTMLSelectElement>(`#fiscal-declaration-${id}`)!;
+        await act(async () => { select.value = value; select.dispatchEvent(new Event("change", { bubbles: true })); });
+      };
+      await choose(name, codes[1]);
+      if (form === "607") await choose("id_type", "3");
+      await view.save();
+      const declaration = (view.writes.at(-1)?.input as { dgii: { declaration: Record<string, unknown> } }).dgii.declaration;
+      assert.equal(declaration[name], codes[1]);
+      if (form === "607") assert.equal(declaration.id_type, "3");
     } finally { await view.dispose(); }
   });
 }
