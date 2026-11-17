@@ -2,12 +2,13 @@
 
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ChevronLeft, Maximize2, Minimize2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useModalSurface } from "@/components/layout/useModalSurface";
-import { focusableWithin, nextFocusIndex } from "@/components/layout/overlayFocus";
+import { FOCUSABLE_SELECTOR, focusableWithin, nextFocusIndex } from "@/components/layout/overlayFocus";
+import { hasOpenOverlay } from "@/components/layout/overlayStack";
 import BottomSheet, { type SheetSnap } from "@/components/ui/BottomSheet";
 import { useSheetStack } from "@/components/ui/sheetStack";
 import styles from "./adaptive-panel.module.css";
@@ -94,8 +95,9 @@ export default function AdaptivePanel({
   dismissible?: boolean;
   /**
    * False for a record beside its list: no overlay, no focus trap, and the
-   * page stays usable. Escape inside it and its close control still close it.
-   * Only the side drawer has this mode; a bottom sheet is always modal.
+   * page stays usable. A click on the page beside it, Escape and its close
+   * control still close it. Only the side drawer has this mode; a bottom
+   * sheet is always modal.
    */
   modal?: boolean;
   width?: AdaptivePanelWidth;
@@ -217,10 +219,14 @@ function ModalDrawer(props: DrawerProps & StackPlace) {
   );
 }
 
-/** The page beside it keeps its clicks and its Tab order; the owner returns focus on close. */
+/**
+ * The page beside it keeps its Tab order and its controls: a row beside it swaps the record. A click
+ * on the page itself, Escape and the X close it, all through the owner's `onClose`, which may ask first.
+ */
 function TrayDrawer(props: DrawerProps & StackPlace) {
-  const { onClose, dismissible, initialFocusRef, drawn } = props;
+  const { panelRef, onClose, dismissible, initialFocusRef, returnFocusRef, drawn } = props;
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const markInside = useTrayDismiss({ panelRef, onClose: dismissible ? onClose : null, returnFocusRef });
   useEffect(() => {
     (initialFocusRef?.current ?? titleRef.current)?.focus();
   }, [initialFocusRef]);
@@ -231,15 +237,69 @@ function TrayDrawer(props: DrawerProps & StackPlace) {
       hidden={!drawn}
       className="fixed inset-y-0 right-0 z-[70]"
       role="region"
+      onPointerDownCapture={markInside}
       onKeyDown={(event) => {
-        if (event.defaultPrevented) return;
-        if (event.key === "Tab" && props.width === "dossier") holdTabInside(event, titleRef.current);
-        if (event.key !== "Escape" || !dismissible) return;
-        event.preventDefault();
-        onClose();
+        if (!event.defaultPrevented && event.key === "Tab" && props.width === "dossier") holdTabInside(event, titleRef.current);
       }}
     />
   );
+}
+
+/** A press on one of these does its own job beside the tray (a row swaps the record), so it does not close it. */
+const OWN_JOB = [
+  "a[href]", "button", "input", "select", "textarea", "summary", "label",
+  "[contenteditable]:not([contenteditable='false'])", "[tabindex]:not([tabindex='-1'])", "tr[tabindex]",
+  ...["button", "link", "tab", "option", "menuitem", "checkbox", "radio", "switch", "row"].map((role) => `[role='${role}']`),
+].join(",");
+
+function lostFocus(): boolean {
+  const active = document.activeElement;
+  return !(active instanceof HTMLElement) || active === document.body || !active.matches(FOCUSABLE_SELECTOR);
+}
+
+/**
+ * Escape and a click on the page close the tray unless something nearer takes them: a layer above it,
+ * a handler that claimed the key, or a control the press landed on. Window listeners run after the
+ * page's own, so a claimed Escape is already marked. On close, focus goes back to `returnFocusRef`,
+ * else to what had it when the tray opened, unless the person has since put it on another control.
+ */
+function useTrayDismiss({ panelRef, onClose, returnFocusRef }: { panelRef: RefObject<HTMLDivElement | null>; onClose: (() => void) | null; returnFocusRef?: RefObject<HTMLElement | null> }) {
+  const close = useRef(onClose);
+  useLayoutEffect(() => { close.current = onClose; });
+  const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
+  const pressedOutside = useRef(false);
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      pressedOutside.current = event.button === 0 && !hasOpenOverlay() && !!target && !panelRef.current?.contains(target) && !target.closest(OWN_JOB);
+    };
+    const onClick = (event: MouseEvent) => {
+      const outside = pressedOutside.current;
+      pressedOutside.current = false;
+      if (!outside || event.defaultPrevented || panelRef.current?.contains(event.target as Node) || window.getSelection()?.isCollapsed === false) return;
+      close.current?.();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || hasOpenOverlay() || !close.current) return;
+      event.preventDefault();
+      close.current();
+    };
+    window.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("click", onClick);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("click", onClick);
+      window.removeEventListener("keydown", onKeyDown);
+      if (!lostFocus()) return;
+      // Read at close: the owner names the row that is open now, which may not be the one that opened the tray.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const target = [returnFocusRef?.current, opener].find((element): element is HTMLElement => element instanceof HTMLElement && element.isConnected);
+      target?.focus();
+    };
+  }, [opener, panelRef, returnFocusRef]);
+  // React carries a press inside a menu the tray portals elsewhere back through the tray, so it counts as inside.
+  return () => { pressedOutside.current = false; };
 }
 
 /**
@@ -282,12 +342,14 @@ function DrawerPanel({
   hidden,
   titleRef,
   onKeyDown,
+  onPointerDownCapture,
 }: DrawerProps & StackPlace & {
   className: string;
   role: "dialog" | "region";
   hidden?: boolean;
   titleRef?: React.RefObject<HTMLHeadingElement | null>;
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
+  onPointerDownCapture?: React.PointerEventHandler<HTMLDivElement>;
 }) {
   const bounds = expansion?.expanded ? EXPANDED_WIDTH : DRAWER_WIDTH[width];
   return (
@@ -301,6 +363,7 @@ function DrawerPanel({
       data-expanded={expansion ? expansion.expanded : undefined}
       hidden={hidden}
       onKeyDown={onKeyDown}
+      onPointerDownCapture={onPointerDownCapture}
       style={{ width: `min(${bounds.preferred}px, ${bounds.maxVw}vw)`, minWidth: `${bounds.min}px` }}
       className={`${className} ${styles.dossier} flex flex-col border-l border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1b1d20] ${hasBelow ? "" : "cuadrao-side-drawer-enter"}`}
     >
