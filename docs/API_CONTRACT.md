@@ -10329,6 +10329,11 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
+- Each `ReceiptSummary` carries `uploaded_by`, the person who uploaded a web
+  upload, as `{display_name, email, shown_as}` named live for the reader by
+  the same rule as `personal_marked_by`. It comes from the first applied
+  `receipt_upload` ledger row for the receipt. It is null for a WhatsApp or
+  email arrival, and null where no ledger is kept (the in-memory app).
 - Duplicates never record money twice. Uploading the same bytes again, from
   any entry point, answers with the receipt already saved and `replayed:
   true`; nothing new is stored. A second document whose read merchant, date,
