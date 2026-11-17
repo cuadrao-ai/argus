@@ -1,5 +1,3 @@
-"""606 workbook labels stay readable without changing their two-digit codes."""
-
 from dataclasses import replace
 
 import pytest

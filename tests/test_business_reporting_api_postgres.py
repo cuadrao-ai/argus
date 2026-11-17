@@ -220,7 +220,7 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
         "0.00",
         "01",
     )
-    official[2] = "02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS "
+    official[2] = "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS"
     official[22] = "01 - EFECTIVO"
     official[5:7] = [official[5][:6], official[5][6:], official[6][:6], official[6][6:]]
     assert written[1:] == [official]
