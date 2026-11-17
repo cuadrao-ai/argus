@@ -12,12 +12,12 @@ import ReceiptSourcePreview from "../ReceiptSourcePreview";
 import styles from "../transacciones/records-annotations-preview.module.css";
 
 function OriginalContent({ receipt, close }: { receipt: ReceiptSummary; close: () => void }) {
-  return <div className={styles.content} onClick={event => { event.stopPropagation(); if ((event.target as HTMLElement).closest('[data-testid="receipt-see-email"],[data-testid="receipt-see-first-email"]')) close(); }}><ReceiptSourcePreview detail={receipt} initialExpanded /></div>;
+  return <div className={styles.content} onClick={event => { if ((event.target as HTMLElement).closest('[data-testid="receipt-see-email"],[data-testid="receipt-see-first-email"]')) close(); }}><ReceiptSourcePreview detail={receipt} initialExpanded /></div>;
 }
 
 function DesktopOriginal({ receipt, close, returnFocusRef }: { receipt: ReceiptSummary; close: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
   const { t } = useTranslation();
-  return <div onClick={event => event.stopPropagation()}><AdaptivePanel titleClassName="break-all" title={receipt.filename || t("business.review.source")} closeLabel={t("common.close")} onClose={close} width="lg" returnFocusRef={returnFocusRef}><OriginalContent receipt={receipt} close={close} /></AdaptivePanel></div>;
+  return <AdaptivePanel titleClassName="break-all" title={receipt.filename || t("business.review.source")} closeLabel={t("common.close")} onClose={close} width="lg" returnFocusRef={returnFocusRef}><OriginalContent receipt={receipt} close={close} /></AdaptivePanel>;
 }
 
 export default function ReceptionOriginal({ receipt }: { receipt: ReceiptSummary }) {
@@ -30,6 +30,7 @@ export default function ReceptionOriginal({ receipt }: { receipt: ReceiptSummary
   const close = () => setOpen(false);
   return <>
     <Tooltip content={name} side="top"><button ref={trigger} type="button" className={styles.icon} data-testid="reception-original" aria-label={t("business.reception_preview.open_file", { name })} aria-haspopup="dialog" onClick={() => setOpen(true)}><Icon size={18} aria-hidden="true" /></button></Tooltip>
-    {open ? phone ? <BottomSheet isOpen onClose={close} title={name} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen><OriginalContent receipt={receipt} close={close} /></BottomSheet> : <DesktopOriginal receipt={receipt} close={close} returnFocusRef={trigger} /> : null}
+    {/* The sheet is portalled but React carries its clicks up through the row, which would open the record behind it. */}
+    {open ? <span onClick={event => event.stopPropagation()}>{phone ? <BottomSheet isOpen onClose={close} title={name} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen><OriginalContent receipt={receipt} close={close} /></BottomSheet> : <DesktopOriginal receipt={receipt} close={close} returnFocusRef={trigger} />}</span> : null}
   </>;
 }

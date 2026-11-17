@@ -76,9 +76,9 @@ function RecordContent({ panel, preview }: { panel: RecordPanel; preview?: Recor
 
 /**
  * A record on a desktop: beside Registros, which it came from, or in the wide dossier over the
- * Bandeja. The tray is not modal:
- * a click on another row swaps the record, and closing returns to the list
- * with focus on the row that was open.
+ * Bandeja. The tray is not modal: a click on another row swaps the record. AdaptivePanel closes it
+ * and puts focus back on the row that was open; the workspace's panel guard asks first while the
+ * record holds an unsaved edit.
  */
 function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: RecordPanel; list: RecordList; listRef: RefObject<HTMLDivElement | null>; returnFocusRef: RefObject<HTMLElement | null>; preview?: RecordRow }) {
   const { t } = useTranslation();
@@ -109,6 +109,7 @@ function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: 
       headerActions={receiptHeader ? <div ref={setHeaderActions} data-header-actions="" className="flex items-center empty:hidden" /> : undefined}
       closeLabel={t("common.close", "Close")}
       onClose={close}
+      returnFocusRef={returnFocusRef}
       footer={<div ref={setFooter} data-footer-slot="" />}
     >
       <RecordTrayContext.Provider value={tray}>
@@ -154,13 +155,7 @@ export default function BusinessPanel() {
     return () => abort.abort();
   }, [glance, isBelowDesktop, previewEnabled, revision, scope]);
   const listRef = useRef<HTMLDivElement>(null);
-  // The list is inert while a dossier covers it, so focus goes back to its row once the tray has gone.
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    const target = returnFocusRef.current;
-    returnFocusRef.current = null;
-    if (target?.isConnected) target.focus();
-  }, [panel]);
   if (records.closed) {
     return (
       <div className={`flex w-full justify-center pb-6 ${COLUMN.reading}`}>

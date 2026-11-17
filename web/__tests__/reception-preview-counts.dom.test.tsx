@@ -567,3 +567,17 @@ test("Bandeja keeps a hidden column, a reorder and the row height on screen when
     Storage.prototype.setItem = setItem;
   }
 });
+
+test("on a phone the original covers the page: a tap on its header opens nothing behind it, and its X closes it", async () => {
+  const page = await mount({ width: 390 });
+  const file = page.row("Recibo con problema")!.querySelector<HTMLButtonElement>('[data-testid="reception-original"]')!;
+  await page.act(async () => file.click());
+  const sheet = () => document.querySelector<HTMLElement>('[role="dialog"]');
+  assert.ok(sheet(), "the original opens as a sheet");
+  await page.act(async () => sheet()!.querySelector("h2")!.click());
+  assert.deepEqual(page.opened, [], "the row under the sheet did not open");
+  assert.ok(sheet(), "the sheet stays open");
+  await page.act(async () => sheet()!.querySelector<HTMLButtonElement>('button[aria-label="Cerrar"]')!.click());
+  assert.equal(sheet(), null);
+  assert.deepEqual(page.opened, [], "closing opens nothing either");
+});

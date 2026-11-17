@@ -47,7 +47,7 @@ export function TransaccionesTray({ controller, movement, phone, returnFocusRef 
       snaps={["full"]}
       title={t("business.transactions.tray.title")}
       closeLabel={t("common.close", "Cerrar")}
-      onClose={() => { returnFocusRef.current?.focus(); controller.close(); }}
+      onClose={controller.close}
       returnFocusRef={returnFocusRef}
       initialFocusRef={phone ? undefined : returnFocusRef}
       footer={footer}
