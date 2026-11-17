@@ -2348,6 +2348,7 @@
         "tag_verified": "Verified"
       },
       "load_failed": "We couldn't load the tax fields.",
+      "no_withholdings": "No withholdings",
       "save_failed": "We couldn't confirm the tax details were saved. Check the current record before you approve.",
       "actual_refund": "A refund was received…",
       "option": {
