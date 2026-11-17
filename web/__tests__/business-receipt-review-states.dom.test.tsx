@@ -258,6 +258,95 @@ test("a read that passed its deadline says the read did not finish, why, and rea
   }
 });
 
+const owner: GrantedSpace = { ...client, role: "owner", capabilities: ["read", "prepare", "approve"] };
+
+/** A failed read opened by the owner, with the server's delete answer and a recording delete. */
+async function openFailed(state: Partial<ReceiptDetail>, chosen: GrantedSpace = owner) {
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+  const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
+  const base = await createFixtureBusinessDataSource().receipt("rcpt-blurry");
+  const detail = { ...base, ...notReceipt(), ...failedRead, delete_available: true, ...state } as ReceiptDetail;
+  const deleted: string[] = [];
+  let reloads = 0;
+  const source = {
+    ...liveBusinessDataSource,
+    receipt: async () => detail,
+    receiptSource: async () => new Blob([], { type: "image/jpeg" }),
+    prepareReceipt: async () => undefined,
+    deleteDocument: async (id: string) => { deleted.push(id); return { document_id: id, deleted: true }; },
+  };
+  const page = await render(() => <BusinessConsentTestProvider accepted><ReceiptReviewPanel target={{ kind: "receipt", id: detail.id }} /></BusinessConsentTestProvider>, { source, chosen, reload: () => { reloads += 1; } } as Partial<BusinessContextValue>);
+  const notice = () => page.host.querySelector('[data-testid="receipt-attention"]')!;
+  return { page, deleted, id: detail.id, notice, labels: () => [...notice().querySelectorAll("button")].map((button) => button.textContent), reloads: () => reloads };
+}
+
+for (const errorCode of ["unreadable_document", "encrypted_document"]) {
+  test(`an unreadable read (${errorCode}) asks for a clearer copy and offers Eliminar documento`, async () => {
+    const { page, labels, notice } = await openFailed({ attention: "unreadable", error_code: errorCode });
+    try {
+      assert.equal(notice().querySelector("span.font-medium")?.textContent, "No pudimos leer este archivo");
+      assert.match(notice().textContent ?? "", /Sube una foto más clara del recibo completo/);
+      assert.equal(/No se pudo leer/.test(notice().textContent ?? ""), false, "the shared short word gives way to the step");
+      assert.deepEqual(labels(), ["Subir otro archivo", "Eliminar documento"]);
+      await page.act(async () => page.button("Subir otro archivo")!.click());
+      assert.deepEqual(page.uploads, ["upload"]);
+    } finally {
+      await page.close();
+    }
+  });
+}
+
+test("Eliminar documento on an unreadable read confirms, deletes it and returns to the Bandeja", async () => {
+  const { page, deleted, id, reloads, notice } = await openFailed({ attention: "unreadable", error_code: "unreadable_document" });
+  try {
+    const discard = [...notice().querySelectorAll("button")].find((button) => button.textContent === "Eliminar documento");
+    assert.ok(discard, "the card itself offers it");
+    await page.act(async () => discard.click());
+    const confirm = document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]');
+    assert.equal(confirm?.textContent, "Eliminar", "a confirm step names the delete");
+    assert.deepEqual(deleted, [], "nothing leaves before the person confirms");
+    await page.act(async () => confirm!.click());
+    await page.settle();
+    assert.deepEqual(deleted, [id]);
+    assert.ok(reloads() > 0, "the Bandeja counts are read again");
+    assert.deepEqual(page.opened.at(-1), { kind: "inbox" });
+  } finally {
+    await page.close();
+  }
+});
+
+test("an unreadable read offers no Eliminar the server or the grant did not allow", async () => {
+  for (const [state, chosen] of [[{ delete_available: false }, owner], [{}, client]] as const) {
+    const { page, labels } = await openFailed({ attention: "unreadable", error_code: "unreadable_document", ...state }, chosen);
+    try {
+      assert.deepEqual(labels(), ["Subir otro archivo"]);
+    } finally {
+      await page.close();
+    }
+  }
+});
+
+test("other reasons keep their words and their one way out, with no Eliminar on the card", async () => {
+  const cases = [
+    [{ attention: "read_deadline_passed", error_code: "document_read_deadline_passed", preparable: true }, "La lectura no terminó", ["Leer de nuevo"]],
+    [{ attention: "ai_unavailable", error_code: "extraction_provider_failed", preparable: true }, null, ["Leer de nuevo"]],
+    [{ attention: "not_a_receipt", error_code: "not_a_receipt" }, "Esto no parece un recibo.", ["Subir otro archivo"]],
+  ] as const;
+  for (const [state, title, buttons] of cases) {
+    const { page, notice, labels } = await openFailed(state);
+    try {
+      assert.equal(notice().querySelector("span.font-medium")?.textContent ?? null, title, state.attention);
+      if (!title) assert.equal(notice().querySelector("p")?.textContent, "No se pudo leer");
+      if (state.attention === "read_deadline_passed") assert.match(notice().textContent ?? "", /El servicio de lectura no estuvo disponible\. Puedes leerlo de nuevo\./);
+      assert.deepEqual(labels(), buttons, state.attention);
+    } finally {
+      await page.close();
+    }
+  }
+});
+
 test("a read that stopped keeps its one short line and its Leer de nuevo", async () => {
   const { page, prepared, id, notice } = await openRetryable({ attention: "interrupted", error_code: "business_preparation_binding_missing" });
   try {
