@@ -30,7 +30,9 @@ class Service:
             "pending",
             business_name="Taller Luna",
             owner_name="Ana",
+            owner_shown_as="name",
             target_name="Rosa",
+            target_shown_as="name",
             role="target",
         )
 

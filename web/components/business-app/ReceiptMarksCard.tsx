@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { personName } from "@/lib/person-name";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
 import { primaryButtonClass, quietButtonClass, RecordMarks, recordFiscalMark, secondaryButtonClass } from "./business-ui";
@@ -28,7 +29,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bar
   // The server reads the marks; the card shows them as given.
   const personal = dossier.personal === true;
   const inclusion = dossier.include_606 ?? null;
-  const answeredBy = dossier.include_606_by ?? "";
+  const answeredBy = dossier.include_606_by ? personName(t, dossier.include_606_by) : "";
   const markedBy = dossier.personal_marked_by ?? null;
 
   // A failed change says so here, beside the work, with Reintentar.

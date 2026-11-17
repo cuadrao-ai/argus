@@ -57,6 +57,7 @@ class Service:
                     {
                         "grant_id": str(uuid4()),
                         "name": "Rosa",
+                        "shown_as": "name",
                         "eligible": False,
                         "reason": "not_editor",
                     }

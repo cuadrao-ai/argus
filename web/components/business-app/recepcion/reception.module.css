@@ -107,15 +107,6 @@
 }
 @media (prefers-reduced-motion:reduce) { .row { transition:none; } .row[data-arrived=true] { animation:none; background:var(--arrival-wash); } }
 
-/* The locked status pairs, softer than Registros' workflow tags. Readiness stays neutral. */
-.tagAttention { --workflow-ink:#9e2f39; background:#f6dfe0; }
-.tagReading { --workflow-ink:#735c14; background:#f2e8c9; }
-.tagApproved { --workflow-ink:#2f5a49; background:#e3ebe1; }
-.tagNeutral { --workflow-ink:var(--muted); background:color-mix(in srgb,var(--fg) 7%,transparent); }
-:global(.dark) .tagAttention { --workflow-ink:#ec9aa0; background:#4a2a2f; }
-:global(.dark) .tagReading { --workflow-ink:#f6e7c1; background:#49412a; }
-:global(.dark) .tagApproved { --workflow-ink:#8fcbb0; background:#293b32; }
-
 .addSplit { display:flex; align-items:stretch; flex-shrink:0; }
 .forwardMenu { position:fixed; z-index:90; width:340px; max-width:calc(100vw - 32px); border:1px solid color-mix(in srgb,var(--fg) 14%,transparent); border-radius:16px; background:var(--cuadrao-menu-surface); color:var(--fg); padding:6px; }
 .forwardInfo { padding:12px; font-size:13px; line-height:1.5; color:color-mix(in srgb,var(--fg) 66%,transparent); }

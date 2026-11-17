@@ -8,6 +8,7 @@ import { businessLifecycleErrorKey } from "@/lib/business-lifecycle-api";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import { setChosenGrant } from "@/lib/business-grant";
 import { serverRequestReference } from "@/lib/failure-screen";
+import { personName } from "@/lib/person-name";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import BusinessTransferDialog, { useBusinessTransferCopy, type BusinessTransferView } from "./BusinessTransferDialog";
@@ -70,10 +71,10 @@ export default function BusinessTransferEntry({ transferId }: { transferId: stri
   };
   let view: BusinessTransferView;
   if (transfer.status === "pending") view = transfer.role === "owner"
-    ? { kind: "pending", expiresAt: transfer.expires_at, targetName: transfer.target_name, onWithdraw: () => { void execute("withdraw"); } }
-    : { kind: "recipient", expiresAt: transfer.expires_at, ownerName: transfer.owner_name, onAccept: () => { void execute("accept"); }, onDecline: () => { void execute("decline"); } };
+    ? { kind: "pending", expiresAt: transfer.expires_at, targetName: personName(t, { display_name: transfer.target_name, email: transfer.target_email, shown_as: transfer.target_shown_as }), onWithdraw: () => { void execute("withdraw"); } }
+    : { kind: "recipient", expiresAt: transfer.expires_at, ownerName: personName(t, { display_name: transfer.owner_name, email: transfer.owner_email, shown_as: transfer.owner_shown_as }), onAccept: () => { void execute("accept"); }, onDecline: () => { void execute("decline"); } };
   else if (transfer.status === "declined" && transfer.role === "target") view = { kind: "declinedRecipient" };
-  else if (transfer.status === "expired" || transfer.status === "declined") view = { kind: transfer.status, targetName: transfer.target_name };
+  else if (transfer.status === "expired" || transfer.status === "declined") view = { kind: transfer.status, targetName: personName(t, { display_name: transfer.target_name, email: transfer.target_email, shown_as: transfer.target_shown_as }) };
   else view = { kind: transfer.status };
   return <BusinessTransferDialog businessName={formatBusinessName(transfer.business_name, t("business.overview.title", "My business"))} copy={copy} view={view} state={command} onDismiss={dismiss} />;
 }

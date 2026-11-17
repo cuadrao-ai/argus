@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
+import { personName } from "@/lib/person-name";
 import { dueDistance } from "@/lib/business-month-close";
 import { formatRelativeTime, todayIso } from "../business-format";
 import { PurgeDocumentButton, RestoreDocumentButton } from "../DocumentDeleteControls";
@@ -31,7 +32,7 @@ export default function ReceptionDeletedRow({ row, title, openPanel }: { row: Re
   return <li className={styles.deletedRow} data-testid="deleted-document-row">
     <ReceptionCutText text={title} className={styles.deletedName} />
     <span className={`${styles.deletedMeta} ${styles.deletedPrevious}`}>{t(`business.document_delete.previous.${deletion.previous_state.group}`)}</span>
-    <span className={styles.deletedActor} data-testid="deleted-actor"><ReceptionCutText text={deletion.actor.display_name} className={styles.deletedActorName} /><time className={styles.deletedMeta} dateTime={deletion.at}>{formatRelativeTime(deletion.at, i18n.resolvedLanguage ?? i18n.language)}</time></span>
+    <span className={styles.deletedActor} data-testid="deleted-actor"><ReceptionCutText text={personName(t, deletion.actor)} className={styles.deletedActorName} /><time className={styles.deletedMeta} dateTime={deletion.at}>{formatRelativeTime(deletion.at, i18n.resolvedLanguage ?? i18n.language)}</time></span>
     <time className={styles.deletedMeta} dateTime={deletion.purge_at} data-testid="purge-countdown" data-last-day={days === 0}><span className={styles.purgeLead}>{t("business.document_delete.columns.purge")} </span>{days > 0 ? t("business.document_delete.purge_in", { count: days }) : t("business.document_delete.purge_today")}</time>
     <span className={styles.deletedActions}><button type="button" className={styles.viewAction} onClick={() => openPanel(target)}>{t("business.document_delete.view")}</button>{document.restore_available ? <RestoreDocumentButton id={row.id} target={target} className={styles.restoreAction} /> : null}{document.restore_available ? <PurgeDocumentButton target={rowDeleteTarget(row, "", title)} className={styles.trashAction} /> : null}</span>
   </li>;

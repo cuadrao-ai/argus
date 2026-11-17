@@ -216,10 +216,7 @@ def _change(
             standing = draft_standings(tx, (event,))[event.id]
             group = "attention" if listo_reason(standing) else "listo"
         marker = DeletedDocument(
-            actor=DeletingActor(
-                actor_id=tx.context.actor.actor_id,
-                display_name=tx.authorization.provenance.display_name,
-            ),
+            actor=DeletingActor(actor_id=tx.context.actor.actor_id),
             at=datetime.now(timezone.utc),
             key=key,
             previous_state=PreviousDocumentState(

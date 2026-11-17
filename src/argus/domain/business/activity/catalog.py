@@ -22,7 +22,7 @@ from argus.domain.business.contracts.activity import (
     Membership,
     ObjectKind,
 )
-from argus.domain.business.contracts.authority import ActorKind
+from argus.domain.business.contracts.authority import ActorKind, PersonShown
 from argus.domain.business.roles import BusinessRole
 
 Audience = Literal["member", "manager"]
@@ -37,8 +37,13 @@ class EventRow(TypedDict):
     created_at: datetime
     actor_key: str | None
     actor_kind: ActorKind | None
-    #: ``None`` when the source stored no name for a recorded actor.
+    #: The person as the reader reads them now (``people``), filled live,
+    #: never from the ledger; all null for automated work.
     display_name: str | None
+    email: str | None
+    shown_as: PersonShown | None
+    #: The id names a profile or a departure; else the row names no one.
+    known: bool
     membership: Membership | None
     action: Any
     command: Any
@@ -221,10 +226,12 @@ def with_labels(
 
 
 def _actor(row: EventRow) -> ActivityActor | None:
-    if row["display_name"] is None or row["actor_kind"] is None:
+    if not row["known"] or row["actor_kind"] is None:
         return None
     return ActivityActor(
         display_name=row["display_name"],
+        email=row["email"],
+        shown_as=row["shown_as"],
         kind=row["actor_kind"],
         id=row["actor_key"],
         membership=row["membership"],

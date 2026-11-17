@@ -172,7 +172,9 @@ def test_deleted_document_actor_is_anonymous_after_owner_account_departure(
                 assert view["bandeja_group"]["group"] == "eliminados"
             assert view["deleted"]["actor"] == {
                 "actor_id": alias,
-                "display_name": "Exmiembro",
+                "display_name": None,
+                "email": None,
+                "shown_as": "former",
             }
             assert former not in response.text and former_name not in response.text
         feed = read_activity(
@@ -184,7 +186,7 @@ def test_deleted_document_actor_is_anonymous_after_owner_account_departure(
             if item.action in ("delete_document", "restore_document")
         ]
         assert len(history) == 3
-        assert all(item.actor.display_name == "Exmiembro" for item in history)
+        assert all(item.actor.shown_as == "former" for item in history)
         assert former not in json.dumps(feed.model_dump(mode="json"))
         assert documents._act(client, target, "restore").status_code == 200
     finally:

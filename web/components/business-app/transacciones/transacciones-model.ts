@@ -1,3 +1,4 @@
+import type { PersonName } from "@/lib/person-name";
 import { openItemsHeaderCurrency } from "@/lib/business-month-close";
 
 /**
@@ -125,7 +126,7 @@ export type RecordRow = Readonly<{
   /** Its file: true shows the receipt icon, false nothing, null unknown. */
   hasProof: boolean | null;
   /** A personal gasto stays listed but out of Salidas, so the row says so; the fiscal mark is the same one Gastos showed. */
-  marks: Readonly<{ personal: boolean; markedBy: string | null; fiscal: "sin_comprobante" | "missing_ncf" | null }>;
+  marks: Readonly<{ personal: boolean; markedBy: PersonName | null; fiscal: "sin_comprobante" | "missing_ncf" | null }>;
   /** Null while the record has no screen of its own. */
   opens: RecordTarget | null;
 }>;
