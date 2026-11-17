@@ -42,9 +42,12 @@ export async function mount(overrides: (fixture: BusinessDataSource) => Partial<
     },
     ...overrides(fixture),
   };
+  const { useRunReviewShortcut } = await import("@/components/business-app/BusinessReviewShortcuts");
   let api: ReturnType<typeof useBusiness> | null = null;
+  let shortcut: ReturnType<typeof useRunReviewShortcut> = () => false;
   function Probe() {
     api = useBusiness();
+    shortcut = useRunReviewShortcut();
     return <BusinessPanel />;
   }
   const host = document.createElement("div");
@@ -82,7 +85,9 @@ export async function mount(overrides: (fixture: BusinessDataSource) => Partial<
       title: page?.querySelector("#receipt-review-title")?.textContent ?? null,
     };
   };
-  return { act, root, host, wait, open, frame, source, i18n, api: () => api! };
+  /** Runs a review shortcut the way the workspace's key handler does; false when the page offers none. */
+  const runShortcut = (id: Parameters<typeof shortcut>[0]) => shortcut(id);
+  return { act, root, host, wait, open, frame, source, i18n, api: () => api!, runShortcut };
 }
 
 export function button(host: Element, text: string) {

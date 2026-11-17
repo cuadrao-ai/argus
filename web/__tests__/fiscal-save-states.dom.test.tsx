@@ -11,7 +11,7 @@ type ReviewFiscal = BusinessDataSource["reviewFiscal"];
 async function fiscalPane(answer: (fixture: BusinessDataSource) => ReviewFiscal) {
   const page = await setup("fiscal", () => undefined, (fixture) => ({ reviewFiscal: answer(fixture) }));
   const pane = () => page.host.querySelector<HTMLElement>('[data-testid="fiscal-declaration"]')!;
-  const save = () => button(pane(), "Guardar revisión fiscal");
+  const save = () => button(pane(), "Guardar");
   const cancel = () => button(pane(), "Cancelar");
   /** What sits in the pane before its buttons: a note above them would push them down. */
   const beforeButtons = () => {

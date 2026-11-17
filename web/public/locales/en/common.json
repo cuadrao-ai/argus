@@ -2376,7 +2376,7 @@
       "refund_candidate_refused": "That purchase can't be used for this refund. Pick another one.",
       "refund_candidates_none": "There are no approved purchases to pick.",
       "suggested": "Suggested",
-      "save": "Save tax review",
+      "save": "Save",
       "approve_income": "Approve income",
       "approve_refund": "Approve refund",
       "recorded_income": "Income was recorded after revision {{version}} was approved.",
