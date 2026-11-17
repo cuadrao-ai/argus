@@ -194,9 +194,11 @@ def test_rnc_snapshot_copies_entries_and_preserves_misses():
     [
         *(("606", "income_withholding_type", f"{n:02}") for n in range(1, 10)),
         *(("607", "income_type", str(n)) for n in range(1, 7)),
+        *(("606", "id_type", str(n)) for n in range(1, 3)),
+        *(("607", "id_type", str(n)) for n in range(1, 4)),
     ],
 )
-def test_dgii_file_writes_the_withholding_and_income_codes_without_names(
+def test_dgii_file_writes_the_withholding_income_and_id_codes_without_names(
     form, name, code
 ):
     from argus.domain.business.dgii_columns import COLUMNS

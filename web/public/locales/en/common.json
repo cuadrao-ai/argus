@@ -2365,9 +2365,9 @@
           "11": "Insurance expenses"
         },
         "id_type": {
-          "1": "1 - RNC",
-          "2": "2 - Cédula",
-          "3": "3 - Passport or tax ID"
+          "1": "RNC",
+          "2": "Cédula",
+          "3": "Passport or tax ID"
         },
         "income_type": {
           "1": "Operating income (non-financial)",
