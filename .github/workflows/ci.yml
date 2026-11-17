@@ -321,7 +321,8 @@ jobs:
             e2e/receipt-navigation-scope.spec.ts \
             e2e/receipt-pdf-viewer.spec.ts \
             e2e/record-tray-one-screen.spec.ts \
-            e2e/records-export-notices.spec.ts
+            e2e/records-export-notices.spec.ts \
+            e2e/records-table-hugs-rows.spec.ts
           PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
 
       - name: Verify auth button labels stay readable in every state
