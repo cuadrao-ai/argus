@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import time
+from threading import Event
 
 import pytest
 from argus.domain.market_data import assets
@@ -180,42 +180,42 @@ def test_asset_universe_cache_refreshes_when_provider_mode_changes(
 
 def test_live_asset_universe_loader_times_out_slow_provider_and_uses_fallback(
     monkeypatch,
+    mocker,
 ) -> None:
     monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "live_provider")
-    monkeypatch.setenv("ARGUS_ASSET_UNIVERSE_LOADER_TIMEOUT_SECONDS", "0.01")
+    monkeypatch.setenv("ARGUS_ASSET_UNIVERSE_LOADER_TIMEOUT_SECONDS", "1")
     assets.clear_asset_cache()
+    release_loader = Event()
+    timeout_warning = mocker.patch.object(assets.logger, "warning")
+    mocker.patch.object(
+        assets,
+        "_load_asset_from_alpaca_symbol",
+        side_effect=ValueError("asset_universe_unavailable"),
+    )
 
-    def slow_alpaca_loader() -> dict[str, ResolvedAsset]:
-        time.sleep(0.12)
-        return {
-            "AAPL": ResolvedAsset(
-                canonical_symbol="AAPL",
-                asset_class="equity",
-                name="Apple Inc.",
-                raw_symbol="AAPL",
-                provider="alpaca",
-            )
-        }
+    def slow_loader() -> dict[str, ResolvedAsset]:
+        release_loader.wait()
+        return {}
 
-    def kraken_loader() -> dict[str, ResolvedAsset]:
-        return {
-            "BTC": ResolvedAsset(
-                canonical_symbol="BTC",
-                asset_class="crypto",
-                name="Bitcoin / USD",
-                raw_symbol="BTC/USD",
-                provider="kraken",
-            )
-        }
+    fallback_asset = ResolvedAsset(
+        canonical_symbol="BTC",
+        asset_class="crypto",
+        name="Bitcoin / USD",
+        raw_symbol="BTC/USD",
+        provider="fallback_fixture",
+    )
 
-    monkeypatch.setattr(assets, "_load_assets_from_alpaca", slow_alpaca_loader)
-    monkeypatch.setattr(assets, "_load_assets_from_kraken", kraken_loader)
+    monkeypatch.setattr(assets, "_load_assets_from_alpaca", slow_loader)
+    monkeypatch.setattr(assets, "_load_assets_from_kraken", lambda: {"BTC": fallback_asset})
 
-    started = time.perf_counter()
-    resolved = assets.resolve_asset("BTC")
-    duration = time.perf_counter() - started
+    try:
+        resolved = assets.resolve_asset("BTC")
 
-    assert resolved.canonical_symbol == "BTC"
-    assert duration < 0.08
-
-    assets.clear_asset_cache()
+        assert resolved == fallback_asset
+        timeout_warning.assert_called_once()
+        assert timeout_warning.call_args.kwargs["operation"] == "asset_universe"
+        assert timeout_warning.call_args.kwargs["timeout_seconds"] == 1.0
+    finally:
+        # Release the timed-out worker only after checking the fallback result.
+        release_loader.set()
+        assets.clear_asset_cache()
