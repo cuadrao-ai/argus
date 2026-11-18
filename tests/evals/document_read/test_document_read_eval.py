@@ -16,7 +16,11 @@ import pytest
 from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
 from argus.domain.business.fiscal_identity import rnc_check_digit_ok
 from argus.domain.ingestion.documents import extractor as reader
-from argus.domain.ingestion.documents.models import ExtractionBatch
+from argus.domain.ingestion.documents.dgii_qr import read_dgii_qr
+from argus.domain.ingestion.documents.models import (
+    DocumentExtractionError,
+    ExtractionBatch,
+)
 from PIL import Image
 
 from tests.evals.document_read import run_live, scoring, scripted
@@ -87,7 +91,14 @@ def samples() -> tuple[Sample, ...]:
 
 @pytest.fixture(scope="module")
 def prepared(samples: tuple[Sample, ...]) -> Prepared:
-    return prepare_set(samples)
+    documents = prepare_set(samples)
+    rejected = {
+        case_id: document.code
+        for case_id, document in documents.items()
+        if isinstance(document, DocumentExtractionError)
+    }
+    assert not rejected, f"this machine could not prepare {rejected}"
+    return documents
 
 
 @pytest.fixture(scope="module")
@@ -198,6 +209,18 @@ def test_every_photo_gets_an_answer_file(samples: tuple[Sample, ...], tmp_path) 
             (tmp_path / f"{sample.case.case_id}.expected.json").read_text()
         )
         assert set(answer["expected"]) == {field.name for field in fields(Expected)}
+
+
+def test_no_qr_answer_is_a_near_miss(samples: tuple[Sample, ...]) -> None:
+    """At half size every photo gives the same QR answer, so a pixel of
+    difference between two machines cannot change one."""
+
+    for sample in samples:
+        with Image.open(io.BytesIO(sample.image)) as photo:
+            half = io.BytesIO()
+            photo.resize((photo.width // 2, photo.height // 2)).save(half, "JPEG")
+        decoded = read_dgii_qr([half.getvalue()]) is not None
+        assert decoded == sample.expected.dgii_qr_readable, sample.case.case_id
 
 
 def test_qr_decode_is_measured_on_the_real_decoder(
