@@ -1,19 +1,22 @@
 """The DGII QR is decoded deterministically from the page images and only a
-link to DGII's own consultation pages counts. The two QR rows say whether
-one was there and whether it names what the read found; a mismatch is a row
-to review with both values, never an overwrite."""
+link to DGII's own consultation pages counts. What it carries replaces what
+the reader found; a value anyone else gave stays. The two QR rows say whether
+one was there and whether it names what the read or the record holds."""
 
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from uuid import uuid4
 
 import pytest
 from argus.domain.business.contracts.checks import DgiiQr
+from argus.domain.business.contracts.facts import BusinessFacts
 from argus.domain.ingestion.documents.dgii_qr import (
     fill_from_qr,
     parse_dgii_url,
     qr_checks,
     read_dgii_qr,
+    record_qr_checks,
     tipo_ecf_of,
     with_qr,
 )
@@ -35,6 +38,9 @@ from tests.dgii_qr_support import (
     qr_page_png,
     qr_pdf,
     qr_png,
+    small_soft_photo,
+    timbre_url,
+    washed_out_photo,
 )
 
 NOW = datetime(2026, 10, 12, 20, 0, tzinfo=timezone.utc)
@@ -241,75 +247,203 @@ def test_a_qr_without_an_xml_gets_a_verification_of_its_own():
     assert with_qr(None, None, READ, NOW) is None
 
 
-def test_fill_only_what_the_read_left_empty_and_name_the_source():
-    unknown = {
-        "state": "unknown",
-        "value": None,
-        "origin": "extracted",
-        "verified": False,
-        "source_ids": ["s"],
+@pytest.mark.parametrize("photo", [small_soft_photo, washed_out_photo])
+def test_a_code_the_plain_decode_misses_is_read_on_a_retry(photo, faker):  # noqa: ANN001
+    issued = date(2026, 11, 5)
+    url = timbre_url(faker, issued=issued)
+    qr = read_dgii_qr((photo(url),))
+    assert qr is not None
+    assert (qr.url, qr.fecha_emision) == (url, issued)
+    assert prepare_document(photo(url), "image/png").dgii_qr == qr
+
+
+@pytest.mark.parametrize("photo", [small_soft_photo, washed_out_photo])
+def test_a_retry_still_ignores_a_code_that_is_not_dgii(photo, faker):  # noqa: ANN001
+    assert read_dgii_qr((photo(f"https://{faker.domain_name()}/app?mesa=12"),)) is None
+    assert read_dgii_qr((blank_png((1600, 1200)),)) is None
+
+
+SOURCE = str(uuid4())
+UNKNOWN = {
+    "state": "unknown",
+    "value": None,
+    "origin": "extracted",
+    "verified": False,
+    "source_ids": [SOURCE],
+}
+DATED = DgiiQr.model_validate(
+    {**QR.model_dump(mode="json"), "fecha_emision": "2026-11-05"}
+)
+
+
+def known(value: object, origin: str = "extracted") -> dict:
+    return {**UNKNOWN, "state": "known", "value": value, "origin": origin}
+
+
+def read_facts(**fiscal: dict) -> dict:
+    """A read whose date, amount and RNC differ from the QR; its e-NCF agrees."""
+
+    return {
+        "amount": known("99.00"),
+        "occurred_on": known("2027-12-31"),
+        "fiscal": {"rnc": known("101000000"), "ecf": known(ENCF), **fiscal},
     }
-    known = lambda value: {**unknown, "state": "known", "value": value}  # noqa: E731
-    qr = DgiiQr.model_validate(
-        {**QR.model_dump(mode="json"), "fecha_emision": "2026-10-09"}
-    )
-    # Everything empty: filled from the QR, each with its origin and source.
-    facts = fill_from_qr(
+
+
+def merge(
+    facts: dict,
+    qr: DgiiQr | None = DATED,
+    source: object = SOURCE,
+    *,
+    fill_amount: bool = True,
+    fill_rnc: bool = True,
+) -> dict:
+    return fill_from_qr(facts, qr, source, fill_amount=fill_amount, fill_rnc=fill_rnc)
+
+
+def test_the_qr_fills_what_the_read_left_empty_and_names_the_source():
+    source = uuid4()
+    facts = merge(
         {
-            "amount": dict(unknown),
-            "occurred_on": dict(unknown),
-            "fiscal": {"rnc": dict(unknown), "ecf": dict(unknown)},
+            "amount": dict(UNKNOWN),
+            "occurred_on": dict(UNKNOWN),
+            "fiscal": {"rnc": dict(UNKNOWN), "ecf": dict(UNKNOWN)},
         },
-        qr,
-        "att-1",
-        fill_amount=True,
+        source=source,
     )
     assert facts["amount"] == {
         "state": "known",
         "value": TOTAL,
         "origin": "qr_decoded",
         "verified": False,
-        "source_ids": ["att-1"],
+        "source_ids": [str(source)],
     }
-    assert facts["occurred_on"]["value"] == "2026-10-09"
+    assert facts["occurred_on"]["value"] == "2026-11-05"
     assert (facts["fiscal"]["rnc"]["value"], facts["fiscal"]["ecf"]["origin"]) == (
         RNC,
         "qr_decoded",
     )
-    # The read's values stay, equal or not: a mismatch is never an overwrite.
-    facts = fill_from_qr(
-        {
-            "amount": known("99.00"),
-            "occurred_on": known("2026-01-01"),
-            "fiscal": {"rnc": known("101000000"), "ecf": known(ENCF)},
-        },
-        qr,
-        "att-1",
-        fill_amount=True,
+    assert merge({"amount": dict(UNKNOWN)}, None)["amount"]["state"] == "unknown"
+
+
+def test_the_qr_replaces_what_the_reader_found_and_keeps_what_agrees():
+    facts = merge(read_facts())
+    assert {
+        name: (fact["value"], fact["origin"])
+        for name, fact in (
+            ("amount", facts["amount"]),
+            ("occurred_on", facts["occurred_on"]),
+            ("rnc", facts["fiscal"]["rnc"]),
+            ("ecf", facts["fiscal"]["ecf"]),
+        )
+    } == {
+        "amount": (TOTAL, "qr_decoded"),
+        "occurred_on": ("2026-11-05", "qr_decoded"),
+        "rnc": (RNC, "qr_decoded"),
+        # The reader had the e-NCF right: its value and its origin stand.
+        "ecf": (ENCF, "extracted"),
+    }
+    # Several purchases: no one amount is the total, so the amount is left.
+    facts = merge(read_facts(), fill_amount=False)
+    assert (facts["amount"]["value"], facts["occurred_on"]["origin"]) == (
+        "99.00",
+        "qr_decoded",
     )
-    assert (
-        facts["amount"]["value"],
-        facts["fiscal"]["rnc"]["value"],
-        facts["amount"]["origin"],
-    ) == ("99.00", "101000000", "extracted")
-    # Several purchases: the amount is left for a person, the rest still fills.
-    facts = fill_from_qr(
-        {
-            "amount": dict(unknown),
-            "occurred_on": dict(unknown),
-            "fiscal": {"rnc": dict(unknown), "ecf": dict(unknown)},
-        },
-        qr,
-        "att-1",
-        fill_amount=False,
+    # A sale: the record's RNC is the client's, so the QR's issuer leaves it.
+    facts = merge(read_facts(), fill_rnc=False)
+    assert (facts["fiscal"]["rnc"]["value"], facts["fiscal"]["rnc"]["origin"]) == (
+        "101000000",
+        "extracted",
     )
-    assert (facts["amount"]["state"], facts["fiscal"]["rnc"]["state"]) == (
+
+
+@pytest.mark.parametrize("origin", ["member_set", "owner_stated", "matched"])
+def test_the_qr_never_replaces_a_value_the_reader_did_not_give(origin):  # noqa: ANN001
+    facts = read_facts(rnc=known("101000000", origin))
+    facts["occurred_on"] = known("2027-12-31", origin)
+    facts["amount"] = {**UNKNOWN, "origin": origin}
+    after = merge(facts)
+    assert (after["occurred_on"]["value"], after["occurred_on"]["origin"]) == (
+        "2027-12-31",
+        origin,
+    )
+    assert (after["fiscal"]["rnc"]["value"], after["amount"]["state"]) == (
+        "101000000",
         "unknown",
-        "known",
     )
-    assert (
-        fill_from_qr({"amount": dict(unknown)}, None, "att-1", fill_amount=True)[
-            "amount"
-        ]["state"]
-        == "unknown"
+
+
+def test_a_qr_value_the_fact_cannot_hold_leaves_the_read():
+    hostile = DATED.model_copy(update={"rnc_emisor": "000000000", "monto_total": "-5"})
+    facts = merge(read_facts(), hostile)
+    assert (facts["fiscal"]["rnc"]["value"], facts["amount"]["value"]) == (
+        "101000000",
+        "99.00",
     )
+    BusinessFacts.model_validate(facts)
+
+
+def test_a_disagreement_is_logged_by_field_name_and_never_by_value():
+    from loguru import logger
+
+    lines: list[str] = []
+    sink = logger.add(lines.append, format="{message}")
+    try:
+        facts = read_facts(rnc=known("101000000", "member_set"))
+        merge(facts)
+    finally:
+        logger.remove(sink)
+    [line] = [line for line in lines if "qr_over_read" in line]
+    assert "replaced=2" in line and "kept=1" in line
+    assert "amount" in line and "occurred_on" in line and "rnc" in line
+    for value in (RNC, TOTAL, "101000000", "99.00", "2026-11-05", "2027-12-31"):
+        assert value not in line
+
+
+def test_the_record_row_compares_what_the_record_holds_after_the_qr_won():
+    facts = BusinessFacts.model_validate(merge(read_facts()))
+    saved = record_qr_checks(
+        with_qr(None, DATED, None, NOW), DATED, facts, None, amount_is_total=True
+    )
+    row = by_name(saved.checks)["qr_matches_read"]
+    # Only the e-NCF still comes from the read; what the QR gave is not
+    # compared with itself, and nothing is left to review.
+    assert (row.state, row.code) == ("verified", None)
+    assert {k: v.model_dump() for k, v in row.read_vs_qr.items()} == {
+        "ecf": {"read": ENCF, "qr": ENCF}
+    }
+    assert [c.name for c in saved.checks] == [
+        "qr_present",
+        "qr_matches_read",
+        "dgii_accepted",
+    ]
+    # A value a person holds that differs from the QR is still a row to review.
+    held = facts.model_copy(
+        update={
+            "occurred_on": facts.occurred_on.model_copy(
+                update={"value": date(2027, 12, 31), "origin": "member_set"}
+            )
+        }
+    )
+    row = by_name(
+        record_qr_checks(saved, DATED, held, None, amount_is_total=True).checks
+    )["qr_matches_read"]
+    assert (row.state, row.code) == ("failed", "qr_differs")
+    assert {k: v.model_dump() for k, v in row.read_vs_qr.items()} == {
+        "occurred_on": {"read": "2027-12-31", "qr": "2026-11-05"}
+    }
+    # Several purchases: the total the read showed is what the record holds.
+    row = by_name(
+        record_qr_checks(saved, DATED, facts, "33254.19", amount_is_total=False).checks
+    )["qr_matches_read"]
+    assert row.read_vs_qr["total"].model_dump() == {"read": "33254.19", "qr": TOTAL}
+    assert record_qr_checks(None, None, facts, None, amount_is_total=True) is None
+
+
+def test_the_read_row_compares_the_issue_date_too():
+    read = ReceiptDetails(rnc=RNC, ecf=ENCF, occurred_on=date(2027, 12, 31))
+    row = by_name(qr_checks(DATED, read))["qr_matches_read"]
+    assert (row.state, row.code) == ("failed", "qr_differs")
+    assert {k: v.model_dump() for k, v in row.read_vs_qr.items()} == {
+        "occurred_on": {"read": "2027-12-31", "qr": "2026-11-05"}
+    }

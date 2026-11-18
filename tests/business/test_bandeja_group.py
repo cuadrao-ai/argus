@@ -12,6 +12,7 @@ from argus.domain.business.bandeja_group import (
     RULE,
     DraftStanding,
     group_of,
+    listo_gaps,
     listo_reason,
 )
 from argus.domain.business.contracts.dossier import ReviewFlag
@@ -146,6 +147,15 @@ def test_each_gap_has_its_reason(draft: DraftStanding, reason: str) -> None:
     assert listo_reason(draft) == reason
     found = group_of(OPEN_VIEW, draft)
     assert (found["group"], found["reason"]) == ("attention", reason)
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [with_facts(fiscal=None), with_fiscal(rnc=Unknown()), with_fiscal(rnc=known("  "))],
+)
+def test_a_blank_rnc_is_missing_and_never_also_invalid(draft: DraftStanding) -> None:
+    gaps = listo_gaps(draft)
+    assert "missing_rnc" in gaps and "invalid_rnc" not in gaps
 
 
 def test_a_stated_no_comprobante_on_a_record_with_a_number_is_no_gap() -> None:
