@@ -10,6 +10,10 @@ import pytest
 from argus.api import app_setup
 from argus.api import state as api_state
 from argus.domain import supabase_gateway
+from argus.llm.openrouter_key_policy import (
+    MODEL_CREDENTIAL_ENV_NAMES,
+    RETIRED_MODEL_CREDENTIAL_ENV_NAMES,
+)
 from faker import Faker
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -18,12 +22,20 @@ from loguru import logger
 FLAGS = ("NEXT_PUBLIC_MOCK_AUTH", "CUADRAO_MOCK_AUTH", "ARGUS_DEV_ENDPOINTS_ENABLED")
 ENV_NAMES = ("APP_ENV", "ENVIRONMENT", "ARGUS_ENV", "ARGUS_APP_ENV")
 LOCAL_ENVS = ("local", "development", "dev", "test", "local-smoke")
+DEV, STG, PROD = MODEL_CREDENTIAL_ENV_NAMES
 fake = Faker()
 
 
 @pytest.fixture
 def startup(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[FastAPI, Mock, list[str]]]:
-    for name in (*FLAGS, *ENV_NAMES, "RENDER", "RENDER_SERVICE_ID"):
+    for name in (
+        *FLAGS,
+        *ENV_NAMES,
+        *MODEL_CREDENTIAL_ENV_NAMES,
+        *RETIRED_MODEL_CREDENTIAL_ENV_NAMES,
+        "RENDER",
+        "RENDER_SERVICE_ID",
+    ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(api_state, "PERSISTENCE_MODE", "memory")
     monkeypatch.setattr(api_state, "CHECKPOINTER_MODE", "memory")
@@ -120,6 +132,7 @@ def test_hosted_markers_override_a_local_label(
 def test_hosted_startup_without_bypasses_succeeds(startup, monkeypatch) -> None:
     app, checkpointer, _ = startup
     monkeypatch.setenv("APP_ENV", "staging")
+    monkeypatch.setenv(STG, "synthetic-staging")
     for flag in FLAGS:
         monkeypatch.setenv(flag, "false")
     with TestClient(app):
@@ -127,18 +140,26 @@ def test_hosted_startup_without_bypasses_succeeds(startup, monkeypatch) -> None:
     checkpointer.assert_called_once()
 
 
-def test_hosted_startup_succeeds_without_guest_openrouter_key(
-    startup, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("present", "named"),
+    [
+        ({RETIRED_MODEL_CREDENTIAL_ENV_NAMES[1]: "synthetic-old"}, STG),
+        ({STG: "synthetic-staging", PROD: "synthetic-production"}, PROD),
+    ],
+)
+def test_staging_api_refuses_to_start_with_another_environment_key(
+    startup, monkeypatch: pytest.MonkeyPatch, present: dict[str, str], named: str
 ) -> None:
-    app, checkpointer, _ = startup
+    app, checkpointer, records = startup
     monkeypatch.setenv("APP_ENV", "staging")
-    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "synthetic-registered")
-    monkeypatch.delenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", raising=False)
-    for flag in FLAGS:
-        monkeypatch.setenv(flag, "false")
-    with TestClient(app):
-        pass
-    checkpointer.assert_called_once()
+    for name, value in present.items():
+        monkeypatch.setenv(name, value)
+    with pytest.raises(RuntimeError, match=named):
+        with TestClient(app):
+            pass
+    checkpointer.assert_not_called()
+    assert any("startup_config_refused" in line for line in records)
+    assert not any("synthetic" in line for line in records)
 
 
 @pytest.fixture

@@ -55,7 +55,7 @@ DETAILS = {
 def _extract(monkeypatch, observations, receipt=DETAILS):
     monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
     monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "offline-test-key")
     result = ExtractionResult.model_validate(
         {
             "complete": True,

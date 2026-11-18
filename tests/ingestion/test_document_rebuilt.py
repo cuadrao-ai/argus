@@ -174,7 +174,7 @@ def test_pixel_limit_rejects_in_child_before_parent_allocation(
 
 
 def test_producer_child_has_resource_limits_and_no_provider_key(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "must-not-reach-child")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "must-not-reach-child")
     monkeypatch.setattr(
         rebuilt,
         "_IMAGE_REBUILD",
@@ -184,7 +184,7 @@ assert resource.getrlimit(resource.RLIMIT_CPU) == (20, 20)
 assert resource.getrlimit(resource.RLIMIT_FSIZE) == (10485760, 10485760)
 if sys.platform == "linux":
     assert resource.getrlimit(resource.RLIMIT_AS) == (536870912, 536870912)
-assert "OPENROUTER_API_KEY" not in os.environ
+assert "CUADRAO_OPENROUTER_API_KEY_DEV" not in os.environ
 sys.stdout.write("1")
 """,
     )

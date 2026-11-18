@@ -144,7 +144,7 @@ def install(monkeypatch, provider: Provider) -> Clock:
 
     monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
     monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "offline-test-key")
     service = documents_service()
     monkeypatch.setattr(extractor, "invoke_openrouter_json_schema", provider)
     monkeypatch.setattr(

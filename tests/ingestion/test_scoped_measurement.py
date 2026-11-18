@@ -67,9 +67,9 @@ def _run(
     monkeypatch, root, evidence, manifest_path, name, extract, endpoints, key="test-key"
 ):
     if key is None:
-        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+        monkeypatch.delenv("CUADRAO_OPENROUTER_API_KEY_DEV", raising=False)
     else:
-        monkeypatch.setenv("OPENROUTER_API_KEY", key)
+        monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", key)
     monkeypatch.delenv("APP_ENV", raising=False)
     output = evidence / name
     code = main(
@@ -391,7 +391,7 @@ def test_missing_key_fails_closed_before_a_request(tmp_path, monkeypatch, capsys
     def extract(_fixture, _model):
         raise AssertionError("request")
 
-    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "other-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_PROD", "other-key")
     code, output = _run(
         monkeypatch,
         root,

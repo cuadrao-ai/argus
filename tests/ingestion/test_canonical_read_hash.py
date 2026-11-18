@@ -27,7 +27,7 @@ print(json.dumps([canonical_input_hash(read), canonical_input_hash(saved)]))
 
 
 def _hashes_in_process(seed: int, read: dict) -> list[str]:
-    env = {**os.environ, "PYTHONHASHSEED": str(seed), "OPENROUTER_API_KEY": ""}
+    env = {**os.environ, "PYTHONHASHSEED": str(seed), "CUADRAO_OPENROUTER_API_KEY_DEV": ""}
     done = subprocess.run(
         [sys.executable, "-c", _HASH_IN_CHILD, json.dumps(read)],
         cwd=ROOT,

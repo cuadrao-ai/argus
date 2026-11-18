@@ -86,7 +86,7 @@ def load_key(env_file: Path, key_name: str) -> None:
     value = (dotenv_values(env_file).get(key_name) or "").strip()
     if not value:
         raise SystemExit(f"{key_name} is not set in the env file")
-    os.environ["OPENROUTER_API_KEY"] = value
+    os.environ["CUADRAO_OPENROUTER_API_KEY_DEV"] = value
     os.environ.pop("APP_ENV", None)
 
 
@@ -242,7 +242,7 @@ def main() -> None:
     parser.add_argument("--dsn", required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--env-file", type=Path, required=True)
-    parser.add_argument("--key-name", default="OPENROUTER_API_KEY")
+    parser.add_argument("--key-name", default="CUADRAO_OPENROUTER_API_KEY_DEV")
     parser.add_argument("--runtime-model", default="anthropic/claude-haiku-5.5")
     parser.add_argument("--judge-model", default="anthropic/claude-haiku-5.5")
     parser.add_argument("--calibration", type=Path)

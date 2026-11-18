@@ -62,7 +62,7 @@ def _create_worktrees(tmp_path: Path) -> tuple[Path, Path]:
 
 def _write_canonical_env(canonical: Path) -> None:
     (canonical / ".env").write_text(
-        f"OPENROUTER_API_KEY={BACKEND_SECRET}\n",
+        f"CUADRAO_OPENROUTER_API_KEY_DEV={BACKEND_SECRET}\n",
         encoding="utf-8",
     )
     (canonical / "web").mkdir(exist_ok=True)

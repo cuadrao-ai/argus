@@ -15,7 +15,7 @@ class Result(BaseModel):
 @pytest.fixture
 def configured(monkeypatch):
     monkeypatch.setenv("APP_ENV", "test")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "synthetic-test-key")
     monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "openai/test-primary")
     monkeypatch.setattr(openrouter, "resolve_openrouter_api_key", lambda: "synthetic-test-key")
 

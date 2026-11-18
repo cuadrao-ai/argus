@@ -176,9 +176,7 @@ esac
         for secret in (
             "ALPACA_API_KEY",
             "ALPACA_SECRET_KEY",
-            "CUADRAO_PROD_OPENROUTER_API_KEY",
-            "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
-            "OPENROUTER_API_KEY",
+            "CUADRAO_OPENROUTER_API_KEY_DEV",
             "ARGUS_WORKFLOW_DATABASE_URL",
         ):
             env.pop(secret, None)
@@ -282,8 +280,8 @@ def test_shared_env_contract_requires_unset_indirect_env_under_nounset() -> None
             "-c",
             "set -euo pipefail; "
             "source .github/argus-env.sh; "
-            "unset OPENROUTER_API_KEY; "
-            "argus_require_env OPENROUTER_API_KEY",
+            "unset CUADRAO_OPENROUTER_API_KEY_DEV; "
+            "argus_require_env CUADRAO_OPENROUTER_API_KEY_DEV",
         ],
         cwd=ROOT,
         capture_output=True,
@@ -292,7 +290,7 @@ def test_shared_env_contract_requires_unset_indirect_env_under_nounset() -> None
     )
 
     assert result.returncode == 1
-    assert "OPENROUTER_API_KEY is required" in result.stdout
+    assert "CUADRAO_OPENROUTER_API_KEY_DEV is required" in result.stdout
     assert "bad substitution" not in result.stderr
     assert "unbound variable" not in result.stderr
 
@@ -465,13 +463,11 @@ def test_render_blueprint_keeps_true_secrets_manual() -> None:
     for key in (
         "DATABASE_URL",
         "SUPABASE_SERVICE_ROLE_KEY",
-        "CUADRAO_PROD_OPENROUTER_API_KEY",
+        "CUADRAO_OPENROUTER_API_KEY_PROD",
         "CUADRAO_OPS_TOKEN",
         "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
     ):
         assert api_env[key] == {"key": key, "sync": False}
-    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" not in api_env
-    assert "OPENROUTER_API_KEY" not in api_env
     # Only account deletion reads it, and production keeps account deletion off.
     assert "SUPABASE_JWT_SECRET" not in api_env
 
