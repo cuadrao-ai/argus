@@ -265,36 +265,30 @@ def test_the_cheapest_retry_runs_first_and_a_hit_builds_no_enlargement(
     monkeypatch.setattr(Image.Image, "resize", spy)
     assert retry_attempts(faded) == ["autocontrast"]
     assert enlarged == []
-    # A code only an enlargement reads is tried at 2x before 3x.
-    [attempt] = retry_attempts(soft)
-    assert attempt in ("x2", "x3")
-    assert enlarged[0] == (3200, 2400)
+    # A code only the enlargement reads pays for the cheaper retry first.
+    assert retry_attempts(soft) == ["x2"]
+    assert enlarged == [(3200, 2400)]
     assert retry_attempts(clear) == []
 
 
-def test_each_enlargement_is_released_before_the_next_is_built(monkeypatch):  # noqa: ANN001
-    import weakref
-
+def test_a_page_without_a_code_is_enlarged_once_and_only_within_the_limit(
+    monkeypatch,  # noqa: ANN001
+):
     from PIL import Image
 
-    built: list[weakref.ref] = []
-    alive_at_build: list[int] = []
+    enlarged: list[tuple[int, int]] = []
     resize = Image.Image.resize
 
     def spy(self, size, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
-        alive_at_build.append(sum(ref() is not None for ref in built))
-        page = resize(self, size, *args, **kwargs)
-        built.append(weakref.ref(page))
-        return page
+        enlarged.append(size)
+        return resize(self, size, *args, **kwargs)
 
     monkeypatch.setattr(Image.Image, "resize", spy)
     assert read_dgii_qr((blank_png((1600, 1200)),)) is None
-    assert alive_at_build == [0, 0]
-    assert [ref() for ref in built] == [None, None]
+    assert enlarged == [(3200, 2400)]
     # An enlargement over the pixel limit is never built.
-    built.clear()
-    assert read_dgii_qr((blank_png((2000, 1500)),)) is None
-    assert len(built) == 1
+    assert read_dgii_qr((blank_png((3300, 3100)),)) is None
+    assert enlarged == [(3200, 2400)]
 
 
 SOURCE = str(uuid4())

@@ -10476,9 +10476,8 @@ accept path recorded.
   20,000,000 pixels per image (`MAX_PIXELS` in `documents/preparation.py`); an
   image over the cap is an invalid document, not a QR miss. A page whose plain
   decode finds no DGII link is decoded again with its contrast stretched, then
-  enlarged 2 times, then 3 times (each only up to 20,000,000 pixels,
-  `MAX_RETRY_PIXELS`), stopping at the first DGII link and holding one retry
-  image at a time. The decoded text is
+  enlarged 2 times (only up to 20,000,000 pixels, `MAX_RETRY_PIXELS`),
+  stopping at the first DGII link and holding one retry image at a time. The decoded text is
   capped at 2048 characters and each query value at 64. Two rows join
   `ecf_checks.checks`: `qr_present` (verified when a DGII QR
   was decoded, else `not_checked` `no_qr`) and `qr_matches_read` (issuer RNC,

@@ -37,8 +37,9 @@ MAX_URL_CHARS = 2048
 MAX_VALUE_CHARS = 64
 MAX_PAGES_SCANNED = 8
 MAX_NUMBER_EXPONENT = 30
-RETRY_SCALES = (2, 3)
-#: A 1600x1200 photo enlarged three times is 17.3 million grey pixels.
+#: Twice only: a third enlargement cost most of the retry memory on every
+#: page without a code.
+RETRY_SCALES = (2,)
 MAX_RETRY_PIXELS = 20_000_000
 AUTOCONTRAST_CUTOFF = 2
 _ENCF = re.compile(r"^E(\d{2})\d{10}$")
