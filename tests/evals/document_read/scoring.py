@@ -47,8 +47,11 @@ OUTCOMES = (
     "false_fill",
     "blank",
     "unsupported",
+    "judgment",
     "not_scored",
 )
+#: The fields whose answer can be a judgment, with the key that says so.
+BASIS = {"expense_type": "expense_type_basis"}
 ScriptedRead = Callable[[Sample], ExtractionResult | Exception]
 Prepared = dict[str, PreparedDocument | DocumentExtractionError]
 _SETTINGS = DocumentExtractionSettings(enabled=True)
@@ -102,9 +105,11 @@ def read_fields(batch: ExtractionBatch) -> dict[str, object]:
 FIELDS = tuple(read_fields(ExtractionBatch(candidates=())))
 
 
-def _outcome(expected: str | None, read: object) -> str:
+def _outcome(expected: str | None, read: object, basis: str) -> str:
     if read is UNSUPPORTED:
         return "unsupported"
+    if basis == "judgment":
+        return "judgment"
     if read is None:
         return "correct_empty" if expected is None else "blank"
     return "correct" if read == expected else "false_fill"
@@ -157,8 +162,10 @@ def score_case(sample: Sample, batch: ExtractionBatch) -> dict[str, Any]:
     fields: dict[str, dict[str, Any]] = {}
     mistakes: list[str] = []
     for name, read in read_fields(batch).items():
-        outcome = _outcome(answer[name], read) if one_receipt else "not_scored"
+        basis = answer[BASIS[name]] if name in BASIS else "clear"
+        outcome = _outcome(answer[name], read, basis) if one_receipt else "not_scored"
         fields[name] = {
+            "basis": basis,
             "outcome": outcome,
             "expected": answer[name],
             "read": None if read is UNSUPPORTED else read,
@@ -175,6 +182,7 @@ def score_case(sample: Sample, batch: ExtractionBatch) -> dict[str, Any]:
         and batch.complete is True
         and "incomplete_extraction" not in issues
     )
+    purchases = len(_purchases(batch))
     return {
         "case_id": case.case_id,
         "status": "read",
@@ -195,7 +203,8 @@ def score_case(sample: Sample, batch: ExtractionBatch) -> dict[str, Any]:
         },
         "purchases": {
             "expected": sample.expected.purchases,
-            "read": len(_purchases(batch)),
+            "read": purchases,
+            "outcome": ("correct" if purchases == sample.expected.purchases else "wrong"),
         },
         "unsure": not complete or bool(issues),
         "issues": issues,
@@ -359,6 +368,8 @@ def build_scorecard(
     qr = Counter(result["qr"] for result in read)
     readable = qr["decoded"] + qr["decoded_wrong"] + qr["missed"]
     complete = Counter(result["complete"]["outcome"] for result in read)
+    purchases = Counter(result["purchases"]["outcome"] for result in read)
+    fields = _field_totals(read)
     by_shape: dict[str, Counter[str]] = {}
     for result in read:
         outcomes = Counter(field["outcome"] for field in result["fields"].values())
@@ -382,7 +393,30 @@ def build_scorecard(
             "infrastructure_error": len(results) - len(read),
             "not_run": len(samples) - len(results),
         },
-        "fields": _field_totals(read),
+        "fields": fields,
+        "expense_type": {
+            "clear": {
+                name: fields["expense_type"][name]
+                for name in (
+                    "correct",
+                    "false_fill",
+                    "blank",
+                    "scored",
+                    "accuracy",
+                    "false_fill_rate",
+                )
+            },
+            "judgment": [
+                {
+                    "case_id": result["case_id"],
+                    "expected": result["fields"]["expense_type"]["expected"],
+                    "read": result["fields"]["expense_type"]["read"],
+                }
+                for result in read
+                if result["fields"]["expense_type"]["basis"] == "judgment"
+                and result["fields"]["expense_type"]["outcome"] != "not_scored"
+            ],
+        },
         "mistakes": dict(
             sorted(Counter(m for result in read for m in result["mistakes"]).items())
         ),
@@ -403,9 +437,15 @@ def build_scorecard(
         "complete": {
             "correct": complete["correct"],
             "wrong": complete["wrong"],
+            "not_scored": complete["not_scored"],
             "accuracy": _rate(
                 complete["correct"], complete["correct"] + complete["wrong"]
             ),
+        },
+        "purchases": {
+            "correct": purchases["correct"],
+            "wrong": purchases["wrong"],
+            "accuracy": _rate(purchases["correct"], len(read)),
         },
         "unsure": {
             "receipts": sum(result["unsure"] for result in read),
@@ -426,15 +466,19 @@ def summary_table(scorecard: dict[str, Any]) -> str:
     """The per-field table of a scorecard, as Markdown."""
 
     rows = [
-        "| Field | Correct | Correctly empty | False fill | Blank | Unsupported |",
-        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Field | Correct | Correctly empty | False fill | Blank | Unsupported "
+        "| Judgment |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name, counts in scorecard["fields"].items():
         rows.append(
             f"| {name} | {counts['correct']} | {counts['correct_empty']} | "
-            f"{counts['false_fill']} | {counts['blank']} | {counts['unsupported']} |"
+            f"{counts['false_fill']} | {counts['blank']} | {counts['unsupported']} | "
+            f"{counts['judgment']} |"
         )
     qr, unsure = scorecard["qr"], scorecard["unsure"]
+    complete, purchases = scorecard["complete"], scorecard["purchases"]
+    clear, judged = (scorecard["expense_type"][name] for name in ("clear", "judgment"))
     rows.append("")
     rows.append(
         f"QR decoded {qr['decoded']} of {qr['decoded'] + qr['decoded_wrong'] + qr['missed']}"
@@ -442,4 +486,21 @@ def summary_table(scorecard: dict[str, Any]) -> str:
         f"Unsure {unsure['receipts']} of {scorecard['totals']['read']} read. "
         f"Named mistakes: {scorecard['mistakes'] or 'none'}."
     )
+    rows.append(
+        f"Purchase count right {purchases['correct']} of "
+        f"{purchases['correct'] + purchases['wrong']} read. "
+        f"Complete judgment right {complete['correct']} of "
+        f"{complete['correct'] + complete['wrong']} scored."
+    )
+    rows.append(
+        f"Tipo de gasto, clear answers: {clear['correct']} correct, "
+        f"{clear['false_fill']} false fill, {clear['blank']} blank of "
+        f"{clear['scored']} scored. {len(judged)} judgment receipts, not scored."
+    )
+    if judged:
+        rows += ["", "| Judgment receipt | Expected | Read |", "| --- | --- | --- |"]
+        rows += [
+            f"| {row['case_id']} | {row['expected'] or '-'} | {row['read'] or '-'} |"
+            for row in judged
+        ]
     return "\n".join(rows)

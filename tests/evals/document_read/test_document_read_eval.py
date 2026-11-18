@@ -5,17 +5,21 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import os
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import fields
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
 from argus.domain.business.fiscal_identity import rnc_check_digit_ok
+from argus.domain.ingestion.documents import extractor as reader
+from argus.domain.ingestion.documents.models import ExtractionBatch
 from PIL import Image
 
-from tests.evals.document_read import run_live, scripted
+from tests.evals.document_read import run_live, scoring, scripted
 from tests.evals.document_read.cases import (
     MONTHS_ABBR,
     PAYMENTS,
@@ -29,11 +33,14 @@ from tests.evals.document_read.render import LONG_SIDE, render
 from tests.evals.document_read.scoring import (
     FIELDS,
     SCHEMA_VERSION,
+    UNSUPPORTED,
     Prepared,
     ScriptedRead,
     build_scorecard,
     prepare_set,
     read_set,
+    score_case,
+    summary_table,
 )
 
 UNREAD_TODAY = ("buyer_rnc", "payment_form", "expense_type")
@@ -220,7 +227,13 @@ def test_a_faithful_read_scores_clean(
             getattr(sample.expected, name) is None for sample in one
         )
     assert card["mistakes"] == {}
-    assert card["complete"] == {"correct": len(one), "wrong": 0, "accuracy": 1.0}
+    assert card["complete"] == {
+        "correct": len(one),
+        "wrong": 0,
+        "not_scored": len(samples) - len(one),
+        "accuracy": 1.0,
+    }
+    assert card["purchases"] == {"correct": len(samples), "wrong": 0, "accuracy": 1.0}
     unsure = {r["case_id"] for r in card["results"] if r["unsure"]}
     assert unsure == {
         s.case.case_id
@@ -318,3 +331,188 @@ def test_live_runner_stops_without_a_key(tmp_path, monkeypatch) -> None:
     env_file.write_text("OPENROUTER_API_KEY=\n")
     with pytest.raises(SystemExit, match="OPENROUTER_API_KEY is not set"):
         run_live.load_settings(env_file, "OPENROUTER_API_KEY", None)
+
+
+def test_a_missed_second_receipt_is_scored(
+    samples: tuple[Sample, ...], scorecard: Callable[..., dict[str, Any]]
+) -> None:
+    two = [s.case.case_id for s in samples if s.expected.purchases > 1]
+    assert two
+    card = scorecard(scripted.first_receipt_only)
+    assert card["purchases"] == {
+        "correct": len(samples) - len(two),
+        "wrong": len(two),
+        "accuracy": round((len(samples) - len(two)) / len(samples), 4),
+    }
+    missed = [r for r in card["results"] if r["purchases"]["outcome"] == "wrong"]
+    assert [r["case_id"] for r in missed] == two
+    assert [r["purchases"] for r in missed] == [
+        {"expected": 2, "read": 1, "outcome": "wrong"}
+    ] * len(two)
+    assert (
+        f"Purchase count right {len(samples) - len(two)} of {len(samples)}"
+        in summary_table(card)
+    )
+
+
+CLEAR_EXPENSE_TYPES = {
+    "alquiler": "03",
+    "seguros": "11",
+    "equipos": "10",
+    "mobiliario": "10",
+    "papeleria": "02",
+    "toner": "02",
+    "servicios": "02",
+}
+
+
+def test_only_the_named_trades_have_a_clear_expense_type(
+    samples: tuple[Sample, ...],
+) -> None:
+    clear = {
+        name: trade.expense_type
+        for name, trade in TRADES.items()
+        if trade.expense_basis == "clear"
+    }
+    assert clear == CLEAR_EXPENSE_TYPES
+    bases = Counter(sample.expected.expense_type_basis for sample in scored(samples))
+    assert min(bases["clear"], bases["judgment"]) >= 5
+
+
+def expense_card(
+    samples: tuple[Sample, ...],
+    monkeypatch: pytest.MonkeyPatch,
+    read: Callable[[Sample], str | None],
+) -> dict[str, Any]:
+    """A scorecard for a reader that has a tipo de gasto field and returns ``read``."""
+
+    results = []
+    for sample in samples:
+        answer = {**dict.fromkeys(FIELDS, UNSUPPORTED), "expense_type": read(sample)}
+        monkeypatch.setattr(scoring, "read_fields", lambda _, answer=answer: answer)
+        results.append(score_case(sample, ExtractionBatch(candidates=())))
+    return build_scorecard(
+        samples, results, tier="mocked", candidate_sha="mocked", model="scripted"
+    )
+
+
+def _wrong_on(basis: str) -> Callable[[Sample], str | None]:
+    def read(sample: Sample) -> str | None:
+        answer = sample.expected
+        return "09" if answer.expense_type_basis == basis else answer.expense_type
+
+    return read
+
+
+def test_a_judgment_mismatch_never_changes_the_expense_type_score(
+    samples: tuple[Sample, ...], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    right = expense_card(samples, monkeypatch, lambda s: s.expected.expense_type)
+    card = expense_card(samples, monkeypatch, _wrong_on("judgment"))
+    judged = [s for s in scored(samples) if s.expected.expense_type_basis == "judgment"]
+    clear = len(scored(samples)) - len(judged)
+    assert card["expense_type"]["clear"] == right["expense_type"]["clear"]
+    assert card["expense_type"]["clear"] == {
+        "correct": clear,
+        "false_fill": 0,
+        "blank": 0,
+        "scored": clear,
+        "accuracy": 1.0,
+        "false_fill_rate": 0.0,
+    }
+    totals = card["fields"]["expense_type"]
+    assert (totals["scored"], totals["judgment"]) == (clear, len(judged))
+    assert card["expense_type"]["judgment"] == [
+        {
+            "case_id": s.case.case_id,
+            "expected": s.expected.expense_type,
+            "read": "09",
+        }
+        for s in judged
+    ]
+    assert f"{len(judged)} judgment receipts, not scored" in summary_table(card)
+
+
+def test_a_clear_false_fill_and_a_clear_blank_are_scored_apart(
+    samples: tuple[Sample, ...], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clear = sum(s.expected.expense_type_basis == "clear" for s in scored(samples))
+    wrong = expense_card(samples, monkeypatch, _wrong_on("clear"))["expense_type"]
+    assert wrong["clear"] == {
+        "correct": 0,
+        "false_fill": clear,
+        "blank": 0,
+        "scored": clear,
+        "accuracy": 0.0,
+        "false_fill_rate": 1.0,
+    }
+    blank = expense_card(
+        samples,
+        monkeypatch,
+        lambda s: (
+            None if s.expected.expense_type_basis == "clear" else s.expected.expense_type
+        ),
+    )["expense_type"]
+    assert (blank["clear"]["false_fill"], blank["clear"]["blank"]) == (0, clear)
+
+
+INHERITED = {
+    "CUADRAO_OPENROUTER_API_KEY_DEV": "inherited-dev",
+    "CUADRAO_OPENROUTER_API_KEY_STG": "inherited-stg",
+    "CUADRAO_PROD_OPENROUTER_API_KEY": "inherited-registered",
+    "OPENROUTER_API_KEY": "inherited-local",
+    "openrouter_api_key": "inherited-lower-case",
+    "APP_ENV": "staging",
+    "CUADRAO_VISION_MODEL": "inherited/model",
+    "ARGUS_VISION_MODEL": "inherited/old-model",
+}
+
+
+@pytest.fixture
+def selected_env(tmp_path) -> Any:
+    """A shell full of other credentials, and an env file that selects one."""
+
+    env_file = tmp_path / "env"
+    env_file.write_text("EVAL_KEY=selected-fake\n")
+    with patch.dict(os.environ, INHERITED):
+        yield env_file
+
+
+def test_live_runner_reads_with_the_selected_key_and_model(selected_env) -> None:
+    model = run_live.load_settings(selected_env, "EVAL_KEY", "selected/model")
+    assert model == "selected/model"
+    assert reader.DocumentExtractor(scoring._SETTINGS)._provider() == (
+        "selected/model",
+        "selected-fake",
+    )
+
+
+def test_live_runner_never_takes_an_inherited_model(selected_env) -> None:
+    with pytest.raises(SystemExit, match="pass --model"):
+        run_live.load_settings(selected_env, "EVAL_KEY", None)
+
+
+@pytest.mark.parametrize(
+    ("other", "refusal"),
+    [
+        ({"resolve_openrouter_api_key": lambda _: "inherited-dev"}, "selected key"),
+        ({"resolve_openrouter_model": lambda **_: "inherited/model"}, "selected model"),
+    ],
+)
+def test_live_runner_refuses_when_a_read_would_use_something_else(
+    selected_env, monkeypatch: pytest.MonkeyPatch, other: dict[str, Any], refusal: str
+) -> None:
+    for name, resolve in other.items():
+        monkeypatch.setattr(reader, name, resolve)
+    with pytest.raises(SystemExit, match=refusal) as stopped:
+        run_live.load_settings(selected_env, "EVAL_KEY", "selected/model")
+    assert "selected-fake" not in str(stopped.value)
+    assert "inherited-dev" not in str(stopped.value)
+
+
+def test_live_runner_refuses_a_hosted_shell(
+    selected_env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RENDER", "true")
+    with pytest.raises(SystemExit, match="refused"):
+        run_live.load_settings(selected_env, "EVAL_KEY", "selected/model")

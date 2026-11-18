@@ -16,10 +16,11 @@ def _result(
     rnc: str | None,
     itbis: str | None,
     complete: bool,
+    companion: bool = True,
 ) -> ExtractionResult:
     case, answer = sample.case, sample.expected
     receipts: list[tuple[Case, str | None]] = [(case, issue_date)]
-    if case.companion:
+    if case.companion and companion:
         receipts.append((case.companion, case.companion.issued.isoformat()))
     electronic = case.ncf_series.startswith("E")
     return ExtractionResult.model_validate(
@@ -62,6 +63,20 @@ def faithful(sample: Sample) -> ExtractionResult:
         rnc=answer.supplier_rnc,
         itbis=answer.itbis,
         complete=answer.complete,
+    )
+
+
+def first_receipt_only(sample: Sample) -> ExtractionResult:
+    """A faithful read that stops after the first receipt in the photo."""
+
+    answer = sample.expected
+    return _result(
+        sample,
+        issue_date=answer.issue_date,
+        rnc=answer.supplier_rnc,
+        itbis=answer.itbis,
+        complete=answer.complete,
+        companion=False,
     )
 
 

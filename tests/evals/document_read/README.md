@@ -38,7 +38,8 @@ the value. Forma de pago and tipo de gasto codes come from
 | `false_fill` | The reader returned a value that is wrong, or a value for something the photo does not show. |
 | `blank` | The photo shows the value and the reader left it empty. |
 | `unsupported` | The reader has no field for it yet. `read_fields` in `scoring.py` is the one place to map a new field. |
-| `not_scored` | The photo holds several receipts. Only the purchase count is checked. |
+| `judgment` | The expected tipo de gasto is a judgment. The read is reported and never scored. |
+| `not_scored` | The photo holds several receipts. Only the purchase count is scored. |
 
 A false fill with a known cause is also counted under `mistakes`, for example
 `expiry_as_issue_date` and `buyer_rnc_as_supplier`.
@@ -46,6 +47,26 @@ A false fill with a known cause is also counted under `mistakes`, for example
 The scorecard also reports the QR decode rate, the rate of reads that came back
 incomplete or with an issue, and whether the complete judgment was right. A
 provider failure is an `infrastructure_error` and is left out of every rate.
+
+Every receipt read is scored on its purchase count, under `purchases`. A read
+that returns one receipt from a photo of two counts as `wrong` there.
+
+## Tipo de gasto
+
+No accountant has checked the expected tipo de gasto codes. Each one carries a
+basis, set per trade in `cases.py`:
+
+| Basis | Trades | Scoring |
+| --- | --- | --- |
+| `clear` | Rent 03, insurance 11, computers and office furniture 10, office supplies and repair or maintenance service 02. | Scored as `correct`, `false_fill` or `blank`. |
+| `judgment` | Every other trade: restaurant, staff meals, uniforms, grocery, hardware, pharmacy. | Reported with the read value. Never scored. |
+
+The scorecard holds both under `expense_type`. `clear` gives the counts, the
+accuracy and the false fill rate of the clear answers. `judgment` lists each
+judgment receipt with its expected and read code. A blank on a clear answer
+counts apart from a false fill, so a reader that leaves a hard one empty does
+better than one that guesses. A later change to the reader prompt ships on the
+`clear` numbers: high accuracy and few false fills.
 
 ## Mocked run
 
@@ -72,7 +93,11 @@ PYTHONPATH=src:web:. poetry run python -m tests.evals.document_read.run_live \
   --cap-usd 2.00
 ```
 
-The model is `CUADRAO_VISION_MODEL` from the env file, or `--model`. The run
+The key is the one `--key-name` names in the env file. The model is
+`CUADRAO_VISION_MODEL` from the env file, or `--model`. Before the first read
+the runner blanks every other model credential and document model that the
+shell or the project `.env` holds. It stops if a read would use a different key
+or model, and it never takes either from the shell. The run
 makes one read per receipt and stops when the known cost reaches the cap. It
 writes `scorecard.json` with schema `document_read_scorecard_v1`: the commit,
 the model, digests of the prompt, the schema and the set, the cost, the totals
@@ -84,6 +109,9 @@ scorecards compare only when their `set_sha256` is equal.
 - The photos are drawn, not photographed. Paper curl, glare, blur and thermal
   fading are not in the set.
 - The printed text has no accents, because the bundled font has none.
-- The expected tipo de gasto is a judgment from the supplier and the items.
+- Only the clear tipo de gasto answers are scored. See Tipo de gasto above.
   Receipts whose type depends on the buyer's business expect `null`.
+- A photo of several receipts is scored on its purchase count only. Its fields,
+  QR and complete judgment are `not_scored`, because the reader returns one
+  receipt block.
 - Forma de pago covers codes 01 to 04. Codes 05 to 07 are not in the set.

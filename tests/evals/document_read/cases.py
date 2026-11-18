@@ -63,15 +63,21 @@ _CENT = Decimal("0.01")
 _SYLLABLES = ("ta", "vi", "re", "lo", "mu", "na", "ce", "do", "pa", "ri", "so", "gue")
 
 
+ExpenseBasis = Literal["clear", "judgment"]
+
+
 @dataclass(frozen=True)
 class Trade:
     """What a supplier sells. ``expense_type`` is the tipo de gasto a correct
-    read gives; None when the receipt alone cannot say."""
+    read gives; None when the receipt alone cannot say. It is scored only when
+    ``expense_basis`` is clear. A judgment answer is a build-time guess that no
+    accountant has checked, so the read is reported and never scored."""
 
     name: str
     items: tuple[str, ...]
     expense_type: str | None
     price_cents: tuple[int, int] = (4500, 185000)
+    expense_basis: ExpenseBasis = "judgment"
 
 
 TRADES = {
@@ -79,11 +85,13 @@ TRADES = {
         "Papelería",
         ("Resma carta", "Bolígrafo azul", "Folder manila", "Grapas 26/6"),
         "02",
+        expense_basis="clear",
     ),
     "toner": Trade(
         "Suministros de Oficina",
         ("Tóner negro", "Cable HDMI", "Mouse inalámbrico", "Memoria USB 32GB"),
         "02",
+        expense_basis="clear",
     ),
     "servicios": Trade(
         "Servicios Técnicos",
@@ -95,6 +103,7 @@ TRADES = {
         ),
         "02",
         (150000, 900000),
+        "clear",
     ),
     "equipos": Trade(
         "Equipos y Computadoras",
@@ -106,6 +115,7 @@ TRADES = {
         ),
         "10",
         (2500000, 9500000),
+        "clear",
     ),
     "mobiliario": Trade(
         "Muebles de Oficina",
@@ -117,6 +127,7 @@ TRADES = {
         ),
         "10",
         (1200000, 6000000),
+        "clear",
     ),
     "restaurante": Trade(
         "Restaurante",
@@ -147,9 +158,19 @@ TRADES = {
         (90000, 450000),
     ),
     "alquiler": Trade(
-        "Inmobiliaria", ("Alquiler local comercial",), "03", (3500000, 9000000)
+        "Inmobiliaria",
+        ("Alquiler local comercial",),
+        "03",
+        (3500000, 9000000),
+        "clear",
     ),
-    "seguros": Trade("Seguros", ("Prima póliza de vehículo",), "11", (1800000, 6000000)),
+    "seguros": Trade(
+        "Seguros",
+        ("Prima póliza de vehículo",),
+        "11",
+        (1800000, 6000000),
+        "clear",
+    ),
     "colmado": Trade(
         "Colmado",
         ("Arroz selecto 5 lb", "Aceite 32 oz", "Habichuelas 1 lb", "Café 1 lb"),
@@ -323,6 +344,8 @@ class Expected:
     payment_form: str | None
     #: DGII tipo de gasto code; None when the receipt alone cannot say.
     expense_type: str | None
+    #: "judgment" when the tipo de gasto answer is reported and never scored.
+    expense_type_basis: ExpenseBasis
     dgii_qr_readable: bool
     complete: bool
     #: Receipts in the photo. Fields are scored only when there is one.
@@ -348,6 +371,7 @@ def expected(case: Case) -> Expected:
         itbis=tax if shown else None,
         payment_form=(PAYMENTS[case.payment][1] if shown and not case.finger else None),
         expense_type=TRADES[case.trade].expense_type,
+        expense_type_basis=TRADES[case.trade].expense_basis,
         dgii_qr_readable=case.qr == "dgii" and shown,
         complete=shown,
         purchases=2 if case.companion else 1,
