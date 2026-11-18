@@ -30,7 +30,12 @@ from argus.domain.business.contracts.checks import (
     ReadVsQr,
     dgii_link_host,
 )
-from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts, Known
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    FiscalFacts,
+    Known,
+    fiscal_value,
+)
 
 __all__ = ["DGII_HOSTS", "parse_dgii_url", "read_dgii_qr"]
 MAX_URL_CHARS = 2048
@@ -254,9 +259,11 @@ def record_qr_checks(
 ) -> EcfVerification | None:
     """The verification as the record saves it: the match row made over
     what the record holds after the merge, so it never asks for review of a
-    value the QR replaced. A fact the QR gave is not compared with itself.
-    The amount of a read with several purchases is not a total; the total
-    that read showed is compared in its place."""
+    value the QR replaced. A fact the QR gave is not compared with itself,
+    and no value it replaced stands in for it: the record's one fiscal number
+    is chosen first, then left out when the QR gave it. The amount of a read
+    with several purchases is not a total; the total that read showed is
+    compared in its place."""
 
     if verification is None or qr is None:
         return verification
@@ -266,11 +273,12 @@ def record_qr_checks(
         return fact.value if mine else None
 
     fiscal = facts.fiscal or FiscalFacts()
+    number = fiscal_value(facts)
     row = _match_row(
         qr,
         {
             "rnc": held(fiscal.rnc),
-            "ecf": held(fiscal.ecf) or held(fiscal.ncf),
+            "ecf": held(getattr(fiscal, number)) if number else None,
             "total": held(facts.amount) if amount_is_total else read_total,
             "occurred_on": held(facts.occurred_on),
         },

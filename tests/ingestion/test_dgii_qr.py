@@ -488,3 +488,30 @@ def test_the_record_row_compares_what_the_record_holds_after_the_qr_won():
     )["qr_matches_read"]
     assert (row.state, row.code) == ("not_checked", "no_read")
     assert record_qr_checks(None, None, facts, None, amount_is_total=True) is None
+
+
+OTHER_ENCF = "E320000009999"
+
+
+@pytest.mark.parametrize(
+    ("field", "read"),
+    [
+        ("rnc", read_facts()),
+        ("ecf", read_facts(ecf=known(OTHER_ENCF))),
+        ("ecf", read_facts(ecf=dict(UNKNOWN), ncf=known("B0100000099"))),
+        ("ecf", read_facts(ecf=known(OTHER_ENCF), ncf=known("B0100000099"))),
+        ("total", read_facts()),
+        ("occurred_on", read_facts()),
+    ],
+)
+def test_a_fact_the_qr_gave_is_never_compared_nor_stood_in_for_by_the_read(
+    field: str, read: dict
+):
+    facts = BusinessFacts.model_validate(merge(read))
+    # The total the read showed is passed as the save passes it: superseded.
+    saved = record_qr_checks(
+        with_qr(None, DATED, NOW), DATED, facts, "99.00", amount_is_total=True
+    )
+    row = by_name(saved.checks)["qr_matches_read"]
+    assert field not in row.read_vs_qr
+    assert row.state != "failed"

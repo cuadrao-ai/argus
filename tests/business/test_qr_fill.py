@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+from argus.domain.business.actions.listos import _ecf_failed
 from argus.domain.business.contracts.checks import DgiiQr, EcfCheck
 from argus.domain.business.contracts.facts import BusinessResolution
 from argus.domain.ingestion.documents.dgii_qr import parse_dgii_url
@@ -163,6 +164,20 @@ def test_a_qr_and_printed_numbers_that_disagree_end_with_the_qr_and_no_review(
     again = EcfCheck.model_validate(saved.model_dump(mode="json"))
     assert again.read_vs_qr["ecf"].qr == ENCF
     assert resolution.dgii_qr == QR
+
+
+def test_an_ncf_the_reader_found_never_fails_the_e_ncf_the_qr_gave(checked, monkeypatch):  # noqa: ANN001, F811
+    read = _read(
+        rows=[_row(TOTAL)],
+        receipt=dict(total=TOTAL, currency="DOP", rnc=RNC, ncf="B0100000099"),
+    )
+    _, resolution = _resolution(checked, monkeypatch, read, QR)
+    fiscal = resolution.facts.fiscal
+    assert (fiscal.ecf.value, fiscal.ecf.origin) == (ENCF, "qr_decoded")
+    saved = _match(resolution.ecf_checks)
+    assert saved.state == "verified" and "ecf" not in saved.read_vs_qr
+    # Nothing on the e-CF keeps the record out of Listos.
+    assert not _ecf_failed(resolution)
 
 
 def test_the_qr_issue_date_replaces_a_date_the_reader_took_from_elsewhere(
