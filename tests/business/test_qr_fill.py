@@ -121,14 +121,13 @@ def test_a_qr_and_printed_numbers_that_agree_keep_the_read_and_match(
     read = _read(
         rows=[_row(TOTAL)], receipt=dict(total=TOTAL, currency="DOP", rnc=RNC, ecf=ENCF)
     )
-    batch, resolution = _resolution(checked, monkeypatch, read, QR)
+    _, resolution = _resolution(checked, monkeypatch, read, QR)
     facts = resolution.facts
     assert (facts.amount.origin, facts.fiscal.rnc.origin, facts.fiscal.ecf.origin) == (
         "extracted",
         "extracted",
         "extracted",
     )
-    assert _states(batch.ecf_checks)["qr_matches_read"] == ("verified", None)
     assert _states(resolution.ecf_checks)["qr_matches_read"] == ("verified", None)
 
 
@@ -147,7 +146,7 @@ def test_a_qr_and_printed_numbers_that_disagree_end_with_the_qr_and_no_review(
         rows=[_row("33254.19")],
         receipt=dict(total="33254.19", currency="DOP", rnc="131111223", ecf=ENCF),
     )
-    batch, resolution = _resolution(checked, monkeypatch, read, QR)
+    _, resolution = _resolution(checked, monkeypatch, read, QR)
     facts = resolution.facts
     assert (facts.amount.value, facts.amount.origin, facts.amount.verified) == (
         TOTAL,
@@ -156,16 +155,9 @@ def test_a_qr_and_printed_numbers_that_disagree_end_with_the_qr_and_no_review(
     )
     assert (facts.fiscal.rnc.value, facts.fiscal.rnc.origin) == (RNC, "qr_decoded")
     assert (facts.fiscal.ecf.value, facts.fiscal.ecf.origin) == (ENCF, "extracted")
-    # The read on its own did differ from the QR, with both values typed.
-    match = _match(batch.ecf_checks)
-    assert (match.state, match.code, match.detail) == ("failed", "qr_differs", {})
-    assert _pairs(match) == {
-        "rnc": {"read": "131111223", "qr": RNC},
-        "total": {"read": "33254.19", "qr": TOTAL},
-    }
     # The record holds the QR's values, so its row has nothing left to review.
     saved = _match(resolution.ecf_checks)
-    assert (saved.state, saved.code) == ("verified", None)
+    assert (saved.state, saved.code, saved.detail) == ("verified", None, {})
     assert _pairs(saved) == {"ecf": {"read": ENCF, "qr": ENCF}}
     # The typed pairs survive the JSON round trip the draft row takes.
     again = EcfCheck.model_validate(saved.model_dump(mode="json"))
@@ -183,10 +175,7 @@ def test_the_qr_issue_date_replaces_a_date_the_reader_took_from_elsewhere(
             total=TOTAL, currency="DOP", rnc=RNC, ecf=ENCF, occurred_on="2027-12-31"
         ),
     )
-    batch, resolution = _resolution(checked, monkeypatch, read, DATED)
-    assert _pairs(_match(batch.ecf_checks)) == {
-        "occurred_on": {"read": "2027-12-31", "qr": "2026-11-05"}
-    }
+    _, resolution = _resolution(checked, monkeypatch, read, DATED)
     occurred_on = resolution.facts.occurred_on
     assert (occurred_on.value, occurred_on.origin) == (date(2026, 11, 5), "qr_decoded")
     saved = _match(resolution.ecf_checks)

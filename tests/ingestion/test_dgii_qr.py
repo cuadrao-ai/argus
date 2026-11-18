@@ -1,7 +1,7 @@
 """The DGII QR is decoded deterministically from the page images and only a
 link to DGII's own consultation pages counts. What it carries replaces what
 the reader found; a value anyone else gave stays. The two QR rows say whether
-one was there and whether it names what the read or the record holds."""
+one was there and whether it names what the record holds."""
 
 from __future__ import annotations
 
@@ -14,16 +14,12 @@ from argus.domain.business.contracts.facts import BusinessFacts
 from argus.domain.ingestion.documents.dgii_qr import (
     fill_from_qr,
     parse_dgii_url,
-    qr_checks,
     read_dgii_qr,
     record_qr_checks,
     tipo_ecf_of,
     with_qr,
 )
-from argus.domain.ingestion.documents.models import (
-    DocumentExtractionError,
-    ReceiptDetails,
-)
+from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.preparation import prepare_document
 
 from tests.dgii_qr_support import (
@@ -188,7 +184,6 @@ def test_the_first_dgii_qr_wins_over_other_codes_on_the_page():
     assert read_dgii_qr((buffer.getvalue(),)).encf == ENCF
 
 
-READ = ReceiptDetails(total=TOTAL, rnc=RNC, ecf=ENCF, currency="DOP")
 QR = parse_dgii_url(URL)
 
 
@@ -196,55 +191,26 @@ def by_name(checks):  # noqa: ANN001
     return {check.name: check for check in checks}
 
 
-def test_the_qr_rows_say_present_and_match_field_by_field():
-    rows = by_name(qr_checks(QR, READ))
-    assert rows["qr_present"].state == "verified"
-    assert rows["qr_present"].detail["host"] == "fc.dgii.gov.do"
-    assert rows["qr_matches_read"].state == "verified"
-    assert rows["qr_matches_read"].detail == {}
-    assert {k: v.model_dump() for k, v in rows["qr_matches_read"].read_vs_qr.items()} == {
-        "rnc": {"read": RNC, "qr": RNC},
-        "ecf": {"read": ENCF, "qr": ENCF},
-        "total": {"read": TOTAL, "qr": TOTAL},
-    }
-    # A read that printed nothing comparable: present, nothing to match.
-    rows = by_name(qr_checks(QR, ReceiptDetails(merchant="Hotel")))
-    assert (rows["qr_matches_read"].state, rows["qr_matches_read"].code) == (
-        "not_checked",
-        "no_read",
-    )
-    # No QR at all.
-    rows = by_name(qr_checks(None, READ))
-    assert (rows["qr_present"].code, rows["qr_matches_read"].code) == ("no_qr", "no_qr")
-
-
-def test_a_mismatch_is_a_row_to_review_with_both_values():
-    rows = by_name(
-        qr_checks(QR, ReceiptDetails(total="33254.19", rnc="131111223", ecf=ENCF))
-    )
-    assert (rows["qr_matches_read"].state, rows["qr_matches_read"].code) == (
-        "failed",
-        "qr_differs",
-    )
-    assert rows["qr_matches_read"].detail == {}
-    assert {k: v.model_dump() for k, v in rows["qr_matches_read"].read_vs_qr.items()} == {
-        "rnc": {"read": "131111223", "qr": RNC},
-        "total": {"read": "33254.19", "qr": TOTAL},
-    }
-    # The NCF the read found stands in for the e-NCF when that is what it printed.
-    rows = by_name(qr_checks(QR, ReceiptDetails(ncf=ENCF)))
-    assert rows["qr_matches_read"].state == "verified"
-
-
-def test_a_qr_without_an_xml_gets_a_verification_of_its_own():
-    verification = with_qr(None, QR, READ, NOW)
+def test_the_qr_rows_say_present_and_compare_nothing_before_the_merge():
+    verification = with_qr(None, QR, NOW)
     assert (verification.encf, verification.tipo_ecf) == (ENCF, "32")
     assert [c.name for c in verification.checks] == [
         "qr_present",
         "qr_matches_read",
         "dgii_accepted",
     ]
-    assert with_qr(None, None, READ, NOW) is None
+    rows = by_name(verification.checks)
+    assert rows["qr_present"].state == "verified"
+    assert rows["qr_present"].detail["host"] == "fc.dgii.gov.do"
+    assert (rows["qr_matches_read"].state, rows["qr_matches_read"].code) == (
+        "not_checked",
+        "no_read",
+    )
+    assert rows["qr_matches_read"].read_vs_qr == {}
+    # No QR beside an e-CF: both rows say so. No QR and no e-CF: nothing.
+    rows = by_name(with_qr(verification, None, NOW).checks)
+    assert (rows["qr_present"].code, rows["qr_matches_read"].code) == ("no_qr", "no_qr")
+    assert with_qr(None, None, NOW) is None
 
 
 @pytest.mark.parametrize("photo", [small_soft_photo, washed_out_photo])
@@ -261,6 +227,74 @@ def test_a_code_the_plain_decode_misses_is_read_on_a_retry(photo, faker):  # noq
 def test_a_retry_still_ignores_a_code_that_is_not_dgii(photo, faker):  # noqa: ANN001
     assert read_dgii_qr((photo(f"https://{faker.domain_name()}/app?mesa=12"),)) is None
     assert read_dgii_qr((blank_png((1600, 1200)),)) is None
+
+
+def retry_attempts(image: bytes) -> list[str]:
+    """The retry passes the decoder logged for one page, as their names."""
+
+    from loguru import logger
+
+    lines: list[str] = []
+    sink = logger.add(lines.append, format="{message}")
+    try:
+        read_dgii_qr((image,))
+    finally:
+        logger.remove(sink)
+    return [
+        line.strip().rpartition("attempt=")[2]
+        for line in lines
+        if "dgii_qr_decoded_on_retry" in line
+    ]
+
+
+def test_the_cheapest_retry_runs_first_and_a_hit_builds_no_enlargement(
+    faker,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+):
+    from PIL import Image
+
+    enlarged: list[tuple[int, int]] = []
+    resize = Image.Image.resize
+
+    def spy(self, size, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        enlarged.append(size)
+        return resize(self, size, *args, **kwargs)
+
+    url = timbre_url(faker, issued=date(2026, 11, 5))
+    faded, soft, clear = washed_out_photo(url), small_soft_photo(url), qr_page_png(url)
+    monkeypatch.setattr(Image.Image, "resize", spy)
+    assert retry_attempts(faded) == ["autocontrast"]
+    assert enlarged == []
+    # A code only an enlargement reads is tried at 2x before 3x.
+    [attempt] = retry_attempts(soft)
+    assert attempt in ("x2", "x3")
+    assert enlarged[0] == (3200, 2400)
+    assert retry_attempts(clear) == []
+
+
+def test_each_enlargement_is_released_before_the_next_is_built(monkeypatch):  # noqa: ANN001
+    import weakref
+
+    from PIL import Image
+
+    built: list[weakref.ref] = []
+    alive_at_build: list[int] = []
+    resize = Image.Image.resize
+
+    def spy(self, size, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        alive_at_build.append(sum(ref() is not None for ref in built))
+        page = resize(self, size, *args, **kwargs)
+        built.append(weakref.ref(page))
+        return page
+
+    monkeypatch.setattr(Image.Image, "resize", spy)
+    assert read_dgii_qr((blank_png((1600, 1200)),)) is None
+    assert alive_at_build == [0, 0]
+    assert [ref() for ref in built] == [None, None]
+    # An enlargement over the pixel limit is never built.
+    built.clear()
+    assert read_dgii_qr((blank_png((2000, 1500)),)) is None
+    assert len(built) == 1
 
 
 SOURCE = str(uuid4())
@@ -403,7 +437,7 @@ def test_a_disagreement_is_logged_by_field_name_and_never_by_value():
 def test_the_record_row_compares_what_the_record_holds_after_the_qr_won():
     facts = BusinessFacts.model_validate(merge(read_facts()))
     saved = record_qr_checks(
-        with_qr(None, DATED, None, NOW), DATED, facts, None, amount_is_total=True
+        with_qr(None, DATED, NOW), DATED, facts, None, amount_is_total=True
     )
     row = by_name(saved.checks)["qr_matches_read"]
     # Only the e-NCF still comes from the read; what the QR gave is not
@@ -437,13 +471,26 @@ def test_the_record_row_compares_what_the_record_holds_after_the_qr_won():
         record_qr_checks(saved, DATED, facts, "33254.19", amount_is_total=False).checks
     )["qr_matches_read"]
     assert row.read_vs_qr["total"].model_dump() == {"read": "33254.19", "qr": TOTAL}
-    assert record_qr_checks(None, None, facts, None, amount_is_total=True) is None
-
-
-def test_the_read_row_compares_the_issue_date_too():
-    read = ReceiptDetails(rnc=RNC, ecf=ENCF, occurred_on=date(2027, 12, 31))
-    row = by_name(qr_checks(DATED, read))["qr_matches_read"]
-    assert (row.state, row.code) == ("failed", "qr_differs")
+    # The NCF the record holds stands in for the e-NCF, and the row carries
+    # every field the record holds of its own.
+    read = BusinessFacts.model_validate(
+        {
+            "amount": known(TOTAL),
+            "fiscal": {"rnc": known(RNC), "ncf": known(ENCF)},
+        }
+    )
+    row = by_name(
+        record_qr_checks(saved, DATED, read, None, amount_is_total=True).checks
+    )["qr_matches_read"]
+    assert (row.state, row.detail) == ("verified", {})
     assert {k: v.model_dump() for k, v in row.read_vs_qr.items()} == {
-        "occurred_on": {"read": "2027-12-31", "qr": "2026-11-05"}
+        "rnc": {"read": RNC, "qr": RNC},
+        "ecf": {"read": ENCF, "qr": ENCF},
+        "total": {"read": TOTAL, "qr": TOTAL},
     }
+    # A record that holds nothing of its own has nothing to compare.
+    row = by_name(
+        record_qr_checks(saved, DATED, BusinessFacts(), None, amount_is_total=True).checks
+    )["qr_matches_read"]
+    assert (row.state, row.code) == ("not_checked", "no_read")
+    assert record_qr_checks(None, None, facts, None, amount_is_total=True) is None

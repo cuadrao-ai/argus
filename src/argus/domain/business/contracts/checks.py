@@ -49,8 +49,8 @@ class EcfCheck(Contract):
     code: str | None = Field(default=None, max_length=80)
     #: Small named facts behind the state (expected and found values, dates).
     detail: dict[str, str] = Field(default_factory=dict)
-    #: The ``qr_matches_read`` row only: each compared field (rnc, ecf, total)
-    #: with both values, typed, so no reader parses a string.
+    #: The ``qr_matches_read`` row only: each compared field (rnc, ecf, total,
+    #: occurred_on) with both values, typed, so no reader parses a string.
     read_vs_qr: dict[str, ReadVsQr] = Field(default_factory=dict)
 
 

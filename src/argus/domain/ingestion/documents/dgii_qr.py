@@ -14,7 +14,8 @@ import io
 import re
 from datetime import date, datetime
 from decimal import Decimal, DecimalException
-from typing import Iterator, Sequence
+from functools import partial
+from typing import Callable, Iterator, Sequence
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 from loguru import logger
@@ -30,7 +31,6 @@ from argus.domain.business.contracts.checks import (
     dgii_link_host,
 )
 from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts, Known
-from argus.domain.ingestion.documents.models import ReceiptDetails
 
 __all__ = ["DGII_HOSTS", "parse_dgii_url", "read_dgii_qr"]
 MAX_URL_CHARS = 2048
@@ -45,35 +45,41 @@ _ENCF = re.compile(r"^E(\d{2})\d{10}$")
 _DATE_FORMATS = ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d")
 
 
-def _passes(grey: Image.Image) -> Iterator[tuple[str, Image.Image]]:
-    """The page as shot, then the retries for a code the plain pass missed: a
-    small or soft code decodes once enlarged, a faded one once its contrast is
-    stretched. An enlargement over ``MAX_RETRY_PIXELS`` is skipped."""
+def _retries(grey: Image.Image) -> Iterator[tuple[str, Callable[[], Image.Image]]]:
+    """The retries for a code the plain pass missed, cheapest first, each
+    built only when its turn comes: a faded code decodes once its contrast is
+    stretched, a small or soft one once enlarged. An enlargement over
+    ``MAX_RETRY_PIXELS`` is skipped."""
 
-    yield "plain", grey
+    yield "autocontrast", partial(ImageOps.autocontrast, grey, AUTOCONTRAST_CUTOFF)
     for scale in RETRY_SCALES:
         size = (grey.width * scale, grey.height * scale)
         if size[0] * size[1] <= MAX_RETRY_PIXELS:
-            yield f"x{scale}", grey.resize(size, Image.Resampling.LANCZOS)
-    yield "autocontrast", ImageOps.autocontrast(grey, cutoff=AUTOCONTRAST_CUTOFF)
+            yield f"x{scale}", partial(grey.resize, size, Image.Resampling.LANCZOS)
 
 
 def _decode(image: bytes) -> Iterator[tuple[str, str]]:
     """Each QR text on the page with the pass that found it. Lazy: a caller
-    that stops at the first DGII link never pays for the later passes."""
+    that stops at the first DGII link never pays for the later passes. One
+    retry image is held at a time: the worker has little memory, and an
+    enlargement is several times the page."""
 
     import zxingcpp
+
+    def texts(page: Image.Image) -> list[str]:
+        found = zxingcpp.read_barcodes(
+            page, formats=zxingcpp.BarcodeFormat.QRCode, try_rotate=True
+        )
+        return [result.text for result in found if result.valid and result.text]
 
     with Image.open(io.BytesIO(image)) as source:
         source.load()
         grey = source.convert("L")
-    for name, page in _passes(grey):
-        found = zxingcpp.read_barcodes(
-            page, formats=zxingcpp.BarcodeFormat.QRCode, try_rotate=True
-        )
-        for result in found:
-            if result.valid and result.text:
-                yield name, result.text
+    for text in texts(grey):
+        yield "plain", text
+    for name, build in _retries(grey):
+        for text in texts(build()):
+            yield name, text
 
 
 def _value(query: dict[str, str], name: str) -> str | None:
@@ -194,14 +200,14 @@ def _same(name: str, held: object, stated: str) -> bool:
         return False
 
 
-def _match_row(qr: DgiiQr, held: dict[str, object] | None) -> EcfCheck:
+def _match_row(qr: DgiiQr, held: dict[str, object]) -> EcfCheck:
     """Whether what the QR names equals the values held, field by field and
     only where both exist; ``read_vs_qr`` carries both values of each."""
 
     stated = _stated(qr)
     compared: dict[str, ReadVsQr] = {}
     differing: list[str] = []
-    for name, value in (held or {}).items():
+    for name, value in held.items():
         if value is None or stated[name] is None:
             continue
         compared[name] = ReadVsQr(read=str(value)[:64], qr=stated[name][:64])
@@ -219,11 +225,10 @@ def _match_row(qr: DgiiQr, held: dict[str, object] | None) -> EcfCheck:
     return EcfCheck(name="qr_matches_read", state="verified", read_vs_qr=compared)
 
 
-def qr_checks(qr: DgiiQr | None, receipt: ReceiptDetails | None) -> list[EcfCheck]:
-    """Two rows: whether a DGII QR was there, and whether what it names
-    (issuer RNC, e-NCF, total, issue date) equals what the read found. This
-    is the read on its own, before the merge; ``record_qr_checks`` makes the
-    row the record saves."""
+def _qr_rows(qr: DgiiQr | None) -> list[EcfCheck]:
+    """Two rows: whether a DGII QR was there, and the match row with nothing
+    compared yet. ``record_qr_checks`` owns the comparison: it makes the match
+    row over what the record holds after the merge."""
 
     if qr is None:
         return [
@@ -235,15 +240,7 @@ def qr_checks(qr: DgiiQr | None, receipt: ReceiptDetails | None) -> list[EcfChec
         state="verified",
         detail={"host": qr.host, "encf": qr.encf, "rnc_emisor": qr.rnc_emisor},
     )
-    if receipt is None:
-        return [present, _match_row(qr, None)]
-    held = {
-        "rnc": receipt.rnc,
-        "ecf": receipt.ecf or receipt.ncf,
-        "total": receipt.total,
-        "occurred_on": receipt.occurred_on,
-    }
-    return [present, _match_row(qr, held)]
+    return [present, _match_row(qr, {})]
 
 
 def record_qr_checks(
@@ -254,7 +251,7 @@ def record_qr_checks(
     *,
     amount_is_total: bool,
 ) -> EcfVerification | None:
-    """The verification as the record saves it: the match row made again over
+    """The verification as the record saves it: the match row made over
     what the record holds after the merge, so it never asks for review of a
     value the QR replaced. A fact the QR gave is not compared with itself.
     The amount of a read with several purchases is not a total; the total
@@ -282,10 +279,7 @@ def record_qr_checks(
 
 
 def with_qr(
-    verification: EcfVerification | None,
-    qr: DgiiQr | None,
-    receipt: ReceiptDetails | None,
-    now: datetime,
+    verification: EcfVerification | None, qr: DgiiQr | None, now: datetime
 ) -> EcfVerification | None:
     """The verification with the QR rows beside the e-CF rows. A document with
     a QR and no XML gets a verification of its own: the QR rows, the DGII row
@@ -293,7 +287,7 @@ def with_qr(
 
     if verification is None and qr is None:
         return None
-    rows = qr_checks(qr, receipt)
+    rows = _qr_rows(qr)
     if verification is not None:
         checks = [
             c
