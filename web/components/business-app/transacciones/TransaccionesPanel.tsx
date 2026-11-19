@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Check, SlidersHorizontal } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { recordsCurrencySchema } from "@/lib/business-reports-api";
+import { recordsCurrencySchema, reportFiltersSchema, reportRequestSchema } from "@/lib/business-reports-api";
+import { getChosenGrant } from "@/lib/business-grant";
+import { liveReportingTransport, recordsPresentationToReport, recordsSortToReport, type ReportingTransport } from "@/lib/business-reporting-wire";
 import { currencySymbol } from "@/lib/money-entry";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -27,7 +29,7 @@ import type { RecordsViewPreferences } from "./records-view-preferences";
 import { sampleRecordsColumns, sampleRecordsPreferences } from "./sample-records-preferences";
 import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
-import { emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment, type PreviewFilters } from "./records-filter-preview-model";
+import { activeFilterGroups, emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment, type PreviewFilters } from "./records-filter-preview-model";
 import { useRecordPreviewSearch } from "./RecordsAnnotationsPreview";
 import { matchesPreviewReady, matchesPreviewExpenseType, matchesPreviewPeriod } from "./records-results-preview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
@@ -37,10 +39,17 @@ import { TransaccionesList } from "./TransaccionesList";
 import { TransaccionesTable } from "./TransaccionesTable";
 import { TransaccionesTray } from "./TransaccionesTray";
 import { useTransaccionesWords } from "./transacciones-words";
-import BusinessReportsPanel, { RecordsWorkspaceUnavailable } from "./BusinessReportsPanel";
+import BusinessReportsPanel, { ConnectedBusinessReports, RecordsWorkspaceUnavailable, reportFiltersFromUi, reportPeriodFromUi } from "./BusinessReportsPanel";
+import RecordsExportPanel, { type RecordsExportProps } from "./RecordsExportPanel";
+import { RecordsExportButton } from "./RecordsExportButton";
+import { clearRecordsExportRequest, useRecordsExportRequested } from "./records-export-request";
 import { useTransacciones } from "./useTransacciones";
 
 const EMPTY_COPY = "business.transactions.records.empty_placeholder";
+// Sample records have no export service. Keep the shared dialog's unavailable
+// state and never send fixture identities to the connected transport.
+const unavailableSampleExport = async (): Promise<never> => { throw Object.assign(new Error("Sample export unavailable"), { code: "business_reports_unavailable" }); };
+const sampleExportTransport: Pick<ReportingTransport, "exportPreview" | "exportFile"> = { exportPreview: unavailableSampleExport, exportFile: unavailableSampleExport };
 
 /**
  * Transacciones: does every peso that moved have its proof? With igualar on
@@ -50,16 +59,16 @@ const EMPTY_COPY = "business.transactions.records.empty_placeholder";
  * ventas in the same columns, each opening its record.
  */
 export default function TransaccionesPanel() {
-  const { source, records } = useBusiness();
+  const { source, records, chosen, userId } = useBusiness();
   const igualar = useIgualarEnabled();
   if (source.mode === "live" && !igualar) return <BusinessReportsPanel />;
   if (!recordsCurrencySchema.safeParse(records.workspace?.records_default_currency).success) return records.error || records.workspace ? <RecordsWorkspaceUnavailable /> : <RecordsLoadingPreview />;
-  return <LegacyTransaccionesPanel />;
+  return <LegacyTransaccionesPanel key={`${source.mode}:${userId}:${chosen?.space_id}:${getChosenGrant()}`} />;
 }
 
 function LegacyTransaccionesPanel() {
   const { t, locale } = useTransaccionesWords();
-  const { period, setPeriod, panel, records, chosen, source } = useBusiness();
+  const { period, setPeriod, panel, records, chosen, source, userId } = useBusiness();
   const igualarOn = useIgualarEnabled();
   const periodLabel = usePeriodLabel();
   const { isBelowTablet: phone } = useResponsiveLayout();
@@ -114,6 +123,27 @@ function LegacyTransaccionesPanel() {
   const visibleRecords = filteredRecords?.filter((row) =>
     localPaging ? matchesPreviewSearch(row, query) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) ?? null;
   const sampleOverview = localPaging && visibleRecords ? sampleRecordsOverview({ sourceMode: source.mode, businessId: chosen?.space_id ?? null, rows: visibleRecords, kind: filter.kind }) : undefined;
+  const [exporting, setExporting] = useState<Pick<RecordsExportProps, "scope" | "request" | "periodLabel" | "filterCount"> | null>(null);
+  const [reviewing, setReviewing] = useState<Pick<RecordsExportProps, "scope" | "request"> | null>(null);
+  const exportRequested = useRecordsExportRequested();
+  const canExport = chosen?.permissions?.includes("export") === true && list.kind === "ready" && (source.mode === "fixture" || Boolean(userId) && records.workspaceGrant === getChosenGrant());
+  const openExport = () => {
+    if (!canExport || !chosen) return;
+    const selectedPeriod = localPaging && !igualar ? previewPeriod : period;
+    const selectedFilters = localPaging && !igualar ? previewFilters : emptyPreviewFilters(recordsCurrencySchema.parse(bank?.currency ?? records.workspace?.records_default_currency));
+    const filters = reportFiltersFromUi(reportFiltersSchema.parse({ period: reportPeriodFromUi(selectedPeriod), q: igualar ? "" : filter.query.trim() }), selectedFilters, igualar ? "gasto" : filter.kind);
+    setExporting({
+      scope: { userId: source.mode === "fixture" ? "fixture-person" : userId!, businessId: chosen.space_id, grantId: getChosenGrant() },
+      request: reportRequestSchema.parse({ schema_version: 2, filters, ...(!igualar && shownPreferences ? { presentation: recordsPresentationToReport(shownPreferences), sort: recordsSortToReport(shownPreferences.sort) } : {}) }),
+      periodLabel: periodLabel(selectedPeriod), filterCount: activeFilterGroups(selectedFilters).length + (filters.q ? 1 : 0),
+    });
+  };
+  useEffect(() => {
+    if (!exportRequested || !canExport) return;
+    clearRecordsExportRequest();
+    openExport();
+  });
+  const exportAction = <RecordsExportButton onExport={openExport} enabled={canExport} />;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
   const cameFrom = panel.kind === "transactions" ? panel.expenseId : undefined;
@@ -153,6 +183,8 @@ function LegacyTransaccionesPanel() {
     </button>
   ) : null;
 
+  if (reviewing) return <ConnectedBusinessReports scope={reviewing.scope} initial={reviewing.request} defaultCurrency={recordsCurrencySchema.parse(records.workspace?.records_default_currency)} />;
+
   return (
     <PullToRefresh onRefresh={controller.refresh}>
       <section ref={screen} tabIndex={-1} data-testid="transacciones" className="pb-6 outline-none">
@@ -161,7 +193,7 @@ function LegacyTransaccionesPanel() {
             {phone ? <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2> : null}
             {igualar ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p> : null}
           </div>
-          <div className="flex flex-wrap items-center gap-3">{phone ? null : run}{phone ? <BusinessAddMenu placement="header" /> : null}</div>
+          <div className="flex flex-wrap items-center gap-3">{phone ? null : run}{igualar ? exportAction : null}{phone ? <BusinessAddMenu placement="header" /> : null}</div>
         </div> : null}
         {igualar ? <div className="mb-4 flex flex-wrap items-center gap-2">
           <SegmentedControl
@@ -177,7 +209,7 @@ function LegacyTransaccionesPanel() {
         </div> : null}
         {!igualar ? <RecordsTypeTabs value={filter.kind} onChange={(kind) => { if (kind === "venta") setPreviewFilters((current) => ({ ...current, expense_type: [] })); setFilter((current) => ({ ...current, kind })); }} /> : null}
         {!igualar && source.mode === "fixture" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview family={filter.kind === "venta" ? "sale" : "purchase"} loading={list.kind === "loading"} answer={sampleOverview?.answer} notReadyCount={sampleOverview?.notReadyCount ?? null} selected={previewFilters.ready === false} onChoose={fiscalToggle.toggle} /> : null}
-        {!igualar ? <RecordsToolbar onViewRestore={fiscalToggle.clear} appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={changePreviewFilters} preferences={shownPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={previewChanged} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{localPaging && shownPreferences ? <RecordsSettingsPreview value={shownPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
+        {!igualar ? <RecordsToolbar onViewRestore={fiscalToggle.clear} appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={changePreviewFilters} preferences={shownPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={previewChanged} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{exportAction}{localPaging && shownPreferences ? <RecordsSettingsPreview value={shownPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
@@ -217,6 +249,7 @@ function LegacyTransaccionesPanel() {
           </>
         )}
         {saved && !localPaging ? <p data-testid="records-count" aria-live="polite" className="mt-4 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.count", { count: visibleRecords?.length ?? 0 })}</p> : null}
+        {exporting && chosen?.permissions?.includes("export") ? <RecordsExportPanel {...exporting} transport={source.mode === "fixture" ? sampleExportTransport : liveReportingTransport} onClose={() => setExporting(null)} onReviewFiscal={(currency) => setReviewing({ scope: exporting.scope, request: reportRequestSchema.parse({ filters: { period: exporting.request.filters.period, record_families: exporting.request.filters.record_families, currencies: [currency], fiscal_data: "missing" } }) })} /> : null}
         {trayMovement ? <TransaccionesTray key={tray?.run ? "run" : trayMovement.id} controller={controller} movement={trayMovement} phone={phone} returnFocusRef={trayRow} /> : null}
       </section>
     </PullToRefresh>
