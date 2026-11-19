@@ -291,7 +291,7 @@ def test_postgres_crash_intent_is_not_extracted_and_disconnect_erases_it(
     store, objects, owner, capture, pool = storage_rig
     if pool is None:
         pytest.skip("durable crash checkpoint requires PostgreSQL")
-    draft = capture(write=False)
+    draft = capture(write=False).model_copy(update={"status": "queued", "consent": True})
     put = objects.put
 
     def crash(path, content, media_type):
@@ -305,7 +305,27 @@ def test_postgres_crash_intent_is_not_extracted_and_disconnect_erases_it(
     key = dict(user_id=owner, connection_id=draft.connection_id)
     assert not store.draft(**key).source_available
     assert store.source(**key) is None
-    assert (owner, draft.connection_id) not in store.pending(limit=100)
+    from unittest.mock import Mock
+
+    from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+    from argus.domain.ingestion.documents.jobs import DISPATCH_WINDOW, PreparationJobs
+    from argus.domain.ingestion.documents.service import DocumentsService
+    from argus.domain.ingestion.hub import IngestionHub
+
+    now = draft.updated_at + DISPATCH_WINDOW
+    hub = IngestionHub(
+        PostgresConnectionRepository(pool), box=None, sink=Mock(), clock=lambda: now
+    )
+    service = DocumentsService(hub, store, Mock())
+    assert store.pull(now=now, cap=3) is None
+    assert (owner, draft.connection_id) in store.pending(now=now, limit=100)
+    assert PreparationJobs(service).sweep().errors == 0
+    settled = store.draft(**key)
+    assert (settled.status, settled.error_code) == (
+        "needs_attention",
+        "document_source_unavailable",
+    )
+    assert store.pull(now=now, cap=3) is None
     assert f"sealed/{owner}/{DIGEST}" in objects.objects
     store.forget(**key)
     assert not objects.objects

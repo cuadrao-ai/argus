@@ -299,12 +299,15 @@ Do not copy `cuadrao-api-staging` or `cuadrao-app-staging` onto production. `scr
 
 #### Staging drift check
 
-Compare a staging service with the manifest before changing anything. Run these commands from the repository root after installing the locked Python dependencies with Poetry. Put a read-only token in the environment for that run. The command reads the live settings and prints names. A plain setting the manifest pins shows the expected value and the live value. A secret shows present or missing, and the value is never printed. Exit 1 means the service differs from the manifest. The command does not write, and it is not part of CI. It only accepts the staging api and web services. Add `--help` to either command to check usage without a token or a service call.
+Compare a staging service with the manifest before changing anything. Run these commands from the repository root after installing the locked Python dependencies with Poetry. Put a read-only token in the environment for that run. The command reads the live settings and prints names. A plain setting the manifest pins shows the expected value and the live value. A secret shows present or missing, and the value is never printed. Exit 1 means the service differs from the manifest. The command does not write, and it is not part of CI. It accepts the staging api, web, and documents worker services. Add `--help` to any command to check usage without a token or a service call.
 
 ```
 RENDER_API_KEY=... poetry run python -m scripts.ops.settings_drift api
 RENDER_API_KEY=... poetry run python -m scripts.ops.settings_drift web
+RENDER_API_KEY=... poetry run python -m scripts.ops.settings_drift documents_worker
 ```
+
+The [staging deploy workflow](ops/deploy-staging.md) deploys API, documents worker, then web when selected, using one fixed full SHA and stopping on any deploy failure.
 
 `release-config-audit` fails a live key whose production rule is `not_set`, or that the manifest does not name, with `unexpected_live_env`. It also fails a missing or different value for every production `value` rule, and a missing value for every required `enter` or `copy_from` rule.
 
@@ -351,7 +354,7 @@ separate readback. They are not app-managed hosted declarations.
 
 The business-web contract on `cuadrao-app` still requires `ARGUS_TRUSTED_CLIENT_IP_HEADER=CF-Connecting-IP` before that service's build. Do not set the business-web contract on the marketing site.
 
-The business-web env lives in the settings manifest's `web` surface, not in `render.yaml`. `render.yaml` declares no env for `cuadrao-marketing` or `cuadrao-app`. The manifest's `documents_worker` surface holds only the worker's two job settings, and the tool refuses `--live-names` on it until its live readback is done, because the worker also reads settings the surface does not list. The audited marketing env is the release profile `marketing` surface, taken from the marketing launch runbook and the keys `marketing/` reads.
+The business-web env lives in the settings manifest's `web` surface, not in `render.yaml`. `render.yaml` declares no env for `cuadrao-marketing` or `cuadrao-app`. The manifest's `documents_worker` surface describes 15 settings per hosted environment. Its staging idle-poll ceiling is 60 seconds; production keeps 5 seconds. `staging_env.py apply all --confirm` now includes the staging worker. The tool still refuses `--live-names` on the worker until the founder's names-only live readback is done; production readback and delete-list work remain separate. The audited marketing env is the release profile `marketing` surface, taken from the marketing launch runbook and the keys `marketing/` reads.
 
 These profile `optional` names are secrets. Set one only when Lucas is turning that surface on, and never record the value. Absence is allowed by the audit. `CUADRAO_INVITE_CODE_SECRET` is the exception timed above. The others are `CUADRAO_INVITE_CODE_SECRET_PREVIOUS`, `ARGUS_INGESTION_SECRET_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_WEBHOOK_URL`, `CUADRAO_APPLE_TEAM_ID`, `CUADRAO_APPLE_SIGN_IN_KEY_ID`, `CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY`, and `CUADRAO_APPLE_BUNDLE_ID`.
 

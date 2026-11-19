@@ -14,10 +14,8 @@ from psycopg.types.json import Jsonb
 
 from argus.domain.business.authority import ActionError
 
-# Bump the scope only when what we do with the documents changes: an owner who
-# agreed to an earlier scope reads as off until they accept this one. A consent
-# stores the exact words shown as its record, and new words for the same scope
-# keep it on.
+# Scope, route and disclosure record what the owner accepted. Later changes
+# do not end that permission; revocation ends its generation.
 SCOPE_VERSION = 3
 DISCLOSURES = {
     "en": "We use artificial intelligence to read the documents that come in by email or WhatsApp, or that you upload to Cuadrao (invoices, receipts and PDFs), and prepare a draft of each one. You review it and approve it. If you turn it off, they are saved unread; if you turn it back on, the ones left unread are read too. Details in the privacy notice.",
@@ -26,10 +24,11 @@ DISCLOSURES = {
 _COLUMNS = ("id", "scope_version", "consented_at", "revoked_at", "route", "disclosure")
 
 
-def _row(db, space_id):
+def _row(db, space_id, *, lock: bool = False):
     found = db.execute(
         "select id::text,scope_version,consented_at,revoked_at,route,disclosure from public.business_receipt_reading_consents"
-        " where space_id=%s order by consented_at desc,id desc limit 1",
+        " where space_id=%s order by consented_at desc,id desc limit 1"
+        + (" for share" if lock else ""),
         (space_id,),
     ).fetchone()
     return dict(zip(_COLUMNS, found, strict=True)) if found else None
@@ -53,12 +52,7 @@ def _view(row, space_id, owner_id, route, language):
         "route": route,
         "disclosure_token": token,
         "available": route is not None,
-        "enabled": bool(
-            row
-            and row["scope_version"] == SCOPE_VERSION
-            and row["revoked_at"] is None
-            and row["route"] == route
-        ),
+        "enabled": bool(row and row["revoked_at"] is None),
         "consent_id": row["id"] if row else None,
         "consented_at": row["consented_at"] if row else None,
         "revoked_at": row["revoked_at"] if row else None,
@@ -110,7 +104,8 @@ class BusinessReceiptConsentStore:
             return self.status_on_connection(db, space_id, owner_id, language)
 
     def status_on_connection(
-        self, db: Connection, space_id: str, owner_id: str, language: str = "en"
+        self, db: Connection, space_id: str, owner_id: str, language: str = "en",
+        *, lock: bool = False,
     ) -> dict:
         route = self._route()
         owner = db.execute(
@@ -119,12 +114,18 @@ class BusinessReceiptConsentStore:
         ).fetchone()
         if owner is None:
             return _view(None, space_id, owner_id, route, language)
-        return _view(_row(db, space_id), space_id, owner[0], route, language)
+        return _view(_row(db, space_id, lock=lock), space_id, owner[0], route, language)
 
     def enabled(
-        self, space_id: str, owner_id: str, consent_id: str | None = None
+        self, space_id: str, owner_id: str, consent_id: str | None = None,
+        *, db: Connection | None = None,
     ) -> bool:
-        state = self.status(space_id, owner_id)
+        """Check the captured generation, holding it through an existing transaction."""
+        state = (
+            self.status(space_id, owner_id)
+            if db is None
+            else self.status_on_connection(db, space_id, owner_id, lock=True)
+        )
         return state["enabled"] and (
             consent_id is None or state["consent_id"] == consent_id
         )

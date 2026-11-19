@@ -4462,6 +4462,7 @@
       "duplicate_resolution": {
         "basis": {
           "fiscal_number": "Same RNC and NCF as another document.",
+          "fiscal_number_sale_placeholder": "[placeholder] Same NCF as another sale.",
           "read_facts": "Same supplier, date and total as another document."
         },
         "column": {

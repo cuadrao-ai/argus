@@ -58,7 +58,7 @@ from argus.domain.business.contracts.facts import HUMAN_AMOUNT_FIELDS
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
-from argus.domain.business.receipt_consent import SCOPE_VERSION
+from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from argus.domain.business.transactions import (
     ActionTransaction,
     GrantImportStore,
@@ -843,20 +843,12 @@ class BusinessActions:
         draft = DocumentDraft.model_validate(row["draft"])
         self._require_email_read(tx, binding.connection_id)
         if draft.business_reading_consent_id is not None:
-            permission = tx.rows(
-                "select id,route from public.business_receipt_reading_consents where id=%s"
-                " and space_id=%s and scope_version=%s and revoked_at is null for share",
-                (
-                    draft.business_reading_consent_id,
-                    tx.context.actor.space_id,
-                    SCOPE_VERSION,
-                ),
-            )
-            from argus.domain.ingestion.whatsapp.receipt_consent import (
-                receipt_provider_route,
-            )
-
-            if not permission or permission[0]["route"] != receipt_provider_route():
+            if not BusinessReceiptConsentStore().enabled(
+                str(tx.context.actor.space_id),
+                tx.context.owner_id,
+                draft.business_reading_consent_id,
+                db=tx.connection,
+            ):
                 raise ActionError("permission_denied", "document_reading_not_allowed")
         if row["preparation_binding"] != binding.model_dump(
             mode="json"
@@ -991,3 +983,50 @@ class BusinessActions:
                     "idempotency_conflict", "business_preparation_batch_changed"
                 )
             return plans.finish_receipt(tx, key, result)
+
+    def complete_attachment_read(
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        scope: OwnerScope,
+        holder: str,
+        attempt_id: str | None,
+        document_version: int,
+        prepared: Applied,
+    ) -> None:
+        """Stamp only the read's unchanged draft after its completed status is saved."""
+
+        from dataclasses import replace
+
+        from argus.domain.business.actions.listos import draft_standings
+        from argus.domain.business.bandeja_group import draft_group, listo_reason
+
+        _, context = self._attachment_context(user_id, connection_id, scope)
+        with transaction(self.authority, context, "prepare") as tx:
+            row = self._attachment_row(tx, UUID(connection_id))
+            document, job = row["draft"], row["preparation_job"]
+            if (
+                document["version"] != document_version
+                or document["status"] not in {"review_ready", "needs_attention"}
+                or row["lease_holder"] != holder
+                or row["lease_until"] is None
+                or row["lease_until"] <= row["checked_at"]
+                or (job.get("attempt_id") if job else None) != attempt_id
+            ):
+                return
+            event = tx.imports.event(str(prepared.draft_id))
+            # The owner lock keeps review and another read out until this commits.
+            if (
+                event.state != "open"
+                or event.version != prepared.version
+                or "read_group" in event.resolution
+            ):
+                return
+            standing = draft_standings(tx, (event,))[event.id]
+            tx.imports.put_event(
+                replace(
+                    event,
+                    resolution={**event.resolution, "read_group": draft_group(listo_reason(standing))},
+                )
+            )

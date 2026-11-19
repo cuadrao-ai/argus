@@ -7804,6 +7804,12 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   `preparation.receipt.buyer_rnc` (string or null) is the RNC of the buyer as
   printed. No server code reads these two values. A read saved before they
   existed returns null for both.
+  `preparation.receipt.payment_form` (`01` to `07` or null) and
+  `preparation.receipt.expense_type` (`01` to `11` or null) are the DGII Forma
+  de pago and Tipo de gasto codes the reader read. Null means it read none, and
+  a read saved before they existed returns null for both. A Business dossier
+  offers them in `declaration_suggestions` with the source `receipt` for Forma
+  de pago and `reading` for Tipo de gasto.
 - `GET /financial-documents/{connection_id}/source` returns verified original
   bytes for PDF, text, CSV, XLSX, XML and EML. PNG/JPEG images return a rebuilt
   JPEG, made on first download if missing and reused on later downloads. The
@@ -7821,7 +7827,7 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   participants, `equal|items` method and item assignments with multiple participant
   IDs for shared items. A stale version or active preparation returns 409. Proposals
   do not change extracted evidence, grant access, share content or write money.
-  The response is the same draft as the `GET`, with the same two
+  The response is the same draft as the `GET`, with the same
   `preparation.receipt` fields.
 
 All draft/source reads are owner-only and `no-store`. Missing retained source on
@@ -8372,7 +8378,7 @@ it returns 503 `business_guide_unavailable` with a request reference.
 
 A Business owner explicitly enables scope version 3 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
 
-`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the exact words shown, but `enabled` depends only on the scope version, the current route and the consent not being revoked, so new words for the same scope keep reading on. An owner who accepted an earlier scope reads `enabled: false` and is asked again; until they accept, their documents are saved unread and no read runs. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the one the `GET` returned (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
+`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the scope version, configured route and exact words shown as its acceptance record. For the Business and its live consenting Owner, `enabled` depends on that generation remaining unrevoked. A change of model, gateway, scope version or disclosure keeps reading on with the same consent ID and never asks for consent again. An accepted ownership transfer or loss of the consenting person's Owner role still revokes the generation; the recipient must enable reading explicitly. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the one the `GET` returned (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
 
 The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
@@ -8613,8 +8619,10 @@ gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
 is `{value, source}` or null. `source` says where the value came from:
 `last_choice` is the answer a person last gave for this draft's supplier RNC
 in this Business, on another open, accepting or accepted purchase; `receipt`
-is reserved for a value read from the receipt and `reading` for the AI
-reading's pick, and nothing sends either yet. A suggestion is read fresh: it
+is the forma de pago the reader read on this draft's receipt, and `reading`
+is the tipo de gasto the reader picked from it. The best source wins: for
+`payment_method`, `receipt` then `last_choice`; for `category`, `last_choice`
+then `reading`. A suggestion is read fresh: it
 is null unless the draft is an open expense whose approval writes a 606
 declaration (`declaration_editable` true, and a saved purchase declaration or
 an RNC and a 606-reported fiscal number), null where the draft has that answer
@@ -8716,7 +8724,8 @@ Business. The target must be open; the comparison may be open or accepted and
 is read-only. A stale version answers 409; a foreign or personal ID answers
 404 without disclosing its state. A bank or source-change warning cannot be
 cleared through this action. Two purchases with one supplier RNC and fiscal
-number are one comprobante, which approval accepts once, so
+number, or two sales with one fiscal number regardless of buyer RNC, are one
+comprobante, which approval accepts once, so
 `different_purchase` on such a pair answers 422 `duplicate_same_comprobante`.
 
 `same_purchase` deletes the target document as a duplicate. It is the
@@ -8724,7 +8733,8 @@ owner's alone and follows every rule of
 `POST /business/drafts/{draft_id}/delete`: it needs `approve`, an open
 document that is not being read and shares no attachment, and it answers the
 same refusals. The pair must be a pending receipt-fact pair or share one
-supplier RNC and fiscal number; any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
+comprobante (supplier RNC and fiscal number for purchases, fiscal number alone
+for sales); any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
 `deleted.reason = "duplicate"`, restorable until the purge. The other
 document is not changed. It writes no revision. A repeat with the same key
 replays the result; a repeat with a new key on a document already deleted for
@@ -8737,7 +8747,8 @@ candidate is `{draft_id, version, basis, decisions, comparison}`:
 
 - `basis` says why the two look like one: `read_facts` (the read gave both the
   same merchant, date, amount and currency) or `fiscal_number` (both purchases
-  carry one supplier RNC and fiscal number). `fiscal_number` wins when both
+  carry one supplier RNC and fiscal number, or both sales carry one fiscal
+  number regardless of buyer RNC). `fiscal_number` wins when both
   hold. A `fiscal_number` pair needs no `possible_duplicate` blocker.
   A `read_facts` pair settled with `different_purchase` is no candidate on
   either side until either document's read facts, live evidence or attached

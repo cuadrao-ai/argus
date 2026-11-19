@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
+from argus.domain.business.bandeja_group import Attention
 from argus.domain.business.contracts.deletion import DeletedDocument, deletion
 from argus.domain.business.contracts.facts import BusinessResolution, Known
 from argus.domain.ingestion.documents.failures import READ_DEADLINE_PASSED
@@ -36,24 +37,6 @@ REVIEW_FIELDS = (
 CLOSED: frozenset[ReceiptStatus] = frozenset({"confirmed", "dismissed"})
 # What a receipt nobody has read needs before the owner can save it by hand.
 UNREAD_NEEDS = ("account_id", "amount", "currency", "occurred_on")
-# Why a receipt needs the owner, in the words the owner sees. The web keys its
-# message on this; ``error_code`` stays the precise cause.
-Attention = Literal[
-    "unreadable",
-    "ai_unavailable",
-    "interrupted",
-    "outcome_unknown",
-    "no_purchase_found",
-    "not_a_receipt",
-    "several_purchases",
-    "source_unavailable",
-    "check_details",
-    "duplicate",
-    "read_budget_day",
-    "read_budget_month",
-    "read_deadline_passed",
-    "other",
-]
 # Preparation failures with nothing read, by the code the draft records.
 _UNREAD_ATTENTION: Mapping[str, Attention] = {
     **dict.fromkeys(

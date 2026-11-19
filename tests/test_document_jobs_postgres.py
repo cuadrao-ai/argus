@@ -45,6 +45,7 @@ from tests.document_reads_support import (
     refused_while_another_records,
 )
 from tests.document_sources_support import source_objects, stored_paths
+from tests.ingestion.test_document_pull_queue import SweepCases
 
 users = shared.users
 pytestmark = pytest.mark.skipif(
@@ -94,7 +95,7 @@ def test_advance_names_one_current_attempt_and_respects_the_lease(
     second = first.model_copy(update={"attempt": 2, "attempt_id": "a2"})
 
     assert store.owner(connection_id=row.id) == owner
-    assert (owner, row.id) in store.pending(limit=1000)
+    assert (owner, row.id) in store.pending(now=now, limit=1000)
     assert not store.advance(
         user_id=other, connection_id=row.id, now=now, expected_attempt_id=None, job=first
     )
@@ -142,7 +143,7 @@ def test_advance_names_one_current_attempt_and_respects_the_lease(
         job=second,
         draft=failed,
     )
-    assert (owner, row.id) not in store.pending(limit=1000)
+    assert (owner, row.id) not in store.pending(now=now, limit=1000)
     retry = second.model_copy(update={"retry": True})
     assert store.advance(
         user_id=owner,
@@ -151,11 +152,11 @@ def test_advance_names_one_current_attempt_and_respects_the_lease(
         expected_attempt_id="a2",
         job=retry,
     )
-    assert (owner, row.id) in store.pending(limit=1000)
+    assert (owner, row.id) in store.pending(now=now, limit=1000)
 
     repo.disconnect(user_id=owner, connection_id=row.id, now=later)
     assert store.owner(connection_id=row.id) is None
-    assert (owner, row.id) not in store.pending(limit=1000)
+    assert (owner, row.id) not in store.pending(now=now, limit=1000)
     store.forget(user_id=owner, connection_id=row.id)
 
 
@@ -890,3 +891,14 @@ def test_only_the_named_attempt_claims_and_records_it(
     for connection in (row.id, other.id):
         repo.disconnect(user_id=owner, connection_id=connection, now=now)
         store.forget(user_id=owner, connection_id=connection)
+
+
+@pytest.fixture
+def sweep_rig(pool, users):
+    clock, extractor = Clock(), Extractor()
+    service = instance(pool, clock, extractor).service
+    return users["owner"], service, PreparationJobs(service), clock, extractor
+
+
+class TestSweepWindow(SweepCases):
+    pass

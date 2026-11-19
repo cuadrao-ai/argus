@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import Field, computed_field, model_validator
 
+from argus.domain.business.bandeja_group import ApprovalGroup
 from argus.domain.business.contracts.authority import PersonShown
 from argus.domain.business.contracts.facts import Contract
 
@@ -29,7 +30,7 @@ class DeletingActor(Contract):
 
 class PreviousDocumentState(Contract):
     state: str
-    group: Literal["attention", "listo"]
+    group: ApprovalGroup
     events: dict[str, Literal["open", "dismissed"]] = Field(
         default_factory=dict, exclude_if=lambda value: not value
     )

@@ -6,7 +6,11 @@ from decimal import Decimal
 
 import pytest
 from argus.domain.business.contracts.facts import Unknown
-from argus.domain.business.dgii_export import fiscal_manifest, line_assessments
+from argus.domain.business.dgii_export import (
+    fiscal_manifest,
+    line_assessments,
+    line_verdicts,
+)
 from argus.domain.business.dgii_line import reason
 from argus.domain.business.reporting_file import (
     RecordsExport,
@@ -22,6 +26,7 @@ from tests.business.test_business_reporting_query import run
 from tests.business.test_records_file import report, source
 from tests.business.test_registros_export_ready import CAPTURED, SEPTEMBER, rows
 from tests.dgii.test_606_review_and_rnc import VALID, purchase, supplier, with_ncf
+from tests.dgii.test_packet import practice_records
 
 
 @pytest.fixture
@@ -317,6 +322,106 @@ def test_foreign_amount_mismatch_matches_dop_without_changing_export(
         )
 
     assert export(usd) == export(replace(original, currency="USD"))
+
+
+@pytest.mark.parametrize("family", ["purchase", "sale"])
+def test_foreign_duplicates_match_dop_without_changing_export(approved_rows, family):
+    fake = Faker()
+    fake.seed_instance(2186)
+    sale = practice_records()[4]
+    original = approved_rows[0] if family == "purchase" else sale
+    duplicate = replace(original, activity_id=fake.uuid4(), draft_id=fake.uuid4())
+    dop = (original, duplicate)
+    usd = tuple(replace(record, currency="USD") for record in dop)
+    dop_rows = judge(dop)
+    usd_rows = judge(usd)
+    assert [(row.ready, row.missing) for row in dop_rows] == [
+        (False, ("duplicate_document",)),
+        (False, ("duplicate_document",)),
+    ]
+    assert [(row.ready, row.missing) for row in usd_rows] == [
+        (row.ready, row.missing) for row in dop_rows
+    ]
+    filtered = run(usd_rows, ReportFilters(period=SEPTEMBER, ready=False))
+    assert (filtered.matching_count, filtered.overview.not_ready) == (2, 2)
+
+    good = (
+        approved_rows[2],
+        replace(
+            with_ncf(sale, f"B01{fake.unique.random_int(1, 99999999):08}"),
+            activity_id=fake.uuid4(),
+            draft_id=fake.uuid4(),
+        ),
+    )
+
+    def export(pair):
+        records = (*pair, *good)
+        manifest, lines = fiscal_manifest(
+            records,
+            rnc="199990013",
+            business_name="",
+            start=date(2026, 9, 1),
+            end=date(2026, 9, 30),
+            captured_on=CAPTURED,
+        )
+        assert len(lines["606"]) == len(lines["607"]) == 1
+        assessments = line_assessments(records, rnc="199990013", captured_on=CAPTURED)
+        for subject in pair:
+            assert assessments[subject.activity_id].issues == (
+                {
+                    "code": "fiscal_conversion_required",
+                    "activity_id": subject.activity_id,
+                    "field": "currency",
+                },
+            )
+        projected = tuple(
+            row.model_copy(
+                update={
+                    "currency": record.currency,
+                    "family": "sale" if record.kind == "income" else "purchase",
+                }
+            )
+            for row, record in zip(rows(records), records, strict=True)
+        )
+        dataset = source(
+            *with_export_verdicts(projected, assessments, frozenset()),
+            approved={record.activity_id: record for record in records},
+        )
+        files = tuple(
+            build_file(
+                dataset,
+                RecordsExport(
+                    report=report(record_families=[chosen]), mode="dgii", format="csv"
+                ),
+            ).content
+            for chosen in ("purchase", "sale")
+        )
+        return (
+            manifest,
+            lines,
+            files,
+            line_verdicts(records, rnc="199990013", captured_on=CAPTURED),
+        )
+
+    distinct = (usd[0], with_ncf(usd[1], f"B01{fake.unique.random_int(1, 99999999):08}"))
+    assert export(usd) == export(distinct)
+
+
+@pytest.mark.parametrize("month", [8, 10])
+def test_foreign_duplicate_count_is_limited_to_the_same_month(approved_rows, month):
+    first, other = approved_rows[:2]
+    records = (
+        replace(first, currency="USD"),
+        replace(
+            first,
+            currency="USD",
+            activity_id=other.activity_id,
+            occurred_on=date(2026, month, 1),
+        ),
+    )
+    judged = judge(records)
+    assert judged[0].ready
+    assert all("duplicate_document" not in row.missing for row in judged)
 
 
 def test_unmapped_blocker_logs_and_cannot_look_ready(approved_rows):

@@ -12,9 +12,15 @@ from __future__ import annotations
 import hashlib
 from typing import Annotated, ClassVar, Literal, get_args
 
-from pydantic import Field, StringConstraints
+from pydantic import (
+    Field,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
+    StringConstraints,
+    model_serializer,
+)
 
-from argus.domain.business.bandeja_group import BandejaReason
+from argus.domain.business.bandeja_group import ApprovalGroup, BandejaReason
 from argus.domain.business.contracts.facts import FactField
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipts import Attention
@@ -96,6 +102,7 @@ class BusinessDocumentNeedsReview(BusinessEvent):
 class BusinessRecordApproved(BusinessEvent):
     event_name: ClassVar[str] = "business_record_approved"
 
+    bandeja_group_at_read: ApprovalGroup | None = None
     filled_fields: Annotated[tuple[RecordField, ...], Field(max_length=MAX_RECORD_FIELDS)] | None = None
     filled_count: Annotated[int, Field(ge=0, le=MAX_RECORD_FIELDS)] | None = None
     corrected_fields: Annotated[tuple[RecordField, ...], Field(max_length=MAX_RECORD_FIELDS)] | None = (
@@ -105,6 +112,19 @@ class BusinessRecordApproved(BusinessEvent):
     seconds_to_approve: Annotated[int, Field(ge=0, le=MAX_SECONDS_TO_APPROVE)] | None = (
         None
     )
+
+    @model_serializer(mode="wrap")
+    def with_read_group(
+        self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
+    ) -> dict:
+        properties = handler(self)
+        # Missing historical evidence is an explicit null in this property.
+        name = "bandeja_group_at_read"
+        if (info.exclude is None or name not in info.exclude) and (
+            info.include is None or name in info.include
+        ):
+            properties[name] = self.bandeja_group_at_read
+        return properties
 
 
 class BusinessRecordRecorded(BusinessEvent):

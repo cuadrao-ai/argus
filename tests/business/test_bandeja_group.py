@@ -78,6 +78,16 @@ def test_a_draft_with_nothing_missing_is_listo() -> None:
 
 
 @pytest.mark.parametrize(
+    ("reason", "expected"),
+    [(None, "listo"), ("missing_rnc", "attention"), ("duplicate", "attention")],
+)
+def test_draft_group_uses_the_presence_of_a_gap(reason, expected) -> None:  # noqa: ANN001
+    from argus.domain.business import bandeja_group
+
+    assert bandeja_group.draft_group(reason) == expected
+
+
+@pytest.mark.parametrize(
     ("draft", "reason"),
     [
         (replace(LISTO, read="none"), "not_read"),
