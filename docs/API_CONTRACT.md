@@ -8384,6 +8384,7 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | No duplicate | `duplicate`, for a possible repeat no person settled, or another open, accepting or accepted purchase with the same supplier RNC and comprobante |
 | A purchase receipt | `sale` for a Venta, whose kind is income; `credit_note` for a refund or a B04 or E34 number |
 | Supplier, date, total and currency | `missing_merchant`, `missing_date`, `missing_amount`, `missing_currency` |
+| An issue date whose year is likely | `check_details`, for a year to check: the reader wrote the date (origin `extracted`) and its year is not the upload year |
 | A comprobante, unless a person said there is none | `sin_comprobante`, for a record a person stated has no comprobante fiscal (`sin_comprobante` true), in place of the `missing_rnc` and `missing_ncf` a read gap gives. Such a record stays in `attention` and is approved alone |
 | An RNC or cédula with a valid check digit | `missing_rnc`; `invalid_rnc` when it is not 9 or 11 digits, or its check digit fails and the DGII register does not list it, the rule the 606 export applies |
 | A valid NCF or e-CF | `missing_ncf`; `invalid_ncf`; `ecf_check_failed` for a failed check on the e-CF or its QR, or a file that names an e-CF the record does not hold |
@@ -8393,6 +8394,8 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | No review flag | `review_flag`, for a warning such as `itbis_high` |
 | Nothing else blocks approval | `blocked`, such as an open question |
 | A verified sender, if it came by email | `unverified_sender` |
+
+The upload year is the year, on the Business calendar (America/Santo_Domingo), of the `received_at` of the draft's first source. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
 
 Every other open receipt is `attention`. A receipt being read is in `attention` with reason `reading`, so a read in flight counts there until it settles. Any open receipt can still be approved alone from its dossier, a receipt with no NCF or in USD included. A group decides nothing by itself: no read, worker, model or schedule approves.
 

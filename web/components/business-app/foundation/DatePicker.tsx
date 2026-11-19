@@ -46,12 +46,6 @@ export function dayIn(iso: string, year: number, month: number): string {
   return isoOf(year, month, Math.min(Number(iso.slice(8)), new Date(Date.UTC(year, month + 1, 0)).getUTCDate()));
 }
 
-/** The day moved into the year the document was uploaded, or null when it is already there. */
-export function inUploadYear(day: string, uploadYear: number): string | null {
-  const { year, month } = monthOf(day);
-  return year === uploadYear ? null : dayIn(day, uploadYear, month);
-}
-
 export function shiftDay(iso: string, days: number): string {
   const [year, month, day] = iso.split("-").map(Number);
   return isoOf(year, month - 1, day + days);
@@ -69,9 +63,10 @@ export function weeks({ year, month }: Month): (string | null)[][] {
 /**
  * What the field holds decides the month's shortcuts. A past day offers Hoy and
  * Ayer, a due day offers days ahead, and a document's own date offers none: it
- * offers the upload year instead, from the time the server received the document.
+ * offers the upload year instead, when the server says the year needs a check.
+ * Both values are the server's; this field never compares years.
  */
-export type DateFieldContext = { kind: "past" } | { kind: "due" } | { kind: "document"; uploadedAt: string | null };
+export type DateFieldContext = { kind: "past" } | { kind: "due" } | { kind: "document"; uploadYear: number | null; yearToCheck: boolean };
 type CalendarView = "days" | "months" | "years";
 const RECENT_YEARS = 12;
 
@@ -190,8 +185,8 @@ export function DatePicker({ id, label, value, onChange, disabled, invalid, desc
     due: [{ key: "today", date: today }, { key: "in_7_days", date: shiftDay(today, 7) }, { key: "in_15_days", date: shiftDay(today, 15) }, { key: "in_one_month", date: nextMonth }],
     document: [],
   }[context.kind];
-  const uploadYear = context.kind === "document" && context.uploadedAt ? new Date(context.uploadedAt).getFullYear() : null;
-  const uploadFix = typed && uploadYear && !Number.isNaN(uploadYear) ? inUploadYear(typed, uploadYear) : null;
+  const uploadYear = context.kind === "document" ? context.uploadYear : null;
+  const uploadFix = context.kind === "document" && context.yearToCheck && typed && uploadYear ? dayIn(typed, uploadYear, monthOf(typed).month) : null;
   const monthName = (month: number, style: "long" | "short") => new Intl.DateTimeFormat(locale, style === "long" ? { month: "long", year: "numeric", timeZone: "UTC" } : { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(shownMonth.year, month, 1)));
   const monthTitle = monthName(shownMonth.month, "long");
   const newestYear = Math.max(year, uploadYear ?? year);
