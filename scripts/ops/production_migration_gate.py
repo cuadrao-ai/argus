@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import unicodedata
@@ -1278,8 +1279,9 @@ def _project_ref_from_supabase_url(supabase_url: str) -> str:
 
 def _run_git(repo_root: Path, *args: str) -> bytes:
     result = subprocess.run(
-        ["git", *args],
+        [shutil.which("git") or "git", *args],
         cwd=repo_root,
+        env={"GIT_TERMINAL_PROMPT": "0"},
         capture_output=True,
         check=False,
     )

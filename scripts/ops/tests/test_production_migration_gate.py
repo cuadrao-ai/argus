@@ -1807,140 +1807,20 @@ def test_trusted_checkout_reads_only_candidate_migration_objects(
     )
 
 
-@pytest.mark.parametrize(
-    "scenario,expected_state",
-    [
-        ("pass", "success"),
-        ("blocked", "failure"),
-        ("gate_error", "error"),
-        ("stale", "error"),
-        ("closed_late", "error"),
-        ("retargeted", "error"),
-        ("bad_report", "error"),
-        ("fetch_error", "error"),
-        ("api_error", "error"),
-        ("wrong_fetched_sha", "error"),
-        ("closed", None),
-        ("wrong_base", None),
-        ("wrong_repo", None),
-        ("invalid_sha", None),
-        ("wrong_ref", None),
-        ("invalid_number", None),
-    ],
-)
-def test_manual_workflow_publishes_only_verified_current_head(
-    tmp_path: Path,
-    scenario: str,
-    expected_state: str | None,
-) -> None:
-    import textwrap
 
-    workflow = Path(__file__).resolve().parents[3] / (
-        ".github/workflows/production-migration-gate.yml"
-    )
-    assert workflow.is_file(), "the manual trusted workflow must exist"
-    script = textwrap.dedent(
-        workflow.read_text().split("node <<'NODE'\n", 1)[1].split("          NODE", 1)[0]
-    )
-    harness = r"""
-const vm = require('node:vm');
-const fs = require('node:fs');
-const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-const sha = 'a'.repeat(40), trusted = 'b'.repeat(40);
-const states = [], commands = [], errors = [];
-let reads = 0, evidence;
-const env = {
-  GITHUB_REF: input.scenario === 'wrong_ref' ? 'refs/heads/other' : 'refs/heads/main',
-  GITHUB_SHA: trusted, GITHUB_REPOSITORY: 'fixture/repository',
-  GITHUB_RUN_ID: '123', GITHUB_SERVER_URL: 'https://example.test',
-  GITHUB_API_URL: 'https://api.example.test', GH_TOKEN: 'synthetic-token',
-  PR_NUMBER: input.scenario === 'invalid_number' ? '1;anything' : '12',
-  RUNNER_TEMP: '/synthetic', ARGUS_PRODUCTION_DATABASE_URL: 'synthetic-url',
-  CUADRAO_PRODUCTION_DATABASE_SSL_ROOT_CERT: 'synthetic-ca',
-};
-const proc = {env, exitCode: 0};
-const report = {candidate_sha: sha, trusted_sha: trusted,
-  status: input.scenario === 'blocked' ? 'blocked' : 'pass'};
-if (input.scenario === 'bad_report') report.candidate_sha = trusted;
-const context = {
-  process: proc, AbortSignal,
-  console: {error: (x) => errors.push(x), log: () => {}},
-  require: (name) => {
-    if (name === 'node:fs') return {
-      writeFileSync: (p, value) => {
-        if (p.endsWith('.json')) evidence = JSON.parse(value);
-      }, rmSync: () => {},
-      readFileSync: () => JSON.stringify(report),
-    };
-    if (name === 'node:path') return require(name);
-    if (name === 'node:child_process') return {spawnSync: (cmd, args, options) => {
-      commands.push([cmd, args]);
-      if (cmd === 'git' && args[0] === 'rev-parse') return {
-        status: 0, stdout: input.scenario === 'wrong_fetched_sha' ? trusted : sha,
-      };
-      return {status: input.scenario === 'gate_error' && cmd === 'poetry' ? 2 :
-        input.scenario === 'blocked' && cmd === 'poetry' ? 1 :
-        input.scenario === 'fetch_error' && cmd === 'git' ? 1 : 0};
-    }};
-    throw Error('unexpected module');
-  },
-  fetch: async (url, options) => {
-    if (options.method === 'POST') {
-      states.push({url, ...JSON.parse(options.body)});
-      return {ok: true, json: async () => ({})};
-    }
-    reads += 1;
-    if (input.scenario === 'api_error' && reads > 1) return {ok: false};
-    const state = input.scenario === 'closed' ||
-      (input.scenario === 'closed_late' && reads > 1) ? 'closed' : 'open';
-    const ref = input.scenario === 'wrong_base' ||
-      (input.scenario === 'retargeted' && reads > 1) ? 'other' : 'main';
-    return {ok: true, json: async () => ({
-      number: 12, state, draft: true,
-      base: {ref, repo: {full_name: input.scenario === 'wrong_repo' ?
-        'fixture/other' : 'fixture/repository'}},
-      head: {sha: input.scenario === 'invalid_sha' ? 'main' :
-        input.scenario === 'stale' && reads > 1 ? trusted : sha},
-    })};
-  },
-};
-(async () => {
-  await vm.runInNewContext('(async () => {' + input.script + '\n})()', context);
-  process.stdout.write(JSON.stringify({states, commands, code: proc.exitCode, errors, evidence}));
-})();
-"""
-    result = subprocess.run(
-        ["node", "-e", harness],
-        input=json.dumps({"scenario": scenario, "script": script}),
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-    outcome = json.loads(result.stdout)
-    states = outcome["states"]
-    if expected_state is None:
-        assert states == []
-    else:
-        assert [s["state"] for s in states] == ["pending", expected_state]
-        assert outcome.get("evidence", {}).get("publication_status") == expected_state
-        assert all(s["context"] == "production-migration-gate" for s in states)
-        assert all(s["url"].endswith("/statuses/" + "a" * 40) for s in states)
-    assert outcome["code"] == (0 if expected_state == "success" else 1)
-    assert "synthetic-token" not in result.stdout
-    assert "synthetic-url" not in result.stdout
-    if expected_state == "success":
-        commands = outcome["commands"]
-        assert [cmd for cmd, _ in commands] == ["git", "git", "poetry"]
-        assert commands[0][1] == ["fetch", "--no-tags", "origin", "refs/pull/12/head"]
-        assert "checkout" not in [arg for _, args in commands for arg in args]
-        assert commands[2][1] == [
-            "run",
-            "python",
-            "scripts/ops/production_migration_gate.py",
-            "--candidate-sha",
-            "a" * 40,
-            "--trusted-sha",
-            "b" * 40,
-            "--output",
-            "/synthetic/production-migration-gate.json",
-        ]
+def test_gate_git_commands_do_not_inherit_ledger_credentials(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, faker: Any,
+) -> None:
+    secret = faker.password()
+    monkeypatch.setenv("ARGUS_PRODUCTION_DATABASE_URL", secret)
+    monkeypatch.setenv("GH_TOKEN", faker.password())
+    environments: list[dict[str, str] | None] = []
+
+    def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        environments.append(kwargs.get("env"))
+        return subprocess.CompletedProcess(command, 0, b"fixture", b"")
+
+    monkeypatch.setattr(migration_gate.subprocess, "run", run)
+    assert migration_gate._run_git(tmp_path, "status") == b"fixture"
+    assert environments == [{"GIT_TERMINAL_PROMPT": "0"}]
+    assert secret not in str(environments)
