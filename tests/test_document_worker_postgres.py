@@ -122,7 +122,7 @@ def isolated_queue(
 def puller(service: DocumentsService, *mine: str) -> PreparationJobs:
     """Pull-mode jobs whose sweep sees only this test's rows."""
 
-    service.store.pending = lambda *, limit: [  # type: ignore[method-assign]
+    service.store.pending = lambda *, now, limit: [  # type: ignore[method-assign]
         (service.store.owner(connection_id=connection), connection) for connection in mine
     ]
     return PreparationJobs(service)

@@ -18,11 +18,12 @@ from argus.api.business_receipt_activity import counts
 from argus.domain.business.activity.queries import read_activity
 from argus.domain.business.contracts.actions import (
     ApproveExpense,
+    ApproveIncome,
     ResolveDuplicate,
     ReviewDraft,
 )
 from argus.domain.business.contracts.activity import ActivityFilters
-from argus.domain.business.contracts.dgii import FiscalReview
+from argus.domain.business.contracts.dgii import FiscalReview, SalesDeclaration
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.dgii_codes import TOOL_LABELS
 from argus.domain.business.dgii_columns import COLUMNS
@@ -101,20 +102,34 @@ def _prepared(actions, merchants=("Synthetic shop", "Synthetic shop")):
     return drafts
 
 
-def _comprobante(service, context, draft_id, account, ncf: str) -> None:
-    """The person completes the receipt: the supplier RNC, this NCF, the
-    ITBIS, the cash that paid and the 606 expense type."""
+def _comprobante(
+    service, context, draft_id, account, ncf: str, *, sale=False, rnc=SUPPLIER
+) -> None:
+    """Complete the purchase or sale with its fiscal number and declaration."""
 
+    declaration = (
+        {
+            **{name: None for name in SalesDeclaration.model_fields},
+            "form": "607",
+            "id_type": "1",
+            "income_type": "1",
+            "billed_amount": "212.29",
+            "cash": "250.50",
+        }
+        if sale
+        else blank_declaration(category="02")
+    )
     reviewed = service.review(
         context,
         draft_id,
         ReviewDraft(
             version=service.dossier(context, draft_id).version,
+            document_type="venta" if sale else "recibo",
             facts=BusinessFactPatch.model_validate(
                 {
                     name: {"state": "known", "value": value}
                     for name, value in {
-                        "kind": "expense",
+                        "kind": "income" if sale else "expense",
                         "funding": account_funding(account),
                         "business_share": {"kind": "all"},
                         "receipt_state": "fiscal_receipt",
@@ -123,8 +138,8 @@ def _comprobante(service, context, draft_id, account, ncf: str) -> None:
             ),
             dgii=FiscalReview.model_validate(
                 {
-                    "fiscal": {"rnc": SUPPLIER, "ncf": ncf, "itbis": "38.21"},
-                    "declaration": blank_declaration(category="02"),
+                    "fiscal": {"rnc": rnc, "ncf": ncf, "itbis": "38.21"},
+                    "declaration": declaration,
                 }
             ),
         ),
@@ -148,12 +163,18 @@ def _decide(service, context, draft_id, other_id, decision: str, key=None):
 
 
 def _approve(service, context, draft_id):
+    dossier = service.dossier(context, draft_id)
+    if dossier.facts.kind.value == "income":
+        return service.approve_income(
+            context,
+            draft_id,
+            ApproveIncome(version=dossier.version, action="record_income"),
+            str(uuid4()),
+        )
     return service.approve(
         context,
         draft_id,
-        ApproveExpense(
-            version=service.dossier(context, draft_id).version, action="record_expense"
-        ),
+        ApproveExpense(version=dossier.version, action="record_expense"),
         str(uuid4()),
     )
 
@@ -209,12 +230,13 @@ def _settled_before(service, context, draft_id, other_id) -> None:
         )
 
 
-def test_a_true_copy_is_dropped_and_the_original_kept(actions):
+@pytest.mark.parametrize("sale", [False, True], ids=["purchase", "sale"])
+def test_a_true_copy_is_dropped_and_the_original_kept(actions, sale):
     service, context, _ = actions
     first, second, account = _pair(actions)
     [ncf] = _ncfs(1)
     for draft_id in (first, second):
-        _comprobante(service, context, draft_id, account, ncf)
+        _comprobante(service, context, draft_id, account, ncf, sale=sale)
     web = views._web(service, context)
     before = counts(web, receipt_summaries(web, "all"))
     original = service.dossier(context, first)
@@ -296,57 +318,57 @@ def test_a_look_alike_with_another_ncf_is_two_purchases_when_the_person_says_so(
         assert _approve(service, context, draft_id).outcome == "applied"
 
 
+@pytest.mark.parametrize("sale", [False, True], ids=["purchase", "sale"])
 @pytest.mark.parametrize(
     ("same_rnc", "same_ncf"), [(True, True), (True, False), (False, True)]
 )
 def test_readiness_and_approval_read_one_comprobante_identity(
-    actions, same_rnc, same_ncf
+    actions, sale, same_rnc, same_ncf
 ):
-    """Every pair approval refuses as a second comprobante is a pair readiness
-    and the review hold back, and every pair they hold back approval refuses."""
+    """Approval refuses exactly the pairs readiness and review hold back."""
 
     service, context, _ = actions
     first, second, account = _pair(actions)
     one, other = _ncfs(2)
-    _comprobante(service, context, first, account, one)
-    _comprobante(service, context, second, account, one if same_ncf else other)
-    if not same_rnc:
-        reviewed = service.review(
-            context,
-            second,
-            ReviewDraft(
-                version=service.dossier(context, second).version,
-                dgii=FiscalReview.model_validate(
-                    {
-                        "fiscal": {
-                            "rnc": "199990048",
-                            "ncf": one,
-                            "itbis": "38.21",
-                        },
-                        "declaration": blank_declaration(category="02"),
-                    }
-                ),
-            ),
-            str(uuid4()),
-        )
-        assert reviewed.outcome == "applied", reviewed
-    if not (same_rnc and same_ncf):
-        assert _decide(service, context, second, first, "different_purchase").outcome == (
-            "applied"
+    _comprobante(service, context, first, account, one, sale=sale)
+    _comprobante(
+        service,
+        context,
+        second,
+        account,
+        one if same_ncf else other,
+        sale=sale,
+        rnc=SUPPLIER if same_rnc else "199990048",
+    )
+    same = same_ncf and (sale or same_rnc)
+    if not same:
+        assert (
+            _decide(service, context, second, first, "different_purchase").outcome
+            == "applied"
         )
     else:
         _settled_before(service, context, second, first)
+    assert _approve(service, context, first).outcome == "applied"
     held = _standings(service, context, second)[second].repeated
     offered = {
-        (c.draft_id, c.basis) for c in service.dossier(context, second).duplicate_candidates
+        (c.draft_id, c.basis)
+        for c in service.dossier(context, second).duplicate_candidates
     }
-    assert _approve(service, context, first).outcome == "applied"
     approval = _approve(service, context, second)
     refused = approval.outcome == "invalid_input" and approval.code == (
-        "duplicate_comprobante"
+        "fiscal_duplicate_document" if sale else "duplicate_comprobante"
     )
     assert refused == held == ((first, "fiscal_number") in offered)
-    assert refused is (same_rnc and same_ncf)
+    assert refused is same
+    if same:
+        assert _listo(service, context, second) == {second: "duplicate"}
+        [candidate] = service.dossier(context, second).duplicate_candidates
+        assert candidate.decisions == ("same_purchase",)
+        decision = _decide(service, context, second, first, "different_purchase")
+        assert (decision.outcome, decision.code) == (
+            "invalid_input",
+            "duplicate_same_comprobante",
+        )
 
 
 # The 606 fields the DGII tool reads as text; every other filled one is an amount.

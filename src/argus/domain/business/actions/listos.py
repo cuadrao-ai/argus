@@ -15,7 +15,7 @@ from argus.domain.business.actions.dossier import (
     rnc_registry,
     workflow_blockers,
 )
-from argus.domain.business.actions.fiscal import repeated_purchases
+from argus.domain.business.actions.fiscal import repeated_comprobantes
 from argus.domain.business.actions.refunds import refund_shaped
 from argus.domain.business.bandeja_group import (
     DraftStanding,
@@ -104,7 +104,7 @@ def draft_standings(
     questions = review_questions(tx, ids)
     attachments = _attachments(tx, ids)
     uploaded = _upload_years(tx, ids)
-    repeated = repeated_purchases(tx, drafts.values())
+    repeated = repeated_comprobantes(tx, drafts.values())
     accounts = record_context(tx).accounts
     registry = rnc_registry(tx)
     found = {}

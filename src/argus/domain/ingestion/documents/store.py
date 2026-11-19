@@ -85,8 +85,8 @@ class DocumentStore(Protocol):
     def forget(self, *, user_id: str, connection_id: str) -> None: ...
     def owner(self, *, connection_id: str) -> str | None: ...
     def job(self, *, user_id: str, connection_id: str) -> PreparationJob | None: ...
-    def pending(self, *, limit: int) -> list[tuple[str, str]]:
-        """Owner and connection of drafts awaiting preparation or a retry."""
+    def pending(self, *, now: datetime, limit: int) -> list[tuple[str, str]]:
+        """Sweep candidates, excluding available, untaken attempts before the deadline."""
         ...
 
     def pull(self, *, now: datetime, cap: int) -> tuple[str, str] | None:
@@ -397,13 +397,24 @@ class InMemoryDocumentStore:
             )
             return PreparationJob.model_validate_json(raw) if raw is not None else None
 
-    def pending(self, *, limit: int) -> list[tuple[str, str]]:
+    def pending(self, *, now: datetime, limit: int) -> list[tuple[str, str]]:
+        from argus.domain.ingestion.documents.jobs import READ_DEADLINE, dispatched
+
         with self.connections._lock, self._lock:
             rows = []
             for key, raw in self._drafts.items():
                 draft = DocumentDraft.model_validate_json(raw)
-                job = self._jobs.get(key)
-                retry = job is not None and PreparationJob.model_validate_json(job).retry
+                stored = self._jobs.get(key)
+                job = PreparationJob.model_validate_json(stored) if stored else None
+                if (
+                    draft.status == "queued"
+                    and draft.source_available
+                    and dispatched(draft, job)
+                    and job.dispatched_at is None
+                    and (job.asked_at or draft.updated_at) + READ_DEADLINE > now
+                ):
+                    continue
+                retry = job is not None and job.retry
                 if self._live(*key) and (
                     draft.status in {"queued", "preparing"}
                     or (draft.status == "needs_attention" and retry)

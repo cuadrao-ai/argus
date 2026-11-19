@@ -8724,7 +8724,8 @@ Business. The target must be open; the comparison may be open or accepted and
 is read-only. A stale version answers 409; a foreign or personal ID answers
 404 without disclosing its state. A bank or source-change warning cannot be
 cleared through this action. Two purchases with one supplier RNC and fiscal
-number are one comprobante, which approval accepts once, so
+number, or two sales with one fiscal number regardless of buyer RNC, are one
+comprobante, which approval accepts once, so
 `different_purchase` on such a pair answers 422 `duplicate_same_comprobante`.
 
 `same_purchase` deletes the target document as a duplicate. It is the
@@ -8732,7 +8733,8 @@ owner's alone and follows every rule of
 `POST /business/drafts/{draft_id}/delete`: it needs `approve`, an open
 document that is not being read and shares no attachment, and it answers the
 same refusals. The pair must be a pending receipt-fact pair or share one
-supplier RNC and fiscal number; any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
+comprobante (supplier RNC and fiscal number for purchases, fiscal number alone
+for sales); any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
 `deleted.reason = "duplicate"`, restorable until the purge. The other
 document is not changed. It writes no revision. A repeat with the same key
 replays the result; a repeat with a new key on a document already deleted for
@@ -8745,7 +8747,8 @@ candidate is `{draft_id, version, basis, decisions, comparison}`:
 
 - `basis` says why the two look like one: `read_facts` (the read gave both the
   same merchant, date, amount and currency) or `fiscal_number` (both purchases
-  carry one supplier RNC and fiscal number). `fiscal_number` wins when both
+  carry one supplier RNC and fiscal number, or both sales carry one fiscal
+  number regardless of buyer RNC). `fiscal_number` wins when both
   hold. A `fiscal_number` pair needs no `possible_duplicate` blocker.
   A `read_facts` pair settled with `different_purchase` is no candidate on
   either side until either document's read facts, live evidence or attached

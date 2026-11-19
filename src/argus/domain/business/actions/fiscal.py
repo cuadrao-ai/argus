@@ -193,12 +193,12 @@ def same_comprobante(
     return found
 
 
-def repeated_purchases(
+def repeated_comprobantes(
     tx, events: Iterable[ImportEvent]
 ) -> dict[UUID, tuple[UUID, ...]]:
-    """For each purchase draft, the other purchases, open or recorded, that
-    are its comprobante. Only one of them can be approved, so a stored
-    different-purchases answer settles none of these pairs."""
+    """For each draft, the other documents, open or recorded, that are its
+    comprobante. Only one can be approved, so a stored different-purchases
+    answer settles none of these pairs."""
 
     drafts = {
         event.id: event.resolution["business"]["facts"]
@@ -210,7 +210,6 @@ def repeated_purchases(
         for draft_id, others in same_comprobante(
             tx, drafts, ("open", "accepting", "accepted")
         ).items()
-        if comprobante_identity(drafts[draft_id])[0] == "purchase"
     }
 
 

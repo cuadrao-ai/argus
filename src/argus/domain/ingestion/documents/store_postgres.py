@@ -405,19 +405,28 @@ class PostgresDocumentStore:
             PreparationJob.model_validate(row[0]) if row and row[0] is not None else None
         )
 
-    def pending(self, *, limit: int) -> list[tuple[str, str]]:
+    def pending(self, *, now: datetime, limit: int) -> list[tuple[str, str]]:
+        from argus.domain.ingestion.documents.jobs import READ_DEADLINE
+
         with self._pool.connection() as connection:
             rows = connection.execute(
                 "select d.user_id::text, d.connection_id::text "
                 "from public.financial_document_extractions d "
                 "join public.financial_source_connections c on c.id=d.connection_id "
                 "and c.user_id=d.user_id where c.source='statement' "
-                "and c.status <> 'disconnected' and (d.draft->>'source_available')::boolean "
+                "and c.status <> 'disconnected' "
                 "and (d.draft->>'status' in "
                 "('queued','preparing') or (d.draft->>'status'='needs_attention' "
                 "and (d.preparation_job->>'retry')::boolean)) "
+                "and not coalesce(d.draft->>'status'='queued' "
+                "and (d.draft->>'source_available')::boolean "
+                "and (d.preparation_job->>'draft_version')::integer="
+                "(d.draft->>'version')::integer "
+                "and d.preparation_job->>'dispatched_at' is null "
+                "and coalesce((d.preparation_job->>'asked_at')::timestamptz, "
+                "(d.draft->>'updated_at')::timestamptz) > %s, false) "
                 "order by d.created_at, d.connection_id limit %s",
-                (limit,),
+                (now - READ_DEADLINE, limit),
             ).fetchall()
         return [(row[0], row[1]) for row in rows]
 
