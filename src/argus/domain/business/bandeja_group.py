@@ -9,12 +9,17 @@ credit note and a receipt marked Personal stay out: the faster approval records
 business purchases only. ``RULE`` runs in order, so a receipt with several gaps
 names the first. A receipt still being read is in neither tab until its read
 ends: a failed read needs attention, a read still running does not yet.
+
+The year check lives here too. The reader often writes the wrong year, so an
+issue date it read whose year is not the upload year waits for a person. The
+review calendar offers the upload year on the same answer.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Literal
 
 from argus.domain.business.contracts.dossier import ReviewFlag
@@ -26,6 +31,7 @@ from argus.domain.business.contracts.facts import (
     is_sin_comprobante,
 )
 from argus.domain.business.fiscal_identity import identity_digits
+from argus.domain.business.ledger import business_day
 from argus.domain.business.receipt_activity import awaiting_owner
 from argus.domain.business.receipts import Attention
 from argus.domain.business.review_flags import CHECK_DIGIT
@@ -61,7 +67,8 @@ ReadState = Literal["finished", "none", "unclear"]
 @dataclass(frozen=True)
 class DraftStanding:
     """What the rule reads of one open draft. ``sender`` is the email standing,
-    None for a receipt that did not come by email."""
+    None for a receipt that did not come by email. ``upload_year`` is the
+    year its first source arrived."""
 
     draft_id: str
     version: int
@@ -74,6 +81,7 @@ class DraftStanding:
     blockers: tuple[str, ...]
     flags: tuple[ReviewFlag, ...]
     sender: str | None = None
+    upload_year: int | None = None
 
 
 def _fiscal(draft: DraftStanding) -> FiscalFacts:
@@ -107,6 +115,25 @@ def _invalid_rnc(draft: DraftStanding) -> bool:
     return len(digits or "") not in CHECK_DIGIT or _flagged(draft, "rnc_check_digit")
 
 
+def upload_year(first_received_at: datetime | None) -> int | None:
+    """The Business year in which a draft's first source arrived."""
+
+    return business_day(first_received_at).year if first_received_at else None
+
+
+def year_to_check(facts: BusinessFacts, upload_year: int | None) -> bool:
+    """The reader wrote this issue date and its year is not the upload year. A
+    date from the QR or from a person is never checked."""
+
+    issued = facts.occurred_on
+    return (
+        upload_year is not None
+        and isinstance(issued, Known)
+        and issued.origin == "extracted"
+        and issued.value.year != upload_year
+    )
+
+
 def _foreign(draft: DraftStanding) -> bool:
     return draft.facts.currency.value != "DOP"
 
@@ -124,6 +151,7 @@ RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
     ("credit_note", lambda draft: draft.credit_note),
     ("missing_merchant", lambda draft: _lacks(draft, "counterparty")),
     ("missing_date", lambda draft: _lacks(draft, "occurred_on")),
+    ("check_details", lambda draft: year_to_check(draft.facts, draft.upload_year)),
     ("missing_amount", lambda draft: _lacks(draft, "amount")),
     ("missing_currency", lambda draft: _lacks(draft, "currency")),
     ("sin_comprobante", lambda draft: is_sin_comprobante(draft.facts)),

@@ -171,6 +171,9 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   dgii?: DgiiDeclaration | null;
   /** The caller may write the 606 declaration now: it holds prepare, the record takes a 606, and no downloaded TXT carries it. */
   declaration_editable?: boolean;
+  /** The Business year in which the first source arrived, and whether the issue date is a read whose year is not that year. The server decides both; the date field offers the upload year exactly when `year_to_check` is true. */
+  upload_year?: number | null;
+  year_to_check?: boolean;
   /** The caller may return this approved record to the Bandeja now: it holds approve and no bank match, credit note or refund is linked to it. */
   reopen_available?: boolean;
   /** What the server offers for each 606 answer this open expense lacks, under the declaration's field name. The approval saves the ones the person saw. */
