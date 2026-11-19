@@ -179,7 +179,7 @@ async def test_a_refused_pull_attempt_is_not_pulled_or_swept_again(rig):
         assert outcome == (
             "prepared" if receipt == read_first else "business_read_budget_day"
         )
-    assert service.store.pending(limit=10) == []
+    assert service.store.pending(now=service.hub.clock(), limit=10) == []
     assert jobs.sweep().redispatched == []
     assert service.store.pull(now=service.hub.clock(), cap=3) is None
     assert extractor.provider_calls == 1
