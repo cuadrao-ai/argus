@@ -11,6 +11,7 @@ from argus.domain.business.amount_inheritance import (
     inherit_amounts,
     inheritance_state,
     saved_declaration,
+    written_from,
 )
 from argus.domain.business.contracts.facts import Known
 from argus.domain.business.dgii_export import line_values
@@ -169,3 +170,18 @@ def test_only_the_amounts_follow_once_a_record_is_approved():
     links = inheritance_state(PURCHASE.facts, stored, (), APPROVED)
     assert set(links) == {"goods_amount", "services_amount", "itbis", "legal_tip"}
     assert inherit_amounts(PURCHASE.facts, stored, (), APPROVED) == stored
+
+
+@pytest.mark.parametrize(("record", "saved", "overrides", "bill_mark"), [
+    pytest.param(*case.values[:4], id=case.id) for case in CASES
+])
+def test_an_approved_record_shows_the_declaration_it_exports(record, saved, overrides, bill_mark):
+    stored = record.declaration.model_copy(update=saved)
+    assert written_from(record.facts, stored, overrides, bill_mark, APPROVED) == saved_declaration(
+        record.facts, stored, overrides, bill_mark
+    )
+
+
+def test_an_approved_record_shows_a_saved_amount_that_left_its_receipt():
+    stored = PURCHASE.declaration.model_copy(update={**SAVED, "itbis": "150.00"})
+    assert written_from(PURCHASE.facts, stored, (), None, APPROVED) is stored

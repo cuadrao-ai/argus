@@ -20,10 +20,10 @@ from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.amount_inheritance import (
     APPROVED,
     LinkedSources,
-    inherit_amounts,
     inheritance_state,
     links_of,
     original_ncf,
+    written_from,
 )
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.approved_facts import approved_revision_sql
@@ -576,7 +576,9 @@ def dossier(
     start, linked = review_start(
         tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type, context.accounts
     )
-    declaration = inherit_amounts(facts, start, resolution.fiscal_overrides, linked)
+    declaration = written_from(
+        facts, start, resolution.fiscal_overrides, resolution.bill_mark, linked
+    )
     approvable = not blocked and "approve" in tx.authorization.capabilities
     can_prepare = "prepare" in tx.authorization.capabilities
     can_annotate = annotation_available(tx.authorization, event)

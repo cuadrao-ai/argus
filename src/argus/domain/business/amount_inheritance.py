@@ -214,12 +214,12 @@ def written_from(
     bill_mark: str | None,
     linked: LinkedSources,
 ) -> DgiiDeclaration | None:
-    """The saved declaration a write starts from: what the record shows and
-    exports now. A write records overrides, which ends the fill of a save from
-    before they were recorded, so an approved one takes that fill first."""
+    """The declaration a record shows now, which a write starts from. An
+    approved record shows the one it exports. An open draft shows each linked
+    field at the value it follows."""
 
-    if linked.amounts_only and overrides is None:
-        return saved_declaration(facts, declaration, None, bill_mark)
+    if linked.amounts_only:
+        return saved_declaration(facts, declaration, overrides, bill_mark)
     return inherit_amounts(facts, declaration, overrides, linked)
 
 

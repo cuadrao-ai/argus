@@ -21,6 +21,7 @@ from psycopg.types.json import Jsonb
 
 from tests import test_business_approval_fiscal_postgres as fiscal
 from tests import test_business_declaration_after_approval_postgres as recorded
+from tests.business.test_approved_export_unchanged import CASES, PURCHASE
 from tests.test_business_dgii_postgres import cash_account
 
 users = fiscal.users
@@ -446,3 +447,70 @@ def test_a_write_keeps_the_export_of_a_save_from_before_overrides(actions, write
     assert {k: v for k, v in after.items() if k not in moved} == {
         k: v for k, v in before.items() if k not in moved
     }
+
+
+def _json(saved: dict) -> dict:
+    return {k: v.isoformat() if isinstance(v, date) else v for k, v in saved.items()}
+
+
+def _exported(service, context, draft):  # noqa: ANN001, ANN202
+    """The approved record's declaration as the export snapshot reads it."""
+
+    activity = str(service.dossier(context, draft).approval_result.activity_id)
+    return read_export_source(service.authority, context).approved[activity].declaration
+
+
+@pytest.mark.parametrize(
+    ("saved", "overrides", "bill_mark"),
+    [pytest.param(*case.values[1:4], id=case.id) for case in CASES if case.values[0] is PURCHASE],
+)
+def test_the_dossier_of_an_approved_record_shows_the_line_it_exports(  # noqa: ANN201
+    actions, saved, overrides, bill_mark  # noqa: ANN001
+):
+    service, context = actions
+    cash = recorded.account_funding(cash_account(service, context))
+    draft, version = recorded.captured(
+        service, context, "B0100000001", cash, recorded.blank_declaration(category="09")
+    )
+    recorded.approved(service, context, draft, version)
+    _saved_before_the_links(
+        service, context, draft, overrides, draft={"bill_mark": bill_mark}, **_json(saved)
+    )
+
+    exported = _exported(service, context, draft)
+    shown = service.dossier(context, draft)
+
+    assert _shown(shown) == exported.model_dump(mode="json", exclude={"suggestion_sources"})
+    assert not {"id_type", "paid_on", "modified_ncf"} & set(shown.inheritance)
+
+
+def test_the_dossier_of_an_approved_credit_note_shows_the_line_it_exports(actions):  # noqa: ANN001
+    service, context = actions
+    cash = recorded.account_funding(cash_account(service, context))
+    purchase, version = recorded.captured(service, context, "B0100002701", cash)
+    activity = str(recorded.approved(service, context, purchase, version).approval_result.activity_id)
+    credit, version = recorded.captured(
+        service,
+        context,
+        "B0400000027",
+        cash,
+        recorded.blank_declaration(
+            category="09", payment_method="04", actual_refund=True, purchase_activity_id=activity
+        ),
+        amount="118.00",
+        itbis="18.00",
+        kind="refund",
+        occurred_on="2026-09-12",
+    )
+    outcome = service.approve_refund(
+        context, credit, ApproveRefund(version=version, action="record_refund"), str(uuid4())
+    )
+    assert outcome.outcome == "applied", outcome
+    _saved_before_the_links(service, context, credit, (), modified_ncf="B0100000009")
+
+    exported = _exported(service, context, credit)
+
+    assert exported.modified_ncf == "B0100000009"
+    assert _shown(service.dossier(context, credit)) == exported.model_dump(
+        mode="json", exclude={"suggestion_sources"}
+    )

@@ -7,6 +7,7 @@ from argus.domain.business.amount_inheritance import (
     LinkedSources,
     inherit_amounts,
     inheritance_overrides,
+    written_from,
 )
 from argus.domain.business.contracts.amounts import AmountsPreview, AmountsPreviewRequest
 from argus.domain.business.contracts.dgii import FiscalInput, FiscalReview, PurchaseReview
@@ -22,7 +23,7 @@ from argus.domain.business.review_flags import review_flags
 def preview_amounts(resolution: BusinessResolution, request: AmountsPreviewRequest, linked: LinkedSources = NO_SOURCES) -> AmountsPreview:
     source_ids = (uuid4(),)  # Preview provenance exists only for this calculation.
     before = resolution.facts
-    declaration = inherit_amounts(before, resolution.dgii, resolution.fiscal_overrides, linked)
+    declaration = written_from(before, resolution.dgii, resolution.fiscal_overrides, resolution.bill_mark, linked)
     overrides = inheritance_overrides(before, declaration, None, resolution.fiscal_overrides, amount_derived=resolution.amount_derived, linked=linked)
     after = before
     if request.amount is not None:
