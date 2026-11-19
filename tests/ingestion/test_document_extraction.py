@@ -141,9 +141,9 @@ async def test_receipt_request_requires_one_purchase_and_preserves_printed_evide
     )
     assert route.call_count == 1
     payload = json.loads(route.calls[0].request.content)
-    instructions = payload["messages"][0]["content"]
+    instructions = " ".join(payload["messages"][0]["content"].split())
     assert (
-        "include exactly one purchase in observations alongside receipt details"
+        "exactly one purchase in observations, alongside receipt details"
         in instructions
     )
     assert (

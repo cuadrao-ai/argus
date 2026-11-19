@@ -94,7 +94,18 @@ class ReceiptItem(_Frozen):
 class ReceiptDetails(_Frozen):
     suggested_category: str | None = Field(default=None, max_length=120)
     merchant: str | None = Field(default=None, max_length=300)
-    occurred_on: date | None = None
+    occurred_on: date | None = Field(
+        default=None,
+        description='Issue date of the receipt ("Fecha", "Emitido", "Fecha Emisión"). '
+        "Never an expiry date or a signature or printing timestamp. Null if no issue "
+        "date is printed.",
+    )
+    issue_date_printed: str | None = Field(
+        default=None,
+        max_length=60,
+        description="The issue date exactly as printed on the receipt, character for "
+        "character, before any interpretation. Null if no issue date is printed.",
+    )
     currency: str | None = Field(default=None, max_length=20)
     items: tuple[ReceiptItem, ...] = Field(default=(), max_length=300)
     subtotal: str | None = Field(default=None, max_length=80)
@@ -107,27 +118,37 @@ class ReceiptDetails(_Frozen):
     rnc: str | None = Field(
         default=None,
         max_length=80,
-        description="Unverified RNC explicitly labeled in the receipt source, exactly "
-        "as printed. Null if absent, unreadable or conflicting; never infer a default.",
+        description="Unverified RNC of the supplier, the business that issued the "
+        "receipt, exactly as printed. Usually at the top with the business name. Never "
+        "the RNC of the client or buyer. Null if absent or unreadable; never infer a "
+        "default.",
+    )
+    buyer_rnc: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Unverified RNC of the buyer, exactly as printed, when its label "
+        'names the client or buyer ("RNC Cliente", "RNC Comprador" or similar). Null '
+        "if absent or unreadable.",
     )
     ncf: str | None = Field(
         default=None,
         max_length=80,
-        description="Unverified NCF explicitly labeled in the receipt source, exactly "
-        "as printed. Null if absent, unreadable or conflicting; do not infer from e-CF.",
+        description="Unverified NCF exactly as printed; it normally starts with B. "
+        "Null if absent or unreadable. An e-NCF goes in ecf, never here.",
     )
     ecf: str | None = Field(
         default=None,
         max_length=80,
-        description="Unverified e-CF explicitly labeled in the receipt source, exactly "
-        "as printed. Null if absent, unreadable or conflicting; do not infer from NCF.",
+        description="Unverified e-NCF, the electronic fiscal number, exactly as "
+        "printed; it normally starts with E. Null if absent or unreadable. An NCF "
+        "goes in ncf, never here.",
     )
     itbis: str | None = Field(
         default=None,
         max_length=80,
-        description="Unverified ITBIS monetary amount explicitly labeled in the receipt "
-        "source, as extracted decimal text. Null if absent, unreadable or conflicting. "
-        "Never calculate it from a rate, subtotal, total or generic tax.",
+        description="Unverified ITBIS monetary amount printed next to an ITBIS or "
+        'Impuesto label, as decimal text; "0.00" when the receipt prints zero. Null '
+        "if absent or unreadable. Never calculate it from a rate, subtotal or total.",
     )
 
     @field_validator("currency", mode="before")
@@ -150,7 +171,13 @@ class ProjectionIssue(_Frozen):
 
 
 class ExtractionResult(_Frozen):
-    complete: bool = Field(strict=True)
+    complete: bool = Field(
+        strict=True,
+        description="For a statement, false if any row or page is cut off, omitted or "
+        "unreadable. For a receipt, false only if a fiscal field (supplier RNC, NCF or "
+        "e-NCF, issue date, printed ITBIS, total) is visibly cut off or unreadable; "
+        "cut, covered or faded item lines do not make it false.",
+    )
     readable: bool = Field(strict=True)
     pages_read: tuple[int, ...] = Field(max_length=8)
     observations: tuple[ExtractedObservation, ...] = Field(

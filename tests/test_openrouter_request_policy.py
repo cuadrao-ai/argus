@@ -449,3 +449,15 @@ def test_consumer_interpretation_and_composer_keep_their_whole_payload(model, ta
         "reasoning": {"effort": effort},
         "temperature": temperature,
     }
+
+
+def test_document_read_allows_a_long_receipt_answer() -> None:
+    profile = openrouter_profile_for_task("document_extraction")
+    payload = openrouter._json_schema_payload(
+        model="google/gemini-3.8-flash",
+        messages=[{"role": "user", "content": "probe"}],
+        schema_model=BusinessInterpretation,
+        schema_name="BusinessInterpretation",
+        profile=profile,
+    )
+    assert payload["max_tokens"] == 16000

@@ -42,7 +42,7 @@ class OpenRouterProfile:
 
 
 OPENROUTER_PROFILES: dict[OpenRouterTask, OpenRouterProfile] = {
-    "document_extraction": OpenRouterProfile("document_extraction", temperature=0, max_tokens=12000, timeout_seconds=90, max_retries=0),
+    "document_extraction": OpenRouterProfile("document_extraction", temperature=0, max_tokens=16000, timeout_seconds=90, max_retries=0),
     "interpretation": OpenRouterProfile(
         "interpretation",
         temperature=0,

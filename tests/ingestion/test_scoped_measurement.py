@@ -106,7 +106,7 @@ def test_reservation_prices_the_full_window_at_the_higher_rate():
             }
         ]
     )
-    assert higher.usd == Decimal("0.003193728")
+    assert higher.usd == Decimal("0.003209728")
 
     approved = reservation_from_endpoints(
         [
@@ -121,8 +121,8 @@ def test_reservation_prices_the_full_window_at_the_higher_rate():
             {"pricing": {"prompt": "0.000000001", "completion": "0.000000001"}},
         ]
     )
-    assert approved.usd == Decimal("0.9145752")
-    assert approved.usd * 3 == Decimal("2.7437256")
+    assert approved.usd == Decimal("0.9310752")
+    assert approved.usd * 3 == Decimal("2.7932256")
 
 
 def test_cap_refusal_keeps_spent_plus_reservation_inside_five_dollars(
@@ -242,7 +242,7 @@ def test_fourth_request_is_refused_and_a_second_run_does_not_repeat_it(
     assert scorecard["scope"] == "document_extraction"
     assert scorecard["model"] == "fixture-model"
     assert scorecard["profile"] == {
-        "max_tokens": 12000,
+        "max_tokens": 16000,
         "timeout_seconds": 90,
         "max_retries": 0,
     }
