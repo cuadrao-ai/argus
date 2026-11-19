@@ -1,17 +1,20 @@
-"""The document-reading card's one sentence is the consent the owner agrees to.
-It is scope version 3. A command for an earlier version reads nothing, and a
-consent counts by its scope version, not by the exact words it stored. The
-sentence promises that turning reading back on reads what was saved unread."""
+"""Reading stays on across configuration changes until the owner turns it off.
+New commands still bind the displayed disclosure and current scope."""
 
 from __future__ import annotations
 
+import asyncio
+from copy import deepcopy
 from uuid import uuid4
 
+import pytest
+from argus.api.documents import documents_service
 from argus.domain.business import receipt_consent
 from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
 
 from tests.business.test_business_api import RECEIPT, Owner, alice  # noqa: F401
 from tests.business.test_business_email_api import runtime  # noqa: F401
+from tests.document_reads_support import leave_reads_waiting, read_receipt
 
 SPANISH = (
     "Leemos con inteligencia artificial los documentos que llegan por correo, por"
@@ -77,6 +80,40 @@ def test_a_new_wording_of_the_same_scope_keeps_reading_on(
         accepted.json()["consent_id"],
     )
     assert shown["disclosure"] == "Edited words, same scope."
+
+
+@pytest.mark.parametrize("change", ["model", "gateway", "scope", "all"])
+def test_configuration_changes_keep_the_same_consent_and_queued_read(
+    alice: Owner,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    faker,  # noqa: ANN001
+    change: str,
+) -> None:
+    leave_reads_waiting(monkeypatch)
+    accepted = alice.reading(True).json()
+    uploaded = alice.upload(content=RECEIPT + faker.uuid4().encode())
+    assert uploaded.status_code == 200, uploaded.text
+    connection_id = uploaded.json()["id"]
+    assert uploaded.json()["status"] == "queued"
+    documents = documents_service()
+    setting = documents.business_receipt_consent
+    scope = alice.scope()
+    saved = deepcopy(setting._rows[(scope.owner.space_id, scope.person_id)])
+    route = deepcopy(accepted["route"])
+    if change in {"model", "all"}:
+        route["interpretation"][0]["model"] = faker.uuid4()
+    if change in {"gateway", "all"}:
+        route["gateway"] = faker.uuid4()
+    if change in {"scope", "all"}:
+        monkeypatch.setattr(receipt_consent, "SCOPE_VERSION", accepted["scope_version"] + 1)
+    monkeypatch.setattr(setting, "route_resolver", lambda: route)
+
+    shown = alice.get("/receipt-reading").json()
+    assert (shown["enabled"], shown["consent_id"]) == (True, accepted["consent_id"])
+    assert setting._rows[(scope.owner.space_id, scope.person_id)] == saved
+    assert documents._reading_allowed(scope.person_id, connection_id)
+    asyncio.run(read_receipt(documents, scope.person_id, connection_id))
+    assert alice.detail(connection_id)["activity"]["state"] == "ready"
 
 
 def test_turning_reading_back_on_reads_what_was_saved_while_it_was_off(
