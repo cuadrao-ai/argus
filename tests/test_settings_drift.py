@@ -14,7 +14,7 @@ import scripts.ops.settings_drift as drift
 from scripts.ops.staging_env import load_manifest
 
 
-@pytest.mark.parametrize("service", ["api", "web"])
+@pytest.mark.parametrize("service", ["api", "web", "documents_worker"])
 def test_documented_command_help_runs_from_repo_root(
     service: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -119,13 +119,16 @@ class _Reader:
         self.puts.append((service_id, env))
 
 
-def test_run_reads_the_staging_service_and_does_not_write(monkeypatch) -> None:
+@pytest.mark.parametrize("service", ["api", "web", "documents_worker"])
+def test_run_reads_the_staging_service_and_does_not_write(monkeypatch, service) -> None:
     monkeypatch.setenv("RENDER_API_KEY", "read-only-token")
-    name = load_manifest()["services"]["api"]["service_name"]
+    name = load_manifest()["services"][service].get(
+        "service_name", "cuadrao-documents-worker-staging"
+    )
     reader = _Reader(name)
     lines: list[str] = []
 
-    code = drift.run(["api"], client_factory=lambda _token: reader, out=lines.append)
+    code = drift.run([service], client_factory=lambda _token: reader, out=lines.append)
 
     assert code == 1
     assert reader.reads == 1
@@ -240,6 +243,48 @@ def test_run_redacts_every_manifest_secret_from_every_report_line(
     output = "\n".join(lines) + captured.out + captured.err
     assert code == 1
     assert all(value not in output for value in (token, secret, generated))
-    assert "CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED expected=false actual=<redacted>" in output
-    assert "CUADRAO_COMBINED expected=false actual=<redacted>/<redacted>/<redacted>" in output
+    assert (
+        "CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED expected=false actual=<redacted>"
+        in output
+    )
+    assert (
+        "CUADRAO_COMBINED expected=false actual=<redacted>/<redacted>/<redacted>"
+        in output
+    )
     assert "ok CUADRAO_MATCHING=<redacted>" in output
+
+
+@pytest.mark.parametrize("idle_poll, expected_code", [("60", 0), ("5", 1)])
+def test_worker_drift_compares_staging_rules_and_redacts_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+    faker: Faker,
+    idle_poll: str,
+    expected_code: int,
+) -> None:
+    service = load_manifest()["services"]["documents_worker"]
+    token = faker.unique.pystr()
+    live = {
+        e["name"]: str(e.get("value", faker.unique.pystr()))
+        for e in drift.staging_entries(service)
+    }
+    live["CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS"] = idle_poll
+    monkeypatch.setenv("RENDER_API_KEY", token)
+    reader = _Reader("cuadrao-documents-worker-staging")
+    monkeypatch.setattr(reader, "list_env", lambda _id: live)
+    lines: list[str] = []
+    code = drift.run(
+        ["documents_worker"], client_factory=lambda _token: reader, out=lines.append
+    )
+    assert code == expected_code
+    assert reader.puts == []
+    text = "\n".join(lines)
+    assert token not in text
+    assert "ok CUADRAO_OPENROUTER_API_KEY_STG present" in text
+    assert "CUADRAO_OPENROUTER_API_KEY_PROD" not in text
+    for entry in drift.staging_entries(service):
+        if entry["kind"] != "plain":
+            assert live[entry["name"]] not in text
+    if expected_code:
+        assert (
+            "drift CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS expected=60 actual=5" in lines
+        )

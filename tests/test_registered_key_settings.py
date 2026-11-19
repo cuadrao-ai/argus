@@ -255,6 +255,7 @@ def test_settings_manifest_declares_each_key_for_its_environment_only() -> None:
     manifest = json.loads((ROOT / "scripts/ops/staging_env_manifest.json").read_text())
     staging_env.validate_manifest(manifest)
     staged = staging_env.staging_services(manifest)
+    assert "documents_worker" in staged
     for label, service in manifest["services"].items():
         reads_a_key = bool(render_names[service["production"]["service_name"]])
         assert _manifest_key_names(service, "production") == (

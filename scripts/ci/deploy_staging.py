@@ -17,12 +17,14 @@ from pathlib import Path
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SERVICE_ID_RE = re.compile(r"^srv-[A-Za-z0-9]+$")
 API_SERVICE = "cuadrao-api-staging"
+WORKER_SERVICE = "cuadrao-documents-worker-staging"
 WEB_SERVICE = "cuadrao-app-staging"
-ALLOWED = (API_SERVICE, WEB_SERVICE)
+ALLOWED = (API_SERVICE, WORKER_SERVICE, WEB_SERVICE)
 REJECTED = frozenset(
     {
         "cuadrao-api",
         "cuadrao-app",
+        "cuadrao-documents-worker",
         "cuadrao-marketing",
         "cuadrao-web",
         "cuadrao-marketing-staging",
@@ -63,21 +65,23 @@ class ServicePaths:
     exact: frozenset[str]
 
 
-RULES = (
-    ServicePaths(
-        API_SERVICE,
-        ("src/", "web/argus_display_contract/", "supabase/migrations/"),
-        frozenset(
-            {
-                "pyproject.toml",
-                "poetry.lock",
-                ".python-version",
-                "supabase/config.toml",
-                "Dockerfile",
-                "requirements.txt",
-            }
-        ),
+API_PATHS = ServicePaths(
+    API_SERVICE,
+    ("src/", "web/argus_display_contract/", "supabase/migrations/"),
+    frozenset(
+        {
+            "pyproject.toml",
+            "poetry.lock",
+            ".python-version",
+            "supabase/config.toml",
+            "Dockerfile",
+            "requirements.txt",
+        }
     ),
+)
+RULES = (
+    API_PATHS,
+    ServicePaths(WORKER_SERVICE, (*API_PATHS.prefixes, "workflows/"), API_PATHS.exact),
     ServicePaths(WEB_SERVICE, ("web/",), frozenset()),
 )
 
@@ -113,7 +117,7 @@ def select_services(
 ) -> tuple[str, ...]:
     if force_all:
         return ALLOWED
-    by_name = {API_SERVICE: api_paths, WEB_SERVICE: web_paths}
+    by_name = {API_SERVICE: api_paths, WORKER_SERVICE: api_paths, WEB_SERVICE: web_paths}
     return tuple(
         rule.name
         for rule in RULES
@@ -125,7 +129,7 @@ def allow_name(name: str) -> str:
     if name in REJECTED or name not in ALLOWED:
         raise DeployError(
             f"Refusing service {name}. Staging deploy allows only "
-            f"{API_SERVICE} and {WEB_SERVICE}."
+            f"{', '.join(ALLOWED)}."
         )
     return name
 
