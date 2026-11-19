@@ -489,6 +489,20 @@ const columnBox = (key: string) => setting(key)?.querySelector<HTMLInputElement>
 const cells = (page: Awaited<ReturnType<typeof mount>>) => [...page.row("Recibo admitido")!.children].map(cell => cell.className);
 const DEFAULT_HEADINGS = ["document", "file", "source", "status", "arrival"];
 
+test("Bandeja renders Moneda at 80px in every table layout and review tab", async () => {
+  window.localStorage.setItem("cuadrao:bandeja_columns:v1", JSON.stringify({ order: ["currency", "file", "source", "sender", "amount", "status", "arrival"], hidden: ["sender", "amount"], density: "amplio" }));
+  const page = await mount();
+  for (const tab of ["all", "attention", "listos"]) {
+    await page.click(page.tab(tab));
+    const preview = page.host.querySelector<HTMLElement>('[data-testid="reception-preview"]')!;
+    assert.equal(headings(page)[1], "currency");
+    for (const variable of ["--columns", "--laptop-columns", "--compact-columns"]) {
+      const tracks = preview.style.getPropertyValue(variable).match(/minmax\([^)]*\)|\S+/g)!;
+      assert.equal(tracks[tab === "listos" ? 2 : 1], "80px");
+    }
+  }
+});
+
 test("Bandeja's column menu is the Registros menu: Contenido and the action hold their places and are no rows, every other column is a box", async () => {
   const page = await mount();
   await settings(page);

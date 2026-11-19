@@ -44,7 +44,6 @@ import RecordsDatePreview from "../transacciones/RecordsDatePreview";
 import RecordsPaginationControls from "../transacciones/RecordsPaginationControls";
 import { INITIAL_PAGINATION, type PaginationState } from "../transacciones/records-pagination";
 import { previewAmountColumnSize } from "../transacciones/records-row-preview";
-import { RECORDS_PREVIEW_COLUMNS } from "../transacciones/records-view-preferences";
 import { DENSITY_ROW_PX } from "../transacciones/table-density";
 import { receptionGrid } from "./reception-grid";
 import styles from "./reception.module.css";
@@ -212,7 +211,7 @@ function ReceptionWorkspace() {
   const guide = (key: string) => t(`business.guide_cards.bandeja_intro.${key}`);
   useLendListSearch("inbox", searchInBar ? { query, setQuery: searchQuery } : null);
   return <PullToRefresh onRefresh={refresh}>
-    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-columns={shownReceptionColumns(preferences, { status: showStatus }).join(" ")} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width, RECORDS_PREVIEW_COLUMNS.find(column => column.key === "moneda")!.width!), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
+    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-columns={shownReceptionColumns(preferences, { status: showStatus }).join(" ")} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {phone ? <div className={styles.phoneHeading} data-surface-block="heading"><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       {source.mode === "live" && userId && chosen ? (
         <GuideCard cardId="bandeja-intro" pending={waiting} title={guide("title")}
