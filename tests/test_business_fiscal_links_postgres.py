@@ -9,6 +9,7 @@ import pytest
 from argus.domain.business.contracts.actions import (
     ApproveExpense,
     ApproveRefund,
+    MarkPersonal,
     ReviewDraft,
 )
 from argus.domain.business.contracts.dgii import FiscalReview, PurchaseReview
@@ -213,17 +214,26 @@ def test_a_linked_credit_note_carries_its_purchases_number(actions):  # noqa: AN
     assert service.dossier(context, credit).dgii.modified_ncf == "B0100002301"
 
 
-def _saved_before_the_links(service, context, draft, overrides=(), **declared) -> dict:  # noqa: ANN001, ANN003
-    """Leave the approved record as a save before #2307 left it: these
-    declared values, and no override recorded for a field it did not link."""
+def _saved_before_the_links(  # noqa: ANN202
+    service, context, draft, overrides=(), /, **declared  # noqa: ANN001, ANN003
+) -> dict:
+    """Leave the record as a save before #2307 left it: these declared
+    values, and no override recorded for a field it did not link. ``overrides``
+    None is a save from before any override was recorded, with what else the
+    draft then held beside its declaration under ``draft``."""
 
+    held = {
+        "fiscal_overrides": None if overrides is None else list(overrides),
+        **declared.pop("draft", {}),
+    }
     with service.authority.pool.connection() as db:
         db.execute("set local session_replication_role=replica")
         db.execute(
-            "update public.financial_import_events set resolution=jsonb_set(jsonb_set(resolution,"
-            "'{business,dgii}',(resolution->'business'->'dgii') || %s),"
-            "'{business,fiscal_overrides}',%s) where id=%s and owner_space_id=%s",
-            (Jsonb(declared), Jsonb(list(overrides)), draft, context.actor.space_id),
+            "update public.financial_import_events set resolution=jsonb_set(resolution,"
+            "'{business}',(resolution->'business') || %s || jsonb_build_object("
+            "'dgii',(resolution->'business'->'dgii') || %s))"
+            " where id=%s and owner_space_id=%s",
+            (Jsonb(held), Jsonb(declared), draft, context.actor.space_id),
         )
         [saved] = db.execute(
             "update public.business_draft_revisions set after_dgii=after_dgii || %s"
@@ -293,6 +303,146 @@ def test_an_approved_record_keeps_its_saved_606_line(actions, overrides, declare
     after = line()
     assert after["category"] == "02"
     moved = {"category", "goods_amount", "services_amount"}
+    assert {k: v for k, v in after.items() if k not in moved} == {
+        k: v for k, v in before.items() if k not in moved
+    }
+
+
+def _line(service, context, draft) -> dict:  # noqa: ANN001
+    """The approved record's 606 line as the export snapshot reads it."""
+
+    activity = str(service.dossier(context, draft).approval_result.activity_id)
+    exported = read_export_source(service.authority, context).approved[activity]
+    return dict(zip([name for name, _ in PURCHASE_COLUMNS], line_values(exported), strict=True))
+
+
+def _shown(dossier) -> dict:  # noqa: ANN001
+    return dossier.dgii.model_dump(mode="json", exclude={"suggestion_sources"})
+
+
+@pytest.mark.parametrize("overrides", [None, ()], ids=["no overrides recorded", "none overridden"])
+def test_approval_saves_the_fecha_pago_shown_on_a_draft_saved_before_the_links(actions, overrides):  # noqa: ANN001
+    service, context = actions
+    draft, _ = _fresh(service, context)
+    _review(service, context, draft, purchase=PurchaseReview(category="09", payment_method="01"))
+    _saved_before_the_links(service, context, draft, overrides, paid_on=None)
+
+    shown = service.dossier(context, draft)
+    assert shown.dgii.paid_on == DAY
+    outcome = service.approve(
+        context,
+        draft,
+        ApproveExpense(version=shown.version, action="record_expense"),
+        str(uuid4()),
+    )
+
+    assert outcome.outcome == "applied", outcome
+    written = fiscal.revisions(service, draft)[-1]["dgii"]
+    assert {k: v for k, v in written.items() if k != "suggestion_sources"} == _shown(shown)
+    assert _shown(service.dossier(context, draft)) == _shown(shown)
+    assert _line(service, context, draft)["paid_on"] == "20260905"
+
+
+@pytest.mark.parametrize("overrides", [None, ()], ids=["no overrides recorded", "none overridden"])
+def test_a_credit_note_approval_saves_the_ncf_modificado_shown(actions, overrides):  # noqa: ANN001
+    service, context = actions
+    cash = recorded.account_funding(cash_account(service, context))
+    purchase, version = recorded.captured(service, context, "B0100002501", cash)
+    activity = str(recorded.approved(service, context, purchase, version).approval_result.activity_id)
+    credit, version = recorded.captured(
+        service,
+        context,
+        "B0400000021",
+        cash,
+        recorded.blank_declaration(
+            category="09", payment_method="06", actual_refund=True, purchase_activity_id=activity
+        ),
+        amount="118.00",
+        itbis="18.00",
+        kind="refund",
+        occurred_on="2026-09-10",
+    )
+    _saved_before_the_links(service, context, credit, overrides, modified_ncf=None, id_type=None)
+
+    shown = service.dossier(context, credit)
+    assert (shown.dgii.modified_ncf, shown.dgii.id_type) == ("B0100002501", "1")
+    outcome = service.approve_refund(
+        context, credit, ApproveRefund(version=version, action="record_refund"), str(uuid4())
+    )
+
+    assert outcome.outcome == "applied", outcome
+    assert _shown(service.dossier(context, credit)) == _shown(shown)
+    line = _line(service, context, credit)
+    assert (line["modified_ncf"], line["id_type"]) == ("B0100002501", "1")
+
+
+def _category(service, context, draft) -> set:  # noqa: ANN001
+    version = service.dossier(context, draft).version
+    result = recorded.declared(service, context, draft, version, category="02")
+    assert result.outcome == "applied", result
+    return {"category", "goods_amount", "services_amount"}
+
+
+def _forma_de_pago(service, context, draft) -> set:  # noqa: ANN001
+    version = service.dossier(context, draft).version
+    result = recorded.declared(service, context, draft, version, payment_method="03")
+    assert result.outcome == "applied", result
+    return {"payment_method"}
+
+
+def _restored_itbis(service, context, draft) -> set:  # noqa: ANN001
+    _review(service, context, draft, montos=MontosReview(restore_inherited=("itbis",)))
+    return set()
+
+
+def _personal_and_back(service, context, draft) -> set:  # noqa: ANN001
+    for personal in (True, False):
+        version = service.dossier(context, draft).version
+        result = service.mark_personal(
+            context, draft, MarkPersonal(version=version, personal=personal), str(uuid4())
+        )
+        assert result.outcome == "applied", result
+    return set()
+
+
+PAID_BILL = {"bill_mark": "Factura pagada"}
+LEGACY_SAVES = {
+    "paid bill with no fecha pago": {
+        "draft": PAID_BILL,
+        "payment_method": "04",
+        "paid_on": None,
+    },
+    "amount typed against its tipo de gasto": {
+        "draft": {**PAID_BILL, "amount_derived": False},
+        "category": "02",
+        "payment_method": "04",
+        "paid_on": None,
+        "goods_amount": "500.00",
+        "services_amount": None,
+    },
+}
+
+
+@pytest.mark.parametrize("declared", LEGACY_SAVES.values(), ids=LEGACY_SAVES.keys())
+@pytest.mark.parametrize(
+    "write",
+    [_category, _forma_de_pago, _restored_itbis, _personal_and_back],
+    ids=["tipo de gasto", "forma de pago", "montos restore", "personal and back"],
+)
+def test_a_write_keeps_the_export_of_a_save_from_before_overrides(actions, write, declared):  # noqa: ANN001
+    service, context = actions
+    cash = recorded.account_funding(cash_account(service, context))
+    draft, version = recorded.captured(
+        service, context, "B0100002601", cash, recorded.blank_declaration(category="09")
+    )
+    recorded.approved(service, context, draft, version)
+    _saved_before_the_links(service, context, draft, None, **declared)
+    before = _line(service, context, draft)
+    assert before["paid_on"] == "20260903"
+
+    moved = write(service, context, draft)
+
+    after = _line(service, context, draft)
     assert {k: v for k, v in after.items() if k not in moved} == {
         k: v for k, v in before.items() if k not in moved
     }

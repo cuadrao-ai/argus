@@ -24,6 +24,7 @@ from argus.domain.business.actions.fiscal import (
     require_distinct_fiscal_document,
 )
 from argus.domain.business.actions.listos import draft_standings
+from argus.domain.business.amount_inheritance import inherit_amounts
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.bandeja_group import listo_reason
 from argus.domain.business.contracts.actions import (
@@ -155,49 +156,56 @@ def _approval_declaration(
     facts: BusinessFacts,
     failed: dict | None,
     shown: DeclarationSuggestions | None,
-) -> PurchaseDeclaration | None:
-    """The 606 declaration an expense approval writes from its stored facts.
+) -> DgiiDeclaration | None:
+    """The declaration an approval writes: the one the review showed, with
+    every linked field at the value it follows. None when that is what the
+    draft already holds, or there is none.
 
-    A declaration a person saved stays theirs: only its blank answers are
+    An expense fills its 606 declaration from its stored facts first. A
+    declaration a person saved stays theirs: only its blank answers are
     filled. A suggestion goes in first: the ones the person was ``shown``, or
     for a bulk approval (None) the server's own, read now. Then the Tipo Id,
-    and the Forma de Pago of an account a person stated. None when there is
-    nothing to write. After a ``failed`` approval whose revision was never
-    undone, the person's declaration is the one before that revision, and it
-    is written back.
+    and the Forma de Pago of an account a person stated. After a ``failed``
+    approval whose revision was never undone, the person's declaration is the
+    one before that revision, and it is written back.
 
     A suggestion the person saw is refused when its answer is no longer
     blank or this approval writes no 606 declaration: the record changed.
     """
 
-    if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
-        return None
-    built = dossier.built_declaration(facts, lambda: dossier.record_context(tx).accounts)
-    saved = (
-        failed["before_dgii"]
-        if failed is not None
-        else (event.resolution.get("business") or {}).get("dgii")
-    )
-    current = _declaration(saved) if saved else None
-    # Saved for the other form: no declaration of this purchase.
-    person = current if isinstance(current, PurchaseDeclaration) else None
-    document_type = (event.resolution.get("business") or {}).get("document_type", "recibo")
-    saves = saves_suggestions(document_type, facts, person)
-    if shown is None:
-        offered = (
-            dossier.offered_suggestions(tx, event.id, person)
-            if saves
-            else DeclarationSuggestions()
+    business = event.resolution.get("business") or {}
+    saved = failed["before_dgii"] if failed is not None else business.get("dgii")
+    held = _declaration(saved) if saved else None
+    filled = held
+    if isinstance(facts.kind, Known) and facts.kind.value == "expense":
+        built = dossier.built_declaration(
+            facts, lambda: dossier.record_context(tx).accounts
         )
-    else:
-        named = [f for f in get_args(SuggestedField) if getattr(shown, f) is not None]
-        if named and not (saves and all(blank_answer(person, f) for f in named)):
-            raise ActionError("invalid_input", "suggestion_stale")
-        offered = shown
-    filled = approval_fill(person, built, offered)
-    if failed is None and filled is not None and filled == person:
+        # Saved for the other form: no declaration of this purchase.
+        held = held if isinstance(held, PurchaseDeclaration) else None
+        document_type = business.get("document_type", "recibo")
+        saves = saves_suggestions(document_type, facts, held)
+        if shown is None:
+            offered = (
+                dossier.offered_suggestions(tx, event.id, held)
+                if saves
+                else DeclarationSuggestions()
+            )
+        else:
+            named = [f for f in get_args(SuggestedField) if getattr(shown, f) is not None]
+            if named and not (saves and all(blank_answer(held, f) for f in named)):
+                raise ActionError("invalid_input", "suggestion_stale")
+            offered = shown
+        filled = approval_fill(held, built, offered)
+    reviewed = inherit_amounts(
+        facts,
+        filled,
+        business.get("fiscal_overrides"),
+        dossier.linked_original(tx, event.state, facts, filled),
+    )
+    if failed is None and reviewed == held:
         return None
-    return filled
+    return reviewed
 
 
 def _declaration(stored: dict) -> DgiiDeclaration:

@@ -26,6 +26,7 @@ from argus.domain.business.amount_inheritance import (
     inherit_amounts,
     inheritance_overrides,
     links_of,
+    written_from,
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
@@ -193,6 +194,11 @@ def save_revision(
         declaration = apply_payment_split(None, SalePaymentSplit())
     # A suggestion is not saved: what is stored follows a person's answers alone.
     linked = dossier.linked_original(tx, event.state, after, declaration)
+    if dgii is None:
+        declaration = written_from(
+            before or after, declaration, previous.get("fiscal_overrides"),
+            previous.get("bill_mark"), linked,
+        )
     if fiscal_overrides is None:
         fiscal_overrides = inheritance_overrides(
             before or after, declaration, None, previous.get("fiscal_overrides"),
@@ -360,8 +366,9 @@ def revise(
         stored, linked = dossier.review_start(
             tx, event.id, event.state, before or after, stored, current_type
         )
-    stored = inherit_amounts(
-        before or after, stored, previous_resolution.get("fiscal_overrides"), linked
+    stored = written_from(
+        before or after, stored, previous_resolution.get("fiscal_overrides"),
+        previous_resolution.get("bill_mark"), linked,
     )
     if purchase is not None:
         current = declared or stored

@@ -207,6 +207,22 @@ def saved_declaration(
     return filled
 
 
+def written_from(
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+    overrides: tuple[str, ...] | None,
+    bill_mark: str | None,
+    linked: LinkedSources,
+) -> DgiiDeclaration | None:
+    """The saved declaration a write starts from: what the record shows and
+    exports now. A write records overrides, which ends the fill of a save from
+    before they were recorded, so an approved one takes that fill first."""
+
+    if linked.amounts_only and overrides is None:
+        return saved_declaration(facts, declaration, None, bill_mark)
+    return inherit_amounts(facts, declaration, overrides, linked)
+
+
 def inheritance_overrides(
     facts: BusinessFacts,
     stored: DgiiDeclaration | None,
