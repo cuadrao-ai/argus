@@ -4205,7 +4205,9 @@ is the source of durability.
 
 Preparation status is `saved|queued|preparing|review_ready|needs_attention`.
 Approval state remains in reconciliation events. The immutable batch retains receipt
-`payment_status` and separate final `tax` and `estimated_tax` values. Payment
+`payment_status` and separate final `tax` and `estimated_tax` values. A new
+read can also retain `buyer_rnc` and `issue_date_printed` on the receipt; no
+code reads these two values. Payment
 status is evidence only: an unpaid read still projects its purchase, and the
 Business draft keeps the amount unverified. Older saved batches keep their stored
 candidates and are not backfilled or automatically prepared again. Valid observations can project

@@ -392,6 +392,37 @@ Such a record stays out of Listos, in Necesita atención with the reason
 its answer (`upload_year`, `year_to_check`), and the review calendar offers the
 date in the upload year from that answer. The web compares no years.
 
+### How a receipt becomes a record
+
+A receipt goes through six steps. A later step trusts an earlier one in this
+order. Each step has one owning file.
+
+1. **The photo is stored as sent.** `objects.py` in
+   `src/argus/domain/ingestion/documents/` keeps the original file. No step
+   changes it.
+2. **The DGII QR is decoded locally.** `dgii_qr.py` in the same folder reads
+   the QR with a plain library, not a model. It tries the page as it is, then
+   with more contrast, then at twice the size. When it reads a DGII link, the
+   issue date, the supplier RNC, the e-NCF and the total in that link are
+   exact.
+3. **The reader model fills the rest.** The rules are the prompt in
+   `extractor.py` and the field descriptions in `models.py`, both in the same
+   folder. One photo of a receipt cut into pieces is one receipt. The issue
+   date is the date labeled Fecha, Emitido or Fecha Emisión, never the date
+   labeled Caduca or Válido hasta. The ITBIS amount is the amount printed next
+   to ITBIS or Impuesto. The supplier RNC and the buyer RNC are separate
+   fields. A read is complete when each fiscal field is found or is not
+   printed.
+4. **The values are merged.** `fill_from_qr` in `dgii_qr.py` does the merge,
+   and `src/argus/domain/business/actions/mutations.py` calls it. A QR value
+   replaces a reader value. A value that a person gave replaces both and is
+   never overwritten.
+5. **Checks flag what is unlikely.** `src/argus/domain/business/review_flags.py`
+   sets the flags. `src/argus/domain/business/bandeja_group.py` keeps a flagged
+   or incomplete record out of Listos, so a person reviews only those records.
+6. **The person approves.** `src/argus/domain/business/actions/approval.py`
+   records the approval. Nothing is approved without a person.
+
 ### When a receipt read fails
 
 Designed 2026-11-15 with the founder and built in #2192. The design is sized

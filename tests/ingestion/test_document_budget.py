@@ -244,7 +244,7 @@ async def test_two_tiered_calls_fit_remaining_cap_without_extra_attempt(
         "fixture-model", [endpoint | dict(context_length=1_000_000, pricing=prices)]
     )
     budget = BenchmarkBudget(envelope, remaining, 2)
-    assert prior + envelope.maximum_cost * 2 == Decimal("3.8951675136")
+    assert prior + envelope.maximum_cost * 2 == Decimal("3.9258875136")
     calls = []
 
     def transport(request):
@@ -284,10 +284,10 @@ async def test_output_parameter_and_conditional_search_price(
     )
     assert envelope.output_parameter == output_parameter
     assert envelope.evidence()["output_parameter"] == output_parameter
-    assert envelope.maximum_cost == Decimal("0.2715")
+    assert envelope.maximum_cost == Decimal("0.2745")
     prior = Decimal("2.6490875136")
     budget = BenchmarkBudget(envelope, Decimal("6") - prior, 2)
-    assert prior + envelope.maximum_cost * 2 == Decimal("3.1920875136")
+    assert prior + envelope.maximum_cost * 2 == Decimal("3.1980875136")
     payload.pop("max_tokens")
     payload[output_parameter] = envelope.output_tokens
     requests = []

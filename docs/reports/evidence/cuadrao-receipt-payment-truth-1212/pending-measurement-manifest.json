@@ -4,7 +4,7 @@
   "calls": 3,
   "concurrency": 1,
   "retries": 0,
-  "max_output_tokens_per_call": 12000,
+  "max_output_tokens_per_call": 16000,
   "timeout_seconds_per_call": 90,
   "baseline_scorecard": "docs/reports/evidence/cuadrao-receipt-extraction-20261011/live-measurement.json",
   "fixture_paths_relative_to": "repository root",
