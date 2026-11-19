@@ -134,10 +134,12 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     const label = t([`business.dgii.field_${form}.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name });
     const inherited = dossier.inheritance?.[field.name];
     const linked = inherited?.inherited && !overrides.has(field.name);
-    const sourceLabel = inherited?.field === "occurred_on" ? t("business.dossier.field.occurred_on") : t(`business.terms.${inherited?.field}`);
-    const sourceValue = inherited?.value == null ? UNKNOWN_VALUE : inherited.field === "occurred_on" ? formatDay(inherited.value, locale) : formatMoney(inherited.value, currency, locale) || UNKNOWN_VALUE;
+    // A source that is not money says its own name and shows its value as the field does.
+    const plainSource = inherited?.field === "occurred_on" || inherited?.field === "rnc" || inherited?.field === "original_ncf";
+    const sourceLabel = inherited?.field === "occurred_on" ? t("business.dossier.field.occurred_on") : inherited?.field === "rnc" || inherited?.field === "original_ncf" ? t(`business.dossier.placeholder.inherited_${inherited.field}`) : t(`business.terms.${inherited?.field}`);
+    const sourceValue = inherited?.value == null ? UNKNOWN_VALUE : inherited.field === "occurred_on" ? formatDay(inherited.value, locale) : inherited.field === "rnc" ? dgiiOptionLabel(t, field.name, inherited.value) : inherited.field === "original_ncf" ? inherited.value : formatMoney(inherited.value, currency, locale) || UNKNOWN_VALUE;
     const inheritedLabel = t("business.terms.inherited_from", { field: sourceLabel });
-    const restoreLabel = t("business.terms.use_inherited", { amount: sourceValue });
+    const restoreLabel = plainSource ? t("business.dossier.placeholder.use_inherited_value", { field: sourceLabel, value: sourceValue }) : t("business.terms.use_inherited", { amount: sourceValue });
     const title = <span className={`${FIELD_LABEL_CLASS} flex items-center gap-1.5`}>{label}{inherited ? linked ? <Tooltip content={inheritedLabel} side="top"><span tabIndex={0} aria-label={inheritedLabel} data-inherited={field.name}><Link2 className="h-3.5 w-3.5" aria-hidden="true" /></span></Tooltip> : reviewMontos ? <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-inherited={field.name} className="-my-2 flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.06]" disabled={!editable || dirty || uncertain && restoring !== field.name} onClick={() => void restore(field.name)}><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /></button></Tooltip> : null : null}</span>;
     const dateProblem = checked && broken.has(field.name);
     if (field.kind === "date") return <div key={field.name}>

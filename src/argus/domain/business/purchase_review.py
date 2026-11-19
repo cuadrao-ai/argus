@@ -306,9 +306,33 @@ def declaration_from_facts(
     if rnc is None or number is None or number[1:3] in {"02", "32"}:
         return None
     review = PurchaseReview(payment_method=PAYMENT_FORM_BY_ACCOUNT_TYPE.get(account_type))
-    digits = identity_digits(rnc)
-    return apply_purchase(None, review).model_copy(
-        update={"id_type": {9: "1", 11: "2"}.get(len(digits or ""))}
+    return apply_purchase(None, review).model_copy(update={"id_type": id_type_of(facts)})
+
+
+def id_type_of(facts: BusinessFacts) -> str | None:
+    """The Tipo Id the supplier's RNC states: 1 for an RNC, 2 for a cédula."""
+
+    return {9: "1", 11: "2"}.get(len(identity_digits(_fiscal(facts, "rnc") or "") or ""))
+
+
+def approval_fill(
+    person: PurchaseDeclaration | None,
+    built: PurchaseDeclaration | None,
+    offered: DeclarationSuggestions,
+) -> PurchaseDeclaration | None:
+    """The 606 declaration an approval writes: the ``person``'s own with each
+    blank answer filled, first from the suggestion ``offered`` for it, then
+    from the one ``built`` from the facts. None when there is nothing to write."""
+
+    taken = take_suggestions(person, offered)
+    if taken is None or built is None:
+        return built if taken is None else taken
+    return taken.model_copy(
+        update={
+            name: getattr(built, name)
+            for name in ("id_type", "payment_method")
+            if getattr(taken, name) is None
+        }
     )
 
 

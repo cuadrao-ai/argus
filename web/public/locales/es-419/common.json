@@ -3324,6 +3324,9 @@
         "group_amounts": "Montos facturados",
         "group_retentions": "Retenciones",
         "group_other": "Otros",
+        "inherited_original_ncf": "NCF de la compra original",
+        "inherited_rnc": "RNC",
+        "use_inherited_value": "Usar {{field}} ({{value}})",
         "section_choices": "Para el 606",
         "suggestion_source": {
           "last_choice": "Última elección para este RNC",

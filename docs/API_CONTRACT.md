@@ -9100,21 +9100,36 @@ value to restore, not a copy calculated by the browser. The single mapping is
 | Fiscal field | Main source |
 | --- | --- |
 | `billed_amount` (607) | `net_amount` |
-| `goods_amount` (606), by confirmed expense type | `net_amount` |
+| `goods_amount` (606), by expense type | `net_amount` |
+| `id_type` (606) | `rnc`: 9 digits is `1`, 11 digits is `2` |
 | `itbis` (606 and 607) | `fiscal.itbis` |
 | `legal_tip` (606 and 607) | `legal_tip` |
-| `paid_on` (606), when paid | `occurred_on` |
-| `services_amount` (606), by confirmed expense type | `net_amount` |
+| `modified_ncf` (606), on a credit note tied to a purchase | `original_ncf` |
+| `paid_on` (606), by payment form | `occurred_on` |
+| `services_amount` (606), by expense type | `net_amount` |
 
 An explicit override stops inheritance even when the typed value equals the
 source. Goods and services share override ownership; restoring either restores
-both sides from the confirmed expense type. Their sum must equal the net
-amount before export. `modified_ncf` never inherits. The fiscal declaration's
+both sides from the expense type. Their sum must equal the net
+amount before export. The fiscal declaration's
 optional ITBIS override does not rewrite the main ITBIS fact. Main amount
-updates refresh inherited fields on every revision. Payment-date inheritance
-uses the stored document settlement or the existing paid-bill mark, never the
-selected account. Reads and exports refresh inherited values when settlement
-changes. An explicit fiscal date remains an override. An `occurred_on` outside
+updates refresh inherited fields on every revision.
+
+With no declaration saved, the dossier of an open expense starts `dgii` from
+the declaration its approval writes, so a fresh read shows every linked field.
+Nothing is saved until a person saves or approves. While a person has given
+no expense type or payment form, the links read the answer in
+`declaration_suggestions`: the dossier shows the amount side and the payment
+date that approving would save. The suggested answer itself stays out of
+`dgii`, a saved declaration holds no value that came from a suggestion, and
+the export still reads an unconfirmed expense type as missing.
+
+`paid_on` follows the payment form. For `01`, `02`, `03` and `07` it is
+`occurred_on`. For any other code, or none, it is null for a person to give.
+`modified_ncf` inherits only on a credit note (type 04 or 34) whose
+`purchase_activity_id` names an approved purchase: its value is that
+purchase's e-NCF or NCF. A debit note, or a credit note with no purchase, has
+no entry and a person types it. An explicit fiscal date remains an override. An `occurred_on` outside
 the accepted date range is never inherited as `paid_on`: the inherited value is
 null, the fact keeps its evidence, and its date blocker stays. The existing monthly
 sin-comprobante purchase cost remains the gross amount because its ITBIS is

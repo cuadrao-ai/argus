@@ -93,7 +93,7 @@ class NetAmount(Contract):
 
 
 class InheritedValue(Contract):
-    field: Literal["net_amount", "itbis", "legal_tip", "occurred_on"]
+    field: Literal["net_amount", "itbis", "legal_tip", "occurred_on", "rnc", "original_ncf"]
     value: str | None
     inherited: bool
 

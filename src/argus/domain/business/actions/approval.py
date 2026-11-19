@@ -59,10 +59,9 @@ from argus.domain.business.contracts.listos import (
 )
 from argus.domain.business.document_type import require_type_kind
 from argus.domain.business.purchase_review import (
+    approval_fill,
     blank_answer,
-    declaration_from_facts,
     saves_suggestions,
-    take_suggestions,
 )
 from argus.domain.business.review_flags import unconfirmed
 from argus.domain.business.transactions import ActionTransaction, transaction
@@ -173,17 +172,7 @@ def _approval_declaration(
 
     if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
         return None
-    funding = facts.funding.value if isinstance(facts.funding, Known) else None
-    built = declaration_from_facts(
-        facts,
-        next(
-            account.type
-            for account in dossier.record_context(tx).accounts
-            if account.id == funding.account_id
-        )
-        if isinstance(funding, BusinessAccountFunding)
-        else None,
-    )
+    built = dossier.built_declaration(facts, lambda: dossier.record_context(tx).accounts)
     saved = (
         failed["before_dgii"]
         if failed is not None
@@ -205,21 +194,8 @@ def _approval_declaration(
         if named and not (saves and all(blank_answer(person, f) for f in named)):
             raise ActionError("invalid_input", "suggestion_stale")
         offered = shown
-    taken = take_suggestions(person, offered)
-    if taken is None:
-        return built
-    if built is None:
-        if taken != person:
-            return taken
-        return current if failed is not None else None
-    filled = taken.model_copy(
-        update={
-            name: getattr(built, name)
-            for name in ("id_type", "payment_method")
-            if getattr(taken, name) is None
-        }
-    )
-    if failed is None and filled == person:
+    filled = approval_fill(person, built, offered)
+    if failed is None and filled is not None and filled == person:
         return None
     return filled
 

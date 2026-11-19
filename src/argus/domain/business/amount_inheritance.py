@@ -1,25 +1,75 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from argus.domain.business.transactions import ActionTransaction
 
 from argus.domain.business.accepted_dates import reader_date_reason
-from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
+from argus.domain.business.contracts.dgii import (
+    DeclarationSuggestions,
+    DgiiDeclaration,
+    PurchaseDeclaration,
+)
 from argus.domain.business.contracts.facts import BusinessFacts, InheritedValue, Known
-from argus.domain.business.purchase_review import AMOUNT_SIDES, derived_amount, net_amount
+from argus.domain.business.fiscal_identity import credit_note
+from argus.domain.business.purchase_review import (
+    AMOUNT_SIDES,
+    derived_amount,
+    id_type_of,
+    net_amount,
+    take_suggestions,
+)
 
 INHERITANCE = {
     "billed_amount": ("607", "net_amount"),
     "goods_amount": ("606", "net_amount"),
+    "id_type": ("606", "rnc"),
     "itbis": (None, "itbis"),
     "legal_tip": (None, "legal_tip"),
+    "modified_ncf": ("606", "original_ncf"),
     "paid_on": ("606", "occurred_on"),
     "services_amount": ("606", "net_amount"),
 }
+_MONEY_SOURCES = frozenset({"net_amount", "itbis", "legal_tip"})
+#: Forma de pago codes that pay at the purchase: Fecha pago is the receipt's date.
+PAID_AT_PURCHASE = frozenset({"01", "02", "03", "07"})
+
+
+@dataclass(frozen=True)
+class LinkedSources:
+    """What a link reads beyond the draft's own facts: the answers the server
+    suggests while a person has given none, and the NCF of the purchase a
+    credit note is tied to (None for any other record)."""
+
+    suggestions: DeclarationSuggestions = DeclarationSuggestions()
+    original_ncf: str | None = None
+
+
+NO_SOURCES = LinkedSources()
+
+
+def _number(facts: BusinessFacts | None) -> str | None:
+    fiscal = facts.fiscal if facts is not None else None
+    return (fiscal.ecf.value or fiscal.ncf.value) if fiscal is not None else None
+
+
+def original_ncf(
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+    approved: Callable[[str], BusinessFacts | None],
+) -> str | None:
+    """The NCF or e-NCF of the purchase a credit note is tied to: its NCF
+    modificado. ``approved`` reads that purchase's approved facts. None for
+    any other record, a debit note included."""
+
+    if (
+        not isinstance(declaration, PurchaseDeclaration)
+        or declaration.purchase_activity_id is None
+        or not credit_note(_number(facts))
+    ):
+        return None
+    return _number(approved(str(declaration.purchase_activity_id)))
 
 
 def _text(value: object) -> str | None:
@@ -28,10 +78,10 @@ def _text(value: object) -> str | None:
     return value.isoformat() if isinstance(value, date) else str(value)
 
 
-def _equal(left: object, right: object) -> bool:
+def _equal(target: str, left: object, right: object) -> bool:
     if left is None or right is None:
         return left is right
-    if isinstance(left, date) or isinstance(right, date):
+    if INHERITANCE[target][1] not in _MONEY_SOURCES:
         return _text(left) == _text(right)
     return Decimal(str(left)) == Decimal(str(right))
 
@@ -45,31 +95,43 @@ def inherits(
 
     if overrides is not None:
         return target not in overrides
-    return current is None or _equal(current, expected)
+    return current is None or _equal(target, current, expected)
 
 
 def inheritance_state(
     facts: BusinessFacts,
     declaration: DgiiDeclaration | None,
     overrides: tuple[str, ...] | None = None,
-    *,
-    paid: bool = False,
+    linked: LinkedSources = NO_SOURCES,
 ) -> dict[str, InheritedValue]:
     if declaration is None:
         return {}
     tax = facts.fiscal.itbis if facts.fiscal is not None else None
+    purchase = isinstance(declaration, PurchaseDeclaration)
+    # A suggested answer counts as given, so the links show what approving saves.
+    answered = take_suggestions(declaration, linked.suggestions) if purchase else None
     # A date outside the accepted range is evidence to correct, never a payment date.
-    day = facts.occurred_on.value if paid and isinstance(facts.occurred_on, Known) else None
+    day = (
+        facts.occurred_on.value
+        if answered is not None
+        and answered.payment_method in PAID_AT_PURCHASE
+        and isinstance(facts.occurred_on, Known)
+        else None
+    )
     sources = {
         "net_amount": net_amount(facts, declaration).amount,
         "itbis": tax.value if isinstance(tax, Known) else None,
         "legal_tip": facts.legal_tip.value if isinstance(facts.legal_tip, Known) else None,
         "occurred_on": day if reader_date_reason(day) is None else None,
+        "rnc": id_type_of(facts),
+        "original_ncf": linked.original_ncf,
     }
-    split = derived_amount(declaration, facts) if isinstance(declaration, PurchaseDeclaration) else None
+    split = derived_amount(answered, facts) if answered is not None else None
     result = {}
     for target, (form, source) in INHERITANCE.items():
         if form is not None and declaration.form != form:
+            continue
+        if source == "original_ncf" and linked.original_ncf is None:
             continue
         expected = getattr(split, target) if target in AMOUNT_SIDES else sources[source]
         current = getattr(declaration, target)
@@ -83,23 +145,24 @@ def inherit_amounts(
     facts: BusinessFacts,
     declaration: DgiiDeclaration | None,
     overrides: tuple[str, ...] | None,
-    *,
-    paid: bool = False,
+    linked: LinkedSources = NO_SOURCES,
 ) -> DgiiDeclaration | None:
     if declaration is None:
         return None
-    changes = {
-        name: date.fromisoformat(state.value) if name == "paid_on" and state.value else state.value
-        for name, state in inheritance_state(facts, declaration, overrides, paid=paid).items()
-        if state.inherited
-    }
     from argus.domain.business.contracts.dgii import MONEY_LIMIT, money_text
 
-    for name, value in changes.items():
-        if name != "paid_on" and value is not None:
-            amount = Decimal(value)
+    changes: dict[str, object] = {}
+    for name, state in inheritance_state(facts, declaration, overrides, linked).items():
+        if not state.inherited:
+            continue
+        value: object = state.value
+        if value is not None and state.field in _MONEY_SOURCES:
+            amount = Decimal(state.value)
             rounded = money_text(amount)
-            changes[name] = rounded if 0 <= amount and Decimal(rounded) < MONEY_LIMIT else None
+            value = rounded if 0 <= amount and Decimal(rounded) < MONEY_LIMIT else None
+        elif value is not None and state.field == "occurred_on":
+            value = date.fromisoformat(state.value)
+        changes[name] = value
     return declaration.model_copy(update=changes)
 
 
@@ -112,10 +175,16 @@ def inheritance_overrides(
     written: tuple[str, ...] = (),
     restore: tuple[str, ...] = (),
     amount_derived: bool = False,
+    linked: LinkedSources = NO_SOURCES,
+    unsaved: bool = False,
 ) -> tuple[str, ...]:
+    """The fields a person holds apart from their source after a write.
+    ``unsaved`` is a first write over the declaration the server built: a
+    field it leaves blank was not given, so it keeps following its source."""
+
     if previous is None:
         overrides = {
-            name for name, state in inheritance_state(facts, stored).items()
+            name for name, state in inheritance_state(facts, stored, None, linked).items()
             if not state.inherited
         }
         if amount_derived:
@@ -130,8 +199,9 @@ def inheritance_overrides(
             if form is not None and declared.form != form:
                 continue
             if name in written or (
-                (stored is not None or getattr(declared, name) is not None)
-                and (stored is None or not _equal(getattr(declared, name), getattr(stored, name)))
+                not (unsaved and getattr(declared, name) is None)
+                and (stored is not None or getattr(declared, name) is not None)
+                and (stored is None or not _equal(name, getattr(declared, name), getattr(stored, name)))
             ):
                 overrides.add(name)
     if overrides.intersection(AMOUNT_SIDES):
@@ -140,18 +210,3 @@ def inheritance_overrides(
         overrides.difference_update(AMOUNT_SIDES)
     overrides.difference_update(restore)
     return tuple(sorted(overrides))
-
-
-def document_is_paid(status: str | None, bill_mark: str | None = None) -> bool:
-    return status in {"pagado", "cobrado"} or bill_mark == "Factura pagada"
-
-
-def draft_is_paid(
-    tx: ActionTransaction, activity_id: str | None, bill_mark: str | None
-) -> bool:
-    rows = tx.rows(
-        "select status from public.business_document_settlements"
-        " where space_id=%s and owner_id=%s and activity_id=%s",
-        (tx.context.actor.space_id, tx.context.owner_id, activity_id),
-    ) if activity_id else []
-    return document_is_paid(rows[0]["status"] if rows else None, bill_mark)

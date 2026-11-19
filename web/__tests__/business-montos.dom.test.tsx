@@ -132,9 +132,28 @@ test("Fiscal restore shows unknown for null money and date targets", async () =>
     paid_on: { field: "occurred_on", value: null, inherited: false },
   } };
   const host = await mount(<FiscalDeclarationEditor dossier={empty} fields={fields} disabled={false} open reviewFiscal={async () => empty} reviewMontos={async () => empty} onChanged={noop} onBusy={noop} onDirty={noop} />);
-  for (const field of ["goods_amount", "paid_on"]) {
-    assert.equal(host.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label"), "Usar Montos (-)");
-  }
+  const label = (field: string) => host.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label");
+  assert.equal(label("goods_amount"), "Usar Montos (-)");
+  assert.equal(label("paid_on"), "Usar Fecha del comprobante (-)");
+});
+
+test("a field that follows a code, a text or a date names its source and restores to that value", async () => {
+  const base = await dossier();
+  const linkedFields: DgiiFields = { "606": [...fields["606"], { name: "id_type", label: "", kind: "select", options: ["1", "2"] }], "607": [] };
+  const links = { id_type: { field: "rnc", value: "1" }, modified_ncf: { field: "original_ncf", value: "E310000000007" }, paid_on: { field: "occurred_on", value: "2026-11-12" } } as const;
+  const state = (inherited: boolean): BusinessDossier => ({ ...base, inheritance: { ...base.inheritance, ...Object.fromEntries(Object.entries(links).map(([name, link]) => [name, { ...link, inherited }])) } });
+  const editor = (value: BusinessDossier) => <FiscalDeclarationEditor dossier={value} fields={linkedFields} disabled={false} open reviewFiscal={async () => value} reviewMontos={async () => value} onChanged={noop} onBusy={noop} onDirty={noop} />;
+  const linked = await mount(editor(state(true)));
+  const from = (field: string) => linked.querySelector(`[data-inherited="${field}"]`)?.getAttribute("aria-label");
+  assert.deepEqual([from("id_type"), from("modified_ncf"), from("paid_on")], ["Viene de RNC", "Viene de NCF de la compra original", "Viene de Fecha del comprobante"]);
+  assert.equal(linked.querySelector<HTMLSelectElement>('[name="id_type"]')?.value, "1");
+  assert.equal(linked.querySelector<HTMLInputElement>('[name="modified_ncf"]')?.value, "E310000000007");
+  await cleanup();
+  const overridden = await mount(editor(state(false)));
+  const restore = (field: string) => overridden.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label");
+  assert.equal(restore("id_type"), `Usar RNC (${es.business.dgii.option.id_type["1"]})`);
+  assert.equal(restore("modified_ncf"), "Usar NCF de la compra original (E310000000007)");
+  assert.equal(restore("paid_on"), "Usar Fecha del comprobante (12 nov 2026)");
 });
 
 for (const currency of ["DOP", "USD", "EUR", null]) test(`Montos names ${currency ?? "missing currency"} once and rows contain only numbers`, async () => {

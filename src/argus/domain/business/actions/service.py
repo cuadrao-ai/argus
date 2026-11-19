@@ -253,7 +253,6 @@ class BusinessActions:
 
     def preview_amounts(self, context: ActionContext, draft_id: UUID, request: AmountsPreviewRequest) -> AmountsPreview:
         from argus.domain.business.actions.amounts_preview import preview_amounts
-        from argus.domain.business.amount_inheritance import draft_is_paid
         from argus.domain.business.contracts.facts import BusinessResolution
 
         with transaction(self.authority, context, "prepare") as tx:
@@ -262,7 +261,7 @@ class BusinessActions:
             event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=request.version))
             mutations.facts_of(event)
             resolution = BusinessResolution.model_validate(event.resolution.get("business"))
-            return preview_amounts(resolution, request, paid=draft_is_paid(tx, event.activity_id, resolution.bill_mark))
+            return preview_amounts(resolution, request)
 
     def _activities(self, context: ActionContext, connection: Connection) -> list[dict]:
         """The Business's current money activities, as the Resumen reads them."""

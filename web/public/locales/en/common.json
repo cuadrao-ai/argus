@@ -3324,6 +3324,9 @@
         "group_amounts": "Billed amounts",
         "group_retentions": "Withholdings",
         "group_other": "Other",
+        "inherited_original_ncf": "Original purchase NCF",
+        "inherited_rnc": "RNC",
+        "use_inherited_value": "Use {{field}} ({{value}})",
         "section_choices": "For the 606",
         "suggestion_source": {
           "last_choice": "Your last choice for this RNC",

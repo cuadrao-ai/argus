@@ -12,7 +12,6 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.export import sheet_rows
 from argus.domain.business.month_close import (
-    Settlement,
     formato_totals,
     month_period,
     project_documents,
@@ -190,19 +189,15 @@ def test_registros_projects_read_net_difference_and_fiscal_override_separately()
     assert result.itbis_amount == "180"
     assert result.inheritance["itbis"].value == "180"
     assert result.inheritance["itbis"].inherited is False
-    credit_facts = supplied.model_copy(
-        update={
-            "kind": known("credit_purchase"),
-            "occurred_on": known(base.occurred_on),
-        }
-    )
-    credit = replace(recorded, approved=replace(approved, facts=credit_facts))
-    assert project(credit, None, {}, None).inheritance["paid_on"].value is None
-    settled = replace(
-        credit, settlement=Settlement("pagado", base.occurred_on, "efectivo")
-    )
-    paid_on = project(settled, None, {}, None).inheritance["paid_on"]
-    assert (paid_on.value, paid_on.inherited) == (base.occurred_on.isoformat(), True)
+    dated = supplied.model_copy(update={"occurred_on": known(base.occurred_on)})
+
+    def paid_on(payment_method: str):  # noqa: ANN202
+        paid = declaration.model_copy(update={"payment_method": payment_method, "paid_on": None})
+        row = replace(recorded, approved=replace(approved, facts=dated, declaration=paid))
+        return project(row, None, {}, None).inheritance["paid_on"]
+
+    assert paid_on("04").value is None
+    assert (paid_on("01").value, paid_on("01").inherited) == (base.occurred_on.isoformat(), True)
 
 
 def test_negative_calculated_net_is_signed_without_changing_gross_totals():

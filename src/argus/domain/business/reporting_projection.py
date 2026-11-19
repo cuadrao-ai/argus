@@ -10,7 +10,11 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 from pydantic import TypeAdapter
 
-from argus.domain.business.amount_inheritance import document_is_paid, inheritance_state
+from argus.domain.business.amount_inheritance import (
+    LinkedSources,
+    inheritance_state,
+    original_ncf,
+)
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, SalesDeclaration
 from argus.domain.business.contracts.dossier import AccountChoice
 from argus.domain.business.contracts.facts import (
@@ -272,7 +276,13 @@ def project(
             facts,
             declaration,
             approved.fiscal_overrides,
-            paid=approved.paid or document_is_paid(recorded.settlement.status if recorded.settlement else None),
+            LinkedSources(
+                original_ncf=original_ncf(
+                    facts,
+                    declaration,
+                    lambda original: originals[original].facts if original in originals else None,
+                )
+            ),
         ),
         itbis_amount=value(facts.fiscal, "itbis") if facts.fiscal else None,
         goods_amount=purchase_amounts.goods_amount if purchase_amounts else None,

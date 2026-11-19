@@ -3946,8 +3946,10 @@ and immutable revision JSON. These are provenance-bearing facts: read subtotal
 or human net edit, and read service charge with tip as an absence-only fallback.
 Gross `facts.amount` and recorded money are unchanged. The existing declaration
 JSON may carry a fiscal ITBIS override. `resolution.business.fiscal_overrides`
-records which fields no longer inherit from Montos; null denotes older records
-whose override state must be interpreted from their saved declaration. No table,
+records which fields no longer inherit from their source; null denotes older records
+whose override state must be interpreted from their saved declaration. The
+names are the keys of `amount_inheritance.INHERITANCE`, which now include
+`id_type` and `modified_ncf`. No table,
 column, migration, or backfill is added. The review action receipt records every
 edit and restore under the existing version, grant and idempotency checks.
 

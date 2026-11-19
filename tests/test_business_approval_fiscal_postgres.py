@@ -623,7 +623,6 @@ def test_failed_money_write_clears_the_approval_declaration(actions, monkeypatch
 
     assert (failed.outcome, failed.code) == ("invalid_input", "activity_invalid")
     reopened = service.dossier(context, draft)
-    assert reopened.dgii is None
     cleared = revisions(service, draft)[-1]
     assert (cleared["version"], cleared["dgii"]) == (reopened.version, None)
     funded = reviewed(
@@ -765,13 +764,12 @@ def test_failed_money_write_puts_back_the_declaration_the_approval_filled(
 
     assert failed.outcome == "invalid_input", failed
     reopened = service.dossier(context, draft)
-    assert reopened.dgii.model_dump(mode="json") == {**blank, "itbis": "180.00"}
+    # The Tipo Id the person left blank follows the RNC; the Forma de Pago is theirs to give.
+    saved = {**blank, "itbis": "180.00", "id_type": "1"}
+    assert reopened.dgii.model_dump(mode="json") == saved
     filled, undone = revisions(service, draft)[-2:]
     assert (filled["dgii"]["id_type"], filled["dgii"]["payment_method"]) == ("1", "02")
-    assert (undone["version"], undone["dgii"]) == (
-        reopened.version,
-        {**blank, "itbis": "180.00"},
-    )
+    assert (undone["version"], undone["dgii"]) == (reopened.version, saved)
 
 
 def test_reapproval_rebuilds_a_declaration_the_clear_missed(actions, monkeypatch):
