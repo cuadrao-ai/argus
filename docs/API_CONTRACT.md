@@ -7799,6 +7799,11 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   observations, receipt detail, candidates, completeness/readability and projection
   issues. Internal provider/route metadata is excluded. The connection ID links to
   existing import review; no duplicate approval state is stored here.
+  `preparation.receipt.issue_date_printed` (string or null) is the issue date
+  exactly as the receipt prints it, copied before it is interpreted.
+  `preparation.receipt.buyer_rnc` (string or null) is the RNC of the buyer as
+  printed. No server code reads these two values. A read saved before they
+  existed returns null for both.
 - `GET /financial-documents/{connection_id}/source` returns verified original
   bytes for PDF, text, CSV, XLSX, XML and EML. PNG/JPEG images return a rebuilt
   JPEG, made on first download if missing and reused on later downloads. The
@@ -7816,6 +7821,8 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   participants, `equal|items` method and item assignments with multiple participant
   IDs for shared items. A stale version or active preparation returns 409. Proposals
   do not change extracted evidence, grant access, share content or write money.
+  The response is the same draft as the `GET`, with the same two
+  `preparation.receipt` fields.
 
 All draft/source reads are owner-only and `no-store`. Missing retained source on
 an older checkpoint, or a stored object that is gone, is explicit

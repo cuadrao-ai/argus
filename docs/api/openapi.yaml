@@ -10390,6 +10390,10 @@ paths:
       tags:
       - financial-accounts
       - financial-documents
+      description: Returns the saved draft and its optional `preparation`. In `preparation.receipt`,
+        `issue_date_printed` (string or null) is the issue date exactly as the receipt prints
+        it, copied before it is interpreted, and `buyer_rnc` (string or null) is the RNC of
+        the buyer as printed. No server code reads these two values.
       parameters:
       - name: connection_id
         in: path
@@ -10462,6 +10466,10 @@ paths:
       tags:
       - financial-accounts
       - financial-documents
+      description: Returns the saved draft and its optional `preparation`. In `preparation.receipt`,
+        `issue_date_printed` (string or null) is the issue date exactly as the receipt prints
+        it, copied before it is interpreted, and `buyer_rnc` (string or null) is the RNC of
+        the buyer as printed. No server code reads these two values.
       parameters:
       - name: connection_id
         in: path

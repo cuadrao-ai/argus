@@ -115,6 +115,14 @@ async def resume_document(
     except Exception as error:
         raise document_problem(request, error) from None
 
+_DRAFT_RESPONSE = (
+    "Returns the saved draft and its optional `preparation`. In "
+    "`preparation.receipt`, `issue_date_printed` (string or null) is the issue "
+    "date exactly as the receipt prints it, copied before it is interpreted, "
+    "and `buyer_rnc` (string or null) is the RNC of the buyer as printed. No "
+    "server code reads these two values."
+)
+
 
 def _draft(context: DocumentContext, connection_id: str) -> dict[str, object]:
     draft = context.service.get(
@@ -165,7 +173,7 @@ def list_documents(
         raise document_problem(request, error) from None
 
 
-@router.get("/{connection_id}")
+@router.get("/{connection_id}", description=_DRAFT_RESPONSE)
 def get_document(
     request: Request,
     response: Response,
@@ -236,7 +244,7 @@ class ProposalUpdate(BaseModel):
     proposal: DraftProposal
 
 
-@router.patch("/{connection_id}/proposal")
+@router.patch("/{connection_id}/proposal", description=_DRAFT_RESPONSE)
 def update_proposal(
     request: Request,
     response: Response,
