@@ -4,7 +4,7 @@ suggestion beside the last choice for its RNC, each field in its own order."""
 from uuid import uuid4
 
 import pytest
-from argus.domain.business.contracts.actions import ReviewDraft
+from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
 from argus.domain.business.contracts.dgii import PurchaseReview
 from loguru import logger
 
@@ -85,8 +85,18 @@ def test_an_approval_saves_what_the_reader_read_with_its_source(actions):
         "DOP",
     )
 
-    outcome = fiscal.approve(
-        service, context, draft, fiscal.reviewed(service, context, draft, version)
+    fiscal.reviewed(service, context, draft, version)
+    shown = service.dossier(context, draft)
+
+    outcome = service.approve(
+        context,
+        draft,
+        ApproveExpense(
+            version=shown.version,
+            action="record_expense",
+            suggestions=shown.declaration_suggestions,
+        ),
+        str(uuid4()),
     )
 
     assert outcome.outcome == "applied", outcome
@@ -114,7 +124,9 @@ def test_an_answer_that_differs_from_the_one_offered_is_logged(
 ):
     service, context = actions
     agreed = _receipt(service, context, 1, **{READ_FIELD[field]: "03"})
-    changed = _receipt(service, context, 2, **{READ_FIELD[field]: "03"})
+    changed = _receipt(
+        service, context, 2, rnc=fiscal.EDITED_SUPPLIER, **{READ_FIELD[field]: "03"}
+    )
 
     _choose(service, context, agreed, **{field: "03"})
     assert not [line for line in logged if "business_suggestion_changed" in line]
