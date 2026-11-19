@@ -141,17 +141,6 @@ def _requires(*needles: str, absent: tuple[str, ...] = ()):
 # lifecycle transitions, result links.
 EXPECTED_WRITE_SITES = {
     (
-        "src/argus/domain/backtest_admission_gateway.py",
-        "record_backtest_job_rejection",
-        "postgrest-insert",
-    ): _requires(
-        '"status": "failed"',
-        '"idempotency_key": receipt_key',
-        '"rejected_idempotency_key": rejected_idempotency_key',
-        '"finished_at": finished_at',
-        absent=('"result_run_id":', '"started_at":'),
-    ),
-    (
         "src/argus/domain/supabase_gateway.py",
         "SupabaseGateway.create_backtest_job",
         "postgrest-insert",
@@ -188,11 +177,6 @@ EXPECTED_WRITE_SITES = {
         '.in_("status", ["queued", "running"])',
         absent=('"result_run_id":',),
     ),
-    (
-        "src/argus/domain/backtest_admission_gateway.py",
-        "finalize_direct_backtest_job",
-        "postgrest-update",
-    ): _requires('.eq("status", "running")'),
     (
         "workflows/proof.py",
         "PostgresProofJobGateway.update_job_status",

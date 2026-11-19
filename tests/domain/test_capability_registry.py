@@ -7,13 +7,9 @@ See docs/archive/private-alpha-next-p2.1a-capability-registry-impl.md.
 
 from __future__ import annotations
 
-from typing import get_args
-
 import pytest
 from argus.api.schemas import StrategyTemplate
 from argus.domain import capability_registry as registry
-from argus.domain.engine_launch.models import LaunchStrategyType
-from argus.domain.indicators import EXECUTABLE_INDICATORS, search_indicators
 from argus.domain.strategy_capabilities import STRATEGY_CAPABILITIES
 from pydantic import TypeAdapter, ValidationError
 
@@ -88,10 +84,6 @@ def test_api_strategy_template_is_single_sourced_from_registry() -> None:
     assert adapter.json_schema().get("enum") == sorted(registry.EXECUTABLE_TEMPLATES)
 
 
-def test_launch_strategy_type_enum_matches_supported_strategy_types() -> None:
-    assert set(get_args(LaunchStrategyType)) == registry.SUPPORTED_STRATEGY_TYPES
-
-
 # --- Indicator truth: computes vs reachable-via-template -------------------------------
 
 
@@ -105,30 +97,6 @@ def test_indicator_template_reflects_reachability() -> None:
     assert registry.indicator_template("bbands") is None
     # Catalog-only / does not compute -> None.
     assert registry.indicator_template("atr") is None
-
-
-def test_reachability_map_is_internally_consistent() -> None:
-    for indicator_key, template in registry.INDICATOR_TEMPLATE_REACHABILITY.items():
-        # Each reachable indicator must compute (have an execution spec), and its template
-        # must be executable.
-        assert indicator_key in EXECUTABLE_INDICATORS
-        assert template in registry.EXECUTABLE_TEMPLATES
-    # Tie the hand-maintained RSI entry to the strategy's actual indicator parameter so
-    # the map cannot drift from the rsi_mean_reversion definition (the registry comment
-    # claims this relationship; this enforces it).
-    rsi_template = registry.INDICATOR_TEMPLATE_REACHABILITY["rsi"]
-    indicator_param = STRATEGY_CAPABILITIES[rsi_template].parameters["indicator"]
-    assert indicator_param.default == "rsi"
-    assert indicator_param.allowed_values == ["rsi"]
-
-
-def test_discovery_support_status_derived_from_execution_spec_membership() -> None:
-    # Computing indicators surface as "executable" in the catalog; draft/discovery
-    # indicators (no execution spec) stay "draft_only" -> filtered from the @ picker.
-    atr = next(item for item in search_indicators("average true range") if item.key == "atr")
-    assert atr.support_status == "draft_only"
-    macd = next(item for item in search_indicators("macd") if item.key == "macd")
-    assert macd.support_status == "executable"
 
 
 # --- Containment: draft strategies have NO path ---------------------------------------

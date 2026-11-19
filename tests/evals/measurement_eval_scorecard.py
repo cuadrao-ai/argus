@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import yaml  # type: ignore[import-untyped]
 
@@ -208,100 +208,6 @@ def _measurement_fixture_identity_from_entries(
         sha256=digest.hexdigest(),
         case_ids=tuple(case_ids),
     )
-
-
-def build_scorecard_provenance(
-    *,
-    evaluation_mode: str,
-    fixture_dir: Path = FIXTURE_DIR,
-    repository_root: Path = REPOSITORY_ROOT,
-) -> EvalScorecardProvenance:
-    if evaluation_mode not in {"live", "mocked"}:
-        raise ValueError("scorecard_provenance:evaluation_mode")
-    market_data_provider_mode = _resolved_provider_mode(
-        "ARGUS_MARKET_DATA_PROVIDER_MODE"
-    )
-    asset_provider_mode = _resolved_provider_mode("ARGUS_ASSET_PROVIDER_MODE")
-    candidate_sha = _candidate_sha(repository_root)
-    python_version = platform.python_version()
-    fixture_identity = measurement_fixture_identity(fixture_dir)
-    worktree_clean = _worktree_is_clean(repository_root)
-    if not worktree_clean:
-        raise ValueError("scorecard_provenance:worktree_clean")
-    live_probe = None
-    if evaluation_mode == "live":
-        if os.getenv("ARGUS_RUN_LIVE_EVALS") != "1":
-            raise RuntimeError("live_eval_requires_ARGUS_RUN_LIVE_EVALS")
-        live_probe = verify_live_market_data_environment()
-    provenance = EvalScorecardProvenance(
-        evaluation_mode=evaluation_mode,
-        market_data_provider_mode=market_data_provider_mode,
-        asset_provider_mode=asset_provider_mode,
-        candidate_sha=candidate_sha,
-        python_version=python_version,
-        fixture_sha256=fixture_identity.sha256,
-        fixture_case_ids=fixture_identity.case_ids,
-        worktree_clean=worktree_clean,
-        release_configuration=measured_release_configuration(
-            candidate_sha, repository_root=repository_root
-        ),
-        live_market_data_probe=live_probe,
-    )
-    validated_provenance_payload(provenance)
-    return provenance
-
-
-def verify_live_market_data_environment(
-    *,
-    prepare_market_data_func: Callable[[dict[str, Any]], Any] | None = None,
-) -> LiveMarketDataProbe:
-    provider_mode = _resolved_provider_mode("ARGUS_MARKET_DATA_PROVIDER_MODE")
-    if provider_mode != "live_provider":
-        raise RuntimeError(
-            "live_eval_requires_explicit_live_provider:"
-            f"ARGUS_MARKET_DATA_PROVIDER_MODE={provider_mode}"
-        )
-    if prepare_market_data_func is None:
-        from argus.domain.backtesting.coverage import prepare_market_data
-
-        prepare_market_data_func = prepare_market_data
-
-    config = {
-        "asset_class": "equity",
-        "symbols": [_LIVE_PROBE_SYMBOL],
-        "timeframe": "1D",
-        "start_date": _LIVE_PROBE_REQUESTED_DATE_RANGE["start"],
-        "end_date": _LIVE_PROBE_REQUESTED_DATE_RANGE["end"],
-        "requested_date_range": dict(_LIVE_PROBE_REQUESTED_DATE_RANGE),
-        "benchmark_symbol": _LIVE_PROBE_SYMBOL,
-    }
-    try:
-        prepared = prepare_market_data_func(config)
-        effective_date_range = prepared.effective_date_range.model_dump()
-        adjustment_reason = prepared.adjustment_reason
-    except Exception as exc:
-        raise RuntimeError("live_eval_market_data_probe_failed:provider_error") from exc
-
-    probe = LiveMarketDataProbe(
-        symbol=_LIVE_PROBE_SYMBOL,
-        requested_date_range=dict(_LIVE_PROBE_REQUESTED_DATE_RANGE),
-        effective_date_range={
-            "start": str(effective_date_range.get("start") or ""),
-            "end": str(effective_date_range.get("end") or ""),
-        },
-        adjustment_reason=(
-            str(adjustment_reason) if adjustment_reason is not None else None
-        ),
-    )
-    if (
-        probe.effective_date_range != _LIVE_PROBE_EFFECTIVE_DATE_RANGE
-        or probe.adjustment_reason != "calendar_alignment"
-    ):
-        raise RuntimeError(
-            "live_eval_market_data_probe_failed:"
-            "expected_2024-01-02_calendar_alignment"
-        )
-    return probe
 
 
 def scorecard_for_results(

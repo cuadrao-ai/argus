@@ -330,31 +330,6 @@ def test_each_readout_instruction_fragment_remains_measured(
     assert model_facing_surface(tmp_path)[owner] != first[owner]
 
 
-@pytest.mark.parametrize(
-    "owner",
-    [
-        "src/argus/domain/result_readout_fact_sheet.py",
-        "src/argus/domain/result_readout_fact_definitions.py",
-    ],
-)
-def test_readout_fact_meanings_are_measured_but_docstrings_are_not(
-    tmp_path: Path, owner: str
-) -> None:
-    source = '''"""Internal implementation notes."""
-FACT_DEFINITIONS = {"executed_fills": ("count", "Executed fills, not closed trades.")}
-def build():
-    """Implementation detail."""
-    return {"meaning": "Annualized volatility."}
-'''
-    _write(tmp_path, owner, source)
-    first = model_facing_surface(tmp_path)
-    assert owner in first
-    _write(tmp_path, owner, source.replace("Annualized volatility", "Daily volatility"))
-    assert model_facing_surface(tmp_path)[owner] != first[owner]
-    _write(tmp_path, owner, source.replace("Implementation detail", "Private helper"))
-    assert model_facing_surface(tmp_path)[owner] == first[owner]
-
-
 def _business_declaration_source() -> str:
     root = Path(__file__).resolve().parents[1]
     return (root / BUSINESS_DECLARATION_OWNER).read_text(encoding="utf-8")

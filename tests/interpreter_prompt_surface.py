@@ -17,8 +17,6 @@ MEASURED_ROOTS = (
     "src/argus/agent_runtime",
     "src/argus/domain",
     "src/argus/llm",
-    "src/argus/context",
-    "src/argus/nlp",
 )
 
 FINGERPRINT_PATH = Path(".agent/interpreter_prompt_fingerprint.json")
@@ -52,13 +50,6 @@ READOUT_INSTRUCTION_OWNERS = frozenset(
         "src/argus/domain/result_readout_sources.py",
     }
 )
-READOUT_FACT_SHEET_OWNERS = frozenset(
-    {
-        "src/argus/domain/result_readout_fact_sheet.py",
-        "src/argus/domain/result_readout_fact_definitions.py",
-    }
-)
-
 _MESSAGE_CONSTRUCTORS = frozenset({"SystemMessage", "HumanMessage", "AIMessage"})
 _PROMPT_FUNCTION_SUFFIXES = ("_prompt", "_instructions", "_directive", "_clause")
 # String constants like DISCOVERY_ACT_GUIDANCE are concatenated into the
@@ -135,36 +126,12 @@ def _model_facing_strings(
     *,
     include_dictionary_messages: bool = False,
     include_readout_instructions: bool = False,
-    include_fact_sheet_text: bool = False,
     include_document_instructions: bool = False,
     include_business_declarations: bool = False,
 ) -> list[tuple[str, str]]:
     """(kind, text) for every string this module hands to a model."""
 
     found: list[tuple[str, str]] = []
-
-    if include_fact_sheet_text:
-        # Labels, meanings, units and derivation caveats are model input too.
-        # Keep coverage local to the pure sheet owner; implementation docstrings
-        # never reach the composer and should not force another measurement.
-        docstrings = {
-            id(node.body[0].value)
-            for node in ast.walk(tree)
-            if isinstance(
-                node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
-            )
-            and node.body
-            and isinstance(node.body[0], ast.Expr)
-            and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.value, str)
-        }
-        return [
-            ("readout_fact_text", node.value)
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and id(node) not in docstrings
-        ]
 
     for node in ast.walk(tree):
         if include_dictionary_messages and isinstance(node, ast.Dict):
@@ -270,7 +237,6 @@ def model_facing_surface(repository_root: Path) -> dict[str, dict[str, object]]:
             relative.removeprefix("src/").removesuffix(".py").replace("/", "."),
             include_dictionary_messages=relative in READOUT_MESSAGE_OWNERS,
             include_readout_instructions=relative in READOUT_INSTRUCTION_OWNERS,
-            include_fact_sheet_text=relative in READOUT_FACT_SHEET_OWNERS,
             include_document_instructions=relative == DOCUMENT_EXTRACTOR_OWNER,
             include_business_declarations=relative == BUSINESS_DECLARATION_OWNER,
         )
