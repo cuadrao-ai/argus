@@ -363,7 +363,7 @@ def revise(
     amount_derived = unsaved or bool(previous_resolution.get("amount_derived"))
     if any(change is not None for change in (fiscal_review, purchase, payment_split, montos)):
         # A write to the declaration is read against what the person was shown.
-        stored, linked = dossier.review_start(
+        linked = dossier.review_sources(
             tx, event.id, event.state, before or after, stored, current_type
         )
     stored = written_from(

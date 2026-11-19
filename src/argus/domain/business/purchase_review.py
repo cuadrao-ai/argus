@@ -37,20 +37,6 @@ def takes_purchase_declaration(document_type: DocumentType, facts: BusinessFacts
     return direction(document_type) is PURCHASE and not is_sin_comprobante(facts)
 
 
-def saves_suggestions(
-    document_type: DocumentType, facts: BusinessFacts, declaration: DgiiDeclaration | None
-) -> bool:
-    """Whether an approval saves a suggested 606 answer on this record: it
-    takes a 606 declaration and the approval writes one, the person's or the
-    one built from its facts. The one rule behind the dossier's suggestions
-    and the approval's save, so a suggestion shows only where it is saved."""
-
-    return takes_purchase_declaration(document_type, facts) and (
-        isinstance(declaration, PurchaseDeclaration)
-        or declaration_from_facts(facts, None) is not None
-    )
-
-
 def takes_payment_split(document_type: DocumentType) -> bool:
     """Whether a 607 payment split belongs on this record: a sale. The one
     rule behind the dossier's payment_split_editable and the review's write."""
@@ -313,27 +299,6 @@ def id_type_of(facts: BusinessFacts) -> str | None:
     """The Tipo Id the supplier's RNC states: 1 for an RNC, 2 for a cédula."""
 
     return {9: "1", 11: "2"}.get(len(identity_digits(_fiscal(facts, "rnc") or "") or ""))
-
-
-def approval_fill(
-    person: PurchaseDeclaration | None,
-    built: PurchaseDeclaration | None,
-    offered: DeclarationSuggestions,
-) -> PurchaseDeclaration | None:
-    """The 606 declaration an approval writes: the ``person``'s own with each
-    blank answer filled, first from the suggestion ``offered`` for it, then
-    from the one ``built`` from the facts. None when there is nothing to write."""
-
-    taken = take_suggestions(person, offered)
-    if taken is None or built is None:
-        return built if taken is None else taken
-    return taken.model_copy(
-        update={
-            name: getattr(built, name)
-            for name in ("id_type", "payment_method")
-            if getattr(taken, name) is None
-        }
-    )
 
 
 def _fiscal(facts: BusinessFacts, name: str) -> str | None:

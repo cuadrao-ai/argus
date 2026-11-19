@@ -764,9 +764,10 @@ def test_failed_money_write_puts_back_the_declaration_the_approval_filled(
 
     assert failed.outcome == "invalid_input", failed
     reopened = service.dossier(context, draft)
-    # The Tipo Id the person left blank follows the RNC; the Forma de Pago is theirs to give.
+    # The Tipo Id the person left blank follows the RNC. The blank Forma de
+    # Pago is put back, and the review shows the one of the account that paid.
     saved = {**blank, "itbis": "180.00", "id_type": "1"}
-    assert reopened.dgii.model_dump(mode="json") == saved
+    assert reopened.dgii.model_dump(mode="json") == {**saved, "payment_method": "02"}
     filled, undone = revisions(service, draft)[-2:]
     assert (filled["dgii"]["id_type"], filled["dgii"]["payment_method"]) == ("1", "02")
     assert (undone["version"], undone["dgii"]) == (reopened.version, saved)

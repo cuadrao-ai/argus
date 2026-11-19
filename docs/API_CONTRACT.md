@@ -9127,6 +9127,13 @@ date that approving would save. The suggested answer itself stays out of
 `dgii`, a saved declaration holds no value that came from a suggestion, and
 the export still reads an unconfirmed expense type as missing.
 
+The `dgii` of an open draft takes each answer from its first source, in this
+order: what a person answered or overrode, a linked field they left blank
+included; the suggestion in `declaration_suggestions`; then, for a blank
+payment form with no suggestion, the form of the account that paid, whether
+or not a declaration is saved. Each linked field follows from those answers.
+An approval saves that `dgii`, with each suggestion saved as its answer.
+
 `paid_on` follows the payment form. For `01`, `02`, `03` and `07` it is
 `occurred_on`. For any other code, or none, it is null for a person to give.
 `modified_ncf` inherits only on a credit note (type 04 or 34) whose

@@ -1,6 +1,7 @@
 """Every 606 field that follows a source: what it shows on a fresh read, and
 that a person's override holds until they restore it."""
 
+from dataclasses import replace
 from datetime import date
 from uuid import UUID, uuid4
 
@@ -9,10 +10,12 @@ from argus.domain.business.amount_inheritance import (
     INHERITANCE,
     NO_SOURCES,
     LinkedSources,
+    approved_from,
     inherit_amounts,
     inheritance_overrides,
     inheritance_state,
     original_ncf,
+    written_from,
 )
 from argus.domain.business.contracts.dgii import (
     DeclarationSuggestions,
@@ -24,7 +27,6 @@ from argus.domain.business.dgii_line import confirmed_declaration
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.purchase_review import (
     apply_purchase,
-    approval_fill,
     declaration_from_facts,
 )
 from faker import Faker
@@ -214,11 +216,12 @@ def test_a_review_that_changes_nothing_shown_records_no_override():
 
 def test_approval_writes_what_the_review_showed():
     facts = read()
-    linked = suggested(category="09", payment_method="03")
-    built = declaration_from_facts(facts, None)
-    shown = fresh(facts, linked)
+    linked = replace(
+        suggested(category="09", payment_method="03"), built=declaration_from_facts(facts, None)
+    )
+    shown = written_from(facts, None, None, None, linked)
 
-    written = inherit_amounts(facts, approval_fill(None, built, linked.suggestions), ())
+    written = approved_from(facts, None, None, None, linked)
 
     answers = {"category": "09", "payment_method": "03"}
     assert written.model_dump(exclude={"suggestion_sources"}) == {

@@ -47,6 +47,9 @@ class LinkedSources:
     original_ncf: str | None = None
     #: Only the amounts follow the receipt: a record that is not an open draft.
     amounts_only: bool = False
+    #: The 606 declaration the facts of an open expense state on their own,
+    #: its Forma de pago the one of the account a person said paid it.
+    built: PurchaseDeclaration | None = None
 
 
 NO_SOURCES = LinkedSources()
@@ -214,13 +217,54 @@ def written_from(
     bill_mark: str | None,
     linked: LinkedSources,
 ) -> DgiiDeclaration | None:
-    """The declaration a record shows now, which a write starts from. An
-    approved record shows the one it exports. An open draft shows each linked
-    field at the value it follows."""
+    """The declaration a record shows now: the one owner of it. The dossier
+    shows it, a write starts from it and an approval saves it.
+
+    An approved record shows the one it exports. An open draft shows, in
+    this order: what a person answered or overrode, a blank they left
+    included; a blank Forma de pago as the suggestion beside it, or with none
+    as the account's; then each linked field at the value it follows, Fecha
+    pago from that Forma de pago."""
 
     if linked.amounts_only:
         return saved_declaration(facts, declaration, overrides, bill_mark)
-    return inherit_amounts(facts, declaration, overrides, linked)
+    return inherit_amounts(facts, _answered(declaration, linked), overrides, linked)
+
+
+def _answered(
+    declaration: DgiiDeclaration | None, linked: LinkedSources
+) -> DgiiDeclaration | None:
+    """The answers an open review starts from: the person's, or with none
+    saved for this purchase the ones its facts state. A suggested Forma de
+    pago stays beside its blank answer, so the account's fills only without one."""
+
+    built = linked.built
+    if built is None:
+        return declaration
+    start = (
+        declaration
+        if isinstance(declaration, PurchaseDeclaration)
+        else built.model_copy(update={"payment_method": None})
+    )
+    if start.payment_method is None and linked.suggestions.payment_method is None:
+        return start.model_copy(update={"payment_method": built.payment_method})
+    return start
+
+
+def approved_from(
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+    overrides: tuple[str, ...] | None,
+    bill_mark: str | None,
+    linked: LinkedSources,
+) -> DgiiDeclaration | None:
+    """The declaration an approval saves: the one its review shows, each
+    suggestion shown beside a blank answer saved as that answer."""
+
+    shown = written_from(facts, declaration, overrides, bill_mark, linked)
+    if not isinstance(shown, PurchaseDeclaration):
+        return shown
+    return take_suggestions(shown, linked.suggestions)
 
 
 def inheritance_overrides(
