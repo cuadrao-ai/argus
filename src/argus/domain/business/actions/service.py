@@ -983,3 +983,50 @@ class BusinessActions:
                     "idempotency_conflict", "business_preparation_batch_changed"
                 )
             return plans.finish_receipt(tx, key, result)
+
+    def complete_attachment_read(
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        scope: OwnerScope,
+        holder: str,
+        attempt_id: str | None,
+        document_version: int,
+        prepared: Applied,
+    ) -> None:
+        """Stamp only the read's unchanged draft after its completed status is saved."""
+
+        from dataclasses import replace
+
+        from argus.domain.business.actions.listos import draft_standings
+        from argus.domain.business.bandeja_group import draft_group, listo_reason
+
+        _, context = self._attachment_context(user_id, connection_id, scope)
+        with transaction(self.authority, context, "prepare") as tx:
+            row = self._attachment_row(tx, UUID(connection_id))
+            document, job = row["draft"], row["preparation_job"]
+            if (
+                document["version"] != document_version
+                or document["status"] not in {"review_ready", "needs_attention"}
+                or row["lease_holder"] != holder
+                or row["lease_until"] is None
+                or row["lease_until"] <= row["checked_at"]
+                or (job.get("attempt_id") if job else None) != attempt_id
+            ):
+                return
+            event = tx.imports.event(str(prepared.draft_id))
+            # The owner lock keeps review and another read out until this commits.
+            if (
+                event.state != "open"
+                or event.version != prepared.version
+                or "read_group" in event.resolution
+            ):
+                return
+            standing = draft_standings(tx, (event,))[event.id]
+            tx.imports.put_event(
+                replace(
+                    event,
+                    resolution={**event.resolution, "read_group": draft_group(listo_reason(standing))},
+                )
+            )

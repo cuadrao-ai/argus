@@ -657,6 +657,11 @@ def prepare_attachment(
         "counterparty": candidate.merchant,
         "kind": _kind(candidate.kind_hint),
     }
+    # Only a new read clears its old stamp; human revisions keep it.
+    event = replace(
+        event,
+        resolution={key: value for key, value in event.resolution.items() if key != "read_group"},
+    )
     if candidate.amount is not None and values["amount"] is None:
         logger.info(
             "business_post_read_rule draft_id={} rule=read_amount_unknown", event.id

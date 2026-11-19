@@ -1398,7 +1398,7 @@ fails if any field could hold free text or a money-formatted value.
 | `business_document_received` | `channel`: `upload`, `note`, `email`, or `whatsapp`; `file_type`: an extension `SOURCE_MEDIA_TYPES` names, absent for a typed note; `page_count`: `1` for an image, absent when not known before the read; `size_bucket`: `under_100kb`, `100kb_to_1mb`, `1mb_to_5mb`, or `5mb_or_more` | a new Business document is saved; a repeat of the same bytes is not counted |
 | `business_document_read` | `result`: `read`, `failed`, or `unsure`; `failure_reason`: a receipt `Attention` value (for example `ai_unavailable`, `interrupted`, `unreadable`, `not_a_receipt`, `check_details`), absent when `read`; `latency_ms`: 0 to 3600000; `model_tier`: an OpenRouter model tier; `input_tokens`, `output_tokens`: 0 to 10000000; `cost_micro_usd`: 0 to 100000000 | a read that reached the model settles, once per provider-admitted attempt |
 | `business_document_needs_review` | `reason_codes`: one or more `BandejaReason` values, in the Listos rule's order | a read leaves a draft that is not Listos, or the model's answer cannot become a draft |
-| `business_record_approved` | `filled_fields` and `filled_count` cover record fields that had no known value in the read and have one at approval. `corrected_fields` and `corrected_count` cover fields whose known value changed or was removed. Lists carry field names (`FactField` and the fiscal fields). All four properties are omitted when there is no extractor read. `seconds_to_approve` measures time from first arrival to approval | a person's approval records the draft, once (not on a replay) |
+| `business_record_approved` | `bandeja_group_at_read`: `listo` or `attention` from the saved latest-read stamp, explicit `null` without a stamp; identical for single and bulk approval. `filled_fields` and `filled_count` cover record fields that had no known value in the read and have one at approval. `corrected_fields` and `corrected_count` cover fields whose known value changed or was removed. Lists carry field names (`FactField` and the fiscal fields). All four properties are omitted when there is no extractor read. `seconds_to_approve` measures time from first arrival to approval | a person's approval records the draft, once (not on a replay) |
 | `business_record_recorded` | `direction`: `compra` or `venta`; `document_type`: `recibo` or `venta` | with `business_record_approved` |
 | `business_records_exported` | `format`: `excel` or `csv`; `scope`: `lo_que_ves` or `dgii`; `row_count`: 0 to 1000000 | an Excel or CSV export is built |
 
@@ -3825,6 +3825,17 @@ for replay and approval. A missing source verifier cannot validate a decision.
 Migration `20261023005500_business_duplicate_resolution.sql` adds only
 `resolve_duplicate` to the existing unplanned-command allowlist, preserving all
 older commands, tables, grants and row-level security.
+
+`financial_import_events.resolution.read_group` stores `listo` or `attention`
+after the read's duplicate checks and completed attachment status are saved.
+The completion hook uses the existing `draft_standings` and the single
+`draft_group` mapping. A new read clears the prior stamp and completion replaces
+it; human revisions preserve it. The owner lock, draft and attachment versions,
+and read lease and attempt fence prevent stale completion from classifying
+later edits. If an edit wins that race, the stamp stays absent rather than
+classifying the edited facts. Replaying the same completed read keeps its stamp.
+Approval reads the stamp without recomputing it. There is no backfill or schema
+migration; unstamped records emit an explicit `null` in approval analytics.
 
 The resolution's `document_type` (`recibo` or `venta`) is the draft's current
 document type, and `document_type_detected` is true while the read's choice
