@@ -3,7 +3,9 @@ the harness can be proven without a model. They say nothing about a real read.""
 
 from __future__ import annotations
 
+import httpx
 from argus.domain.ingestion.documents.models import ExtractionResult
+from pydantic import ValidationError
 
 from tests.evals.document_read.cases import Case
 from tests.evals.document_read.dataset import Sample
@@ -106,4 +108,24 @@ def empty(sample: Sample) -> ExtractionResult:
 
 
 def outage(sample: Sample) -> Exception:
-    return RuntimeError("scripted provider outage")
+    """The provider never answered: the connection failed."""
+
+    return httpx.ConnectError("scripted provider outage")
+
+
+def unparseable(sample: Sample) -> Exception:
+    """The model answered with text that is not the schema, as the provider
+    call raises it."""
+
+    try:
+        ExtractionResult.model_validate_json('{"complete": tr')
+    except ValidationError as error:
+        return error
+    raise AssertionError("the cut answer parsed")
+
+
+def cut_off(sample: Sample) -> Exception:
+    """The model ran out of output before it finished, as the provider call
+    raises it."""
+
+    return ValueError("Incomplete document response")

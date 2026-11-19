@@ -90,7 +90,9 @@ def main() -> None:
         encoding="utf-8",
     )
     logger.info("\n{}", summary_table(scorecard))
-    logger.info("{}", json.dumps({**scorecard["totals"], **scorecard["provider_usage"]}))
+    logger.info(
+        "{}", json.dumps({**scorecard["reliability"], **scorecard["provider_usage"]})
+    )
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ from argus.domain.business.fiscal_identity import (
 )
 from argus.domain.ingestion.documents import extractor as reader
 from argus.domain.ingestion.documents.config import DocumentExtractionSettings
+from argus.domain.ingestion.documents.failures import ReadFailure
 from argus.domain.ingestion.documents.models import (
     DocumentExtractionError,
     ExtractionBatch,
@@ -38,7 +39,7 @@ from argus.domain.ingestion.documents.preparation import (
 from tests.evals.document_read.cases import Case, shapes
 from tests.evals.document_read.dataset import Sample, set_sha256
 
-SCHEMA_VERSION = "document_read_scorecard_v1"
+SCHEMA_VERSION = "document_read_scorecard_v2"
 #: The reader has no field for this yet, so there is nothing to score.
 UNSUPPORTED = object()
 OUTCOMES = (
@@ -46,10 +47,13 @@ OUTCOMES = (
     "correct_empty",
     "false_fill",
     "blank",
+    "failed",
     "unsupported",
     "judgment",
     "not_scored",
 )
+#: The outcomes that put a receipt in a field's denominator.
+SCORED = ("correct", "correct_empty", "false_fill", "blank", "failed")
 #: The fields whose answer can be a judgment, with the key that says so.
 BASIS = {"expense_type": "expense_type_basis"}
 ScriptedRead = Callable[[Sample], ExtractionResult | Exception]
@@ -105,11 +109,13 @@ def read_fields(batch: ExtractionBatch) -> dict[str, object]:
 FIELDS = tuple(read_fields(ExtractionBatch(candidates=())))
 
 
-def _outcome(expected: str | None, read: object, basis: str) -> str:
+def _outcome(expected: str | None, read: object, basis: str, answered: bool) -> str:
     if read is UNSUPPORTED:
         return "unsupported"
     if basis == "judgment":
         return "judgment"
+    if not answered:
+        return "failed"
     if read is None:
         return "correct_empty" if expected is None else "blank"
     return "correct" if read == expected else "false_fill"
@@ -156,14 +162,24 @@ def _qr_outcome(sample: Sample, qr: Any) -> str:
     return "decoded" if same else "decoded_wrong"
 
 
-def score_case(sample: Sample, batch: ExtractionBatch) -> dict[str, Any]:
+def _record(
+    sample: Sample, batch: ExtractionBatch | None, qr: Any, route_receipts: object
+) -> dict[str, Any]:
+    """One receipt's scores. ``batch`` is ``None`` when the model answered and
+    the answer could not be used: the receipt stays in every denominator and
+    nothing on it is correct."""
+
     case, answer = sample.case, asdict(sample.expected)
     one_receipt = sample.expected.purchases == 1
+    answered = batch is not None
+    batch = batch or ExtractionBatch(candidates=())
     fields: dict[str, dict[str, Any]] = {}
     mistakes: list[str] = []
     for name, read in read_fields(batch).items():
         basis = answer[BASIS[name]] if name in BASIS else "clear"
-        outcome = _outcome(answer[name], read, basis) if one_receipt else "not_scored"
+        outcome = (
+            _outcome(answer[name], read, basis, answered) if one_receipt else "not_scored"
+        )
         fields[name] = {
             "basis": basis,
             "outcome": outcome,
@@ -185,17 +201,19 @@ def score_case(sample: Sample, batch: ExtractionBatch) -> dict[str, Any]:
     purchases = len(_purchases(batch))
     return {
         "case_id": case.case_id,
-        "status": "read",
+        "status": "read" if answered else "model_failure",
         "shapes": list(shapes(case)),
         "fields": fields,
         "mistakes": mistakes,
-        "qr": _qr_outcome(sample, batch.dgii_qr),
+        "qr": _qr_outcome(sample, qr),
         "complete": {
             "expected": sample.expected.complete,
-            "read": complete,
+            "read": complete if answered else None,
             "outcome": (
                 "not_scored"
                 if not one_receipt
+                else "failed"
+                if not answered
                 else "correct"
                 if complete == sample.expected.complete
                 else "wrong"
@@ -203,22 +221,55 @@ def score_case(sample: Sample, batch: ExtractionBatch) -> dict[str, Any]:
         },
         "purchases": {
             "expected": sample.expected.purchases,
-            "read": purchases,
-            "outcome": ("correct" if purchases == sample.expected.purchases else "wrong"),
+            "read": purchases if answered else None,
+            "outcome": (
+                "failed"
+                if not answered
+                else "correct"
+                if purchases == sample.expected.purchases
+                else "wrong"
+            ),
         },
         "unsure": not complete or bool(issues),
         "issues": issues,
-        "route_receipts": batch.metadata.get("route_receipts", []),
+        "route_receipts": route_receipts,
     }
 
 
-def _failed(sample: Sample, error: DocumentExtractionError) -> dict[str, Any]:
+def score_case(sample: Sample, batch: ExtractionBatch) -> dict[str, Any]:
+    return _record(sample, batch, batch.dgii_qr, batch.metadata.get("route_receipts", []))
+
+
+def model_answered(error: DocumentExtractionError) -> bool:
+    """Whether the read failed on the model's own answer. The extractor gives
+    a kind (``failures.classify``) only to a provider call that was sent, and
+    ``permanent`` is the kind of an answer that came back wrong: not the
+    schema, cut short, or refused. A read that was never sent, a timeout, a
+    dropped connection, a 5xx, a 429 and a refused key are not answers."""
+
+    failure = getattr(error, "read_failure", None)
+    return isinstance(failure, ReadFailure) and failure.kind == "permanent"
+
+
+def _failed(
+    sample: Sample,
+    document: PreparedDocument | DocumentExtractionError,
+    error: DocumentExtractionError,
+) -> dict[str, Any]:
+    route_receipts = error.metadata.get("route_receipts", [])
+    response = getattr(error, "response", None)
+    cause = {
+        "error": error.code,
+        "http_status": getattr(response, "status_code", None),
+    }
+    if isinstance(document, PreparedDocument) and model_answered(error):
+        return {**_record(sample, None, document.dgii_qr, route_receipts), **cause}
     return {
         "case_id": sample.case.case_id,
         "status": "infrastructure_error",
         "shapes": list(shapes(sample.case)),
-        "error": error.code,
-        "route_receipts": error.metadata.get("route_receipts", []),
+        **cause,
+        "route_receipts": route_receipts,
     }
 
 
@@ -305,27 +356,25 @@ async def _read(
         with patch.object(reader, "invoke_openrouter_json_schema", call):
             return score_case(sample, await extract())
     except DocumentExtractionError as error:
-        return _failed(sample, error)
+        return _failed(sample, document, error)
 
 
 def _rate(part: int, whole: int) -> float | None:
     return round(part / whole, 4) if whole else None
 
 
-def _field_totals(read: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def _field_totals(scored_reads: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     totals = {}
     for name in FIELDS:
-        counts = Counter(result["fields"][name]["outcome"] for result in read)
-        scored = sum(
-            counts[outcome]
-            for outcome in ("correct", "correct_empty", "false_fill", "blank")
-        )
+        counts = Counter(result["fields"][name]["outcome"] for result in scored_reads)
+        scored = sum(counts[outcome] for outcome in SCORED)
         totals[name] = {
             **{outcome: counts[outcome] for outcome in OUTCOMES},
             "scored": scored,
             "accuracy": _rate(counts["correct"] + counts["correct_empty"], scored),
             "false_fill_rate": _rate(counts["false_fill"], scored),
             "blank_rate": _rate(counts["blank"], scored),
+            "failed_rate": _rate(counts["failed"], scored),
         }
     return totals
 
@@ -364,14 +413,18 @@ def build_scorecard(
     candidate_sha: str,
     model: str | None,
 ) -> dict[str, Any]:
+    status = Counter(result["status"] for result in results)
     read = [result for result in results if result["status"] == "read"]
-    qr = Counter(result["qr"] for result in read)
+    # A model failure is a read that went wrong, so it is scored with the reads.
+    scored = [result for result in results if result["status"] != "infrastructure_error"]
+    not_run = len(samples) - len(results)
+    qr = Counter(result["qr"] for result in scored)
     readable = qr["decoded"] + qr["decoded_wrong"] + qr["missed"]
-    complete = Counter(result["complete"]["outcome"] for result in read)
-    purchases = Counter(result["purchases"]["outcome"] for result in read)
-    fields = _field_totals(read)
+    complete = Counter(result["complete"]["outcome"] for result in scored)
+    purchases = Counter(result["purchases"]["outcome"] for result in scored)
+    fields = _field_totals(scored)
     by_shape: dict[str, Counter[str]] = {}
-    for result in read:
+    for result in scored:
         outcomes = Counter(field["outcome"] for field in result["fields"].values())
         for shape in result["shapes"]:
             by_shape.setdefault(shape, Counter()).update(outcomes, receipts=1)
@@ -387,11 +440,15 @@ def build_scorecard(
             **reader_text_sha256(),
         },
         "provider_usage": _usage(results),
-        "totals": {
-            "receipts": len(results),
+        "reliability": {
+            "attempted": len(results),
             "read": len(read),
-            "infrastructure_error": len(results) - len(read),
-            "not_run": len(samples) - len(results),
+            "model_failure": status["model_failure"],
+            "infrastructure_error": status["infrastructure_error"],
+            "not_run": not_run,
+            "success_rate": _rate(len(read), len(results)),
+            # These receipts are in no rate, so the rates cover a subset.
+            "incomplete": bool(status["infrastructure_error"] or not_run),
         },
         "fields": fields,
         "expense_type": {
@@ -401,6 +458,7 @@ def build_scorecard(
                     "correct",
                     "false_fill",
                     "blank",
+                    "failed",
                     "scored",
                     "accuracy",
                     "false_fill_rate",
@@ -412,7 +470,7 @@ def build_scorecard(
                     "expected": result["fields"]["expense_type"]["expected"],
                     "read": result["fields"]["expense_type"]["read"],
                 }
-                for result in read
+                for result in scored
                 if result["fields"]["expense_type"]["basis"] == "judgment"
                 and result["fields"]["expense_type"]["outcome"] != "not_scored"
             ],
@@ -437,15 +495,18 @@ def build_scorecard(
         "complete": {
             "correct": complete["correct"],
             "wrong": complete["wrong"],
+            "failed": complete["failed"],
             "not_scored": complete["not_scored"],
             "accuracy": _rate(
-                complete["correct"], complete["correct"] + complete["wrong"]
+                complete["correct"],
+                complete["correct"] + complete["wrong"] + complete["failed"],
             ),
         },
         "purchases": {
             "correct": purchases["correct"],
             "wrong": purchases["wrong"],
-            "accuracy": _rate(purchases["correct"], len(read)),
+            "failed": purchases["failed"],
+            "accuracy": _rate(purchases["correct"], len(scored)),
         },
         "unsure": {
             "receipts": sum(result["unsure"] for result in read),
@@ -465,15 +526,29 @@ def build_scorecard(
 def summary_table(scorecard: dict[str, Any]) -> str:
     """The per-field table of a scorecard, as Markdown."""
 
-    rows = [
-        "| Field | Correct | Correctly empty | False fill | Blank | Unsupported "
-        "| Judgment |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    runs = scorecard["reliability"]
+    rows = []
+    if runs["incomplete"]:
+        rows += [
+            f"**INCOMPLETE RUN: {runs['infrastructure_error']} receipts got no "
+            f"answer and {runs['not_run']} were not read. They are in no rate "
+            "below. Do not compare this scorecard with another.**",
+            "",
+        ]
+    rows += [
+        f"Reads: {runs['read']} of {runs['attempted']} attempted came back usable. "
+        f"{runs['model_failure']} model failures, scored as failed. "
+        f"{runs['infrastructure_error']} infrastructure failures, not scored.",
+        "",
+        "| Field | Correct | Correctly empty | False fill | Blank | Failed "
+        "| Unsupported | Judgment |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name, counts in scorecard["fields"].items():
         rows.append(
             f"| {name} | {counts['correct']} | {counts['correct_empty']} | "
-            f"{counts['false_fill']} | {counts['blank']} | {counts['unsupported']} | "
+            f"{counts['false_fill']} | {counts['blank']} | {counts['failed']} | "
+            f"{counts['unsupported']} | "
             f"{counts['judgment']} |"
         )
     qr, unsure = scorecard["qr"], scorecard["unsure"]
@@ -483,18 +558,19 @@ def summary_table(scorecard: dict[str, Any]) -> str:
     rows.append(
         f"QR decoded {qr['decoded']} of {qr['decoded'] + qr['decoded_wrong'] + qr['missed']}"
         f" readable, {qr['unexpected']} unexpected. "
-        f"Unsure {unsure['receipts']} of {scorecard['totals']['read']} read. "
+        f"Unsure {unsure['receipts']} of {runs['read']} read. "
         f"Named mistakes: {scorecard['mistakes'] or 'none'}."
     )
     rows.append(
         f"Purchase count right {purchases['correct']} of "
-        f"{purchases['correct'] + purchases['wrong']} read. "
+        f"{purchases['correct'] + purchases['wrong'] + purchases['failed']} scored. "
         f"Complete judgment right {complete['correct']} of "
-        f"{complete['correct'] + complete['wrong']} scored."
+        f"{complete['correct'] + complete['wrong'] + complete['failed']} scored."
     )
     rows.append(
         f"Tipo de gasto, clear answers: {clear['correct']} correct, "
-        f"{clear['false_fill']} false fill, {clear['blank']} blank of "
+        f"{clear['false_fill']} false fill, {clear['blank']} blank, "
+        f"{clear['failed']} failed of "
         f"{clear['scored']} scored. {len(judged)} judgment receipts, not scored."
     )
     if judged:

@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import httpx
 import pytest
 from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
 from argus.domain.business.fiscal_identity import rnc_check_digit_ok
@@ -23,6 +24,7 @@ from argus.domain.ingestion.documents.models import (
     DocumentExtractionError,
     ExtractionBatch,
 )
+from argus.llm import openrouter
 from PIL import Image
 
 from tests.evals.document_read import read_live, run_live, scoring, scripted
@@ -255,10 +257,17 @@ def test_a_faithful_read_scores_clean(
     assert card["complete"] == {
         "correct": len(one),
         "wrong": 0,
+        "failed": 0,
         "not_scored": len(samples) - len(one),
         "accuracy": 1.0,
     }
-    assert card["purchases"] == {"correct": len(samples), "wrong": 0, "accuracy": 1.0}
+    assert card["purchases"] == {
+        "correct": len(samples),
+        "wrong": 0,
+        "failed": 0,
+        "accuracy": 1.0,
+    }
+    assert card["reliability"]["incomplete"] is False
     unsure = {r["case_id"] for r in card["results"] if r["unsure"]}
     assert unsure == {
         s.case.case_id
@@ -316,22 +325,162 @@ def test_an_empty_read_is_blank_never_a_false_fill(
         )
 
 
-def test_a_provider_outage_is_not_a_reader_score(
-    samples: tuple[Sample, ...], scorecard: Callable[..., dict[str, Any]]
+def _status_error(status: int) -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "https://provider.invalid/read")
+    return httpx.HTTPStatusError(
+        str(status), request=request, response=httpx.Response(status, request=request)
+    )
+
+
+NO_ANSWER = {
+    "connection": httpx.ConnectError("scripted"),
+    "timeout": httpx.ReadTimeout("scripted"),
+    "provider 503": _status_error(503),
+    "provider 429": _status_error(429),
+    "refused key": _status_error(401),
+}
+
+
+@pytest.mark.parametrize("shape", NO_ANSWER)
+def test_a_read_with_no_answer_is_not_a_reader_score_and_flags_the_scorecard(
+    shape: str, samples: tuple[Sample, ...], scorecard: Callable[..., dict[str, Any]]
 ) -> None:
-    card = scorecard(scripted.outage)
-    assert card["totals"]["infrastructure_error"] == len(samples)
+    card = scorecard(lambda sample: NO_ANSWER[shape])
+    assert card["reliability"] == {
+        "attempted": len(samples),
+        "read": 0,
+        "model_failure": 0,
+        "infrastructure_error": len(samples),
+        "not_run": 0,
+        "success_rate": 0.0,
+        "incomplete": True,
+    }
     assert {r["error"] for r in card["results"]} == {"extraction_provider_failed"}
     assert all(counts["scored"] == 0 for counts in card["fields"].values())
     assert card["qr"]["decode_rate"] is None
+    assert summary_table(card).startswith("**INCOMPLETE RUN")
+
+
+def test_one_read_with_no_answer_flags_the_scorecard(
+    samples: tuple[Sample, ...], scorecard: Callable[..., dict[str, Any]]
+) -> None:
+    lost = scored(samples)[0].case.case_id
+    card = scorecard(
+        lambda sample: (
+            scripted.outage(sample)
+            if sample.case.case_id == lost
+            else scripted.faithful(sample)
+        )
+    )
+    assert card["reliability"]["infrastructure_error"] == 1
+    assert card["reliability"]["incomplete"] is True
+    assert card["fields"]["total"]["scored"] == len(scored(samples)) - 1
+
+
+@pytest.mark.parametrize("broken", [scripted.unparseable, scripted.cut_off])
+def test_an_answer_the_model_broke_lowers_every_score(
+    broken: ScriptedRead,
+    samples: tuple[Sample, ...],
+    scorecard: Callable[..., dict[str, Any]],
+) -> None:
+    one = scored(samples)
+    hard = {sample.case.case_id for sample in one[::3]} | {
+        sample.case.case_id for sample in samples if sample.expected.purchases > 1
+    }
+    assert 3 <= len(hard) < len(samples)
+    card = scorecard(
+        lambda sample: (
+            broken(sample) if sample.case.case_id in hard else scripted.faithful(sample)
+        )
+    )
+    clean = scorecard(scripted.faithful)
+    failed = sum(sample.case.case_id in hard for sample in one)
+    for name in READ_TODAY:
+        counts = card["fields"][name]
+        assert counts["failed"] == failed, name
+        assert counts["scored"] == len(one) == clean["fields"][name]["scored"]
+        assert counts["accuracy"] == round((len(one) - failed) / len(one), 4)
+        assert counts["accuracy"] < clean["fields"][name]["accuracy"]
+    for name in UNREAD_TODAY:
+        assert card["fields"][name]["unsupported"] == len(one)
+    assert card["complete"]["failed"] == failed
+    assert card["complete"]["accuracy"] == round((len(one) - failed) / len(one), 4)
+    assert card["purchases"]["failed"] == len(hard)
+    assert card["purchases"]["accuracy"] == round(1 - len(hard) / len(samples), 4)
+    assert card["qr"] == clean["qr"]
+    assert all(
+        counts["receipts"] == clean["by_shape"][shape]["receipts"]
+        for shape, counts in card["by_shape"].items()
+    )
+    assert card["reliability"] == {
+        "attempted": len(samples),
+        "read": len(samples) - len(hard),
+        "model_failure": len(hard),
+        "infrastructure_error": 0,
+        "not_run": 0,
+        "success_rate": round(1 - len(hard) / len(samples), 4),
+        "incomplete": False,
+    }
+    assert {
+        r["case_id"] for r in card["results"] if r["status"] == "model_failure"
+    } == hard
+    assert "INCOMPLETE" not in summary_table(card)
+
+
+def _provider_answer(content: str, finish: str = "stop") -> httpx.Response:
+    return httpx.Response(
+        200,
+        request=httpx.Request("POST", "https://provider.invalid/read"),
+        json={"choices": [{"finish_reason": finish, "message": {"content": content}}]},
+    )
+
+
+BROKEN_ANSWERS = {
+    "malformed JSON": _provider_answer('{"complete": tr'),
+    "not the schema": _provider_answer('{"complete": true, "invented": 1}'),
+    "out of output": _provider_answer('{"complete": true', finish="length"),
+}
+
+
+@pytest.mark.parametrize("shape", BROKEN_ANSWERS)
+def test_the_provider_call_reports_a_broken_answer_as_a_model_failure(
+    shape: str,
+    samples: tuple[Sample, ...],
+    prepared: Prepared,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def post(**_: object) -> httpx.Response:
+        return BROKEN_ANSWERS[shape]
+
+    monkeypatch.setattr(openrouter, "resolve_openrouter_api_key", lambda *_: "offline")
+    monkeypatch.setattr(reader, "resolve_openrouter_api_key", lambda _: "offline")
+    monkeypatch.setattr(reader, "resolve_openrouter_model", lambda **_: "scripted")
+    monkeypatch.setattr(openrouter, "_post_openrouter_json_schema", post)
+    one = scored(samples)[0]
+    results = asyncio.run(read_set(samples, prepared, only=frozenset({one.case.case_id})))
+    assert [result["status"] for result in results] == ["model_failure"]
+    assert {results[0]["fields"][name]["outcome"] for name in READ_TODAY} == {"failed"}
+
+
+def test_a_reader_that_breaks_every_answer_scores_zero(
+    scorecard: Callable[..., dict[str, Any]],
+) -> None:
+    card = scorecard(scripted.unparseable)
+    assert [card["fields"][name]["accuracy"] for name in READ_TODAY] == [0.0] * len(
+        READ_TODAY
+    )
+    assert card["complete"]["accuracy"] == 0.0
+    assert card["purchases"]["accuracy"] == 0.0
+    assert card["reliability"]["success_rate"] == 0.0
 
 
 def test_a_stopped_run_reports_what_it_did_not_read(
     samples: tuple[Sample, ...], scorecard: Callable[..., dict[str, Any]]
 ) -> None:
     card = scorecard(scripted.faithful, stop=lambda done: len(done) >= 5)
-    assert card["totals"]["read"] == 5
-    assert card["totals"]["not_run"] == len(samples) - 5
+    assert card["reliability"]["read"] == 5
+    assert card["reliability"]["not_run"] == len(samples) - 5
+    assert card["reliability"]["incomplete"] is True
 
 
 def test_scorecard_is_a_json_document(
@@ -367,6 +516,7 @@ def test_a_missed_second_receipt_is_scored(
     assert card["purchases"] == {
         "correct": len(samples) - len(two),
         "wrong": len(two),
+        "failed": 0,
         "accuracy": round((len(samples) - len(two)) / len(samples), 4),
     }
     missed = [r for r in card["results"] if r["purchases"]["outcome"] == "wrong"]
@@ -441,6 +591,7 @@ def test_a_judgment_mismatch_never_changes_the_expense_type_score(
         "correct": clear,
         "false_fill": 0,
         "blank": 0,
+        "failed": 0,
         "scored": clear,
         "accuracy": 1.0,
         "false_fill_rate": 0.0,
@@ -467,6 +618,7 @@ def test_a_clear_false_fill_and_a_clear_blank_are_scored_apart(
         "correct": 0,
         "false_fill": clear,
         "blank": 0,
+        "failed": 0,
         "scored": clear,
         "accuracy": 0.0,
         "false_fill_rate": 1.0,

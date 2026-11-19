@@ -37,6 +37,7 @@ the value. Forma de pago and tipo de gasto codes come from
 | `correct_empty` | The photo does not show the value and the reader left it empty. |
 | `false_fill` | The reader returned a value that is wrong, or a value for something the photo does not show. |
 | `blank` | The photo shows the value and the reader left it empty. |
+| `failed` | The model answered and the answer could not be used. The receipt counts in the rate and is never correct. |
 | `unsupported` | The reader has no field for it yet. `read_fields` in `scoring.py` is the one place to map a new field. |
 | `judgment` | The expected tipo de gasto is a judgment. The read is reported and never scored. |
 | `not_scored` | The photo holds several receipts. Only the purchase count is scored. |
@@ -45,8 +46,23 @@ A false fill with a known cause is also counted under `mistakes`, for example
 `expiry_as_issue_date` and `buyer_rnc_as_supplier`.
 
 The scorecard also reports the QR decode rate, the rate of reads that came back
-incomplete or with an issue, and whether the complete judgment was right. A
-provider failure is an `infrastructure_error` and is left out of every rate.
+incomplete or with an issue, and whether the complete judgment was right.
+
+## Failed reads
+
+A read that fails is one of two things. The split comes from the kind the
+extractor gives the failure (`failures.classify`), not from its message.
+
+| Status | What happened | Scoring |
+| --- | --- | --- |
+| `model_failure` | The model answered and the answer could not be used: it was not the schema, it was cut short, or the provider refused the request. | The receipt stays in every rate. Each field, the complete judgment and the purchase count score `failed`. |
+| `infrastructure_error` | No answer came: a timeout, a dropped connection, a 5xx, a 429, a refused key, or a photo that could not be prepared. | The receipt is in no rate. |
+
+The `reliability` block counts the reads attempted, the usable reads, both
+kinds of failure, the receipts not run, and the success rate. It sets
+`incomplete` when any receipt got no answer or was not run. The rates of an
+incomplete scorecard cover a subset of the set, so do not compare it with
+another scorecard. The summary table opens with that warning.
 
 Every receipt read is scored on its purchase count, under `purchases`. A read
 that returns one receipt from a photo of two counts as `wrong` there.
@@ -102,10 +118,11 @@ shell, and the runner leaves its own environment as it was. Before the first
 read the second process stops if a read would use a different key or model. The
 run
 makes one read per receipt and stops when the known cost reaches the cap. It
-writes `scorecard.json` with schema `document_read_scorecard_v1`: the commit,
-the model, digests of the prompt, the schema and the set, the cost, the totals
-per field and per shape, and each receipt's expected and read values. Two
-scorecards compare only when their `set_sha256` is equal.
+writes `scorecard.json` with schema `document_read_scorecard_v2`: the commit,
+the model, digests of the prompt, the schema and the set, the cost, the
+reliability counts, the totals per field and per shape, and each receipt's
+expected and read values. Two scorecards compare only when their `set_sha256`
+is equal and neither is `incomplete`.
 
 ## Limits
 
