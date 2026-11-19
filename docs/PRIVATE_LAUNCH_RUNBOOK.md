@@ -596,7 +596,7 @@ connection.
    is why it needs the production root CA by absolute path.
 
 ```bash
-export ARGUS_PRODUCTION_DATABASE_URL="$SUPABASE_POSTGRES_SESSION_POOLER_URL"
+export ARGUS_PRODUCTION_DATABASE_URL="$CUADRAO_PRODUCTION_LEDGER_READ_URL"
 export ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT="$HOME/.argus/prod-ca-2021.crt"
 ARGUS_CANDIDATE_SHA="$(git rev-parse HEAD)"
 poetry run python scripts/ops/production_migration_gate.py \
@@ -604,10 +604,41 @@ poetry run python scripts/ops/production_migration_gate.py \
   --output temp/release-evidence/production-migration-gate.json
 ```
 
-Both are aliases to things that already exist, so neither is a new secret to
-mint. `SUPABASE_POSTGRES_SESSION_POOLER_URL` is in the root `.env`; source it
-read-only and alias it rather than adding a second name for the same value.
-Use the session pooler, not the direct URL, which fails on IPv6 here.
+The founder provisions `CUADRAO_PRODUCTION_LEDGER_READ_URL` separately. Use a
+session-pooler URL with user `<role>.<project-ref>`. The role must have only
+USAGE on `supabase_migrations` and SELECT on its `schema_migrations` table,
+with no ownership, privileged memberships or inherited write permissions.
+The founder must prove a write is denied by the role's grants, independently
+of the gate's read-only transaction. Never substitute the operator write URL.
+The gate rejects superuser, bypass-RLS, ledger INSERT and public-schema CREATE
+privileges before reading the ledger. Unknown privilege results also block.
+
+For the manual promotion check, the founder first bootstraps
+`.github/workflows/production-migration-gate.yml`, the gate and its tests onto
+protected `main`. Configure environment `production-migration-ledger` to allow
+only the `main` branch, with no PR refs or tags. Store the read URL there as
+secret `CUADRAO_PRODUCTION_LEDGER_READ_URL`, never as a repository-level secret.
+Store the public CA PEM in that environment's variable
+`CUADRAO_PRODUCTION_DATABASE_SSL_ROOT_CERT`; the workflow writes it to a temporary
+file and supplies the gate's existing CA-path variable. Keep the default
+workflow token read-only. Only the trusted publishing job requests status writes.
+Require commit status `production-migration-gate` on `main`.
+
+Dispatch the workflow from `main` with the open promotion PR number, including
+draft PRs. Repeat manually after every push. It runs trusted tests and dependencies,
+uses production identity from trusted `main`, and reads candidate migration Git
+objects without checking out or executing candidate code or configuration. It
+rechecks the PR's open state, target and exact head before publishing a result.
+Missing credentials, errors and changed heads cannot establish success.
+
+The default read-only token is defense in depth, not status authenticity.
+Same-repository collaborators can change explicit workflow `permissions` and
+publish a status with the same name. Before merging, verify that the status links
+to this protected-main workflow run and that its report identifies the current
+PR head and trusted checkout SHA. The founder alone performs the live proof:
+a draft promotion with one unapplied dummy migration must fail, then pass after
+that migration is removed and the workflow is rerun. These steps do not apply
+migrations or authorize a deployment.
 
 **Keep the CA at `~/.argus/prod-ca-2021.crt`, not in `~/Downloads`.** The
 certificate is public, the same file Supabase serves at a public URL, so it is

@@ -1013,7 +1013,9 @@ def test_applied_migrations_are_read_in_one_verified_read_only_transaction() -> 
         def execute(self, query: str) -> None:
             self.queries.append(query)
 
-        def fetchone(self) -> tuple[str]:
+        def fetchone(self) -> tuple[object, ...]:
+            if self.queries[-1].startswith("select rolsuper"):
+                return (False, False, False, False)
             return ("on",)
 
         def fetchall(self) -> list[tuple[object, ...]]:
@@ -1069,6 +1071,13 @@ def test_applied_migrations_are_read_in_one_verified_read_only_transaction() -> 
     assert connection.cursor_instance.queries == [
         "begin transaction read only",
         "show transaction_read_only",
+        (
+            "select rolsuper, rolbypassrls, "
+            "has_table_privilege(current_user, "
+            "'supabase_migrations.schema_migrations', 'INSERT'), "
+            "has_schema_privilege(current_user, 'public', 'CREATE') "
+            "from pg_catalog.pg_roles where rolname = current_user"
+        ),
         (
             "select version, coalesce(name, ''), statements "
             "from supabase_migrations.schema_migrations order by version"
@@ -1653,6 +1662,8 @@ def _ssl_root_cert(tmp_path: Path) -> Path:
 class _FakeCursor:
     def __init__(self, rows: list[tuple[object, ...]]) -> None:
         self._rows = rows
+        self.queries: list[str] = []
+        self.privileges: tuple[object, ...] | None = (False, False, False, False)
 
     def __enter__(self) -> _FakeCursor:
         return self
@@ -1660,10 +1671,12 @@ class _FakeCursor:
     def __exit__(self, *_args: object) -> None:
         return None
 
-    def execute(self, _query: str) -> None:
-        return None
+    def execute(self, query: str) -> None:
+        self.queries.append(query)
 
-    def fetchone(self) -> tuple[str]:
+    def fetchone(self) -> tuple[object, ...] | None:
+        if self.queries[-1].startswith("select rolsuper"):
+            return self.privileges
         return ("on",)
 
     def fetchall(self) -> list[tuple[object, ...]]:
@@ -1679,3 +1692,255 @@ class _FakeConnection:
 
     def close(self) -> None:
         return None
+
+
+@pytest.mark.parametrize("role", ["ledger_reader", "release_audit"])
+def test_limited_pooler_role_is_accepted(role: str, faker: Any) -> None:
+    project_ref = faker.lexify("?" * 20, letters="abcdefghijklmnopqrstuvwxyz")
+    target = resolve_production_target(
+        f"postgresql://{role}.{project_ref}:placeholder@"
+        "aws-0-us-east-1.pooler.supabase.com:5432/postgres",
+        expected_project_ref=project_ref,
+    )
+    assert target.project_ref == project_ref
+
+
+@pytest.fixture
+def privilege_connection() -> _FakeConnection:
+    return _FakeConnection([])
+
+
+@pytest.mark.parametrize(
+    "privileges,expected_exit",
+    [
+        ((False, False, False, False), 1),
+        ((True, False, False, False), 2),
+        ((False, True, False, False), 2),
+        ((False, False, True, False), 2),
+        ((False, False, False, True), 2),
+        ((False, False, None, False), 2),
+        ((False, False), 2),
+        (None, 2),
+    ],
+)
+def test_role_privileges_are_proven_before_ledger_read(
+    tmp_path: Path,
+    privilege_connection: _FakeConnection,
+    privileges: tuple[object, ...] | None,
+    expected_exit: int,
+) -> None:
+    repo, sha = _candidate_repo(tmp_path, project_ref="a" * 20)
+    cursor = privilege_connection._cursor
+    cursor.privileges = privileges
+    code = main(
+        ["--candidate-sha", sha, "--output", str(tmp_path / "report.json")],
+        repo_root=repo,
+        environ={
+            "ARGUS_PRODUCTION_DATABASE_URL": (
+                f"postgresql://reader:placeholder@db.{'a' * 20}.supabase.co/postgres"
+            ),
+            "ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT": str(_ssl_root_cert(tmp_path)),
+        },
+        connect_factory=lambda *_args, **_kwargs: privilege_connection,
+    )
+    assert code == expected_exit
+    ledger_queries = [q for q in cursor.queries if "order by version" in q]
+    assert bool(ledger_queries) is (expected_exit == 1)
+    assert cursor.queries[-1] == "rollback"
+
+
+@pytest.mark.parametrize("pending", [False, True])
+def test_trusted_checkout_reads_only_candidate_migration_objects(
+    tmp_path: Path,
+    faker: Any,
+    pending: bool,
+) -> None:
+    repo, trusted_sha = _candidate_repo(tmp_path, project_ref="a" * 20)
+    baseline = read_candidate_migrations(repo, trusted_sha)[0]
+    (repo / "render.yaml").write_text("candidate configuration is not trusted\n")
+    (repo / "candidate_only.txt").write_text(faker.sentence())
+    if pending:
+        (repo / "supabase/migrations/20260813000000_pending.sql").write_text(
+            "create table public.pending_marker (id integer);"
+        )
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate fixture"], cwd=repo, check=True)
+    candidate_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        text=True,
+    ).strip()
+    subprocess.run(["git", "checkout", "--detach", trusted_sha], cwd=repo, check=True)
+    output = tmp_path / "report.json"
+    code = main(
+        [
+            "--candidate-sha",
+            candidate_sha,
+            "--trusted-sha",
+            trusted_sha,
+            "--output",
+            str(output),
+        ],
+        repo_root=repo,
+        environ={
+            "ARGUS_PRODUCTION_DATABASE_URL": (
+                f"postgresql://reader:placeholder@db.{'a' * 20}.supabase.co/postgres"
+            ),
+            "ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT": str(_ssl_root_cert(tmp_path)),
+        },
+        connect_factory=lambda *_args, **_kwargs: _FakeConnection(
+            [(baseline.version, baseline.name, list(baseline.statements))]
+        ),
+    )
+    report = json.loads(output.read_text())
+    assert code == (1 if pending else 0)
+    assert report["candidate_sha"] == candidate_sha
+    assert report["trusted_sha"] == trusted_sha
+    assert not (repo / "candidate_only.txt").exists()
+    assert (
+        subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo,
+            text=True,
+        ).strip()
+        == trusted_sha
+    )
+
+
+@pytest.mark.parametrize(
+    "scenario,expected_state",
+    [
+        ("pass", "success"),
+        ("blocked", "failure"),
+        ("gate_error", "error"),
+        ("stale", "error"),
+        ("closed_late", "error"),
+        ("retargeted", "error"),
+        ("bad_report", "error"),
+        ("fetch_error", "error"),
+        ("api_error", "error"),
+        ("wrong_fetched_sha", "error"),
+        ("closed", None),
+        ("wrong_base", None),
+        ("wrong_repo", None),
+        ("invalid_sha", None),
+        ("wrong_ref", None),
+        ("invalid_number", None),
+    ],
+)
+def test_manual_workflow_publishes_only_verified_current_head(
+    tmp_path: Path,
+    scenario: str,
+    expected_state: str | None,
+) -> None:
+    import textwrap
+
+    workflow = Path(__file__).resolve().parents[3] / (
+        ".github/workflows/production-migration-gate.yml"
+    )
+    assert workflow.is_file(), "the manual trusted workflow must exist"
+    script = textwrap.dedent(
+        workflow.read_text().split("node <<'NODE'\n", 1)[1].split("          NODE", 1)[0]
+    )
+    harness = r"""
+const vm = require('node:vm');
+const fs = require('node:fs');
+const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+const sha = 'a'.repeat(40), trusted = 'b'.repeat(40);
+const states = [], commands = [], errors = [];
+let reads = 0, evidence;
+const env = {
+  GITHUB_REF: input.scenario === 'wrong_ref' ? 'refs/heads/other' : 'refs/heads/main',
+  GITHUB_SHA: trusted, GITHUB_REPOSITORY: 'fixture/repository',
+  GITHUB_RUN_ID: '123', GITHUB_SERVER_URL: 'https://example.test',
+  GITHUB_API_URL: 'https://api.example.test', GH_TOKEN: 'synthetic-token',
+  PR_NUMBER: input.scenario === 'invalid_number' ? '1;anything' : '12',
+  RUNNER_TEMP: '/synthetic', ARGUS_PRODUCTION_DATABASE_URL: 'synthetic-url',
+  CUADRAO_PRODUCTION_DATABASE_SSL_ROOT_CERT: 'synthetic-ca',
+};
+const proc = {env, exitCode: 0};
+const report = {candidate_sha: sha, trusted_sha: trusted,
+  status: input.scenario === 'blocked' ? 'blocked' : 'pass'};
+if (input.scenario === 'bad_report') report.candidate_sha = trusted;
+const context = {
+  process: proc, AbortSignal,
+  console: {error: (x) => errors.push(x), log: () => {}},
+  require: (name) => {
+    if (name === 'node:fs') return {
+      writeFileSync: (p, value) => {
+        if (p.endsWith('.json')) evidence = JSON.parse(value);
+      }, rmSync: () => {},
+      readFileSync: () => JSON.stringify(report),
+    };
+    if (name === 'node:path') return require(name);
+    if (name === 'node:child_process') return {spawnSync: (cmd, args, options) => {
+      commands.push([cmd, args]);
+      if (cmd === 'git' && args[0] === 'rev-parse') return {
+        status: 0, stdout: input.scenario === 'wrong_fetched_sha' ? trusted : sha,
+      };
+      return {status: input.scenario === 'gate_error' && cmd === 'poetry' ? 2 :
+        input.scenario === 'blocked' && cmd === 'poetry' ? 1 :
+        input.scenario === 'fetch_error' && cmd === 'git' ? 1 : 0};
+    }};
+    throw Error('unexpected module');
+  },
+  fetch: async (url, options) => {
+    if (options.method === 'POST') {
+      states.push({url, ...JSON.parse(options.body)});
+      return {ok: true, json: async () => ({})};
+    }
+    reads += 1;
+    if (input.scenario === 'api_error' && reads > 1) return {ok: false};
+    const state = input.scenario === 'closed' ||
+      (input.scenario === 'closed_late' && reads > 1) ? 'closed' : 'open';
+    const ref = input.scenario === 'wrong_base' ||
+      (input.scenario === 'retargeted' && reads > 1) ? 'other' : 'main';
+    return {ok: true, json: async () => ({
+      number: 12, state, draft: true,
+      base: {ref, repo: {full_name: input.scenario === 'wrong_repo' ?
+        'fixture/other' : 'fixture/repository'}},
+      head: {sha: input.scenario === 'invalid_sha' ? 'main' :
+        input.scenario === 'stale' && reads > 1 ? trusted : sha},
+    })};
+  },
+};
+(async () => {
+  await vm.runInNewContext('(async () => {' + input.script + '\n})()', context);
+  process.stdout.write(JSON.stringify({states, commands, code: proc.exitCode, errors, evidence}));
+})();
+"""
+    result = subprocess.run(
+        ["node", "-e", harness],
+        input=json.dumps({"scenario": scenario, "script": script}),
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    outcome = json.loads(result.stdout)
+    states = outcome["states"]
+    if expected_state is None:
+        assert states == []
+    else:
+        assert [s["state"] for s in states] == ["pending", expected_state]
+        assert outcome.get("evidence", {}).get("publication_status") == expected_state
+        assert all(s["context"] == "production-migration-gate" for s in states)
+        assert all(s["url"].endswith("/statuses/" + "a" * 40) for s in states)
+    assert outcome["code"] == (0 if expected_state == "success" else 1)
+    assert "synthetic-token" not in result.stdout
+    assert "synthetic-url" not in result.stdout
+    if expected_state == "success":
+        commands = outcome["commands"]
+        assert [cmd for cmd, _ in commands] == ["git", "git", "poetry"]
+        assert commands[0][1] == ["fetch", "--no-tags", "origin", "refs/pull/12/head"]
+        assert "checkout" not in [arg for _, args in commands for arg in args]
+        assert commands[2][1] == [
+            "run",
+            "python",
+            "scripts/ops/production_migration_gate.py",
+            "--candidate-sha",
+            "a" * 40,
+            "--trusted-sha",
+            "b" * 40,
+            "--output",
+            "/synthetic/production-migration-gate.json",
+        ]
