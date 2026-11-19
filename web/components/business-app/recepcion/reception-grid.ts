@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { shownReceptionColumns, type ReceptionColumnKey, type ReceptionPreferences } from "./reception-columns";
 
 export const SELECT_COLUMN_PX = 44;
+const CURRENCY_COLUMN_PX = 80;
 /** The widest Contenido gets in every tab, Eliminados included. Past it, the spare width goes to the actions. */
 const CONTENT_CAP_PX = 360;
 
@@ -20,7 +21,7 @@ const MERGED: Widths = { content: 180, file: 76, channel: 0, sender: 150, status
  * Contenido grows to its cap and Estado to its roomy width; every other data track is fixed. The action track takes
  * what is left.
  */
-export function receptionGrid(preferences: ReceptionPreferences, { select: selectable, status }: { select: boolean; status: boolean }, amountWidth: string, currencyWidth: number): CSSProperties {
+export function receptionGrid(preferences: ReceptionPreferences, { select: selectable, status }: { select: boolean; status: boolean }, amountWidth: string): CSSProperties {
   const shown = shownReceptionColumns(preferences, { status });
   const select = selectable ? SELECT_COLUMN_PX : 0;
   const lay = (widths: Widths, merged: boolean) => {
@@ -29,7 +30,7 @@ export function receptionGrid(preferences: ReceptionPreferences, { select: selec
       source: merged ? [`${widths.sender}px`, widths.sender] : [`${widths.channel}px`, widths.channel],
       sender: [`${widths.sender}px`, widths.sender],
       amount: [amountWidth, 0],
-      currency: [`${currencyWidth}px`, currencyWidth],
+      currency: [`${CURRENCY_COLUMN_PX}px`, CURRENCY_COLUMN_PX],
       status: [`minmax(${widths.status}px, ${ROOMY.status}px)`, widths.status],
       arrival: [`${widths.arrival}px`, widths.arrival],
     };

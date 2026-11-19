@@ -26,8 +26,6 @@ export function taxpayerIdText(digits: string): string {
   if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 10)}-${digits[10]}`;
   return digits;
 }
-/** Bandeja sizes its Moneda column from this entry until it owns that width (#2081). */
-export const RECORDS_PREVIEW_COLUMNS: readonly { key: "moneda"; width: number | null }[] = [{ key: "moneda", width: 80 }];
 
 /** One column a list offers. `label_key` is a locale path; `families` are the tabs that draw it. */
 export type LayoutColumn = { key: string; label_key: string; families: readonly string[] };
