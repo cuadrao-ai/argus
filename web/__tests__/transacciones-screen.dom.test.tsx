@@ -970,7 +970,6 @@ describe("Transacciones keyboard and buttons", () => {
   });
 });
 
-
 test("new local business has no sample sales or bank movements", async () => {
   const nodeEnv = process.env.NODE_ENV;
   const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
@@ -1092,7 +1091,6 @@ for (const language of ["es-419", "en"] as const) test(`shared currency filter u
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
-
 for (const width of [1440, 390]) test(`fixture overview shows sample purchases and toggles only not-ready purchases at ${width}px`, async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
@@ -1127,7 +1125,6 @@ for (const width of [1440, 390]) test(`fixture overview shows sample purchases a
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
-
 
 test("local header and phone sorts share preference state, reset pages and restore named views", async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
@@ -1194,13 +1191,20 @@ test("amount sort stays available when changing the single currency", async () =
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
-
-test("legacy Registros offers no export: the period ZIP is retired", async () => {
-  const page = await mount({ enabled: false, width: 390 });
-  await page.settle(() => page.records().length > 0, "saved records");
-  assert.equal(document.querySelector('[data-testid="records-export"]'), null);
+for (const enabled of [false, true]) for (const width of [1440, 390]) test(`${enabled ? "bank-matching" : "sample"} Registros opens the shared export dialog at ${width}px`, async () => {
+  const page = await mount({ enabled, width });
+  await page.settle(() => enabled ? page.rows().length > 0 : page.records().length > 0, "records");
+  const trigger = document.querySelector('[data-testid="records-export"]'); assert.ok(trigger, "Export is available on Registros");
+  const originalFetch = globalThis.fetch, requests: string[] = [];
+  globalThis.fetch = (async (input) => { requests.push(String(input)); throw new Error("unexpected network request"); }) as typeof fetch;
+  try {
+    await page.click(trigger);
+    const panel = document.querySelector('[data-testid="records-export-panel"]'); assert.ok(panel, "the production RecordsExportPanel opens");
+    assert.equal(document.querySelectorAll('[role="dialog"]').length, 1); assert.equal(Boolean(document.querySelector('[data-testid="records-export-dialog"]')), width === 1440);
+    assert.equal(document.querySelector<HTMLButtonElement>('[data-testid="records-export-download"]')?.disabled, true); assert.deepEqual(requests, [], "sample data never reaches a live export endpoint");
+    await page.key(panel, "Escape"); await page.settle(() => !document.querySelector('[data-testid="records-export-panel"]'), "closed export"); await page.unmount();
+  } finally { globalThis.fetch = originalFetch; }
 });
-
 
 test("the legacy records entry recovers a settled invalid workspace default through Retry", async () => {
   const page = await mount({ enabled: false, recordsDefaultCurrency: "CAD" });
