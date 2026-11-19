@@ -950,8 +950,8 @@ async def test_a_take_written_before_the_deadline_existed_is_not_ended_early(rig
 
 @pytest.mark.asyncio
 async def test_the_deadline_adds_nothing_to_an_idle_sweep(rig, monkeypatch):
-    """A sweep with nothing waiting asks the database once, as before. One
-    with a read inside its deadline reads that row and writes nothing."""
+    """A sweep leaves a read queued before its deadline and settles it after.
+    Neither case asks the breaker to admit another read."""
     real = rig.store
     store = Mock(wraps=real)
     monkeypatch.setattr(rig.service, "store", store)
@@ -959,11 +959,18 @@ async def test_the_deadline_adds_nothing_to_an_idle_sweep(rig, monkeypatch):
         monkeypatch.setattr(rig.breaker, ask, Mock(side_effect=AssertionError(ask)))
 
     assert rig.jobs.sweep().expired == []
-    assert [call[0] for call in store.method_calls] == ["pending"]
 
     store.reset_mock()
     monkeypatch.setattr(rig.service, "store", real)
-    await rig.queued()
+    connection = await rig.queued()
     monkeypatch.setattr(rig.service, "store", store)
     assert rig.jobs.sweep().expired == []
-    assert [call[0] for call in store.method_calls] == ["pending", "draft", "job"]
+    assert (rig.draft(connection).status, rig.draft(connection).error_code) == (
+        "queued", None
+    )
+
+    rig.clock.pass_(READ_DEADLINE_SECONDS + 1)
+    assert rig.jobs.sweep().expired == [connection]
+    assert (rig.draft(connection).status, rig.draft(connection).error_code) == (
+        "needs_attention", READ_DEADLINE_PASSED
+    )

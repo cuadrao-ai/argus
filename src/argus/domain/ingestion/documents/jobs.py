@@ -157,7 +157,7 @@ class PreparationJobs:
 
     def sweep(self, *, limit: int = 50) -> SweepReport:
         report, now = SweepReport(), self.service.hub.clock()
-        for user_id, connection_id in self.service.store.pending(limit=limit):
+        for user_id, connection_id in self.service.store.pending(now=now, limit=limit):
             try:
                 self._reconcile(user_id, connection_id, now, report)
             except ConnectionNotFound:
@@ -181,6 +181,19 @@ class PreparationJobs:
             user_id=user_id, connection_id=connection_id
         )
         if draft is None:
+            return
+        if draft.status == "queued" and not draft.source_available:
+            if (
+                draft.updated_at + DISPATCH_WINDOW <= now
+                and not lease_live(connection, now)
+                and self._settle(
+                    user_id, connection_id, now, job, draft, "document_source_unavailable"
+                )
+            ):
+                logger.warning(
+                    "document_read_failed connection_id={} code=document_source_unavailable",
+                    connection_id,
+                )
             return
         if draft.status in {"queued", "preparing"}:
             if read_expired(draft, job, connection, now):
