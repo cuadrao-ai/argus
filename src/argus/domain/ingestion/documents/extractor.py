@@ -496,10 +496,7 @@ def batch_from_result(
         receipt=result.receipt,
         issues=tuple(issues),
         ecf_checks=with_qr(
-            safe_ecf_checks(ecf, result.receipt, observed_at),
-            dgii_qr,
-            result.receipt,
-            observed_at,
+            safe_ecf_checks(ecf, result.receipt, observed_at), dgii_qr, observed_at
         ),
         dgii_qr=dgii_qr,
     )

@@ -10474,21 +10474,30 @@ accept path recorded.
   same rule itself. The decoder scans at most 8 page images per capture
   (`MAX_PAGES_SCANNED`), and the page images it sees were prepared under a cap of
   20,000,000 pixels per image (`MAX_PIXELS` in `documents/preparation.py`); an
-  image over the cap is an invalid document, not a QR miss. The decoded text is
+  image over the cap is an invalid document, not a QR miss. A page whose plain
+  decode finds no DGII link is decoded again with its contrast stretched, then
+  enlarged 2 times (only up to 20,000,000 pixels, `MAX_RETRY_PIXELS`),
+  stopping at the first DGII link and holding one retry image at a time. The decoded text is
   capped at 2048 characters and each query value at 64. Two rows join
   `ecf_checks.checks`: `qr_present` (verified when a DGII QR
   was decoded, else `not_checked` `no_qr`) and `qr_matches_read` (issuer RNC,
-  e-NCF and total from the QR against what the read found, field by field and
-  only where both exist; `read_vs_qr` carries each compared field as
+  e-NCF, total and issue date from the QR against what the record holds after
+  the merge below, field by field and only where both exist; a fact the QR
+  itself gave is not compared; for a read with several purchases the total is
+  `read_total`; `read_vs_qr` carries each compared field, `rnc`, `ecf`, `total`
+  or `occurred_on`, as
   `{read, qr}`, typed, so no reader parses a string; `failed` `qr_differs`
   carries only the differing fields there; `not_checked` `no_read` when nothing
   is comparable). A receipt
   with a QR and no XML gets a verification of its own with those rows and
-  `dgii_accepted` `network_not_in_tier_a`. The typed merge step after decode
-  and read fills only what the read left unknown (issuer RNC, e-NCF, total,
-  issue date) with origin `qr_decoded` and the attachment as source; a value
-  the read found stays, equal or not; the amount is filled only for a read
-  with at most one purchase and stays a draft value a person approves. A
+  `dgii_accepted` `network_not_in_tier_a`. In the typed merge step after decode
+  and read the QR wins over the reader: its e-NCF, its issue date, its issuer
+  RNC (not on a Venta, whose RNC is the client's) and its total (only for a
+  read with at most one purchase) replace a value the reader found or left
+  unknown, with origin `qr_decoded` and the attachment as source. A reader's
+  value that agrees stays `extracted`. A value with any other origin is never
+  replaced, and neither is one whose QR value the fact cannot hold. An amount
+  from the QR stays a draft value a person approves. A
   later document or a person's revision keeps `dgii_qr` and the origins.
 - POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
   whose preparation grant was revoked to the owner's current grant, writes one

@@ -98,7 +98,12 @@ def _no_number(draft: DraftStanding) -> bool:
 
 
 def _invalid_rnc(draft: DraftStanding) -> bool:
-    digits = identity_digits(_fiscal(draft).rnc.value)
+    """A blank RNC is missing, not invalid: only a number can be wrong."""
+
+    rnc = _fiscal(draft).rnc
+    if _blank(rnc):
+        return False
+    digits = identity_digits(rnc.value)
     return len(digits or "") not in CHECK_DIGIT or _flagged(draft, "rnc_check_digit")
 
 
