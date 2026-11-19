@@ -4,6 +4,7 @@ name: Deploy staging
 # cuadrao-api-staging builds the repo root with poetry: pyproject.toml,
 # poetry.lock, .python-version, src/, web/argus_display_contract/,
 # supabase/migrations, supabase/config.toml, Dockerfile, requirements.txt.
+# The documents worker uses the API paths plus workflows/.
 # docs/ and marketing stay out. autoDeploy stays off.
 
 "on":
@@ -15,7 +16,7 @@ name: Deploy staging
         default: ""
         type: string
       force_all:
-        description: Deploy both staging services.
+        description: Deploy all three staging services.
         required: false
         default: false
         type: boolean
@@ -127,6 +128,9 @@ jobs:
             printf '%s\n' "$service_id" > "$RUNNER_TEMP/${name}.id"
           done < "$RUNNER_TEMP/allowlist.txt"
           api_base="$(cat "$RUNNER_TEMP/cuadrao-api-staging.base")"
+          worker_base="$(cat "$RUNNER_TEMP/cuadrao-documents-worker-staging.base")"
+          api_base="$(API_BASE="$api_base" WEB_BASE="$worker_base" \
+            python3 scripts/ci/deploy_staging.py older-base)"
           web_base="$(cat "$RUNNER_TEMP/cuadrao-app-staging.base")"
           older="$(API_BASE="$api_base" WEB_BASE="$web_base" \
             python3 scripts/ci/deploy_staging.py older-base)"
@@ -178,7 +182,7 @@ jobs:
             exit 1
           fi
           if [ "$DRY_RUN" = "true" ]; then
-            echo "Dry run. Not requesting a deploy."
+            printf 'Dry run at %s. Not requesting a deploy.\n' "$TARGET_SHA"
             printf '%s\n' "$selection"
             exit 0
           fi

@@ -18,6 +18,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from scripts.ops.staging_env import (
     SECRETISH_NAME,
     SECRETISH_VALUE,
+    STAGING_IDS,
     ManifestError,
     RenderError,
     load_manifest,
@@ -83,7 +84,7 @@ def run(
     out: Callable[[str], None] = _write_report,
 ) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("service", choices=["api", "web"])
+    parser.add_argument("service", choices=list(STAGING_IDS))
     parser.add_argument("--token-env", default=TOKEN_ENV)
     args = parser.parse_args(argv)
 

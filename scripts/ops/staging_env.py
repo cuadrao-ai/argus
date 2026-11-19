@@ -1,7 +1,7 @@
 """Render settings for staging and production, from scripts/ops/staging_env_manifest.json.
 
-Staging commands (the two staging services only): plan, apply [--confirm],
-check, clipboard api|web, show-verify-token. Their output carries variable
+Staging commands: plan, apply [--confirm], check,
+clipboard api|web|documents_worker, show-verify-token. Their output carries variable
 names only, never values, and apply refuses any service whose Render name
 differs from the manifest's.
 
@@ -30,7 +30,11 @@ from typing import Any, Callable, Literal, Protocol
 from urllib.parse import urlsplit
 
 MANIFEST_PATH = Path(__file__).with_name("staging_env_manifest.json")
-STAGING_IDS = {"api": "srv-db4mrrvlk1mc73d733j0", "web": "srv-db5ihr7lot8c73f3b3h0"}
+STAGING_IDS = {
+    "api": "srv-db4mrrvlk1mc73d733j0",
+    "web": "srv-db5ihr7lot8c73f3b3h0",
+    "documents_worker": "srv-dbm1oae1egvs73b2gji0",
+}
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SECRETS_FILE = Path.home() / ".cuadrao" / "staging-secrets.env"
 RENDER_API = "https://api.render.com/v1"
@@ -150,7 +154,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         raise ManifestError("manifest has no services")
     if set(staging_services(manifest)) != set(STAGING_IDS):
         raise ManifestError(
-            "manifest must describe exactly the api and web staging services"
+            "manifest must describe exactly these staging services: " + ", ".join(STAGING_IDS)
         )
     for label, service in manifest["services"].items():
         _validate_production(label, service)
@@ -1099,18 +1103,18 @@ def run(
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ("plan", "check"):
         sub.add_parser(name).add_argument(
-            "service", nargs="?", default="all", choices=["all", "api", "web"]
+            "service", nargs="?", default="all", choices=["all", *STAGING_IDS]
         )
     apply_parser = sub.add_parser("apply")
     apply_parser.add_argument(
-        "service", nargs="?", default="all", choices=["all", "api", "web"]
+        "service", nargs="?", default="all", choices=["all", *STAGING_IDS]
     )
     apply_parser.add_argument(
         "--confirm",
         action="store_true",
         help="write to Render; without it apply is a dry run",
     )
-    sub.add_parser("clipboard").add_argument("service", choices=["api", "web"])
+    sub.add_parser("clipboard").add_argument("service", choices=list(STAGING_IDS))
     sub.add_parser("show-verify-token")
     print_parser = sub.add_parser(
         "print", help="paste-ready KEY=VALUE lines; never reads secrets"
