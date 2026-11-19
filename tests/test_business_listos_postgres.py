@@ -28,6 +28,7 @@ from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
 from tests.business_reading_support import ROUTE
 from tests.document_reads_support import leave_reads_waiting
+from tests.test_business_analytics_postgres import _events, sent  # noqa: F401
 from tests.test_business_approve_unpaid_postgres import _declaration
 from tests.test_business_fiscal_routes_postgres import _known
 from tests.test_business_reading_setting_postgres import (
@@ -701,6 +702,22 @@ def test_a_read_alone_never_approves(rig) -> None:  # noqa: ANN001
     assert _money(rig) == 0
     assert _ledger(rig) == []
     assert _row(rig, receipt)["status"] == "review_ready"
+
+
+def test_bulk_approval_keeps_each_items_original_read_group(rig, sent) -> None:  # noqa: ANN001, F811
+    clean = _read(rig)
+    corrected = _read(rig, {"ncf": None})
+    _fiscal(rig, _named(rig, corrected), ncf="B0100099999")
+    assert _group(rig, corrected) == ("listo", None)
+    sent.clear()
+
+    assert _results(_approve_many(rig, [_named(rig, clean), _named(rig, corrected)])) == [
+        ("applied", None), ("applied", None),
+    ]
+
+    assert [event["bandeja_group_at_read"] for event in _events(sent, "business_record_approved")] == [
+        "listo", "attention",
+    ]
 
 
 def test_the_owner_approves_a_named_list_and_each_record_keeps_its_audit(rig) -> None:  # noqa: ANN001

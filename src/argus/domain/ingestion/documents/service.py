@@ -822,6 +822,12 @@ class DocumentsService:
                     status="needs_attention" if batch.issues else "review_ready",
                     error_code=batch.issues[0].code if batch.issues else None,
                 )
+            if attached is not None:
+                self.business_actions.complete_attachment_read(
+                    user_id=user_id, connection_id=connection_id, scope=scope,
+                    holder=holder, attempt_id=attempt_id,
+                    document_version=draft.version, prepared=attached,
+                )
             if not repo.record_success(
                 connection_id=connection_id,
                 holder=holder,

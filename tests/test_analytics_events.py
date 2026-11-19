@@ -86,6 +86,7 @@ VALID_PROPERTIES: dict[str, dict[str, Any]] = {
     },
     "business_record_approved": {
         "business_hash": BUSINESS_HASH,
+        "bandeja_group_at_read": "listo",
         "filled_fields": ("amount",),
         "filled_count": 1,
         "corrected_fields": ("rnc",),
