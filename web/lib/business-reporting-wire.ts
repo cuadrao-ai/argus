@@ -12,12 +12,13 @@ import type { ReportSort } from "./business-reports-api";
 import type { RecordsViewPreferences } from "@/components/business-app/transacciones/records-view-preferences";
 import { DENSITIES, DENSITY_ROW_PX } from "@/components/business-app/transacciones/table-density";
 
-const SORT_KEYS = { fecha: "date", contraparte: "name", monto: "amount" } as const;
+/** The report API's sort prefixes differ from its column keys. */
+const REPORT_SORT_PREFIX = { date: "date", counterparty: "name", gross_amount: "amount" } as const satisfies Record<RecordsSort["key"], string>;
 export function recordsSortToReport(sort: RecordsSort): ReportSort {
-  return `${SORT_KEYS[sort.key]}_${sort.direction}`;
+  return `${REPORT_SORT_PREFIX[sort.key]}_${sort.direction}`;
 }
 export function reportSortToRecords(sort: ReportSort): RecordsSort {
-  const key = (Object.keys(SORT_KEYS) as RecordsSort["key"][]).find((key) => sort.startsWith(`${SORT_KEYS[key]}_`))!;
+  const key = (Object.keys(REPORT_SORT_PREFIX) as RecordsSort["key"][]).find((key) => sort.startsWith(`${REPORT_SORT_PREFIX[key]}_`))!;
   return { key, direction: sort.endsWith("_asc") ? "asc" : "desc" };
 }
 export function reportPresentationToRecords(presentation: ReportPresentation, sort: ReportSort, columns: readonly ReportColumn[]): RecordsViewPreferences {
@@ -263,7 +264,15 @@ export function restoreReportLocation(params: URLSearchParams): { request: Repor
     if (!encoded) return { request: defaultReportRequest(), anchor: params.get("report_row") };
     const linked = JSON.parse(encoded);
     // An old link still names the first table's columns, which nothing reads.
-    if (linked && typeof linked === "object") delete linked.columns;
+    if (linked && typeof linked === "object") {
+      delete linked.columns;
+      // Read old client sort objects here; every later write uses the report sort.
+      const legacy = linked.sort;
+      if (legacy && typeof legacy === "object" && (legacy.direction === "asc" || legacy.direction === "desc")) {
+        const prefix = legacy.key === "fecha" ? "date" : legacy.key === "monto" ? "amount" : legacy.key === "contraparte" ? "name" : null;
+        if (prefix) linked.sort = `${prefix}_${legacy.direction}`;
+      }
+    }
     return { request: reportRequestSchema.parse(linked), anchor: params.get("report_row") };
   } catch { return { request: defaultReportRequest(), anchor: null }; }
 }
