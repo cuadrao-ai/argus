@@ -339,6 +339,12 @@ class BusinessDossier(RecordContext):
     #: The purchases this draft may refund, chosen on the server (see
     #: ``actions/refunds.py``); empty unless the draft is a refund or a credit note.
     refund_candidates: tuple[RefundCandidate, ...] = ()
+    #: The Business year in which the first source arrived, and whether the
+    #: issue date is a read whose year is not that year (see
+    #: ``bandeja_group.year_to_check``). The review calendar offers the upload
+    #: year exactly when ``year_to_check`` holds.
+    upload_year: int | None = None
+    year_to_check: bool = False
 
     def model_facing(self) -> dict[str, Any]:
         """The dossier as every model reads it: the JSON dump without the
@@ -371,6 +377,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "refund_candidates": True,
     "duplicate_candidates": True,
     "review_flags": True,
+    "upload_year": True,
+    "year_to_check": True,
     "history": {
         "__all__": {
             "before_due_on": True,

@@ -24,6 +24,7 @@ from argus.domain.business.amount_inheritance import (
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
+from argus.domain.business.bandeja_group import upload_year, year_to_check
 from argus.domain.business.config import business_settlement_enabled
 from argus.domain.business.contracts.actions import APPROVAL_ACTION, DuplicateDecision
 from argus.domain.business.contracts.authority import PersonName
@@ -429,6 +430,7 @@ def dossier(
         and not any(row["shared"] for row in source_rows)
         and not is_reading(tx, source_rows)
     )
+    uploaded = upload_year(source_rows[0]["received_at"] if source_rows else None)
     return BusinessDossier(
         deleted=deleted,
         delete_available=delete_available,
@@ -484,5 +486,7 @@ def dossier(
         and takes_payment_split(resolution.document_type),
         reopen_available=reopen_available,
         due_on=resolution.due_on,
+        upload_year=uploaded,
+        year_to_check=year_to_check(facts, uploaded),
         **draft_marks(tx, draft_id, facts),
     )

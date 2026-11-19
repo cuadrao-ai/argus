@@ -18029,6 +18029,13 @@ components:
             $ref: '#/components/schemas/RefundCandidate'
           type: array
           default: []
+        upload_year:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        year_to_check:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
