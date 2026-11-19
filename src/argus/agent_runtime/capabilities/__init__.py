@@ -7,7 +7,6 @@ from argus.agent_runtime.capabilities.contract import (
     OptionalParameterSpec,
     UnsupportedCombination,
     ValidationRule,
-    build_default_capability_contract,
 )
 
 __all__ = [
@@ -17,5 +16,4 @@ __all__ = [
     "OptionalParameterSpec",
     "UnsupportedCombination",
     "ValidationRule",
-    "build_default_capability_contract",
 ]
