@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 import subprocess
@@ -141,6 +142,13 @@ def run_promotion(settings: WorkflowSettings, *, repo_root: Path | None = None) 
             or not _EXACT_SHA.fullmatch(trusted)
             or not re.fullmatch(r"[1-9][0-9]*", settings.PR_NUMBER)
             or int(settings.PR_NUMBER) > 2**53 - 1
+            or settings.GITHUB_SERVER_URL != "https://github.com"
+            or not re.fullmatch(
+                r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+",
+                settings.GITHUB_REPOSITORY,
+            )
+            or settings.GITHUB_REPOSITORY.split("/")[-1] in {".", ".."}
+            or not settings.GH_TOKEN.get_secret_value()
         ):
             raise ValueError("invalid dispatch")
         number = int(settings.PR_NUMBER)
@@ -155,8 +163,22 @@ def run_promotion(settings: WorkflowSettings, *, repo_root: Path | None = None) 
             encoding="utf-8",
         )
         public_env = {"PATH": settings.PATH, "GIT_TERMINAL_PROMPT": "0"}
+        origin = f"{settings.GITHUB_SERVER_URL}/{settings.GITHUB_REPOSITORY}.git"
+        authorization = base64.b64encode(
+            f"x-access-token:{settings.GH_TOKEN.get_secret_value()}".encode("utf-8")
+        ).decode("ascii")
         fetched = _run(
-            ["git", "fetch", "--no-tags", "origin", f"refs/pull/{number}/head"],
+            [
+                "git",
+                "-c",
+                f"http.{origin}.extraheader=AUTHORIZATION: basic {authorization}",
+                "-c",
+                "http.followRedirects=false",
+                "fetch",
+                "--no-tags",
+                origin,
+                f"refs/pull/{number}/head",
+            ],
             root,
             public_env,
         )

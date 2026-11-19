@@ -32,7 +32,7 @@ def promotion(tmp_path: Path, faker: Any) -> SimpleNamespace:
             "GITHUB_SHA": trusted,
             "GITHUB_REPOSITORY": repository,
             "GITHUB_RUN_ID": "123",
-            "GITHUB_SERVER_URL": "https://example.invalid",
+            "GITHUB_SERVER_URL": "https://github.com",
             "GITHUB_API_URL": "https://api.example.invalid",
             "GH_TOKEN": faker.password(),
             "PR_NUMBER": "12",
@@ -81,15 +81,15 @@ def install_boundaries(
             assert "GH_TOKEN" not in kwargs["env"]
             assert promotion.env["ARGUS_PRODUCTION_DATABASE_URL"] not in str(kwargs)
             assert promotion.env["GH_TOKEN"] not in str(kwargs)
-            if command[1] == "fetch":
-                assert command == [
-                    "git",
-                    "fetch",
-                    "--no-tags",
-                    "origin",
-                    "refs/pull/12/head",
-                ]
-                return subprocess.CompletedProcess(command, promotion.fetch_code, "", "")
+            if "fetch" in command:
+                if getattr(promotion, "fetch_exception", False):
+                    raise subprocess.TimeoutExpired(command, 120, output=str(command))
+                return subprocess.CompletedProcess(
+                    command,
+                    promotion.fetch_code,
+                    str(command),
+                    str(command),
+                )
             assert command == ["git", "rev-parse", "--verify", "FETCH_HEAD^{commit}"]
             return subprocess.CompletedProcess(command, 0, promotion.fetched_sha, "")
         assert Path(command[1]).name == "production_migration_gate.py"
@@ -309,3 +309,109 @@ def test_api_adapter_uses_authenticated_bounded_requests(
         route.calls.last.request.headers["Authorization"]
         == "Bearer " + promotion.env["GH_TOKEN"]
     )
+
+
+_FETCH_TOKEN = "synthetic-workflow-token"
+_FETCH_ENCODING = "eC1hY2Nlc3MtdG9rZW46c3ludGhldGljLXdvcmtmbG93LXRva2Vu"
+
+
+def test_candidate_fetch_authentication_is_one_shot_and_origin_scoped(
+    monkeypatch: pytest.MonkeyPatch,
+    promotion: SimpleNamespace,
+) -> None:
+    promotion.env["GH_TOKEN"] = _FETCH_TOKEN
+    promotion.initial["head"]["repo"] = {
+        "clone_url": "https://untrusted.invalid/other/repository.git",
+    }
+    assert execute(monkeypatch, promotion) == 0
+    fetch, fetch_options = promotion.commands[0]
+    assert fetch == [
+        "git",
+        "-c",
+        "http.https://github.com/fixture/repository.git.extraheader="
+        "AUTHORIZATION: basic " + _FETCH_ENCODING,
+        "-c",
+        "http.followRedirects=false",
+        "fetch",
+        "--no-tags",
+        "https://github.com/fixture/repository.git",
+        "refs/pull/12/head",
+    ]
+    assert fetch_options["env"] == {"PATH": "/usr/bin:/bin", "GIT_TERMINAL_PROMPT": "0"}
+    assert fetch_options["capture_output"] is True
+    assert fetch_options["check"] is False
+    assert promotion.commands[1][0] == [
+        "git",
+        "rev-parse",
+        "--verify",
+        "FETCH_HEAD^{commit}",
+    ]
+    gate, gate_options = promotion.commands[2]
+    assert Path(gate[1]).name == "production_migration_gate.py"
+    assert gate[2:] == [
+        "--candidate-sha",
+        promotion.sha,
+        "--trusted-sha",
+        promotion.trusted,
+        "--output",
+        str(promotion.repo / "production-migration-gate.json"),
+    ]
+    assert gate_options["env"] == {
+        "PATH": "/usr/bin:/bin",
+        "GIT_TERMINAL_PROMPT": "0",
+        "ARGUS_PRODUCTION_DATABASE_URL": promotion.env["ARGUS_PRODUCTION_DATABASE_URL"],
+        "ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT": str(
+            promotion.repo / "production-ledger-ca.crt"
+        ),
+    }
+    for command, options in promotion.commands[1:]:
+        assert _FETCH_TOKEN not in str((command, options))
+        assert _FETCH_ENCODING not in str((command, options))
+        assert "extraheader" not in str((command, options))
+
+
+@pytest.mark.parametrize("failure", ["exit", "timeout"])
+def test_authenticated_fetch_failures_never_expose_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+    promotion: SimpleNamespace,
+    capfd: pytest.CaptureFixture[str],
+    failure: str,
+) -> None:
+    promotion.env["GH_TOKEN"] = _FETCH_TOKEN
+    promotion.fetch_code = 128
+    promotion.fetch_exception = failure == "timeout"
+    assert execute(monkeypatch, promotion) == 1
+    assert len(promotion.commands) == 1
+    assert _FETCH_ENCODING in str(promotion.commands[0][0])
+    assert promotion.posts[-1][1]["state"] == "error"
+    captured = capfd.readouterr()
+    evidence = (promotion.repo / "production-migration-gate.json").read_text()
+    for value in [
+        _FETCH_TOKEN,
+        _FETCH_ENCODING,
+        promotion.env["ARGUS_PRODUCTION_DATABASE_URL"],
+    ]:
+        assert value not in captured.out + captured.err + evidence
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("GITHUB_SERVER_URL", "https://untrusted.invalid"),
+        ("GITHUB_SERVER_URL", "https://github.com@untrusted.invalid"),
+        ("GITHUB_SERVER_URL", "http://github.com"),
+        ("GITHUB_REPOSITORY", "fixture/../other"),
+        ("GITHUB_REPOSITORY", "fixture/repository?override"),
+        ("GH_TOKEN", ""),
+    ],
+)
+def test_invalid_fetch_origin_or_missing_token_never_starts_git(
+    monkeypatch: pytest.MonkeyPatch,
+    promotion: SimpleNamespace,
+    key: str,
+    value: str,
+) -> None:
+    promotion.env[key] = value
+    assert execute(monkeypatch, promotion) == 1
+    assert promotion.commands == []
+    assert not any(body["state"] == "success" for _, body in promotion.posts)
