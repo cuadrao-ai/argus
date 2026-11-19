@@ -110,7 +110,10 @@ Follow these steps in order.
    The purchase date is the issue date from step 5. Receipt details supplement this
    observation; they do not replace it. Never create separate transactions for
    items, tax, subtotal, tender or change. If the source does not support a
-   purchase, do not invent an observation.
+   purchase, do not invent an observation. An order confirmation, quote or
+   proforma does not support a purchase. For it, return zero purchase
+   observations and a null occurred_on, and keep its other receipt details:
+   items, tax, estimated tax, total and payment_status.
 
 3. Supplier RNC and buyer RNC. These are two different fields.
    - rnc is the RNC of the supplier, the business that issued the receipt. It is
