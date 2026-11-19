@@ -2,11 +2,7 @@ from __future__ import annotations
 
 from pydantic import TypeAdapter
 
-from argus.domain.business.amount_inheritance import (
-    LinkedSources,
-    inherit_amounts,
-    original_ncf,
-)
+from argus.domain.business.amount_inheritance import saved_declaration
 from argus.domain.business.approved_facts import approved_revision_sql, evidence
 from argus.domain.business.contracts.dgii import DgiiDeclaration
 from argus.domain.business.contracts.facts import (
@@ -78,19 +74,11 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
             BusinessFacts.model_validate(row["after_facts"]) if row else BusinessFacts()
         )
         declaration = TypeAdapter(DgiiDeclaration).validate_python(row["after_dgii"]) if row and row["after_dgii"] else None
-        declaration = inherit_amounts(
+        declaration = saved_declaration(
             facts,
             declaration,
             resolution.fiscal_overrides if resolution else None,
-            LinkedSources(
-                original_ncf=original_ncf(
-                    facts,
-                    declaration,
-                    lambda original: BusinessFacts.model_validate(approved[original]["after_facts"])
-                    if original in approved
-                    else None,
-                )
-            ),
+            resolution.bill_mark if resolution else None,
         )
         records.append(
             FiscalRecord(

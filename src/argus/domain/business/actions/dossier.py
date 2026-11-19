@@ -18,9 +18,11 @@ from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_av
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.amount_inheritance import (
+    APPROVED,
     LinkedSources,
     inherit_amounts,
     inheritance_state,
+    links_of,
     original_ncf,
 )
 from argus.domain.business.annotations import annotation_available, current_note
@@ -330,10 +332,16 @@ def _approved_facts(tx: ActionTransaction) -> Callable[[str], BusinessFacts | No
 
 
 def linked_original(
-    tx: ActionTransaction, facts: BusinessFacts, declaration: DgiiDeclaration | None
+    tx: ActionTransaction,
+    state: str,
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
 ) -> LinkedSources:
-    """The links of a stored declaration: no suggestion, the credit note's original."""
+    """The links of a stored declaration: no suggestion, the credit note's
+    original. Once the draft is not open, the amounts alone."""
 
+    if links_of(state) is APPROVED:
+        return APPROVED
     return LinkedSources(original_ncf=original_ncf(facts, declaration, _approved_facts(tx)))
 
 
@@ -348,8 +356,11 @@ def review_start(
 ) -> tuple[DgiiDeclaration | None, LinkedSources]:
     """The declaration a review starts from, and what its links read. With
     none ``stored``, an open expense starts from the one its approval writes;
-    an answer the server suggests stays a suggestion until that approval."""
+    an answer the server suggests stays a suggestion until that approval.
+    A draft that is not open keeps what was saved: only its amounts follow."""
 
+    if links_of(state) is APPROVED:
+        return stored, APPROVED
     purchase = stored if isinstance(stored, PurchaseDeclaration) else None
     offers = takes_suggestions(state, facts, document_type, purchase)
     offered = (

@@ -5,6 +5,7 @@ they restore it."""
 from datetime import date
 from uuid import uuid4
 
+import pytest
 from argus.domain.business.contracts.actions import (
     ApproveExpense,
     ApproveRefund,
@@ -12,6 +13,10 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.dgii import FiscalReview, PurchaseReview
 from argus.domain.business.contracts.facts import MontosReview
+from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
+from argus.domain.business.dgii_export import line_values
+from argus.domain.business.reporting_store import read_export_source
+from psycopg.types.json import Jsonb
 
 from tests import test_business_approval_fiscal_postgres as fiscal
 from tests import test_business_declaration_after_approval_postgres as recorded
@@ -206,3 +211,88 @@ def test_a_linked_credit_note_carries_its_purchases_number(actions):  # noqa: AN
     )
     assert outcome.outcome == "applied", outcome
     assert service.dossier(context, credit).dgii.modified_ncf == "B0100002301"
+
+
+def _saved_before_the_links(service, context, draft, overrides=(), **declared) -> dict:  # noqa: ANN001, ANN003
+    """Leave the approved record as a save before #2307 left it: these
+    declared values, and no override recorded for a field it did not link."""
+
+    with service.authority.pool.connection() as db:
+        db.execute("set local session_replication_role=replica")
+        db.execute(
+            "update public.financial_import_events set resolution=jsonb_set(jsonb_set(resolution,"
+            "'{business,dgii}',(resolution->'business'->'dgii') || %s),"
+            "'{business,fiscal_overrides}',%s) where id=%s and owner_space_id=%s",
+            (Jsonb(declared), Jsonb(list(overrides)), draft, context.actor.space_id),
+        )
+        [saved] = db.execute(
+            "update public.business_draft_revisions set after_dgii=after_dgii || %s"
+            " where draft_id=%s and space_id=%s and version=(select max(version)"
+            " from public.business_draft_revisions where draft_id=%s) returning after_dgii",
+            (Jsonb(declared), draft, context.actor.space_id, draft),
+        ).fetchall()
+    return saved[0]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "declared", "exported"),
+    [
+        pytest.param(
+            (),
+            {"payment_method": "01", "paid_on": None},
+            {"id_type": "1", "paid_on": "", "itbis": "180.00", "payment_method": "01"},
+            id="efectivo with no fecha pago",
+        ),
+        pytest.param(
+            (),
+            {"payment_method": "04", "paid_on": "2026-09-03"},
+            {"id_type": "1", "paid_on": "20260903", "itbis": "180.00", "payment_method": "04"},
+            id="credito approved while marked paid",
+        ),
+        pytest.param(
+            (),
+            {"payment_method": "04", "paid_on": None, "id_type": "2"},
+            {"id_type": "2", "paid_on": "", "itbis": "180.00", "payment_method": "04"},
+            id="tipo id chosen against the rnc",
+        ),
+        pytest.param(
+            ("itbis", "paid_on"),
+            {"payment_method": "02", "paid_on": "2026-09-20", "itbis": "150.00"},
+            {"id_type": "1", "paid_on": "20260920", "itbis": "150.00", "payment_method": "02"},
+            id="itbis and fecha pago overridden",
+        ),
+    ],
+)
+def test_an_approved_record_keeps_its_saved_606_line(actions, overrides, declared, exported):  # noqa: ANN001
+    service, context = actions
+    cash = recorded.account_funding(cash_account(service, context))
+    draft, version = recorded.captured(
+        service, context, "B0100002401", cash, recorded.blank_declaration(category="09")
+    )
+    recorded.approved(service, context, draft, version)
+    saved = _saved_before_the_links(service, context, draft, overrides, **declared)
+
+    activity = str(service.dossier(context, draft).approval_result.activity_id)
+
+    def line() -> dict:
+        """The record's 606 line as the export snapshot reads it."""
+
+        exported = read_export_source(service.authority, context).approved[activity]
+        names = [name for name, _ in PURCHASE_COLUMNS]
+        return dict(zip(names, line_values(exported), strict=True))
+
+    before = line()
+    assert {name: before[name] for name in exported} == exported
+    shown = service.dossier(context, draft)
+    assert shown.dgii.model_dump(mode="json") == saved
+    assert not {"id_type", "paid_on", "modified_ncf"} & set(shown.inheritance)
+
+    # A later answer changes its own cell and no other.
+    added = recorded.declared(service, context, draft, shown.version, category="02")
+    assert added.outcome == "applied", added
+    after = line()
+    assert after["category"] == "02"
+    moved = {"category", "goods_amount", "services_amount"}
+    assert {k: v for k, v in after.items() if k not in moved} == {
+        k: v for k, v in before.items() if k not in moved
+    }

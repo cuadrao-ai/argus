@@ -189,15 +189,11 @@ def test_registros_projects_read_net_difference_and_fiscal_override_separately()
     assert result.itbis_amount == "180"
     assert result.inheritance["itbis"].value == "180"
     assert result.inheritance["itbis"].inherited is False
+    # Approved: the Fecha pago is the saved one, whatever the Forma de pago.
     dated = supplied.model_copy(update={"occurred_on": known(base.occurred_on)})
-
-    def paid_on(payment_method: str):  # noqa: ANN202
-        paid = declaration.model_copy(update={"payment_method": payment_method, "paid_on": None})
-        row = replace(recorded, approved=replace(approved, facts=dated, declaration=paid))
-        return project(row, None, {}, None).inheritance["paid_on"]
-
-    assert paid_on("04").value is None
-    assert (paid_on("01").value, paid_on("01").inherited) == (base.occurred_on.isoformat(), True)
+    cash = declaration.model_copy(update={"payment_method": "01", "paid_on": None})
+    row = replace(recorded, approved=replace(approved, facts=dated, declaration=cash))
+    assert "paid_on" not in project(row, None, {}, None).inheritance
 
 
 def test_negative_calculated_net_is_signed_without_changing_gross_totals():

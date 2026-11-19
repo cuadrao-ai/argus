@@ -112,7 +112,8 @@ def test_payment_date_follows_the_payment_form_in_dossier_and_fiscal_snapshot(ac
     activity_id = service.dossier(context, draft).approval_result.activity_id
     paid = service.dossier(context, draft)
     assert paid.dgii.paid_on == date(2026, 11, 1)
-    assert paid.inheritance["paid_on"].value == "2026-11-01"
+    # Approved: the date is the saved one and follows nothing.
+    assert "paid_on" not in paid.inheritance
     with service.authority.pool.connection() as db:
         activities = [service.imports.money.repository.get_activity(user_id=context.owner_id, activity_id=str(activity_id), scope=context.scope)]
         with db.cursor(row_factory=dict_row) as cursor:

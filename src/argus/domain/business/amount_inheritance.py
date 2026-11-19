@@ -34,6 +34,7 @@ INHERITANCE = {
 _MONEY_SOURCES = frozenset({"net_amount", "itbis", "legal_tip"})
 #: Forma de pago codes that pay at the purchase: Fecha pago is the receipt's date.
 PAID_AT_PURCHASE = frozenset({"01", "02", "03", "07"})
+PAID_BILL_MARK = "Factura pagada"
 
 
 @dataclass(frozen=True)
@@ -44,9 +45,21 @@ class LinkedSources:
 
     suggestions: DeclarationSuggestions = DeclarationSuggestions()
     original_ncf: str | None = None
+    #: Only the amounts follow the receipt: a record that is not an open draft.
+    amounts_only: bool = False
 
 
 NO_SOURCES = LinkedSources()
+#: An approved record. Tipo Id, Fecha pago and NCF modificado follow their
+#: source only while an open draft is reviewed; approval saves what was shown.
+APPROVED = LinkedSources(amounts_only=True)
+
+
+def links_of(state: str) -> LinkedSources:
+    """The links of a draft in ``state`` before any review source is read.
+    An approval writes what its open review showed while the draft is accepting."""
+
+    return NO_SOURCES if state in ("open", "accepting") else APPROVED
 
 
 def _number(facts: BusinessFacts | None) -> str | None:
@@ -133,6 +146,8 @@ def inheritance_state(
             continue
         if source == "original_ncf" and linked.original_ncf is None:
             continue
+        if linked.amounts_only and source not in _MONEY_SOURCES:
+            continue
         expected = getattr(split, target) if target in AMOUNT_SIDES else sources[source]
         current = getattr(declaration, target)
         result[target] = InheritedValue(
@@ -164,6 +179,32 @@ def inherit_amounts(
             value = date.fromisoformat(state.value)
         changes[name] = value
     return declaration.model_copy(update=changes)
+
+
+def saved_declaration(
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+    overrides: tuple[str, ...] | None,
+    bill_mark: str | None,
+) -> DgiiDeclaration | None:
+    """The declaration an approved record reports: the saved one, as saved.
+    One saved before overrides were recorded keeps the fill its export has
+    always had: each blank amount from the approved facts, and the Fecha pago
+    of a bill read as paid from its date."""
+
+    if declaration is None or overrides is not None:
+        return declaration
+    filled = inherit_amounts(facts, declaration, None, APPROVED)
+    day = facts.occurred_on.value if isinstance(facts.occurred_on, Known) else None
+    if (
+        isinstance(filled, PurchaseDeclaration)
+        and filled.paid_on is None
+        and bill_mark == PAID_BILL_MARK
+        and day is not None
+        and reader_date_reason(day) is None
+    ):
+        return filled.model_copy(update={"paid_on": day})
+    return filled
 
 
 def inheritance_overrides(

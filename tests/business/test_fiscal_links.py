@@ -69,7 +69,7 @@ def fresh(facts: BusinessFacts, linked: LinkedSources = NO_SOURCES) -> PurchaseD
     return inherit_amounts(facts, declaration_from_facts(facts, None), None, linked)
 
 
-@pytest.mark.parametrize(("rnc", "expected"), [(RNC, "1"), (CEDULA, "2")])
+@pytest.mark.parametrize(("rnc", "expected"), [(RNC, "1"), (CEDULA, "2")], ids=["rnc", "cedula"])
 def test_tipo_id_follows_the_rnc_length(rnc, expected):
     facts = read(rnc=rnc)
     shown = fresh(facts)

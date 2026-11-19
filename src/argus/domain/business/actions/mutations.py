@@ -20,10 +20,12 @@ from argus.domain.business.actions.facts import (
 )
 from argus.domain.business.actions.fiscal import validate_changed_dates
 from argus.domain.business.amount_inheritance import (
+    APPROVED,
     INHERITANCE,
-    NO_SOURCES,
+    PAID_BILL_MARK,
     inherit_amounts,
     inheritance_overrides,
+    links_of,
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
@@ -190,7 +192,7 @@ def save_revision(
     elif document_type == "venta":
         declaration = apply_payment_split(None, SalePaymentSplit())
     # A suggestion is not saved: what is stored follows a person's answers alone.
-    linked = dossier.linked_original(tx, after, declaration)
+    linked = dossier.linked_original(tx, event.state, after, declaration)
     if fiscal_overrides is None:
         fiscal_overrides = inheritance_overrides(
             before or after, declaration, None, previous.get("fiscal_overrides"),
@@ -349,9 +351,9 @@ def revise(
         raise ActionError("invalid_input", "fiscal_direction_unsupported")
     stored = _stored_declaration(event, retyped, current_form)
     previous_resolution = event.resolution.get("business") or {}
-    linked = NO_SOURCES
-    # With none saved, the amounts a review starts from are the server's.
-    unsaved = stored is None
+    linked = links_of(event.state)
+    # With none saved, the amounts an open review starts from are the server's.
+    unsaved = stored is None and linked is not APPROVED
     amount_derived = unsaved or bool(previous_resolution.get("amount_derived"))
     if any(change is not None for change in (fiscal_review, purchase, payment_split, montos)):
         # A write to the declaration is read against what the person was shown.
@@ -792,7 +794,6 @@ def business_tax_id(tx: ActionTransaction) -> str | None:
 
 KINDS = frozenset({"expense", "income", "transfer", "refund"})
 PAYABLE_BILL_MARK = "Factura por pagar"
-PAID_BILL_MARK = "Factura pagada"
 
 
 def _due_notice_mark(

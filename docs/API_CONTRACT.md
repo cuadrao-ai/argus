@@ -9135,6 +9135,15 @@ null, the fact keeps its evidence, and its date blocker stays. The existing mont
 sin-comprobante purchase cost remains the gross amount because its ITBIS is
 not creditable; all other monthly net calculations use the same net owner.
 
+`id_type`, `paid_on` and `modified_ncf` follow their source only while the
+draft is open. An approval saves what the review showed. After that the
+dossier and Registros carry an `inheritance` entry for the amounts alone, and
+the 606 and 607 export the saved declaration as saved: no export or snapshot
+recomputes a linked value. A declaration saved before `fiscal_overrides` was
+recorded (null) keeps the fill its export has always had: each blank amount
+from the approved facts, and a blank `paid_on` from `occurred_on` when the
+stored bill mark is `Factura pagada`.
+
 `amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
 false` and `difference`. The signed exact decimal difference is gross minus
 net minus the same `AMOUNT_PARTS` components. With ITBIS known it appears when
