@@ -14,6 +14,7 @@ from argus.domain.business.contracts.actions import (
     ApproveIncome,
     ApproveRefund,
     CaptureNote,
+    ResolveDuplicate,
     ReviewDraft,
 )
 from argus.domain.business.contracts.authority import TrustedActor
@@ -245,6 +246,38 @@ def test_fiscal_duplicate_approvals_create_one_money_activity(actions, sale, buy
     assert next(
         result.code for result in results if result.outcome == "invalid_input"
     ) == ("fiscal_duplicate_document" if sale else "duplicate_comprobante")
+    kept = next(
+        draft
+        for draft, result in zip((first, second), results, strict=True)
+        if result.outcome == "applied"
+    )
+    refused = next(
+        draft
+        for draft, result in zip((first, second), results, strict=True)
+        if result.outcome == "invalid_input"
+    )
+    dossier = service.dossier(context, refused[0])
+    [candidate] = dossier.duplicate_candidates
+    assert (candidate.draft_id, candidate.basis, candidate.decisions) == (
+        kept[0],
+        "fiscal_number",
+        ("same_purchase",),
+    )
+    decision = service.resolve_duplicate(
+        context,
+        refused[0],
+        ResolveDuplicate(
+            version=dossier.version,
+            other_draft_id=candidate.draft_id,
+            other_version=candidate.version,
+            decision="different_purchase",
+        ),
+        str(uuid4()),
+    )
+    assert (decision.outcome, decision.code) == (
+        "invalid_input",
+        "duplicate_same_comprobante",
+    )
     with service.authority.pool.connection() as db:
         assert (
             db.execute(

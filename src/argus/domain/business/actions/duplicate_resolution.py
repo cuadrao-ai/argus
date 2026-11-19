@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from argus.domain.business.actions import document_deletion, mutations, plans, sources
-from argus.domain.business.actions.fiscal import repeated_purchases
+from argus.domain.business.actions.fiscal import repeated_comprobantes
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
@@ -107,7 +107,7 @@ def _delete_as_duplicate(
         tx, ExistingDraft(draft_id=draft_id, version=request.version)
     )
     other = _other_at(tx, request)
-    if UUID(other.id) not in repeated_purchases(tx, [event]).get(
+    if UUID(other.id) not in repeated_comprobantes(tx, [event]).get(
         draft_id, ()
     ) and not _read_pair(tx, event, other, source_signature):
         raise ActionError("invalid_input", "duplicate_pair_not_available")
@@ -173,8 +173,8 @@ def _keep_as_different(
         tx, ExistingDraft(draft_id=draft_id, version=request.version)
     )
     other = _other_at(tx, request)
-    if UUID(other.id) in repeated_purchases(tx, [event]).get(draft_id, ()):
-        # One supplier RNC and comprobante is one purchase: only one approves.
+    if UUID(other.id) in repeated_comprobantes(tx, [event]).get(draft_id, ()):
+        # One comprobante can be approved only once, for purchases and sales.
         raise ActionError("invalid_input", "duplicate_same_comprobante")
     if not _read_pair(tx, event, other, source_signature):
         raise ActionError("invalid_input", "duplicate_pair_not_available")
