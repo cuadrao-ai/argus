@@ -1807,13 +1807,49 @@ def test_trusted_checkout_reads_only_candidate_migration_objects(
     )
 
 
+@pytest.fixture
+def operator_git_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    faker: Any,
+) -> dict[str, str]:
+    allowed = {
+        "HOME": str(tmp_path / "operator-home"),
+        "PATH": str(tmp_path / "operator-bin") + os.pathsep + os.defpath,
+        "XDG_CONFIG_HOME": str(tmp_path / "operator-config"),
+        "GIT_CONFIG_GLOBAL": str(tmp_path / "operator.gitconfig"),
+    }
+    for key, value in allowed.items():
+        monkeypatch.setenv(key, value)
+    for key in (
+        "ARGUS_PRODUCTION_DATABASE_URL",
+        "CUADRAO_PRODUCTION_LEDGER_READ_URL",
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "PGPASSWORD",
+        "UNRELATED_SECRET",
+        "GIT_CONFIG_PARAMETERS",
+    ):
+        monkeypatch.setenv(key, faker.password())
+    monkeypatch.setenv("GIT_TERMINAL_PROMPT", "1")
+    return allowed
 
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("status",),
+        ("rev-parse", "HEAD"),
+        ("show", "a" * 40 + ":render.yaml"),
+        ("ls-tree", "-r", "a" * 40),
+    ],
+)
 def test_gate_git_commands_do_not_inherit_ledger_credentials(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, faker: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    operator_git_environment: dict[str, str],
+    args: tuple[str, ...],
 ) -> None:
-    secret = faker.password()
-    monkeypatch.setenv("ARGUS_PRODUCTION_DATABASE_URL", secret)
-    monkeypatch.setenv("GH_TOKEN", faker.password())
     environments: list[dict[str, str] | None] = []
 
     def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
@@ -1821,6 +1857,79 @@ def test_gate_git_commands_do_not_inherit_ledger_credentials(
         return subprocess.CompletedProcess(command, 0, b"fixture", b"")
 
     monkeypatch.setattr(migration_gate.subprocess, "run", run)
-    assert migration_gate._run_git(tmp_path, "status") == b"fixture"
+    assert migration_gate._run_git(tmp_path, *args) == b"fixture"
     assert environments == [{"GIT_TERMINAL_PROMPT": "0"}]
-    assert secret not in str(environments)
+
+
+@pytest.mark.parametrize("config_location", ["home", "xdg", "explicit"])
+def test_landed_ref_fetch_discovers_only_operator_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    faker: Any,
+    operator_git_environment: dict[str, str],
+    config_location: str,
+) -> None:
+    # Set up the local remote before installing synthetic operator configuration.
+    real_run = subprocess.run
+    with monkeypatch.context() as setup:
+        setup.delenv("GIT_CONFIG_PARAMETERS")
+        repo, candidate_sha = _candidate_repo(tmp_path, project_ref="a" * 20)
+        remote = tmp_path / "remote.git"
+        real_run(["git", "init", "--bare", "-q", str(remote)], check=True)
+        real_run(["git", "remote", "add", "origin", str(remote)], cwd=repo, check=True)
+        real_run(["git", "push", "-q", "origin", "HEAD:main"], cwd=repo, check=True)
+    allowed = operator_git_environment.copy()
+    if config_location != "explicit":
+        monkeypatch.delenv("GIT_CONFIG_GLOBAL")
+        allowed.pop("GIT_CONFIG_GLOBAL")
+    config = {
+        "home": Path(allowed["HOME"]) / ".gitconfig",
+        "xdg": Path(allowed["XDG_CONFIG_HOME"]) / "git/config",
+        "explicit": Path(operator_git_environment["GIT_CONFIG_GLOBAL"]),
+    }[config_location]
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text("[credential]\n\thelper = fixture\n", encoding="utf-8")
+    helper = tmp_path / "operator-bin/git-credential-fixture"
+    helper.parent.mkdir()
+    username, password = faker.user_name(), faker.lexify("????????????????")
+    helper.write_text(
+        "#!/bin/sh\n" f"printf 'username={username}\\npassword={password}\\n'\n",
+        encoding="utf-8",
+    )
+    helper.chmod(0o700)
+    fetches: list[list[str]] = []
+
+    def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        environment = kwargs["env"]
+        if command[1] == "fetch":
+            fetches.append(command[1:])
+            # Exercise helper discovery with no HTTP request or real credentials.
+            credentials = real_run(
+                [command[0], "credential", "fill"],
+                cwd=repo,
+                env=environment,
+                input=b"protocol=https\nhost=fixture.invalid\n\n",
+                capture_output=True,
+                check=False,
+            )
+            assert credentials.returncode == 0, "operator helper was not discovered"
+            assert (
+                f"username={username}\npassword={password}\n".encode()
+                in credentials.stdout
+            )
+            assert environment == {**allowed, "GIT_TERMINAL_PROMPT": "0"}
+        else:
+            assert environment == {"GIT_TERMINAL_PROMPT": "0"}
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(migration_gate.subprocess, "run", run)
+    assert verify_landed_ref(repo, candidate_sha, "origin/main") == candidate_sha
+    assert fetches == [
+        [
+            "fetch",
+            "--quiet",
+            "--no-tags",
+            "origin",
+            "+refs/heads/main:refs/remotes/origin/main",
+        ]
+    ]

@@ -26,6 +26,8 @@ from typing import (
 )
 from urllib.parse import unquote, urlsplit
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 MigrationClassification = Literal[
     "additive",
     "contract-replacing",
@@ -63,6 +65,17 @@ _RECONCILED_PRODUCTION_LEDGER_SHA256S = (
 
 class MigrationGateError(RuntimeError):
     """Raised when the gate cannot prove a safe, exact comparison."""
+
+
+class _OperatorGitEnvironment(BaseSettings):
+    """Allow credential configuration discovery only for the landed-ref fetch."""
+
+    model_config = SettingsConfigDict(case_sensitive=True, env_file=None)
+
+    HOME: str | None = None
+    PATH: str | None = None
+    XDG_CONFIG_HOME: str | None = None
+    GIT_CONFIG_GLOBAL: str | None = None
 
 
 class DatabaseCursor(Protocol):
@@ -1242,6 +1255,7 @@ def verify_landed_ref(
         "--no-tags",
         remote,
         f"+refs/heads/{branch}:{tracking_ref}",
+        operator_credentials=True,
     )
     resolved = (
         _run_git(
@@ -1277,11 +1291,14 @@ def _project_ref_from_supabase_url(supabase_url: str) -> str:
     return host_match.group(1)
 
 
-def _run_git(repo_root: Path, *args: str) -> bytes:
+def _run_git(repo_root: Path, *args: str, operator_credentials: bool = False) -> bytes:
+    environment = {"GIT_TERMINAL_PROMPT": "0"}
+    if operator_credentials:
+        environment.update(_OperatorGitEnvironment().model_dump(exclude_none=True))
     result = subprocess.run(
         [shutil.which("git") or "git", *args],
         cwd=repo_root,
-        env={"GIT_TERMINAL_PROMPT": "0"},
+        env=environment,
         capture_output=True,
         check=False,
     )
