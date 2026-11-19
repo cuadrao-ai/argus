@@ -44,19 +44,19 @@
       "surface": {
         "src/argus/domain/ingestion/documents/extractor.py": {
           "entries": 1,
-          "chars": 6615,
-          "sha256": "99282d32bfc1c123d71cb4f7580e0d3ac79d9ab7fd2e56ababf9f6113db1846c"
+          "chars": 8458,
+          "sha256": "f6c02994db044b4f86b5293db3f6301eb0302c4bf168b96b11fb2b49554e43d2"
         },
         "src/argus/domain/ingestion/documents/models.py": {
-          "entries": 10,
-          "chars": 1857,
-          "sha256": "7f11856c56a4052c1b59f9b02ad0fab7280df37f25972350dfca056e35d710d8"
+          "entries": 12,
+          "chars": 2154,
+          "sha256": "05f0e1d370dce1cf302653e16696ac0509dc6978f1d81dc2202b5d59ed177b54"
         }
       },
       "last_measured": {
-        "commit": "837bfff22539be2206451e6c3fda5f008784020e",
+        "commit": "740cbc82a9143054c8a8a7e6b4a31cb5363f2296",
         "model": "google/gemini-3.8-flash",
-        "scorecard": "docs/reports/evidence/2026-11-19-reader-prompt-v1-1936/live-measurement.json"
+        "scorecard": "docs/reports/evidence/2026-11-19-reader-pago-gasto-2095/live-measurement.json"
       }
     },
     "business": {
