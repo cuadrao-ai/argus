@@ -20,23 +20,46 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from argus.domain.business.contracts.dossier import ReviewFlag
-from argus.domain.business.contracts.facts import (
+from argus.domain.business.fiscal_identity import identity_digits
+from argus.domain.business.ledger import business_day
+
+# The deletion contract imports this type while receipt contracts initialize.
+ApprovalGroup = Literal["listo", "attention"]
+
+# Why a receipt needs the owner, in the words the owner sees. The web keys its
+# message on this; ``error_code`` stays the precise cause.
+Attention = Literal[
+    "unreadable",
+    "ai_unavailable",
+    "interrupted",
+    "outcome_unknown",
+    "no_purchase_found",
+    "not_a_receipt",
+    "several_purchases",
+    "source_unavailable",
+    "check_details",
+    "duplicate",
+    "read_budget_day",
+    "read_budget_month",
+    "read_deadline_passed",
+    "other",
+]
+
+from argus.domain.business.contracts.facts import (  # noqa: E402
     BusinessFacts,
     FiscalFacts,
     Known,
     is_personal,
     is_sin_comprobante,
 )
-from argus.domain.business.fiscal_identity import identity_digits
-from argus.domain.business.ledger import business_day
-from argus.domain.business.receipt_activity import awaiting_owner
-from argus.domain.business.receipts import Attention
-from argus.domain.business.review_flags import CHECK_DIGIT
 
-BandejaGroupName = Literal["listo", "attention", "reading", "eliminados"]
+if TYPE_CHECKING:
+    from argus.domain.business.contracts.dossier import ReviewFlag
+
+
+BandejaGroupName = Literal[ApprovalGroup, "reading", "eliminados"]
 ListoGap = Literal[
     "reading",
     "not_read",
@@ -107,6 +130,8 @@ def _no_number(draft: DraftStanding) -> bool:
 
 def _invalid_rnc(draft: DraftStanding) -> bool:
     """A blank RNC is missing, not invalid: only a number can be wrong."""
+
+    from argus.domain.business.review_flags import CHECK_DIGIT
 
     rnc = _fiscal(draft).rnc
     if _blank(rnc):
@@ -193,15 +218,17 @@ def _row_reason(
     return listo_reason(draft)
 
 
-_ROW_GROUP: Mapping[BandejaReason | None, BandejaGroupName] = {
-    None: "listo",
-    "reading": "reading",
-}
+def draft_group(reason: BandejaReason | None) -> ApprovalGroup:
+    """A finished draft is Listos exactly when it has no gap."""
+
+    return "listo" if reason is None else "attention"
 
 
 def group_of(view: Mapping[str, Any], draft: DraftStanding | None) -> dict[str, Any]:
     """The group of a receipt row. A closed receipt and the email itself have
     none. ``draft_id`` and ``version`` are what an approval of this row names."""
+
+    from argus.domain.business.receipt_activity import awaiting_owner
 
     if view.get("deleted"):
         return {"group": "eliminados", "reason": None, "draft_id": None, "version": None}
@@ -209,7 +236,7 @@ def group_of(view: Mapping[str, Any], draft: DraftStanding | None) -> dict[str, 
         return {"group": None, "reason": None, "draft_id": None, "version": None}
     reason = _row_reason(view, draft)
     return {
-        "group": _ROW_GROUP.get(reason, "attention"),
+        "group": "reading" if reason == "reading" else draft_group(reason),
         "reason": reason,
         "draft_id": draft.draft_id if draft else None,
         "version": draft.version if draft else None,
