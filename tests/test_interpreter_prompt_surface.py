@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from argus.agent_runtime.business.interpretation import business_interpretation_prompt
+from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
 from argus.domain.business.tools.declarations import get_business_declarations
 
 from tests.interpreter_prompt_surface import (
@@ -70,6 +71,17 @@ def test_all_document_schema_instructions_change_the_surface(
     assert first[owner]["entries"] == 12
     _write(tmp_path, owner, source.replace(text, "Changed instruction"))
     assert model_facing_surface(tmp_path)[owner] != first[owner]
+
+
+@pytest.mark.parametrize("labels", [PAYMENT_FORMS, EXPENSE_TYPES])
+def test_a_code_label_change_changes_the_document_surface(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, labels: dict[str, str]
+) -> None:
+    owner = "src/argus/domain/ingestion/documents/models.py"
+    _write(tmp_path, owner, (Path(__file__).resolve().parents[1] / owner).read_text())
+    first = model_facing_surface(tmp_path)[owner]
+    monkeypatch.setitem(labels, "03", "Changed label")
+    assert model_facing_surface(tmp_path)[owner] != first
 
 
 def _document_measurement_fixture() -> tuple[dict, dict]:
