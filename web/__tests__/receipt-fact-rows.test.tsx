@@ -186,14 +186,28 @@ describe("the record facts on the review page", () => {
     for (const row of ["Emisor", "Fecha", "Monto sin ITBIS", "Total (con ITBIS)", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
   });
 
-  test("an open draft brings a row back only while the server waits on it, so a blocker always has a way forward", async () => {
+  test("an open draft brings a row back only while the server waits on it; 'Parte del negocio' stays off even then", async () => {
     const base = await fixture();
     const blocked = { ...base, facts: { ...base.facts, kind: unknown, funding: unknown }, blockers: [{ code: "fact_required", field: "kind" }, { code: "fact_required", field: "funding" }], questions: [] } as unknown as BusinessDossier;
     const { html } = await render(blocked, "es-419", true, [], true);
     assert.ok(html.includes('data-fact="kind"') && html.includes('data-fact="funding"'));
-    assert.ok(!html.includes('data-fact="business_share"'));
     const asked = { ...blocked, blockers: [], questions: [{ id: "q", draft_id: base.draft_id, field: "business_share", asked_of: "owner", channel: "web", state: "open", prompt: "¿Qué parte?", allowed_answers: ["known"], answer_source_id: null }] } as unknown as BusinessDossier;
-    assert.ok((await render(asked, "es-419", true, [], true)).html.includes('data-fact="business_share"'));
+    const partial = { ...blocked, facts: { ...blocked.facts, business_share: { state: "known", value: { kind: "partial", amount: "100.00" }, origin: "owner_stated", verified: false, source_ids: [] } }, blockers: [{ code: "business_allocation_unsupported", field: "business_share" }] } as unknown as BusinessDossier;
+    for (const waiting of [blocked, asked, partial]) {
+      const shown = (await render(waiting, "es-419", true, [], true)).html;
+      assert.ok(!shown.includes('data-fact="business_share"') && !shown.includes("Parte del negocio"));
+    }
+  });
+
+  test("a recorded receipt shows no 'Parte del negocio' row, whatever its share; Cómo se pagó stays", async () => {
+    const base = await fixture();
+    for (const share of [{ kind: "all" }, { kind: "none" }, { kind: "partial", amount: "100.00" }]) {
+      const dossier = { ...base, facts: { ...base.facts, funding: { state: "known", value: { kind: "owner_funds" }, origin: "owner_stated", verified: false, source_ids: [] }, business_share: { state: "known", value: share, origin: "owner_stated", verified: false, source_ids: [] } }, blockers: [], questions: [] } as unknown as BusinessDossier;
+      const { html } = await render(dossier);
+      assert.ok(!html.includes('data-fact="business_share"') && !html.includes("Parte del negocio"), share.kind);
+      for (const value of ["Todo para el negocio", "Solo personal", "Una parte para el negocio", "100.00"]) assert.ok(!html.includes(value), `${share.kind}: ${value}`);
+      assert.ok(html.includes('>Cómo se pagó</dt>') && html.includes(">Pago</h3>"), share.kind);
+    }
   });
 
   test("a read-only reader of an open draft sees the six facts with no edit control", async () => {
@@ -226,13 +240,17 @@ describe("the record facts on the review page", () => {
     assert.ok(html.includes("Necesita una decisión antes de aprobar"));
   });
 
-  test("a row is marked only when a reviewer changed it or the read is in doubt", async () => {
+  test("a row is marked only when the read is in doubt; a reviewer's change carries no 'del revisor' tag", async () => {
     const base = await fixture();
     const reviewed = { ...known("member_set"), value: "Ferretería Norte" };
-    const { html } = await render({ ...base, facts: { ...base.facts, counterparty: reviewed, fiscal: { rnc: unknown, ncf: { ...known("extracted"), value: "B01" }, ecf: unknown, itbis: { ...known("extracted"), value: "10.00" } } }, fiscal_value: "ncf", review_flags: [{ code: "ncf_malformed", field: "ncf", confirm: true }], ecf_checks: { encf: null, tipo_ecf: null, checked_at: "2026-10-10T14:25:00Z", checks: [{ name: "read_matches_xml", state: "failed", code: null, detail: { itbis: "read=10 xml=11" } }] } } as unknown as BusinessDossier, "es-419", true, [], true);
-    assert.ok(html.includes("· del revisor"));
+    const dossier = { ...base, facts: { ...base.facts, counterparty: reviewed, fiscal: { rnc: unknown, ncf: { ...known("extracted"), value: "B01" }, ecf: unknown, itbis: { ...known("extracted"), value: "10.00" } } }, fiscal_value: "ncf", review_flags: [{ code: "ncf_malformed", field: "ncf", confirm: true }], ecf_checks: { encf: null, tipo_ecf: null, checked_at: "2026-10-10T14:25:00Z", checks: [{ name: "read_matches_xml", state: "failed", code: null, detail: { itbis: "read=10 xml=11" } }] } } as unknown as BusinessDossier;
+    const { html } = await render(dossier, "es-419", true, [], true);
     assert.equal((html.match(/data-doubtful="true"/g) ?? []).length, 1, "the flagged NCF keeps its note; Montos uses symbols");
     assert.ok(html.includes("· revisar"));
+    for (const view of [html, (await render(dossier)).html]) {
+      assert.ok(/data-fact="counterparty"[^]*?Ferretería Norte/.test(view));
+      assert.ok(!view.includes("del revisor") && !view.includes('data-origin="member_set"'));
+    }
   });
 
   test("a reader who cannot prepare sees the standing without a Confirmar button; English words follow", async () => {

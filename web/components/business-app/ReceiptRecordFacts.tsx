@@ -45,7 +45,7 @@ export type FactsReview = {
 /**
  * The record's facts as one form in three short sections: the activity
  * (headed by its kind), its fiscal facts and how it was paid. A row shows its
- * value as text; an unverified value says where it came from, and a row the
+ * value as text; a suggestion nobody confirmed says so, and a row the
  * attention list names carries a marker.
  *
  * With `review`, the form of an open draft: the six read facts with an edit
@@ -82,7 +82,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     businessAccount: t("business.dossier.business_account", "Business account"),
     value: (key: BusinessFactField, value: string) => {
       if (key === "category_id") return categoryLabel(value);
-      const scope = key === "kind" ? "kind" : key === "business_share" ? "share" : key === "receipt_state" ? "receipt" : null;
+      const scope = key === "kind" ? "kind" : key === "receipt_state" ? "receipt" : null;
       return scope ? t(`business.dossier.${scope}.${value}`, value) : value;
     },
   };
@@ -97,7 +97,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     const mark = (text: string, kind?: string | null) => <span data-origin={kind ?? undefined} data-doubtful={kind ? undefined : "true"} className="ml-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/65">· {text}</span>;
     if (doubtful.has(key)) return mark(t("business.dossier.placeholder.doubtful_read", "check this"));
     if (!fact || fact.state !== "known" || fact.verified) return null;
-    if (fact.origin === "member_set") return mark(t("business.dossier.origin_tag.member_set", "by the reviewer"), fact.origin);
     const named = dossier.sources.filter((source) => fact.source_ids.includes(source.id));
     const kinds = new Set((named.length ? named : dossier.sources).map((source) => source.kind));
     return fact.origin === "extracted" && !kinds.has("attachment") && !kinds.has("message") ? mark(t("business.dossier.origin_tag.suggested", "suggested"), fact.origin) : null;
