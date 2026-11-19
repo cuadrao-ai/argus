@@ -1,8 +1,5 @@
 # Checked OpenAPI compatibility artifact. Generated from the canonical
 # FastAPI app.openapi() document by scripts/generate_openapi_artifact.py.
-# Business date refusals: business_date_before_minimum, business_date_after_today.
-# Request errors carry min_date/today in context.errors[].ctx; bank and fiscal
-# refusals carry them in context. Reader correction blockers carry min_date/today.
 # Structural gate: tests/test_openapi_compatibility.py (#234).
 openapi: 3.1.0
 info:
@@ -10393,7 +10390,9 @@ paths:
       description: Returns the saved draft and its optional `preparation`. In `preparation.receipt`,
         `issue_date_printed` (string or null) is the issue date exactly as the receipt prints
         it, copied before it is interpreted, and `buyer_rnc` (string or null) is the RNC of
-        the buyer as printed. No server code reads these two values.
+        the buyer as printed. No server code reads these two values. `payment_form` (`01`
+        to `07` or null) and `expense_type` (`01` to `11` or null) are the DGII Forma de pago
+        and Tipo de gasto codes the reader read; null means it read none.
       parameters:
       - name: connection_id
         in: path
@@ -10469,7 +10468,9 @@ paths:
       description: Returns the saved draft and its optional `preparation`. In `preparation.receipt`,
         `issue_date_printed` (string or null) is the issue date exactly as the receipt prints
         it, copied before it is interpreted, and `buyer_rnc` (string or null) is the RNC of
-        the buyer as printed. No server code reads these two values.
+        the buyer as printed. No server code reads these two values. `payment_form` (`01`
+        to `07` or null) and `expense_type` (`01` to `11` or null) are the DGII Forma de pago
+        and Tipo de gasto codes the reader read; null means it read none.
       parameters:
       - name: connection_id
         in: path

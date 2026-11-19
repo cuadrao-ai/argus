@@ -4207,7 +4207,11 @@ Preparation status is `saved|queued|preparing|review_ready|needs_attention`.
 Approval state remains in reconciliation events. The immutable batch retains receipt
 `payment_status` and separate final `tax` and `estimated_tax` values. A new
 read can also retain `buyer_rnc` and `issue_date_printed` on the receipt; no
-code reads these two values. Payment
+code reads these two values. A new read can also retain `payment_form` and
+`expense_type` on the receipt: the DGII Forma de pago (`01` to `07`) and Tipo
+de gasto (`01` to `11`) codes, each null when the reader read none. The
+Business dossier reads them from the batch to suggest a blank 606 answer;
+nothing copies them onto the draft. Payment
 status is evidence only: an unpaid read still projects its purchase, and the
 Business draft keeps the amount unverified. Older saved batches keep their stored
 candidates and are not backfilled or automatically prepared again. Valid observations can project

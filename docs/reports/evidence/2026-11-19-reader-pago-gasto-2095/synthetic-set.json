@@ -1,0 +1,289 @@
+{
+  "scope": "document_extraction",
+  "kind": "synthetic_receipt_set_aggregate",
+  "recorded_on": "2026-11-19",
+  "base_sha": "b13b6239be5b32a13e753f20d84b5edf113b5077",
+  "prompt_commit": "740cbc82a9143054c8a8a7e6b4a31cb5363f2296",
+  "prompt_surface": {
+    "src/argus/domain/ingestion/documents/extractor.py": {
+      "entries": 1,
+      "chars": 8458,
+      "sha256": "f6c02994db044b4f86b5293db3f6301eb0302c4bf168b96b11fb2b49554e43d2"
+    },
+    "src/argus/domain/ingestion/documents/models.py": {
+      "entries": 12,
+      "chars": 2154,
+      "sha256": "05f0e1d370dce1cf302653e16696ac0509dc6978f1d81dc2202b5d59ed177b54"
+    }
+  },
+  "model": "google/gemini-3.8-flash",
+  "method": "59 drawn synthetic receipts with answer keys, split once before any run into a tuning part and a holdout, by Forma de pago code and clear Tipo de gasto code. Each part was read once per run and scored per field. Tipo de gasto is scored on clear cases only; judgment cases are reported. The set and its scorer are a local tool and are not in this repository. Aggregate counts only.",
+  "split": {
+    "tuning_receipts": 40,
+    "holdout_receipts": 19,
+    "split_sha256": "f4b06490858e64b5f3df8ca0a0baba12d3d6a0ac71178bc61ed22533d1312495"
+  },
+  "tuning_on_prompt_one_sentence_earlier": {
+    "candidate_sha": "c20c1ab5666b81b0b743fa6b4238aa6539320a8d",
+    "prompt_sha256": "71e534174c5e635b1a49babc01b769fb996788ee3bebb6634b09049087e412f8",
+    "receipts_read": 40,
+    "broken_answers": 0,
+    "fields": {
+      "issue_date": {
+        "correct": 35,
+        "correct_empty": 4,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 39
+      },
+      "supplier_rnc": {
+        "correct": 36,
+        "correct_empty": 3,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 39
+      },
+      "ncf": {
+        "correct": 39,
+        "correct_empty": 0,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 39
+      },
+      "total": {
+        "correct": 38,
+        "correct_empty": 1,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 39
+      },
+      "itbis": {
+        "correct": 35,
+        "correct_empty": 4,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 39
+      },
+      "payment_form": {
+        "correct": 34,
+        "correct_empty": 5,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 39
+      }
+    },
+    "expense_type_clear": {
+      "correct": 15,
+      "blank": 0,
+      "false_fill": 0,
+      "failed": 0,
+      "scored": 15
+    },
+    "expense_type_judgment": {
+      "reported": 24,
+      "left_null": 18,
+      "filled": 6
+    },
+    "expense_type_09_returned": 0,
+    "complete_wrong": 2,
+    "purchases_wrong": 0,
+    "known_cost_usd": 0.532742
+  },
+  "holdout_on_prompt_one_sentence_earlier": {
+    "candidate_sha": "c20c1ab5666b81b0b743fa6b4238aa6539320a8d",
+    "prompt_sha256": "71e534174c5e635b1a49babc01b769fb996788ee3bebb6634b09049087e412f8",
+    "receipts_read": 19,
+    "broken_answers": 0,
+    "fields": {
+      "issue_date": {
+        "correct": 19,
+        "correct_empty": 0,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "supplier_rnc": {
+        "correct": 16,
+        "correct_empty": 3,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "ncf": {
+        "correct": 19,
+        "correct_empty": 0,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "total": {
+        "correct": 19,
+        "correct_empty": 0,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "itbis": {
+        "correct": 17,
+        "correct_empty": 2,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "payment_form": {
+        "correct": 17,
+        "correct_empty": 2,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      }
+    },
+    "expense_type_clear": {
+      "correct": 9,
+      "blank": 0,
+      "false_fill": 0,
+      "failed": 0,
+      "scored": 9
+    },
+    "expense_type_judgment": {
+      "reported": 10,
+      "left_null": 8,
+      "filled": 2
+    },
+    "expense_type_09_returned": 0,
+    "complete_wrong": 0,
+    "purchases_wrong": 0,
+    "known_cost_usd": 0.232445
+  },
+  "holdout_on_final_prompt": {
+    "candidate_sha": "740cbc82a9143054c8a8a7e6b4a31cb5363f2296",
+    "prompt_sha256": "e146335f551f3044dab7f7c9c099ac62c2b562f89500299dcbd4dedfd224a7de",
+    "receipts_read": 19,
+    "broken_answers": 0,
+    "fields": {
+      "issue_date": {
+        "correct": 19,
+        "correct_empty": 0,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "supplier_rnc": {
+        "correct": 16,
+        "correct_empty": 3,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "ncf": {
+        "correct": 19,
+        "correct_empty": 0,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "total": {
+        "correct": 19,
+        "correct_empty": 0,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "itbis": {
+        "correct": 17,
+        "correct_empty": 2,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      },
+      "payment_form": {
+        "correct": 17,
+        "correct_empty": 2,
+        "blank": 0,
+        "false_fill": 0,
+        "failed": 0,
+        "scored": 19
+      }
+    },
+    "expense_type_clear": {
+      "correct": 9,
+      "blank": 0,
+      "false_fill": 0,
+      "failed": 0,
+      "scored": 9
+    },
+    "expense_type_judgment": {
+      "reported": 10,
+      "left_null": 7,
+      "filled": 3
+    },
+    "expense_type_09_returned": 0,
+    "complete_wrong": 0,
+    "purchases_wrong": 0,
+    "known_cost_usd": 0.245323
+  },
+  "freeze_measurement_runs": [
+    {
+      "prompt": "one sentence earlier",
+      "checks_passed": 26,
+      "checks_failed": 2,
+      "failed_checks": [
+        "order-confirmation-estimated-tax.payment_status",
+        "receipt-dop.merchant"
+      ],
+      "known_cost_usd": "0.02516775"
+    },
+    {
+      "prompt": "one sentence earlier",
+      "checks_passed": 27,
+      "checks_failed": 1,
+      "failed_checks": [
+        "order-confirmation-estimated-tax.payment_status"
+      ],
+      "known_cost_usd": "0.015070425"
+    },
+    {
+      "prompt": "final, before its commit",
+      "checks_passed": 28,
+      "checks_failed": 0,
+      "failed_checks": [],
+      "known_cost_usd": "0.02327025"
+    },
+    {
+      "prompt": "final",
+      "checks_passed": 27,
+      "checks_failed": 1,
+      "failed_checks": [
+        "receipt-dop.merchant"
+      ],
+      "known_cost_usd": "0.02349525"
+    },
+    {
+      "prompt": "final",
+      "checks_passed": 28,
+      "checks_failed": 0,
+      "failed_checks": [],
+      "known_cost_usd": "0.015228825"
+    }
+  ],
+  "freeze_scorecard": "docs/reports/evidence/2026-11-19-reader-pago-gasto-2095/live-measurement.json",
+  "known_cost_usd_total": "1.1127",
+  "unpriced_calls": 1
+}

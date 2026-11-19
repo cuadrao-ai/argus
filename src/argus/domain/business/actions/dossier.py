@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any, get_args
 from uuid import UUID
 
+from loguru import logger
 from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
@@ -34,6 +35,7 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     PurchaseDeclaration,
     SuggestedField,
+    SuggestionSource,
 )
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
@@ -295,24 +297,105 @@ def shown_bill_mark(resolution: BusinessResolution) -> str | None:
     return resolution.bill_mark if business_settlement_enabled() else None
 
 
+#: Where each suggested answer comes from, best first. A read is ``receipt``
+#: when the receipt prints the answer and ``reading`` when the reader works it out.
+_SUGGESTION_SOURCES: dict[SuggestedField, tuple[SuggestionSource, ...]] = {
+    "payment_method": ("receipt", "last_choice"),
+    "category": ("last_choice", "reading"),
+}
+#: The read's own name for each answer.
+_READ_FIELD: dict[SuggestedField, str] = {
+    "payment_method": "payment_form",
+    "category": "expense_type",
+}
+
+
+def best_suggestion(
+    field: SuggestedField, read: str | None, remembered: Callable[[], str | None]
+) -> dict[str, str] | None:
+    """The answer to suggest with its source. ``read`` is what the reader read
+    on this draft's receipt; ``remembered`` reads the last choice for its RNC."""
+
+    for source in _SUGGESTION_SOURCES[field]:
+        value = remembered() if source == "last_choice" else read
+        if value:
+            return {"value": value, "source": source}
+    return None
+
+
+def _read_answers(tx: ActionTransaction, draft_id: UUID) -> Mapping[str, str | None]:
+    """What the reader read for each answer on the draft's newest receipt."""
+
+    rows = tx.rows(
+        "select "
+        + ",".join(
+            f"d.batch->'receipt'->>'{name}' as {field}"
+            for field, name in _READ_FIELD.items()
+        )
+        + " from public.business_draft_sources l join public.business_sources s"
+        " on s.id=l.source_id and s.space_id=l.space_id"
+        " join public.financial_document_extractions d on d.connection_id=s.connection_id"
+        " join public.financial_source_connections c on c.id=s.connection_id"
+        " and c.owner_space_id=s.space_id"
+        " where l.space_id=%s and l.draft_id=%s and s.kind='attachment' and c.user_id=%s"
+        " and jsonb_typeof(d.batch->'receipt')='object'"
+        " order by s.received_at desc,s.id desc limit 1",
+        (tx.context.actor.space_id, draft_id, tx.context.owner_id),
+    )
+    return rows[0] if rows else {}
+
+
 def offered_suggestions(
     tx: ActionTransaction, draft_id: UUID, declaration: DgiiDeclaration | None
 ) -> DeclarationSuggestions:
-    """The last choice for this RNC, for each answer the draft has not got:
-    what the dossier shows and what a bulk approval saves."""
+    """The suggestion for each answer the draft has not got, from what the
+    reader read and the last choice for this RNC: what the dossier shows and
+    what a bulk approval saves."""
 
     purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
     blank: tuple[SuggestedField, ...] = tuple(
         field for field in get_args(SuggestedField) if blank_answer(purchase, field)
     )
-    remembered = {field: last_choice(tx, draft_id, field) for field in blank}
+    read = _read_answers(tx, draft_id) if blank else {}
     return DeclarationSuggestions.model_validate(
         {
-            field: {"value": value, "source": "last_choice"}
-            for field, value in remembered.items()
-            if value
+            field: best_suggestion(
+                field, read.get(field), lambda field=field: last_choice(tx, draft_id, field)
+            )
+            for field in blank
         }
     )
+
+
+def log_changed_suggestions(
+    tx: ActionTransaction,
+    draft_id: UUID | str,
+    stored: DgiiDeclaration | None,
+    declared: DgiiDeclaration | None,
+) -> None:
+    """The accuracy signal: a write over ``stored`` gives an answer other
+    than the one the server suggested, whether or not an approval saved it."""
+
+    if not isinstance(declared, PurchaseDeclaration):
+        return
+    before = stored if isinstance(stored, PurchaseDeclaration) else None
+    answered = {
+        field: answer
+        for field in get_args(SuggestedField)
+        if (answer := getattr(declared, field)) is not None
+        and answer != getattr(before, field, None)
+    }
+    if not answered:
+        return
+    offered = offered_suggestions(tx, draft_id, before)
+    for field, answer in answered.items():
+        shown = getattr(offered, field)
+        if shown is not None:
+            source = shown.source if shown.value != answer else None
+        else:
+            source = before.suggestion_sources.get(field) if before else None
+        if source is not None:
+            logger.info("business_suggestion_changed field={} source={}", field, source)
 
 
 def dossier(

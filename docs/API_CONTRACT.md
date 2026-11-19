@@ -7804,6 +7804,12 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   `preparation.receipt.buyer_rnc` (string or null) is the RNC of the buyer as
   printed. No server code reads these two values. A read saved before they
   existed returns null for both.
+  `preparation.receipt.payment_form` (`01` to `07` or null) and
+  `preparation.receipt.expense_type` (`01` to `11` or null) are the DGII Forma
+  de pago and Tipo de gasto codes the reader read. Null means it read none, and
+  a read saved before they existed returns null for both. A Business dossier
+  offers them in `declaration_suggestions` with the source `receipt` for Forma
+  de pago and `reading` for Tipo de gasto.
 - `GET /financial-documents/{connection_id}/source` returns verified original
   bytes for PDF, text, CSV, XLSX, XML and EML. PNG/JPEG images return a rebuilt
   JPEG, made on first download if missing and reused on later downloads. The
@@ -7821,7 +7827,7 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   participants, `equal|items` method and item assignments with multiple participant
   IDs for shared items. A stale version or active preparation returns 409. Proposals
   do not change extracted evidence, grant access, share content or write money.
-  The response is the same draft as the `GET`, with the same two
+  The response is the same draft as the `GET`, with the same
   `preparation.receipt` fields.
 
 All draft/source reads are owner-only and `no-store`. Missing retained source on
@@ -8613,8 +8619,10 @@ gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
 is `{value, source}` or null. `source` says where the value came from:
 `last_choice` is the answer a person last gave for this draft's supplier RNC
 in this Business, on another open, accepting or accepted purchase; `receipt`
-is reserved for a value read from the receipt and `reading` for the AI
-reading's pick, and nothing sends either yet. A suggestion is read fresh: it
+is the forma de pago the reader read on this draft's receipt, and `reading`
+is the tipo de gasto the reader picked from it. The best source wins: for
+`payment_method`, `receipt` then `last_choice`; for `category`, `last_choice`
+then `reading`. A suggestion is read fresh: it
 is null unless the draft is an open expense whose approval writes a 606
 declaration (`declaration_editable` true, and a saved purchase declaration or
 an RNC and a 606-reported fiscal number), null where the draft has that answer

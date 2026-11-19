@@ -155,6 +155,9 @@ def _review(
     monkeypatch.setattr(sources, "require_sources", lambda *args: None)
     monkeypatch.setattr(sources, "attach", lambda *args: None)
     monkeypatch.setattr(mutations, "validate_facts", lambda *args: None)
+    monkeypatch.setattr(
+        mutations.dossier, "log_changed_suggestions", lambda *args: None
+    )
     if event is not None:
         monkeypatch.setattr(mutations, "event_at", lambda *args: event)
         monkeypatch.setattr(mutations, "_open_for_type", lambda *args: event)
