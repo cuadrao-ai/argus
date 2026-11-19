@@ -179,6 +179,8 @@ Follow these steps in order.
      due, is 04. Two or more forms on one purchase is 07. The word "crédito"
      alone, when it could mean a credit card or a sale on credit, is null. No
      printed payment form is null.
+     payment_form never decides payment_status. When the document does not
+     say whether it was paid, payment_status stays unknown.
    - expense_type is never printed. It depends on what the buyer's business does,
      and you cannot see that. Return it only when the receipt alone makes the
      code obvious for nearly any buyer. In every other case it is null. What
