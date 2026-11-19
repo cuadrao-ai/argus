@@ -58,7 +58,7 @@ from argus.domain.business.contracts.facts import HUMAN_AMOUNT_FIELDS
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
-from argus.domain.business.receipt_consent import SCOPE_VERSION
+from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from argus.domain.business.transactions import (
     ActionTransaction,
     GrantImportStore,
@@ -843,20 +843,12 @@ class BusinessActions:
         draft = DocumentDraft.model_validate(row["draft"])
         self._require_email_read(tx, binding.connection_id)
         if draft.business_reading_consent_id is not None:
-            permission = tx.rows(
-                "select id,route from public.business_receipt_reading_consents where id=%s"
-                " and space_id=%s and scope_version=%s and revoked_at is null for share",
-                (
-                    draft.business_reading_consent_id,
-                    tx.context.actor.space_id,
-                    SCOPE_VERSION,
-                ),
-            )
-            from argus.domain.ingestion.whatsapp.receipt_consent import (
-                receipt_provider_route,
-            )
-
-            if not permission or permission[0]["route"] != receipt_provider_route():
+            if not BusinessReceiptConsentStore().enabled(
+                str(tx.context.actor.space_id),
+                tx.context.owner_id,
+                draft.business_reading_consent_id,
+                db=tx.connection,
+            ):
                 raise ActionError("permission_denied", "document_reading_not_allowed")
         if row["preparation_binding"] != binding.model_dump(
             mode="json"
