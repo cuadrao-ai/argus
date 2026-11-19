@@ -21,7 +21,7 @@ PYTHONPATH=src:web:. poetry run python -m tests.evals.document_read.dataset
 ```
 
 It writes `temp/document_read_eval/<case>.jpg` and `<case>.expected.json`, and
-prints the coverage table.
+logs the coverage table.
 
 An expected answer holds the issue date, supplier RNC, buyer RNC, NCF or e-NCF,
 total, ITBIS, forma de pago code, tipo de gasto code, whether a DGII QR is
@@ -94,10 +94,13 @@ PYTHONPATH=src:web:. poetry run python -m tests.evals.document_read.run_live \
 ```
 
 The key is the one `--key-name` names in the env file. The model is
-`CUADRAO_VISION_MODEL` from the env file, or `--model`. Before the first read
-the runner blanks every other model credential and document model that the
-shell or the project `.env` holds. It stops if a read would use a different key
-or model, and it never takes either from the shell. The run
+`CUADRAO_VISION_MODEL` from the env file, or `--model`. Neither comes from the
+shell. `run_live.py` starts `read_live.py` in a second process to make the
+reads. That process starts with the selected key and model, and with every other
+model credential and document model blank. It inherits nothing else from the
+shell, and the runner leaves its own environment as it was. Before the first
+read the second process stops if a read would use a different key or model. The
+run
 makes one read per receipt and stops when the known cost reaches the cap. It
 writes `scorecard.json` with schema `document_read_scorecard_v1`: the commit,
 the model, digests of the prompt, the schema and the set, the cost, the totals

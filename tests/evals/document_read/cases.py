@@ -50,8 +50,8 @@ MONTHS_FULL = (
 # What the receipt prints about payment, and the forma de pago a correct read
 # gives. A card and a purchase on credit terms both say "crédito".
 PAYMENTS: dict[str, tuple[str | None, str | None]] = {
-    "visa": ("VISA ****{last4}", "03"),
-    "mastercard": ("MasterCard ****{last4}", "03"),
+    "tarjeta_numero": ("TARJETA ****{last4}", "03"),
+    "tarjeta_debito": ("TARJ. DEBITO ****{last4}", "03"),
     "tarjeta": ("Tarjeta de crédito", "03"),
     "efectivo": ("Efectivo", "01"),
     "transferencia": ("Transferencia bancaria", "02"),
@@ -257,7 +257,7 @@ class Case:
     rnc_dashed: bool = False
     buyer_rnc_label: str | None = None
     tax: Literal["itbis", "impuesto", "impuesto_zero", "none"] = "itbis"
-    payment: str = "visa"
+    payment: str = "tarjeta_numero"
     qr: Literal["dgii", "cropped", "none"] = "dgii"
     merchant_qr: bool = False
     layout: Literal["strip", "collage2", "collage3", "two_receipts", "cut_totals"] = (
@@ -544,7 +544,7 @@ def build_cases() -> tuple[Case, ...]:
             (2026, 2, 23),
             date_label="Fecha Emisión",
             date_style=_DASH2,
-            payment="mastercard",
+            payment="tarjeta_debito",
             expiry=date(2027, 12, 31),
             expiry_label="Caduca",
             expiry_first=True,
@@ -609,7 +609,7 @@ def build_cases() -> tuple[Case, ...]:
             expiry=date(2027, 12, 31),
             layout="collage3",
             item_count=18,
-            payment="mastercard",
+            payment="tarjeta_debito",
             **_NO_DATE,
         ),
         _case(
@@ -705,7 +705,7 @@ def build_cases() -> tuple[Case, ...]:
             (2025, 3, 13),
             date_style=_SLASH4,
             tax="none",
-            payment="mastercard",
+            payment="tarjeta_debito",
             merchant_qr=True,
         ),
         _case(
@@ -822,7 +822,7 @@ def build_cases() -> tuple[Case, ...]:
             "restaurante",
             (2025, 9, 25),
             date_style=_named("{d} {m} {y}", "title"),
-            payment="mastercard",
+            payment="tarjeta_debito",
             angle=2.0,
         ),
         _case(

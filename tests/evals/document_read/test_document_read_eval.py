@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import io
 import json
-import os
+import subprocess
+import sys
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import fields
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
@@ -23,7 +25,7 @@ from argus.domain.ingestion.documents.models import (
 )
 from PIL import Image
 
-from tests.evals.document_read import run_live, scoring, scripted
+from tests.evals.document_read import read_live, run_live, scoring, scripted
 from tests.evals.document_read.cases import (
     MONTHS_ABBR,
     PAYMENTS,
@@ -489,30 +491,98 @@ INHERITED = {
     "CUADRAO_VISION_MODEL": "inherited/model",
     "ARGUS_VISION_MODEL": "inherited/old-model",
 }
+ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture
-def selected_env(tmp_path) -> Any:
+def env_file(tmp_path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A shell full of other credentials, and an env file that selects one."""
 
-    env_file = tmp_path / "env"
-    env_file.write_text("EVAL_KEY=selected-fake\n")
-    with patch.dict(os.environ, INHERITED):
-        yield env_file
+    for name, value in INHERITED.items():
+        monkeypatch.setenv(name, value)
+    path = tmp_path / "env"
+    path.write_text("EVAL_KEY=selected-fake\n")
+    return path
 
 
-def test_live_runner_reads_with_the_selected_key_and_model(selected_env) -> None:
-    model = run_live.load_settings(selected_env, "EVAL_KEY", "selected/model")
-    assert model == "selected/model"
-    assert reader.DocumentExtractor(scoring._SETTINGS)._provider() == (
-        "selected/model",
-        "selected-fake",
-    )
+@pytest.fixture
+def child_env(env_file) -> dict[str, str]:
+    selected = run_live.load_settings(env_file, "EVAL_KEY", "selected/model")
+    return run_live.child_environment(selected)
 
 
-def test_live_runner_never_takes_an_inherited_model(selected_env) -> None:
+@pytest.fixture
+def in_the_child(child_env, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give this process the environment the reading process starts with."""
+
+    for name in INHERITED:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in child_env.items():
+        monkeypatch.setenv(name, value)
+
+
+def test_live_runner_never_takes_an_inherited_model(env_file) -> None:
     with pytest.raises(SystemExit, match="pass --model"):
-        run_live.load_settings(selected_env, "EVAL_KEY", None)
+        run_live.load_settings(env_file, "EVAL_KEY", None)
+
+
+def test_the_reading_process_starts_with_only_the_selected_key_and_model(
+    child_env,
+) -> None:
+    assert child_env[read_live.KEY_SETTING] == "selected-fake"
+    assert child_env[read_live.MODEL_SETTING] == "selected/model"
+    assert not set(child_env.values()) & set(INHERITED.values())
+    assert all(name.isupper() for name in child_env)
+    assert {name.upper() for name in INHERITED} <= set(child_env)
+
+
+def test_an_inherited_key_cannot_reach_a_read(child_env) -> None:
+    probe = (
+        "from argus.domain.ingestion.documents import extractor as reader\n"
+        "from tests.evals.document_read import read_live, scoring\n"
+        "read_live.selected_provider()\n"
+        "used = reader.DocumentExtractor(scoring._SETTINGS)._provider()\n"
+        "assert used == ('selected/model', 'selected-fake')\n"
+    )
+    child = subprocess.run(
+        (sys.executable, "-c", probe),
+        cwd=ROOT,
+        env=child_env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert child.returncode == 0, child.stderr
+
+
+def test_a_live_run_leaves_the_operator_shell_as_it_was(
+    env_file, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    started: list[dict[str, Any]] = []
+
+    def start(command: tuple[str, ...], **how: Any) -> SimpleNamespace:
+        started.append({"command": command, **how})
+        return SimpleNamespace(returncode=3, stdout="candidate\n")
+
+    monkeypatch.setattr(run_live.subprocess, "run", start)
+    args = SimpleNamespace(
+        out=tmp_path / "out",
+        env_file=env_file,
+        key_name="EVAL_KEY",
+        model="selected/model",
+        only=["fecha-2-digit-year"],
+        cap_usd=0.5,
+    )
+    assert run_live.run(args) == 3
+    (child,) = (start for start in started if "env" in start)
+    assert child["command"][-6:-4] == ("--candidate-sha", "candidate")
+    assert child["env"][read_live.KEY_SETTING] == "selected-fake"
+    assert "selected-fake" not in child["command"]
+    assert "tests.evals.document_read.read_live" in child["command"]
+    assert reader.resolve_openrouter_api_key("registered") == "inherited-stg"
+    assert (
+        reader.resolve_openrouter_model(task="document_extraction") == "inherited/model"
+    )
 
 
 @pytest.mark.parametrize(
@@ -522,20 +592,30 @@ def test_live_runner_never_takes_an_inherited_model(selected_env) -> None:
         ({"resolve_openrouter_model": lambda **_: "inherited/model"}, "selected model"),
     ],
 )
-def test_live_runner_refuses_when_a_read_would_use_something_else(
-    selected_env, monkeypatch: pytest.MonkeyPatch, other: dict[str, Any], refusal: str
+def test_live_reads_refuse_when_a_read_would_use_something_else(
+    in_the_child, monkeypatch: pytest.MonkeyPatch, other: dict[str, Any], refusal: str
 ) -> None:
     for name, resolve in other.items():
         monkeypatch.setattr(reader, name, resolve)
     with pytest.raises(SystemExit, match=refusal) as stopped:
-        run_live.load_settings(selected_env, "EVAL_KEY", "selected/model")
+        read_live.selected_provider()
     assert "selected-fake" not in str(stopped.value)
     assert "inherited-dev" not in str(stopped.value)
 
 
-def test_live_runner_refuses_a_hosted_shell(
-    selected_env, monkeypatch: pytest.MonkeyPatch
+def test_live_reads_refuse_a_hosted_shell(
+    env_file, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ) -> None:
     monkeypatch.setenv("RENDER", "true")
+    request.getfixturevalue("in_the_child")
     with pytest.raises(SystemExit, match="refused"):
-        run_live.load_settings(selected_env, "EVAL_KEY", "selected/model")
+        read_live.selected_provider()
+
+
+def test_live_reads_refuse_to_start_without_a_selected_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(read_live.KEY_SETTING, "")
+    monkeypatch.setenv(read_live.MODEL_SETTING, "selected/model")
+    with pytest.raises(SystemExit, match="run_live"):
+        read_live.selected_provider()

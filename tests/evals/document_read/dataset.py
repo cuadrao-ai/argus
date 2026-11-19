@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from loguru import logger
+
 from tests.evals.document_read.cases import (
     Case,
     Expected,
@@ -85,8 +87,10 @@ def main() -> None:
     args = parser.parse_args()
     samples = build_set()
     write_set(samples, args.out)
-    print(f"{len(samples)} receipts in {args.out}  set_sha256={set_sha256(samples)}")
-    print(coverage_table(samples))
+    logger.info(
+        "{} receipts in {}  set_sha256={}", len(samples), args.out, set_sha256(samples)
+    )
+    logger.info("\n{}", coverage_table(samples))
 
 
 if __name__ == "__main__":
