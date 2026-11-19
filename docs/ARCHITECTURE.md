@@ -382,6 +382,16 @@ is the only reader, and it runs the sweep. The API records the read and never
 starts, imports or wakes a reader, so a burst of reads cannot hold up its
 health check.
 
+**Year check.** The reader often writes the wrong year. An issue date is a year
+to check when the reader wrote it (origin `extracted`) and its year is not the
+upload year: the year, in America/Santo_Domingo, of the `received_at` of the
+draft's first source. A date from the QR or from a person is never checked.
+Such a record stays out of Listos, in Necesita atención with the reason
+`check_details`, and can still be approved alone. `year_to_check` in
+`src/argus/domain/business/bandeja_group.py` owns the rule. The dossier carries
+its answer (`upload_year`, `year_to_check`), and the review calendar offers the
+date in the upload year from that answer. The web compares no years.
+
 ### How a receipt becomes a record
 
 A receipt goes through six steps. A later step trusts an earlier one in this
