@@ -14,11 +14,13 @@ import io
 import re
 from datetime import date, datetime
 from decimal import Decimal, DecimalException
-from typing import Sequence
+from functools import partial
+from typing import Callable, Iterator, Sequence
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 from loguru import logger
-from PIL import Image
+from PIL import Image, ImageOps
+from pydantic import ValidationError
 
 from argus.domain.business.contracts.checks import (
     DGII_HOSTS,
@@ -28,27 +30,62 @@ from argus.domain.business.contracts.checks import (
     ReadVsQr,
     dgii_link_host,
 )
-from argus.domain.ingestion.documents.models import ReceiptDetails
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    FiscalFacts,
+    Known,
+    fiscal_value,
+)
 
 __all__ = ["DGII_HOSTS", "parse_dgii_url", "read_dgii_qr"]
 MAX_URL_CHARS = 2048
 MAX_VALUE_CHARS = 64
 MAX_PAGES_SCANNED = 8
 MAX_NUMBER_EXPONENT = 30
+#: Twice only: a third enlargement cost most of the retry memory on every
+#: page without a code.
+RETRY_SCALES = (2,)
+MAX_RETRY_PIXELS = 20_000_000
+AUTOCONTRAST_CUTOFF = 2
 _ENCF = re.compile(r"^E(\d{2})\d{10}$")
 _DATE_FORMATS = ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d")
 
 
-def _decode(image: bytes) -> list[str]:
+def _retries(grey: Image.Image) -> Iterator[tuple[str, Callable[[], Image.Image]]]:
+    """The retries for a code the plain pass missed, cheapest first, each
+    built only when its turn comes: a faded code decodes once its contrast is
+    stretched, a small or soft one once enlarged. An enlargement over
+    ``MAX_RETRY_PIXELS`` is skipped."""
+
+    yield "autocontrast", partial(ImageOps.autocontrast, grey, AUTOCONTRAST_CUTOFF)
+    for scale in RETRY_SCALES:
+        size = (grey.width * scale, grey.height * scale)
+        if size[0] * size[1] <= MAX_RETRY_PIXELS:
+            yield f"x{scale}", partial(grey.resize, size, Image.Resampling.LANCZOS)
+
+
+def _decode(image: bytes) -> Iterator[tuple[str, str]]:
+    """Each QR text on the page with the pass that found it. Lazy: a caller
+    that stops at the first DGII link never pays for the later passes. One
+    retry image is held at a time: the worker has little memory, and an
+    enlargement is several times the page."""
+
     import zxingcpp
+
+    def texts(page: Image.Image) -> list[str]:
+        found = zxingcpp.read_barcodes(
+            page, formats=zxingcpp.BarcodeFormat.QRCode, try_rotate=True
+        )
+        return [result.text for result in found if result.valid and result.text]
 
     with Image.open(io.BytesIO(image)) as source:
         source.load()
         grey = source.convert("L")
-    found = zxingcpp.read_barcodes(
-        grey, formats=zxingcpp.BarcodeFormat.QRCode, try_rotate=True
-    )
-    return [result.text for result in found if result.valid and result.text]
+    for text in texts(grey):
+        yield "plain", text
+    for name, build in _retries(grey):
+        for text in texts(build()):
+            yield name, text
 
 
 def _value(query: dict[str, str], name: str) -> str | None:
@@ -125,14 +162,15 @@ def read_dgii_qr(images: Sequence[bytes]) -> DgiiQr | None:
 
     for image in list(images)[:MAX_PAGES_SCANNED]:
         try:
-            texts = _decode(image)
+            for attempt, text in _decode(image):
+                qr = parse_dgii_url(text)
+                if qr is None:
+                    continue
+                if attempt != "plain":
+                    logger.info("dgii_qr_decoded_on_retry attempt={}", attempt)
+                return qr
         except Exception as exc:  # noqa: BLE001
             logger.debug("QR decode skipped a page", failure_mode=type(exc).__name__)
-            continue
-        for text in texts:
-            qr = parse_dgii_url(text)
-            if qr is not None:
-                return qr
     return None
 
 
@@ -145,20 +183,58 @@ def tipo_ecf_of(encf: str | None) -> str | None:
     return match.group(1) if match else None
 
 
-def _same_number(read: str | None, stated: str | None) -> bool | None:
-    if read is None or stated is None:
-        return None
+def _stated(qr: DgiiQr) -> dict[str, str | None]:
+    """What the QR states, under the name the match row gives each field."""
+
+    return {
+        "rnc": qr.rnc_emisor,
+        "ecf": qr.encf,
+        "total": qr.monto_total,
+        "occurred_on": qr.fecha_emision.isoformat() if qr.fecha_emision else None,
+    }
+
+
+def _same(name: str, held: object, stated: str) -> bool:
+    """The one equality of a held value and the QR's: the total by its number,
+    anything else as text without case or outer spaces."""
+
+    if name != "total":
+        return str(held).strip().upper() == stated.strip().upper()
     try:
-        return Decimal(str(read)) == Decimal(stated)
+        return Decimal(str(held)) == Decimal(stated)
     except (DecimalException, ValueError):
         return False
 
 
-def qr_checks(qr: DgiiQr | None, receipt: ReceiptDetails | None) -> list[EcfCheck]:
-    """Two rows: whether a DGII QR was there, and whether what it names
-    (issuer RNC, e-NCF, total) equals what the read found, field by field
-    and only where both exist. A mismatch fills nothing and is a row to
-    review; ``read_vs_qr`` carries both values of each compared field."""
+def _match_row(qr: DgiiQr, held: dict[str, object]) -> EcfCheck:
+    """Whether what the QR names equals the values held, field by field and
+    only where both exist; ``read_vs_qr`` carries both values of each."""
+
+    stated = _stated(qr)
+    compared: dict[str, ReadVsQr] = {}
+    differing: list[str] = []
+    for name, value in held.items():
+        if value is None or stated[name] is None:
+            continue
+        compared[name] = ReadVsQr(read=str(value)[:64], qr=stated[name][:64])
+        if not _same(name, value, stated[name]):
+            differing.append(name)
+    if not compared:
+        return EcfCheck(name="qr_matches_read", state="not_checked", code="no_read")
+    if differing:
+        return EcfCheck(
+            name="qr_matches_read",
+            state="failed",
+            code="qr_differs",
+            read_vs_qr={name: compared[name] for name in differing},
+        )
+    return EcfCheck(name="qr_matches_read", state="verified", read_vs_qr=compared)
+
+
+def _qr_rows(qr: DgiiQr | None) -> list[EcfCheck]:
+    """Two rows: whether a DGII QR was there, and the match row with nothing
+    compared yet. ``record_qr_checks`` owns the comparison: it makes the match
+    row over what the record holds after the merge."""
 
     if qr is None:
         return [
@@ -170,55 +246,49 @@ def qr_checks(qr: DgiiQr | None, receipt: ReceiptDetails | None) -> list[EcfChec
         state="verified",
         detail={"host": qr.host, "encf": qr.encf, "rnc_emisor": qr.rnc_emisor},
     )
-    if receipt is None:
-        return [
-            present,
-            EcfCheck(name="qr_matches_read", state="not_checked", code="no_read"),
-        ]
-    pairs = {
-        "rnc": (receipt.rnc, qr.rnc_emisor, False),
-        "ecf": (receipt.ecf or receipt.ncf, qr.encf, False),
-        "total": (receipt.total, qr.monto_total, True),
-    }
-    compared: dict[str, ReadVsQr] = {}
-    differing: list[str] = []
-    for name, (read, stated, numeric) in pairs.items():
-        if read is None or stated is None:
-            continue
-        same = (
-            _same_number(read, stated)
-            if numeric
-            else str(read).strip().upper() == str(stated).strip().upper()
-        )
-        compared[name] = ReadVsQr(read=str(read)[:64], qr=str(stated)[:64])
-        if not same:
-            differing.append(name)
-    if not compared:
-        return [
-            present,
-            EcfCheck(name="qr_matches_read", state="not_checked", code="no_read"),
-        ]
-    if differing:
-        return [
-            present,
-            EcfCheck(
-                name="qr_matches_read",
-                state="failed",
-                code="qr_differs",
-                read_vs_qr={name: compared[name] for name in differing},
-            ),
-        ]
-    return [
-        present,
-        EcfCheck(name="qr_matches_read", state="verified", read_vs_qr=compared),
-    ]
+    return [present, _match_row(qr, {})]
+
+
+def record_qr_checks(
+    verification: EcfVerification | None,
+    qr: DgiiQr | None,
+    facts: BusinessFacts,
+    read_total: str | None,
+    *,
+    amount_is_total: bool,
+) -> EcfVerification | None:
+    """The verification as the record saves it: the match row made over
+    what the record holds after the merge, so it never asks for review of a
+    value the QR replaced. A fact the QR gave is not compared with itself,
+    and no value it replaced stands in for it: the record's one fiscal number
+    is chosen first, then left out when the QR gave it. The amount of a read
+    with several purchases is not a total; the total that read showed is
+    compared in its place."""
+
+    if verification is None or qr is None:
+        return verification
+
+    def held(fact: object) -> object:
+        mine = isinstance(fact, Known) and fact.origin != "qr_decoded"
+        return fact.value if mine else None
+
+    fiscal = facts.fiscal or FiscalFacts()
+    number = fiscal_value(facts)
+    row = _match_row(
+        qr,
+        {
+            "rnc": held(fiscal.rnc),
+            "ecf": held(getattr(fiscal, number)) if number else None,
+            "total": held(facts.amount) if amount_is_total else read_total,
+            "occurred_on": held(facts.occurred_on),
+        },
+    )
+    checks = tuple(row if c.name == row.name else c for c in verification.checks)
+    return verification.model_copy(update={"checks": checks})
 
 
 def with_qr(
-    verification: EcfVerification | None,
-    qr: DgiiQr | None,
-    receipt: ReceiptDetails | None,
-    now: datetime,
+    verification: EcfVerification | None, qr: DgiiQr | None, now: datetime
 ) -> EcfVerification | None:
     """The verification with the QR rows beside the e-CF rows. A document with
     a QR and no XML gets a verification of its own: the QR rows, the DGII row
@@ -226,7 +296,7 @@ def with_qr(
 
     if verification is None and qr is None:
         return None
-    rows = qr_checks(qr, receipt)
+    rows = _qr_rows(qr)
     if verification is not None:
         checks = [
             c
@@ -263,37 +333,73 @@ def with_qr(
     )
 
 
+def _holds(model: type[BusinessFacts | FiscalFacts], name: str, fact: dict) -> bool:
+    """Whether the fact's contract takes the value as a known fact."""
+
+    try:
+        return isinstance(getattr(model.model_validate({name: fact}), name), Known)
+    except ValidationError:
+        return False
+
+
 def fill_from_qr(
-    facts: dict, qr: DgiiQr | None, source_id: object, *, fill_amount: bool
+    facts: dict,
+    qr: DgiiQr | None,
+    source_id: object,
+    *,
+    fill_amount: bool,
+    fill_rnc: bool,
 ) -> dict:
-    """The typed merge step after decode and read: the QR fills only what the
-    read left unknown (issuer RNC, e-NCF, total, issue date), each filled fact
-    carrying the origin ``qr_decoded`` and the attachment as its source. A
-    value the read found stays, equal or not: a mismatch is a row to review,
-    never an overwrite. The amount is filled only for a read with at most one
-    purchase and stays a draft value a person approves."""
+    """The typed merge step after decode and read. The QR is the document's
+    own printed statement, so what it carries (e-NCF, issue date, the issuer
+    RNC of a purchase, and the total of a read with at most one purchase)
+    replaces what the reader found or left unknown, with the origin
+    ``qr_decoded`` and the attachment as its source. A reader's value that
+    agrees stands as read. A value anyone but the reader gave is never
+    replaced, and neither is one whose QR value the fact cannot hold. The
+    amount stays a draft value a person approves. Each disagreement is logged
+    by field name."""
 
     if qr is None:
         return facts
-
-    def fill(fact: dict, value: object) -> dict:
-        if value is None or fact.get("state") == "known":
-            return fact
-        return {
+    stated = _stated(qr)
+    targets = [(BusinessFacts, facts, "occurred_on", "occurred_on")]
+    if fill_amount:
+        targets.append((BusinessFacts, facts, "amount", "total"))
+    fiscal = facts.get("fiscal")
+    if isinstance(fiscal, dict):
+        targets.append((FiscalFacts, fiscal, "ecf", "ecf"))
+        if fill_rnc:
+            targets.append((FiscalFacts, fiscal, "rnc", "rnc"))
+    replaced: list[str] = []
+    kept: list[str] = []
+    for model, holder, name, field in targets:
+        fact, value = holder[name], stated[field]
+        if value is None:
+            continue
+        known = fact.get("state") == "known"
+        if known and _same(field, fact["value"], value):
+            continue
+        candidate = {
             "state": "known",
             "value": value,
             "origin": "qr_decoded",
             "verified": False,
             "source_ids": [str(source_id)],
         }
-
-    if fill_amount:
-        facts["amount"] = fill(facts["amount"], qr.monto_total)
-    facts["occurred_on"] = fill(
-        facts["occurred_on"], qr.fecha_emision.isoformat() if qr.fecha_emision else None
-    )
-    fiscal = facts.get("fiscal")
-    if isinstance(fiscal, dict):
-        fiscal["rnc"] = fill(fiscal["rnc"], qr.rnc_emisor)
-        fiscal["ecf"] = fill(fiscal["ecf"], qr.encf)
+        if fact.get("origin") in (None, "extracted") and _holds(model, name, candidate):
+            holder[name] = candidate
+            if known:
+                replaced.append(name)
+        elif known:
+            kept.append(name)
+    if replaced or kept:
+        logger.info(
+            "business_post_read_rule rule=qr_over_read replaced={} kept={}"
+            " replaced_fields={} kept_fields={}",
+            len(replaced),
+            len(kept),
+            replaced,
+            kept,
+        )
     return facts

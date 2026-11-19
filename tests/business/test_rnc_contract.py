@@ -71,7 +71,7 @@ def test_a_qr_of_zeros_fills_no_rnc():
     source = uuid4()
     facts = BusinessFacts(fiscal=FiscalFacts()).model_dump(mode="json")
     filled = BusinessFacts.model_validate(
-        fill_from_qr(facts, qr, source, fill_amount=False)
+        fill_from_qr(facts, qr, source, fill_amount=False, fill_rnc=True)
     )
     assert isinstance(filled.fiscal.rnc, Unknown)
     assert filled.fiscal.ecf.state == "known"

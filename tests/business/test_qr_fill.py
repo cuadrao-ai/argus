@@ -1,15 +1,17 @@
 """The four groups the founder named, plus a non-receipt: what the draft
-holds after the read and the QR meet in the typed merge step. Nothing is
-overwritten, every filled fact names its source, a mismatch fills nothing
-and is a row to review, a filled amount is a draft value a person approves,
-and a non-receipt yields no checks and no invented values."""
+holds after the read and the QR meet in the typed merge step. The QR wins
+over the reader, every fact it gives names its source, the saved row asks
+for review only of what the record still holds against the QR, an amount
+from the QR is a draft value a person approves, and a non-receipt yields no
+checks and no invented values."""
 
 # ruff: noqa: F811  # the shared fixture is imported by name, as its siblings do
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from argus.domain.business.contracts.checks import EcfCheck
+from argus.domain.business.actions.listos import _ecf_failed
+from argus.domain.business.contracts.checks import DgiiQr, EcfCheck
 from argus.domain.business.contracts.facts import BusinessResolution
 from argus.domain.ingestion.documents.dgii_qr import parse_dgii_url
 from argus.domain.ingestion.documents.extractor import batch_from_result
@@ -21,6 +23,9 @@ from tests.test_business_multi_purchase import _prepared
 
 NOW = datetime(2026, 10, 12, 20, 0, tzinfo=timezone.utc)
 QR = parse_dgii_url(URL)
+DATED = DgiiQr.model_validate(
+    {**QR.model_dump(mode="json"), "fecha_emision": "2026-11-05"}
+)
 
 
 def _read(*, rows: list[dict], receipt: dict | None) -> ExtractionResult:
@@ -117,42 +122,108 @@ def test_a_qr_and_printed_numbers_that_agree_keep_the_read_and_match(
     read = _read(
         rows=[_row(TOTAL)], receipt=dict(total=TOTAL, currency="DOP", rnc=RNC, ecf=ENCF)
     )
-    batch, resolution = _resolution(checked, monkeypatch, read, QR)
+    _, resolution = _resolution(checked, monkeypatch, read, QR)
     facts = resolution.facts
     assert (facts.amount.origin, facts.fiscal.rnc.origin, facts.fiscal.ecf.origin) == (
         "extracted",
         "extracted",
         "extracted",
     )
-    assert _states(batch.ecf_checks)["qr_matches_read"] == ("verified", None)
+    assert _states(resolution.ecf_checks)["qr_matches_read"] == ("verified", None)
 
 
-def test_a_qr_and_printed_numbers_that_disagree_fill_nothing_and_ask_for_review(
+def _match(verification):  # noqa: ANN001
+    return next(c for c in verification.checks if c.name == "qr_matches_read")
+
+
+def _pairs(check: EcfCheck) -> dict:
+    return {name: pair.model_dump() for name, pair in check.read_vs_qr.items()}
+
+
+def test_a_qr_and_printed_numbers_that_disagree_end_with_the_qr_and_no_review(
     checked, monkeypatch
 ):  # noqa: ANN001, F811
     read = _read(
         rows=[_row("33254.19")],
         receipt=dict(total="33254.19", currency="DOP", rnc="131111223", ecf=ENCF),
     )
-    batch, resolution = _resolution(checked, monkeypatch, read, QR)
+    _, resolution = _resolution(checked, monkeypatch, read, QR)
     facts = resolution.facts
-    # The read's values stand; nothing from the QR overwrote them.
-    assert (facts.amount.value, facts.fiscal.rnc.value, facts.amount.origin) == (
-        "33254.19",
-        "131111223",
-        "extracted",
+    assert (facts.amount.value, facts.amount.origin, facts.amount.verified) == (
+        TOTAL,
+        "qr_decoded",
+        False,
     )
-    match = next(c for c in batch.ecf_checks.checks if c.name == "qr_matches_read")
-    assert (match.state, match.code) == ("failed", "qr_differs")
-    assert match.detail == {}
-    assert {k: v.model_dump() for k, v in match.read_vs_qr.items()} == {
-        "rnc": {"read": "131111223", "qr": RNC},
-        "total": {"read": "33254.19", "qr": TOTAL},
-    }
+    assert (facts.fiscal.rnc.value, facts.fiscal.rnc.origin) == (RNC, "qr_decoded")
+    assert (facts.fiscal.ecf.value, facts.fiscal.ecf.origin) == (ENCF, "extracted")
+    # The record holds the QR's values, so its row has nothing left to review.
+    saved = _match(resolution.ecf_checks)
+    assert (saved.state, saved.code, saved.detail) == ("verified", None, {})
+    assert _pairs(saved) == {"ecf": {"read": ENCF, "qr": ENCF}}
     # The typed pairs survive the JSON round trip the draft row takes.
-    again = EcfCheck.model_validate(match.model_dump(mode="json"))
-    assert again.read_vs_qr["rnc"].qr == RNC
+    again = EcfCheck.model_validate(saved.model_dump(mode="json"))
+    assert again.read_vs_qr["ecf"].qr == ENCF
     assert resolution.dgii_qr == QR
+
+
+def test_an_ncf_the_reader_found_never_fails_the_e_ncf_the_qr_gave(checked, monkeypatch):  # noqa: ANN001, F811
+    read = _read(
+        rows=[_row(TOTAL)],
+        receipt=dict(total=TOTAL, currency="DOP", rnc=RNC, ncf="B0100000099"),
+    )
+    _, resolution = _resolution(checked, monkeypatch, read, QR)
+    fiscal = resolution.facts.fiscal
+    assert (fiscal.ecf.value, fiscal.ecf.origin) == (ENCF, "qr_decoded")
+    saved = _match(resolution.ecf_checks)
+    assert saved.state == "verified" and "ecf" not in saved.read_vs_qr
+    # Nothing on the e-CF keeps the record out of Listos.
+    assert not _ecf_failed(resolution)
+
+
+def test_the_qr_issue_date_replaces_a_date_the_reader_took_from_elsewhere(
+    checked, monkeypatch
+):  # noqa: ANN001, F811
+    # The reader took the number's "válido hasta" date for the issue date.
+    read = _read(
+        rows=[{**_row(TOTAL), "occurred_on": "2027-12-31"}],
+        receipt=dict(
+            total=TOTAL, currency="DOP", rnc=RNC, ecf=ENCF, occurred_on="2027-12-31"
+        ),
+    )
+    _, resolution = _resolution(checked, monkeypatch, read, DATED)
+    occurred_on = resolution.facts.occurred_on
+    assert (occurred_on.value, occurred_on.origin) == (date(2026, 11, 5), "qr_decoded")
+    saved = _match(resolution.ecf_checks)
+    assert saved.state == "verified" and "occurred_on" not in saved.read_vs_qr
+
+
+def test_a_sale_keeps_the_client_rnc_the_read_found(checked, monkeypatch):  # noqa: ANN001, F811
+    from argus.domain.business.actions import mutations
+
+    # The QR's issuer is the Business itself, so the read chose a Venta.
+    monkeypatch.setattr(mutations, "business_tax_id", lambda tx: RNC)
+    read = _read(
+        rows=[{**_row(TOTAL), "direction": "inflow", "kind_hint": "income"}],
+        receipt=dict(total=TOTAL, currency="DOP", rnc="101000001", ecf=ENCF),
+    )
+    _, resolution = _resolution(checked, monkeypatch, read, QR)
+    rnc = resolution.facts.fiscal.rnc
+    assert resolution.document_type == "venta"
+    assert (rnc.value, rnc.origin) == ("101000001", "extracted")
+
+
+def test_several_purchases_keep_the_amount_and_the_total_that_differs_is_reviewed(
+    checked, monkeypatch
+):  # noqa: ANN001, F811
+    read = _read(
+        rows=[_row("33000.00"), {**_row("254.19"), "row": 2}],
+        receipt=dict(total="33254.19", currency="DOP", rnc=RNC, ecf=ENCF),
+    )
+    _, resolution = _resolution(checked, monkeypatch, read, QR)
+    assert resolution.facts.amount.state == "unknown"
+    saved = _match(resolution.ecf_checks)
+    assert (saved.state, saved.code) == ("failed", "qr_differs")
+    assert _pairs(saved) == {"total": {"read": "33254.19", "qr": TOTAL}}
 
 
 def test_a_non_receipt_yields_no_checks_and_no_invented_values(checked, monkeypatch):  # noqa: ANN001, F811

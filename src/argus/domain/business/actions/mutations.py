@@ -79,7 +79,7 @@ from argus.domain.business.purchase_review import (
 )
 from argus.domain.business.receipt_amounts import read_amount, read_amount_facts
 from argus.domain.business.transactions import ActionTransaction
-from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
+from argus.domain.ingestion.documents.dgii_qr import fill_from_qr, record_qr_checks
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     ExtractionBatch,
@@ -667,9 +667,18 @@ def prepare_attachment(
     facts["fiscal"] = fiscal_facts_from_receipt(
         batch.receipt, source_id=source_id
     ).model_dump(mode="json")
-    # The typed merge after decode and read: the QR fills only what the read
-    # left unknown, each filled fact naming its origin; a mismatch fills nothing.
-    facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
+    document_type, detected = _read_document_type(tx, event, draft, batch)
+    # The typed merge after decode and read: what the QR carries replaces what
+    # the reader found. A Venta's RNC is the client's, never the QR's issuer.
+    # With several purchases no one amount is the document's total.
+    amount_is_total = len(purchases) <= 1
+    facts = fill_from_qr(
+        facts,
+        batch.dgii_qr,
+        source_id,
+        fill_amount=amount_is_total,
+        fill_rnc=document_type != "venta",
+    )
     read_facts = BusinessFacts.model_validate(facts)
     facts = read_facts.model_dump(mode="json")
     default_currency = fiscal_default_currency(batch)
@@ -697,7 +706,6 @@ def prepare_attachment(
             for name, incoming in facts["fiscal"].items():
                 merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
         facts = merged
-    document_type, detected = _read_document_type(tx, event, draft, batch)
     after = BusinessFacts.model_validate(facts)
     typed_origin = "extracted" if detected else "owner_stated"
     if document_type == "venta":
@@ -719,7 +727,13 @@ def prepare_attachment(
         None,
         read_purchases,
         read_total,
-        batch.ecf_checks,
+        record_qr_checks(
+            batch.ecf_checks,
+            batch.dgii_qr,
+            after,
+            read_total,
+            amount_is_total=amount_is_total,
+        ),
         batch.dgii_qr,
         _due_notice_mark(batch, bill=bill, booked_from_bill=booked_from_bill),
         document_type=document_type,
