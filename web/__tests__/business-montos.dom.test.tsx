@@ -106,7 +106,7 @@ test("Fiscal restore sends an explicit server restore and uses the source amount
   const restored: unknown[] = [];
   const host = await mount(<FiscalDeclarationEditor dossier={base} fields={fields} disabled={false} open reviewFiscal={async () => base} reviewMontos={async (_, __, input) => { restored.push(input); return base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
   const button = host.querySelector<HTMLButtonElement>('[data-restore-inherited="goods_amount"]')!;
-  assert.equal(button.getAttribute("aria-label"), "Usar Montos (RD$ 1,000.00)");
+  assert.equal(button.getAttribute("aria-label"), "Restaurar: RD$ 1,000.00");
   await act(async () => button.click());
   assert.deepEqual(restored, [{ restore_inherited: ["goods_amount"] }]);
 });
@@ -133,8 +133,8 @@ test("Fiscal restore shows unknown for null money and date targets", async () =>
   } };
   const host = await mount(<FiscalDeclarationEditor dossier={empty} fields={fields} disabled={false} open reviewFiscal={async () => empty} reviewMontos={async () => empty} onChanged={noop} onBusy={noop} onDirty={noop} />);
   const label = (field: string) => host.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label");
-  assert.equal(label("goods_amount"), "Usar Montos (-)");
-  assert.equal(label("paid_on"), "Usar Fecha del comprobante (-)");
+  assert.equal(label("goods_amount"), "Restaurar: -");
+  assert.equal(label("paid_on"), "Restaurar: -");
 });
 
 test("a field that follows a code, a text or a date names its source and restores to that value", async () => {
@@ -151,9 +151,23 @@ test("a field that follows a code, a text or a date names its source and restore
   await cleanup();
   const overridden = await mount(editor(state(false)));
   const restore = (field: string) => overridden.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label");
-  assert.equal(restore("id_type"), `Usar RNC (${es.business.dgii.option.id_type["1"]})`);
-  assert.equal(restore("modified_ncf"), "Usar NCF de la compra original (E310000000007)");
-  assert.equal(restore("paid_on"), "Usar Fecha del comprobante (12 nov 2026)");
+  assert.equal(restore("id_type"), `Restaurar: ${es.business.dgii.option.id_type["1"]}`);
+  assert.equal(restore("modified_ncf"), "Restaurar: E310000000007");
+  assert.equal(restore("paid_on"), "Restaurar: 12 nov 2026");
+});
+
+test("a linked field shows its link icon only while it holds a value", async () => {
+  const base = await dossier();
+  const link = { field: "net_amount", value: null, inherited: true } as const;
+  const linked: BusinessDossier = { ...base, dgii: { ...base.dgii!, goods_amount: "1000.00", services_amount: null, legal_tip: null }, inheritance: { ...base.inheritance, goods_amount: { ...link, value: "1000.00" }, services_amount: link, legal_tip: { ...link, field: "legal_tip" } } };
+  const montos: DgiiFields = { "606": [...fields["606"], ...(["services_amount", "legal_tip"] as const).map((name) => ({ name, label: "", kind: "money" as const, options: [] }))], "607": [] };
+  const host = await mount(<FiscalDeclarationEditor dossier={linked} fields={montos} disabled={false} open reviewFiscal={async () => linked} reviewMontos={async () => linked} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  assert.ok(host.querySelector('[data-inherited="goods_amount"]'));
+  for (const field of ["services_amount", "legal_tip"]) {
+    assert.ok(host.querySelector(`[name="${field}"], [data-testid="fiscal-declaration-${field}"]`));
+    assert.equal(host.querySelector(`[data-inherited="${field}"]`), null);
+    assert.equal(host.querySelector(`[data-restore-inherited="${field}"]`), null);
+  }
 });
 
 for (const currency of ["DOP", "USD", "EUR", null]) test(`Montos names ${currency ?? "missing currency"} once and rows contain only numbers`, async () => {
