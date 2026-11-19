@@ -141,7 +141,7 @@ they do not update or stand in for the legacy global measurement.
 ## Mocked Run
 
 ```bash
-PYTHONPATH=src:web OPENROUTER_API_KEY= poetry run pytest \
+PYTHONPATH=src:web CUADRAO_OPENROUTER_API_KEY_DEV= poetry run pytest \
   tests/evals/test_business*.py -q --no-cov
 ```
 

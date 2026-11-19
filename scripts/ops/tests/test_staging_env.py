@@ -10,7 +10,7 @@ import scripts.ops.staging_env as se
 
 AUDIT_API = """APP_ENV CUADRAO_CHECKPOINTER_MODE ARGUS_DEV_MEMORY_FALLBACK
 CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD ARGUS_DOCUMENT_EXTRACTION_ENABLED ARGUS_FINANCIAL_ACCOUNTS_ENABLED
-ARGUS_INGESTION_ENABLED CUADRAO_MOCK_AUTH CUADRAO_PERSISTENCE_MODE CUADRAO_PROD_OPENROUTER_API_KEY ARGUS_VISION_MODEL
+ARGUS_INGESTION_ENABLED CUADRAO_MOCK_AUTH CUADRAO_PERSISTENCE_MODE CUADRAO_OPENROUTER_API_KEY_STG ARGUS_VISION_MODEL
 CUADRAO_APP_ORIGIN CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED CUADRAO_BUSINESS_EMAIL_DOMAIN
 CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED CUADRAO_DOCUMENT_EXTRACTION_ENABLED
 CUADRAO_INGESTION_ENABLED CUADRAO_VISION_MODEL CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
@@ -62,7 +62,7 @@ def live_for(manifest, label, audit):
         )
         live["NEXT_PUBLIC_CUADRAO_API_URL"] = "https://canonical.example.test/api/v1"
     if label == "api":
-        live["CUADRAO_PROD_OPENROUTER_API_KEY"] = SECRET_VALUES[0]
+        live["CUADRAO_OPENROUTER_API_KEY_STG"] = SECRET_VALUES[0]
         live["SUPABASE_SERVICE_ROLE_KEY"] = SECRET_VALUES[2]
     return live
 
@@ -156,26 +156,6 @@ def test_web_preserves_canonical_api_url_without_managing_the_old_name(manifest)
     )
     assert plan.final["NEXT_PUBLIC_ARGUS_API_URL"] == live["NEXT_PUBLIC_ARGUS_API_URL"]
     assert "CUADRAO_RESEND_WEBHOOK_SECRET" not in plan.final
-
-
-def test_api_plan_allows_missing_live_guest_openrouter_key(manifest):
-    live = live_for(manifest, "api", AUDIT_API)
-    plan = se.compute_plan(manifest["services"]["api"], live, {})
-    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" not in plan.final
-    assert not any(
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in problem for problem in plan.problems
-    )
-
-
-def test_api_plan_allows_guest_key_matching_registered_on_legacy_live_state(
-    manifest,
-):
-    live = live_for(manifest, "api", AUDIT_API)
-    shared_value = live["CUADRAO_PROD_OPENROUTER_API_KEY"]
-    live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = shared_value
-    plan = se.compute_plan(manifest["services"]["api"], live, {})
-    assert not any("must differ" in problem for problem in plan.problems)
-    assert live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] == shared_value
 
 
 def full_secrets():

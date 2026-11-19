@@ -29,7 +29,7 @@ _AUTH_ENV_VARS = (
     # Hermeticity: the default classifier must see no key so it skips, never
     # calls the network, and the assessor fails closed unless a test injects
     # a fake.
-    "OPENROUTER_API_KEY",
+    "CUADRAO_OPENROUTER_API_KEY_DEV",
 )
 
 

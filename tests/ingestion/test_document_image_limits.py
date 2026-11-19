@@ -117,7 +117,7 @@ def test_email_dimension_check_does_not_open_source_in_parent(monkeypatch):
 
 
 def test_child_has_cpu_memory_file_limits_and_no_provider_environment(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "must-not-reach-child")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "must-not-reach-child")
     monkeypatch.setattr(
         rebuilt,
         "_IMAGE_REBUILD",
@@ -127,7 +127,7 @@ assert resource.getrlimit(resource.RLIMIT_CPU) == (20, 20)
 assert resource.getrlimit(resource.RLIMIT_FSIZE) == (10485760, 10485760)
 if sys.platform == "linux":
     assert resource.getrlimit(resource.RLIMIT_AS) == (536870912, 536870912)
-assert "OPENROUTER_API_KEY" not in os.environ
+assert "CUADRAO_OPENROUTER_API_KEY_DEV" not in os.environ
 sys.stdout.write("1")
 """,
     )

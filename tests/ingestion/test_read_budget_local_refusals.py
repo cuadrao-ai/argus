@@ -68,7 +68,7 @@ def poppler(pdfinfo: str):
 @pytest.fixture
 def rig(monkeypatch):
     monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "offline-test-key")
     provider = Provider()
     monkeypatch.setattr(extraction, "invoke_openrouter_json_schema", provider)
     repo = InMemoryConnectionRepository()

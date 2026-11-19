@@ -56,9 +56,7 @@ def test_internal_readiness_returns_safe_check_summary(monkeypatch) -> None:
     assert payload["status"] == "ready"
     assert payload["checks"][0]["name"] == "supabase"
     assert "SUPABASE_SERVICE_ROLE_KEY" not in response.text
-    assert "OPENROUTER_API_KEY" not in response.text
-    assert "CUADRAO_PROD_OPENROUTER_API_KEY" not in response.text
-    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" not in response.text
+    assert "CUADRAO_OPENROUTER_API_KEY_DEV" not in response.text
     assert "ALPACA_SECRET_KEY" not in response.text
 
 

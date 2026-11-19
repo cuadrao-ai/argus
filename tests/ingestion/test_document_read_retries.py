@@ -215,7 +215,7 @@ class Rig:
 @pytest.fixture
 def rig(monkeypatch):
     monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "offline-test-key")
     monkeypatch.setattr(preparation, "_run", poppler("Pages: 1\nEncrypted: no\n"))
     clock = Clock()
     repo = InMemoryConnectionRepository()
@@ -430,7 +430,7 @@ async def test_a_refused_key_fails_fast_and_alerts_us(rig, code):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("missing", ["ARGUS_VISION_MODEL", "OPENROUTER_API_KEY"])
+@pytest.mark.parametrize("missing", ["ARGUS_VISION_MODEL", "CUADRAO_OPENROUTER_API_KEY_DEV"])
 async def test_a_missing_model_or_key_fails_fast_and_alerts_us(
     rig, missing, monkeypatch
 ):

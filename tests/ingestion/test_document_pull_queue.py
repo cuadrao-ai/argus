@@ -535,7 +535,7 @@ def retrying(rig, worker_env, monkeypatch):
     and whose second call waits to be released, so the worker runs a retry."""
     service = rig[0]
     monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "offline-test-key")
     monkeypatch.setattr(preparation, "_run", poppler("Pages: 1\nEncrypted: no\n"))
     service.extractor = extraction.DocumentExtractor(
         DocumentExtractionSettings(enabled=True)

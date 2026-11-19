@@ -420,7 +420,7 @@ jobs:
     env:
       CI_SHARD_INDEX: ${{ matrix.shard }}
       CI_SHARD_COUNT: "3"
-      OPENROUTER_API_KEY: ""
+      CUADRAO_OPENROUTER_API_KEY_DEV: ""
       ALPACA_API_KEY: ""
       ALPACA_SECRET_KEY: ""
       ARGUS_MARKET_DATA_PROVIDER_MODE: synthetic_unit_fixture

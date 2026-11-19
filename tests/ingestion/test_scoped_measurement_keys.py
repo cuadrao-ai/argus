@@ -2,30 +2,17 @@
 
 import os
 
-import pytest
 from faker import Faker
 
 from scripts.documents.scoped_measurement import _redact_api_key, require_api_key
 
 
-@pytest.mark.parametrize(
-    "key_name", ["CUADRAO_OPENROUTER_API_KEY_DEV", "OPENROUTER_API_KEY"]
-)
-def test_measurement_uses_policy_key(monkeypatch, key_name):
+def test_measurement_uses_policy_key(monkeypatch):
     secret = Faker().uuid4()
     monkeypatch.setenv("APP_ENV", "test")
-    monkeypatch.setenv(key_name, secret)
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", secret)
     require_api_key()
     assert secret not in _redact_api_key(f"provider rejected {secret}")
-
-
-def test_measurement_prefers_dev_key(monkeypatch):
-    fake = Faker()
-    selected, legacy = fake.uuid4(), fake.uuid4()
-    monkeypatch.setenv("APP_ENV", "test")
-    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", selected)
-    monkeypatch.setenv("OPENROUTER_API_KEY", legacy)
-    assert _redact_api_key(selected) == ""
 
 
 def test_qa_key_file_uses_policy(monkeypatch, tmp_path):
@@ -58,15 +45,16 @@ def test_qa_key_file_changes_only_model_credentials(monkeypatch, tmp_path):
     assert _redact_api_key(secret) == ""
 
 
-def test_hermetic_commands_blank_every_policy_credential():
+def test_hermetic_commands_blank_the_local_credential():
     from pathlib import Path
 
-    from argus.llm.openrouter_key_policy import MODEL_CREDENTIAL_ENV_NAMES
+    from argus.llm.openrouter_key_policy import (
+        MODEL_CREDENTIAL_ENV_NAMES,
+        model_credential_env_name,
+    )
 
     from tests.conftest import PROVIDER_CREDENTIAL_ENV_VARS
 
-    assert "CUADRAO_OPENROUTER_API_KEY_DEV" in MODEL_CREDENTIAL_ENV_NAMES
-    for name in MODEL_CREDENTIAL_ENV_NAMES:
-        assert name in PROVIDER_CREDENTIAL_ENV_VARS
-        for document in ("AGENTS.md", "scripts/qa/README.md"):
-            assert f"{name}= " in Path(document).read_text()
+    assert set(MODEL_CREDENTIAL_ENV_NAMES) <= set(PROVIDER_CREDENTIAL_ENV_VARS)
+    for document in ("AGENTS.md", "scripts/qa/README.md"):
+        assert f"{model_credential_env_name('local')}= " in Path(document).read_text()

@@ -107,7 +107,7 @@ async def test_luna_attempt_preserves_receipt_usage_and_never_tries_another_mode
     class Draft(BaseModel):
         text: str
 
-    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "synthetic-test-key")
     content = json.dumps({"text": "An uneven historical ride."}) if valid else "invalid"
     capture = openrouter.begin_openrouter_route_receipt_capture()
     try:

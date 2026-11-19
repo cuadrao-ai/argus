@@ -15,7 +15,7 @@ import scripts.ops.staging_env as se
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = """SUPABASE_PROJECT_URL SUPABASE_ANON_PUBLIC_KEY SUPABASE_SERVICE_ROLE_KEY
 SUPABASE_JWT_SECRET SUPABASE_POSTGRES_SESSION_POOLER_URL ALPACA_API_KEY ALPACA_SECRET_KEY
-OPENROUTER_API_KEY CUADRAO_UTILITY_MODEL CUADRAO_UTILITY_FALLBACK_MODEL CUADRAO_CHAT_MODEL
+CUADRAO_OPENROUTER_API_KEY_DEV CUADRAO_UTILITY_MODEL CUADRAO_UTILITY_FALLBACK_MODEL CUADRAO_CHAT_MODEL
 CUADRAO_CHAT_FALLBACK_MODEL CUADRAO_STRUCTURED_MODEL CUADRAO_STRUCTURED_FALLBACK_MODEL
 CUADRAO_CONTEXT_MODEL CUADRAO_CONTEXT_FALLBACK_MODEL CUADRAO_READOUT_MODEL
 CUADRAO_READOUT_FALLBACK_MODEL""".split()
@@ -117,12 +117,12 @@ def test_invalid_store_fails_closed_even_with_existing_files(tmp_path, store, pr
     (root / ".env").write_text("KEEP=unchanged\n")
     if problem == "missing":
         store.write_text(
-            store.read_text().replace("OPENROUTER_API_KEY=synthetic-value\n", "")
+            store.read_text().replace("CUADRAO_OPENROUTER_API_KEY_DEV=synthetic-value\n", "")
         )
     elif problem == "public":
         store.write_text(store.read_text().replace(PUBLIC_ANON, "server-service-secret"))
     elif problem == "duplicate":
-        store.write_text(store.read_text() + "OPENROUTER_API_KEY=do-not-echo-this\n")
+        store.write_text(store.read_text() + "CUADRAO_OPENROUTER_API_KEY_DEV=do-not-echo-this\n")
     elif problem == "unknown":
         store.write_text(store.read_text() + "UNKNOWN=do-not-echo-this\n")
     elif problem == "malformed":
@@ -379,9 +379,9 @@ def test_dev_entrypoint_runs_without_integration_and_mode_flags_win(
 
 def test_regular_root_env_still_overrides_process_then_mode_wins(tmp_path):
     root = worker(tmp_path)
-    (root / ".env").write_text("OPENROUTER_API_KEY=file-value\nCUADRAO_MOCK_AUTH=false\n")
-    env = {"PATH": os.environ["PATH"], "OPENROUTER_API_KEY": "inherited"}
-    command = f'source "{ROOT}/.github/argus-env.sh"; argus_load_root_env; argus_export_dev_mode; printf "%s %s" "$OPENROUTER_API_KEY" "$CUADRAO_MOCK_AUTH"'
+    (root / ".env").write_text("CUADRAO_OPENROUTER_API_KEY_DEV=file-value\nCUADRAO_MOCK_AUTH=false\n")
+    env = {"PATH": os.environ["PATH"], "CUADRAO_OPENROUTER_API_KEY_DEV": "inherited"}
+    command = f'source "{ROOT}/.github/argus-env.sh"; argus_load_root_env; argus_export_dev_mode; printf "%s %s" "$CUADRAO_OPENROUTER_API_KEY_DEV" "$CUADRAO_MOCK_AUTH"'
     result = subprocess.run(
         ["bash", "-c", command], cwd=root, env=env, capture_output=True, text=True
     )
@@ -464,7 +464,7 @@ def test_stack_discovery_uses_resolver_and_explicit_manifest_defaults(
     assert se.run(["local", str(root), "--stack"]) == 0
     backend = (root / ".env").read_text()
     browser = (root / "web/.env.local").read_text()
-    assert "OPENROUTER_API_KEY=local-qa-disabled" in backend
+    assert "CUADRAO_OPENROUTER_API_KEY_DEV=local-qa-disabled" in backend
     assert "NEXT_PUBLIC_MOCK_AUTH=false" in browser
     assert "server-secret" not in browser
 
@@ -793,15 +793,15 @@ def test_same_stack_allows_provider_refresh_and_idempotent_reload(
     browser = (root / "web/.env.local").read_bytes()
     store.write_text(
         store.read_text().replace(
-            "OPENROUTER_API_KEY=synthetic-value",
-            "OPENROUTER_API_KEY=refreshed-provider-key",
+            "CUADRAO_OPENROUTER_API_KEY_DEV=synthetic-value",
+            "CUADRAO_OPENROUTER_API_KEY_DEV=refreshed-provider-key",
         )
     )
     assert setup(root, store, "--check").returncode == 0
     assert "refreshed-provider-key" not in (root / ".env").read_text()
     assert setup(root, store).returncode == 0
     backend = (root / ".env").read_bytes()
-    assert b"OPENROUTER_API_KEY=refreshed-provider-key" in backend
+    assert b"CUADRAO_OPENROUTER_API_KEY_DEV=refreshed-provider-key" in backend
     assert b"SUPABASE_PROJECT_URL=http://localhost:54331" in backend
     result = subprocess.run(
         ["bash", "-c", "source .github/argus-env.sh; argus_load_root_env"],
