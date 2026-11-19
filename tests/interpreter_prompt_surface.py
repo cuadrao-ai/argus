@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import importlib
 import json
 from pathlib import Path
 
@@ -86,6 +87,17 @@ def _joined_constants(node: ast.AST) -> str:
     return "".join(parts)
 
 
+def _field_description(expression: ast.expr, module: str) -> str:
+    """The description as the model reads it. One built from names is resolved
+    with its own module, so a change at the names' owner changes the text."""
+
+    if not any(isinstance(node, (ast.Name, ast.Call)) for node in ast.walk(expression)):
+        return _joined_constants(expression)
+    names = vars(importlib.import_module(module))
+    code = compile(ast.Expression(expression), module, "eval")
+    return str(eval(code, dict(names)))
+
+
 def _business_declaration_descriptions(node: ast.FunctionDef) -> list[tuple[str, str]]:
     found = []
     for expression in ast.walk(node):
@@ -119,6 +131,7 @@ def _business_declaration_descriptions(node: ast.FunctionDef) -> list[tuple[str,
 
 def _model_facing_strings(
     tree: ast.AST,
+    module: str,
     *,
     include_dictionary_messages: bool = False,
     include_readout_instructions: bool = False,
@@ -229,7 +242,7 @@ def _model_facing_strings(
             for keyword in node.keywords:
                 if keyword.arg != "description":
                     continue
-                text = _joined_constants(keyword.value)
+                text = _field_description(keyword.value, module)
                 if text:
                     found.append(("Field.description", text))
 
@@ -254,6 +267,7 @@ def model_facing_surface(repository_root: Path) -> dict[str, dict[str, object]]:
         relative = str(path.relative_to(repository_root))
         strings = _model_facing_strings(
             tree,
+            relative.removeprefix("src/").removesuffix(".py").replace("/", "."),
             include_dictionary_messages=relative in READOUT_MESSAGE_OWNERS,
             include_readout_instructions=relative in READOUT_INSTRUCTION_OWNERS,
             include_fact_sheet_text=relative in READOUT_FACT_SHEET_OWNERS,

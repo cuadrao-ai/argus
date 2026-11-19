@@ -2,9 +2,11 @@ from datetime import date, datetime
 from typing import Annotated, Final, Literal
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
+from argus.domain.business.contracts.dgii import ExpenseType, PaymentForm
+from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
 from argus.domain.business.document_type import DocumentType
 from argus.domain.household.planning_schemas import PlanRef
 from argus.domain.ingestion.contract import (
@@ -75,6 +77,13 @@ class ExtractedObservation(_Frozen):
         if isinstance(value, dict) and "currency" in value:
             return {**value, "currency": _read_currency(value["currency"])}
         return value
+
+
+_READ_CODES: Final = {"payment_form": PAYMENT_FORMS, "expense_type": EXPENSE_TYPES}
+
+
+def _code_list(codes: dict[str, str]) -> str:
+    return ", ".join(f"{code} {label}" for code, label in codes.items())
 
 
 class ReceiptItem(_Frozen):
@@ -150,11 +159,33 @@ class ReceiptDetails(_Frozen):
         'Impuesto label, as decimal text; "0.00" when the receipt prints zero. Null '
         "if absent or unreadable. Never calculate it from a rate, subtotal or total.",
     )
+    payment_form: PaymentForm | None = Field(
+        default=None,
+        description="DGII code of how the receipt shows this purchase was paid: "
+        f"{_code_list(PAYMENT_FORMS)}. Null if no payment form is printed, if it is "
+        "unreadable, or if what is printed fits more than one code.",
+    )
+    expense_type: ExpenseType | None = Field(
+        default=None,
+        description="DGII expense type code, only when the receipt alone makes it "
+        f"obvious for nearly any buyer: {_code_list(EXPENSE_TYPES)}. Null in every "
+        "other case; never a guess.",
+    )
 
     @field_validator("currency", mode="before")
     @classmethod
     def _currency(cls, value: object) -> object:
         return _read_currency(value)
+
+    @field_validator(*_READ_CODES, mode="before")
+    @classmethod
+    def _code(cls, value: object, info: ValidationInfo) -> object:
+        """A value that is not one of the field's codes is a blank, not a failed read."""
+
+        if value is None or value in _READ_CODES[info.field_name]:
+            return value
+        logger.info("document_read_code_unknown field={}", info.field_name)
+        return None
 
 
 # A receipt whose rows do not reduce to one purchase at its total.

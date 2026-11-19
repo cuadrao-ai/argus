@@ -74,7 +74,6 @@ SERVICE_EXPENSE_TYPES = frozenset({"02", "03", "07", "11"})
 SuggestedField = Literal["category", "payment_method"]
 #: Where a suggested 606 answer came from: the last one a person gave for this
 #: RNC in this Business, what the receipt shows, or the AI reading's pick.
-#: Nothing sends ``receipt`` or ``reading`` yet.
 SuggestionSource = Literal["last_choice", "receipt", "reading"]
 
 
