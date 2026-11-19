@@ -171,6 +171,34 @@ Follow these steps in order.
    - Item lines, a payment line or decorative parts that are cut, covered or faded
      do not make a receipt incomplete. Return the items you can read.
 
+8. Payment form and expense type. Both are optional DGII codes. A null is better
+   than a wrong code.
+   - payment_form is how the receipt shows the purchase was paid. Cash tendered
+     with change is cash. A credit or debit card, any card brand or a card
+     terminal slip is 03. A sale on credit, with credit terms or a balance still
+     due, is 04. Two or more forms on one purchase is 07. The word "crédito"
+     alone, when it could mean a credit card or a sale on credit, is null. No
+     printed payment form is null.
+   - expense_type is never printed. It depends on what the buyer's business does,
+     and you cannot see that. Return it only when the receipt alone makes the
+     code obvious for nearly any buyer. In every other case it is null. What
+     each code covers:
+     01: employee uniforms, staff training, employee meals and benefits.
+     02: electricity, internet, office supplies, software subscriptions,
+         professional fees, and repairs or services that are not 04.
+     03: office or warehouse rent, equipment rental.
+     04: maintenance or repairs on the buyer's own vehicles, machinery or
+         buildings.
+     05: client dinners, gifts, travel, public relations.
+     06: donations, specific deductible losses.
+     07: bank fees, loan interest, card processing commissions.
+     08: unplanned losses that do not recur, such as storm damage or theft.
+     09: raw materials or inventory for resale. Never guess 09.
+     10: buying computers, furniture, vehicles, machinery.
+     11: health, vehicle, property or liability insurance.
+     When two codes fit and the receipt does not settle it, such as a staff meal
+     (01) or a client dinner (05), it is null.
+
 The fiscal fields are unverified printed evidence. They are never fiscal validation,
 issuance or a tax-treatment decision. Do not correct, complete or pad a printed
 identifier. If a fiscal value is absent or unreadable, return null. If one field is

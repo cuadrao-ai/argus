@@ -120,7 +120,9 @@ _DRAFT_RESPONSE = (
     "`preparation.receipt`, `issue_date_printed` (string or null) is the issue "
     "date exactly as the receipt prints it, copied before it is interpreted, "
     "and `buyer_rnc` (string or null) is the RNC of the buyer as printed. No "
-    "server code reads these two values."
+    "server code reads these two values. `payment_form` (`01` to `07` or null) "
+    "and `expense_type` (`01` to `11` or null) are the DGII Forma de pago and "
+    "Tipo de gasto codes the reader read; null means it read none."
 )
 
 

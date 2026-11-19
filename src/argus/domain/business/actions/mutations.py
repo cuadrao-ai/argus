@@ -11,7 +11,7 @@ from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.accepted_dates import reader_date_reason
-from argus.domain.business.actions import plans, sources
+from argus.domain.business.actions import dossier, plans, sources
 from argus.domain.business.actions.facts import (
     facts_of,
     patched_facts,
@@ -376,6 +376,7 @@ def revise(
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         declared = apply_payment_split(current, payment_split)
     validate_changed_dates(stored, declared)
+    dossier.log_changed_suggestions(tx, event.id, stored, declared)
     declared = kept_sources(stored, declared)
     return save_revision(
         tx,

@@ -53,6 +53,8 @@ def test_document_prompt_is_covered_only_at_its_exact_owner(tmp_path: Path) -> N
         "Unverified NCF",
         "Unverified e-NCF",
         "Unverified ITBIS",
+        "DGII code of how the receipt",
+        "DGII expense type code",
         "Printed line total",
         "alongside receipt details",
     ],
@@ -65,7 +67,7 @@ def test_all_document_schema_instructions_change_the_surface(
     assert source.count(text) == 1
     _write(tmp_path, owner, source)
     first = model_facing_surface(tmp_path)
-    assert first[owner]["entries"] == 10
+    assert first[owner]["entries"] == 12
     _write(tmp_path, owner, source.replace(text, "Changed instruction"))
     assert model_facing_surface(tmp_path)[owner] != first[owner]
 
