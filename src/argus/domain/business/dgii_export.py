@@ -3,6 +3,7 @@ from __future__ import annotations
 import calendar
 import re
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
@@ -154,6 +155,33 @@ def _missing_ncf_issue(record: FiscalRecord) -> dict:
     }
 
 
+def _duplicate_issues(records: Sequence[FiscalRecord]) -> dict[str, dict]:
+    """Repeated comprobantes in the selected month, using the export's scope."""
+
+    identified = [
+        (
+            record,
+            document_identity(
+                record.kind,
+                fact_value(record, "rnc"),
+                fact_value(record, "ecf") or fact_value(record, "ncf"),
+            ),
+        )
+        for record in records
+        if fact_value(record, "ecf") or fact_value(record, "ncf")
+    ]
+    occurrences = Counter(identity for _, identity in identified)
+    return {
+        record.activity_id: {
+            "code": "fiscal_duplicate_document",
+            "activity_id": record.activity_id,
+            "field": "ncf",
+        }
+        for record, identity in identified
+        if occurrences[identity] > 1
+    }
+
+
 def fiscal_manifest(
     records: tuple[FiscalRecord, ...],
     *,
@@ -209,18 +237,7 @@ def fiscal_manifest(
     consumption_count = 0
     pending_rate = Counter()
 
-    def identity(record):
-        return document_identity(
-            record.kind,
-            fact_value(record, "rnc"),
-            fact_value(record, "ecf") or fact_value(record, "ncf"),
-        )
-
-    occurrences = Counter(
-        identity(record)
-        for record in selected
-        if fact_value(record, "ecf") or fact_value(record, "ncf")
-    )
+    duplicates = _duplicate_issues(selected)
 
     def collect(subject: FiscalRecord) -> list[dict]:
         return _collect_issues(
@@ -291,14 +308,8 @@ def fiscal_manifest(
             )
             continue
         errors = collect(record)
-        if occurrences[identity(record)] > 1:
-            errors.append(
-                {
-                    "code": "fiscal_duplicate_document",
-                    "activity_id": record.activity_id,
-                    "field": "ncf",
-                }
-            )
+        if record.activity_id in duplicates:
+            errors.append(duplicates[record.activity_id])
         if errors:
             issues.extend(errors)
             item["reason"] = errors[0]["code"]
@@ -454,6 +465,12 @@ def line_assessments(
             captured_on=captured_on,
             registry=registry,
         )
+        duplicates = _duplicate_issues(
+            tuple(
+                record for record in records
+                if (record.occurred_on.year, record.occurred_on.month) == (year, month)
+            )
+        )
         for identifier, assessment in manifest_assessments(manifest, by_id).items():
             record = assessment.record
             missing_ncf = not (
@@ -473,6 +490,8 @@ def line_assessments(
                     captured_on=captured_on,
                     registry=registry,
                 )
+                if identifier in duplicates:
+                    checked.append(duplicates[identifier])
                 complete = assessment.issues + tuple(
                     issue for issue in checked if issue not in assessment.issues
                 )

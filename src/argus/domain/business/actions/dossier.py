@@ -13,7 +13,7 @@ from argus.domain.business.actions.duplicate_comparison import (
     duplicate_revisions,
 )
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.fiscal import last_choice, repeated_purchases
+from argus.domain.business.actions.fiscal import last_choice, repeated_comprobantes
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
@@ -207,7 +207,7 @@ def duplicate_candidates(
     )
     read = pending if warned else ()
     draft_id = UUID(event.id)
-    fiscal = tuple(str(i) for i in repeated_purchases(tx, [event]).get(draft_id, ()))
+    fiscal = tuple(str(i) for i in repeated_comprobantes(tx, [event]).get(draft_id, ()))
     candidates = []
     for other_id in dict.fromkeys((*read, *fiscal)):
         try:
