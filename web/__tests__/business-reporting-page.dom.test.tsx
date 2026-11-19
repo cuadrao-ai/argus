@@ -2,15 +2,16 @@ import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import RecordsPagePreview from "@/components/business-app/transacciones/RecordsPagePreview";
 import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
-import { businessReportRow } from "@/lib/business-reporting-wire";
-import type { ReportAnswer, ReportRecord } from "@/lib/business-reports-api";
+import { businessReportRow, recordsSortToReport } from "@/lib/business-reporting-wire";
+import type { ReportAnswer, ReportRecord, ReportSort } from "@/lib/business-reports-api";
+import { DEFAULT_RECORDS_SORT, type RecordsSort } from "@/components/business-app/transacciones/records-pagination";
 import spanish from "@/public/locales/es-419/common.json";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 import { useBusinessReport } from "@/components/business-app/transacciones/useBusinessReport";
@@ -21,6 +22,69 @@ let previousGrant: string | null | undefined;
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+async function mountSortPage({ connected = true, narrow = false, mixed = false, sortable = true } = {}) {
+  const sent: ReportSort[] = [];
+  const selected: RecordsSort[] = [];
+  const items = [row("zeta", "2.00"), { ...row("alfa", "1.00"), currency: mixed ? "USD" : "DOP" }];
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const context = { chosen: { space_id: "fixture-space", role: "owner", capabilities: ["read"] }, panel: { kind: "transactions" }, openPanel: () => undefined, records: { workspace: null } } as unknown as BusinessContextValue;
+  function Page() {
+    const [sort, setSort] = useState(DEFAULT_RECORDS_SORT);
+    const change = (next: RecordsSort) => { selected.push(next); sent.push(recordsSortToReport(next)); setSort(next); };
+    return <RecordsPagePreview records={items.map(businessReportRow)} density="normal" preferences={{ ...sampleRecordsPreferences(), hidden: [], sort }} onSortChange={change} rowRef={() => undefined} resetKey="sort"
+      connected={connected ? { answer: { ...recordedReportAnswer, items, matching_count: 2, page: 1, page_count: 1, effective_sort: recordsSortToReport(sort) }, onPage: () => undefined, onPageSize: () => undefined, onSort: sortable ? change : undefined } : undefined} />;
+  }
+  const host = document.createElement("div");
+  document.body.appendChild(host); root = createRoot(host);
+  await act(async () => root?.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Page /></BusinessContext.Provider></I18nextProvider>));
+  if (narrow) {
+    host.querySelector<HTMLElement>('[data-testid="records-page-preview"] > div')!.style.setProperty("--records-narrow", "1");
+    await act(async () => window.dispatchEvent(new Event("resize")));
+  }
+  return { host, sent, selected };
+}
+
+test.each([
+  ["date", "date_asc", "date_desc"],
+  ["gross_amount", "amount_desc", "amount_asc"],
+  ["counterparty", "name_asc", "name_desc"],
+] as const)("the %s header sends %s then %s using its column key", async (column, first, second) => {
+  const { host, sent, selected } = await mountSortPage();
+  assert.equal(host.querySelector('th[data-col="date"]')?.getAttribute("aria-sort"), "descending");
+  assert.deepEqual([...host.querySelectorAll("thead th")].filter((th) => th.querySelector("button")).map((th) => th.getAttribute("data-col")).sort(), ["counterparty", "date", "gross_amount"]);
+  const button = host.querySelector<HTMLButtonElement>(`th[data-col="${column}"] button`)!;
+  await act(async () => button.click());
+  await act(async () => button.click());
+  assert.deepEqual(sent, [first, second]);
+  assert.deepEqual(selected.map((sort) => sort.key), [column, column]);
+  assert.deepEqual([...host.querySelectorAll("tbody tr")].map((tr) => tr.getAttribute("data-record-id")), ["zeta", "alfa"]);
+});
+
+test("a mixed-currency preview refuses the amount header and keeps its default sort", async () => {
+  const { host, sent } = await mountSortPage({ connected: false, mixed: true });
+  const button = host.querySelector<HTMLButtonElement>('th[data-col="gross_amount"] button')!;
+  assert.equal(button.getAttribute("aria-disabled"), "true");
+  await act(async () => button.click());
+  assert.deepEqual(sent, []);
+  assert.equal(host.querySelector('th[data-col="date"]')?.getAttribute("aria-sort"), "descending");
+  assert.equal(host.querySelector('[role="status"]')?.textContent, spanish.business.transactions.pagination.amount_requires_currency);
+});
+
+test("a narrow server page without sort support keeps only newest enabled", async () => {
+  const { host, sent } = await mountSortPage({ narrow: true, sortable: false });
+  const picker = [...host.querySelectorAll("button")].find((button) => button.textContent?.includes(spanish.business.transactions.pagination.newest));
+  assert.ok(picker);
+  await act(async () => picker.click());
+  const newest = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find((button) => button.textContent === spanish.business.transactions.pagination.newest)!;
+  assert.ok(newest);
+  const menuOptions = [...newest.parentElement!.querySelectorAll("button")];
+  assert.equal(menuOptions.length, 6);
+  assert.deepEqual(menuOptions.map((button) => button.disabled), [false, true, true, true, true, true]);
+  await act(async () => newest.click());
+  assert.deepEqual(sent, []);
 });
 afterEach(async () => { if (root) await act(async () => root?.unmount()); root = undefined; if (previousGrant !== undefined) setChosenGrant(previousGrant); previousGrant = undefined; document.body.innerHTML = ""; });
 afterAll(async () => { await GlobalRegistrator.unregister(); });

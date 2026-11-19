@@ -3,15 +3,15 @@ import type { RecordRow } from "./transacciones-model";
 import { exactMinor } from "./records-results-preview";
 import { formatRecordActivityDate, recordRowKey } from "./records-row-preview";
 
-export type RecordsSort = { key: "fecha" | "monto" | "contraparte"; direction: "desc" | "asc" };
-export const DEFAULT_RECORDS_SORT: RecordsSort = { key: "fecha", direction: "desc" };
+export type RecordsSort = { key: "date" | "gross_amount" | "counterparty"; direction: "desc" | "asc" };
+export const DEFAULT_RECORDS_SORT: RecordsSort = { key: "date", direction: "desc" };
 export const RECORDS_SORT_OPTIONS: readonly (RecordsSort & { label: string })[] = [
-  { key: "fecha", direction: "desc", label: "newest" },
-  { key: "fecha", direction: "asc", label: "oldest" },
-  { key: "monto", direction: "desc", label: "amount_largest" },
-  { key: "monto", direction: "asc", label: "amount_smallest" },
-  { key: "contraparte", direction: "asc", label: "name_ascending" },
-  { key: "contraparte", direction: "desc", label: "name_descending" },
+  { key: "date", direction: "desc", label: "newest" },
+  { key: "date", direction: "asc", label: "oldest" },
+  { key: "gross_amount", direction: "desc", label: "amount_largest" },
+  { key: "gross_amount", direction: "asc", label: "amount_smallest" },
+  { key: "counterparty", direction: "asc", label: "name_ascending" },
+  { key: "counterparty", direction: "desc", label: "name_descending" },
 ];
 export const PAGE_SIZES = [25, 50, 100] as const;
 export type PaginationState = { page: number; pageSize: (typeof PAGE_SIZES)[number] };
@@ -19,19 +19,19 @@ export const INITIAL_PAGINATION: PaginationState = { page: 1, pageSize: 25 };
 export function paginateRecords(records: readonly RecordRow[], state: PaginationState, sort: RecordsSort = DEFAULT_RECORDS_SORT, locale = "es-419") {
   const currencies = new Set(records.map((row) => row.money.currency));
   const amountSortAvailable = currencies.size === 1 && !currencies.has("");
-  const amountSortBlocked = sort.key === "monto" && !amountSortAvailable;
+  const amountSortBlocked = sort.key === "gross_amount" && !amountSortAvailable;
   const effectiveSort = amountSortBlocked ? DEFAULT_RECORDS_SORT : sort;
   const collator = new Intl.Collator(locale, { sensitivity: "base", numeric: true });
   const value = (row: RecordRow): string | bigint | null => {
-    if (effectiveSort.key === "contraparte") return row.counterparty?.trim() || null;
-    if (effectiveSort.key === "fecha") return formatRecordActivityDate(row.occurredOn, locale) === "-" ? null : row.occurredOn;
+    if (effectiveSort.key === "counterparty") return row.counterparty?.trim() || null;
+    if (effectiveSort.key === "date") return formatRecordActivityDate(row.occurredOn, locale) === "-" ? null : row.occurredOn;
     const minor = exactMinor(row.money);
     return minor === null ? null : minor < BigInt(0) ? -minor : minor;
   };
   const ordered = records.map((row) => ({ row, value: value(row) })).sort((a, b) => {
     if (a.value === null && b.value !== null) return 1;
     if (b.value === null && a.value !== null) return -1;
-    const compared = a.value === null || b.value === null ? 0 : effectiveSort.key === "contraparte"
+    const compared = a.value === null || b.value === null ? 0 : effectiveSort.key === "counterparty"
       ? collator.compare(String(a.value), String(b.value)) : a.value < b.value ? -1 : a.value > b.value ? 1 : 0;
     const left = recordRowKey(a.row), right = recordRowKey(b.row);
     return compared * (effectiveSort.direction === "desc" ? -1 : 1) || (left < right ? -1 : left > right ? 1 : 0);
