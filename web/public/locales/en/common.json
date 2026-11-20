@@ -1004,6 +1004,8 @@
         "requested": "Request sent. Support will delete your account and follow up by email.",
         "error": "We couldn't delete your account just now. Try again.",
         "unavailable": "Deleting in the app isn't available here yet. Support can delete your account for you.",
+        "write_support": "Email support",
+        "email_subject": "Cuadrao account deletion request",
         "pending_one": "{{count}} Business to resolve",
         "pending_other": "{{count}} Businesses to resolve",
         "show_all": "See all {{total}} Businesses",

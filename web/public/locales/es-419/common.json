@@ -1004,6 +1004,8 @@
         "requested": "Solicitud enviada. Soporte eliminará tu cuenta y te escribirá por correo electrónico.",
         "error": "No pudimos eliminar tu cuenta en este momento. Inténtalo de nuevo.",
         "unavailable": "Todavía no se puede eliminar desde la app aquí. Soporte puede eliminar tu cuenta por ti.",
+        "write_support": "Escribir a soporte",
+        "email_subject": "Solicitud de eliminación de cuenta de Cuadrao",
         "pending_one": "{{count}} negocio por resolver",
         "pending_other": "{{count}} negocios por resolver",
         "show_all": "Ver los {{total}} negocios",

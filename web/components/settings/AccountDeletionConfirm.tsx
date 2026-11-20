@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleCheck, Clock, LogOut } from "lucide-react";
-import { dangerConfirmButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
+import { dangerConfirmButtonClass, quietButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
 import { formatBusinessName } from "@/components/business-app/business-format";
 import SettingsSurface, { useSettingsStep } from "@/components/settings/SettingsSurface";
 import {
@@ -13,6 +13,7 @@ import {
   type AccountDeletionOutcome,
 } from "@/lib/account-deletion-api";
 import { businessDeadlineParts } from "@/lib/business-lifecycle-api";
+import { supportEmail } from "@/lib/support-email";
 
 /**
  * Cuenta's second step: what deleting does and when it finishes, then one
@@ -29,6 +30,17 @@ const FINISHED_COPY = {
   in_progress: "settings.profile.request_deletion.in_progress",
   requested: "settings.profile.request_deletion.requested",
 } as const;
+
+/** The last way out, when no in-app path can delete the account. */
+export function DeletionSupportLink() {
+  const { t } = useTranslation();
+  const subject = encodeURIComponent(t("settings.profile.request_deletion.email_subject"));
+  return (
+    <a className={`${quietButtonClass} text-[14px]`} href={`mailto:${supportEmail}?subject=${subject}`}>
+      {t("settings.profile.request_deletion.write_support")}
+    </a>
+  );
+}
 
 export default function AccountDeletionConfirm({
   notices,
@@ -115,6 +127,7 @@ export default function AccountDeletionConfirm({
             {t(state === "error" ? "settings.profile.request_deletion.error" : "settings.profile.request_deletion.unavailable")}
           </p>
         ) : null}
+        {state === "unavailable" ? <DeletionSupportLink /> : null}
       </div>
     </SettingsSurface>
   );

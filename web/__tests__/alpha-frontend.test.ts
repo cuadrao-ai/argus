@@ -2512,7 +2512,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(deleteRequestDialog).toContain(
       "settings.profile.request_deletion.unavailable",
     );
-    expect(deleteRequestDialog).not.toContain("mailto:");
+    expect(deleteRequestDialog).toContain('state === "unavailable" ? <DeletionSupportLink /> : null');
     expect(en).not.toContain('"title": "Delete your account?"');
     expect(en).toContain(
       "Permanently delete your Cuadrao account and your data.",

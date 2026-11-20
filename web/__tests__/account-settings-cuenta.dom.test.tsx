@@ -17,6 +17,7 @@ const ALLOWED = { allowed: true, blockers: [], notices: [] };
 const IN_PROGRESS = () => Response.json({ status: "in_progress", pending: ["apple"] }, { status: 202 });
 let answer: unknown = ALLOWED;
 let deletionReply: () => Response = IN_PROGRESS;
+let feedbackReply: () => Response = () => Response.json({ success: true });
 let calls: { path: string; method: string }[] = [];
 
 beforeAll(() => {
@@ -30,6 +31,7 @@ beforeAll(() => {
     if (path.endsWith("/account/deletion")) return Response.json(answer);
     if (path.endsWith("/account/deletion/request")) return Response.json({ status: "requested" });
     if (path.endsWith("/account/delete")) return deletionReply();
+    if (path.endsWith("/feedback")) return feedbackReply();
     if (path.endsWith("/business/owned-spaces")) {
       return Response.json({ spaces: owned(3).map((business, index) => ({ space_id: business.business_id, name: business.business_name, grant_id: `10000000-0000-4000-8000-00000000000${index}`, member_count: 0, reopen_until: "2026-12-20T17:45:00Z", export_windows: [], members: [] })) });
     }
@@ -42,6 +44,7 @@ afterEach(async () => {
   document.body.innerHTML = "";
   answer = ALLOWED;
   deletionReply = IN_PROGRESS;
+  feedbackReply = () => Response.json({ success: true });
   calls = [];
   window.happyDOM.setWindowSize({ width: 1024, height: 768 });
 });
@@ -311,4 +314,63 @@ for (const width of [390, 800, 1280]) {
       });
     }
   }
+}
+
+const OFF_HERE = () => Response.json({ code: "not_found", detail: "off" }, { status: 404 });
+const supportLinks = () => [...document.querySelectorAll<HTMLAnchorElement>('a[href^="mailto:"]')];
+
+async function assertSupportLink() {
+  const { supportEmail } = await import("@/lib/support-email");
+  const { pillButtonClass } = await import("@/components/business-app/business-ui");
+  const links = supportLinks();
+  assert.equal(links.length, 1, "one way to write to support");
+  assert.equal(links[0].textContent, copy.write_support);
+  assert.equal(links[0].getAttribute("href"), `mailto:${supportEmail}?subject=${encodeURIComponent(copy.email_subject)}`);
+  assert.equal(links[0].className.includes(pillButtonClass), false, "a link, never a pill");
+}
+
+test("unavailable: off here and the ticket failed, so the confirmation offers Escribir a soporte below its line", async () => {
+  deletionReply = OFF_HERE;
+  feedbackReply = () => Response.json({ detail: "down" }, { status: 500 });
+  const act = await openCuenta();
+  await act(async () => button(copy.confirm)!.click());
+  await act(async () => buttons(copy.confirm).at(-1)!.click());
+  await settle(act);
+  const line = [...document.querySelectorAll('[role="alert"]')].find((node) => node.textContent === copy.unavailable);
+  assert.ok(line, "the unavailable line stays");
+  await assertSupportLink();
+  assert.ok(line.compareDocumentPosition(supportLinks()[0]) & Node.DOCUMENT_POSITION_FOLLOWING, "the link sits below the line");
+});
+
+test("not allowed for another reason: Cuenta says support can delete it and links to support", async () => {
+  answer = { allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] };
+  await openCuenta();
+  assert.ok(text().includes(copy.unavailable));
+  await assertSupportLink();
+});
+
+const NO_LINK: Record<string, { answer?: unknown; lifecycleControls?: boolean; reply?: () => Response; confirm?: boolean }> = {
+  allowed: {},
+  "owner-blocked, lifecycle on": { answer: { allowed: false, blockers: owned(2), notices: [] }, lifecycleControls: true },
+  "owner-blocked, lifecycle off": { answer: { allowed: false, blockers: owned(2), notices: [] } },
+  "allowed, confirming": { confirm: true },
+  success: { confirm: true, reply: () => Response.json({ status: "deleted" }) },
+  in_progress: { confirm: true, reply: IN_PROGRESS },
+  requested: { confirm: true, reply: OFF_HERE },
+  error: { confirm: true, reply: () => Response.json({ code: "account_deletion_unavailable", detail: "busy" }, { status: 503 }) },
+};
+
+for (const [name, path] of Object.entries(NO_LINK)) {
+  test(`${name}: no support email link on a normal path`, async () => {
+    if (path.answer) answer = path.answer;
+    if (path.reply) deletionReply = path.reply;
+    const act = await openCuenta({ lifecycleControls: path.lifecycleControls ?? false });
+    if (path.confirm) {
+      await act(async () => button(copy.confirm)!.click());
+      assert.equal(supportLinks().length, 0, "not in the confirmation before it runs");
+      await act(async () => buttons(copy.confirm).at(-1)!.click());
+      await settle(act);
+    }
+    assert.equal(supportLinks().length, 0);
+  });
 }

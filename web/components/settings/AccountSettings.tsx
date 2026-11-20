@@ -7,7 +7,7 @@ import { dangerButtonClass, quietButtonClass, secondaryButtonClass } from "@/com
 import { formatBusinessName } from "@/components/business-app/business-format";
 import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import AccountDeletionConfirm from "@/components/settings/AccountDeletionConfirm";
+import AccountDeletionConfirm, { DeletionSupportLink } from "@/components/settings/AccountDeletionConfirm";
 import SettingsSurface from "@/components/settings/SettingsSurface";
 import ProfileAvatar from "@/components/sidebar/ProfileAvatar";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
@@ -224,7 +224,10 @@ function DeletionSection({
           <button type="button" className={quietButtonClass} onClick={onRetry}>{t("common.retry")}</button>
         </div>
       ) : view.kind === "not_allowed" ? (
-        <p className={`mt-0.5 text-[14px] leading-5 ${muted}`}>{t("settings.profile.request_deletion.unavailable")}</p>
+        <div className="mt-0.5">
+          <p className={`text-[14px] leading-5 ${muted}`}>{t("settings.profile.request_deletion.unavailable")}</p>
+          <DeletionSupportLink />
+        </div>
       ) : null}
     </section>
   );
