@@ -294,6 +294,10 @@ class BusinessDossier(RecordContext):
     ecf_checks: EcfVerification | None = None
     #: The DGII QR the receipt carried: the link a person opens on DGII's page.
     dgii_qr: DgiiQr | None = None
+    #: Review shows the e-CF checks card: the server switch
+    #: ``CUADRAO_ECF_CHECKS_PANEL_ENABLED``. ``ecf_checks`` and ``dgii_qr``
+    #: come either way.
+    ecf_checks_panel_available: bool = False
     #: The due-notice mark on this one expense. Unpaid is "Factura por pagar".
     #: Paid, the same record becomes "Factura pagada".
     bill_mark: Literal["Factura por pagar", "Factura pagada"] | None = None
