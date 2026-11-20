@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import unicodedata
@@ -24,6 +25,8 @@ from typing import (
     cast,
 )
 from urllib.parse import unquote, urlsplit
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 MigrationClassification = Literal[
     "additive",
@@ -62,6 +65,17 @@ _RECONCILED_PRODUCTION_LEDGER_SHA256S = (
 
 class MigrationGateError(RuntimeError):
     """Raised when the gate cannot prove a safe, exact comparison."""
+
+
+class _OperatorGitEnvironment(BaseSettings):
+    """Allow credential configuration discovery only for the landed-ref fetch."""
+
+    model_config = SettingsConfigDict(case_sensitive=True, env_file=None)
+
+    HOME: str | None = None
+    PATH: str | None = None
+    XDG_CONFIG_HOME: str | None = None
+    GIT_CONFIG_GLOBAL: str | None = None
 
 
 class DatabaseCursor(Protocol):
@@ -300,9 +314,8 @@ def resolve_production_target(
     username = unquote(parsed.username or "")
     direct_host = f"db.{expected_project_ref}.supabase.co"
     direct_match = host == direct_host
-    pooler_match = (
-        host.endswith(".pooler.supabase.com")
-        and username == f"postgres.{expected_project_ref}"
+    pooler_match = host.endswith(".pooler.supabase.com") and re.fullmatch(
+        r"[A-Za-z_][A-Za-z0-9_-]*\." + expected_project_ref, username
     )
     if not direct_match and not pooler_match:
         raise MigrationGateError(
@@ -341,6 +354,7 @@ def read_applied_migrations(
         with connection.cursor() as cursor:
             _begin_read_only_transaction(cursor)
             try:
+                _assert_ledger_reader_privileges(cursor)
                 cursor.execute(
                     "select version, coalesce(name, ''), statements "
                     "from supabase_migrations.schema_migrations order by version"
@@ -372,6 +386,25 @@ def read_applied_migrations(
             except Exception:
                 pass
     return applied
+
+
+def _assert_ledger_reader_privileges(cursor: DatabaseCursor) -> None:
+    """Reject privileged sessions before reading any ledger rows."""
+
+    cursor.execute(
+        "select rolsuper, rolbypassrls, "
+        "has_table_privilege(current_user, "
+        "'supabase_migrations.schema_migrations', 'INSERT'), "
+        "has_schema_privilege(current_user, 'public', 'CREATE') "
+        "from pg_catalog.pg_roles where rolname = current_user"
+    )
+    privileges = cursor.fetchone()
+    if (
+        privileges is None
+        or len(privileges) != 4
+        or any(value is not False for value in privileges)
+    ):
+        raise MigrationGateError("production ledger role is not proven least-privilege")
 
 
 def _begin_read_only_transaction(cursor: DatabaseCursor) -> None:
@@ -655,6 +688,10 @@ def main(
         help="Path for the JSON release-evidence report.",
     )
     parser.add_argument(
+        "--trusted-sha",
+        help="Exact trusted checkout SHA; read only migration objects from candidate.",
+    )
+    parser.add_argument(
         "--verify-landed-ref",
         metavar="REMOTE/BRANCH",
         help=(
@@ -667,13 +704,14 @@ def main(
     source = os.environ if environ is None else environ
 
     try:
-        _verify_checkout_head(root, args.candidate_sha)
+        trusted_sha = args.trusted_sha or args.candidate_sha
+        _verify_checkout_head(root, trusted_sha)
         landed_sha = (
             verify_landed_ref(root, args.candidate_sha, args.verify_landed_ref)
             if args.verify_landed_ref
             else None
         )
-        contract = load_gate_contract(root, args.candidate_sha)
+        contract = load_gate_contract(root, trusted_sha)
         candidate_migrations = read_candidate_migrations(
             root,
             args.candidate_sha,
@@ -727,6 +765,7 @@ def main(
         }
         exit_code = 2
 
+    report["trusted_sha"] = args.trusted_sha or args.candidate_sha
     report["checked_at"] = (
         datetime.now(timezone.utc)
         .isoformat()
@@ -1216,6 +1255,7 @@ def verify_landed_ref(
         "--no-tags",
         remote,
         f"+refs/heads/{branch}:{tracking_ref}",
+        operator_credentials=True,
     )
     resolved = (
         _run_git(
@@ -1251,10 +1291,14 @@ def _project_ref_from_supabase_url(supabase_url: str) -> str:
     return host_match.group(1)
 
 
-def _run_git(repo_root: Path, *args: str) -> bytes:
+def _run_git(repo_root: Path, *args: str, operator_credentials: bool = False) -> bytes:
+    environment = {"GIT_TERMINAL_PROMPT": "0"}
+    if operator_credentials:
+        environment.update(_OperatorGitEnvironment().model_dump(exclude_none=True))
     result = subprocess.run(
-        ["git", *args],
+        [shutil.which("git") or "git", *args],
         cwd=repo_root,
+        env=environment,
         capture_output=True,
         check=False,
     )

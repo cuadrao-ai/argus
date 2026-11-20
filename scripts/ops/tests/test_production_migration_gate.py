@@ -1013,7 +1013,9 @@ def test_applied_migrations_are_read_in_one_verified_read_only_transaction() -> 
         def execute(self, query: str) -> None:
             self.queries.append(query)
 
-        def fetchone(self) -> tuple[str]:
+        def fetchone(self) -> tuple[object, ...]:
+            if self.queries[-1].startswith("select rolsuper"):
+                return (False, False, False, False)
             return ("on",)
 
         def fetchall(self) -> list[tuple[object, ...]]:
@@ -1069,6 +1071,13 @@ def test_applied_migrations_are_read_in_one_verified_read_only_transaction() -> 
     assert connection.cursor_instance.queries == [
         "begin transaction read only",
         "show transaction_read_only",
+        (
+            "select rolsuper, rolbypassrls, "
+            "has_table_privilege(current_user, "
+            "'supabase_migrations.schema_migrations', 'INSERT'), "
+            "has_schema_privilege(current_user, 'public', 'CREATE') "
+            "from pg_catalog.pg_roles where rolname = current_user"
+        ),
         (
             "select version, coalesce(name, ''), statements "
             "from supabase_migrations.schema_migrations order by version"
@@ -1653,6 +1662,8 @@ def _ssl_root_cert(tmp_path: Path) -> Path:
 class _FakeCursor:
     def __init__(self, rows: list[tuple[object, ...]]) -> None:
         self._rows = rows
+        self.queries: list[str] = []
+        self.privileges: tuple[object, ...] | None = (False, False, False, False)
 
     def __enter__(self) -> _FakeCursor:
         return self
@@ -1660,10 +1671,12 @@ class _FakeCursor:
     def __exit__(self, *_args: object) -> None:
         return None
 
-    def execute(self, _query: str) -> None:
-        return None
+    def execute(self, query: str) -> None:
+        self.queries.append(query)
 
-    def fetchone(self) -> tuple[str]:
+    def fetchone(self) -> tuple[object, ...] | None:
+        if self.queries[-1].startswith("select rolsuper"):
+            return self.privileges
         return ("on",)
 
     def fetchall(self) -> list[tuple[object, ...]]:
@@ -1679,3 +1692,244 @@ class _FakeConnection:
 
     def close(self) -> None:
         return None
+
+
+@pytest.mark.parametrize("role", ["ledger_reader", "release_audit"])
+def test_limited_pooler_role_is_accepted(role: str, faker: Any) -> None:
+    project_ref = faker.lexify("?" * 20, letters="abcdefghijklmnopqrstuvwxyz")
+    target = resolve_production_target(
+        f"postgresql://{role}.{project_ref}:placeholder@"
+        "aws-0-us-east-1.pooler.supabase.com:5432/postgres",
+        expected_project_ref=project_ref,
+    )
+    assert target.project_ref == project_ref
+
+
+@pytest.fixture
+def privilege_connection() -> _FakeConnection:
+    return _FakeConnection([])
+
+
+@pytest.mark.parametrize(
+    "privileges,expected_exit",
+    [
+        ((False, False, False, False), 1),
+        ((True, False, False, False), 2),
+        ((False, True, False, False), 2),
+        ((False, False, True, False), 2),
+        ((False, False, False, True), 2),
+        ((False, False, None, False), 2),
+        ((False, False), 2),
+        (None, 2),
+    ],
+)
+def test_role_privileges_are_proven_before_ledger_read(
+    tmp_path: Path,
+    privilege_connection: _FakeConnection,
+    privileges: tuple[object, ...] | None,
+    expected_exit: int,
+) -> None:
+    repo, sha = _candidate_repo(tmp_path, project_ref="a" * 20)
+    cursor = privilege_connection._cursor
+    cursor.privileges = privileges
+    code = main(
+        ["--candidate-sha", sha, "--output", str(tmp_path / "report.json")],
+        repo_root=repo,
+        environ={
+            "ARGUS_PRODUCTION_DATABASE_URL": (
+                f"postgresql://reader:placeholder@db.{'a' * 20}.supabase.co/postgres"
+            ),
+            "ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT": str(_ssl_root_cert(tmp_path)),
+        },
+        connect_factory=lambda *_args, **_kwargs: privilege_connection,
+    )
+    assert code == expected_exit
+    ledger_queries = [q for q in cursor.queries if "order by version" in q]
+    assert bool(ledger_queries) is (expected_exit == 1)
+    assert cursor.queries[-1] == "rollback"
+
+
+@pytest.mark.parametrize("pending", [False, True])
+def test_trusted_checkout_reads_only_candidate_migration_objects(
+    tmp_path: Path,
+    faker: Any,
+    pending: bool,
+) -> None:
+    repo, trusted_sha = _candidate_repo(tmp_path, project_ref="a" * 20)
+    baseline = read_candidate_migrations(repo, trusted_sha)[0]
+    (repo / "render.yaml").write_text("candidate configuration is not trusted\n")
+    (repo / "candidate_only.txt").write_text(faker.sentence())
+    if pending:
+        (repo / "supabase/migrations/20260813000000_pending.sql").write_text(
+            "create table public.pending_marker (id integer);"
+        )
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate fixture"], cwd=repo, check=True)
+    candidate_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        text=True,
+    ).strip()
+    subprocess.run(["git", "checkout", "--detach", trusted_sha], cwd=repo, check=True)
+    output = tmp_path / "report.json"
+    code = main(
+        [
+            "--candidate-sha",
+            candidate_sha,
+            "--trusted-sha",
+            trusted_sha,
+            "--output",
+            str(output),
+        ],
+        repo_root=repo,
+        environ={
+            "ARGUS_PRODUCTION_DATABASE_URL": (
+                f"postgresql://reader:placeholder@db.{'a' * 20}.supabase.co/postgres"
+            ),
+            "ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT": str(_ssl_root_cert(tmp_path)),
+        },
+        connect_factory=lambda *_args, **_kwargs: _FakeConnection(
+            [(baseline.version, baseline.name, list(baseline.statements))]
+        ),
+    )
+    report = json.loads(output.read_text())
+    assert code == (1 if pending else 0)
+    assert report["candidate_sha"] == candidate_sha
+    assert report["trusted_sha"] == trusted_sha
+    assert not (repo / "candidate_only.txt").exists()
+    assert (
+        subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo,
+            text=True,
+        ).strip()
+        == trusted_sha
+    )
+
+
+@pytest.fixture
+def operator_git_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    faker: Any,
+) -> dict[str, str]:
+    allowed = {
+        "HOME": str(tmp_path / "operator-home"),
+        "PATH": str(tmp_path / "operator-bin") + os.pathsep + os.defpath,
+        "XDG_CONFIG_HOME": str(tmp_path / "operator-config"),
+        "GIT_CONFIG_GLOBAL": str(tmp_path / "operator.gitconfig"),
+    }
+    for key, value in allowed.items():
+        monkeypatch.setenv(key, value)
+    for key in (
+        "ARGUS_PRODUCTION_DATABASE_URL",
+        "CUADRAO_PRODUCTION_LEDGER_READ_URL",
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "PGPASSWORD",
+        "UNRELATED_SECRET",
+        "GIT_CONFIG_PARAMETERS",
+    ):
+        monkeypatch.setenv(key, faker.password())
+    monkeypatch.setenv("GIT_TERMINAL_PROMPT", "1")
+    return allowed
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("status",),
+        ("rev-parse", "HEAD"),
+        ("show", "a" * 40 + ":render.yaml"),
+        ("ls-tree", "-r", "a" * 40),
+    ],
+)
+def test_gate_git_commands_do_not_inherit_ledger_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    operator_git_environment: dict[str, str],
+    args: tuple[str, ...],
+) -> None:
+    environments: list[dict[str, str] | None] = []
+
+    def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        environments.append(kwargs.get("env"))
+        return subprocess.CompletedProcess(command, 0, b"fixture", b"")
+
+    monkeypatch.setattr(migration_gate.subprocess, "run", run)
+    assert migration_gate._run_git(tmp_path, *args) == b"fixture"
+    assert environments == [{"GIT_TERMINAL_PROMPT": "0"}]
+
+
+@pytest.mark.parametrize("config_location", ["home", "xdg", "explicit"])
+def test_landed_ref_fetch_discovers_only_operator_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    faker: Any,
+    operator_git_environment: dict[str, str],
+    config_location: str,
+) -> None:
+    # Set up the local remote before installing synthetic operator configuration.
+    real_run = subprocess.run
+    with monkeypatch.context() as setup:
+        setup.delenv("GIT_CONFIG_PARAMETERS")
+        repo, candidate_sha = _candidate_repo(tmp_path, project_ref="a" * 20)
+        remote = tmp_path / "remote.git"
+        real_run(["git", "init", "--bare", "-q", str(remote)], check=True)
+        real_run(["git", "remote", "add", "origin", str(remote)], cwd=repo, check=True)
+        real_run(["git", "push", "-q", "origin", "HEAD:main"], cwd=repo, check=True)
+    allowed = operator_git_environment.copy()
+    if config_location != "explicit":
+        monkeypatch.delenv("GIT_CONFIG_GLOBAL")
+        allowed.pop("GIT_CONFIG_GLOBAL")
+    config = {
+        "home": Path(allowed["HOME"]) / ".gitconfig",
+        "xdg": Path(allowed["XDG_CONFIG_HOME"]) / "git/config",
+        "explicit": Path(operator_git_environment["GIT_CONFIG_GLOBAL"]),
+    }[config_location]
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text("[credential]\n\thelper = fixture\n", encoding="utf-8")
+    helper = tmp_path / "operator-bin/git-credential-fixture"
+    helper.parent.mkdir()
+    username, password = faker.user_name(), faker.lexify("????????????????")
+    helper.write_text(
+        "#!/bin/sh\n" f"printf 'username={username}\\npassword={password}\\n'\n",
+        encoding="utf-8",
+    )
+    helper.chmod(0o700)
+    fetches: list[list[str]] = []
+
+    def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        environment = kwargs["env"]
+        if command[1] == "fetch":
+            fetches.append(command[1:])
+            # Exercise helper discovery with no HTTP request or real credentials.
+            credentials = real_run(
+                [command[0], "credential", "fill"],
+                cwd=repo,
+                env=environment,
+                input=b"protocol=https\nhost=fixture.invalid\n\n",
+                capture_output=True,
+                check=False,
+            )
+            assert credentials.returncode == 0, "operator helper was not discovered"
+            assert (
+                f"username={username}\npassword={password}\n".encode()
+                in credentials.stdout
+            )
+            assert environment == {**allowed, "GIT_TERMINAL_PROMPT": "0"}
+        else:
+            assert environment == {"GIT_TERMINAL_PROMPT": "0"}
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(migration_gate.subprocess, "run", run)
+    assert verify_landed_ref(repo, candidate_sha, "origin/main") == candidate_sha
+    assert fetches == [
+        [
+            "fetch",
+            "--quiet",
+            "--no-tags",
+            "origin",
+            "+refs/heads/main:refs/remotes/origin/main",
+        ]
+    ]
