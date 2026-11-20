@@ -24524,12 +24524,17 @@ components:
           - type: 'null'
         inherited:
           type: boolean
+        paired_with:
+          items:
+            type: string
+          type: array
       additionalProperties: false
       type: object
       required:
       - field
       - value
       - inherited
+      - paired_with
     InvitationBatch:
       properties:
         recipients:

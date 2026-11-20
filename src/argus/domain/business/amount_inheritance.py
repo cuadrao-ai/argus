@@ -154,7 +154,10 @@ def inheritance_state(
         expected = getattr(split, target) if target in AMOUNT_SIDES else sources[source]
         current = getattr(declaration, target)
         result[target] = InheritedValue(
-            field=source, value=_text(expected), inherited=inherits(target, current, expected, overrides)
+            field=source,
+            value=_text(expected),
+            inherited=inherits(target, current, expected, overrides),
+            paired_with=tuple(side for side in AMOUNT_SIDES if side != target) if target in AMOUNT_SIDES else (),
         )
     return result
 

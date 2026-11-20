@@ -31,8 +31,6 @@ const MONEY_NOTE_CLASS = "[&_p[aria-live]]:mt-1 [&_p[aria-live]]:min-h-5 [&_p[ar
 const OFF_FIELD_CLASS = "[&_.rounded-item:has(>input:disabled)]:bg-[#eceeea] [&_input:disabled]:text-[#56635e] [&_input:disabled]:opacity-100 dark:[&_.rounded-item:has(>input:disabled)]:bg-[#263b35] dark:[&_input:disabled]:text-white/70";
 const FOLD_ROW_CLASS = "-mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-item bg-[#f7f5ee] px-2 text-left hover:bg-[#efece3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]";
 const OWN_ROWS: ReadonlySet<string> = new Set(["rnc", "ncf", "category", "payment_method"]);
-/** The server's AMOUNT_SIDES (src/argus/domain/business/purchase_review.py): one split that follows or leaves its source together. */
-export const AMOUNT_SIDES: readonly string[] = ["services_amount", "goods_amount"];
 
 export default function FiscalDeclarationEditor({ dossier, fields, disabled, open, onOpenChange, reviewFiscal, reviewMontos, onChanged, onBusy, onDirty, saved = false }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; /** Held by the page, because a saved row gives this form a fresh revision. */ open?: boolean; onOpenChange?: (open: boolean) => void; /** Whether this revision is the one this form just saved; held by the page for the same reason. */ saved?: boolean; reviewMontos?: (id: string, version: number, review: BusinessMontosReview, key: string) => Promise<BusinessDossier>; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
@@ -120,7 +118,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
       setProblem({ state: "failed", message: t("business.dgii.save_failed"), reference: referenceCode(error), retry: lost, unknown: lost });
     } finally { setBusy(null); onBusy(false); }
   };
-  const linkedWith = (name: string) => (AMOUNT_SIDES.includes(name) ? AMOUNT_SIDES : [name]).filter((side) => dossier.inheritance?.[side]);
+  const linkedWith = (name: string) => [name, ...(dossier.inheritance?.[name]?.paired_with ?? [])].filter((side) => dossier.inheritance?.[side]);
   // With unsaved edits, a server restore would give a fresh revision and drop them, so the link comes back here and Save sends it.
   const relink = (name: string) => {
     const restored = linkedWith(name);

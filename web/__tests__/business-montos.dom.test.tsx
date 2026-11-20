@@ -5,7 +5,7 @@ import { act, type ReactNode } from "react";
 import { I18nextProvider } from "react-i18next";
 import i18next from "i18next";
 import ReceiptRecordFacts from "@/components/business-app/ReceiptRecordFacts";
-import FiscalDeclarationEditor, { AMOUNT_SIDES } from "@/components/business-app/FiscalDeclarationEditor";
+import FiscalDeclarationEditor from "@/components/business-app/FiscalDeclarationEditor";
 import type { BusinessDossier, BusinessFact } from "@/lib/business-dossier";
 import type { DgiiFields, DgiiReview } from "@/lib/business-dgii";
 import { TOOLTIP_DELAY_MS } from "@/components/ui/Tooltip";
@@ -20,7 +20,7 @@ afterAll(() => GlobalRegistrator.unregister());
 const known = (value: string): BusinessFact<string> => ({ state: "known", value, origin: "extracted", verified: false, source_ids: [] });
 async function dossier() {
   const base = await flaggedReceipt([], [{ id: "cash", nickname: "Caja", currency: "DOP", type: "cash" }]);
-  return { ...base, net_amount: { amount: "1000.00", source: "calculated" }, facts: { ...base.facts, legal_tip: known("100.00") }, inheritance: { goods_amount: { field: "net_amount", value: "1000.00", inherited: true }, paid_on: { field: "occurred_on", value: "2026-11-12", inherited: true }, itbis: { field: "itbis", value: "181.00", inherited: true } } } satisfies BusinessDossier;
+  return { ...base, net_amount: { amount: "1000.00", source: "calculated" }, facts: { ...base.facts, legal_tip: known("100.00") }, inheritance: { goods_amount: { field: "net_amount", value: "1000.00", inherited: true, paired_with: ["services_amount"] }, paid_on: { field: "occurred_on", value: "2026-11-12", inherited: true, paired_with: [] }, itbis: { field: "itbis", value: "181.00", inherited: true, paired_with: [] } } } satisfies BusinessDossier;
 }
 async function mount(content: ReactNode, language = "es-419") {
   const { createRoot } = await import("react-dom/client");
@@ -192,7 +192,7 @@ const splitFields: DgiiFields = { "606": [...fields["606"], { name: "services_am
 async function split(inherited: boolean) {
   const base = await dossier();
   base.dgii = { ...base.dgii!, goods_amount: inherited ? "1000.00" : "900.00", services_amount: inherited ? null : "100.00" };
-  base.inheritance = { ...base.inheritance, goods_amount: { field: "net_amount", value: "1000.00", inherited }, services_amount: { field: "net_amount", value: null, inherited } };
+  base.inheritance = { ...base.inheritance, goods_amount: { field: "net_amount", value: "1000.00", inherited, paired_with: ["services_amount"] }, services_amount: { field: "net_amount", value: null, inherited, paired_with: ["goods_amount"] } };
   const writes: DgiiReview[] = []; const restored: unknown[] = [];
   const host = await mount(<FiscalDeclarationEditor dossier={base} fields={splitFields} disabled={false} open reviewFiscal={async (_, __, input) => { writes.push(input); return base; }} reviewMontos={async (_, __, input) => { restored.push(input); return base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
   const amount = (name: string) => host.querySelector<HTMLInputElement>(`input[data-testid="fiscal-declaration-${name}"]`)!;
@@ -231,7 +231,7 @@ test("Restaurar on a saved split override while another field has an edit restor
 });
 
 test("Restaurar to an empty date source clears invalid typed text and leaves no hidden error", async () => {
-  const base = await dossier(); base.inheritance.paid_on = { field: "occurred_on", value: null, inherited: true };
+  const base = await dossier(); base.inheritance.paid_on = { field: "occurred_on", value: null, inherited: true, paired_with: [] };
   const view = await editing(base);
   await type(view.date, "99/99/2026");
   assert.equal(view.date.value, "99/99/2026");
@@ -253,12 +253,6 @@ test("switching the form clears typed text that never became a value", async () 
   assert.equal(host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!.value, "");
 });
 
-test("the web's goods and services split is the server's AMOUNT_SIDES", async () => {
-  const source = await Bun.file(new URL("../../src/argus/domain/business/purchase_review.py", import.meta.url)).text();
-  const sides = [...source.match(/^AMOUNT_SIDES = \(([^)]*)\)/m)![1].matchAll(/"(\w+)"/g)].map((match) => match[1]);
-  assert.deepEqual([...AMOUNT_SIDES].sort(), sides.sort());
-});
-
 
 test("Montos has no provenance words or tax warning text, and edited net has no source badge", async () => {
   const base = await dossier();
@@ -276,8 +270,8 @@ test("Fiscal restore shows unknown for null money and date targets", async () =>
   const base = await dossier();
   const empty: BusinessDossier = { ...base, inheritance: {
     ...base.inheritance,
-    goods_amount: { field: "net_amount", value: null, inherited: false },
-    paid_on: { field: "occurred_on", value: null, inherited: false },
+    goods_amount: { field: "net_amount", value: null, inherited: false, paired_with: ["services_amount"] },
+    paid_on: { field: "occurred_on", value: null, inherited: false, paired_with: [] },
   } };
   const host = await mount(<FiscalDeclarationEditor dossier={empty} fields={fields} disabled={false} open reviewFiscal={async () => empty} reviewMontos={async () => empty} onChanged={noop} onBusy={noop} onDirty={noop} />);
   const label = (field: string) => host.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label");
@@ -288,7 +282,7 @@ test("Fiscal restore shows unknown for null money and date targets", async () =>
 test("a field that follows a code, a text or a date names its source and restores to that value", async () => {
   const base = await dossier();
   const linkedFields: DgiiFields = { "606": [...fields["606"], { name: "id_type", label: "", kind: "select", options: ["1", "2"] }], "607": [] };
-  const links = { id_type: { field: "rnc", value: "1" }, modified_ncf: { field: "original_ncf", value: "E310000000007" }, paid_on: { field: "occurred_on", value: "2026-11-12" } } as const;
+  const links = { id_type: { field: "rnc", value: "1", paired_with: [] }, modified_ncf: { field: "original_ncf", value: "E310000000007", paired_with: [] }, paid_on: { field: "occurred_on", value: "2026-11-12", paired_with: [] } } as const;
   const state = (inherited: boolean): BusinessDossier => ({ ...base, inheritance: { ...base.inheritance, ...Object.fromEntries(Object.entries(links).map(([name, link]) => [name, { ...link, inherited }])) } });
   const editor = (value: BusinessDossier) => <FiscalDeclarationEditor dossier={value} fields={linkedFields} disabled={false} open reviewFiscal={async () => value} reviewMontos={async () => value} onChanged={noop} onBusy={noop} onDirty={noop} />;
   const linked = await mount(editor(state(true)));
@@ -306,8 +300,8 @@ test("a field that follows a code, a text or a date names its source and restore
 
 test("a linked field shows its link icon only while it holds a value", async () => {
   const base = await dossier();
-  const link = { field: "net_amount", value: null, inherited: true } as const;
-  const linked: BusinessDossier = { ...base, dgii: { ...base.dgii!, goods_amount: "1000.00", services_amount: null, legal_tip: null }, inheritance: { ...base.inheritance, goods_amount: { ...link, value: "1000.00" }, services_amount: link, legal_tip: { ...link, field: "legal_tip" } } };
+  const link = { field: "net_amount", value: null, inherited: true, paired_with: [] } as const;
+  const linked: BusinessDossier = { ...base, dgii: { ...base.dgii!, goods_amount: "1000.00", services_amount: null, legal_tip: null }, inheritance: { ...base.inheritance, goods_amount: { ...link, value: "1000.00", paired_with: ["services_amount"] }, services_amount: { ...link, paired_with: ["goods_amount"] }, legal_tip: { ...link, field: "legal_tip" } } };
   const montos: DgiiFields = { "606": [...fields["606"], ...(["services_amount", "legal_tip"] as const).map((name) => ({ name, label: "", kind: "money" as const, options: [] }))], "607": [] };
   const host = await mount(<FiscalDeclarationEditor dossier={linked} fields={montos} disabled={false} open reviewFiscal={async () => linked} reviewMontos={async () => linked} onChanged={noop} onBusy={noop} onDirty={noop} />);
   assert.ok(host.querySelector('[data-inherited="goods_amount"]'));

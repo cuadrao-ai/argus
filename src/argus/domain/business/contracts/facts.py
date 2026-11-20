@@ -96,6 +96,8 @@ class InheritedValue(Contract):
     field: Literal["net_amount", "itbis", "legal_tip", "occurred_on", "rnc", "original_ncf"]
     value: str | None
     inherited: bool
+    #: The other fields that follow or leave their source together with this one.
+    paired_with: tuple[str, ...]
 
 
 class Known(Contract, Generic[T]):

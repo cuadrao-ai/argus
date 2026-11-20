@@ -206,6 +206,21 @@ def test_an_override_holds_until_it_is_restored(name):
     assert inheritance_state(facts, edited, restored, linked)[name].inherited
 
 
+def test_goods_and_services_say_they_restore_and_override_together():
+    facts = read()
+    linked = suggested(category="09", payment_method="01")
+    state = inheritance_state(facts, fresh(facts, linked), None, linked)
+    paired = {name: entry.paired_with for name, entry in state.items()}
+    assert paired == {
+        "goods_amount": ("services_amount",),
+        "id_type": (),
+        "itbis": (),
+        "legal_tip": (),
+        "paid_on": (),
+        "services_amount": ("goods_amount",),
+    }
+
+
 def test_a_review_that_changes_nothing_shown_records_no_override():
     facts = read()
     linked = suggested(category="09", payment_method="01")

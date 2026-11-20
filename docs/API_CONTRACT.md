@@ -9127,8 +9127,12 @@ main amount requires an open draft. Restoring or overriding fiscal inheritance
 uses the existing fiscal edit permission and version checks.
 
 The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
-Each entry holds `{field, value, inherited}`; `value` is the current source
-value to restore, not a copy calculated by the browser. The single mapping is
+Each entry holds `{field, value, inherited, paired_with}`; `value` is the
+current source value to restore, not a copy calculated by the browser.
+`paired_with` names the other fields that restore and override together with
+this one: `goods_amount` and `services_amount` list each other, from
+`purchase_review.AMOUNT_SIDES`, and every other entry is empty. The single
+mapping is
 `amount_inheritance.INHERITANCE`:
 
 | Fiscal field | Main source |
