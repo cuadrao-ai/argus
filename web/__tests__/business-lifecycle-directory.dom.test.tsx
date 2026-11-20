@@ -48,38 +48,3 @@ test("a closed-only member sees the server reason without mounting or creating a
     assert.equal(document.body.textContent?.includes("Ya no tienes acceso"), false);
   } finally { await act(async () => root.unmount()); host.remove(); }
 });
-
-
-test("account deletion retries a failed read and warns about a closed Business without blocking", async () => {
-  const { default: DeleteDialog } = await import("@/components/sidebar/ProfileDeleteRequestDialog");
-  const { useAccountDeletionEligibility } = await import("@/lib/use-account-deletion-eligibility");
-  const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
-  let reads = 0; let deleted = 0;
-  const readEligibility = async () => {
-    reads += 1;
-    if (reads === 1) throw new Error("offline");
-    return { allowed: true as const, blockers: [] as [], notices: [{ kind: "closed_business" as const, business_id: closed.space_id, business_name: closed.name, purge_at: closed.reopen_until }] };
-  };
-  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
-  try {
-    // The opener holds the read, as Ajustes does, and hands the alert its check.
-    function Opener() {
-      const check = useAccountDeletionEligibility(true, readEligibility);
-      return <DeleteDialog state="idle" supportMailto="mailto:test@example.invalid" onClose={() => undefined} onSubmit={() => { deleted += 1; }} check={check} />;
-    }
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><Opener /></I18nextProvider>));
-    const submit = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === spanish.settings.profile.request_deletion.confirm);
-    assert.equal(submit(), undefined, "a failed read cannot offer deletion");
-    // Rendered outside a Business, so the failure line is the neutral one.
-    assert.ok(document.body.textContent?.includes(spanish.settings.profile.request_deletion.check_failed));
-    const retry = [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === spanish.common.retry)!;
-    assert.ok(retry);
-    await act(async () => retry.click());
-    assert.equal(reads, 2);
-    assert.equal(submit()?.disabled, false, "a closed business does not block deletion");
-    assert.ok(document.body.textContent?.includes("Colmado Rosa está cerrado. Si borras tu cuenta, nadie podrá reabrirlo"));
-    assert.ok(document.body.textContent?.includes("hora de RD"));
-    await act(async () => submit()!.click());
-    assert.equal(deleted, 1);
-  } finally { await act(async () => root.unmount()); host.remove(); }
-});

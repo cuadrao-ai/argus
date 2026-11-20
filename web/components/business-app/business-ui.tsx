@@ -15,17 +15,18 @@ export const cardClass =
  * primary is the screen's one main action in Cuadrao green; secondary is an outlined
  * alternative such as Listo or Volver; quiet is a green text action inside content;
  * danger is the red confirm of a delete. All are fully round with a 44px target.
+ * Secondary and both reds darken while pressed (#1495, Ajustes · Cuenta estados).
  */
 export const pillButtonClass =
   `inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[16px] font-medium transition-[opacity,background-color] hover:opacity-90 ${FOCUS_RING} disabled:opacity-40`;
 
 export const primaryButtonClass = `${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`;
-export const secondaryButtonClass = `${pillButtonClass} border border-[#7d8a84]/60 bg-white text-[#172b26] hover:bg-[#F7F5EE] hover:opacity-100 dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/[0.06]`;
+export const secondaryButtonClass = `${pillButtonClass} border border-[#7d8a84]/60 bg-white text-[#172b26] hover:bg-[#F7F5EE] hover:opacity-100 active:bg-[#EFEDE6] dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/[0.06] dark:active:bg-white/10`;
 export const quietButtonClass = `inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[16px] font-medium text-[var(--cuadrao-green)] underline-offset-4 hover:underline ${FOCUS_RING} disabled:opacity-40`;
 export const trashButtonClass = "flex h-11 w-11 shrink-0 items-center justify-center rounded-item text-black/55 hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white/65 dark:hover:bg-white/5";
 /** A destructive action: red, and always behind a confirmation. */
-export const dangerButtonClass = `${pillButtonClass} border border-[#9e2f39]/40 bg-white text-[#9e2f39] dark:border-[#ec9aa0]/40 dark:bg-[#1f2225] dark:text-[#ec9aa0]`;
-export const dangerConfirmButtonClass = `${pillButtonClass} bg-[#9e2f39] text-white dark:bg-[#ec9aa0] dark:text-[#172b26]`;
+export const dangerButtonClass = `${pillButtonClass} border border-[#9e2f39]/40 bg-white text-[#9e2f39] active:bg-[#9e2f39]/[0.08] active:opacity-100 dark:border-[#ec9aa0]/40 dark:bg-[#1f2225] dark:text-[#ec9aa0] dark:active:bg-[#ec9aa0]/[0.12]`;
+export const dangerConfirmButtonClass = `${pillButtonClass} bg-[#9e2f39] text-white active:bg-[#85262f] active:opacity-100 dark:bg-[#ec9aa0] dark:text-[#172b26] dark:active:bg-[#e0868d]`;
 
 export function PanelHeading({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (

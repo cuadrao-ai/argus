@@ -29,8 +29,8 @@ export type AccountDeletionBlocker =
  * a closed Business still inside its reopen window, purged at purge_at. */
 export type AccountDeletionNotice = { kind: "closed_business"; business_id: string; business_name: string | null; purge_at: string };
 
-/** The server's delete rule, read before the alert offers Eliminar. off: the
- * read is switched off here (404), so the alert keeps the support-ticket path. */
+/** The server's delete rule, read when Cuenta opens. off: the read is switched
+ * off here (404), so Eliminar cuenta keeps the support-ticket path. */
 export type AccountDeletionEligibility =
   | { allowed: true; blockers: []; notices: AccountDeletionNotice[] }
   | { allowed: false; blockers: AccountDeletionBlocker[]; notices: AccountDeletionNotice[] }
@@ -44,7 +44,7 @@ function blockerFrom(raw: unknown): AccountDeletionBlocker {
   if (value?.kind === "business_owner" && typeof value.business_id === "string" && businessName(value.business_name)) {
     return { kind: "business_owner", business_id: value.business_id, business_name: value.business_name };
   }
-  // An unknown reason still refuses; the alert never offers what the server did not allow.
+  // An unknown reason still refuses; Cuenta never offers what the server did not allow.
   return { kind: "not_allowed" };
 }
 
@@ -82,9 +82,9 @@ export type AccountDeletionOutcome =
   | "unavailable";
 
 /** The account is gone, or locked while it finishes: the session is dead either
- * way, so the browser signs out as soon as this result arrives, not when the
- * dialog closes (Marcus #801 re-check N2). The dialog stays up as the
- * signed-out confirmation; its Done only cleans up and leaves. */
+ * way, so the browser signs out as soon as this result arrives, not when Ajustes
+ * closes (Marcus #801 re-check N2). Cuenta stays up as the signed-out
+ * confirmation; closing Ajustes only cleans up and leaves. */
 export function deletionEndsSession(
   outcome: AccountDeletionOutcome | string,
 ): boolean {
@@ -93,16 +93,15 @@ export function deletionEndsSession(
 
 /** Passed to onLogout after the account was just deleted.
  * afterAccountDeletion: sign this browser out now (the one logout call), but
- * keep the current surface (the confirmation dialog) mounted.
- * sessionEnded: Done or back on that confirmation; the sign-out already
- * happened, so only clear this browser's state and leave, never a second
- * logout call. */
+ * keep the current surface (Cuenta's confirmation) mounted.
+ * sessionEnded: Ajustes closed after that; the sign-out already happened, so
+ * only clear this browser's state and leave, never a second logout call. */
 export type LogoutOptions = { afterAccountDeletion?: boolean; sessionEnded?: boolean };
 
 /** The account was just deleted: end this browser's session now. The chat's
  * account boundary is told first, so the sign-out doesn't swap the surface
- * for the account-changed screen and the dialog stays as the signed-out
- * confirmation. This is the only logout call: its Done passes sessionEnded,
+ * for the account-changed screen and Cuenta stays as the signed-out
+ * confirmation. This is the only logout call: closing Ajustes passes sessionEnded,
  * which clears local state and leaves without signing out again. If this
  * call fails, the server still refuses the session (the account is gone or
  * locked), so nothing is gained by a second one. */
@@ -112,6 +111,13 @@ export async function endSessionKeepingSurface(
 ): Promise<void> {
   boundary.beginConversion();
   await signOut().catch(() => undefined);
+}
+
+/** Asks support to delete an account an open Business blocks, while transfer
+ * and close are off. The server files one ticket per account and deletes
+ * nothing; asking again answers the same. Throws when nothing was filed. */
+export async function requestSupportDeletion(): Promise<void> {
+  await apiFetch<{ status: "requested" }>("/account/deletion/request", { method: "POST" });
 }
 
 /** The Delete account button. Throws only when nothing happened and a retry

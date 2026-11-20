@@ -140,6 +140,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/account/deletion/request:
+    post:
+      tags:
+      - account
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionSupportResponse'
+        '401':
+          description: No valid session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: '`not_found`: `CUADRAO_ACCOUNT_DELETION_ENABLED` is off; answered before
+            any session check.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: '`account_deletion_request_not_needed`: no open Business blocks this
+            account, so it can be deleted in the app.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: '`too_many_requests`: six requests per account per minute; see Retry-After.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/auth/access-requests:
     post:
       tags:
@@ -15639,6 +15684,14 @@ components:
       required:
       - status
       - pending
+    AccountDeletionSupportResponse:
+      properties:
+        status:
+          type: string
+          const: requested
+      type: object
+      required:
+      - status
     AccountHit:
       properties:
         kind:

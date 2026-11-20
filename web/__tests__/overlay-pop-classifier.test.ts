@@ -121,18 +121,4 @@ describe("refusing a back press", () => {
       /canDismissRef\.current\(\)\)\s*\{[\s\S]{0,400}window\.history\.pushState/,
     );
   });
-
-  test("the deletion dialog refuses only while submitting", () => {
-    const dialog = readFileSync(
-      join(import.meta.dir, "../components/sidebar/ProfileDeleteRequestDialog.tsx"),
-      "utf-8",
-    );
-    expect(dialog).toContain('state !== "submitting"');
-    expect(dialog).toContain("canDismiss,");
-    // Escape arrives from the registry, and only while this dialog is topmost.
-    expect(dialog).toContain("onEscape:");
-    expect(dialog).not.toContain('document.addEventListener("keydown"');
-    // Trapped on the panel, so focus does not open on the backdrop.
-    expect(dialog).toContain("containerRef: panelRef,");
-  });
 });

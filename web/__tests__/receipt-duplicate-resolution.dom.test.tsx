@@ -119,6 +119,8 @@ async function mount(mode: Mode = "success", options: Options = {}) {
 const LABELS = { counterparty: "Comercio", occurred_on: "Fecha", amount: "Total", currency: "Moneda", fiscal_number: "NCF" } as const;
 const PRIMARY = "bg-[var(--cuadrao-green)]";
 const DANGER_FILL = "bg-[#9e2f39]";
+// Class tokens, not substrings: a pressed fill such as active:bg-[#9e2f39]/[0.08] is not the fill.
+const hasClass = (element: Element | undefined, token: string) => Boolean(element?.className.split(/\s+/).includes(token));
 const sent = (ui: { requests: { options?: RequestInit }[] }, index = 0) => JSON.parse(String(ui.requests[index].options?.body));
 const repeats = (node: Element | null) => (node?.textContent ?? "").match(/Parece repetido/g)?.length ?? 0;
 
@@ -271,8 +273,8 @@ test("a different NCF recommends two purchases and makes Son compras distintas t
   try {
     await ui.compare();
     assert.match(ui.view()?.textContent ?? "", /Mismo comercio, fecha, total y moneda\. El NCF es distinto: probablemente son dos compras distintas\./);
-    assert.ok(ui.button("Son compras distintas")?.className.includes(PRIMARY));
-    assert.ok(!ui.button("Eliminar este duplicado")?.className.includes(DANGER_FILL));
+    assert.ok(hasClass(ui.button("Son compras distintas"), PRIMARY));
+    assert.ok(!hasClass(ui.button("Eliminar este duplicado"), DANGER_FILL));
     assert.deepEqual(ui.footerButtons(), ["Volver", "Eliminar este duplicado", "Son compras distintas"]);
   } finally { await ui.cleanup(); }
 });
@@ -282,8 +284,8 @@ test("the same NCF says it is the same document and makes Eliminar este duplicad
   try {
     await ui.compare();
     assert.match(ui.host.querySelector('[data-testid="duplicate-recommendation"]')?.textContent ?? "", /Es el mismo documento/);
-    assert.ok(ui.button("Eliminar este duplicado")?.className.includes(DANGER_FILL));
-    assert.ok(!ui.button("Son compras distintas")?.className.includes(PRIMARY));
+    assert.ok(hasClass(ui.button("Eliminar este duplicado"), DANGER_FILL));
+    assert.ok(!hasClass(ui.button("Son compras distintas"), PRIMARY));
     assert.deepEqual(ui.footerButtons(), ["Volver", "Son compras distintas", "Eliminar este duplicado"]);
   } finally { await ui.cleanup(); }
 });
@@ -293,8 +295,8 @@ test("with no NCF there is no recommendation and no primary action", async () =>
   try {
     await ui.compare();
     assert.equal(ui.host.querySelector('[data-testid="duplicate-recommendation"]'), null);
-    assert.ok(!ui.button("Son compras distintas")?.className.includes(PRIMARY));
-    assert.ok(!ui.button("Eliminar este duplicado")?.className.includes(DANGER_FILL));
+    assert.ok(!hasClass(ui.button("Son compras distintas"), PRIMARY));
+    assert.ok(!hasClass(ui.button("Eliminar este duplicado"), DANGER_FILL));
   } finally { await ui.cleanup(); }
 });
 

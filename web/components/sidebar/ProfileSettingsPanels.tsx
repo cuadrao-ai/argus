@@ -1,8 +1,9 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { Archive, Brain, Globe, History, Link2, MapPin, MessageCircle, Palette, PanelLeft, type LucideIcon } from "lucide-react";
+import { Archive, Brain, CircleUser, Globe, History, Link2, MapPin, MessageCircle, Palette, PanelLeft, type LucideIcon } from "lucide-react";
 
+import AccountSettings, { type AccountActions } from "@/components/settings/AccountSettings";
 import BusinessNameSettings from "@/components/settings/BusinessNameSettings";
 import AppearanceModal from "@/components/settings/AppearanceModal";
 import LanguageModal from "@/components/settings/LanguageModal";
@@ -37,6 +38,8 @@ type SettingsPanelContext = {
   profile: ApiUser | null;
   /** The rail's saved mode and its setter, where the shell has a rail. */
   sidebar?: SidebarPreference;
+  /** What Cuenta needs from the menu; only the Ajustes window lists Cuenta. */
+  account?: AccountActions;
 };
 
 export type SidebarPreference = { mode: SidebarMode; business: boolean; onSelect: (mode: SidebarMode) => void };
@@ -149,6 +152,11 @@ const SETTINGS_PANELS = {
       />
     ),
   },
+  account: {
+    parent: "data",
+    nav: { label: ["settings.account.title", "Account"], icon: CircleUser },
+    render: ({ profile, account, onClose }) => (account ? <AccountSettings profile={profile} onClose={onClose} {...account} /> : null),
+  },
   receipts: {
     parent: "data",
     nav: { label: ["settings.data.shared_links", "Shared links"], icon: Link2 },
@@ -176,6 +184,7 @@ export const SETTINGS_WINDOW_ORDER: readonly SettingsPanel[] = [
   "receipts",
   "archived",
   "deleted",
+  "account",
 ];
 
 export function settingsPanelNav(panel: SettingsPanel): { group: SettingsPanelParent; label: [string, string]; icon: LucideIcon } | null {
@@ -200,6 +209,7 @@ type ProfileSettingsPanelsProps = {
   onProfileSaved: (user: ApiUser) => void;
   profile: ApiUser | null;
   sidebar?: SidebarPreference;
+  account?: AccountActions;
 };
 
 export default function ProfileSettingsPanels({
@@ -213,6 +223,7 @@ export default function ProfileSettingsPanels({
   onProfileSaved,
   profile,
   sidebar,
+  account,
 }: ProfileSettingsPanelsProps) {
   const { t } = useTranslation();
   const { parent, render } = SETTINGS_PANELS[panel];
@@ -228,5 +239,6 @@ export default function ProfileSettingsPanels({
     onProfileSaved,
     profile,
     sidebar,
+    account,
   });
 }

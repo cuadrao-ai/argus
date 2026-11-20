@@ -3452,8 +3452,8 @@ It reads only: it starts no run, locks nothing and sends nothing. Same flag
 and session as the command (`404 not_found` while
 `CUADRAO_ACCOUNT_DELETION_ENABLED` is off, answered before any session check;
 `401` without a session; 30 requests per account per minute per API worker,
-`429 too_many_requests` with `Retry-After`). Ajustes reads it on open and again
-when the delete alert opens. The limit is counted apart from the command's (which
+`429 too_many_requests` with `Retry-After`). Ajustes reads it each time the Cuenta
+section opens. The limit is counted apart from the command's (which
 stays at six), so a screen that checks often cannot use up the delete's requests.
 A guest session is checked the same way.
 
@@ -3491,6 +3491,35 @@ A guest session is checked the same way.
   is not listed. `[]` when none.
 - `503 account_deletion_unavailable` when the check cannot be made; it never
   answers `allowed: true` in that case. The shared
+  `503 auth_session_verification_unavailable` is unchanged.
+
+## `POST /account/deletion/request`
+
+Files a support deletion request for a person the delete command refuses
+because they own an open Business. Ajustes offers it as "Solicitar eliminación"
+while the transfer and close controls are off in the web. The server decides
+from the same rule as `GET /account/deletion`: the request is accepted only
+while that check names at least one `business_owner` blocker. It deletes,
+locks and starts nothing. Same flag and session as the command (`404 not_found`
+while `CUADRAO_ACCOUNT_DELETION_ENABLED` is off, answered before any session
+check; `401` without a session; six requests per account per minute per API
+worker, `429 too_many_requests` with `Retry-After`). No request body.
+
+**Response `200`:**
+
+```json
+{ "status": "requested" }
+```
+
+- The request is idempotent. The first accepted call writes one `feedback` row
+  of type `account_deletion_request` with `context.source`
+  `account_settings_business_owner`, the owned Business ids, and the same
+  account fields as the feedback fallback, and emails support once. A later
+  call finds that row, writes nothing, sends nothing and answers the same `200`.
+- `409 account_deletion_request_not_needed` when no open Business blocks the
+  account (it can be deleted in the app), including a person whose deletion run
+  is already open.
+- `503 account_deletion_unavailable` when the request cannot be filed. The shared
   `503 auth_session_verification_unavailable` is unchanged.
 
 
@@ -6391,6 +6420,8 @@ delivery is logged and never changes the response or the saved feedback.
 command (`POST /account/delete`) is off: the web sends it when that route
 answers `404`. The API adds `source` (default `profile_modal`), the account
 email, profile language, user id and request time to its context.
+`POST /account/deletion/request` writes the same type for a Business owner the
+command refuses, once per account (see that route).
 
 ---
 

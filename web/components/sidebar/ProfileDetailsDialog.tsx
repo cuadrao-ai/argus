@@ -14,6 +14,7 @@ import { ChevronUp, Edit2, X } from "lucide-react";
 
 import { useModalSurface } from "@/components/layout/useModalSurface";
 import ProfileNameFields from "@/components/sidebar/ProfileNameFields";
+import ProfileAvatar, { profileInitial } from "@/components/sidebar/ProfileAvatar";
 import type { ApiUser } from "@/lib/argus-api";
 import {
   AVATAR_THEMES,
@@ -25,15 +26,6 @@ import {
 /* The Profile dialog. ProfileMenu owns every value it renders; the layer
  * registration is this file's own, scoped to the panel rather than the backdrop
  * so focus does not open on an invisible dismiss control. */
-
-function profileInitial(profile: ApiUser | null) {
-  const source =
-    profile?.display_name?.trim() ||
-    profile?.username?.trim() ||
-    profile?.email?.trim() ||
-    "A";
-  return source.charAt(0).toUpperCase();
-}
 
 type ProfileDetailsDialogProps = {
   profile: ApiUser | null;
@@ -191,9 +183,7 @@ function ProfileDetailsDialogSurface({
                 </span>
               </button>
             ) : (
-              <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-[18px] font-bold ${avatarClassName}`} style={avatarStyle}>
-                <SavedIdentityMark scope={identityScope} name={profile?.display_name ?? ""} size={56} fallback={profileInitial(profile)} />
-              </div>
+              <ProfileAvatar profile={profile} className={avatarClassName} style={avatarStyle} />
             )}
             <div className="min-w-0">
               <p className="truncate text-[16px] font-medium">{profile?.display_name || t("settings.profile.default_user", "User")}</p>

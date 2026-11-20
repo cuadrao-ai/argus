@@ -994,9 +994,8 @@
       "close": "Cerrar perfil",
       "title": "Perfil",
       "request_deletion": {
-        "title": "¿Eliminar tu cuenta?",
         "body": "Borramos tu cuenta y tus datos personales, y no se puede deshacer.",
-        "business_owner": "Antes de eliminar tu cuenta, cada negocio tuyo necesita otro dueño o cerrarse.",
+        "business_owner": "Cada negocio necesita otro dueño o cerrarse.",
         "check_failed": "No pudimos revisar tu cuenta. Intenta otra vez.",
         "confirm": "Eliminar cuenta",
         "submitting": "Eliminando...",
@@ -1005,15 +1004,23 @@
         "requested": "Solicitud enviada. Soporte eliminará tu cuenta y te escribirá por correo electrónico.",
         "error": "No pudimos eliminar tu cuenta en este momento. Inténtalo de nuevo.",
         "unavailable": "Todavía no se puede eliminar desde la app aquí. Soporte puede eliminar tu cuenta por ti.",
-        "email_fallback": "Enviar correo a soporte",
+        "write_support": "Escribir a soporte",
         "email_subject": "Solicitud de eliminación de cuenta de Cuadrao",
-        "email_body": "Ayúdame a solicitar la eliminación de mi cuenta de Cuadrao{{account_hint}}.",
-        "close": "Cerrar eliminación de cuenta"
+        "pending_one": "{{count}} negocio por resolver",
+        "pending_other": "{{count}} negocios por resolver",
+        "show_all": "Ver los {{total}} negocios",
+        "show_less": "Ver menos",
+        "request_support": "Solicitar eliminación",
+        "signs_out_now": "Se cierra tu sesión enseguida.",
+        "finishes_later": "Terminamos de eliminar tu cuenta en unos días. No tienes que hacer nada."
       }
     },
     "subscription": {
       "title": "Suscripción",
       "upgrade_pro": "Prueba Pro gratis"
+    },
+    "account": {
+      "title": "Cuenta"
     },
     "app": {
       "title": "Preferencias",

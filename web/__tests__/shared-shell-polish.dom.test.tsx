@@ -108,21 +108,19 @@ describe("Controles de datos in Ajustes", () => {
     return { act, host };
   }
 
-  test("Security, then delete account last, with no Usage or delete-all row", async () => {
+  test("Cuenta comes last, holding Seguridad and Eliminar cuenta, with no Usage or delete-all row", async () => {
     const calls: string[] = [];
     await mountOpenDataMenu(calls);
     const rows = Array.from(document.body.querySelectorAll("[data-settings-row]")).map((row) => row.textContent?.trim());
-    const usage = rows.indexOf("Uso");
-    const security = rows.indexOf("Seguridad");
-    const deleteAccount = rows.indexOf("Eliminar cuenta");
     assert.equal(rows.indexOf("Eliminar todas las conversaciones"), -1);
-    assert.equal(usage, -1, "Retired Usage has no settings row");
-    assert.ok(security > -1, "Security remains available");
-    assert.equal(deleteAccount, rows.length - 1, "nothing follows delete account");
+    assert.equal(rows.indexOf("Uso"), -1, "Retired Usage has no settings row");
+    assert.equal(rows.indexOf("Seguridad"), -1, "Seguridad lives in Cuenta");
+    assert.equal(rows.indexOf("Eliminar cuenta"), -1, "Eliminar cuenta lives in Cuenta");
+    assert.equal(rows.at(-1), "Cuenta", "nothing follows Cuenta");
     assert.deepEqual(calls, ["close"], "the menu closes under Ajustes");
   });
 
-  test("Eliminar cuenta opens its confirm dialog and requests nothing", async () => {
+  test("opening Cuenta sends nothing", async () => {
     const calls: string[] = [];
     const originalFetch = globalThis.fetch;
     const fetched: string[] = [];
@@ -131,14 +129,13 @@ describe("Controles de datos in Ajustes", () => {
       return new Response("{}");
     }) as typeof fetch;
     const { act } = await mountOpenDataMenu(calls);
-    const account = Array.from(document.body.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("Eliminar cuenta"),
-    )!;
+    const cuenta = document.querySelector<HTMLButtonElement>('[data-testid="settings-nav-account"]')!;
     const before = fetched.length;
     try {
-      await act(async () => account.click());
-      assert.ok(document.querySelector("[role=dialog],[aria-modal=true]"), "confirm dialog is open");
-      assert.deepEqual(fetched.slice(before).filter((call) => !call.startsWith("GET ")), [], "opening the dialog only reads; it sends no deletion request");
+      await act(async () => cuenta.click());
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+      assert.ok(document.querySelector('[data-testid="settings-pane-account"]'), "Cuenta opens in the pane");
+      assert.deepEqual(fetched.slice(before).filter((call) => !call.startsWith("GET ")), [], "opening Cuenta only reads");
     } finally {
       globalThis.fetch = originalFetch;
     }
