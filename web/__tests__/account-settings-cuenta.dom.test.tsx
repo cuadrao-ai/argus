@@ -14,7 +14,9 @@ const cleanups: (() => Promise<void>)[] = [];
 const NAMES = ["Cafetería Malecón", "Colmado La Esquina", "Farmacia San Rafael", "Ferretería Los Pinos", "Panadería El Trigal", "Repuestos del Cibao", "Salón Brisa", "Taller Hermanos Peña"];
 const owned = (count: number) => NAMES.slice(0, count).map((name, index) => ({ kind: "business_owner", business_id: `00000000-0000-4000-8000-00000000000${index}`, business_name: name }));
 const ALLOWED = { allowed: true, blockers: [], notices: [] };
+const IN_PROGRESS = () => Response.json({ status: "in_progress", pending: ["apple"] }, { status: 202 });
 let answer: unknown = ALLOWED;
+let deletionReply: () => Response = IN_PROGRESS;
 let calls: { path: string; method: string }[] = [];
 
 beforeAll(() => {
@@ -27,7 +29,7 @@ beforeAll(() => {
     calls.push({ path, method });
     if (path.endsWith("/account/deletion")) return Response.json(answer);
     if (path.endsWith("/account/deletion/request")) return Response.json({ status: "requested" });
-    if (path.endsWith("/account/delete")) return Response.json({ status: "in_progress", pending: ["apple"] }, { status: 202 });
+    if (path.endsWith("/account/delete")) return deletionReply();
     if (path.endsWith("/business/owned-spaces")) {
       return Response.json({ spaces: owned(3).map((business, index) => ({ space_id: business.business_id, name: business.business_name, grant_id: `10000000-0000-4000-8000-00000000000${index}`, member_count: 0, reopen_until: "2026-12-20T17:45:00Z", export_windows: [], members: [] })) });
     }
@@ -39,7 +41,9 @@ afterEach(async () => {
   (await import("@/components/layout/overlayStack")).resetOverlayStack();
   document.body.innerHTML = "";
   answer = ALLOWED;
+  deletionReply = IN_PROGRESS;
   calls = [];
+  window.happyDOM.setWindowSize({ width: 1024, height: 768 });
 });
 afterAll(async () => {
   globalThis.fetch = originalFetch;
@@ -264,3 +268,47 @@ test("a closed Business inside its reopen window is a warning in the confirmatio
   assert.ok(text().includes("hora de RD"));
   assert.equal(buttons(copy.confirm).at(-1)!.disabled, false);
 });
+
+const REPLIES = {
+  success: { reply: () => Response.json({ status: "deleted" }), copy: copy.success, logouts: [{ afterAccountDeletion: true }], closed: [{ afterAccountDeletion: true }, { sessionEnded: true }] },
+  in_progress: { reply: IN_PROGRESS, copy: copy.in_progress, logouts: [{ afterAccountDeletion: true }], closed: [{ afterAccountDeletion: true }, { sessionEnded: true }] },
+  requested: { reply: () => Response.json({ code: "not_found", detail: "off" }, { status: 404 }), copy: copy.requested, logouts: [], closed: [] },
+} as const;
+
+for (const width of [390, 800, 1280]) {
+  for (const [outcome, expected] of Object.entries(REPLIES)) {
+    for (const exit of ["close", "Escape"] as const) {
+      test(`${width}px, ${outcome}: the answer holds Ajustes and ${exit} runs the window's cleanup once`, async () => {
+        window.happyDOM.setWindowSize({ width, height: 844 });
+        deletionReply = expected.reply;
+        const { default: ProfileMenu } = await import("@/components/sidebar/ProfileMenu");
+        const anchor = document.createElement("button");
+        document.body.appendChild(anchor);
+        const logouts: unknown[] = [];
+        const act = await mount(<ProfileMenu isOpen onClose={() => {}} onLogout={(options) => logouts.push(options)} anchorRef={{ current: anchor }} />);
+        await act(async () => button("Ajustes")!.click());
+        await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="settings-nav-account"]')!.click());
+        await settle(act);
+        await act(async () => button(copy.confirm)!.click());
+        await act(async () => buttons(copy.confirm).at(-1)!.click());
+        await settle(act);
+        assert.ok(text().includes(expected.copy));
+        assert.deepEqual(logouts, expected.logouts);
+
+        const pane = () => document.querySelector<HTMLElement>('[data-testid="settings-pane-account"]');
+        const surface = pane()!.closest<HTMLElement>('[role="dialog"]')!;
+        assert.equal(surface.querySelector('[data-testid="settings-window-back"]'), null, "no arrow back into Ajustes");
+        for (const row of document.querySelectorAll<HTMLButtonElement>("[data-settings-row]")) await act(async () => row.click());
+        assert.ok(pane() && text().includes(expected.copy), "no section row replaces the answer");
+
+        await act(async () => {
+          if (exit === "close") surface.querySelector<HTMLButtonElement>('[data-testid="settings-window-close"]')!.click();
+          else document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        });
+        assert.deepEqual(logouts, expected.closed, "the window's cleanup, once, with no second sign-out");
+        if (outcome === "requested") assert.equal(document.querySelector('[data-testid="settings-window"]'), null, "Ajustes closes");
+        else assert.ok(pane() && text().includes(expected.copy), "never back to the Ajustes list");
+      });
+    }
+  }
+}

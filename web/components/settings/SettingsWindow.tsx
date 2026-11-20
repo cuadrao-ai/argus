@@ -23,6 +23,8 @@ import styles from "./settings-window.module.css";
  * same list as a full screen; a section replaces it and its arrow returns.
  * A section may open a second step in place (Cuenta's confirmation): the
  * header then carries that step's title and an arrow back to the section.
+ * A step with no way back (a finished deletion) holds the window: every exit
+ * closes Ajustes, so nothing returns to the list or another section.
  */
 
 type SettingsRow = { id: SettingsPanel; label: string; icon: LucideIcon };
@@ -123,12 +125,13 @@ function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, on
   const [active, setActive] = useState<SettingsPanel | undefined>(sections[0]);
   const [step, setStep] = useState<SettingsStep | null>(null);
   const groups = useGroups(sections);
+  const held = step !== null && !step.onBack;
   useModalSurface({ isOpen: true, overlayId, containerRef: panelRef, onDismiss: onClose, onEscape: step?.onBack ?? onClose, initialFocusRef: activeRowRef, returnFocusRef });
 
   // Up and Down walk the list; landing on a section shows it, as a settings list does.
   const walk = (event: KeyboardEvent<HTMLElement>) => {
     const step = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
-    if (!step) return;
+    if (!step || held) return;
     const rows = Array.from(navRef.current?.querySelectorAll<HTMLButtonElement>("[data-settings-row]") ?? []);
     const next = rows[rows.indexOf(document.activeElement as HTMLButtonElement) + step];
     if (!next) return;
@@ -172,6 +175,7 @@ function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, on
                           data-section={row.id}
                           data-testid={`settings-nav-${row.id}`}
                           aria-current={isActive ? "page" : undefined}
+                          disabled={held}
                           onClick={() => setActive(row.id)}
                           className={`${rowBase} ${rowTone(isActive)}`}
                         >
@@ -212,15 +216,18 @@ function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, on
   );
 }
 
-function PhoneSection({ panel, renderSection, onBack, returnFocusRef }: { panel: SettingsPanel; renderSection: (panel: SettingsPanel) => ReactNode; onBack: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
+function PhoneSection({ panel, renderSection, onBack, onClose, returnFocusRef }: { panel: SettingsPanel; renderSection: (panel: SettingsPanel) => ReactNode; onBack: () => void; onClose: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
   const { t } = useTranslation();
   const overlayId = useId();
   const titleId = useId();
   const ref = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLButtonElement>(null);
   const [step, setStep] = useState<SettingsStep | null>(null);
-  // Its own layer, so Escape and system back return to the list: one press, one level.
-  useModalSurface({ isOpen: true, overlayId, containerRef: ref, onDismiss: onBack, onEscape: step?.onBack ?? onBack, initialFocusRef: backRef, returnFocusRef });
+  const held = step !== null && !step.onBack;
+  const leave = held ? onClose : onBack;
+  const exit = step?.onBack ?? leave;
+  // Its own layer, so Escape and system back go up one level; a held step closes Ajustes instead.
+  useModalSurface({ isOpen: true, overlayId, containerRef: ref, onDismiss: leave, onEscape: exit, initialFocusRef: backRef, returnFocusRef });
   const nav = settingsPanelNav(panel);
   return (
     <div
@@ -234,9 +241,10 @@ function PhoneSection({ panel, renderSection, onBack, returnFocusRef }: { panel:
       <PhoneHeader
         titleId={titleId}
         title={step?.title ?? (nav ? t(...nav.label) : "")}
-        backLabel={step?.onBack ? t("common.back", "Back") : t("common.settings", "Settings")}
-        onBack={step?.onBack ?? onBack}
-        backRef={backRef}
+        closes={held}
+        exitLabel={held ? t("common.close", "Close") : step?.onBack ? t("common.back", "Back") : t("common.settings", "Settings")}
+        onExit={exit}
+        exitRef={backRef}
       />
       <div className="flex min-h-0 flex-1 flex-col">
         <SettingsWindowSection onStep={setStep}>{renderSection(panel)}</SettingsWindowSection>
@@ -245,18 +253,19 @@ function PhoneSection({ panel, renderSection, onBack, returnFocusRef }: { panel:
   );
 }
 
-function PhoneHeader({ titleId, title, backLabel, onBack, backRef }: { titleId: string; title: string; backLabel: string; onBack: () => void; backRef?: RefObject<HTMLButtonElement | null> }) {
+function PhoneHeader({ titleId, title, closes = false, exitLabel, onExit, exitRef }: { titleId: string; title: string; closes?: boolean; exitLabel: string; onExit: () => void; exitRef?: RefObject<HTMLButtonElement | null> }) {
+  const Icon = closes ? X : ArrowLeft;
   return (
     <header className={`flex shrink-0 items-center gap-1 border-b px-2 pb-2 pt-[max(8px,env(safe-area-inset-top))] ${hairline}`}>
       <button
-        ref={backRef}
+        ref={exitRef}
         type="button"
-        aria-label={backLabel}
-        data-testid="settings-window-back"
-        onClick={onBack}
+        aria-label={exitLabel}
+        data-testid={closes ? "settings-window-close" : "settings-window-back"}
+        onClick={onExit}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white/70 dark:hover:bg-white/10"
       >
-        <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+        <Icon className="h-5 w-5" aria-hidden="true" />
       </button>
       <h2 id={titleId} className="min-w-0 font-display text-[21px] font-medium">{title}</h2>
     </header>
@@ -284,7 +293,7 @@ function PhoneScreen({ sections, renderSection, legalLinks, returnFocusRef, onCl
         data-testid="settings-window"
         className={`fixed inset-0 z-[70] flex flex-col bg-[#F7F5EE] text-[#172b26] dark:bg-[#141517] dark:text-white ${dialogStyles.scrim}`}
       >
-        <PhoneHeader titleId={titleId} title={t("common.settings", "Settings")} backLabel={t("common.back", "Back")} onBack={onClose} backRef={backRef} />
+        <PhoneHeader titleId={titleId} title={t("common.settings", "Settings")} exitLabel={t("common.back", "Back")} onExit={onClose} exitRef={backRef} />
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(16px,env(safe-area-inset-bottom))]">
           {groups.map((group) => (
             <div key={group.id} className="pt-[21px]">
@@ -316,7 +325,7 @@ function PhoneScreen({ sections, renderSection, legalLinks, returnFocusRef, onCl
           <LegalFooter links={legalLinks} className="justify-center pt-[21px]" />
         </div>
       </div>
-      {section ? <PhoneSection panel={section} renderSection={renderSection} onBack={() => setSection(null)} returnFocusRef={openerRef} /> : null}
+      {section ? <PhoneSection panel={section} renderSection={renderSection} onBack={() => setSection(null)} onClose={onClose} returnFocusRef={openerRef} /> : null}
     </>
   );
 }
