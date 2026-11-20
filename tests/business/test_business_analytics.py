@@ -240,12 +240,19 @@ class Bridge:
         self, prepared: Callable[[], object], gaps: tuple[str, ...] = ()
     ) -> None:
         self.prepared, self.gaps, self.calls = prepared, gaps, []
+        self.completed: list[dict[str, object]] = []
 
     def check_attachment_preparation(self, **_: object) -> None:
         return None
 
     def prepare_attachment(self, **_: object) -> object:
         return self.prepared()
+
+    def complete_attachment_read(self, **kwargs: object) -> None:
+        document = documents_service().store.draft(
+            user_id=kwargs["user_id"], connection_id=kwargs["connection_id"]
+        )
+        self.completed.append({**kwargs, "saved_document": document})
 
     def review_gaps(self, **kwargs: object) -> tuple[str, ...]:
         self.calls.append(kwargs["draft_id"])
@@ -310,6 +317,21 @@ def test_a_prepared_draft_needs_review_for_every_gap(
     assert read["result"] == "read"
     [review] = _events(sent, "business_document_needs_review")
     assert review["reason_codes"] == ["missing_rnc", "missing_itbis"]
+
+
+def test_read_completion_receives_the_saved_status_and_applied_version(
+    alice: Owner, sent: Sent, monkeypatch: pytest.MonkeyPatch, faker  # noqa: F811, ANN001
+) -> None:
+    prepared = Applied(outcome="applied", draft_id=faker.uuid4(), version=7)
+    bridge = Bridge(lambda: prepared)
+
+    _read_through(alice, sent, bridge, monkeypatch)
+
+    [completed] = bridge.completed
+    saved = completed["saved_document"]
+    assert saved.status == "review_ready"
+    assert completed["document_version"] == saved.version
+    assert completed["prepared"] == prepared
 
 
 def test_a_listo_draft_sends_no_review_event(
@@ -429,7 +451,9 @@ def _approval_properties(
     approval, _ = business_analytics.approval_events(
         str(uuid4()), facts, approved, datetime.now(timezone.utc)
     )
-    return approval.model_dump(exclude={"business_hash", "seconds_to_approve"})
+    return approval.model_dump(
+        exclude={"business_hash", "seconds_to_approve", "bandeja_group_at_read"}
+    )
 
 
 def _field_facts(name: str, state: str | None, value: str | None) -> dict[str, Any]:
@@ -530,6 +554,7 @@ def test_approval_sends_names_of_filled_and_corrected_fields(
 
     [approval] = _events(sent, "business_record_approved")
     assert set(approval) == _keys(
+        "bandeja_group_at_read",
         "filled_fields",
         "filled_count",
         "corrected_fields",
@@ -577,9 +602,24 @@ def test_a_typed_note_approval_has_no_read_to_compare(
     )
 
     [approval] = _events(sent, "business_record_approved")
-    assert set(approval) == _keys()
+    assert set(approval) == _keys("bandeja_group_at_read")
+    assert approval["bandeja_group_at_read"] is None
     [recorded] = _events(sent, "business_record_recorded")
     assert (recorded["direction"], recorded["document_type"]) == ("venta", "venta")
+
+
+@pytest.mark.parametrize("group", ["listo", "attention", None])
+def test_approval_emits_the_saved_read_group(group, sent, monkeypatch) -> None:  # noqa: ANN001
+    facts = business_analytics.ApprovalFacts(None, None, "recibo", group)
+    monkeypatch.setattr(business_analytics, "read_approval", lambda *args: (facts, {}))
+    context = SimpleNamespace(actor=SimpleNamespace(space_id=uuid4(), actor_id=uuid4()))
+
+    business_analytics.record_approved(
+        None, context, uuid4(), 2, datetime.now(timezone.utc)
+    )
+
+    [approval] = _events(sent, "business_record_approved")
+    assert approval["bandeja_group_at_read"] == group
 
 
 @pytest.fixture

@@ -6,10 +6,8 @@ from argus.agent_runtime.capabilities.contract import (
     CapabilityRange,
     FieldDescription,
     OptionalParameterSpec,
-    SimplificationTemplate,
     UnsupportedCombination,
     ValidationRule,
-    build_default_capability_contract,
 )
 from argus.agent_runtime.profile.response_profile import (
     resolve_effective_response_profile,
@@ -296,160 +294,6 @@ def test_simplification_option_serializes_nested_frozen_payloads() -> None:
     }
 
 
-def test_capability_contract_exposes_required_and_optional_fields() -> None:
-    contract = build_default_capability_contract()
-
-    assert contract.version == "1.0"
-    assert "backtest_execution" in contract.supported_intents
-    assert "backtest_tools" in contract.supported_tool_families
-    assert contract.required_fields == [
-        "strategy_thesis",
-        "asset_universe",
-        "entry_logic",
-        "exit_logic",
-        "date_range",
-    ]
-    assert contract.optional_defaults["initial_capital"] == 1000.0
-    assert contract.optional_defaults["timeframe"] == "1D"
-    assert "engine_options" in contract.optional_defaults
-    assert contract.get_optional_parameter("initial_capital").description.label == (
-        "Initial capital"
-    )
-    assert contract.get_allowed_range("slippage").maximum == 0.05
-    assert contract.get_optional_parameter("timeframe").default_value == "1D"
-    assert contract.allowed_ranges["timeframe"].allowed_values == (
-        "1h",
-        "2h",
-        "4h",
-        "6h",
-        "12h",
-        "1D",
-    )
-    assert set(contract.optional_defaults) == set(contract.optional_parameters)
-    assert set(contract.required_fields).isdisjoint(contract.optional_parameters)
-    assert contract.validation_rules[0].field_name == "asset_universe"
-    assert contract.describe_field("strategy_thesis").label == "Strategy thesis"
-    assert contract.describe_field("timeframe").label == "Timeframe"
-    assert contract.unsupported_combinations == ()
-
-
-def test_capability_contract_optional_defaults_are_mutation_safe() -> None:
-    contract = build_default_capability_contract()
-
-    defaults = contract.optional_defaults
-    defaults["engine_options"]["mode"] = "mutated"
-
-    assert contract.optional_defaults["engine_options"] == {}
-
-
-def test_capability_contract_exposes_default_simplification_templates() -> None:
-    contract = build_default_capability_contract()
-
-    assert set(contract.simplification_templates) == {
-        "unsupported_time_granularity",
-        "unsupported_asset_mix",
-        "unsupported_strategy_logic",
-        "future_performance",
-    }
-    future_options = contract.get_simplification_options("future_performance")
-    assert [
-        option.replacement_values.get("requested_field") for option in future_options
-    ] == ["date_range", "date_range"]
-    options = contract.get_simplification_options("unsupported_time_granularity")
-
-    assert options == [
-        SimplificationOption(
-            label="Retry with daily bars",
-            replacement_values={"timeframe": "1D"},
-        ),
-        SimplificationOption(
-            label="Retry with 1-hour bars",
-            replacement_values={"timeframe": "1h"},
-        ),
-    ]
-    assert contract.get_simplification_options("unknown_category") == []
-
-
-def test_capability_contract_simplification_access_is_mutation_safe() -> None:
-    contract = build_default_capability_contract()
-
-    options = contract.get_simplification_options("unsupported_time_granularity")
-    options[0] = SimplificationOption(
-        label="Mutated",
-        replacement_values={"timeframe": "4h"},
-    )
-
-    with pytest.raises(TypeError):
-        contract.simplification_templates["unsupported_strategy_logic"] = (
-            SimplificationTemplate(
-                category="unsupported_strategy_logic",
-                options=(
-                    SimplificationOption(
-                        label="Mutated",
-                        replacement_values={"position_side": "short"},
-                    ),
-                ),
-            )
-        )
-
-    with pytest.raises((TypeError, ValidationError)):
-        contract.simplification_templates["unsupported_strategy_logic"].options += (
-            SimplificationOption(
-                label="Mutated",
-                replacement_values={"position_side": "short"},
-            ),
-        )
-
-    with pytest.raises((TypeError, ValidationError)):
-        contract.simplification_templates["unsupported_time_granularity"].options[
-            0
-        ].label = "Mutated"
-
-    with pytest.raises(TypeError):
-        contract.simplification_templates["unsupported_time_granularity"].options[
-            0
-        ].replacement_values["timeframe"] = "mutated"
-
-    assert contract.get_simplification_options("unsupported_time_granularity") == [
-        SimplificationOption(
-            label="Retry with daily bars",
-            replacement_values={"timeframe": "1D"},
-        ),
-        SimplificationOption(
-            label="Retry with 1-hour bars",
-            replacement_values={"timeframe": "1h"},
-        ),
-    ]
-
-
-def test_capability_contract_accessors_do_not_expose_live_mutable_internals() -> None:
-    contract = build_default_capability_contract()
-
-    optional_parameter = contract.get_optional_parameter("timeframe")
-    allowed_range = contract.get_allowed_range("timeframe")
-    described_field = contract.describe_field("strategy_thesis")
-    derived_ranges = contract.allowed_ranges
-
-    with pytest.raises((TypeError, ValidationError)):
-        optional_parameter.allowed_range.allowed_values += ("mutated",)
-    with pytest.raises((TypeError, ValidationError)):
-        allowed_range.allowed_values += ("other",)
-    with pytest.raises((TypeError, ValidationError)):
-        described_field.label = "Mutated"
-    with pytest.raises((TypeError, ValidationError)):
-        derived_ranges["timeframe"].allowed_values += ("bad",)
-
-    assert contract.get_optional_parameter("timeframe").allowed_range.allowed_values == (
-        "1h",
-        "2h",
-        "4h",
-        "6h",
-        "12h",
-        "1D",
-    )
-    assert contract.describe_field("strategy_thesis").label == "Strategy thesis"
-
-
 def test_capability_contract_rejects_overlapping_required_and_optional_fields() -> None:
     with pytest.raises(ValidationError):
         CapabilityContract(
@@ -551,28 +395,6 @@ def test_capability_contract_rejects_invalid_supported_intent_names() -> None:
                 "supported_intents": ["backtest_execution", "not_a_real_intent"],
             }
         )
-
-
-def test_capability_contract_public_model_fields_are_immutable() -> None:
-    contract = build_default_capability_contract()
-
-    with pytest.raises((TypeError, ValidationError)):
-        contract.supported_intents += ("strategy_drafting",)
-
-    with pytest.raises(TypeError):
-        contract.optional_parameters["timeframe"] = contract.get_optional_parameter(
-            "timeframe"
-        )
-
-    with pytest.raises((TypeError, ValidationError)):
-        contract.optional_parameters["timeframe"].allowed_range.allowed_values += ("bad",)
-
-
-def test_capability_contract_nested_default_value_payload_is_immutable() -> None:
-    contract = build_default_capability_contract()
-
-    with pytest.raises(TypeError):
-        contract.optional_parameters["engine_options"].default_value["mode"] = "mutated"
 
 
 def test_capability_contract_unsupported_combination_fields_are_immutable() -> None:

@@ -1,0 +1,114 @@
+{
+  "scope": "document_extraction",
+  "status": "passed",
+  "candidate_sha": "837bfff22539be2206451e6c3fda5f008784020e",
+  "surface": {
+    "src/argus/domain/ingestion/documents/extractor.py": {
+      "entries": 1,
+      "chars": 6615,
+      "sha256": "99282d32bfc1c123d71cb4f7580e0d3ac79d9ab7fd2e56ababf9f6113db1846c"
+    },
+    "src/argus/domain/ingestion/documents/models.py": {
+      "entries": 10,
+      "chars": 1857,
+      "sha256": "7f11856c56a4052c1b59f9b02ad0fab7280df37f25972350dfca056e35d710d8"
+    }
+  },
+  "totals": {
+    "passed": 3,
+    "failed": 0,
+    "unavailable": 0
+  },
+  "checks": {
+    "passed": 28,
+    "failed": 0,
+    "unavailable": 0
+  },
+  "model": "google/gemini-3.8-flash",
+  "profile": {
+    "max_tokens": 16000,
+    "timeout_seconds": 90,
+    "max_retries": 0
+  },
+  "privacy": {
+    "require_parameters": true,
+    "data_collection": "deny",
+    "zdr": true,
+    "allow_fallbacks": false
+  },
+  "known_actual_cost_usd": "0.02250225",
+  "money_writes": 0,
+  "stop_reason": null,
+  "comparison": {
+    "baseline_scorecard": "docs/reports/evidence/cuadrao-receipt-extraction-20261011/live-measurement.json",
+    "held": {
+      "receipt-dop": true,
+      "unreadable": true
+    },
+    "regressed": [],
+    "unavailable": []
+  },
+  "cases": [
+    {
+      "fixture": "receipt-dop",
+      "fixture_sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3",
+      "status": "passed",
+      "checks": {
+        "readable": true,
+        "complete": true,
+        "one_purchase_candidate": true,
+        "merchant": true,
+        "date": true,
+        "currency": true,
+        "total": true,
+        "missing_fiscal_unknown": true,
+        "unprinted_components_unknown": true,
+        "printed_items_exact": true,
+        "unprinted_item_units_unknown": true,
+        "purchase_amount_exact": true
+      },
+      "usage": {
+        "cost": "0.00853575"
+      },
+      "actual_cost_usd": "0.00853575"
+    },
+    {
+      "fixture": "unreadable",
+      "fixture_sha256": "b822720e186af2390eea6b1c221536267b7c3ee96b2239e16719020759b59307",
+      "status": "passed",
+      "checks": {
+        "marked_unreadable": true,
+        "zero_candidates": true,
+        "no_invented_receipt_values": true,
+        "no_invented_items": true,
+        "no_invented_observations": true,
+        "no_invented_observation_values": true
+      },
+      "usage": {
+        "cost": "0.004872"
+      },
+      "actual_cost_usd": "0.004872"
+    },
+    {
+      "fixture": "order-confirmation-estimated-tax",
+      "fixture_sha256": "bdbec2022e702b7aaf7d436897ca5f9bba6696470ee410eade2d8a7fbb452eda",
+      "status": "passed",
+      "checks": {
+        "readable": true,
+        "complete": true,
+        "payment_status": true,
+        "purchase_candidates": true,
+        "purchase_observations": true,
+        "paid_purchase_date": true,
+        "receipt_tax": true,
+        "estimated_tax": true,
+        "receipt_total": true,
+        "money_writes": true
+      },
+      "usage": {
+        "cost": "0.0090945"
+      },
+      "actual_cost_usd": "0.0090945"
+    }
+  ]
+}

@@ -53,7 +53,7 @@ def test_luna_pro_sampling_capability_preserves_structured_request_policy(
 )
 def test_luna_pro_factory_omits_unsupported_sampling_only(monkeypatch, model) -> None:
     FakeChatOpenRouter.calls.clear()
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "test-key")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
     assert openrouter.build_openrouter_model("interpretation", model_name=model)
     assert FakeChatOpenRouter.calls == [
@@ -82,7 +82,7 @@ def test_luna_pro_direct_chat_omits_unsupported_sampling_only(monkeypatch, model
             request=openrouter.httpx.Request("POST", "https://example.invalid"),
         )
 
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "test-key")
     monkeypatch.setattr(openrouter, "_post_openrouter_json_schema", fake_post)
     result = asyncio.run(
         openrouter.invoke_openrouter_chat_completion(
@@ -281,7 +281,7 @@ def test_openai_structured_wire_retains_exact_local_validation(
         async def post(self, *args, **kwargs):
             return respond(kwargs["json"])
 
-    monkeypatch.setenv("OPENROUTER_API_KEY", "mock-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "mock-key")
     monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "")
     monkeypatch.setattr(openrouter.httpx, "Client", Client)
     monkeypatch.setattr(openrouter.httpx, "AsyncClient", AsyncClient)
@@ -449,3 +449,15 @@ def test_consumer_interpretation_and_composer_keep_their_whole_payload(model, ta
         "reasoning": {"effort": effort},
         "temperature": temperature,
     }
+
+
+def test_document_read_allows_a_long_receipt_answer() -> None:
+    profile = openrouter_profile_for_task("document_extraction")
+    payload = openrouter._json_schema_payload(
+        model="google/gemini-3.8-flash",
+        messages=[{"role": "user", "content": "probe"}],
+        schema_model=BusinessInterpretation,
+        schema_name="BusinessInterpretation",
+        profile=profile,
+    )
+    assert payload["max_tokens"] == 16000

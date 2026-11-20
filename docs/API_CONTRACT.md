@@ -3452,8 +3452,8 @@ It reads only: it starts no run, locks nothing and sends nothing. Same flag
 and session as the command (`404 not_found` while
 `CUADRAO_ACCOUNT_DELETION_ENABLED` is off, answered before any session check;
 `401` without a session; 30 requests per account per minute per API worker,
-`429 too_many_requests` with `Retry-After`). Ajustes reads it on open and again
-when the delete alert opens. The limit is counted apart from the command's (which
+`429 too_many_requests` with `Retry-After`). Ajustes reads it each time the Cuenta
+section opens. The limit is counted apart from the command's (which
 stays at six), so a screen that checks often cannot use up the delete's requests.
 A guest session is checked the same way.
 
@@ -3491,6 +3491,35 @@ A guest session is checked the same way.
   is not listed. `[]` when none.
 - `503 account_deletion_unavailable` when the check cannot be made; it never
   answers `allowed: true` in that case. The shared
+  `503 auth_session_verification_unavailable` is unchanged.
+
+## `POST /account/deletion/request`
+
+Files a support deletion request for a person the delete command refuses
+because they own an open Business. Ajustes offers it as "Solicitar eliminación"
+while the transfer and close controls are off in the web. The server decides
+from the same rule as `GET /account/deletion`: the request is accepted only
+while that check names at least one `business_owner` blocker. It deletes,
+locks and starts nothing. Same flag and session as the command (`404 not_found`
+while `CUADRAO_ACCOUNT_DELETION_ENABLED` is off, answered before any session
+check; `401` without a session; six requests per account per minute per API
+worker, `429 too_many_requests` with `Retry-After`). No request body.
+
+**Response `200`:**
+
+```json
+{ "status": "requested" }
+```
+
+- The request is idempotent. The first accepted call writes one `feedback` row
+  of type `account_deletion_request` with `context.source`
+  `account_settings_business_owner`, the owned Business ids, and the same
+  account fields as the feedback fallback, and emails support once. A later
+  call finds that row, writes nothing, sends nothing and answers the same `200`.
+- `409 account_deletion_request_not_needed` when no open Business blocks the
+  account (it can be deleted in the app), including a person whose deletion run
+  is already open.
+- `503 account_deletion_unavailable` when the request cannot be filed. The shared
   `503 auth_session_verification_unavailable` is unchanged.
 
 
@@ -6391,6 +6420,8 @@ delivery is logged and never changes the response or the saved feedback.
 command (`POST /account/delete`) is off: the web sends it when that route
 answers `404`. The API adds `source` (default `profile_modal`), the account
 email, profile language, user id and request time to its context.
+`POST /account/deletion/request` writes the same type for a Business owner the
+command refuses, once per account (see that route).
 
 ---
 
@@ -7799,6 +7830,17 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   observations, receipt detail, candidates, completeness/readability and projection
   issues. Internal provider/route metadata is excluded. The connection ID links to
   existing import review; no duplicate approval state is stored here.
+  `preparation.receipt.issue_date_printed` (string or null) is the issue date
+  exactly as the receipt prints it, copied before it is interpreted.
+  `preparation.receipt.buyer_rnc` (string or null) is the RNC of the buyer as
+  printed. No server code reads these two values. A read saved before they
+  existed returns null for both.
+  `preparation.receipt.payment_form` (`01` to `07` or null) and
+  `preparation.receipt.expense_type` (`01` to `11` or null) are the DGII Forma
+  de pago and Tipo de gasto codes the reader read. Null means it read none, and
+  a read saved before they existed returns null for both. A Business dossier
+  offers them in `declaration_suggestions` with the source `receipt` for Forma
+  de pago and `reading` for Tipo de gasto.
 - `GET /financial-documents/{connection_id}/source` returns verified original
   bytes for PDF, text, CSV, XLSX, XML and EML. PNG/JPEG images return a rebuilt
   JPEG, made on first download if missing and reused on later downloads. The
@@ -7816,6 +7858,8 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   participants, `equal|items` method and item assignments with multiple participant
   IDs for shared items. A stale version or active preparation returns 409. Proposals
   do not change extracted evidence, grant access, share content or write money.
+  The response is the same draft as the `GET`, with the same
+  `preparation.receipt` fields.
 
 All draft/source reads are owner-only and `no-store`. Missing retained source on
 an older checkpoint, or a stored object that is gone, is explicit
@@ -8365,7 +8409,7 @@ it returns 503 `business_guide_unavailable` with a request reference.
 
 A Business owner explicitly enables scope version 3 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
 
-`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the exact words shown, but `enabled` depends only on the scope version, the current route and the consent not being revoked, so new words for the same scope keep reading on. An owner who accepted an earlier scope reads `enabled: false` and is asked again; until they accept, their documents are saved unread and no read runs. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the one the `GET` returned (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
+`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the scope version, configured route and exact words shown as its acceptance record. For the Business and its live consenting Owner, `enabled` depends on that generation remaining unrevoked. A change of model, gateway, scope version or disclosure keeps reading on with the same consent ID and never asks for consent again. An accepted ownership transfer or loss of the consenting person's Owner role still revokes the generation; the recipient must enable reading explicitly. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the one the `GET` returned (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
 
 The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
@@ -8384,6 +8428,7 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | No duplicate | `duplicate`, for a possible repeat no person settled, or another open, accepting or accepted purchase with the same supplier RNC and comprobante |
 | A purchase receipt | `sale` for a Venta, whose kind is income; `credit_note` for a refund or a B04 or E34 number |
 | Supplier, date, total and currency | `missing_merchant`, `missing_date`, `missing_amount`, `missing_currency` |
+| An issue date whose year is likely | `check_details`, for a year to check: the reader wrote the date (origin `extracted`) and its year is not the upload year |
 | A comprobante, unless a person said there is none | `sin_comprobante`, for a record a person stated has no comprobante fiscal (`sin_comprobante` true), in place of the `missing_rnc` and `missing_ncf` a read gap gives. Such a record stays in `attention` and is approved alone |
 | An RNC or cédula with a valid check digit | `missing_rnc`; `invalid_rnc` when it is not 9 or 11 digits, or its check digit fails and the DGII register does not list it, the rule the 606 export applies |
 | A valid NCF or e-CF | `missing_ncf`; `invalid_ncf`; `ecf_check_failed` for a failed check on the e-CF or its QR, or a file that names an e-CF the record does not hold |
@@ -8393,6 +8438,8 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | No review flag | `review_flag`, for a warning such as `itbis_high` |
 | Nothing else blocks approval | `blocked`, such as an open question |
 | A verified sender, if it came by email | `unverified_sender` |
+
+The upload year is the year, on the Business calendar (America/Santo_Domingo), of the `received_at` of the draft's first source. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
 
 Every other open receipt is `attention`. A receipt being read is in `attention` with reason `reading`, so a read in flight counts there until it settles. Any open receipt can still be approved alone from its dossier, a receipt with no NCF or in USD included. A group decides nothing by itself: no read, worker, model or schedule approves.
 
@@ -8603,8 +8650,10 @@ gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
 is `{value, source}` or null. `source` says where the value came from:
 `last_choice` is the answer a person last gave for this draft's supplier RNC
 in this Business, on another open, accepting or accepted purchase; `receipt`
-is reserved for a value read from the receipt and `reading` for the AI
-reading's pick, and nothing sends either yet. A suggestion is read fresh: it
+is the forma de pago the reader read on this draft's receipt, and `reading`
+is the tipo de gasto the reader picked from it. The best source wins: for
+`payment_method`, `receipt` then `last_choice`; for `category`, `last_choice`
+then `reading`. A suggestion is read fresh: it
 is null unless the draft is an open expense whose approval writes a 606
 declaration (`declaration_editable` true, and a saved purchase declaration or
 an RNC and a 606-reported fiscal number), null where the draft has that answer
@@ -8706,7 +8755,8 @@ Business. The target must be open; the comparison may be open or accepted and
 is read-only. A stale version answers 409; a foreign or personal ID answers
 404 without disclosing its state. A bank or source-change warning cannot be
 cleared through this action. Two purchases with one supplier RNC and fiscal
-number are one comprobante, which approval accepts once, so
+number, or two sales with one fiscal number regardless of buyer RNC, are one
+comprobante, which approval accepts once, so
 `different_purchase` on such a pair answers 422 `duplicate_same_comprobante`.
 
 `same_purchase` deletes the target document as a duplicate. It is the
@@ -8714,7 +8764,8 @@ owner's alone and follows every rule of
 `POST /business/drafts/{draft_id}/delete`: it needs `approve`, an open
 document that is not being read and shares no attachment, and it answers the
 same refusals. The pair must be a pending receipt-fact pair or share one
-supplier RNC and fiscal number; any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
+comprobante (supplier RNC and fiscal number for purchases, fiscal number alone
+for sales); any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
 `deleted.reason = "duplicate"`, restorable until the purge. The other
 document is not changed. It writes no revision. A repeat with the same key
 replays the result; a repeat with a new key on a document already deleted for
@@ -8727,7 +8778,8 @@ candidate is `{draft_id, version, basis, decisions, comparison}`:
 
 - `basis` says why the two look like one: `read_facts` (the read gave both the
   same merchant, date, amount and currency) or `fiscal_number` (both purchases
-  carry one supplier RNC and fiscal number). `fiscal_number` wins when both
+  carry one supplier RNC and fiscal number, or both sales carry one fiscal
+  number regardless of buyer RNC). `fiscal_number` wins when both
   hold. A `fiscal_number` pair needs no `possible_duplicate` blocker.
   A `read_facts` pair settled with `different_purchase` is no candidate on
   either side until either document's read facts, live evidence or attached
@@ -9082,30 +9134,63 @@ value to restore, not a copy calculated by the browser. The single mapping is
 | Fiscal field | Main source |
 | --- | --- |
 | `billed_amount` (607) | `net_amount` |
-| `goods_amount` (606), by confirmed expense type | `net_amount` |
+| `goods_amount` (606), by expense type | `net_amount` |
+| `id_type` (606) | `rnc`: 9 digits is `1`, 11 digits is `2` |
 | `itbis` (606 and 607) | `fiscal.itbis` |
 | `legal_tip` (606 and 607) | `legal_tip` |
-| `paid_on` (606), when paid | `occurred_on` |
-| `services_amount` (606), by confirmed expense type | `net_amount` |
+| `modified_ncf` (606), on a credit note tied to a purchase | `original_ncf` |
+| `paid_on` (606), by payment form | `occurred_on` |
+| `services_amount` (606), by expense type | `net_amount` |
 
 An explicit override stops inheritance even when the typed value equals the
 source. Goods and services share override ownership; restoring either restores
-both sides from the confirmed expense type. Their sum must equal the net
-amount before export. `modified_ncf` never inherits. The fiscal declaration's
+both sides from the expense type. Their sum must equal the net
+amount before export. The fiscal declaration's
 optional ITBIS override does not rewrite the main ITBIS fact. Main amount
-updates refresh inherited fields on every revision. Payment-date inheritance
-uses the stored document settlement or the existing paid-bill mark, never the
-selected account. Reads and exports refresh inherited values when settlement
-changes. An explicit fiscal date remains an override. An `occurred_on` outside
+updates refresh inherited fields on every revision.
+
+With no declaration saved, the dossier of an open expense starts `dgii` from
+the declaration its approval writes, so a fresh read shows every linked field.
+Nothing is saved until a person saves or approves. While a person has given
+no expense type or payment form, the links read the answer in
+`declaration_suggestions`: the dossier shows the amount side and the payment
+date that approving would save. The suggested answer itself stays out of
+`dgii`, a saved declaration holds no value that came from a suggestion, and
+the export still reads an unconfirmed expense type as missing.
+
+The `dgii` of an open draft takes each answer from its first source, in this
+order: what a person answered or overrode, a linked field they left blank
+included; the suggestion in `declaration_suggestions`; then, for a blank
+payment form with no suggestion, the form of the account that paid, whether
+or not a declaration is saved. Each linked field follows from those answers.
+An approval saves that `dgii`, with each suggestion saved as its answer.
+
+`paid_on` follows the payment form. For `01`, `02`, `03` and `07` it is
+`occurred_on`. For any other code, or none, it is null for a person to give.
+`modified_ncf` inherits only on a credit note (type 04 or 34) whose
+`purchase_activity_id` names an approved purchase: its value is that
+purchase's e-NCF or NCF. A debit note, or a credit note with no purchase, has
+no entry and a person types it. An explicit fiscal date remains an override. An `occurred_on` outside
 the accepted date range is never inherited as `paid_on`: the inherited value is
 null, the fact keeps its evidence, and its date blocker stays. The existing monthly
 sin-comprobante purchase cost remains the gross amount because its ITBIS is
 not creditable; all other monthly net calculations use the same net owner.
 
+`id_type`, `paid_on` and `modified_ncf` follow their source only while the
+draft is open. An approval saves what the review showed. After that the
+dossier and Registros carry an `inheritance` entry for the amounts alone, and
+the 606 and 607 export the saved declaration as saved: no export or snapshot
+recomputes a linked value. A declaration saved before `fiscal_overrides` was
+recorded (null) keeps the fill its export has always had: each blank amount
+from the approved facts, and a blank `paid_on` from `occurred_on` when the
+stored bill mark is `Factura pagada`.
+
 `amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
 false` and `difference`. The signed exact decimal difference is gross minus
-net minus the same `AMOUNT_PARTS` components. It appears only when the absolute
-difference exceeds 0.01 and is recomputed for every read and revision. The
+net minus the same `AMOUNT_PARTS` components. With ITBIS known it appears when
+the absolute difference exceeds 0.01. With ITBIS unknown that part counts as
+zero, and it appears only when the difference is below -0.01: ITBIS is never
+negative, so it cannot close that gap. It is recomputed for every read and revision. The
 existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
 overrides are excluded from the model-facing dossier and source text.
 
@@ -10472,22 +10557,36 @@ accept path recorded.
   same rule itself. The decoder scans at most 8 page images per capture
   (`MAX_PAGES_SCANNED`), and the page images it sees were prepared under a cap of
   20,000,000 pixels per image (`MAX_PIXELS` in `documents/preparation.py`); an
-  image over the cap is an invalid document, not a QR miss. The decoded text is
+  image over the cap is an invalid document, not a QR miss. A page whose plain
+  decode finds no DGII link is decoded again with its contrast stretched, then
+  enlarged 2 times (only up to 20,000,000 pixels, `MAX_RETRY_PIXELS`),
+  stopping at the first DGII link and holding one retry image at a time. The decoded text is
   capped at 2048 characters and each query value at 64. Two rows join
   `ecf_checks.checks`: `qr_present` (verified when a DGII QR
   was decoded, else `not_checked` `no_qr`) and `qr_matches_read` (issuer RNC,
-  e-NCF and total from the QR against what the read found, field by field and
-  only where both exist; `read_vs_qr` carries each compared field as
+  e-NCF, total and issue date from the QR against what the record holds after
+  the merge below, field by field and only where both exist; a fact the QR
+  itself gave is not compared; for a read with several purchases the total is
+  `read_total`; `read_vs_qr` carries each compared field, `rnc`, `ecf`, `total`
+  or `occurred_on`, as
   `{read, qr}`, typed, so no reader parses a string; `failed` `qr_differs`
   carries only the differing fields there; `not_checked` `no_read` when nothing
   is comparable). A receipt
   with a QR and no XML gets a verification of its own with those rows and
-  `dgii_accepted` `network_not_in_tier_a`. The typed merge step after decode
-  and read fills only what the read left unknown (issuer RNC, e-NCF, total,
-  issue date) with origin `qr_decoded` and the attachment as source; a value
-  the read found stays, equal or not; the amount is filled only for a read
-  with at most one purchase and stays a draft value a person approves. A
+  `dgii_accepted` `network_not_in_tier_a`. In the typed merge step after decode
+  and read the QR wins over the reader: its e-NCF, its issue date, its issuer
+  RNC (not on a Venta, whose RNC is the client's) and its total (only for a
+  read with at most one purchase) replace a value the reader found or left
+  unknown, with origin `qr_decoded` and the attachment as source. A reader's
+  value that agrees stays `extracted`. A value with any other origin is never
+  replaced, and neither is one whose QR value the fact cannot hold. An amount
+  from the QR stays a draft value a person approves. A
   later document or a person's revision keeps `dgii_qr` and the origins.
+- `ecf_checks_panel_available` on the dossier says whether review shows the
+  e-CF checks card. It is the server switch `CUADRAO_ECF_CHECKS_PANEL_ENABLED`,
+  off by default. Off, the card is hidden and nothing else changes:
+  `ecf_checks` and `dgii_qr` still come, the QR still wins in the merge, and a
+  field that `read_matches_xml` disputes is still marked for review.
 - POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
   whose preparation grant was revoked to the owner's current grant, writes one
   `business_action_receipts` row (`rebind_attachment`, previous binding and

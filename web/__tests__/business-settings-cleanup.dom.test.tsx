@@ -68,8 +68,10 @@ for (const business of [true, false]) {
     assert.equal(button("Uso"), undefined);
     assert.equal(Boolean(button("Borrados recientemente")), !business, "Business keeps no deleted chats");
     assert.equal(button("Eliminar todas las conversaciones"), undefined);
-    assert.ok(button("Seguridad"));
-    assert.ok(button("Eliminar cuenta"));
+    // Seguridad and Eliminar cuenta live in Cuenta, the last section (#1495).
+    assert.ok(button("Cuenta"));
+    assert.equal(button("Seguridad"), undefined);
+    assert.equal(button("Eliminar cuenta"), undefined);
     assert.equal(document.querySelectorAll(published).length, 2, "Ajustes keeps Términos and Privacidad at its foot");
   });
 }

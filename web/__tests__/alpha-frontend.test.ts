@@ -2452,7 +2452,7 @@ describe("Argus Alpha frontend contract", () => {
       "utf-8",
     );
     const deleteRequestDialog = readFileSync(
-      join(root, "components/sidebar/ProfileDeleteRequestDialog.tsx"),
+      join(root, "components/settings/AccountDeletionConfirm.tsx"),
       "utf-8",
     );
     const detailsDialog = readFileSync(
@@ -2479,16 +2479,15 @@ describe("Argus Alpha frontend contract", () => {
     // Lane 6: the delete button runs the deletion command; with the command
     // off (404) it falls back to the support ticket. Success or in_progress
     // signs out on the result; Done leaves. See account-deletion-api.test.ts.
-    expect(profileMenu).toContain("requestAccountDeletion(currentLanguage)");
+    // Cuenta confirms in the pane (#1495); the menu keeps the deletion
+    // command's language and ends the session on its result.
+    expect(deleteRequestDialog).toContain("requestAccountDeletion(profileLanguage)");
+    expect(profileMenu).toContain("profileLanguage: currentLanguage");
     expect(profileMenu).toContain("onLogout();");
     expect(deleteRequestDialog).toContain(
       "settings.profile.request_deletion.in_progress",
     );
-    // Both dialogs live in their own components, because a body-portaled
-    // aria-modal surface has to register its own back, Escape, and focus.
-    expect(deleteRequestDialog).toContain(
-      "settings.profile.request_deletion.title",
-    );
+    expect(deleteRequestDialog).not.toContain("useModalSurface");
     expect(detailsDialog).toContain("useModalSurface");
     expect(profileMenu).not.toContain("settings.profile.language_save_error");
     expect(detailsDialog).not.toContain(
@@ -2513,7 +2512,8 @@ describe("Argus Alpha frontend contract", () => {
     expect(deleteRequestDialog).toContain(
       "settings.profile.request_deletion.unavailable",
     );
-    expect(en).toContain('"title": "Delete your account?"');
+    expect(deleteRequestDialog).toContain('state === "unavailable" ? <DeletionSupportLink /> : null');
+    expect(en).not.toContain('"title": "Delete your account?"');
     expect(en).toContain(
       "Permanently delete your Cuadrao account and your data.",
     );
@@ -2522,7 +2522,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(en).toContain("Your account is being deleted. You're signed out now");
     expect(en).not.toContain('"shared_plans"');
     expect(en).not.toContain("Support will follow up by email.");
-    expect(es).toContain('"title": "¿Eliminar tu cuenta?"');
+    expect(es).not.toContain('"title": "¿Eliminar tu cuenta?"');
     expect(es).toContain(
       "Elimina para siempre tu cuenta de Cuadrao y tus datos.",
     );
@@ -2574,9 +2574,10 @@ describe("Argus Alpha frontend contract", () => {
     for (const label of ["settings.app.appearance", "settings.app.language", "settings.app.sidebar"]) {
       expect(registry).toContain(`label: ["${label}"`);
     }
-    expect(settingsWindow).toContain("settings.data.security");
-    expect(settingsWindow).toContain("settings.profile.delete_account");
-    expect(settingsWindow).toContain("onSelect: onDeleteAccount");
+    // Seguridad and Eliminar cuenta live in the one Cuenta section (#1495).
+    expect(registry).toContain('label: ["settings.account.title"');
+    expect(settingsWindow).not.toContain("settings.profile.delete_account");
+    expect(settingsWindow).not.toContain("onDeleteAccount");
     expect(settingsWindow).not.toContain("cursor-not-allowed");
     expect(settingsWindow).not.toContain("settings.app.security");
     expect(legalBlock).toContain("keyboard_shortcuts.menu_item");
@@ -2614,7 +2615,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(profileMenu).not.toContain("onDeleteAllConversations");
     expect(profileMenu).not.toContain("delete_all_conversations");
     expect(
-      readFileSync(join(root, "components/settings/SettingsWindow.tsx"), "utf-8"),
+      readFileSync(join(root, "components/settings/AccountSettings.tsx"), "utf-8"),
     ).toContain("settings.profile.delete_account");
     expect(sidebar).not.toContain("deleteAllConversations");
     expect(sidebar).not.toContain("delete_all_confirm");
@@ -2680,8 +2681,8 @@ describe("Argus Alpha frontend contract", () => {
       join(root, "components/sidebar/ProfileMenu.tsx"),
       "utf-8",
     );
-    const settingsWindow = readFileSync(
-      join(root, "components/settings/SettingsWindow.tsx"),
+    const cuenta = readFileSync(
+      join(root, "components/settings/AccountSettings.tsx"),
       "utf-8",
     );
     const en = JSON.parse(
@@ -2691,16 +2692,9 @@ describe("Argus Alpha frontend contract", () => {
       readFileSync(join(root, "public/locales/es-419/common.json"), "utf-8"),
     );
 
-    expect(menu).toContain(
-      'onSecurity={() => navigateFromOverlay("/account/security", closeSettingsWindow)}',
-    );
-    const securityRow = settingsWindow.slice(
-      settingsWindow.indexOf('id: "security"'),
-      settingsWindow.indexOf("},", settingsWindow.indexOf('id: "security"')),
-    );
-    expect(securityRow).toContain("onSelect: onSecurity");
-    expect(securityRow).toContain("leaves: true");
-    expect(securityRow).not.toContain("disabled");
+    // Cuenta's whole Seguridad row is the link; leaving closes Ajustes first (#1495).
+    expect(menu).toContain("onLeave: (href) => navigateFromOverlay(href, closeSettingsWindow)");
+    expect(cuenta).toContain('<a href="/account/security" onClick={leaveWith(onLeave)}');
     expect(en.settings.data.security).toBeTruthy();
     expect(es.settings.data.security).toBeTruthy();
   });

@@ -24,8 +24,8 @@ def known(value: str, origin: str = "extracted") -> Known:
     return Known(value=value, origin=origin, source_ids=(UUID(int=1),))
 
 
-def receipt(total: str, tax: str, subtotal: str | None = None, tip: str | None = None) -> BusinessFacts:
-    values = {"amount": known(total), "fiscal": FiscalFacts(itbis=known(tax))}
+def receipt(total: str, tax: str | None, subtotal: str | None = None, tip: str | None = None) -> BusinessFacts:
+    values = {"amount": known(total), "fiscal": FiscalFacts(itbis=known(tax)) if tax is not None else FiscalFacts()}
     if subtotal is not None:
         values["net_amount"] = known(subtotal)
     if tip is not None:
@@ -61,6 +61,36 @@ def test_receipt_amounts(total, tax, subtotal, tip, expected, source, difference
     assert Decimal(result.amount) == Decimal(expected)
     assert result.source == source
     mismatch = next((flag for flag in review_flags(facts) if flag.code == "amounts_mismatch"), None)
+    assert (mismatch.difference if mismatch else None) == difference
+
+
+@pytest.mark.parametrize(
+    ("total", "subtotal", "tip", "selective_tax", "other_taxes", "difference"),
+    [
+        ("145.60", "224.00", None, None, None, "-78.40"),
+        ("1180", "1180", None, None, None, None),
+        ("1180", "1000", None, None, None, None),
+        ("1180", None, "100", "50", None, None),
+        ("1180", "1180.01", None, None, None, None),
+        ("1180", "1180.02", None, None, None, "-0.02"),
+        ("1180", "1000", "100", "50", "30", None),
+        ("1180", "1000", "100", "50", "40", "-10.00"),
+    ],
+    ids=[
+        "net-above-total",
+        "net-equals-total",
+        "gap-itbis-could-fill",
+        "calculated-net",
+        "net-a-cent-above-total-within-tolerance",
+        "net-two-cents-above-total",
+        "known-parts-reach-total",
+        "known-parts-pass-total",
+    ],
+)
+def test_unknown_itbis_flags_only_parts_the_total_cannot_hold(total, subtotal, tip, selective_tax, other_taxes, difference):
+    facts = receipt(total, None, subtotal, tip)
+    declared = apply_purchase(None, PurchaseReview(category="09", selective_tax=selective_tax, other_taxes=other_taxes))
+    mismatch = next((flag for flag in review_flags(facts, declaration=declared) if flag.code == "amounts_mismatch"), None)
     assert (mismatch.difference if mismatch else None) == difference
 
 
@@ -133,13 +163,3 @@ def test_sale_inherits_net_and_fiscal_itbis_override_does_not_edit_main_itbis():
     assert overridden.itbis == "150"
     assert facts.fiscal.itbis.value == "180"
     assert inherit_amounts(facts, overridden, ()).itbis == "180.00"
-
-
-def test_payment_date_inherits_only_when_paid_and_modified_document_never_does():
-    from datetime import date
-
-    facts = receipt("1180", "180").model_copy(update={"occurred_on": known(date(2026, 11, 1))})
-    declaration = apply_purchase(None, PurchaseReview(category="09", modified_ncf="B0100000001"))
-    assert inherit_amounts(facts, declaration, (), paid=False).paid_on is None
-    assert inherit_amounts(facts, declaration, (), paid=True).paid_on == date(2026, 11, 1)
-    assert "modified_ncf" not in inheritance_state(facts, declaration, (), paid=True)

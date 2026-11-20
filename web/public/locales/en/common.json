@@ -994,9 +994,8 @@
       "close": "Close profile",
       "title": "Profile",
       "request_deletion": {
-        "title": "Delete your account?",
         "body": "We delete your account and your personal data. This can't be undone.",
-        "business_owner": "Before you delete your account, each Business you own needs a new owner or must be closed.",
+        "business_owner": "Each Business needs a new owner or must be closed.",
         "check_failed": "We couldn't check your account. Try again.",
         "confirm": "Delete account",
         "submitting": "Deleting...",
@@ -1005,15 +1004,23 @@
         "requested": "Request sent. Support will delete your account and follow up by email.",
         "error": "We couldn't delete your account just now. Try again.",
         "unavailable": "Deleting in the app isn't available here yet. Support can delete your account for you.",
-        "email_fallback": "Email support",
+        "write_support": "Email support",
         "email_subject": "Cuadrao account deletion request",
-        "email_body": "Please help me request deletion for my Cuadrao account{{account_hint}}.",
-        "close": "Close account deletion"
+        "pending_one": "{{count}} Business to resolve",
+        "pending_other": "{{count}} Businesses to resolve",
+        "show_all": "See all {{total}} Businesses",
+        "show_less": "Show less",
+        "request_support": "Request deletion",
+        "signs_out_now": "You're signed out right away.",
+        "finishes_later": "We finish deleting your account within a few days. You don't need to do anything."
       }
     },
     "subscription": {
       "title": "Subscription",
       "upgrade_pro": "Try upgrading to Pro for Free"
+    },
+    "account": {
+      "title": "Account"
     },
     "app": {
       "title": "Preferences",
@@ -2425,7 +2432,6 @@
       "all_channels": "Document reading is managed for your Business across email, WhatsApp and uploads.",
       "change": "Change",
       "error": "Document reading could not be updated. Try again.",
-      "mark_read": "Mark as read",
       "open_settings": "Open document reading settings",
       "owner_only": "Your documents are saved unread. The Business owner can turn reading on.",
       "reading_on": "Document reading is on.",
@@ -2640,8 +2646,7 @@
       "net_card_purchases": "Purchases before ITBIS",
       "net_card_sales": "Sales before ITBIS",
       "total": "Total",
-      "total_review": "Total (with ITBIS)",
-      "use_inherited": "Use Amounts ({{amount}})"
+      "total_review": "Total (with ITBIS)"
     },
     "transactions": {
       "layout": {
@@ -3325,6 +3330,9 @@
         "group_amounts": "Billed amounts",
         "group_retentions": "Withholdings",
         "group_other": "Other",
+        "inherited_original_ncf": "Original purchase NCF",
+        "inherited_rnc": "RNC",
+        "restore_inherited": "Restore: {{value}}",
         "section_choices": "For the 606",
         "suggestion_source": {
           "last_choice": "Your last choice for this RNC",
@@ -4463,6 +4471,7 @@
       "duplicate_resolution": {
         "basis": {
           "fiscal_number": "Same RNC and NCF as another document.",
+          "fiscal_number_sale_placeholder": "[placeholder] Same NCF as another sale.",
           "read_facts": "Same supplier, date and total as another document."
         },
         "column": {

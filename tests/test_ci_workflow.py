@@ -196,7 +196,7 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     assert "tests/test_*_postgres.py" in joined_steps
     assert "tests/test_guest_auth_local_supabase.py" in joined_steps
     assert "scripts/qa/assert_pytest_gate.py" in joined_steps
-    assert guest_job["env"]["OPENROUTER_API_KEY"] == ""
+    assert guest_job["env"]["CUADRAO_OPENROUTER_API_KEY_DEV"] == ""
     assert guest_job["env"]["ALPACA_API_KEY"] == ""
     assert guest_job["env"]["ALPACA_SECRET_KEY"] == ""
     assert guest_job["env"]["ARGUS_MARKET_DATA_PROVIDER_MODE"] == "synthetic_unit_fixture"

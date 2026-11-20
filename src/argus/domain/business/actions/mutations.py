@@ -11,7 +11,7 @@ from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.accepted_dates import reader_date_reason
-from argus.domain.business.actions import plans, sources
+from argus.domain.business.actions import dossier, plans, sources
 from argus.domain.business.actions.facts import (
     facts_of,
     patched_facts,
@@ -20,10 +20,13 @@ from argus.domain.business.actions.facts import (
 )
 from argus.domain.business.actions.fiscal import validate_changed_dates
 from argus.domain.business.amount_inheritance import (
+    APPROVED,
     INHERITANCE,
-    draft_is_paid,
+    PAID_BILL_MARK,
     inherit_amounts,
     inheritance_overrides,
+    links_of,
+    written_from,
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
@@ -79,7 +82,7 @@ from argus.domain.business.purchase_review import (
 )
 from argus.domain.business.receipt_amounts import read_amount, read_amount_facts
 from argus.domain.business.transactions import ActionTransaction
-from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
+from argus.domain.ingestion.documents.dgii_qr import fill_from_qr, record_qr_checks
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     ExtractionBatch,
@@ -189,15 +192,19 @@ def save_revision(
         declaration = TypeAdapter(DgiiDeclaration).validate_python(declaration)
     elif document_type == "venta":
         declaration = apply_payment_split(None, SalePaymentSplit())
+    # A suggestion is not saved: what is stored follows a person's answers alone.
+    linked = dossier.linked_original(tx, event.state, after, declaration)
+    if dgii is None:
+        declaration = written_from(
+            before or after, declaration, previous.get("fiscal_overrides"),
+            previous.get("bill_mark"), linked,
+        )
     if fiscal_overrides is None:
         fiscal_overrides = inheritance_overrides(
             before or after, declaration, None, previous.get("fiscal_overrides"),
-            amount_derived=bool(amount_derived),
+            amount_derived=bool(amount_derived), linked=linked,
         )
-    declaration = inherit_amounts(
-        after, declaration, fiscal_overrides,
-        paid=draft_is_paid(tx, event.activity_id, bill_mark),
-    )
+    declaration = inherit_amounts(after, declaration, fiscal_overrides, linked)
     amount_derived = isinstance(declaration, PurchaseDeclaration) and not set(fiscal_overrides).intersection({"goods_amount", "services_amount"})
     resolution["business"] = BusinessResolution(
         facts=after,
@@ -350,9 +357,18 @@ def revise(
         raise ActionError("invalid_input", "fiscal_direction_unsupported")
     stored = _stored_declaration(event, retyped, current_form)
     previous_resolution = event.resolution.get("business") or {}
-    stored = inherit_amounts(
+    linked = links_of(event.state)
+    # With none saved, the amounts an open review starts from are the server's.
+    unsaved = stored is None and linked is not APPROVED
+    amount_derived = unsaved or bool(previous_resolution.get("amount_derived"))
+    if any(change is not None for change in (fiscal_review, purchase, payment_split, montos)):
+        # A write to the declaration is read against what the person was shown.
+        linked = dossier.review_sources(
+            tx, event.id, event.state, before or after, stored, current_type
+        )
+    stored = written_from(
         before or after, stored, previous_resolution.get("fiscal_overrides"),
-        paid=draft_is_paid(tx, event.activity_id, previous_resolution.get("bill_mark")),
+        previous_resolution.get("bill_mark"), linked,
     )
     if purchase is not None:
         current = declared or stored
@@ -376,6 +392,7 @@ def revise(
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         declared = apply_payment_split(current, payment_split)
     validate_changed_dates(stored, declared)
+    dossier.log_changed_suggestions(tx, event.id, stored, declared)
     declared = kept_sources(stored, declared)
     return save_revision(
         tx,
@@ -391,14 +408,16 @@ def revise(
             None if retyped else (event.resolution.get("business") or {}).get("fiscal_overrides"),
             written=tuple(purchase.model_fields_set if purchase is not None else ()) + (montos.override_inherited if montos else ()),
             restore=montos.restore_inherited if montos else (),
-            amount_derived=bool((event.resolution.get("business") or {}).get("amount_derived")),
+            amount_derived=amount_derived,
+            linked=linked,
+            unsaved=unsaved,
         ),
         # A declaration filled under the other type no longer applies.
         clear_dgii=retyped and declared is None,
         amount_derived=amount_is_derived(
             declared,
             stored,
-            bool((event.resolution.get("business") or {}).get("amount_derived")),
+            amount_derived,
             purchase,
         ),
         document_type=document_type,
@@ -638,6 +657,11 @@ def prepare_attachment(
         "counterparty": candidate.merchant,
         "kind": _kind(candidate.kind_hint),
     }
+    # Only a new read clears its old stamp; human revisions keep it.
+    event = replace(
+        event,
+        resolution={key: value for key, value in event.resolution.items() if key != "read_group"},
+    )
     if candidate.amount is not None and values["amount"] is None:
         logger.info(
             "business_post_read_rule draft_id={} rule=read_amount_unknown", event.id
@@ -667,9 +691,18 @@ def prepare_attachment(
     facts["fiscal"] = fiscal_facts_from_receipt(
         batch.receipt, source_id=source_id
     ).model_dump(mode="json")
-    # The typed merge after decode and read: the QR fills only what the read
-    # left unknown, each filled fact naming its origin; a mismatch fills nothing.
-    facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
+    document_type, detected = _read_document_type(tx, event, draft, batch)
+    # The typed merge after decode and read: what the QR carries replaces what
+    # the reader found. A Venta's RNC is the client's, never the QR's issuer.
+    # With several purchases no one amount is the document's total.
+    amount_is_total = len(purchases) <= 1
+    facts = fill_from_qr(
+        facts,
+        batch.dgii_qr,
+        source_id,
+        fill_amount=amount_is_total,
+        fill_rnc=document_type != "venta",
+    )
     read_facts = BusinessFacts.model_validate(facts)
     facts = read_facts.model_dump(mode="json")
     default_currency = fiscal_default_currency(batch)
@@ -697,7 +730,6 @@ def prepare_attachment(
             for name, incoming in facts["fiscal"].items():
                 merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
         facts = merged
-    document_type, detected = _read_document_type(tx, event, draft, batch)
     after = BusinessFacts.model_validate(facts)
     typed_origin = "extracted" if detected else "owner_stated"
     if document_type == "venta":
@@ -719,7 +751,13 @@ def prepare_attachment(
         None,
         read_purchases,
         read_total,
-        batch.ecf_checks,
+        record_qr_checks(
+            batch.ecf_checks,
+            batch.dgii_qr,
+            after,
+            read_total,
+            amount_is_total=amount_is_total,
+        ),
         batch.dgii_qr,
         _due_notice_mark(batch, bill=bill, booked_from_bill=booked_from_bill),
         document_type=document_type,
@@ -768,7 +806,6 @@ def business_tax_id(tx: ActionTransaction) -> str | None:
 
 KINDS = frozenset({"expense", "income", "transfer", "refund"})
 PAYABLE_BILL_MARK = "Factura por pagar"
-PAID_BILL_MARK = "Factura pagada"
 
 
 def _due_notice_mark(

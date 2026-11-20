@@ -7,7 +7,6 @@ from argus.agent_runtime.capabilities.contract import (
     OptionalParameterSpec,
     UnsupportedCombination,
     ValidationRule,
-    build_default_capability_contract,
 )
 from argus.agent_runtime.profile.response_profile import (
     resolve_effective_response_profile,
@@ -58,6 +57,5 @@ __all__ = [
     "UserState",
     "ValidationRule",
     "VerbosityName",
-    "build_default_capability_contract",
     "resolve_effective_response_profile",
 ]

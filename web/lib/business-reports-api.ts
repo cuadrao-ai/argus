@@ -80,7 +80,7 @@ export const reportRecordSchema = z.object({
   ready: z.boolean(), missing: z.array(z.string()),
   technical_state: z.string().nullable(), workflow_blockers: z.array(z.string()), currency: z.string().nullable(), gross_amount: decimal.nullable(),
   net_amount: decimal.nullable().optional(), net_amount_source: z.enum(["read", "calculated", "edited"]).nullable().optional(), amounts_difference: decimal.nullable().optional(),
-  inheritance: z.record(z.string(), z.object({ field: z.enum(["net_amount", "itbis", "legal_tip", "occurred_on"]), value: z.string().nullable(), inherited: z.boolean() })).optional(),
+  inheritance: z.record(z.string(), z.object({ field: z.enum(["net_amount", "itbis", "legal_tip", "occurred_on", "rnc", "original_ncf"]), value: z.string().nullable(), inherited: z.boolean() })).optional(),
   itbis_amount: decimal.nullable().optional(), goods_amount: decimal.nullable().optional(), services_amount: decimal.nullable().optional(),
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),
   money_effect: effect, adjustment_effect: effect.nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),

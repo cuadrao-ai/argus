@@ -710,7 +710,7 @@ class TestOpenRouterWebSearch:
 class TestProviderSelection:
     def test_known_provider_ids_resolve(self, monkeypatch) -> None:
         monkeypatch.setenv("PERPLEXITY_API_KEY", "k")
-        monkeypatch.setenv("OPENROUTER_API_KEY", "k")
+        monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "k")
         monkeypatch.setenv("ARGUS_DISCOVERY_OPENROUTER_SEARCH_MODEL", "m/x")
         assert (
             search_provider_for_config(provider_id="perplexity_direct").__class__.__name__
@@ -743,15 +743,14 @@ class TestProviderSelection:
 
         monkeypatch.setattr(openrouter_web_search, "post_json", fake_post_json)
         monkeypatch.setenv("APP_ENV", "production")
-        monkeypatch.setenv("OPENROUTER_API_KEY", "")
-        monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
-        monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+        monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "local-key")
+        monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_PROD", "registered-key")
         monkeypatch.setenv("ARGUS_DISCOVERY_OPENROUTER_SEARCH_MODEL", "m/x")
 
-        with openrouter_traffic_class("guest"):
+        with openrouter_traffic_class("registered"):
             provider = search_provider_for_config(
                 provider_id="openrouter_web_search"
             )
             provider.search("q", max_results=1, timeout_seconds=1.0)
 
-        assert seen["headers"] == {"Authorization": "Bearer guest-key"}
+        assert seen["headers"] == {"Authorization": "Bearer registered-key"}

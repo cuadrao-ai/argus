@@ -16,10 +16,19 @@ import psycopg
 import pytest
 from argus.domain.business import analytics as business_analytics
 from argus.domain.business.analytics_events import business_hash_for_id
-from argus.domain.business.contracts.actions import ApproveExpense, CaptureNote
-from argus.domain.business.transactions import ActionTransaction
+from argus.domain.business.contracts.actions import (
+    Applied,
+    ApproveExpense,
+    CaptureNote,
+    ExistingDraft,
+    ReviewDraft,
+)
+from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.transactions import ActionTransaction, transaction
+from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
 from argus.observability import envelope
 from argus.observability.product_events import actor_hash_for_user
+from psycopg.types.json import Jsonb
 
 from tests import test_business_approval_fiscal_postgres as fiscal
 from tests.money_assertions import _assert_no_money_properties
@@ -148,6 +157,89 @@ def _receipt_outcome(service, context, key: str) -> str | None:  # noqa: ANN001
             (context.actor.space_id, context.actor.actor_id, key),
         ).fetchone()
     return row[0] if row else None
+
+
+def _complete_read(service, context, prepared, status="review_ready"):  # noqa: ANN001, ANN202
+    [(_, connection_id, _)] = _sources(service, prepared.draft_id)
+    with service.authority.pool.connection() as db:
+        document, holder, job = db.execute(
+            "select d.draft,c.lease_holder,d.preparation_job"
+            " from public.financial_document_extractions d"
+            " join public.financial_source_connections c on c.id=d.connection_id"
+            " where c.id=%s", (connection_id,),
+        ).fetchone()
+        document.update(status=status, version=document["version"] + 1)
+        db.execute(
+            "update public.financial_document_extractions set draft=%s where connection_id=%s",
+            (Jsonb(document), connection_id),
+        )
+    service.complete_attachment_read(
+        user_id=context.owner_id, connection_id=str(connection_id), scope=context.scope,
+        holder=holder, attempt_id=job["attempt_id"] if job else None,
+        document_version=document["version"], prepared=prepared,
+    )
+    return connection_id
+
+
+@pytest.mark.parametrize("group", ["listo", "attention", None])
+def test_approval_uses_the_read_group_after_a_person_edits(actions, sent, faker, group):  # noqa: ANN001
+    service, context = actions
+    currency = "USD" if group == "attention" else "DOP"
+    draft, version = fiscal.receipt_draft(service, context, fiscal.colmado(currency=currency), currency)
+    if group is not None:
+        _complete_read(
+            service, context, Applied(outcome="applied", draft_id=draft, version=version),
+        )
+    if group == "attention":
+        changed = service.review(
+            context, draft, ReviewDraft(version=version, facts=BusinessFactPatch.model_validate(
+                {"currency": {"state": "known", "value": "DOP"}}
+            )), faker.uuid4(),
+        )
+        assert changed.outcome == "applied", changed
+        version = changed.version
+    reviewed = fiscal.reviewed(service, context, draft, version)
+
+    outcome = service.approve(
+        context, draft, ApproveExpense(version=reviewed, action="record_expense"), faker.uuid4()
+    )
+
+    assert outcome.outcome == "applied", outcome
+    [approval] = _events(sent, "business_record_approved")
+    assert approval["bandeja_group_at_read"] == group
+
+
+@pytest.mark.parametrize("first,last", [("listo", "attention"), ("attention", "listo")])
+def test_a_reread_replaces_the_approval_group(actions, sent, first, last):  # noqa: ANN001
+    from argus.domain.business.actions import mutations
+
+    service, context = actions
+    draft_id, version = fiscal.receipt_draft(service, context, fiscal.colmado(), "DOP")
+    connection_id = _complete_read(
+        service, context, Applied(outcome="applied", draft_id=draft_id, version=version),
+        "review_ready" if first == "listo" else "needs_attention",
+    )
+    binding, read_context = service._attachment_context(
+        context.owner_id, str(connection_id), context.scope
+    )
+    with transaction(service.authority, read_context, "prepare") as tx:
+        row = service._attachment_row(tx, connection_id)
+        reread = mutations.prepare_attachment(
+            tx, ExistingDraft(draft_id=draft_id, version=version),
+            ExtractionBatch.model_validate(row["batch"]),
+            DocumentDraft.model_validate(row["draft"]), binding.actor,
+        )
+        assert "read_group" not in tx.imports.event(str(draft_id)).resolution
+    _complete_read(
+        service, context, reread, "review_ready" if last == "listo" else "needs_attention"
+    )
+    reviewed = fiscal.reviewed(service, context, draft_id, reread.version)
+
+    outcome = fiscal.approve(service, context, draft_id, reviewed)
+
+    assert outcome.outcome == "applied", outcome
+    [approval] = _events(sent, "business_record_approved")
+    assert approval["bandeja_group_at_read"] == last
 
 
 def test_approval_reads_the_filled_names_and_the_first_arrival(actions, sent):  # noqa: ANN001

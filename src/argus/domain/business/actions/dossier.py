@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any, get_args
 from uuid import UUID
 
+from loguru import logger
 from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
@@ -12,19 +13,26 @@ from argus.domain.business.actions.duplicate_comparison import (
     duplicate_revisions,
 )
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.fiscal import last_choice, repeated_purchases
+from argus.domain.business.actions.fiscal import last_choice, repeated_comprobantes
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.amount_inheritance import (
-    draft_is_paid,
-    inherit_amounts,
+    APPROVED,
+    LinkedSources,
     inheritance_state,
+    links_of,
+    original_ncf,
+    written_from,
 )
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
-from argus.domain.business.config import business_settlement_enabled
+from argus.domain.business.bandeja_group import upload_year, year_to_check
+from argus.domain.business.config import (
+    business_settlement_enabled,
+    ecf_checks_panel_enabled,
+)
 from argus.domain.business.contracts.actions import APPROVAL_ACTION, DuplicateDecision
 from argus.domain.business.contracts.authority import PersonName
 from argus.domain.business.contracts.deletion import deletion
@@ -33,6 +41,7 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     PurchaseDeclaration,
     SuggestedField,
+    SuggestionSource,
 )
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
@@ -48,18 +57,19 @@ from argus.domain.business.contracts.dossier import (
     UnsettledApproval,
 )
 from argus.domain.business.contracts.facts import (
+    BusinessAccountFunding,
     BusinessFacts,
     BusinessResolution,
     Known,
 )
-from argus.domain.business.document_type import kind_disagrees
+from argus.domain.business.document_type import DocumentType, kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers
 from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
 from argus.domain.business.purchase_review import (
     blank_answer,
+    declaration_from_facts,
     net_amount,
-    saves_suggestions,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -204,7 +214,7 @@ def duplicate_candidates(
     )
     read = pending if warned else ()
     draft_id = UUID(event.id)
-    fiscal = tuple(str(i) for i in repeated_purchases(tx, [event]).get(draft_id, ()))
+    fiscal = tuple(str(i) for i in repeated_comprobantes(tx, [event]).get(draft_id, ()))
     candidates = []
     for other_id in dict.fromkeys((*read, *fiscal)):
         try:
@@ -271,19 +281,87 @@ def workflow_blockers(
     return blocked, tuple(duplicate_ids)
 
 
-def takes_suggestions(
-    state: str, facts: BusinessFacts, resolution: BusinessResolution
-) -> bool:
-    """Whether the draft's approval would save a suggestion: an open expense
-    the approval writes a 606 declaration for. Anywhere else a suggestion
-    would show a value that never reaches the 606."""
+def _approved_facts(tx: ActionTransaction) -> Callable[[str], BusinessFacts | None]:
+    def read(activity_id: str) -> BusinessFacts | None:
+        rows = tx.rows(
+            "select resolution->'business'->'facts' as facts"
+            " from public.financial_import_events where user_id=%s and owner_space_id=%s"
+            " and activity_id=%s and state='accepted'",
+            (tx.context.owner_id, tx.context.actor.space_id, activity_id),
+        )
+        return BusinessFacts.model_validate(rows[0]["facts"]) if rows else None
 
-    return (
+    return read
+
+
+def _paying_account_type(
+    tx: ActionTransaction, facts: BusinessFacts, accounts: Sequence[AccountChoice] | None
+) -> str | None:
+    """The type of the Business account a person stated paid the record."""
+
+    funding = facts.funding.value if isinstance(facts.funding, Known) else None
+    if not isinstance(funding, BusinessAccountFunding):
+        return None
+    listed = record_context(tx).accounts if accounts is None else accounts
+    return next((account.type for account in listed if account.id == funding.account_id), None)
+
+
+def linked_original(
+    tx: ActionTransaction,
+    state: str,
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+) -> LinkedSources:
+    """What a stored declaration follows: the credit note's original, and
+    never a suggestion or the account's Forma de pago, which a person's write
+    or an approval saves. Once the draft is not open, the amounts alone."""
+
+    if links_of(state) is APPROVED:
+        return APPROVED
+    return LinkedSources(original_ncf=original_ncf(facts, declaration, _approved_facts(tx)))
+
+
+def review_sources(
+    tx: ActionTransaction,
+    draft_id: UUID | str,
+    state: str,
+    facts: BusinessFacts,
+    stored: DgiiDeclaration | None,
+    document_type: DocumentType,
+    accounts: Sequence[AccountChoice] | None = None,
+    shown: DeclarationSuggestions | None = None,
+) -> LinkedSources:
+    """What ``written_from`` reads beyond the draft to show its declaration:
+    the one reader behind the dossier, a write to the declaration and the
+    approval. An open expense the 606 takes starts from the declaration its
+    facts state, and an answer the server suggests stays a suggestion until
+    the approval. A draft that is not open keeps what was saved.
+
+    ``shown`` is the suggestions a person approving saw, in place of the
+    server's own read now. One is refused when its answer is no longer blank
+    or the approval saves no 606 declaration: the record changed."""
+
+    if links_of(state) is APPROVED:
+        return APPROVED
+    purchase = stored if isinstance(stored, PurchaseDeclaration) else None
+    reviewing = (
         state == "open"
         and isinstance(facts.kind, Known)
         and facts.kind.value == "expense"
-        and saves_suggestions(resolution.document_type, facts, resolution.dgii)
+        and takes_purchase_declaration(document_type, facts)
     )
+    built = declaration_from_facts(facts, _paying_account_type(tx, facts, accounts)) if reviewing else None
+    # A suggestion shows only where the approval saves it: on a declaration
+    # the person saved, or on the one built from the facts.
+    offers = reviewing and (purchase is not None or built is not None)
+    if shown is None:
+        shown = offered_suggestions(tx, draft_id, stored) if offers else DeclarationSuggestions()
+    elif any(
+        getattr(shown, field) is not None and not (offers and blank_answer(purchase, field))
+        for field in get_args(SuggestedField)
+    ):
+        raise ActionError("invalid_input", "suggestion_stale")
+    return LinkedSources(shown, original_ncf(facts, stored, _approved_facts(tx)), built=built)
 
 
 def shown_bill_mark(resolution: BusinessResolution) -> str | None:
@@ -294,24 +372,105 @@ def shown_bill_mark(resolution: BusinessResolution) -> str | None:
     return resolution.bill_mark if business_settlement_enabled() else None
 
 
+#: Where each suggested answer comes from, best first. A read is ``receipt``
+#: when the receipt prints the answer and ``reading`` when the reader works it out.
+_SUGGESTION_SOURCES: dict[SuggestedField, tuple[SuggestionSource, ...]] = {
+    "payment_method": ("receipt", "last_choice"),
+    "category": ("last_choice", "reading"),
+}
+#: The read's own name for each answer.
+_READ_FIELD: dict[SuggestedField, str] = {
+    "payment_method": "payment_form",
+    "category": "expense_type",
+}
+
+
+def best_suggestion(
+    field: SuggestedField, read: str | None, remembered: Callable[[], str | None]
+) -> dict[str, str] | None:
+    """The answer to suggest with its source. ``read`` is what the reader read
+    on this draft's receipt; ``remembered`` reads the last choice for its RNC."""
+
+    for source in _SUGGESTION_SOURCES[field]:
+        value = remembered() if source == "last_choice" else read
+        if value:
+            return {"value": value, "source": source}
+    return None
+
+
+def _read_answers(tx: ActionTransaction, draft_id: UUID) -> Mapping[str, str | None]:
+    """What the reader read for each answer on the draft's newest receipt."""
+
+    rows = tx.rows(
+        "select "
+        + ",".join(
+            f"d.batch->'receipt'->>'{name}' as {field}"
+            for field, name in _READ_FIELD.items()
+        )
+        + " from public.business_draft_sources l join public.business_sources s"
+        " on s.id=l.source_id and s.space_id=l.space_id"
+        " join public.financial_document_extractions d on d.connection_id=s.connection_id"
+        " join public.financial_source_connections c on c.id=s.connection_id"
+        " and c.owner_space_id=s.space_id"
+        " where l.space_id=%s and l.draft_id=%s and s.kind='attachment' and c.user_id=%s"
+        " and jsonb_typeof(d.batch->'receipt')='object'"
+        " order by s.received_at desc,s.id desc limit 1",
+        (tx.context.actor.space_id, draft_id, tx.context.owner_id),
+    )
+    return rows[0] if rows else {}
+
+
 def offered_suggestions(
     tx: ActionTransaction, draft_id: UUID, declaration: DgiiDeclaration | None
 ) -> DeclarationSuggestions:
-    """The last choice for this RNC, for each answer the draft has not got:
-    what the dossier shows and what a bulk approval saves."""
+    """The suggestion for each answer the draft has not got, from what the
+    reader read and the last choice for this RNC: what the dossier shows and
+    what a bulk approval saves."""
 
     purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
     blank: tuple[SuggestedField, ...] = tuple(
         field for field in get_args(SuggestedField) if blank_answer(purchase, field)
     )
-    remembered = {field: last_choice(tx, draft_id, field) for field in blank}
+    read = _read_answers(tx, draft_id) if blank else {}
     return DeclarationSuggestions.model_validate(
         {
-            field: {"value": value, "source": "last_choice"}
-            for field, value in remembered.items()
-            if value
+            field: best_suggestion(
+                field, read.get(field), lambda field=field: last_choice(tx, draft_id, field)
+            )
+            for field in blank
         }
     )
+
+
+def log_changed_suggestions(
+    tx: ActionTransaction,
+    draft_id: UUID | str,
+    stored: DgiiDeclaration | None,
+    declared: DgiiDeclaration | None,
+) -> None:
+    """The accuracy signal: a write over ``stored`` gives an answer other
+    than the one the server suggested, whether or not an approval saved it."""
+
+    if not isinstance(declared, PurchaseDeclaration):
+        return
+    before = stored if isinstance(stored, PurchaseDeclaration) else None
+    answered = {
+        field: answer
+        for field in get_args(SuggestedField)
+        if (answer := getattr(declared, field)) is not None
+        and answer != getattr(before, field, None)
+    }
+    if not answered:
+        return
+    offered = offered_suggestions(tx, draft_id, before)
+    for field, answer in answered.items():
+        shown = getattr(offered, field)
+        if shown is not None:
+            source = shown.source if shown.value != answer else None
+        else:
+            source = before.suggestion_sources.get(field) if before else None
+        if source is not None:
+            logger.info("business_suggestion_changed field={} source={}", field, source)
 
 
 def dossier(
@@ -402,8 +561,12 @@ def dossier(
         found,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
-    paid = draft_is_paid(tx, event.activity_id, resolution.bill_mark)
-    declaration = inherit_amounts(facts, resolution.dgii, resolution.fiscal_overrides, paid=paid)
+    linked = review_sources(
+        tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type, context.accounts
+    )
+    declaration = written_from(
+        facts, resolution.dgii, resolution.fiscal_overrides, resolution.bill_mark, linked
+    )
     approvable = not blocked and "approve" in tx.authorization.capabilities
     can_prepare = "prepare" in tx.authorization.capabilities
     can_annotate = annotation_available(tx.authorization, event)
@@ -429,6 +592,7 @@ def dossier(
         and not any(row["shared"] for row in source_rows)
         and not is_reading(tx, source_rows)
     )
+    uploaded = upload_year(source_rows[0]["received_at"] if source_rows else None)
     return BusinessDossier(
         deleted=deleted,
         delete_available=delete_available,
@@ -446,7 +610,7 @@ def dossier(
         review_state=event.state,
         facts=facts,
         net_amount=net_amount(facts, declaration),
-        inheritance=inheritance_state(facts, declaration, resolution.fiscal_overrides, paid=paid),
+        inheritance=inheritance_state(facts, declaration, resolution.fiscal_overrides, linked),
         sources=tuple(evidence),
         questions=questions,
         history=revisions,
@@ -471,18 +635,21 @@ def dossier(
         unrecorded_purchases=resolution.unrecorded_purchases(),
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
+        ecf_checks_panel_available=ecf_checks_panel_enabled(),
         bill_mark=shown_bill_mark(resolution),
         dgii=declaration.model_dump(mode="json") if declaration else None,
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open" and can_prepare,
         declaration_editable=declaration_editable,
-        declaration_suggestions=offered_suggestions(tx, draft_id, resolution.dgii)
-        if declaration_editable and takes_suggestions(event.state, facts, resolution)
+        declaration_suggestions=linked.suggestions
+        if declaration_editable
         else DeclarationSuggestions(),
         payment_split_editable=fiscal_writable
         and takes_payment_split(resolution.document_type),
         reopen_available=reopen_available,
         due_on=resolution.due_on,
+        upload_year=uploaded,
+        year_to_check=year_to_check(facts, uploaded),
         **draft_marks(tx, draft_id, facts),
     )

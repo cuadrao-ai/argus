@@ -1,6 +1,5 @@
 import pytest
 from argus.domain.cadences import SUPPORTED_DCA_CADENCE_VALUES
-from argus.domain.slot_normalizer import normalize_template_name
 from argus.domain.strategy_capabilities import (
     STRATEGY_CAPABILITIES,
     ResultChartExplorationSpec,
@@ -58,15 +57,6 @@ def test_registry_aliases_are_not_orchestrator_nlu():
     assert importlib.util.find_spec("argus.domain.orchestrator") is None
     for capability in STRATEGY_CAPABILITIES.values():
         assert capability.display_name not in capability.aliases
-
-
-def test_buy_and_hold_canonical_template():
-    """normalize_template_name() resolves canonical/internal aliases only."""
-    assert normalize_template_name("buy_and_hold") == "buy_and_hold"
-    assert normalize_template_name("lump_sum_investment") == "buy_and_hold"
-    assert normalize_template_name("buy and hold") is None
-    assert normalize_template_name("hold") is None
-    assert normalize_template_name("comprar y mantener") is None
 
 
 def test_exploration_spec_defaults_are_the_safe_observation_only_policy():
@@ -144,3 +134,47 @@ def test_exploration_metadata_contains_no_display_or_provider_fields():
     for capability in STRATEGY_CAPABILITIES.values():
         dumped = capability.result_chart_exploration.model_dump()
         assert forbidden.isdisjoint(dumped)
+
+
+def test_registry_keeps_locale_phrases_out_of_execution_capabilities():
+    """Execution capabilities are not the multilingual NLU layer."""
+    if "dca_accumulation" not in STRATEGY_CAPABILITIES:
+        pytest.skip("dca_accumulation not in registry")
+
+    forbidden_fragments = {
+        "compra",
+        "comprar",
+        "mantener",
+        "semanal",
+        "mensual",
+        "diario",
+        "quincenal",
+        "trimestral",
+        "tendencia",
+        "ruptura",
+    }
+    all_aliases: list[str] = []
+    for capability in STRATEGY_CAPABILITIES.values():
+        all_aliases.extend(capability.aliases)
+        assert capability.display_name not in capability.aliases
+        for spec in capability.parameters.values():
+            for aliases in spec.value_aliases.values():
+                all_aliases.extend(aliases)
+
+    leaked = [
+        alias
+        for alias in all_aliases
+        if any(fragment in alias.casefold() for fragment in forbidden_fragments)
+    ]
+    assert leaked == []
+
+    cap = STRATEGY_CAPABILITIES["dca_accumulation"]
+    assert "dca_cadence" in cap.parameters
+    spec = cap.parameters["dca_cadence"]
+    assert set(spec.allowed_values) == {
+        "daily",
+        "weekly",
+        "biweekly",
+        "monthly",
+        "quarterly",
+    }

@@ -33,8 +33,6 @@ function useReportRows(records: readonly RecordRow[]) {
 }
 /** A frozen cell: the open row keeps its green edge on the left one. */
 const PINNED = { left: `${PIN_CLASS.left} group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`, right: PIN_CLASS.right } as const;
-/** The columns a header click sorts, by the sort each one sets. */
-const SORT_KEY: Partial<Record<string, RecordsSort["key"]>> = { date: "fecha", counterparty: "contraparte", gross_amount: "monto" };
 export { recordRowKey } from "./records-row-preview";
 
 /** The proof column for a saved record: the receipt icon when a file backs it, a dash that says "no receipt" when none does, a dash that says "no data" when no read says. An empty cell is a question. */
@@ -100,16 +98,16 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
           <tr>
             {columns.map((column) => {
               const label = t(column.label_key, { currency: header ? currencySymbol(header) : "" }).trim();
-              const sortableKey = SORT_KEY[column.key] ?? null;
+              const sortableKey = column.key === "date" || column.key === "counterparty" || column.key === "gross_amount" ? column.key : null;
               const sortHere = sort ? sortableKey === sort.key : column.key === "date";
               const canSort = sort ? sortableKey !== null : sortHere;
-              const blocked = serverSorted || Boolean(sort && sortableKey === "monto" && !amountSortAvailable);
+              const blocked = serverSorted || Boolean(sort && sortableKey === "gross_amount" && !amountSortAvailable);
               return (
                 <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} aria-sort={sortHere ? (order === "desc" ? "descending" : "ascending") : undefined} className={`${RECORDS_TITLE} ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${column.pin === "left" ? "left-0" : "right-0"} z-30` : "z-20"}`}>
                   {canSort ? (
                     <button type="button" aria-disabled={blocked || undefined} aria-describedby={blocked ? sortNoticeId : undefined} title={!serverSorted && blocked ? t("business.transactions.pagination.amount_requires_currency") : undefined} onClick={() => {
                       if (serverSorted) return;
-                      if (sort && onSortChange && sortableKey) onSortChange({ key: sortableKey, direction: sort.key === sortableKey ? sort.direction === "desc" ? "asc" : "desc" : sortableKey === "contraparte" ? "asc" : "desc" });
+                      if (sort && onSortChange && sortableKey) onSortChange({ key: sortableKey, direction: sort.key === sortableKey ? sort.direction === "desc" ? "asc" : "desc" : sortableKey === "counterparty" ? "asc" : "desc" });
                       else toggleOrder();
                     }} className={`${pageStyles.sortHeading} ${column.align === "right" ? pageStyles.sortRight : ""}`}>
                       {label}

@@ -1,11 +1,11 @@
-"""An owner who agreed to an earlier scope is asked again: reading stays off for
-them, and a read bound to that agreement is refused, until they accept the
-scope 3 sentence. Accepting it ends the earlier generation. Within scope 3 a
-consent counts by its version, so new words for the same scope keep it on.
-Scope 3 widens the check only: the table keeps its row security and grants."""
+"""Historical scope and route describe acceptance without expiring permission.
+Revocation and captured-generation identity still govern result application."""
+
+from copy import deepcopy
 
 import psycopg
 import pytest
+from argus.domain.business.authority import ActionError
 from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from psycopg import errors
 from psycopg.types.json import Jsonb
@@ -15,6 +15,7 @@ from tests import test_financial_accounts_postgres as database
 from tests.business.test_business_reading_consent_version import SPANISH
 
 actions = bridge.actions
+prepared = bridge.prepared
 users = bridge.users
 pytestmark = bridge.pytestmark
 
@@ -44,9 +45,10 @@ def _agreed(db, space: str, owner: str, version: int, key: str, words: str) -> s
 
 @pytest.mark.owner_acts
 @pytest.mark.parametrize("earlier", [1, 2])
-def test_an_owner_who_agreed_to_an_earlier_scope_is_asked_again(actions, earlier):
+def test_earlier_scope_and_route_keep_the_original_consent(actions, earlier, faker):
     service, context, _ = actions
-    store = BusinessReceiptConsentStore(service.authority.pool, lambda: ROUTE)
+    route = {"gateway": faker.uuid4(), "interpretation": [{"model": faker.uuid4()}], "reply": []}
+    store = BusinessReceiptConsentStore(service.authority.pool, lambda: route)
     space, owner = str(context.actor.space_id), str(context.owner_id)
     with service.authority.pool.connection() as db:
         agreed = _agreed(
@@ -54,9 +56,9 @@ def test_an_owner_who_agreed_to_an_earlier_scope_is_asked_again(actions, earlier
         )
 
     shown = store.status(space, owner, "es-419")
-    assert (shown["enabled"], shown["consent_id"]) == (False, agreed)
+    assert (shown["enabled"], shown["consent_id"]) == (True, agreed)
     assert (shown["scope_version"], shown["disclosure"]) == (3, SPANISH)
-    assert not store.enabled(space, owner, agreed)
+    assert store.enabled(space, owner, agreed)
 
     accepted = store.set(
         space,
@@ -67,16 +69,65 @@ def test_an_owner_who_agreed_to_an_earlier_scope_is_asked_again(actions, earlier
         language="es-419",
     )
 
-    assert accepted["enabled"] and accepted["consent_id"] != agreed
-    assert store.enabled(space, owner, accepted["consent_id"])
-    assert not store.enabled(space, owner, agreed)
+    assert accepted["enabled"] and accepted["consent_id"] == agreed
+    assert store.enabled(space, owner, agreed)
     with service.authority.pool.connection() as db:
         rows = db.execute(
-            "select scope_version,disclosure,revoked_at is null"
+            "select scope_version,route,disclosure,revoked_at is null"
             " from public.business_receipt_reading_consents where space_id=%s order by consented_at",
             (space,),
         ).fetchall()
-    assert rows == [(earlier, EARLIER_SPANISH[earlier], False), (3, SPANISH, True)]
+    assert rows == [(earlier, ROUTE, EARLIER_SPANISH[earlier], True)]
+    store.set(space, owner, enabled=False, version=3)
+    assert not store.enabled(space, owner, agreed)
+
+
+@pytest.mark.owner_acts
+@pytest.mark.parametrize("state", ["active", "revoked", "replaced"])
+def test_completion_uses_the_captured_generation_after_configuration_changes(
+    prepared, monkeypatch, faker, state
+):
+    service, context, _, connection_id, _, _ = prepared
+    space, owner = str(context.actor.space_id), str(context.owner_id)
+    route = deepcopy(ROUTE)
+    route["gateway"] = faker.uuid4()
+    route["interpretation"][0]["model"] = faker.uuid4()
+    monkeypatch.setattr(
+        "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route",
+        lambda: route,
+    )
+    store = BusinessReceiptConsentStore(service.authority.pool, lambda: route)
+    with service.authority.pool.connection() as db:
+        agreed = _agreed(db, space, owner, 1, faker.uuid4(), EARLIER_SPANISH[1])
+        db.execute(
+            "update public.financial_document_extractions"
+            " set draft=jsonb_set(draft,'{business_reading_consent_id}',%s)"
+            " where connection_id=%s",
+            (Jsonb(agreed), connection_id),
+        )
+    bridge.bind(prepared)
+    if state != "active":
+        store.set(space, owner, enabled=False, version=3)
+    if state == "replaced":
+        shown = store.status(space, owner)
+        replacement = store.set(
+            space, owner, enabled=True, version=3,
+            disclosure_token=shown["disclosure_token"],
+        )
+        assert replacement["consent_id"] != agreed
+
+    if state == "active":
+        applied = bridge.finish(prepared)
+        assert applied.outcome == "applied"
+        assert bridge.finish(prepared).draft_id == applied.draft_id
+    else:
+        with pytest.raises(ActionError, match="document_reading_not_allowed"):
+            bridge.finish(prepared)
+        with service.authority.pool.connection() as db:
+            assert db.execute(
+                "select count(*) from public.business_draft_revisions where space_id=%s",
+                (space,),
+            ).fetchone() == (0,)
 
 
 @pytest.mark.owner_acts

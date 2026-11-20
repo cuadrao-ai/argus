@@ -28,7 +28,7 @@ from argus.domain.business.analytics_events import (
     RecordField,
     business_hash_for_id,
 )
-from argus.domain.business.bandeja_group import BandejaReason
+from argus.domain.business.bandeja_group import ApprovalGroup, BandejaReason
 from argus.domain.business.contracts.facts import Amount, BusinessFacts, FiscalFacts
 from argus.domain.business.document_type import DocumentType, direction
 from argus.domain.business.receipts import READ_REFUSAL_ATTENTION, failure_attention
@@ -249,6 +249,7 @@ class ApprovalFacts:
     read_facts: Mapping[str, Any] | None
     received_at: datetime | None
     document_type: DocumentType
+    read_group: ApprovalGroup | None = None
 
 
 def read_approval(
@@ -279,6 +280,7 @@ def read_approval(
         read_facts=reads[-1] if reads else None,
         received_at=arrived[0]["received_at"] if arrived else None,
         document_type=business.get("document_type") or "recibo",
+        read_group=event.resolution.get("read_group"),
     )
     return facts, revisions[-1]["after_facts"] if revisions else {}
 
@@ -304,6 +306,7 @@ def approval_events(
     return [
         BusinessRecordApproved(
             business_hash=business_hash,
+            bandeja_group_at_read=facts.read_group,
             filled_fields=filled,
             filled_count=len(filled) if filled is not None else None,
             corrected_fields=corrected,

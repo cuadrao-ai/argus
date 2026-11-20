@@ -9,28 +9,57 @@ credit note and a receipt marked Personal stay out: the faster approval records
 business purchases only. ``RULE`` runs in order, so a receipt with several gaps
 names the first. A receipt still being read is in neither tab until its read
 ends: a failed read needs attention, a read still running does not yet.
+
+The year check lives here too. The reader often writes the wrong year, so an
+issue date it read whose year is not the upload year waits for a person. The
+review calendar offers the upload year on the same answer.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Literal
 
-from argus.domain.business.contracts.dossier import ReviewFlag
-from argus.domain.business.contracts.facts import (
+from argus.domain.business.fiscal_identity import identity_digits
+from argus.domain.business.ledger import business_day
+
+# The deletion contract imports this type while receipt contracts initialize.
+ApprovalGroup = Literal["listo", "attention"]
+
+# Why a receipt needs the owner, in the words the owner sees. The web keys its
+# message on this; ``error_code`` stays the precise cause.
+Attention = Literal[
+    "unreadable",
+    "ai_unavailable",
+    "interrupted",
+    "outcome_unknown",
+    "no_purchase_found",
+    "not_a_receipt",
+    "several_purchases",
+    "source_unavailable",
+    "check_details",
+    "duplicate",
+    "read_budget_day",
+    "read_budget_month",
+    "read_deadline_passed",
+    "other",
+]
+
+from argus.domain.business.contracts.facts import (  # noqa: E402
     BusinessFacts,
     FiscalFacts,
     Known,
     is_personal,
     is_sin_comprobante,
 )
-from argus.domain.business.fiscal_identity import identity_digits
-from argus.domain.business.receipt_activity import awaiting_owner
-from argus.domain.business.receipts import Attention
-from argus.domain.business.review_flags import CHECK_DIGIT
 
-BandejaGroupName = Literal["listo", "attention", "reading", "eliminados"]
+if TYPE_CHECKING:
+    from argus.domain.business.contracts.dossier import ReviewFlag
+
+
+BandejaGroupName = Literal[ApprovalGroup, "reading", "eliminados"]
 ListoGap = Literal[
     "reading",
     "not_read",
@@ -61,7 +90,8 @@ ReadState = Literal["finished", "none", "unclear"]
 @dataclass(frozen=True)
 class DraftStanding:
     """What the rule reads of one open draft. ``sender`` is the email standing,
-    None for a receipt that did not come by email."""
+    None for a receipt that did not come by email. ``upload_year`` is the
+    year its first source arrived."""
 
     draft_id: str
     version: int
@@ -74,6 +104,7 @@ class DraftStanding:
     blockers: tuple[str, ...]
     flags: tuple[ReviewFlag, ...]
     sender: str | None = None
+    upload_year: int | None = None
 
 
 def _fiscal(draft: DraftStanding) -> FiscalFacts:
@@ -98,8 +129,34 @@ def _no_number(draft: DraftStanding) -> bool:
 
 
 def _invalid_rnc(draft: DraftStanding) -> bool:
-    digits = identity_digits(_fiscal(draft).rnc.value)
+    """A blank RNC is missing, not invalid: only a number can be wrong."""
+
+    from argus.domain.business.review_flags import CHECK_DIGIT
+
+    rnc = _fiscal(draft).rnc
+    if _blank(rnc):
+        return False
+    digits = identity_digits(rnc.value)
     return len(digits or "") not in CHECK_DIGIT or _flagged(draft, "rnc_check_digit")
+
+
+def upload_year(first_received_at: datetime | None) -> int | None:
+    """The Business year in which a draft's first source arrived."""
+
+    return business_day(first_received_at).year if first_received_at else None
+
+
+def year_to_check(facts: BusinessFacts, upload_year: int | None) -> bool:
+    """The reader wrote this issue date and its year is not the upload year. A
+    date from the QR or from a person is never checked."""
+
+    issued = facts.occurred_on
+    return (
+        upload_year is not None
+        and isinstance(issued, Known)
+        and issued.origin == "extracted"
+        and issued.value.year != upload_year
+    )
 
 
 def _foreign(draft: DraftStanding) -> bool:
@@ -119,6 +176,7 @@ RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
     ("credit_note", lambda draft: draft.credit_note),
     ("missing_merchant", lambda draft: _lacks(draft, "counterparty")),
     ("missing_date", lambda draft: _lacks(draft, "occurred_on")),
+    ("check_details", lambda draft: year_to_check(draft.facts, draft.upload_year)),
     ("missing_amount", lambda draft: _lacks(draft, "amount")),
     ("missing_currency", lambda draft: _lacks(draft, "currency")),
     ("sin_comprobante", lambda draft: is_sin_comprobante(draft.facts)),
@@ -160,15 +218,17 @@ def _row_reason(
     return listo_reason(draft)
 
 
-_ROW_GROUP: Mapping[BandejaReason | None, BandejaGroupName] = {
-    None: "listo",
-    "reading": "reading",
-}
+def draft_group(reason: BandejaReason | None) -> ApprovalGroup:
+    """A finished draft is Listos exactly when it has no gap."""
+
+    return "listo" if reason is None else "attention"
 
 
 def group_of(view: Mapping[str, Any], draft: DraftStanding | None) -> dict[str, Any]:
     """The group of a receipt row. A closed receipt and the email itself have
     none. ``draft_id`` and ``version`` are what an approval of this row names."""
+
+    from argus.domain.business.receipt_activity import awaiting_owner
 
     if view.get("deleted"):
         return {"group": "eliminados", "reason": None, "draft_id": None, "version": None}
@@ -176,7 +236,7 @@ def group_of(view: Mapping[str, Any], draft: DraftStanding | None) -> dict[str, 
         return {"group": None, "reason": None, "draft_id": None, "version": None}
     reason = _row_reason(view, draft)
     return {
-        "group": _ROW_GROUP.get(reason, "attention"),
+        "group": "reading" if reason == "reading" else draft_group(reason),
         "reason": reason,
         "draft_id": draft.draft_id if draft else None,
         "version": draft.version if draft else None,

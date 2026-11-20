@@ -43,7 +43,7 @@ export default function RecordsPagePreview({ records, density, resetKey, rowRef,
   const changePage = (page: number) => { if (connected) connected.onPage(page); else setState((current) => ({ ...current, page })); };
   const sort = (next: RecordsSort) => {
     if (connected) { connected.onSort?.(next); return; }
-    if (next.key === "monto" && !result.amountSortAvailable) { setAttemptedAmount(true); return; }
+    if (next.key === "gross_amount" && !result.amountSortAvailable) { setAttemptedAmount(true); return; }
     setAttemptedAmount(false);
     onSortChange(next);
   };
@@ -54,7 +54,7 @@ export default function RecordsPagePreview({ records, density, resetKey, rowRef,
     <div ref={surface} className={styles.surface}>
       {showNotice ? <p id={noticeId} className={styles.sortNotice} role="status">{word(result.amountSortBlocked ? "amount_fallback" : "amount_requires_currency")}</p> : null}
       {narrow ? <div className={styles.sort}><ToolbarPicker label={word("sort")} value={word(selected.label)}>
-        {(close) => <>{RECORDS_SORT_OPTIONS.map(({ key, direction, label }) => <button type="button" key={`${key}-${direction}`} className={styles.option} disabled={connected !== undefined && !connected.onSort && (key !== "fecha" || direction !== "desc")} aria-disabled={key === "monto" && !result.amountSortAvailable || undefined} onClick={() => { sort({ key, direction }); close(); }}>{word(label)}{result.effectiveSort.key === key && result.effectiveSort.direction === direction ? <Check size={16} aria-hidden="true" /> : null}</button>)}{!result.amountSortAvailable ? <p className={styles.sortHelp}>{word("amount_requires_currency")}</p> : null}</>}
+        {(close) => <>{RECORDS_SORT_OPTIONS.map(({ key, direction, label }) => <button type="button" key={`${key}-${direction}`} className={styles.option} disabled={connected !== undefined && !connected.onSort && (key !== "date" || direction !== "desc")} aria-disabled={key === "gross_amount" && !result.amountSortAvailable || undefined} onClick={() => { sort({ key, direction }); close(); }}>{word(label)}{result.effectiveSort.key === key && result.effectiveSort.direction === direction ? <Check size={16} aria-hidden="true" /> : null}</button>)}{!result.amountSortAvailable ? <p className={styles.sortHelp}>{word("amount_requires_currency")}</p> : null}</>}
       </ToolbarPicker></div> : null}
       {result.count === 0 ? emptyContent : narrow ? <RecordsNarrowList records={result.items} rowRef={rowRef} /> : <RecordsTable preferences={preferences} records={result.items} density={density} rowRef={rowRef} sort={result.effectiveSort} onSortChange={sort} amountSortAvailable={result.amountSortAvailable} sortNoticeId={showNotice ? noticeId : undefined} serverSorted={connected !== undefined && !connected.onSort} />}
       <RecordsPaginationControls count={result.count} page={result.page} pages={result.pages} pageSize={connected?.answer.page_size ?? state.pageSize} rangeLabel={label} onPageChange={changePage} onPageSizeChange={(pageSize) => { if (connected) connected.onPageSize(pageSize); else setState((current) => ({ ...current, pageSize, page: 1 })); }} />

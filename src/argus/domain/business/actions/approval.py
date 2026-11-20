@@ -4,7 +4,7 @@ import hashlib
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, time, timezone
-from typing import TYPE_CHECKING, Literal, get_args
+from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -24,6 +24,7 @@ from argus.domain.business.actions.fiscal import (
     require_distinct_fiscal_document,
 )
 from argus.domain.business.actions.listos import draft_standings
+from argus.domain.business.amount_inheritance import approved_from
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.bandeja_group import listo_reason
 from argus.domain.business.contracts.actions import (
@@ -42,8 +43,6 @@ from argus.domain.business.contracts.actions import (
 from argus.domain.business.contracts.dgii import (
     DeclarationSuggestions,
     DgiiDeclaration,
-    PurchaseDeclaration,
-    SuggestedField,
 )
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
@@ -58,12 +57,6 @@ from argus.domain.business.contracts.listos import (
     ListosApproved,
 )
 from argus.domain.business.document_type import require_type_kind
-from argus.domain.business.purchase_review import (
-    blank_answer,
-    declaration_from_facts,
-    saves_suggestions,
-    take_suggestions,
-)
 from argus.domain.business.review_flags import unconfirmed
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import ImportEvent
@@ -156,72 +149,32 @@ def _approval_declaration(
     facts: BusinessFacts,
     failed: dict | None,
     shown: DeclarationSuggestions | None,
-) -> PurchaseDeclaration | None:
-    """The 606 declaration an expense approval writes from its stored facts.
+) -> DgiiDeclaration | None:
+    """The declaration an approval writes: the one its review showed, which
+    ``approved_from`` owns, with the suggestions the person was ``shown`` or
+    for a bulk approval (None) the server's own, read now. None when there
+    is none, or the draft already holds it with its overrides recorded.
 
-    A declaration a person saved stays theirs: only its blank answers are
-    filled. A suggestion goes in first: the ones the person was ``shown``, or
-    for a bulk approval (None) the server's own, read now. Then the Tipo Id,
-    and the Forma de Pago of an account a person stated. None when there is
-    nothing to write. After a ``failed`` approval whose revision was never
-    undone, the person's declaration is the one before that revision, and it
-    is written back.
-
-    A suggestion the person saw is refused when its answer is no longer
-    blank or this approval writes no 606 declaration: the record changed.
+    After a ``failed`` approval whose revision was never undone, the person's
+    declaration is the one before that revision, and it is written back.
     """
 
-    if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
-        return None
-    funding = facts.funding.value if isinstance(facts.funding, Known) else None
-    built = declaration_from_facts(
+    business = event.resolution.get("business") or {}
+    saved = failed["before_dgii"] if failed is not None else business.get("dgii")
+    held = _declaration(saved) if saved else None
+    overrides = business.get("fiscal_overrides")
+    reviewed = approved_from(
         facts,
-        next(
-            account.type
-            for account in dossier.record_context(tx).accounts
-            if account.id == funding.account_id
-        )
-        if isinstance(funding, BusinessAccountFunding)
-        else None,
+        held,
+        overrides,
+        business.get("bill_mark"),
+        dossier.review_sources(
+            tx, event.id, event.state, facts, held, business.get("document_type", "recibo"), shown=shown
+        ),
     )
-    saved = (
-        failed["before_dgii"]
-        if failed is not None
-        else (event.resolution.get("business") or {}).get("dgii")
-    )
-    current = _declaration(saved) if saved else None
-    # Saved for the other form: no declaration of this purchase.
-    person = current if isinstance(current, PurchaseDeclaration) else None
-    document_type = (event.resolution.get("business") or {}).get("document_type", "recibo")
-    saves = saves_suggestions(document_type, facts, person)
-    if shown is None:
-        offered = (
-            dossier.offered_suggestions(tx, event.id, person)
-            if saves
-            else DeclarationSuggestions()
-        )
-    else:
-        named = [f for f in get_args(SuggestedField) if getattr(shown, f) is not None]
-        if named and not (saves and all(blank_answer(person, f) for f in named)):
-            raise ActionError("invalid_input", "suggestion_stale")
-        offered = shown
-    taken = take_suggestions(person, offered)
-    if taken is None:
-        return built
-    if built is None:
-        if taken != person:
-            return taken
-        return current if failed is not None else None
-    filled = taken.model_copy(
-        update={
-            name: getattr(built, name)
-            for name in ("id_type", "payment_method")
-            if getattr(taken, name) is None
-        }
-    )
-    if failed is None and filled == person:
+    if failed is None and (reviewed is None or reviewed == held and overrides is not None):
         return None
-    return filled
+    return reviewed
 
 
 def _declaration(stored: dict) -> DgiiDeclaration:

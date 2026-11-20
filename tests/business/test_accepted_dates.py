@@ -99,7 +99,7 @@ def test_reader_date_is_evidence_and_a_correction_reason():
     ("0026-10-05", False), ("2016-11-14", False), ("2026-11-16", False),
     ("2016-11-15", True), ("2026-11-15", True),
 ])
-def test_paid_bill_inherits_only_an_accepted_read_date_as_its_payment_date(day, copied):
+def test_cash_purchase_inherits_only_an_accepted_read_date_as_its_payment_date(day, copied):
     from uuid import uuid4
 
     from argus.domain.business.amount_inheritance import (
@@ -112,14 +112,14 @@ def test_paid_bill_inherits_only_an_accepted_read_date_as_its_payment_date(day, 
     read = date.fromisoformat(day)
     facts = BusinessFacts(occurred_on=Known(value=read, origin="extracted", source_ids=(uuid4(),)))
     values = {name: None for name, info in PurchaseDeclaration.model_fields.items() if info.is_required()}
-    empty = PurchaseDeclaration.model_validate({**values, "form": "606"})
+    empty = PurchaseDeclaration.model_validate({**values, "form": "606", "payment_method": "01"})
     # Every caller of the automatic copy reads this one state.
-    assert inheritance_state(facts, empty, (), paid=True)["paid_on"].value == (day if copied else None)
-    assert inherit_amounts(facts, empty, (), paid=True).paid_on == (read if copied else None)
+    assert inheritance_state(facts, empty, ())["paid_on"].value == (day if copied else None)
+    assert inherit_amounts(facts, empty, ()).paid_on == (read if copied else None)
     # A copy stored before the rule is dropped; a person's own date is theirs.
     stored = empty.model_copy(update={"paid_on": read})
-    assert inherit_amounts(facts, stored, (), paid=True).paid_on == (read if copied else None)
-    assert inherit_amounts(facts, stored, ("paid_on",), paid=True).paid_on == read
+    assert inherit_amounts(facts, stored, ()).paid_on == (read if copied else None)
+    assert inherit_amounts(facts, stored, ("paid_on",)).paid_on == read
     assert facts.occurred_on.value == read
 
 
@@ -271,7 +271,7 @@ def test_amount_preview_keeps_unchanged_legacy_dates(form, field, day):
     values.update(form=form, **{field: day})
     resolution = BusinessResolution(facts=receipt("1180", "180", "1000"), dgii=model.model_validate(values))
     before = resolution.model_dump()
-    result = preview_amounts(resolution, AmountsPreviewRequest(version=1, itbis={"state": "known", "value": "200"}), paid=False)
+    result = preview_amounts(resolution, AmountsPreviewRequest(version=1, itbis={"state": "known", "value": "200"}))
     assert result.net_amount.amount == "1000"
     assert resolution.model_dump() == before
 

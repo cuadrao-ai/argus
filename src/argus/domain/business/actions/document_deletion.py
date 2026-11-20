@@ -211,10 +211,10 @@ def _change(
         group = "attention"
         if event is not None and "business" in event.resolution:
             from argus.domain.business.actions.listos import draft_standings
-            from argus.domain.business.bandeja_group import listo_reason
+            from argus.domain.business.bandeja_group import draft_group, listo_reason
 
             standing = draft_standings(tx, (event,))[event.id]
-            group = "attention" if listo_reason(standing) else "listo"
+            group = draft_group(listo_reason(standing))
         marker = DeletedDocument(
             actor=DeletingActor(actor_id=tx.context.actor.actor_id),
             at=datetime.now(timezone.utc),

@@ -299,12 +299,15 @@ Do not copy `cuadrao-api-staging` or `cuadrao-app-staging` onto production. `scr
 
 #### Staging drift check
 
-Compare a staging service with the manifest before changing anything. Run these commands from the repository root after installing the locked Python dependencies with Poetry. Put a read-only token in the environment for that run. The command reads the live settings and prints names. A plain setting the manifest pins shows the expected value and the live value. A secret shows present or missing, and the value is never printed. Exit 1 means the service differs from the manifest. The command does not write, and it is not part of CI. It only accepts the staging api and web services. Add `--help` to either command to check usage without a token or a service call.
+Compare a staging service with the manifest before changing anything. Run these commands from the repository root after installing the locked Python dependencies with Poetry. Put a read-only token in the environment for that run. The command reads the live settings and prints names. A plain setting the manifest pins shows the expected value and the live value. A secret shows present or missing, and the value is never printed. Exit 1 means the service differs from the manifest. The command does not write, and it is not part of CI. It accepts the staging api, web, and documents worker services. Add `--help` to any command to check usage without a token or a service call.
 
 ```
 RENDER_API_KEY=... poetry run python -m scripts.ops.settings_drift api
 RENDER_API_KEY=... poetry run python -m scripts.ops.settings_drift web
+RENDER_API_KEY=... poetry run python -m scripts.ops.settings_drift documents_worker
 ```
+
+The [staging deploy workflow](ops/deploy-staging.md) deploys API, documents worker, then web when selected, using one fixed full SHA and stopping on any deploy failure.
 
 `release-config-audit` fails a live key whose production rule is `not_set`, or that the manifest does not name, with `unexpected_live_env`. It also fails a missing or different value for every production `value` rule, and a missing value for every required `enter` or `copy_from` rule.
 
@@ -351,7 +354,7 @@ separate readback. They are not app-managed hosted declarations.
 
 The business-web contract on `cuadrao-app` still requires `ARGUS_TRUSTED_CLIENT_IP_HEADER=CF-Connecting-IP` before that service's build. Do not set the business-web contract on the marketing site.
 
-The business-web env lives in the settings manifest's `web` surface, not in `render.yaml`. `render.yaml` declares no env for `cuadrao-marketing` or `cuadrao-app`. The manifest's `documents_worker` surface holds only the worker's two job settings, and the tool refuses `--live-names` on it until its live readback is done, because the worker also reads settings the surface does not list. The audited marketing env is the release profile `marketing` surface, taken from the marketing launch runbook and the keys `marketing/` reads.
+The business-web env lives in the settings manifest's `web` surface, not in `render.yaml`. `render.yaml` declares no env for `cuadrao-marketing` or `cuadrao-app`. The manifest's `documents_worker` surface describes 15 settings per hosted environment. Its staging idle-poll ceiling is 60 seconds; production keeps 5 seconds. `staging_env.py apply all --confirm` now includes the staging worker. The tool still refuses `--live-names` on the worker until the founder's names-only live readback is done; production readback and delete-list work remain separate. The audited marketing env is the release profile `marketing` surface, taken from the marketing launch runbook and the keys `marketing/` reads.
 
 These profile `optional` names are secrets. Set one only when Lucas is turning that surface on, and never record the value. Absence is allowed by the audit. `CUADRAO_INVITE_CODE_SECRET` is the exception timed above. The others are `CUADRAO_INVITE_CODE_SECRET_PREVIOUS`, `ARGUS_INGESTION_SECRET_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_WEBHOOK_URL`, `CUADRAO_APPLE_TEAM_ID`, `CUADRAO_APPLE_SIGN_IN_KEY_ID`, `CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY`, and `CUADRAO_APPLE_BUNDLE_ID`.
 
@@ -596,7 +599,7 @@ connection.
    is why it needs the production root CA by absolute path.
 
 ```bash
-export ARGUS_PRODUCTION_DATABASE_URL="$SUPABASE_POSTGRES_SESSION_POOLER_URL"
+export ARGUS_PRODUCTION_DATABASE_URL="$CUADRAO_PRODUCTION_LEDGER_READ_URL"
 export ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT="$HOME/.argus/prod-ca-2021.crt"
 ARGUS_CANDIDATE_SHA="$(git rev-parse HEAD)"
 poetry run python scripts/ops/production_migration_gate.py \
@@ -604,10 +607,41 @@ poetry run python scripts/ops/production_migration_gate.py \
   --output temp/release-evidence/production-migration-gate.json
 ```
 
-Both are aliases to things that already exist, so neither is a new secret to
-mint. `SUPABASE_POSTGRES_SESSION_POOLER_URL` is in the root `.env`; source it
-read-only and alias it rather than adding a second name for the same value.
-Use the session pooler, not the direct URL, which fails on IPv6 here.
+The founder provisions `CUADRAO_PRODUCTION_LEDGER_READ_URL` separately. Use a
+session-pooler URL with user `<role>.<project-ref>`. The role must have only
+USAGE on `supabase_migrations` and SELECT on its `schema_migrations` table,
+with no ownership, privileged memberships or inherited write permissions.
+The founder must prove a write is denied by the role's grants, independently
+of the gate's read-only transaction. Never substitute the operator write URL.
+The gate rejects superuser, bypass-RLS, ledger INSERT and public-schema CREATE
+privileges before reading the ledger. Unknown privilege results also block.
+
+For the manual promotion check, the founder first bootstraps
+`.github/workflows/production-migration-gate.yml`, the gate and its tests onto
+protected `main`. Configure environment `production-migration-ledger` to allow
+only the `main` branch, with no PR refs or tags. Store the read URL there as
+secret `CUADRAO_PRODUCTION_LEDGER_READ_URL`, never as a repository-level secret.
+Store the public CA PEM in that environment's variable
+`CUADRAO_PRODUCTION_DATABASE_SSL_ROOT_CERT`; the workflow writes it to a temporary
+file and supplies the gate's existing CA-path variable. Keep the default
+workflow token read-only. Only the trusted publishing job requests status writes.
+Require commit status `production-migration-gate` on `main`.
+
+Dispatch the workflow from `main` with the open promotion PR number, including
+draft PRs. Repeat manually after every push. It runs trusted tests and dependencies,
+uses production identity from trusted `main`, and reads candidate migration Git
+objects without checking out or executing candidate code or configuration. It
+rechecks the PR's open state, target and exact head before publishing a result.
+Missing credentials, errors and changed heads cannot establish success.
+
+The default read-only token is defense in depth, not status authenticity.
+Same-repository collaborators can change explicit workflow `permissions` and
+publish a status with the same name. Before merging, verify that the status links
+to this protected-main workflow run and that its report identifies the current
+PR head and trusted checkout SHA. The founder alone performs the live proof:
+a draft promotion with one unapplied dummy migration must fail, then pass after
+that migration is removed and the workflow is rerun. These steps do not apply
+migrations or authorize a deployment.
 
 **Keep the CA at `~/.argus/prod-ca-2021.crt`, not in `~/Downloads`.** The
 certificate is public, the same file Supabase serves at a public URL, so it is
@@ -1205,7 +1239,7 @@ Keep true secrets manual in Render:
 - `DATABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_JWT_SECRET`
-- `CUADRAO_OPENROUTER_API_KEY_STG` for staging, `CUADRAO_OPENROUTER_API_KEY_PROD` for production; selection and legacy fallbacks belong to `src/argus/llm/openrouter_key_policy.py`
+- `CUADRAO_OPENROUTER_API_KEY_STG` for staging, `CUADRAO_OPENROUTER_API_KEY_PROD` for production, one name per environment with no fallback; selection belongs to `src/argus/llm/openrouter_key_policy.py`
 - `ALPACA_API_KEY`
 - `ALPACA_SECRET_KEY`
 - `CUADRAO_OPS_TOKEN`

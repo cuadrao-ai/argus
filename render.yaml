@@ -80,8 +80,6 @@ services:
         sync: false
       - key: CUADRAO_OPENROUTER_API_KEY_PROD
         sync: false
-      - key: CUADRAO_PROD_OPENROUTER_API_KEY
-        sync: false
       - key: CUADRAO_UTILITY_MODEL
         value: google/gemini-2.5-flash-lite
       - key: CUADRAO_UTILITY_FALLBACK_MODEL
@@ -118,6 +116,8 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
         value: "60"
+      - key: CUADRAO_ECF_CHECKS_PANEL_ENABLED
+        value: "false"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
@@ -198,8 +198,6 @@ services:
         value: "3600"
       - key: CUADRAO_OPENROUTER_API_KEY_PROD
         sync: false
-      - key: CUADRAO_PROD_OPENROUTER_API_KEY
-        sync: false
       - key: CUADRAO_VISION_MODEL
         sync: false
       - key: DATABASE_URL
@@ -240,13 +238,7 @@ services:
         sync: false
       - key: CUADRAO_PERSISTENCE_MODE
         sync: false
-      - key: CUADRAO_OPENROUTER_API_KEY_DEV
-        sync: false
       - key: CUADRAO_OPENROUTER_API_KEY_STG
-        sync: false
-      - key: CUADRAO_OPENROUTER_API_KEY_PROD
-        sync: false
-      - key: CUADRAO_PROD_OPENROUTER_API_KEY
         sync: false
       - key: CUADRAO_APP_ORIGIN
         sync: false
@@ -280,6 +272,8 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
         value: "60"
+      - key: CUADRAO_ECF_CHECKS_PANEL_ENABLED
+        value: "true"
       - key: CUADRAO_FISCAL_SANDBOX_API_TOKEN
         sync: false
       - key: CUADRAO_FISCAL_SANDBOX_BUSINESS_ID
@@ -437,9 +431,7 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS
         value: "3600"
-      - key: CUADRAO_OPENROUTER_API_KEY_PROD
-        sync: false
-      - key: CUADRAO_PROD_OPENROUTER_API_KEY
+      - key: CUADRAO_OPENROUTER_API_KEY_STG
         sync: false
       - key: CUADRAO_VISION_MODEL
         sync: false

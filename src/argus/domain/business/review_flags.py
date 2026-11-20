@@ -75,9 +75,10 @@ def review_flags(
     ):
         flags.append(ReviewFlag(code="itbis_high", field="itbis", confirm=False))
     net = net_amount(facts, declaration)
-    if total is not None and itbis is not None and net.amount is not None:
+    if total is not None and net.amount is not None:
         difference = Decimal(total) - Decimal(net.amount) - sum(amount_parts(facts, declaration))
-        if abs(difference) > Decimal("0.01"):
+        # An unknown ITBIS counts as zero and can only close a gap the Total leaves.
+        if difference < Decimal("-0.01") or (itbis is not None and difference > Decimal("0.01")):
             flags.append(ReviewFlag(
                 code="amounts_mismatch", field="amount", confirm=False,
                 difference=exact_amount_text(difference),

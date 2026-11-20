@@ -420,7 +420,7 @@ jobs:
     env:
       CI_SHARD_INDEX: ${{ matrix.shard }}
       CI_SHARD_COUNT: "3"
-      OPENROUTER_API_KEY: ""
+      CUADRAO_OPENROUTER_API_KEY_DEV: ""
       ALPACA_API_KEY: ""
       ALPACA_SECRET_KEY: ""
       ARGUS_MARKET_DATA_PROVIDER_MODE: synthetic_unit_fixture
@@ -456,7 +456,37 @@ jobs:
       # needs no email confirmation, and no job exports a Mailpit URL).
       - name: Start disposable local Supabase
         run: |
-          supabase start -x studio,postgres-meta,realtime,imgproxy,edge-runtime,mailpit
+          set -euo pipefail
+          start_log=$(mktemp)
+          trap 'rm -f "$start_log"' EXIT
+
+          stop_project() {
+            local output status=0
+            output=$(supabase stop --no-backup 2>&1) || status=$?
+            printf '%s\n' "$output"
+            if [ "$status" -ne 0 ] && ! grep -Fqi 'not running' <<< "$output"; then
+              return "$status"
+            fi
+          }
+
+          start_project() {
+            supabase start -x studio,postgres-meta,realtime,imgproxy,edge-runtime,mailpit 2>&1 | tee "$start_log"
+          }
+
+          stop_project
+          if start_project; then
+            :
+          else
+            start_status=$?
+            if ! grep -Fq 'address already in use' "$start_log"; then
+              exit "$start_status"
+            fi
+            echo 'Local startup port conflict; recording owners before one retry.'
+            docker ps -a --format '{{.Names}} {{.Ports}} {{.Status}}' || true
+            sudo ss -ltnp | grep -E ':5433[0-9]' || true
+            stop_project
+            start_project
+          fi
           eval "$(supabase status -o env)"
           {
             echo "ARGUS_DISPOSABLE_DATABASE_URL=$DB_URL"

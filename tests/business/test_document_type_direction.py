@@ -14,6 +14,7 @@ from argus.domain.business import document_type as types
 from argus.domain.business.actions import approval, mutations, sources
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import ExistingDraft
+from argus.domain.business.contracts.dgii import DeclarationSuggestions
 from argus.domain.business.contracts.facts import BusinessFactPatch, BusinessFacts, Known
 from argus.domain.ingestion.contract import ImportCandidate, SourceRef
 from argus.domain.ingestion.documents.models import ExtractionBatch, ReceiptDetails
@@ -155,6 +156,12 @@ def _review(
     monkeypatch.setattr(sources, "require_sources", lambda *args: None)
     monkeypatch.setattr(sources, "attach", lambda *args: None)
     monkeypatch.setattr(mutations, "validate_facts", lambda *args: None)
+    monkeypatch.setattr(
+        mutations.dossier, "log_changed_suggestions", lambda *args: None
+    )
+    monkeypatch.setattr(
+        mutations.dossier, "offered_suggestions", lambda *args: DeclarationSuggestions()
+    )
     if event is not None:
         monkeypatch.setattr(mutations, "event_at", lambda *args: event)
         monkeypatch.setattr(mutations, "_open_for_type", lambda *args: event)

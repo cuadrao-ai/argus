@@ -37,20 +37,6 @@ def takes_purchase_declaration(document_type: DocumentType, facts: BusinessFacts
     return direction(document_type) is PURCHASE and not is_sin_comprobante(facts)
 
 
-def saves_suggestions(
-    document_type: DocumentType, facts: BusinessFacts, declaration: DgiiDeclaration | None
-) -> bool:
-    """Whether an approval saves a suggested 606 answer on this record: it
-    takes a 606 declaration and the approval writes one, the person's or the
-    one built from its facts. The one rule behind the dossier's suggestions
-    and the approval's save, so a suggestion shows only where it is saved."""
-
-    return takes_purchase_declaration(document_type, facts) and (
-        isinstance(declaration, PurchaseDeclaration)
-        or declaration_from_facts(facts, None) is not None
-    )
-
-
 def takes_payment_split(document_type: DocumentType) -> bool:
     """Whether a 607 payment split belongs on this record: a sale. The one
     rule behind the dossier's payment_split_editable and the review's write."""
@@ -306,10 +292,13 @@ def declaration_from_facts(
     if rnc is None or number is None or number[1:3] in {"02", "32"}:
         return None
     review = PurchaseReview(payment_method=PAYMENT_FORM_BY_ACCOUNT_TYPE.get(account_type))
-    digits = identity_digits(rnc)
-    return apply_purchase(None, review).model_copy(
-        update={"id_type": {9: "1", 11: "2"}.get(len(digits or ""))}
-    )
+    return apply_purchase(None, review).model_copy(update={"id_type": id_type_of(facts)})
+
+
+def id_type_of(facts: BusinessFacts) -> str | None:
+    """The Tipo Id the supplier's RNC states: 1 for an RNC, 2 for a cédula."""
+
+    return {9: "1", 11: "2"}.get(len(identity_digits(_fiscal(facts, "rnc") or "") or ""))
 
 
 def _fiscal(facts: BusinessFacts, name: str) -> str | None:

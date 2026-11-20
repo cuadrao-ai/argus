@@ -264,8 +264,8 @@ def test_category_review_copies_only_an_accepted_read_date_into_the_payment_date
     read = (ledger.today() - timedelta(days=30)).isoformat() if accepted else "0026-10-05"
     paid_bill_read_on(service, draft_id, read)
 
-    # The person submits no date: inherit_amounts fills paid_on from the read.
-    request = ReviewDraft(version=version, purchase=PurchaseReview(category="02"))
+    # The person pays in cash and submits no date: paid_on follows the read.
+    request = ReviewDraft(version=version, purchase=PurchaseReview(category="02", payment_method="01"))
     reviewed = service.review(context, draft_id, request, str(uuid4()))
     assert reviewed.outcome == "applied", reviewed
     view = service.dossier(context, draft_id)

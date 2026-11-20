@@ -61,7 +61,7 @@ def test_fiscal_schema_is_nullable_bounded_unverified_evidence() -> None:
         assert name not in schema.get("required", [])
         assert {branch["type"] for branch in field["anyOf"]} == {"string", "null"}
         assert "unverified" in field["description"].lower()
-        assert "source" in field["description"].lower()
+        assert "printed" in field["description"].lower()
         assert any(branch.get("maxLength") for branch in field["anyOf"])
     with pytest.raises(ValidationError):
         ReceiptDetails(rnc="x" * 81)
@@ -176,7 +176,7 @@ async def test_scripted_extraction_preserves_fiscal_evidence_and_personal_candid
     assert not batch.issues
     assert invoke.await_args.kwargs["schema_model"] is ExtractionResult
     prompt = invoke.await_args.kwargs["messages"][0]["content"]
-    for label in ("RNC", "NCF", "e-CF", "ITBIS"):
+    for label in ("RNC", "NCF", "e-NCF", "ITBIS"):
         assert label in prompt
 
 

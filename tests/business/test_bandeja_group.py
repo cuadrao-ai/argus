@@ -4,7 +4,7 @@ first gap names a receipt with several, and every row sits in one count."""
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -12,7 +12,10 @@ from argus.domain.business.bandeja_group import (
     RULE,
     DraftStanding,
     group_of,
+    listo_gaps,
     listo_reason,
+    upload_year,
+    year_to_check,
 )
 from argus.domain.business.contracts.dossier import ReviewFlag
 from argus.domain.business.contracts.facts import (
@@ -72,6 +75,16 @@ def test_a_draft_with_nothing_missing_is_listo() -> None:
         "draft_id": LISTO.draft_id,
         "version": 2,
     }
+
+
+@pytest.mark.parametrize(
+    ("reason", "expected"),
+    [(None, "listo"), ("missing_rnc", "attention"), ("duplicate", "attention")],
+)
+def test_draft_group_uses_the_presence_of_a_gap(reason, expected) -> None:  # noqa: ANN001
+    from argus.domain.business import bandeja_group
+
+    assert bandeja_group.draft_group(reason) == expected
 
 
 @pytest.mark.parametrize(
@@ -148,6 +161,15 @@ def test_each_gap_has_its_reason(draft: DraftStanding, reason: str) -> None:
     assert (found["group"], found["reason"]) == ("attention", reason)
 
 
+@pytest.mark.parametrize(
+    "draft",
+    [with_facts(fiscal=None), with_fiscal(rnc=Unknown()), with_fiscal(rnc=known("  "))],
+)
+def test_a_blank_rnc_is_missing_and_never_also_invalid(draft: DraftStanding) -> None:
+    gaps = listo_gaps(draft)
+    assert "missing_rnc" in gaps and "invalid_rnc" not in gaps
+
+
 def test_a_stated_no_comprobante_on_a_record_with_a_number_is_no_gap() -> None:
     assert listo_reason(with_facts(receipt_state=known("no_receipt"))) is None
 
@@ -220,3 +242,55 @@ def test_every_row_the_bandeja_lists_is_in_one_count() -> None:
     assert counts["bandeja_listo_count"] == 1
     assert counts["bandeja_attention_count"] == 4
     assert counts["pending_review_count"] == 7
+
+
+UPLOADED = datetime(2026, 11, 5, 15, 0, tzinfo=timezone.utc)
+
+
+def dated(day: date, origin: str = "extracted", at: datetime = UPLOADED) -> DraftStanding:
+    """LISTO with this issue date, on a document that arrived at ``at``."""
+
+    issued = Known(value=day, origin=origin, source_ids=SOURCES)
+    return replace(with_facts(occurred_on=issued), upload_year=upload_year(at))
+
+
+def test_a_read_year_that_is_not_the_upload_year_needs_a_person() -> None:
+    draft = dated(date(2024, 11, 4))
+
+    assert year_to_check(draft.facts, draft.upload_year)
+    found = group_of(OPEN_VIEW, draft)
+    assert (found["group"], found["reason"]) == ("attention", "check_details")
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        pytest.param(dated(date(2024, 11, 4), "qr_decoded"), id="the QR gave the date"),
+        pytest.param(dated(date(2024, 11, 4), "member_set"), id="a member set the date"),
+        pytest.param(dated(date(2024, 11, 4), "owner_stated"), id="the owner stated the date"),
+        pytest.param(dated(date(2024, 11, 4), "matched"), id="a match gave the date"),
+        pytest.param(dated(date(2026, 11, 4)), id="the read year is the upload year"),
+        pytest.param(
+            dated(date(2025, 12, 31), at=datetime(2026, 1, 1, 3, 30, tzinfo=timezone.utc)),
+            id="23:30 on 31 dic in Santo Domingo is still the old year",
+        ),
+        pytest.param(replace(dated(date(2024, 11, 4)), upload_year=None), id="no source time"),
+    ],
+)
+def test_a_date_is_not_year_checked(draft: DraftStanding) -> None:
+    assert not year_to_check(draft.facts, draft.upload_year)
+    assert listo_reason(draft) is None
+
+
+def test_the_upload_year_turns_at_midnight_in_santo_domingo() -> None:
+    assert upload_year(datetime(2027, 1, 1, 3, 59, tzinfo=timezone.utc)) == 2026
+    assert upload_year(datetime(2027, 1, 1, 4, 30, tzinfo=timezone.utc)) == 2027
+    assert upload_year(None) is None
+
+
+def test_a_year_to_check_comes_after_a_missing_fact() -> None:
+    draft = dated(date(2024, 11, 4))
+    lacking = replace(draft, facts=draft.facts.model_copy(update={"counterparty": Unknown()}))
+
+    assert listo_reason(lacking) == "missing_merchant"
+    assert listo_gaps(lacking) == ("missing_merchant", "check_details")

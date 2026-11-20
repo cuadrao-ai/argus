@@ -52,29 +52,24 @@ async function recordScreen(dossier: BusinessDossier) {
   return screen;
 }
 
-test("an approved purchase with no paying account shows its forma de pago once, under Para el 606", async () => {
+test("an approved purchase with no paying account shows its forma de pago once, under Para el 606, and no Pago section", async () => {
   const screen = await recordScreen(await approvedPurchase((record) => {
     record.facts.funding = unknown;
   }));
   assert.equal(screen.count("01 - Efectivo"), 1);
   assert.equal(screen.rows["Forma de pago"], "01 - Efectivo");
   assert.equal(screen.count("Cómo se pagó"), 0);
-  assert.deepEqual(screen.headings.slice(-2), ["Para el 606", "Pago"]);
-  assert.equal(screen.rows["Parte del negocio"], "Todo para el negocio");
-});
-
-test("a known paying account shows as Cómo se pagó, beside the forma de pago", async () => {
-  const screen = await recordScreen(await approvedPurchase(() => {}));
-  assert.match(screen.rows["Cómo se pagó"] ?? "", /^Cuenta corriente/);
-  assert.equal(screen.count("01 - Efectivo"), 1);
-});
-
-test("a Pago section with nothing known hides its heading", async () => {
-  const screen = await recordScreen(await approvedPurchase((record) => {
-    record.facts.funding = unknown;
-    record.facts.business_share = unknown;
-  }));
   assert.equal(screen.headings.at(-1), "Para el 606");
   assert.equal(screen.headings.includes("Pago"), false);
   assert.equal(screen.count("Parte del negocio"), 0);
+  assert.equal(screen.count("Todo para el negocio"), 0);
+});
+
+test("a known paying account shows as Cómo se pagó, alone under Pago, beside the forma de pago", async () => {
+  const screen = await recordScreen(await approvedPurchase(() => {}));
+  assert.equal(screen.rows["Cómo se pagó"], "Cuenta corriente");
+  assert.equal(screen.count("01 - Efectivo"), 1);
+  assert.deepEqual(screen.headings.slice(-2), ["Para el 606", "Pago"]);
+  assert.equal(screen.rows["Parte del negocio"], undefined);
+  assert.equal(screen.count("del revisor"), 0);
 });

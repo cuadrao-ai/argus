@@ -9,10 +9,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 from faker import Faker
 
@@ -25,6 +27,12 @@ PROD_NAMES = (
     "cuadrao-app",
     "cuadrao-marketing",
     "cuadrao-web",
+    "cuadrao-documents-worker",
+)
+STAGING_NAMES = (
+    "cuadrao-api-staging",
+    "cuadrao-documents-worker-staging",
+    "cuadrao-app-staging",
 )
 FAKE = Faker()
 
@@ -173,7 +181,7 @@ def test_marketing_staging_name_is_rejected() -> None:
 
 
 def test_staging_service_names_are_allowed() -> None:
-    for name in ("cuadrao-api-staging", "cuadrao-app-staging"):
+    for name in STAGING_NAMES:
         result = run("allow-name", "--name", name)
         assert result.returncode == 0, result.stderr
         assert result.stdout == ""
@@ -185,10 +193,10 @@ def test_web_only_change_selects_web() -> None:
     assert selected(result) == ["cuadrao-app-staging"]
 
 
-def test_backend_only_change_selects_api() -> None:
+def test_backend_only_change_selects_api_and_worker() -> None:
     path = f"src/argus/{FAKE.word()}.py"
     result = run("select-services", stdin=path + "\n")
-    assert selected(result) == ["cuadrao-api-staging"]
+    assert selected(result) == ["cuadrao-api-staging", "cuadrao-documents-worker-staging"]
 
 
 def test_docs_only_change_selects_nothing() -> None:
@@ -198,13 +206,13 @@ def test_docs_only_change_selects_nothing() -> None:
     assert result.stdout.splitlines() == [SKIP]
 
 
-def test_force_all_selects_both_staging_services() -> None:
+def test_force_all_selects_all_staging_services() -> None:
     result = run(
         "select-services",
         stdin="docs/PRODUCT.md\n",
         env={"FORCE_ALL": "true"},
     )
-    assert selected(result) == ["cuadrao-api-staging", "cuadrao-app-staging"]
+    assert selected(result) == list(STAGING_NAMES)
 
 
 def test_path_rules_follow_render_build_and_poetry_packages() -> None:
@@ -248,12 +256,15 @@ def test_path_rules_follow_render_build_and_poetry_packages() -> None:
         stdin="pyproject.toml\npoetry.lock\n.python-version\nDockerfile\nrequirements.txt\n",
     )
 
-    assert selected(shared) == ["cuadrao-api-staging", "cuadrao-app-staging"]
-    assert selected(schema) == ["cuadrao-api-staging"]
-    assert selected(config) == ["cuadrao-api-staging"]
+    assert selected(shared) == list(STAGING_NAMES)
+    assert selected(schema) == ["cuadrao-api-staging", "cuadrao-documents-worker-staging"]
+    assert selected(config) == ["cuadrao-api-staging", "cuadrao-documents-worker-staging"]
     assert selected(edge) == []
     assert selected(marketing) == []
-    assert selected(root_build) == ["cuadrao-api-staging"]
+    assert selected(root_build) == [
+        "cuadrao-api-staging",
+        "cuadrao-documents-worker-staging",
+    ]
 
 
 def test_each_service_uses_its_own_diff(tmp_path: Path) -> None:
@@ -280,7 +291,7 @@ def test_each_service_uses_its_own_diff(tmp_path: Path) -> None:
     )
 
     assert selected(untouched_web) == []
-    assert selected(both) == ["cuadrao-api-staging", "cuadrao-app-staging"]
+    assert selected(both) == list(STAGING_NAMES)
 
 
 def test_ci_success_allows_skipped_docs_checks(tmp_path: Path) -> None:
@@ -694,7 +705,10 @@ def test_unusual_git_paths_select_the_service(tmp_path: Path) -> None:
     assert selected(accent_result) == ["cuadrao-app-staging"]
     assert selected(newline_result) == ["cuadrao-app-staging"]
     assert newline_result.stdout.strip() != SKIP
-    assert selected(spaced_result) == ["cuadrao-api-staging"]
+    assert selected(spaced_result) == [
+        "cuadrao-api-staging",
+        "cuadrao-documents-worker-staging",
+    ]
 
 
 def test_workflow_is_manual_and_least_privilege() -> None:
@@ -720,6 +734,7 @@ def test_workflow_is_manual_and_least_privilege() -> None:
     assert re.search(r"(?<![\w-])cuadrao-api(?!-staging)\b", text) is None
     assert re.search(r"(?<![\w-])cuadrao-app(?!-staging)\b", text) is None
     assert re.search(r"(?<![\w-])cuadrao-web(?!-staging)\b", text) is None
+    assert re.search(r"(?<![\w-])cuadrao-documents-worker(?!-staging)\b", text) is None
     assert "uses:" not in text
     assert "set -x" not in text
 
@@ -751,3 +766,179 @@ def test_workflow_is_manual_and_least_privilege() -> None:
             script = step.get("run") or ""
             if re.search(r"\bgh ", script):
                 assert (step.get("env") or {}).get("GH_TOKEN") == "${{ github.token }}"
+
+
+@pytest.mark.parametrize("path", ["workflows/document_worker.py", "workflows/runtime.py"])
+def test_workflow_changes_select_the_worker(path: str) -> None:
+    assert selected(run("select-services", stdin=path + "\n")) == [
+        "cuadrao-documents-worker-staging"
+    ]
+
+
+@pytest.fixture
+def workflow_run(tmp_path: Path, faker: Faker) -> dict:
+    """Run the real shell steps with local service responses and a disposable repo."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repo(repo)
+    runner = tmp_path / "runner"
+    runner.mkdir()
+    for relative in ("scripts/ci/deploy_staging.py", ".github/docs-only-changes.sh"):
+        for destination in (repo / relative, runner / "deploy-tools" / relative):
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / relative, destination)
+    git(repo, "add", ".")
+    git(repo, "commit", "-qm", "tools")
+    base = git(repo, "rev-parse", "HEAD")
+    middle = add_file(repo, f"src/argus/{faker.word()}.py")
+    target = add_file(repo, f"docs/{faker.word()}.md")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    events = tmp_path / "events.jsonl"
+    events.touch()
+    curl = bin_dir / "curl"
+    curl.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        "args = sys.argv[1:]\n"
+        "services = json.loads(os.environ['FAKE_SERVICES'])\n"
+        "url = args[-1]\n"
+        "if '--request' in args:\n"
+        "    assert args[args.index('--request') + 1] == 'POST'\n"
+        "    sid = url.split('/')[-2]\n"
+        "    name = next(n for n, s in services.items() if s == sid)\n"
+        "    body = json.loads(args[args.index('--data') + 1])\n"
+        "    with open(os.environ['FAKE_EVENTS'], 'a') as out:\n"
+        "        out.write(json.dumps(['post', name, body]) + '\\n')\n"
+        "    Path(args[args.index('--output') + 1]).write_text('{\"id\":\"dep-test\"}')\n"
+        "elif '--get' in args:\n"
+        "    name = next(a[5:] for a in args if a.startswith('name='))\n"
+        "    print(json.dumps([{'service': {'name': name, 'id': services[name]}}]))\n"
+        "else:\n"
+        "    sid = url.split('/')[-2]\n"
+        "    name = next(n for n, s in services.items() if s == sid)\n"
+        "    live = json.loads(os.environ['FAKE_LIVE'])[name]\n"
+        "    print(json.dumps([{'status': 'live', 'commit': {'id': live}}]))\n"
+    )
+    curl.chmod(0o755)
+    (bin_dir / "sitecustomize.py").write_text(
+        "import io, json, os, urllib.request\n"
+        "def urlopen(request, timeout=None):\n"
+        "    services = json.loads(os.environ['FAKE_SERVICES'])\n"
+        "    sid = request.full_url.split('/')[-3]\n"
+        "    name = next(n for n, s in services.items() if s == sid)\n"
+        "    with open(os.environ['FAKE_EVENTS'], 'a') as out:\n"
+        "        out.write(json.dumps(['wait', name]) + '\\n')\n"
+        "    status = 'build_failed' if name == os.environ.get('FAIL_SERVICE') else 'live'\n"
+        "    return io.BytesIO(json.dumps({'status': status, 'commit': {'id': os.environ['TARGET_SHA']}}).encode())\n"
+        "urllib.request.urlopen = urlopen\n"
+    )
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{Path(sys.executable).parent}:{os.environ['PATH']}",
+        "PYTHONPATH": str(bin_dir),
+        "RUNNER_TEMP": str(runner),
+        "GITHUB_ENV": str(tmp_path / "job.env"),
+        "RENDER_API_KEY": faker.pystr(),
+        "TARGET_SHA": target,
+        "FORCE_ALL": "true",
+        "DRY_RUN": "false",
+        "GITHUB_EVENT_NAME": "pull_request",
+        "FAKE_SERVICES": json.dumps(
+            {n: f"srv-test{i}" for i, n in enumerate(STAGING_NAMES)}
+        ),
+        "FAKE_LIVE": json.dumps(dict.fromkeys(STAGING_NAMES, base)),
+        "FAKE_EVENTS": str(events),
+    }
+    return {"repo": repo, "env": env, "base": base, "middle": middle, "target": target}
+
+
+def workflow_step(harness: dict, name: str) -> subprocess.CompletedProcess[str]:
+    workflow = yaml.safe_load(WORKFLOW.read_text())
+    step = next(s for s in workflow["jobs"]["deploy"]["steps"] if s["name"] == name)
+    env = harness["env"]
+    job_env = Path(env["GITHUB_ENV"])
+    if job_env.exists():
+        env.update(line.split("=", 1) for line in job_env.read_text().splitlines())
+    if "COMPARE_BASE" in env:
+        env["PR_BASE_SHA"] = env["COMPARE_BASE"]
+    return subprocess.run(
+        ["bash", "-c", step["run"]],
+        cwd=harness["repo"],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
+    )
+
+
+@pytest.mark.parametrize(
+    "older_service", ["cuadrao-api-staging", "cuadrao-documents-worker-staging"]
+)
+def test_workflow_uses_older_api_worker_base_for_historical_drift(
+    workflow_run: dict,
+    older_service: str,
+) -> None:
+    harness = workflow_run
+    live = dict.fromkeys(STAGING_NAMES, harness["target"])
+    live[older_service] = harness["base"]
+    harness["env"].update(FAKE_LIVE=json.dumps(live), FORCE_ALL="false")
+    read = workflow_step(harness, "Read the last deployed commits")
+    assert read.returncode == 0, read.stderr
+    choose = workflow_step(harness, "Select jobs from changed files")
+    assert choose.returncode == 0, choose.stderr
+    assert harness["env"]["API_BASE"] == harness["base"]
+    selection = (
+        Path(harness["env"]["RUNNER_TEMP"], "selection.txt").read_text().splitlines()
+    )
+    assert selection == ["cuadrao-api-staging", "cuadrao-documents-worker-staging"]
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected"),
+    [
+        ("", STAGING_NAMES),
+        ("cuadrao-api-staging", STAGING_NAMES[:1]),
+        ("cuadrao-documents-worker-staging", STAGING_NAMES[:2]),
+    ],
+)
+def test_workflow_waits_in_order_at_one_sha_and_stops_on_failure(
+    workflow_run: dict,
+    failure: str,
+    expected: tuple[str, ...],
+) -> None:
+    harness = workflow_run
+    harness["env"]["FAIL_SERVICE"] = failure
+    for name in ("Read the last deployed commits", "Select jobs from changed files"):
+        result = workflow_step(harness, name)
+        assert result.returncode == 0, result.stderr
+    deployed = workflow_step(harness, "Deploy the selected services")
+    assert (deployed.returncode != 0) == bool(failure), deployed.stderr
+    events = [
+        json.loads(line)
+        for line in Path(harness["env"]["FAKE_EVENTS"]).read_text().splitlines()
+    ]
+    assert events == [
+        event
+        for name in expected
+        for event in (["post", name, {"commitId": harness["target"]}], ["wait", name])
+    ]
+
+
+def test_workflow_dry_run_lists_all_services_at_target_without_requests(
+    workflow_run: dict,
+) -> None:
+    harness = workflow_run
+    harness["env"]["DRY_RUN"] = "true"
+    for name in ("Read the last deployed commits", "Select jobs from changed files"):
+        result = workflow_step(harness, name)
+        assert result.returncode == 0, result.stderr
+    result = workflow_step(harness, "Deploy the selected services")
+    assert result.returncode == 0, result.stderr
+    assert harness["target"] in result.stdout
+    assert [line for line in result.stdout.splitlines() if line in STAGING_NAMES] == list(
+        STAGING_NAMES
+    )
+    assert Path(harness["env"]["FAKE_EVENTS"]).read_text() == ""

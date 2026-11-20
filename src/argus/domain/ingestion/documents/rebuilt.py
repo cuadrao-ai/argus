@@ -25,12 +25,13 @@ if TYPE_CHECKING:
 
 MAX_PIXELS = 20_000_000
 MAX_TEXT_BYTES = 200_000
+MEMORY_LIMIT_BYTES = 536_870_912
 # Set limits in a fresh child, never preexec_fn in the threaded API process.
 # When the instance runs out of memory the kernel must kill this child, not the API.
-_RESOURCE_WRAPPER = """
+_RESOURCE_WRAPPER = f"""
 import os, resource, sys
 if sys.platform == "linux":
-    resource.setrlimit(resource.RLIMIT_AS, (536870912, 536870912))
+    resource.setrlimit(resource.RLIMIT_AS, ({MEMORY_LIMIT_BYTES}, {MEMORY_LIMIT_BYTES}))
     try:
         with open("/proc/self/oom_score_adj", "w") as score:
             score.write("1000")
@@ -53,6 +54,13 @@ warnings.simplefilter("error", Image.DecompressionBombWarning)
 try:
     with Image.open(source_path, formats=[{"image/png": "PNG", "image/jpeg": "JPEG"}[media_type]]) as source:
         pixels = source.width * source.height
+        if mode != "pixels":
+            # Best-effort diagnostics before decoding; never send source metadata.
+            try:
+                sys.stdout.write(str(pixels))
+                sys.stdout.flush()
+            except (OSError, MemoryError):
+                pass
         if pixels > Image.MAX_IMAGE_PIXELS:
             sys.exit(10)
         if getattr(source, "n_frames", 1) != 1:
@@ -131,6 +139,7 @@ def ensure_rebuilt_image(
 
 
 def _image_process(content: bytes, media_type: str, mode: str) -> bytes:
+    pixel_count = None
     try:
         with tempfile.TemporaryDirectory(prefix="argus-image-") as temporary:
             root = Path(temporary)
@@ -140,20 +149,28 @@ def _image_process(content: bytes, media_type: str, mode: str) -> bytes:
                 root / "dimensions",
             )
             source.write_bytes(content)
-            run_capped(
-                [
-                    sys.executable,
-                    "-c",
-                    _IMAGE_REBUILD,
-                    str(source),
-                    str(rebuilt),
-                    media_type,
-                    str(MAX_PIXELS),
-                    mode,
-                ],
-                dimensions,
-                image=True,
-            )
+            try:
+                run_capped(
+                    [
+                        sys.executable,
+                        "-c",
+                        _IMAGE_REBUILD,
+                        str(source),
+                        str(rebuilt),
+                        media_type,
+                        str(MAX_PIXELS),
+                        mode,
+                    ],
+                    dimensions,
+                    image=True,
+                )
+            except DocumentExtractionError:
+                try:
+                    with dimensions.open("rb") as reported:
+                        pixel_count = int(reported.read(32))
+                except (OSError, ValueError):
+                    pass  # The child may have failed before reporting dimensions.
+                raise
             return (dimensions if mode == "pixels" else rebuilt).read_bytes()
     except DocumentExtractionError as exc:
         reason = str(
@@ -167,18 +184,32 @@ def _image_process(content: bytes, media_type: str, mode: str) -> bytes:
         )
         signal = exc.metadata.get("signal", 0)
         alert = reason in {"memory", "timeout"} or bool(signal)
+        rejection_path = exc.metadata.get("rejection_path", "parent_check")
+        rss_bytes = exc.metadata.get("rss_bytes")
+        exit_code = exc.metadata.get("exit_code")
         logger.bind(
             metric="document_image_rejected",
             reason=reason,
             value=1,
             signal=signal,
             alert=alert,
+            rejection_path=rejection_path,
+            rss_bytes=rss_bytes,
+            memory_limit_bytes=MEMORY_LIMIT_BYTES,
+            exit_code=exit_code,
+            pixel_count=pixel_count,
         ).log(
             "ERROR" if alert else "WARNING",
-            'document_image_rejected{{reason="{}"}} 1 signal={} alert={}',
+            'document_image_rejected{{reason="{}"}} 1 signal={} alert={} '
+            "rejection_path={} rss_bytes={} memory_limit_bytes={} exit_code={} pixel_count={}",
             reason,
             signal,
             alert,
+            rejection_path,
+            rss_bytes,
+            MEMORY_LIMIT_BYTES,
+            exit_code,
+            pixel_count,
         )
         raise
 
@@ -197,12 +228,16 @@ def run_capped(args: list[str], output: Path, *, image: bool = False) -> None:
             monitored = psutil.Process(process.pid)
             deadline = time.monotonic() + 20
             size = 0
+            rss_bytes = None
+            rejection_path = "parent_check"
             try:
                 with output.open("wb") as target, selectors.DefaultSelector() as reader:
                     reader.register(process.stdout, selectors.EVENT_READ)
                     while True:
                         try:
-                            if monitored.memory_info().rss > 536870912:
+                            rss_bytes = monitored.memory_info().rss
+                            if rss_bytes > MEMORY_LIMIT_BYTES:
+                                rejection_path = "parent_memory_check"
                                 raise DocumentExtractionError("document_memory_limit")
                         except psutil.NoSuchProcess:
                             pass
@@ -220,6 +255,7 @@ def run_capped(args: list[str], output: Path, *, image: bool = False) -> None:
                             raise DocumentExtractionError("document_text_limit")
                         target.write(chunk)
                 returncode = process.wait(timeout=max(0.01, deadline - time.monotonic()))
+                rejection_path = "child_exit_code"
                 if returncode < 0:
                     # Killed by the kernel or the host, so the file was never
                     # judged: a server failure the read can try again.
@@ -238,6 +274,14 @@ def run_capped(args: list[str], output: Path, *, image: bool = False) -> None:
                     error = DocumentExtractionError(code)
                     error.metadata["reason"] = reason
                     raise error
+            except DocumentExtractionError as error:
+                # Capture the check, before cleanup can kill a still-running child.
+                error.metadata.update(
+                    rejection_path=rejection_path,
+                    rss_bytes=rss_bytes,
+                    exit_code=process.poll(),
+                )
+                raise
             finally:
                 if process.poll() is None:
                     process.kill()

@@ -476,7 +476,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           patch={facts}
           fiscal={typed}
           documentType={edit?.change.write === "type" ? edit.change.documentType : dossier.document_type}
-          uploadedAt={firstSource?.received_at ?? null}
+          uploadYear={dossier.upload_year ?? null}
+          yearToCheck={dossier.year_to_check === true}
           accounts={accounts}
           currencies={recordsCurrencySchema.options}
           disabled={!mutable || saving}
@@ -556,7 +557,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           {/* A message is the original; only a record with nothing at all says so, quietly. */}
           {!attachments.length && !dossier.sources.some((item) => item.kind === "message" || item.kind === "agent_proposal") ? <p data-testid="receipt-no-source" className="text-[14px] text-[#56635e] dark:text-white/70">{dossier.facts.receipt_state.state === "known" && dossier.facts.receipt_state.value === "no_receipt" ? t("business.dossier.no_receipt", "No receipt was supplied.") : t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</p> : null}
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
-          <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} qr={dossier.dgii_qr ?? null} />
+          {dossier.ecf_checks_panel_available ? <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} qr={dossier.dgii_qr ?? null} /> : null}
       </>}
     >
           {notice}

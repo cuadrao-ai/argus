@@ -2,9 +2,11 @@ from datetime import date, datetime
 from typing import Annotated, Final, Literal
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
+from argus.domain.business.contracts.dgii import ExpenseType, PaymentForm
+from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
 from argus.domain.business.document_type import DocumentType
 from argus.domain.household.planning_schemas import PlanRef
 from argus.domain.ingestion.contract import (
@@ -77,6 +79,13 @@ class ExtractedObservation(_Frozen):
         return value
 
 
+_READ_CODES: Final = {"payment_form": PAYMENT_FORMS, "expense_type": EXPENSE_TYPES}
+
+
+def _code_list(codes: dict[str, str]) -> str:
+    return ", ".join(f"{code} {label}" for code, label in codes.items())
+
+
 class ReceiptItem(_Frozen):
     id: str = Field(min_length=1, max_length=80)
     description: str | None = Field(default=None, max_length=300)
@@ -94,7 +103,18 @@ class ReceiptItem(_Frozen):
 class ReceiptDetails(_Frozen):
     suggested_category: str | None = Field(default=None, max_length=120)
     merchant: str | None = Field(default=None, max_length=300)
-    occurred_on: date | None = None
+    occurred_on: date | None = Field(
+        default=None,
+        description='Issue date of the receipt ("Fecha", "Emitido", "Fecha Emisión"). '
+        "Never an expiry date or a signature or printing timestamp. Null if no issue "
+        "date is printed.",
+    )
+    issue_date_printed: str | None = Field(
+        default=None,
+        max_length=60,
+        description="The issue date exactly as printed on the receipt, character for "
+        "character, before any interpretation. Null if no issue date is printed.",
+    )
     currency: str | None = Field(default=None, max_length=20)
     items: tuple[ReceiptItem, ...] = Field(default=(), max_length=300)
     subtotal: str | None = Field(default=None, max_length=80)
@@ -107,33 +127,65 @@ class ReceiptDetails(_Frozen):
     rnc: str | None = Field(
         default=None,
         max_length=80,
-        description="Unverified RNC explicitly labeled in the receipt source, exactly "
-        "as printed. Null if absent, unreadable or conflicting; never infer a default.",
+        description="Unverified RNC of the supplier, the business that issued the "
+        "receipt, exactly as printed. Usually at the top with the business name. Never "
+        "the RNC of the client or buyer. Null if absent or unreadable; never infer a "
+        "default.",
+    )
+    buyer_rnc: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Unverified RNC of the buyer, exactly as printed, when its label "
+        'names the client or buyer ("RNC Cliente", "RNC Comprador" or similar). Null '
+        "if absent or unreadable.",
     )
     ncf: str | None = Field(
         default=None,
         max_length=80,
-        description="Unverified NCF explicitly labeled in the receipt source, exactly "
-        "as printed. Null if absent, unreadable or conflicting; do not infer from e-CF.",
+        description="Unverified NCF exactly as printed; it normally starts with B. "
+        "Null if absent or unreadable. An e-NCF goes in ecf, never here.",
     )
     ecf: str | None = Field(
         default=None,
         max_length=80,
-        description="Unverified e-CF explicitly labeled in the receipt source, exactly "
-        "as printed. Null if absent, unreadable or conflicting; do not infer from NCF.",
+        description="Unverified e-NCF, the electronic fiscal number, exactly as "
+        "printed; it normally starts with E. Null if absent or unreadable. An NCF "
+        "goes in ncf, never here.",
     )
     itbis: str | None = Field(
         default=None,
         max_length=80,
-        description="Unverified ITBIS monetary amount explicitly labeled in the receipt "
-        "source, as extracted decimal text. Null if absent, unreadable or conflicting. "
-        "Never calculate it from a rate, subtotal, total or generic tax.",
+        description="Unverified ITBIS monetary amount printed next to an ITBIS or "
+        'Impuesto label, as decimal text; "0.00" when the receipt prints zero. Null '
+        "if absent or unreadable. Never calculate it from a rate, subtotal or total.",
+    )
+    payment_form: PaymentForm | None = Field(
+        default=None,
+        description="DGII code of how the receipt shows this purchase was paid: "
+        f"{_code_list(PAYMENT_FORMS)}. Null if no payment form is printed, if it is "
+        "unreadable, or if what is printed fits more than one code.",
+    )
+    expense_type: ExpenseType | None = Field(
+        default=None,
+        description="DGII expense type code, only when the receipt alone makes it "
+        f"obvious for nearly any buyer: {_code_list(EXPENSE_TYPES)}. Null in every "
+        "other case; never a guess.",
     )
 
     @field_validator("currency", mode="before")
     @classmethod
     def _currency(cls, value: object) -> object:
         return _read_currency(value)
+
+    @field_validator(*_READ_CODES, mode="before")
+    @classmethod
+    def _code(cls, value: object, info: ValidationInfo) -> object:
+        """A value that is not one of the field's codes is a blank, not a failed read."""
+
+        if value is None or value in _READ_CODES[info.field_name]:
+            return value
+        logger.info("document_read_code_unknown field={}", info.field_name)
+        return None
 
 
 # A receipt whose rows do not reduce to one purchase at its total.
@@ -150,7 +202,13 @@ class ProjectionIssue(_Frozen):
 
 
 class ExtractionResult(_Frozen):
-    complete: bool = Field(strict=True)
+    complete: bool = Field(
+        strict=True,
+        description="For a statement, false if any row or page is cut off, omitted or "
+        "unreadable. For a receipt, false only if a fiscal field (supplier RNC, NCF or "
+        "e-NCF, issue date, printed ITBIS, total) is visibly cut off or unreadable; "
+        "cut, covered or faded item lines do not make it false.",
+    )
     readable: bool = Field(strict=True)
     pages_read: tuple[int, ...] = Field(max_length=8)
     observations: tuple[ExtractedObservation, ...] = Field(

@@ -34,7 +34,7 @@ DEFAULT_MANIFEST = (
     / "pending-measurement-manifest.json"
 )
 CONTEXT_TOKENS = 1_048_576
-OUTPUT_TOKENS = 12_000
+OUTPUT_TOKENS = 16_000
 TIMEOUT_SECONDS = 90
 MAX_CALLS = 3
 SPEND_CAP = Decimal("5.00")

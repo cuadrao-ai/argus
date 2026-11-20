@@ -5,17 +5,20 @@ import re
 from pathlib import Path
 
 import pytest
+from faker import Faker
 
 import scripts.ops.staging_env as se
 
 AUDIT_API = """APP_ENV CUADRAO_CHECKPOINTER_MODE ARGUS_DEV_MEMORY_FALLBACK
 CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD ARGUS_DOCUMENT_EXTRACTION_ENABLED ARGUS_FINANCIAL_ACCOUNTS_ENABLED
-ARGUS_INGESTION_ENABLED CUADRAO_MOCK_AUTH CUADRAO_PERSISTENCE_MODE CUADRAO_PROD_OPENROUTER_API_KEY ARGUS_VISION_MODEL
+ARGUS_INGESTION_ENABLED CUADRAO_MOCK_AUTH CUADRAO_PERSISTENCE_MODE CUADRAO_OPENROUTER_API_KEY_STG ARGUS_VISION_MODEL
 CUADRAO_APP_ORIGIN CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED CUADRAO_BUSINESS_EMAIL_DOMAIN
 CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED CUADRAO_DOCUMENT_EXTRACTION_ENABLED
 CUADRAO_INGESTION_ENABLED CUADRAO_VISION_MODEL CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
 CUADRAO_WHATSAPP_INTAKE_ENABLED CUADRAO_WHATSAPP_NUMBER_ID CUADRAO_WHATSAPP_OUTBOUND_ENABLED
-CUADRAO-DEV-KEY-PILOT DATABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL""".split()
+CUADRAO-DEV-KEY-PILOT DATABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
+POSTHOG_PROJECT_TOKEN CUADRAO_ANALYTICS_DELETION_ENABLED CUADRAO_POSTHOG_DELETION_API_KEY
+CUADRAO_POSTHOG_DELETION_HOST CUADRAO_POSTHOG_DELETION_PROJECT_ID""".split()
 AUDIT_WEB = """CUADRAO_RESEND_WEBHOOK_SECRET NEXT_PUBLIC_CUADRAO_API_URL NEXT_PUBLIC_ARGUS_API_URL NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY
 NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY
 NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_SUPABASE_URL""".split()
@@ -33,7 +36,10 @@ class FakeClient:
         self, live: dict[str, dict[str, str]], names: dict[str, str] | None = None
     ):
         self.live = live
-        self.names = names or {}
+        self.names = names or {
+            service["service_id"]: service["service_name"]
+            for service in se.staging_services(se.load_manifest()).values()
+        }
         self.puts: list[tuple[str, dict[str, str]]] = []
 
     def service_name(self, service_id):
@@ -62,7 +68,7 @@ def live_for(manifest, label, audit):
         )
         live["NEXT_PUBLIC_CUADRAO_API_URL"] = "https://canonical.example.test/api/v1"
     if label == "api":
-        live["CUADRAO_PROD_OPENROUTER_API_KEY"] = SECRET_VALUES[0]
+        live["CUADRAO_OPENROUTER_API_KEY_STG"] = SECRET_VALUES[0]
         live["SUPABASE_SERVICE_ROLE_KEY"] = SECRET_VALUES[2]
     return live
 
@@ -158,26 +164,6 @@ def test_web_preserves_canonical_api_url_without_managing_the_old_name(manifest)
     assert "CUADRAO_RESEND_WEBHOOK_SECRET" not in plan.final
 
 
-def test_api_plan_allows_missing_live_guest_openrouter_key(manifest):
-    live = live_for(manifest, "api", AUDIT_API)
-    plan = se.compute_plan(manifest["services"]["api"], live, {})
-    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" not in plan.final
-    assert not any(
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in problem for problem in plan.problems
-    )
-
-
-def test_api_plan_allows_guest_key_matching_registered_on_legacy_live_state(
-    manifest,
-):
-    live = live_for(manifest, "api", AUDIT_API)
-    shared_value = live["CUADRAO_PROD_OPENROUTER_API_KEY"]
-    live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = shared_value
-    plan = se.compute_plan(manifest["services"]["api"], live, {})
-    assert not any("must differ" in problem for problem in plan.problems)
-    assert live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] == shared_value
-
-
 def full_secrets():
     return {
         "CUADRAO_WHATSAPP_APP_SECRET": SECRET_VALUES[1],
@@ -199,6 +185,10 @@ def make_env(tmp_path, manifest):
         "srv-db4mrrvlk1mc73d733j0": live_for(manifest, "api", AUDIT_API),
         "srv-db5ihr7lot8c73f3b3h0": live_for(manifest, "web", AUDIT_WEB),
     }
+    live["srv-dbm1oae1egvs73b2gji0"] = {
+        entry["name"]: f"live-{entry['name']}"
+        for entry in se.staging_entries(manifest["services"]["documents_worker"])
+    }
     return FakeClient(live), tmp_path / "secrets.env"
 
 
@@ -218,6 +208,7 @@ def test_apply_single_put_per_service_and_never_prints_values(
     assert [sid for sid, _ in client.puts] == [
         "srv-db4mrrvlk1mc73d733j0",
         "srv-db5ihr7lot8c73f3b3h0",
+        "srv-dbm1oae1egvs73b2gji0",
     ]
     api_env = client.puts[0][1]
     assert api_env["CUADRAO_RESEND_WEBHOOK_SECRET"] == "whsec-GGGG7777"
@@ -295,7 +286,7 @@ def test_apply_without_confirm_never_writes(manifest, tmp_path, monkeypatch):
         client_factory=lambda k: client,
         out=lambda s: None,
     )
-    assert len(client.puts) == 2
+    assert len(client.puts) == 3
 
 
 def test_generated_values_are_created_once_and_kept(manifest, tmp_path, monkeypatch):
@@ -689,3 +680,29 @@ def test_staging_commands_skip_production_only_entries(manifest, capsys):
     assert not any(name in staging for name in production_only)
     plan = se.compute_plan(manifest["services"]["api"], {"CUADRAO_CHAT_MODEL": "x"}, {})
     assert ("CUADRAO_CHAT_MODEL", "extra") in plan.actions
+
+
+@pytest.mark.parametrize("service_id", ["srv-wrong", "srv-db4mrrvlk1mc73d733j0"])
+def test_worker_mapping_rejects_an_unpinned_id(manifest, service_id: str):
+    manifest["services"]["documents_worker"]["service_id"] = service_id
+    with pytest.raises(se.ManifestError, match="documents_worker: service id is not the pinned staging service"):
+        se.validate_manifest(manifest)
+
+
+def test_worker_staging_plan_preserves_unmanaged_settings(manifest, faker: Faker):
+    assert "documents_worker" in se.staging_services(manifest)
+    service = manifest["services"]["documents_worker"]
+    assert service["service_id"] == "srv-dbm1oae1egvs73b2gji0"
+    assert service["service_name"] == "cuadrao-documents-worker-staging"
+    live = {e["name"]: faker.unique.pystr() for e in se.staging_entries(service)}
+    extra = faker.unique.pystr()
+    live["CUADRAO_UNMANAGED"] = extra
+    plan = se.compute_plan(service, live, {})
+    assert not plan.missing and not plan.problems
+    assert plan.final["CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS"] == "60"
+    assert plan.final["CUADRAO_DOCUMENT_JOBS_MAX_READS"] == "3"
+    assert plan.final["CUADRAO_UNMANAGED"] == extra
+    assert plan.final["CUADRAO_OPENROUTER_API_KEY_STG"] == live["CUADRAO_OPENROUTER_API_KEY_STG"]
+    assert "CUADRAO_OPENROUTER_API_KEY_PROD" not in plan.final
+    with pytest.raises(se.ManifestError, match="gives no names to delete"):
+        se.names_to_delete(manifest, "staging", "documents_worker", set(live))

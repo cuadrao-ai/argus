@@ -1,8 +1,5 @@
 # Checked OpenAPI compatibility artifact. Generated from the canonical
 # FastAPI app.openapi() document by scripts/generate_openapi_artifact.py.
-# Business date refusals: business_date_before_minimum, business_date_after_today.
-# Request errors carry min_date/today in context.errors[].ctx; bank and fiscal
-# refusals carry them in context. Reader correction blockers carry min_date/today.
 # Structural gate: tests/test_openapi_compatibility.py (#234).
 openapi: 3.1.0
 info:
@@ -137,6 +134,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/account/deletion/request:
+    post:
+      tags:
+      - account
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionSupportResponse'
+        '401':
+          description: No valid session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: '`not_found`: `CUADRAO_ACCOUNT_DELETION_ENABLED` is off; answered before
+            any session check.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: '`account_deletion_request_not_needed`: no open Business blocks this
+            account, so it can be deleted in the app.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: '`too_many_requests`: six requests per account per minute; see Retry-After.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
           description: An unexpected server error occurred.
           content:
@@ -10390,6 +10432,12 @@ paths:
       tags:
       - financial-accounts
       - financial-documents
+      description: Returns the saved draft and its optional `preparation`. In `preparation.receipt`,
+        `issue_date_printed` (string or null) is the issue date exactly as the receipt prints
+        it, copied before it is interpreted, and `buyer_rnc` (string or null) is the RNC of
+        the buyer as printed. No server code reads these two values. `payment_form` (`01`
+        to `07` or null) and `expense_type` (`01` to `11` or null) are the DGII Forma de pago
+        and Tipo de gasto codes the reader read; null means it read none.
       parameters:
       - name: connection_id
         in: path
@@ -10462,6 +10510,12 @@ paths:
       tags:
       - financial-accounts
       - financial-documents
+      description: Returns the saved draft and its optional `preparation`. In `preparation.receipt`,
+        `issue_date_printed` (string or null) is the issue date exactly as the receipt prints
+        it, copied before it is interpreted, and `buyer_rnc` (string or null) is the RNC of
+        the buyer as printed. No server code reads these two values. `payment_form` (`01`
+        to `07` or null) and `expense_type` (`01` to `11` or null) are the DGII Forma de pago
+        and Tipo de gasto codes the reader read; null means it read none.
       parameters:
       - name: connection_id
         in: path
@@ -15630,6 +15684,14 @@ components:
       required:
       - status
       - pending
+    AccountDeletionSupportResponse:
+      properties:
+        status:
+          type: string
+          const: requested
+      type: object
+      required:
+      - status
     AccountHit:
       properties:
         kind:
@@ -17954,6 +18016,9 @@ components:
           anyOf:
           - $ref: '#/components/schemas/DgiiQr'
           - type: 'null'
+        ecf_checks_panel_available:
+          type: boolean
+          default: false
         bill_mark:
           anyOf:
           - type: string
@@ -18029,6 +18094,13 @@ components:
             $ref: '#/components/schemas/RefundCandidate'
           type: array
           default: []
+        upload_year:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        year_to_check:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -24444,6 +24516,8 @@ components:
           - itbis
           - legal_tip
           - occurred_on
+          - rnc
+          - original_ncf
         value:
           anyOf:
           - type: string

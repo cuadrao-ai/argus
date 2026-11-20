@@ -182,6 +182,22 @@ test("an e-CF that disputes the RNC read leaves no revisar on the RNC row", asyn
   }
 });
 
+for (const shown of [false, true]) {
+  test(`the e-CF card ${shown ? "shows" : "hides"} with its server switch, and the date the XML disputes says revisar either way`, async () => {
+    const dossier = await flaggedReceipt([], accounts);
+    dossier.ecf_checks = { encf: "E310000000777", tipo_ecf: "31", checked_at: "2026-10-10T14:25:00Z", checks: [{ name: "read_matches_xml", state: "failed", code: "read_differs", detail: { occurred_on: "read=2026-10-09 xml=2026-10-08" } }] };
+    dossier.ecf_checks_panel_available = shown;
+    serve(dossier);
+    const page = await render(dossier);
+    try {
+      assert.equal(page.host.querySelector('[data-testid="receipt-ecf-checks"]') !== null, shown);
+      assert.equal(page.host.querySelector('[data-fact="occurred_on"] [data-doubtful="true"]')?.textContent, `· ${copy.placeholder.doubtful_read}`);
+    } finally {
+      await page.close();
+    }
+  });
+}
+
 test("Escape and the backdrop close the step without approving", async () => {
   const dossier = await flaggedReceipt(["rnc_check_digit"], accounts);
   const approvals = serve(dossier);

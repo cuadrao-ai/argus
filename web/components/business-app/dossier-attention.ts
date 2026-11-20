@@ -31,7 +31,7 @@ export function dossierAttention(dossier: Pick<BusinessDossier, "blockers" | "re
     key: "possible-duplicate",
     field: null,
     text: t(`${DUPLICATE_KEYS}.title`, "Looks repeated"),
-    duplicates: candidates.map((candidate) => ({ draftId: candidate.draft_id, text: t(`${DUPLICATE_KEYS}.basis.${candidate.basis}`, "") })),
+    duplicates: candidates.map((candidate) => ({ draftId: candidate.draft_id, text: t(`${DUPLICATE_KEYS}.basis.${candidate.basis === "fiscal_number" && documentFamily(dossier.document_type) === "sale" ? "fiscal_number_sale_placeholder" : candidate.basis}`, "") })),
   };
   const items = dossier.blockers.map((blocker, index): AttentionItem => {
     if (blocker.code === "possible_duplicate") return duplicate;

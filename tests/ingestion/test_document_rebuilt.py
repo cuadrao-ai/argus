@@ -7,6 +7,7 @@ import pytest
 from argus.domain.ingestion.documents import rebuilt
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+from loguru import logger
 from PIL import Image, ImageOps
 
 
@@ -174,7 +175,7 @@ def test_pixel_limit_rejects_in_child_before_parent_allocation(
 
 
 def test_producer_child_has_resource_limits_and_no_provider_key(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "must-not-reach-child")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "must-not-reach-child")
     monkeypatch.setattr(
         rebuilt,
         "_IMAGE_REBUILD",
@@ -184,7 +185,7 @@ assert resource.getrlimit(resource.RLIMIT_CPU) == (20, 20)
 assert resource.getrlimit(resource.RLIMIT_FSIZE) == (10485760, 10485760)
 if sys.platform == "linux":
     assert resource.getrlimit(resource.RLIMIT_AS) == (536870912, 536870912)
-assert "OPENROUTER_API_KEY" not in os.environ
+assert "CUADRAO_OPENROUTER_API_KEY_DEV" not in os.environ
 sys.stdout.write("1")
 """,
     )
@@ -264,3 +265,98 @@ def keyed(mode):
 )
 def test_rebuilt_copy_is_the_upright_image_flattened_on_white(content, media_type):
     assert rebuilt.rebuild_image(content, media_type) == flattened_on_white(content)
+
+
+@pytest.mark.parametrize(
+    "rejection_path,rss,exit_code,pixel_count",
+    [
+        ("child_exit_code", 30_000_000, 13, 768),
+        ("parent_memory_check", 536_870_913, None, None),
+        ("parent_memory_check", 536_870_913, None, 768),
+    ],
+)
+def test_memory_rejection_logs_diagnostics_without_changing_failure(
+    monkeypatch, tmp_path, rejection_path, rss, exit_code, pixel_count
+):
+    content = image_bytes()
+    monkeypatch.setattr(rebuilt.tempfile, "tempdir", str(tmp_path))
+    # Keep the real header read and force the failure at the decode boundary.
+    replacement = (
+        "raise MemoryError()"
+        if rejection_path == "child_exit_code"
+        else "__import__('time').sleep(60)"
+    )
+    monkeypatch.setattr(
+        rebuilt,
+        "_IMAGE_REBUILD",
+        rebuilt._IMAGE_REBUILD.replace("source.load()", replacement),
+    )
+
+    dimensions_reported = False
+    read = rebuilt.os.read
+
+    def track_dimensions(*args):
+        nonlocal dimensions_reported
+        chunk = read(*args)
+        if chunk == b"768":
+            dimensions_reported = True
+        return chunk
+
+    monkeypatch.setattr(rebuilt.os, "read", track_dimensions)
+
+    def memory_info():
+        if rejection_path == "parent_memory_check" and pixel_count is not None:
+            if not dimensions_reported:
+                return SimpleNamespace(rss=30_000_000)
+        return SimpleNamespace(rss=rss)
+
+    monkeypatch.setattr(
+        rebuilt.psutil,
+        "Process",
+        lambda pid: SimpleNamespace(memory_info=memory_info),
+    )
+    monkeypatch.setattr(
+        Image, "open", lambda *a, **k: pytest.fail("parent decoded source")
+    )
+    records = []
+    sink = logger.add(lambda message: records.append(message.record))
+    try:
+        with pytest.raises(DocumentExtractionError) as failure:
+            rebuilt.rebuild_image(content, "image/png")
+    finally:
+        logger.remove(sink)
+
+    assert failure.value.code == "document_memory_limit"
+    assert failure.value.retryable is False
+    assert not list(tmp_path.iterdir())
+    rejected = [
+        r for r in records if r["extra"].get("metric") == "document_image_rejected"
+    ]
+    assert len(rejected) == 1
+    assert rejected[0]["level"].name == "ERROR"
+    assert rejected[0]["extra"] == {
+        "metric": "document_image_rejected",
+        "reason": "memory",
+        "value": 1,
+        "signal": 0,
+        "alert": True,
+        "rejection_path": rejection_path,
+        "rss_bytes": rss,
+        "memory_limit_bytes": 536_870_912,
+        "exit_code": exit_code,
+        "pixel_count": pixel_count,
+    }
+    message = rejected[0]["message"]
+    assert 'document_image_rejected{reason="memory"} 1 signal=0 alert=True' in message
+    for field, value in rejected[0]["extra"].items():
+        if field in {
+            "rejection_path",
+            "rss_bytes",
+            "memory_limit_bytes",
+            "exit_code",
+            "pixel_count",
+        }:
+            assert f"{field}={value}" in message
+    assert str(tmp_path) not in message
+    assert "source" not in message
+    assert "rebuilt.jpg" not in message

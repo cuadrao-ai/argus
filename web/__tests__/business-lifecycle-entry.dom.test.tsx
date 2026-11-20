@@ -8,7 +8,6 @@ import spanish from "@/public/locales/es-419/common.json";
 import { createRoot } from "react-dom/client";
 import BusinessLifecycleEntry from "@/components/business-app/BusinessLifecycleEntry";
 import BusinessLifecycleControls from "@/components/business-app/BusinessLifecycleControls";
-import ProfileDeleteRequestDialog from "@/components/sidebar/ProfileDeleteRequestDialog";
 import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 
@@ -47,32 +46,6 @@ async function mount(element: React.ReactNode, failCommand = false, deny = false
 }
 function button(label: string) { const found = [...document.querySelectorAll("button")].find(item => item.textContent === label); assert.ok(found); return found; }
 async function enter(value: string) { const input = document.querySelector('input:not([type="date"])'); assert.ok(input); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }); }
-
-test("the deletion alert names each Business the server says blocks it, never offers Eliminar, and links the controls only when they exist", async () => {
-  const blockers = businesses.map(business => ({ kind: "business_owner" as const, business_id: business.space_id, business_name: business.name }));
-  const check = { answer: { allowed: false as const, blockers, notices: [] }, error: null, refresh: () => undefined };
-  for (const lifecycleControls of [true, false]) {
-    let submitted = 0;
-    const view = await mount(<ProfileDeleteRequestDialog check={check} lifecycleControls={lifecycleControls} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => { submitted++; }} />);
-    try {
-      for (const business of businesses) {
-        assert.ok(document.body.textContent?.includes(business.name));
-        for (const action of ["transfer", "close"]) assert.equal(Boolean(document.querySelector(`a[href="/biz?lifecycle=${action}&business=${business.space_id}"]`)), lifecycleControls);
-      }
-      assert.equal(Boolean(document.querySelector('a[href="mailto:support@example.test"]')), !lifecycleControls, "the pilot offers the support contact instead");
-      assert.equal([...document.querySelectorAll("button")].find(item => item.textContent === spanish.settings.profile.request_deletion.confirm), undefined);
-      assert.equal(submitted, 0);
-    } finally { await view.close(); }
-  }
-});
-
-test("the deletion alert is never drawn empty: without an answer or a failure there is no alert at all", async () => {
-  const view = await mount(<ProfileDeleteRequestDialog check={{ answer: null, error: null, refresh: () => undefined }} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => undefined} />);
-  try {
-    assert.equal(document.querySelector('[data-testid="delete-account-alert"]'), null);
-    assert.equal(document.querySelector('[role="dialog"]'), null);
-  } finally { await view.close(); }
-});
 
 test("close entry binds server export windows and stable retry key without nested forms", async () => {
   const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} action="close" />, true);

@@ -4,8 +4,12 @@
 would refuse the command and which closed Businesses are still inside their
 reopen window. It reads and starts nothing, under the same flag and session as
 the command. Its per-account limit is its own and larger (30 a minute, since
-Ajustes reads it on open and again when the delete alert opens), so a screen
-that checks often can't starve the delete.
+Ajustes reads it each time Cuenta opens), so a screen that checks often can't
+starve the delete.
+
+``POST /api/v1/account/deletion/request`` files one support ticket for a person
+the command refuses because they own an open Business. Same flag and session;
+asking again files nothing new, and it deletes nothing.
 
 ``POST /api/v1/account/delete`` runs the whole deletion command for the signed-in
 person. It is off unless ``CUADRAO_ACCOUNT_DELETION_ENABLED`` is on, and while off
@@ -21,7 +25,7 @@ import os
 from datetime import datetime
 from typing import Annotated, Literal, Union
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,6 +33,7 @@ from argus.api import state as api_state
 from argus.api.account_deletion_auth import deletion_requester
 from argus.api.account_deletion_runtime import failure_reason
 from argus.api.dependencies import problem
+from argus.api.feedback_notification import notify_feedback_submitted
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import User
 from argus.domain.account_deletion.apple import AccountDeletionAdmissionError
@@ -37,8 +42,10 @@ from argus.domain.account_deletion.service import (
     AccountDeletionRejected,
     AccountDeletionService,
 )
+from argus.domain.account_deletion.support_request import FEEDBACK_TYPE, MESSAGE
 from argus.domain.apple_sign_in.client import MAX_CODE_LENGTH
 from argus.domain.business.space_name import GivenName
+from argus.domain.store import utcnow
 
 FLAG = "CUADRAO_ACCOUNT_DELETION_ENABLED"
 
@@ -49,9 +56,10 @@ router = APIRouter(prefix="/api/v1", tags=["account"])
 # where guests are made (captcha and the per-visitor guest limits), not here.
 _per_account = SlidingWindowLimiter()
 _per_account_check = SlidingWindowLimiter()
+_per_account_request = SlidingWindowLimiter()
 _PER_ACCOUNT = (6, 60)
-# The check is a read the web makes when Ajustes opens and again when the
-# delete alert opens, so it needs room the command doesn't.
+# The check is a read the web makes each time Cuenta opens, so it needs room
+# the command doesn't.
 _PER_ACCOUNT_CHECK = (30, 60)
 _INCOMPLETE_RETRY_SECONDS = 5
 
@@ -147,6 +155,7 @@ def _limited_requester(
 
 _deleting_user = _requester_within(_per_account, _PER_ACCOUNT)
 _checking_user = _requester_within(_per_account_check, _PER_ACCOUNT_CHECK)
+_requesting_user = _requester_within(_per_account_request, _PER_ACCOUNT)
 
 
 def _problem(description: str) -> dict:  # type: ignore[type-arg]
@@ -195,6 +204,16 @@ _RESPONSES: dict = {  # type: ignore[type-arg]
     # shared session-verification one) is declared in openapi_compat, which
     # rewrites every authenticated operation's 503.
 }
+
+
+def _unavailable(request: Request) -> Exception:
+    return problem(
+        request,
+        status_code=503,
+        code="account_deletion_unavailable",
+        title="Account Deletion Unavailable",
+        detail="Account deletion is not available right now.",
+    )
 
 
 class BusinessOwnerBlocker(BaseModel):
@@ -256,13 +275,7 @@ def account_deletion_eligibility(
         )
         eligibility = None
     if eligibility is None:
-        raise problem(
-            request,
-            status_code=503,
-            code="account_deletion_unavailable",
-            title="Account Deletion Unavailable",
-            detail="Account deletion is not available right now.",
-        )
+        raise _unavailable(request)
     return AccountDeletionEligibilityResponse(
         allowed=eligibility.allowed,
         blockers=[
@@ -273,6 +286,74 @@ def account_deletion_eligibility(
         ],
         notices=[ClosedBusinessNotice(**vars(n)) for n in eligibility.notices],
     )
+
+
+class AccountDeletionSupportResponse(BaseModel):
+    # The same answer whether this call filed the ticket or one was on file.
+    status: Literal["requested"]
+
+
+@router.post(
+    "/account/deletion/request",
+    response_model=AccountDeletionSupportResponse,
+    responses={
+        401: _problem("No valid session."),
+        404: _problem(
+            "`not_found`: `CUADRAO_ACCOUNT_DELETION_ENABLED` is off; answered before "
+            "any session check."
+        ),
+        409: _problem(
+            "`account_deletion_request_not_needed`: no open Business blocks this "
+            "account, so it can be deleted in the app."
+        ),
+        429: _problem(
+            "`too_many_requests`: six requests per account per minute; see Retry-After."
+        ),
+        # 503 is declared in openapi_compat, like the command's.
+    },
+)
+def request_support_deletion(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(_requesting_user),  # noqa: B008
+) -> AccountDeletionSupportResponse:
+    context = {
+        "account_email": user.email,
+        "profile_language": user.language,
+        "request_user_id": user.id,
+        "requested_at": utcnow().isoformat(),
+    }
+    try:
+        service = account_deletion_service()
+        filed = service.request_support_deletion(user.id, context) if service else None
+    except Exception as exc:
+        logger.error(
+            "Account deletion support request failed: {} {}",
+            type(exc).__name__,
+            failure_reason(exc),
+        )
+        raise _unavailable(request) from None
+    if service is None:
+        raise _unavailable(request)
+    if filed is None:
+        raise problem(
+            request,
+            status_code=409,
+            code="account_deletion_request_not_needed",
+            title="Not Needed",
+            detail="This account can be deleted in the app.",
+        )
+    if filed.filed:
+        background_tasks.add_task(
+            notify_feedback_submitted,
+            feedback_type=FEEDBACK_TYPE,
+            message=MESSAGE,
+            context={**context, "business_ids": filed.business_ids},
+            # Only a registered account owns a Business.
+            account_kind="registered",
+            language=user.language,
+        )
+    return AccountDeletionSupportResponse(status="requested")
 
 
 @router.post(

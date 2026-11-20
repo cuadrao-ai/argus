@@ -23,7 +23,7 @@ def extraction(client, monkeypatch):
 
     monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
     monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "offline-test-key")
     result = ExtractionResult.model_validate(
         {
             "complete": True,
@@ -380,3 +380,19 @@ def test_the_filename_header_is_utf8(client, extraction, header, expected):
         f"{DOCUMENTS}/{saved.json()['connection_id']}", headers=bearer(ALICE)
     ).json()
     assert draft["filename"] == expected
+
+
+@pytest.mark.parametrize("field", ["issue_date_printed", "buyer_rnc"])
+@pytest.mark.parametrize("contract", ["docs/API_CONTRACT.md", "docs/api/openapi.yaml"])
+def test_read_fields_a_draft_returns_are_in_the_contract(client, field, contract):
+    from argus.domain.ingestion.documents.models import ReceiptDetails
+
+    assert field in ReceiptDetails().model_dump(mode="json")
+    documented = (Path(__file__).parents[2] / contract).read_text(encoding="utf-8")
+    assert f"`{field}`" in documented or f"receipt.{field}`" in documented
+    paths = client.app.openapi()["paths"]
+    for method, path in (
+        ("get", f"{DOCUMENTS}/{{connection_id}}"),
+        ("patch", f"{DOCUMENTS}/{{connection_id}}/proposal"),
+    ):
+        assert f"`{field}`" in paths[path][method]["description"]

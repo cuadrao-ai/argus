@@ -15,12 +15,13 @@ from argus.domain.business.actions.dossier import (
     rnc_registry,
     workflow_blockers,
 )
-from argus.domain.business.actions.fiscal import repeated_purchases
+from argus.domain.business.actions.fiscal import repeated_comprobantes
 from argus.domain.business.actions.refunds import refund_shaped
 from argus.domain.business.bandeja_group import (
     DraftStanding,
     ReadState,
     listo_reason,
+    upload_year,
 )
 from argus.domain.business.contracts.facts import BusinessResolution, fiscal_value
 from argus.domain.business.receipts import read_attention
@@ -51,6 +52,21 @@ def _attachments(
     for row in rows:
         found.setdefault(row["draft_id"], []).append(row)
     return found
+
+
+def _upload_years(
+    tx: ActionTransaction, draft_ids: Sequence[UUID]
+) -> dict[UUID, int | None]:
+    """Each draft's upload year, from its first source as the dossier orders them."""
+
+    rows = tx.rows(
+        "select l.draft_id,min(s.received_at) as received_at"
+        " from public.business_draft_sources l"
+        " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
+        " where l.space_id=%s and l.draft_id=any(%s) group by l.draft_id",
+        (tx.context.actor.space_id, list(draft_ids)),
+    )
+    return {row["draft_id"]: upload_year(row["received_at"]) for row in rows}
 
 
 def _read_state(attachments: list[dict[str, Any]]) -> ReadState:
@@ -87,7 +103,8 @@ def draft_standings(
     ids = list(drafts)
     questions = review_questions(tx, ids)
     attachments = _attachments(tx, ids)
-    repeated = repeated_purchases(tx, drafts.values())
+    uploaded = _upload_years(tx, ids)
+    repeated = repeated_comprobantes(tx, drafts.values())
     accounts = record_context(tx).accounts
     registry = rnc_registry(tx)
     found = {}
@@ -108,6 +125,7 @@ def draft_standings(
             repeated=draft_id in repeated,
             blockers=tuple(blocker.code for blocker in blocked),
             flags=review_flags(facts, registry, declaration=resolution.dgii),
+            upload_year=uploaded.get(draft_id),
         )
         if listo_reason(standing) is None:
             standing = replace(

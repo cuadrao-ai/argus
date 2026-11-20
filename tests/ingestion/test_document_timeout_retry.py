@@ -148,7 +148,7 @@ class Rig:
 @pytest.fixture
 def rig(monkeypatch, request):
     monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "offline-test-key")
     monkeypatch.setattr(preparation, "_run", poppler("Pages: 1\nEncrypted: no\n"))
     repo = InMemoryConnectionRepository()
     hub = IngestionHub(
@@ -316,7 +316,7 @@ def transport(monkeypatch):
     """The real provider call over a mocked HTTP transport: the first request
     hangs past the deadline, the second answers."""
     monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "offline-test-key")
     profile = replace(
         openrouter.openrouter_profile_for_task("document_extraction"),
         timeout_seconds=0.05,

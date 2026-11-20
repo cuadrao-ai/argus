@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 from argus.domain.ingestion.documents.models import DocumentDraft
 
-from tests.dgii_qr_support import URL
+from tests.dgii_qr_support import TOTAL, URL
 from tests.ingestion.test_receipt_payment_truth import project, read_receipt
 from tests.test_business_attachment_preparation import checked  # noqa: F401
 from tests.test_business_multi_purchase import _prepared
@@ -33,7 +33,9 @@ def test_unpaid_read_prefills_an_unverified_amount(checked, monkeypatch, with_qr
     assert saved.state == "open"
     assert resolution.facts.amount.state == "known"
     assert resolution.facts.amount.verified is False
-    assert Decimal(resolution.facts.amount.value) == Decimal("43.20")
+    # The QR's total replaces the reader's and is still a draft value.
+    expected = TOTAL if with_qr else "43.20"
+    assert Decimal(resolution.facts.amount.value) == Decimal(expected)
     assert resolution.facts.kind.value == "expense"
     assert resolution.dgii_qr == batch.dgii_qr
     assert batch.receipt.estimated_tax == "3.20"

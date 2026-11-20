@@ -11,6 +11,8 @@ from typing import Any, Callable
 import pytest
 import yaml
 
+from scripts.ops import staging_env
+
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
 PROFILE_UTILITY = ROOT / ".github" / "private-alpha-release-profile.py"
@@ -300,7 +302,7 @@ def test_settings_tool_gives_no_delete_list_for_the_documents_worker(
 ) -> None:
     live = tmp_path / "live-names"
     live.write_text(
-        "APP_ENV\nARGUS_WORKFLOW_DATABASE_URL\nCUADRAO_PROD_OPENROUTER_API_KEY\n",
+        "APP_ENV\nARGUS_WORKFLOW_DATABASE_URL\nCUADRAO_OPENROUTER_API_KEY_PROD\n",
         encoding="utf-8",
     )
 
@@ -373,17 +375,19 @@ def test_render_blueprint_production_worker_matches_the_manifest() -> None:
         if "value" in rule
         else {"key": name, "sync": False}
         for name, rule in _production("documents_worker").items()
+        if "not_set" not in rule
     }
 
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    staging_values = {
-        entry["name"]: {"key": entry["name"], "value": entry["value"]}
-        for entry in manifest["services"]["documents_worker"]["entries"]
-        if "value" in entry
-    }
+    worker_surface = manifest["services"]["documents_worker"]
     for name in ("cuadrao-documents-worker", "cuadrao-documents-worker-staging"):
         if name.endswith("-staging"):
-            expected = {**expected, **staging_values}
+            expected = {
+                entry["name"]: {"key": entry["name"], "value": entry["value"]}
+                if "value" in entry
+                else {"key": entry["name"], "sync": False}
+                for entry in staging_env.staging_entries(worker_surface)
+            }
         worker = services[name]
         assert worker["startCommand"] == "poetry run python -m workflows.document_worker"
         assert {item["key"]: item for item in worker["envVars"]} == expected

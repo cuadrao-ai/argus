@@ -28,6 +28,7 @@ from argus.domain.ingestion.documents.jobs import (
     DISPATCH_WINDOW,
     MAX_ATTEMPTS,
     OUTCOME_UNKNOWN,
+    READ_DEADLINE,
     PreparationJobs,
     SweepReport,
     run_attempt,
@@ -38,6 +39,7 @@ from argus.domain.ingestion.documents.models import (
     ExtractionBatch,
     PreparationJob,
 )
+from argus.domain.ingestion.documents.objects import source_path
 from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
@@ -46,6 +48,7 @@ from argus.domain.ingestion.documents.worker import DocumentWorker
 from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.owner_scope import PERSONAL
 from argus.llm import openrouter
+from loguru import logger
 
 from tests.document_extractor_support import start_request
 from tests.document_reads_support import read_receipt, refused_while_another_records
@@ -535,7 +538,7 @@ def retrying(rig, worker_env, monkeypatch):
     and whose second call waits to be released, so the worker runs a retry."""
     service = rig[0]
     monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "offline-test-key")
     monkeypatch.setattr(preparation, "_run", poppler("Pages: 1\nEncrypted: no\n"))
     service.extractor = extraction.DocumentExtractor(
         DocumentExtractionSettings(enabled=True)
@@ -723,3 +726,142 @@ def test_job_settings_match_on_staging_and_production_and_the_switches_are_gone(
     for worker in workers:
         assert worker["startCommand"] == "poetry run python -m workflows.document_worker"
         assert shutdown <= worker["maxShutdownDelaySeconds"] <= HOST_SHUTDOWN_MAX_SECONDS
+
+
+@pytest.fixture
+def sweep_rig(pull):
+    return OWNER, *pull
+
+
+class SweepCases:
+    """The same sweep contract runs against both store implementations."""
+
+    async def queued(self, service, owner, faker):
+        result = await service.upload(
+            user_id=owner,
+            content=f"%PDF-{faker.uuid4()}".encode(),
+            filename=f"{faker.word()}.pdf",
+            media_type="application/pdf",
+            consent=True,
+            scope=PERSONAL,
+        )
+        return result.connection_id
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "stalled", ["preparing", "expired", "expired_without_asked_at"]
+    )
+    async def test_sweep_reaches_a_dead_read_behind_sixty_waiting_reads(
+        self, sweep_rig, faker, stalled
+    ):
+        owner, service, jobs, clock, extractor = sweep_rig
+        store = service.store
+        waiting = []
+        for index in range(60):
+            connection = await self.queued(service, owner, faker)
+            jobs.start(user_id=owner, connection_id=connection)
+            if index % 2:
+                job = store.job(user_id=owner, connection_id=connection)
+                assert store.advance(
+                    user_id=owner,
+                    connection_id=connection,
+                    now=clock(),
+                    expected_attempt_id=job.attempt_id,
+                    job=job.model_copy(update={"not_before": clock() + READ_DEADLINE}),
+                )
+            waiting.append(connection)
+            clock.now += timedelta(seconds=1)
+        connection = await self.queued(service, owner, faker)
+        key = dict(user_id=owner, connection_id=connection)
+        jobs.start(**key)
+        draft = store.draft(**key)
+        if stalled == "preparing":
+            service._update(owner, draft, status="preparing")
+            clock.now += DISPATCH_WINDOW
+            expected = OUTCOME_UNKNOWN
+        else:
+            job = store.job(**key)
+            old = clock() - READ_DEADLINE
+            assert store.advance(
+                **key,
+                now=clock(),
+                expected_attempt_id=job.attempt_id,
+                job=job.model_copy(
+                    update={
+                        "asked_at": old if stalled == "expired" else None,
+                        "draft_version": draft.version + 1,
+                    }
+                ),
+                draft=service.revise(draft).model_copy(
+                    update={
+                        "updated_at": clock() if stalled == "expired" else old,
+                    }
+                ),
+            )
+            expected = "document_read_deadline_passed"
+
+        report = jobs.sweep()
+
+        assert report.errors == 0
+        assert (report.outcome_unknown if stalled == "preparing" else report.expired) == [
+            connection
+        ]
+        settled = store.draft(**key)
+        assert (settled.status, settled.error_code) == ("needs_attention", expected)
+        assert all(
+            store.draft(user_id=owner, connection_id=row).status == "queued"
+            for row in waiting
+        )
+        assert extractor.calls == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("attempt_state", ["none", "current", "stale", "dispatched"])
+    async def test_unavailable_source_waits_one_window_then_settles_with_a_log(
+        self, sweep_rig, faker, attempt_state
+    ):
+        owner, service, jobs, clock, extractor = sweep_rig
+        store = service.store
+        connection = await self.queued(service, owner, faker)
+        key = dict(user_id=owner, connection_id=connection)
+        original = store.draft(**key)
+        if attempt_state in {"stale", "dispatched"}:
+            jobs.start(**key)
+        if attempt_state == "dispatched":
+            assert store.pull(now=clock(), cap=3) is not None
+        store.objects.remove(source_path(user_id=owner, sha256=original.sha256))
+        with pytest.raises(DocumentServiceError, match="document_source_unavailable"):
+            service.source_bytes(**key, scope=PERSONAL)
+        if attempt_state == "current":
+            jobs.start(**key)
+        missing = store.draft(**key)
+        assert not missing.source_available
+        logs = []
+        sink = logger.add(lambda message: logs.append(str(message)), level="WARNING")
+        try:
+            clock.now = missing.updated_at + DISPATCH_WINDOW - timedelta(microseconds=1)
+            assert store.pull(now=clock(), cap=3) is None
+            jobs.sweep()
+            assert store.draft(**key).status == "queued"
+            assert not logs
+            clock.now += timedelta(microseconds=1)
+            jobs.sweep()
+            settled = store.draft(**key)
+            assert (settled.status, settled.error_code) == (
+                "needs_attention",
+                "document_source_unavailable",
+            )
+            assert any(
+                "document_read_failed" in line
+                and connection in line
+                and "document_source_unavailable" in line
+                for line in logs
+            )
+            assert store.pull(now=clock(), cap=3) is None
+            assert store.pending(now=clock(), limit=50) == []
+            assert extractor.calls == 0
+        finally:
+            logger.remove(sink)
+
+
+class TestSweepWindow(SweepCases):
+    pass

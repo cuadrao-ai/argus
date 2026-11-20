@@ -163,7 +163,7 @@ export type ShownSuggestions = Partial<Record<SuggestedField, DeclarationSuggest
 
 export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
-  inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on"; value: string | null; inherited: boolean }>;
+  inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on" | "rnc" | "original_ncf"; value: string | null; inherited: boolean }>;
   current_note?: string | null;
   note_edit_available?: boolean;
   supporting_append_available?: boolean;
@@ -171,6 +171,9 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   dgii?: DgiiDeclaration | null;
   /** The caller may write the 606 declaration now: it holds prepare, the record takes a 606, and no downloaded TXT carries it. */
   declaration_editable?: boolean;
+  /** The Business year in which the first source arrived, and whether the issue date is a read whose year is not that year. The server decides both; the date field offers the upload year exactly when `year_to_check` is true. */
+  upload_year?: number | null;
+  year_to_check?: boolean;
   /** The caller may return this approved record to the Bandeja now: it holds approve and no bank match, credit note or refund is linked to it. */
   reopen_available?: boolean;
   /** What the server offers for each 606 answer this open expense lacks, under the declaration's field name. The approval saves the ones the person saw. */
@@ -179,6 +182,8 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */
   dgii_qr?: DgiiQr | null;
+  /** The server shows the e-CF checks card in review. `ecf_checks` and `dgii_qr` come either way. */
+  ecf_checks_panel_available?: boolean;
   /** One NCF due notice. Unpaid is Factura por pagar. Paid, the same record is Factura pagada. */
   bill_mark?: "Factura por pagar" | "Factura pagada" | null;
   /** The record's marks from the server, the same reading every list shows: Personal, who last changed it when not the owner, the fiscal number, the 606 answer. */

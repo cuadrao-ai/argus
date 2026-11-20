@@ -275,8 +275,9 @@ describe("typed dates", () => {
   });
 });
 
-describe("the document date knows the upload year", () => {
-  const uploaded2026: DateFieldContext = { kind: "document", uploadedAt: "2026-11-10T15:00:00Z" };
+describe("the document date offers the upload year when the server says to check the year", () => {
+  const uploaded2026: DateFieldContext = { kind: "document", uploadYear: 2026, yearToCheck: false };
+  const check2026: DateFieldContext = { kind: "document", uploadYear: 2026, yearToCheck: true };
   const note = (page: Awaited<ReturnType<typeof picker>>) => page.dialog()?.querySelector<HTMLElement>('[data-testid="date-picker-upload-year"]') ?? null;
   const buttonNamed = (root: Element, text: string) => [...root.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === text);
 
@@ -289,9 +290,9 @@ describe("the document date knows the upload year", () => {
     await page.close();
   });
 
-  test("a 2024 date on a 2026 upload shows Subido en 2026 and changes the date only on Usar", async () => {
+  test("a year to check shows Subido en 2026 and changes the date only on Usar", async () => {
     const changes: (string | null)[] = [];
-    const page = await picker("2024-11-04", (iso) => changes.push(iso), uploaded2026);
+    const page = await picker("2024-11-04", (iso) => changes.push(iso), check2026);
     await page.act(async () => { page.trigger.click(); });
     const shown = note(page);
     assert.ok(shown, "the note shows");
@@ -305,17 +306,16 @@ describe("the document date knows the upload year", () => {
     assert.deepEqual(changes, ["2026-11-04"]);
     assert.equal(page.input.value, "4 nov 2026");
     assert.equal(page.dialog(), null, "choosing closes the month like a day does");
-    await page.act(async () => { page.trigger.click(); });
-    assert.equal(note(page), null, "the years match now");
     await page.close();
   });
 
-  test("no note when the years match, when the upload time is unknown, or outside a document date", async () => {
+  test("no note unless the server says to check the year, whatever the years are", async () => {
     for (const [value, context] of [
+      ["2024-11-04", uploaded2026],
       ["2026-03-04", uploaded2026],
-      ["2024-11-04", { kind: "document", uploadedAt: null }],
+      ["2024-11-04", { kind: "document", uploadYear: null, yearToCheck: true }],
       ["2024-11-04", { kind: "past" }],
-      ["", uploaded2026],
+      ["", check2026],
     ] as [string, DateFieldContext][]) {
       const page = await picker(value, () => {}, context);
       await page.act(async () => { page.trigger.click(); });
@@ -326,25 +326,19 @@ describe("the document date knows the upload year", () => {
 
   test("29 feb 2024 on a 2026 upload offers 28 feb 2026", async () => {
     const changes: (string | null)[] = [];
-    const page = await picker("2024-02-29", (iso) => changes.push(iso), uploaded2026);
+    const page = await picker("2024-02-29", (iso) => changes.push(iso), check2026);
     await page.act(async () => { page.trigger.click(); });
     await page.act(async () => { buttonNamed(note(page)!, "Usar 28 feb 2026")!.click(); });
     assert.deepEqual(changes, ["2026-02-28"]);
     await page.close();
   });
 
-  test("the upload year is the local year, and near midnight no day shifts", async () => {
+  test("near midnight no day shifts", async () => {
     const originalZone = process.env.TZ;
     process.env.TZ = "America/Santo_Domingo";
     try {
-      const lateOnNewYearsEve: DateFieldContext = { kind: "document", uploadedAt: "2026-01-01T03:30:00Z" };
-      const same = await picker("2025-12-31", () => {}, lateOnNewYearsEve);
-      await same.act(async () => { same.trigger.click(); });
-      assert.equal(note(same), null, "23:30 on 31 dic 2025 in Santo Domingo is still 2025");
-      await same.close();
-
       const changes: (string | null)[] = [];
-      const page = await picker("2024-12-31", (iso) => changes.push(iso), lateOnNewYearsEve);
+      const page = await picker("2024-12-31", (iso) => changes.push(iso), { kind: "document", uploadYear: 2025, yearToCheck: true });
       await page.act(async () => { page.trigger.click(); });
       assert.match(note(page)?.textContent ?? "", /Subido en 2025/);
       await page.act(async () => { buttonNamed(note(page)!, "Usar 31 dic 2025")!.click(); });
@@ -372,7 +366,7 @@ describe("the month header jumps to a month and a year", () => {
 
   test("noviembre de 2024 opens the months, the year opens recent years, and 2026 lands on noviembre de 2026 in two clicks", async () => {
     const changes: (string | null)[] = [];
-    const page = await picker("2024-11-04", (iso) => changes.push(iso), { kind: "document", uploadedAt: "2026-11-10T15:00:00Z" });
+    const page = await picker("2024-11-04", (iso) => changes.push(iso), { kind: "document", uploadYear: 2026, yearToCheck: true });
     await page.act(async () => { page.trigger.click(); });
     assert.equal(headerButton(page).textContent, "noviembre de 2024");
     await page.act(async () => { headerButton(page).click(); });
@@ -433,7 +427,7 @@ describe("receipt detail uses the picker for its date", () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     const dossier = await createFixtureBusinessDataSource().dossier(dossierFixtureIds.ready);
     const patches: unknown[] = [];
-    const page = await render(<ReceiptFactEditor field="occurred_on" facts={{ ...dossier.facts, occurred_on: { ...dossier.facts.occurred_on, state: "known", value: "2024-10-09" } as typeof dossier.facts.occurred_on }} uploadedAt="2026-10-10T14:20:00Z" patch={{}} accounts={[]} currencies={[]} disabled={false} autoFocus={false} onChange={(patch, invalid) => patches.push([patch, invalid])} />);
+    const page = await render(<ReceiptFactEditor field="occurred_on" facts={{ ...dossier.facts, occurred_on: { ...dossier.facts.occurred_on, state: "known", value: "2024-10-09" } as typeof dossier.facts.occurred_on }} uploadYear={2026} yearToCheck patch={{}} accounts={[]} currencies={[]} disabled={false} autoFocus={false} onChange={(patch, invalid) => patches.push([patch, invalid])} />);
     assert.equal(page.host.querySelector('input[type="date"]'), null);
     const input = page.host.querySelector<HTMLInputElement>('input[placeholder="dd/mm/aaaa"]')!;
     assert.equal(page.host.querySelector(`label[for="${CSS.escape(input.id)}"]`)?.textContent, "Fecha del comprobante");
@@ -452,7 +446,7 @@ describe("receipt detail uses the picker for its date", () => {
 
 test("a read year 0026 offers the upload-year correction", async () => {
   const changes: [string | null, boolean][] = [];
-  const page = await picker("0026-10-05", (iso, invalid) => changes.push([iso, invalid]), { kind: "document", uploadedAt: "2026-11-15T12:00:00Z" });
+  const page = await picker("0026-10-05", (iso, invalid) => changes.push([iso, invalid]), { kind: "document", uploadYear: 2026, yearToCheck: true });
   await page.act(async () => { page.trigger.click(); });
   const fix = page.host.querySelector<HTMLButtonElement>('[data-testid="date-picker-upload-year"] button');
   assert.ok(fix);

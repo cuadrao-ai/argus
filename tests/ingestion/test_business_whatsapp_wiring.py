@@ -369,8 +369,7 @@ async def test_the_agent_turn_runs_with_the_registered_traffic_class(monkeypatch
     )
 
     monkeypatch.setenv("APP_ENV", "staging")
-    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_STG", "registered-key")
     seen = []
 
     class Runner:

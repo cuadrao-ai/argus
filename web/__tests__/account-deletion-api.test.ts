@@ -8,6 +8,7 @@ import {
   endSessionKeepingSurface,
   getAccountDeletionEligibility,
   requestAccountDeletion,
+  requestSupportDeletion,
 } from "@/lib/account-deletion-api";
 
 type Call = { url: string; body: unknown };
@@ -121,20 +122,18 @@ describe("account deletion outcomes (Lane 6)", () => {
     const root = join(import.meta.dir, "..");
     const menu = readFileSync(join(root, "components/sidebar/ProfileMenu.tsx"), "utf-8");
     const chat = readFileSync(join(root, "components/chat/ChatInterface.tsx"), "utf-8");
-    expect(menu).toContain(
-      "if (deletionEndsSession(outcome)) onLogout({ afterAccountDeletion: true });",
+    const confirm = readFileSync(join(root, "components/settings/AccountDeletionConfirm.tsx"), "utf-8");
+    expect(confirm).toContain("if (deletionEndsSession(outcome)) onAccountDeleted();");
+    const deleted = menu.slice(menu.indexOf("const handleAccountDeleted"));
+    expect(deleted.slice(0, deleted.indexOf("}, [onLogout]);"))).toContain(
+      "onLogout({ afterAccountDeletion: true });",
     );
-    const close = menu.slice(menu.indexOf("const handleCloseDeleteRequest"));
-    expect(close.slice(0, close.indexOf("}, [deleteRequestState, onLogout]);"))).toContain(
-      "onLogout({ sessionEnded: true });",
-    );
-    // Back after a deletion never reaches a bare onLogout() either, which
-    // would call logoutFromApi a second time.
-    const back = menu.slice(menu.indexOf("if (isDeleteRequestOpen) {"));
-    expect(back.slice(0, back.indexOf("closeProfileModal();"))).toContain(
-      "onLogout({ sessionEnded: true });",
-    );
-    expect(back.slice(0, back.indexOf("closeProfileModal();"))).not.toContain("onLogout();");
+    // Closing Ajustes after a deletion only cleans up: a bare onLogout() would
+    // call logoutFromApi a second time.
+    const close = menu.slice(menu.indexOf("const closeSettingsWindow"));
+    const closeBody = close.slice(0, close.indexOf("}, [onLogout]);"));
+    expect(closeBody).toContain("onLogout({ sessionEnded: true });");
+    expect(closeBody).not.toContain("onLogout();");
     expect(chat).toContain(
       "if (options.afterAccountDeletion) return endSessionKeepingSurface(accountBoundary);",
     );
@@ -160,7 +159,7 @@ describe("the deletion confirmation copy", () => {
   test("never says the account goes now: with the flag off it is a support request (note 9)", () => {
     for (const locale of ["en", "es-419"] as const) {
       const copy = deletionCopy(locale);
-      for (const text of [copy.title, copy.body, copy.confirm]) {
+      for (const text of [copy.body, copy.confirm]) {
         expect(text).not.toMatch(/\bnow\b|\bahora\b|signs you out|cierra tu sesión/i);
       }
     }
@@ -222,5 +221,13 @@ describe("the server's delete rule, read before the alert offers Eliminar", () =
   test("a check the server could not run (503) is for a retry, not an answer", async () => {
     respond([{ status: 503, body: { code: "account_deletion_unavailable", detail: "unavailable" } }]);
     await expect(getAccountDeletionEligibility()).rejects.toMatchObject({ status: 503, code: "account_deletion_unavailable" });
+  });
+
+  test("Solicitar eliminación posts the support request and nothing else; a refusal is for the caller", async () => {
+    const calls = respond([{ status: 200, body: { status: "requested" } }]);
+    await requestSupportDeletion();
+    expect(calls.map((call) => call.url)).toEqual([expect.stringContaining("/account/deletion/request")]);
+    respond([{ status: 409, body: { code: "account_deletion_request_not_needed", detail: "not needed" } }]);
+    await expect(requestSupportDeletion()).rejects.toMatchObject({ status: 409 });
   });
 });

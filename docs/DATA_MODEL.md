@@ -1398,7 +1398,7 @@ fails if any field could hold free text or a money-formatted value.
 | `business_document_received` | `channel`: `upload`, `note`, `email`, or `whatsapp`; `file_type`: an extension `SOURCE_MEDIA_TYPES` names, absent for a typed note; `page_count`: `1` for an image, absent when not known before the read; `size_bucket`: `under_100kb`, `100kb_to_1mb`, `1mb_to_5mb`, or `5mb_or_more` | a new Business document is saved; a repeat of the same bytes is not counted |
 | `business_document_read` | `result`: `read`, `failed`, or `unsure`; `failure_reason`: a receipt `Attention` value (for example `ai_unavailable`, `interrupted`, `unreadable`, `not_a_receipt`, `check_details`), absent when `read`; `latency_ms`: 0 to 3600000; `model_tier`: an OpenRouter model tier; `input_tokens`, `output_tokens`: 0 to 10000000; `cost_micro_usd`: 0 to 100000000 | a read that reached the model settles, once per provider-admitted attempt |
 | `business_document_needs_review` | `reason_codes`: one or more `BandejaReason` values, in the Listos rule's order | a read leaves a draft that is not Listos, or the model's answer cannot become a draft |
-| `business_record_approved` | `filled_fields` and `filled_count` cover record fields that had no known value in the read and have one at approval. `corrected_fields` and `corrected_count` cover fields whose known value changed or was removed. Lists carry field names (`FactField` and the fiscal fields). All four properties are omitted when there is no extractor read. `seconds_to_approve` measures time from first arrival to approval | a person's approval records the draft, once (not on a replay) |
+| `business_record_approved` | `bandeja_group_at_read`: `listo` or `attention` from the saved latest-read stamp, explicit `null` without a stamp; identical for single and bulk approval. `filled_fields` and `filled_count` cover record fields that had no known value in the read and have one at approval. `corrected_fields` and `corrected_count` cover fields whose known value changed or was removed. Lists carry field names (`FactField` and the fiscal fields). All four properties are omitted when there is no extractor read. `seconds_to_approve` measures time from first arrival to approval | a person's approval records the draft, once (not on a replay) |
 | `business_record_recorded` | `direction`: `compra` or `venta`; `document_type`: `recibo` or `venta` | with `business_record_approved` |
 | `business_records_exported` | `format`: `excel` or `csv`; `scope`: `lo_que_ves` or `dgii`; `row_count`: 0 to 1000000 | an Excel or CSV export is built |
 
@@ -2523,6 +2523,12 @@ private-alpha support requests such as account deletion requests.
 
 ### Enums
 - **type**: `bug`, `feature`, `general`, `account_deletion_request`
+
+An `account_deletion_request` row with `context.source`
+`account_settings_business_owner` comes from `POST /account/deletion/request`.
+It also holds `context.business_ids`, the open Businesses that block the
+deletion. There is at most one such row per account: the route takes a
+per-account transaction lock and writes only when none exists.
 ---
 
 # 16. Soft Delete & Archive Rules
@@ -3727,7 +3733,7 @@ storage.
 
 ### Business receipt reading consent and attention
 
-`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `20261103040226_business_receipt_reading_scope_2.sql` widens the scope check from 1 to 1 or 2 and changes no row. `20261109070949_business_receipt_reading_scope_3.sql` widens it to 1, 2 or 3 and changes no row; scope 3 names invoices, receipts and PDFs. `SCOPE_VERSION` in `src/argus/domain/business/receipt_consent.py` names the current scope. The stored disclosure is the record of the words shown; a generation counts by its scope version, not by those words. A generation of an earlier scope reads as off, and every read bound to it is refused, until the owner accepts the current scope. That acceptance revokes the earlier generation and records a new one. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
+`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `20261103040226_business_receipt_reading_scope_2.sql` widens the scope check from 1 to 1 or 2 and changes no row. `20261109070949_business_receipt_reading_scope_3.sql` widens it to 1, 2 or 3 and changes no row; scope 3 names invoices, receipts and PDFs. `SCOPE_VERSION` in `src/argus/domain/business/receipt_consent.py` names the current scope. The stored scope version, route and disclosure record what the Owner accepted. Reading stays enabled across model, gateway, scope version and disclosure changes until that generation is revoked. An accepted transfer revokes the existing generation; the recipient must enable reading explicitly. Losing the consenting person's Owner role also revokes their generation. Storage ownership remains separate from the consenting Owner's identity. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate the same active generation and original grant through the shared Business consent store. Completion holds the consent row lock through its transaction and rechecks before commit; current model, gateway and scope do not invalidate the recorded permission.
 
 This table is the only Business reading consent. Two earlier migrations stay in the repo because staging already applied them, so a fresh database and staging run the same files in order and end identical. `20261014090000_business_email_receipt_reading_consent.sql` created a per-address `business_email_ai_consents` table and a unique index `business_email_routes_consent_key` on `business_email_routes(id, space_id, principal_id)`. `20261014120000_business_ai_consents.sql` drops that table, its trigger function and that index, and adds `business_ai_consents`, a per-Business owner setting (service role only, RLS with no policies). No code reads or writes `business_ai_consents`. It is empty, superseded by `business_receipt_reading_consents`, and must not gain a reader.
 
@@ -3825,6 +3831,17 @@ for replay and approval. A missing source verifier cannot validate a decision.
 Migration `20261023005500_business_duplicate_resolution.sql` adds only
 `resolve_duplicate` to the existing unplanned-command allowlist, preserving all
 older commands, tables, grants and row-level security.
+
+`financial_import_events.resolution.read_group` stores `listo` or `attention`
+after the read's duplicate checks and completed attachment status are saved.
+The completion hook uses the existing `draft_standings` and the single
+`draft_group` mapping. A new read clears the prior stamp and completion replaces
+it; human revisions preserve it. The owner lock, draft and attachment versions,
+and read lease and attempt fence prevent stale completion from classifying
+later edits. If an edit wins that race, the stamp stays absent rather than
+classifying the edited facts. Replaying the same completed read keeps its stamp.
+Approval reads the stamp without recomputing it. There is no backfill or schema
+migration; unstamped records emit an explicit `null` in approval analytics.
 
 The resolution's `document_type` (`recibo` or `venta`) is the draft's current
 document type, and `document_type_detected` is true while the read's choice
@@ -3946,8 +3963,10 @@ and immutable revision JSON. These are provenance-bearing facts: read subtotal
 or human net edit, and read service charge with tip as an absence-only fallback.
 Gross `facts.amount` and recorded money are unchanged. The existing declaration
 JSON may carry a fiscal ITBIS override. `resolution.business.fiscal_overrides`
-records which fields no longer inherit from Montos; null denotes older records
-whose override state must be interpreted from their saved declaration. No table,
+records which fields no longer inherit from their source; null denotes older records
+whose override state must be interpreted from their saved declaration. The
+names are the keys of `amount_inheritance.INHERITANCE`, which now include
+`id_type` and `modified_ncf`. No table,
 column, migration, or backfill is added. The review action receipt records every
 edit and restore under the existing version, grant and idempotency checks.
 
@@ -4205,7 +4224,13 @@ is the source of durability.
 
 Preparation status is `saved|queued|preparing|review_ready|needs_attention`.
 Approval state remains in reconciliation events. The immutable batch retains receipt
-`payment_status` and separate final `tax` and `estimated_tax` values. Payment
+`payment_status` and separate final `tax` and `estimated_tax` values. A new
+read can also retain `buyer_rnc` and `issue_date_printed` on the receipt; no
+code reads these two values. A new read can also retain `payment_form` and
+`expense_type` on the receipt: the DGII Forma de pago (`01` to `07`) and Tipo
+de gasto (`01` to `11`) codes, each null when the reader read none. The
+Business dossier reads them from the batch to suggest a blank 606 answer;
+nothing copies them onto the draft. Payment
 status is evidence only: an unpaid read still projects its purchase, and the
 Business draft keeps the amount unverified. Older saved batches keep their stored
 candidates and are not backfilled or automatically prepared again. Valid observations can project

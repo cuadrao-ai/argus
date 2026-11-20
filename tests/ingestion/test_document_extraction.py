@@ -93,7 +93,7 @@ async def test_receipt_request_requires_one_purchase_and_preserves_printed_evide
 
     monkeypatch.setenv("ARGUS_VISION_MODEL", "openai/gpt-6-luna")
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_PROD", "registered-test-key")
     receipt = {
         "payment_status": "paid",
         "merchant": "Synthetic Corner Store",
@@ -141,9 +141,9 @@ async def test_receipt_request_requires_one_purchase_and_preserves_printed_evide
     )
     assert route.call_count == 1
     payload = json.loads(route.calls[0].request.content)
-    instructions = payload["messages"][0]["content"]
+    instructions = " ".join(payload["messages"][0]["content"].split())
     assert (
-        "include exactly one purchase in observations alongside receipt details"
+        "exactly one purchase in observations, alongside receipt details"
         in instructions
     )
     assert (
@@ -246,8 +246,7 @@ async def test_single_private_provider_attempt_preserves_usage(
 
     monkeypatch.setenv("ARGUS_VISION_MODEL", model)
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-test-key")
-    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-test-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_PROD", "registered-test-key")
     raw = io.BytesIO()
     Image.new("RGB", (40, 40), "white").save(raw, format="PNG")
     route = respx_mock.post("https://openrouter.ai/api/v1/chat/completions").mock(

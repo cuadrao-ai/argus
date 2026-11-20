@@ -805,7 +805,7 @@ describe("the receipt dossier on an open draft", () => {
       await page.act(async () => mark().click());
       await page.wait(() => /Sin recibo/.test(page.row("fiscal_number").textContent ?? ""));
       assert.deepEqual(page.writes.map(({ kind, version, body }) => [kind, version, body]), [["facts", 2, { receipt_state: { state: "known", value: "no_receipt" } }]]);
-      assert.match(page.row("fiscal_number").textContent ?? "", /del revisor/);
+      assert.doesNotMatch(page.row("fiscal_number").textContent ?? "", /del revisor/);
       assert.ok(page.row("fiscal_number").querySelector('[data-testid="row-saved"]'));
       assert.equal(mark().textContent, "Deshacer");
 

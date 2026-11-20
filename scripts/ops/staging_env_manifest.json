@@ -89,21 +89,16 @@
         {
           "name": "CUADRAO_OPENROUTER_API_KEY_DEV",
           "kind": "secret",
-          "keep_current": true,
-          "optional": true,
-          "production": {
-            "not_set": true
-          },
+          "local_only": true,
           "local": {
-            "enter": "the selected local store",
-            "optional": true
-          }
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_OPENROUTER_API_KEY_STG",
           "kind": "secret",
           "keep_current": true,
-          "optional": true,
           "production": {
             "not_set": true
           }
@@ -111,19 +106,9 @@
         {
           "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
           "kind": "secret",
-          "keep_current": true,
-          "optional": true,
+          "production_only": true,
           "production": {
-            "enter": "the production segmented model-gateway key; when set it wins over CUADRAO_PROD_OPENROUTER_API_KEY",
-            "optional": true
-          }
-        },
-        {
-          "name": "CUADRAO_PROD_OPENROUTER_API_KEY",
-          "kind": "secret",
-          "keep_current": true,
-          "production": {
-            "enter": "the production model-gateway key for signed-in traffic"
+            "enter": "the production model-gateway key"
           }
         },
         {
@@ -215,6 +200,14 @@
           "value": "60",
           "production": {
             "value": "60"
+          }
+        },
+        {
+          "name": "CUADRAO_ECF_CHECKS_PANEL_ENABLED",
+          "kind": "plain",
+          "value": "true",
+          "production": {
+            "value": "false"
           }
         },
         {
@@ -418,15 +411,6 @@
           "local": {
             "copy_from": "SUPABASE_POSTGRES_SESSION_POOLER_URL"
           }
-        },
-        {
-          "name": "OPENROUTER_API_KEY",
-          "kind": "secret",
-          "local_only": true,
-          "local": {
-            "enter": "the selected local store"
-          },
-          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "SUPABASE_ANON_KEY",
@@ -1180,6 +1164,8 @@
       ]
     },
     "documents_worker": {
+      "service_id": "srv-dbm1oae1egvs73b2gji0",
+      "service_name": "cuadrao-documents-worker-staging",
       "production": {
         "service_name": "cuadrao-documents-worker"
       },
@@ -1187,6 +1173,7 @@
         {
           "name": "APP_ENV",
           "kind": "plain",
+          "keep_current": true,
           "production": {
             "copy_from": "APP_ENV",
             "service": "api"
@@ -1195,6 +1182,7 @@
         {
           "name": "CUADRAO_BUSINESS_READS_PER_DAY",
           "kind": "plain",
+          "keep_current": true,
           "production": {
             "copy_from": "CUADRAO_BUSINESS_READS_PER_DAY",
             "service": "api"
@@ -1203,6 +1191,7 @@
         {
           "name": "CUADRAO_BUSINESS_READS_PER_MONTH",
           "kind": "plain",
+          "keep_current": true,
           "production": {
             "copy_from": "CUADRAO_BUSINESS_READS_PER_MONTH",
             "service": "api"
@@ -1211,6 +1200,7 @@
         {
           "name": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
           "kind": "plain",
+          "keep_current": true,
           "production": {
             "copy_from": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
             "service": "api"
@@ -1219,6 +1209,7 @@
         {
           "name": "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS",
           "kind": "plain",
+          "value": "210",
           "production": {
             "value": "210"
           }
@@ -1234,6 +1225,7 @@
         {
           "name": "CUADRAO_DOCUMENT_JOBS_MAX_READS",
           "kind": "plain",
+          "value": "3",
           "production": {
             "value": "3"
           }
@@ -1241,6 +1233,7 @@
         {
           "name": "CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS",
           "kind": "plain",
+          "value": "3600",
           "production": {
             "value": "3600"
           }
@@ -1248,22 +1241,23 @@
         {
           "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
           "kind": "secret",
+          "production_only": true,
           "production": {
             "copy_from": "CUADRAO_OPENROUTER_API_KEY_PROD",
             "service": "api"
           }
         },
         {
-          "name": "CUADRAO_PROD_OPENROUTER_API_KEY",
+          "name": "CUADRAO_OPENROUTER_API_KEY_STG",
           "kind": "secret",
           "production": {
-            "copy_from": "CUADRAO_PROD_OPENROUTER_API_KEY",
-            "service": "api"
+            "not_set": true
           }
         },
         {
           "name": "CUADRAO_VISION_MODEL",
           "kind": "plain",
+          "keep_current": true,
           "production": {
             "copy_from": "CUADRAO_VISION_MODEL",
             "service": "api"
@@ -1304,12 +1298,15 @@
         {
           "name": "SUPABASE_URL",
           "kind": "plain",
+          "keep_current": true,
           "production": {
             "copy_from": "SUPABASE_URL",
             "service": "api"
           }
         }
-      ]
+      ],
+      "remove": [],
+      "hold": []
     }
   }
 }

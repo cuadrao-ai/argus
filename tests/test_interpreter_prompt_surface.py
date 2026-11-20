@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from argus.agent_runtime.business.interpretation import business_interpretation_prompt
+from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
 from argus.domain.business.tools.declarations import get_business_declarations
 
 from tests.interpreter_prompt_surface import (
@@ -45,10 +46,16 @@ def test_document_prompt_is_covered_only_at_its_exact_owner(tmp_path: Path) -> N
 @pytest.mark.parametrize(
     "text",
     [
-        "Unverified RNC",
+        "Unverified RNC of the supplier",
+        "Unverified RNC of the buyer",
+        "Issue date of the receipt",
+        "The issue date exactly as printed",
+        "For a statement, false",
         "Unverified NCF",
-        "Unverified e-CF",
+        "Unverified e-NCF",
         "Unverified ITBIS",
+        "DGII code of how the receipt",
+        "DGII expense type code",
         "Printed line total",
         "alongside receipt details",
     ],
@@ -61,9 +68,20 @@ def test_all_document_schema_instructions_change_the_surface(
     assert source.count(text) == 1
     _write(tmp_path, owner, source)
     first = model_facing_surface(tmp_path)
-    assert first[owner]["entries"] == 6
+    assert first[owner]["entries"] == 12
     _write(tmp_path, owner, source.replace(text, "Changed instruction"))
     assert model_facing_surface(tmp_path)[owner] != first[owner]
+
+
+@pytest.mark.parametrize("labels", [PAYMENT_FORMS, EXPENSE_TYPES])
+def test_a_code_label_change_changes_the_document_surface(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, labels: dict[str, str]
+) -> None:
+    owner = "src/argus/domain/ingestion/documents/models.py"
+    _write(tmp_path, owner, (Path(__file__).resolve().parents[1] / owner).read_text())
+    first = model_facing_surface(tmp_path)[owner]
+    monkeypatch.setitem(labels, "03", "Changed label")
+    assert model_facing_surface(tmp_path)[owner] != first
 
 
 def _document_measurement_fixture() -> tuple[dict, dict]:
@@ -310,31 +328,6 @@ def test_each_readout_instruction_fragment_remains_measured(
     assert owner in first
     _write(tmp_path, owner, source.replace("separate", "distinct"))
     assert model_facing_surface(tmp_path)[owner] != first[owner]
-
-
-@pytest.mark.parametrize(
-    "owner",
-    [
-        "src/argus/domain/result_readout_fact_sheet.py",
-        "src/argus/domain/result_readout_fact_definitions.py",
-    ],
-)
-def test_readout_fact_meanings_are_measured_but_docstrings_are_not(
-    tmp_path: Path, owner: str
-) -> None:
-    source = '''"""Internal implementation notes."""
-FACT_DEFINITIONS = {"executed_fills": ("count", "Executed fills, not closed trades.")}
-def build():
-    """Implementation detail."""
-    return {"meaning": "Annualized volatility."}
-'''
-    _write(tmp_path, owner, source)
-    first = model_facing_surface(tmp_path)
-    assert owner in first
-    _write(tmp_path, owner, source.replace("Annualized volatility", "Daily volatility"))
-    assert model_facing_surface(tmp_path)[owner] != first[owner]
-    _write(tmp_path, owner, source.replace("Implementation detail", "Private helper"))
-    assert model_facing_surface(tmp_path)[owner] == first[owner]
 
 
 def _business_declaration_source() -> str:
