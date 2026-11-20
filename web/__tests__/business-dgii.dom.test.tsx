@@ -75,7 +75,7 @@ test("the form holds the rest of the 606: the facts with their own row are not f
   try {
     assert.equal(view.host.querySelector("details")?.open, false, "closed by default");
     assert.equal(view.host.querySelector("summary")?.textContent, "Más datos fiscales");
-    assert.deepEqual([...view.host.querySelectorAll("label")].map((node) => node.firstChild?.textContent).slice(0, 1), ["ITBIS"]);
+    assert.deepEqual([...view.host.querySelectorAll("label")].map((node) => node.firstChild?.textContent).slice(0, 1), ["ITBIS Facturado"]);
     await view.input("ITBIS llevado al Costo", "12.00");
     assert.equal(view.dirty.at(-1), true);
     await view.save();

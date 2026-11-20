@@ -2306,7 +2306,7 @@
         "income_perceived": "Income tax perceived on purchases",
         "income_withheld": "Income tax withheld",
         "income_withholding_type": "Income withholding type",
-        "itbis": "$t(business.dossier.field.itbis)",
+        "itbis": "ITBIS billed",
         "itbis_cost": "ITBIS taken to cost",
         "itbis_perceived": "ITBIS perceived on purchases",
         "itbis_proportionality": "ITBIS subject to proportionality (Art. 349)",
