@@ -2,11 +2,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from uuid import uuid4
 
-from argus.domain.business.actions.facts import patched_facts, reviewed_amount_facts
-from argus.domain.business.actions.fiscal import (
-    reviewed_fiscal_facts,
-    validate_changed_dates,
+from argus.domain.business.actions.declaration_links import (
+    saved_declaration_links,
+    written_declaration,
 )
+from argus.domain.business.actions.facts import patched_facts, reviewed_amount_facts
+from argus.domain.business.actions.fiscal import reviewed_fiscal_facts
 from argus.domain.business.amount_inheritance import (
     INHERITANCE,
     NO_SOURCES,
@@ -23,7 +24,6 @@ from argus.domain.business.contracts.dgii import (
     FiscalInput,
     FiscalReview,
     PurchaseReview,
-    SalePaymentSplit,
 )
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
@@ -33,12 +33,7 @@ from argus.domain.business.contracts.facts import (
     MontosReview,
 )
 from argus.domain.business.document_type import direction
-from argus.domain.business.purchase_review import (
-    apply_payment_split,
-    apply_purchase,
-    kept_sources,
-    net_amount,
-)
+from argus.domain.business.purchase_review import apply_purchase, net_amount
 from argus.domain.business.review_flags import review_flags
 
 _Sources = Callable[[BusinessFacts, DgiiDeclaration | None], LinkedSources]
@@ -64,9 +59,9 @@ def previewed_links(
     after: BusinessFacts,
     sources: DraftSources,
 ) -> dict[str, InheritedValue]:
-    """The links the dossier shows once the request's draft is saved. It
-    takes the steps of ``mutations.revise``, ``mutations.save_revision`` and
-    the dossier in their order, through the same owners, and saves nothing."""
+    """The links the dossier shows once the request's draft is saved: the
+    write and save a revision runs, read as the dossier reads it. It saves
+    nothing."""
 
     before = resolution.facts
     previous = resolution.fiscal_overrides
@@ -79,29 +74,23 @@ def previewed_links(
         if declared is not None and declared.form != form:
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         raw = resolution.dgii if resolution.dgii is not None and resolution.dgii.form == form else None
-        shown = sources.review(before, raw)
-        stored = written_from(before, raw, previous, resolution.bill_mark, shown)
-        validate_changed_dates(stored, declared)
-        declared = kept_sources(stored, declared)
-        overrides = inheritance_overrides(
-            before, stored, declared, previous,
+        _, declared, overrides = written_declaration(
+            before, raw, lambda _: request.declaration, previous, resolution.bill_mark,
+            sources.review(before, raw),
             written=request.override_inherited,
             restore=request.restore_inherited,
             amount_derived=raw is None or resolution.amount_derived,
-            linked=shown,
             unsaved=raw is None,
         )
     venta = resolution.document_type == "venta"
+    saved, overrides = saved_declaration_links(
+        before, after, declared if declared is not None else resolution.dgii,
+        previous, resolution.bill_mark, overrides, sources.stored,
+        written=declared is not None,
+        venta=venta,
+        amount_derived=resolution.amount_derived,
+    )
     bill_mark = None if venta else resolution.bill_mark
-    saved = declared if declared is not None else resolution.dgii
-    if saved is None and venta:
-        saved = apply_payment_split(None, SalePaymentSplit())
-    kept = sources.stored(after, saved)
-    if declared is None:
-        saved = written_from(before, saved, previous, resolution.bill_mark, kept)
-    if overrides is None:
-        overrides = inheritance_overrides(before, saved, None, previous, amount_derived=resolution.amount_derived, linked=kept)
-    saved = inherit_amounts(after, saved, overrides, kept)
     shown = sources.review(after, saved)
     return inheritance_state(after, written_from(after, saved, overrides, bill_mark, shown), overrides, shown)
 
