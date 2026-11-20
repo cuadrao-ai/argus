@@ -11,8 +11,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from argus.domain.backtest_admission import CHAT_RUN_SCOPE, DIRECT_RUN_SCOPE
 from argus.domain.backtest_job_scopes import (
+    CHAT_RUN_SCOPE,
+    DIRECT_RUN_SCOPE,
     OPERATION_SCOPES,
     PROOF_OPERATION_SCOPE,
     render_scope_check_constraint,

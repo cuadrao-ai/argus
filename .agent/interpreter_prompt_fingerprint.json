@@ -22,16 +22,6 @@
       "entries": 11,
       "chars": 1192,
       "sha256": "ad7c2c08c18dc3a55f93caf454a114a99868e770c81284a078eb9d263cb0565e"
-    },
-    "src/argus/domain/result_readout_fact_definitions.py": {
-      "entries": 276,
-      "chars": 5615,
-      "sha256": "902b493d4ed3ccdea45ed7ee84a30f4626295ffb4085ee7790ea3552e2a41930"
-    },
-    "src/argus/domain/result_readout_fact_sheet.py": {
-      "entries": 478,
-      "chars": 7124,
-      "sha256": "2406d8c7f59925bc5f1ac98f9943cc6242ecd0100b81eace183428d4ed5e6f88"
     }
   },
   "scoped_measurements": {

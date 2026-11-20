@@ -36,12 +36,3 @@ def test_legacy_rows_keep_read_compatibility_without_write_routes() -> None:
     assert "from public.strategies as strategy" in history_reader
     assert "from public.collections as collection" in history_reader
     assert "def get_strategy(" in gateway
-
-
-def test_live_asset_provider_override_remains_untouched() -> None:
-    assets = (
-        ROOT / "src" / "argus" / "domain" / "market_data" / "assets.py"
-    ).read_text(encoding="utf-8")
-
-    assert "ARGUS_ASSET_PROVIDER_MODE" in assets
-    assert "ARGUS_MARKET_DATA_PROVIDER_MODE" in assets

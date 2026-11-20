@@ -346,7 +346,7 @@ def test_existing_personal_and_household_plan_envelopes_keep_frozen_hashes():
     import json
     from pathlib import Path
 
-    from argus.domain.backtest_admission import canonical_hash
+    from argus.domain.idempotency import canonical_hash
 
     fixtures = json.loads(
         (
