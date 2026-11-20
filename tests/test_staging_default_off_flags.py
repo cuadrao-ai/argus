@@ -37,6 +37,10 @@ APPROVED_STAGING_OVERRIDES: dict[str, str] = {
         "Staging is internal and stays open. Production is invite only "
         "(launch plan 2026-11-04): only allowlist rows may sign in."
     ),
+    "CUADRAO_ECF_CHECKS_PANEL_ENABLED": (
+        "Staging keeps the e-CF checks card in review; production hides it "
+        "(#2317). Prod stays false."
+    ),
 }
 
 

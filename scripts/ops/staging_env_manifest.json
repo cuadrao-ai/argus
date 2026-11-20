@@ -203,6 +203,14 @@
           }
         },
         {
+          "name": "CUADRAO_ECF_CHECKS_PANEL_ENABLED",
+          "kind": "plain",
+          "value": "true",
+          "production": {
+            "value": "false"
+          }
+        },
+        {
           "name": "CUADRAO_BUSINESS_INVOICING_ENABLED",
           "kind": "plain",
           "value": "false",

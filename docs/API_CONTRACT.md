@@ -10551,6 +10551,11 @@ accept path recorded.
   replaced, and neither is one whose QR value the fact cannot hold. An amount
   from the QR stays a draft value a person approves. A
   later document or a person's revision keeps `dgii_qr` and the origins.
+- `ecf_checks_panel_available` on the dossier says whether review shows the
+  e-CF checks card. It is the server switch `CUADRAO_ECF_CHECKS_PANEL_ENABLED`,
+  off by default. Off, the card is hidden and nothing else changes:
+  `ecf_checks` and `dgii_qr` still come, the QR still wins in the merge, and a
+  field that `read_matches_xml` disputes is still marked for review.
 - POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
   whose preparation grant was revoked to the owner's current grant, writes one
   `business_action_receipts` row (`rebind_attachment`, previous binding and

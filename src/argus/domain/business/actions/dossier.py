@@ -29,7 +29,10 @@ from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
 from argus.domain.business.bandeja_group import upload_year, year_to_check
-from argus.domain.business.config import business_settlement_enabled
+from argus.domain.business.config import (
+    business_settlement_enabled,
+    ecf_checks_panel_enabled,
+)
 from argus.domain.business.contracts.actions import APPROVAL_ACTION, DuplicateDecision
 from argus.domain.business.contracts.authority import PersonName
 from argus.domain.business.contracts.deletion import deletion
@@ -632,6 +635,7 @@ def dossier(
         unrecorded_purchases=resolution.unrecorded_purchases(),
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
+        ecf_checks_panel_available=ecf_checks_panel_enabled(),
         bill_mark=shown_bill_mark(resolution),
         dgii=declaration.model_dump(mode="json") if declaration else None,
         document_type=resolution.document_type,
