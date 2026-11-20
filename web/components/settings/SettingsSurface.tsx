@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ComponentProps, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, type ComponentProps, type ReactNode } from "react";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 
 /* A settings panel draws through this rather than AdaptivePanel. Inside the
@@ -10,13 +10,37 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 
 const SettingsWindowContext = createContext(false);
 
-export function SettingsWindowSection({ children }: { children: ReactNode }) {
-  return <SettingsWindowContext.Provider value>{children}</SettingsWindowContext.Provider>;
+/** A second step inside a section: the window titles it and, with onBack, draws the arrow back. */
+export type SettingsStep = { title: string; onBack?: () => void };
+
+const SettingsStepContext = createContext<(step: SettingsStep | null) => void>(() => undefined);
+
+export function SettingsWindowSection({ children, onStep = () => undefined }: { children: ReactNode; onStep?: (step: SettingsStep | null) => void }) {
+  return (
+    <SettingsWindowContext.Provider value>
+      <SettingsStepContext.Provider value={onStep}>{children}</SettingsStepContext.Provider>
+    </SettingsWindowContext.Provider>
+  );
 }
 
 /** True inside the Ajustes window, where a pick keeps the window open. */
 export function useInSettingsWindow(): boolean {
   return useContext(SettingsWindowContext);
+}
+
+/** Shows a step's title in the window header while `title` is set; Escape and the arrow run onBack. */
+export function useSettingsStep(title: string | null, onBack?: () => void): void {
+  const show = useContext(SettingsStepContext);
+  const back = useRef(onBack);
+  useLayoutEffect(() => {
+    back.current = onBack;
+  });
+  const hasBack = Boolean(onBack);
+  useEffect(() => {
+    if (title === null) return undefined;
+    show({ title, onBack: hasBack ? () => back.current?.() : undefined });
+    return () => show(null);
+  }, [show, title, hasBack]);
 }
 
 export default function SettingsSurface(props: ComponentProps<typeof AdaptivePanel>) {

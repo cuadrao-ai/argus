@@ -193,6 +193,10 @@ class World:
                 (self.people,),
             )
             db.execute(
+                "delete from public.feedback where user_id=any(%s::uuid[])",
+                (self.people,),
+            )
+            db.execute(
                 "delete from auth.users where id=any(%s::uuid[])",
                 (self.people + custodians,),
             )
@@ -396,9 +400,11 @@ def routes(monkeypatch, world):
     monkeypatch.setenv(account_route.FLAG, "true")
     account_route._per_account.reset()
     account_route._per_account_check.reset()
+    account_route._per_account_request.reset()
     yield
     account_route._per_account.reset()
     account_route._per_account_check.reset()
+    account_route._per_account_request.reset()
 
 
 @pytest.mark.parametrize("case", ALLOWED + REFUSED)
@@ -466,3 +472,94 @@ def test_the_notice_and_the_purge_follow_the_one_reopen_window(
         assert notices[0].purge_at == purge_at(world, space)
         with pytest.raises(BusinessPurgeBusy, match="business_purge_not_due"):
             PostgresBusinessPurge(world.pool, Objects(), world.auth).purge(space_id=space)
+
+
+def owner_with_profile(w: World) -> str:
+    """A signed-up person: feedback rows point at the profile."""
+    person = w.person()
+    with w.pool.connection() as db:
+        db.execute(
+            "insert into public.profiles(id,email) select id,email from auth.users"
+            " where id=%s",
+            (person,),
+        )
+    return person
+
+
+def support_tickets(w: World, person: str) -> list[dict]:
+    with w.pool.connection() as db:
+        return [
+            row[0]
+            for row in db.execute(
+                "select context from public.feedback"
+                " where user_id=%s and type='account_deletion_request'",
+                (person,),
+            )
+        ]
+
+
+def test_an_owner_files_one_support_ticket_and_nothing_is_deleted(world):
+    person = owner_with_profile(world)
+    alfa = world.business(person, "Alfa")
+    zeta = world.business(person, "Zeta")
+    before = world.snapshot()
+
+    first = world.service.request_support_deletion(person, {"account_email": "p@x"})
+    again = world.service.request_support_deletion(person, {"account_email": "p@x"})
+
+    assert (first.filed, again.filed) == (True, False)
+    assert first.business_ids == again.business_ids == [alfa, zeta]
+    [ticket] = support_tickets(world, person)
+    assert ticket["source"] == "account_settings_business_owner"
+    assert ticket["business_ids"] == [alfa, zeta]
+    assert world.snapshot() == before
+    assert world.auth.calls == []
+    assert shape(world.service.deletion_eligibility(person).blockers) == [
+        owner_of(alfa, "Alfa"),
+        owner_of(zeta, "Zeta"),
+    ]
+
+
+@pytest.mark.parametrize("case", ["none", "closed", "placeholder", "run_open"])
+def test_only_an_open_business_owner_may_ask_support(world, case):
+    person = world.person(placeholder=case == "placeholder")
+    if case == "closed":
+        world.business(person, "Cerrado", closed=True)
+    if case == "run_open":
+        world.business(person, "Colmado Uno")
+        world.start_run(person)
+    assert world.service.request_support_deletion(person, {}) is None
+    assert support_tickets(world, person) == []
+
+
+def test_concurrent_requests_file_one_ticket(world):
+    from concurrent.futures import ThreadPoolExecutor
+
+    person = owner_with_profile(world)
+    world.business(person, "Colmado Uno")
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(
+            pool.map(
+                lambda _: world.service.request_support_deletion(person, {}), range(4)
+            )
+        )
+    assert sorted(r.filed for r in results) == [False, False, False, True]
+    assert len(support_tickets(world, person)) == 1
+
+
+def test_the_support_request_over_http_is_idempotent(world, routes):
+    person = owner_with_profile(world)
+    world.business(person, "Colmado Uno")
+    with (
+        patch.object(account_route, "deletion_requester", requester(person)),
+        patch.object(
+            account_route, "account_deletion_service", return_value=world.service
+        ),
+        patch.object(account_route, "notify_feedback_submitted") as notify,
+    ):
+        answers = [client.post("/api/v1/account/deletion/request") for _ in range(2)]
+    assert [(a.status_code, a.json()) for a in answers] == [
+        (200, {"status": "requested"})
+    ] * 2
+    assert notify.call_count == 1
+    assert len(support_tickets(world, person)) == 1

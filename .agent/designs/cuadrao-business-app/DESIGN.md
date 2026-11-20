@@ -671,8 +671,8 @@ setting. Owner: `components/settings/SettingsWindow.tsx`.
   lateral) is a section, and a pick applies at once and keeps the window open.
   Apariencia and Barra lateral show each choice as a small drawing of the app.
   Interruptores con palabras lives in Apariencia.
-- Seguridad leaves for its page. Eliminar cuenta opens its alert above the
-  window; closing the alert returns focus to that row.
+- Controles de datos ends with one **Cuenta** section (Lucas, November 20,
+  2026, #1495). See [Cuenta](#cuenta-approved-november-20-2026).
 - Business does not list Borrados recientemente.
 - Focus starts on the chosen section and returns to the account button on close.
 - Panels draw through `SettingsSurface`: the window's pane inside Ajustes, the
@@ -688,19 +688,42 @@ Home greeting uses. Each has a one-line hint under it. Escape cancels an open
 edit before it closes Perfil. Perfil shows no handle and no language shortcut;
 Idioma de la app lives in Ajustes.
 
-The account deletion alert asks the server first (`GET /account/deletion`)
-and renders only its answer (Lucas, November 3, 2026). Ajustes reads that
-answer as it opens and reuses it for a minute; opening the alert reads again
-only behind an answer over a minute old, and the server checks again on delete.
-The alert opens only once the answer is in, already filled in: it never shows a
-loading line, a skeleton or an empty alert. Pressed before the answer is back,
-the Eliminar cuenta row shows a small spinner in its trailing slot and is busy,
-with its name unchanged, and the alert opens the moment the answer lands. A
-read that failed opens the alert in its failure state, with its reference and
-Reintentar. The row stays a plain row and never lists Businesses. Eliminar
-shows only when allowed, each owned Business is named when it blocks deletion
-(with Transferir and Cerrar when those controls exist, the support contact when
-they do not), and a closed Business's purge date is a warning that never blocks.
+#### Cuenta, approved November 20, 2026
+
+Owner: `components/settings/AccountSettings.tsx`, with its confirmation in
+`AccountDeletionConfirm.tsx`. The locked boards are "Ajustes · Cuenta" on the
+Cuadrao Design Mocks canvas (version 156). Three groups share one 16px text
+edge and 24px between them, with a cream fill (`#1f2225` in dark) and no border:
+
+- The account: the 56px avatar, the name, the email and a secondary Cerrar
+  sesión. On a phone the button stacks under them at full width.
+- Seguridad: the whole two-line row opens `/account/security`, with the
+  leave arrow at its end.
+- Eliminar cuenta, last, with a red heading and no "Zona de peligro" label.
+
+Opening Cuenta asks the server (`GET /account/deletion`) and draws only its
+answer. Allowed: the one-line note beside an enabled Eliminar cuenta. Blocked
+by Businesses the person owns: the heading row carries "N negocios por
+resolver" at the right, one line says each needs another owner or to close,
+and each Business is a 44px row with its name and a chevron that selects that
+Business and opens its Negocio settings. Past three rows, one "Ver los N
+negocios" row opens the rest in place and becomes "Ver menos". There is no
+delete button while anything blocks. With transfer and close off, the one
+button is a secondary "Solicitar eliminación" under the list, bottom right on
+desktop and full width on a phone; it files one support request
+(`POST /account/deletion/request`) and its result replaces it. A failed read
+shows its reference and Reintentar.
+
+Eliminar cuenta opens the confirmation in the pane, not an alert: the header
+gets the step title and an arrow back, the body says what is deleted and when
+it finishes, and the footer pairs Cancelar (default focus) and the filled red
+Eliminar cuenta at one width. No typed confirmation and no email promise.
+After confirming, the command's answer replaces the buttons and the arrow goes
+away. A closed Business inside its reopen window is a warning there, never a
+block.
+
+Rows take hover black 4% (white 5% in dark), pressed black 8% (white 10%) and
+an inset focus ring. Secondary and both red buttons darken while pressed.
 
 ### Dossier gradient, approved October 24, 2026
 

@@ -80,6 +80,7 @@ from argus.domain.account_deletion.eligibility import (
     notices_on,
 )
 from argus.domain.account_deletion.key_check import KeyCheck, check_current_key
+from argus.domain.account_deletion.support_request import SupportRequest, file_once
 from argus.domain.apple_sign_in.client import AppleError
 from argus.domain.apple_sign_in.credentials import (
     AppleIdentityMismatch,
@@ -310,6 +311,22 @@ class AccountDeletionService:
                 blockers=blockers_on(connection, user_id, user),
                 notices=notices_on(connection, user_id),
             )
+
+    def request_support_deletion(
+        self, user_id: str, context: dict[str, Any]
+    ) -> SupportRequest | None:
+        """Files one support ticket for an owner the command refuses; None when
+        no open Business blocks them, since they can delete in the app."""
+
+        owned = [
+            blocker.business_id
+            for blocker in self.deletion_eligibility(user_id).blockers
+            if blocker.kind == "business_owner" and blocker.business_id
+        ]
+        if not owned:
+            return None
+        with self._households.connection() as connection:
+            return file_once(connection, _uuid(user_id), owned, context)
 
     def _claim_classified(
         self,

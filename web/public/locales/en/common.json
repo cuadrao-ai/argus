@@ -994,9 +994,8 @@
       "close": "Close profile",
       "title": "Profile",
       "request_deletion": {
-        "title": "Delete your account?",
         "body": "We delete your account and your personal data. This can't be undone.",
-        "business_owner": "Before you delete your account, each Business you own needs a new owner or must be closed.",
+        "business_owner": "Each Business needs a new owner or must be closed.",
         "check_failed": "We couldn't check your account. Try again.",
         "confirm": "Delete account",
         "submitting": "Deleting...",
@@ -1005,15 +1004,21 @@
         "requested": "Request sent. Support will delete your account and follow up by email.",
         "error": "We couldn't delete your account just now. Try again.",
         "unavailable": "Deleting in the app isn't available here yet. Support can delete your account for you.",
-        "email_fallback": "Email support",
-        "email_subject": "Cuadrao account deletion request",
-        "email_body": "Please help me request deletion for my Cuadrao account{{account_hint}}.",
-        "close": "Close account deletion"
+        "pending_one": "{{count}} Business to resolve",
+        "pending_other": "{{count}} Businesses to resolve",
+        "show_all": "See all {{total}} Businesses",
+        "show_less": "Show less",
+        "request_support": "Request deletion",
+        "signs_out_now": "You're signed out right away.",
+        "finishes_later": "We finish deleting your account within a few days. You don't need to do anything."
       }
     },
     "subscription": {
       "title": "Subscription",
       "upgrade_pro": "Try upgrading to Pro for Free"
+    },
+    "account": {
+      "title": "Account"
     },
     "app": {
       "title": "Preferences",

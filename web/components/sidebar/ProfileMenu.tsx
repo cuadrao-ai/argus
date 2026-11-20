@@ -12,9 +12,6 @@ import {
 import { createPortal } from "react-dom";
 import { useModalSurface } from "../layout/useModalSurface";
 import { useOverlayLayer } from "../layout/overlayStack";
-import ProfileDeleteRequestDialog, {
-  type DeleteRequestState,
-} from "./ProfileDeleteRequestDialog";
 import ProfileDetailsDialog from "./ProfileDetailsDialog";
 import CuadraoInvitationPreview, { type LocalInvitation } from "./CuadraoInvitationPreview";
 import ProfileSettingsPanels, {
@@ -24,7 +21,6 @@ import ProfileSettingsPanels, {
 } from "./ProfileSettingsPanels";
 import { useReceivingChannels } from "@/components/business-app/business-context";
 import SettingsWindow from "@/components/settings/SettingsWindow";
-import { useAccountDeletionEligibility } from "@/lib/use-account-deletion-eligibility";
 import {
   SHEET_SUBMENU_CLASS,
   profileMenuClass,
@@ -48,11 +44,7 @@ import { useTranslation } from "react-i18next";
 import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
-import {
-  deletionEndsSession,
-  requestAccountDeletion,
-  type LogoutOptions,
-} from "@/lib/account-deletion-api";
+import type { LogoutOptions } from "@/lib/account-deletion-api";
 import { type ApiUser } from "@/lib/argus-api";
 import {
   readProfile,
@@ -76,7 +68,6 @@ import {
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
 import { evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
-import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
 import { QuickJumpBadge } from "@/components/keyboard/QuickJumpBadge";
 import { useQuickJump } from "@/components/keyboard/useQuickJump";
@@ -161,7 +152,6 @@ export default function ProfileMenu({
   const menuOverlayId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
   const avatarTriggerRef = useRef<HTMLButtonElement>(null);
-  const deleteAccountRef = useRef<HTMLButtonElement>(null);
   const avatarThemeDrawerRef = useRef<HTMLDivElement>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<SubMenu>(null);
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
@@ -193,6 +183,7 @@ export default function ProfileMenu({
     // Business keeps no deleted chats, so it never asks for that list.
     deleted: !isBusiness,
     business_name: false,
+    account: true,
   } satisfies Record<SettingsPanel, boolean>)[panel]);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
@@ -207,10 +198,7 @@ export default function ProfileMenu({
   const [isSavingAvatarTheme, setIsSavingAvatarTheme] = useState(false);
   const [avatarThemeError, setAvatarThemeError] = useState<string | null>(null);
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
-  const [isDeleteRequestOpen, setIsDeleteRequestOpen] = useState(false);
-  const isMenuVisible = isOpen && activeModal === null && !isDeleteRequestOpen;
-  const [deleteRequestState, setDeleteRequestState] =
-    useState<DeleteRequestState>("idle");
+  const isMenuVisible = isOpen && activeModal === null;
   const [usesCommandKey, setUsesCommandKey] = useState(false);
   const submenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverOpenedRef = useRef(false);
@@ -387,25 +375,13 @@ export default function ProfileMenu({
       closeAvatarPicker();
       return;
     }
-    if (isDeleteRequestOpen) {
-      // Deleted or locked: signed out on the result; leaving only cleans up.
-      if (deletionEndsSession(deleteRequestState)) {
-        onLogout({ sessionEnded: true });
-      } else if (deleteRequestState !== "submitting") {
-        setIsDeleteRequestOpen(false);
-      }
-      return;
-    }
     closeProfileModal();
   }, [
     closeAvatarPicker,
     closeProfileModal,
-    deleteRequestState,
     editingName,
     editingPreferredName,
     isAvatarPickerOpen,
-    isDeleteRequestOpen,
-    onLogout,
     stopEditingName,
     stopEditingPreferredName,
   ]);
@@ -683,33 +659,26 @@ export default function ProfileMenu({
     [handleAvatarThemeSelect, isSavingAvatarTheme],
   );
 
-  // Read as Ajustes opens, so the delete alert opens with the server's answer
-  // already in place. An answer under a minute old is reused.
-  const deletionCheck = useAccountDeletionEligibility(activeModal === "settings-window");
-  const refreshDeletionCheckIfStale = deletionCheck.refreshIfStale;
-  const deletionReady = Boolean(deletionCheck.answer || deletionCheck.error);
-  // A press before the answer is in waits on its row, never in an empty alert.
-  const [waitingToDelete, setWaitingToDelete] = useState(false);
-  const handleOpenDeleteRequest = useCallback(() => {
-    setDeleteRequestState("idle");
-    if (!deletionReady) {
-      setWaitingToDelete(true);
+  // Deleted or locked from Cuenta: signed out on the result already, so
+  // closing Ajustes only clears this browser's state and leaves.
+  const accountDeletedRef = useRef(false);
+  const settingsOpenRef = useRef(false);
+  useEffect(() => {
+    settingsOpenRef.current = activeModal === "settings-window";
+  }, [activeModal]);
+  const closeSettingsWindow = useCallback(() => {
+    if (accountDeletedRef.current) {
+      onLogout({ sessionEnded: true });
       return;
     }
-    setIsDeleteRequestOpen(true);
-    // Read again only behind an answer over a minute old; the server checks again on delete.
-    refreshDeletionCheckIfStale();
-  }, [deletionReady, refreshDeletionCheckIfStale]);
-  // The alert opens the moment the answer, or the failure, lands: already filled in.
-  if (waitingToDelete && deletionReady) {
-    setWaitingToDelete(false);
-    setIsDeleteRequestOpen(true);
-  }
-
-  const closeSettingsWindow = useCallback(() => {
-    setWaitingToDelete(false);
     setActiveModal(null);
-  }, []);
+  }, [onLogout]);
+  const handleAccountDeleted = useCallback(() => {
+    onLogout({ afterAccountDeletion: true });
+    // Ajustes closed while the command ran: nothing is left to clean up after.
+    if (settingsOpenRef.current) accountDeletedRef.current = true;
+    else onLogout({ sessionEnded: true });
+  }, [onLogout]);
 
   // The row leaves with the menu, so the dialog's way back is the account button.
   const openFeedback = useCallback(() => {
@@ -772,113 +741,49 @@ export default function ProfileMenu({
     ) : null;
   };
 
-  const handleSubmitDeleteRequest = useCallback(async () => {
-    if (
-      deleteRequestState === "submitting" ||
-      deleteRequestState === "success" ||
-      deleteRequestState === "in_progress" ||
-      deleteRequestState === "requested"
-    ) {
-      return;
-    }
-    setDeleteRequestState("submitting");
-    let outcome: DeleteRequestState;
-    try {
-      // 202 and a post-lock 503 are in_progress, never shown as done or as a
-      // failure; 404 (command off here) falls back to a support ticket.
-      outcome = await requestAccountDeletion(currentLanguage);
-    } catch (err) {
-      console.error("Account deletion failed", err);
-      setDeleteRequestState("error");
-      return;
-    }
-    setDeleteRequestState(outcome);
-    // The session is dead: sign this browser out on the result itself, with
-    // the dialog kept up as the signed-out confirmation.
-    if (deletionEndsSession(outcome)) onLogout({ afterAccountDeletion: true });
-  }, [currentLanguage, deleteRequestState, onLogout]);
-
-  // Signed out on the result already, so Done never calls logout again: it
-  // only clears this browser's state and leaves (Priya #801 note 10).
-  const handleCloseDeleteRequest = useCallback(() => {
-    if (deletionEndsSession(deleteRequestState)) {
-      onLogout({ sessionEnded: true });
-      return;
-    }
-    setIsDeleteRequestOpen(false);
-  }, [deleteRequestState, onLogout]);
-
-  const accountHint = profile?.email ? ` (${profile.email})` : "";
-  const supportMailto = `mailto:${supportEmail}?subject=${encodeURIComponent(
-    t(
-      "settings.profile.request_deletion.email_subject",
-      "Cuadrao account deletion request",
-    ),
-  )}&body=${encodeURIComponent(
-    t(
-      "settings.profile.request_deletion.email_body",
-      "Please help me request deletion for my Cuadrao account{{account_hint}}.",
-      { account_hint: accountHint },
-    ),
-  )}`;
-
-  const deleteRequestDialog = isDeleteRequestOpen ? (
-    <ProfileDeleteRequestDialog
-      state={deleteRequestState}
-      supportMailto={supportMailto}
-      onClose={handleCloseDeleteRequest}
-      onSubmit={handleSubmitDeleteRequest}
-      returnFocusRef={activeModal === "settings-window" ? deleteAccountRef : anchorRef}
-      check={deletionCheck}
-    />
-  ) : null;
-
-  if (!isOpen && !activeModal && !isDeleteRequestOpen) return null;
+  if (!isOpen && !activeModal) return null;
 
   const locale = localeForLanguage(normalizeEnabledLanguage(i18n.resolvedLanguage));
 
-  // The alert for deleting the account stands above the window rather than replacing it.
   if (activeModal === "settings-window") {
     return (
-      <>
-        <SettingsWindow
-          key={String(whatsappLinkAvailable)}
-          sections={windowSections}
-          renderSection={(panel) => panel === "whatsapp" && !whatsappLinkAvailable ? null : (
-            <ProfileSettingsPanels
-              panel={panel}
-              asSheet={false}
-              locale={locale}
-              anchorRef={anchorRef}
-              onClose={closeSettingsWindow}
-              onBack={closeSettingsWindow}
-              onHistoryMutated={onHistoryMutated}
-              onProfileSaved={applyPatchedProfile}
-              profile={profile}
-              sidebar={sidebarPreference}
-            />
-          )}
-          onSecurity={() => navigateFromOverlay("/account/security", closeSettingsWindow)}
-          onDeleteAccount={handleOpenDeleteRequest}
-          deleteAccountBusy={waitingToDelete}
-          deleteAccountRef={deleteAccountRef}
-          legalLinks={LEGAL_LINK_IDS.map((id) => ({
-            id,
-            href: legalHref[id],
-            label: id === "terms" ? t("settings.help.terms", "Terms") : t("settings.help.privacy", "Privacy"),
-          }))}
-          returnFocusRef={anchorRef}
-          onClose={closeSettingsWindow}
-        />
-        {deleteRequestDialog}
-      </>
+      <SettingsWindow
+        key={String(whatsappLinkAvailable)}
+        sections={windowSections}
+        renderSection={(panel) => panel === "whatsapp" && !whatsappLinkAvailable ? null : (
+          <ProfileSettingsPanels
+            panel={panel}
+            asSheet={false}
+            locale={locale}
+            anchorRef={anchorRef}
+            onClose={closeSettingsWindow}
+            onBack={closeSettingsWindow}
+            onHistoryMutated={onHistoryMutated}
+            onProfileSaved={applyPatchedProfile}
+            profile={profile}
+            sidebar={sidebarPreference}
+            account={{
+              avatar: { className: avatarClassName, style: avatarStyle },
+              profileLanguage: currentLanguage,
+              onLogout: () => {
+                setActiveModal(null);
+                onLogout();
+                onClose();
+              },
+              onLeave: (href) => navigateFromOverlay(href, closeSettingsWindow),
+              onAccountDeleted: handleAccountDeleted,
+            }}
+          />
+        )}
+        legalLinks={LEGAL_LINK_IDS.map((id) => ({
+          id,
+          href: legalHref[id],
+          label: id === "terms" ? t("settings.help.terms", "Terms") : t("settings.help.privacy", "Privacy"),
+        }))}
+        returnFocusRef={anchorRef}
+        onClose={closeSettingsWindow}
+      />
     );
-  }
-
-  // A child dialog replaces the settings surface, just like the other panels.
-  // Keeping both mounted puts the centered request beneath the tablet sheet.
-  if (deleteRequestDialog) {
-    return deleteRequestDialog;
   }
 
   // ── Active modal rendering ──────────────────────────────────────────────

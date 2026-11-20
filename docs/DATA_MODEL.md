@@ -2523,6 +2523,12 @@ private-alpha support requests such as account deletion requests.
 
 ### Enums
 - **type**: `bug`, `feature`, `general`, `account_deletion_request`
+
+An `account_deletion_request` row with `context.source`
+`account_settings_business_owner` comes from `POST /account/deletion/request`.
+It also holds `context.business_ids`, the open Businesses that block the
+deletion. There is at most one such row per account: the route takes a
+per-account transaction lock and writes only when none exists.
 ---
 
 # 16. Soft Delete & Archive Rules
