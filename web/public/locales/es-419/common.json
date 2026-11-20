@@ -2306,7 +2306,7 @@
         "income_perceived": "ISR Percibido en compras",
         "income_withheld": "Monto Retención Renta",
         "income_withholding_type": "Tipo de Retención en ISR",
-        "itbis": "$t(business.dossier.field.itbis)",
+        "itbis": "ITBIS Facturado",
         "itbis_cost": "ITBIS llevado al Costo",
         "itbis_perceived": "ITBIS percibido en compras",
         "itbis_proportionality": "ITBIS sujeto a Proporcionalidad (Art. 349)",
