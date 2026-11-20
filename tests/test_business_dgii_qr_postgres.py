@@ -164,3 +164,26 @@ def test_the_qr_and_its_filled_facts_survive_a_persons_revision(actions):  # noq
     assert after.facts.amount.origin == "qr_decoded"
     assert after.history[-1].after.fiscal.rnc.origin == "qr_decoded"
     assert after.history[0].after.fiscal.ecf.origin == "qr_decoded"
+
+
+def test_the_ecf_checks_card_switch_changes_only_whether_review_shows_the_card(
+    actions, monkeypatch
+):  # noqa: ANN001
+    saved = _saved_with_qr(actions)
+    service, context, _, _, _, _ = saved
+    bridge.bind(saved)
+    result = bridge.finish(saved)
+    assert result.outcome == "applied", result
+
+    monkeypatch.setenv("CUADRAO_ECF_CHECKS_PANEL_ENABLED", "false")
+    hidden = service.dossier(context, result.draft_id)
+    monkeypatch.setenv("CUADRAO_ECF_CHECKS_PANEL_ENABLED", "true")
+    shown = service.dossier(context, result.draft_id)
+
+    assert (hidden.ecf_checks_panel_available, shown.ecf_checks_panel_available) == (
+        False,
+        True,
+    )
+    assert hidden.dgii_qr == shown.dgii_qr == QR
+    assert hidden.ecf_checks is not None
+    assert hidden.ecf_checks == shown.ecf_checks

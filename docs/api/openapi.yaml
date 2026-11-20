@@ -18016,6 +18016,9 @@ components:
           anyOf:
           - $ref: '#/components/schemas/DgiiQr'
           - type: 'null'
+        ecf_checks_panel_available:
+          type: boolean
+          default: false
         bill_mark:
           anyOf:
           - type: string

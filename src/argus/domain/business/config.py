@@ -80,3 +80,21 @@ def business_invite_admission_enabled() -> bool:
         return BusinessInviteAdmissionSettings().enabled
     except ValidationError:
         return False
+
+
+class EcfChecksPanelSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias="CUADRAO_ECF_CHECKS_PANEL_ENABLED"
+    )
+
+
+def ecf_checks_panel_enabled() -> bool:
+    """The e-CF checks card in review. Off, the default: the dossier says
+    review does not show it. The checks still run, the QR still corrects the
+    read, and a field the XML disputes is still marked."""
+
+    try:
+        return EcfChecksPanelSettings().enabled
+    except ValidationError:
+        return False
