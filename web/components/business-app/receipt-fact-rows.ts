@@ -89,9 +89,9 @@ export function totalMismatch(dossier: Pick<BusinessDossier, "ecf_checks">): { s
 
 export const RECORD_FIELDS: readonly BusinessFactField[] = ["kind", "counterparty", "occurred_on", "amount", "currency", "category_id", "funding", "business_share", "receipt_state"];
 
-/** Where the form shows each field: the activity section, the fiscal section (which opens with the receipt state), then how it was paid. The ledger category stays off a Business record: its 606 tipo de gasto is the one classification shown. */
+/** Where the form shows each field: the activity section, the fiscal section (which opens with the receipt state), then how it was paid. The ledger category stays off a Business record: its 606 tipo de gasto is the one classification shown. So does the business share: the Personal switch is its one control. */
 export const KIND_FIELDS: readonly BusinessFactField[] = ["occurred_on", "amount", "currency", "counterparty", "kind"];
-export const PAYMENT_FIELDS: readonly BusinessFactField[] = ["funding", "business_share"];
+export const PAYMENT_FIELDS: readonly BusinessFactField[] = ["funding"];
 /** The fiscal rows of an open draft: the NCF and the e-CF are one number there. */
 export type FiscalRow = "rnc" | "fiscal_number" | "itbis";
 /** The rows a person edits in place on an open draft. `amount` holds the total and its currency. */
