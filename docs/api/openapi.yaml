@@ -16259,10 +16259,15 @@ components:
           anyOf:
           - $ref: '#/components/schemas/ReviewFlag'
           - type: 'null'
+        inheritance:
+          additionalProperties:
+            $ref: '#/components/schemas/InheritedValue'
+          type: object
       additionalProperties: false
       type: object
       required:
       - net_amount
+      - inheritance
     AmountsPreviewRequest:
       properties:
         version:
@@ -16284,6 +16289,27 @@ components:
           anyOf:
           - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
           - type: 'null'
+        declaration:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/PurchaseDeclaration'
+            - $ref: '#/components/schemas/SalesDeclaration'
+            discriminator:
+              propertyName: form
+              mapping:
+                '606': '#/components/schemas/PurchaseDeclaration'
+                '607': '#/components/schemas/SalesDeclaration'
+          - type: 'null'
+        override_inherited:
+          items:
+            type: string
+          type: array
+          default: []
+        restore_inherited:
+          items:
+            type: string
+          type: array
+          default: []
       additionalProperties: false
       type: object
       required:
