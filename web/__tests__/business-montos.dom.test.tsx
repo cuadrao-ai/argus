@@ -8,6 +8,7 @@ import ReceiptRecordFacts from "@/components/business-app/ReceiptRecordFacts";
 import FiscalDeclarationEditor from "@/components/business-app/FiscalDeclarationEditor";
 import type { BusinessDossier, BusinessFact } from "@/lib/business-dossier";
 import type { DgiiFields, DgiiReview } from "@/lib/business-dgii";
+import { TOOLTIP_DELAY_MS } from "@/components/ui/Tooltip";
 import { flaggedReceipt } from "./fixtures/review-flags";
 import es from "@/public/locales/es-419/common.json";
 import en from "@/public/locales/en/common.json";
@@ -107,8 +108,85 @@ test("Fiscal restore sends an explicit server restore and uses the source amount
   const host = await mount(<FiscalDeclarationEditor dossier={base} fields={fields} disabled={false} open reviewFiscal={async () => base} reviewMontos={async (_, __, input) => { restored.push(input); return base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
   const button = host.querySelector<HTMLButtonElement>('[data-restore-inherited="goods_amount"]')!;
   assert.equal(button.getAttribute("aria-label"), "Restaurar: RD$ 1,000.00");
+  assert.equal(await tooltip(button), "Restaurar: RD$ 1,000.00");
   await act(async () => button.click());
   assert.deepEqual(restored, [{ restore_inherited: ["goods_amount"] }]);
+});
+
+async function tooltip(trigger: Element) {
+  await act(async () => { trigger.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, TOOLTIP_DELAY_MS + 20)); });
+  const text = document.querySelector('[role="tooltip"]')?.textContent ?? null;
+  await act(async () => { trigger.dispatchEvent(new MouseEvent("mouseout", { bubbles: true })); });
+  return text;
+}
+async function type(input: HTMLInputElement, text: string) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, text);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+async function editing(base: BusinessDossier, hold: { montos?: () => Promise<BusinessDossier>; fiscal?: () => Promise<BusinessDossier> } = {}) {
+  const writes: DgiiReview[] = []; const restored: unknown[] = [];
+  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={fields} disabled={false} open reviewFiscal={async (_, __, input) => { writes.push(input); return hold.fiscal?.() ?? base; }} reviewMontos={async (_, __, input) => { restored.push(input); return hold.montos?.() ?? base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  const date = host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!;
+  const ncf = host.querySelector<HTMLInputElement>('[name="modified_ncf"]')!;
+  const save = async () => act(async () => [...host.querySelectorAll("button")].find((button) => button.textContent === es.business.dgii.save)!.click());
+  return { host, date, ncf, writes, restored, save, restore: (field: string) => host.querySelector<HTMLButtonElement>(`[data-restore-inherited="${field}"]`) };
+}
+
+test("Restaurar on an unsaved edit puts the linked value back locally and keeps the other edits", async () => {
+  const view = await editing(await dossier());
+  const linkedDay = view.date.value;
+  await type(view.ncf, "E310000000099");
+  await type(view.date, "18/11/2026");
+  const button = view.restore("paid_on")!;
+  assert.equal(button.disabled, false);
+  assert.equal(await tooltip(button), "Restaurar: 12 nov 2026");
+  await act(async () => button.click());
+  assert.equal(view.date.value, linkedDay);
+  assert.ok(view.host.querySelector('[data-inherited="paid_on"]'));
+  assert.equal(view.restore("paid_on"), null);
+  assert.equal(view.ncf.value, "E310000000099");
+  assert.deepEqual([view.restored, view.writes], [[], []]);
+  await view.save();
+  assert.equal(view.writes[0].declaration.paid_on, "2026-11-12");
+  assert.equal(view.writes[0].declaration.modified_ncf, "E310000000099");
+  assert.equal(view.writes[0].montos, undefined);
+});
+
+test("Restaurar on a saved override while another field has an edit relinks it on Save and keeps that edit", async () => {
+  const base = await dossier(); base.inheritance.paid_on.inherited = false;
+  const view = await editing(base);
+  await type(view.ncf, "E310000000099");
+  const button = view.restore("paid_on")!;
+  assert.equal(button.disabled, false);
+  await act(async () => button.click());
+  assert.ok(view.host.querySelector('[data-inherited="paid_on"]'));
+  assert.equal(view.ncf.value, "E310000000099");
+  assert.deepEqual(view.restored, []);
+  await view.save();
+  assert.equal(view.writes[0].declaration.paid_on, "2026-11-12");
+  assert.equal(view.writes[0].declaration.modified_ncf, "E310000000099");
+  assert.deepEqual(view.writes[0].montos, { restore_inherited: ["paid_on"] });
+});
+
+test("Restaurar is disabled only while a restore or a save is in flight", async () => {
+  const base = await dossier(); base.inheritance.goods_amount.inherited = false;
+  let release = () => {};
+  const held = () => new Promise<BusinessDossier>((resolve) => { release = () => resolve(base); });
+  const view = await editing(base, { montos: held, fiscal: held });
+  const button = view.restore("goods_amount")!;
+  assert.equal(button.disabled, false);
+  await act(async () => button.click());
+  assert.equal(button.disabled, true, "disabled while the restore is in flight");
+  await act(async () => release());
+  assert.equal(button.disabled, false);
+  await type(view.date, "18/11/2026");
+  assert.equal(view.restore("paid_on")!.disabled, false, "an unsaved edit does not disable it");
+  await view.save();
+  assert.equal(view.restore("paid_on")!.disabled, true, "disabled while the save is in flight");
+  await act(async () => release());
 });
 
 
