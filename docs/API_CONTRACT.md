@@ -9112,13 +9112,23 @@ is the legal tip; `tip` is used only when `service` is absent. Both values live
 in existing fact JSON and revision history. No database migration is required.
 
 `POST /business/drafts/{id}/amounts-preview` takes `version` and optional
-`amount`, `itbis`, `net_amount`, and `legal_tip` fact inputs. It requires the
+`amount`, `itbis`, `net_amount`, and `legal_tip` fact inputs. It also takes
+the unsaved fiscal form: an optional `declaration`, and the
+`override_inherited` and `restore_inherited` field names a review accepts in
+`montos`. A name in both lists is refused with 422, and so is a name that
+follows no source (`business_amount_inheritance_invalid`). It requires the
 same selected Business, human actor, prepare permission, open draft and current
-version as amount review. The response contains `net_amount` and `mismatch`
-(the existing `amounts_mismatch` review flag, or null). It uses the review's
-fact mutations, inheritance, net owner and shared parts check without saving
-facts, sources, revisions or action receipts. Responses are `no-store`.
+version as amount review. The response contains `net_amount`, `mismatch`
+(the existing `amounts_mismatch` review flag, or null) and `inheritance`: the
+map the dossier shows once that draft is saved, with the same entries. It uses the review's fact mutations,
+inheritance, net owner and shared parts check without saving facts, sources,
+revisions or action receipts. Responses are `no-store`.
 The web discards a preview when its draft, version or typed values change.
+The fiscal form shows its linked fields from this `inheritance` while it has
+unsaved changes. "Restaurar" changes only the form, on the field and the
+fields its entry lists in `paired_with`: Guardar sends the declaration with
+`montos.override_inherited` and `montos.restore_inherited` in one review
+request.
 
 Human review also accepts top-level `montos`, with optional `net_amount` and
 `legal_tip` fact inputs and `override_inherited` or `restore_inherited` field
@@ -9127,8 +9137,12 @@ main amount requires an open draft. Restoring or overriding fiscal inheritance
 uses the existing fiscal edit permission and version checks.
 
 The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
-Each entry holds `{field, value, inherited}`; `value` is the current source
-value to restore, not a copy calculated by the browser. The single mapping is
+Each entry holds `{field, value, inherited, paired_with}`; `value` is the
+current source value to restore, not a copy calculated by the browser.
+`paired_with` names the other fields that restore and override together with
+this one: `goods_amount` and `services_amount` list each other, from
+`purchase_review.AMOUNT_SIDES`, and every other entry is empty. The single
+mapping is
 `amount_inheritance.INHERITANCE`:
 
 | Fiscal field | Main source |

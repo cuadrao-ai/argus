@@ -74,7 +74,7 @@ test("the difference follows the current server preview while typing and drops c
 
 test("a tax preview updates the closed calculated net using the server result", async () => {
   const page = await setup("fiscal", (dossier) => { dossier.net_amount = { amount: "1000.00", source: "calculated" }; }, () => ({
-    previewAmounts: async () => ({ net_amount: { amount: "980.00", source: "calculated" }, mismatch: null }),
+    previewAmounts: async () => ({ net_amount: { amount: "980.00", source: "calculated" }, mismatch: null, inheritance: {} }),
   }));
   try {
     await page.openRow("itbis");

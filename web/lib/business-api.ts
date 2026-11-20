@@ -7,6 +7,7 @@ import { apiFetch, apiFetchIfChanged, CUADRAO_API_BASE_URL, argusApiRequestHeade
 import type { ArgusLanguage } from "./language-features";
 import type { PersonName } from "./person-name";
 import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessDuplicateDecision, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode, type ShownSuggestions } from "./business-dossier";
+import type { DgiiDeclaration } from "./business-dgii";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -889,8 +890,11 @@ export async function reviewBusinessMontos(draftId: string, version: number, mon
   return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, montos }) });
 }
 
-export type BusinessAmountsPreviewInput = Partial<Record<"amount" | "itbis" | "net_amount" | "legal_tip", { state: "known"; value: string } | { state: "unknown"; value: null }>>;
-const amountsPreviewSchema = z.object({ net_amount: z.object({ amount: z.string().nullable(), source: z.enum(["read", "calculated", "edited"]).nullable() }), mismatch: z.object({ code: z.literal("amounts_mismatch"), difference: z.string() }).nullable() });
+type AmountInput = { state: "known"; value: string } | { state: "unknown"; value: null };
+/** A draft to preview: typed main amounts, and the unsaved fiscal form with the links it holds apart and puts back. */
+export type BusinessAmountsPreviewInput = Partial<Record<"amount" | "itbis" | "net_amount" | "legal_tip", AmountInput>> & { declaration?: DgiiDeclaration; override_inherited?: string[]; restore_inherited?: string[] };
+const inheritedSchema = z.object({ field: z.enum(["net_amount", "itbis", "legal_tip", "occurred_on", "rnc", "original_ncf"]), value: z.string().nullable(), inherited: z.boolean(), paired_with: z.array(z.string()) });
+const amountsPreviewSchema = z.object({ net_amount: z.object({ amount: z.string().nullable(), source: z.enum(["read", "calculated", "edited"]).nullable() }), mismatch: z.object({ code: z.literal("amounts_mismatch"), difference: z.string() }).nullable(), inheritance: z.record(z.string(), inheritedSchema) });
 export type BusinessAmountsPreview = z.infer<typeof amountsPreviewSchema>;
 export async function previewBusinessAmounts(draftId: string, version: number, amounts: BusinessAmountsPreviewInput): Promise<BusinessAmountsPreview> {
   return amountsPreviewSchema.parse(await apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/amounts-preview`, { method: "POST", body: JSON.stringify({ version, ...amounts }) }));
