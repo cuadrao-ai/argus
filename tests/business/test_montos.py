@@ -163,13 +163,3 @@ def test_sale_inherits_net_and_fiscal_itbis_override_does_not_edit_main_itbis():
     assert overridden.itbis == "150"
     assert facts.fiscal.itbis.value == "180"
     assert inherit_amounts(facts, overridden, ()).itbis == "180.00"
-
-
-def test_payment_date_inherits_only_when_paid_and_modified_document_never_does():
-    from datetime import date
-
-    facts = receipt("1180", "180").model_copy(update={"occurred_on": known(date(2026, 11, 1))})
-    declaration = apply_purchase(None, PurchaseReview(category="09", modified_ncf="B0100000001"))
-    assert inherit_amounts(facts, declaration, (), paid=False).paid_on is None
-    assert inherit_amounts(facts, declaration, (), paid=True).paid_on == date(2026, 11, 1)
-    assert "modified_ncf" not in inheritance_state(facts, declaration, (), paid=True)

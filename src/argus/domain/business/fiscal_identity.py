@@ -162,3 +162,12 @@ def document_identity(direction: str, taxpayer_id: str | None, ncf: str | None):
         if direction == "income"
         else ("purchase", normalized_taxpayer_id(taxpayer_id), number)
     )
+
+
+def ncf_type(value: str) -> str | None:
+    normalized = normalized_ncf(value)
+    return normalized[1:3] if normalized else None
+
+
+def credit_note(value: str | None) -> bool:
+    return ncf_type(value or "") in {"04", "34"}

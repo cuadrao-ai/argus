@@ -2639,8 +2639,7 @@
       "net_card_purchases": "Compras sin ITBIS",
       "net_card_sales": "Ventas sin ITBIS",
       "total": "Total",
-      "total_review": "Total (con ITBIS)",
-      "use_inherited": "Usar Montos ({{amount}})"
+      "total_review": "Total (con ITBIS)"
     },
     "transactions": {
       "layout": {
@@ -3324,6 +3323,9 @@
         "group_amounts": "Montos facturados",
         "group_retentions": "Retenciones",
         "group_other": "Otros",
+        "inherited_original_ncf": "NCF de la compra original",
+        "inherited_rnc": "RNC",
+        "restore_inherited": "Restaurar: {{value}}",
         "section_choices": "Para el 606",
         "suggestion_source": {
           "last_choice": "Última elección para este RNC",

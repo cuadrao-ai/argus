@@ -163,7 +163,7 @@ export type ShownSuggestions = Partial<Record<SuggestedField, DeclarationSuggest
 
 export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
-  inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on"; value: string | null; inherited: boolean }>;
+  inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on" | "rnc" | "original_ncf"; value: string | null; inherited: boolean }>;
   current_note?: string | null;
   note_edit_available?: boolean;
   supporting_append_available?: boolean;

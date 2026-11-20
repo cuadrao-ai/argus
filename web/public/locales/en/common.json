@@ -2639,8 +2639,7 @@
       "net_card_purchases": "Purchases before ITBIS",
       "net_card_sales": "Sales before ITBIS",
       "total": "Total",
-      "total_review": "Total (with ITBIS)",
-      "use_inherited": "Use Amounts ({{amount}})"
+      "total_review": "Total (with ITBIS)"
     },
     "transactions": {
       "layout": {
@@ -3324,6 +3323,9 @@
         "group_amounts": "Billed amounts",
         "group_retentions": "Withholdings",
         "group_other": "Other",
+        "inherited_original_ncf": "Original purchase NCF",
+        "inherited_rnc": "RNC",
+        "restore_inherited": "Restore: {{value}}",
         "section_choices": "For the 606",
         "suggestion_source": {
           "last_choice": "Your last choice for this RNC",

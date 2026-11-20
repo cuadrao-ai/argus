@@ -18,9 +18,12 @@ from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_av
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.amount_inheritance import (
-    draft_is_paid,
-    inherit_amounts,
+    APPROVED,
+    LinkedSources,
     inheritance_state,
+    links_of,
+    original_ncf,
+    written_from,
 )
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.approved_facts import approved_revision_sql
@@ -51,18 +54,19 @@ from argus.domain.business.contracts.dossier import (
     UnsettledApproval,
 )
 from argus.domain.business.contracts.facts import (
+    BusinessAccountFunding,
     BusinessFacts,
     BusinessResolution,
     Known,
 )
-from argus.domain.business.document_type import kind_disagrees
+from argus.domain.business.document_type import DocumentType, kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers
 from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
 from argus.domain.business.purchase_review import (
     blank_answer,
+    declaration_from_facts,
     net_amount,
-    saves_suggestions,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -274,19 +278,87 @@ def workflow_blockers(
     return blocked, tuple(duplicate_ids)
 
 
-def takes_suggestions(
-    state: str, facts: BusinessFacts, resolution: BusinessResolution
-) -> bool:
-    """Whether the draft's approval would save a suggestion: an open expense
-    the approval writes a 606 declaration for. Anywhere else a suggestion
-    would show a value that never reaches the 606."""
+def _approved_facts(tx: ActionTransaction) -> Callable[[str], BusinessFacts | None]:
+    def read(activity_id: str) -> BusinessFacts | None:
+        rows = tx.rows(
+            "select resolution->'business'->'facts' as facts"
+            " from public.financial_import_events where user_id=%s and owner_space_id=%s"
+            " and activity_id=%s and state='accepted'",
+            (tx.context.owner_id, tx.context.actor.space_id, activity_id),
+        )
+        return BusinessFacts.model_validate(rows[0]["facts"]) if rows else None
 
-    return (
+    return read
+
+
+def _paying_account_type(
+    tx: ActionTransaction, facts: BusinessFacts, accounts: Sequence[AccountChoice] | None
+) -> str | None:
+    """The type of the Business account a person stated paid the record."""
+
+    funding = facts.funding.value if isinstance(facts.funding, Known) else None
+    if not isinstance(funding, BusinessAccountFunding):
+        return None
+    listed = record_context(tx).accounts if accounts is None else accounts
+    return next((account.type for account in listed if account.id == funding.account_id), None)
+
+
+def linked_original(
+    tx: ActionTransaction,
+    state: str,
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+) -> LinkedSources:
+    """What a stored declaration follows: the credit note's original, and
+    never a suggestion or the account's Forma de pago, which a person's write
+    or an approval saves. Once the draft is not open, the amounts alone."""
+
+    if links_of(state) is APPROVED:
+        return APPROVED
+    return LinkedSources(original_ncf=original_ncf(facts, declaration, _approved_facts(tx)))
+
+
+def review_sources(
+    tx: ActionTransaction,
+    draft_id: UUID | str,
+    state: str,
+    facts: BusinessFacts,
+    stored: DgiiDeclaration | None,
+    document_type: DocumentType,
+    accounts: Sequence[AccountChoice] | None = None,
+    shown: DeclarationSuggestions | None = None,
+) -> LinkedSources:
+    """What ``written_from`` reads beyond the draft to show its declaration:
+    the one reader behind the dossier, a write to the declaration and the
+    approval. An open expense the 606 takes starts from the declaration its
+    facts state, and an answer the server suggests stays a suggestion until
+    the approval. A draft that is not open keeps what was saved.
+
+    ``shown`` is the suggestions a person approving saw, in place of the
+    server's own read now. One is refused when its answer is no longer blank
+    or the approval saves no 606 declaration: the record changed."""
+
+    if links_of(state) is APPROVED:
+        return APPROVED
+    purchase = stored if isinstance(stored, PurchaseDeclaration) else None
+    reviewing = (
         state == "open"
         and isinstance(facts.kind, Known)
         and facts.kind.value == "expense"
-        and saves_suggestions(resolution.document_type, facts, resolution.dgii)
+        and takes_purchase_declaration(document_type, facts)
     )
+    built = declaration_from_facts(facts, _paying_account_type(tx, facts, accounts)) if reviewing else None
+    # A suggestion shows only where the approval saves it: on a declaration
+    # the person saved, or on the one built from the facts.
+    offers = reviewing and (purchase is not None or built is not None)
+    if shown is None:
+        shown = offered_suggestions(tx, draft_id, stored) if offers else DeclarationSuggestions()
+    elif any(
+        getattr(shown, field) is not None and not (offers and blank_answer(purchase, field))
+        for field in get_args(SuggestedField)
+    ):
+        raise ActionError("invalid_input", "suggestion_stale")
+    return LinkedSources(shown, original_ncf(facts, stored, _approved_facts(tx)), built=built)
 
 
 def shown_bill_mark(resolution: BusinessResolution) -> str | None:
@@ -486,8 +558,12 @@ def dossier(
         found,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
-    paid = draft_is_paid(tx, event.activity_id, resolution.bill_mark)
-    declaration = inherit_amounts(facts, resolution.dgii, resolution.fiscal_overrides, paid=paid)
+    linked = review_sources(
+        tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type, context.accounts
+    )
+    declaration = written_from(
+        facts, resolution.dgii, resolution.fiscal_overrides, resolution.bill_mark, linked
+    )
     approvable = not blocked and "approve" in tx.authorization.capabilities
     can_prepare = "prepare" in tx.authorization.capabilities
     can_annotate = annotation_available(tx.authorization, event)
@@ -531,7 +607,7 @@ def dossier(
         review_state=event.state,
         facts=facts,
         net_amount=net_amount(facts, declaration),
-        inheritance=inheritance_state(facts, declaration, resolution.fiscal_overrides, paid=paid),
+        inheritance=inheritance_state(facts, declaration, resolution.fiscal_overrides, linked),
         sources=tuple(evidence),
         questions=questions,
         history=revisions,
@@ -562,8 +638,8 @@ def dossier(
         document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open" and can_prepare,
         declaration_editable=declaration_editable,
-        declaration_suggestions=offered_suggestions(tx, draft_id, resolution.dgii)
-        if declaration_editable and takes_suggestions(event.state, facts, resolution)
+        declaration_suggestions=linked.suggestions
+        if declaration_editable
         else DeclarationSuggestions(),
         payment_split_editable=fiscal_writable
         and takes_payment_split(resolution.document_type),

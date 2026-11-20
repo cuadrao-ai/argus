@@ -299,7 +299,8 @@ def test_a_record_the_old_approval_left_blank_takes_the_whole_606(actions):  # n
     ):
         draft_id, version = captured(service, context, "B0100000041", cash)
         view = approved(service, context, draft_id, version)
-    assert (view.dgii.id_type, view.dgii.payment_method) == (None, None)
+    # The Tipo Id follows the RNC; every answer a person gives is still blank.
+    assert (view.dgii.category, view.dgii.payment_method) == (None, None)
     legacy_amount_facts(service, context, draft_id)
 
     chosen = {

@@ -20,10 +20,13 @@ from argus.domain.business.actions.facts import (
 )
 from argus.domain.business.actions.fiscal import validate_changed_dates
 from argus.domain.business.amount_inheritance import (
+    APPROVED,
     INHERITANCE,
-    draft_is_paid,
+    PAID_BILL_MARK,
     inherit_amounts,
     inheritance_overrides,
+    links_of,
+    written_from,
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
@@ -189,15 +192,19 @@ def save_revision(
         declaration = TypeAdapter(DgiiDeclaration).validate_python(declaration)
     elif document_type == "venta":
         declaration = apply_payment_split(None, SalePaymentSplit())
+    # A suggestion is not saved: what is stored follows a person's answers alone.
+    linked = dossier.linked_original(tx, event.state, after, declaration)
+    if dgii is None:
+        declaration = written_from(
+            before or after, declaration, previous.get("fiscal_overrides"),
+            previous.get("bill_mark"), linked,
+        )
     if fiscal_overrides is None:
         fiscal_overrides = inheritance_overrides(
             before or after, declaration, None, previous.get("fiscal_overrides"),
-            amount_derived=bool(amount_derived),
+            amount_derived=bool(amount_derived), linked=linked,
         )
-    declaration = inherit_amounts(
-        after, declaration, fiscal_overrides,
-        paid=draft_is_paid(tx, event.activity_id, bill_mark),
-    )
+    declaration = inherit_amounts(after, declaration, fiscal_overrides, linked)
     amount_derived = isinstance(declaration, PurchaseDeclaration) and not set(fiscal_overrides).intersection({"goods_amount", "services_amount"})
     resolution["business"] = BusinessResolution(
         facts=after,
@@ -350,9 +357,18 @@ def revise(
         raise ActionError("invalid_input", "fiscal_direction_unsupported")
     stored = _stored_declaration(event, retyped, current_form)
     previous_resolution = event.resolution.get("business") or {}
-    stored = inherit_amounts(
+    linked = links_of(event.state)
+    # With none saved, the amounts an open review starts from are the server's.
+    unsaved = stored is None and linked is not APPROVED
+    amount_derived = unsaved or bool(previous_resolution.get("amount_derived"))
+    if any(change is not None for change in (fiscal_review, purchase, payment_split, montos)):
+        # A write to the declaration is read against what the person was shown.
+        linked = dossier.review_sources(
+            tx, event.id, event.state, before or after, stored, current_type
+        )
+    stored = written_from(
         before or after, stored, previous_resolution.get("fiscal_overrides"),
-        paid=draft_is_paid(tx, event.activity_id, previous_resolution.get("bill_mark")),
+        previous_resolution.get("bill_mark"), linked,
     )
     if purchase is not None:
         current = declared or stored
@@ -392,14 +408,16 @@ def revise(
             None if retyped else (event.resolution.get("business") or {}).get("fiscal_overrides"),
             written=tuple(purchase.model_fields_set if purchase is not None else ()) + (montos.override_inherited if montos else ()),
             restore=montos.restore_inherited if montos else (),
-            amount_derived=bool((event.resolution.get("business") or {}).get("amount_derived")),
+            amount_derived=amount_derived,
+            linked=linked,
+            unsaved=unsaved,
         ),
         # A declaration filled under the other type no longer applies.
         clear_dgii=retyped and declared is None,
         amount_derived=amount_is_derived(
             declared,
             stored,
-            bool((event.resolution.get("business") or {}).get("amount_derived")),
+            amount_derived,
             purchase,
         ),
         document_type=document_type,
@@ -788,7 +806,6 @@ def business_tax_id(tx: ActionTransaction) -> str | None:
 
 KINDS = frozenset({"expense", "income", "transfer", "refund"})
 PAYABLE_BILL_MARK = "Factura por pagar"
-PAID_BILL_MARK = "Factura pagada"
 
 
 def _due_notice_mark(

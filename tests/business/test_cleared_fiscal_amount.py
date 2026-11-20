@@ -19,6 +19,9 @@ CASES = [
     ("606", "services_amount", "", ("fiscal_billed_amount_must_be_positive", "billed_amount")),
     ("606", "itbis", "180.00", ("fiscal_fact_required", "itbis")),
     ("606", "legal_tip", "100.00", ("fiscal_invoice_total_conflict", "amount")),
+    ("606", "id_type", "1", ("fiscal_fact_required", "id_type")),
+    # Linked only on a credit note tied to its purchase; this record is neither.
+    ("606", "modified_ncf", "", None),
     ("606", "paid_on", "20260903", None),
     ("607", "billed_amount", "2000.00", ("fiscal_fact_required", "billed_amount")),
     ("607", "itbis", "360.00", ("fiscal_fact_required", "itbis")),
@@ -27,7 +30,7 @@ CASES = [
 
 
 def snapshot(form: str, cleared: str | None = None) -> FiscalRecord:
-    """A paid practice record with a legal tip, resolved the way the fiscal snapshot resolves it."""
+    """A practice record paid at the purchase, with a legal tip, resolved the way the fiscal snapshot resolves it."""
 
     base = next(item for item in practice_records() if item.declaration.form == form)
     tip = Known(value="100", origin="member_set", source_ids=(UUID(int=1),))
@@ -43,9 +46,8 @@ def snapshot(form: str, cleared: str | None = None) -> FiscalRecord:
         base,
         amount=total,
         facts=facts,
-        declaration=inherit_amounts(facts, declaration, tuple(names), paid=True),
+        declaration=inherit_amounts(facts, declaration, tuple(names)),
         fiscal_overrides=tuple(names),
-        paid=True,
     )
 
 

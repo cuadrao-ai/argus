@@ -24,6 +24,8 @@ from argus.domain.business.document_type import (
 )
 from argus.domain.business.fiscal_identity import (
     COUNTERPARTY_ID_LENGTH,
+    credit_note,
+    ncf_type,
     normalized_ncf,
     normalized_taxpayer_id,
 )
@@ -53,16 +55,6 @@ class FiscalRecord:
     personal: bool = False
     include_606: bool | None = None
     fiscal_overrides: tuple[str, ...] | None = None
-    paid: bool = False
-
-
-def ncf_type(value: str) -> str | None:
-    normalized = normalized_ncf(value)
-    return normalized[1:3] if normalized else None
-
-
-def credit_note(value: str | None) -> bool:
-    return ncf_type(value or "") in {"04", "34"}
 
 
 def reportable_607(value: str | None) -> bool:
