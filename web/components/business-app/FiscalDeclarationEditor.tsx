@@ -43,7 +43,8 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     ...Object.entries(dossier.inheritance ?? {}).filter(([, entry]) => entry.inherited).map(([name, entry]) => [name, entry.value ?? ""]),
   ]);
   const [values, setValues] = useState<Record<string, string>>(initialValues);
-  const [overrides, setOverrides] = useState<ReadonlySet<string>>(new Set());
+  // What this person changed about a field following its source, until Save: false holds it apart, true links it back.
+  const [links, setLinks] = useState<ReadonlyMap<string, boolean>>(new Map());
   const fiscal = { rnc: dossier.facts.fiscal?.rnc.value ?? "", ncf: dossier.facts.fiscal?.ecf.value ?? dossier.facts.fiscal?.ncf.value ?? "", itbis: dossier.facts.fiscal?.itbis.value ?? "" };
   const [actualRefund, setActualRefund] = useState(dossier.dgii?.actual_refund === true);
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
@@ -67,7 +68,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
   const reset = () => {
     setForm(dossier.dgii?.form ?? recordForm);
     setValues(initialValues());
-    setOverrides(new Set());
+    setLinks(new Map());
     setActualRefund(dossier.dgii?.actual_refund === true);
     setBroken(new Set()); setChecked(false); setResets((value) => value + 1);
     setProblem(null); setRefused(null); setDirty(false); onDirty(false); setUnfolded(false);
@@ -78,7 +79,9 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     const declaration: DgiiDeclaration = { form };
     for (const field of fields[form]) if (field.name !== "rnc" && field.name !== "ncf") declaration[field.name] = values[field.name] || null;
     if (form === "606") { if (values.category_suggested === "true") declaration.category_suggested = true; declaration.actual_refund = actualRefund; declaration.purchase_activity_id = values.purchase_activity_id || null; }
-    const input: DgiiReview = { fiscal: { rnc: fiscal.rnc || null, ncf: fiscal.ncf || null, itbis: fiscal.itbis || null }, declaration, ...(overrides.size ? { montos: { override_inherited: [...overrides] } } : {}) };
+    const changed = (linked: boolean) => [...links].filter(([, value]) => value === linked).map(([name]) => name);
+    const montos = { ...(changed(false).length ? { override_inherited: changed(false) } : {}), ...(changed(true).length ? { restore_inherited: changed(true) } : {}) };
+    const input: DgiiReview = { fiscal: { rnc: fiscal.rnc || null, ncf: fiscal.ncf || null, itbis: fiscal.itbis || null }, declaration, ...(Object.keys(montos).length ? { montos } : {}) };
     request.current ??= { key: randomId(), version: dossier.version, input };
     const pending = request.current;
     setBusy("save"); onBusy(true); setProblem(null); setRefused(null);
@@ -113,6 +116,13 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
       setProblem({ state: "failed", message: t("business.dgii.save_failed"), reference: referenceCode(error), retry: lost, unknown: lost });
     } finally { setBusy(null); onBusy(false); }
   };
+  // With unsaved edits, a server restore would give a fresh revision and drop them, so the link comes back here and Save sends it.
+  const relink = (name: string) => {
+    const inherited = dossier.inheritance![name];
+    setValues((current) => ({ ...current, [name]: inherited.value ?? "" }));
+    setLinks((current) => { const next = new Map(current); if (inherited.inherited) next.delete(name); else next.set(name, true); return next; });
+    setBroken((current) => { const kept = new Set(current); kept.delete(name); return kept; });
+  };
   const locked = !editable || uncertain;
   const currency = dossier.facts.currency.value ?? "";
   const groupTitle: Record<FiscalGroup, string> = {
@@ -126,20 +136,20 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     const id = `${EDITOR_ID}-${field.name}`;
     const value = values[field.name] ?? "";
     const setValue = (next: string, invalid = false) => {
-      if (dossier.inheritance?.[field.name]) setOverrides((current) => new Set([...current, field.name]));
+      if (dossier.inheritance?.[field.name]) setLinks((current) => new Map(current).set(field.name, false));
       change();
       setValues((current) => ({ ...current, [field.name]: next }));
       setBroken((current) => { const kept = new Set(current); if (invalid) kept.add(field.name); else kept.delete(field.name); return kept; });
     };
     const label = t([`business.dgii.field_${form}.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name });
     const inherited = dossier.inheritance?.[field.name];
-    const linked = inherited?.inherited && !overrides.has(field.name);
+    const linked = links.get(field.name) ?? inherited?.inherited;
     // A source that is not money says its own name and shows its value as the field does.
     const sourceLabel = inherited?.field === "occurred_on" ? t("business.dossier.field.occurred_on") : inherited?.field === "rnc" || inherited?.field === "original_ncf" ? t(`business.dossier.placeholder.inherited_${inherited.field}`) : t(`business.terms.${inherited?.field}`);
     const sourceValue = inherited?.value == null ? UNKNOWN_VALUE : inherited.field === "occurred_on" ? formatDay(inherited.value, locale) : inherited.field === "rnc" ? dgiiOptionLabel(t, field.name, inherited.value) : inherited.field === "original_ncf" ? inherited.value : formatMoney(inherited.value, currency, locale) || UNKNOWN_VALUE;
     const inheritedLabel = t("business.terms.inherited_from", { field: sourceLabel });
     const restoreLabel = t("business.dossier.placeholder.restore_inherited", { value: sourceValue });
-    const title = <span className={`${FIELD_LABEL_CLASS} flex items-center gap-1.5`}>{label}{inherited ? linked ? value === "" ? null : <Tooltip content={inheritedLabel} side="top"><span tabIndex={0} aria-label={inheritedLabel} data-inherited={field.name}><Link2 className="h-3.5 w-3.5" aria-hidden="true" /></span></Tooltip> : reviewMontos ? <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-inherited={field.name} className="-my-2 flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.06]" disabled={!editable || dirty || uncertain && restoring !== field.name} onClick={() => void restore(field.name)}><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /></button></Tooltip> : null : null}</span>;
+    const title = <span className={`${FIELD_LABEL_CLASS} flex items-center gap-1.5`}>{label}{inherited ? linked ? value === "" ? null : <Tooltip content={inheritedLabel} side="top"><span tabIndex={0} aria-label={inheritedLabel} data-inherited={field.name}><Link2 className="h-3.5 w-3.5" aria-hidden="true" /></span></Tooltip> : reviewMontos ? <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-inherited={field.name} className="-my-2 flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.06]" disabled={!editable || uncertain && restoring !== field.name} onClick={() => dirty ? relink(field.name) : void restore(field.name)}><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /></button></Tooltip> : null : null}</span>;
     const dateProblem = checked && broken.has(field.name);
     if (field.kind === "date") return <div key={field.name}>
       <label htmlFor={id}>{title}</label>
