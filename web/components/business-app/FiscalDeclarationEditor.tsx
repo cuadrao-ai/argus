@@ -31,6 +31,8 @@ const MONEY_NOTE_CLASS = "[&_p[aria-live]]:mt-1 [&_p[aria-live]]:min-h-5 [&_p[ar
 const OFF_FIELD_CLASS = "[&_.rounded-item:has(>input:disabled)]:bg-[#eceeea] [&_input:disabled]:text-[#56635e] [&_input:disabled]:opacity-100 dark:[&_.rounded-item:has(>input:disabled)]:bg-[#263b35] dark:[&_input:disabled]:text-white/70";
 const FOLD_ROW_CLASS = "-mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-item bg-[#f7f5ee] px-2 text-left hover:bg-[#efece3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]";
 const OWN_ROWS: ReadonlySet<string> = new Set(["rnc", "ncf", "category", "payment_method"]);
+/** The server's AMOUNT_SIDES (src/argus/domain/business/purchase_review.py): one split that follows or leaves its source together. */
+export const AMOUNT_SIDES: readonly string[] = ["services_amount", "goods_amount"];
 
 export default function FiscalDeclarationEditor({ dossier, fields, disabled, open, onOpenChange, reviewFiscal, reviewMontos, onChanged, onBusy, onDirty, saved = false }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; /** Held by the page, because a saved row gives this form a fresh revision. */ open?: boolean; onOpenChange?: (open: boolean) => void; /** Whether this revision is the one this form just saved; held by the page for the same reason. */ saved?: boolean; reviewMontos?: (id: string, version: number, review: BusinessMontosReview, key: string) => Promise<BusinessDossier>; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
@@ -50,6 +52,8 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
   const [checked, setChecked] = useState(false);
   const [resets, setResets] = useState(0);
+  // A field's control keeps text that never became a value, so putting a value back remounts that control.
+  const [fieldResets, setFieldResets] = useState<Readonly<Record<string, number>>>({});
   const [busy, setBusy] = useState<"save" | "restore" | null>(null);
   const [uncertain, setUncertain] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
@@ -116,12 +120,14 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
       setProblem({ state: "failed", message: t("business.dgii.save_failed"), reference: referenceCode(error), retry: lost, unknown: lost });
     } finally { setBusy(null); onBusy(false); }
   };
+  const linkedWith = (name: string) => (AMOUNT_SIDES.includes(name) ? AMOUNT_SIDES : [name]).filter((side) => dossier.inheritance?.[side]);
   // With unsaved edits, a server restore would give a fresh revision and drop them, so the link comes back here and Save sends it.
   const relink = (name: string) => {
-    const inherited = dossier.inheritance![name];
-    setValues((current) => ({ ...current, [name]: inherited.value ?? "" }));
-    setLinks((current) => { const next = new Map(current); if (inherited.inherited) next.delete(name); else next.set(name, true); return next; });
-    setBroken((current) => { const kept = new Set(current); kept.delete(name); return kept; });
+    const restored = linkedWith(name);
+    setValues((current) => ({ ...current, ...Object.fromEntries(restored.map((side) => [side, dossier.inheritance![side].value ?? ""])) }));
+    setLinks((current) => { const next = new Map(current); for (const side of restored) if (dossier.inheritance![side].inherited) next.delete(side); else next.set(side, true); return next; });
+    setBroken((current) => { const kept = new Set(current); for (const side of restored) kept.delete(side); return kept; });
+    setFieldResets((current) => ({ ...current, ...Object.fromEntries(restored.map((side) => [side, (current[side] ?? 0) + 1])) }));
   };
   const locked = !editable || uncertain;
   const currency = dossier.facts.currency.value ?? "";
@@ -136,7 +142,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     const id = `${EDITOR_ID}-${field.name}`;
     const value = values[field.name] ?? "";
     const setValue = (next: string, invalid = false) => {
-      if (dossier.inheritance?.[field.name]) setLinks((current) => new Map(current).set(field.name, false));
+      setLinks((current) => { const next = new Map(current); for (const side of linkedWith(field.name)) next.set(side, false); return next; });
       change();
       setValues((current) => ({ ...current, [field.name]: next }));
       setBroken((current) => { const kept = new Set(current); if (invalid) kept.add(field.name); else kept.delete(field.name); return kept; });
@@ -153,10 +159,10 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     const dateProblem = checked && broken.has(field.name);
     if (field.kind === "date") return <div key={field.name}>
       <label htmlFor={id}>{title}</label>
-      <DatePicker id={id} label={label} value={value} disabled={locked} invalid={dateProblem} onChange={(iso, invalid) => setValue(iso ?? "", invalid)} />
+      <DatePicker key={fieldResets[field.name]} id={id} label={label} value={value} disabled={locked} invalid={dateProblem} onChange={(iso, invalid) => setValue(iso ?? "", invalid)} />
       <span role={dateProblem ? "alert" : undefined} className={FIELD_NOTE_CLASS}>{dateProblem ? t("business.date_range.invalid_date", { format: t("business.date_picker.placeholder", "dd/mm/aaaa"), defaultValue: "Enter a valid date as {{format}}." }) : null}</span>
     </div>;
-    if (field.kind === "money") return <label key={field.name} className={`block ${MONEY_NOTE_CLASS}`}>{title}<MoneyInput flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} /></label>;
+    if (field.kind === "money") return <label key={field.name} className={`block ${MONEY_NOTE_CLASS}`}>{title}<MoneyInput key={fieldResets[field.name]} flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} /></label>;
     return <label key={field.name} className="block">{title}
       {field.kind === "select"
         ? <ReviewSelect id={id} name={field.name} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{dgiiOptionLabel(t, field.name, option)}</option>)}</ReviewSelect>
@@ -172,7 +178,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     <p className="mb-5 mt-4 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t("business.dgii.review_note", "Use the amounts on the receipt and your tax classification. Leave blank anything you don't know. Saving creates a revision; approving is a separate step.")}</p>
     {formFollows ? null : <label className="mb-5 block">
       <span className={FIELD_LABEL_CLASS}>{t("business.dgii.form", "Form")}</span>
-      <ReviewSelect value={form} disabled={locked} onChange={(event) => { change(); setForm(event.target.value === "607" ? "607" : "606"); setValues({}); setBroken(new Set()); }}><option value="606">606</option><option value="607">607</option></ReviewSelect>
+      <ReviewSelect value={form} disabled={locked} onChange={(event) => { change(); setForm(event.target.value === "607" ? "607" : "606"); setValues({}); setBroken(new Set()); setResets((value) => value + 1); }}><option value="606">606</option><option value="607">607</option></ReviewSelect>
     </label>}
     <div key={resets} className={`space-y-5 ${OFF_FIELD_CLASS}`}>
       {fiscalFieldGroups(fields?.[form].filter((field) => !OWN_ROWS.has(field.name)) ?? []).map(({ group, fields: grouped }) => {

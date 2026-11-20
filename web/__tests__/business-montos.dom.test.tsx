@@ -5,7 +5,7 @@ import { act, type ReactNode } from "react";
 import { I18nextProvider } from "react-i18next";
 import i18next from "i18next";
 import ReceiptRecordFacts from "@/components/business-app/ReceiptRecordFacts";
-import FiscalDeclarationEditor from "@/components/business-app/FiscalDeclarationEditor";
+import FiscalDeclarationEditor, { AMOUNT_SIDES } from "@/components/business-app/FiscalDeclarationEditor";
 import type { BusinessDossier, BusinessFact } from "@/lib/business-dossier";
 import type { DgiiFields, DgiiReview } from "@/lib/business-dgii";
 import { TOOLTIP_DELAY_MS } from "@/components/ui/Tooltip";
@@ -129,10 +129,9 @@ async function type(input: HTMLInputElement, text: string) {
 async function editing(base: BusinessDossier, hold: { montos?: () => Promise<BusinessDossier>; fiscal?: () => Promise<BusinessDossier> } = {}) {
   const writes: DgiiReview[] = []; const restored: unknown[] = [];
   const host = await mount(<FiscalDeclarationEditor dossier={base} fields={fields} disabled={false} open reviewFiscal={async (_, __, input) => { writes.push(input); return hold.fiscal?.() ?? base; }} reviewMontos={async (_, __, input) => { restored.push(input); return hold.montos?.() ?? base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
-  const date = host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!;
   const ncf = host.querySelector<HTMLInputElement>('[name="modified_ncf"]')!;
   const save = async () => act(async () => [...host.querySelectorAll("button")].find((button) => button.textContent === es.business.dgii.save)!.click());
-  return { host, date, ncf, writes, restored, save, restore: (field: string) => host.querySelector<HTMLButtonElement>(`[data-restore-inherited="${field}"]`) };
+  return { host, get date() { return host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!; }, ncf, writes, restored, save, restore: (field: string) => host.querySelector<HTMLButtonElement>(`[data-restore-inherited="${field}"]`) };
 }
 
 test("Restaurar on an unsaved edit puts the linked value back locally and keeps the other edits", async () => {
@@ -187,6 +186,77 @@ test("Restaurar is disabled only while a restore or a save is in flight", async 
   await view.save();
   assert.equal(view.restore("paid_on")!.disabled, true, "disabled while the save is in flight");
   await act(async () => release());
+});
+
+const splitFields: DgiiFields = { "606": [...fields["606"], { name: "services_amount", label: "", kind: "money", options: [] }], "607": [] };
+async function split(inherited: boolean) {
+  const base = await dossier();
+  base.dgii = { ...base.dgii!, goods_amount: inherited ? "1000.00" : "900.00", services_amount: inherited ? null : "100.00" };
+  base.inheritance = { ...base.inheritance, goods_amount: { field: "net_amount", value: "1000.00", inherited }, services_amount: { field: "net_amount", value: null, inherited } };
+  const writes: DgiiReview[] = []; const restored: unknown[] = [];
+  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={splitFields} disabled={false} open reviewFiscal={async (_, __, input) => { writes.push(input); return base; }} reviewMontos={async (_, __, input) => { restored.push(input); return base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  const amount = (name: string) => host.querySelector<HTMLInputElement>(`input[data-testid="fiscal-declaration-${name}"]`)!;
+  const enter = async (name: string, text: string) => act(async () => { const input = amount(name); input.setSelectionRange(0, input.value.length); input.dispatchEvent(new InputEvent("beforeinput", { inputType: "insertText", data: text, bubbles: true, cancelable: true })); });
+  const save = async () => act(async () => [...host.querySelectorAll("button")].find((button) => button.textContent === es.business.dgii.save)!.click());
+  const restore = async (name: string) => act(async () => host.querySelector<HTMLButtonElement>(`[data-restore-inherited="${name}"]`)!.click());
+  return { host, amount, enter, save, restore, writes, restored };
+}
+
+test("Restaurar on one side of an unsaved goods and services split puts both sides back, as the server does", async () => {
+  const view = await split(true);
+  await view.enter("services_amount", "500");
+  assert.ok(view.host.querySelector('[data-restore-inherited="goods_amount"]'), "editing one side holds both apart, as the server does");
+  await view.enter("goods_amount", "400");
+  await view.restore("goods_amount");
+  assert.equal(view.amount("services_amount").value, "");
+  assert.ok(view.host.querySelector('[data-inherited="goods_amount"]'));
+  assert.equal(view.host.querySelector('[data-restore-inherited="services_amount"]'), null);
+  assert.deepEqual(view.restored, []);
+  await view.save();
+  assert.deepEqual([view.writes[0].declaration.goods_amount, view.writes[0].declaration.services_amount], ["1000.00", null]);
+  assert.equal(view.writes[0].montos, undefined);
+});
+
+test("Restaurar on a saved split override while another field has an edit restores both sides on Save", async () => {
+  const view = await split(false);
+  await type(view.host.querySelector<HTMLInputElement>('[name="modified_ncf"]')!, "E310000000099");
+  await view.restore("services_amount");
+  assert.ok(view.host.querySelector('[data-inherited="goods_amount"]'));
+  assert.equal(view.amount("services_amount").value, "");
+  assert.deepEqual(view.restored, []);
+  await view.save();
+  assert.deepEqual([view.writes[0].declaration.goods_amount, view.writes[0].declaration.services_amount], ["1000.00", null]);
+  assert.deepEqual(view.writes[0].montos?.restore_inherited?.toSorted(), ["goods_amount", "services_amount"]);
+  assert.equal(view.writes[0].montos?.override_inherited, undefined);
+});
+
+test("Restaurar to an empty date source clears invalid typed text and leaves no hidden error", async () => {
+  const base = await dossier(); base.inheritance.paid_on = { field: "occurred_on", value: null, inherited: true };
+  const view = await editing(base);
+  await type(view.date, "99/99/2026");
+  assert.equal(view.date.value, "99/99/2026");
+  await act(async () => view.restore("paid_on")!.click());
+  assert.equal(view.date.value, "");
+  assert.equal(view.date.getAttribute("aria-invalid"), "false");
+  await view.save();
+  assert.equal(view.host.querySelector('[role="alert"]'), null);
+  assert.equal(view.writes[0].declaration.paid_on, null);
+});
+
+test("switching the form clears typed text that never became a value", async () => {
+  const base = await dossier(); base.inheritance = {}; base.dgii = { ...base.dgii!, form: "606" }; base.facts.kind = { ...base.facts.kind, state: "unknown" };
+  const both: DgiiFields = { "606": [{ name: "paid_on", label: "", kind: "date", options: [] }], "607": [{ name: "paid_on", label: "", kind: "date", options: [] }] };
+  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={both} disabled={false} open reviewFiscal={async () => base} reviewMontos={async () => base} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  await type(host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!, "99/99/2026");
+  const select = [...host.querySelectorAll("select")].find((element) => [...element.options].some((option) => option.value === "607"))!;
+  await act(async () => { select.value = "607"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+  assert.equal(host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!.value, "");
+});
+
+test("the web's goods and services split is the server's AMOUNT_SIDES", async () => {
+  const source = await Bun.file(new URL("../../src/argus/domain/business/purchase_review.py", import.meta.url)).text();
+  const sides = [...source.match(/^AMOUNT_SIDES = \(([^)]*)\)/m)![1].matchAll(/"(\w+)"/g)].map((match) => match[1]);
+  assert.deepEqual([...AMOUNT_SIDES].sort(), sides.sort());
 });
 
 
