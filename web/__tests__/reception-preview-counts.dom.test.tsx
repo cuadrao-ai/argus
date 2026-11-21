@@ -125,7 +125,7 @@ test("the Bandeja opens on Todos with its four tabs, and nothing else from the o
   for (const word of ["En proceso", "Archivados", "Más acciones", "Vista previa"]) assert.equal(page.host.textContent?.includes(word), false, word);
   assert.equal(rows(page).length, 9, "six receipts, one note and two emails");
   assert.equal(rows(page).filter(row => row.getAttribute("data-unseen") === "true").length, 0, "nothing is seeded as unseen");
-  assert.deepEqual([...page.host.querySelectorAll("#reception-list > div:first-child > span:not(.sr-only)")].map(cell => cell.textContent).filter(Boolean), ["Contenido", "Adjunto", "Canal", "Canal", "Estado", "Llegada"], "Monto, Moneda and Remitente stay off; the second Canal is the heading the width swaps in");
+  assert.deepEqual([...page.host.querySelectorAll("#reception-list > div:first-child > span:not(.sr-only)")].map(cell => cell.textContent).filter(Boolean), ["Contenido", "Adjunto", "Canal", "Canal", "Estado", "Llegada"], "Monto, Moneda and Enviado por stay off; the second Canal is the heading the width swaps in");
 });
 
 const EMPTY_TITLE = { attention: "Nada por resolver", listos: "No hay recibos listos", eliminados: "No hay documentos eliminados" } as const;
@@ -233,16 +233,16 @@ test("every row has one quiet Abrir, the row click does the same, and nothing el
 });
 
 const settings = (page: Awaited<ReturnType<typeof mount>>) => page.click(page.host.querySelector<HTMLElement>('button[aria-label="Opciones de vista"]'));
-const toggleSender = (page: Awaited<ReturnType<typeof mount>>) => page.click([...document.querySelectorAll("label")].find(label => label.textContent === "Remitente")!.querySelector("input"));
+const toggleSender = (page: Awaited<ReturnType<typeof mount>>) => page.click([...document.querySelectorAll("label")].find(label => label.textContent === "Enviado por")!.querySelector("input"));
 const senderCells = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelectorAll('[data-testid="reception-sender"]').length;
 const filterSender = async (page: Awaited<ReturnType<typeof mount>>, name: string) => {
   await page.click([...page.host.querySelectorAll<HTMLElement>("button")].find(button => button.textContent === "Filtros"));
-  await page.click([...document.querySelectorAll<HTMLElement>('[role="tablist"][aria-orientation="vertical"] button')].find(button => button.textContent === "Remitente"));
+  await page.click([...document.querySelectorAll<HTMLElement>('[role="tablist"][aria-orientation="vertical"] button')].find(button => button.textContent === "Enviado por"));
   await page.click([...document.querySelectorAll("label")].find(label => label.textContent?.includes(name))!.querySelector("input"));
   await page.click([...document.querySelectorAll<HTMLElement>("button")].find(button => button.textContent === "Aplicar"));
 };
 
-test("Remitente is off by default, still offered, and filtering by it works either way", async () => {
+test("Enviado por is off by default, still offered, and filtering by it works either way", async () => {
   const page = await mount();
   assert.equal(senderCells(page), 0, "off for a person with no saved choice");
   await filterSender(page, "noticias@proveedor.example");
@@ -253,6 +253,22 @@ test("Remitente is off by default, still offered, and filtering by it works eith
   assert.equal(page.host.querySelector('[data-testid="reception-sender"]')?.textContent, "noticias@proveedor.example");
 });
 
+test("a Business that only uploads lists who uploaded in Enviado por and filters by them", async () => {
+  const uploader = (id: string, display_name: string) => ({ id: `member:${id}`, kind: "member" as const, person: { display_name, email: null, shown_as: "name" as const } });
+  const page = await mount({ receiptsOnly: true, tweak: receipts => receipts.map(receipt => ({ ...receipt, channel: "web" as const, email_delivery_ids: [], sent_by: receipt.id === "problem-receipt" ? uploader("lucia", "Lucía Marte") : uploader("marta", "Marta Polanco") })) });
+  await page.click([...page.host.querySelectorAll<HTMLElement>("button")].find(button => button.textContent === "Filtros"));
+  await page.click([...document.querySelectorAll<HTMLElement>('[role="tablist"][aria-orientation="vertical"] button')].find(button => button.textContent === "Enviado por"));
+  const offered = [...document.querySelectorAll('[role="tabpanel"] label')].map(label => label.textContent).filter(text => /Lucía|Marta/.test(text ?? ""));
+  assert.deepEqual(offered, ["Lucía Marte", "Marta Polanco"], "one entry per uploader, by the server's id");
+  await page.click([...document.querySelectorAll<HTMLElement>("button")].find(button => button.textContent === "Aplicar"));
+  await filterSender(page, "Lucía Marte");
+  assert.deepEqual(rows(page).map(row => row.textContent?.includes("Recibo con problema")), [true]);
+  await settings(page);
+  await toggleSender(page);
+  assert.equal([...page.host.querySelectorAll("#reception-list > div:first-child > span")].some(cell => cell.textContent === "Enviado por"), true, "the column is named Enviado por");
+  assert.equal(page.host.querySelector('[data-testid="reception-sender"]')?.textContent, "Lucía Marte");
+});
+
 test("the tabs own status: Filtros adds nothing for a tab and the four tabs stay fixed", async () => {
   const page = await mount();
   for (const key of ["attention", "listos", "all"]) {
@@ -261,7 +277,7 @@ test("the tabs own status: Filtros adds nothing for a tab and the four tabs stay
     assert.equal([...page.host.querySelectorAll("button")].find(button => button.textContent?.includes("Filtros"))?.textContent, "Filtros", "a tab adds no count");
   }
   await page.click([...page.host.querySelectorAll<HTMLElement>("button")].find(button => button.textContent === "Filtros"));
-  assert.deepEqual([...document.querySelectorAll('[role="tablist"][aria-orientation="vertical"] button')].map(button => button.textContent), ["Canal", "Remitente"]);
+  assert.deepEqual([...document.querySelectorAll('[role="tablist"][aria-orientation="vertical"] button')].map(button => button.textContent), ["Canal", "Enviado por"]);
   assert.equal(page.host.querySelectorAll('[role="tab"][id^="reception-tab-"]').length, 4);
 });
 
@@ -379,17 +395,21 @@ test("the row returns to the tab it was opened from", async () => {
   assert.equal(box(page, "Listo uno")?.checked, true);
 });
 
-test("a WhatsApp receipt shows no sender instead of one inferred from its merchant", async () => {
-  const page = await mount({ tweak: receipts => receipts.map(receipt => receipt.id === "review-receipt" ? { ...receipt, channel: "whatsapp" as const, email_delivery_ids: [] } : receipt) });
-  await settings(page);
-  await toggleSender(page);
-  const row = rows(page).find(item => item.textContent?.includes("Recibo admitido"))!;
-  const sender = row.querySelector('[data-testid="reception-sender"]');
-  assert.equal(sender?.getAttribute("data-known"), "false");
-  assert.equal(sender?.getAttribute("aria-label"), "Remitente no disponible");
+test("a WhatsApp receipt shows the sender the server sent, or none, never one inferred from its merchant", async () => {
+  const sender = async (sent_by: ReceiptSummary["sent_by"]) => {
+    const page = await mount({ tweak: receipts => receipts.map(receipt => receipt.id === "review-receipt" ? { ...receipt, channel: "whatsapp" as const, email_delivery_ids: [], sent_by } : receipt) });
+    await settings(page);
+    await toggleSender(page);
+    const cell = rows(page).find(item => item.textContent?.includes("Recibo admitido"))!.querySelector('[data-testid="reception-sender"]');
+    const shown = [cell?.getAttribute("data-known"), cell?.textContent];
+    await cleanup(); cleanup = async () => {}; window.localStorage.clear(); document.body.innerHTML = "";
+    return shown;
+  };
+  assert.deepEqual(await sender({ id: "whatsapp:link", kind: "whatsapp", phone_last4: "4821" }), ["true", "WhatsApp ···4821"]);
+  assert.deepEqual(await sender(null), ["false", "Desconocido"]);
 });
 
-test("with Canal, Adjunto and Remitente apart, a row's cells and focus stops come in the order its columns show", async () => {
+test("with Canal, Adjunto and Enviado por apart, a row's cells and focus stops come in the order its columns show", async () => {
   window.localStorage.setItem("cuadrao:bandeja_columns:v1", JSON.stringify({ order: ["source", "file", "sender", "status", "arrival", "amount", "currency"], hidden: ["amount", "currency"], density: "amplio" }));
   const own = ["scrollWidth", "clientWidth"].map(key => [key, Object.getOwnPropertyDescriptor(HTMLElement.prototype, key)] as const);
   Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => 200 });

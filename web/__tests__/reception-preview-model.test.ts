@@ -59,9 +59,9 @@ test("every row opens its own record, whatever state it is in", async () => {
 
 test("an arrival keeps source identity searchable without making its amount primary", async () => {
   const { rows } = await sample();
-  const emailReceipt = rows.find(row => row.kind === "receipt" && row.sender);
+  const emailReceipt = rows.find(row => row.kind === "receipt" && row.receipt.sent_by?.kind === "email");
   assert.ok(emailReceipt?.kind === "receipt");
-  assert.ok(receptionSearchText(emailReceipt).includes(emailReceipt.sender!));
+  assert.ok(receptionSearchText(emailReceipt).includes(emailReceipt.receipt.sent_by!.address!));
   assert.deepEqual(rows.map(row => row.receivedAt), [...rows].map(row => row.receivedAt).sort().reverse());
 });
 
@@ -74,7 +74,7 @@ test("independent attachments keep distinct rows while their original email stay
   const rows = receptionRows([...documents, original], [], [delivery]);
   assert.equal(rows.length, 3);
   assert.deepEqual(new Set(rows.map(row => row.id)), new Set(["a", "b", "c"]));
-  assert(rows.every(row => row.kind === "receipt" && row.sender === delivery.sender));
+  assert(rows.every(row => row.kind === "receipt"));
 });
 
 test("document identity uses captured facts and delivery exceptions retain their subject", async () => {

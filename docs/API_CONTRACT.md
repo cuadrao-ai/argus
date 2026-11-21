@@ -10470,11 +10470,26 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
-- Each `ReceiptSummary` carries `uploaded_by`, the person who uploaded a web
-  upload, as `{display_name, email, shown_as}` named live for the reader by
-  the same rule as `personal_marked_by`. It comes from the first applied
-  `receipt_upload` ledger row for the receipt. It is null for a WhatsApp or
-  email arrival, and null where no ledger is kept (the in-memory app).
+- **Sent by.** Each `ReceiptSummary`, each note of `GET /business/captures`
+  and each delivery of `GET /business/email/deliveries`, `/{id}` and `/inbox`
+  carries `sent_by`, who brought the row in, as
+  `{id, kind, person, address, phone_last4}`. One server module, `sent_by`,
+  builds it. `kind` names the one field that is set:
+  - `member`: a web upload or a typed note. `person` is
+    `{display_name, email, shown_as}`, named live for the reader by the same
+    rule as `personal_marked_by`, so another member's email shows only to a
+    reader who manages the Business. A web upload reads the first applied
+    `receipt_upload` ledger row of the receipt; a note reads who typed it.
+  - `email`: `address` is the bare lowercase address the email came from. A
+    receipt reads the earliest delivery that brought it, however old.
+  - `whatsapp`: `phone_last4` is the last digits of the linked number, the
+    only part stored.
+  `id` is `member:<user id>`, `email:<address>` or `whatsapp:<link id>`: the
+  same sender has the same `id` on every row, and a number linked again keeps
+  the id of its first link to the Business. The web filters by `id` and
+  works out no sender of its own. `sent_by` is null when nothing stored says
+  who sent the row, and for receipts where no ledger is kept (the in-memory
+  app).
 - Duplicates never record money twice. Uploading the same bytes again, from
   any entry point, answers with the receipt already saved and `replayed:
   true`; nothing new is stored. A second document whose read merchant, date,
