@@ -254,7 +254,7 @@ def test_a_receipt_entered_by_hand_is_saved_once_and_linked(rig: dict) -> None:
         version,
         {
             "merchant": "Colmado Don Pedro",
-            "occurred_on": "2026-10-07",
+            "occurred_on": receipt_date(),
             "amount": "706.10",
             "currency": "DOP",
             "account_id": account["id"],
@@ -319,7 +319,7 @@ def test_entry_by_hand_after_a_read_records_one_expense_across_tabs_and_a_restar
         current.version,
         {
             "merchant": "Ferretería La Esquina",
-            "occurred_on": "2026-10-06",
+            "occurred_on": receipt_date(),
             "amount": "3450.00",
             "currency": "DOP",
             "account_id": account["id"],
