@@ -44,21 +44,22 @@ pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
 
 fake = Faker("es_MX")
 MINUTE = timedelta(minutes=1)
-# The database checks a lease against its own clock, so the test's days start
-# from today: midnight is the next one in Santo Domingo.
-NOW = datetime.now(timezone.utc)
-MIDNIGHT = next_business_day(NOW)
-BEFORE_MIDNIGHT, AFTER_MIDNIGHT = MIDNIGHT - MINUTE, MIDNIGHT + MINUTE
-NEXT_MONTH = datetime.combine(
-    next_month_start(business_day(NOW)), time.min, tzinfo=BUSINESS_ZONE
-)
 NOTHING = {"due": 0, "requeued": 0}
 ONE_RESUMED = {"due": 1, "requeued": 1}
 
 
 class Clock:
+    """Each test starts at the real now, because the database checks a lease
+    against its own clock, and its turns of day and month follow from that
+    same instant in Santo Domingo."""
+
     def __init__(self) -> None:
-        self.now = NOW
+        self.now = datetime.now(timezone.utc)
+        midnight = next_business_day(self.now)
+        self.before_midnight, self.after_midnight = midnight - MINUTE, midnight + MINUTE
+        self.next_month = datetime.combine(
+            next_month_start(business_day(self.now)), time.min, tzinfo=BUSINESS_ZONE
+        )
 
     def __call__(self) -> datetime:
         return self.now
@@ -139,13 +140,17 @@ def test_a_refused_read_resumes_once_the_day_turns_in_santo_domingo(desk):  # no
     spent = job(desk, receipt)
     assert spent.provider_calls == 1
     resume = ReadResume(desk.worker)
-    desk.clock.now = BEFORE_MIDNIGHT
+    desk.clock.now = desk.clock.before_midnight
     assert resume.run(desk.clock()) == NOTHING
     assert draft(desk, receipt).status == "saved"
-    desk.clock.now = AFTER_MIDNIGHT
+    desk.clock.now = desk.clock.after_midnight
     assert resume.run(desk.clock()) == ONE_RESUMED
     fresh = job(desk, receipt)
-    assert (fresh.attempt, fresh.provider_calls, fresh.asked_at) == (1, 0, AFTER_MIDNIGHT)
+    assert (fresh.attempt, fresh.provider_calls, fresh.asked_at) == (
+        1,
+        0,
+        desk.clock.after_midnight,
+    )
     assert fresh.attempt_id != spent.attempt_id
     assert (draft(desk, receipt).status, draft(desk, receipt).error_code) == (
         "queued",
@@ -160,9 +165,9 @@ def test_a_refused_read_resumes_once_the_day_turns_in_santo_domingo(desk):  # no
 def test_a_read_the_month_refused_resumes_once_the_month_turns(desk):  # noqa: ANN001
     receipt = refused(desk, "business_read_budget_month")
     resume = ReadResume(desk.worker)
-    desk.clock.now = NEXT_MONTH - MINUTE
+    desk.clock.now = desk.clock.next_month - MINUTE
     assert resume.run(desk.clock()) == NOTHING
-    desk.clock.now = NEXT_MONTH + MINUTE
+    desk.clock.now = desk.clock.next_month + MINUTE
     assert resume.run(desk.clock()) == ONE_RESUMED
     assert read(desk, receipt) == "prepared"
     assert desk.extractor.calls == 2
@@ -172,7 +177,7 @@ def test_nothing_resumes_while_the_owner_has_reading_off(desk):  # noqa: ANN001
     receipt = refused(desk)
     waiting = draft(desk, receipt)
     turn_reading(desk.reading, desk.scope.space_id, desk.owner, enabled=False)
-    desk.clock.now = AFTER_MIDNIGHT
+    desk.clock.now = desk.clock.after_midnight
     resume = ReadResume(desk.worker)
     assert resume.run(desk.clock()) == {"due": 1, "requeued": 0}
     assert draft(desk, receipt) == waiting
@@ -184,7 +189,7 @@ def test_nothing_resumes_while_the_owner_has_reading_off(desk):  # noqa: ANN001
 
 def test_a_second_pass_and_a_second_worker_queue_nothing_more(desk):  # noqa: ANN001
     receipt = refused(desk)
-    desk.clock.now = AFTER_MIDNIGHT
+    desk.clock.now = desk.clock.after_midnight
     first, second = ReadResume(desk.worker), ReadResume(worker_service(desk))
     assert first.run(desk.clock()) == ONE_RESUMED
     queued = (draft(desk, receipt), job(desk, receipt))
@@ -197,7 +202,7 @@ def test_a_second_pass_and_a_second_worker_queue_nothing_more(desk):  # noqa: AN
 
 def test_two_workers_choosing_the_same_receipt_at_once_queue_it_once(desk):  # noqa: ANN001
     receipt = refused(desk)
-    desk.clock.now = AFTER_MIDNIGHT
+    desk.clock.now = desk.clock.after_midnight
     workers = [desk.worker, worker_service(desk)]
     chosen = desk.worker.store.refused_before(
         before={"business_read_budget_day": desk.clock()}
@@ -223,13 +228,13 @@ def test_two_workers_choosing_the_same_receipt_at_once_queue_it_once(desk):  # n
 
 def test_a_read_refused_again_on_resume_waits_for_the_next_day(desk):  # noqa: ANN001
     receipt = refused(desk)
-    desk.clock.now = AFTER_MIDNIGHT
+    desk.clock.now = desk.clock.after_midnight
     assert read(desk, uploaded(desk)) == "prepared"
     resume = ReadResume(desk.worker)
     assert resume.run(desk.clock()) == ONE_RESUMED
     assert read(desk, receipt) == "business_read_budget_day"
     assert resume.run(desk.clock()) == NOTHING
-    desk.clock.now = AFTER_MIDNIGHT + timedelta(days=1)
+    desk.clock.now = desk.clock.after_midnight + timedelta(days=1)
     assert resume.run(desk.clock()) == ONE_RESUMED
     assert read(desk, receipt) == "prepared"
     assert desk.extractor.calls == 3
@@ -237,7 +242,7 @@ def test_a_read_refused_again_on_resume_waits_for_the_next_day(desk):  # noqa: A
 
 def test_a_receipt_the_person_asked_for_first_is_left_to_them(desk):  # noqa: ANN001
     receipt = refused(desk)
-    desk.clock.now = AFTER_MIDNIGHT
+    desk.clock.now = desk.clock.after_midnight
     desk.uploads.queue(
         user_id=desk.owner, connection_id=receipt, consent=True, scope=desk.scope
     )
