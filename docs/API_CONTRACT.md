@@ -9063,9 +9063,12 @@ TXT, no DGII workbook and no `dgii/` entry. The one DGII output is the Registros
 column reads: per-form status, the reconciliation line of each record, issues
 and totals. The filer may be a nine-digit RNC or eleven-digit cédula, preserved
 as text. A Business without a configured RNC has `No aplica` for both forms. A
-form is a `prepared_candidate` only for one complete, closed calendar month
-with complete reviewed fiscal facts; other date ranges report fiscal validation
-issues. The summary states that official prevalidation is `NOT RUN` and no tax
+form is a `prepared_candidate` when its records have complete reviewed fiscal
+facts within one calendar month, open or partial: Cuadrao may not hold the whole
+month. A range across months reports `fiscal_single_month_required`.
+`period_status` is `closed_month_candidate` only for one complete, closed
+calendar month, otherwise `DRY RUN`; it labels the period and blocks nothing.
+The summary states that official prevalidation is `NOT RUN` and no tax
 return has been submitted. The download writes nothing: it no longer records
 lines in `business_dgii_export_lines`.
 A record's fiscal facts are those of its approved revision (the one
