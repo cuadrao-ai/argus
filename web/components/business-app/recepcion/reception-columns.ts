@@ -6,7 +6,7 @@ import { DENSITIES, type Density } from "../transacciones/table-density";
 const KEYS = ["file", "source", "sender", "amount", "currency", "status", "arrival"] as const;
 export type ReceptionColumnKey = typeof KEYS[number];
 type ReceptionColumn = LayoutColumn & { key: ReceptionColumnKey };
-/** The tabs that draw these columns. Eliminados has its own. Listos never draws Estado: every row there is the same. */
+/** The tabs that draw these columns. Eliminados has its own. */
 const TABS = ["all", "attention", "listos"] as const;
 const word = (key: string) => `business.reception_preview.${key}`;
 
@@ -18,7 +18,7 @@ const word = (key: string) => `business.reception_preview.${key}`;
 const receptionColumns: ReceptionColumn[] = KEYS.map(key => ({
   key,
   label_key: key === "currency" ? "business.transactions.columns.moneda" : word(key),
-  families: key === "status" ? TABS.filter(tab => tab !== "listos") : TABS,
+  families: TABS,
 }));
 
 /** The person's layout of Bandeja, kept on this device. */
@@ -28,9 +28,9 @@ export const defaultReceptionPreferences = (): ReceptionPreferences => ({ order:
 /** The layout as the shared column menu and its rule read it. */
 export const receptionLayout = (preferences: ReceptionPreferences): ColumnLayout<ReceptionColumn> => ({ ...preferences, columns: receptionColumns });
 
-/** The shown columns, left to right. `status` is false on a tab that does not draw Estado. */
-export function shownReceptionColumns(preferences: ReceptionPreferences, { status }: { status: boolean }): ReceptionColumnKey[] {
-  return recordsColumnSettings(receptionLayout(preferences)).filter(column => column.shown && (status || column.key !== "status")).map(column => column.key);
+/** The shown columns, left to right. */
+export function shownReceptionColumns(preferences: ReceptionPreferences): ReceptionColumnKey[] {
+  return recordsColumnSettings(receptionLayout(preferences)).filter(column => column.shown).map(column => column.key);
 }
 
 const STORAGE_KEY = "cuadrao:bandeja_columns:v1";

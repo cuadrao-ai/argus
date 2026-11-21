@@ -328,12 +328,15 @@ test("Por resolver holds the rows that could not be read or need attention, unde
   assert.ok(!columns.some(text => text?.startsWith("Motivo")));
 });
 
-test("Listos has no status column", async () => {
+test("Listos shows Estado like the other tabs, with the label alone on every row", async () => {
   const page = await mount();
   await page.click(page.tab("listos"));
-  assert.equal(heading(page, "Estado"), false);
+  assert.equal(heading(page, "Estado"), true);
   assert.equal(rows(page).length, 3);
-  assert.ok(rows(page).every(row => pill(row) === null));
+  for (const row of rows(page)) {
+    assert.equal(pill(row)?.getAttribute("data-label"), "ready");
+    assert.equal(stateCell(row), "Listo para aceptar");
+  }
 });
 
 test("no row on any tab shows a reason", async () => {
@@ -611,19 +614,41 @@ test("Bandeja's column menu is the Registros menu: Contenido and the action hold
   assert.match(cells(page)[0], /identity/, "Contenido is the row's first cell");
 });
 
-test("Bandeja refuses to hide the last menu column a tab shows, Estado does not count on Listos, and Contenido stays drawn", async () => {
+test("Bandeja refuses to hide the last menu column a tab shows, and Contenido stays drawn", async () => {
   const page = await mount();
   await settings(page);
   for (const key of ["file", "source"]) await page.click(columnBox(key));
   assert.deepEqual(headings(page), ["document", "status", "arrival"]);
-  assert.equal(columnBox("arrival")?.disabled, true, "Listos would keep no menu column: Estado is not drawn there");
-  assert.equal(columnBox("status")?.disabled, false);
+  assert.equal(columnBox("arrival")?.disabled, false, "Estado stays on every tab");
   await page.click(columnBox("arrival"));
-  assert.deepEqual(headings(page), ["document", "status", "arrival"]);
+  assert.deepEqual(headings(page), ["document", "status"]);
+  assert.equal(columnBox("status")?.disabled, true, "no tab would keep a menu column");
   await page.click(columnBox("status"));
-  assert.deepEqual(headings(page), ["document", "arrival"]);
-  assert.equal(columnBox("arrival")?.disabled, true);
+  assert.deepEqual(headings(page), ["document", "status"]);
   assert.match(cells(page)[0], /identity/);
+});
+
+const REVIEW_TABS = ["all", "attention", "listos"] as const;
+/** The columns the settings show as on, opening them when they are closed. */
+async function columnsOn(page: Awaited<ReturnType<typeof mount>>) {
+  if (!setting("status")) await settings(page);
+  return [...document.querySelectorAll<HTMLElement>("[data-column-setting]")].filter(row => row.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).map(row => row.dataset.columnSetting);
+}
+
+test("on Todos, Por resolver and Listos the columns drawn are the columns the settings show as on, and hiding Estado hides it on all three", async () => {
+  const page = await mount();
+  const preview = () => page.host.querySelector<HTMLElement>('[data-testid="reception-preview"]')!;
+  for (const status of [true, false, true]) {
+    for (const tab of REVIEW_TABS) {
+      await page.click(page.tab(tab));
+      const on = await columnsOn(page);
+      assert.equal(on.includes("status"), status, `${tab}: the settings say Estado is ${status ? "on" : "off"}`);
+      assert.deepEqual(headings(page), ["document", ...on], `${tab}: the headings are the settings`);
+      assert.equal(rows(page).every(row => (pill(row) !== null) === status), true, `${tab}: every row ${status ? "shows" : "hides"} its pill`);
+      assert.equal(preview().dataset.status, String(status), `${tab}: the phone card lays out ${status ? "with" : "without"} Estado`);
+    }
+    await page.click(columnBox("status"));
+  }
 });
 
 test("Bandeja keeps a reorder and a hidden column across a remount, with Contenido first and the cells in the same order as the titles", async () => {

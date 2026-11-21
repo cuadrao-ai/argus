@@ -259,13 +259,21 @@ def test_year_boundary_requires_one_month_and_current_month_stays_dry_run():
     assert packet(captured_on=date(2026, 9, 30)).manifest["period_status"] == "DRY RUN"
 
 
-def test_partial_month_keeps_review_evidence_but_never_prepares_a_monthly_form():
-    result = packet(end=date(2026, 9, 17))
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"end": date(2026, 9, 17)},
+        {"captured_on": date(2026, 9, 30)},
+    ],
+    ids=["partial month", "month still open"],
+)
+def test_an_open_or_partial_month_prepares_from_what_is_there(changes):
+    """Cuadrao may not hold the whole month: a form is prepared from the records
+    it has, and the period stays a dry run instead of a blocking issue."""
+    result = packet(**changes)
     assert result.manifest["period_status"] == "DRY RUN"
-    assert all(
-        form["status"] != "prepared_candidate"
-        for form in result.manifest["forms"].values()
-    )
+    assert all(issue["field"] != "period" for issue in result.manifest["issues"])
+    assert result.manifest["forms"]["606"]["status"] == "prepared_candidate"
     assert result.manifest["reconciliation"]
 
 
