@@ -44,7 +44,7 @@ from argus.domain.recording.service import FinancialAccountService
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
-from tests.business.receipt_stub import PURCHASE, ReceiptStub
+from tests.business.receipt_stub import ReceiptStub, receipt_date, receipt_purchase
 from tests.business_cleanup import delete_spaces
 from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_sources_support import LOCAL_STORAGE, source_objects, stored_paths
@@ -56,7 +56,6 @@ pytestmark = pytest.mark.skipif(
 RECEIPT = (
     Path(__file__).parent / "document_extraction_fixtures/receipt-dop.png"
 ).read_bytes()
-OCTOBER = (date(2026, 10, 1), date(2026, 10, 31))
 
 
 def _now() -> datetime:
@@ -186,7 +185,7 @@ def test_an_interrupted_claim_is_finished_once_by_another_key(
     assert {(r.status, r.review.expense_id) for r in (other_tab, first_tab, later)} == {
         ("confirmed", other_tab.review.expense_id)
     }
-    [expense] = service.expenses(scope, *OCTOBER)
+    [expense] = service.expenses(scope, date.fromisoformat(receipt_date()), date.fromisoformat(receipt_date()))
     assert {
         key: expense[key] for key in ("merchant", "amount", "currency", "receipt_id")
     } == {
@@ -265,7 +264,7 @@ def test_a_receipt_entered_by_hand_is_saved_once_and_linked(rig: dict) -> None:
     first = service.confirm(scope, receipt.id, entered.version, "by-hand")
     second = service.confirm(scope, receipt.id, entered.version, "other-tab")
     assert first.review.expense_id == second.review.expense_id
-    [expense] = service.expenses(scope, *OCTOBER)
+    [expense] = service.expenses(scope, date.fromisoformat(receipt_date()), date.fromisoformat(receipt_date()))
     assert (expense["receipt_id"], expense["amount"], expense["merchant"]) == (
         receipt.id,
         "706.10",
@@ -291,8 +290,8 @@ def test_entry_by_hand_after_a_read_records_one_expense_across_tabs_and_a_restar
 ) -> None:
     service, scope = rig["service"], rig["owner"]
     service.documents.extractor.rows = [
-        PURCHASE,
-        {**PURCHASE, "row": 2, "evidence": "payment_notice", "amount": "100.00"},
+        receipt_purchase(),
+        {**receipt_purchase(), "row": 2, "evidence": "payment_notice", "amount": "100.00"},
     ]
     receipt_id = _prepared(rig)
     read = service.receipt(scope, receipt_id)
@@ -338,7 +337,7 @@ def test_entry_by_hand_after_a_read_records_one_expense_across_tabs_and_a_restar
     first = restarted.confirm(scope, receipt_id, entered.version, "by-hand")
     second = rig["restart"]().confirm(scope, receipt_id, entered.version, "other-tab")
     assert first.review.expense_id == second.review.expense_id
-    [expense] = restarted.expenses(scope, *OCTOBER)
+    [expense] = restarted.expenses(scope, date.fromisoformat(receipt_date()), date.fromisoformat(receipt_date()))
     assert (expense["receipt_id"], expense["amount"]) == (receipt_id, "3450.00")
     with rig["pool"].connection() as connection:
         states = connection.execute(

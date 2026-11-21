@@ -23,7 +23,7 @@ from argus.domain.owner_scope import BusinessSpace
 from fastapi.testclient import TestClient
 
 from tests.business.conftest import ALICE, BOB
-from tests.business.receipt_stub import ReceiptStub
+from tests.business.receipt_stub import ReceiptStub, receipt_date
 from tests.business.test_business_api import Owner, started
 from tests.ingestion.test_whatsapp_api import link_alice, post
 from tests.ingestion.whatsapp_cases import FORWARDED
@@ -135,7 +135,7 @@ def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(
     second = alice.confirm(receipt_id, version, "wa-confirm").json()
     assert first["status"] == second["status"] == "confirmed"
     assert first["expense_id"] == second["expense_id"]
-    window = {"from": "2026-10-01", "to": "2026-10-31"}
+    window = {"from": receipt_date(), "to": receipt_date()}
     assert [
         (e["id"], e["receipt_id"])
         for e in alice.get("/expenses", **window).json()["items"]

@@ -24,7 +24,7 @@ from psycopg.types.json import Jsonb
 
 from tests import test_business_scope_switch_routes_postgres as scope
 from tests import test_financial_accounts_postgres as shared
-from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
+from tests.business.receipt_stub import ReceiptStub, receipt_details, receipt_purchase
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
 from tests.business_reading_support import ROUTE
@@ -100,7 +100,7 @@ def _set_read(rig, index: int, read: dict) -> None:  # noqa: ANN001
 
     amount = f"{1000 + index}.00"
     details = {
-        **DETAILS,
+        **receipt_details(),
         "merchant": f"FERRETERIA {index}",
         "subtotal": None,
         "total": amount,
@@ -112,7 +112,7 @@ def _set_read(rig, index: int, read: dict) -> None:  # noqa: ANN001
     rig.stub.details = details
     rig.stub.rows = [
         {
-            **PURCHASE,
+            **receipt_purchase(),
             "merchant": details["merchant"],
             "amount": read.get("amount", amount),
             "currency": details["currency"],
@@ -352,8 +352,8 @@ def test_an_unfinished_read_never_reaches_listos(rig) -> None:  # noqa: ANN001
     clean = _read(rig)
     rig.stub.details = {**rig.stub.details, "ncf": "B0100000094"}
     rig.stub.rows = [
-        {**PURCHASE, "amount": "100.00"},
-        {**PURCHASE, "amount": "200.00"},
+        {**receipt_purchase(), "amount": "100.00"},
+        {**receipt_purchase(), "amount": "200.00"},
     ]
     many = _upload(rig, RECEIPT + b"\xa5").json()["id"]
     assert _group(rig, many) == ("attention", "several_purchases")

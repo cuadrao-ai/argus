@@ -1,7 +1,7 @@
 """The Bandeja and the Resumen count the same saved receipts from one server
 projection, and counts with different meanings keep different names.
 
-The named set, all saved for Alice's Business in October 2026:
+The named set, all saved for Alice's Business on the shared receipt day:
 
 - ``ferreteria``: read, ready, never opened (unread).
 - ``papeleria``: read, ready, opened once (seen, still awaiting review).
@@ -19,11 +19,14 @@ from uuid import uuid4
 
 import pytest
 
-from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
+from tests.business.receipt_stub import (
+    ReceiptStub,
+    receipt_date,
+    receipt_details,
+    receipt_purchase,
+)
 from tests.business.test_business_api import RECEIPT, Owner, alice  # noqa: F401
 from tests.business.test_business_email_api import UNREADABLE, runtime  # noqa: F401
-
-PERIOD = {"from": "2026-10-01", "to": "2026-10-31"}
 
 
 @pytest.fixture(autouse=True)
@@ -85,8 +88,8 @@ def _email(owner: Owner, intake) -> tuple[str, str]:  # noqa: ANN001
 
 def _named_set(owner: Owner, stub: ReceiptStub, intake) -> dict[str, str]:  # noqa: ANN001
     ids = {"ferreteria": _saved(owner, RECEIPT, consent=True)}
-    stub.rows = [{**PURCHASE, "merchant": "PAPELERIA CENTRAL", "amount": "980.50"}]
-    stub.details = {**DETAILS, "merchant": "PAPELERIA CENTRAL", "total": "980.50"}
+    stub.rows = [{**receipt_purchase(), "merchant": "PAPELERIA CENTRAL", "amount": "980.50"}]
+    stub.details = {**receipt_details(), "merchant": "PAPELERIA CENTRAL", "total": "980.50"}
     ids["papeleria"] = _saved(owner, RECEIPT + b"papeleria", consent=True)
     seen = owner.detail(ids["papeleria"])["activity"]["completion_cursor"]
     assert (
@@ -139,7 +142,7 @@ def test_bandeja_and_resumen_count_the_same_saved_receipts(
     assert alice.get("/receipt-activity").json() == activity
 
     # The Resumen reads the same projection: the email itself is not a receipt.
-    overview = alice.get("/overview", **PERIOD).json()
+    overview = alice.get("/overview", **{"from": receipt_date(), "to": receipt_date()}).json()
     tabs = ("bandeja_listo_count", "bandeja_attention_count")
     assert [overview[name] for name in tabs] == [activity[name] for name in tabs]
     assert sum(overview[name] for name in tabs) == activity["pending_review_count"]
@@ -159,13 +162,13 @@ def test_counts_follow_a_review_action_and_a_reload(
     assert reviewed.status_code == 200, reviewed.text
     # Saving review details records nothing and every count stays put.
     assert _bandeja(alice)[1]["pending_review_count"] == 5
-    assert alice.get("/overview", **PERIOD).json()["totals"] == []
+    assert alice.get("/overview", **{"from": receipt_date(), "to": receipt_date()}).json()["totals"] == []
 
     confirmed = alice.confirm(ids["ferreteria"], reviewed.json()["version"], str(uuid4()))
     assert confirmed.status_code == 200, confirmed.text
     for _reload in range(2):
         rows, activity = _bandeja(alice)
-        overview = alice.get("/overview", **PERIOD).json()
+        overview = alice.get("/overview", **{"from": receipt_date(), "to": receipt_date()}).json()
         assert ids["ferreteria"] not in rows
         assert activity["pending_review_count"] == 4
         assert activity["unread_count"] == 2

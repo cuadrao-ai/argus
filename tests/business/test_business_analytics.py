@@ -34,7 +34,7 @@ from argus.observability.product_events import actor_hash_for_user
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tests.business.receipt_stub import PURCHASE, ReceiptStub
+from tests.business.receipt_stub import ReceiptStub, receipt_purchase
 from tests.business.test_business_api import RECEIPT, Owner, alice  # noqa: F401
 from tests.document_reads_support import read_receipt
 from tests.money_assertions import _assert_no_money_properties
@@ -165,7 +165,7 @@ def test_upload_sends_received_then_read_after_each_commits(
     for value in ("101010101", "ferreter", "FERRETERIA", alice.person):
         assert value not in leaked
     for body in sent:
-        _assert_no_money_properties(body["properties"], PURCHASE["amount"])
+        _assert_no_money_properties(body["properties"], receipt_purchase()["amount"])
 
 
 def test_the_same_bytes_again_are_not_received_twice(

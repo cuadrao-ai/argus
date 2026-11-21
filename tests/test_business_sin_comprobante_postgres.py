@@ -380,7 +380,8 @@ def test_an_uploaded_receipt_reads_its_mark_after_prepare(
     expense: int,
     itbis_paid: int,
 ) -> None:
-    monkeypatch.setattr(single, "RECEIPT", {**single.RECEIPT, **receipt})
+    read = {**single.receipt(), **receipt}
+    monkeypatch.setattr(single, "receipt", lambda: read)
     saved = single._saved(actions, "expense")
     service, context, _, cid, _, _ = saved
     bridge.bind(saved)
