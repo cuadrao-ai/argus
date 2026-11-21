@@ -10703,18 +10703,21 @@ accept path recorded.
   the day or the month was spent before this read could start; `error_code`
   is `business_read_budget_day` or `business_read_budget_month`, the receipt
   is saved unread with `preparable: true`, and a consented `/prepare` reads it
-  once the budget allows), `read_deadline_passed` (the read waited 6 hours
+  once the budget allows; with no one asking, the document worker queues the
+  same read again once the budget's day or month has turned, while the owner's
+  reading setting is on), `read_deadline_passed` (the read waited 6 hours
   from the upload, or from the owner's own ask, with the reading service
   unavailable; `error_code` is `document_read_deadline_passed`, the receipt
   did not fail, `preparable` is true, and this reason never counts against
   the owner's own retries) or `other`. `error_code` stays the precise cause.
-  Nothing is retried automatically because of it.
+  Nothing is retried automatically because of it, except the read budget's
+  resume above.
 - The Business read budget counts every provider read a Business starts,
   whichever channel the receipt came from (web, email, WhatsApp, `/prepare`,
   a worker retry): `CUADRAO_BUSINESS_READS_PER_DAY` (300) a Santo Domingo day
   and `CUADRAO_BUSINESS_READS_PER_MONTH` (2000) a month, kept in Postgres. A
   capture is never refused for budget; the receipt is saved and the read waits
-  for a person.
+  for the budget's next day or month, or for a person who asks sooner.
 - GET `/api/v1/business/receipts/{id}/source` returns verified original bytes
   for PDF, text, CSV, XLSX, XML and EML, and rebuilt JPEGs for PNG/JPEG images.
   A missing image copy is built on its first download and then reused; no bulk

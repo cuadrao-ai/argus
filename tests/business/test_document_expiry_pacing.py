@@ -67,3 +67,16 @@ async def test_upkeep_runs_while_extraction_is_off_and_survives_a_failure(monkey
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(sweep_forever(Jobs(), 0.01, upkeep), 0.1)
     assert calls and set(calls) == {"upkeep"}
+
+
+def test_a_failed_upkeep_pass_does_not_cost_the_next_its_turn():
+    from workflows.document_worker import in_turn
+
+    calls = []
+
+    def fails() -> None:
+        calls.append("fails")
+        raise RuntimeError("store down")
+
+    in_turn(fails, lambda: calls.append("next"))()
+    assert calls == ["fails", "next"]
