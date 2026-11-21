@@ -91,13 +91,15 @@ def test_an_approval_in_flight_is_ready_and_is_not_approved_twice(rig) -> None: 
     item = _named(rig, receipt)
     _accepting(item["draft_id"])
 
-    assert _row(rig, receipt)["bandeja_group"] == {
+    row = _row(rig, receipt)
+    assert row["bandeja_group"] == {
         "group": "listo",
         "reason": None,
         "label": "ready",
         "draft_id": None,
         "version": None,
     }
+    assert row["delete_available"] is False
     assert _counts(rig) == (1, 0)
     assert _results(_approve_many(rig, [item])) == [
         ("refused", "business_draft_not_open")
@@ -132,6 +134,7 @@ def test_a_note_carries_the_label_and_one_being_approved_is_ready(rig) -> None: 
         "draft_id": None,
         "version": None,
     }
+    assert listed["delete_available"] is False
     assert _counts(rig) == (1, 0)
     assert _results(_approve_many(rig, [item])) == [
         ("refused", "business_draft_not_open")
