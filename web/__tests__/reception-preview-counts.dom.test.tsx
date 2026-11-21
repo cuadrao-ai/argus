@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessCapture, GrantedSpace, ListoApproval, ListoItem, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
@@ -613,4 +615,62 @@ test("on a phone the original covers the page: a tap on its header opens nothing
   await page.act(async () => sheet()!.querySelector<HTMLButtonElement>('button[aria-label="Cerrar"]')!.click());
   assert.equal(sheet(), null);
   assert.deepEqual(page.opened, [], "closing opens nothing either");
+});
+
+const DELETION = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez", shown_as: "name" as const }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
+const withDeleted = (receipts: ReceiptSummary[]): ReceiptSummary[] => [...receipts, { ...receipts[0], id: "deleted-receipt", merchant: "Recibo eliminado", status: "dismissed", deleted: DELETION, restore_available: true, bandeja: { por_revisar: false, leyendo: false, con_problema: false }, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } }];
+const deletedRows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="deleted-document-row"]')];
+const toolbar = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector<HTMLElement>('[data-surface-block="toolbar"]')!;
+const LIST_CONTROLS: Record<string, (page: Awaited<ReturnType<typeof mount>>) => Element | null | undefined> = {
+  "the arrival date": page => toolbar(page).querySelector('[role="group"][aria-label="Fecha de llegada"]'),
+  Filtros: page => [...toolbar(page).querySelectorAll("button")].find(button => button.textContent?.includes("Filtros")),
+  "the filter chips": page => page.host.querySelector('[data-testid="reception-filter-chips"]'),
+  "the column settings": page => toolbar(page).querySelector('[data-testid="transacciones-view-options"]'),
+  "Revisar recibos": page => toolbar(page).querySelector('[data-testid="business-primary-review"]'),
+};
+
+for (const width of [1440, 390]) test(`Eliminados at ${width}px keeps search and puts its help where the filters were`, async () => {
+  const page = await mount({ width, role: "accountant", tweak: withDeleted });
+  const search = () => toolbar(page).querySelector('input[type="search"]');
+  for (const [name, find] of Object.entries(LIST_CONTROLS)) assert.ok(find(page), `Todos shows ${name}`);
+  assert.equal(!!search(), width < 768, "a phone searches from the toolbar, a wide screen from the top bar");
+  await page.click(page.tab("eliminados"));
+  await page.settle(() => deletedRows(page).length === 1);
+  for (const [name, find] of Object.entries(LIST_CONTROLS)) assert.ok(!find(page), `Eliminados hides ${name}`);
+  assert.equal(!!search(), width < 768, "search stays where it was");
+  assert.equal(toolbar(page).querySelector('[data-testid="deleted-list-help"]')?.textContent, "No cuentan en ningún total. Se borran definitivamente 7 días después.");
+  assert.equal(page.host.textContent?.split("No cuentan en ningún total.").length, 2, "the help shows once");
+  await page.click(page.tab("all"));
+  for (const [name, find] of Object.entries(LIST_CONTROLS)) assert.ok(find(page), `back on Todos, ${name} returns`);
+  assert.equal(page.host.querySelector('[data-testid="deleted-list-help"]'), null);
+});
+
+test("a filter set on Todos does not narrow Eliminados, where only search applies", async () => {
+  const page = await mount({ tweak: withDeleted });
+  await filterSender(page, "noticias@proveedor.example");
+  assert.deepEqual(rows(page).map(row => row.textContent?.includes("Boletín semanal")), [true], "the filter narrows Todos");
+  await page.click(page.tab("eliminados"));
+  await page.settle(() => deletedRows(page).length === 1);
+  assert.match(deletedRows(page)[0].textContent ?? "", /Recibo eliminado/);
+  await page.click(page.tab("all"));
+  assert.equal(rows(page).length, 1, "Todos keeps its filter");
+  assert.match(page.host.querySelector('[data-testid="reception-filter-chips"]')?.textContent ?? "", /noticias@proveedor\.example/);
+});
+
+test("an empty Eliminados says it is empty even when Todos is filtered", async () => {
+  const page = await mount();
+  await filterSender(page, "noticias@proveedor.example");
+  await page.click(page.tab("eliminados"));
+  await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
+  assert.match(page.host.querySelector('[data-testid="reception-empty"]')?.textContent ?? "", /No hay documentos eliminados/);
+});
+
+test("Eliminados' loading rows span the whole list, not one of its columns", async () => {
+  const page = await mount({ tweak: withDeleted });
+  page.context.source.captures = () => new Promise(() => {});
+  await page.click(page.tab("eliminados"));
+  const pending = page.host.querySelector('#reception-list:has(> [data-testid="deleted-columns"]) > ul[data-testid="reception-pending"]');
+  assert.equal(pending?.querySelectorAll(":scope > li").length, 5, "the wait keeps its five rows under the Eliminados headings");
+  const css = readFileSync(join(import.meta.dir, "../components/business-app/recepcion/reception.module.css"), "utf-8");
+  assert.ok(/^\.list:has\(> \.deletedColumns\) > ul > li \{ grid-column:1 \/ -1; \}$/m.test(css), "every row of the Eliminados grid, loading or loaded, takes the full line");
 });

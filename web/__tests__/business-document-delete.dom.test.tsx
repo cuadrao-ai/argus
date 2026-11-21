@@ -15,7 +15,7 @@ const cleanups: (() => Promise<void>)[] = [];
 let restorePurged = false;
 afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; restorePurged = false; });
 
-async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false, extra: (rows: { ready: ReceiptDetail; blurry: ReceiptDetail }) => ReceiptDetail[] = () => []) {
+async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false, extra: (rows: { ready: ReceiptDetail; blurry: ReceiptDetail }) => ReceiptDetail[] = () => [], readingOff = false) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -73,6 +73,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     receiptSource: async () => new Blob([Buffer.from(PREVIEW_PNG, "base64")], { type: "image/png" }),
     uploadReceipt: async () => items.find(item => item.id === "deleted")!,
     emailDeliveries: async () => [],
+    ...(readingOff ? { receiptReading: async () => ({ scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Texto sintético.", disclosure_token: null, route: null, consented_at: null, revoked_at: null }) } : {}),
     deleteDocument: async (id, key) => {
       calls.push({ id, key });
       if (failFirst && calls.length === 1) throw new Error("synthetic outage");
@@ -392,6 +393,16 @@ test("Eliminados lines each row up with its headers: who on one line, when on it
   const actions = row.lastElementChild!;
   assert.deepEqual([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label") ?? button.textContent), ["Ver", "Restaurar", "Borrar definitivamente Documento eliminado"]);
   assert.equal(actions.querySelector('[data-testid="purge-document"]')!.textContent, "", "the hidden action is an icon at the far right, so showing it moves nothing");
+});
+
+test("the reading notice keeps its place on Eliminados, so the list under it does not move between tabs", async () => {
+  const page = await mount("owner", false, 0, false, () => [], true);
+  const notice = () => document.querySelector('[data-testid="receipt-reading-control"]');
+  await page.wait(() => !!notice());
+  const onTodos = notice();
+  await page.click(document.getElementById("reception-tab-eliminados"));
+  await page.wait(() => !!document.querySelector('[data-testid="deleted-document-row"]'));
+  assert.equal(notice(), onTodos, "the same notice stays mounted, with no second read of the setting");
 });
 
 test("Eliminados counts down to the server's purge day", async () => {
