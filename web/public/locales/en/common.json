@@ -2551,6 +2551,15 @@
       "unmark_personal": "moved an expense back to the business",
       "via_chat": "from chat"
     },
+    "bandeja": {
+      "label": {
+        "accepted": "Accepted",
+        "cant_read": "Couldn't read",
+        "needs_attention": "Needs attention",
+        "reading": "Reading…",
+        "ready": "Ready to accept"
+      }
+    },
     "bank": {
       "empty": {
         "no_account": "Add the business bank account before importing a statement.",
@@ -4547,7 +4556,7 @@
       "amount": "Amount",
       "arrival": "Arrived",
       "arrival_date": "Arrival date",
-      "attention": "Needs attention",
+      "attention": "To resolve",
       "clear": "Clear filters",
       "clear_group": "Clear",
       "clear_selection": "Clear selection",
@@ -4605,8 +4614,7 @@
           "other": "It could not be approved",
           "stale_version": "It changed after it was listed. Open it and review it.",
           "unknown": "We don't know if it was approved. Retry to find out."
-        },
-        "tag_listo": "Ready to approve"
+        }
       },
       "remove_filter": "Remove filter: {{label}}",
       "search": "Search this list…",
@@ -4624,7 +4632,6 @@
       "source_web": "Manual upload",
       "source_whatsapp": "WhatsApp",
       "status": "Status",
-      "status_reason": "Reason",
       "text_intake": "Text entry",
       "unseen": "Unseen",
       "views": "Inbox views",

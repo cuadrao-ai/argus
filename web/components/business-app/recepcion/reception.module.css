@@ -172,7 +172,6 @@
 .fileCell { display:flex; align-items:center; justify-content:flex-start; min-width:0; padding-left:12px; }
 .fileCell button { margin-left:-13px; }
 .state { padding-top:6px; padding-bottom:6px; }
-.stateReason { display:block; min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; line-height:20px; }
 @container reception (max-width:819px) {
   .identity { grid-row:1; padding-right:44px; }
   .fileCell { grid-column:3; grid-row:1; justify-self:end; width:44px; padding-left:0; justify-content:center; }
@@ -180,7 +179,6 @@
   .fileCell[data-file=false] { display:none; }
   .mobileMoney { display:block; margin-top:2px; font-size:12px; color:var(--muted); }
   .state { padding-top:0; padding-bottom:0; }
-  .stateReason { white-space:normal; overflow:visible; overflow-wrap:anywhere; }
 }
 
 .filterChips { margin-left:-10px; width:calc(100% + 10px); }

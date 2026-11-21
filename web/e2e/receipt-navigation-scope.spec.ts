@@ -21,7 +21,7 @@ for (const width of [1280, 390]) {
         activity: null,
         received_at: new Date(Date.UTC(2026, 9, 31, 12, 0, -index)).toISOString(),
         bandeja: { por_revisar: true, con_problema: index !== 0, leyendo: false },
-        bandeja_group: { group: index === 0 ? "listo" : "attention", reason: index === 0 ? null : "missing_ncf", draft_id: null, version: null },
+        bandeja_group: { group: index === 0 ? "listo" : "attention", reason: index === 0 ? null : "missing_ncf", label: index === 0 ? "ready" : "needs_attention", draft_id: null, version: null },
       }));
       await installReceiptBusiness(page, (parts, route) => {
         if (parts[0] !== "receipts") return undefined;
@@ -32,7 +32,7 @@ for (const width of [1280, 390]) {
       });
       await page.goto("/biz?view=inbox");
       await expect(page.getByTestId("reception-row").first()).toContainText("Recibo de prueba 0");
-      await page.getByRole("tab", { name: /^Necesitan atención/ }).click();
+      await page.getByRole("tab", { name: /^Por resolver/ }).click();
       await expect(page.getByTestId("reception-row").first()).toContainText("Recibo de prueba 1");
       await page.getByTestId("reception-row").first().getByRole("button", { name: "Abrir", exact: true }).click();
       const place = page.getByTestId("receipt-place");

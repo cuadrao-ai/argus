@@ -1,4 +1,4 @@
-import type { BandejaGroup, BandejaMembership, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
+import type { BandejaGroup, BandejaLabel, BandejaMembership, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailPart, EmailStanding } from "@/lib/business-email";
 
 /**
@@ -32,13 +32,29 @@ function membership(view: ReceiptSummary, activity: ReceiptActivity): BandejaMem
 
 type ListedReceipt = ReceiptSummary & { draft_id?: string | null; version?: number };
 
+/** `bandeja_group.READ_FAILURES`: a read that ended with nothing to review. */
+const CANT_READ = new Set(["unreadable", "ai_unavailable", "interrupted", "outcome_unknown", "source_unavailable", "read_deadline_passed", "not_a_receipt"]);
+
+/** `bandeja_label` in short. */
+function bandejaLabel(group: BandejaGroup["group"], reason: string | null, accepted: boolean): BandejaLabel | null {
+  if (group === "attention") return CANT_READ.has(reason ?? "") ? "cant_read" : "needs_attention";
+  if (group === "reading") return "reading";
+  if (group === "listo") return "ready";
+  return group === null && accepted ? "accepted" : null;
+}
+
+/** The one shape every Bandeja row carries, with the label the server's rule gives it. */
+export function groupRow(group: BandejaGroup["group"], reason: string | null = null, { draft_id = null, version = null, accepted = false }: { draft_id?: string | null; version?: number | null; accepted?: boolean } = {}): BandejaGroup {
+  return { group, reason, label: bandejaLabel(group, reason, accepted), draft_id, version };
+}
+
 /** `bandeja_group.py` in short: the row's own read first, then the gap the sample seeds, with Listos seeded by name. */
 function bandejaGroup(view: ListedReceipt): BandejaGroup {
-  if (!awaitingOwner(view)) return { group: null, reason: null, draft_id: null, version: null };
+  if (!awaitingOwner(view)) return groupRow(null, null, { accepted: !view.email_original && view.status === "confirmed" });
   const seeded = view.bandeja_group;
   const unread = view.status === "saved" || view.status === "queued";
   const reason = view.read_pending ? "reading" : view.attention ?? (unread ? "not_read" : view.sin_comprobante ? "sin_comprobante" : view.personal ? "personal" : seeded?.reason ?? (seeded?.group === "listo" ? null : "check_details"));
-  return { group: reason === "reading" ? "reading" : reason ? "attention" : "listo", reason, draft_id: view.draft_id ?? null, version: view.draft_id ? view.version ?? null : null };
+  return groupRow(reason === "reading" ? "reading" : reason ? "attention" : "listo", reason, { draft_id: view.draft_id ?? null, version: view.draft_id ? view.version ?? null : null });
 }
 
 /** A receipt as the server lists it: its projected activity and its Bandeja flags. */
@@ -93,13 +109,13 @@ function noReceiptReason(delivery: EmailInput): string {
 
 /** `note_group` in short: a typed note's group by its draft's state. */
 export function noteGroup(state: string, draftId: string, version: number): BandejaGroup {
-  if (state === "open") return { group: "attention", reason: "not_read", draft_id: draftId, version };
-  return { group: state === "accepting" ? "listo" : null, reason: null, draft_id: null, version: null };
+  if (state === "open") return groupRow("attention", "not_read", { draft_id: draftId, version });
+  return groupRow(state === "accepting" ? "listo" : null, null, { accepted: state === "accepted" });
 }
 
 /** `email_group` in short: being read, or it brought no receipt and needs a person. */
 function emailGroup(standing: EmailStanding | null): BandejaGroup {
-  return { group: standing === "reading" ? "reading" : standing === "no_receipt" ? "attention" : null, reason: standing === "reading" ? "reading" : null, draft_id: null, version: null };
+  return standing === "reading" ? groupRow("reading", "reading") : groupRow(standing === "no_receipt" ? "attention" : null);
 }
 
 /** An email delivery as the server serves it: where it stands, its Bandeja group, what it saved and why it brought nothing. */

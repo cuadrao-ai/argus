@@ -40,7 +40,7 @@ export function inboxCount(records: CountRecords): number | null {
   return records.receiptActivity?.pending_review_count ?? null;
 }
 
-/** The Bandeja's Necesitan atención tab. */
+/** The Bandeja's Por resolver tab. */
 export function bandejaAttentionCount(records: CountRecords): number | null {
   return records.receiptActivity?.bandeja_attention_count ?? null;
 }

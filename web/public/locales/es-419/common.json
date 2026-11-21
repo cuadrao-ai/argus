@@ -2551,6 +2551,15 @@
       "unmark_personal": "devolvió un gasto al negocio",
       "via_chat": "desde el chat"
     },
+    "bandeja": {
+      "label": {
+        "accepted": "Aceptado",
+        "cant_read": "No se pudo leer",
+        "needs_attention": "Necesita atención",
+        "reading": "Leyendo…",
+        "ready": "Listo para aceptar"
+      }
+    },
     "bank": {
       "empty": {
         "no_account": "[placeholder] business.bank.empty.no_account",
@@ -4644,7 +4653,7 @@
       "amount": "Monto",
       "arrival": "Llegada",
       "arrival_date": "Fecha de llegada",
-      "attention": "Necesitan atención",
+      "attention": "Por resolver",
       "clear": "Limpiar filtros",
       "clear_group": "Limpiar",
       "clear_selection": "Limpiar selección",
@@ -4702,8 +4711,7 @@
           "other": "No se pudo aprobar",
           "stale_version": "Cambió después de listarlo. Ábrelo y revísalo.",
           "unknown": "No sabemos si se aprobó. Reintenta para confirmarlo."
-        },
-        "tag_listo": "Listo para aprobar"
+        }
       },
       "remove_filter": "Quitar filtro: {{label}}",
       "search": "Buscar en esta lista…",
@@ -4721,7 +4729,6 @@
       "source_web": "Carga manual",
       "source_whatsapp": "WhatsApp",
       "status": "Estado",
-      "status_reason": "Motivo",
       "text_intake": "Entrada de texto",
       "unseen": "No visto",
       "views": "Vistas de Bandeja",
