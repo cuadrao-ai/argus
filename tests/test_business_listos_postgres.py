@@ -39,7 +39,7 @@ from tests.test_business_reading_setting_postgres import (
 )
 from tests.test_business_scope_switch_routes_postgres import API, PERIOD, _as, _note
 
-pytestmark = scope.pytestmark
+pytestmark = [scope.pytestmark, pytest.mark.usefixtures("typed_notes_on")]
 people = scope.web
 SUPPLIER = "199990021"
 OTHER_SUPPLIER = "199990048"

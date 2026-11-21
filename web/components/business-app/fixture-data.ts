@@ -512,6 +512,8 @@ export function createFixtureBusinessDataSource(
         invoicing_available: false,
         // The server's default: Por cobrar and Por pagar are off.
         settlement_available: false,
+        // The server's default: a typed note starts no draft.
+        typed_notes_available: false,
         receiving_channels: { email: { available: true }, whatsapp: { available: true } },
         receipt_limits: {
           max_bytes: 10 * 1024 * 1024,

@@ -100,3 +100,9 @@ def provider_free_env(monkeypatch):
 def settlement_on(monkeypatch):
     """Por cobrar and Por pagar on, for a flow that marks documents cobrado or pagado."""
     monkeypatch.setenv("CUADRAO_BUSINESS_SETTLEMENT_ENABLED", "true")
+
+
+@pytest.fixture
+def typed_notes_on(monkeypatch):
+    """Nota escrita on, for a flow that creates a draft by typing it."""
+    monkeypatch.setenv("CUADRAO_BUSINESS_TYPED_NOTES_ENABLED", "true")

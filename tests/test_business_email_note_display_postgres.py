@@ -26,6 +26,11 @@ receipts = shared.receipts
 pytestmark = shared.pytestmark
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 def _http(receipts):  # noqa: ANN001, ANN202
     service, context = receipts["service"], receipts["context"]
     app = FastAPI()

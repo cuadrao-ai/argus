@@ -19,6 +19,22 @@ test("a refused note is never resent, so Reintentar cannot loop on a note the se
   assert.equal(queue.snapshot()[0].status, "refused");
 });
 
+test("a note queued before the server turned typed notes off ends refused on its retry, text kept, and is not sent again", async () => {
+  const sent: string[] = [];
+  const off = async (_input: unknown, key: string) => {
+    sent.push(key);
+    throw Object.assign(new Error("off"), { status: 404, code: "business_typed_notes_unavailable" });
+  };
+  const queue = new TypedNoteQueue(() => undefined);
+  await queue.add({ grant: null, text: "Compré gasoil", documentType: "recibo" }, async () => { throw new TypeError("Failed to fetch"); });
+  assert.equal(queue.snapshot()[0].status, "uncertain");
+  await queue.retry(queue.snapshot()[0].key, off);
+  assert.deepEqual([queue.snapshot()[0].status, queue.snapshot()[0].text], ["refused", "Compré gasoil"]);
+  await queue.retry(queue.snapshot()[0].key, off);
+  assert.equal(sent.length, 1, "the refusal ends the retries");
+  assert.equal(queue.unfinished, false, "a refused note holds nothing open");
+});
+
 test("a note reloads the Bandeja once, when its save is confirmed, and a retry repeats its key", async () => {
   let reloads = 0;
   const sent: string[] = [];

@@ -14,6 +14,7 @@ from unittest.mock import patch
 from uuid import uuid4
 from zipfile import ZipFile
 
+import pytest
 from argus.domain.business import export as export_module
 from argus.domain.business.actions import mutations
 from argus.domain.business.contracts.dgii import PurchaseDeclaration
@@ -34,6 +35,11 @@ from tests.test_business_scope_switch_routes_postgres import (
 pytestmark = _local_supabase
 FILER = "199990013"
 SUPPLIER = "199990021"
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 def recorded(world, ncf):  # noqa: ANN001, ANN201, F811

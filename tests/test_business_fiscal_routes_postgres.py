@@ -45,6 +45,11 @@ pytestmark = _local_supabase
 MARKS = ("personal", "personal_marked_by", "fiscal_known", "include_606")
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 @pytest.fixture
 def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
     """Alice owns the Business; Bob holds read and prepare on it."""

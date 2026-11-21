@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import uuid4
 
+import pytest
 from psycopg import Connection
 from pydantic import TypeAdapter
 
@@ -17,6 +18,11 @@ from tests.test_business_fiscal_routes_postgres import (  # noqa: F401
     world,
 )
 from tests.test_business_scope_switch_routes_postgres import API, _as, _note
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 def test_recorded_approval_names_the_approved_revision_after_later_marks(world) -> None:  # noqa: ANN001, F811

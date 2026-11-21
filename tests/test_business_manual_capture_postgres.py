@@ -24,6 +24,11 @@ actions = shared.actions
 pytestmark = shared.pytestmark
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 def note(service, context, text="  Pagué algo; falta el detalle.\n", key="note"):
     return service.capture(context, CaptureNote(text=text), key)
 
