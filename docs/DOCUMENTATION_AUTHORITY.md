@@ -19,6 +19,7 @@ The current brief bounds the work. A spec, roadmap, old assignment or green test
 | --- | --- | --- |
 | Who is Cuadrao for, and what does it do today? | [README](../README.md) and [product overview](PRODUCT.md) | Small businesses and their accountants, through the web app |
 | How should Bandeja, the dossier and month close work in the pilot? | [Pilot review spec](specs/cuadrao-pilot-review-spec.md) | Approved pilot behavior and acceptance criteria, not proof that every item has shipped |
+| What has the founder decided for Bandeja, and what is still open there? | [Bandeja parent issue #2331](https://github.com/cuadrao-ai/argus/issues/2331) | The live checklist of Bandeja findings and decisions. Design lives in the Bandeja section of the Business web app guide. An unchecked box is not an assignment. |
 | What labels and field semantics apply across the Business pilot? | [Field dictionary](specs/field-dictionary.md) | ES and EN labels, export headers, DGII semantics, and unchanged storage keys. |
 | What design and delivery rules apply to Auth emails? | [Auth email source of truth](specs/auth-email.md) | Shared layout, Auth-owned codes, repo-generated templates, explicit publication and readback, and pilot notice scope. |
 | What architecture, payloads and persistence contracts apply? | [Architecture](ARCHITECTURE.md), [API contract](API_CONTRACT.md), [API schema](api/openapi.yaml) and [data model](DATA_MODEL.md) | Verify the relevant contract against code. Legacy personal and chat sections do not override current product scope. |
