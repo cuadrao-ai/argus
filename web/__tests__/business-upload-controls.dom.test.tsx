@@ -18,7 +18,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-test("a problem row's state follows a language change without losing the receipt, and the row opens its dossier", async () => {
+test("a problem row's label follows a language change without losing the receipt or naming a reason, and the row opens its dossier", async () => {
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { en: { translation: english }, "es-419": { translation: spanish } } });
   const receipt = await createFixtureBusinessDataSource().receipt("rcpt-unknown");
@@ -31,16 +31,16 @@ test("a problem row's state follows a language change without losing the receipt
   const context = { chosen: null, source: createFixtureBusinessDataSource() } as unknown as BusinessContextValue;
   try {
     await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ul><ReceptionArrivalRow row={row} view="all" panel={{ kind: "inbox" }} openPanel={() => { opened++; }} preferences={defaultReceptionPreferences()} selectable={false} checkable={false} checked={false} unseen={false} onCheck={() => undefined} /><ReceptionArrivalRow row={row} view="attention" panel={{ kind: "inbox" }} openPanel={() => { opened++; }} preferences={defaultReceptionPreferences()} selectable={false} checkable={false} checked={false} unseen={false} onCheck={() => undefined} /></ul></BusinessContext.Provider></I18nextProvider>));
-    assert.match(state(), /^Necesita atención$/);
-    assert.ok(host.textContent?.includes("No recuperamos la lectura"));
+    assert.match(state(), /^No se pudo leer$/);
+    assert.ok(!host.textContent?.includes("No recuperamos la lectura"));
     await act(async () => { await i18n.changeLanguage("en"); });
-    assert.ok(host.textContent?.includes("Reading result lost"));
-    assert.match(state(), /^Needs attention$/);
+    assert.ok(!host.textContent?.includes("Reading result lost"));
+    assert.match(state(), /^Couldn't read$/);
     assert.ok(host.textContent?.includes(receipt.filename!));
     await act(async () => host.querySelector<HTMLButtonElement>("button")!.click());
     assert.equal(opened, 1);
     await act(async () => { await i18n.changeLanguage("es-419"); });
-    assert.match(state(), /^Necesita atención$/);
+    assert.match(state(), /^No se pudo leer$/);
   } finally {
     await act(async () => root.unmount());
     host.remove();

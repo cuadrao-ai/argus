@@ -63,6 +63,25 @@ def business_settlement_enabled() -> bool:
         return False
 
 
+class BusinessTypedNotesSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias="CUADRAO_BUSINESS_TYPED_NOTES_ENABLED"
+    )
+
+
+def business_typed_notes_enabled() -> bool:
+    """Nota escrita: a document typed in Agregar, with no file. Off, the
+    default: the capture route refuses a note that starts a draft. Notes
+    already saved stay as they are, and a note added to an existing draft
+    still saves."""
+
+    try:
+        return BusinessTypedNotesSettings().enabled
+    except ValidationError:
+        return False
+
+
 class BusinessInviteAdmissionSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
     enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(

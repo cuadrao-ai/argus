@@ -66,20 +66,18 @@ export type ReceiptActivity = {
 /**
  * The Bandeja's counts, from the server only. `unread_count` is new activity
  * this person has not opened; `pending_review_count` is every row the Bandeja
- * lists (receipts not yet saved or dismissed, and notes no receipt carries);
- * `needs_attention_count` is how many of those receipts need attention.
+ * lists (receipts not yet saved or dismissed, and notes no receipt carries).
  */
 export type ReceiptActivityCounts = {
   reading_count: number;
   unread_count: number;
   presentation: "working" | "unread" | "none";
   pending_review_count: number;
-  needs_attention_count: number;
   /** Rows a person can review now: the Bandeja's Por revisar. */
   ready_to_review_count: number;
   /** The Bandeja's Listos tab. Absent in older payloads. */
   bandeja_listo_count?: number;
-  /** The Bandeja's Necesitan atención tab: every other row it lists. Absent in older payloads. */
+  /** The Bandeja's Por resolver tab: every other row it lists. Absent in older payloads. */
   bandeja_attention_count?: number;
   bandeja_eliminados_count?: number;
   /** Transacciones' Por igualar over every period. Null while bank matching is off, which is not 0. Absent in older payloads. */
@@ -91,7 +89,9 @@ export type ReceiptActivityCounts = {
 /** Which Bandeja buckets a receipt sits in, by the predicates the counts sum. A closed receipt and an email original sit in none. */
 export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; leyendo: boolean };
 /** The server's one Bandeja group of an open receipt: `reason` is its one plain word, null when Listos. A closed receipt has no group. `draft_id` and `version` are what an approval of this row names. */
-export type BandejaGroup = { group: "listo" | "attention" | "reading" | "eliminados" | null; reason: string | null; draft_id: string | null; version: number | null };
+/** The one word the Bandeja list shows for a row. The server picks it; null for a row the list does not label. */
+export type BandejaLabel = "reading" | "cant_read" | "needs_attention" | "ready" | "accepted";
+export type BandejaGroup = { group: "listo" | "attention" | "reading" | "eliminados" | null; reason: string | null; label: BandejaLabel | null; draft_id: string | null; version: number | null };
 /** `purge_at` is when the server purges the document for good. */
 export type DocumentDeletion = { actor: PersonName & { actor_id: string }; at: string; purge_at: string; key: string; previous_state: { state: string; group: "attention" | "listo" } };
 export type DocumentDeleteAccess = { deleted?: DocumentDeletion | null; delete_available?: boolean; restore_available?: boolean };
@@ -366,6 +366,8 @@ export type BusinessWorkspaceInfo = {
   notifications_available?: boolean;
   /** Whether the server offers Por cobrar and Por pagar; the one switch. Absent in older payloads. */
   settlement_available?: boolean;
+  /** Whether the server lets a typed note start a draft; the one switch. Absent in older payloads. */
+  typed_notes_available?: boolean;
   /** Server-owned channel availability, independent of address or linking state. */
   receiving_channels?: ReceivingChannels;
   /** What a receipt upload accepts. The backend's document settings own it. */
@@ -393,6 +395,11 @@ export function businessInvoicingAvailable(workspace: BusinessWorkspaceInfo): bo
 /** The one reader of `settlement_available`: an older payload, or none yet, offers no Por cobrar or Por pagar. */
 export function businessSettlementAvailable(workspace: Pick<BusinessWorkspaceInfo, "settlement_available"> | null | undefined): boolean {
   return workspace?.settlement_available === true;
+}
+
+/** The one reader of `typed_notes_available`: an older payload, or none yet, offers no "Escríbelo". */
+export function businessTypedNotesAvailable(workspace: Pick<BusinessWorkspaceInfo, "typed_notes_available"> | null | undefined): boolean {
+  return workspace?.typed_notes_available === true;
 }
 
 export type ReceiptLimits = {

@@ -131,7 +131,10 @@ from argus.api.whatsapp import whatsapp_receiving_available
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
-from argus.domain.business.config import business_settlement_enabled
+from argus.domain.business.config import (
+    business_settlement_enabled,
+    business_typed_notes_enabled,
+)
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
@@ -831,6 +834,7 @@ def get_workspace(
         "invoicing_available": invoicing_available(request),
         "notifications_available": notifications_available(),
         "settlement_available": business_settlement_enabled(),
+        "typed_notes_available": business_typed_notes_enabled(),
         "receiving_channels": {
             "email": {"available": email_receiving_available()},
             "whatsapp": {"available": whatsapp_receiving_available(context.scope)},
@@ -1064,6 +1068,7 @@ def list_receipts(
     try:
         from argus.api import business_list_version as versions
         from argus.api.business_receipt_activity import counts
+        from argus.domain.business.receipt_activity import listed
         from argus.domain.business.receipts import CLOSED
 
         version = versions.stored_version(context)
@@ -1071,6 +1076,7 @@ def list_receipts(
             return versions.not_modified(version)
         items = receipt_summaries(context, "all")
         activity = counts(context, items)
+        items = [item for item in items if listed(item)]
         if view == "inbox":
             items = [item for item in items if item["status"] not in CLOSED]
         answer = {"items": items, "activity": activity}

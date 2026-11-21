@@ -51,6 +51,11 @@ PURCHASE = {"amount": "500.00", "occurred_on": "2026-09-03"}
 OTHER_SUPPLIER = "199990048"
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 def _typed(world, person=None, grant=None, key=None, **body):  # noqa: ANN001, ANN003, ANN202
     return world.client.post(
         f"{API}/business/captures",
@@ -117,7 +122,7 @@ def test_a_person_reviews_it_alone_and_the_bandeja_holds_it_until_then(world) ->
         item["draft_id"]
         for item in _get(world, "/business/captures", view="inbox").json()["items"]
     ] == [draft]
-    assert _get(world, "/business/overview", **SPAN).json()["awaiting_review"] == 1
+    assert _get(world, "/business/overview", **SPAN).json()["bandeja_attention_count"] == 1
     many = _post(
         world,
         "/business/drafts/approve-listos",

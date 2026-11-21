@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
+import type { BandejaLabel, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import { receptionRows, rowState, rowTitles, receptionTab, tabCount } from "./support/reception";
 
@@ -18,7 +18,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-const none: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0 };
+const none: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0 };
 
 // A desktop shell's top bar, which holds the one Agregar on every Business screen but Negocio.
 const DESKTOP_SHELL = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: undefined };
@@ -129,15 +129,16 @@ test("the tabs show the server's pair, never a count of the rows that loaded", a
 test("each tab lists the server's group, and a row says only what the server said", async () => {
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const ready = await fixture.receipt("rcpt-ferreteria");
-  const group = (kind: "listo" | "attention", reason: string | null) => ({ group: kind, reason, draft_id: "draft", version: 1 });
+  const group = (kind: "listo" | "attention", reason: string | null, label: BandejaLabel) => ({ group: kind, reason, label, draft_id: "draft", version: 1 });
   const listed = (id: string, merchant: string, bandeja_group: ReceiptSummary["bandeja_group"], status: ReceiptSummary["status"] = "review_ready"): ReceiptSummary => ({ ...ready, id, merchant, status, sin_comprobante: false, bandeja_group, activity: { state: "ready", unread: false, completion_cursor: null } });
   const items = [
-    listed("r-listo", "Lista", group("listo", null)),
-    listed("r-rnc", "Sin RNC", group("attention", "missing_rnc")),
-    listed("r-sin", "Sin papel", group("attention", "sin_comprobante")),
-    listed("r-new", "Código nuevo", group("attention", "a_reason_this_web_has_no_word_for")),
-    listed("r-reading", "Leyéndose", group("attention", "reading"), "preparing"),
-    listed("r-done", "Hecha", { group: null, reason: null, draft_id: null, version: null }, "confirmed"),
+    listed("r-listo", "Lista", group("listo", null, "ready")),
+    listed("r-rnc", "Sin RNC", group("attention", "missing_rnc", "needs_attention")),
+    listed("r-sin", "Sin papel", group("attention", "sin_comprobante", "needs_attention")),
+    listed("r-new", "Código nuevo", group("attention", "a_reason_this_web_has_no_word_for", "needs_attention")),
+    // The tab is the group's and the pill is the label's, each as sent, even when they would not go together.
+    listed("r-reading", "Leyéndose", group("attention", "reading", "reading"), "preparing"),
+    listed("r-done", "Hecha", { group: null, reason: null, label: "accepted", draft_id: null, version: null }, "confirmed"),
   ];
   const page = await mount({ receiptPage: async () => ({ items, activity: none }) });
   const choose = (key: "all" | "attention" | "listos") => page.act(async () => receptionTab(page.host, key)!.click());
@@ -145,34 +146,38 @@ test("each tab lists the server's group, and a row says only what the server sai
   const reason = (name: string) => row(name).querySelector('[data-testid="reception-reason"]')?.textContent ?? null;
   try {
     await page.settle(() => receptionRows(page.host).length === 6);
-    assert.equal(rowState(row("Lista")), "Listo para aprobar");
+    assert.equal(rowState(row("Lista")), "Listo para aceptar");
     assert.equal(rowState(row("Sin RNC")), "Necesita atención");
     assert.equal(rowState(row("Código nuevo")), "Necesita atención");
     assert.equal(rowState(row("Leyéndose")), "Leyendo…");
-    assert.equal(rowState(row("Hecha")), "Aprobado");
+    assert.equal(rowState(row("Hecha")), "Aceptado");
     await choose("listos");
     assert.deepEqual(rowTitles(page.host), ["Lista"]);
     await choose("attention");
     assert.deepEqual(rowTitles(page.host).sort(), ["Código nuevo", "Leyéndose", "Sin RNC", "Sin papel"]);
-    assert.equal(reason("Sin RNC"), "Falta el RNC");
-    assert.equal(reason("Sin papel"), "Sin comprobante");
-    assert.equal(reason("Código nuevo"), null, "a code with no word shows no reason, never a guess");
-    assert.match(row("Código nuevo").textContent ?? "", /Necesita atención/);
+    for (const name of ["Sin RNC", "Sin papel", "Código nuevo"]) {
+      assert.equal(rowState(row(name)), "Necesita atención");
+      assert.equal(reason(name), null, "the label alone, whatever the reason");
+    }
+    assert.doesNotMatch(page.host.querySelector("#reception-list")?.textContent ?? "", /Falta el RNC|Sin comprobante/);
+    assert.equal(rowState(row("Leyéndose")), "Leyendo…");
   } finally { await page.close(); }
 });
 
-test("a read past its deadline says it did not finish, and a stopped read still says it stopped", async () => {
+test("a read past its deadline and a stopped read both say only that they could not be read", async () => {
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const blurry = await fixture.receipt("rcpt-blurry");
-  const failed = (id: string, filename: string, reason: string): ReceiptSummary => ({ ...blurry, id, filename, preparable: true, bandeja_group: { group: "attention", reason, draft_id: null, version: null }, activity: { state: "read_failed", unread: false, completion_cursor: null } });
+  const failed = (id: string, filename: string, reason: string): ReceiptSummary => ({ ...blurry, id, filename, preparable: true, bandeja_group: { group: "attention", reason, label: "cant_read", draft_id: null, version: null }, activity: { state: "read_failed", unread: false, completion_cursor: null } });
   const items = [failed("r-deadline", "sin-terminar.jpg", "read_deadline_passed"), failed("r-stopped", "detenida.jpg", "interrupted")];
   const page = await mount({ receiptPage: async () => ({ items, activity: none }) });
-  const reason = (name: string) => receptionRows(page.host).find((item) => item.textContent?.includes(name))?.querySelector('[data-testid="reception-reason"]')?.textContent ?? null;
+  const row = (name: string) => receptionRows(page.host).find((item) => item.textContent?.includes(name))!;
   try {
     await page.settle(() => receptionRows(page.host).length === 2);
     await page.act(async () => receptionTab(page.host, "attention")!.click());
-    assert.equal(reason("sin-terminar.jpg"), "La lectura no terminó");
-    assert.equal(reason("detenida.jpg"), "La lectura se detuvo");
+    for (const name of ["sin-terminar.jpg", "detenida.jpg"]) {
+      assert.equal(rowState(row(name)), "No se pudo leer");
+      assert.doesNotMatch(row(name).textContent ?? "", /La lectura/);
+    }
   } finally { await page.close(); }
 });
 
@@ -187,7 +192,7 @@ test("each tab has its own empty state, with no Ver todo, and the Todos tab lead
     assert.equal(empty()?.getAttribute("data-empty-kind"), "done");
     assert.equal(empty()?.querySelector("h3")?.textContent, "No hay recibos listos");
     await page.act(async () => receptionTab(page.host, "attention")!.click());
-    assert.equal(empty()?.querySelector("h3")?.textContent, "Nada necesita atención");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "Nada por resolver");
     assert.equal(empty()?.querySelector("button"), null);
     await page.act(async () => receptionTab(page.host, "all")!.click());
     assert.equal(receptionTab(page.host, "all")?.getAttribute("aria-selected"), "true");
@@ -215,7 +220,7 @@ test("the views stay while the list loads, with no count until one is known", as
   try {
     await page.settle(() => page.host.querySelector('[role="tablist"]') !== null);
     const bar = page.host.querySelector('[role="tablist"]')?.textContent ?? "";
-    assert.match(bar, /Necesitan atención/);
+    assert.match(bar, /Por resolver/);
     assert.match(bar, /Listos/);
     assert.equal(/\d/.test(bar), false, "an unknown count is never shown as 0");
   } finally { await page.close(); }

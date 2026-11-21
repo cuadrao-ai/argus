@@ -28,7 +28,7 @@ const MISSING = "business.transactions.layout.workflow.missing";
 const ATTENTION = "business.attention_short";
 const PLACEHOLDER = "business.reception_preview.placeholder.reason";
 
-/** The Bandeja's one plain word for each reason the server sends. A code not listed here shows no reason, never a guess. */
+/** Inicio's one plain word for each reason the server sends. The Bandeja list shows the server's label and no reason. A code not listed here shows no reason, never a guess. */
 export const BANDEJA_REASON_KEY: Readonly<Record<string, string>> = {
   ai_unavailable: `${ATTENTION}.ai_unavailable`,
   blocked: `${PLACEHOLDER}.blocked`,

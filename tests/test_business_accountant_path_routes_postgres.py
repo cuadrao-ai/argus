@@ -41,6 +41,11 @@ CAPTCHA = "local-captcha-proof"
 GRANT = "X-Business-Grant"
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 @dataclass
 class Account:
     email: str

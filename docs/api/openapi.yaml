@@ -1895,6 +1895,14 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_typed_notes_unavailable`: a note that starts a draft is
+            off on this server (`CUADRAO_BUSINESS_TYPED_NOTES_ENABLED`). A note on an existing
+            draft is not refused.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -16836,7 +16844,6 @@ components:
             - other
             - reading
             - not_read
-            - sale
             - credit_note
             - missing_merchant
             - missing_date
@@ -16849,11 +16856,19 @@ components:
             - invalid_ncf
             - ecf_check_failed
             - missing_itbis
-            - foreign_currency
-            - personal
             - review_flag
             - blocked
             - unverified_sender
+          - type: 'null'
+        label:
+          anyOf:
+          - type: string
+            enum:
+            - reading
+            - cant_read
+            - needs_attention
+            - ready
+            - accepted
           - type: 'null'
         draft_id:
           anyOf:
@@ -16869,6 +16884,7 @@ components:
       required:
       - group
       - reason
+      - label
       - draft_id
       - version
     BandejaMembership:
@@ -18480,10 +18496,6 @@ components:
           items:
             $ref: '#/components/schemas/CurrencyTotal'
           type: array
-        awaiting_review:
-          type: integer
-        needs_attention:
-          type: integer
         ready_to_review_count:
           type: integer
         bandeja_listo_count:
@@ -18521,8 +18533,6 @@ components:
       - country
       - currency
       - totals
-      - awaiting_review
-      - needs_attention
       - ready_to_review_count
       - bandeja_listo_count
       - bandeja_attention_count
@@ -18813,6 +18823,8 @@ components:
           type: boolean
         settlement_available:
           type: boolean
+        typed_notes_available:
+          type: boolean
         receiving_channels:
           $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
@@ -18839,6 +18851,7 @@ components:
       - invoicing_available
       - notifications_available
       - settlement_available
+      - typed_notes_available
       - receiving_channels
       - receipt_limits
       - records_default_currency
@@ -29170,8 +29183,6 @@ components:
           - none
         pending_review_count:
           type: integer
-        needs_attention_count:
-          type: integer
         ready_to_review_count:
           type: integer
         bandeja_listo_count:
@@ -29198,7 +29209,6 @@ components:
       - unread_count
       - presentation
       - pending_review_count
-      - needs_attention_count
       - ready_to_review_count
       - bandeja_listo_count
       - bandeja_attention_count

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import datetime
 from typing import Any, Protocol
@@ -87,6 +87,14 @@ class DocumentStore(Protocol):
     def job(self, *, user_id: str, connection_id: str) -> PreparationJob | None: ...
     def pending(self, *, now: datetime, limit: int) -> list[tuple[str, str]]:
         """Sweep candidates, excluding available, untaken attempts before the deadline."""
+        ...
+
+    def refused_before(
+        self, *, before: Mapping[str, datetime]
+    ) -> list[tuple[str, str, int]]:
+        """Business receipts saved unread, with their source, under one of
+        ``before``'s error codes since before that code's instant: owner,
+        connection and draft version, oldest first."""
         ...
 
     def pull(self, *, now: datetime, cap: int) -> tuple[str, str] | None:
@@ -421,6 +429,32 @@ class InMemoryDocumentStore:
                 ):
                     rows.append((draft.created_at, key))
             return [key for _, key in sorted(rows)[:limit]]
+
+    def refused_before(
+        self, *, before: Mapping[str, datetime]
+    ) -> list[tuple[str, str, int]]:
+        from argus.domain.owner_scope import space_id
+
+        with self.connections._lock, self._lock:
+            rows = []
+            for key, raw in self._drafts.items():
+                draft = DocumentDraft.model_validate_json(raw)
+                lifted = before.get(draft.error_code or "")
+                if (
+                    draft.status == "saved"
+                    and draft.source_available
+                    and lifted is not None
+                    and draft.updated_at < lifted
+                    and self._live(*key)
+                    and space_id(
+                        self.connections.get_any_scope(
+                            user_id=key[0], connection_id=key[1]
+                        ).scope
+                    )
+                    is not None
+                ):
+                    rows.append((draft.created_at, (*key, draft.version)))
+            return [row for _, row in sorted(rows)]
 
     def pull(self, *, now: datetime, cap: int) -> tuple[str, str] | None:
         with self.connections._lock, self._lock:

@@ -38,6 +38,11 @@ PURCHASE_NCF = "B0100000001"
 CREDIT_NCF = "B0400000002"
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 def _get(rig, path: str, headers: dict, **params):  # noqa: ANN001, ANN202
     answer = rig.client.get(f"{API}{path}", params=params, headers=headers)
     assert answer.status_code == 200, (path, answer.text)
@@ -56,7 +61,6 @@ def _counts_match_flags(page: dict, notes: int = 0) -> None:
     assert (
         activity["ready_to_review_count"] == sum(f["por_revisar"] for f in flags) + notes
     )
-    assert activity["needs_attention_count"] == sum(f["con_problema"] for f in flags)
     assert activity["reading_count"] == sum(f["leyendo"] for f in flags)
 
 

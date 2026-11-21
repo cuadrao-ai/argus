@@ -2551,6 +2551,15 @@
       "unmark_personal": "moved an expense back to the business",
       "via_chat": "from chat"
     },
+    "bandeja": {
+      "label": {
+        "accepted": "Accepted",
+        "cant_read": "Couldn't read",
+        "needs_attention": "Needs attention",
+        "reading": "Reading…",
+        "ready": "Ready to accept"
+      }
+    },
     "bank": {
       "empty": {
         "no_account": "Add the business bank account before importing a statement.",
@@ -3085,7 +3094,7 @@
       "menu": "Delete document",
       "open": "Open",
       "previous": {
-        "attention": "Needs attention",
+        "attention": "To resolve",
         "listo": "Ready"
       },
       "purge": "Delete for good",
@@ -4547,7 +4556,7 @@
       "amount": "Amount",
       "arrival": "Arrived",
       "arrival_date": "Arrival date",
-      "attention": "Needs attention",
+      "attention": "To resolve",
       "clear": "Clear filters",
       "clear_group": "Clear",
       "clear_selection": "Clear selection",
@@ -4556,9 +4565,14 @@
       "document_range_other": "{{from}}–{{to}} of {{count}} items",
       "eliminados": "Deleted",
       "empty": "No content in this view",
+      "empty_attention": "Nothing to resolve",
+      "empty_attention_help": "When a document needs attention or can't be read, it shows up here.",
       "empty_help": "Try another view or change the filters.",
+      "empty_listos": "No receipts are ready",
+      "empty_listos_help": "When a receipt has everything confirmed, it shows here to approve.",
       "empty_start": "Your files and notes arrive here",
       "empty_start_help": "Add a file or receive documents by email.",
+      "empty_start_upload_help": "Add a file.",
       "error": "We could not load all content.",
       "file": "Attachment",
       "forward_options": "Receive by email",
@@ -4582,11 +4596,6 @@
         "approved_one": "{{count}} receipt approved.",
         "approved_other": "{{count}} receipts approved.",
         "bulk_actions": "Approve selection",
-        "empty_attention": "Nothing needs attention",
-        "empty_attention_help": "When a receipt needs something from you, it shows here.",
-        "empty_listos": "No receipts are ready",
-        "empty_listos_help": "When a receipt has everything confirmed, it shows here to approve.",
-        "empty_start_upload_help": "Add a file.",
         "listos": "Ready",
         "open": "Open",
         "reason": {
@@ -4605,8 +4614,7 @@
           "other": "It could not be approved",
           "stale_version": "It changed after it was listed. Open it and review it.",
           "unknown": "We don't know if it was approved. Retry to find out."
-        },
-        "tag_listo": "Ready to approve"
+        }
       },
       "remove_filter": "Remove filter: {{label}}",
       "search": "Search this list…",
@@ -4624,7 +4632,6 @@
       "source_web": "Manual upload",
       "source_whatsapp": "WhatsApp",
       "status": "Status",
-      "status_reason": "Reason",
       "text_intake": "Text entry",
       "unseen": "Unseen",
       "views": "Inbox views",
