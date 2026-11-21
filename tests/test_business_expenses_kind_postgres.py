@@ -6,6 +6,8 @@ or ventas (saved income) with `kind=income`. Each item keeps its own currency.
 
 from __future__ import annotations
 
+import pytest
+
 from tests.test_business_open_items_postgres import _account, _record
 from tests.test_business_scope_switch_routes_postgres import (  # noqa: F401
     API,
@@ -18,6 +20,11 @@ from tests.test_business_scope_switch_routes_postgres import (
 
 pytestmark = _local_supabase
 OCTOBER = {"from": "2026-10-01", "to": "2026-10-31"}
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 def _listed(world, headers: dict, **params) -> list[dict]:  # noqa: ANN001

@@ -52,6 +52,11 @@ ROUTE_PATH = "/business/drafts/approve-listos"
 LIMIT = 50
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 @pytest.fixture
 def rig(people, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
     """Alice owns A with reading on; Bob owns B and prepares in A; Dave only

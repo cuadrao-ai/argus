@@ -147,6 +147,8 @@ class BusinessWorkspace(_Wire):
     notifications_available: bool
     #: The server's one answer on Por cobrar and Por pagar; the client shows none of it while false.
     settlement_available: bool
+    #: The server's one answer on starting a draft from a typed note; the client offers no entry while false.
+    typed_notes_available: bool
     receiving_channels: ReceivingChannels
     receipt_limits: ReceiptLimits
     records_default_currency: Literal["DOP", "USD", "EUR"]

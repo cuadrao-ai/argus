@@ -7,6 +7,7 @@ documents and changes no figure.
 
 from __future__ import annotations
 
+import pytest
 from argus.domain.business import ledger
 
 from tests import test_business_approve_unpaid_postgres as unpaid
@@ -24,6 +25,11 @@ pytestmark = _local_supabase
 MONTH = "2026-09"
 FIGURES = ("net_result", "income_before_itbis", "expense_before_itbis", "itbis_charged")
 COUNTS = ("documents_counted", "documents_total", "documents_in_bandeja")
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 def _month(world, month: str = MONTH) -> dict:  # noqa: ANN001

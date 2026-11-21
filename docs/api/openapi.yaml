@@ -1895,6 +1895,14 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_typed_notes_unavailable`: a note that starts a draft is
+            off on this server (`CUADRAO_BUSINESS_TYPED_NOTES_ENABLED`). A note on an existing
+            draft is not refused.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -18813,6 +18821,8 @@ components:
           type: boolean
         settlement_available:
           type: boolean
+        typed_notes_available:
+          type: boolean
         receiving_channels:
           $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
@@ -18839,6 +18849,7 @@ components:
       - invoicing_available
       - notifications_available
       - settlement_available
+      - typed_notes_available
       - receiving_channels
       - receipt_limits
       - records_default_currency
