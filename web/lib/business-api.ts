@@ -77,7 +77,7 @@ export type ReceiptActivityCounts = {
   ready_to_review_count: number;
   /** The Bandeja's Listos tab. Absent in older payloads. */
   bandeja_listo_count?: number;
-  /** The Bandeja's Necesitan atención tab: every other row it lists. Absent in older payloads. */
+  /** The Bandeja's Por resolver tab: every other row it lists. Absent in older payloads. */
   bandeja_attention_count?: number;
   bandeja_eliminados_count?: number;
   /** Transacciones' Por igualar over every period. Null while bank matching is off, which is not 0. Absent in older payloads. */
@@ -89,7 +89,9 @@ export type ReceiptActivityCounts = {
 /** Which Bandeja buckets a receipt sits in, by the predicates the counts sum. A closed receipt and an email original sit in none. */
 export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; leyendo: boolean };
 /** The server's one Bandeja group of an open receipt: `reason` is its one plain word, null when Listos. A closed receipt has no group. `draft_id` and `version` are what an approval of this row names. */
-export type BandejaGroup = { group: "listo" | "attention" | "reading" | "eliminados" | null; reason: string | null; draft_id: string | null; version: number | null };
+/** The one word the Bandeja list shows for a row. The server picks it; null for a row the list does not label. */
+export type BandejaLabel = "reading" | "cant_read" | "needs_attention" | "ready" | "accepted";
+export type BandejaGroup = { group: "listo" | "attention" | "reading" | "eliminados" | null; reason: string | null; label: BandejaLabel | null; draft_id: string | null; version: number | null };
 /** `purge_at` is when the server purges the document for good. */
 export type DocumentDeletion = { actor: PersonName & { actor_id: string }; at: string; purge_at: string; key: string; previous_state: { state: string; group: "attention" | "listo" } };
 export type DocumentDeleteAccess = { deleted?: DocumentDeletion | null; delete_available?: boolean; restore_available?: boolean };

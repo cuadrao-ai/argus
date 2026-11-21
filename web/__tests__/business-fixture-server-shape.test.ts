@@ -49,7 +49,7 @@ test("a receipt sent for reading is leyendo, and one queued that nothing reads i
   const file = new File(["x"], "recibo.jpg", { type: "image/jpeg" });
   const saved = await source.uploadReceipt(file, false, "upload-saved");
   assert.deepEqual(saved.bandeja, { por_revisar: true, con_problema: false, leyendo: false });
-  assert.deepEqual(saved.bandeja_group, { group: "attention", reason: "not_read", draft_id: null, version: null });
+  assert.deepEqual(saved.bandeja_group, { group: "attention", reason: "not_read", label: "needs_attention", draft_id: null, version: null });
   assert.equal(saved.activity?.state, "saved_unread");
   const prepared = await source.prepareReceipt(saved.id);
   assert.deepEqual(prepared.bandeja, { por_revisar: false, con_problema: false, leyendo: true });

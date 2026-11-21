@@ -124,7 +124,7 @@ try {
         await expect(rows).toContainText("Nube Hosting");
         await expect(rows).toBeVisible();
         await expect(empty).toHaveCount(0);
-        for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
+        for (const [key, label] of [["attention", "Por resolver"], ["listos", "Listos"]] as const) {
           await expect(receptionViews.locator(designServerFieldsReception.tabs[key])).toHaveText(new RegExp(`^${label}\\s*0$`));
         }
         await listos.click();
@@ -212,7 +212,7 @@ try {
         expect(calls.openItems, "settlement off makes no open-items request").toBe(0);
       }
       if (state === "bandeja-refused" || state === "bandeja-mixed") {
-        for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
+        for (const [key, label] of [["attention", "Por resolver"], ["listos", "Listos"]] as const) {
           await expect(receptionViews.locator(designServerFieldsReception.tabs[key])).toHaveText(new RegExp(`^${label}\\s*-$`));
         }
         await expect(reception.locator(designServerFieldsReception.empty)).toHaveCount(0);

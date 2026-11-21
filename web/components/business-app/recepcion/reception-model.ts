@@ -1,4 +1,4 @@
-import type { BandejaGroup, BusinessCapture, ListoItem, ReceiptChannel, ReceiptSummary } from "@/lib/business-api";
+import type { BandejaGroup, BandejaLabel, BusinessCapture, ListoItem, ReceiptChannel, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery } from "@/lib/business-email";
 import type { BusinessPanelState } from "../BusinessWorkspace";
 import { receiptDeleteTarget, type DeleteDocumentTarget } from "../DocumentDeleteControls";
@@ -24,16 +24,21 @@ export function receptionRows(receipts: readonly ReceiptSummary[], captures: rea
   return rows.sort((a, b) => b.receivedAt.localeCompare(a.receivedAt) || a.id.localeCompare(b.id));
 }
 
-/** The Bandeja group the server sent for this row. */
-function rowGroup(row: ReceptionRow): BandejaGroup["group"] | undefined {
-  if (row.kind === "receipt") return row.receipt.bandeja_group?.group;
-  if (row.kind === "note") return row.note.bandeja_group?.group;
-  return row.email.delivery.bandeja_group?.group;
+/** What the server said of this row's place in the Bandeja: its group and its label. */
+function rowBandeja(row: ReceptionRow): BandejaGroup | null | undefined {
+  if (row.kind === "receipt") return row.receipt.bandeja_group;
+  if (row.kind === "note") return row.note.bandeja_group;
+  return row.email.delivery.bandeja_group;
+}
+
+/** The one word the list shows for this row, as the server chose it. */
+export function rowLabel(row: ReceptionRow): BandejaLabel | null {
+  return rowBandeja(row)?.label ?? null;
 }
 
 /** Every row sits in the tab its server group names, as the counts do. A row still being read shows only on Todos. */
 export function receptionMatches(row: ReceptionRow, view: ReceptionView): boolean {
-  const group = rowGroup(row);
+  const group = rowBandeja(row)?.group;
   if (view === "eliminados") return group === "eliminados";
   if (group === "eliminados") return false;
   if (view === "all") return true;
