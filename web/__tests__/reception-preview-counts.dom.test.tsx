@@ -126,7 +126,7 @@ test("the Bandeja opens on Todos with its four tabs, and nothing else from the o
   assert.deepEqual([...page.host.querySelectorAll("#reception-list > div:first-child > span:not(.sr-only)")].map(cell => cell.textContent).filter(Boolean), ["Contenido", "Adjunto", "Canal", "Canal", "Estado", "Llegada"], "Monto, Moneda and Remitente stay off; the second Canal is the heading the width swaps in");
 });
 
-const EMPTY_TITLE = { attention: "Nada necesita atención", listos: "No hay recibos listos", eliminados: "No hay documentos eliminados" } as const;
+const EMPTY_TITLE = { attention: "Nada por resolver", listos: "No hay recibos listos", eliminados: "No hay documentos eliminados" } as const;
 const BUSINESSES: Record<string, Record<keyof typeof EMPTY_TITLE, (receipts: ReceiptSummary[]) => ReceiptSummary[]>> = {
   "no documents": { attention: () => [], listos: () => [], eliminados: () => [] },
   "documents in Todo": { attention: receipts => receipts.filter(receipt => receipt.bandeja_group?.group === "listo"), listos: receipts => receipts.filter(receipt => receipt.bandeja_group?.group !== "listo"), eliminados: receipts => receipts },
@@ -139,6 +139,7 @@ for (const [business, tweaks] of Object.entries(BUSINESSES)) for (const view of 
   await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
   const empty = page.host.querySelector('[data-testid="reception-empty"]');
   assert.equal(empty?.querySelector("h3")?.textContent, EMPTY_TITLE[view]);
+  assert.equal(empty?.querySelector("p") === null, view === "attention", "Por resolver says only its title");
   assert.doesNotMatch(empty?.textContent ?? "", /Ver todo/, "Todas las fechas already widens the list; the empty tab adds no second way back");
 });
 

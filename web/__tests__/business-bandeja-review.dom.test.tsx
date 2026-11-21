@@ -192,7 +192,7 @@ test("each tab has its own empty state, with no Ver todo, and the Todos tab lead
     assert.equal(empty()?.getAttribute("data-empty-kind"), "done");
     assert.equal(empty()?.querySelector("h3")?.textContent, "No hay recibos listos");
     await page.act(async () => receptionTab(page.host, "attention")!.click());
-    assert.equal(empty()?.querySelector("h3")?.textContent, "Nada necesita atención");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "Nada por resolver");
     assert.equal(empty()?.querySelector("button"), null);
     await page.act(async () => receptionTab(page.host, "all")!.click());
     assert.equal(receptionTab(page.host, "all")?.getAttribute("aria-selected"), "true");
