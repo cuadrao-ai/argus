@@ -105,6 +105,8 @@ try {
         const settingsRow = page.getByTestId("profile-menu-settings");
         await expect(settingsRow).toContainText("Ajustes");
         await settingsRow.click();
+        // Ajustes settles its sections when the profile read answers, and settling reopens it on the first one.
+        await expect(page.getByTestId("settings-window").getByTestId("settings-nav-whatsapp")).toBeVisible();
         await page.getByTestId("settings-window").getByTestId("settings-nav-account").click();
         // A phone opens Cuenta as its own pane over the settings list.
         const cuenta = page.getByTestId(width === 390 ? "settings-pane-account" : "settings-window");
