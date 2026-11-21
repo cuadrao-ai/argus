@@ -21,8 +21,8 @@
 .columns,.row { display:grid; grid-template-columns:var(--columns); align-items:center; column-gap:0; }
 /* Each cell stands where the person put its column: `--col` is its place. The box and Contenido have none, so they stay first. */
 .columns > *,.row > * { order:var(--col,0); }
-.columns { min-height:40px; padding:0; color:var(--muted); font-size:14px; font-weight:500; border-bottom:1px solid var(--line); }
-.columns > span { font-size:13px; }
+.columns,.deletedColumns { min-height:40px; padding:0; color:var(--muted); font-size:14px; font-weight:500; border-bottom:1px solid var(--line); }
+.columns > span,.deletedColumns > span { font-size:13px; }
 .columns > span,.sender,.channel,.state,.arrival,.rowAction,.amountCell,.currencyCell { padding-left:var(--cell-x); padding-right:var(--cell-x); }
 /* Documento starts 16px in: the open row's 3px bar, a 4px gap, the 5px unseen dot and 4px before the title each keep their own lane. */
 .columns > .contentHeading { padding-left:16px; }
@@ -154,7 +154,10 @@
 
 
 
-.toolbar > :not(.search):not(.bulkSlot) { flex-shrink:0; }
+.toolbar > :not(.search):not(.bulkSlot):not(.toolbarHelp) { flex-shrink:0; }
+/* Eliminados' line stands where the filters do, as tall as a control, and the column settings leave their square behind. So the toolbar wraps the same way on every tab, and the list and Agregar stay where they were. */
+.toolbarHelp { display:flex; align-items:center; min-width:0; min-height:44px; font-size:14px; line-height:20px; }
+.settingsSlot { width:44px; height:44px; }
 .toolbar button { white-space:nowrap; }
 .toolbar button svg { flex-shrink:0; }
 
@@ -172,7 +175,6 @@
 .fileCell { display:flex; align-items:center; justify-content:flex-start; min-width:0; padding-left:12px; }
 .fileCell button { margin-left:-13px; }
 .state { padding-top:6px; padding-bottom:6px; }
-.stateReason { display:block; min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; line-height:20px; }
 @container reception (max-width:819px) {
   .identity { grid-row:1; padding-right:44px; }
   .fileCell { grid-column:3; grid-row:1; justify-self:end; width:44px; padding-left:0; justify-content:center; }
@@ -180,7 +182,6 @@
   .fileCell[data-file=false] { display:none; }
   .mobileMoney { display:block; margin-top:2px; font-size:12px; color:var(--muted); }
   .state { padding-top:0; padding-bottom:0; }
-  .stateReason { white-space:normal; overflow:visible; overflow-wrap:anywhere; }
 }
 
 .filterChips { margin-left:-10px; width:calc(100% + 10px); }
@@ -222,8 +223,8 @@
 .list:has(> .deletedColumns) { display:grid; grid-template-columns:minmax(160px,var(--content-cap)) repeat(3,max-content) minmax(max-content,1fr); }
 .list:has(> .deletedColumns) > * { grid-column:1 / -1; }
 .list:has(> .deletedColumns) > ul { display:grid; grid-template-columns:subgrid; min-width:0; }
-.deletedColumns,.deletedRow { display:grid; grid-template-columns:subgrid; grid-column:1 / -1; align-items:center; border-bottom:1px solid var(--line); }
-.deletedColumns { min-height:40px; color:var(--muted); font-size:13px; font-weight:500; }
+.list:has(> .deletedColumns) > ul > li { grid-column:1 / -1; }
+.deletedColumns,.deletedRow { display:grid; grid-template-columns:subgrid; align-items:center; border-bottom:1px solid var(--line); }
 .deletedRow { min-height:var(--row-height); padding:8px 0; font-size:14px; line-height:20px; transition:background-color 140ms ease; }
 .deletedRow:hover,.deletedRow:has(:focus-visible) { background:color-mix(in srgb,var(--fg) 3%,transparent); }
 .deletedColumns > span,.deletedRow > * { min-width:0; padding:0 12px; white-space:nowrap; }
@@ -250,7 +251,9 @@
 @container reception (max-width:819px) {
   .list:has(> .deletedColumns) { display:block; }
   .list:has(> .deletedColumns) > ul { display:block; }
-  .deletedColumns { display:none; }
+  .deletedColumns { display:flex; border-bottom:0; padding-left:16px; }
+  .deletedColumns > span { display:none; }
+  .deletedColumns > :first-child { display:block; padding:0; }
   .deletedRow { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; padding:12px 12px 8px 16px; min-height:0; }
   .deletedRow:last-child { border-bottom:0; }
   .deletedRow > *,.deletedRow > :first-child { padding:0; }

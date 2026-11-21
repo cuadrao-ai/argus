@@ -6,6 +6,7 @@ import type { BusinessDataSource } from "@/components/business-app/business-data
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import { designServerFieldsReception as receptionEvidence } from "../e2e/support/design-server-fields-reception";
 import { receptionRows, rowState, rowTitles, receptionTab, tabCount } from "./support/reception";
+import { noteGroup } from "@/components/business-app/fixture-server-rules";
 
 // The real workspace and panel router over the sample source. The sample's
 // Bandeja holds Ferretería La Esquina and IMG_2209 as new since the last
@@ -34,7 +35,7 @@ afterEach(async () => {
 });
 
 const note = (draft_id: string, text: string, received_at: string): BusinessCapture =>
-  ({ draft_id, version: 2, revision: 1, source_id: `${draft_id}-1`, text, received_at, review_state: "open" });
+  ({ draft_id, version: 2, revision: 1, source_id: `${draft_id}-1`, text, received_at, review_state: "open", bandeja_group: noteGroup("open", draft_id, 2) });
 
 async function mount({ width = 800, overrides = () => ({}), panel }: { width?: number; overrides?: (fixture: BusinessDataSource) => Partial<BusinessDataSource>; panel?: BusinessPanelState } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
@@ -107,7 +108,7 @@ describe("the Bandeja views", () => {
       overrides: (fixture) => ({
         receiptPage: async () => ({
           items: [await fixture.receipt("rcpt-confirmed")],
-          activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0, confirmed_count: 1, dismissed_count: 0 },
+          activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0, confirmed_count: 1, dismissed_count: 0 },
         }),
         emailDeliveries: async () => [],
       }),
@@ -121,7 +122,7 @@ describe("the Bandeja views", () => {
     assert.equal(views.getAttribute("aria-label"), "Vistas de Bandeja");
     const tab = (key: keyof typeof receptionEvidence.tabs) => views.querySelector<HTMLButtonElement>(receptionEvidence.tabs[key]);
     assert.equal(tab("all")?.getAttribute("aria-selected"), "true");
-    for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
+    for (const [key, label] of [["attention", "Por resolver"], ["listos", "Listos"]] as const) {
       assert.equal(tab(key)?.textContent, `${label}0`);
     }
     assert.equal(reception.querySelectorAll(receptionEvidence.alert).length, 0);
@@ -181,7 +182,7 @@ describe("the Bandeja views", () => {
 });
 
 describe("a list that did not load", () => {
-  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
+  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
   const failing = () => {
     const calls = { receipts: 0, notes: 0, emails: 0 };
     let fail = true;
@@ -308,7 +309,7 @@ describe("a list that did not load", () => {
 describe("a list the server refused for good", () => {
   // The Business routes answer 404 business_unavailable and email receiving answers
   // 503 email_capture_unavailable. Asking again gets the same answer.
-  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
+  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
   const BUSINESS_OFF = () => Object.assign(new Error("Business is not available."), { status: 404, code: "business_unavailable" });
   const EMAIL_OFF = () => Object.assign(new Error("Email receiving is unavailable."), { status: 503, code: "email_capture_unavailable" });
   const actions = (page: { host: HTMLElement }) => [...(failureOf(page)?.querySelectorAll("button") ?? [])].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent);
@@ -414,7 +415,8 @@ describe("typed notes in the list", () => {
     assert.equal(rowState(row), "Necesita atención");
     await page.choose("attention");
     assert.equal(noteRows(page).length, 1);
-    assert.equal(noteRows(page)[0].querySelector('[data-testid="reception-reason"]')?.textContent, "Nota escrita");
+    assert.equal(rowState(noteRows(page)[0]), "Necesita atención");
+    assert.doesNotMatch(noteRows(page)[0].textContent ?? "", /Nota escrita/, "the label alone, no reason");
     await page.choose("listos");
     assert.equal(noteRows(page).length, 0);
     await page.choose("all");
@@ -452,15 +454,16 @@ describe("emails in the Bandeja", () => {
   const emailRow = (page: { host: HTMLElement }, text: string) => emailRows(page).find((row) => row.textContent?.includes(text));
   const emailDetail = () => document.querySelector('[data-testid="email-detail"]');
 
-  test("an email that brought no receipt is a Necesitan atención row with its sender, its subject and why", async () => {
+  test("an email that brought no receipt is a Por resolver row with its sender, its subject and its label alone", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.choose("attention");
     assert.equal(emailRows(page).length, 2, "the two that brought none");
-    const boletin = emailRow(page, "Boletín semanal")!;
-    assert.match(boletin.textContent ?? "", /Este tipo de archivo no se puede guardar como recibo/);
-    const farmacia = emailRow(page, "Factura Farmacia Carol")!;
-    assert.match(farmacia.textContent ?? "", /Esta dirección no está activa/);
+    for (const subject of ["Boletín semanal", "Factura Farmacia Carol"]) {
+      const row = emailRow(page, subject)!;
+      assert.equal(rowState(row), "Necesita atención");
+      assert.doesNotMatch(row.textContent ?? "", /Este tipo de archivo no se puede guardar como recibo|Esta dirección no está activa/, "why it brought nothing waits in the record");
+    }
   });
 
   test("Todos lists every email that brought no receipt beside the receipts, and an email whose file became a receipt is no row of its own", async () => {
@@ -477,7 +480,7 @@ describe("emails in the Bandeja", () => {
     await page.choose("listos");
     assert.equal(emailRows(page).length, 0, "Listos holds no email");
     await page.choose("attention");
-    assert.equal(emailRows(page).some((row) => row.textContent?.includes("Recibo de combustible")), false, "Necesitan atención holds no read still running");
+    assert.equal(emailRows(page).some((row) => row.textContent?.includes("Recibo de combustible")), false, "Por resolver holds no read still running");
     await page.choose("all");
     const reading = emailRows(page).find((row) => row.textContent?.includes("Recibo de combustible"));
     assert.ok(reading);

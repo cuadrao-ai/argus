@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
+from argus.domain.business.bandeja_group import email_group
 from argus.domain.ingestion.email_intake.models import EmailDelivery, EmailDeliveryPart
 from argus.domain.ingestion.email_intake.standing import email_row, email_standing
 
@@ -149,6 +150,9 @@ def test_where_an_email_stands(state, original, parts, repeats, expected):
         delivery(state, original), parts, lambda each: each.id in repeats
     )
     assert standing == expected
+    # The Bandeja label follows the standing: an email is never ready or accepted.
+    label = {"reading": "reading", "no_receipt": "needs_attention", None: None}
+    assert email_group(standing)["label"] == label[expected]
 
 
 def test_a_repeat_is_only_looked_up_when_it_could_change_the_answer():

@@ -40,7 +40,7 @@ for (const theme of ["light", "dark"] as const) for (const width of [1440, 390])
       if (parts[0] === "setup") return source.setup!();
       if (parts[0] === "drafts" && parts[2] === "dossier") return source.dossier(parts[1]).then(dossier => ({ ...dossier, sources: dossier.sources.map(item => item.kind === "attachment" ? { ...item, media_type: receipt.media_type, filename: receipt.filename } : item) }));
       if (parts[0] !== "receipts") return undefined;
-      if (parts.length === 1) return source.receiptPage!("all").then(result => ({ ...result, items: [receipt], activity: { ...result.activity, reading_count: 0, unread_count: 1, pending_review_count: 1, needs_attention_count: 1, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 0, bandeja_eliminados_count: 0 } }));
+      if (parts.length === 1) return source.receiptPage!("all").then(result => ({ ...result, items: [receipt], activity: { ...result.activity, reading_count: 0, unread_count: 1, pending_review_count: 1, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 0, bandeja_eliminados_count: 0 } }));
       if (parts[1] !== receipt.id) return undefined;
       if (parts.length === 2) return Promise.resolve(receipt);
       if (parts[2] === "read") return source.markReceiptRead!(receipt.id, route.request().postDataJSON().completion_cursor).then(activity => { receipt.activity = activity; return activity; });

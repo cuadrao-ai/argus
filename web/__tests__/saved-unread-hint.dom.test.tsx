@@ -53,13 +53,14 @@ async function mount(node: (React: typeof import("react")) => import("react").Re
 }
 
 describe("a receipt saved without a read never looks stuck", () => {
-  test("the Bandeja row reads Guardado, sin leer; the full sentence waits in the record", async () => {
+  test("the Bandeja row says it needs attention and no more; the full sentence waits in the record", async () => {
     const { default: BusinessInboxPanel } = await import("@/components/business-app/BusinessInboxPanel");
-    const page = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ bandeja_group: { group: "attention", reason: "not_read", draft_id: null, version: null } })]);
+    const page = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ bandeja_group: { group: "attention", reason: "not_read", label: "needs_attention", draft_id: null, version: null } })]);
     await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
     assert.equal(rowState(receptionRows(page.host)[0]), "Necesita atención");
     await page.act(async () => receptionTab(page.host, "attention")!.click());
-    assert.equal(receptionRows(page.host)[0].querySelector('[data-testid="reception-reason"]')?.textContent, "Guardado, sin leer");
+    assert.equal(rowState(receptionRows(page.host)[0]), "Necesita atención");
+    assert.ok(!page.host.textContent?.includes("Guardado, sin leer"));
     assert.ok(!page.host.textContent?.includes(HINT));
     assert.ok(!page.host.textContent?.includes("sin preparar"));
     await page.act(async () => page.root.unmount());
@@ -67,7 +68,7 @@ describe("a receipt saved without a read never looks stuck", () => {
 
   test("a receipt being read keeps its own words on the row", async () => {
     const { default: BusinessInboxPanel } = await import("@/components/business-app/BusinessInboxPanel");
-    const reading = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ status: "queued", activity: { state: "reading", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true }, bandeja_group: { group: "attention", reason: "reading", draft_id: null, version: null } })]);
+    const reading = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ status: "queued", activity: { state: "reading", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true }, bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null } })]);
     await reading.act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
     assert.match(rowState(receptionRows(reading.host)[0]), /^Leyendo…/);
     assert.ok(!reading.host.textContent?.includes("Guardado, sin leer"));

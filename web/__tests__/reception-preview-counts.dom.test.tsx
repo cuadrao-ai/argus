@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { BusinessCapture, GrantedSpace, ListoApproval, ListoItem, ReceiptActivity, ReceiptSummary } from "@/lib/business-api";
+import type { BusinessCapture, GrantedSpace, ListoApproval, ListoItem, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 
@@ -19,7 +21,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const OWNER_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "approve", "manage", "assign_owner", "download", "export"];
 const EDITOR_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "download", "export"];
 
-async function mount({ width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead, bar = false, approveListos, receiptsOnly = false }: { approveListos?: BusinessDataSource["approveListos"]; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity>; bar?: boolean; receiptsOnly?: boolean } = {}) {
+async function mount({ width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead, bar = false, approveListos, receiptsOnly = false, extraNotes = [], activity }: { approveListos?: BusinessDataSource["approveListos"]; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity>; bar?: boolean; receiptsOnly?: boolean; extraNotes?: BusinessCapture[]; activity?: Partial<ReceiptActivityCounts> } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 1000 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -33,15 +35,15 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } }, interpolation: { escapeValue: false } });
   const seed = (await source.receipts("all"))[0];
   let receipts: ReceiptSummary[] = tweak([
-    { ...seed, id: "review-receipt", merchant: "Recibo admitido", bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "attention", reason: "missing_ncf", draft_id: "draft-review", version: 2 } },
-    { ...seed, id: "reading-receipt", merchant: "Recibo en lectura", status: "queued", bandeja: { por_revisar: false, leyendo: true, con_problema: false }, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } },
-    { ...seed, id: "problem-receipt", merchant: "Recibo con problema", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
-    ...["uno", "dos", "tres"].map((name, index) => ({ ...seed, id: `listo-${name}`, merchant: `Listo ${name}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo" as const, reason: null, draft_id: `draft-${name}`, version: index + 1 } })),
+    { ...seed, id: "review-receipt", merchant: "Recibo admitido", bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "attention", reason: "missing_ncf", label: "needs_attention", draft_id: "draft-review", version: 2 } },
+    { ...seed, id: "reading-receipt", merchant: "Recibo en lectura", status: "queued", bandeja: { por_revisar: false, leyendo: true, con_problema: false }, bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null } },
+    { ...seed, id: "problem-receipt", merchant: "Recibo con problema", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
+    ...["uno", "dos", "tres"].map((name, index) => ({ ...seed, id: `listo-${name}`, merchant: `Listo ${name}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo" as const, reason: null, label: "ready" as const, draft_id: `draft-${name}`, version: index + 1 } })),
   ]);
-  const notes: BusinessCapture[] = receiptsOnly ? [] : [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open" }];
+  const notes: BusinessCapture[] = receiptsOnly ? [] : [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open", bandeja_group: { group: "attention", reason: "not_read", label: "needs_attention", draft_id: "admitted-note", version: 1 } }, ...extraNotes];
   const emails = receiptsOnly ? [] : (await source.emailDeliveries()).filter(email => email.id === "email-boletin" || email.id === "email-estacion");
   assert.equal(emails.length, receiptsOnly ? 0 : 2);
-  const globalActivity = { reading_count: 92, unread_count: 94, presentation: "unread" as const, pending_review_count: 95, needs_attention_count: 93, ready_to_review_count: 91, bandeja_attention_count: 96, bandeja_listo_count: 97 };
+  const globalActivity = { reading_count: 92, unread_count: 94, presentation: "unread" as const, pending_review_count: 95, ready_to_review_count: 91, bandeja_attention_count: 96, bandeja_listo_count: 97, ...activity };
   const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: !prepare ? ["read"] : role === "owner" ? ["read", "prepare", "approve"] : ["read", "prepare"], permissions: permissions ?? (role === "owner" ? OWNER_PERMISSIONS : EDITOR_PERMISSIONS), access_seen: true };
   let uploads = 0;
   let reloads = 0;
@@ -65,7 +67,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   const badge = (key: string) => tab(key)?.querySelector("span")?.textContent;
   const row = (name: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')].find(element => element.textContent?.includes(name));
   const remount = async () => { await act(async () => root.unmount()); const again = createRoot(host); await act(async () => { again.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Inbox /></BusinessContext.Provider></I18nextProvider>); }); cleanup = async () => { await act(async () => again.unmount()); host.remove(); }; await settle(() => host.querySelector('[data-testid="reception-row"]') !== null); };
-  return { host, context, opened, remount, uploads: () => uploads, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); }); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
+  return { host, context, opened, remount, uploads: () => uploads, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); }); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", label: "needs_attention" as const, draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
 }
 
 const rows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')];
@@ -126,7 +128,7 @@ test("the Bandeja opens on Todos with its four tabs, and nothing else from the o
   assert.deepEqual([...page.host.querySelectorAll("#reception-list > div:first-child > span:not(.sr-only)")].map(cell => cell.textContent).filter(Boolean), ["Contenido", "Adjunto", "Canal", "Canal", "Estado", "Llegada"], "Monto, Moneda and Remitente stay off; the second Canal is the heading the width swaps in");
 });
 
-const EMPTY_TITLE = { attention: "Nada necesita atención", listos: "No hay recibos listos", eliminados: "No hay documentos eliminados" } as const;
+const EMPTY_TITLE = { attention: "Nada por resolver", listos: "No hay recibos listos", eliminados: "No hay documentos eliminados" } as const;
 const BUSINESSES: Record<string, Record<keyof typeof EMPTY_TITLE, (receipts: ReceiptSummary[]) => ReceiptSummary[]>> = {
   "no documents": { attention: () => [], listos: () => [], eliminados: () => [] },
   "documents in Todo": { attention: receipts => receipts.filter(receipt => receipt.bandeja_group?.group === "listo"), listos: receipts => receipts.filter(receipt => receipt.bandeja_group?.group !== "listo"), eliminados: receipts => receipts },
@@ -139,6 +141,7 @@ for (const [business, tweaks] of Object.entries(BUSINESSES)) for (const view of 
   await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
   const empty = page.host.querySelector('[data-testid="reception-empty"]');
   assert.equal(empty?.querySelector("h3")?.textContent, EMPTY_TITLE[view]);
+  if (view === "attention") assert.equal(empty?.querySelector("p")?.textContent, "Cuando un documento necesite atención o no se pueda leer, aparece aquí.");
   assert.doesNotMatch(empty?.textContent ?? "", /Ver todo/, "Todas las fechas already widens the list; the empty tab adds no second way back");
 });
 
@@ -147,6 +150,25 @@ test("the tab numbers are the server's, not a count of the rows loaded", async (
   assert.deepEqual([page.badge("attention"), page.badge("listos")], ["96", "97"]);
   await page.click(page.tab("listos"));
   assert.deepEqual([page.badge("attention"), page.badge("listos")], ["96", "97"], "the active view does not move the numbers");
+});
+
+test("every row sits on the tab its server group names, so each tab shows as many rows as its number", async () => {
+  // As the server counts this Business: Listos holds the three receipts and the note being approved; Por resolver holds two receipts, the open note and the email that brought nothing; the receipt and the email still being read are on Todos only.
+  const accepting: BusinessCapture = { draft_id: "accepting-note", source_id: "accepting-source", version: 2, revision: 2, text: "Nota en aprobación", received_at: "2026-10-27T12:00:00Z", review_state: "accepting", bandeja_group: { group: "listo", reason: null, label: "ready", draft_id: null, version: null } };
+  const page = await mount({ extraNotes: [accepting], activity: { bandeja_attention_count: 4, bandeja_listo_count: 4 } });
+  assert.equal(rows(page).length, 10, "six receipts, two notes and two emails on Todos");
+  for (const view of ["attention", "listos"] as const) {
+    await page.click(page.tab(view));
+    assert.equal(String(rows(page).length), page.badge(view), view);
+  }
+  assert.ok(page.row("Nota en aprobación"), "the note being approved is on Listos");
+  await page.click(page.tab("attention"));
+  assert.equal(page.row("Nota en aprobación"), undefined, "and not on Por resolver");
+  assert.ok(page.row("Nota admitida"));
+  const emails = () => rows(page).filter(row => row.getAttribute("data-kind") === "email").map(row => row.textContent?.includes("Boletín semanal") ? "boletin" : "other");
+  assert.deepEqual(emails(), ["boletin"], "the email that brought nothing needs attention; the one being read does not");
+  await page.click(page.tab("listos"));
+  assert.deepEqual(emails(), [], "no email is Listos");
 });
 
 test("a receipt is unseen only when the server says its activity is unread, and never marks anything locally", async () => {
@@ -243,30 +265,80 @@ test("the tabs own status: Filtros adds nothing for a tab and the four tabs stay
   assert.equal(page.host.querySelectorAll('[role="tab"][id^="reception-tab-"]').length, 4);
 });
 
-test("the state column is Estado with the tag on Todos, Motivo with the plain reason on Necesitan atención, and gone on Listos", async () => {
-  const page = await mount();
-  const heading = (word: string) => [...page.host.querySelectorAll("#reception-list > div:first-child > span")].some(cell => cell.textContent === word);
-  const estado = () => heading("Estado");
-  const row = () => page.row("Recibo con problema")!;
-  assert.equal(estado(), true);
-  assert.equal(row().querySelector('[data-testid="status-pill"]')?.textContent, "Necesita atención");
-  assert.equal(row().querySelector('[data-testid="reception-reason"]'), null, "the tag alone on Todos");
-  assert.equal(heading("Motivo"), false);
+const LABELS = [
+  ["Recibo en lectura", "reading", "Leyendo…", "neutral"],
+  ["Recibo con problema", "cant_read", "No se pudo leer", "attention"],
+  ["Recibo admitido", "needs_attention", "Necesita atención", "caution"],
+  ["Listo uno", "ready", "Listo para aceptar", "toAccept"],
+  ["Recibo aceptado", "accepted", "Aceptado", "approved"],
+] as const;
+const withAccepted = (receipts: ReceiptSummary[]): ReceiptSummary[] => [...receipts, { ...receipts[0], id: "accepted-receipt", merchant: "Recibo aceptado", status: "confirmed", bandeja: { por_revisar: false, leyendo: false, con_problema: false }, bandeja_group: { group: null, reason: null, label: "accepted", draft_id: null, version: null } }];
+const heading = (page: Awaited<ReturnType<typeof mount>>, word: string) => [...page.host.querySelectorAll("#reception-list > div:first-child > span")].some(cell => cell.textContent === word);
+const pill = (row: Element | undefined) => row?.querySelector<HTMLElement>('[data-testid="status-pill"]') ?? null;
+/** What a row's Estado cell says, all of it: the pill and anything beside it. */
+const stateCell = (row: Element) => pill(row)?.parentElement?.textContent ?? null;
+
+test("Todos shows each of the server's five labels as a pill with its words and its tone", async () => {
+  const page = await mount({ tweak: withAccepted });
+  assert.equal(heading(page, "Estado"), true);
+  for (const [name, label, words, tone] of LABELS) {
+    const shown = pill(page.row(name));
+    assert.equal(shown?.textContent, words, label);
+    assert.equal(shown?.className, `workflow ${tone}`, label);
+    assert.equal(shown?.getAttribute("data-label"), label);
+  }
+  assert.equal(new Set(LABELS.map(([, , , tone]) => tone)).size, 5, "no two labels share a tone");
+});
+
+test("the pill is the server's label and nothing the web works out from the row", async () => {
+  // A row whose status and reason say one thing and whose label says another: the label wins. A row the server gave no label shows no pill.
+  const page = await mount({ tweak: receipts => receipts.map(receipt => receipt.id === "problem-receipt" ? { ...receipt, bandeja_group: { ...receipt.bandeja_group!, label: "ready" as const } } : receipt.id === "review-receipt" ? { ...receipt, bandeja_group: { ...receipt.bandeja_group!, label: null } } : receipt) });
+  assert.equal(pill(page.row("Recibo con problema"))?.textContent, "Listo para aceptar");
+  assert.ok(page.row("Recibo admitido"));
+  assert.equal(pill(page.row("Recibo admitido")), null);
+});
+
+test("Por resolver holds the rows that could not be read or need attention, under Estado with the label alone", async () => {
+  const page = await mount({ tweak: withAccepted });
+  assert.equal(page.tab("attention")?.firstChild?.textContent, "Por resolver");
   await page.click(page.tab("attention"));
-  assert.equal(heading("Motivo"), true, "every row here needs attention, so the column names why");
-  assert.equal(estado(), false);
+  assert.equal(heading(page, "Estado"), true);
+  assert.equal(heading(page, "Motivo"), false);
+  assert.deepEqual(rows(page).map(row => pill(row)?.getAttribute("data-label")).sort(), ["cant_read", "needs_attention", "needs_attention", "needs_attention"], "two receipts, the open note and the email that brought nothing");
+  for (const row of rows(page)) assert.ok(["No se pudo leer", "Necesita atención"].includes(stateCell(row) ?? ""), `the cell says the label and no reason: ${stateCell(row)}`);
   await page.click(page.host.querySelector<HTMLButtonElement>('button[aria-label="Opciones de vista"]'));
   const columns = [...document.querySelectorAll('section[aria-label="Columnas"] li')].map(item => item.textContent);
-  assert.ok(columns.some(text => text?.startsWith("Motivo")), "the settings name the column as the header does");
-  assert.ok(!columns.some(text => text?.startsWith("Estado")));
-  assert.equal(row().querySelector('[data-testid="status-pill"]'), null, "no tag where the tab already says it");
-  assert.equal(row().querySelector('[data-testid="reception-reason"]')?.textContent, "No se pudo leer");
-  assert.equal(page.row("Recibo en lectura"), undefined, "a read still running shows only on Todos");
+  assert.ok(columns.some(text => text?.startsWith("Estado")), "the settings name the column as the header does");
+  assert.ok(!columns.some(text => text?.startsWith("Motivo")));
+});
+
+test("Listos has no status column", async () => {
+  const page = await mount();
   await page.click(page.tab("listos"));
-  assert.equal(estado(), false);
-  assert.equal(heading("Motivo"), false);
-  assert.equal(page.row("Listo uno")?.querySelector('[data-testid="status-pill"]'), null);
-  assert.equal(page.row("Listo uno")?.querySelector('[data-testid="reception-reason"]'), null);
+  assert.equal(heading(page, "Estado"), false);
+  assert.equal(rows(page).length, 3);
+  assert.ok(rows(page).every(row => pill(row) === null));
+});
+
+test("no row on any tab shows a reason", async () => {
+  const page = await mount({ tweak: withAccepted });
+  const es = (await import("@/public/locales/es-419/common.json")).default as unknown as Record<string, unknown>;
+  const { BANDEJA_REASON_KEY } = await import("@/components/business-app/recepcion/reception-status");
+  const said = (key: string) => key.split(".").reduce<unknown>((node, part) => (node as Record<string, unknown>)?.[part], es) as string;
+  const words = new Set(LABELS.map(([, , text]) => text));
+  // "No se pudo leer" is both a label and a reason; the cell check below covers it.
+  const reasons = [...new Set([...Object.values(BANDEJA_REASON_KEY).map(said), ...Object.values((es.business as { email: { no_receipt_reason: Record<string, string> } }).email.no_receipt_reason)])].filter(text => !words.has(text));
+  assert.ok(reasons.includes("Falta el NCF") && reasons.includes("Nota escrita") && reasons.length > 30);
+  for (const view of ["all", "attention", "listos"] as const) {
+    await page.click(page.tab(view));
+    assert.ok(rows(page).length > 0);
+    assert.equal(page.host.querySelector('[data-testid="reception-reason"]'), null);
+    for (const row of rows(page)) {
+      const cell = stateCell(row);
+      if (cell !== null) assert.ok(words.has(cell), `${view}: ${cell}`);
+      for (const reason of reasons) assert.ok(!row.textContent?.includes(reason), `${view}: ${reason}`);
+    }
+  }
 });
 
 test("the file button names the file in one tooltip and keeps its label", async () => {
@@ -594,4 +666,62 @@ test("on a phone the original covers the page: a tap on its header opens nothing
   await page.act(async () => sheet()!.querySelector<HTMLButtonElement>('button[aria-label="Cerrar"]')!.click());
   assert.equal(sheet(), null);
   assert.deepEqual(page.opened, [], "closing opens nothing either");
+});
+
+const DELETION = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez", shown_as: "name" as const }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
+const withDeleted = (receipts: ReceiptSummary[]): ReceiptSummary[] => [...receipts, { ...receipts[0], id: "deleted-receipt", merchant: "Recibo eliminado", status: "dismissed", deleted: DELETION, restore_available: true, bandeja: { por_revisar: false, leyendo: false, con_problema: false }, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } }];
+const deletedRows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="deleted-document-row"]')];
+const toolbar = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector<HTMLElement>('[data-surface-block="toolbar"]')!;
+const LIST_CONTROLS: Record<string, (page: Awaited<ReturnType<typeof mount>>) => Element | null | undefined> = {
+  "the arrival date": page => toolbar(page).querySelector('[role="group"][aria-label="Fecha de llegada"]'),
+  Filtros: page => [...toolbar(page).querySelectorAll("button")].find(button => button.textContent?.includes("Filtros")),
+  "the filter chips": page => page.host.querySelector('[data-testid="reception-filter-chips"]'),
+  "the column settings": page => toolbar(page).querySelector('[data-testid="transacciones-view-options"]'),
+  "Revisar recibos": page => toolbar(page).querySelector('[data-testid="business-primary-review"]'),
+};
+
+for (const width of [1440, 390]) test(`Eliminados at ${width}px keeps search and puts its help where the filters were`, async () => {
+  const page = await mount({ width, role: "accountant", tweak: withDeleted });
+  const search = () => toolbar(page).querySelector('input[type="search"]');
+  for (const [name, find] of Object.entries(LIST_CONTROLS)) assert.ok(find(page), `Todos shows ${name}`);
+  assert.equal(!!search(), width < 768, "a phone searches from the toolbar, a wide screen from the top bar");
+  await page.click(page.tab("eliminados"));
+  await page.settle(() => deletedRows(page).length === 1);
+  for (const [name, find] of Object.entries(LIST_CONTROLS)) assert.ok(!find(page), `Eliminados hides ${name}`);
+  assert.equal(!!search(), width < 768, "search stays where it was");
+  assert.equal(toolbar(page).querySelector('[data-testid="deleted-list-help"]')?.textContent, "No cuentan en ningún total. Se borran definitivamente 7 días después.");
+  assert.equal(page.host.textContent?.split("No cuentan en ningún total.").length, 2, "the help shows once");
+  await page.click(page.tab("all"));
+  for (const [name, find] of Object.entries(LIST_CONTROLS)) assert.ok(find(page), `back on Todos, ${name} returns`);
+  assert.equal(page.host.querySelector('[data-testid="deleted-list-help"]'), null);
+});
+
+test("a filter set on Todos does not narrow Eliminados, where only search applies", async () => {
+  const page = await mount({ tweak: withDeleted });
+  await filterSender(page, "noticias@proveedor.example");
+  assert.deepEqual(rows(page).map(row => row.textContent?.includes("Boletín semanal")), [true], "the filter narrows Todos");
+  await page.click(page.tab("eliminados"));
+  await page.settle(() => deletedRows(page).length === 1);
+  assert.match(deletedRows(page)[0].textContent ?? "", /Recibo eliminado/);
+  await page.click(page.tab("all"));
+  assert.equal(rows(page).length, 1, "Todos keeps its filter");
+  assert.match(page.host.querySelector('[data-testid="reception-filter-chips"]')?.textContent ?? "", /noticias@proveedor\.example/);
+});
+
+test("an empty Eliminados says it is empty even when Todos is filtered", async () => {
+  const page = await mount();
+  await filterSender(page, "noticias@proveedor.example");
+  await page.click(page.tab("eliminados"));
+  await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
+  assert.match(page.host.querySelector('[data-testid="reception-empty"]')?.textContent ?? "", /No hay documentos eliminados/);
+});
+
+test("Eliminados' loading rows span the whole list, not one of its columns", async () => {
+  const page = await mount({ tweak: withDeleted });
+  page.context.source.captures = () => new Promise(() => {});
+  await page.click(page.tab("eliminados"));
+  const pending = page.host.querySelector('#reception-list:has(> [data-testid="deleted-columns"]) > ul[data-testid="reception-pending"]');
+  assert.equal(pending?.querySelectorAll(":scope > li").length, 5, "the wait keeps its five rows under the Eliminados headings");
+  const css = readFileSync(join(import.meta.dir, "../components/business-app/recepcion/reception.module.css"), "utf-8");
+  assert.ok(/^\.list:has\(> \.deletedColumns\) > ul > li \{ grid-column:1 \/ -1; \}$/m.test(css), "every row of the Eliminados grid, loading or loaded, takes the full line");
 });

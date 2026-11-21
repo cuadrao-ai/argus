@@ -15,7 +15,7 @@ const cleanups: (() => Promise<void>)[] = [];
 let restorePurged = false;
 afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; restorePurged = false; });
 
-async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false) {
+async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false, extra: (rows: { ready: ReceiptDetail; blurry: ReceiptDetail }) => ReceiptDetail[] = () => [], readingOff = false) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -38,9 +38,11 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     { ...ready, id: "reading", merchant: "Documento leyendo", delete_available: false, bandeja_group: { group: "reading", reason: null, draft_id: null, version: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } },
     { ...ready, id: "approved", merchant: "Documento aprobado", status: "confirmed", delete_available: false, bandeja_group: { group: null, reason: null, draft_id: null, version: null } },
     { ...(deletedDossier ? ready : blurry), id: "deleted", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } },
+    ...extra({ ready, blurry }),
   ];
+  const listed = items.filter(item => !item.deleted).length;
   let notes: BusinessCapture[] = Array.from({ length: noteCount }, (_, index) => ({ draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2, revision: 1, source_id: `note-source-${index}`, text: index === 50 ? "Documento antiguo" : index ? `Documento anotado ${index}` : "Documento anotado", received_at: new Date(Date.UTC(2026, 10, 12, 9) - index * 60_000).toISOString(), review_state: "dismissed", deleted: deletion, delete_available: false, restore_available: true, bandeja_group: { group: "eliminados", reason: null, draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2 } }));
-  const counts = (): ReceiptActivityCounts => ({ reading_count: 1, unread_count: 0, presentation: "none", pending_review_count: 3, needs_attention_count: 1, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 1, bandeja_eliminados_count: 11 });
+  const counts = (): ReceiptActivityCounts => ({ reading_count: 1, unread_count: 0, presentation: "none", pending_review_count: 3, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 1, bandeja_eliminados_count: 11 });
   const captureOffsets: number[] = [];
   const calls: { id: string; key: string }[] = [];
   const restores: string[] = [];
@@ -71,6 +73,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     receiptSource: async () => new Blob([Buffer.from(PREVIEW_PNG, "base64")], { type: "image/png" }),
     uploadReceipt: async () => items.find(item => item.id === "deleted")!,
     emailDeliveries: async () => [],
+    ...(readingOff ? { receiptReading: async () => ({ scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Texto sintético.", disclosure_token: null, route: null, consented_at: null, revoked_at: null }) } : {}),
     deleteDocument: async (id, key) => {
       calls.push({ id, key });
       if (failFirst && calls.length === 1) throw new Error("synthetic outage");
@@ -110,7 +113,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   };
   await act(async () => api!.openPanel({ kind: "inbox" }));
   await wait(() => api!.chosen !== null && api!.records.receiptActivity?.bandeja_eliminados_count === 11);
-  await wait(() => document.querySelectorAll('[data-testid="reception-row"]').length === 4);
+  await wait(() => document.querySelectorAll('[data-testid="reception-row"]').length === listed);
   const click = async (element: HTMLElement | null) => { assert.ok(element); await act(async () => element!.click()); };
   const button = (label: string, within: ParentNode = document) => [...within.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === label) ?? null;
   return { act, wait, click, button, calls, restores, purges, captureOffsets, source, items, api: () => api! };
@@ -134,6 +137,15 @@ test("trash belongs only to the server attention row and only the owner", async 
     }
     await cleanups.pop()!(); document.body.innerHTML = "";
   }
+});
+
+test("the row trash follows the server's delete_available: a read the limit holds keeps it, a read in progress and an approval in flight do not", async () => {
+  await mount("owner", false, 0, false, ({ ready, blurry }) => [
+    { ...blurry, id: "held", merchant: "Documento retenido", filename: "Documento retenido", status: "needs_attention", attention: "read_budget_day", delete_available: true, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } },
+    { ...ready, id: "accepting", merchant: "Documento aprobandose", delete_available: false, bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } },
+  ]);
+  const trash = () => [...document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Eliminar "]')].map(node => node.getAttribute("aria-label"));
+  assert.deepEqual(trash().sort(), ["Eliminar Documento equivocado", "Eliminar Documento retenido"]);
 });
 
 test("a Todos row puts Abrir next to its content and the trash last, at the far right", async () => {
@@ -231,7 +243,7 @@ test("Eliminados uses the server count, lists provenance and restores with a Ver
   assert.match(tab.textContent ?? "", /11/);
   await page.click(tab);
   const row = document.querySelector('[data-testid="deleted-document-row"]')!;
-  assert.match(row.textContent ?? "", /Documento eliminado.*Necesitan atención.*María Pérez/);
+  assert.match(row.textContent ?? "", /Documento eliminado.*Por resolver.*María Pérez/);
   await page.click(page.button("Restaurar", row));
   await page.wait(() => !document.querySelector('[data-testid="deleted-document-row"]'));
   assert.deepEqual(page.restores, ["deleted"]);
@@ -381,6 +393,16 @@ test("Eliminados lines each row up with its headers: who on one line, when on it
   const actions = row.lastElementChild!;
   assert.deepEqual([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label") ?? button.textContent), ["Ver", "Restaurar", "Borrar definitivamente Documento eliminado"]);
   assert.equal(actions.querySelector('[data-testid="purge-document"]')!.textContent, "", "the hidden action is an icon at the far right, so showing it moves nothing");
+});
+
+test("the reading notice keeps its place on Eliminados, so the list under it does not move between tabs", async () => {
+  const page = await mount("owner", false, 0, false, () => [], true);
+  const notice = () => document.querySelector('[data-testid="receipt-reading-control"]');
+  await page.wait(() => !!notice());
+  const onTodos = notice();
+  await page.click(document.getElementById("reception-tab-eliminados"));
+  await page.wait(() => !!document.querySelector('[data-testid="deleted-document-row"]'));
+  assert.equal(notice(), onTodos, "the same notice stays mounted, with no second read of the setting");
 });
 
 test("Eliminados counts down to the server's purge day", async () => {

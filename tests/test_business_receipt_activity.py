@@ -109,7 +109,6 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
     closed = {"confirmed_count": 1, "dismissed_count": 0, "bandeja_eliminados_count": 0}
     assert inbox_counts(views) == {
         "pending_review_count": 2,
-        "needs_attention_count": 1,
         "ready_to_review_count": 2,
         "bandeja_listo_count": 0,
         "bandeja_attention_count": 2,
@@ -118,7 +117,6 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
     }
     assert inbox_counts(views, notes=1, emails=["no_receipt", "no_receipt"]) == {
         "pending_review_count": 5,
-        "needs_attention_count": 3,
         "ready_to_review_count": 3,
         "bandeja_listo_count": 0,
         "bandeja_attention_count": 5,
@@ -127,7 +125,6 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
     }
     assert inbox_counts(views, emails=["reading", "no_receipt", "reading"]) == {
         "pending_review_count": 5,
-        "needs_attention_count": 2,
         "ready_to_review_count": 2,
         "bandeja_listo_count": 0,
         "bandeja_attention_count": 3,
@@ -209,7 +206,6 @@ def test_each_bandeja_count_is_the_sum_of_its_flag_over_the_receipts():
     counts = {**inbox_counts(views, notes=2), **aggregate_activity(views)}
     rows = flags.values()
     assert counts["ready_to_review_count"] == sum(f["por_revisar"] for f in rows) + 2
-    assert counts["needs_attention_count"] == sum(f["con_problema"] for f in rows)
     assert counts["reading_count"] == sum(f["leyendo"] for f in rows)
     assert (counts["confirmed_count"], counts["dismissed_count"]) == (1, 1)
 

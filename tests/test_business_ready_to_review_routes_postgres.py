@@ -24,6 +24,11 @@ from tests.test_business_reading_setting_postgres import (  # noqa: F401
 from tests.test_business_scope_switch_routes_postgres import API, PERIOD, _note
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 def _get(web, path: str, **params):  # noqa: ANN001, ANN202, F811
     answer = web.client.get(f"{API}{path}", params=params, headers=web.alice.headers)
     assert answer.status_code == 200, (path, answer.text)
