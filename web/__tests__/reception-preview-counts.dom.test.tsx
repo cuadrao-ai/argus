@@ -41,7 +41,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   const notes: BusinessCapture[] = receiptsOnly ? [] : [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open" }];
   const emails = receiptsOnly ? [] : (await source.emailDeliveries()).filter(email => email.id === "email-boletin" || email.id === "email-estacion");
   assert.equal(emails.length, receiptsOnly ? 0 : 2);
-  const globalActivity = { reading_count: 92, unread_count: 94, presentation: "unread" as const, pending_review_count: 95, needs_attention_count: 93, ready_to_review_count: 91, bandeja_attention_count: 96, bandeja_listo_count: 97 };
+  const globalActivity = { reading_count: 92, unread_count: 94, presentation: "unread" as const, pending_review_count: 95, ready_to_review_count: 91, bandeja_attention_count: 96, bandeja_listo_count: 97 };
   const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: !prepare ? ["read"] : role === "owner" ? ["read", "prepare", "approve"] : ["read", "prepare"], permissions: permissions ?? (role === "owner" ? OWNER_PERMISSIONS : EDITOR_PERMISSIONS), access_seen: true };
   let uploads = 0;
   let reloads = 0;

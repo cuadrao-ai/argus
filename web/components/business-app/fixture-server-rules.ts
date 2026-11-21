@@ -64,7 +64,6 @@ export function servedCounts(views: readonly ListedReceipt[], notes: number, sta
     ready_to_review_count: flagged("por_revisar") + notes,
     bandeja_listo_count: listos,
     bandeja_attention_count: pending - listos - reading,
-    needs_attention_count: flagged("con_problema") + emails.filter((standing) => standing === "no_receipt").length,
     confirmed_count: rows.filter((row) => !row.email_original && row.status === "confirmed").length,
     dismissed_count: rows.filter((row) => !row.email_original && row.status === "dismissed").length,
   };

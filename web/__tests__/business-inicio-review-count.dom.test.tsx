@@ -52,7 +52,7 @@ async function mount(waiting: number | null, showReports = true) {
   } as unknown as BusinessContextValue;
   const activity = (count: number | null) => count === null ? null : {
     reading_count: 0, unread_count: 0, presentation: "none" as const,
-    pending_review_count: count, needs_attention_count: 0, ready_to_review_count: count,
+    pending_review_count: count, ready_to_review_count: count,
     bandeja_attention_count: 0, bandeja_listo_count: count,
   };
   context = { ...context, records: { ...context.records, receiptActivity: activity(waiting) } };

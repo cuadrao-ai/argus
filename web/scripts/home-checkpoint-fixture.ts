@@ -82,7 +82,7 @@ Bun.serve({ hostname: '127.0.0.1', port: Number(process.env.EVIDENCE_FIXTURE_POR
   if (path === '/api/v1/business/overview') return json(await source.overview(url.searchParams.get('from') ?? '2026-10-01', url.searchParams.get('to')));
   if (path === '/api/v1/business/receipts') {
     const page = await source.receiptPage!(url.searchParams.get('view') === 'all' ? 'all' : 'inbox');
-    if (run.inbox === 'zero') return json({ ...page, items: [], activity: { ...page.activity, ready_to_review_count: 0, needs_attention_count: 0, reading_count: 0 } });
+    if (run.inbox === 'zero') return json({ ...page, items: [], activity: { ...page.activity, ready_to_review_count: 0, reading_count: 0 } });
     return json(page);
   }
   if (path === '/api/v1/business/captures') return json(await source.captures());

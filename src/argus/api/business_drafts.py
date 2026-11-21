@@ -569,7 +569,7 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
             and view.get("delete_available", True)
             and view["status"] not in ("confirmed", "dismissed")
             and not view.get("read_pending")
-            and (view.get("bandeja_group") or {}).get("group") in ("attention", "listo"),
+            and (view.get("bandeja_group") or {}).get("group") is not None,
             "restore_available": can_delete and view.get("deleted") is not None,
         }
         for view in views
@@ -632,8 +632,6 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
 
     data = context.service.overview(context.scope, start, end)
     counts = inbox(context, receipt_summaries(context, "all"))
-    data["needs_attention"] = counts["needs_attention_count"]
-    data["awaiting_review"] = counts["pending_review_count"] - data["needs_attention"]
     data["ready_to_review_count"] = counts["ready_to_review_count"]
     data["bandeja_listo_count"] = counts["bandeja_listo_count"]
     data["bandeja_attention_count"] = counts["bandeja_attention_count"]

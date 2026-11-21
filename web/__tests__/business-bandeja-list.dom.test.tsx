@@ -107,7 +107,7 @@ describe("the Bandeja views", () => {
       overrides: (fixture) => ({
         receiptPage: async () => ({
           items: [await fixture.receipt("rcpt-confirmed")],
-          activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0, confirmed_count: 1, dismissed_count: 0 },
+          activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0, confirmed_count: 1, dismissed_count: 0 },
         }),
         emailDeliveries: async () => [],
       }),
@@ -181,7 +181,7 @@ describe("the Bandeja views", () => {
 });
 
 describe("a list that did not load", () => {
-  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
+  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
   const failing = () => {
     const calls = { receipts: 0, notes: 0, emails: 0 };
     let fail = true;
@@ -308,7 +308,7 @@ describe("a list that did not load", () => {
 describe("a list the server refused for good", () => {
   // The Business routes answer 404 business_unavailable and email receiving answers
   // 503 email_capture_unavailable. Asking again gets the same answer.
-  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
+  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
   const BUSINESS_OFF = () => Object.assign(new Error("Business is not available."), { status: 404, code: "business_unavailable" });
   const EMAIL_OFF = () => Object.assign(new Error("Email receiving is unavailable."), { status: 503, code: "email_capture_unavailable" });
   const actions = (page: { host: HTMLElement }) => [...(failureOf(page)?.querySelectorAll("button") ?? [])].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent);

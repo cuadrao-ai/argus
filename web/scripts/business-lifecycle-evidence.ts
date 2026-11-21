@@ -60,7 +60,7 @@ try {
       if (path === "receipt-reading") return route.fulfill({ json: { enabled: false, available: true, can_change: true } });
       if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.invalid" } });
       if (path === "captures" || path === "email/deliveries" || path === "email/senders") return route.fulfill({ json: { items: [] } });
-      if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
+      if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
       if (path === "month-close") return route.fulfill({ json: monthCloseWire("2026-10") });
       if (path === "open-items") { const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] }; return route.fulfill({ json: { today: "2026-10-21", cuentas_por_cobrar: none, cuentas_por_pagar: none } }); }
       if (path === "invitations") return route.fulfill({ json: [] });

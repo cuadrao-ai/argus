@@ -52,7 +52,7 @@ export async function mountConnectedReport(options: { onAdd?: () => void; defaul
   setChosenGrant(options.grantId ?? null);
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const opened: unknown[] = [];
-  const receiptActivity = options.waiting === undefined ? null : options.waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: options.waiting, needs_attention_count: 0, ready_to_review_count: options.waiting };
+  const receiptActivity = options.waiting === undefined ? null : options.waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: options.waiting, ready_to_review_count: options.waiting };
   const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: options.onAdd ? [{ id: "upload_receipt", label: "Agregar", icon: Plus, run: options.onAdd }] : [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: { ...await source.workspace(), currency: "CAD", records_default_currency: options.defaultCurrency ?? "DOP" }, workspaceGrant: options.workspaceGrant === undefined ? options.grantId ?? null : options.workspaceGrant, inbox: [], receiptActivity } } as unknown as BusinessContextValue;
   const i18n = await translate(options.language ?? "es-419");
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);

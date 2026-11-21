@@ -57,7 +57,7 @@ async function attention({ waiting = 8, firstDay = false, rows = undefined, note
   const value = {
     records: {
       inbox, notes, emails: [], error: failed, refused: false, failureReference: failed ? "ref-4b1d" : null, serverReference: null,
-      receiptActivity: waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: waiting, needs_attention_count: 2, ready_to_review_count: waiting - 2, bandeja_attention_count: 2, bandeja_listo_count: waiting - 2 },
+      receiptActivity: waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: waiting, ready_to_review_count: waiting - 2, bandeja_attention_count: 2, bandeja_listo_count: waiting - 2 },
     },
     openPanel: (panel: unknown) => { opened.push(panel); },
     reload: () => { reloads += 1; },

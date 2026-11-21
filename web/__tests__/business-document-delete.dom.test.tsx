@@ -40,7 +40,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     { ...(deletedDossier ? ready : blurry), id: "deleted", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } },
   ];
   let notes: BusinessCapture[] = Array.from({ length: noteCount }, (_, index) => ({ draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2, revision: 1, source_id: `note-source-${index}`, text: index === 50 ? "Documento antiguo" : index ? `Documento anotado ${index}` : "Documento anotado", received_at: new Date(Date.UTC(2026, 10, 12, 9) - index * 60_000).toISOString(), review_state: "dismissed", deleted: deletion, delete_available: false, restore_available: true, bandeja_group: { group: "eliminados", reason: null, draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2 } }));
-  const counts = (): ReceiptActivityCounts => ({ reading_count: 1, unread_count: 0, presentation: "none", pending_review_count: 3, needs_attention_count: 1, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 1, bandeja_eliminados_count: 11 });
+  const counts = (): ReceiptActivityCounts => ({ reading_count: 1, unread_count: 0, presentation: "none", pending_review_count: 3, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 1, bandeja_eliminados_count: 11 });
   const captureOffsets: number[] = [];
   const calls: { id: string; key: string }[] = [];
   const restores: string[] = [];

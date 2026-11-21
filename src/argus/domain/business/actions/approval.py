@@ -465,6 +465,19 @@ def approve(
         return error.result
 
 
+def _listo_request(
+    service: BusinessActions, context: ActionContext, item: ListoItem
+) -> ApproveExpense | ApproveIncome:
+    """The approval a Listos row takes: a sale's own, and the purchase approval
+    for every other draft, which refuses what it cannot record."""
+
+    with transaction(service.authority, context) as tx:
+        kind = facts_of(tx.imports.event(str(item.draft_id))).kind
+    if isinstance(kind, Known) and kind.value == "income":
+        return ApproveIncome(version=item.version, action="record_income")
+    return ApproveExpense(version=item.version, action="record_expense")
+
+
 def _approve_listo(
     service: BusinessActions,
     resolve: Callable[[UUID], ActionContext],
@@ -477,11 +490,12 @@ def _approve_listo(
 
     key = hashlib.sha256(f"listos:{request_key}:{item.draft_id}".encode()).hexdigest()
     try:
+        context = resolve(item.draft_id)
         outcome = approve(
             service,
-            resolve(item.draft_id),
+            context,
             item.draft_id,
-            ApproveExpense(version=item.version, action="record_expense"),
+            _listo_request(service, context, item),
             key,
             listo=True,
         )
