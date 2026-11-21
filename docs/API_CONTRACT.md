@@ -8332,8 +8332,10 @@ for a plain delete).
 The previous group is `attention` or `listo`. For several generic read
 candidates, `previous_state.events` retains their IDs and prior states for
 restore under the document's one marker. Server availability uses the
-current permission and document state. Row trash appears only for the server's
-`attention` group; an eligible `listo` document is deleted from its review menu.
+current permission and document state: a document being read or being approved
+is not available. Row trash follows `delete_available` in every group but
+`listo`, a read the read limit holds included; an eligible `listo` document is
+deleted from its review menu.
 
 The Bandeja adds the server group `eliminados` and
 `bandeja_eliminados_count`. `GET /business/captures?view=eliminados` returns
