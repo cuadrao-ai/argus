@@ -187,7 +187,7 @@ def test_a_saved_blank_forma_de_pago_shows_the_account_that_paid(actions):  # no
     assert shown.inheritance["paid_on"].inherited is True
     _approve(service, context, draft, shown)
     line = links._line(service, context, draft)
-    assert (line["payment_method"], line["paid_on"]) == ("02", "20260905")
+    assert (line["payment_method"], line["paid_on"]) == ("02", receipt_day().strftime("%Y%m%d"))
 
 
 def test_a_suggested_forma_de_pago_comes_before_the_account_that_paid(actions):  # noqa: ANN001
