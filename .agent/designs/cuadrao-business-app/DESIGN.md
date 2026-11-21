@@ -1372,9 +1372,10 @@ of its own (`receptionMatches` in
 | **Listos** | The `listo` group | One server count |
 | **Eliminados** | The documents the owner deleted | One server count |
 
-- Inicio's Necesita atención reads the same number as Por resolver, and the
-  sidebar counts every waiting row. The tabs own status. Filtros has only Canal
-  and Enviado por, and picking a tab adds no chip.
+- Inicio's Necesita atención and the sidebar both count every waiting row
+  (`pending_review_count`), so that number is larger than Por resolver's. The
+  tabs own status. Filtros has only Canal and Enviado por, and picking a tab
+  adds no chip.
 - A row in the `reading` group shows only on Todos, as Leyendo…, and no tab
   counts it. A read that fails follows [When a read fails](#when-a-read-fails).
 - A deleted document leaves the other tabs and every count. The owner can
