@@ -518,9 +518,20 @@ class DocumentsService:
         )
 
     def queue(
-        self, *, user_id: str, connection_id: str, consent: bool, scope: OwnerScope
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        consent: bool,
+        scope: OwnerScope,
+        expected_version: int | None = None,
     ) -> DocumentOutcome:
+        """``expected_version`` queues only the draft its caller chose: one
+        that moved since is someone else's, and is left to them."""
+
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if expected_version is not None and draft.version != expected_version:
+            raise DocumentServiceError("document_version_conflict", retryable=True)
         if draft.status == "dismissed":
             raise DocumentServiceError("business_document_deleted")
         if draft.status == "preparing":

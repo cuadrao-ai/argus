@@ -10,14 +10,14 @@ in Postgres under a per-Business advisory lock, in memory under one lock.
 from __future__ import annotations
 
 import threading
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Literal
 
 from loguru import logger
 from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from argus.domain.ingestion.email_intake.budget import business_day
+from argus.domain.ingestion.email_intake.budget import BUSINESS_ZONE, business_day
 from argus.settings_names import setting_aliases
 
 ReadBudgetRefusal = Literal["business_read_budget_day", "business_read_budget_month"]
@@ -57,6 +57,17 @@ def next_month_start(day: date) -> date:
     if day.month == 12:
         return date(day.year + 1, 1, 1)
     return date(day.year, day.month + 1, 1)
+
+
+def window_start(code: str, now: datetime) -> datetime:
+    """When the budget that refuses with ``code`` last started over: the start
+    of ``now``'s Santo Domingo day, or of its month. A read refused before it
+    is no longer held by that refusal."""
+
+    day = business_day(now)
+    if code == "business_read_budget_month":
+        day = month_start(day)
+    return datetime.combine(day, time.min, tzinfo=BUSINESS_ZONE)
 
 
 def refusal(
