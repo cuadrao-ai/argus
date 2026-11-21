@@ -4,23 +4,70 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [codex/private-alpha-next]
+    # Checked against script imports and driven pages by tests/test_ci_evidence_paths.py.
     paths:
-      - web/components/auth/**
-      - web/lib/email-otp.ts
-      - web/app/page.tsx
+      - .github/workflows/auth-design-evidence.yml
       - web/app/auth-entry.module.css
+      - web/app/auth/forgot-password/page.tsx
+      - web/app/auth/recovery/page.tsx
+      - web/app/design-workspace/*
+      - web/app/dev/error-screen/**
+      - web/app/fonts/*
+      - web/app/globals.css
+      - web/app/layout.tsx
+      - web/app/page.tsx
+      - web/argus_display_contract/result_display_policy.json
+      - web/argus_display_contract/support_contact.json
+      - web/bun.lock
+      - web/components/CuadraoLockup.tsx
+      - web/components/CuadraoMark.tsx
+      - web/components/FullscreenLoading.module.css
+      - web/components/FullscreenLoading.tsx
+      - web/components/I18nProvider.tsx
+      - web/components/SettingsMenu.tsx
+      - web/components/ThemeProvider.tsx
+      - web/components/auth/**
+      - web/components/business-app/*
+      - web/components/business-app/actividad/*
+      - web/components/business-app/foundation/*
+      - web/components/business-app/inicio/*
+      - web/components/business-app/invoicing/*
+      - web/components/business-app/recepcion/*
+      - web/components/business-app/recepcion/assets/inbox-empty.png
+      - web/components/business-app/transacciones/*
+      - web/components/chat/*
+      - web/components/identity/IdentityEditor.tsx
+      - web/components/identity/IdentityMark.tsx
+      - web/components/keyboard/KeyboardShortcutKeycap.tsx
+      - web/components/layout/*
+      - web/components/money/MoneyInput.tsx
+      - web/components/sidebar/SidebarNavButton.tsx
+      - web/components/sidebar/pointerAffordances.module.css
+      - web/components/sidebar/profileMenuPlacement.ts
+      - web/components/status/**
+      - web/components/ui/*
+      - web/e2e/support/breakpoint-fixture.ts
+      - web/lib/*
+      - web/next.config.ts
+      - web/package.json
+      - web/postcss.config.mjs
+      - web/proxy.ts
+      - web/public/brand/*
+      - web/public/icons/apple-touch-icon-180.png
+      - web/public/images/auth/confirmation-envelope.png
+      - web/public/images/invoicing/customer-directory.png
+      - web/public/images/invoicing/first-invoice.png
+      - web/public/images/invoicing/schedule-calendar.png
+      - web/public/images/notifications/quiet-bell.png
       - web/public/locales/*/common.json
+      - web/public/manifest.json
       - web/scripts/auth-design-evidence.ts
       - web/scripts/invite-only-evidence.ts
       - web/scripts/recovery-design-evidence.ts
       - web/scripts/session-recovery-evidence.ts
-      - web/components/status/**
-      - web/components/business-app/BusinessApp.tsx
-      - web/components/chat/useChatAccountBoundary.ts
-      - web/lib/session-recovery.ts
-      - web/app/dev/error-screen/**
-      - web/public/brand/session-door.png
-      - .github/workflows/auth-design-evidence.yml
+      - web/test-fixtures/records-columns-by-family.json
+      - web/test-fixtures/records-default-report-answer.json
+      - web/tsconfig.json
 
 permissions:
   contents: read
