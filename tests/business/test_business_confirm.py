@@ -9,7 +9,7 @@ from argus.domain.business.service import BusinessService
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.recording.money_service import MoneyService
 
-from tests.business.receipt_stub import receipt_date, receipt_purchase
+from tests.business.receipt_stub import receipt_month, receipt_purchase
 from tests.business.test_business_api import Owner, alice, prepared  # noqa: F401
 
 
@@ -22,7 +22,9 @@ def _reviewed(alice: Owner) -> tuple[str, int]:  # noqa: F811
 
 
 def _expense_ids(alice: Owner) -> list[str]:  # noqa: F811
-    return [e["id"] for e in alice.get("/expenses", **{"from": receipt_date(), "to": receipt_date()}).json()["items"]]
+    start, end = receipt_month()
+    window = {"from": start.isoformat(), "to": end.isoformat()}
+    return [e["id"] for e in alice.get("/expenses", **window).json()["items"]]
 
 
 def test_an_interrupted_claim_is_finished_by_the_next_confirm(

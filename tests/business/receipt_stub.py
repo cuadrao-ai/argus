@@ -6,9 +6,10 @@ everything after the provider call is the production path. No network.
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from argus.domain.clock import new_york_now
@@ -26,6 +27,17 @@ from argus.domain.ingestion.email_intake.budget import business_day
 def receipt_date(at: datetime | None = None) -> str:
     """Use the upload clock's Business day, within the accepted date range."""
     return business_day(at if at is not None else new_york_now()).isoformat()
+
+
+def receipt_day(at: datetime | None = None) -> date:
+    return date.fromisoformat(receipt_date(at))
+
+
+def receipt_month(at: datetime | None = None) -> tuple[date, date]:
+    """The first and last day of the calendar month holding the receipt day."""
+    day = receipt_day(at)
+    last = calendar.monthrange(day.year, day.month)[1]
+    return day.replace(day=1), day.replace(day=last)
 
 
 def receipt_purchase(at: datetime | None = None) -> dict[str, Any]:

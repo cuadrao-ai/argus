@@ -9,6 +9,7 @@ from argus.domain.business.contracts.dgii import FiscalInput, FiscalReview
 from argus.domain.business.contracts.facts import MontosReview
 
 from tests import test_business_fiscal_links_postgres as links
+from tests.business.receipt_stub import receipt_date
 
 users = links.users
 shared_actions = links.shared_actions
@@ -121,6 +122,6 @@ def test_the_previewed_links_are_the_owners_own(actions):  # noqa: ANN001
     credit = preview({"payment_method": "04"})["paid_on"]
     assert (credit.value, credit.inherited) == (None, True)
     cash = preview({"payment_method": "02"})["paid_on"]
-    assert (cash.value, cash.inherited) == (links.DAY.isoformat(), True)
+    assert (cash.value, cash.inherited) == (receipt_date(), True)
     held = preview({"payment_method": "04", "paid_on": PAID_LATER}, ("paid_on",))["paid_on"]
     assert (held.value, held.inherited) == (None, False)

@@ -14,6 +14,7 @@ from argus.domain.business.contracts.deletion import DocumentCommand
 from psycopg.types.json import Jsonb
 
 from tests import test_business_duplicate_resolution_postgres as resolution
+from tests.business.receipt_stub import receipt_date
 
 actions = resolution.actions
 users = resolution.users
@@ -207,7 +208,7 @@ def test_the_comparison_recommends_by_the_fiscal_number(
     assert comparison.other.counterparty == "Synthetic shop"
     assert comparison.other.amount == "250.5"
     assert comparison.other.currency == "DOP"
-    assert comparison.other.occurred_on.isoformat() == "2026-10-11"
+    assert comparison.other.occurred_on.isoformat() == receipt_date()
     assert comparison.other.file is not None
     assert comparison.other.file.filename == "foto.txt"
     assert comparison.other.received_at is not None

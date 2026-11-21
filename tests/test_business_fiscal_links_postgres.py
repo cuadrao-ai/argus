@@ -21,6 +21,7 @@ from psycopg.types.json import Jsonb
 
 from tests import test_business_approval_fiscal_postgres as fiscal
 from tests import test_business_declaration_after_approval_postgres as recorded
+from tests.business.receipt_stub import receipt_date, receipt_day
 from tests.business.test_approved_export_unchanged import CASES, PURCHASE
 from tests.test_business_dgii_postgres import cash_account
 
@@ -28,12 +29,11 @@ users = fiscal.users
 shared_actions = fiscal.shared_actions
 actions = fiscal.actions
 pytestmark = fiscal.pytestmark
-DAY = date(2026, 9, 5)
 LINKED = {"id_type", "itbis", "legal_tip", "goods_amount", "services_amount", "paid_on"}
 
 
 def _receipt(service, context, number: int, **read) -> tuple:  # noqa: ANN001, ANN003
-    """An unreviewed receipt of the one supplier: 1,000 before ITBIS, dated DAY."""
+    """An unreviewed receipt of the one supplier: 1,000 before ITBIS, dated the receipt day."""
 
     return fiscal.receipt_draft(
         service, context, fiscal.colmado(ncf=f"B01000004{number:02d}", **read), "DOP"
@@ -74,7 +74,7 @@ def test_a_fresh_read_opens_with_the_whole_606_line(actions):  # noqa: ANN001
 
     assert shown.dgii is not None
     line = shown.dgii
-    assert (line.id_type, line.itbis, line.paid_on) == ("1", "180.00", DAY)
+    assert (line.id_type, line.itbis, line.paid_on) == ("1", "180.00", receipt_day())
     assert (line.services_amount, line.goods_amount) == ("1000.00", None)
     # The two answers stay suggestions until a person confirms or approves.
     assert (line.category, line.payment_method) == (None, None)
@@ -120,7 +120,7 @@ def test_approval_saves_what_the_review_showed(actions):  # noqa: ANN001
         **shown.dgii.model_dump(mode="json", exclude={"suggestion_sources"}),
         **answers,
     }
-    assert (written["goods_amount"], written["paid_on"]) == ("1000.00", DAY.isoformat())
+    assert (written["goods_amount"], written["paid_on"]) == ("1000.00", receipt_date())
 
 
 def test_saving_the_pane_as_shown_overrides_nothing(actions):  # noqa: ANN001
@@ -176,7 +176,7 @@ def test_fecha_pago_follows_the_chosen_forma_de_pago(actions):  # noqa: ANN001
     assert service.dossier(context, draft).dgii.paid_on is None
 
     _review(service, context, draft, purchase=PurchaseReview(payment_method="02"))
-    assert service.dossier(context, draft).dgii.paid_on == DAY
+    assert service.dossier(context, draft).dgii.paid_on == receipt_day()
 
     _review(service, context, draft, purchase=PurchaseReview(paid_on=date(2026, 9, 20)))
     _review(service, context, draft, purchase=PurchaseReview(payment_method="04"))
@@ -329,7 +329,7 @@ def test_approval_saves_the_fecha_pago_shown_on_a_draft_saved_before_the_links(a
     _saved_before_the_links(service, context, draft, overrides, paid_on=None)
 
     shown = service.dossier(context, draft)
-    assert shown.dgii.paid_on == DAY
+    assert shown.dgii.paid_on == receipt_day()
     outcome = service.approve(
         context,
         draft,
@@ -341,7 +341,7 @@ def test_approval_saves_the_fecha_pago_shown_on_a_draft_saved_before_the_links(a
     written = fiscal.revisions(service, draft)[-1]["dgii"]
     assert {k: v for k, v in written.items() if k != "suggestion_sources"} == _shown(shown)
     assert _shown(service.dossier(context, draft)) == _shown(shown)
-    assert _line(service, context, draft)["paid_on"] == "20260905"
+    assert _line(service, context, draft)["paid_on"] == receipt_day().strftime("%Y%m%d")
 
 
 @pytest.mark.parametrize("overrides", [None, ()], ids=["no overrides recorded", "none overridden"])
