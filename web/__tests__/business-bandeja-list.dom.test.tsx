@@ -6,6 +6,7 @@ import type { BusinessDataSource } from "@/components/business-app/business-data
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import { designServerFieldsReception as receptionEvidence } from "../e2e/support/design-server-fields-reception";
 import { receptionRows, rowState, rowTitles, receptionTab, tabCount } from "./support/reception";
+import { noteGroup } from "@/components/business-app/fixture-server-rules";
 
 // The real workspace and panel router over the sample source. The sample's
 // Bandeja holds Ferretería La Esquina and IMG_2209 as new since the last
@@ -34,7 +35,7 @@ afterEach(async () => {
 });
 
 const note = (draft_id: string, text: string, received_at: string): BusinessCapture =>
-  ({ draft_id, version: 2, revision: 1, source_id: `${draft_id}-1`, text, received_at, review_state: "open" });
+  ({ draft_id, version: 2, revision: 1, source_id: `${draft_id}-1`, text, received_at, review_state: "open", bandeja_group: noteGroup("open", draft_id, 2) });
 
 async function mount({ width = 800, overrides = () => ({}), panel }: { width?: number; overrides?: (fixture: BusinessDataSource) => Partial<BusinessDataSource>; panel?: BusinessPanelState } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
