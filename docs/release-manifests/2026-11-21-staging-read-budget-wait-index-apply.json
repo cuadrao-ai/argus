@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-11-21-read-budget-wait-index",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "dbea51f3eb41f6096f557ffea12afb19934b07fd",
+  "versions_sha256": "e84f7ec31be5f022efe8bfd6a9d72318352c6f7c2d678ec70f9708a6565e82f2",
+  "issued_at": "2026-11-21T19:19:00Z",
+  "expires_at": "2026-11-23T19:19:00Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas approved on 2026-11-21 (\"yes we will have grokbot walk bandeja on staging when we are ready\", answering: deploy staging and apply the #2333 index there, no promotion) applying the read budget wait index migration (20261121062739, PR 2333) to staging before the staging deploy of integration dbea51f3eb41f6096f557ffea12afb19934b07fd. Standing rule 2026-10-21: staging skedzwocnmrhfigiwyzi only, committed record, dry run first. Does not authorize production."
+}
