@@ -36,7 +36,6 @@
     "src/argus/api/chat/backtest_jobs.py": 1037,
     "src/argus/api/memory_search_candidates.py": 1530,
     "src/argus/api/schemas.py": 1188,
-    "src/argus/domain/engine_launch/adapter.py": 1200,
     "src/argus/domain/postgres_search_reader.py": 3349,
     "src/argus/domain/supabase_gateway.py": 2038,
     "src/argus/llm/openrouter.py": 1015,

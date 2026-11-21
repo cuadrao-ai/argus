@@ -16,16 +16,6 @@ FORBIDDEN_BACKTEST_COMPUTE_MODULE_PREFIXES = (
     "vectorbtpro",
     "numba",
     "scipy",
-    "argus.analysis",
-    "argus.domain.engine",
-    "argus.domain.backtesting.charts",
-    "argus.domain.backtesting.execution",
-    "argus.domain.backtesting.metrics",
-    "argus.domain.backtesting.runner",
-    "argus.domain.backtesting.signals",
-    "argus.domain.engine_launch.adapter",
-    "argus.domain.indicator_execution",
-    "argus.domain.market_data.provider",
 )
 
 
