@@ -1426,6 +1426,9 @@ the label to a tone in `ReceptionStatus.tsx` and decides no label of its own.
   place that words it.
 - The Enviado por filter lists those senders, so a Business that only uploads
   can filter by who uploaded.
+- With no sender, the cell shows the word for unknown
+  (`reception_preview.sent_by_unknown`), never a dash or a tooltip. A phone card
+  leaves it out.
 - The email allowlist keeps the word "Remitente".
 
 #### Eliminados
@@ -1439,6 +1442,13 @@ the label to a tone in `ReceptionStatus.tsx` and decides no label of its own.
   The reading notice stays on every tab, and an empty slot keeps the toolbar
   height where the column settings were.
 - Owner: `searchOnly` in
+  `web/components/business-app/recepcion/ReceptionPreview.tsx`.
+
+#### Empty tabs
+
+- Every empty tab shows the tray art, a title and one line, from the
+  `reception_preview` and `document_delete` locale keys. A filtered list with no
+  rows offers to clear the filters instead. Owner: `empty` in
   `web/components/business-app/recepcion/ReceptionPreview.tsx`.
 
 #### Typed notes
@@ -1469,7 +1479,10 @@ the label to a tone in `ReceptionStatus.tsx` and decides no label of its own.
 - What arrived since the last visit carries an unread dot on the row's left edge.
   The server's unread flag decides it.
 - A row is one line. Contenido and Enviado por cut with "…", with the full text
-  in a tooltip on hover and keyboard focus. Phone cards wrap instead.
+  in a tooltip on hover and keyboard focus. Phone cards wrap instead. The cut is
+  a one-line clamp, not `text-overflow`, so Safari adds no tooltip of its own.
+  Owner: the clamp rule in `reception.module.css` and `useCutOff` in
+  `ReceptionCutText.tsx`.
 - An email opens like a record: beside the list on a desktop, a full page
   with a way back on a phone. A receipt that came by email says "Llegó por
   correo · Ver correo", which opens the same email.
