@@ -4566,6 +4566,7 @@
       "eliminados": "Deleted",
       "empty": "No content in this view",
       "empty_attention": "Nothing to resolve",
+      "empty_attention_help": "When a document needs attention or can't be read, it shows up here.",
       "empty_help": "Try another view or change the filters.",
       "empty_start": "Your files and notes arrive here",
       "empty_start_help": "Add a file or receive documents by email.",

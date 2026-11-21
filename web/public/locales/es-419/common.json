@@ -4663,6 +4663,7 @@
       "eliminados": "Eliminados",
       "empty": "No hay contenido en esta vista",
       "empty_attention": "Nada por resolver",
+      "empty_attention_help": "Cuando un documento necesite atención o no se pueda leer, aparece aquí.",
       "empty_help": "Prueba otra vista o cambia los filtros.",
       "empty_start": "Tus archivos y notas llegan aquí",
       "empty_start_help": "Agrega un archivo o recibe documentos por correo.",

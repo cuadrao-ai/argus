@@ -141,7 +141,7 @@ for (const [business, tweaks] of Object.entries(BUSINESSES)) for (const view of 
   await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
   const empty = page.host.querySelector('[data-testid="reception-empty"]');
   assert.equal(empty?.querySelector("h3")?.textContent, EMPTY_TITLE[view]);
-  assert.equal(empty?.querySelector("p") === null, view === "attention", "Por resolver says only its title");
+  if (view === "attention") assert.equal(empty?.querySelector("p")?.textContent, "Cuando un documento necesite atención o no se pueda leer, aparece aquí.");
   assert.doesNotMatch(empty?.textContent ?? "", /Ver todo/, "Todas las fechas already widens the list; the empty tab adds no second way back");
 });
 
