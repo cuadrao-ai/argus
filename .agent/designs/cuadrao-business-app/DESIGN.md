@@ -1359,23 +1359,98 @@ Bandeja is the one place receipts wait. Novedades folded into it on October 20,
 2026: its rows were the same receipts, and its one extra fact (what is new)
 is now an unread dot.
 
-- Three tabs show the same rows: **Todos**, **Necesitan atención** and **Listos**.
-  Bandeja opens on Todos, which has no count. The other two show one server count.
-  Inicio's Necesita atención reads the same number, and the sidebar counts every
-  waiting row. Tabs own status: Filtros has only Canal and Remitente, and picking
-  a tab adds no chip.
-- A fourth tab, **Eliminados**, holds the documents the owner deleted. They leave
-  the other tabs and every count. The owner can restore one for 7 days. After 7
-  days the document worker purges it, and Borrar definitivamente purges it
-  sooner. Owner: `PURGE_AFTER` in `src/argus/domain/business/contracts/deletion.py`.
-- A receipt still being read shows only on Todos, as Leyendo, and no tab counts it.
-  A read that fails follows [When a read fails](#when-a-read-fails).
-- Estado follows the tab. Todos shows the soft tag. Necesitan atención shows only
-  the reason, as plain text. Listos has no Estado column.
-- Tags are soft and fully rounded: Necesita atención `#9e2f39` on `#f6dfe0`, Leyendo
-  `#735c14` on `#f2e8c9`, Aprobado `#2f5a49` on `#e3ebe1`, and Listo para aprobar
-  stays neutral. Each pair meets 4.5:1 in light and dark. These replace the
-  Registros tag colors for Bandeja.
+#### Tabs
+
+Every row sits in the tab that its server group names. The web decides no tab
+of its own (`receptionMatches` in
+`web/components/business-app/recepcion/reception-model.ts`).
+
+| Tab | Rows | Count |
+| --- | --- | --- |
+| **Todos** | Every row except a deleted one. Bandeja opens here. | None |
+| **Por resolver** | The `attention` group | One server count |
+| **Listos** | The `listo` group | One server count |
+| **Eliminados** | The documents the owner deleted | One server count |
+
+- Inicio's Necesita atención reads the same number as Por resolver, and the
+  sidebar counts every waiting row. The tabs own status. Filtros has only Canal
+  and Enviado por, and picking a tab adds no chip.
+- A row in the `reading` group shows only on Todos, as Leyendo…, and no tab
+  counts it. A read that fails follows [When a read fails](#when-a-read-fails).
+- A deleted document leaves the other tabs and every count. The owner can
+  restore one for 7 days. After 7 days the document worker purges it, and
+  Borrar definitivamente purges it sooner. Owner: `PURGE_AFTER` in
+  `src/argus/domain/business/contracts/deletion.py`.
+
+#### Labels
+
+Every row shows one label, and the server gives it. The owner is
+`bandeja_label()` in `src/argus/domain/business/bandeja_group.py`. The web maps
+the label to a tone in `ReceptionStatus.tsx` and decides no label of its own.
+
+| Label (es-419) | Value | When | Light | Dark |
+| --- | --- | --- | --- | --- |
+| Leyendo… | `reading` | The read runs, or the read limit holds it | Neutral | Neutral |
+| No se pudo leer | `cant_read` | The read failed | `#9e2f39` on `#f6dfe0` | `#ec9aa0` on `#4a2a2f` |
+| Necesita atención | `needs_attention` | Any other Por resolver row | `#735c14` on `#f2e8c9` | `#f6e7c1` on `#49412a` |
+| Listo para aceptar | `ready` | A Listos row, also while it is being accepted | `#2f4f73` on `#dfe8f1` | `#a3c4e6` on `#27364a` |
+| Aceptado | `accepted` | The row was accepted | `#2f5a49` on `#e3ebe1` | `#8fcbb0` on `#293b32` |
+
+- The pills are soft and fully rounded. Each pair meets 4.5:1 in light and
+  dark. These pairs replace the Registros tag colors for Bandeja. Owner:
+  `web/components/business-app/foundation/status-chip.module.css`.
+- A read that the read limit holds is Leyendo…, never red. It reads again on
+  its own the next Santo Domingo day or month.
+- A row that is being accepted stays Listo para aceptar, never red.
+- A clean Venta, a receipt marked Personal and a receipt in a foreign currency
+  reach Listos. A credit note and a Sin comprobante row stay in Por resolver as
+  Necesita atención.
+- A dismissed receipt without the deleted mark is not listed. Only a legacy
+  import leaves a receipt that way.
+
+#### Columns
+
+- Todos and Por resolver show Estado with the label only.
+- Listos has no Estado column.
+- Eliminados has its own columns: Contenido, Estaba en, Eliminado por and
+  Borrado definitivo.
+- There is no Motivo column, and the list shows no reasons. The reasons live in
+  the dossier.
+
+#### Enviado por
+
+- Enviado por names who brought the row in. It is the member who uploaded the
+  file or typed the note, the address an email came from, or the WhatsApp
+  number as "WhatsApp ···" and its last 4 digits. The server sends it as
+  `sent_by` for every channel. `sentByName` in `web/lib/sent-by.ts` is the one
+  place that words it.
+- The Enviado por filter lists those senders, so a Business that only uploads
+  can filter by who uploaded.
+- The email allowlist keeps the word "Remitente".
+
+#### Eliminados
+
+- The toolbar shows only search and Agregar. The help line sits where the
+  filters sit on the other tabs. The date, Filtros, the chips, the column
+  settings and Revisar recibos are not on Eliminados.
+- A filter or a date set on Todos does not narrow Eliminados. Todos keeps the
+  filter and the date.
+- The headings line up with the other tabs. Nothing moves when you switch tabs.
+  The reading notice stays on every tab, and an empty slot keeps the toolbar
+  height where the column settings were.
+- Owner: `searchOnly` in
+  `web/components/business-app/recepcion/ReceptionPreview.tsx`.
+
+#### Typed notes
+
+- Creating a new typed note is off. `CUADRAO_BUSINESS_TYPED_NOTES_ENABLED`
+  turns it on and is off by default. While it is off, Agregar shows no note
+  entry and the server refuses a new note.
+- Existing notes still show, as rows like receipts. A note added to an open
+  draft still saves.
+
+#### Rows
+
 - Every row has one quiet pill, **Abrir**, with the same label and width in every
   state. Abrir and the row click open the record. A receipt with no draft opens
   its original and its reason, with no form.
@@ -1383,18 +1458,18 @@ is now an unread dot.
   accountant's Revisar recibos are quiet. The confirm step keeps its emphasis.
 - An email is only how a receipt arrived (Lucas, October 20, 2026). Once it
   saves a receipt, that receipt is the row. An email is a row of its own only
-  while it is read (on Todos, like a receipt being read) or when it brought no
-  receipt (in Necesitan atención and Todos, counted there): the sender, the
-  subject and why. A file saved before is no new row, as
+  while it is read (on Todos, as Leyendo…, like a receipt being read) or when
+  it brought no receipt (in Por resolver and Todos, counted there, as Necesita
+  atención). The row shows the sender and the subject. Why it brought no receipt
+  is on the email's record. A file saved before is no new row, as
   [Duplicados](#duplicados) says. Reintentar sits on the email's record when the
   server allows a retry.
 - The full email history lives in Negocio > Correo de recibos, under the
   receiving address, as a quiet Historial with its refresh.
 - What arrived since the last visit carries an unread dot on the row's left edge.
   The server's unread flag decides it.
-- A row is one line. Contenido, Remitente and the reason cut with "…", with the full
-  text in a tooltip on hover and keyboard focus. Phone cards wrap instead.
-- Typed notes are rows like receipts.
+- A row is one line. Contenido and Enviado por cut with "…", with the full text
+  in a tooltip on hover and keyboard focus. Phone cards wrap instead.
 - An email opens like a record: beside the list on a desktop, a full page
   with a way back on a phone. A receipt that came by email says "Llegó por
   correo · Ver correo", which opens the same email.
@@ -1412,17 +1487,17 @@ are pending #1681.
    person never sees a retry or a failure in that time. The retry rules live in
    [the architecture guide](../../../docs/ARCHITECTURE.md#when-a-receipt-read-fails).
 2. When the retries run out, or the failure is permanent, the receipt moves to
-   Necesitan atención with its reason, as plain text.
+   Por resolver as No se pudo leer. The dossier names the reason.
 3. The receipt offers one manual Leer de nuevo. It is no longer unlimited.
 4. If that read also fails, the person types the data by hand with Escribir los
    datos (#1681).
 
-A read that is not finished 6 hours after the upload also moves to Necesitan
-atención, with its own reason: the reading service was unavailable, and the
-receipt did not fail (founder, 2026-11-16, built in #2192). This reason does
-not count against the one manual Leer de nuevo of step 3. The Bandeja row says
-"La lectura no terminó" (`business.attention_short.read_deadline_passed`). The
-open receipt's failed-read box shows that title, the line "El servicio de
+A read that is not finished 6 hours after the upload also moves to Por
+resolver as No se pudo leer. Its own reason says that the reading service was
+unavailable, and the receipt did not fail (founder, 2026-11-16, built in
+#2192). This reason does not count against the one manual Leer de nuevo of
+step 3. The dossier names it "La lectura no terminó"
+(`business.attention_short.read_deadline_passed`). The open receipt's failed-read box shows that title, the line "El servicio de
 lectura no estuvo disponible. Puedes leerlo de nuevo."
 (`business.file_read.read_deadline_passed_body`) and Leer de nuevo (founder
 copy, 2026-11-16).
@@ -1461,16 +1536,17 @@ does it.
 5. **After the read: same purchase.** The read gives comercio, fecha, total and
    moneda. When all four are known and equal those of another open or approved
    document in the Business, the server marks the newer document
-   `possible_duplicate`. A restore marks both. The document goes to Necesitan
-   atención as "Parece repetido", and Aprobar stays closed until a person
-   decides. Today the panel offers "Ver el recibo ya guardado" and "Es otra
+   `possible_duplicate`. A restore marks both. The document goes to Por
+   resolver as Necesita atención, and the review panel says "Parece repetido".
+   Aprobar stays closed until a person decides. Today the panel offers "Ver el recibo ya guardado" and "Es otra
    compra". [After the read](#after-the-read-parece-repetido) replaces those
    buttons. Owner: `flag_receipt_duplicates` in
    `src/argus/domain/business/duplicates.py`, and the `possible_duplicate`
    blocker in `src/argus/domain/business/actions/dossier.py`.
 6. **Before Listos: same comprobante.** A purchase with the same supplier RNC
    and NCF as another open or approved purchase stays out of Listos. It shows in
-   Necesitan atención as "Parece repetido". This layer does not close Aprobar.
+   Por resolver as Necesita atención, with the reason `duplicate`. This layer
+   does not close Aprobar.
    Only a `possible_duplicate` mark does. Owner: `same_comprobante` in
    `src/argus/domain/business/actions/fiscal.py`, read through
    `repeated_purchases`.
@@ -1790,6 +1866,8 @@ Facturación. Saved views, exports and request recovery need their own contracts
 
 ### Bandeja working direction, 26 October 2026
 
+These notes are history. Where they differ from [Bandeja](#bandeja), Bandeja wins.
+
 Private iteration pending the user's checkpoint. Keep Bandeja and the shared
 canvas/title alignment. Use the third supplied reference for a spacious list
 composition, retaining the product's type, palette and components. Quiet row
@@ -1823,6 +1901,8 @@ foundation status pill with an icon and small corner radius is not this conventi
 State labels and tone selection still follow incoming-document facts.
 
 ### Bandeja current local iteration
+
+These notes are history. Where they differ from [Bandeja](#bandeja), Bandeja wins.
 
 The later user-approved interaction preview supersedes the earlier omission of
 selection. Bulk actions change toolbar mode without vertical movement: inline
