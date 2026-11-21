@@ -353,14 +353,6 @@ def fiscal_manifest(
                 "activity_id": None,
             }
         )
-    elif not closed_month and rnc is not None:
-        issues.append(
-            {
-                "code": "fiscal_closed_calendar_month_required",
-                "field": "period",
-                "activity_id": None,
-            }
-        )
     forms = {}
     for form in COLUMNS:
         relevant = [
