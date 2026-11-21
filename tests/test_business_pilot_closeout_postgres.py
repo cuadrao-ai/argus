@@ -51,6 +51,11 @@ PURCHASE = {"amount": "500.00", "occurred_on": "2026-09-03"}
 OTHER_SUPPLIER = "199990048"
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 def _typed(world, person=None, grant=None, key=None, **body):  # noqa: ANN001, ANN003, ANN202
     return world.client.post(
         f"{API}/business/captures",

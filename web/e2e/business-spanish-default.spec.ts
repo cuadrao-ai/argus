@@ -77,7 +77,7 @@ async function setup(page: Page, language: Language, options: { languageChosen?:
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.split("/business/")[1];
-    if (path === "workspace") return route.fulfill({ json: await source.workspace() });
+    if (path === "workspace") return route.fulfill({ json: { ...await source.workspace(), typed_notes_available: true } });
     if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: BUSINESS_NAME } });
     if (path === "spaces") {
       const spaces = (await source.spaces()).slice(0, 1).map((space) => ({ ...space, name: BUSINESS_NAME }));

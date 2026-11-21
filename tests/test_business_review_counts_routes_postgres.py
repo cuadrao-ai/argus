@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
+
 from tests.test_business_fiscal_routes_postgres import _post, world  # noqa: F401
 from tests.test_business_scope_switch_routes_postgres import (
     API,
@@ -22,6 +24,11 @@ from tests.test_business_scope_switch_routes_postgres import (
 )
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 def _get(web, path: str, headers: dict, **params):  # noqa: ANN001, ANN202

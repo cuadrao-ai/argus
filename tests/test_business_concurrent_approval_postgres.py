@@ -28,6 +28,11 @@ pytestmark = _local_supabase
 
 
 @pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
+@pytest.fixture(autouse=True)
 def _settlement(settlement_on: None) -> None:
     """Keep the unpaid approval fixture's settlement setting."""
 

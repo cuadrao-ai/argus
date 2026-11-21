@@ -17,6 +17,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 class CaptureService:
     def __init__(self, actor, space):
         self.actor, self.space = actor, space

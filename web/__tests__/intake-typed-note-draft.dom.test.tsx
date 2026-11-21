@@ -43,7 +43,7 @@ async function workspace() {
       captureNote: async (body: { text: string; document_type?: string }) => { saved.push(body); return {}; },
       receiptReading: async () => ({ enabled: true, can_change: true, available: true, disclosure: "" }),
     },
-    records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, receipt_limits: { max_bytes: 1024, media_types: ["image/jpeg"] } }, overview: null, inbox: [], notes: [], notesTruncated: false, error: false },
+    records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, typed_notes_available: true, receipt_limits: { max_bytes: 1024, media_types: ["image/jpeg"] } }, overview: null, inbox: [], notes: [], notesTruncated: false, error: false },
     bridge: null,
     reload: () => undefined,
   } as unknown as BusinessContextValue;
@@ -61,6 +61,8 @@ async function workspace() {
     act,
     notes,
     saved,
+    /** The workspace read comes back saying the server now refuses new typed notes. */
+    turnOff: () => { (context.records.workspace as { typed_notes_available: boolean }).typed_notes_available = false; },
     open: () => render(true),
     close: () => render(false),
     choose: (grant: string) => act(async () => setChosenGrant(grant)),
@@ -149,5 +151,20 @@ test("leaving the page asks first while a note is typed and not saved", async ()
   await page.save();
   await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
   assert.equal(leaveGuard.unfinished(), false, "a saved note leaves nothing behind");
+  await page.unmount();
+});
+
+test("a draft kept from before the server turned typed notes off never reopens the card, and its text stays", async () => {
+  const page = await workspace();
+  await page.write();
+  await page.type("Pagué RD$500 de gasolina");
+  await page.close();
+  page.turnOff();
+  await page.open();
+  assert.equal(page.text(), null, "the write card stays closed");
+  assert.equal(document.querySelector('[data-testid="intake-write-open"]'), null);
+  const { getChosenGrant } = await import("@/lib/business-grant");
+  assert.equal(page.notes.draft(getChosenGrant()).text, "Pagué RD$500 de gasolina");
+  assert.deepEqual(page.saved, []);
   await page.unmount();
 });
