@@ -21,7 +21,7 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
       if (path === "spaces") return route.fulfill({ json: { spaces: await source.spaces() } });
       if (path === "workspace") {
         if (state.workspaceUnavailable) return route.fulfill({ status: 403, json: { detail: { code: "permission_denied", status: 403, title: "Action refused", detail: "permission_denied", request_id: "capture-test" } } });
-        return route.fulfill({ json: await source.workspace() });
+        return route.fulfill({ json: { ...await source.workspace(), typed_notes_available: true } });
       }
       if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
       if (path === "receipts") return route.fulfill({ json: { items: [] } });

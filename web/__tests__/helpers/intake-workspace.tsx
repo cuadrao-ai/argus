@@ -40,6 +40,7 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
   const held: (() => void)[] = [];
   const source = {
     ...fixture,
+    workspace: async () => ({ ...await fixture.workspace(), typed_notes_available: true }),
     ...(spaces ? { spaces: async () => spaces } : {}),
     uploadReceipt: async (file: File, consent: boolean, key: string, type?: "recibo" | "venta" | null, onProgress?: (sent: number, total: number) => void, grant?: string | null) => {
       uploads.push({ key, grant });

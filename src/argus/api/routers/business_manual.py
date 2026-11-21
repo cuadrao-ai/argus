@@ -15,6 +15,7 @@ from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.routers.business_drafts import _key
 from argus.domain.business.authority import ActionContext, ActionError
+from argus.domain.business.config import business_typed_notes_enabled
 from argus.domain.business.contracts.actions import CaptureNote, OutcomeUnknown, Refused
 from argus.domain.business.contracts.dossier import BusinessDossier
 
@@ -37,7 +38,18 @@ def _owner(
     return context.for_space(request, person.spaces)
 
 
-@router.post("", response_model=BusinessDossier)
+@router.post(
+    "",
+    response_model=BusinessDossier,
+    responses={
+        404: {
+            "description": "`business_typed_notes_unavailable`: a note that starts a draft is off on this server (`CUADRAO_BUSINESS_TYPED_NOTES_ENABLED`). A note on an existing draft is not refused.",
+            "content": {
+                "application/json": {"schema": {"$ref": "#/components/schemas/Error"}}
+            },
+        }
+    },
+)
 def capture_note(
     request: Request,
     response: Response,
@@ -47,6 +59,15 @@ def capture_note(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
     response.headers.update(NO_STORE)
+    if body.draft is None and not business_typed_notes_enabled():
+        raise problem(
+            request,
+            status_code=404,
+            code="business_typed_notes_unavailable",
+            title="Not Found",
+            detail="Typed notes are not available.",
+            headers=NO_STORE,
+        )
     key = _key(request, idempotency_key)
     try:
         actor = (

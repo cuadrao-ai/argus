@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+import pytest
+
 from tests import test_business_approve_unpaid_postgres as unpaid
 from tests.test_business_month_close_fields_postgres import _month, _set_own_rnc
 from tests.test_business_open_items_postgres import API, web  # noqa: F401
@@ -14,6 +16,11 @@ from tests.test_business_open_items_postgres import pytestmark as _local_supabas
 
 pytestmark = _local_supabase
 FAMILY = {"receipt": "purchase", "invoice": "sale"}
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 def _registros(world, family: str, currency: str, start: str, end: str) -> list[str]:  # noqa: ANN001

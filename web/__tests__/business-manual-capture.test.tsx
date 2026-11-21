@@ -3,10 +3,17 @@ import assert from "node:assert/strict";
 import { captureOutcomeUnknown, validCaptureText } from "@/components/business-app/ManualCaptureDialog";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { withBusinessSpace } from "@/components/business-app/business-data";
-import { captureBusinessNote, listBusinessCaptures } from "@/lib/business-api";
+import { businessTypedNotesAvailable, captureBusinessNote, listBusinessCaptures } from "@/lib/business-api";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 
 const fixture = () => createDossierFixtures([{ id: "cash", nickname: "Caja", type: "cash", currency: "DOP" }]);
+
+test("only the server's explicit answer offers a new typed note, and the sample workspace follows the server default", async () => {
+  assert.equal(businessTypedNotesAvailable(null), false);
+  assert.equal(businessTypedNotesAvailable({}), false, "an older payload without the field");
+  assert.equal(businessTypedNotesAvailable({ typed_notes_available: true }), true);
+  assert.equal(businessTypedNotesAvailable(await createFixtureBusinessDataSource().workspace()), false);
+});
 
 test("verbatim notes reject blanks/NUL and count Unicode characters like the server", () => {
   assert.equal(validCaptureText(" \n "), false);
