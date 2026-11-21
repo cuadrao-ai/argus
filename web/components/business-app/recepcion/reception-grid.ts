@@ -21,8 +21,8 @@ const MERGED: Widths = { content: 180, file: 76, channel: 0, sender: 150, status
  * Contenido grows to its cap and Estado to its roomy width; every other data track is fixed. The action track takes
  * what is left.
  */
-export function receptionGrid(preferences: ReceptionPreferences, { select: selectable, status }: { select: boolean; status: boolean }, amountWidth: string): CSSProperties {
-  const shown = shownReceptionColumns(preferences, { status });
+export function receptionGrid(preferences: ReceptionPreferences, { select: selectable }: { select: boolean }, amountWidth: string): CSSProperties {
+  const shown = shownReceptionColumns(preferences);
   const select = selectable ? SELECT_COLUMN_PX : 0;
   const lay = (widths: Widths, merged: boolean) => {
     const track: Record<ReceptionColumnKey, [track: string, px: number]> = {
@@ -51,8 +51,8 @@ export const originPlace = (shown: readonly ReceptionColumnKey[]) => shown.find(
  * Where each shown column stands, from 1, as the `--col` its cell carries. The box and Contenido carry none, so they
  * stay first. Canal and Enviado por share the first of their two places below 940px.
  */
-export function receptionPlaces(preferences: ReceptionPreferences, tab: { status: boolean }) {
-  const shown = shownReceptionColumns(preferences, tab);
+export function receptionPlaces(preferences: ReceptionPreferences) {
+  const shown = shownReceptionColumns(preferences);
   const place = (key: ReceptionColumnKey) => shown.indexOf(key) + 1;
   const col = (index: number) => ({ "--col": index }) as CSSProperties;
   return { shown, has: (key: ReceptionColumnKey) => shown.includes(key), at: (key: ReceptionColumnKey) => col(place(key)), shared: col(Math.min(...SHARED.map(place).filter(Boolean), shown.length)), last: col(shown.length + 1) };

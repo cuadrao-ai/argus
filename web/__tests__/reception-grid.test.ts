@@ -4,10 +4,10 @@ import { defaultReceptionPreferences } from "@/components/business-app/recepcion
 import { receptionGrid, SELECT_COLUMN_PX } from "@/components/business-app/recepcion/reception-grid";
 
 type Variables = Record<"--columns" | "--laptop-columns" | "--compact-columns", string>;
-const grid = (tab: { select: boolean; status: boolean }, sender: boolean) => receptionGrid({ ...defaultReceptionPreferences(), hidden: sender ? ["amount", "currency"] : ["sender", "amount", "currency"] }, tab, "120px") as unknown as Variables;
+const grid = (tab: { select: boolean }, sender: boolean, status = true) => receptionGrid({ ...defaultReceptionPreferences(), hidden: [...sender ? [] : ["sender"], "amount", "currency", ...status ? [] : ["status"]] }, tab, "120px") as unknown as Variables;
 const tracks = (columns: string) => columns.match(/minmax\([^)]*\)|\S+/g)!;
-const TODOS = { select: false, status: true };
-const LISTOS = { select: true, status: false };
+const TODOS = { select: false };
+const LISTOS = { select: true };
 
 test("Bandeja owns the 80px Moneda track at every table width", () => {
   const preferences = { ...defaultReceptionPreferences(), hidden: ["file", "source", "sender", "amount", "status", "arrival"] };
@@ -18,13 +18,19 @@ test("Bandeja owns the 80px Moneda track at every table width", () => {
 });
 
 for (const sender of [false, true]) for (const width of ["--columns", "--laptop-columns", "--compact-columns"] as const) {
-  test(`${width}, Enviado por ${sender ? "on" : "off"}: moving to Listos drops Estado and leaves Contenido and every other track as they were`, () => {
-    const [content, ...todos] = tracks(grid(TODOS, sender)[width]);
-    const [box, sameContent, ...listos] = tracks(grid(LISTOS, sender)[width]);
+  test(`${width}, Enviado por ${sender ? "on" : "off"}: moving to Listos adds the box and leaves Contenido, Estado and every other track as they were`, () => {
+    const [box, ...listos] = tracks(grid(LISTOS, sender)[width]);
     assert.equal(box, `${SELECT_COLUMN_PX}px`);
-    assert.equal(sameContent, content);
-    const status = todos.findIndex(track => track.startsWith("minmax"));
-    assert.deepEqual(listos, todos.filter((_, index) => index !== status), "every other track keeps its width");
+    assert.deepEqual(listos, tracks(grid(TODOS, sender)[width]));
+  });
+
+  test(`${width}, Enviado por ${sender ? "on" : "off"}: hiding Estado drops its track alone, with the box or without it`, () => {
+    for (const tab of [TODOS, LISTOS]) {
+      const shown = tracks(grid(tab, sender)[width]);
+      const status = shown.findIndex(track => track.endsWith(", 240px)"));
+      assert.ok(status > 0);
+      assert.deepEqual(tracks(grid(tab, sender, false)[width]), shown.filter((_, index) => index !== status));
+    }
   });
 }
 
@@ -36,7 +42,7 @@ test("Enviado por on adds its own fixed track from the laptop width up", () => {
 test("the tracks follow the person's order: the box and Contenido stay first and the action track last, by position", () => {
   const moved = { ...defaultReceptionPreferences(), order: ["arrival", "status", "file", "source", "sender", "amount", "currency"], hidden: ["sender", "amount", "currency"] };
   const columns = (receptionGrid(moved, LISTOS, "120px") as unknown as Variables)["--columns"];
-  assert.deepEqual(tracks(columns), [`${SELECT_COLUMN_PX}px`, "minmax(200px, 360px)", "126px", "104px", "150px", "minmax(140px, 1fr)"]);
+  assert.deepEqual(tracks(columns), [`${SELECT_COLUMN_PX}px`, "minmax(200px, 360px)", "126px", "minmax(240px, 240px)", "104px", "150px", "minmax(140px, 1fr)"]);
 });
 
 test("below 940px Canal and Enviado por share the place of whichever comes first", () => {
