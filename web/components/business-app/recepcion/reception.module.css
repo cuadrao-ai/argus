@@ -75,7 +75,7 @@
   .topline { flex-wrap:wrap; gap:12px; }
 }
 @container reception (max-width:819px) {
-  .topline { display:flex; flex-direction:column; align-items:stretch; }
+  .topline { display:flex; flex-direction:column; flex-wrap:nowrap; align-items:stretch; }
   .tabs { gap:20px; }
   .search { width:100%; min-width:0; flex:1 0 100%; margin:0; }
   .toolbar { gap:8px; padding:12px 0; }
