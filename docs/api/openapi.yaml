@@ -25825,6 +25825,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/BandejaGroup'
           - type: 'null'
+        sent_by:
+          anyOf:
+          - $ref: '#/components/schemas/SentBy'
+          - type: 'null'
         draft_id:
           type: string
           format: uuid
@@ -29242,9 +29246,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-        uploaded_by:
+        sent_by:
           anyOf:
-          - $ref: '#/components/schemas/PersonName'
+          - $ref: '#/components/schemas/SentBy'
           - type: 'null'
         media_type:
           type: string
@@ -29539,9 +29543,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-        uploaded_by:
+        sent_by:
           anyOf:
-          - $ref: '#/components/schemas/PersonName'
+          - $ref: '#/components/schemas/SentBy'
           - type: 'null'
         media_type:
           type: string
@@ -29814,9 +29818,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-        uploaded_by:
+        sent_by:
           anyOf:
-          - $ref: '#/components/schemas/PersonName'
+          - $ref: '#/components/schemas/SentBy'
           - type: 'null'
         media_type:
           type: string
@@ -32140,6 +32144,33 @@ components:
       - unassessed
       - clear
       - restricted
+    SentBy:
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum:
+          - member
+          - email
+          - whatsapp
+        person:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
+          - type: 'null'
+        address:
+          anyOf:
+          - type: string
+          - type: 'null'
+        phone_last4:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - kind
     SentInvite:
       properties:
         id:
