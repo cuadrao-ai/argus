@@ -51,8 +51,9 @@ def email_sender(sender: str | None) -> SentBy | None:
 def receipt_senders(tx, views: list[dict]) -> dict[str, SentBy]:  # noqa: ANN001
     """Who sent each receipt, by its channel. A web upload: the member on the
     first ledger row its upload wrote. An email: the sender of the earliest
-    delivery that brought it. WhatsApp: the number's first link to this
-    Business, so a number linked again keeps one id."""
+    delivery that brought it. WhatsApp: the number of the earliest message that
+    brought it, by that number's first link to this Business, so a number
+    linked again keeps one id."""
 
     space_id = tx.context.actor.space_id
     by_channel: dict[str, list[dict]] = {}
@@ -92,14 +93,15 @@ def receipt_senders(tx, views: list[dict]) -> dict[str, SentBy]:  # noqa: ANN001
                 sent[receipt] = sender
     if messages := by_channel.get("whatsapp"):
         for row in tx.rows(
-            "select distinct on (m.connection_id) m.connection_id::text as receipt,"
-            " l.id::text as link, l.last4"
-            " from public.whatsapp_inbound_messages m"
-            " join public.whatsapp_sender_links l on l.wa_id_hash=m.sender_hash"
-            " and l.destination_space_id=%s"
-            " where m.status='captured' and m.connection_id::text = any(%s)"
-            " order by m.connection_id, l.linked_at, l.id",
-            (space_id, [view["id"] for view in messages]),
+            "select m.receipt, l.id::text as link, l.last4"
+            " from (select distinct on (connection_id) connection_id::text as receipt,"
+            " sender_hash from public.whatsapp_inbound_messages"
+            " where status='captured' and connection_id::text = any(%s)"
+            " order by connection_id, received_at, id) m"
+            " join lateral (select id, last4 from public.whatsapp_sender_links"
+            " where wa_id_hash=m.sender_hash and destination_space_id=%s"
+            " order by linked_at, id limit 1) l on true",
+            ([view["id"] for view in messages], space_id),
         ):
             sent[row["receipt"]] = SentBy(
                 id=f"whatsapp:{row['link']}", kind="whatsapp", phone_last4=row["last4"]

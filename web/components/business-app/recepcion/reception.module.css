@@ -184,8 +184,8 @@
 }
 
 .filterChips { margin-left:-10px; width:calc(100% + 10px); }
-/* The filter's own search is a plain field, smaller in the popover, so it never reads as the list's search pill. */
-input.filterSearch { margin-bottom:12px; border-radius:8px; }
+/* The filter's own search keeps the field corner of .input, smaller in the popover, so it never reads as the list's search pill. */
+input.filterSearch { margin-bottom:12px; }
 input.filterSearch[data-compact=true] { min-height:36px; padding:6px 10px; font-size:14px; }
 .noteIcon { display:inline-block; margin-right:6px; vertical-align:-2px; color:var(--muted); }
 

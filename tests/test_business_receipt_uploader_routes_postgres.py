@@ -229,6 +229,59 @@ def test_a_whatsapp_or_email_arrival_names_its_sender(
         configure_email_intake(None)
 
 
+def test_a_whatsapp_receipt_keeps_the_number_that_sent_it_first(
+    web,  # noqa: ANN001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Number A links and is revoked, number B links and sends the receipt,
+    then A links again and sends the same bytes: B sent it."""
+
+    whatsapp = _uploaded(web, web.alice, None)["id"]
+    monkeypatch.setattr("argus.api.business._captured", lambda person_id: frozenset({whatsapp}))
+    first, second = fake.unique.msisdn(), fake.unique.msisdn()
+    a, b = (sha256(number.encode()).digest() for number in (first, second))
+    with Connection.connect(shared.DSN) as db:
+
+        def link(sender: bytes, number: str, minutes_ago: int) -> str:
+            [linked] = db.execute(
+                "insert into public.whatsapp_sender_links(destination_owner_id,"
+                "destination_space_id,wa_id_hash,last4,reply_language,status,linked_at)"
+                " values(%s,%s,%s,%s,'es-419','active',now()-%s*interval '1 minute')"
+                " returning id::text",
+                (web.alice.id, web.alice.space_id, sender, number[-4:], minutes_ago),
+            ).fetchone()
+            return linked
+
+        def revoke(linked: str) -> None:
+            db.execute(
+                "update public.whatsapp_sender_links set status='revoked',revoked_at=now()"
+                " where id=%s",
+                (linked,),
+            )
+
+        def sent(sender: bytes, minutes_ago: int) -> None:
+            db.execute(
+                "insert into public.whatsapp_inbound_messages(provider_message_key,"
+                "sender_hash,destination_owner_id,status,connection_id,received_at,"
+                "updated_at) values(%s,%s,%s,'captured',%s,now()-%s*interval '1 minute',now())",
+                (sha256(uuid4().bytes).digest(), sender, web.alice.id, whatsapp, minutes_ago),
+            )
+
+        revoke(link(a, first, 50))
+        by_b = link(b, second, 40)
+        sent(b, 30)
+        revoke(by_b)
+        link(a, first, 20)
+        sent(a, 10)
+
+    items, _ = _listed(web, web.alice, None)
+    assert _sent(items[whatsapp]) == {
+        "id": f"whatsapp:{by_b}",
+        "kind": "whatsapp",
+        "phone_last4": second[-4:],
+    }
+
+
 def test_an_email_receipt_keeps_its_sender_past_the_latest_fifty_deliveries(
     web,  # noqa: ANN001
     monkeypatch: pytest.MonkeyPatch,
