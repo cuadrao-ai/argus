@@ -764,6 +764,16 @@ def test_the_same_key_with_another_version_is_a_conflict(rig) -> None:  # noqa: 
     ]
 
 
+def test_a_replay_answers_the_same_after_the_draft_became_a_sale(rig) -> None:  # noqa: ANN001
+    item = _named(rig, _read(rig, {"ncf": None}))
+    key = str(uuid4())
+    assert _results(_approve_many(rig, [item], key)) == [("refused", "not_listo")]
+
+    _review(rig, item, {"document_type": "venta"})
+    assert _results(_approve_many(rig, [item], key)) == [("refused", "not_listo")]
+    assert _money(rig) == 0
+
+
 def test_a_concurrent_single_approve_records_each_receipt_once(rig) -> None:  # noqa: ANN001
     items = [_named(rig, _read(rig)) for _ in range(4)]
     key = str(uuid4())
