@@ -20,6 +20,7 @@ from pydantic import BaseModel, ValidationError
 from argus.domain.business.contracts.checks import DgiiQr
 from argus.domain.business.contracts.facts import FiscalFacts
 from argus.domain.business.fiscal_identity import printed_ncf, printed_rnc
+from argus.domain.business.receipt_amounts import read_amount
 from argus.domain.ingestion.contract import (
     AccountHint,
     Attachment,
@@ -222,6 +223,8 @@ def fiscal_facts_from_receipt(receipt: ReceiptDetails, *, source_id: UUID) -> Fi
         # The receipt keeps the full read as evidence; the fact holds only the identifier.
         if value is not None and name in _PRINTED_IDENTIFIER:
             value = _PRINTED_IDENTIFIER[name](value)
+        if name == "itbis":
+            value = read_amount(value)
         fact = {
             "state": "unknown" if value is None else "known",
             "value": value,

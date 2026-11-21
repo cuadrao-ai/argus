@@ -15,7 +15,7 @@ afterEach(async () => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-async function mount() {
+async function mount(typedNotes = true) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -34,7 +34,7 @@ async function mount() {
       captureNote: async (body: { text: string; document_type?: string }) => { notes.push(body); return {}; },
       receiptReading: async () => ({ enabled: true, can_change: true, available: true, disclosure: "" }),
     },
-    records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, receipt_limits: { max_bytes: 1024, media_types: ["image/jpeg"] } }, overview: null, inbox: [], notes: [], notesTruncated: false, error: false },
+    records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, typed_notes_available: typedNotes, receipt_limits: { max_bytes: 1024, media_types: ["image/jpeg"] } }, overview: null, inbox: [], notes: [], notesTruncated: false, error: false },
     bridge: null,
     reload: () => undefined,
   } as unknown as BusinessContextValue;
@@ -154,4 +154,16 @@ test("the note box starts at six lines, grows with its text and stops where a fu
   assert.ok(parseFloat(field.style.height) < grown, "it shrinks back with less text");
   assert.equal(field.style.overflowY, "hidden");
   await page.act(async () => page.root.unmount());
+});
+
+test("while the server refuses new typed notes, Agregar offers no Escríbelo", async () => {
+  const off = await mount(false);
+  assert.equal(document.querySelector('[data-testid="intake-write-open"]'), null);
+  assert.doesNotMatch(document.body.textContent ?? "", /Escríbelo|Sin papel/);
+  assert.ok(document.querySelector('[data-testid="intake-document-type"]'), "uploads stay");
+  await off.act(async () => off.root.unmount());
+  document.body.innerHTML = "";
+  const on = await mount(true);
+  assert.match(document.querySelector('[data-testid="intake-write-open"]')?.textContent ?? "", /Escríbelo/);
+  await on.act(async () => on.root.unmount());
 });

@@ -9616,7 +9616,12 @@ Existing `ARGUS_INGESTION_ENABLED` and `ARGUS_DOCUMENT_EXTRACTION_ENABLED` gates
 **Human note capture contract.** `POST /business/captures` takes
 `{text, draft?: {draft_id, version}, document_type?: "recibo" | "venta"}` and
 `Idempotency-Key`, returning the existing
-`BusinessDossier`. This foundation supplies its command and receipt constraints;
+`BusinessDossier`. A body without `draft` starts a draft, and is refused with 404
+`business_typed_notes_unavailable` and `Cache-Control: no-store` while
+`CUADRAO_BUSINESS_TYPED_NOTES_ENABLED` is off (the default; see
+`typed_notes_available` on `GET /business/workspace`). The refusal comes before
+the idempotency key is read, so nothing is stored. A body with `draft` is never
+refused by this switch. This foundation supplies its command and receipt constraints;
 route/service implementation is a separate owned slice. `text` is 1–500
 characters, the same limit as a record's current note (`NOTE_MAX_LENGTH`),
 rejects whitespace-only input and U+0000 (NUL), and is retained
@@ -10160,14 +10165,20 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  settlement_available, typed_notes_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
   is final, the open items read and the settlement PATCH are refused with 404
   `business_settlement_unavailable` before authentication (a malformed PATCH body can answer 422
   first, as it does while the switch is on), and the web shows no Por cobrar, Por pagar or mark, and shows
   ITBIS charged ("ITBIS en ventas") where ITBIS cobrado stood (see the
-  [month-close contract](contracts/business-month-close.md)). `country` and `currency` are the Business's own,
+  [month-close contract](contracts/business-month-close.md)). `typed_notes_available` is the server's one
+  answer on starting a draft from a typed note, true only while
+  `CUADRAO_BUSINESS_TYPED_NOTES_ENABLED` is on (default off). While it is false,
+  `POST /business/captures` without `draft` is refused with 404
+  `business_typed_notes_unavailable`, and the web offers no "Escríbelo" in Agregar. Saved notes
+  still list, open, accept, delete and restore, and a capture with `draft` still saves.
+  `country` and `currency` are the Business's own,
   the same values `GET /business/space` returns. `records_default_currency` is the
   server-owned initial Registros selection, currently DOP, independent of the
   Business currency. Its supported values are DOP, USD and EUR. The web waits for
@@ -10459,11 +10470,26 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
-- Each `ReceiptSummary` carries `uploaded_by`, the person who uploaded a web
-  upload, as `{display_name, email, shown_as}` named live for the reader by
-  the same rule as `personal_marked_by`. It comes from the first applied
-  `receipt_upload` ledger row for the receipt. It is null for a WhatsApp or
-  email arrival, and null where no ledger is kept (the in-memory app).
+- **Sent by.** Each `ReceiptSummary`, each note of `GET /business/captures`
+  and each delivery of `GET /business/email/deliveries`, `/{id}` and `/inbox`
+  carries `sent_by`, who brought the row in, as
+  `{id, kind, person, address, phone_last4}`. One server module, `sent_by`,
+  builds it. `kind` names the one field that is set:
+  - `member`: a web upload or a typed note. `person` is
+    `{display_name, email, shown_as}`, named live for the reader by the same
+    rule as `personal_marked_by`, so another member's email shows only to a
+    reader who manages the Business. A web upload reads the first applied
+    `receipt_upload` ledger row of the receipt; a note reads who typed it.
+  - `email`: `address` is the bare lowercase address the email came from. A
+    receipt reads the earliest delivery that brought it, however old.
+  - `whatsapp`: `phone_last4` is the last digits of the linked number, the
+    only part stored.
+  `id` is `member:<user id>`, `email:<address>` or `whatsapp:<link id>`: the
+  same sender has the same `id` on every row, and a number linked again keeps
+  the id of its first link to the Business. The web filters by `id` and
+  works out no sender of its own. `sent_by` is null when nothing stored says
+  who sent the row, and for receipts where no ledger is kept (the in-memory
+  app).
 - Duplicates never record money twice. Uploading the same bytes again, from
   any entry point, answers with the receipt already saved and `replayed:
   true`; nothing new is stored. A second document whose read merchant, date,

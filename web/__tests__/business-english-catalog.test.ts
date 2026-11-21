@@ -12,6 +12,7 @@ const SHARED_CONTEXTS = new Map([
   ["business.invoicing_preview.document_customer_rnc", "RNC: {{id}}"],
   ["business.invoicing_preview.subtotal", "Subtotal"],
   ["business.receipts.duplicate_resolution.basis.fiscal_number_sale_placeholder", "[placeholder] Same NCF as another sale."],
+  ["business.reception_preview.sent_by_whatsapp", "WhatsApp ···{{last4}}"],
   ["business.reception_preview.source_whatsapp", "WhatsApp"],
   ["business.transactions.layout.results.personal_one", "{{count}} personal"],
   ["business.notifications.times.recent", "5 min"],

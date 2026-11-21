@@ -38,6 +38,11 @@ PURCHASE_NCF = "B0100000001"
 CREDIT_NCF = "B0400000002"
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 def _get(rig, path: str, headers: dict, **params):  # noqa: ANN001, ANN202
     answer = rig.client.get(f"{API}{path}", params=params, headers=headers)
     assert answer.status_code == 200, (path, answer.text)
@@ -202,11 +207,22 @@ def test_notes_say_how_many_came_before_and_whether_the_page_is_the_whole_list(
     # Exactly a page's worth is not "more".
     exact = _get(world, "/business/captures", alice.headers, limit=4)
     assert (len(exact["items"]), exact["has_more"]) == (4, False)
-    # The accountant working in Alice's Business reads the same page.
+    # The accountant working in Alice's Business reads the same page. Alice has
+    # no name, so she reads her own email and the accountant, who does not
+    # manage the Business, reads only that a member sent it.
     assert all(item["delete_available"] for item in page["items"])
+    assert {item["sent_by"]["person"]["shown_as"] for item in page["items"]} == {"email"}
+    unnamed ={"display_name": None, "email": None, "shown_as": "member"}
     assert _get(world, "/business/captures", _as(world.bob, world.grant), limit=2) == {
         **page,
-        "items": [{**item, "delete_available": False} for item in page["items"]],
+        "items": [
+            {
+                **item,
+                "delete_available": False,
+                "sent_by": {**item["sent_by"], "person": unnamed},
+            }
+            for item in page["items"]
+        ],
     }
 
 

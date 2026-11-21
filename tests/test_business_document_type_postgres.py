@@ -50,6 +50,11 @@ SUPPLIER_RNC = "199990021"
 NAME = "PRÁCTICA Taller"
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 @pytest.fixture
 def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
     auth_router.reset_auth_attempt_limiter_for_tests()

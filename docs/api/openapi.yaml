@@ -1895,6 +1895,14 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_typed_notes_unavailable`: a note that starts a draft is
+            off on this server (`CUADRAO_BUSINESS_TYPED_NOTES_ENABLED`). A note on an existing
+            draft is not refused.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -18815,6 +18823,8 @@ components:
           type: boolean
         settlement_available:
           type: boolean
+        typed_notes_available:
+          type: boolean
         receiving_channels:
           $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
@@ -18841,6 +18851,7 @@ components:
       - invoicing_available
       - notifications_available
       - settlement_available
+      - typed_notes_available
       - receiving_channels
       - receipt_limits
       - records_default_currency
@@ -25825,6 +25836,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/BandejaGroup'
           - type: 'null'
+        sent_by:
+          anyOf:
+          - $ref: '#/components/schemas/SentBy'
+          - type: 'null'
         draft_id:
           type: string
           format: uuid
@@ -29242,9 +29257,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-        uploaded_by:
+        sent_by:
           anyOf:
-          - $ref: '#/components/schemas/PersonName'
+          - $ref: '#/components/schemas/SentBy'
           - type: 'null'
         media_type:
           type: string
@@ -29539,9 +29554,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-        uploaded_by:
+        sent_by:
           anyOf:
-          - $ref: '#/components/schemas/PersonName'
+          - $ref: '#/components/schemas/SentBy'
           - type: 'null'
         media_type:
           type: string
@@ -29814,9 +29829,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-        uploaded_by:
+        sent_by:
           anyOf:
-          - $ref: '#/components/schemas/PersonName'
+          - $ref: '#/components/schemas/SentBy'
           - type: 'null'
         media_type:
           type: string
@@ -32140,6 +32155,33 @@ components:
       - unassessed
       - clear
       - restricted
+    SentBy:
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum:
+          - member
+          - email
+          - whatsapp
+        person:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
+          - type: 'null'
+        address:
+          anyOf:
+          - type: string
+          - type: 'null'
+        phone_last4:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - kind
     SentInvite:
       properties:
         id:

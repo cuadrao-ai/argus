@@ -24,7 +24,8 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.document_type import resolved_document_type, typed_facts
-from argus.domain.business.people import named_deletion, people
+from argus.domain.business.people import named, named_deletion, people
+from argus.domain.business.sent_by import member_sender
 from argus.domain.business.transactions import ActionTransaction, transaction
 
 if TYPE_CHECKING:
@@ -164,6 +165,11 @@ _DELETED_NOTES = (
     " where e.owner_space_id=%s and e.user_id=%s and s.kind='message'"
     " and e.state='dismissed' and e.resolution ? 'deleted'" + _WITHOUT_RECEIPT
 )
+# Who typed a deleted note: the actor of the revision that brought its source.
+_DELETED_AUTHOR = (
+    " (select x.actor->>'actor_id' from public.business_draft_revisions x"
+    " where x.draft_id=e.id and x.space_id=e.owner_space_id and x.version=v.version)"
+)
 
 
 def entries(
@@ -199,6 +205,8 @@ def page(
         rows = tx.rows(
             "select * from (select e.id as draft_id,e.version,v.version as revision,"
             " s.id as source_id,s.text_content as text,s.received_at,e.state as review_state,e.resolution,"
+            + (_DELETED_AUTHOR if view == "eliminados" else " r.actor_id")
+            + " as author,"
             " count(*) over (partition by e.id order by s.received_at,s.id"
             " rows between unbounded preceding and 1 preceding) as earlier_count"
             + (_DELETED_NOTES if view == "eliminados" else _NOTES)
@@ -209,14 +217,16 @@ def page(
             (context.actor.space_id, context.owner_id, query, limit + 1, offset),
         )
         markers = [deletion(row["review_state"], row.pop("resolution")) for row in rows]
+        authors = [row.pop("author") for row in rows]
         found = people(
             tx.connection,
             tx.authorization,
-            [marker.actor.actor_id for marker in markers if marker],
+            [*authors, *(marker.actor.actor_id for marker in markers if marker)],
         )
-        for row, marker in zip(rows, markers, strict=False):
+        for row, marker, author in zip(rows, markers, authors, strict=False):
             marker = named_deletion(marker, found)
             row.update(
+                sent_by=member_sender(author, named(found, author)) if author else None,
                 deleted=marker,
                 delete_available=row["review_state"] == "open"
                 and "approve" in tx.authorization.capabilities,

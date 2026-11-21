@@ -24,7 +24,7 @@ describe("notes awaiting review in the Inbox", () => {
       { draftId: "draft-e", text: "Aprobando el pago de luz", receivedAt: "2026-10-11T12:00:00Z", revision: 2, earlier: 0 },
       { draftId: "draft-b", text: "Me pagaron 5,000 por la reparación.", receivedAt: "2026-10-11T09:00:00Z", revision: 1, earlier: 0 },
       { draftId: "draft-a", text: "Pagué con mi dinero.", receivedAt: "2026-10-10T15:30:00Z", revision: 2, earlier: 4 },
-    ].map(row => ({ ...row, deleted: undefined, delete_available: undefined, restore_available: undefined, bandeja_group: undefined })));
+    ].map(row => ({ ...row, deleted: undefined, delete_available: undefined, restore_available: undefined, bandeja_group: undefined, sent_by: undefined })));
     assert.deepEqual(openNotesByDraft([]), []);
   });
 });

@@ -111,16 +111,9 @@ async def lifespan(app: FastAPI):
         from argus.api.apple_sign_in import start_apple_sign_in, stop_apple_sign_in
 
         start_apple_sign_in(app)
-        from argus.api.chat.research_pricing_evidence import ResearchPricingRecorder
-        from argus.domain.research.billing import set_unpriced_spend_recorder
-
-        research_pricing_recorder = ResearchPricingRecorder()
-        set_unpriced_spend_recorder(research_pricing_recorder)
         try:
             yield
         finally:
-            set_unpriced_spend_recorder(None)
-            await research_pricing_recorder.close()
             stop_personalization_memory(app)
             stop_households(app)
             stop_apple_sign_in(app)

@@ -11,11 +11,11 @@ import { useTranslation } from "react-i18next";
 import { currencySymbol } from "@/lib/money-entry";
 import { Unknown } from "../transacciones/transacciones-parts";
 import { resolveLanguage } from "@/lib/language-features";
-import { personName } from "@/lib/person-name";
+import { sentByName } from "@/lib/sent-by";
 import type { BusinessPanelState } from "../BusinessWorkspace";
-import { formatAmount, formatMoney, formatRelativeTime, UNKNOWN_VALUE } from "../business-format";
+import { formatAmount, formatMoney, formatRelativeTime } from "../business-format";
 import { isOpenRecord } from "../record-tray";
-import { receptionSender, receptionDocumentTitle, receptionTarget, type ReceptionRow, type ReceptionView } from "./reception-model";
+import { receptionSentBy, receptionDocumentTitle, receptionTarget, type ReceptionRow, type ReceptionView } from "./reception-model";
 import type { ReceptionColumnKey, ReceptionPreferences } from "./reception-columns";
 import { originPlace, receptionPlaces } from "./reception-grid";
 import ReceptionOriginal from "./ReceptionOriginal";
@@ -26,7 +26,7 @@ type CellProps = { style: CSSProperties; "data-testid": string };
 type Places = ReturnType<typeof receptionPlaces>;
 
 /**
- * A row's places: the box, Contenido, the person's columns in their order with Canal, Remitente and the phone's
+ * A row's places: the box, Contenido, the person's columns in their order with Canal, Enviado por and the phone's
  * arrival in one shared cell, then the actions. A loaded row and a pending row both draw through it.
  */
 function RowPlaces({ places, box, identity, origin, cells, actions }: { places: Places; box: ReactNode; identity: ReactNode; origin: ReactNode; cells: Record<ReceptionColumnKey, ReactNode>; actions: ReactNode }) {
@@ -74,7 +74,8 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
   const places = receptionPlaces(preferences, { status: view !== "listos" });
   const has = places.has;
   const money = receipt && has("amount") ? formatMoney(receipt.amount, receipt.currency, locale) : null;
-  const sender = receptionSender(row) ?? (receipt?.uploaded_by ? personName(t, receipt.uploaded_by) : null);
+  const sentBy = receptionSentBy(row);
+  const sender = sentBy ? sentByName(t, sentBy) : null;
   const SourceIcon = CHANNEL_ICON[row.source];
   const selected = isOpenRecord(panel, target);
   const [titleRef, titleCut] = useCutOff<HTMLSpanElement>(title);
@@ -83,8 +84,8 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
     <span className={styles.documentText}>{unseen ? <span className={styles.unseenDot} aria-hidden="true" /> : null}<span ref={titleRef} className={styles.title}>{unseen ? <span className="sr-only">{word("unseen")}: </span> : null}{row.kind === "note" ? <ChatCircle className={styles.noteIcon} size={15} aria-hidden="true" /> : null}{title}</span>{money ? <span className={`${styles.mobileMoney} cuadrao-amount`}>{money}</span> : null}</span>
   </button>;
   const channel = (cell?: CellProps) => has("source") ? <span className={styles.channel} {...cell}><SourceIcon size={15} aria-hidden="true" />{word(`source_${row.source}`)}</span> : null;
-  const from = (cell?: CellProps) => !has("sender") ? null : sender ? <ReceptionCutText text={sender} className={styles.sender} data-known="true" {...cell} /> : <span className={styles.sender} data-known="false" title={t("business.email.no_sender")} aria-label={t("business.email.no_sender")} {...cell}>{UNKNOWN_VALUE}</span>;
-  // Below 940px Canal, Remitente and the phone's arrival share one cell, in the order they read there. A wide table hides it and draws each at its own place.
+  const from = (cell?: CellProps) => !has("sender") ? null : sender ? <ReceptionCutText text={sender} className={styles.sender} data-known="true" {...cell} /> : <span className={styles.sender} data-known="false" {...cell}>{word("sent_by_unknown")}</span>;
+  // Below 940px Canal, Enviado por and the phone's arrival share one cell, in the order they read there. A wide table hides it and draws each at its own place.
   const origin = <span className={styles.source} style={places.shared} data-info={has("source") || has("sender")} data-testid="reception-source">
     {from()}{channel()}
     {arrival ? <span className={styles.mobileArrival}>{arrival}</span> : null}
@@ -95,7 +96,7 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
     sender: from({ style: places.at("sender"), "data-testid": "reception-sender" }),
     amount: <span data-testid="reception-amount" style={places.at("amount")} className={`${styles.amountCell} cuadrao-amount`}>{receipt?.amount != null && receipt.currency ? formatAmount(receipt.amount, receipt.currency, locale) : <Unknown />}</span>,
     currency: <span data-testid="reception-currency" style={places.at("currency")} className={styles.currencyCell}>{receipt?.currency ? currencySymbol(receipt.currency) : <Unknown />}</span>,
-    status: <ReceptionStatus row={row} reasonOnly={view === "attention"} style={places.at("status")} />,
+    status: <ReceptionStatus row={row} style={places.at("status")} />,
     arrival: <span className={styles.arrival} style={places.at("arrival")}>{arrival}</span>,
   };
   return <li className={styles.row} data-list-row={rowKey} data-arrived={arrived} data-selected={selected} data-checked={checkable && checked} data-unseen={unseen} aria-current={selected ? "true" : undefined} data-testid="reception-row" data-kind={row.kind} onClick={event => { if (!(event.target as HTMLElement).closest("button,input,label,a")) open(); }}>

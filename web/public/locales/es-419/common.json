@@ -2551,6 +2551,15 @@
       "unmark_personal": "devolvió un gasto al negocio",
       "via_chat": "desde el chat"
     },
+    "bandeja": {
+      "label": {
+        "accepted": "Aceptado",
+        "cant_read": "No se pudo leer",
+        "needs_attention": "Necesita atención",
+        "reading": "Leyendo…",
+        "ready": "Listo para aceptar"
+      }
+    },
     "bank": {
       "empty": {
         "no_account": "[placeholder] business.bank.empty.no_account",
@@ -3085,7 +3094,7 @@
       "menu": "Eliminar documento",
       "open": "Abrir",
       "previous": {
-        "attention": "Necesitan atención",
+        "attention": "Por resolver",
         "listo": "Listos"
       },
       "purge": "Borrar definitivamente",
@@ -4644,7 +4653,7 @@
       "amount": "Monto",
       "arrival": "Llegada",
       "arrival_date": "Fecha de llegada",
-      "attention": "Necesitan atención",
+      "attention": "Por resolver",
       "clear": "Limpiar filtros",
       "clear_group": "Limpiar",
       "clear_selection": "Limpiar selección",
@@ -4653,9 +4662,14 @@
       "document_range_other": "{{from}}–{{to}} de {{count}} elementos",
       "eliminados": "Eliminados",
       "empty": "No hay contenido en esta vista",
+      "empty_attention": "Nada por resolver",
+      "empty_attention_help": "Cuando un documento necesite atención o no se pueda leer, aparece aquí.",
       "empty_help": "Prueba otra vista o cambia los filtros.",
+      "empty_listos": "No hay recibos listos",
+      "empty_listos_help": "Cuando un recibo tenga todo confirmado, aparece aquí para aprobarlo.",
       "empty_start": "Tus archivos y notas llegan aquí",
       "empty_start_help": "Agrega un archivo o recibe documentos por correo.",
+      "empty_start_upload_help": "Agrega un archivo.",
       "error": "No pudimos cargar todo el contenido.",
       "file": "Adjunto",
       "forward_options": "Recibir por correo",
@@ -4679,11 +4693,6 @@
         "approved_one": "{{count}} recibo aprobado.",
         "approved_other": "{{count}} recibos aprobados.",
         "bulk_actions": "Aprobar selección",
-        "empty_attention": "Nada necesita atención",
-        "empty_attention_help": "Cuando un recibo necesite algo de ti, aparece aquí.",
-        "empty_listos": "No hay recibos listos",
-        "empty_listos_help": "Cuando un recibo tenga todo confirmado, aparece aquí para aprobarlo.",
-        "empty_start_upload_help": "Agrega un archivo.",
         "listos": "Listos",
         "open": "Abrir",
         "reason": {
@@ -4702,8 +4711,7 @@
           "other": "No se pudo aprobar",
           "stale_version": "Cambió después de listarlo. Ábrelo y revísalo.",
           "unknown": "No sabemos si se aprobó. Reintenta para confirmarlo."
-        },
-        "tag_listo": "Listo para aprobar"
+        }
       },
       "remove_filter": "Quitar filtro: {{label}}",
       "search": "Buscar en esta lista…",
@@ -4711,9 +4719,11 @@
       "select_page": "Seleccionar esta página",
       "selected_one": "{{count}} seleccionado",
       "selected_other": "{{count}} seleccionados",
-      "sender": "Remitente",
-      "sender_search": "Buscar remitente…",
-      "sender_source": "Canal y remitente",
+      "sender": "Enviado por",
+      "sender_search": "Buscar…",
+      "sender_source": "Canal / Enviado por",
+      "sent_by_unknown": "Desconocido",
+      "sent_by_whatsapp": "$t(business.reception_preview.source_whatsapp) ···{{last4}}",
       "setup_forward": "Configurar recepción por correo",
       "source": "Canal",
       "source_email": "Correo",
@@ -4721,7 +4731,6 @@
       "source_web": "Carga manual",
       "source_whatsapp": "WhatsApp",
       "status": "Estado",
-      "status_reason": "Motivo",
       "text_intake": "Entrada de texto",
       "unseen": "No visto",
       "views": "Vistas de Bandeja",

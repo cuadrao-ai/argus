@@ -95,6 +95,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
     });
     const source = {
       ...base,
+      workspace: async () => ({ ...await base.workspace(), typed_notes_available: true }),
       spaces: async () => [{ space_id: "own", name: "My business", grant_id: "own-grant", role: "owner" as const, capabilities: ["read", "prepare", "approve"], access_seen: true }],
       overview: async (from: string, to: string | null) => ({ ...await base.overview(from, to), totals: [], fiscal_totals: [], without_fiscal_totals: [] }),
     } satisfies Partial<BusinessDataSource>;

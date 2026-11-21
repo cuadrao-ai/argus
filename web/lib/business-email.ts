@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { apiFetch } from "./argus-api-transport";
 import type { BandejaGroup } from "./business-api";
+import type { SentBy } from "./sent-by";
 
 /** Received emails for a Business, as the API reports them. */
 
@@ -30,6 +31,8 @@ export type BusinessEmailDelivery = {
   waiting?: { reason: "daily_budget"; retry_at: string } | null;
   subject: string | null;
   sender: string | null;
+  /** Who brought it in, as every Bandeja row says it; null when the email names no usable address. */
+  sent_by?: SentBy | null;
   sent_at: string | null;
   error_code: string | null;
   parts: BusinessEmailPart[];

@@ -13,7 +13,7 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { referenceCode, sessionEndedLoginPath, type FailureClass } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
-import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
+import { businessTypedNotesAvailable, type ReceiptLimits, type ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { pillButtonClass, primaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
@@ -97,7 +97,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   /** The photo row is for phones: a camera, file capture and a phone-sized screen. */
   const showCamera = capabilities.cameraCapture && isBelowTablet;
   const pasteKeys = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
-  const { bridge, clearLostAccess, source, chosen, reload, openPanel } = useBusiness();
+  const { bridge, clearLostAccess, source, chosen, reload, openPanel, records } = useBusiness();
   const forwardAddress = useForwardAddress();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replacingRef = useRef<string | null>(null);
@@ -197,7 +197,10 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   // The workspace keeps this Business's unsaved note, so Agregar opens on it again until it is saved.
   // A typed note prints no RNC, so Automático would always read it as a purchase: the person names its type.
   const { text: draftText, documentType: writeType } = useSyncExternalStore(notes.subscribe, () => notes.draft(grant), () => notes.draft(grant));
-  const [writing, setWriting] = useState(() => hasDraftText(notes.draft(grant)));
+  const [writeOpen, setWriting] = useState(() => hasDraftText(notes.draft(grant)));
+  // While the server refuses new typed notes there is no entry and the card never opens, kept draft or not.
+  const notesOffered = NOTES_ENTRY_ENABLED && businessTypedNotesAvailable(records.workspace);
+  const writing = notesOffered && writeOpen;
   const writeReady = writeType !== null && validCaptureText(draftText);
   const writeRef = useRef<HTMLTextAreaElement>(null);
   useGrowingNoteBox(writeRef, writing ? draftText : "");
@@ -314,7 +317,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
       ) : undefined}
     >
       <div className="space-y-5 px-4 pb-6">
-        {NOTES_ENTRY_ENABLED && writing ? (
+        {writing ? (
           <div data-testid="intake-write" className="rounded-item border border-[#7d8a84] bg-[#FFFEFA] p-4 dark:border-white/30 dark:bg-white/[0.02]">
             <label htmlFor="intake-write-text" className="font-display text-[17px] font-medium text-[#172b26] dark:text-white">{t("business.intake.write_title", "Write it")}</label>
             <textarea
@@ -385,7 +388,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
             ) : null}
           </div>
         )}
-        {NOTES_ENTRY_ENABLED && many && !writing ? (
+        {notesOffered && many && !writing ? (
           <p className={`-mt-2 text-center text-[13px] ${MUTED}`}>
             {t("business.intake.no_paper", "No paper?")}
             <button type="button" data-testid="intake-write-open" className={`${smallAction} ml-1`} onClick={() => setWriting(true)}>

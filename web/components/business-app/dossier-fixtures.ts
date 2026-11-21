@@ -270,7 +270,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         approval_available: previous?.approval_available ?? false, approval_result: null,
       };
       dossiers.set(id, next);
-      captures.push({ draft_id: id, version, revision: version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open" });
+      captures.push({ draft_id: id, version, revision: version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open", sent_by: { id: `member:${actor.actor_id}`, kind: "member", person: { display_name: actor.display_name, email: null, shown_as: actor.shown_as } } });
       captureReceipts.set(key, { input, draftId: id });
       return get(id);
     },

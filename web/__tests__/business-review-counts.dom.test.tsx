@@ -97,7 +97,7 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     const page = await mount();
     assert.equal(page.reviewCount(), String(SAMPLE.total));
     assert.equal(page.text('[data-testid="business-inbox-count"]'), String(SAMPLE.total));
-    await page.settle(() => page.segment("attention")?.textContent === `Necesitan atención${SAMPLE.attention}`);
+    await page.settle(() => page.segment("attention")?.textContent === `Por resolver${SAMPLE.attention}`);
     assert.equal(page.segment("listos")?.textContent, `Listos${SAMPLE.listos}`);
     assert.equal(page.segment("all")?.textContent, "Todos", "Todos has no count");
     await page.choose("attention");
@@ -121,7 +121,7 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       page.api().reload();
     });
     // The note row comes from the notes list, the number from the server's next count.
-    await page.settle(() => page.segment("attention")?.textContent === `Necesitan atención${SAMPLE.attention + 1}`);
+    await page.settle(() => page.segment("attention")?.textContent === `Por resolver${SAMPLE.attention + 1}`);
     assert.equal(page.reviewCount(), String(SAMPLE.total + 1));
     assert.equal(page.text('[data-testid="business-inbox-count"]'), String(SAMPLE.total + 1));
     await page.choose("attention");
@@ -145,7 +145,7 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await page.settle(() => page.reviewCount() === left);
     assert.equal(page.reviewCount(), left);
     assert.equal(page.text('[data-testid="business-inbox-count"]'), left);
-    assert.equal(page.segment("attention")?.textContent, `Necesitan atención${SAMPLE.attention - 1}`);
+    assert.equal(page.segment("attention")?.textContent, `Por resolver${SAMPLE.attention - 1}`);
     await page.choose("attention");
     assert.equal(page.rows(), SAMPLE.attention - 1);
     await page.act(async () => page.api().reload());
@@ -183,7 +183,7 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     assert.notEqual(page.reviewCount(), "0");
     assert.notEqual(page.reviewCount(), String(SAMPLE.total));
     assert.equal(page.text('[data-testid="business-inbox-count"]'), null);
-    assert.equal(page.segment("attention")?.textContent, "Necesitan atención-");
+    assert.equal(page.segment("attention")?.textContent, "Por resolver-");
     assert.equal(page.segment("listos")?.textContent, "Listos-");
     await page.act(async () => page.root.unmount());
   });

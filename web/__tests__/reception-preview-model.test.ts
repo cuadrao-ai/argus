@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
-import { receptionMatches, receptionRows, receptionSearchText, receptionDocumentTitle, receptionTarget, listoItem } from "@/components/business-app/recepcion/reception-model";
+import { receptionMatches, receptionRows, receptionSearchText, receptionDocumentTitle, receptionTarget, listoItem, rowLabel } from "@/components/business-app/recepcion/reception-model";
 
 async function sample() {
   const source = createFixtureBusinessDataSource({ chatAvailable: true });
@@ -9,6 +9,19 @@ async function sample() {
   const emails = await source.emailDeliveries();
   return { receipts, emails, rows: receptionRows(receipts, [], emails) };
 }
+
+test("a receipt, a note and an email each show the label the server sent, and the sample has a row of every label", async () => {
+  const source = createFixtureBusinessDataSource({ chatAvailable: true });
+  const rows = receptionRows(await source.receipts("all"), (await source.captures("", 50, "inbox")).items, await source.emailDeliveries());
+  for (const kind of ["receipt", "note", "email"] as const) {
+    const row = rows.find(item => item.kind === kind);
+    assert.ok(row, kind);
+    const sent = row.kind === "receipt" ? row.receipt.bandeja_group : row.kind === "note" ? row.note.bandeja_group : row.email.delivery.bandeja_group;
+    assert.ok(sent?.label, kind);
+    assert.equal(rowLabel(row), sent.label);
+  }
+  assert.deepEqual([...new Set(rows.map(rowLabel))].sort(), ["accepted", "cant_read", "needs_attention", "reading", "ready"]);
+});
 
 test("Todos keeps approved arrivals, which sit in neither group", async () => {
   const { rows } = await sample();
@@ -46,9 +59,9 @@ test("every row opens its own record, whatever state it is in", async () => {
 
 test("an arrival keeps source identity searchable without making its amount primary", async () => {
   const { rows } = await sample();
-  const emailReceipt = rows.find(row => row.kind === "receipt" && row.sender);
+  const emailReceipt = rows.find(row => row.kind === "receipt" && row.receipt.sent_by?.kind === "email");
   assert.ok(emailReceipt?.kind === "receipt");
-  assert.ok(receptionSearchText(emailReceipt).includes(emailReceipt.sender!));
+  assert.ok(receptionSearchText(emailReceipt).includes(emailReceipt.receipt.sent_by!.address!));
   assert.deepEqual(rows.map(row => row.receivedAt), [...rows].map(row => row.receivedAt).sort().reverse());
 });
 
@@ -61,7 +74,7 @@ test("independent attachments keep distinct rows while their original email stay
   const rows = receptionRows([...documents, original], [], [delivery]);
   assert.equal(rows.length, 3);
   assert.deepEqual(new Set(rows.map(row => row.id)), new Set(["a", "b", "c"]));
-  assert(rows.every(row => row.kind === "receipt" && row.sender === delivery.sender));
+  assert(rows.every(row => row.kind === "receipt"));
 });
 
 test("document identity uses captured facts and delivery exceptions retain their subject", async () => {
@@ -76,7 +89,7 @@ test("document identity uses captured facts and delivery exceptions retain their
 
 test("a typed note keeps its text, needs attention, and claims no file or sender", () => {
   const text = "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger materiales.";
-  const [note] = receptionRows([], [{ draft_id: "note-1", version: 1, revision: 1, source_id: "source-1", text, received_at: "2026-10-27T12:00:00Z", review_state: "open", bandeja_group: { group: "attention", reason: "not_read", draft_id: "note-1", version: 1 } }], []);
+  const [note] = receptionRows([], [{ draft_id: "note-1", version: 1, revision: 1, source_id: "source-1", text, received_at: "2026-10-27T12:00:00Z", review_state: "open", bandeja_group: { group: "attention", reason: "not_read", label: "needs_attention", draft_id: "note-1", version: 1 } }], []);
   const labels = { untitled: "Contenido", pending: "En proceso", exception: "Sin documento", text: "Nota" };
   assert.equal(receptionDocumentTitle(note, labels), text.split("\n")[0]);
   assert.deepEqual(receptionTarget(note), { kind: "draft", draftId: note.id, list: "inbox" });
@@ -88,7 +101,7 @@ test("a typed note keeps its text, needs attention, and claims no file or sender
 });
 
 test("a note being approved is on Listos, as the server groups it, and names nothing to approve again", () => {
-  const [note] = receptionRows([], [{ draft_id: "note-2", version: 3, revision: 3, source_id: "source-2", text: "Pagué 850", received_at: "2026-10-27T12:00:00Z", review_state: "accepting", bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } }], []);
+  const [note] = receptionRows([], [{ draft_id: "note-2", version: 3, revision: 3, source_id: "source-2", text: "Pagué 850", received_at: "2026-10-27T12:00:00Z", review_state: "accepting", bandeja_group: { group: "listo", reason: null, label: "ready", draft_id: null, version: null } }], []);
   assert.equal(receptionMatches(note, "listos"), true);
   assert.equal(receptionMatches(note, "attention"), false);
   assert.equal(receptionMatches(note, "all"), true);

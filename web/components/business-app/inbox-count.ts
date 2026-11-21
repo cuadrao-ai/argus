@@ -1,7 +1,8 @@
 import type { BusinessCapture, DocumentDeleteAccess, BandejaGroup, ReceiptActivityCounts } from "@/lib/business-api";
 import type { BusinessEmailDelivery, EmailStanding } from "@/lib/business-email";
+import type { SentBy } from "@/lib/sent-by";
 
-export type OpenNote = DocumentDeleteAccess & { bandeja_group?: BandejaGroup | null; draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
+export type OpenNote = DocumentDeleteAccess & { bandeja_group?: BandejaGroup | null; sent_by?: SentBy | null; draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
 /**
  * One row per draft still awaiting review: its latest note, and how many came
@@ -14,7 +15,7 @@ export function openNotesByDraft(captures: readonly BusinessCapture[], includeDe
     if (note.review_state !== "open" && note.review_state !== "accepting" && !(includeDeleted && note.deleted)) continue;
     const current = byDraft.get(note.draft_id);
     if (!current || note.received_at > current.receivedAt) {
-      byDraft.set(note.draft_id, { deleted: note.deleted, delete_available: note.delete_available, restore_available: note.restore_available, bandeja_group: note.bandeja_group, draftId: note.draft_id, text: note.text, receivedAt: note.received_at, revision: Math.max(note.revision, current?.revision ?? 0), earlier: note.earlier_count ?? 0 });
+      byDraft.set(note.draft_id, { deleted: note.deleted, delete_available: note.delete_available, restore_available: note.restore_available, bandeja_group: note.bandeja_group, sent_by: note.sent_by, draftId: note.draft_id, text: note.text, receivedAt: note.received_at, revision: Math.max(note.revision, current?.revision ?? 0), earlier: note.earlier_count ?? 0 });
     } else {
       current.revision = Math.max(note.revision, current.revision);
     }
@@ -40,7 +41,7 @@ export function inboxCount(records: CountRecords): number | null {
   return records.receiptActivity?.pending_review_count ?? null;
 }
 
-/** The Bandeja's Necesitan atención tab. */
+/** The Bandeja's Por resolver tab. */
 export function bandejaAttentionCount(records: CountRecords): number | null {
   return records.receiptActivity?.bandeja_attention_count ?? null;
 }

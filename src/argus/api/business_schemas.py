@@ -30,6 +30,7 @@ from argus.domain.business.receipts import Attention
 from argus.domain.business.reporting_query import Purchase606
 from argus.domain.business.roles import BusinessRole, Permission
 from argus.domain.business.search import SearchKind
+from argus.domain.business.sent_by import SentBy
 from argus.domain.business.space_name import GivenName
 from argus.domain.business.spaces import MAX_NAME_LENGTH
 from argus.domain.financial_search import query_text
@@ -151,6 +152,8 @@ class BusinessWorkspace(_Wire):
     notifications_available: bool
     #: The server's one answer on Por cobrar and Por pagar; the client shows none of it while false.
     settlement_available: bool
+    #: The server's one answer on starting a draft from a typed note; the client offers no entry while false.
+    typed_notes_available: bool
     receiving_channels: ReceivingChannels
     receipt_limits: ReceiptLimits
     records_default_currency: Literal["DOP", "USD", "EUR"]
@@ -330,8 +333,8 @@ class ReceiptSummary(_Wire):
     filename: str | None
     # The sender's own words sent with the file (a WhatsApp caption), verbatim.
     source_text: str | None = None
-    # Who uploaded a web upload, named for the caller; null for any other arrival.
-    uploaded_by: PersonName | None = None
+    # Who brought it in, whatever the channel; null when nothing stored says.
+    sent_by: SentBy | None = None
     media_type: str
     size_bytes: int
     received_at: datetime
