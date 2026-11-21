@@ -6,6 +6,7 @@ import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, apiFetchIfChanged, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
 import type { PersonName } from "./person-name";
+import type { SentBy } from "./sent-by";
 import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessDuplicateDecision, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode, type ShownSuggestions } from "./business-dossier";
 import type { DgiiDeclaration } from "./business-dgii";
 import { getChosenGrant } from "./business-grant";
@@ -115,8 +116,8 @@ export type ReceiptSummary = ReceiptReviewFields & DocumentDeleteAccess & {
   bandeja?: BandejaMembership | null;
   bandeja_group?: BandejaGroup | null;
   channel: ReceiptChannel;
-  /** Who uploaded a web upload, as the server names them for this viewer; null for any other arrival. */
-  uploaded_by?: PersonName | null;
+  /** Who brought it in, whatever the channel; null when the server has nothing stored that says. */
+  sent_by?: SentBy | null;
   /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
   personal?: boolean;
   /** Who marked it, when that was someone other than the owner; absent otherwise. */
@@ -454,6 +455,8 @@ export type BusinessOverview = {
 export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number }; document_type?: "recibo" | "venta" };
 export type BusinessCapture = DocumentDeleteAccess & {
   bandeja_group?: BandejaGroup | null;
+  /** Who typed it, as the server names them for this viewer. */
+  sent_by?: SentBy | null;
   draft_id: string;
   /** The draft's current version, which also counts approvals and settlements. */
   version: number;

@@ -1,5 +1,6 @@
 import type { BandejaGroup, BandejaMembership, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailPart, EmailStanding } from "@/lib/business-email";
+import type { SentBy } from "@/lib/sent-by";
 
 /**
  * The preview's copy of the server's Bandeja rules (`receipt_activity.py` and
@@ -102,9 +103,15 @@ function emailGroup(standing: EmailStanding | null): BandejaGroup {
   return { group: standing === "reading" ? "reading" : standing === "no_receipt" ? "attention" : null, reason: standing === "reading" ? "reading" : null, draft_id: null, version: null };
 }
 
-/** An email delivery as the server serves it: where it stands, its Bandeja group, what it saved and why it brought nothing. */
-export function servedEmail<T extends EmailInput>(delivery: T): T & Pick<BusinessEmailDelivery, "standing" | "bandeja_group" | "saved_receipt_count" | "no_receipt_reason"> {
+/** `email_sender` in short: the address an email came from, as every Bandeja row names its sender. */
+export function emailSender(sender: string | null | undefined): SentBy | null {
+  const address = sender?.trim().toLowerCase();
+  return address ? { id: `email:${address}`, kind: "email", address } : null;
+}
+
+/** An email delivery as the server serves it: who sent it, where it stands, its Bandeja group, what it saved and why it brought nothing. */
+export function servedEmail<T extends EmailInput>(delivery: T): T & Pick<BusinessEmailDelivery, "sent_by" | "standing" | "bandeja_group" | "saved_receipt_count" | "no_receipt_reason"> {
   const captured = delivery.parts.filter((part) => part.state === "captured" && part.document_id);
   const standing = standingOf(delivery, captured);
-  return { ...delivery, standing, bandeja_group: emailGroup(standing), saved_receipt_count: captured.length, no_receipt_reason: standing === "no_receipt" ? noReceiptReason(delivery) : null };
+  return { ...delivery, sent_by: emailSender(delivery.sender), standing, bandeja_group: emailGroup(standing), saved_receipt_count: captured.length, no_receipt_reason: standing === "no_receipt" ? noReceiptReason(delivery) : null };
 }

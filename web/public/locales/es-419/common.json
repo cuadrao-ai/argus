@@ -4703,6 +4703,7 @@
           "stale_version": "Cambió después de listarlo. Ábrelo y revísalo.",
           "unknown": "No sabemos si se aprobó. Reintenta para confirmarlo."
         },
+        "sent_by_unknown": "No sabemos quién lo envió",
         "tag_listo": "Listo para aprobar"
       },
       "remove_filter": "Quitar filtro: {{label}}",
@@ -4711,9 +4712,10 @@
       "select_page": "Seleccionar esta página",
       "selected_one": "{{count}} seleccionado",
       "selected_other": "{{count}} seleccionados",
-      "sender": "Remitente",
-      "sender_search": "Buscar remitente…",
-      "sender_source": "Canal y remitente",
+      "sender": "Enviado por",
+      "sender_search": "Buscar…",
+      "sender_source": "Canal / Enviado por",
+      "sent_by_whatsapp": "$t(business.reception_preview.source_whatsapp) ···{{last4}}",
       "setup_forward": "Configurar recepción por correo",
       "source": "Canal",
       "source_email": "Correo",

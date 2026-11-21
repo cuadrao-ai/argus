@@ -8,9 +8,9 @@ import type {
 } from "@/lib/business-api";
 import { createDossierFixtures } from "./dossier-fixtures";
 import type { FiscalProfile } from "@/lib/business-dgii";
-import type { PersonName } from "@/lib/person-name";
+import type { SentBy } from "@/lib/sent-by";
 import { normalizeSearchText } from "@/lib/search-text";
-import { projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
+import { emailSender, projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
 import type { BusinessDataSource } from "./business-data";
 import { sampleActivityFeed } from "./actividad/activity-sample";
 import { createFixtureSearch, SAMPLE_VENTAS } from "./search-fixtures";
@@ -39,8 +39,14 @@ function dayOnly(iso: string): string {
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
-/** Who uploaded the sample's web uploads; WhatsApp and email arrivals name nobody, as on the server. */
-const SAMPLE_UPLOADER: PersonName = { display_name: "Marta", email: null, shown_as: "name" };
+const member = (id: string, display_name: string): SentBy => ({ id: `member:${id}`, kind: "member", person: { display_name, email: null, shown_as: "name" } });
+
+/** Who sent a sample receipt, as the server says it per channel: the member who uploaded it, the address of the first email that brought it, or the linked WhatsApp number. */
+function sampleSender(channel: ReceiptDetail["channel"], deliveries: readonly string[] | undefined): SentBy | null {
+  if (channel === "web") return member("sample-marta", "Marta");
+  if (channel === "whatsapp") return { id: "whatsapp:sample-link", kind: "whatsapp", phone_last4: "4821" };
+  return emailSender(SAMPLE_EMAILS.find((email) => email.id === deliveries?.[0])?.sender);
+}
 
 function receipt(
   partial: Partial<ReceiptDetail> & Pick<ReceiptDetail, "id" | "status">,
@@ -48,7 +54,7 @@ function receipt(
   const channel = partial.channel ?? "web";
   return {
     channel,
-    uploaded_by: channel === "web" ? SAMPLE_UPLOADER : null,
+    sent_by: sampleSender(channel, partial.email_delivery_ids),
     filename: `${partial.id}.jpg`,
     media_type: "image/jpeg",
     size_bytes: 412_000,
@@ -627,7 +633,7 @@ export function createFixtureBusinessDataSource(
       counter += 1;
       const created = receipt({
         id: `rcpt-new-${counter}`,
-        uploaded_by: { display_name: "Lucía", email: null, shown_as: "name" },
+        sent_by: member("sample-lucia", "Lucía"),
         status: consentToPrepare ? "queued" : "saved",
         filename: file.name,
         media_type: file.type,

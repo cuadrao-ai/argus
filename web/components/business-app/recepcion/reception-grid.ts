@@ -11,7 +11,7 @@ type Widths = { content: number; file: number; channel: number; sender: number; 
 const ROOMY: Widths = { content: 200, file: 104, channel: 150, sender: 200, status: 240, arrival: 126, action: 140 };
 /** A laptop with the rail open: the same columns, tighter. A 1280 screen leaves 976px. */
 const LAPTOP: Widths = { content: 180, file: 76, channel: 136, sender: 140, status: 168, arrival: 106, action: 140 };
-/** Below 940px Canal and Remitente share one column, where the first of the two stands. */
+/** Below 940px Canal and Enviado por share one column, where the first of the two stands. */
 const SHARED: readonly ReceptionColumnKey[] = ["source", "sender"];
 const MERGED: Widths = { content: 180, file: 76, channel: 0, sender: 150, status: 160, arrival: 106, action: 140 };
 
@@ -44,12 +44,12 @@ export function receptionGrid(preferences: ReceptionPreferences, { select: selec
   return { "--content-cap": `${CONTENT_CAP_PX}px`, "--columns": roomy.tracks, "--table-min-width": roomy.minimum, "--laptop-columns": laptop.tracks, "--laptop-min-width": laptop.minimum, "--compact-columns": merged.tracks, "--compact-min-width": merged.minimum } as CSSProperties;
 }
 
-/** The column whose place in the row holds Canal, Remitente and the phone's arrival: the first of them shown. */
+/** The column whose place in the row holds Canal, Enviado por and the phone's arrival: the first of them shown. */
 export const originPlace = (shown: readonly ReceptionColumnKey[]) => shown.find(key => SHARED.includes(key)) ?? shown.find(key => key === "arrival");
 
 /**
  * Where each shown column stands, from 1, as the `--col` its cell carries. The box and Contenido carry none, so they
- * stay first. Canal and Remitente share the first of their two places below 940px.
+ * stay first. Canal and Enviado por share the first of their two places below 940px.
  */
 export function receptionPlaces(preferences: ReceptionPreferences, tab: { status: boolean }) {
   const shown = shownReceptionColumns(preferences, tab);
