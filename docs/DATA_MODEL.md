@@ -3773,9 +3773,17 @@ month counts and writes the day row only while both are under
 (2000), so three reads starting at once never overshoot. It is charged at the
 one place a read starts (`DocumentsService.resume`, just before the provider
 is reached). Over the budget the receipt stays saved and unread with
-`error_code` `business_read_budget_day` or `business_read_budget_month`, and
-reads again only when a person asks while the budget allows. A space deletion
-cascades its rows. The in-memory store keeps the same rule for memory mode.
+`error_code` `business_read_budget_day` or `business_read_budget_month`. It
+reads again when a person asks while the budget allows, or on its own once the
+budget's Santo Domingo day or month has turned: the document worker's upkeep
+(`workflows/read_resume.py`, at most once every ten minutes) queues it through
+the same path as "Leer de nuevo", with a fresh attempt, only while the owner's
+reading setting is on. The refusal's time is the draft's own `updated_at`; no
+column holds it. Migration `20261121062739_document_read_budget_wait_index.sql`
+adds the partial index `financial_document_extractions_refused_idx`, which
+holds only the receipts waiting on a budget, so the pass reads nothing while
+none wait. A space deletion cascades its rows. The in-memory store keeps the
+same rule for memory mode.
 
 ### Business WhatsApp AI permission
 
