@@ -169,6 +169,16 @@ def test_a_clean_sale_is_listo_and_the_list_approves_it_as_a_sale(rig) -> None: 
     assert _label(rig, sale) == "accepted"
 
 
+def test_a_replay_answers_the_same_after_the_draft_became_a_sale(rig) -> None:  # noqa: ANN001
+    item = _named(rig, _read(rig, {"ncf": None}))
+    key = str(uuid4())
+    assert _results(_approve_many(rig, [item], key)) == [("refused", "not_listo")]
+
+    _review(rig, item, {"document_type": "venta"})
+    assert _results(_approve_many(rig, [item], key)) == [("refused", "not_listo")]
+    assert _money(rig) == 0
+
+
 def test_a_clean_foreign_currency_receipt_is_listo_and_the_list_approves_it(rig) -> None:  # noqa: ANN001
     usd = _read(rig, {"currency": "USD"})
     assert _row(rig, usd)["currency"] == "USD"
