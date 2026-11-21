@@ -58,7 +58,9 @@ ONE_RESUMED = {"due": 1, "requeued": 1}
 
 class Clock:
     def __init__(self) -> None:
-        self.now = NOW
+        # Each test starts at the real now: a lease taken from an older instant
+        # expires on the database's clock once the suite runs past it.
+        self.now = datetime.now(timezone.utc)
 
     def __call__(self) -> datetime:
         return self.now
