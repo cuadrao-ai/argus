@@ -9,7 +9,7 @@ async function setup(page: Page) {
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const receipt = await source.receipt("rcpt-ferreteria");
-  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 8, needs_attention_count: 1 };
+  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 8 };
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.split("/business/")[1];

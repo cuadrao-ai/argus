@@ -18,7 +18,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-const none: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0 };
+const none: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0 };
 
 // A desktop shell's top bar, which holds the one Agregar on every Business screen but Negocio.
 const DESKTOP_SHELL = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: undefined };

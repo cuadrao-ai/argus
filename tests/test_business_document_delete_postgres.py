@@ -163,10 +163,8 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
     assert counts(web, rows)["bandeja_eliminados_count"] == 1
     assert len(unreviewed_days(web, rows)) == len(before_days) - 1
     home = overview_with_drafts(web, date(2026, 1, 1), date(2026, 12, 31))
-    assert (
-        home["awaiting_review"] + home["needs_attention"]
-        == before_home["awaiting_review"] + before_home["needs_attention"] - 1
-    )
+    tabs = ("bandeja_listo_count", "bandeja_attention_count")
+    assert sum(home[name] for name in tabs) == sum(before_home[name] for name in tabs) - 1
     assert home["totals"] == before_home["totals"]
     assert (
         web.service.expenses(web.scope, date(2026, 1, 1), date(2026, 12, 31))

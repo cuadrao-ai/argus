@@ -13,7 +13,6 @@ test("the sample's Bandeja counts equal the receipts it flags plus the emails th
   const notes = new Set((await source.captures("", 50, "inbox")).items.map((note) => note.draft_id)).size;
   assert.equal(notes, 1, "the sample has one note awaiting review");
   assert.equal(page.activity?.ready_to_review_count, flagged("por_revisar") + notes);
-  assert.equal(page.activity?.needs_attention_count, flagged("con_problema") + emails.filter((email) => email.standing === "no_receipt").length);
   assert.equal(page.activity?.reading_count, flagged("leyendo") + emails.filter((email) => email.standing === "reading").length);
   assert.equal(page.activity?.confirmed_count, all.filter((item) => item.status === "confirmed" && !item.email_original).length);
   assert.equal(page.activity?.dismissed_count, 0);

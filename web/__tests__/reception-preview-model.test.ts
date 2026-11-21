@@ -76,7 +76,7 @@ test("document identity uses captured facts and delivery exceptions retain their
 
 test("a typed note keeps its text, needs attention, and claims no file or sender", () => {
   const text = "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger materiales.";
-  const [note] = receptionRows([], [{ draft_id: "note-1", version: 1, revision: 1, source_id: "source-1", text, received_at: "2026-10-27T12:00:00Z", review_state: "open" }], []);
+  const [note] = receptionRows([], [{ draft_id: "note-1", version: 1, revision: 1, source_id: "source-1", text, received_at: "2026-10-27T12:00:00Z", review_state: "open", bandeja_group: { group: "attention", reason: "not_read", draft_id: "note-1", version: 1 } }], []);
   const labels = { untitled: "Contenido", pending: "En proceso", exception: "Sin documento", text: "Nota" };
   assert.equal(receptionDocumentTitle(note, labels), text.split("\n")[0]);
   assert.deepEqual(receptionTarget(note), { kind: "draft", draftId: note.id, list: "inbox" });
@@ -85,6 +85,27 @@ test("a typed note keeps its text, needs attention, and claims no file or sender
   assert.equal(receptionMatches(note, "all"), true);
   assert.equal(listoItem(note), null);
   assert.equal("receipt" in note, false);
+});
+
+test("a note being approved is on Listos, as the server groups it, and names nothing to approve again", () => {
+  const [note] = receptionRows([], [{ draft_id: "note-2", version: 3, revision: 3, source_id: "source-2", text: "Pagué 850", received_at: "2026-10-27T12:00:00Z", review_state: "accepting", bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } }], []);
+  assert.equal(receptionMatches(note, "listos"), true);
+  assert.equal(receptionMatches(note, "attention"), false);
+  assert.equal(receptionMatches(note, "all"), true);
+  assert.equal(listoItem(note), null);
+});
+
+test("an email row sits on the tab its server group names", async () => {
+  const { rows } = await sample();
+  const emails = rows.filter(row => row.kind === "email");
+  assert.ok(emails.length > 0);
+  for (const row of emails) {
+    if (row.kind !== "email") continue;
+    const group = row.email.delivery.bandeja_group?.group;
+    assert.ok(group === "attention" || group === "reading", row.id);
+    assert.equal(receptionMatches(row, "attention"), group === "attention", row.id);
+    assert.equal(receptionMatches(row, "listos"), false, row.id);
+  }
 });
 
 test("only a Listos row names what an approval sends", async () => {

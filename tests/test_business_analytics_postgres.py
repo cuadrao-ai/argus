@@ -184,8 +184,9 @@ def _complete_read(service, context, prepared, status="review_ready"):  # noqa: 
 @pytest.mark.parametrize("group", ["listo", "attention", None])
 def test_approval_uses_the_read_group_after_a_person_edits(actions, sent, faker, group):  # noqa: ANN001
     service, context = actions
-    currency = "USD" if group == "attention" else "DOP"
-    draft, version = fiscal.receipt_draft(service, context, fiscal.colmado(currency=currency), currency)
+    # A read with no supplier needs a person; the edit below names one.
+    read = fiscal.colmado(**({"merchant": None} if group == "attention" else {}))
+    draft, version = fiscal.receipt_draft(service, context, read, "DOP")
     if group is not None:
         _complete_read(
             service, context, Applied(outcome="applied", draft_id=draft, version=version),
@@ -193,7 +194,7 @@ def test_approval_uses_the_read_group_after_a_person_edits(actions, sent, faker,
     if group == "attention":
         changed = service.review(
             context, draft, ReviewDraft(version=version, facts=BusinessFactPatch.model_validate(
-                {"currency": {"state": "known", "value": "DOP"}}
+                {"counterparty": {"state": "known", "value": faker.company()}}
             )), faker.uuid4(),
         )
         assert changed.outcome == "applied", changed

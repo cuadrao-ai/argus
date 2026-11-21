@@ -129,16 +129,21 @@ def test_bandeja_and_resumen_count_the_same_saved_receipts(
     # Bandeja lists. They are different counts and keep different names.
     assert activity["unread_count"] == 3
     assert activity["pending_review_count"] == len(rows) == 5
-    assert activity["needs_attention_count"] == 1
+    labels = {
+        item["id"]: item["bandeja_group"]["label"]
+        for item in alice.get("/receipts", view="all").json()["items"]
+    }
+    assert labels[ids["fallida"]] == "cant_read"
+    assert labels[ids["email"]] is None
+    assert [label for label in labels.values() if label == "cant_read"] == ["cant_read"]
     assert alice.get("/receipt-activity").json() == activity
 
     # The Resumen reads the same projection: the email itself is not a receipt.
     overview = alice.get("/overview", **PERIOD).json()
-    assert (overview["awaiting_review"], overview["needs_attention"]) == (4, 1)
-    assert (
-        overview["awaiting_review"] + overview["needs_attention"]
-        == activity["pending_review_count"]
-    )
+    tabs = ("bandeja_listo_count", "bandeja_attention_count")
+    assert [overview[name] for name in tabs] == [activity[name] for name in tabs]
+    assert sum(overview[name] for name in tabs) == activity["pending_review_count"]
+    assert not {"awaiting_review", "needs_attention"} & set(overview)
     assert overview["totals"] == []
 
 
@@ -162,12 +167,11 @@ def test_counts_follow_a_review_action_and_a_reload(
         rows, activity = _bandeja(alice)
         overview = alice.get("/overview", **PERIOD).json()
         assert ids["ferreteria"] not in rows
-        assert (activity["pending_review_count"], activity["needs_attention_count"]) == (
-            4,
-            1,
-        )
+        assert activity["pending_review_count"] == 4
         assert activity["unread_count"] == 2
-        assert (overview["awaiting_review"], overview["needs_attention"]) == (3, 1)
+        assert (
+            overview["bandeja_listo_count"] + overview["bandeja_attention_count"] == 4
+        )
         # One approved receipt is one expense, counted once.
         assert overview["totals"] == [
             {"currency": "DOP", "amount": "3450.00", "count": 1}

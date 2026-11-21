@@ -1,5 +1,6 @@
 """The Listos rule as a table, with no database: each gap has one reason, the
-first gap names a receipt with several, and every row sits in one count."""
+first gap names a receipt with several, every row sits in one count, and one
+function gives every Bandeja row its label."""
 
 from __future__ import annotations
 
@@ -9,11 +10,15 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.business.bandeja_group import (
+    READ_FAILURES,
+    READ_HELD,
     RULE,
     DraftStanding,
+    email_group,
     group_of,
     listo_gaps,
     listo_reason,
+    note_group,
     upload_year,
     year_to_check,
 )
@@ -72,6 +77,7 @@ def test_a_draft_with_nothing_missing_is_listo() -> None:
     assert group_of(OPEN_VIEW, LISTO) == {
         "group": "listo",
         "reason": None,
+        "label": "ready",
         "draft_id": LISTO.draft_id,
         "version": 2,
     }
@@ -96,7 +102,6 @@ def test_draft_group_uses_the_presence_of_a_gap(reason, expected) -> None:  # no
         (replace(LISTO, read_attention="no_purchase_found"), "no_purchase_found"),
         (replace(LISTO, repeated=True), "duplicate"),
         (replace(LISTO, blockers=("possible_duplicate",)), "duplicate"),
-        (with_facts(kind=known("income")), "sale"),
         (replace(LISTO, credit_note=True), "credit_note"),
         (with_facts(counterparty=Unknown()), "missing_merchant"),
         (with_facts(occurred_on=Unknown()), "missing_date"),
@@ -133,23 +138,12 @@ def test_draft_group_uses_the_presence_of_a_gap(reason, expected) -> None:  # no
         ),
         (replace(LISTO, ecf_failed=True), "ecf_check_failed"),
         (with_fiscal(itbis=Unknown()), "missing_itbis"),
-        (with_facts(currency=known("USD")), "foreign_currency"),
         (
             replace(
                 LISTO,
                 flags=(ReviewFlag(code="itbis_high", field="itbis", confirm=False),),
             ),
             "review_flag",
-        ),
-        (
-            with_facts(
-                business_share=Known(
-                    value=WholeBusinessShare(kind="none"),
-                    origin="owner_stated",
-                    source_ids=SOURCES,
-                )
-            ),
-            "personal",
         ),
         (replace(LISTO, blockers=("business_questions_unresolved",)), "blocked"),
         (replace(LISTO, sender="new"), "unverified_sender"),
@@ -158,7 +152,34 @@ def test_draft_group_uses_the_presence_of_a_gap(reason, expected) -> None:  # no
 def test_each_gap_has_its_reason(draft: DraftStanding, reason: str) -> None:
     assert listo_reason(draft) == reason
     found = group_of(OPEN_VIEW, draft)
-    assert (found["group"], found["reason"]) == ("attention", reason)
+    assert (found["group"], found["reason"], found["label"]) == (
+        "attention",
+        reason,
+        "needs_attention",
+    )
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        pytest.param(with_facts(kind=known("income")), id="a sale"),
+        pytest.param(with_facts(currency=known("USD")), id="a foreign currency"),
+        pytest.param(
+            with_facts(
+                business_share=Known(
+                    value=WholeBusinessShare(kind="none"),
+                    origin="owner_stated",
+                    source_ids=SOURCES,
+                )
+            ),
+            id="marked Personal",
+        ),
+    ],
+)
+def test_a_clean_sale_personal_or_foreign_draft_is_listo(draft: DraftStanding) -> None:
+    assert listo_reason(draft) is None
+    found = group_of(OPEN_VIEW, draft)
+    assert (found["group"], found["label"]) == ("listo", "ready")
 
 
 @pytest.mark.parametrize(
@@ -203,9 +224,112 @@ def test_a_row_with_no_open_draft_says_why(view: dict, reason: str) -> None:
     assert group_of(view, None) == {
         "group": "attention",
         "reason": reason,
+        "label": "cant_read" if reason == "unreadable" else "needs_attention",
         "draft_id": None,
         "version": None,
     }
+
+
+def failed(attention: str) -> dict:
+    return {**OPEN_VIEW, "status": "needs_attention", "attention": attention}
+
+
+def test_the_read_failure_words_are_the_seven_the_list_names() -> None:
+    assert READ_FAILURES == {
+        "unreadable",
+        "ai_unavailable",
+        "interrupted",
+        "outcome_unknown",
+        "source_unavailable",
+        "read_deadline_passed",
+        "not_a_receipt",
+    }
+
+
+@pytest.mark.parametrize("attention", sorted(READ_FAILURES))
+def test_a_read_that_failed_could_not_be_read_and_needs_a_person(attention: str) -> None:
+    found = group_of(failed(attention), None)
+    assert (found["group"], found["reason"], found["label"]) == (
+        "attention",
+        attention,
+        "cant_read",
+    )
+
+
+@pytest.mark.parametrize(
+    "attention", ["duplicate", "several_purchases", "no_purchase_found", "other"]
+)
+def test_any_other_attention_word_needs_attention(attention: str) -> None:
+    found = group_of(failed(attention), LISTO)
+    assert (found["group"], found["label"]) == ("attention", "needs_attention")
+
+
+@pytest.mark.parametrize("attention", sorted(READ_HELD))
+def test_a_read_the_limit_holds_waits_as_reading(attention: str) -> None:
+    assert READ_HELD == {"read_budget_day", "read_budget_month"}
+    assert group_of(failed(attention), None) == {
+        "group": "reading",
+        "reason": "reading",
+        "label": "reading",
+        "draft_id": None,
+        "version": None,
+    }
+
+
+def test_a_draft_being_accepted_is_ready_and_names_nothing_to_approve() -> None:
+    assert group_of(OPEN_VIEW, None, accepting=True) == {
+        "group": "listo",
+        "reason": None,
+        "label": "ready",
+        "draft_id": None,
+        "version": None,
+    }
+
+
+def test_a_confirmed_receipt_is_accepted_and_a_dismissed_one_has_no_label() -> None:
+    confirmed = group_of({**OPEN_VIEW, "status": "confirmed"}, None)
+    assert (confirmed["group"], confirmed["label"]) == (None, "accepted")
+    dismissed = group_of({**OPEN_VIEW, "status": "dismissed"}, None)
+    assert (dismissed["group"], dismissed["label"]) == (None, None)
+    email = group_of({**OPEN_VIEW, "status": "confirmed", "email_original": True}, None)
+    assert (email["group"], email["label"]) == (None, None)
+    deleted = group_of({**OPEN_VIEW, "status": "dismissed", "deleted": {"at": "x"}}, None)
+    assert (deleted["group"], deleted["label"]) == ("eliminados", None)
+
+
+@pytest.mark.parametrize(
+    ("state", "deleted", "group", "label", "named"),
+    [
+        ("open", False, "attention", "needs_attention", True),
+        ("accepting", False, "listo", "ready", False),
+        ("accepted", False, None, "accepted", False),
+        ("dismissed", False, None, None, False),
+        ("dismissed", True, "eliminados", None, False),
+    ],
+)
+def test_a_note_takes_its_label_from_the_same_owner(
+    state: str, deleted: bool, group: str | None, label: str | None, named: bool
+) -> None:
+    draft_id = str(uuid4())
+    found = note_group(state, deleted=deleted, draft_id=draft_id, version=3)
+    assert (found["group"], found["label"]) == (group, label)
+    assert (found["draft_id"], found["version"]) == ((draft_id, 3) if named else (None, None))
+
+
+@pytest.mark.parametrize(
+    ("standing", "group", "label"),
+    [
+        ("reading", "reading", "reading"),
+        ("no_receipt", "attention", "needs_attention"),
+        (None, None, None),
+    ],
+)
+def test_an_email_takes_its_label_from_the_same_owner(
+    standing: str | None, group: str | None, label: str | None
+) -> None:
+    found = email_group(standing)
+    assert (found["group"], found["label"]) == (group, label)
+    assert set(found) == set(group_of(OPEN_VIEW, LISTO))
 
 
 def test_a_receipt_still_being_read_waits_in_its_own_group() -> None:
@@ -213,6 +337,7 @@ def test_a_receipt_still_being_read_waits_in_its_own_group() -> None:
     assert group_of(view, None)["group"] == "reading"
     assert group_of(view, LISTO)["group"] == "reading"
     assert group_of(view, None)["reason"] == "reading"
+    assert group_of(view, None)["label"] == "reading"
 
 
 @pytest.mark.parametrize(
@@ -242,6 +367,17 @@ def test_every_row_the_bandeja_lists_is_in_one_count() -> None:
     assert counts["bandeja_listo_count"] == 1
     assert counts["bandeja_attention_count"] == 4
     assert counts["pending_review_count"] == 7
+
+
+def test_a_row_the_read_limit_holds_is_listed_and_in_neither_tab() -> None:
+    held = failed("read_budget_day")
+    accepting = {**OPEN_VIEW, "bandeja_group": group_of(OPEN_VIEW, None, accepting=True)}
+    views = [{**held, "bandeja_group": group_of(held, None)}, accepting]
+    counts = inbox_counts(views, notes=2, accepting_notes=1)
+    assert counts["pending_review_count"] == 4
+    assert counts["bandeja_listo_count"] == 2
+    assert counts["bandeja_attention_count"] == 1
+    assert "needs_attention_count" not in counts
 
 
 UPLOADED = datetime(2026, 11, 5, 15, 0, tzinfo=timezone.utc)

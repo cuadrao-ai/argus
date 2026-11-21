@@ -1064,6 +1064,7 @@ def list_receipts(
     try:
         from argus.api import business_list_version as versions
         from argus.api.business_receipt_activity import counts
+        from argus.domain.business.receipt_activity import listed
         from argus.domain.business.receipts import CLOSED
 
         version = versions.stored_version(context)
@@ -1071,6 +1072,7 @@ def list_receipts(
             return versions.not_modified(version)
         items = receipt_summaries(context, "all")
         activity = counts(context, items)
+        items = [item for item in items if listed(item)]
         if view == "inbox":
             items = [item for item in items if item["status"] not in CLOSED]
         answer = {"items": items, "activity": activity}

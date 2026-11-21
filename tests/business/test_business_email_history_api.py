@@ -40,7 +40,10 @@ def test_history_counts_and_provenance_survive_receiving_off(
                              ("/receipt-activity", {}), ("/overview", PERIOD))
     }
     assert any(row["id"] == waiting.id for row in before["/email/deliveries"]["items"])
-    assert before["/receipt-activity"]["needs_attention_count"] == 1
+    [waiting_row] = [
+        row for row in before["/email/deliveries"]["items"] if row["id"] == waiting.id
+    ]
+    assert waiting_row["bandeja_group"]["label"] == "needs_attention"
     monkeypatch.setattr(intake, "webhook_enabled", lambda: False)
     if not runtime_present:
         pool = object()

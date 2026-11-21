@@ -1,6 +1,7 @@
 import type { BusinessAccount, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
 import { factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type RefundCandidate, type ShownSuggestions } from "@/lib/business-dossier";
 import type { DgiiDeclaration, DgiiField, DgiiFields, DgiiReview, PurchaseChoice, SuggestedField, SuggestionSources } from "@/lib/business-dgii";
+import { noteGroup } from "./fixture-server-rules";
 
 const SUGGESTED: readonly SuggestedField[] = ["category", "payment_method"];
 /** A 606 answer still to give: none saved, or a tipo de gasto nobody confirmed. */
@@ -282,7 +283,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       // As the server counts it: every note of the draft before this one, whatever the query or the page keeps.
       const earlier = (note: BusinessCapture) => captures.filter((other) => other.draft_id === note.draft_id && newestFirst(other, note) > 0).length;
       const found = captures.filter((note) => listed(note) && note.text.toLowerCase().includes(query.toLowerCase())).sort(newestFirst);
-      const items = found.slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state, earlier_count: earlier(note) }; });
+      const items = found.slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state, earlier_count: earlier(note), bandeja_group: noteGroup(current.review_state, note.draft_id, current.version) }; });
       return { items, has_more: found.length > limit };
     },
     createReceiptDraft: (receipt: ReceiptDetail, fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }) => {

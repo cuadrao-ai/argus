@@ -6,12 +6,15 @@ Bandeja lists, opened or not, emails that are a row of their own included;
 ``ready_to_review`` is the "por revisar" number, the rows a person can review
 now. The Bandeja and the Resumen all read them. Each receipt row also carries
 ``bandeja``, its membership in those buckets, from the same predicates the
-counts sum, so a count always equals the number of rows flagged.
+counts sum, so a count always equals the number of rows flagged. No count sums
+``con_problema``.
 
 ``bandeja_listo_count`` and ``bandeja_attention_count`` are the Bandeja's two
-tabs, split by each row's ``bandeja_group``. A row still being read is in
-neither and shows only on Todos, so the two plus ``reading_count`` sum to
-``pending_review_count``. Bandeja, Inicio and the sidebar read these numbers."""
+tabs, split by each row's ``bandeja_group``. A row in the ``reading`` group is
+in neither and shows only on Todos: one being read now, which
+``reading_count`` counts, and one the read limit holds, which only
+``pending_review_count`` counts, since nothing is reading it. Bandeja, Inicio
+and the sidebar read these numbers."""
 
 from __future__ import annotations
 
@@ -153,11 +156,19 @@ def closed_as(view: Mapping[str, Any], status: str) -> bool:
     return not view.get("email_original") and view["status"] == status
 
 
+def listed(view: Mapping[str, Any]) -> bool:
+    """A receipt the list answers with. One dismissed with no deleted mark has
+    no label and no row: only a legacy import leaves a receipt that way."""
+
+    return not closed_as(view, "dismissed") or bool(view.get("deleted"))
+
+
 def inbox_counts(
     views: Iterable[Mapping[str, Any]],
     notes: int = 0,
     emails: Sequence[str] = (),
     por_igualar: int | None = None,
+    accepting_notes: int = 0,
 ) -> dict[str, int | None]:
     """What waits for a person in the Bandeja: every receipt row it lists plus
     ``notes``, the saved notes awaiting review that no receipt carries, plus
@@ -165,8 +176,9 @@ def inbox_counts(
     still being read waits like a receipt being read; one that brought no
     receipt also needs attention. ``ready_to_review_count`` is the receipts
     ready for review plus those notes; an email is never ready to review.
-    ``bandeja_listo_count`` is the receipts in Listos. A note and an email are
-    never Listos, so every other row not still being read is in
+    ``bandeja_listo_count`` is the receipts in Listos plus ``accepting_notes``,
+    those of ``notes`` being approved now. No other note and no email is
+    Listos, so every other row outside the ``reading`` group is in
     ``bandeja_attention_count``.
     ``por_igualar_count`` is the Transacciones movements and documents still
     to igualar, or None while bank matching is off. ``confirmed_count`` and
@@ -176,13 +188,11 @@ def inbox_counts(
     rows = list(views)
     pending = [view for view in rows if awaiting_owner(view)]
     every_row = len(pending) + notes + len(emails)
-    listos = sum(in_group(view, "listo") for view in pending)
+    listos = sum(in_group(view, "listo") for view in pending) + accepting_notes
     reading = sum(in_group(view, "reading") for view in pending)
     return {
         "pending_review_count": every_row,
         "ready_to_review_count": sum(map(BANDEJA["por_revisar"], pending)) + notes,
-        "needs_attention_count": emails.count("no_receipt")
-        + sum(map(BANDEJA["con_problema"], pending)),
         "bandeja_listo_count": listos,
         "bandeja_attention_count": every_row
         - listos

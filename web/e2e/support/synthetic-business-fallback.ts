@@ -130,7 +130,7 @@ export async function fulfillSyntheticBusinessFallback(
   }
   if (path === "receipts") {
     if (method !== "GET") throw new Error("Synthetic receipts requires GET");
-    return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
+    return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
   }
   if (path === "month-close") {
     if (method !== "GET") throw new Error("Synthetic month-close requires GET");

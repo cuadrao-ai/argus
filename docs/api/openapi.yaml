@@ -16836,7 +16836,6 @@ components:
             - other
             - reading
             - not_read
-            - sale
             - credit_note
             - missing_merchant
             - missing_date
@@ -16849,11 +16848,19 @@ components:
             - invalid_ncf
             - ecf_check_failed
             - missing_itbis
-            - foreign_currency
-            - personal
             - review_flag
             - blocked
             - unverified_sender
+          - type: 'null'
+        label:
+          anyOf:
+          - type: string
+            enum:
+            - reading
+            - cant_read
+            - needs_attention
+            - ready
+            - accepted
           - type: 'null'
         draft_id:
           anyOf:
@@ -16869,6 +16876,7 @@ components:
       required:
       - group
       - reason
+      - label
       - draft_id
       - version
     BandejaMembership:
@@ -18480,10 +18488,6 @@ components:
           items:
             $ref: '#/components/schemas/CurrencyTotal'
           type: array
-        awaiting_review:
-          type: integer
-        needs_attention:
-          type: integer
         ready_to_review_count:
           type: integer
         bandeja_listo_count:
@@ -18521,8 +18525,6 @@ components:
       - country
       - currency
       - totals
-      - awaiting_review
-      - needs_attention
       - ready_to_review_count
       - bandeja_listo_count
       - bandeja_attention_count
@@ -29170,8 +29172,6 @@ components:
           - none
         pending_review_count:
           type: integer
-        needs_attention_count:
-          type: integer
         ready_to_review_count:
           type: integer
         bandeja_listo_count:
@@ -29198,7 +29198,6 @@ components:
       - unread_count
       - presentation
       - pending_review_count
-      - needs_attention_count
       - ready_to_review_count
       - bandeja_listo_count
       - bandeja_attention_count

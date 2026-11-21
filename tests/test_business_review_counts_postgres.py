@@ -45,6 +45,8 @@ def test_a_note_on_a_receipt_record_is_part_of_its_row_and_counted_once(actions)
         str(standalone.draft_id)
     ]
     found = counts(web, receipt_summaries(web, "inbox"))
-    assert (found["pending_review_count"], found["needs_attention_count"]) == (2, 0)
+    assert found["pending_review_count"] == 2
     overview = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
-    assert (overview["awaiting_review"], overview["needs_attention"]) == (2, 0)
+    tabs = ("bandeja_listo_count", "bandeja_attention_count")
+    assert [overview[name] for name in tabs] == [found[name] for name in tabs]
+    assert sum(overview[name] for name in tabs) == 2
