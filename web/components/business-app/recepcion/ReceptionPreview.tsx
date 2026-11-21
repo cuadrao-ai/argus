@@ -167,9 +167,9 @@ function ReceptionWorkspace() {
   const currentPage = Math.min(page, pages);
   const shown = matched.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const amountSize = previewAmountColumnSize(matched.flatMap(row => row.kind === "receipt" && row.receipt.amount != null && row.receipt.currency ? [{ amount: row.receipt.amount, currency: row.receipt.currency }] : []), locale);
-  // The boxes live on Listos, for owners; Estado says nothing there, since every row on the tab is the same.
+  // The boxes live on Listos, for owners.
   const selectable = view === "listos" && chosen?.capabilities.includes("approve") === true;
-  const showStatus = view !== "listos";
+  const columns = shownReceptionColumns(preferences);
   const navigateFrom = (next: Parameters<typeof openPanel>[0]) => {
     dossierReturns.set(source, { scope, view, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
     openPanel(next.kind === "receipt" || next.kind === "draft"
@@ -214,7 +214,7 @@ function ReceptionWorkspace() {
   const guide = (key: string) => t(`business.guide_cards.bandeja_intro.${key}`);
   useLendListSearch("inbox", searchInBar ? { query, setQuery: searchQuery } : null);
   return <PullToRefresh onRefresh={refresh}>
-    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-columns={shownReceptionColumns(preferences, { status: showStatus }).join(" ")} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
+    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={columns.includes("status")} data-density={preferences.density} data-columns={columns.join(" ")} style={{ ...receptionGrid(preferences, { select: selectable }, amountSize.width), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {phone ? <div className={styles.phoneHeading} data-surface-block="heading"><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       {source.mode === "live" && userId && chosen ? (
         <GuideCard cardId="bandeja-intro" pending={waiting} title={guide("title")}
@@ -243,12 +243,12 @@ function ReceptionWorkspace() {
       {approval.failed.length ? <ReceptionApprovalFailure failed={approval.failed} attempted={approval.attempted} onRetry={approval.retry} onDismiss={approval.dismiss} /> : null}
       {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : onlySourcesFailed ? t(`business.inbox.${sourcesLine}`) : word("error")}{refusedForGood ? <> {t("auth.business_unavailable.body", { supportEmail })}</> : null}{reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
       <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${view}`} tabIndex={0} className={styles.list} data-surface-block="list">
-        {view === "eliminados" ? <DeletedColumns /> : <ReceptionColumnsHeading preferences={preferences} status={showStatus}>{!selectable ? null : pageListos.length ? <label className={styles.checkbox}><input type="checkbox" checked={allSelected} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageListos.map(row => row.rowId))} /></label> : <span className={styles.checkbox} />}</ReceptionColumnsHeading>}
+        {view === "eliminados" ? <DeletedColumns /> : <ReceptionColumnsHeading preferences={preferences}>{!selectable ? null : pageListos.length ? <label className={styles.checkbox}><input type="checkbox" checked={allSelected} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageListos.map(row => row.rowId))} /></label> : <span className={styles.checkbox} />}</ReceptionColumnsHeading>}
         {waiting ? <ul role="status" aria-label={word("loading")} aria-busy="true" data-testid="reception-pending" style={{ visibility: placeholdersShown ? "visible" : "hidden" }}>
-          {[0, 1, 2, 3, 4].map(index => <ReceptionPendingRow key={index} index={index} preferences={preferences} view={view} selectable={selectable} />)}
+          {[0, 1, 2, 3, 4].map(index => <ReceptionPendingRow key={index} index={index} preferences={preferences} selectable={selectable} />)}
         </ul> : <ul aria-label={word("list_label")}>
           {/* The server says what can be deleted. A Listos row offers it only in its review menu. */}
-          {shown.map(row => view === "eliminados" ? <ReceptionDeletedRow key={`${row.kind}-${row.id}`} row={row} title={titleOf(row)} openPanel={navigateFrom} /> : <ReceptionArrivalRow key={`${row.kind}-${row.id}`} row={row} rowKey={rowKey(row)} arrived={fresh.has(rowKey(row))} view={view} onDelete={(row.kind === "receipt" ? row.receipt.delete_available && row.receipt.bandeja_group?.group !== "listo" : row.kind === "note" && row.note.delete_available && row.note.bandeja_group?.group !== "listo") && chosen?.capabilities.includes("approve") && source.deleteDocument ? () => { setDeleting(row); deletion.ask(); } : undefined} panel={panel} openPanel={navigateFrom} preferences={preferences} selectable={selectable} checkable={selectable && listoItem(row) !== null} checked={selectedIds.includes(rowKey(row))} unseen={unseenIds.has(rowKey(row))} onCheck={() => setSelectedIds(current => current.includes(rowKey(row)) ? current.filter(id => id !== rowKey(row)) : [...current, rowKey(row)])} />)}
+          {shown.map(row => view === "eliminados" ? <ReceptionDeletedRow key={`${row.kind}-${row.id}`} row={row} title={titleOf(row)} openPanel={navigateFrom} /> : <ReceptionArrivalRow key={`${row.kind}-${row.id}`} row={row} rowKey={rowKey(row)} arrived={fresh.has(rowKey(row))} onDelete={(row.kind === "receipt" ? row.receipt.delete_available && row.receipt.bandeja_group?.group !== "listo" : row.kind === "note" && row.note.delete_available && row.note.bandeja_group?.group !== "listo") && chosen?.capabilities.includes("approve") && source.deleteDocument ? () => { setDeleting(row); deletion.ask(); } : undefined} panel={panel} openPanel={navigateFrom} preferences={preferences} selectable={selectable} checkable={selectable && listoItem(row) !== null} checked={selectedIds.includes(rowKey(row))} unseen={unseenIds.has(rowKey(row))} onCheck={() => setSelectedIds(current => current.includes(rowKey(row)) ? current.filter(id => id !== rowKey(row)) : [...current, rowKey(row)])} />)}
         </ul>}
         {!pending && !failed && !shown.length ? <ReceptionEmptyState {...empty} /> : null}
       </div>

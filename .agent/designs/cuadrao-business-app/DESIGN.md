@@ -1411,8 +1411,8 @@ the label to a tone in `ReceptionStatus.tsx` and decides no label of its own.
 
 #### Columns
 
-- Todos and Por resolver show Estado with the label only.
-- Listos has no Estado column.
+- Todos, Por resolver and Listos show Estado with the label only, unless the
+  person hides it in the column settings.
 - Eliminados has its own columns: Contenido, Estaba en, Eliminado por and
   Borrado definitivo.
 - There is no Motivo column, and the list shows no reasons. The reasons live in

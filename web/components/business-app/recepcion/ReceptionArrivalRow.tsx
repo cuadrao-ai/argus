@@ -15,7 +15,7 @@ import { sentByName } from "@/lib/sent-by";
 import type { BusinessPanelState } from "../BusinessWorkspace";
 import { formatAmount, formatMoney, formatRelativeTime } from "../business-format";
 import { isOpenRecord } from "../record-tray";
-import { receptionSentBy, receptionDocumentTitle, receptionTarget, type ReceptionRow, type ReceptionView } from "./reception-model";
+import { receptionSentBy, receptionDocumentTitle, receptionTarget, type ReceptionRow } from "./reception-model";
 import type { ReceptionColumnKey, ReceptionPreferences } from "./reception-columns";
 import { originPlace, receptionPlaces } from "./reception-grid";
 import ReceptionOriginal from "./ReceptionOriginal";
@@ -39,8 +39,8 @@ function Bar({ width, height = 12, pill = false }: { width: number | string; hei
 }
 
 /** A row while the list's first page loads: the same places and cell boxes as a loaded row, each value a placeholder bar. */
-export function ReceptionPendingRow({ index, preferences, view, selectable }: { index: number; preferences: ReceptionPreferences; view: ReceptionView; selectable: boolean }) {
-  const places = receptionPlaces(preferences, { status: view !== "listos" });
+export function ReceptionPendingRow({ index, preferences, selectable }: { index: number; preferences: ReceptionPreferences; selectable: boolean }) {
+  const places = receptionPlaces(preferences);
   const has = places.has;
   const channel = (style?: CSSProperties) => has("source") ? <span className={styles.channel} style={style}><Bar width={76} /></span> : null;
   const sender = (style?: CSSProperties) => has("sender") ? <span className={styles.sender} style={style} data-known="true"><Bar width={index % 2 ? 110 : 150} /></span> : null;
@@ -63,7 +63,7 @@ export function ReceptionPendingRow({ index, preferences, view, selectable }: { 
   </li>;
 }
 
-export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck, onDelete }: { onDelete?: () => void; row: ReceptionRow; rowKey: string; arrived: boolean; view: ReceptionView; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
+export default function ReceptionArrivalRow({ row, rowKey, arrived, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck, onDelete }: { onDelete?: () => void; row: ReceptionRow; rowKey: string; arrived: boolean; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const word = (key: string) => t(`business.reception_preview.${key}`);
@@ -71,7 +71,7 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
   const target = receptionTarget(row);
   const open = () => openPanel(target);
   const title = receptionDocumentTitle(row, { untitled: t("business.receipt.untitled"), pending: word("intake_pending"), exception: word("intake_exception"), text: word("text_intake") });
-  const places = receptionPlaces(preferences, { status: view !== "listos" });
+  const places = receptionPlaces(preferences);
   const has = places.has;
   const money = receipt && has("amount") ? formatMoney(receipt.amount, receipt.currency, locale) : null;
   const sentBy = receptionSentBy(row);
