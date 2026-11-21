@@ -3,7 +3,7 @@
 import BusinessListTabs from "../foundation/BusinessListTabs";
 import GuideCard from "../foundation/GuideCard";
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { sentByName } from "@/lib/sent-by";
 import { Check } from "lucide-react";
@@ -102,8 +102,8 @@ function ReceptionWorkspace() {
   const applyFilters = (next: ReceptionFiltersValue) => { setFilters(next); setSelectedIds([]); setPage(1); };
   const [query, setQuery] = useState(returnPosition?.query ?? "");
   const [preferences, setPreferences] = useReceptionPreferences();
-  // The poll hands over a new array every tick; re-read the full list only when what it carries changed.
-  const inboxContent = useMemo(() => JSON.stringify(records.inbox), [records.inbox]);
+  // Unversioned fixtures and mocks keep their inbox-content trigger; the server's version owns live changes.
+  const listChange = records.listVersion ?? JSON.stringify(records.inbox);
   useEffect(() => {
     let current = true;
     const controller = new AbortController();
@@ -112,7 +112,7 @@ function ReceptionWorkspace() {
       if (current) setLoaded(previous => ({ scope, source, items: previous?.scope === scope && previous.source === source ? previous.items : [], failure: loadFailure(error) }));
     });
     return () => { current = false; controller.abort(); };
-  }, [source, scope, revision, attempt, inboxContent]);
+  }, [source, scope, revision, attempt, listChange]);
   const arrivals = loaded?.scope === scope && loaded.source === source ? loaded : null;
   const arrivalsDown = !!arrivals?.failure && !arrivals.failure.refused;
   const sourcesDown = (["notes", "emails"] as const).filter(key => { const failure = key === "notes" ? records.notesFailure : records.emailsFailure; return failure && !failure.refused; });
