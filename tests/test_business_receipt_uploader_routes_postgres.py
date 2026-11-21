@@ -147,6 +147,7 @@ def test_an_unnamed_uploader_reads_by_email_to_a_manager_or_themself(
             assert web.bob.email not in text
 
 
+@pytest.mark.usefixtures("typed_notes_on")
 @pytest.mark.parametrize("named", [True, False])
 def test_a_typed_note_names_its_author_by_the_people_rule(web, named: bool) -> None:  # noqa: ANN001
     name = fake.name() if named else None
