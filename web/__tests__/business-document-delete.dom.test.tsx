@@ -231,7 +231,7 @@ test("Eliminados uses the server count, lists provenance and restores with a Ver
   assert.match(tab.textContent ?? "", /11/);
   await page.click(tab);
   const row = document.querySelector('[data-testid="deleted-document-row"]')!;
-  assert.match(row.textContent ?? "", /Documento eliminado.*Necesitan atención.*María Pérez/);
+  assert.match(row.textContent ?? "", /Documento eliminado.*Por resolver.*María Pérez/);
   await page.click(page.button("Restaurar", row));
   await page.wait(() => !document.querySelector('[data-testid="deleted-document-row"]'));
   assert.deepEqual(page.restores, ["deleted"]);

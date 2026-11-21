@@ -3094,7 +3094,7 @@
       "menu": "Eliminar documento",
       "open": "Abrir",
       "previous": {
-        "attention": "Necesitan atención",
+        "attention": "Por resolver",
         "listo": "Listos"
       },
       "purge": "Borrar definitivamente",

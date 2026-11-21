@@ -3094,7 +3094,7 @@
       "menu": "Delete document",
       "open": "Open",
       "previous": {
-        "attention": "Needs attention",
+        "attention": "To resolve",
         "listo": "Ready"
       },
       "purge": "Delete for good",
