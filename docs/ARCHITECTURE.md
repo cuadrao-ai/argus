@@ -386,11 +386,84 @@ health check.
 to check when the reader wrote it (origin `extracted`) and its year is not the
 upload year: the year, in America/Santo_Domingo, of the `received_at` of the
 draft's first source. A date from the QR or from a person is never checked.
-Such a record stays out of Listos, in Necesita atención with the reason
+Such a record stays out of Listos, in Por resolver with the reason
 `check_details`, and can still be approved alone. `year_to_check` in
 `src/argus/domain/business/bandeja_group.py` owns the rule. The dossier carries
 its answer (`upload_year`, `year_to_check`), and the review calendar offers the
 date in the upload year from that answer. The web compares no years.
+
+### Bandeja
+
+What the person sees lives in
+[the Business web app design](../.agent/designs/cuadrao-business-app/DESIGN.md#bandeja).
+The server decides the group and the label of every Bandeja row. The web
+renders them and decides neither.
+
+- **One label owner.** `bandeja_label()` in
+  `src/argus/domain/business/bandeja_group.py` gives every row one label:
+  `reading`, `cant_read`, `needs_attention`, `ready` or `accepted`. Every row
+  carries the same `bandeja_group` shape: `group`, `reason`, `label`,
+  `draft_id` and `version`. Three builders in the same file make it.
+  `group_of` makes it for receipts, called from
+  `src/argus/api/business_receipt_activity.py`. `note_group` makes it for typed
+  notes, called from `src/argus/domain/business/actions/captures.py`.
+  `email_group` makes it for emails, called from
+  `src/argus/api/routers/email_intake.py`. The web reads the label only in
+  `rowLabel` (`web/components/business-app/recepcion/reception-model.ts`).
+- **The group picks the tab. The label picks the word.** The group is
+  `attention`, `listo`, `reading`, `eliminados` or null. Por resolver lists
+  `attention`, Listos lists `listo` and Eliminados lists `eliminados`. Todos
+  lists every row except a deleted one. `inbox_counts` in
+  `src/argus/domain/business/receipt_activity.py` counts by the same groups.
+  `RULE` in `bandeja_group.py` decides between `listo` and `attention`. The
+  label follows the group. `attention` gives `cant_read` or `needs_attention`
+  by the reason, `reading` gives `reading` and `listo` gives `ready`. A row
+  with no group gives `accepted` when it was accepted, and a deleted row has
+  no label. A receipt that is being accepted is `listo` with no `draft_id` and
+  no `version`, so a second approval cannot name it.
+- **Read failure and read held.** `READ_FAILURES` in `bandeja_group.py` holds
+  `unreadable`, `ai_unavailable`, `interrupted`, `outcome_unknown`,
+  `source_unavailable`, `read_deadline_passed` and `not_a_receipt`. Each gives
+  `cant_read` in the `attention` group. `READ_HELD` holds `read_budget_day`
+  and `read_budget_month`. Each gives the group and the label `reading`, like a
+  read that still runs, so a held row shows only on Todos.
+  [The API contract](API_CONTRACT.md) says how each count treats a held row.
+- **Read-limit resume.** `ReadResume` in `workflows/read_resume.py` reads a
+  held receipt again with no person. It runs in the document worker's upkeep,
+  beside the Eliminados purge (`workflows/document_worker.py`). The sweep calls
+  it every 30 seconds by default, and it works at most once every 10 minutes
+  (`RESUME_EVERY`). A pass takes the receipts refused before `window_start` in
+  `src/argus/domain/business/read_budget.py`, which is the start of the
+  current Santo Domingo day or month. It queues each one through the path that
+  "Leer de nuevo" uses. That path is `DocumentsService.queue` under the owner's
+  reading setting, then `dispatch_preparation`. The pass sends
+  `expected_version`, so it leaves alone a receipt that moved after the pass
+  chose it, and two workers queue one receipt once. While extraction is off,
+  the pass does nothing. The idle cost is one query every 10 minutes per worker
+  against an empty partial index, plus the log line
+  `Refused reads resumed due={} requeued={}`. The limits and the index live in
+  [the data model](DATA_MODEL.md#business-read-budget).
+- **Enviado por.** `SentBy` in `src/argus/domain/business/sent_by.py` is the
+  one sender shape for every channel: `id`, `kind` (`member`, `email` or
+  `whatsapp`), `person`, `address` and `phone_last4`. A sender carries only the
+  field its kind names. Ids are `member:<user>`, `email:<address>` and
+  `whatsapp:<link id>`, so one sender has one id on every row.
+  `receipt_senders` gives each receipt its sender. A web upload gets the
+  member on the first applied `receipt_upload` row. An email gets the sender
+  of the earliest delivery that brought it. WhatsApp gets the number's link to
+  this Business, and only its last 4 digits leave the server. A typed note
+  sends its author (`member_sender`), and an email delivery sends its sender
+  (`email_sender`). The web words a sender only in `sentByName`
+  (`web/lib/sent-by.ts`), and the filter keys on `sent_by.id`.
+- **Typed notes switch.** `business_typed_notes_enabled()` in
+  `src/argus/domain/business/config.py` reads
+  `CUADRAO_BUSINESS_TYPED_NOTES_ENABLED`, which is off by default. While it is
+  off, `capture_note` in `src/argus/api/routers/business_manual.py` refuses a
+  note that starts a draft with 404 `business_typed_notes_unavailable`, before
+  it stores anything. A note on an existing draft is not refused.
+  `GET /business/workspace` reports the switch as `typed_notes_available`.
+  `ReceiptIntakeDialog.tsx` reads it through `businessTypedNotesAvailable` in
+  `web/lib/business-api.ts`. Notes saved before still list.
 
 ### How a receipt becomes a record
 
@@ -452,9 +525,9 @@ Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
   it until that time. The count of calls (`provider_calls`) is written before
   each call, so a worker that dies does not reset it. The owner's "Leer de
   nuevo" starts a new read with a new count.
-- **Dead letter.** When the calls run out, the receipt goes to Necesitan
-  atención with its reason, the same failed state as before. That tab is the
-  dead letter, and people already work it. The worker logs the final error as
+- **Dead letter.** When the calls run out, the receipt goes to Por resolver
+  with its reason, the same failed state as before. That tab is the dead
+  letter, and people already work it. The worker logs the final error as
   `document_read_failed` with the document id. There is no separate
   dead-letter queue.
 - **Circuit breaker.** `breaker.py` owns the rules and
@@ -484,7 +557,7 @@ Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
   only when a read asks to be sent or reports how its call ended. If the
   breaker row cannot be read, reads continue.
 - **Read deadline.** A read still waiting in the queue 6 hours after it was
-  asked for goes to Necesitan atención with the code
+  asked for goes to Por resolver with the code
   `document_read_deadline_passed` (attention `read_deadline_passed`): the read
   waited too long with the service unavailable, and the receipt did not fail.
   `READ_DEADLINE_SECONDS` in `config.py` owns the 6 hours. `asked_at` on the

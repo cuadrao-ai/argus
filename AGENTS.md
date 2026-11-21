@@ -26,8 +26,10 @@ product and pilot behavior. `docs/PRODUCT.md` is the short overview.
 Services: `docs/ARCHITECTURE.md`. Endpoints: `docs/API_CONTRACT.md` and
 `docs/api/openapi.yaml`. Tables and row security: `docs/DATA_MODEL.md`. Core flows:
 `docs/CORE_FLOWS.md` retains dated walk evidence. Business web design lives in
-`.agent/designs/cuadrao-business-app/DESIGN.md`. Marketing design lives in
-`.agent/designs/cuadrao-business/DESIGN.md`. The execution history is in
+`.agent/designs/cuadrao-business-app/DESIGN.md`. Bandeja (Inbox) behavior lives in
+that DESIGN.md § Bandeja, and how Bandeja is built lives in `docs/ARCHITECTURE.md`
+§ Bandeja. Marketing design lives in `.agent/designs/cuadrao-business/DESIGN.md`.
+The execution history is in
 `docs/specs/argus-execution-board.md`; its older mobile assignments are historical.
 A spec, roadmap or green test does not assign work. Your brief does.
 
