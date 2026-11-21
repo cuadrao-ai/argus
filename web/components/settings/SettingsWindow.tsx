@@ -124,6 +124,9 @@ function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, on
   const navRef = useRef<HTMLElement>(null);
   const [active, setActive] = useState<SettingsPanel | undefined>(sections[0]);
   const [step, setStep] = useState<SettingsStep | null>(null);
+  if (active !== undefined && !sections.includes(active)) {
+    setActive(sections[0]);
+  }
   const groups = useGroups(sections);
   const held = step !== null && !step.onBack;
   useModalSurface({ isOpen: true, overlayId, containerRef: panelRef, onDismiss: onClose, onEscape: step?.onBack ?? onClose, initialFocusRef: activeRowRef, returnFocusRef });
@@ -280,6 +283,9 @@ function PhoneScreen({ sections, renderSection, legalLinks, returnFocusRef, onCl
   const backRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const [section, setSection] = useState<SettingsPanel | null>(null);
+  if (section !== null && !sections.includes(section)) {
+    setSection(sections[0] ?? null);
+  }
   const groups = useGroups(sections);
   useModalSurface({ isOpen: true, overlayId, containerRef: ref, onDismiss: onClose, initialFocusRef: backRef, returnFocusRef });
 

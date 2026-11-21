@@ -748,7 +748,6 @@ export default function ProfileMenu({
   if (activeModal === "settings-window") {
     return (
       <SettingsWindow
-        key={String(whatsappLinkAvailable)}
         sections={windowSections}
         renderSection={(panel) => panel === "whatsapp" && !whatsappLinkAvailable ? null : (
           <ProfileSettingsPanels
