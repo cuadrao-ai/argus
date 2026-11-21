@@ -15,7 +15,7 @@ const cleanups: (() => Promise<void>)[] = [];
 let restorePurged = false;
 afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; restorePurged = false; });
 
-async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false) {
+async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false, extra: (rows: { ready: ReceiptDetail; blurry: ReceiptDetail }) => ReceiptDetail[] = () => []) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -38,7 +38,9 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     { ...ready, id: "reading", merchant: "Documento leyendo", delete_available: false, bandeja_group: { group: "reading", reason: null, draft_id: null, version: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } },
     { ...ready, id: "approved", merchant: "Documento aprobado", status: "confirmed", delete_available: false, bandeja_group: { group: null, reason: null, draft_id: null, version: null } },
     { ...(deletedDossier ? ready : blurry), id: "deleted", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } },
+    ...extra({ ready, blurry }),
   ];
+  const listed = items.filter(item => !item.deleted).length;
   let notes: BusinessCapture[] = Array.from({ length: noteCount }, (_, index) => ({ draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2, revision: 1, source_id: `note-source-${index}`, text: index === 50 ? "Documento antiguo" : index ? `Documento anotado ${index}` : "Documento anotado", received_at: new Date(Date.UTC(2026, 10, 12, 9) - index * 60_000).toISOString(), review_state: "dismissed", deleted: deletion, delete_available: false, restore_available: true, bandeja_group: { group: "eliminados", reason: null, draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2 } }));
   const counts = (): ReceiptActivityCounts => ({ reading_count: 1, unread_count: 0, presentation: "none", pending_review_count: 3, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 1, bandeja_eliminados_count: 11 });
   const captureOffsets: number[] = [];
@@ -110,7 +112,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   };
   await act(async () => api!.openPanel({ kind: "inbox" }));
   await wait(() => api!.chosen !== null && api!.records.receiptActivity?.bandeja_eliminados_count === 11);
-  await wait(() => document.querySelectorAll('[data-testid="reception-row"]').length === 4);
+  await wait(() => document.querySelectorAll('[data-testid="reception-row"]').length === listed);
   const click = async (element: HTMLElement | null) => { assert.ok(element); await act(async () => element!.click()); };
   const button = (label: string, within: ParentNode = document) => [...within.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === label) ?? null;
   return { act, wait, click, button, calls, restores, purges, captureOffsets, source, items, api: () => api! };
@@ -134,6 +136,15 @@ test("trash belongs only to the server attention row and only the owner", async 
     }
     await cleanups.pop()!(); document.body.innerHTML = "";
   }
+});
+
+test("the row trash follows the server's delete_available: a read the limit holds keeps it, a read in progress and an approval in flight do not", async () => {
+  await mount("owner", false, 0, false, ({ ready, blurry }) => [
+    { ...blurry, id: "held", merchant: "Documento retenido", filename: "Documento retenido", status: "needs_attention", attention: "read_budget_day", delete_available: true, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } },
+    { ...ready, id: "accepting", merchant: "Documento aprobandose", delete_available: false, bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } },
+  ]);
+  const trash = () => [...document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Eliminar "]')].map(node => node.getAttribute("aria-label"));
+  assert.deepEqual(trash().sort(), ["Eliminar Documento equivocado", "Eliminar Documento retenido"]);
 });
 
 test("a Todos row puts Abrir next to its content and the trash last, at the far right", async () => {
