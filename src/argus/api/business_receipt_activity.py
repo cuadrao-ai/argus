@@ -131,14 +131,12 @@ def _project(views, states, baseline, drafts=None, standings=None):
             completed_at=completed,
         )
         row = {**view, "activity": activity.wire()}
-        standing = (
-            (standings or {}).get(str(canonical[0]["id"]))
-            if len(canonical) == 1
-            else None
+        only = canonical[0] if len(canonical) == 1 else None
+        standing = (standings or {}).get(str(only["id"])) if only else None
+        group = group_of(
+            row, standing, accepting=bool(only) and only["state"] == "accepting"
         )
-        output.append(
-            {**row, "bandeja": bandeja(row), "bandeja_group": group_of(row, standing)}
-        )
+        output.append({**row, "bandeja": bandeja(row), "bandeja_group": group})
     return output
 
 
@@ -155,14 +153,14 @@ def inbox(
     from argus.api.email_intake import email_standings
 
     store = context.service.imports.store
-    notes = 0
+    notes = accepting_notes = 0
     eliminated_notes = 0
     por_igualar = None
     if isinstance(store, GrantImportStore):
         from argus.domain.business.actions.captures import awaiting_notes, deleted_notes
 
         with transaction(store.authority, store.context) as tx:
-            notes = awaiting_notes(tx)
+            notes, accepting_notes = awaiting_notes(tx)
             eliminated_notes = deleted_notes(tx)
         from argus.domain.business.bank.service import bank_matching_on
 
@@ -172,7 +170,7 @@ def inbox(
             por_igualar = por_igualar_count(store.authority.pool, store.context)
     if emails is None:
         emails = email_standings(str(context.scope.owner.space_id))
-    result = inbox_counts(views, notes, emails, por_igualar)
+    result = inbox_counts(views, notes, emails, por_igualar, accepting_notes)
     result["bandeja_eliminados_count"] += eliminated_notes
     return result
 

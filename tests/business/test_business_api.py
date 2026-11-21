@@ -564,7 +564,6 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
             "pending_review_count": 0,
             "bandeja_listo_count": 0,
             "bandeja_attention_count": 0,
-            "needs_attention_count": 0,
             "ready_to_review_count": 0,
             "por_igualar_count": None,
             "confirmed_count": 1,
@@ -635,8 +634,8 @@ def test_overview_totals_each_currency_and_counts_the_inbox(alice: Owner) -> Non
             "from",
             "to",
             "totals",
-            "awaiting_review",
-            "needs_attention",
+            "bandeja_listo_count",
+            "bandeja_attention_count",
         )
     } == {
         "from": "2026-10-01",
@@ -645,8 +644,8 @@ def test_overview_totals_each_currency_and_counts_the_inbox(alice: Owner) -> Non
             {"currency": "DOP", "amount": "1200.50", "count": 2},
             {"currency": "USD", "amount": "24.00", "count": 1},
         ],
-        "awaiting_review": 2,
-        "needs_attention": 0,
+        "bandeja_listo_count": 0,
+        "bandeja_attention_count": 2,
     }
     assert overview["last_received_at"] is not None
     assert overview["last_confirmed_at"] is not None
@@ -729,7 +728,6 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
             "pending_review_count": 0,
             "bandeja_listo_count": 0,
             "bandeja_attention_count": 0,
-            "needs_attention_count": 0,
             "ready_to_review_count": 0,
             "por_igualar_count": None,
             "confirmed_count": 0,

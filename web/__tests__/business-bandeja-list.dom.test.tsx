@@ -6,6 +6,7 @@ import type { BusinessDataSource } from "@/components/business-app/business-data
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import { designServerFieldsReception as receptionEvidence } from "../e2e/support/design-server-fields-reception";
 import { receptionRows, rowState, rowTitles, receptionTab, tabCount } from "./support/reception";
+import { noteGroup } from "@/components/business-app/fixture-server-rules";
 
 // The real workspace and panel router over the sample source. The sample's
 // Bandeja holds Ferretería La Esquina and IMG_2209 as new since the last
@@ -34,7 +35,7 @@ afterEach(async () => {
 });
 
 const note = (draft_id: string, text: string, received_at: string): BusinessCapture =>
-  ({ draft_id, version: 2, revision: 1, source_id: `${draft_id}-1`, text, received_at, review_state: "open" });
+  ({ draft_id, version: 2, revision: 1, source_id: `${draft_id}-1`, text, received_at, review_state: "open", bandeja_group: noteGroup("open", draft_id, 2) });
 
 async function mount({ width = 800, overrides = () => ({}), panel }: { width?: number; overrides?: (fixture: BusinessDataSource) => Partial<BusinessDataSource>; panel?: BusinessPanelState } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
@@ -107,7 +108,7 @@ describe("the Bandeja views", () => {
       overrides: (fixture) => ({
         receiptPage: async () => ({
           items: [await fixture.receipt("rcpt-confirmed")],
-          activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0, confirmed_count: 1, dismissed_count: 0 },
+          activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0, confirmed_count: 1, dismissed_count: 0 },
         }),
         emailDeliveries: async () => [],
       }),
@@ -181,7 +182,7 @@ describe("the Bandeja views", () => {
 });
 
 describe("a list that did not load", () => {
-  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
+  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
   const failing = () => {
     const calls = { receipts: 0, notes: 0, emails: 0 };
     let fail = true;
@@ -308,7 +309,7 @@ describe("a list that did not load", () => {
 describe("a list the server refused for good", () => {
   // The Business routes answer 404 business_unavailable and email receiving answers
   // 503 email_capture_unavailable. Asking again gets the same answer.
-  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
+  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
   const BUSINESS_OFF = () => Object.assign(new Error("Business is not available."), { status: 404, code: "business_unavailable" });
   const EMAIL_OFF = () => Object.assign(new Error("Email receiving is unavailable."), { status: 503, code: "email_capture_unavailable" });
   const actions = (page: { host: HTMLElement }) => [...(failureOf(page)?.querySelectorAll("button") ?? [])].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent);

@@ -57,7 +57,7 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
   }]));
   const pending = () => receipts.filter((item) => item.status !== "confirmed");
   const answer = (waiting: number): ReceiptPage => {
-    const activity: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: waiting, needs_attention_count: 0, ready_to_review_count: waiting, bandeja_attention_count: waiting, bandeja_listo_count: 0, confirmed_count: 3 - waiting, dismissed_count: 0 };
+    const activity: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: waiting, ready_to_review_count: waiting, bandeja_attention_count: waiting, bandeja_listo_count: 0, confirmed_count: 3 - waiting, dismissed_count: 0 };
     return { items: pending() as ReceiptSummary[], activity, version: `"v${3 - waiting}"` };
   };
   const checks: ((page: ReceiptPage | null) => void)[] = [];

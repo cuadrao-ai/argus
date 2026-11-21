@@ -833,6 +833,14 @@ class BusinessActions:
             raise ActionError("not_found", "business_record_not_found")
         return binding, context
 
+    def preparation_context(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> ActionContext:
+        """The authority this receipt's read is bound to, as every take of the
+        read resolves it: a read started again with no person runs under it."""
+
+        return self._attachment_context(user_id, connection_id, scope)[1]
+
     @staticmethod
     def _require_email_read(tx: ActionTransaction, connection_id: UUID) -> None:
         standing = email_connection_standing(

@@ -9,6 +9,7 @@ from argus.domain.business import analytics as business_analytics
 from argus.domain.business.actions import mutations, plans, sources
 from argus.domain.business.actions.facts import facts_of, patched_facts
 from argus.domain.business.authority import ActionContext, ActionError
+from argus.domain.business.bandeja_group import note_group
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
     Applied,
@@ -215,25 +216,18 @@ def page(
         )
         for row, marker in zip(rows, markers, strict=False):
             marker = named_deletion(marker, found)
-            group = (
-                "eliminados"
-                if marker
-                else "attention"
-                if row["review_state"] == "open"
-                else None
-            )
             row.update(
                 deleted=marker,
                 delete_available=row["review_state"] == "open"
                 and "approve" in tx.authorization.capabilities,
                 restore_available=marker is not None
                 and "approve" in tx.authorization.capabilities,
-                bandeja_group={
-                    "group": group,
-                    "reason": "not_read" if group == "attention" else None,
-                    "draft_id": row["draft_id"],
-                    "version": row["version"],
-                },
+                bandeja_group=note_group(
+                    row["review_state"],
+                    deleted=marker is not None,
+                    draft_id=row["draft_id"],
+                    version=row["version"],
+                ),
             )
     return {"items": rows[:limit], "has_more": len(rows) > limit}
 
@@ -254,14 +248,19 @@ def awaiting_note_arrivals(tx) -> list[tuple]:  # noqa: ANN001
     ]
 
 
-def awaiting_notes(tx) -> int:  # noqa: ANN001
+def awaiting_notes(tx) -> tuple[int, int]:  # noqa: ANN001
     """How many drafts the Bandeja's notes stand for, uncapped: the same rows
-    ``entries(view="inbox")`` lists, one per draft."""
+    ``entries(view="inbox")`` lists, one per draft. Then how many of those are
+    being approved now, which ``note_group`` puts in Listos."""
 
-    return tx.rows(
-        "select count(distinct e.id) as drafts" + _NOTES + _AWAITING_WITHOUT_RECEIPT,
+    row = tx.rows(
+        "select count(distinct e.id) as drafts,"
+        " count(distinct e.id) filter (where e.state='accepting') as accepting"
+        + _NOTES
+        + _AWAITING_WITHOUT_RECEIPT,
         (tx.context.actor.space_id, tx.context.owner_id),
-    )[0]["drafts"]
+    )[0]
+    return row["drafts"], row["accepting"]
 
 
 def deleted_notes(tx: ActionTransaction) -> int:

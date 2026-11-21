@@ -142,7 +142,6 @@ export function withLocalBusinessPreview(
     unread_count: 0,
     presentation: "none" as const,
     pending_review_count: 0,
-    needs_attention_count: 0,
     ready_to_review_count: 0,
   };
   const emptySearch = {

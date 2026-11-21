@@ -50,17 +50,7 @@ export function bandejaListoCount(records: CountRecords): number | null {
   return records.receiptActivity?.bandeja_listo_count ?? null;
 }
 
-/** The one "con problema" number: receipts that need a fix plus emails that brought no receipt. */
-export function problemCount(records: CountRecords): number | null {
-  return records.receiptActivity?.needs_attention_count ?? null;
-}
-
 /** The one "por igualar" number the sidebar shows; null while bank matching is off on the server, never 0 for off. */
 export function porIgualarCount(records: CountRecords): number | null {
   return records.receiptActivity?.por_igualar_count ?? null;
-}
-
-/** Receipts and emails still being read. */
-export function readingCount(records: CountRecords): number | null {
-  return records.receiptActivity?.reading_count ?? null;
 }

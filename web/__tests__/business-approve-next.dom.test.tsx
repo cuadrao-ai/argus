@@ -100,7 +100,7 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
       const rows = view === "all" ? receipts : pending();
       const waiting = pending().filter((item) => !item.email_original).length;
       const confirmed = receipts.filter((item) => item.status === "confirmed" && !item.email_original).length;
-      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: waiting, needs_attention_count: 0, ready_to_review_count: waiting, bandeja_attention_count: waiting, bandeja_listo_count: 0, confirmed_count: confirmed, dismissed_count: 0 } };
+      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: waiting, ready_to_review_count: waiting, bandeja_attention_count: waiting, bandeja_listo_count: 0, confirmed_count: confirmed, dismissed_count: 0 } };
     },
     receipt: async (id: string) => {
       if (id === "rcpt-dos") {

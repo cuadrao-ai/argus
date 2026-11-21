@@ -73,7 +73,7 @@ async function setup(page: Page, language: Language, options: { languageChosen?:
   await recordPaint(page);
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const receipt = await source.receipt("rcpt-ferreteria");
-  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, ready_to_review_count: 1, needs_attention_count: 0 };
+  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, ready_to_review_count: 1 };
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.split("/business/")[1];

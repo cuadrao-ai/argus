@@ -135,9 +135,11 @@ def numbers(bandeja) -> dict[str, int]:
     found = read("/business/receipt-activity")
     listed = read("/business/receipts")["activity"]
     overview = read("/business/overview", **PERIOD)
+    emails = read("/business/email/deliveries")["items"]
     both = (
         "pending_review_count",
-        "needs_attention_count",
+        "bandeja_listo_count",
+        "bandeja_attention_count",
         "reading_count",
         "presentation",
     )
@@ -147,17 +149,19 @@ def numbers(bandeja) -> dict[str, int]:
         == found["ready_to_review_count"]
         == overview["ready_to_review_count"]
     )
-    assert overview["needs_attention"] == found["needs_attention_count"]
+    tabs = ("bandeja_listo_count", "bandeja_attention_count")
+    assert [overview[name] for name in tabs] == [found[name] for name in tabs]
     assert (
-        overview["awaiting_review"] + overview["needs_attention"]
+        sum(found[name] for name in tabs) + found["reading_count"]
         == found["pending_review_count"]
     )
     assert (found["presentation"] == "working") == (found["reading_count"] > 0)
     return {
         "pending": found["pending_review_count"],
-        "attention": found["needs_attention_count"],
+        "attention": found["bandeja_attention_count"],
         "reading": found["reading_count"],
-        "awaiting": overview["awaiting_review"],
+        # The emails that are a Bandeja row of their own, by the server's label.
+        "email_rows": sum(item["bandeja_group"]["label"] is not None for item in emails),
         "ready": found["ready_to_review_count"],
     }
 
@@ -202,7 +206,6 @@ def test_an_email_that_saved_nothing_counts_once_in_every_surface(bandeja):
     assert after["pending"] == before["pending"] + 1
     assert after["attention"] == before["attention"] + 1
     assert after["reading"] == before["reading"]
-    assert after["awaiting"] == before["awaiting"]
     assert after["ready"] == before["ready"]
     inbox = bandeja.client.get("/business/email/inbox").json()["groups"]
     assert [item["standing"] for group in inbox for item in group["items"]] == [
@@ -235,9 +238,8 @@ def test_an_email_that_brought_a_receipt_counts_as_that_receipt_only(
     assert standing(bandeja, delivery_id) is None
     after = numbers(bandeja)
     assert after["pending"] == before["pending"] + 1
-    assert after["attention"] == before["attention"]
+    assert after["email_rows"] == before["email_rows"]
     assert after["reading"] == before["reading"]
-    assert after["awaiting"] == before["awaiting"] + 1
     # The receipt is ready to review; the email's own document never is.
     assert after["ready"] == before["ready"] + 1
 
@@ -272,8 +274,7 @@ def test_a_retry_that_brings_the_receipt_replaces_the_email_count(bandeja, monke
     assert standing(bandeja, delivery_id) is None
     done = numbers(bandeja)
     assert done["pending"] == before["pending"] + 1
-    assert done["attention"] == before["attention"]
-    assert done["awaiting"] == before["awaiting"] + 1
+    assert done["email_rows"] == before["email_rows"]
 
 
 def test_an_email_still_being_read_waits_and_is_reading_not_attention(bandeja):
@@ -288,7 +289,6 @@ def test_an_email_still_being_read_waits_and_is_reading_not_attention(bandeja):
     assert received["pending"] == before["pending"] + 1
     assert received["reading"] == before["reading"] + 1
     assert received["attention"] == before["attention"]
-    assert received["awaiting"] == before["awaiting"] + 1
     assert received["ready"] == before["ready"]
     assert bandeja.client.get("/business/receipt-activity").json()["presentation"] == (
         "working"
@@ -305,7 +305,6 @@ def test_an_email_still_being_read_waits_and_is_reading_not_attention(bandeja):
     assert settled["pending"] == before["pending"] + 1
     assert settled["reading"] == before["reading"]
     assert settled["attention"] == before["attention"] + 1
-    assert settled["awaiting"] == before["awaiting"]
     assert settled["ready"] == before["ready"]
 
 
@@ -330,7 +329,6 @@ def test_a_blocked_sender_brought_no_receipt_and_counts(bandeja):
     assert settled["pending"] == before["pending"] + 1
     assert settled["attention"] == before["attention"] + 1
     assert settled["reading"] == before["reading"]
-    assert settled["awaiting"] == before["awaiting"]
     assert settled["ready"] == before["ready"]
 
 
@@ -381,4 +379,4 @@ def test_a_new_file_beside_a_refused_part_is_the_emails_receipt(bandeja):
     assert standing(bandeja, delivery_id) is None
     after = numbers(bandeja)
     assert after["pending"] == before["pending"] + 1
-    assert after["attention"] == before["attention"]
+    assert after["email_rows"] == before["email_rows"]
