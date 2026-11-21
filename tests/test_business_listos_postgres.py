@@ -38,7 +38,7 @@ from tests.test_business_reading_setting_postgres import (
 )
 from tests.test_business_scope_switch_routes_postgres import API, PERIOD, _as, _note
 
-pytestmark = scope.pytestmark
+pytestmark = [scope.pytestmark, pytest.mark.usefixtures("typed_notes_on")]
 people = scope.web
 SUPPLIER = "199990021"
 OTHER_SUPPLIER = "199990048"
@@ -50,11 +50,6 @@ ECF = "E310000000011"
 SENDER = "proveedor@example.test"
 ROUTE_PATH = "/business/drafts/approve-listos"
 LIMIT = 50
-
-
-@pytest.fixture(autouse=True)
-def _typed_notes(typed_notes_on: None) -> None:
-    """These flows start a draft by typing a note: typed notes on."""
 
 
 @pytest.fixture
