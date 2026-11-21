@@ -58,7 +58,7 @@ test("Bandeja cuts its tooltip lines with a clamp, so Safari adds no second tool
   const { readFileSync } = await import("node:fs");
   const css = readFileSync(new URL("../components/business-app/recepcion/reception.module.css", import.meta.url), "utf8");
   const clamp = css.split("\n").find(rule => rule.includes("-webkit-line-clamp:1"));
-  for (const name of ["title", "sender", "stateReason", "deletedName", "deletedActorName"]) {
+  for (const name of ["title", "sender", "deletedName", "deletedActorName"]) {
     assert.match(clamp ?? "", new RegExp(`\\.${name}[,\\s]`), name);
     for (const rule of css.split("\n").filter(rule => new RegExp(`\\.${name}\\b[^{]*\\{`).test(rule))) assert.doesNotMatch(rule, /text-overflow:ellipsis/, rule);
   }

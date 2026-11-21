@@ -122,7 +122,7 @@ describe("the Bandeja views", () => {
     assert.equal(views.getAttribute("aria-label"), "Vistas de Bandeja");
     const tab = (key: keyof typeof receptionEvidence.tabs) => views.querySelector<HTMLButtonElement>(receptionEvidence.tabs[key]);
     assert.equal(tab("all")?.getAttribute("aria-selected"), "true");
-    for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
+    for (const [key, label] of [["attention", "Por resolver"], ["listos", "Listos"]] as const) {
       assert.equal(tab(key)?.textContent, `${label}0`);
     }
     assert.equal(reception.querySelectorAll(receptionEvidence.alert).length, 0);
@@ -415,7 +415,8 @@ describe("typed notes in the list", () => {
     assert.equal(rowState(row), "Necesita atención");
     await page.choose("attention");
     assert.equal(noteRows(page).length, 1);
-    assert.equal(noteRows(page)[0].querySelector('[data-testid="reception-reason"]')?.textContent, "Nota escrita");
+    assert.equal(rowState(noteRows(page)[0]), "Necesita atención");
+    assert.doesNotMatch(noteRows(page)[0].textContent ?? "", /Nota escrita/, "the label alone, no reason");
     await page.choose("listos");
     assert.equal(noteRows(page).length, 0);
     await page.choose("all");
@@ -453,15 +454,16 @@ describe("emails in the Bandeja", () => {
   const emailRow = (page: { host: HTMLElement }, text: string) => emailRows(page).find((row) => row.textContent?.includes(text));
   const emailDetail = () => document.querySelector('[data-testid="email-detail"]');
 
-  test("an email that brought no receipt is a Necesitan atención row with its sender, its subject and why", async () => {
+  test("an email that brought no receipt is a Por resolver row with its sender, its subject and its label alone", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.choose("attention");
     assert.equal(emailRows(page).length, 2, "the two that brought none");
-    const boletin = emailRow(page, "Boletín semanal")!;
-    assert.match(boletin.textContent ?? "", /Este tipo de archivo no se puede guardar como recibo/);
-    const farmacia = emailRow(page, "Factura Farmacia Carol")!;
-    assert.match(farmacia.textContent ?? "", /Esta dirección no está activa/);
+    for (const subject of ["Boletín semanal", "Factura Farmacia Carol"]) {
+      const row = emailRow(page, subject)!;
+      assert.equal(rowState(row), "Necesita atención");
+      assert.doesNotMatch(row.textContent ?? "", /Este tipo de archivo no se puede guardar como recibo|Esta dirección no está activa/, "why it brought nothing waits in the record");
+    }
   });
 
   test("Todos lists every email that brought no receipt beside the receipts, and an email whose file became a receipt is no row of its own", async () => {
@@ -478,7 +480,7 @@ describe("emails in the Bandeja", () => {
     await page.choose("listos");
     assert.equal(emailRows(page).length, 0, "Listos holds no email");
     await page.choose("attention");
-    assert.equal(emailRows(page).some((row) => row.textContent?.includes("Recibo de combustible")), false, "Necesitan atención holds no read still running");
+    assert.equal(emailRows(page).some((row) => row.textContent?.includes("Recibo de combustible")), false, "Por resolver holds no read still running");
     await page.choose("all");
     const reading = emailRows(page).find((row) => row.textContent?.includes("Recibo de combustible"));
     assert.ok(reading);

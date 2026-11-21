@@ -201,11 +201,11 @@ function ReceptionWorkspace() {
   };
   const clear = () => { if (!searchOnly) { applyFilters(emptyReceptionFilters()); setPeriod(periodRange("all")); } searchQuery(""); };
   const narrowed = !!queryText || (!searchOnly && (period.key !== "all" || filters.channels.length > 0 || filters.senders.length > 0));
-  const tabEmpty = view === "all" ? null : view;
   const empty = narrowed ? { kind: "filtered" as const, title: word("empty"), body: word("empty_help"), action: { label: word("clear"), run: clear } }
     : view === "eliminados" ? { kind: "done" as const, title: t("business.document_delete.empty_title"), body: t("business.document_delete.empty_body") }
-    : tabEmpty ? { kind: "done" as const, title: word(`placeholder.empty_${tabEmpty}`), body: word(`placeholder.empty_${tabEmpty}_help`) }
-    : { kind: "first_run" as const, title: word("empty_start"), body: word(emailAvailable ? "empty_start_help" : "placeholder.empty_start_upload_help") };
+    : view === "attention" ? { kind: "done" as const, title: word("empty_attention"), body: word("empty_attention_help") }
+    : view === "listos" ? { kind: "done" as const, title: word("empty_listos"), body: word("empty_listos_help") }
+    : { kind: "first_run" as const, title: word("empty_start"), body: word(emailAvailable ? "empty_start_help" : "empty_start_upload_help") };
   const searchQuery = (next: string) => { setSelectedIds([]); setPage(1); setQuery(next); };
   // A wide screen keeps Agregar in the top bar; with the bar's search on, it also searches from there, scoped to
   // Bandeja, through the query this list lends. A phone keeps both.
@@ -236,14 +236,14 @@ function ReceptionWorkspace() {
           <div className={styles.bulkSlot}>{selected.length ? <ReceptionBulkBar count={selected.length} approve={() => approval.ask(selected)} clear={() => setSelectedIds([])} /> : null}</div>
         </>}
         {(query && !searchInBar) || (!searchOnly && period.key !== "all") ? <button className={quietButtonClass} onClick={clear}>{word("clear")}</button> : null}
-        <div className={styles.tools}>{reviewNext && !searchOnly ? <button type="button" data-testid="business-primary-review" className={`${styles.quietAction} rounded-full`} onClick={() => navigateFrom({ kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}{allListos.length && !selected.length ? <button type="button" data-testid="reception-approve-all" className={`${styles.quietAction} rounded-full`} onClick={() => approval.ask(allListos)}><Check size={16} aria-hidden="true" />{word("placeholder.approve_all")}</button> : null}<ReceptionAddMenu key={scope} addInBar={barTools} />{searchOnly ? <span className={styles.settingsSlot} aria-hidden="true" /> : <ReceptionSettings value={preferences} view={view} onChange={setPreferences} />}</div>
+        <div className={styles.tools}>{reviewNext && !searchOnly ? <button type="button" data-testid="business-primary-review" className={`${styles.quietAction} rounded-full`} onClick={() => navigateFrom({ kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}{allListos.length && !selected.length ? <button type="button" data-testid="reception-approve-all" className={`${styles.quietAction} rounded-full`} onClick={() => approval.ask(allListos)}><Check size={16} aria-hidden="true" />{word("placeholder.approve_all")}</button> : null}<ReceptionAddMenu key={scope} addInBar={barTools} />{searchOnly ? <span className={styles.settingsSlot} aria-hidden="true" /> : <ReceptionSettings value={preferences} onChange={setPreferences} />}</div>
       </div>
       {searchOnly ? null : <ReceptionFilterChips value={filters} senders={senders} onChange={applyFilters} />}
       <ReceiptReadingControl />
       {approval.failed.length ? <ReceptionApprovalFailure failed={approval.failed} attempted={approval.attempted} onRetry={approval.retry} onDismiss={approval.dismiss} /> : null}
       {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : onlySourcesFailed ? t(`business.inbox.${sourcesLine}`) : word("error")}{refusedForGood ? <> {t("auth.business_unavailable.body", { supportEmail })}</> : null}{reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
       <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${view}`} tabIndex={0} className={styles.list} data-surface-block="list">
-        {view === "eliminados" ? <DeletedColumns /> : <ReceptionColumnsHeading preferences={preferences} view={view} status={showStatus}>{!selectable ? null : pageListos.length ? <label className={styles.checkbox}><input type="checkbox" checked={allSelected} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageListos.map(row => row.rowId))} /></label> : <span className={styles.checkbox} />}</ReceptionColumnsHeading>}
+        {view === "eliminados" ? <DeletedColumns /> : <ReceptionColumnsHeading preferences={preferences} status={showStatus}>{!selectable ? null : pageListos.length ? <label className={styles.checkbox}><input type="checkbox" checked={allSelected} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageListos.map(row => row.rowId))} /></label> : <span className={styles.checkbox} />}</ReceptionColumnsHeading>}
         {waiting ? <ul role="status" aria-label={word("loading")} aria-busy="true" data-testid="reception-pending" style={{ visibility: placeholdersShown ? "visible" : "hidden" }}>
           {[0, 1, 2, 3, 4].map(index => <ReceptionPendingRow key={index} index={index} preferences={preferences} view={view} selectable={selectable} />)}
         </ul> : <ul aria-label={word("list_label")}>

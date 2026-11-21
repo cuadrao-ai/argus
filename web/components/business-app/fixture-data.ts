@@ -10,7 +10,7 @@ import { createDossierFixtures } from "./dossier-fixtures";
 import type { FiscalProfile } from "@/lib/business-dgii";
 import type { SentBy } from "@/lib/sent-by";
 import { normalizeSearchText } from "@/lib/search-text";
-import { emailSender, projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
+import { emailSender, groupRow, projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
 import type { BusinessDataSource } from "./business-data";
 import { sampleActivityFeed } from "./actividad/activity-sample";
 import { createFixtureSearch, SAMPLE_VENTAS } from "./search-fixtures";
@@ -99,7 +99,7 @@ function read(id: string, reason: string | null, merchant: string, amount: strin
     amount,
     currency: "DOP",
     occurred_on: dayOnly(daysAgo(1)),
-    bandeja_group: { group: reason ? "attention" : "listo", reason, draft_id: null, version: null },
+    bandeja_group: groupRow(reason ? "attention" : "listo", reason),
     ...partial,
   });
 }
@@ -117,7 +117,7 @@ function seedReceipts(): ReceiptDetail[] {
       id: "rcpt-ferreteria",
       // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
       sin_comprobante: true,
-      bandeja_group: { group: "attention", reason: "sin_comprobante", draft_id: null, version: null },
+      bandeja_group: groupRow("attention", "sin_comprobante"),
       // New since the last visit until it is opened, as the server marks it.
       activity: { state: "ready", unread: true, completion_cursor: "sample-ferreteria" },
       fiscal_known: true,
@@ -150,7 +150,7 @@ function seedReceipts(): ReceiptDetail[] {
       id: "rcpt-papeleria",
       // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
       sin_comprobante: true,
-      bandeja_group: { group: "attention", reason: "sin_comprobante", draft_id: null, version: null },
+      bandeja_group: groupRow("attention", "sin_comprobante"),
       fiscal_known: true,
       status: "review_ready",
       // The accountant marked it Personal; the owner sees who and can take it back.

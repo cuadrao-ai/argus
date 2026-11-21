@@ -37,7 +37,7 @@
 .documentIcon { position:relative; display:grid; place-items:center; width:22px; height:28px; flex-shrink:0; color:var(--muted); }
 .documentText { position:relative; min-width:0; }
 /* The shared tooltip shows cut text. A line clamp, not text-overflow, so Safari adds no tooltip of its own. */
-.title,.sender,.stateReason,.deletedName,.deletedActorName { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; white-space:normal; overflow-wrap:anywhere; }
+.title,.sender,.deletedName,.deletedActorName { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; white-space:normal; overflow-wrap:anywhere; }
 .title { font-size:14px; font-weight:400; line-height:20px; }
 .secondary { display:flex; gap:10px; margin-top:2px; color:var(--muted); font-size:12px; line-height:16px; }
 .secondary > :last-child { flex-shrink:0; }
@@ -177,7 +177,6 @@
 .fileCell { display:flex; align-items:center; justify-content:flex-start; min-width:0; padding-left:12px; }
 .fileCell button { margin-left:-13px; }
 .state { padding-top:6px; padding-bottom:6px; }
-.stateReason { min-width:0; max-width:100%; font-size:14px; line-height:20px; }
 @container reception (max-width:819px) {
   .identity { grid-row:1; padding-right:44px; }
   .fileCell { grid-column:3; grid-row:1; justify-self:end; width:44px; padding-left:0; justify-content:center; }
@@ -185,7 +184,6 @@
   .fileCell[data-file=false] { display:none; }
   .mobileMoney { display:block; margin-top:2px; font-size:12px; color:var(--muted); }
   .state { padding-top:0; padding-bottom:0; }
-  .stateReason { display:block; -webkit-line-clamp:none; overflow:visible; }
 }
 
 .filterChips { margin-left:-10px; width:calc(100% + 10px); }

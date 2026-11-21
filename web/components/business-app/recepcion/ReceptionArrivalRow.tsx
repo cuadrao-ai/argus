@@ -96,7 +96,7 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
     sender: from({ style: places.at("sender"), "data-testid": "reception-sender" }),
     amount: <span data-testid="reception-amount" style={places.at("amount")} className={`${styles.amountCell} cuadrao-amount`}>{receipt?.amount != null && receipt.currency ? formatAmount(receipt.amount, receipt.currency, locale) : <Unknown />}</span>,
     currency: <span data-testid="reception-currency" style={places.at("currency")} className={styles.currencyCell}>{receipt?.currency ? currencySymbol(receipt.currency) : <Unknown />}</span>,
-    status: <ReceptionStatus row={row} reasonOnly={view === "attention"} style={places.at("status")} />,
+    status: <ReceptionStatus row={row} style={places.at("status")} />,
     arrival: <span className={styles.arrival} style={places.at("arrival")}>{arrival}</span>,
   };
   return <li className={styles.row} data-list-row={rowKey} data-arrived={arrived} data-selected={selected} data-checked={checkable && checked} data-unseen={unseen} aria-current={selected ? "true" : undefined} data-testid="reception-row" data-kind={row.kind} onClick={event => { if (!(event.target as HTMLElement).closest("button,input,label,a")) open(); }}>
