@@ -4606,7 +4606,6 @@
           "stale_version": "It changed after it was listed. Open it and review it.",
           "unknown": "We don't know if it was approved. Retry to find out."
         },
-        "sent_by_unknown": "We don't know who sent it",
         "tag_listo": "Ready to approve"
       },
       "remove_filter": "Remove filter: {{label}}",
@@ -4618,6 +4617,7 @@
       "sender": "Sent by",
       "sender_search": "Search…",
       "sender_source": "Channel / Sent by",
+      "sent_by_unknown": "Unknown",
       "sent_by_whatsapp": "$t(business.reception_preview.source_whatsapp) ···{{last4}}",
       "setup_forward": "Set up email intake",
       "source": "Channel",

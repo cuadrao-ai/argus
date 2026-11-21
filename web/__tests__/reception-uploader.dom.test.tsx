@@ -32,7 +32,7 @@ async function senderCell(lng: typeof LANGUAGES[number], receipt: Partial<Receip
   });
   cleanup = async () => { await act(async () => root.unmount()); host.remove(); };
   const cell = host.querySelector<HTMLElement>('[data-testid="reception-sender"]')!;
-  return { text: cell.textContent, known: cell.getAttribute("data-known"), label: cell.getAttribute("aria-label") };
+  return { text: cell.textContent, known: cell.getAttribute("data-known"), label: cell.getAttribute("aria-label") ?? cell.getAttribute("title") };
 }
 
 const person = (shown_as: PersonName["shown_as"], value?: string): PersonName =>
@@ -40,8 +40,8 @@ const person = (shown_as: PersonName["shown_as"], value?: string): PersonName =>
 const member = (who: PersonName): SentBy => ({ id: "member:someone", kind: "member", person: who });
 
 const WORDS = {
-  "es-419": { member: "Miembro", former: "Exmiembro", unknown: "No sabemos quién lo envió", allowlist: ["Remitentes", "Remitente no disponible", "Remitente sin verificar"] },
-  en: { member: "Member", former: "Former member", unknown: "We don't know who sent it", allowlist: ["Senders", "Sender unavailable", "Unverified sender"] },
+  "es-419": { member: "Miembro", former: "Exmiembro", unknown: "Desconocido", allowlist: ["Remitentes", "Remitente no disponible", "Remitente sin verificar"] },
+  en: { member: "Member", former: "Former member", unknown: "Unknown", allowlist: ["Senders", "Sender unavailable", "Unverified sender"] },
 };
 
 for (const lng of LANGUAGES) {
@@ -67,7 +67,7 @@ for (const lng of LANGUAGES) {
     const delivery = { id: "delivery", sender: SENDER } as BusinessEmailDelivery;
     for (const receipt of [{ channel: "whatsapp" }, { channel: "web" }, { channel: "email", email_delivery_ids: ["delivery"] }] as const) {
       const cell = await senderCell(lng, { ...receipt, sent_by: null }, [delivery]);
-      assert.deepEqual([cell.known, cell.label], ["false", WORDS[lng].unknown], receipt.channel);
+      assert.deepEqual([cell.known, cell.text, cell.label], ["false", WORDS[lng].unknown, null], `${receipt.channel}: the value is the word, with no native tooltip`);
       await cleanup();
     }
   });

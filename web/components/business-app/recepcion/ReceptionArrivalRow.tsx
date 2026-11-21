@@ -13,7 +13,7 @@ import { Unknown } from "../transacciones/transacciones-parts";
 import { resolveLanguage } from "@/lib/language-features";
 import { sentByName } from "@/lib/sent-by";
 import type { BusinessPanelState } from "../BusinessWorkspace";
-import { formatAmount, formatMoney, formatRelativeTime, UNKNOWN_VALUE } from "../business-format";
+import { formatAmount, formatMoney, formatRelativeTime } from "../business-format";
 import { isOpenRecord } from "../record-tray";
 import { receptionSentBy, receptionDocumentTitle, receptionTarget, type ReceptionRow, type ReceptionView } from "./reception-model";
 import type { ReceptionColumnKey, ReceptionPreferences } from "./reception-columns";
@@ -84,7 +84,7 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
     <span className={styles.documentText}>{unseen ? <span className={styles.unseenDot} aria-hidden="true" /> : null}<span ref={titleRef} className={styles.title}>{unseen ? <span className="sr-only">{word("unseen")}: </span> : null}{row.kind === "note" ? <ChatCircle className={styles.noteIcon} size={15} aria-hidden="true" /> : null}{title}</span>{money ? <span className={`${styles.mobileMoney} cuadrao-amount`}>{money}</span> : null}</span>
   </button>;
   const channel = (cell?: CellProps) => has("source") ? <span className={styles.channel} {...cell}><SourceIcon size={15} aria-hidden="true" />{word(`source_${row.source}`)}</span> : null;
-  const from = (cell?: CellProps) => !has("sender") ? null : sender ? <ReceptionCutText text={sender} className={styles.sender} data-known="true" {...cell} /> : <span className={styles.sender} data-known="false" title={word("placeholder.sent_by_unknown")} aria-label={word("placeholder.sent_by_unknown")} {...cell}>{UNKNOWN_VALUE}</span>;
+  const from = (cell?: CellProps) => !has("sender") ? null : sender ? <ReceptionCutText text={sender} className={styles.sender} data-known="true" {...cell} /> : <span className={styles.sender} data-known="false" {...cell}>{word("sent_by_unknown")}</span>;
   // Below 940px Canal, Enviado por and the phone's arrival share one cell, in the order they read there. A wide table hides it and draws each at its own place.
   const origin = <span className={styles.source} style={places.shared} data-info={has("source") || has("sender")} data-testid="reception-source">
     {from()}{channel()}

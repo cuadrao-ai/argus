@@ -348,12 +348,12 @@ test("a WhatsApp receipt shows the sender the server sent, or none, never one in
     await settings(page);
     await toggleSender(page);
     const cell = rows(page).find(item => item.textContent?.includes("Recibo admitido"))!.querySelector('[data-testid="reception-sender"]');
-    const shown = [cell?.getAttribute("data-known"), cell?.getAttribute("aria-label") ?? cell?.textContent];
+    const shown = [cell?.getAttribute("data-known"), cell?.textContent];
     await cleanup(); cleanup = async () => {}; window.localStorage.clear(); document.body.innerHTML = "";
     return shown;
   };
   assert.deepEqual(await sender({ id: "whatsapp:link", kind: "whatsapp", phone_last4: "4821" }), ["true", "WhatsApp ···4821"]);
-  assert.deepEqual(await sender(null), ["false", "No sabemos quién lo envió"]);
+  assert.deepEqual(await sender(null), ["false", "Desconocido"]);
 });
 
 test("with Canal, Adjunto and Enviado por apart, a row's cells and focus stops come in the order its columns show", async () => {
