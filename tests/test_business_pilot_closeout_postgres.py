@@ -122,7 +122,7 @@ def test_a_person_reviews_it_alone_and_the_bandeja_holds_it_until_then(world) ->
         item["draft_id"]
         for item in _get(world, "/business/captures", view="inbox").json()["items"]
     ] == [draft]
-    assert _get(world, "/business/overview", **SPAN).json()["awaiting_review"] == 1
+    assert _get(world, "/business/overview", **SPAN).json()["bandeja_attention_count"] == 1
     many = _post(
         world,
         "/business/drafts/approve-listos",

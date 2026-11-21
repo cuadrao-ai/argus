@@ -38,21 +38,23 @@ def _get(web, path: str, headers: dict, **params):  # noqa: ANN001, ANN202
 
 
 def _counts(web, headers: dict) -> tuple[int, int, int, int]:  # noqa: ANN001
-    """The Bandeja's count, its notes, and the Resumen's two numbers."""
+    """The Bandeja's count, its notes, and the two tabs as the Resumen reads them."""
 
     activity = _get(web, "/business/receipts", headers, view="inbox")["activity"]
     assert _get(web, "/business/receipt-activity", headers) == activity
     notes = _get(web, "/business/captures", headers, view="inbox", limit=50)
     overview = _get(web, "/business/overview", headers, **PERIOD)
-    assert (
-        overview["awaiting_review"] + overview["needs_attention"]
-        == activity["pending_review_count"]
-    )
+    tabs = ("bandeja_listo_count", "bandeja_attention_count")
+    assert [overview[name] for name in tabs] == [activity[name] for name in tabs]
+    assert sum(overview[name] for name in tabs) == activity["pending_review_count"]
+    assert {item["bandeja_group"]["label"] for item in notes["items"]} <= {
+        "needs_attention"
+    }
     return (
         activity["pending_review_count"],
         len({item["draft_id"] for item in notes["items"]}),
-        overview["awaiting_review"],
-        overview["needs_attention"],
+        overview["bandeja_listo_count"],
+        overview["bandeja_attention_count"],
     )
 
 
@@ -88,7 +90,7 @@ def test_counts_marks_and_resumen_agree_through_the_review_journey(world) -> Non
     first = _note(world, alice, "Pagué 850 en Ferretería Prueba")
     assert first.status_code == 200, first.text
     draft = first.json()["draft_id"]
-    assert _counts(world, alice.headers) == (1, 1, 1, 0)
+    assert _counts(world, alice.headers) == (1, 1, 0, 1)
     # A second note on the same record is still one row awaiting review.
     again = world.client.post(
         f"{API}/business/captures",
@@ -99,9 +101,9 @@ def test_counts_marks_and_resumen_agree_through_the_review_journey(world) -> Non
         headers={**alice.headers, "Idempotency-Key": str(uuid4())},
     )
     assert again.status_code == 200, again.text
-    assert _counts(world, alice.headers) == (1, 1, 1, 0)
+    assert _counts(world, alice.headers) == (1, 1, 0, 1)
     # The accountant working in Alice's Business reads the same numbers.
-    assert _counts(world, _as(bob, world.grant)) == (1, 1, 1, 0)
+    assert _counts(world, _as(bob, world.grant)) == (1, 1, 0, 1)
 
     # "Sin comprobante fiscal": the owner's typed receipt decision, recorded as a revision.
     reviewed = _review(
@@ -116,7 +118,7 @@ def test_counts_marks_and_resumen_agree_through_the_review_journey(world) -> Non
     assert (record.get("fiscal_known"), record.get("fiscal_value")) == (True, None)
     # Reviewing records no money and leaves the record awaiting review.
     assert _get(world, "/business/overview", alice.headers, **PERIOD)["totals"] == []
-    assert _counts(world, alice.headers) == (1, 1, 1, 0)
+    assert _counts(world, alice.headers) == (1, 1, 0, 1)
     # Missing evidence is never made valid for the 606: there is no question to answer.
     refused = _post(
         world,

@@ -61,7 +61,6 @@ def _counts_match_flags(page: dict, notes: int = 0) -> None:
     assert (
         activity["ready_to_review_count"] == sum(f["por_revisar"] for f in flags) + notes
     )
-    assert activity["needs_attention_count"] == sum(f["con_problema"] for f in flags)
     assert activity["reading_count"] == sum(f["leyendo"] for f in flags)
 
 

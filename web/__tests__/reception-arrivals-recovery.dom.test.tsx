@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 afterAll(async () => { sight.restore(); await GlobalRegistrator.unregister(); });
 
-const ACTIVITY = { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 1, needs_attention_count: 0, ready_to_review_count: 1 };
+const ACTIVITY = { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 1, ready_to_review_count: 1 };
 
 /** The live Bandeja over a source whose full read the test can break, and a poll the test can tick. */
 async function mount(language: "es-419" | "en" = "es-419", panel: BusinessContextValue["panel"] = { kind: "inbox" }) {

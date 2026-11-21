@@ -25,7 +25,7 @@ for (const width of [1280, 390]) {
       }));
       await installReceiptBusiness(page, (parts, route) => {
         if (parts[0] !== "receipts") return undefined;
-        if (parts.length === 1) return Promise.resolve({ items: receipts, activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: receipts.length, needs_attention_count: count, ready_to_review_count: receipts.length, bandeja_attention_count: count, bandeja_listo_count: 1 } });
+        if (parts.length === 1) return Promise.resolve({ items: receipts, activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: receipts.length, ready_to_review_count: receipts.length, bandeja_attention_count: count, bandeja_listo_count: 1 } });
         if (parts.length === 2) return Promise.resolve(receipts.find(receipt => receipt.id === parts[1]));
         if (parts[2] === "source") return route.fulfill({ status: 404, json: { code: "fixture_only" } }).then(() => null);
         return undefined;

@@ -567,8 +567,8 @@ export function createFixtureBusinessDataSource(
       if (view === "all" && inbox === "loading") await new Promise(() => {});
       if (view === "all" && inbox === "failed") throw Object.assign(new Error("Sample server failure"), { status: 503, code: "business_unavailable", requestId: "sample-ref-7f3a9c21" });
       const items = view === "all" ? receipts : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
-      const notes = new Set((await dossierSource.captures("", 50, "inbox")).items.map((note) => note.draft_id)).size;
-      return { items: items.map(served), activity: servedCounts(receipts, notes, sampleEmails.map((email) => servedEmail(email).standing)) };
+      const notes = new Map((await dossierSource.captures("", 50, "inbox")).items.map((note) => [note.draft_id, note.bandeja_group]));
+      return { items: items.map(served), activity: servedCounts(receipts, [...notes.values()], sampleEmails.map((email) => servedEmail(email).standing)) };
     },
     receipt: async (id) => {
       await delay();

@@ -1,4 +1,4 @@
-import type { BusinessCapture, ListoItem, ReceiptChannel, ReceiptSummary } from "@/lib/business-api";
+import type { BandejaGroup, BusinessCapture, ListoItem, ReceiptChannel, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery } from "@/lib/business-email";
 import type { BusinessPanelState } from "../BusinessWorkspace";
 import { receiptDeleteTarget, type DeleteDocumentTarget } from "../DocumentDeleteControls";
@@ -24,13 +24,19 @@ export function receptionRows(receipts: readonly ReceiptSummary[], captures: rea
   return rows.sort((a, b) => b.receivedAt.localeCompare(a.receivedAt) || a.id.localeCompare(b.id));
 }
 
-/** The server's groups. A note is never Listos, and an email waits with what needs attention until it is read, as the counts do. A row still being read shows only on Todos. */
+/** The Bandeja group the server sent for this row. */
+function rowGroup(row: ReceptionRow): BandejaGroup["group"] | undefined {
+  if (row.kind === "receipt") return row.receipt.bandeja_group?.group;
+  if (row.kind === "note") return row.note.bandeja_group?.group;
+  return row.email.delivery.bandeja_group?.group;
+}
+
+/** Every row sits in the tab its server group names, as the counts do. A row still being read shows only on Todos. */
 export function receptionMatches(row: ReceptionRow, view: ReceptionView): boolean {
-  const deleted = row.kind === "receipt" ? row.receipt.bandeja_group?.group === "eliminados" : row.kind === "note" && row.note.bandeja_group?.group === "eliminados";
-  if (view === "eliminados") return deleted;
-  if (deleted) return false;
+  const group = rowGroup(row);
+  if (view === "eliminados") return group === "eliminados";
+  if (group === "eliminados") return false;
   if (view === "all") return true;
-  const group = row.kind === "receipt" ? row.receipt.bandeja_group?.group : row.kind === "email" && row.email.standing === "reading" ? "reading" : "attention";
   return group === (view === "listos" ? "listo" : "attention");
 }
 

@@ -66,15 +66,13 @@ export type ReceiptActivity = {
 /**
  * The Bandeja's counts, from the server only. `unread_count` is new activity
  * this person has not opened; `pending_review_count` is every row the Bandeja
- * lists (receipts not yet saved or dismissed, and notes no receipt carries);
- * `needs_attention_count` is how many of those receipts need attention.
+ * lists (receipts not yet saved or dismissed, and notes no receipt carries).
  */
 export type ReceiptActivityCounts = {
   reading_count: number;
   unread_count: number;
   presentation: "working" | "unread" | "none";
   pending_review_count: number;
-  needs_attention_count: number;
   /** Rows a person can review now: the Bandeja's Por revisar. */
   ready_to_review_count: number;
   /** The Bandeja's Listos tab. Absent in older payloads. */

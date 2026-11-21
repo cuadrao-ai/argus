@@ -15,7 +15,11 @@ from pydantic import (
 )
 
 from argus.api.schemas import Language
-from argus.domain.business.bandeja_group import BandejaGroupName, BandejaReason
+from argus.domain.business.bandeja_group import (
+    BandejaGroupName,
+    BandejaLabel,
+    BandejaReason,
+)
 from argus.domain.business.contracts.authority import PersonName
 from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.contracts.dossier import RecordContext
@@ -251,15 +255,25 @@ class BandejaMembership(_Wire):
 
 
 class BandejaGroup(_Wire):
-    # The spec's one group of an open receipt, from ``bandeja_group.group_of``:
-    # null for a closed receipt and the email itself.
+    # The one group of a Bandeja row, from ``bandeja_group``: a receipt, a
+    # typed note and an email carry the same shape. Null for a closed row, the
+    # email saved as a receipt's context and an email that is no row of its own.
     group: BandejaGroupName | None
     # Why a receipt is not Listos: one plain word, null for ``listo``, and
-    # ``reading`` for a ``reading`` row. Any open receipt can still be approved
-    # alone.
+    # ``reading`` for a ``reading`` row. Null too for an email that brought no
+    # receipt, whose cause is its ``no_receipt_reason``. Any open receipt can
+    # still be approved alone.
     reason: BandejaReason | None
+    # The one word the list shows for the row, from ``bandeja_label``:
+    # ``reading`` for the ``reading`` group, a read the read limit holds
+    # included; ``cant_read`` for an ``attention`` row whose read failed;
+    # ``needs_attention`` for every other ``attention`` row; ``ready`` for
+    # ``listo``, a row being approved now included; ``accepted`` for a recorded
+    # row. Null for a deleted row and one that is no row.
+    label: BandejaLabel | None
     # What an approval of this row names: its open draft and the version this
-    # list saw. Null while the receipt has no open draft.
+    # list saw. Null while the row has no open draft, so a row being approved
+    # names nothing a second approval could take.
     draft_id: UUID | None
     version: int | None
 
@@ -274,18 +288,15 @@ class ReceiptActivityCounts(_Wire):
     # dismissed (never the email itself), notes no receipt carries and each
     # email that is a row of its own (being read, or brought no receipt).
     pending_review_count: int
-    # Of those rows, how many need the person's attention; an email that
-    # brought no receipt always does, an email being read does not.
-    needs_attention_count: int
     # "Por revisar": the receipts a person can review now (not being read,
     # not unreadable) plus those notes. An email never counts here.
     ready_to_review_count: int
     # The Bandeja's Listos tab: the rows whose ``bandeja_group`` is ``listo``.
     bandeja_listo_count: int
-    # The Bandeja's Necesitan atención tab: every other row it lists that is
-    # not still being read, notes and emails included, so the two plus
-    # ``reading_count`` sum to ``pending_review_count``. Wider than
-    # ``needs_attention_count``, which keeps its own meaning.
+    # The Bandeja's Necesitan atención tab: every other row it lists outside
+    # the ``reading`` group, notes and emails included. A row the read limit
+    # holds is in that group and in no tab; ``reading_count`` leaves it out,
+    # since nothing is reading it, so only ``pending_review_count`` counts it.
     bandeja_attention_count: int
     # Transacciones "Por igualar": every movement and document still to
     # igualar, from any period. Null while bank matching is off.
@@ -515,8 +526,6 @@ class BusinessOverview(_Wire):
     fiscal_totals: list[CurrencyTotal] = Field(default_factory=list)
     #: "Sin comprobante fiscal": real minus fiscal, per currency; what does not go into the 606.
     without_fiscal_totals: list[CurrencyTotal] = Field(default_factory=list)
-    awaiting_review: int
-    needs_attention: int
     #: "Por revisar": the Bandeja's ``ready_to_review_count``.
     ready_to_review_count: int
     #: The same ``bandeja_listo_count`` and ``bandeja_attention_count`` the
