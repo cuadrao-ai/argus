@@ -466,14 +466,21 @@ def approve(
 
 
 def _listo_request(
-    service: BusinessActions, context: ActionContext, item: ListoItem
+    service: BusinessActions, context: ActionContext, item: ListoItem, key: str
 ) -> ApproveExpense | ApproveIncome:
     """The approval a Listos row takes: a sale's own, and the purchase approval
-    for every other draft, which refuses what it cannot record."""
+    for every other draft, which refuses what it cannot record. A retry takes
+    the kind its first attempt stored, so it replays that answer even after
+    the draft changed kind."""
 
     with transaction(service.authority, context) as tx:
-        kind = facts_of(tx.imports.event(str(item.draft_id))).kind
-    if isinstance(kind, Known) and kind.value == "income":
+        stored = plans.stored_action(tx, key)
+        if stored is None:
+            kind = facts_of(tx.imports.event(str(item.draft_id))).kind
+            income = isinstance(kind, Known) and kind.value == "income"
+        else:
+            income = stored == "approve_income"
+    if income:
         return ApproveIncome(version=item.version, action="record_income")
     return ApproveExpense(version=item.version, action="record_expense")
 
@@ -495,7 +502,7 @@ def _approve_listo(
             service,
             context,
             item.draft_id,
-            _listo_request(service, context, item),
+            _listo_request(service, context, item, key),
             key,
             listo=True,
         )
