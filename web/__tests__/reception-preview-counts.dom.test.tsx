@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { BusinessCapture, GrantedSpace, ListoApproval, ListoItem, ReceiptActivity, ReceiptSummary } from "@/lib/business-api";
+import type { BusinessCapture, GrantedSpace, ListoApproval, ListoItem, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 
@@ -19,7 +19,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const OWNER_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "approve", "manage", "assign_owner", "download", "export"];
 const EDITOR_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "download", "export"];
 
-async function mount({ width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead, bar = false, approveListos, receiptsOnly = false }: { approveListos?: BusinessDataSource["approveListos"]; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity>; bar?: boolean; receiptsOnly?: boolean } = {}) {
+async function mount({ width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead, bar = false, approveListos, receiptsOnly = false, extraNotes = [], activity }: { approveListos?: BusinessDataSource["approveListos"]; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity>; bar?: boolean; receiptsOnly?: boolean; extraNotes?: BusinessCapture[]; activity?: Partial<ReceiptActivityCounts> } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 1000 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -38,10 +38,10 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
     { ...seed, id: "problem-receipt", merchant: "Recibo con problema", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
     ...["uno", "dos", "tres"].map((name, index) => ({ ...seed, id: `listo-${name}`, merchant: `Listo ${name}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo" as const, reason: null, draft_id: `draft-${name}`, version: index + 1 } })),
   ]);
-  const notes: BusinessCapture[] = receiptsOnly ? [] : [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open" }];
+  const notes: BusinessCapture[] = receiptsOnly ? [] : [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open", bandeja_group: { group: "attention", reason: "not_read", draft_id: "admitted-note", version: 1 } }, ...extraNotes];
   const emails = receiptsOnly ? [] : (await source.emailDeliveries()).filter(email => email.id === "email-boletin" || email.id === "email-estacion");
   assert.equal(emails.length, receiptsOnly ? 0 : 2);
-  const globalActivity = { reading_count: 92, unread_count: 94, presentation: "unread" as const, pending_review_count: 95, ready_to_review_count: 91, bandeja_attention_count: 96, bandeja_listo_count: 97 };
+  const globalActivity = { reading_count: 92, unread_count: 94, presentation: "unread" as const, pending_review_count: 95, ready_to_review_count: 91, bandeja_attention_count: 96, bandeja_listo_count: 97, ...activity };
   const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: !prepare ? ["read"] : role === "owner" ? ["read", "prepare", "approve"] : ["read", "prepare"], permissions: permissions ?? (role === "owner" ? OWNER_PERMISSIONS : EDITOR_PERMISSIONS), access_seen: true };
   let uploads = 0;
   let reloads = 0;
@@ -147,6 +147,25 @@ test("the tab numbers are the server's, not a count of the rows loaded", async (
   assert.deepEqual([page.badge("attention"), page.badge("listos")], ["96", "97"]);
   await page.click(page.tab("listos"));
   assert.deepEqual([page.badge("attention"), page.badge("listos")], ["96", "97"], "the active view does not move the numbers");
+});
+
+test("every row sits on the tab its server group names, so each tab shows as many rows as its number", async () => {
+  // As the server counts this Business: Listos holds the three receipts and the note being approved; Necesitan atención holds two receipts, the open note and the email that brought nothing; the receipt and the email still being read are on Todos only.
+  const accepting: BusinessCapture = { draft_id: "accepting-note", source_id: "accepting-source", version: 2, revision: 2, text: "Nota en aprobación", received_at: "2026-10-27T12:00:00Z", review_state: "accepting", bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } };
+  const page = await mount({ extraNotes: [accepting], activity: { bandeja_attention_count: 4, bandeja_listo_count: 4 } });
+  assert.equal(rows(page).length, 10, "six receipts, two notes and two emails on Todos");
+  for (const view of ["attention", "listos"] as const) {
+    await page.click(page.tab(view));
+    assert.equal(String(rows(page).length), page.badge(view), view);
+  }
+  assert.ok(page.row("Nota en aprobación"), "the note being approved is on Listos");
+  await page.click(page.tab("attention"));
+  assert.equal(page.row("Nota en aprobación"), undefined, "and not on Necesitan atención");
+  assert.ok(page.row("Nota admitida"));
+  const emails = () => rows(page).filter(row => row.getAttribute("data-kind") === "email").map(row => row.textContent?.includes("Boletín semanal") ? "boletin" : "other");
+  assert.deepEqual(emails(), ["boletin"], "the email that brought nothing needs attention; the one being read does not");
+  await page.click(page.tab("listos"));
+  assert.deepEqual(emails(), [], "no email is Listos");
 });
 
 test("a receipt is unseen only when the server says its activity is unread, and never marks anything locally", async () => {
