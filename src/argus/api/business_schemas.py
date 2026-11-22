@@ -332,6 +332,12 @@ class ReceiptActivityCounts(_Wire):
 # when the answer is made, so a replayed key answers with the counts of then.
 class DocumentActionCounted(DocumentActionResult):
     inbox_counts: ReceiptActivityCounts
+    registros_count: int | None = Field(
+        default=None,
+        ge=0,
+        exclude_if=lambda count: count is None,
+        description="Unfiltered Registros row count after deleting or restoring an accepted record.",
+    )
 
 
 class ListosApprovedCounted(ListosApproved):

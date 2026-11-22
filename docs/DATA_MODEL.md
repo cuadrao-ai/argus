@@ -2924,20 +2924,21 @@ refunds fail explicitly, so copied historical category cannot silently drift.
 
 `financial_activity_groups.reversed_at` (nullable, migration
 `20261103003000_business_record_reversal.sql`) names the instant a Business
-reopen (`reopen_draft`) took the row out of every read. The three ledger
-loaders (`canonical_groups.load`, `loop_postgres.hydrate`,
+reopen or accepted-document deletion took the row out of current money reads.
+The three ledger loaders (`canonical_groups.load`, `loop_postgres.hydrate`,
 `owner_funds_postgres.load`) leave a reversed group and its legs out, so totals,
-the month close, the 606 and 607, Registros and account balances read as before
-the approval; the group, its records, revisions, memberships and money receipts
-stay as history, and a settlement, export line or bank outcome keyed to it stays
-too. Who reopened, when and from which draft version is the `reopen_draft` row
-in `business_action_receipts`, whose outcome names the activity. The reopened
+the month close, the 606 and 607, Registros and account balances all exclude it.
+After reopen, the group, records, revisions, memberships, and money receipts
+stay as history, along with any related settlement, export line, or bank outcome.
+The `reopen_draft` row in `business_action_receipts` names the actor, time,
+draft version and activity. The reopened
 draft returns to `open` with `activity_id` null (the state check requires it)
 and keeps a `reopened` list in its resolution (`activity_id`, `version`,
 `actor_id`, `key`, `at`); the approval's recovery keys (`approval_receipt`,
-`accepted`, `accepted_request`, `pending_request`) leave it. Written only by
-the reopen, under the Business's owner lock; never set on a Personal row. The
-same migration admits `reopen_draft` as a turn-less human command on
+`accepted`, `accepted_request`, `pending_request`) leave it.
+Both reopen and accepted-document deletion take the Business owner's lock.
+Restoring a deleted accepted document clears `reversed_at` on its original
+group. The same migration admits `reopen_draft` as a turn-less human command on
 `business_action_receipts`.
 
 financial_activity_receipts binds owner/key, request hash, accepted group/revision and
@@ -3588,16 +3589,22 @@ The actor uses the existing account-deletion identity shape, so departure replac
 its ID with the Business alias and its name with `Exmiembro`. Delete and restore
 action receipts keep the existing `ActorProvenance` snapshot; restore removes the
 deleted marker.
-`previous_state` holds the original `state` and Bandeja `group` (`attention`
-or `listo`). A receipt with several generic, unapproved read candidates keeps
-one marker on its document JSON. Its optional `previous_state.events` maps
+`previous_state` holds the original `state` and Bandeja `group`. The group is
+`attention` or `listo` for Bandeja rows and null for an accepted record.
+A receipt with several generic, unapproved read candidates keeps one marker on
+its document JSON. Its optional `previous_state.events` maps
 candidate IDs to their prior review states. Delete dismisses those open
 candidates in the same transaction without copying the marker onto them.
-Restore removes the marker and restores those states. A receipt with an
-approved or accepting candidate cannot be deleted. The command
-ledger retains who deleted or restored the document and when. Original bytes,
-source links, facts and revisions remain in place until the purge below.
-Deletion changes no financial records, totals or exports.
+Restore removes the marker and restores those states. Delete refuses a group
+of generic candidates if any candidate is accepted or accepting. The command
+ledger records who deleted or restored the document and when. Original bytes,
+source links, facts and revisions remain in place until purge.
+For an accepted Business record, delete sets the group's `reversed_at` and
+clears the event's `activity_id` as required for a dismissed event. The
+approval snapshot in `resolution.accepted` retains the original activity ID.
+Restore uses that ID to reactivate the same group and return the event to
+`accepted` in one transaction. The monetary values and revisions stay intact
+throughout the restore window.
 
 ### Business document purge
 
@@ -3627,8 +3634,10 @@ deletion marker, so the hourly expiry query reads deleted documents only.
 A purge runs in one transaction under the owner lock. It writes the purge row
 first, then deletes the drafts, the draft's own message sources and the upload
 connections. Cascades remove revisions, source links, questions,
-observations, reads and read states. It removes custody object rows that
-recorded finished copies of the same paths. The erase then removes each path no
+observations, reads and read states. For an accepted document, purge also
+removes the reversed activity group and the money records used only by that
+group. It removes custody object rows that recorded finished copies of the
+same paths. The erase then removes each path no
 live document or custody copy still references, under the owner's stored-object
 lock, and takes it off `pending_objects`.
 

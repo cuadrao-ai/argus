@@ -176,18 +176,16 @@ def _speaking_drafts(
     }
 
 
-def _recorded(
+def _recorded_activities(
     authority: BusinessAuthority, context: ActionContext, connection: Connection
-) -> RecordedSnapshot:
-    context = _authorized(connection, context).context
-    observed_at = connection.execute("select transaction_timestamp()").fetchone()[0]
+) -> list[dict[str, Any]]:
     canonical = load(
         PostgresFinancialAccountRepository(authority.pool),
         connection,
         {context.owner_id},
         scope=context.scope,
     )
-    activities = current_activities(
+    return current_activities(
         VisibleAccounts(
             [
                 stored
@@ -197,6 +195,24 @@ def _recorded(
             canonical,
         )
     )
+
+
+def registros_count(authority: BusinessAuthority, context: ActionContext) -> int:
+    """Each current money activity supplies one row in the unfiltered Registros list."""
+    with authority.pool.connection() as connection, connection.transaction():
+        connection.execute("set transaction isolation level repeatable read")
+        live = _authorized(connection, context)
+        count = len(_recorded_activities(authority, live.context, connection))
+        _authorized(connection, live.context)
+        return count
+
+
+def _recorded(
+    authority: BusinessAuthority, context: ActionContext, connection: Connection
+) -> RecordedSnapshot:
+    context = _authorized(connection, context).context
+    observed_at = connection.execute("select transaction_timestamp()").fetchone()[0]
+    activities = _recorded_activities(authority, context, connection)
     with connection.cursor(row_factory=dict_row) as cursor:
         approved, _, _ = fiscal_snapshot(cursor, context, activities)
         cursor.execute(

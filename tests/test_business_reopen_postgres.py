@@ -346,6 +346,56 @@ def test_a_bank_match_holds_the_record(bank) -> None:  # noqa: ANN001, F811
     assert _group(receipt) == (False, 1)
 
 
+def test_a_sales_credit_note_blocks_delete_of_both_records(world) -> None:  # noqa: ANN001, F811
+    invoice, view = _reviewed(world, "income", "B0100000054")
+    original = _approve(world, invoice, view["version"], "income")
+    assert original.status_code == 200, original.text
+    account = _checking(world)
+    note, view = _reviewed(
+        world, "income", "B0400000054",
+        _known({"funding": {"kind": "business_account", "account_id": account}}),
+        modified_ncf="B0100000054",
+    )
+    credit = _approve(world, note, view["version"], "income")
+    assert credit.status_code == 200, credit.text
+
+    for draft in (invoice, note):
+        before = _dossier(world, draft)
+        answer = world.client.post(
+            f"{API}/business/drafts/{draft}/delete",
+            headers={**world.alice.headers, "Idempotency-Key": str(uuid4())},
+        )
+        assert (answer.status_code, answer.json()["code"]) == (422, "business_document_linked")
+        assert _dossier(world, draft) == before and before["delete_available"] is False
+
+
+def test_a_live_bank_match_prevents_delete_until_it_is_undone(bank) -> None:  # noqa: ANN001, F811
+    checking = _checking(bank)
+    activity = _record(bank, checking, "expense", "150", "DOP", "2026-10-12", "Banco")
+    _import(bank, checking, _statement([("12/10/2026", "COMISION A", "150.00", "")]))
+    [line] = _movements(bank, bank.alice.headers)["items"]
+    key = {**bank.alice.headers, "Idempotency-Key": str(uuid4())}
+    matched = _bank_post(
+        bank, f"/movements/{line['id']}/match", bank.alice.headers,
+        {"activity_id": activity},
+    )
+    assert matched.status_code == 200, matched.text
+    with Connection.connect(shared.DSN) as db:
+        draft, = db.execute(
+            "select id::text from public.financial_import_events where activity_id=%s",
+            (activity,),
+        ).fetchone()
+    path = f"{API}/business/drafts/{draft}/delete"
+    refused = bank.client.post(path, headers=key)
+    assert (refused.status_code, refused.json()["code"]) == (422, "business_document_linked")
+    assert _dossier(bank, draft)["delete_available"] is False
+    unmoved = _bank_post(bank, f"/movements/{line['id']}/unmatch", bank.alice.headers, {})
+    assert unmoved.status_code == 200, unmoved.text
+    assert _dossier(bank, draft)["delete_available"] is True
+    removed = bank.client.post(path, headers={**key, "Idempotency-Key": str(uuid4())})
+    assert removed.status_code == 200, removed.text
+
+
 def test_payment_status_and_marks_after_a_reopen(world) -> None:  # noqa: ANN001, F811
     """A payment mark stays on the reversed row as history and the reapproved
     record starts pendiente; the Personal mark and the remembered tipo de gasto

@@ -9,6 +9,7 @@ from argus.domain.recording.errors import (
     RecordingInputError,
     StaleVersion,
 )
+from argus.domain.recording.import_claim import ImportClaim
 from argus.domain.recording.money_plan import MoneyPlan, plan, request_identity
 from argus.domain.recording.money_reads import (
     activity,
@@ -56,6 +57,7 @@ class MoneyService:
         idempotency_key: str,
         scope: OwnerScope,
         activity_id: str | None = None,
+        import_claim: ImportClaim | None = None,
     ) -> dict[str, Any]:
         from argus.domain.recording.money_storage import transact
 
@@ -70,6 +72,7 @@ class MoneyService:
                 scope,
                 self.accounts._clock(),
                 activity_id,
+                import_claim=import_claim,
             )
         activity_id = self._id(activity_id)
 
@@ -85,6 +88,7 @@ class MoneyService:
             planner,
             self.accounts._clock(),
             scope=scope,
+            import_claim=import_claim,
         )
         return {
             "activity": activity(records, aid, revision),

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import threading
 from unittest.mock import patch
 from uuid import uuid4
@@ -43,10 +44,8 @@ def _typed_notes(typed_notes_on: None) -> None:
     """These flows start a draft by typing a note: typed notes on."""
 
 
-def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
-    """One approved purchase of September 2026 with its 606 data complete and
-    Forma de Pago 01, on a Business whose RNC is set."""
-
+@pytest.fixture(autouse=True)
+def _configured_filer(world) -> None:  # noqa: ANN001, F811
     alice = world.alice
     profile = world.client.patch(
         f"{API}/business/fiscal-profile",
@@ -59,6 +58,13 @@ def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
         headers={**alice.headers, "Idempotency-Key": str(uuid4())},
     )
     assert profile.status_code == 200, profile.text
+
+
+def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
+    """One approved purchase of September 2026 with its 606 data complete and
+    Forma de Pago 01, on a Business whose RNC is set."""
+
+    alice = world.alice
     note = _note(world, alice, f"Compra {ncf}")
     assert note.status_code == 200, note.text
     draft = note.json()["draft_id"]
@@ -179,6 +185,70 @@ def test_a_write_between_the_snapshot_and_the_build_is_in_the_sheet(world):  # n
     assert shipped_payment_form(outcome["export"]) == "03"
     view = dossier(world, draft)
     assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
+
+
+def test_an_accepted_delete_between_the_snapshot_and_the_build_is_excluded(world):  # noqa: ANN001, F811
+    draft, _ = recorded(world, "B0100001004")
+    kept_draft, _ = recorded(world, "B0100001005")
+    before = download(world)
+    assert before.status_code == 200, before.text
+    with ZipFile(io.BytesIO(before.content)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        assert len(manifest["records"]) == 2
+        reconciled = {
+            entry["draft_id"]: entry for entry in manifest["dgii"]["reconciliation"]
+        }
+        assert {
+            draft_id: entry["disposition"] for draft_id, entry in reconciled.items()
+        } == {
+            draft: "606",
+            kept_draft: "606",
+        }
+        removed_originals = {
+            item["file"] for item in manifest["sources"] if draft in item["draft_ids"]
+        }
+        assert b"Compra B0100001004" in [archive.read(name) for name in removed_originals]
+
+    reached, resume = threading.Event(), threading.Event()
+    outcome = {}
+    with patch.object(
+        store_postgres,
+        "PostgresDocumentStore",
+        paused(store_postgres.PostgresDocumentStore, reached, resume),
+    ):
+        exporter = in_thread(outcome, "export", lambda: download(world))
+        try:
+            assert reached.wait(20)
+            deleted = _post(
+                world,
+                f"/business/drafts/{draft}/delete",
+                {},
+                world.alice.headers,
+            )
+            assert deleted.status_code == 200, deleted.text
+        finally:
+            resume.set()
+            exporter.join(30)
+
+    after = outcome["export"]
+    assert after.status_code == 200, after.text
+    with ZipFile(io.BytesIO(after.content)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        rows = list(
+            csv.DictReader(io.StringIO(archive.read("records.csv").decode("utf-8-sig")))
+        )
+        assert [row["NCF"] for row in rows] == ["B0100001005"]
+        assert [row["activity_id"] for row in manifest["records"]] == [
+            reconciled[kept_draft]["activity_id"]
+        ]
+        assert [entry["draft_id"] for entry in manifest["dgii"]["reconciliation"]] == [
+            kept_draft
+        ]
+        assert all(item["draft_ids"] == [kept_draft] for item in manifest["sources"])
+        assert b"Compra B0100001005" in [
+            archive.read(item["file"]) for item in manifest["sources"]
+        ]
+        assert not removed_originals.intersection(archive.namelist())
 
 
 def test_a_write_holding_the_owner_lock_lands_before_the_build(world):  # noqa: ANN001, F811

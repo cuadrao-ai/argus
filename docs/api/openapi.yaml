@@ -2597,9 +2597,9 @@ paths:
           description: '`business_action_conflict` for a reused key; `business_action_unsettled`
             while the original result is unknown.'
         '422':
-          description: '`business_document_not_open` for an approved or set-aside document;
-            `business_document_reading` while being read; `business_document_ambiguous` for
-            shared attachments.'
+          description: '`business_document_not_open` for an ineligible state; `business_document_linked`
+            for a linked accepted record; `business_document_reading` while being read; `business_document_ambiguous`
+            for shared attachments.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -3106,8 +3106,8 @@ paths:
           description: '`business_action_conflict` for a reused key; `business_action_unsettled`
             while the original result is unknown.'
         '422':
-          description: '`business_document_not_deleted` without a deletion marker; `business_document_ambiguous`
-            for shared attachments.'
+          description: '`business_document_not_deleted` without a deletion marker; `business_document_restore_expired`
+            once the 7-day window closes; `business_document_ambiguous` for shared attachments.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -21361,6 +21361,13 @@ components:
           type: boolean
         inbox_counts:
           $ref: '#/components/schemas/ReceiptActivityCounts'
+        registros_count:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          description: Unfiltered Registros row count after deleting or restoring an accepted
+            record.
       additionalProperties: false
       type: object
       required:
@@ -29314,10 +29321,12 @@ components:
         state:
           type: string
         group:
-          type: string
-          enum:
-          - listo
-          - attention
+          anyOf:
+          - type: string
+            enum:
+            - listo
+            - attention
+          - type: 'null'
         events:
           additionalProperties:
             type: string
