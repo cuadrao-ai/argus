@@ -292,7 +292,7 @@ describe("a list that did not load", () => {
   test("Reintentar asks again only for the lists that failed, and their recovery shows the true empty state", async () => {
     const { calls, overrides, recover } = failing();
     const page = await mount({ panel: { kind: "inbox" }, overrides });
-    await page.settle(() => Boolean(page.api().records.emailsFailure), "the email failure after workspace availability");
+    await page.settle(() => Boolean(page.api().records.emailsFailure) && failureOf(page) !== null, "the email failure in the settled Bandeja");
     const before = { ...calls };
     recover();
     const retry = [...failureOf(page)!.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
@@ -321,7 +321,7 @@ describe("a list the server refused for good", () => {
       captures: async () => { calls.notes += 1; throw BUSINESS_OFF(); },
       emailDeliveries: async () => { calls.emails += 1; throw EMAIL_OFF(); },
     }) });
-    await page.settle(() => Boolean(page.api().records.emailsFailure), "the email failure after workspace availability");
+    await page.settle(() => Boolean(page.api().records.emailsFailure) && failureOf(page) !== null, "the email failure in the settled Bandeja");
     assert.deepEqual(actions(page), [], "asking again gets the same refusal");
     assert.match(failureOf(page)!.textContent ?? "", /No pudimos cargar tus notas ni tus correos\./, "the line names what was refused");
     assert.match(failureOf(page)!.textContent ?? "", /escríbenos a hola@cuadrao\.ai/, "a refusal always has a way out");
@@ -351,7 +351,7 @@ describe("a list the server refused for good", () => {
       captures: async () => { calls.notes += 1; throw BUSINESS_OFF(); },
       emailDeliveries: async () => { calls.emails += 1; if (emailsDown) throw Object.assign(new Error("API error 500"), { status: 500, code: "internal_error" }); return []; },
     }) });
-    await page.settle(() => Boolean(page.api().records.emailsFailure), "the email failure after workspace availability");
+    await page.settle(() => Boolean(page.api().records.emailsFailure) && failureOf(page) !== null, "the email failure in the settled Bandeja");
     assert.deepEqual(actions(page), ["Reintentar"]);
     assert.doesNotMatch(failureOf(page)!.textContent ?? "", /escríbenos/, "a retry is the way out while one list can pass");
     const before = { ...calls };

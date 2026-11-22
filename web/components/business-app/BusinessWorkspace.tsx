@@ -157,6 +157,9 @@ export type BusinessContextValue = Readonly<{
   invoicing?: InvoicingState;
   receivingChannels?: ReceivingChannels;
   directoryStatus?: BusinessDirectoryStatus;
+  directoryReference?: string | null;
+  /** The directory chose this Business and its initial list answer has settled. */
+  inboxReady?: boolean;
   /** Every Business the person may enter, the server's list; null until read. */
   spaces: GrantedSpace[] | null;
   closedSpaces?: ClosedGrantedSpace[];
@@ -340,6 +343,7 @@ function BusinessWorkspaceContent({
   const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
   const [notesAttempt, setNotesAttempt] = useState(0);
   const [revision, setRevision] = useState(0);
+  const [directoryReference, setDirectoryReference] = useState<string | null>(null);
   const [directoryStatus, setDirectoryStatus] = useState<BusinessDirectoryStatus>("loading");
   const [directorySpaces, setSpaces] = useState<GrantedSpace[] | null>(null);
   const [closedSpaces, setClosedSpaces] = useState<ClosedGrantedSpace[]>([]);
@@ -386,6 +390,7 @@ function BusinessWorkspaceContent({
   useEffect(() => {
     let cancelled = false;
     setDirectoryStatus("loading");
+    setDirectoryReference(null);
     const directory = source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false }));
     directory.then(
       ({ spaces: listed, closed_spaces: closed, invitations_available: capability }) => {
@@ -409,7 +414,7 @@ function BusinessWorkspaceContent({
           }
         }
       },
-      () => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); setInvitationsAvailable(false); } },
+      (error: unknown) => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); setDirectoryReference(referenceCode(error)); setInvitationsAvailable(false); } },
     );
     return () => { cancelled = true; };
   }, [source, revision, accessRevision]);
@@ -709,7 +714,11 @@ function BusinessWorkspaceContent({
     [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, invitationsAvailable, lostAccess, markAccessSeen, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
-  const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
+  // A null choice is legitimate while the directory loads, but is not a list scope.
+  // Wait for the first workspace answer too: its list version must precede Todos's
+  // first read. Background directory checks retain both answers and the mounted list.
+  const inboxReady = directorySpaces !== null && chosen !== null && (records.workspaceGrant === chosenGrant || records.error);
+  const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus, directoryReference, inboxReady }), [value, directoryStatus, directoryReference, inboxReady]);
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
   // The list on screen lends its query (wide screens with bar search); the search then starts scoped to it.
