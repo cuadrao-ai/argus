@@ -63,8 +63,8 @@ try {
       const path = new URL(route.request().url()).pathname.split("/business/")[1];
       const file = /^receipts\/([^/]+)\/source$/.exec(path)?.[1];
       if (file && FILES[file]) return route.fulfill({ body: FILES[file], contentType: "image/svg+xml" });
-      if (route.request().method() === "GET" && /^receipts\/synthetic-file-(new|original)$/.test(path)) {
-        const id = path.split("/")[1];
+      const id = /^receipts\/(synthetic-file-(?:new|original))$/.exec(path)?.[1];
+      if (id && route.request().method() === "GET") {
         return route.fulfill({ json: { id, sent_by: { id, kind: "email", address: id === "synthetic-file-new" ? "nueva@example.test" : "anterior@example.test" } } });
       }
       if (path === "drafts/synthetic-new/duplicate-resolution") {
