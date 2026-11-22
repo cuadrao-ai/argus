@@ -39,6 +39,10 @@ from argus.domain.ingestion.documents.service import (
 from argus.domain.ingestion.reconcile.model import ImportEvent
 from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
 
+SupportingAction = Literal[
+    "append_supporting_file", "unlink_supporting_file", "restore_supporting_file"
+]
+
 
 class SupportingCommand(Contract):
     action: Literal["append_supporting_file"] = "append_supporting_file"
@@ -111,11 +115,15 @@ def supporting_state(
     tx: ActionTransaction, draft_id: UUID, can_annotate: bool
 ) -> dict[str, Any]:
     """The dossier's supporting-file fields. An unlinked file past its restore
-    window is not listed, erased or not."""
+    window is not listed, erased or not. An action is offered only when
+    ``_refusal`` has no reason against it."""
 
     now = datetime.now(timezone.utc)
     files = _files(tx, draft_id)
-    full = _full(files)
+
+    def offered(action: SupportingAction, file: dict[str, Any] | None = None) -> bool:
+        return can_annotate and _refusal(tx, draft_id, files, action, file) is None
+
     shown = []
     for row in files:
         purge_at = None if row["linked"] else row["unlinked_at"] + PURGE_AFTER
@@ -130,14 +138,14 @@ def supporting_state(
                 size_bytes=row["size_bytes"],
                 state="linked" if row["linked"] else "unlinked",
                 purge_at=purge_at,
-                unlink_available=can_annotate and row["linked"],
-                restore_available=can_annotate and not row["linked"] and not full,
+                unlink_available=offered("unlink_supporting_file", row),
+                restore_available=offered("restore_supporting_file", row),
             )
         )
     return {
         "supporting_files": tuple(shown),
-        "supporting_limit_reached": full,
-        "supporting_append_available": can_annotate and not full,
+        "supporting_limit_reached": _full(files),
+        "supporting_append_available": offered("append_supporting_file"),
     }
 
 
@@ -179,6 +187,44 @@ def _linked_elsewhere(tx: ActionTransaction, uploads: list[UUID], draft_id: UUID
     )
 
 
+def _refusal(
+    tx: ActionTransaction,
+    draft_id: UUID,
+    files: list[dict[str, Any]],
+    action: SupportingAction,
+    file: dict[str, Any] | None = None,
+) -> str | None:
+    """Why the record refuses this command now, or None when it takes it. The
+    command raises this code and the dossier offers the action only without
+    one. ``file`` is the listed file an unlink or a restore names. An append
+    is asked for bytes that would add a file."""
+
+    if action == "append_supporting_file":
+        return "supporting_file_limit_reached" if _full(files) else None
+    assert file is not None
+    if action == "unlink_supporting_file":
+        return None if file["linked"] else "supporting_file_not_linked"
+    if file["linked"] or _linked_elsewhere(
+        tx, [file["receipt_id"], *_same_bytes(tx, file["sha256"])], draft_id
+    ):
+        return "supporting_file_already_linked"
+    if file["unlinked_at"] + PURGE_AFTER <= datetime.now(timezone.utc):
+        return "supporting_file_restore_expired"
+    return "supporting_file_limit_reached" if _full(files) else None
+
+
+def _require(
+    tx: ActionTransaction,
+    draft_id: UUID,
+    files: list[dict[str, Any]],
+    action: SupportingAction,
+    file: dict[str, Any] | None = None,
+) -> None:
+    code = _refusal(tx, draft_id, files, action, file)
+    if code:
+        raise ActionError("invalid_input", code)
+
+
 def _settled(
     tx: ActionTransaction, command: SupportingCommand, key: str, event: ImportEvent
 ) -> SupportingResult | None:
@@ -195,8 +241,7 @@ def _settled(
         (tx.context.actor.space_id, uploads, command.draft_id),
     )
     if not existing:
-        if _full(_files(tx, command.draft_id)):
-            raise ActionError("invalid_input", "supporting_file_limit_reached")
+        _require(tx, command.draft_id, _files(tx, command.draft_id), command.action)
         return None
     result = SupportingResult(
         draft_id=command.draft_id,
@@ -342,12 +387,15 @@ def append_file(
 
 
 def _unlink(
-    tx: ActionTransaction, event: ImportEvent, file: dict[str, Any] | None, source_id: UUID
+    tx: ActionTransaction,
+    event: ImportEvent,
+    files: list[dict[str, Any]],
+    file: dict[str, Any] | None,
+    source_id: UUID,
 ) -> SupportingLinkResult:
     if file is None:
         raise ActionError("not_found", "supporting_file_not_found")
-    if not file["linked"]:
-        raise ActionError("invalid_input", "supporting_file_not_linked")
+    _require(tx, UUID(event.id), files, "unlink_supporting_file", file)
     tx.rows(
         "delete from public.business_draft_sources"
         " where space_id=%s and draft_id=%s and source_id=%s",
@@ -398,13 +446,7 @@ def _restore(
     draft_id = UUID(event.id)
     if file is None:
         raise _gone(tx, draft_id, source_id)
-    uploads = [file["receipt_id"], *_same_bytes(tx, file["sha256"])]
-    if file["linked"] or _linked_elsewhere(tx, uploads, draft_id):
-        raise ActionError("invalid_input", "supporting_file_already_linked")
-    if file["unlinked_at"] + PURGE_AFTER <= datetime.now(timezone.utc):
-        raise ActionError("invalid_input", "supporting_file_restore_expired")
-    if _full(files):
-        raise ActionError("invalid_input", "supporting_file_limit_reached")
+    _require(tx, draft_id, files, "restore_supporting_file", file)
     sources.attach(tx, event.id, (source_id,))
     event = save_annotation(
         tx, event, source_ids=(source_id,), supporting=("restored", file["filename"])
@@ -435,7 +477,7 @@ def change_file_link(
         file = next((row for row in files if row["source_id"] == command.source_id), None)
         plans.start_receipt(tx, key, command)
         if command.action == "unlink_supporting_file":
-            result = _unlink(tx, event, file, command.source_id)
+            result = _unlink(tx, event, files, file, command.source_id)
         else:
             result = _restore(tx, event, files, file, command.source_id)
         finish(tx, key, result)

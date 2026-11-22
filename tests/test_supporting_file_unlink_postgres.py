@@ -383,6 +383,122 @@ def test_a_record_holds_three_files_and_unlinked_ones_do_not_count(actions, docu
         _change(service, context, draft_id, held[0].source_id, "restore")
 
 
+def _receipt_on_another_record(service, docs, context, content: bytes) -> None:
+    """The same bytes uploaded as a receipt, held by a second record."""
+
+    other_id, _ = record_expense(service, context)
+    receipt_id = asyncio.run(
+        docs.upload(
+            user_id=context.owner_id,
+            content=content,
+            filename=fake.file_name(extension="txt"),
+            media_type="text/plain",
+            scope=context.scope,
+        )
+    ).connection_id
+    with service.authority.pool.connection() as db:
+        [source_id] = db.execute(
+            "insert into public.business_sources"
+            "(space_id,kind,channel,source_key,connection_id,received_at)"
+            " values (%s,'attachment','web',%s,%s,clock_timestamp()) returning id",
+            (context.actor.space_id, str(uuid4()), receipt_id),
+        ).fetchone()
+        db.execute(
+            "insert into public.business_draft_sources(space_id,draft_id,source_id)"
+            " values (%s,%s,%s)",
+            (context.actor.space_id, other_id, source_id),
+        )
+
+
+def test_restore_is_not_offered_once_another_record_holds_the_bytes(actions, documents):
+    service, context, _ = actions
+    docs, _ = documents
+    draft_id, _ = record_expense(service, context)
+    content = _content()
+    file = _append(service, docs, context, draft_id, content)
+    _change(service, context, draft_id, file.source_id, "unlink")
+    assert _files(service, context, draft_id)[file.source_id].restore_available
+
+    _receipt_on_another_record(service, docs, context, content)
+
+    listed = _files(service, context, draft_id)[file.source_id]
+    assert (listed.state, listed.restore_available) == ("unlinked", False)
+    with pytest.raises(ActionError, match="supporting_file_already_linked"):
+        _change(service, context, draft_id, file.source_id, "restore")
+
+
+def _record_state(service, docs, context, state: str, monkeypatch):
+    """A record in ``state``: its id, the file the state is about, who asks."""
+
+    draft_id, _ = record_expense(service, context)
+    if state == "no_file":
+        return draft_id, uuid4(), context
+    content = _content()
+    file = _append(service, docs, context, draft_id, content)
+    if state.startswith("unlinked"):
+        _change(service, context, draft_id, file.source_id, "unlink")
+    if state.endswith("_full"):
+        while not service.dossier(context, draft_id).supporting_limit_reached:
+            _append(service, docs, context, draft_id)
+    if state == "unlinked_bytes_on_another_record":
+        _receipt_on_another_record(service, docs, context, content)
+    if state == "unlinked_past_the_window":
+        monkeypatch.setattr(supporting_files, "PURGE_AFTER", timedelta(0))
+    if state == "linked_asked_by_an_agent":
+        context = replace(
+            context,
+            actor=context.actor.model_copy(update={"actor_kind": "owner_via_agent"}),
+        )
+    return draft_id, file.source_id, context
+
+
+@pytest.mark.parametrize("command", ["append", "unlink", "restore"])
+@pytest.mark.parametrize(
+    "state",
+    [
+        "no_file",
+        "linked",
+        "linked_full",
+        "linked_asked_by_an_agent",
+        "unlinked",
+        "unlinked_full",
+        "unlinked_bytes_on_another_record",
+        "unlinked_past_the_window",
+    ],
+)
+def test_the_dossier_offers_an_action_only_when_its_command_goes_through(
+    actions, documents, monkeypatch, state, command
+):
+    service, owner, _ = actions
+    docs, _ = documents
+    draft_id, source_id, context = _record_state(service, docs, owner, state, monkeypatch)
+    view = service.dossier(context, draft_id)
+    file = next((f for f in view.supporting_files if f.source_id == source_id), None)
+    offered = {
+        "append": view.supporting_append_available,
+        "unlink": bool(file and file.unlink_available),
+        "restore": bool(file and file.restore_available),
+    }[command]
+    report = read_report(service.authority, context, ReportRequestV2()).items
+    [row] = [item for item in report if str(item.draft_id) == str(draft_id)]
+
+    refusal = None
+    try:
+        if command == "append":
+            _append(service, docs, context, draft_id)
+        else:
+            _change(service, context, draft_id, source_id, command, version=view.version)
+    except ActionError as refused:
+        refusal = refused.code
+
+    assert offered == (refusal is None), refusal
+    if command == "append":
+        assert row.can_append_supporting == offered
+        assert view.supporting_limit_reached == (
+            refusal == "supporting_file_limit_reached"
+        )
+
+
 def test_at_the_limit_a_request_that_adds_no_file_gets_its_own_answer(actions, documents):
     service, context, _ = actions
     docs, objects = documents

@@ -11366,7 +11366,9 @@ accept path recorded.
   restore_available}`. `supporting_file_limit` is 3, and
   `supporting_limit_reached` says the record holds that many. At the limit
   `supporting_append_available`, a report row's `can_append_supporting` and
-  every `restore_available` are false. A history revision made by an append,
+  every `restore_available` are false. `restore_available` is also false
+  once another record holds the file's bytes. Each of these is true only
+  when its command would go through now. A history revision made by an append,
   an unlink or a restore carries `supporting_change` and `supporting_filename`.
 
 - GET `/api/v1/business/search?q&limit&kind&cursor` returns
