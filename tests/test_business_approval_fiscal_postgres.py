@@ -26,6 +26,7 @@ from faker import Faker
 from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
+from tests.business.action_counts import count_no_rows
 from tests.business.receipt_stub import receipt_date
 from tests.test_business_dgii_postgres import handover_dgii
 from tests.test_business_spaces_migration_postgres import connection
@@ -513,6 +514,7 @@ def drafts_client(service, context):
 
     app = FastAPI()
     app.include_router(router)
+    count_no_rows(app)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, context.actor.actor_id, str(context.actor.space_id), context.grant_id

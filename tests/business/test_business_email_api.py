@@ -17,6 +17,7 @@ from argus.api.documents import documents_service
 from argus.domain.ingestion.email_intake.store import InMemoryEmailStore
 from fastapi.testclient import TestClient
 
+from tests.business.action_counts import count_no_rows
 from tests.business.test_business_api import BASE, Owner, alice, bob  # noqa: F401
 
 UNREADABLE = (
@@ -872,6 +873,7 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, uuid4(), route.space_id
     )
@@ -955,6 +957,7 @@ def test_unverified_mail_held_before_its_sender_was_authorized_stays_refused(
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, uuid4(), route.space_id
     )

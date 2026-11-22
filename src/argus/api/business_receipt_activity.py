@@ -224,3 +224,12 @@ def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
         **aggregate_activity(views, reading_emails=emails.count("reading")),
         **inbox(context, views, emails),
     }
+
+
+def counts_now(context) -> dict:  # noqa: ANN001
+    """``counts`` over every receipt of the Business as it stands now: what an
+    action answers with once it has moved a row."""
+
+    from argus.api.business_drafts import receipt_summaries
+
+    return counts(context, receipt_summaries(context, "all"))
