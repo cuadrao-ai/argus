@@ -20,32 +20,34 @@ from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionRes
 from psycopg.types.json import Jsonb
 
 from tests import test_business_attachment_preparation_postgres as bridge
+from tests.business.receipt_stub import receipt_date
 from tests.test_business_spaces_migration_postgres import connection
 
 actions = bridge.actions
 users = bridge.users
 pytestmark = bridge.pytestmark
 
-RECEIPT = dict(
-    payment_status="paid",
-    suggested_category="lodging",
-    merchant="Hotel Brisa del Este SRL",
-    occurred_on="2026-10-09",
-    currency="DOP",
-    items=[
-        {"id": "1", "description": "Room Charge", "total": "24620.40"},
-        {"id": "2", "description": "Minibar", "total": "1360.00"},
-    ],
-    subtotal="25980.40",
-    tax="4676.47",
-    service=None,
-    tip="2598.04",
-    total="33254.91",
-    rnc="131111222",
-    ncf=None,
-    ecf="E320000001234",
-    itbis="4676.47",
-)
+def receipt() -> dict:
+    return dict(
+        payment_status="paid",
+        suggested_category="lodging",
+        merchant="Hotel Brisa del Este SRL",
+        occurred_on=receipt_date(),
+        currency="DOP",
+        items=[
+            {"id": "1", "description": "Room Charge", "total": "24620.40"},
+            {"id": "2", "description": "Minibar", "total": "1360.00"},
+        ],
+        subtotal="25980.40",
+        tax="4676.47",
+        service=None,
+        tip="2598.04",
+        total="33254.91",
+        rnc="131111222",
+        ncf=None,
+        ecf="E320000001234",
+        itbis="4676.47",
+    )
 
 
 def _saved(actions, kind_hint: str, direction: str = "outflow"):  # noqa: ANN001
@@ -81,13 +83,13 @@ def _saved(actions, kind_hint: str, direction: str = "outflow"):  # noqa: ANN001
                         status="posted",
                         amount="33254.91",
                         currency="DOP",
-                        occurred_on="2026-10-09",
+                        occurred_on=receipt_date(),
                         direction=direction,
                         kind_hint=kind_hint,
                         merchant="Hotel Brisa del Este SRL",
                     )
                 ],
-                receipt=RECEIPT,
+                receipt=receipt(),
             )
         )
         batch = batch_from_result(result, digest, cid, now, 1)
@@ -143,7 +145,7 @@ def test_one_clean_candidate_always_becomes_one_draft_at_the_total(
     assert Decimal(view.facts.amount.value) == Decimal("33254.91")
     assert view.facts.currency.value == "DOP"
     assert view.facts.counterparty.value == "Hotel Brisa del Este SRL"
-    assert view.facts.occurred_on.value.isoformat() == "2026-10-09"
+    assert view.facts.occurred_on.value.isoformat() == receipt_date()
     assert view.read_purchases == ()
     assert view.facts.fiscal.ecf.value == "E320000001234"
     if kind_hint == "expense":

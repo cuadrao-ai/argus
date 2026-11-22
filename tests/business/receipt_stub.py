@@ -1,4 +1,4 @@
-"""A local stand-in for the vision provider: one fixed, realistic receipt read.
+"""A local stand-in for the vision provider: one synthetic receipt read.
 
 It projects through ``batch_from_result`` exactly as the real extractor does, so
 everything after the provider call is the production path. No network.
@@ -6,11 +6,13 @@ everything after the provider call is the production path. No network.
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
+from argus.domain.clock import new_york_now
 from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import (
@@ -19,32 +21,54 @@ from argus.domain.ingestion.documents.models import (
     ExtractionResult,
 )
 from argus.domain.ingestion.documents.preparation import PreparedDocument
+from argus.domain.ingestion.email_intake.budget import business_day
 
-PURCHASE: dict[str, Any] = {
-    "page": 1,
-    "row": 1,
-    "evidence": "transaction",
-    "status": "posted",
-    "amount": "3450.00",
-    "currency": "DOP",
-    "occurred_on": "2026-10-06",
-    "direction": "outflow",
-    "kind_hint": "expense",
-    "merchant": "FERRETERIA LA ESQUINA SRL",
-}
-DETAILS: dict[str, Any] = {
-    "payment_status": "paid",
-    "merchant": "FERRETERIA LA ESQUINA SRL",
-    "occurred_on": "2026-10-06",
-    "currency": "DOP",
-    "items": [
-        {"id": "1", "description": "Pintura blanca 1 gal", "total": "1850.00"},
-        {"id": "2", "description": "Brochas x3", "total": "1073.73"},
-    ],
-    "subtotal": "2923.73",
-    "tax": "526.27",
-    "total": "3450.00",
-}
+
+def receipt_date(at: datetime | None = None) -> str:
+    """Use the upload clock's Business day, within the accepted date range."""
+    return business_day(at if at is not None else new_york_now()).isoformat()
+
+
+def receipt_day(at: datetime | None = None) -> date:
+    return date.fromisoformat(receipt_date(at))
+
+
+def receipt_month(at: datetime | None = None) -> tuple[date, date]:
+    """The first and last day of the calendar month holding the receipt day."""
+    day = receipt_day(at)
+    last = calendar.monthrange(day.year, day.month)[1]
+    return day.replace(day=1), day.replace(day=last)
+
+
+def receipt_purchase(at: datetime | None = None) -> dict[str, Any]:
+    return {
+        "page": 1,
+        "row": 1,
+        "evidence": "transaction",
+        "status": "posted",
+        "amount": "3450.00",
+        "currency": "DOP",
+        "occurred_on": receipt_date(at),
+        "direction": "outflow",
+        "kind_hint": "expense",
+        "merchant": "FERRETERIA LA ESQUINA SRL",
+    }
+
+
+def receipt_details(at: datetime | None = None) -> dict[str, Any]:
+    return {
+        "payment_status": "paid",
+        "merchant": "FERRETERIA LA ESQUINA SRL",
+        "occurred_on": receipt_date(at),
+        "currency": "DOP",
+        "items": [
+            {"id": "1", "description": "Pintura blanca 1 gal", "total": "1850.00"},
+            {"id": "2", "description": "Brochas x3", "total": "1073.73"},
+        ],
+        "subtotal": "2923.73",
+        "tax": "526.27",
+        "total": "3450.00",
+    }
 
 
 class ReceiptStub:
@@ -57,8 +81,9 @@ class ReceiptStub:
         purchase: dict[str, Any] | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
-        self.rows: list[dict[str, Any]] = [purchase or PURCHASE]
-        self.details = details or DETAILS
+        now = new_york_now()
+        self.rows: list[dict[str, Any]] = [purchase or receipt_purchase(now)]
+        self.details = details or receipt_details(now)
         self.readable = True
         self.complete = True
         self.failure: str | None = None

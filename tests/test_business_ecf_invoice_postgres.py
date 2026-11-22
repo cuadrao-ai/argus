@@ -12,6 +12,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from argus.domain.clock import new_york_now
 from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
@@ -19,6 +20,8 @@ from argus.domain.ingestion.documents.preparation import prepare_document
 from psycopg.types.json import Jsonb
 
 from tests import test_business_attachment_preparation_postgres as bridge
+from tests.business.receipt_stub import receipt_date
+from tests.business.test_business_ecf_invoice import invoice_clock  # noqa: F401
 from tests.test_business_spaces_migration_postgres import connection
 
 actions = bridge.actions
@@ -34,7 +37,7 @@ def _saved_invoice(actions, filename: str, media_type: str):  # noqa: ANN001
     service, context, grant = actions
     content = (FIXTURES / filename).read_bytes()
     digest = sha256(content).hexdigest()
-    now = datetime.now(timezone.utc)
+    now = new_york_now()
     holder = str(uuid4())
     with service.authority.pool.connection() as db:
         cid = connection(db, context.owner_id, context.actor.space_id)
@@ -60,7 +63,7 @@ def _saved_invoice(actions, filename: str, media_type: str):  # noqa: ANN001
                         evidence="transaction",
                         amount="33254.91",
                         currency="DOP",
-                        occurred_on="2026-10-09",
+                        occurred_on=receipt_date(),
                         direction="outflow",
                         kind_hint="expense",
                         merchant="Hotel Brisa del Este SRL",
@@ -69,7 +72,7 @@ def _saved_invoice(actions, filename: str, media_type: str):  # noqa: ANN001
                 receipt=dict(
                     payment_status="paid",
                     merchant="Hotel Brisa del Este SRL",
-                    occurred_on="2026-10-09",
+                    occurred_on=receipt_date(),
                     currency="DOP",
                     subtotal="25980.40",
                     tax="4676.47",
@@ -122,7 +125,7 @@ def _saved_invoice(actions, filename: str, media_type: str):  # noqa: ANN001
         db.execute(
             "update public.financial_source_connections set lease_holder=%s,"
             " lease_until=%s where id=%s",
-            (holder, now + timedelta(minutes=3), cid),
+            (holder, datetime.now(timezone.utc) + timedelta(minutes=3), cid),
         )
     return service, context, grant, cid, holder, batch
 
@@ -145,7 +148,7 @@ def test_a_hotel_ecf_becomes_one_draft_at_the_dop_total(actions, filename, media
     assert Decimal(view.facts.amount.value) == Decimal("33254.91")
     assert view.facts.currency.value == "DOP"
     assert view.facts.counterparty.value == "Hotel Brisa del Este SRL"
-    assert view.facts.occurred_on.value.isoformat() == "2026-10-09"
+    assert view.facts.occurred_on.value.isoformat() == receipt_date()
     assert view.facts.kind.value == "expense"
     assert view.read_purchases == ()
     fiscal = view.facts.fiscal

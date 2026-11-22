@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import date
+from datetime import timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -40,6 +40,7 @@ from tests import test_business_actions_postgres as shared
 from tests import test_business_dgii_postgres as dgii
 from tests import test_business_duplicate_resolution_postgres as resolution
 from tests import test_business_receipt_views_postgres as views
+from tests.business.receipt_stub import receipt_month
 from tests.dgii.test_official_606_format import detail
 from tests.dgii.test_packet import Packet
 from tests.test_business_declaration_after_approval_postgres import (
@@ -53,9 +54,6 @@ users = shared.users
 shared_actions = shared.actions
 actions = dgii.actions
 pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
-
-# The month the synthetic receipts are dated in.
-OCTOBER = (date(2026, 10, 1), date(2026, 10, 31))
 
 
 def _ncfs(count: int) -> list[str]:
@@ -423,14 +421,15 @@ def test_two_purchases_reach_the_606_and_one_comprobante_reaches_it_once(actions
     refused = _approve(service, context, copy)
     assert (refused.outcome, refused.code) == ("invalid_input", "duplicate_comprobante")
 
+    start, end = receipt_month()
     source = read_export_source(service.authority, context)
     request = ReportRequest(
         filters={
             "record_families": ["purchase"],
             "period": {
                 "kind": "custom",
-                "from_date": OCTOBER[0].isoformat(),
-                "to_date": OCTOBER[1].isoformat(),
+                "from_date": start.isoformat(),
+                "to_date": end.isoformat(),
             },
         }
     )
@@ -448,9 +447,9 @@ def test_two_purchases_reach_the_606_and_one_comprobante_reaches_it_once(actions
                     (record,),
                     rnc=FILER,
                     business_name=dgii.PRACTICE_NAME,
-                    start=OCTOBER[0],
-                    end=OCTOBER[1],
-                    captured_on=date(2026, 11, 1),
+                    start=start,
+                    end=end,
+                    captured_on=end + timedelta(days=1),
                 )
             )
         )

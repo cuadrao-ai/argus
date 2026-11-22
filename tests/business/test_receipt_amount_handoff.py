@@ -6,7 +6,7 @@ import pytest
 from argus.domain.business.receipt_amounts import read_amount
 from argus.domain.ingestion.documents.models import DocumentDraft
 
-from tests.business.receipt_stub import DETAILS, PURCHASE
+from tests.business.receipt_stub import receipt_details, receipt_purchase
 from tests.business.test_amount_due_review import _prepare, _stored
 from tests.test_business_attachment_preparation import checked  # noqa: F401
 
@@ -21,8 +21,8 @@ def test_model_amount_handoff_saves_a_reviewable_draft(
 ):
     _, _, _, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
-    receipt = {**DETAILS, "service": None, "tip": None, field: raw}
-    batch = _stored(draft, [PURCHASE], receipt=receipt)
+    receipt = {**receipt_details(draft.created_at), "service": None, "tip": None, field: raw}
+    batch = _stored(draft, [receipt_purchase(draft.created_at)], receipt=receipt)
     original = batch.model_dump_json()
 
     # Pin the owner's actual behavior, including its rejection of separators.

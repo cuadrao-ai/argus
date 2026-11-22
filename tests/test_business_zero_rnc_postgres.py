@@ -14,6 +14,7 @@ from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionRes
 from psycopg.types.json import Jsonb
 
 from tests import test_business_attachment_preparation_postgres as bridge
+from tests.business.receipt_stub import receipt_date
 from tests.test_business_spaces_migration_postgres import connection
 
 actions = bridge.actions
@@ -54,7 +55,7 @@ def _saved_with_rnc(actions, printed: str):  # noqa: ANN001, ANN202
                         status="posted",
                         amount="850.00",
                         currency="DOP",
-                        occurred_on="2026-10-09",
+                        occurred_on=receipt_date(),
                         direction="outflow",
                         kind_hint="expense",
                         merchant="Ferretería Prueba",

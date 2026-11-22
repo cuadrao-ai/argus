@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import pytest
 
-from tests.business.receipt_stub import DETAILS, PURCHASE
+from tests.business.receipt_stub import receipt_details, receipt_purchase
 from tests.business.test_business_api import RECEIPT
 from tests.document_reads_support import leave_reads_waiting
 from tests.test_business_approval_fiscal_postgres import (
@@ -110,8 +110,8 @@ def test_each_receipt_says_which_bandeja_buckets_it_sits_in_and_the_counts_agree
     unread = saved(RECEIPT + b"\x41")
     assert _reading(web, True).status_code == 200
     # Its own merchant and amount, so no earlier read makes it a duplicate.
-    web.stub.rows = [{**PURCHASE, "merchant": "PAPELERIA CENTRAL", "amount": "980.50"}]
-    web.stub.details = {**DETAILS, "merchant": "PAPELERIA CENTRAL", "total": "980.50"}
+    web.stub.rows = [{**receipt_purchase(), "merchant": "PAPELERIA CENTRAL", "amount": "980.50"}]
+    web.stub.details = {**receipt_details(), "merchant": "PAPELERIA CENTRAL", "total": "980.50"}
     read = saved(RECEIPT + b"\x42")
     web.stub.failure = "extraction_provider_failed"
     failed = saved(RECEIPT + b"\x43")

@@ -6,7 +6,6 @@ import asyncio
 import io
 import json
 from dataclasses import replace
-from datetime import date
 from email.message import EmailMessage
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
@@ -27,7 +26,12 @@ from PIL import Image
 
 from tests import test_business_email_authorization_postgres as auth_shared
 from tests import test_business_email_intake_postgres as intake_shared
-from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
+from tests.business.receipt_stub import (
+    ReceiptStub,
+    receipt_details,
+    receipt_month,
+    receipt_purchase,
+)
 from tests.test_business_duplicate_resolution_postgres import request_for
 from tests.test_business_spaces_migration_postgres import space
 
@@ -95,14 +99,14 @@ def _paper(color: str) -> bytes:
 def _read_as(stub: ReceiptStub, *, amount: str, currency: str, merchant: str) -> None:
     stub.rows = [
         {
-            **PURCHASE,
+            **receipt_purchase(),
             "amount": amount,
             "currency": currency,
             "merchant": merchant,
         }
     ]
     stub.details = {
-        **DETAILS,
+        **receipt_details(),
         "total": amount,
         "currency": currency,
         "merchant": merchant,
@@ -230,7 +234,7 @@ def test_upload_and_approved_mail_keep_three_originals_and_two_currencies(
     archive = export_package(
         service.authority,
         context,
-        ExportPeriod(date(2026, 10, 1), date(2026, 10, 31)),
+        ExportPeriod(*receipt_month()),
         FileSourceObjects(local_file_objects.root),
     )
     with ZipFile(io.BytesIO(archive)) as zipfile:

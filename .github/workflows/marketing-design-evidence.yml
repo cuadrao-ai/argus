@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [codex/private-alpha-next]
+    # Checked against script imports and driven pages by tests/test_ci_evidence_paths.py.
     paths:
-      - marketing/**
       - .github/workflows/marketing-design-evidence.yml
+      - marketing/**
 
 permissions:
   contents: read

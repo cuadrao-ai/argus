@@ -25,6 +25,7 @@ from argus.domain.business.search import parse
 
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
+from tests.business.receipt_stub import receipt_month
 from tests.test_business_multi_purchase_postgres import _account
 from tests.test_business_receipt_views_postgres import _web
 from tests.test_financial_accounts_postgres import _create_users
@@ -71,7 +72,7 @@ def test_an_expense_approved_from_a_draft_names_its_receipt(actions):  # noqa: A
     )
     assert approved.outcome == "applied", approved
     web = _web(service, context)
-    period = (date(2026, 10, 1), date(2026, 10, 31))
+    period = receipt_month()
     # The cause: the legacy lookup finds no receipt for a draft-recorded expense.
     [legacy] = web.service.expenses(web.scope, *period)
     assert (legacy["id"], legacy["receipt_id"]) == (str(approved.activity_id), None)

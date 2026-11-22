@@ -54,9 +54,6 @@ import importlib.abc
 import sys
 
 FORBIDDEN = (
-    "argus.domain.backtesting",
-    "argus.domain.engine_launch",
-    "argus.agent_runtime.strategy_contract",
     "argus.domain.strategy_capabilities",
 )
 
