@@ -14,6 +14,7 @@ from datetime import date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from fastapi.concurrency import run_in_threadpool
 from psycopg import Connection
 
 from argus.domain import financial_search
@@ -215,7 +216,8 @@ class BusinessService:
             )
         # The same bytes saved before come back as that receipt, said so.
         return replace(
-            self.receipt(scope, outcome.connection_id), replayed=outcome.replayed
+            await run_in_threadpool(self.receipt, scope, outcome.connection_id),
+            replayed=outcome.replayed,
         )
 
     def queue(self, scope: BusinessScope, receipt_id: str) -> None:
@@ -279,7 +281,9 @@ class BusinessService:
         if current.enterable:
             if version != current.version:
                 raise StaleEvent()
-            if account_id and account_id not in self._account_ids(scope):
+            if account_id and account_id not in await run_in_threadpool(
+                self._account_ids, scope
+            ):
                 raise ReconcileError(
                     "financial_account_not_found", "Choose your own account."
                 )

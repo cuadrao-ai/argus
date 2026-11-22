@@ -91,7 +91,7 @@ async def _read_logo_upload(request: Request) -> tuple[str, bytes] | HTTPExcepti
 
 
 @router.put("/logo", response_model=BusinessSpaceInfo, responses=_RESPONSES)
-async def put_logo(
+def put_logo(
     request: Request,
     # Dependencies resolve in declaration order: finish the bounded body read
     # before the management guard acquires the shared connection and grant lock.
