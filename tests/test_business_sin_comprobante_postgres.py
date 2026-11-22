@@ -24,6 +24,7 @@ from argus.domain.business.month_close_store import read_month
 
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
+from tests.business.receipt_stub import receipt_month
 from tests.test_business_multi_purchase_postgres import _account as cash_account
 from tests.test_business_receipt_views_postgres import _web as receipt_web
 from tests.test_business_scope_switch_routes_postgres import (  # noqa: F401
@@ -380,7 +381,8 @@ def test_an_uploaded_receipt_reads_its_mark_after_prepare(
     expense: int,
     itbis_paid: int,
 ) -> None:
-    monkeypatch.setattr(single, "RECEIPT", {**single.RECEIPT, **receipt})
+    read = {**single.receipt(), **receipt}
+    monkeypatch.setattr(single, "receipt", lambda: read)
     saved = single._saved(actions, "expense")
     service, context, _, cid, _, _ = saved
     bridge.bind(saved)
@@ -420,11 +422,11 @@ def test_an_uploaded_receipt_reads_its_mark_after_prepare(
     assert row.get("sin_comprobante", False) is marked
     assert detail.get("sin_comprobante", False) is marked
     assert service.dossier(context, prepared.draft_id).sin_comprobante is marked
-    october = read_month(service.authority, context, "2026-10")
-    [dop] = october["currencies"]
+    month = read_month(service.authority, context, receipt_month()[0].strftime("%Y-%m"))
+    [dop] = month["currencies"]
     assert (dop["expense_before_itbis_minor"], dop["itbis_paid_minor"]) == (
         expense,
         itbis_paid,
     )
-    [line] = october["cuentas_por_pagar"]
+    [line] = month["cuentas_por_pagar"]
     assert line["sin_comprobante"] is marked

@@ -32,6 +32,8 @@ from argus.domain.ingestion.documents.models import (
 from argus.domain.ingestion.documents.service import owner_purchase
 from argus.domain.ingestion.reconcile.model import ImportEvent
 
+from tests.business.receipt_stub import receipt_date
+
 DAY = date(2026, 10, 5)
 START = date(2026, 10, 1)
 END = date(2026, 10, 31)
@@ -283,7 +285,7 @@ def test_a_venta_read_as_an_unpaid_fiscal_bill_is_income_without_a_payable_mark(
                     "evidence": "due_notice",
                     "amount": "118.00",
                     "currency": "DOP",
-                    "occurred_on": "2026-10-05",
+                    "occurred_on": receipt_date(draft.created_at),
                     "direction": "unknown",
                     "kind_hint": "unknown",
                     "merchant": "Cliente Norte",
@@ -291,7 +293,7 @@ def test_a_venta_read_as_an_unpaid_fiscal_bill_is_income_without_a_payable_mark(
             ],
             receipt=dict(
                 merchant="Cliente Norte",
-                occurred_on="2026-10-05",
+                occurred_on=receipt_date(draft.created_at),
                 currency="DOP",
                 total="118.00",
                 ncf="B0100000001",

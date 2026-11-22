@@ -13,6 +13,7 @@ from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.money_service import MoneyService
 
+from tests.business.receipt_stub import receipt_date
 from tests.business.test_business_api import (  # noqa: F401
     RECEIPT,
     Owner,
@@ -94,7 +95,7 @@ def test_finds_the_business_expense_and_never_the_personal_one(alice: Owner) -> 
                 "currency": "DOP",
                 "category_id": None,
                 "account_id": account,
-                "occurred_on": "2026-10-06",
+                "occurred_on": receipt_date(),
                 "receipt_id": receipt_id,
                 "fiscal_known": True,
                 # The memory store keeps no Registros rows: nothing approved to read.

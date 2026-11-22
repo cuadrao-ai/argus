@@ -61,9 +61,8 @@ def test_service_charge_read_is_saved_with_subtotal_without_changing_gross(actio
     from tests import test_business_attachment_preparation_postgres as bridge
     from tests import test_business_single_candidate_postgres as reader
 
-    monkeypatch.setitem(reader.RECEIPT, "subtotal", "1289.46")
-    monkeypatch.setitem(reader.RECEIPT, "service", "100.00")
-    monkeypatch.setitem(reader.RECEIPT, "tip", "25.00")
+    read = {**reader.receipt(), "subtotal": "1289.46", "service": "100.00", "tip": "25.00"}
+    monkeypatch.setattr(reader, "receipt", lambda: read)
     saved = reader._saved(actions, "expense")
     bridge.bind(saved)
     result = bridge.finish(saved)

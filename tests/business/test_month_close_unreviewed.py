@@ -18,7 +18,7 @@ from argus.domain.business.month_close import (
 )
 from argus.domain.business.month_close_store import empty_month
 
-from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
+from tests.business.receipt_stub import ReceiptStub, receipt_details, receipt_purchase
 from tests.business.test_business_api import Owner, alice  # noqa: F401
 
 NO_STORE = SimpleNamespace(service=SimpleNamespace(imports=SimpleNamespace(store=None)))
@@ -92,7 +92,7 @@ def test_an_old_packet_without_the_count_reads_zero():
 
 
 def test_a_saved_receipt_in_memory_mode_keeps_the_month_open(alice: Owner):  # noqa: F811
-    month = PURCHASE["occurred_on"][:7]
+    month = receipt_purchase()["occurred_on"][:7]
     assert alice.upload().status_code in (200, 201, 202)
     answer = alice.get("/month-close", month=month)
     assert answer.status_code == 200, answer.text
@@ -121,9 +121,9 @@ def test_an_ambiguous_receipt_from_last_month_keeps_that_month_open(
 
     this_month = ledger.today().replace(day=1)
     last_day = this_month - timedelta(days=1)
-    dated = {**PURCHASE, "occurred_on": last_day.isoformat()}
+    dated = {**receipt_purchase(), "occurred_on": last_day.isoformat()}
     stub.rows = [dated, {**dated, "row": 2, "amount": "100.00"}]
-    stub.details = {**DETAILS, "occurred_on": last_day.isoformat()}
+    stub.details = {**receipt_details(), "occurred_on": last_day.isoformat()}
     uploaded = alice.upload()
     assert uploaded.status_code == 200, uploaded.text
     detail = alice.detail(uploaded.json()["id"])

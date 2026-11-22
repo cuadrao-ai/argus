@@ -31,7 +31,7 @@ from fastapi.testclient import TestClient
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
-from tests.business.receipt_stub import PURCHASE, ReceiptStub
+from tests.business.receipt_stub import ReceiptStub, receipt_date, receipt_purchase
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import SECRET, WEBHOOK, signed
 from tests.business_reading_support import ROUTE
@@ -378,15 +378,15 @@ def test_a_worker_read_lands_exactly_like_an_api_read(
     worker_id = by_worker.json()["id"]
     worker = ReceiptStub(
         {
-            **PURCHASE,
+            **receipt_purchase(),
             "amount": "1200.00",
-            "occurred_on": "2026-10-07",
+            "occurred_on": receipt_date(),
             "merchant": "SUMINISTROS DEL PUERTO SRL",
         },
         {
             "payment_status": "paid",
             "merchant": "SUMINISTROS DEL PUERTO SRL",
-            "occurred_on": "2026-10-07",
+            "occurred_on": receipt_date(),
             "currency": "DOP",
             "items": [{"id": "1", "description": "Cemento gris", "total": "1016.95"}],
             "subtotal": "1016.95",
@@ -401,8 +401,8 @@ def test_a_worker_read_lands_exactly_like_an_api_read(
     assert (web.stub.calls, worker.calls) == ([api_id], [worker_id])
     assert outcome == "prepared"
     assert _landed(web, api_id) == _landed_as(
-        "FERRETERIA LA ESQUINA SRL", "2026-10-06", "3450"
+        "FERRETERIA LA ESQUINA SRL", receipt_date(), "3450"
     )
     assert _landed(web, worker_id) == _landed_as(
-        "SUMINISTROS DEL PUERTO SRL", "2026-10-07", "1200"
+        "SUMINISTROS DEL PUERTO SRL", receipt_date(), "1200"
     )
