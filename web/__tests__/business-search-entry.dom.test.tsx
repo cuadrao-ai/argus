@@ -130,6 +130,7 @@ async function mount(business: boolean) {
             onLoadMoreHistory={() => {}}
             onOpenSearch={() => {}}
             onLogout={() => {}}
+            showSearch
             showProfileMenu={false}
           />
         </SearchSurface>

@@ -188,7 +188,7 @@ export default function ChatSidebar({
   onOpenKeyboardShortcuts,
   settingsOpenRequest = 0,
   invitationOpenRequest,
-  showSearch = true,
+  showSearch = false,
   shortcutHintsSuppressed = false,
   canManageConversation = true,
   showProfileMenu = true,

@@ -341,7 +341,6 @@ export default function ChatMessage({
     );
   }
 
-
   if (isUser) {
     return (
       <div className="flex w-full flex-col items-end animate-in fade-in slide-in-from-bottom-2 duration-300">
