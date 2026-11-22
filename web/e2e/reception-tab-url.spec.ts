@@ -74,6 +74,13 @@ test("a reloaded record link returns to its Listos tab", async ({ page }) => {
   expect(new URL(page.url()).searchParams.get("receptionView")).toBe("listos");
 });
 
+test("a record link that belongs to Registros drops the tab once it loads", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/dev/business-preview?receipt=rcpt-confirmed&receptionView=listos");
+  await expect(page.getByTestId("transacciones")).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.has("receptionView")).toBe(false);
+});
+
 test("another screen drops the tab, so the Bandeja opens on Todos again", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dev/business-preview?view=inbox");

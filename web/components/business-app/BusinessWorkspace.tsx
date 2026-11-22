@@ -265,6 +265,13 @@ function shellViewFromSearch(params: URLSearchParams): ChatShellView {
   return params.has("conversation") || params.get("view") === "chat" ? "chat" : "workspace";
 }
 
+/** Whether the Bandeja is on screen; undefined while a linked record has not loaded and said which list it belongs to. */
+function onBandeja(panel: BusinessPanelState): boolean | undefined {
+  if (panel.kind === "inbox") return true;
+  if ((panel.kind === "receipt" || panel.kind === "draft") && panel.list === undefined) return undefined;
+  return recordList(panel) === "inbox";
+}
+
 function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
   try {
     const url = new URL(window.location.href);
@@ -275,7 +282,7 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
     url.searchParams.delete("email");
     url.searchParams.delete("segment");
     url.searchParams.delete("tab");
-    if (panel.kind !== "inbox" && recordList(panel) !== "inbox") url.searchParams.delete(RECEPTION_VIEW_PARAM);
+    if (onBandeja(panel) === false) url.searchParams.delete(RECEPTION_VIEW_PARAM);
     if (view === "workspace") {
       if (panel.kind === "business" && panel.tab) url.searchParams.set("tab", panel.tab);
       if (panel.kind === "receipt") url.searchParams.set("receipt", panel.receiptId);
