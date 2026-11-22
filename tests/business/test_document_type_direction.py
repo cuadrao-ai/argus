@@ -305,7 +305,9 @@ def test_approval_refuses_a_kind_the_type_does_not_admit(
 
     event = _event(document_type, _facts(PURCHASE_NCF, kind=kind))
     view = SimpleNamespace(
-        blockers=(), facts=_facts(PURCHASE_NCF, kind=kind), review_flags=()
+        blockers=(),
+        facts=_facts(PURCHASE_NCF, kind=kind),
+        bandeja_group=SimpleNamespace(group="listo"),
     )
     monkeypatch.setattr(approval.mutations, "event_at", lambda *args: event)
     monkeypatch.setattr(approval.dossier, "dossier", lambda *args: view)

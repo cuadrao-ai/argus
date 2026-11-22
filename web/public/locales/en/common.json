@@ -2975,6 +2975,10 @@
       "prepare_only": "Your permission allows preparing this record. A person with acceptance permission must accept it.",
       "read_only": "Your permission allows viewing this record.",
       "recorded": "One expense was recorded after acceptance of revision {{version}}.",
+      "confirm": {
+        "accept_anyway": "Accept anyway",
+        "fix": "Fix"
+      },
       "correction_unsupported": "Corrections after recording aren't available in this first flow.",
       "reopen": "Reopen",
       "reopen_title": "Reopen this receipt?",
@@ -3003,10 +3007,7 @@
         },
         "itbis_high": {
           "text": "The ITBIS looks high. Check that it is right."
-        },
-        "export_blocked": "If you accept it as is, the month's 606 can't be exported until you fix it.",
-        "fix": "Fix",
-        "approve_anyway": "Accept anyway"
+        }
       },
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
       "refused": "This action could not be completed. Check the current record before trying again.",
@@ -3094,6 +3095,10 @@
           "not_read": {
             "title": "Not read",
             "text": "This document has not been read yet."
+          },
+          "reading": {
+            "title": "Reading in progress",
+            "text": "Wait for the document read to finish."
           },
           "review_flag": {
             "title": "It has values to check",

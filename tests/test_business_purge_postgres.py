@@ -19,6 +19,7 @@ from argus.domain.business.purge import (
 
 from tests import test_business_account_deletion_postgres as deletion
 from tests import test_business_custody_graph_postgres as graph
+from tests.business_accept_support import seen_gaps
 from tests.business_cleanup import delete_spaces
 
 users = graph.users
@@ -80,12 +81,20 @@ def _no_account_record(w, kind):
         ],
     )
     draft = service.execute(context, key, 0, lease=lease)
+    gaps = seen_gaps(service, context, draft.draft_id)
     approve, request = (
-        (service.approve, ApproveExpense(version=draft.version, action="record_expense"))
+        (
+            service.approve,
+            ApproveExpense(
+                version=draft.version, action="record_expense", accept_gaps=gaps
+            ),
+        )
         if kind == "expense"
         else (
             service.approve_income,
-            ApproveIncome(version=draft.version, action="record_income"),
+            ApproveIncome(
+                version=draft.version, action="record_income", accept_gaps=gaps
+            ),
         )
     )
     return str(approve(context, draft.draft_id, request, str(uuid4())).activity_id)

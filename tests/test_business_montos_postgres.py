@@ -8,6 +8,7 @@ from argus.domain.business.contracts.facts import BusinessFactPatch, MontosRevie
 from argus.domain.business.purchase_review import apply_purchase
 
 from tests import test_business_actions_postgres as shared
+from tests.business_accept_support import seen_gaps
 from tests.test_financial_accounts_postgres import DSN
 
 actions = shared.actions
@@ -106,7 +107,16 @@ def test_payment_date_follows_the_payment_form_in_dossier_and_fiscal_snapshot(ac
     assert pending.inheritance["paid_on"].value is None
     chosen = service.review(context, draft, ReviewDraft(version=result.version, purchase=PurchaseReview(payment_method="01")), str(uuid4()))
     assert chosen.outcome == "applied", chosen
-    approved = service.approve(context, draft, ApproveExpense(version=chosen.version, action="record_expense", approve_anyway=True), str(uuid4()))
+    approved = service.approve(
+        context,
+        draft,
+        ApproveExpense(
+            version=chosen.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        str(uuid4()),
+    )
     assert approved.outcome == "applied", approved
     activity_id = service.dossier(context, draft).approval_result.activity_id
     paid = service.dossier(context, draft)

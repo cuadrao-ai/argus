@@ -41,6 +41,7 @@ from tests import test_business_dgii_postgres as dgii
 from tests import test_business_duplicate_resolution_postgres as resolution
 from tests import test_business_receipt_views_postgres as views
 from tests.business.receipt_stub import receipt_month
+from tests.business_accept_support import seen_gaps
 from tests.dgii.test_official_606_format import detail
 from tests.dgii.test_packet import Packet
 from tests.test_business_declaration_after_approval_postgres import (
@@ -166,13 +167,21 @@ def _approve(service, context, draft_id):
         return service.approve_income(
             context,
             draft_id,
-            ApproveIncome(version=dossier.version, action="record_income"),
+            ApproveIncome(
+                version=dossier.version,
+                action="record_income",
+                accept_gaps=seen_gaps(service, context, draft_id),
+            ),
             str(uuid4()),
         )
     return service.approve(
         context,
         draft_id,
-        ApproveExpense(version=dossier.version, action="record_expense"),
+        ApproveExpense(
+            version=dossier.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft_id),
+        ),
         str(uuid4()),
     )
 

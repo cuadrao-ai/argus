@@ -34,6 +34,7 @@ from tests.business.receipt_stub import (
     receipt_purchase,
 )
 from tests.business.test_business_api import RECEIPT
+from tests.business_accept_support import accept
 from tests.business_cleanup import delete_spaces
 from tests.business_reading_support import ROUTE
 from tests.local_supabase_support import local_supabase_gateway
@@ -358,7 +359,8 @@ SALE_607 = {
 
 
 def _approve(world, draft_id: str, action: str) -> None:  # noqa: ANN001
-    approved = world.client.post(
+    approved = accept(
+        world.client,
         f"{API}/business/drafts/{draft_id}/approve",
         json={"version": _dossier(world, draft_id)["version"], "action": action},
         headers=_headers(world),
@@ -696,7 +698,8 @@ def test_a_draft_saved_with_two_answers_is_held_until_one_is_chosen(
     draft = _legacy_receipt_saved_as_income(web)
     held = _held(web, draft)
     assert held["approval_available"] is False
-    refused = web.client.post(
+    refused = accept(
+        web.client,
         f"{API}/business/drafts/{draft}/approve",
         json={"version": held["version"], "action": "record_income"},
         headers=_headers(web),
@@ -715,7 +718,8 @@ def test_a_draft_saved_with_two_answers_is_held_until_one_is_chosen(
 
 
 def _approve_status(web, draft: str, version: int):  # noqa: ANN001, ANN202
-    return web.client.post(
+    return accept(
+        web.client,
         f"{API}/business/drafts/{draft}/approve",
         json={"version": version, "action": "record_income"},
         headers=_headers(web),

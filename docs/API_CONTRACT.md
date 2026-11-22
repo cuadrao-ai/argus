@@ -8449,21 +8449,42 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | Not a credit note | `credit_note` for a refund or a B04 or E34 number |
 | Supplier, date, total and currency | `missing_merchant`, `missing_date`, `missing_amount`, `missing_currency` |
 | An issue date whose year is likely | `check_details`, for a year to check: the reader wrote the date (origin `extracted`) and its year is not the upload year |
-| A comprobante, unless a person said there is none | `sin_comprobante`, for a record a person stated has no comprobante fiscal (`sin_comprobante` true), in place of the `missing_rnc` and `missing_ncf` a read gap gives. Such a record stays in `attention` and is approved alone |
+| A comprobante, unless a person said there is none | `sin_comprobante`, for a record a person stated has no comprobante fiscal (`sin_comprobante` true), in place of the `missing_rnc` and `missing_ncf` a read gap gives. Such a record stays in `attention` and is accepted alone, over that gap |
 | An RNC or cédula with a valid check digit | `missing_rnc`; `invalid_rnc` when it is not 9 or 11 digits, or its check digit fails and the DGII register does not list it, the rule the 606 export applies |
 | A valid NCF or e-CF | `missing_ncf`; `invalid_ncf`; `ecf_check_failed` for a failed check on the e-CF or its QR, or a file that names an e-CF the record does not hold |
 | ITBIS | `missing_itbis` |
-| No review flag | `review_flag`, for a warning such as `itbis_high` |
-| Nothing else blocks approval | `blocked`, such as an open question |
+| No other review flag | `review_flag`, for a warning such as `itbis_high`. A flag an earlier row names (`rnc_check_digit`, `ncf_malformed`) is that row's gap alone |
+| Nothing else blocks approval | `blocked`, such as an open question. A possible repeat is `duplicate` alone |
 | A verified sender, if it came by email | `unverified_sender` |
 
 The upload year is the year, on the Business calendar (America/Santo_Domingo), of the `received_at` of the draft's first source. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
 
-`BusinessDossier` carries the same standing for its one record. `bandeja_group: {group, reason, label}` holds the three values the rule above gives the row of a receipt linked to this draft alone; the dossier's own `draft_id` and `version` name the record. An `accepted` record has a null `group` and `reason` and the `label` `accepted`. A record being approved is `listo` with `ready`, a deleted record is `eliminados` with a null `label`, and a record whose receipt is being read is `reading`. `listo_gaps` lists every reason the rule finds, in the rule's order, when `group` is `attention`, and is empty for every other record. `reason` is always one of them: it is the first gap, except that a possible repeat no person settled shows `duplicate` before an earlier gap, as the list does. `bandeja_group.group_of` and `bandeja_group.listo_gaps` own both values, and the web renders them without a rule of its own. The dossier's `blockers` still decide `approval_available`; they are not the Listos gaps.
+`BusinessDossier` carries the same standing for its one record. `bandeja_group: {group, reason, label}` holds the three values the rule above gives the row of a receipt linked to this draft alone; the dossier's own `draft_id` and `version` name the record. An `accepted` record has a null `group` and `reason` and the `label` `accepted`. A record being approved is `listo` with `ready`, a deleted record is `eliminados` with a null `label`, and a record whose receipt is being read is `reading`. `listo_gaps` lists each distinct reason once, in the rule's order, when `group` is `attention`, and is empty for every other record. `confirmable` lists the subset the person may accept over, in that same order, as defined by `bandeja_group.RULE`. For a record in attention, `reason` is always one of its gaps: it is the first gap, except that a possible repeat no person settled shows `duplicate` before an earlier gap, as the list does. `bandeja_group.group_of` and `bandeja_group.listo_gaps` own both values, and the web renders them without a rule of its own. The dossier's `blockers` still decide `approval_available`; they are not the Listos gaps.
 
 `BusinessDossier.rnc_registry_status` is what the DGII register says of the supplier RNC or cédula the record holds. A listed number carries the status the server maps from the register's text (`supplier_fast_path.map_registry_status`): `verificado` (ACTIVO), `suspendido`, `dado_de_baja`, `cese_temporal`, `anulado`, `rechazado`, or `desconocido` for a listed number whose text the server does not map. `not_found` is a number the loaded register does not list; it is never `desconocido`. The field is null when the record holds no RNC or no register is loaded, so the web then shows no register status. The read is not behind `CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED`. The three fields are excluded from the model-facing dossier.
 
-A Venta, a receipt marked Personal and one in a foreign currency are `listo` when nothing above fails, and a list approval records a Venta with its own approval (`record_income`). Every other open receipt is `attention`, except one in `reading`, which is in neither tab until its read settles. Any open receipt can still be approved alone from its dossier, a receipt with no NCF included. A group decides nothing by itself: no read, worker, model or schedule approves.
+A Venta, a receipt marked Personal and one in a foreign currency are `listo` when nothing above fails, and a list approval records a Venta with its own approval (`record_income`). Every other open receipt is `attention`, except one in `reading`, which is in neither tab until its read settles. A group decides nothing by itself: no read, worker, model or schedule approves.
+
+A single accept (`POST /business/drafts/{draft_id}/approve`, every action) follows the same rule, read again in the transaction that claims the draft. A `listo` record is accepted as it is. A record in `attention` is accepted only when a person may accept over every gap in `listo_gaps` and the request names each one in `accept_gaps`. Every other accept is refused with 422 `not_listo`, and `context` carries `gaps` (every gap, in the rule's order; the group's `reason` alone for a record that is not in `attention`) and `confirmable` (the ones a person may accept over). The dossier dialog shows every gap and offers acceptance only when all are confirmable. The approval names those gaps in `accept_gaps`. After a `not_listo` refusal the dialog shows the gaps and confirmable subset from the response. A new approval uses a new idempotency key. A name whose gap is gone is ignored. The stored approve command keeps `accept_gaps`, so the decision is in the action receipt. A refusal that has its own code keeps it and comes first: a blocker's code (such as `fact_required`, `possible_duplicate` or `business_questions_unresolved`), `duplicate_comprobante`, and 403 `email_sender_unauthorized`. `approve-listos` takes no `accept_gaps`, so a list never takes a record with a gap.
+
+`bandeja_group.RULE` owns which gaps a person may accept over (`bandeja_group.CONFIRMABLE`), and `bandeja_group.refusing` owns the decision:
+
+| `reason` | A person may accept over it | Why |
+| --- | --- | --- |
+| `not_read` | yes | The record has no document: a person wrote its facts, and no edit adds a read |
+| `check_details` | yes | The server could not confirm the read or the year, and the person's own look settles it |
+| `several_purchases` | yes | The person chose the purchase this record is, and settles the rest after it is recorded |
+| `no_purchase_found` | no | The record has no amount |
+| `duplicate` | yes | Another open record holds the same comprobante. The second accept is still refused with `duplicate_comprobante`, and a possible repeat no person settled is still refused by its blocker, `possible_duplicate` |
+| `credit_note` | yes | A credit note is never Listos by its kind, and a person records it alone |
+| `missing_date`, `missing_amount`, `missing_currency` | no | The money record cannot be written without them |
+| `sin_comprobante` | yes | A person stated there is no comprobante, and the DGII packet leaves the record out |
+| `missing_merchant`, `missing_rnc`, `missing_ncf`, `missing_itbis` | yes | Data the document may not carry; the record is written without it |
+| `invalid_rnc`, `invalid_ncf` | yes | A number to look at again, stored exactly as read; the 606 export still refuses it |
+| `ecf_check_failed` | yes | A failed check on the e-CF that no edit of the record clears |
+| `review_flag` | yes | A warning, such as `itbis_high` or `amounts_mismatch` |
+| `blocked` | no | Something else refuses the approval, with its own code |
+| `unverified_sender` | no | A security gate: the sender is authorized first |
 
 `ReceiptActivityCounts` also carries `bandeja_listo_count` and `bandeja_attention_count`, the Bandeja's Listos and Por resolver tabs. `bandeja_listo_count` equals the rows whose `bandeja_group.group` is `listo`, a note being approved included. `bandeja_attention_count` is every other row the Bandeja lists outside the `reading` group: receipts in `attention`, open notes, and emails whose `standing` is `no_receipt`. A receipt with `bandeja_group.group` `reading` (and `reason` `reading`) and an email whose `standing` is `reading` are in neither number and show only on Todos. `reading_count` counts those being read now. A receipt the read limit holds is in the `reading` group and nothing is reading it, so `reading_count` and `presentation` leave it out and only `pending_review_count` counts it: the two tabs plus `reading_count` plus the held receipts sum to `pending_review_count`. `ready_to_review_count` keeps its own rule and still counts a held receipt. A failed read is in `attention`. `GET /business/receipt-activity`, the `activity` of `GET /business/receipts` and `GET /business/overview` return the same pair, from one function. Bandeja, Inicio and the sidebar render this pair and no other count for these two tabs. `ready_to_review_count` stays the "por revisar" number. `overview.needs_review` of `POST /business/reports/query` is a different count: the records of a period that have an approval blocker, for the Registros card.
 
@@ -8585,7 +8606,7 @@ its version unchanged, such as a sender no longer authorized, is `refused` with
 `not_listo`; its row says why. Other refusals keep the single approval's codes,
 such as `duplicate_comprobante` with `existing_record_id`. A draft of another
 Business or an unknown id is `refused` with `business_record_not_found` and leaves
-no ledger row. The route takes no `approve_anyway`, and nothing but a person's
+no ledger row. The route takes no `accept_gaps`, and nothing but a person's
 request reaches it.
 
 Post-recording corrections to the recorded facts are refused with
@@ -9041,7 +9062,9 @@ The same existing
 `{version, action: "record_income"}`, with the existing required
 `Idempotency-Key`. `record_expense` also takes `suggestions`, the dossier's
 `declaration_suggestions` the person saw, which the approval saves (see
-`declaration_suggestions`). The route resolves the actual actor and live named grant from
+`declaration_suggestions`). Every action takes `accept_gaps`, the Listos gaps
+the person saw and accepts the record over (see the Listos rule); without it a
+record with a gap is refused with 422 `not_listo`. The route resolves the actual actor and live named grant from
 the canonical draft, then dispatches to the matching human command; the caller
 supplies no actor, space or grant. A document that arrived by email from a
 sender who is not yet authorized is refused with 403 `email_sender_unauthorized`
@@ -9249,11 +9272,11 @@ a present NCF or e-CF that is not B plus 10 digits or E plus 12. Both have
 18% of the total minus the ITBIS, rounded to cents half to even, plus 0.55 in
 the receipt's own currency (16% for a receipt dated before 2013), in decimal
 math; a lower ITBIS is never flagged. The rate and the 0.55 are the ones the 606 holds an approved row for. The RNC and NCF stay exactly as
-read. While a `confirm` flag stands, the approve request without
-`approve_anyway: true` is refused with 422 `approval_confirmation_required` and
-`context.flags` lists those codes. Send `approve_anyway: true` with a new
-idempotency key to approve; the stored approve command keeps it in the action
-receipt. A warn-only flag never refuses. The 606 export still refuses the
+read. Every flag is one Listos gap: `rnc_check_digit` is `invalid_rnc`,
+`ncf_malformed` is `invalid_ncf`, and any other flag is `review_flag`. So a flagged
+record is accepted only by an approve request that names its gaps in
+`accept_gaps` (see the Listos rule), and `confirm` no longer changes what the
+approval refuses. The 606 export still refuses the
 same check digit and NCF format. Month close lists a present but malformed NCF
 in `ncf_malformed` as well as in `missing_ncf`; the reason codes are unchanged.
 Spanish copy for these codes is `dgii_line.COPY`.
@@ -9683,7 +9706,7 @@ else is filled: no account, funding, business share, category, fiscal number or
 declaration. So the dossier reads `sin_comprobante` true and needs no account.
 The draft stays open, is listed as a note in the Bandeja and is never Listos, so
 `approve-listos` refuses it with `not_listo`. A person reviews it and the owner
-approves it alone. Once approved it counts in the books at its whole total, and
+accepts it alone, over its `not_read` and `sin_comprobante` gaps. Once approved it counts in the books at its whole total, and
 the DGII packet leaves it out with disposition `excluded`, reason
 `no_fiscal_number`, and no month-close `missing_*` line.
 

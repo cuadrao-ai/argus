@@ -29,6 +29,7 @@ from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
 from tests import test_financial_accounts_postgres as accounts
+from tests.business_accept_support import seen_gaps
 from tests.test_business_actions_postgres import ready
 
 actions = shared.actions
@@ -174,7 +175,11 @@ def test_the_owner_marks_personal_and_back_each_a_revision_and_a_ledger_row(
     approved = service.approve(
         owner,
         draft,
-        ApproveExpense(version=view.version, action="record_expense"),
+        ApproveExpense(
+            version=view.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, owner, draft),
+        ),
         "approve",
     )
     assert approved.outcome == "applied", approved
@@ -217,7 +222,11 @@ def test_a_prepare_grantee_marks_personal_the_ledger_names_them_and_the_owner_un
     refused = service.approve(
         accountant,
         draft,
-        ApproveExpense(version=view.version, action="record_expense"),
+        ApproveExpense(
+            version=view.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, accountant, draft),
+        ),
         "acct-approve",
     )
     assert (refused.outcome, refused.code) == (
@@ -227,7 +236,11 @@ def test_a_prepare_grantee_marks_personal_the_ledger_names_them_and_the_owner_un
     approved = service.approve(
         owner,
         draft,
-        ApproveExpense(version=view.version, action="record_expense"),
+        ApproveExpense(
+            version=view.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, owner, draft),
+        ),
         "approve",
     )
     assert approved.outcome == "applied", approved
@@ -292,7 +305,11 @@ def test_a_personal_receipt_is_left_out_of_the_totals_but_kept_with_its_mark(
     approved = service.approve(
         owner,
         draft,
-        ApproveExpense(version=version + 1, action="record_expense"),
+        ApproveExpense(
+            version=version + 1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, owner, draft),
+        ),
         "approve",
     )
     assert approved.outcome == "applied", approved
@@ -381,7 +398,11 @@ def test_the_list_row_and_the_record_read_the_same_marks(actions, users):  # noq
     approved = service.approve(
         owner,
         draft,
-        ApproveExpense(version=version + 1, action="record_expense"),
+        ApproveExpense(
+            version=version + 1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, owner, draft),
+        ),
         "approve",
     )
     assert approved.outcome == "applied", approved
@@ -486,7 +507,9 @@ def test_one_expense_has_one_draft_so_its_marks_have_one_source(actions, users):
         owner,
         first,
         ApproveExpense(
-            version=service.dossier(owner, first).version, action="record_expense"
+            version=service.dossier(owner, first).version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, owner, first),
         ),
         "approve",
     )

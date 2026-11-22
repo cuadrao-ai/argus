@@ -33,6 +33,7 @@ from argus.domain.recording.repository import NewAccount
 from psycopg.rows import dict_row
 
 from tests import test_business_actions_postgres as shared
+from tests.business_accept_support import seen_gaps
 from tests.dgii.test_packet import packet
 
 users = shared.users
@@ -167,10 +168,17 @@ def handover_dgii(service, context, period):
 
 def approve(service, context, draft):
     identifier, version, kind = draft
+    gaps = seen_gaps(service, context, identifier)
     request = {
-        "expense": ApproveExpense(version=version, action="record_expense"),
-        "income": ApproveIncome(version=version, action="record_income"),
-        "refund": ApproveRefund(version=version, action="record_refund"),
+        "expense": ApproveExpense(
+            version=version, action="record_expense", accept_gaps=gaps
+        ),
+        "income": ApproveIncome(
+            version=version, action="record_income", accept_gaps=gaps
+        ),
+        "refund": ApproveRefund(
+            version=version, action="record_refund", accept_gaps=gaps
+        ),
     }[kind]
     return {
         "expense": service.approve,

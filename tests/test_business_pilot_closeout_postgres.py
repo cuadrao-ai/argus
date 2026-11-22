@@ -17,6 +17,7 @@ from psycopg import Connection
 from tests import test_business_actions_postgres as business
 from tests import test_business_fiscal_routes_postgres as routes
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import accept
 from tests.test_business_approve_unpaid_postgres import (
     BUYER_OR_SUPPLIER,
     SPAN,
@@ -202,7 +203,8 @@ def test_someone_who_prepares_types_it_and_only_the_owner_approves(world) -> Non
     dossier = answer.json()
     assert dossier["approval_action"] is None
 
-    refused = world.client.post(
+    refused = accept(
+        world.client,
         f"{API}/business/drafts/{dossier['draft_id']}/approve",
         json={"version": dossier["version"], "action": "record_expense"},
         headers={**_as(world.bob, world.grant), "Idempotency-Key": str(uuid4())},
@@ -311,7 +313,8 @@ def test_the_type_a_person_chose_for_an_rnc_comes_back_as_a_suggestion(world) ->
 def _approve_shown(world, dossier: dict, suggestions: dict):  # noqa: ANN001, ANN202
     """The approve request the review screen sends: the suggestions it showed."""
 
-    return world.client.post(
+    return accept(
+        world.client,
         f"{API}/business/drafts/{dossier['draft_id']}/approve",
         json={
             "version": dossier["version"],

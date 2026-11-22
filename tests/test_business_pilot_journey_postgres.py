@@ -32,6 +32,7 @@ from tests.business.receipt_stub import (
     receipt_month,
     receipt_purchase,
 )
+from tests.business_accept_support import seen_gaps
 from tests.test_business_duplicate_resolution_postgres import request_for
 from tests.test_business_spaces_migration_postgres import space
 
@@ -172,7 +173,11 @@ def _approve(world: dict, draft_id, amount: str) -> None:
     approved = service.approve(
         context,
         draft_id,
-        ApproveExpense(version=reviewed.version, action="record_expense"),
+        ApproveExpense(
+            version=reviewed.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft_id),
+        ),
         str(uuid4()),
     )
     assert approved.outcome == "applied", approved

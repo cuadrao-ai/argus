@@ -34,6 +34,7 @@ from tests import test_business_lifecycle_postgres as lifecycle
 from tests import test_business_transfer_mail_postgres as transfer_mail
 from tests import test_financial_accounts_postgres as accounts
 from tests.business.action_counts import count_no_rows
+from tests.business_accept_support import accepting
 from tests.test_business_accountant_path_routes_postgres import _with_ncf
 from tests.test_business_activity_filters_postgres import claimed_departure
 
@@ -111,9 +112,10 @@ def _post(client: TestClient, path: str, body: dict) -> dict:
 
 
 def _approve(client: TestClient, draft) -> dict:
-    version = _dossier(client, draft)["version"]
     return _post(
-        client, f"{draft}/approve", {"version": version, "action": "record_expense"}
+        client,
+        f"{draft}/approve",
+        accepting(_dossier(client, draft), "record_expense"),
     )
 
 

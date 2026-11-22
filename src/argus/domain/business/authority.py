@@ -24,7 +24,7 @@ class ActionError(Exception):
         outcome: str,
         code: str,
         existing_record_id: UUID | None = None,
-        flags: tuple[str, ...] = (),
+        gaps: tuple[str, ...] = (),
         *,
         context: dict[str, str] | None = None,
     ) -> None:
@@ -32,7 +32,7 @@ class ActionError(Exception):
             outcome=outcome,
             code=code,
             existing_record_id=existing_record_id,
-            flags=flags,
+            gaps=gaps,
             context=context,
         )
         self.code = code

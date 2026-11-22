@@ -26,6 +26,7 @@ from fastapi.testclient import TestClient
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import accepting
 from tests.business_cleanup import delete_spaces
 from tests.local_supabase_support import local_supabase_gateway
 from tests.test_business_scope_switch_routes_postgres import (
@@ -197,7 +198,7 @@ def test_review_write_path_from_capture_to_the_606_line(world) -> None:  # noqa:
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": body["version"], "action": "record_expense"},
+        accepting(body, "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -350,7 +351,7 @@ def test_an_edit_after_the_tipo_de_gasto_reaches_the_606_line(world) -> None:  #
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": current["version"], "action": "record_expense"},
+        accepting(current, "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -414,7 +415,7 @@ def _recorded(world) -> tuple[str, dict]:  # noqa: ANN001
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed.json()["version"], "action": "record_expense"},
+        accepting(reviewed.json(), "record_expense"),
         world.alice.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -513,7 +514,7 @@ def test_every_route_carrying_marks_answers_200_with_the_same_marks(world) -> No
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed.json()["version"], "action": "record_expense"},
+        accepting(reviewed.json(), "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text

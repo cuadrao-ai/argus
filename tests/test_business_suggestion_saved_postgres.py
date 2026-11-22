@@ -13,6 +13,7 @@ from argus.domain.business.contracts.dgii import (
 from pydantic import ValidationError
 
 from tests import test_business_approval_fiscal_postgres as fiscal
+from tests.business_accept_support import seen_gaps
 
 users = fiscal.users
 shared_actions = fiscal.shared_actions
@@ -59,7 +60,12 @@ def _approve(service, context, draft, version, suggestions=None):  # noqa: ANN00
     return service.approve(
         context,
         draft,
-        ApproveExpense(version=version, action="record_expense", suggestions=suggestions),
+        ApproveExpense(
+            version=version,
+            action="record_expense",
+            suggestions=suggestions,
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         str(uuid4()),
     )
 

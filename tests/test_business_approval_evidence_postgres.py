@@ -36,6 +36,7 @@ from psycopg.types.json import Jsonb
 
 from tests import test_financial_accounts_postgres as accounts
 from tests.business.receipt_stub import receipt_date
+from tests.business_accept_support import seen_gaps
 from tests.test_business_approval_fiscal_postgres import (  # noqa: F401
     NCF,
     SUPPLIER,
@@ -265,7 +266,11 @@ def test_a_typed_sale_approves_sourced_facts(actions) -> None:  # noqa: ANN001, 
     outcome = service.approve_income(
         context,
         capture.draft_id,
-        ApproveIncome(version=version, action="record_income"),
+        ApproveIncome(
+            version=version,
+            action="record_income",
+            accept_gaps=seen_gaps(service, context, capture.draft_id),
+        ),
         str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome

@@ -16505,11 +16505,43 @@ components:
         version:
           type: integer
           minimum: 1.0
-        approve_anyway:
-          anyOf:
-          - type: boolean
-            const: true
-          - type: 'null'
+        accept_gaps:
+          items:
+            type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - read_budget_day
+            - read_budget_month
+            - read_deadline_passed
+            - other
+            - reading
+            - not_read
+            - credit_note
+            - missing_merchant
+            - missing_date
+            - missing_amount
+            - missing_currency
+            - sin_comprobante
+            - missing_rnc
+            - invalid_rnc
+            - missing_ncf
+            - invalid_ncf
+            - ecf_check_failed
+            - missing_itbis
+            - review_flag
+            - blocked
+            - unverified_sender
+          type: array
+          default: []
         action:
           type: string
           const: record_expense
@@ -16527,11 +16559,43 @@ components:
         version:
           type: integer
           minimum: 1.0
-        approve_anyway:
-          anyOf:
-          - type: boolean
-            const: true
-          - type: 'null'
+        accept_gaps:
+          items:
+            type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - read_budget_day
+            - read_budget_month
+            - read_deadline_passed
+            - other
+            - reading
+            - not_read
+            - credit_note
+            - missing_merchant
+            - missing_date
+            - missing_amount
+            - missing_currency
+            - sin_comprobante
+            - missing_rnc
+            - invalid_rnc
+            - missing_ncf
+            - invalid_ncf
+            - ecf_check_failed
+            - missing_itbis
+            - review_flag
+            - blocked
+            - unverified_sender
+          type: array
+          default: []
         action:
           type: string
           const: record_income
@@ -16558,11 +16622,43 @@ components:
         version:
           type: integer
           minimum: 1.0
-        approve_anyway:
-          anyOf:
-          - type: boolean
-            const: true
-          - type: 'null'
+        accept_gaps:
+          items:
+            type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - read_budget_day
+            - read_budget_month
+            - read_deadline_passed
+            - other
+            - reading
+            - not_read
+            - credit_note
+            - missing_merchant
+            - missing_date
+            - missing_amount
+            - missing_currency
+            - sin_comprobante
+            - missing_rnc
+            - invalid_rnc
+            - missing_ncf
+            - invalid_ncf
+            - ecf_check_failed
+            - missing_itbis
+            - review_flag
+            - blocked
+            - unverified_sender
+          type: array
+          default: []
         action:
           type: string
           const: record_refund
@@ -18372,6 +18468,43 @@ components:
         bandeja_group:
           $ref: '#/components/schemas/BandejaStanding'
         listo_gaps:
+          items:
+            type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - read_budget_day
+            - read_budget_month
+            - read_deadline_passed
+            - other
+            - reading
+            - not_read
+            - credit_note
+            - missing_merchant
+            - missing_date
+            - missing_amount
+            - missing_currency
+            - sin_comprobante
+            - missing_rnc
+            - invalid_rnc
+            - missing_ncf
+            - invalid_ncf
+            - ecf_check_failed
+            - missing_itbis
+            - review_flag
+            - blocked
+            - unverified_sender
+          type: array
+          default: []
+        confirmable:
           items:
             type: string
             enum:
@@ -21600,6 +21733,43 @@ components:
         bandeja_group:
           $ref: '#/components/schemas/BandejaStanding'
         listo_gaps:
+          items:
+            type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - read_budget_day
+            - read_budget_month
+            - read_deadline_passed
+            - other
+            - reading
+            - not_read
+            - credit_note
+            - missing_merchant
+            - missing_date
+            - missing_amount
+            - missing_currency
+            - sin_comprobante
+            - missing_rnc
+            - invalid_rnc
+            - missing_ncf
+            - invalid_ncf
+            - ecf_check_failed
+            - missing_itbis
+            - review_flag
+            - blocked
+            - unverified_sender
+          type: array
+          default: []
+        confirmable:
           items:
             type: string
             enum:
@@ -32245,9 +32415,9 @@ components:
       - code
       - field
       - confirm
-      description: 'A read value to check again. ``confirm`` flags need ``approve_anyway``
+      description: 'A read value to check again. Each is a Listos gap an accept names to go
 
-        on the approve request; the rest only warn.'
+        over it; the 606 export still refuses the ``confirm`` ones.'
     ReviewQuestion:
       properties:
         id:
