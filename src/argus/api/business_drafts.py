@@ -609,11 +609,11 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     projection over the overlaid views: an approved draft is a saved expense
     and the email itself is not a receipt, the same as in the Bandeja."""
 
-    from argus.api.business_receipt_activity import inbox
+    from argus.api.business_receipt_activity import counts_now
     from argus.domain.business import ledger
 
     data = context.service.overview(context.scope, start, end)
-    counts = inbox(context, receipt_summaries(context, "all"))
+    counts = counts_now(context)
     data["ready_to_review_count"] = counts["ready_to_review_count"]
     data["bandeja_listo_count"] = counts["bandeja_listo_count"]
     data["bandeja_attention_count"] = counts["bandeja_attention_count"]
