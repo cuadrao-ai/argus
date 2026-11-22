@@ -26,7 +26,7 @@ const reading = (enabled: boolean) => ({ enabled, disclosure: "Permiso de prueba
 // A desktop shell's top bar, which holds the one Agregar on every Business screen but Negocio.
 const DESKTOP_SHELL = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: undefined };
 
-async function mountInbox(overrides: Partial<BusinessDataSource> = {}, { bar = false }: { bar?: boolean } = {}) {
+async function mountInbox(overrides: Partial<BusinessDataSource> = {}, { bar = false, refresh = false }: { bar?: boolean; refresh?: boolean } = {}) {
   search = bar ? "view=inbox" : "";
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -47,6 +47,10 @@ async function mountInbox(overrides: Partial<BusinessDataSource> = {}, { bar = f
     const workspace = useChatWorkspace();
     return <header data-testid="top-bar">{workspace?.headerSearch?.(DESKTOP_SHELL as never)}</header>;
   }
+  function Refresh() {
+    const { reload } = useBusiness();
+    return <button type="button" data-testid="workspace-refresh" onClick={reload} />;
+  }
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const source = { ...createFixtureBusinessDataSource({ chatAvailable: false }), ...overrides };
@@ -59,6 +63,7 @@ async function mountInbox(overrides: Partial<BusinessDataSource> = {}, { bar = f
         <BusinessConsentTestProvider accepted>
           <BusinessWorkspaceProvider source={source as BusinessDataSource}>
             {bar ? <Bar /> : null}
+            {refresh ? <Refresh /> : null}
             <ReadyInbox />
           </BusinessWorkspaceProvider>
         </BusinessConsentTestProvider>
@@ -155,6 +160,49 @@ test("reading off is one line under the title with an outlined action; the words
     assert.deepEqual(turnedOn, [true]);
     assert.equal(document.querySelector('[data-testid="receipt-reading-sheet"]'), null);
   } finally { await off.close(); }
+});
+
+test("a workspace refresh that lands while the switch is saving cannot undo the saved setting", async () => {
+  const { createFixtureBusinessDataSource, fixtureReceiptReading } = await import("@/components/business-app/fixture-data");
+  const fixture = createFixtureBusinessDataSource();
+  let enabled = false;
+  let hold: Promise<void> | null = null;
+  let workspaceAnswers = 0;
+  let releaseRefresh!: () => void;
+  let answerSave!: () => void;
+  const page = await mountInbox({
+    workspace: async () => {
+      const answer = { ...await fixture.workspace(), receipt_reading: fixtureReceiptReading(reading(enabled)) };
+      if (hold) await hold;
+      workspaceAnswers++;
+      return answer;
+    },
+    setReceiptReading: (current, next) => new Promise((resolve) => { answerSave = () => { enabled = next; resolve({ ...current, enabled: next }); }; }),
+  }, { refresh: true });
+  const notice = () => page.host.querySelector('[data-testid="receipt-reading-control"]');
+  try {
+    const ready = () => notice()?.querySelector("button") != null && !page.host.querySelector('[data-testid="reception-pending"]');
+    await page.settle(ready);
+    await page.act(async () => notice()!.querySelector("button")!.click());
+    await page.act(async () => { document.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-switch"]')!.click(); await Promise.resolve(); });
+    const answered = workspaceAnswers;
+    await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="workspace-refresh"]')!.click());
+    await page.settle(() => workspaceAnswers > answered && ready());
+    hold = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+    await page.act(async () => { answerSave(); await Promise.resolve(); });
+    await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    assert.equal(notice(), null, "the saved setting shows while the workspace that follows the save is still loading");
+    const saving = workspaceAnswers;
+    await page.act(async () => { releaseRefresh(); });
+    await page.settle(() => workspaceAnswers > saving);
+    assert.equal(notice(), null, "the workspace that follows the save agrees");
+    hold = null;
+    enabled = false;
+    const later = workspaceAnswers;
+    await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="workspace-refresh"]')!.click());
+    await page.settle(() => workspaceAnswers > later);
+    assert.equal(notice()?.getAttribute("data-enabled"), "false", "a later server answer replaces the saved one");
+  } finally { releaseRefresh?.(); await page.close(); }
 });
 
 test("a reading setting that did not load claims nothing", async () => {
