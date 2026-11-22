@@ -4,13 +4,14 @@ import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
 const fact = (page: Page, key: string) => page.locator(`[data-fact="${key}"]`);
 
-async function openFiscalRecord(page: Page) {
+async function openFiscalRecord(page: Page, width: number) {
+  await page.setViewportSize({ width, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
   await page.goto(`/dev/business-preview?draft=${dossierFixtureIds.fiscal}`);
   await expect(page.getByTestId("business-record-review")).toBeVisible();
-  const tabs = page.getByTestId("receipt-review-tabs");
-  if (await tabs.isVisible()) await tabs.getByText("Formulario", { exact: true }).click();
+  await expect(page.getByTestId("receipt-review-fields")).toBeVisible();
 }
 
 async function box(locator: Locator) {
@@ -19,107 +20,113 @@ async function box(locator: Locator) {
   return found!;
 }
 
-const centerX = (found: { x: number; width: number }) => found.x + found.width / 2;
+const centerY = (found: { y: number; height: number }) => found.y + found.height / 2;
+const right = (found: { x: number; width: number }) => found.x + found.width;
 
-async function pencilColumn(page: Page) {
-  const centers = await page.locator("[data-fact]:not(:has([data-row-open], [data-number-box])) svg.lucide-pencil").evaluateAll((icons) => icons.map((icon) => {
-    const { left, width } = icon.getBoundingClientRect();
-    return left + width / 2;
-  }));
-  expect(centers.length).toBeGreaterThan(1);
-  expect(Math.max(...centers) - Math.min(...centers)).toBeLessThan(0.5);
-  return centers[0];
-}
+const pencil = (page: Page, key: string, label: string) => fact(page, key).getByRole("button", { name: `Editar detalles · ${label}`, exact: true });
 
 async function openRow(page: Page, key: string, label: string) {
-  await fact(page, key).getByRole("button", { name: `Editar detalles · ${label}`, exact: true }).click();
+  await pencil(page, key, label).click();
   const save = page.getByRole("button", { name: `Guardar · ${label}`, exact: true });
   const cancel = page.getByRole("button", { name: `Cancelar · ${label}`, exact: true });
-  await expect(fact(page, key).locator("[data-row-open] input").first()).toBeFocused();
-  return { save, cancel, field: fact(page, key).locator("[data-row-open] > :first-child") };
+  const input = fact(page, key).locator("[data-row-open] input").first();
+  await expect(input).toBeFocused();
+  return { save, cancel, input, field: fact(page, key).locator("[data-row-open]") };
+}
+
+/** A row's height and where its label sits inside it, so a page scroll does not count as a move. */
+async function rowBoxes(page: Page, key: string) {
+  const row = await box(fact(page, key));
+  const label = await box(fact(page, key).locator("> :first-child"));
+  return { row, label: { ...label, y: label.y - row.y } };
 }
 
 const ROWS = [
   { key: "rnc", label: "RNC" },
-  { key: "fiscal_number", label: "NCF / e-CF" },
+  { key: "fiscal_number", label: "NCF" },
+  { key: "amount", label: "Total" },
 ];
 
 test.describe("an open fact row", () => {
-
-  for (const width of [1280, 1024, 390]) {
-    test(`keeps check and cross on the field's line with the cross in the pencil column at ${width}px`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 900 });
-      await openFiscalRecord(page);
+  for (const width of [1280, 1024, 768, 390]) {
+    test(`keeps its field in the value column and both actions in the action slot at ${width}px`, async ({ page }) => {
+      await openFiscalRecord(page, width);
       for (const { key, label } of ROWS) {
-        const closedHeight = (await box(fact(page, key))).height;
-        const { save, cancel, field } = await openRow(page, key, label);
-        const column = await pencilColumn(page);
+        const row = fact(page, key);
+        await row.scrollIntoViewIfNeeded();
+        const value = await box(row.locator("[data-row-value]"));
+        const valueInRow = value.y - (await box(row)).y;
+        const closedPencil = await box(pencil(page, key, label));
+        const { save, cancel, input, field } = await openRow(page, key, label);
         const fieldBox = await box(field);
         const saveBox = await box(save);
         const cancelBox = await box(cancel);
-        expect(Math.abs(centerX(await box(cancel.locator("svg"))) - column)).toBeLessThan(0.5);
-        expect(saveBox.y).toBeCloseTo(fieldBox.y, 0);
-        expect(cancelBox.y).toBeCloseTo(fieldBox.y, 0);
-        expect(saveBox.x).toBeGreaterThan(fieldBox.x + fieldBox.width);
-        for (const action of [saveBox, cancelBox]) {
-          expect(action.width).toBeGreaterThanOrEqual(44);
-          expect(action.height).toBeGreaterThanOrEqual(44);
-        }
-        if (key === "fiscal_number" && width >= 720) expect((await box(fact(page, key))).height).toBe(closedHeight);
+
+        expect(fieldBox.x, `${key}: the field starts where the value did`).toBeCloseTo(value.x, 0);
+        expect(fieldBox.width, `${key}: the field fills the value column`).toBeCloseTo(value.width, 0);
+        expect(saveBox.x, `${key}: Guardar sits right of the field`).toBeGreaterThanOrEqual(right(fieldBox));
+        expect(cancelBox.x, `${key}: Cancelar follows Guardar`).toBeGreaterThanOrEqual(right(saveBox));
+        expect(right(cancelBox), `${key}: Cancelar ends where the pencil did`).toBeCloseTo(right(closedPencil), 0);
+        for (const action of [saveBox, cancelBox]) expect(centerY(action), `${key}: the actions sit on the field's line`).toBeCloseTo(centerY(fieldBox), 0);
+        if (key === "amount") await expect(input, "an amount stays right-aligned while editing").toHaveCSS("text-align", "right");
+
+        await page.keyboard.press("Escape");
+        await expect(row.locator("[data-row-open]")).toHaveCount(0);
+        await expect(row.locator("[data-row-value]"), `${key}: Escape returns focus to the row`).toBeFocused();
+        // Opening may scroll the page; the value comes back to the same place in its row.
+        const back = await box(row.locator("[data-row-value]"));
+        expect({ x: back.x, width: back.width, height: back.height, y: back.y - (await box(row)).y }).toEqual({ x: value.x, width: value.width, height: value.height, y: valueInRow });
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+  }
+
+  test("opening a row moves neither its label nor its height", async ({ page }) => {
+    for (const width of [1280, 390]) {
+      await openFiscalRecord(page, width);
+      for (const { key, label } of ROWS) {
+        const closed = await rowBoxes(page, key);
+        await openRow(page, key, label);
+        const open = await rowBoxes(page, key);
+        expect.soft(open.row.height, `${key} row height at ${width}px`).toBe(closed.row.height);
+        expect.soft(open.label, `${key} label at ${width}px`).toEqual(closed.label);
         await page.keyboard.press("Escape");
         await expect(fact(page, key).locator("[data-row-open]")).toHaveCount(0);
-        await expect(fact(page, key).getByRole("button", { name: `Editar detalles · ${label}`, exact: true })).toBeFocused();
       }
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    });
-  }
+    }
+  });
 
-  for (const width of [1280, 1024, 768, 390]) {
-    test(`keeps the amount number box and both action slots fixed at ${width}px`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 900 });
-      await openFiscalRecord(page);
-      const row = fact(page, "amount");
-      const numberBox = row.locator("[data-number-box]");
-      const closed = await box(numberBox);
-      const closedHeight = (await box(row)).height;
-      const pencil = row.getByRole("button", { name: "Editar detalles · Total (con ITBIS)", exact: true });
-      const pencilBox = await box(pencil);
-      const { save, cancel, field } = await openRow(page, "amount", "Total (con ITBIS)");
-      const fieldBox = await box(field);
-      expect(fieldBox).toEqual(closed);
-      expect((await box(row)).height).toBe(closedHeight);
-      const saveBox = await box(save);
-      const cancelBox = await box(cancel);
-      expect(saveBox).toEqual(pencilBox);
-      expect(saveBox.x).toBeCloseTo(fieldBox.x + fieldBox.width, 0);
-      expect(cancelBox.x).toBeCloseTo(saveBox.x + saveBox.width, 0);
-      for (const action of [saveBox, cancelBox]) {
-        expect(action.y).toBeCloseTo(fieldBox.y, 0);
-        expect(action.width).toBeGreaterThanOrEqual(44);
-        expect(action.height).toBeGreaterThanOrEqual(44);
+  test("Guardar and Cancelar keep a 44px target where the record is read by touch, and the board's 32px in the desktop tray", async ({ page }) => {
+    for (const [width, target] of [[1280, 32], [768, 44], [390, 44]] as const) {
+      await openFiscalRecord(page, width);
+      const { save, cancel } = await openRow(page, "fiscal_number", "NCF");
+      for (const [name, action] of [["Guardar", save], ["Cancelar", cancel]] as const) {
+        const found = await box(action);
+        expect.soft(found.width, `${name} width at ${width}px`).toBeGreaterThanOrEqual(target);
+        expect.soft(found.height, `${name} height at ${width}px`).toBeGreaterThanOrEqual(target);
       }
-      await page.keyboard.press("Escape");
-      await expect(row.locator("[data-row-open]")).toHaveCount(0);
-      await expect(pencil).toBeFocused();
-      expect(await box(numberBox)).toEqual(closed);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    });
-  }
+    }
+  });
 
-  test("wraps the actions below a field that cannot fit, still ending in the pencil column", async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 900 });
-    await openFiscalRecord(page);
-    const { save, cancel, field } = await openRow(page, "fiscal_number", "NCF / e-CF");
-    const column = await pencilColumn(page);
-    const fieldBox = await box(field);
-    expect((await box(save)).y).toBeGreaterThanOrEqual(fieldBox.y + fieldBox.height);
-    expect(Math.abs(centerX(await box(cancel.locator("svg"))) - column)).toBeLessThan(0.5);
+  test("each value reads whole, not cut off", async ({ page }) => {
+    for (const width of [1280, 768, 390]) {
+      await openFiscalRecord(page, width);
+      for (const key of ["rnc", "fiscal_number", "occurred_on", "amount"]) {
+        const value = fact(page, key).locator("[data-row-value]");
+        const cut = await value.evaluate((node) => ({ text: node.textContent, shown: node.clientWidth, needed: node.scrollWidth }));
+        expect.soft(cut.needed, `${key} "${cut.text}" needs ${cut.needed}px and has ${cut.shown}px at ${width}px`).toBeLessThanOrEqual(cut.shown);
+      }
+    }
+  });
+
+  test("an amount reads right-aligned before it opens", async ({ page }) => {
+    await openFiscalRecord(page, 1280);
+    for (const key of ["net_amount", "itbis", "amount"]) await expect(fact(page, key).locator("[data-row-value]")).toHaveCSS("text-align", "right");
   });
 
   test("Enter saves the typed NCF and closes the row", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await openFiscalRecord(page);
-    await openRow(page, "fiscal_number", "NCF / e-CF");
+    await openFiscalRecord(page, 1280);
+    await openRow(page, "fiscal_number", "NCF");
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type("B0100000123");
     await page.keyboard.press("Enter");
