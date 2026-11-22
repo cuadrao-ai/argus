@@ -122,7 +122,7 @@ export type ChatSidebarProps = {
   onOpenKeyboardShortcuts?: () => void;
   settingsOpenRequest?: number;
   invitationOpenRequest?: InvitationOpenRequest | null;
-  omnisearchEnabled?: boolean;
+  showSearch?: boolean;
   /** Keep background shortcut hints visually quiet while a foreground surface owns focus. */
   shortcutHintsSuppressed?: boolean;
   canManageConversation?: boolean;
@@ -188,7 +188,7 @@ export default function ChatSidebar({
   onOpenKeyboardShortcuts,
   settingsOpenRequest = 0,
   invitationOpenRequest,
-  omnisearchEnabled = false,
+  showSearch = true,
   shortcutHintsSuppressed = false,
   canManageConversation = true,
   showProfileMenu = true,
@@ -513,7 +513,7 @@ export default function ChatSidebar({
           />
         )}
 
-        {omnisearchEnabled && (
+        {showSearch && (
           <SidebarNavButton
             icon={Search}
             label={t("common.search", "Search")}
