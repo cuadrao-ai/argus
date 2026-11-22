@@ -20,6 +20,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as shared
 from tests import test_financial_accounts_postgres as database
+from tests.business.action_counts import count_no_rows
 from tests.business.test_business_api import RECEIPT
 from tests.document_reads_support import leave_reads_waiting, read_receipt
 from tests.test_business_actions_postgres import create
@@ -379,6 +380,7 @@ def post_approve(service, context, draft_id, *, version=1, extra=None):
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, context.actor.actor_id, str(context.actor.space_id)
     )

@@ -24,6 +24,7 @@ from argus.domain.owner_scope import BusinessSpace
 from PIL import Image
 
 from tests import test_business_actions_postgres as shared
+from tests.business.action_counts import count_no_rows
 from tests.business_cleanup import delete_spaces
 from tests.document_sources_support import source_objects
 from tests.ingestion.whatsapp_support import RefusingExtractor
@@ -778,6 +779,7 @@ def approve(receipts, draft_id):
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, context.actor.actor_id, receipts["space"]
     )

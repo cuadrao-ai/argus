@@ -30,6 +30,8 @@ from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.owner_scope import BusinessSpace
 from PIL import Image
 
+from tests.business.action_counts import count_no_rows
+
 RECIPIENT = "recibos-ab12cd34@recibos.example.test"
 
 
@@ -808,6 +810,7 @@ async def test_aligned_mail_with_a_display_name_can_be_approved():
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, uuid4(), world.route.space_id
     )

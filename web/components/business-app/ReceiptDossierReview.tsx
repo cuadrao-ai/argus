@@ -18,8 +18,7 @@ import type { DgiiFields } from "@/lib/business-dgii";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
 import ReviewFlagConfirm from "./ReviewFlagConfirm";
-import { confirmationFlags, duplicateRecordId, type BusinessCaptureInput } from "@/lib/business-api";
-import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
+import { businessTypedNotesAvailable, confirmationFlags, duplicateRecordId, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
@@ -367,7 +366,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   };
 
   const captureDialog = <ManualCaptureDialog key="capture" isOpen={captureOpen} target={captureTarget} revision={captureRevision} onClose={() => setCaptureOpen(false)} onPending={setCapturePending} onRetained={setCaptureRetained} onUnavailable={() => { setUnavailable(true); setDossier(null); }} onSaved={(saved) => { setDossier(saved); setCaptureOpen(false); setUnavailable(false); reload(); }} />;
-  const captureRecovery = NOTES_ENTRY_ENABLED && captureRetained && !captureOpen ? <button type="button" className={`${secondaryButtonClass} mb-4`} onClick={() => setCaptureOpen(true)}>{capturePending ? t("business.capture.reopen", "Reopen unconfirmed note") : t("business.capture.reopen_retained", "Reopen retained note")}</button> : null;
+  const captureRecovery = businessTypedNotesAvailable(records.workspace) && captureRetained && !captureOpen ? <button type="button" className={`${secondaryButtonClass} mb-4`} onClick={() => setCaptureOpen(true)}>{capturePending ? t("business.capture.reopen", "Reopen unconfirmed note") : t("business.capture.reopen_retained", "Reopen retained note")}</button> : null;
   if (unavailable || !dossier && problem) return (<>
     {captureRecovery}
     <section className={SURFACE_CARD} data-testid="receipt-load-error">
@@ -539,7 +538,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           : null}
         actions={<>
           <ReceiptMoreMenu groups={[
-            NOTES_ENTRY_ENABLED && canPrepare && mutable && !Object.keys(rows.rows).length ? <MenuItem key="note" icon={StickyNote} label={t("business.capture.add_note", "Add note")} onSelect={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }} /> : null,
+            businessTypedNotesAvailable(records.workspace) && canPrepare && mutable && !Object.keys(rows.rows).length ? <MenuItem key="note" icon={StickyNote} label={t("business.capture.add_note", "Add note")} onSelect={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }} /> : null,
             <ReceiptMarksCard key="marks" dossier={dossier} busy={busy || fiscalBusy || fiscalDirty} onChanged={setDossier} bare />,
             canDelete ? <DeleteDocumentMenuItem key="delete" disabled={busy || dirty || fiscalBusy || fiscalDirty || deletion.busy} onClick={deletion.ask} /> : null,
           ]} />

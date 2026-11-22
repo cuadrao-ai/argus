@@ -15,7 +15,7 @@ const cleanups: (() => Promise<void>)[] = [];
 let restorePurged = false;
 afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; restorePurged = false; });
 
-async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false, extra: (rows: { ready: ReceiptDetail; blurry: ReceiptDetail }) => ReceiptDetail[] = () => [], readingOff = false) {
+async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false, extra: (rows: { ready: ReceiptDetail; blurry: ReceiptDetail }) => ReceiptDetail[] = () => [], readingOff = false, typedNotes = false) {
   window.history.replaceState(null, "", "/biz");
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -50,6 +50,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   const purges: { id: string; key: string }[] = [];
   const source: BusinessDataSource = {
     ...fixture,
+    workspace: async () => ({ ...await fixture.workspace(), typed_notes_available: typedNotes }),
     spaces: async () => (await fixture.spaces()).map(space => ({ ...space, role: role === "owner" ? "owner" : "accountant", business_role: role, grant_id: role === "owner" ? space.grant_id : "synthetic-role", capabilities: role === "owner" ? space.capabilities : role === "viewer" ? ["read"] : ["read", "prepare"] })),
     receipts: async view => view === "all" ? items : items.filter(item => !item.deleted),
     receiptPage: async view => ({ items: view === "all" ? items : items.filter(item => !item.deleted), activity: counts() }),
@@ -195,8 +196,18 @@ test("Más offers deletion for a ready document with the same dialog and no view
   assert.equal(page.button("Ver documento", dialog), null);
 });
 
-test("Más is one menu: Agregar nota, then Personal, then Eliminar documento last in red, a line between groups, every row 44px with its icon", async () => {
+test("Más leaves Agregar nota out while the workspace reports typed notes off", async () => {
   const page = await mount();
+  const ready = await page.source.receipt("ready");
+  await page.act(async () => page.api().openPanel({ kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
+  await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
+  await page.click(document.querySelector<HTMLButtonElement>('[data-testid="receipt-more"] > button'));
+  const rows = [...document.getElementById("receipt-more-panel")!.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]')];
+  assert.deepEqual(rows.map(row => row.firstChild?.nextSibling?.textContent), ["PersonalNo cuenta en los totales del negocio.", "Eliminar documento"]);
+});
+
+test("Más is one menu: Agregar nota, then Personal, then Eliminar documento last in red, a line between groups, every row 44px with its icon", async () => {
+  const page = await mount("owner", false, 0, false, () => [], false, true);
   const ready = await page.source.receipt("ready");
   await page.act(async () => page.api().openPanel({ kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
   await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
