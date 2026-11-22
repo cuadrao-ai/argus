@@ -71,7 +71,7 @@ const paintedSoFar = (page: Page) => page.evaluate(() => (window as Window & { _
 async function setup(page: Page, language: Language, options: { languageChosen?: boolean } = {}) {
   await installAccount(page, language, options);
   await recordPaint(page);
-  const source = createFixtureBusinessDataSource({ chatAvailable: false });
+  const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { enabled: true, can_change: false } });
   const receipt = await source.receipt("rcpt-ferreteria");
   const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, ready_to_review_count: 1 };
   await page.route("**/api/v1/business/**", async (route) => {
@@ -86,7 +86,6 @@ async function setup(page: Page, language: Language, options: { languageChosen?:
     if (path === "overview") return route.fulfill({ json: { ...await source.overview("2026-10-01", "2026-10-31"), totals: [], fiscal_totals: [], without_fiscal_totals: [] } });
     if (path === "receipts") return route.fulfill({ json: { items: url.searchParams.get("view") === "all" ? [receipt] : [receipt], activity } });
     if (path === `receipts/${receipt.id}`) return route.fulfill({ json: receipt });
-    if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
     if (["email/deliveries", "captures"].includes(path)) return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);

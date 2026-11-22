@@ -483,12 +483,12 @@ test("navigation while acknowledgement is in flight ignores its late UI response
 });
 
 test("a late reading-toggle response cannot replace another Business disclosure", async () => {
-  const reading: ReceiptReading = { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Business A disclosure", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null };
+  const reading = { disclosure: "Business A disclosure" };
   let resolve!: (value: ReceiptReading) => void;
   let signal: AbortSignal | undefined;
   let reloads = 0;
   const sourceA: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading(reading), setReceiptReading: async (_reading, _enabled, _language, requestSignal) => { signal = requestSignal; return new Promise((done) => { resolve = done; }); } };
-  const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading({ ...reading, disclosure: "Business B disclosure" }) };
+  const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading({ disclosure: "Business B disclosure" }) };
   const page = await host();
   const workspaces = new Map([[sourceA, await sourceA.workspace()], [sourceB, await sourceB.workspace()]]);
   const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={{ ...context(source, () => { reloads++; }), records: { ...context(source, () => {}).records, workspace: workspaces.get(source)! } }}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
@@ -511,7 +511,7 @@ test("a late reading-toggle response cannot replace another Business disclosure"
 });
 
 test("a workspace answered for another Business claims nothing about its reading", async () => {
-  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading({ scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Other Business disclosure", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null }) };
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading({ disclosure: "Other Business disclosure" }) };
   const page = await host();
   const records = { ...context(source, () => {}).records, workspace: await source.workspace(), workspaceGrant: "grant-of-another-business" };
   await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={{ ...context(source, () => {}), records }}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>));

@@ -27,7 +27,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(role === "owner" ? null : "synthetic-role");
-  const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
+  const fixture = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: readingOff ? { disclosure_token: null } : undefined });
   const ready = await fixture.receipt("rcpt-ferreteria");
   const blurry = await fixture.receipt("rcpt-blurry");
   const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez", shown_as: "name" }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
@@ -73,7 +73,6 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     receiptSource: async () => new Blob([Buffer.from(PREVIEW_PNG, "base64")], { type: "image/png" }),
     uploadReceipt: async () => items.find(item => item.id === "deleted")!,
     emailDeliveries: async () => [],
-    ...(readingOff ? { workspace: async () => ({ ...await fixture.workspace(), receipt_reading: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Texto sintético.", disclosure_token: null, route: null, consented_at: null, revoked_at: null } }) } : {}),
     deleteDocument: async (id, key) => {
       calls.push({ id, key });
       if (failFirst && calls.length === 1) throw new Error("synthetic outage");

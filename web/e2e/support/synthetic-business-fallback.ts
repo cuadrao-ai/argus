@@ -80,7 +80,7 @@ export async function fulfillSyntheticBusinessFallback(
     }) });
   }
 
-  const source = context.source ?? createFixtureBusinessDataSource({ chatAvailable: false });
+  const source = context.source ?? createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { can_change: false } });
   const owner = context.owner ?? (await source.spaces())[0];
 
   if (path === "spaces") {
@@ -115,10 +115,6 @@ export async function fulfillSyntheticBusinessFallback(
     if (method !== "GET") throw new Error("Synthetic consent requires GET");
     if (!context.fulfillConsent) throw new Error("Synthetic consent requires an accepted-consent fixture");
     return context.fulfillConsent();
-  }
-  if (path === "receipt-reading") {
-    if (method !== "GET") throw new Error("Synthetic receipt-reading requires GET");
-    return route.fulfill({ json: { enabled: false, available: true, can_change: false } });
   }
   if (path === "email") {
     if (method !== "GET") throw new Error("Synthetic email requires GET");

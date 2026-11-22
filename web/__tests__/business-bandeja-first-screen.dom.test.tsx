@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
-import type { GrantedSpace, ReceiptReading } from "@/lib/business-api";
+import type { GrantedSpace } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 
 let search = "";
@@ -21,17 +21,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 const PHRASE = "Nada aquí es un gasto hasta que lo confirmes.";
 
-const reading = (enabled: boolean): ReceiptReading => ({
-  scope_version: 1,
-  enabled,
-  available: true,
-  can_change: true,
-  disclosure: "Permiso de prueba",
-  disclosure_token: "a".repeat(64),
-  route: null,
-  consented_at: null,
-  revoked_at: null,
-});
+const reading = (enabled: boolean) => ({ enabled, disclosure: "Permiso de prueba" });
 
 // A desktop shell's top bar, which holds the one Agregar on every Business screen but Negocio.
 const DESKTOP_SHELL = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: undefined };

@@ -929,7 +929,7 @@ def test_owner_workspace_uses_existing_live_membership(actions, monkeypatch):
     hub = SimpleNamespace(
         sink=service.imports, connections=SimpleNamespace(list=lambda **kwargs: [])
     )
-    documents = SimpleNamespace(hub=hub)
+    documents = SimpleNamespace(hub=hub, business_receipt_consent=None)
     app = FastAPI()
     app.state.financial_accounts_pool = service.authority.pool
     app.include_router(router)
@@ -964,8 +964,10 @@ def test_owner_workspace_uses_existing_live_membership(actions, monkeypatch):
             "typed_notes_available",
             "receiving_channels",
             "receipt_limits",
+            "receipt_reading",
             "logo_url",
         }
+        assert response.json()["receipt_reading"] is None
         assert response.json()["chat_available"] is False
         assert [a["id"] for a in response.json()["accounts"]] == [account_ids[0]]
         assert response.headers["cache-control"] == "no-store"

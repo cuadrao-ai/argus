@@ -5,7 +5,7 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
-import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
+import { createFixtureBusinessDataSource, fixtureReceiptReading } from "@/components/business-app/fixture-data";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import { periodRange } from "@/components/business-app/business-format";
 import BusinessInboxPanel from "@/components/business-app/BusinessInboxPanel";
@@ -132,7 +132,7 @@ test("without a consent provider, model actions stay blocked and manual recordin
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  const workspace = { ...await source.workspace(), receipt_reading: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Shown only when accepted.", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null } };
+  const workspace = { ...await source.workspace(), receipt_reading: fixtureReceiptReading({ disclosure: "Shown only when accepted." }) };
   const tree = (node: ReactNode, inbox: ReceiptSummary[] = []) => (
     <I18nextProvider i18n={i18n}>
       <BusinessContext.Provider value={{ ...context(source, inbox), records: { ...context(source, inbox).records, workspace } }}>{node}</BusinessContext.Provider>
