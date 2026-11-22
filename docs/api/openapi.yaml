@@ -21260,6 +21260,17 @@ components:
         supporting_append_available:
           type: boolean
           default: false
+        supporting_files:
+          items:
+            $ref: '#/components/schemas/SupportingFile'
+          type: array
+          default: []
+        supporting_file_limit:
+          type: integer
+          default: 3
+        supporting_limit_reached:
+          type: boolean
+          default: false
         annotation_unavailable_reason:
           anyOf:
           - type: string
