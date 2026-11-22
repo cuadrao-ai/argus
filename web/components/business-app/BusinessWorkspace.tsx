@@ -109,6 +109,8 @@ const BUSINESS_TABS = new Set<string>(["datos", "equipo", "correo"]);
 type Records = {
   workspace: BusinessWorkspaceInfo | null;
   workspaceGrant?: string | null;
+  /** The `revision` whose read answered `workspace`; a read always starts after its revision commits. */
+  workspaceRevision?: number;
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
   receiptActivity?: ReceiptActivityCounts | null;
@@ -540,7 +542,7 @@ function BusinessWorkspaceContent({
     ]))
       .then(([workspace, overview, page]) => {
         if (cancelled) return;
-        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, overview, inbox: page.items, receiptActivity: page.activity, listVersion: "version" in page ? page.version : null, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
+        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, workspaceRevision: revision, overview, inbox: page.items, receiptActivity: page.activity, listVersion: "version" in page ? page.version : null, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
         reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {

@@ -28,7 +28,7 @@ export function workspaceReading({ workspace, workspaceGrant }: { workspace: Bus
  * opens the same sheet.
  */
 export default function ReceiptReadingControl({ showWhenOn = false, variant = "notice", pending = false }: { showWhenOn?: boolean; variant?: "notice" | "row" | "inline"; pending?: boolean }) {
-  const { source, reload, chosen, records } = useBusiness();
+  const { source, reload, chosen, records, revision } = useBusiness();
   const consent = useBusinessConsent();
   const { t, i18n } = useTranslation();
   const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? resolveLanguage({}));
@@ -39,8 +39,11 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
     generation.current += 1;
     return () => { generation.current += 1; mutation.current?.abort(); };
   }, [source, businessKey, language]);
+  const committedRevision = useRef(revision);
+  useLayoutEffect(() => { committedRevision.current = revision; }, [revision]);
   const snapshot = workspaceReading(records);
-  const [saved, setReading] = useState<{ snapshot: ReceiptReading; value: ReceiptReading } | null>(null);
+  // A saved answer stands until a workspace read that started after it answers.
+  const [saved, setReading] = useState<{ value: ReceiptReading; answeredAt: number } | null>(null);
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
   const titleId = useId();
@@ -49,7 +52,7 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
     setOpen(false);
     setFailed(false);
   }, [source, language, businessKey]);
-  const reading = consent.accepted ? (snapshot && saved?.snapshot === snapshot ? saved.value : snapshot) : null;
+  const reading = consent.accepted && snapshot ? (saved && (records.workspaceRevision ?? -1) <= saved.answeredAt ? saved.value : snapshot) : null;
   const isRow = variant === "row";
   const isInline = variant === "inline";
   if (!reading || (reading.enabled && !showWhenOn && !isRow && !isInline)) {
@@ -66,7 +69,7 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
     try {
       const next = await source.setReceiptReading(reading, enabled, language, controller.signal);
       if (generation.current !== current || controller.signal.aborted) return;
-      if (snapshot) setReading({ snapshot, value: next });
+      setReading({ value: next, answeredAt: committedRevision.current });
       setOpen(false);
       reload();
       if (!isInline) showToast({ kind: "success", text: next.enabled ? t("business.activity.turned_on") : t("business.activity.turned_off") });
