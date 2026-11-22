@@ -10,10 +10,10 @@ import { createDossierFixtures, dossierFixtureIds } from "@/components/business-
 const accounts: BusinessAccount[] = [{ id: "acct-ops", nickname: "Caja", currency: "DOP", type: "cash" }];
 
 type Sent = { anyway: boolean | undefined };
-type Mount = { dossier: BusinessDossier; receipt?: ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[] };
+type Mount = { dossier: BusinessDossier; receipt?: ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[]; refuse?: Partial<Record<"approveDraft" | "reopenDraft", unknown>> };
 
 /** The dossier as a person opens it: from a draft alone, or from a receipt row, on a full page or in the tray at one of its two sizes. */
-async function mount({ dossier, receipt, size = "page", panel, list = [] }: Mount) {
+async function mount({ dossier, receipt, size = "page", panel, list = [], refuse = {} }: Mount) {
   GlobalRegistrator.register({ url: "http://localhost" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   const { act, useState } = await import("react");
@@ -36,7 +36,8 @@ async function mount({ dossier, receipt, size = "page", panel, list = [] }: Moun
       receipts: async () => list,
       receiptSource: async () => new Blob(["x"], { type: "image/png" }),
       dgiiFields: async () => ({ "606": [], "607": [] }),
-      approveDraft: async (_id: string, _version: number, _key: string, _action: unknown, anyway?: boolean) => { sent.push({ anyway }); return dossier; },
+      approveDraft: async (_id: string, _version: number, _key: string, _action: unknown, anyway?: boolean) => { sent.push({ anyway }); if (refuse.approveDraft) throw refuse.approveDraft; return dossier; },
+      reopenDraft: async () => { if (refuse.reopenDraft) throw refuse.reopenDraft; return dossier; },
     },
     reload: () => undefined,
     records: { inbox: [], workspace: null },
@@ -83,7 +84,7 @@ function receiptOf(dossier: BusinessDossier, over: Partial<ReceiptDetail> = {}):
 }
 
 /** Words another lane owns: read from the locale, so this suite follows them. */
-const copy = (spanish as unknown as { business: { dossier: { review_flag: { approve_anyway: string; export_blocked: string } }; history: { approved: string } } }).business.dossier;
+const copy = (spanish as unknown as { business: { dossier: { review_flag: { approve_anyway: string; export_blocked: string }; duplicate_recorded: string; outcome_unknown: string; refresh: string; refused: string; reopen: string; reopen_failed: string } } }).business.dossier;
 const acceptedWord = (spanish as unknown as { business: { history: { approved: string } } }).business.history.approved;
 
 describe("the v2 dossier frame", () => {
@@ -273,6 +274,70 @@ describe("accepting a record that is not Listos", () => {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
       assert.equal(page.all('[data-testid="review-flag-confirm"]').length, 0);
       assert.deepEqual(page.sent, [{ anyway: false }]);
+    } finally { await page.close(); }
+  });
+});
+
+describe("what an action answered shows on every tab", () => {
+  const OTHER_TABS = ["Documento", "Datos fiscales", "Detalles", "Historial"];
+  /** The notice as a person on the open tab sees it: on screen, and in no tab's panel. */
+  const shown = (node: Element | null | undefined, tab: string) => {
+    assert.ok(node, `${tab}: the notice is on the page`);
+    assert.equal(node.closest("[hidden]"), null, `${tab}: nothing hides it`);
+    assert.equal(node.closest('[role="tabpanel"]'), null, `${tab}: it belongs to no tab`);
+  };
+  const notices = (page: Awaited<ReturnType<typeof mount>>) => page.all<HTMLElement>('[data-testid="dossier-notices"]')[0];
+
+  for (const tab of OTHER_TABS) {
+    test(`from ${tab}, accepting a comprobante already recorded says so and offers the recorded one`, async () => {
+      const page = await mount({ dossier: await fiscalDossier(), size: "narrow", refuse: { approveDraft: { code: "duplicate_comprobante", status: 409, details: { record_id: "recorded-1" } } } });
+      try {
+        await page.click(page.tab(tab));
+        await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+        const notice = page.all('[data-testid="dossier-duplicate"]')[0];
+        shown(notice, tab);
+        assert.ok(notice.textContent?.includes(copy.duplicate_recorded));
+      } finally { await page.close(); }
+    });
+
+    test(`from ${tab}, an accept whose answer never came says so and keeps its way out`, async () => {
+      const page = await mount({ dossier: await fiscalDossier(), size: "narrow", refuse: { approveDraft: new TypeError("Failed to fetch") } });
+      try {
+        await page.click(page.tab(tab));
+        await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+        shown(notices(page), tab);
+        assert.ok(notices(page).querySelector('[role="alert"]')?.textContent?.includes(copy.outcome_unknown));
+        shown(page.button(copy.refresh), tab);
+      } finally { await page.close(); }
+    });
+
+    test(`from ${tab}, a refused accept says why`, async () => {
+      const page = await mount({ dossier: await fiscalDossier(), size: "narrow", refuse: { approveDraft: { code: "not_a_known_code", status: 422 } } });
+      try {
+        await page.click(page.tab(tab));
+        await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+        shown(notices(page), tab);
+        assert.equal(notices(page).querySelector('[role="alert"] p')?.textContent, copy.refused);
+      } finally { await page.close(); }
+    });
+
+    test(`from ${tab}, a reopen that failed says so`, async () => {
+      const dossier = await fiscalDossier({ reopen_available: true, review_state: "accepted", bandeja_group: { group: null, reason: null, label: "accepted" }, approval_available: false, approval_action: null, approval_result: { status: "recorded", activity_id: "a1", reviewed_version: 2, approved_revision: 2, approved_at: "2026-11-20T15:02:00Z", actor: { actor_kind: "owner", display_name: "Rosa Díaz" } as never } });
+      const page = await mount({ dossier, size: "narrow", refuse: { reopenDraft: { code: "unexpected", status: 500 } } });
+      try {
+        await page.click(page.tab(tab));
+        await page.click(page.all<HTMLButtonElement>('[data-testid="reopen-record"]')[0]);
+        await page.click(page.all<HTMLButtonElement>('[role="alertdialog"] button, [role="dialog"] button').find((item) => item.textContent?.trim() === copy.reopen));
+        shown(notices(page), tab);
+        assert.equal(notices(page).querySelector('[role="alert"] p')?.textContent, copy.reopen_failed);
+      } finally { await page.close(); }
+    });
+  }
+
+  test("with nothing to say the frame holds no notice region", async () => {
+    const page = await mount({ dossier: await fiscalDossier(), size: "narrow" });
+    try {
+      assert.equal(page.all('[data-testid="dossier-notices"]').length, 0);
     } finally { await page.close(); }
   });
 });

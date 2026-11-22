@@ -75,7 +75,7 @@ describe("Historial", () => {
     assert.equal(section.querySelector("button"), null, "nothing folds: the tab is the Historial");
     assert.deepEqual([...section.querySelectorAll("li")].map(eventLines), [
       ["Moneda cambiada de DOP a USD", "Ana Peña"],
-      [accepted, "Pasó a Registros y al Reporte 606", "Lucía Mateo"],
+      [accepted, "Pasó a Registros", "Lucía Mateo"],
       ["Total cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña"],
       ["Leído", "Cuadrao"],
       ["Llegó por WhatsApp", "a.jpg", null],
@@ -86,6 +86,18 @@ describe("Historial", () => {
     assert.deepEqual([...section.querySelectorAll('[data-testid="history-dot"]')].map((dot) => dot.getAttribute("data-approved")), [null, "true", null, null, null], "only the acceptance is green");
     assert.doesNotMatch(section.textContent ?? "", /revisi[oó]n|tras aceptar|primer flujo|registrado|desconocido|segundos/i);
     await page.close();
+  });
+
+  test("the acceptance names no report: only the server knows whether a record goes into one", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const approval = { status: "recorded", activity_id: "x", reviewed_version: 1, approved_revision: 1, approved_at: at(11, 0, 5), actor: actor("Lucía Mateo") } as BusinessDossier["approval_result"];
+    for (const documentType of ["recibo", "venta", undefined] as const) {
+      const page = await render(<ReceiptHistory documentType={documentType} history={[revision(1, at(10, 9, 25), actor("Cuadrao", "extractor"), null, facts("1200.00"))]} accounts={[]} sources={[]} approval={approval} />);
+      const event = page.host.querySelector('[data-approved="true"]')!;
+      assert.equal(event.querySelector('[data-testid="history-sub"]')?.textContent, "Pasó a Registros");
+      assert.doesNotMatch(event.textContent ?? "", /60[67]|[Rr]eporte/);
+      await page.close();
+    }
   });
 
   test("names the channel a receipt came in by: Correo and Subido", async () => {
