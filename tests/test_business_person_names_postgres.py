@@ -33,6 +33,7 @@ from tests import test_business_activity_postgres as feed
 from tests import test_business_lifecycle_postgres as lifecycle
 from tests import test_business_transfer_mail_postgres as transfer_mail
 from tests import test_financial_accounts_postgres as accounts
+from tests.business.action_counts import count_no_rows
 from tests.test_business_accountant_path_routes_postgres import _with_ncf
 from tests.test_business_activity_filters_postgres import claimed_departure
 
@@ -63,6 +64,7 @@ def _client(service, actor_id: str, space_id: UUID | None) -> TestClient:
     app = FastAPI()
     add_core_middleware_and_handlers(app)
     app.include_router(router, prefix="/api/v1")
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, UUID(actor_id), None if space_id is None else str(space_id)
     )

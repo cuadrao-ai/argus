@@ -114,6 +114,7 @@ def test_historical_approval_replay_cannot_report_another_dossier_state(
         second = _approve(world, draft, current["version"], kind)
         assert second.status_code == 200, second.text
         current = second.json()
+        del current["inbox_counts"]
         assert current["approval_result"]["activity_id"] != activity
         assert _counts(world) == (2, 0, 0)
 

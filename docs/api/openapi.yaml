@@ -2334,7 +2334,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListosApproved'
+                $ref: '#/components/schemas/ListosApprovedCounted'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -2462,7 +2462,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BusinessDossier'
+                $ref: '#/components/schemas/DossierApprovedCounted'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -2586,7 +2586,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DocumentActionResult'
+                $ref: '#/components/schemas/DocumentActionCounted'
         '403':
           description: '`business_permission_denied` without approve permission; `business_human_command_required`
             for a non-person actor.'
@@ -2900,7 +2900,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DocumentActionResult'
+                $ref: '#/components/schemas/DocumentActionCounted'
         '403':
           description: '`business_permission_denied` without approve permission; `business_human_command_required`
             for a non-person actor.'
@@ -3095,7 +3095,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DocumentActionResult'
+                $ref: '#/components/schemas/DocumentActionCounted'
         '403':
           description: '`business_permission_denied` without approve permission; `business_human_command_required`
             for a non-person actor.'
@@ -21094,18 +21094,21 @@ components:
       type: object
       required:
       - reason
-    DocumentActionResult:
+    DocumentActionCounted:
       properties:
         document_id:
           type: string
           format: uuid
         deleted:
           type: boolean
+        inbox_counts:
+          $ref: '#/components/schemas/ReceiptActivityCounts'
       additionalProperties: false
       type: object
       required:
       - document_id
       - deleted
+      - inbox_counts
     DocumentLine:
       properties:
         activity_id:
@@ -21211,6 +21214,272 @@ components:
       - status
       - replayed
       - candidate_count
+    DossierApprovedCounted:
+      properties:
+        space_id:
+          type: string
+          format: uuid
+        space_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        accounts:
+          items:
+            $ref: '#/components/schemas/AccountChoice'
+          type: array
+        capabilities:
+          items:
+            type: string
+            enum:
+            - read
+            - prepare
+            - approve
+          type: array
+          uniqueItems: true
+        deleted:
+          anyOf:
+          - $ref: '#/components/schemas/DeletedDocument'
+          - type: 'null'
+        delete_available:
+          type: boolean
+          default: false
+        restore_available:
+          type: boolean
+          default: false
+        current_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+        review_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+        note_edit_available:
+          type: boolean
+          default: false
+        supporting_append_available:
+          type: boolean
+          default: false
+        annotation_unavailable_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+        dgii:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/PurchaseDeclaration'
+            - $ref: '#/components/schemas/SalesDeclaration'
+            discriminator:
+              propertyName: form
+              mapping:
+                '606': '#/components/schemas/PurchaseDeclaration'
+                '607': '#/components/schemas/SalesDeclaration'
+          - type: 'null'
+        draft_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1.0
+        review_state:
+          type: string
+          enum:
+          - open
+          - accepting
+          - accepted
+          - dismissed
+        facts:
+          $ref: '#/components/schemas/BusinessFacts'
+        net_amount:
+          $ref: '#/components/schemas/NetAmount'
+          default: {}
+        inheritance:
+          additionalProperties:
+            $ref: '#/components/schemas/InheritedValue'
+          type: object
+        sources:
+          items:
+            oneOf:
+            - $ref: '#/components/schemas/MessageSource'
+            - $ref: '#/components/schemas/WebActionSource'
+            - $ref: '#/components/schemas/AttachmentSource'
+            discriminator:
+              propertyName: kind
+              mapping:
+                agent_proposal: '#/components/schemas/MessageSource'
+                attachment: '#/components/schemas/AttachmentSource'
+                message: '#/components/schemas/MessageSource'
+                web_action: '#/components/schemas/WebActionSource'
+          type: array
+        questions:
+          items:
+            $ref: '#/components/schemas/ReviewQuestion'
+          type: array
+        history:
+          items:
+            $ref: '#/components/schemas/DraftRevision'
+          type: array
+        blockers:
+          items:
+            $ref: '#/components/schemas/Blocker'
+          type: array
+        review_flags:
+          items:
+            $ref: '#/components/schemas/ReviewFlag'
+          type: array
+          default: []
+        approval_available:
+          type: boolean
+        duplicate_candidates:
+          items:
+            $ref: '#/components/schemas/DuplicateCandidate'
+          type: array
+          default: []
+        approval_action:
+          anyOf:
+          - type: string
+            enum:
+            - record_expense
+            - record_income
+            - record_refund
+          - type: 'null'
+        approval_result:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/RecordedApproval'
+            - $ref: '#/components/schemas/UnsettledApproval'
+            discriminator:
+              propertyName: status
+              mapping:
+                failed: '#/components/schemas/UnsettledApproval'
+                outcome_unknown: '#/components/schemas/UnsettledApproval'
+                recorded: '#/components/schemas/RecordedApproval'
+          - type: 'null'
+        read_purchases:
+          items:
+            $ref: '#/components/schemas/ReadPurchase'
+          type: array
+          default: []
+        read_total:
+          anyOf:
+          - type: string
+          - type: 'null'
+        unrecorded_purchases:
+          type: integer
+          minimum: 0.0
+          default: 0
+        ecf_checks:
+          anyOf:
+          - $ref: '#/components/schemas/EcfVerification'
+          - type: 'null'
+        dgii_qr:
+          anyOf:
+          - $ref: '#/components/schemas/DgiiQr'
+          - type: 'null'
+        ecf_checks_panel_available:
+          type: boolean
+          default: false
+        bill_mark:
+          anyOf:
+          - type: string
+            enum:
+            - Factura por pagar
+            - Factura pagada
+          - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        personal_marked_by:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
+          - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: false
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        fiscal_question_applies:
+          type: boolean
+          default: false
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - $ref: '#/components/schemas/PersonName'
+          - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
+        document_type:
+          type: string
+          enum:
+          - recibo
+          - venta
+          default: recibo
+        document_type_detected:
+          type: boolean
+          default: false
+        document_type_editable:
+          type: boolean
+          default: false
+        declaration_editable:
+          type: boolean
+          default: false
+        declaration_suggestions:
+          $ref: '#/components/schemas/DeclarationSuggestions'
+          default: {}
+        payment_split_editable:
+          type: boolean
+          default: false
+        reopen_available:
+          type: boolean
+          default: false
+        due_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        fiscal_inclusion_available:
+          type: boolean
+          default: false
+        refund_candidates:
+          items:
+            $ref: '#/components/schemas/RefundCandidate'
+          type: array
+          default: []
+        upload_year:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        year_to_check:
+          type: boolean
+          default: false
+        inbox_counts:
+          $ref: '#/components/schemas/ReceiptActivityCounts'
+      additionalProperties: false
+      type: object
+      required:
+      - space_id
+      - space_name
+      - accounts
+      - capabilities
+      - draft_id
+      - version
+      - review_state
+      - facts
+      - sources
+      - questions
+      - history
+      - blockers
+      - approval_available
+      - inbox_counts
     DraftProposal:
       properties:
         plan_ref:
@@ -25913,17 +26182,19 @@ components:
       required:
       - draft_id
       - version
-    ListosApproved:
+    ListosApprovedCounted:
       properties:
         results:
           items:
             $ref: '#/components/schemas/ListoApproval'
           type: array
+        inbox_counts:
+          $ref: '#/components/schemas/ReceiptActivityCounts'
       additionalProperties: false
       type: object
       required:
       - results
-      description: One result per named receipt, in the order named.
+      - inbox_counts
     LoginRequest:
       properties:
         email:

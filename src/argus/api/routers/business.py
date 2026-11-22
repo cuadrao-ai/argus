@@ -48,7 +48,6 @@ from argus.api.business_drafts import (
     expenses_with_receipts,
     overview_with_drafts,
     receipt_detail,
-    receipt_summaries,
     receipt_summary,
     require_legacy_receipt_write,
     unread_backlog,
@@ -1017,9 +1016,9 @@ async def set_receipt_reading(
 def receipt_activity_counts(
     context: Annotated[BusinessContext, Depends(require_business)],
 ) -> dict:
-    from argus.api.business_receipt_activity import counts
+    from argus.api.business_receipt_activity import counts_now
 
-    return counts(context, receipt_summaries(context, "all"))
+    return counts_now(context)
 
 
 @router.post("/receipts/{receipt_id}/read", response_model=ReceiptActivity)
@@ -1067,15 +1066,14 @@ def list_receipts(
 ) -> Any:
     try:
         from argus.api import business_list_version as versions
-        from argus.api.business_receipt_activity import counts
+        from argus.api.business_receipt_activity import receipts_now
         from argus.domain.business.receipt_activity import listed
         from argus.domain.business.receipts import CLOSED
 
         version = versions.stored_version(context)
         if version and versions.unchanged(if_none_match, version):
             return versions.not_modified(version)
-        items = receipt_summaries(context, "all")
-        activity = counts(context, items)
+        items, activity = receipts_now(context)
         items = [item for item in items if listed(item)]
         if view == "inbox":
             items = [item for item in items if item["status"] not in CLOSED]

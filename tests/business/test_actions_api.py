@@ -13,6 +13,8 @@ from argus.domain.business.contracts.facts import BusinessFacts
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from tests.business.action_counts import count_no_rows
+
 
 class MissingDraft:
     def context_for_draft(self, actor_id, draft_id, **_pin):
@@ -108,6 +110,7 @@ def test_approve_route_dispatches_strict_income_and_expense_commands():
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(service, uuid4())
     draft_id = uuid4()
     url = f"/business/drafts/{draft_id}/approve"
@@ -246,6 +249,7 @@ def test_unsettled_action_returns_conflict_without_reading_dossier(
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         UnsettledDraft(), actor
     )

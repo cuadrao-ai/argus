@@ -4,12 +4,14 @@ import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import type { BusinessCaptureInput } from "../lib/business-api";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
+const LISTED_NOTE = "Nota que pone el registro en la Bandeja";
 type CaptureMode = "ok" | "lost" | "denied" | "stale" | "business_action_unsettled" | "outcome_unknown" | "conflict";
-async function setup(page: Page, draftId?: string, workspaceUnavailable = false) {
+async function setup(page: Page, draftId?: string, workspaceUnavailable = false, listedDraftId?: string) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
-  const state = { mode: "ok" as CaptureMode, notesUnavailable: false, workspaceUnavailable, starts: 0, approvals: 0, captures: [] as { input: BusinessCaptureInput; key: string }[] };
+  const state = { mode: "ok" as CaptureMode, notesUnavailable: false, workspaceUnavailable, starts: 0, approvals: 0, workspaceLoads: 0, captures: [] as { input: BusinessCaptureInput; key: string }[] };
+  if (listedDraftId) await source.captureNote({ text: LISTED_NOTE, draft: { draft_id: listedDraftId, version: (await source.dossier(listedDraftId)).version } }, "fixture-listed-note");
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.split("/business/")[1];
@@ -20,6 +22,7 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
       if (path === "fiscal-profile/fields") return route.fulfill({ json: { "606": [], "607": [] } });
       if (path === "spaces") return route.fulfill({ json: { spaces: await source.spaces() } });
       if (path === "workspace") {
+        state.workspaceLoads++;
         if (state.workspaceUnavailable) return route.fulfill({ status: 403, json: { detail: { code: "permission_denied", status: 403, title: "Action refused", detail: "permission_denied", request_id: "capture-test" } } });
         return route.fulfill({ json: { ...await source.workspace(), typed_notes_available: true } });
       }
@@ -74,6 +77,12 @@ async function newNote(page: Page) {
 async function openAppend(page: Page) {
   await openMore(page);
   await page.getByRole("menuitem", { name: "Agregar nota", exact: true }).click();
+}
+/** The Bandeja row of the record `setup` listed. A record opened from its list has the workspace answer behind it. */
+async function openListed(page: Page) {
+  await page.getByRole("button", { name: /Bandeja/ }).first().click();
+  await page.getByTestId("reception-row").filter({ hasText: LISTED_NOTE }).getByRole("button").first().click();
+  await expect(page.getByTestId("business-record-review")).toBeVisible();
 }
 /** A phone shows a record's form or its original, one at a time. */
 async function showOriginal(page: Page, width: number) {
@@ -143,7 +152,8 @@ for (const width of [1280, 390]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     });
     test("lost append response retains verbatim intent across close and explicit same-key retry without approval", async ({ page }) => {
-      const { state } = await setup(page, dossierFixtureIds.ready);
+      const { state } = await setup(page, undefined, false, dossierFixtureIds.ready);
+      await openListed(page);
       await openAppend(page);
       const dialog = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
       const text = "  Falta comprobar esta compra.\n  ";
@@ -164,6 +174,18 @@ for (const width of [1280, 390]) {
     });
   });
 }
+
+test.describe("a phone that lands on a record link", () => {
+  test.use({ viewport: { width: 390, height: 900 } });
+  test("offers no Agregar nota while the workspace answer is not loaded", async ({ page }) => {
+    const { state } = await setup(page, dossierFixtureIds.ready);
+    await expect(page.getByTestId("business-record-review")).toBeVisible();
+    await openMore(page);
+    await expect(page.getByRole("menu", { name: "Más", exact: true })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);
+    expect(state.workspaceLoads).toBe(0);
+  });
+});
 
 test("denied and stale append preserve text, and read-only exposes no append", async ({ page }) => {
   const { state, source } = await setup(page, dossierFixtureIds.ready);

@@ -1,16 +1,25 @@
 from __future__ import annotations
 
-from typing import Annotated
+from functools import partial
+from typing import Annotated, Callable
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, Request, Response
 from loguru import logger
 
+from argus.api.business import BusinessContext, require_business
 from argus.api.business_drafts import (
     DraftContext,
     action_problem,
     require_drafts,
     with_source_channels,
+)
+from argus.api.business_receipt_activity import counts_now
+from argus.api.business_schemas import (
+    DocumentActionCounted,
+    DossierApprovedCounted,
+    ListosApprovedCounted,
+    ReceiptActivityCounts,
 )
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
@@ -29,9 +38,9 @@ from argus.domain.business.contracts.actions import (
     SettleRemainder,
 )
 from argus.domain.business.contracts.amounts import AmountsPreview, AmountsPreviewRequest
-from argus.domain.business.contracts.deletion import DocumentActionResult, DocumentCommand
+from argus.domain.business.contracts.deletion import DocumentCommand
 from argus.domain.business.contracts.dossier import BusinessDossier, RecordedApproval
-from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
+from argus.domain.business.contracts.listos import ApproveListos
 
 router = APIRouter(
     prefix="/business/drafts",
@@ -47,6 +56,18 @@ _ACTION_CONFLICT = {
     "description": "`stale_version` or `idempotency_conflict`; an uncertain action"
     " returns 409 with its existing outcome code."
 }
+
+
+def counts_after(
+    business: Annotated[BusinessContext, Depends(require_business)],
+) -> Callable[[], dict]:
+    """The read an action that moved a Bandeja row answers with as
+    ``inbox_counts``, made once the action is done."""
+
+    return partial(counts_now, business)
+
+
+Counts = Annotated[Callable[[], dict], Depends(counts_after)]
 
 
 def _key(request: Request, value: str | None) -> str:
@@ -244,7 +265,7 @@ def decide_fiscal_inclusion(
 
 @router.post(
     "/{draft_id}/approve",
-    response_model=BusinessDossier,
+    response_model=DossierApprovedCounted,
     responses={
         409: {
             "description": "`stale_version` or `idempotency_conflict`; an uncertain approval"
@@ -261,19 +282,26 @@ def approve_draft(
         ApproveExpense | ApproveIncome | ApproveRefund, Body(discriminator="action")
     ],
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    return _run(
+    dossier = _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)
+    )
+    # Each dossier field is passed on as it is: a rebuilt set could list its
+    # members in another order than the dossier read does.
+    return DossierApprovedCounted.model_construct(
+        **dict(dossier), inbox_counts=ReceiptActivityCounts.model_validate(counts())
     )
 
 
-@router.post("/approve-listos", response_model=ListosApproved)
+@router.post("/approve-listos", response_model=ListosApprovedCounted)
 def approve_listos(
     request: Request,
     response: Response,
     body: ApproveListos,
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     """The owner approves a named list of Listos receipts. Each one runs alone
@@ -283,11 +311,12 @@ def approve_listos(
     response.headers.update(NO_STORE)
     key = _key(request, idempotency_key)
     try:
-        return context.service.approve_listos(
+        approved = context.service.approve_listos(
             context.for_space(request), context.for_draft, body, key
         )
     except ActionError as error:
         raise action_problem(request, error.result) from None
+    return ListosApprovedCounted(results=approved.results, inbox_counts=counts())
 
 
 @router.post(
@@ -359,10 +388,11 @@ def _document_action(
     request: Request,
     response: Response,
     context: DraftContext,
+    counts: Callable[[], dict],
     draft_id: UUID,
     key: str | None,
     action: str,
-) -> DocumentActionResult:
+) -> DocumentActionCounted:
     from argus.domain.business.actions.document_deletion import change_document
 
     response.headers.update(NO_STORE)
@@ -388,8 +418,10 @@ def _document_action(
         raise action_problem(request, error.result) from None
     if action == "purge_document":
         _erase_now(context)
-    return DocumentActionResult(
-        document_id=draft_id, deleted=action != "restore_document"
+    return DocumentActionCounted(
+        document_id=draft_id,
+        deleted=action != "restore_document",
+        inbox_counts=counts(),
     )
 
 
@@ -416,7 +448,7 @@ def _erase_now(context: DraftContext) -> None:
 
 @router.post(
     "/{draft_id}/delete",
-    response_model=DocumentActionResult,
+    response_model=DocumentActionCounted,
     responses={
         403: {
             "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
@@ -437,16 +469,17 @@ def delete_document(
     response: Response,
     draft_id: UUID,
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-) -> DocumentActionResult:
+) -> DocumentActionCounted:
     return _document_action(
-        request, response, context, draft_id, idempotency_key, "delete_document"
+        request, response, context, counts, draft_id, idempotency_key, "delete_document"
     )
 
 
 @router.post(
     "/{draft_id}/restore",
-    response_model=DocumentActionResult,
+    response_model=DocumentActionCounted,
     responses={
         403: {
             "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
@@ -467,16 +500,17 @@ def restore_document(
     response: Response,
     draft_id: UUID,
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-) -> DocumentActionResult:
+) -> DocumentActionCounted:
     return _document_action(
-        request, response, context, draft_id, idempotency_key, "restore_document"
+        request, response, context, counts, draft_id, idempotency_key, "restore_document"
     )
 
 
 @router.post(
     "/{draft_id}/purge",
-    response_model=DocumentActionResult,
+    response_model=DocumentActionCounted,
     responses={
         403: {
             "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
@@ -497,8 +531,9 @@ def purge_document(
     response: Response,
     draft_id: UUID,
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-) -> DocumentActionResult:
+) -> DocumentActionCounted:
     return _document_action(
-        request, response, context, draft_id, idempotency_key, "purge_document"
+        request, response, context, counts, draft_id, idempotency_key, "purge_document"
     )
