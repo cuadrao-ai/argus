@@ -25,6 +25,7 @@ const delivery: BusinessEmailDelivery = {
 };
 
 async function mount(node: (React: typeof import("react")) => import("react").ReactElement, inbox: ReceiptSummary[]) {
+  window.history.replaceState(null, "", "/");
   const React = await import("react");
   const { act } = React;
   const { createRoot } = await import("react-dom/client");

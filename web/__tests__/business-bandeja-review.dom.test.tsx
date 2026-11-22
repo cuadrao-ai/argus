@@ -24,6 +24,7 @@ const none: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, present
 const DESKTOP_SHELL = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: undefined };
 
 async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string | null = null, { bar = false }: { bar?: boolean } = {}) {
+  window.history.replaceState(null, "", "/biz");
   search = bar ? "view=inbox" : "";
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
