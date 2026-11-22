@@ -80,8 +80,8 @@ try {
       if (state.startsWith("close-")) {
         const dialog = page.getByRole("dialog");
         await expect(dialog.getByRole("button", { name: "Descargar copia", exact: true })).toBeVisible();
-        await expect(dialog).toContainText("ene – dic 2025 · 1,204 registros");
-        if (state === "close-downloaded") { await dialog.getByRole("button", { name: "Descargar: ene – dic 2025", exact: true }).click(); await expect(dialog.getByTestId("business-close-period").first()).toHaveAttribute("data-status", "downloaded"); }
+        await expect(dialog).toContainText("Ene – Dic 2025 · 1,204 registros");
+        if (state === "close-downloaded") { await dialog.getByRole("button", { name: "Descargar: Ene – Dic 2025", exact: true }).click(); await expect(dialog.getByTestId("business-close-period").first()).toHaveAttribute("data-status", "downloaded"); }
         if (state === "close-confirm" || state === "close-uncertain") {
           await dialog.getByRole("button", { name: "Continuar sin descargar", exact: true }).click();
           await expect(dialog).toContainText("3 miembros pierden acceso al cerrar."); await expect(dialog).toContainText("Podrás reabrirlo hasta el");

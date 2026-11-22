@@ -130,7 +130,7 @@ describe("Reabrir on an approved record", () => {
     await page.wait(() => page.dialog() !== null, "the confirm");
     const text = page.dialog()!.textContent ?? "";
     assert.match(text, /¿Reabrir este recibo\?/);
-    assert.match(text, /Vuelve a la Bandeja para corregirlo\. Sale de tus registros hasta que lo apruebes de nuevo\./);
+    assert.match(text, /Vuelve a la Bandeja para corregirlo\. Sale de tus registros hasta que lo aceptes de nuevo\./);
     assert.deepEqual(page.sent, [], "nothing goes out before the confirm");
 
     const confirm = [...page.dialog()!.querySelectorAll("button")].find((item) => item.textContent?.trim() === "Reabrir");
@@ -139,7 +139,7 @@ describe("Reabrir on an approved record", () => {
     assert.equal(page.sent[0].version, page.start.version + 1, "the approved record's version goes with it");
     await page.wait(() => page.button() === null, "Reabrir to leave the open draft");
     assert.doesNotMatch(document.body.textContent ?? "", /Se registró un gasto/, "the recorded line is gone");
-    assert.ok(document.body.textContent?.includes("Aprobar"), "the open draft can be approved again");
+    assert.ok(document.body.textContent?.includes("Aceptar"), "the open draft can be approved again");
   });
 
   test("a record the server will not reopen offers nothing", async () => {

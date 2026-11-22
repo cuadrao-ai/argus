@@ -111,7 +111,7 @@ test.describe("one screen under an open record at 1440px", () => {
 
   test("an approved record opened from Actividad mounts Registros once and never the Bandeja", async ({ page }) => {
     await page.goto("/biz?view=activity");
-    await page.getByRole("button", { name: /Aprobó un gasto/ }).click();
+    await page.getByRole("button", { name: /Aceptó un gasto/ }).click();
     await expect(recordTitle(page)).toHaveText(APPROVED.merchant);
     await expect(page).toHaveURL(new RegExp(`receipt=${APPROVED.id}`));
     await expect(page.getByTestId("transacciones")).toBeVisible();

@@ -186,7 +186,7 @@ test("Actividad's window opens with its chip and lists the rows the server match
     await wait(500);
     assert.deepEqual(view.activityReads, [["Lucía", undefined]], "the server matches the query");
     assert.equal(rows().length, 1, "only Actividad's rows");
-    assert.ok(rows()[0].includes("Lucía Peña aprobó un gasto"), rows()[0]);
+    assert.ok(rows()[0].includes("Lucía Peña aceptó un gasto"), rows()[0]);
     assert.ok(rows()[0].includes("Ferretería La Esquina"), rows()[0]);
     assert.equal(window_().filterRow, null, "Actividad has no filter to hand the query to");
   } finally { await view.unmount(); }

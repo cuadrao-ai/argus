@@ -7,9 +7,15 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from argus.domain.business.bandeja_group import (
+    BandejaGroupName,
+    BandejaLabel,
+    BandejaReason,
+)
 from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.space_name import GivenName
+from argus.domain.business.supplier_fast_path import RncRegistryStatus
 
 from .actions import SUPPORTING_FILE_LIMIT, ApprovalAction, DuplicateDecision
 from .authority import ActorView, Capability, PersonName
@@ -276,6 +282,15 @@ class SupportingFile(Contract):
     restore_available: bool = False
 
 
+class BandejaStanding(Contract):
+    """Where a record stands in the Bandeja: the group, reason and label
+    ``bandeja_group.group_of`` gives its row in the receipt list."""
+
+    group: BandejaGroupName | None
+    reason: BandejaReason | None
+    label: BandejaLabel | None
+
+
 class BusinessDossier(RecordContext):
     deleted: DeletedDocument | None = None
     delete_available: bool = False
@@ -376,6 +391,18 @@ class BusinessDossier(RecordContext):
     #: year exactly when ``year_to_check`` holds.
     upload_year: int | None = None
     year_to_check: bool = False
+    #: Where the record stands in the Bandeja, by the one rule the receipt
+    #: list reads. ``label`` is ``accepted`` once the record is recorded.
+    bandeja_group: BandejaStanding = Field(
+        default_factory=lambda: BandejaStanding(group=None, reason=None, label=None)
+    )
+    #: Every reason a record that needs attention is not Listos, in the rule's
+    #: order; empty for any other record. ``bandeja_group.reason`` is one of them.
+    listo_gaps: tuple[BandejaReason, ...] = ()
+    #: What the DGII register says of the supplier RNC: its mapped status, or
+    #: ``not_found`` when the register does not list it. Null when the record
+    #: has no RNC or no register is loaded.
+    rnc_registry_status: RncRegistryStatus | None = None
 
     def model_facing(self) -> dict[str, Any]:
         """The dossier as every model reads it: the JSON dump without the
@@ -413,6 +440,9 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "review_flags": True,
     "upload_year": True,
     "year_to_check": True,
+    "bandeja_group": True,
+    "listo_gaps": True,
+    "rnc_registry_status": True,
     "history": {
         "__all__": {
             "before_due_on": True,

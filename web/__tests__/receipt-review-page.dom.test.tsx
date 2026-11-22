@@ -132,12 +132,12 @@ describe("one receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("a prepared record has one Aprobar, and a saved edit and its revision survive a trip to the Bandeja", async () => {
+  test("a prepared record has one Aceptar, and a saved edit and its revision survive a trip to the Bandeja", async () => {
     const page = await mount();
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     const id = dossierFixtureIds.ready;
     await page.open({ kind: "draft", draftId: id }, () => page.frame().fields !== null);
-    const approve = [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button')].filter((button) => button.textContent === "Aprobar");
+    const approve = [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button')].filter((button) => button.textContent === "Aceptar");
     assert.equal(approve.length, 1);
     const before = await page.source.dossier(id);
     await page.act(async () => {

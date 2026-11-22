@@ -33,12 +33,12 @@ async function mount(reviewNote: string | null | undefined) {
   document.body.appendChild(host);
   const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId={shown.draft_id} /></BusinessContext.Provider></I18nextProvider>));
-  const approve = [...host.querySelectorAll("button")].find((button) => button.textContent === "Aprobar");
+  const approve = [...host.querySelectorAll("button")].find((button) => button.textContent === "Aceptar");
   const close = async () => { await act(async () => root.unmount()); host.remove(); await GlobalRegistrator.unregister(); };
   return { host, approve, close };
 }
 
-test("the Spanish draft review shows the server sentence beside the values and beside Aprobar", async () => {
+test("the Spanish draft review shows the server sentence beside the values and beside Aceptar", async () => {
   const page = await mount(SENTENCE);
   try {
     const footer = page.host.querySelector("[data-testid='receipt-review-footer']");
@@ -52,7 +52,7 @@ test("the Spanish draft review shows the server sentence beside the values and b
   } finally { await page.close(); }
 });
 
-test("a draft with no review note renders none, and Aprobar stays available", async () => {
+test("a draft with no review note renders none, and Aceptar stays available", async () => {
   for (const reviewNote of [null, undefined] as const) {
     const page = await mount(reviewNote);
     try {

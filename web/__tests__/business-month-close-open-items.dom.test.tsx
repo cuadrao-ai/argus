@@ -186,7 +186,7 @@ describe("open items across months", () => {
     const { act, host, root } = await renderView(client);
     assert.ok(host.querySelector('[data-testid="home-month-first-day"]'));
     assert.match(host.querySelector('[data-document-id="inv-sept"]')?.textContent ?? "", /Clínica Aurora/);
-    assert.match(host.querySelector('[data-document-id="inv-sept"]')?.textContent ?? "", /12 sept/);
+    assert.match(host.querySelector('[data-document-id="inv-sept"]')?.textContent ?? "", /12 Sept/);
     assert.ok(!(host.textContent ?? "").includes("\u2014"), "Pendiente hoy never shows the long dash");
     await act(async () => root.unmount());
     host.remove();

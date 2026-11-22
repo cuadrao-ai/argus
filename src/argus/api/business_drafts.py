@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass
+from functools import partial
 from types import SimpleNamespace
 from typing import Annotated
 from uuid import UUID
@@ -46,7 +47,7 @@ from argus.domain.business.contracts.facts import (
     personal_mark_admits,
 )
 from argus.domain.business.people import named_deletion, people
-from argus.domain.business.receipts import read_attention
+from argus.domain.business.receipts import draft_row
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
@@ -57,7 +58,7 @@ from argus.domain.business.transactions import (
     transaction,
 )
 from argus.domain.ingestion.connections import ConnectionNotFound
-from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
+from argus.domain.ingestion.receipt_review import duplicate_warning
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
 
@@ -376,22 +377,16 @@ def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> N
                 raise ActionError("invalid_input", "business_action_required")
 
 
-_BRIDGE_STATUS = {
-    "open": "review_ready",
-    "accepting": "review_ready",
-    "accepted": "confirmed",
-    "dismissed": "dismissed",
-}
-
-
 def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # noqa: ANN001
-    """The bridge drafts each receipt is linked to, one query for all of them."""
+    """The bridge drafts each receipt is linked to, one query for all of them.
+    A row's ``attention`` is its duplicate warning while nobody settled it."""
 
     if not connection_ids:
         return {}
     rows = tx.rows(
         "select distinct s.connection_id, e.id, e.state, e.version, e.updated_at, e.attention,"
-        " e.activity_id, e.resolution, o.connection_id as duplicate_receipt_id,"
+        " e.possible_duplicates, e.activity_id, e.resolution,"
+        " o.connection_id as duplicate_receipt_id,"
         + MARKER_COLUMNS
         + " from public.business_sources s"
         " join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id"
@@ -414,21 +409,25 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
     found: dict[str, list[dict]] = {}
     markers = marker_people(tx, rows)
     for row in rows:
-        if row["attention"] == "possible_duplicate":
-            from argus.domain.business.actions.duplicate_resolution import (
-                attachment_signature,
-            )
-            from argus.domain.business.duplicates import pending_duplicates
-
-            event = tx.imports.event(str(row["id"]))
-            if event.possible_duplicates and not pending_duplicates(
-                tx.imports, event, lambda event_id: attachment_signature(tx, event_id)
-            ):
-                row["attention"] = None
+        if not duplicate_warning(
+            row["attention"], row["possible_duplicates"], partial(_pending, tx, row)
+        ):
+            row["attention"] = None
         facts = BusinessResolution.model_validate(row["resolution"]["business"]).facts
         row["marks"] = record_marks(facts, row, tx.context.owner_id, markers)
         found.setdefault(str(row["connection_id"]), []).append(row)
     return found
+
+
+def _pending(tx, row: dict) -> tuple[str, ...]:  # noqa: ANN001
+    from argus.domain.business.actions.duplicate_resolution import attachment_signature
+    from argus.domain.business.duplicates import pending_duplicates
+
+    return pending_duplicates(
+        tx.imports,
+        tx.imports.event(str(row["id"])),
+        lambda event_id: attachment_signature(tx, event_id),
+    )
 
 
 def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
@@ -470,9 +469,10 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     funding = value(facts.funding)
     out = {
         **summary,
-        "status": _BRIDGE_STATUS.get(row["state"], "review_ready"),
-        "attention": None,
-        "error_code": None,
+        **draft_row(
+            SimpleNamespace(state=row["state"], resolution=row["resolution"]),
+            duplicate=row["attention"] is not None,
+        ),
         "preparable": False,
         "enterable": False,
         "expense_id": str(row["activity_id"]) if row["activity_id"] else None,
@@ -499,17 +499,9 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     ):
         if key in summary:
             out[key] = item
-    out.update(
-        read_attention(SimpleNamespace(state=row["state"], resolution=row["resolution"]))
-    )
-    if row["state"] == "open" and row["attention"] in DUPLICATE_WARNINGS:
+    if out["attention"] == "duplicate":
         original = row.get("duplicate_receipt_id")
-        out.update(
-            status="needs_attention",
-            attention="duplicate",
-            error_code="possible_duplicate",
-            duplicate_of=str(original) if original else None,
-        )
+        out["duplicate_of"] = str(original) if original else None
     return out
 
 
