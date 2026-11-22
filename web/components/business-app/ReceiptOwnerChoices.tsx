@@ -1,19 +1,16 @@
 "use client";
 
-import { History, ReceiptText, SquareSparkles, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier, DeclarationSuggestion, ShownSuggestions } from "@/lib/business-dossier";
 import type { DgiiField, DgiiFields, PurchaseChoice, SuggestedField, SuggestionSource } from "@/lib/business-dgii";
-import { UNKNOWN_VALUE } from "./business-format";
 import { quietButtonClass } from "./business-ui";
 import { ReviewSelect } from "./ReceiptFieldControls";
-import { FACT_LABEL_CLASS, FACT_ROW_CLASS } from "./ReceiptRecordFacts";
+import { DossierCard, DossierControlRow, DossierRow, DossierRows, type RowStatus } from "./dossier/DossierParts";
 import ReceiptRowSave from "./ReceiptRowSave";
 import type { RowSave, SaveRow } from "./receipt-review-save";
 
 type Choice = keyof PurchaseChoice;
 const CHOICES: readonly SuggestedField[] = ["category", "payment_method"];
-const SOURCE_ICON: Record<SuggestionSource, LucideIcon> = { last_choice: History, receipt: ReceiptText, reading: SquareSparkles };
 
 /** The answer the record holds. A legacy unconfirmed tipo de gasto is no answer. */
 function savedChoice(dossier: BusinessDossier, choice: Choice): string {
@@ -50,21 +47,10 @@ export function shownSuggestions(view: ChoicesView): ShownSuggestions | undefine
   return shown.length ? Object.fromEntries(shown) : undefined;
 }
 
-function SourceChip({ source }: { source: SuggestionSource }) {
-  const { t } = useTranslation();
-  const Icon = SOURCE_ICON[source];
-  const label = t(`business.dossier.placeholder.suggestion_source.${source}`);
-  return (
-    <span role="img" aria-label={label} title={label} data-suggestion-source={source} className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#eceeea] text-[#56635e] dark:bg-white/10 dark:text-white/80">
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-    </span>
-  );
-}
-
 /**
- * Tipo de gasto and forma de pago, from the server's codes and the locale's text. Neither
- * blocks approval. A suggestion shows filled, with an icon for its source, and the approval
- * saves it; a value the person chose has no icon.
+ * The report card of General: tipo de gasto and forma de pago, from the server's codes and
+ * the locale's text. Neither blocks approval. A suggestion shows filled, with an icon for its
+ * source in the status slot, and the approval saves it; a value the person chose has no icon.
  */
 export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled, readOnly = false, saves, onChoose, onRetry, onCancel, onReload }: ChoicesView & {
   disabled: boolean;
@@ -79,31 +65,27 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
     const field = catalogField(fields, choice);
     const { value, source } = shownChoice({ dossier, fields, failed, readOnly }, choice);
     const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code }) || code;
-    const chip = source ? <SourceChip source={source} /> : null;
-    if (readOnly) return (
-      <div key={choice} data-fact={choice} className={FACT_ROW_CLASS}>
-        <dt className={FACT_LABEL_CLASS}>{label}</dt>
-        <dd className="flex min-w-0 items-center gap-2 py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white"><span className="min-w-0 break-words">{value ? name(value) : UNKNOWN_VALUE}</span>{chip}</dd>
-      </div>
-    );
+    // Where a suggestion came from, in the status slot; a value the person chose has no icon.
+    const status: RowStatus | null = source ? { kind: source, text: t(`business.dossier.placeholder.suggestion_source.${source}`) } : null;
+    if (readOnly) return <DossierRow key={choice} row={choice} label={label} status={status} value={value ? name(value) : ""} data={{ "data-suggestion-source": source ?? undefined }} />;
     return (
-      <div key={choice} data-fact={choice} className={FACT_ROW_CLASS}>
-        <dt className={FACT_LABEL_CLASS}>{label}</dt>
-        <dd className="min-w-0 py-1">
-          {field ? <label className="block"><span className="sr-only">{label}</span>
-            <ReviewSelect value={value} disabled={disabled} adornment={chip} onChange={(event) => onChoose(choice, event.target.value || null)}>
-              <option value="">{t("business.review.choose", "Choose")}</option>
-              {field.options.map((code) => <option key={code} value={code}>{name(code)}</option>)}
-            </ReviewSelect>
-          </label> : null}
-          <ReceiptRowSave save={saves[choice]} onRetry={() => onRetry(choice)} onCancel={() => onCancel(choice)} />
-        </dd>
-      </div>
+      <DossierControlRow key={choice} row={choice} label={label} status={status} below={<ReceiptRowSave save={saves[choice]} onRetry={() => onRetry(choice)} onCancel={() => onCancel(choice)} />}>
+        {field ? <label className="block"><span className="sr-only">{label}</span>
+          <ReviewSelect value={value} disabled={disabled} data-suggestion-source={source ?? undefined} onChange={(event) => onChoose(choice, event.target.value || null)}>
+            <option value="">{t("business.review.choose", "Choose")}</option>
+            {field.options.map((code) => <option key={code} value={code}>{name(code)}</option>)}
+          </ReviewSelect>
+        </label> : null}
+      </DossierControlRow>
     );
   };
-  if (failed) return <p role="alert" className="py-2 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.dgii.load_failed", "We couldn't load the tax fields.")}<button type="button" className={`${quietButtonClass} ml-2`} onClick={onReload}>{t("common.retry", "Retry")}</button></p>;
-  return <>
-    {row("category", t("business.dossier.placeholder.expense_type", "Expense type"))}
-    {row("payment_method", t("business.dossier.placeholder.payment_form", "Payment method"))}
-  </>;
+  const form = dossier.dgii?.form ?? (dossier.document_type === "venta" ? "607" : "606");
+  return (
+    <DossierCard title={t("business.dossier.card.report", { form })} testId="receipt-facts-choices">
+      {failed ? <p role="alert" className="py-3 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.dgii.load_failed", "We couldn't load the tax fields.")}<button type="button" className={`${quietButtonClass} ml-2`} onClick={onReload}>{t("common.retry", "Retry")}</button></p> : <DossierRows>
+        {row("category", t("business.dossier.placeholder.expense_type", "Expense type"))}
+        {row("payment_method", t("business.dossier.placeholder.payment_form", "Payment method"))}
+      </DossierRows>}
+    </DossierCard>
+  );
 }

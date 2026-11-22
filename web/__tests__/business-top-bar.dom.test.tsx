@@ -324,8 +324,8 @@ describe("Ocultar montos", () => {
     await page.open({ kind: "transactions" });
     await page.settle(() => page.screen().querySelector('[data-testid="transacciones-records"] .cuadrao-amount') !== null, "Transacciones' amounts");
     await page.open({ kind: "receipt", receiptId: "rcpt-ferreteria" });
-    await page.settle(() => document.querySelector('[data-testid="receipt-total"]') !== null, "the record total");
-    assert.ok(document.querySelector('[data-testid="receipt-total"]')!.classList.contains("cuadrao-amount"));
+    await page.settle(() => document.querySelector('[data-fact="amount"] [data-row-value]') !== null, "the record total");
+    assert.ok(document.querySelector('[data-fact="amount"] [data-row-value]')!.classList.contains("cuadrao-amount"));
   });
 });
 

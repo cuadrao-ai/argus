@@ -54,6 +54,10 @@ function revision(version: number, at: string, who: ReturnType<typeof actor>, be
 /** Local times, so the "DD/MM, h:mm a.m." line is the same in every time zone. */
 const at = (day: number, hour: number, minute: number) => new Date(2026, 9, day, hour, minute).toISOString();
 
+/** What one event says: its lines, then who did it (null when nobody is named). */
+const eventLines = (item: Element) => [...[...item.querySelectorAll("p")].map((line) => line.textContent), item.querySelector('[data-testid="history-who"] span')?.textContent ?? null];
+const accepted = "Aceptado";
+
 describe("Historial", () => {
   test("reads what happened, newest first, with who and when in one gray line, and colours only the approval", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
@@ -66,27 +70,34 @@ describe("Historial", () => {
     const approval = { status: "recorded", activity_id: "x", reviewed_version: 3, approved_revision: 3, approved_at: at(11, 0, 5), actor: actor("Lucía Mateo") } as BusinessDossier["approval_result"];
     const page = await render(<ReceiptHistory history={history} accounts={[]} sources={sources} approval={approval} />);
     const section = page.host.querySelector('[data-testid="receipt-history"]')!;
-    // One folded row, "Historial · N"; it opens to every event, newest first.
-    assert.equal(section.querySelector("h3")?.textContent, "Historial · 5");
-    const fold = section.querySelector<HTMLButtonElement>("h3 button")!;
-    assert.equal(fold.getAttribute("aria-expanded"), "false");
-    assert.equal(section.querySelector("ol")?.hidden, true, "folded until opened");
-    await page.act(async () => { fold.click(); });
-    assert.equal(section.querySelector("ol")?.hidden, false);
-    const lines = () => [...section.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
-    assert.deepEqual(lines(), [
-      ["Moneda cambiada de DOP a USD", "Ana Peña · 11/10, 8:00 a.m."],
-      ["Aceptado", "Lucía Mateo · 11/10, 12:05 a.m."],
-      ["Total (con ITBIS) cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña · 10/10, 1:05 p.m."],
-      ["Leído", "Cuadrao · 10/10, 9:25 a.m."],
-      ["Recibido · WhatsApp", "10/10, 9:20 a.m."],
+    // One card per day, newest first: every event says what happened, who did it and when, in full.
+    assert.deepEqual([...section.querySelectorAll('[data-testid="history-day"] h3')].map((title) => title.textContent), ["11 Oct 2026", "10 Oct 2026"]);
+    assert.equal(section.querySelector("button"), null, "nothing folds: the tab is the Historial");
+    assert.deepEqual([...section.querySelectorAll("li")].map(eventLines), [
+      ["Moneda cambiada de DOP a USD", "Ana Peña"],
+      [accepted, "Pasó a Registros", "Lucía Mateo"],
+      ["Total cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña"],
+      ["Leído", "Cuadrao"],
+      ["Llegó por WhatsApp", "a.jpg", null],
     ]);
-    const dots = [...section.querySelectorAll<HTMLElement>('[data-testid="history-dot"]')].map((dot) => dot.style.backgroundColor);
-    assert.deepEqual(dots, ["#56635e", "#2f5a49", "#56635e", "#56635e", "#56635e"], "gray dots except the status change");
-    assert.equal(section.querySelectorAll("li svg").length, 0, "no icon per event");
-    assert.doesNotMatch(section.textContent ?? "", /revisi[oó]n|tras aceptar|primer flujo|registrado|desconocido/i);
-    assert.equal(document.activeElement, section.querySelectorAll("li")[0], "focus lands on the newest event the fold revealed");
+    const times = [...section.querySelectorAll("time")];
+    assert.deepEqual(times.map((time) => time.getAttribute("datetime")), [at(11, 8, 0), at(11, 0, 5), at(10, 13, 5), at(10, 9, 25), at(10, 9, 20)]);
+    for (const time of times) assert.match(time.textContent ?? "", /\d{1,2} \w+\.? 2026, \d{1,2}:\d{2}/, "the full date and time");
+    assert.deepEqual([...section.querySelectorAll('[data-testid="history-dot"]')].map((dot) => dot.getAttribute("data-approved")), [null, "true", null, null, null], "only the acceptance is green");
+    assert.doesNotMatch(section.textContent ?? "", /revisi[oó]n|tras aceptar|primer flujo|registrado|desconocido|segundos/i);
     await page.close();
+  });
+
+  test("the acceptance names no report: only the server knows whether a record goes into one", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const approval = { status: "recorded", activity_id: "x", reviewed_version: 1, approved_revision: 1, approved_at: at(11, 0, 5), actor: actor("Lucía Mateo") } as BusinessDossier["approval_result"];
+    for (const documentType of ["recibo", "venta", undefined] as const) {
+      const page = await render(<ReceiptHistory documentType={documentType} history={[revision(1, at(10, 9, 25), actor("Cuadrao", "extractor"), null, facts("1200.00"))]} accounts={[]} sources={[]} approval={approval} />);
+      const event = page.host.querySelector('[data-approved="true"]')!;
+      assert.equal(event.querySelector('[data-testid="history-sub"]')?.textContent, "Pasó a Registros");
+      assert.doesNotMatch(event.textContent ?? "", /60[67]|[Rr]eporte/);
+      await page.close();
+    }
   });
 
   test("names the channel a receipt came in by: Correo and Subido", async () => {
@@ -94,7 +105,7 @@ describe("Historial", () => {
     for (const [channel, word] of [["email", "Correo"], ["web", "Subido"]] as const) {
       const sources = [{ id: "s", kind: "attachment", channel, received_at: at(10, 9, 0), connection_id: "c", filename: null, media_type: "application/pdf" }] as BusinessDossier["sources"];
       const page = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources} />);
-      assert.equal(page.host.querySelector("li p")?.textContent, `Recibido · ${word}`);
+      assert.equal(page.host.querySelector("li p")?.textContent, `Llegó por ${word}`);
       await page.close();
     }
   });
@@ -107,7 +118,7 @@ describe("Historial", () => {
       { id: "m", kind: "message", channel: "whatsapp", received_at: at(9, 9, 0), text: "Te mando el recibo" },
     ] as BusinessDossier["sources"];
     const page = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources} />);
-    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Recibido · WhatsApp"]);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Llegó por WhatsApp"]);
     await page.close();
     const proposalOnly = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources.slice(0, 2)} />);
     assert.equal(proposalOnly.host.querySelector('[data-testid="receipt-history"]'), null);
@@ -125,7 +136,7 @@ describe("Historial", () => {
   test("events of one revision keep their field order", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), facts("100.00"), facts("200.00", "USD"))]} accounts={[]} />);
-    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Total (con ITBIS) cambiado de RD$ 100.00 a US$ 200.00", "Moneda cambiada de DOP a USD"]);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Total cambiado de RD$ 100.00 a US$ 200.00", "Moneda cambiada de DOP a USD"]);
     await page.close();
   });
 
@@ -151,18 +162,8 @@ describe("Historial", () => {
     const created = { ...facts("500.00"), kind: unknown, occurred_on: unknown, counterparty: unknown } as unknown as BusinessFacts;
     const page = await render(<ReceiptHistory history={[revision(1, at(10, 9, 0), actor("Ana Peña"), null, created)]} accounts={[]} />);
     const text = [...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent);
-    assert.deepEqual(text.sort(), ["Moneda: DOP", "Total (con ITBIS): RD$ 500.00"]);
+    assert.deepEqual(text.sort(), ["Moneda: DOP", "Total: RD$ 500.00"]);
     await page.close();
-  });
-});
-
-describe("historyWhen", () => {
-  test("writes DD/MM, h:mm with a.m. and p.m.", async () => {
-    const { historyWhen } = await import("@/components/business-app/ReceiptHistory");
-    assert.equal(historyWhen(at(10, 9, 25), "a.m.", "p.m."), "10/10, 9:25 a.m.");
-    assert.equal(historyWhen(at(3, 13, 5), "a.m.", "p.m."), "03/10, 1:05 p.m.");
-    assert.equal(historyWhen(at(3, 0, 5), "a.m.", "p.m."), "03/10, 12:05 a.m.");
-    assert.equal(historyWhen(at(3, 12, 0), "a.m.", "p.m."), "03/10, 12:00 p.m.");
   });
 });
 
@@ -210,10 +211,10 @@ test("a draft the first Business RNC moved reads as a change through Cuadrao wit
     { ...revision(2, at(11, 8, 0), actor("Ana Peña", "extractor"), facts("1200.00"), sale), reason: "business_rnc_set" as const },
   ];
   const page = await render(<ReceiptHistory history={history} accounts={[]} documentType="venta" />);
-  const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
+  const lines = [...page.host.querySelectorAll("li")].map(eventLines);
   assert.deepEqual(lines, [
-    ["Actividad cambiada de Gasto a Ingreso", "Lo emitió tu negocio", "Ana Peña vía Cuadrao · 11/10, 8:00 a.m."],
-    ["Leído", "Cuadrao · 10/10, 9:25 a.m."],
+    ["Actividad cambiada de Gasto a Ingreso", "Lo emitió tu negocio", "Ana Peña vía Cuadrao"],
+    ["Leído", "Cuadrao"],
   ]);
   const chips = page.host.querySelector('[data-testid="history-diff"]')!;
   assert.deepEqual([chips.querySelector("del")?.textContent, chips.querySelector("ins")?.textContent], ["Gasto", "Ingreso"]);
@@ -230,10 +231,10 @@ test("a pair settled as different purchases reads as one line naming the other d
     { ...revision(2, at(11, 8, 0), actor("Ana Peña"), facts("1200.00"), facts("1200.00")), duplicate },
   ];
   const page = await render(<ReceiptHistory history={history} accounts={[]} />);
-  const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
+  const lines = [...page.host.querySelectorAll("li")].map(eventLines);
   assert.deepEqual(lines, [
-    ["Marcado como compra distinta de Ferretería Ochoa, factura.pdf", "Ana Peña · 11/10, 8:00 a.m."],
-    ["Leído", "Cuadrao · 10/10, 9:25 a.m."],
+    ["Marcado como compra distinta de Ferretería Ochoa, factura.pdf", "Ana Peña"],
+    ["Leído", "Cuadrao"],
   ]);
   await page.close();
 });
@@ -243,8 +244,8 @@ test("a pair settled as different purchases names a purged other document as del
   const duplicate = { decision: "different_purchase" as const, other_draft_id: "draft-purged", other_counterparty: null, other_filename: null };
   const history = [{ ...revision(2, at(11, 8, 0), actor("Ana Peña"), facts("1200.00"), facts("1200.00")), duplicate }];
   const page = await render(<ReceiptHistory history={history} accounts={[]} />);
-  const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
-  assert.deepEqual(lines, [["Marcado como compra distinta de Documento eliminado", "Ana Peña · 11/10, 8:00 a.m."]]);
+  const lines = [...page.host.querySelectorAll("li")].map(eventLines);
+  assert.deepEqual(lines, [["Marcado como compra distinta de Documento eliminado", "Ana Peña"]]);
   await page.close();
 });
 
@@ -344,7 +345,7 @@ describe("a fiscal save in Historial", () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const page = await render(<ReceiptHistory history={[revision(1, at(12, 20, 0), actor("QA Owner", "extractor"), null, facts("3450.00"))]} accounts={[]} />);
     const [entry] = entries(page.host);
-    assert.deepEqual([...entry.querySelectorAll("p")].map((line) => line.textContent), ["Leído", "Cuadrao · 12/10, 8:00 p.m."]);
+    assert.deepEqual(eventLines(entry), ["Leído", "Cuadrao"]);
     await page.close();
   });
 

@@ -22,6 +22,7 @@ on:
       - web/components/ThemeProvider.tsx
       - web/components/business-app/*
       - web/components/business-app/actividad/*
+      - web/components/business-app/dossier/*
       - web/components/business-app/foundation/*
       - web/components/business-app/inicio/*
       - web/components/business-app/invoicing/*

@@ -162,7 +162,8 @@ test("accepting the Listos together shows the counts the answer carries", async 
 
 test("an open receipt's place follows the list the server last answered with (#2150)", async () => {
   const page = await mount();
-  const place = () => document.querySelector('[data-testid="receipt-place"] span')?.textContent ?? null;
+  // "N de M" opens the jump card when the receipt has a list, and is plain words when it has none.
+  const place = () => document.querySelector('[data-testid="receipt-place"] :is([data-testid="dossier-jump"], span)')?.textContent ?? null;
   const row = [...document.querySelectorAll('[data-testid="reception-row"]')].find(node => node.textContent?.includes("Documento listo"));
   await page.click([...row!.querySelectorAll("button")].find(node => node.textContent?.trim() === "Abrir"));
   await page.wait(() => place() !== null, "the open receipt's place");

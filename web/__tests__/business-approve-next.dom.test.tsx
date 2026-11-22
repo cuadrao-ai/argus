@@ -203,7 +203,8 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     const page = await mount({ width: 390 });
     try {
       await page.open("rcpt-uno", receiptIds);
-      await page.click("Aceptar y siguiente", () => page.panel().kind === "inbox");
+      // The last document of a run has one verb, and it still moves on.
+      await page.click(receiptIds.length ? "Aceptar" : "Aceptar y siguiente", () => page.panel().kind === "inbox");
       assert.equal(page.panel().kind, "inbox");
     } finally { await page.act(async () => page.root.unmount()); }
   });

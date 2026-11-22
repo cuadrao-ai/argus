@@ -6,8 +6,6 @@ import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
 import { approvalLine, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
-import DossierAttentionStrip from "@/components/business-app/DossierAttentionStrip";
-import { dossierAttention } from "@/components/business-app/dossier-attention";
 import { saveBlobDownload } from "@/lib/save-blob-download";
 import { factsRevision, type BusinessDossier } from "@/lib/business-dossier";
 import { fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
@@ -16,22 +14,15 @@ import { createFixtureBusinessDataSource } from "@/components/business-app/fixtu
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import { presentBusinessFact, presentFiscalFact } from "@/components/business-app/receipt-fact-presentation";
 
-test("the attention strip leaves out a recorded dossier's blockers and keeps them while open or uncertain", async () => {
+test("the sample dossier stands where the server rule would put it: accepted has no gap, an open one keeps its own", async () => {
   const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
   const ready = await fixture.dossier(dossierFixtureIds.ready);
+  assert.deepEqual([ready.bandeja_group, ready.listo_gaps], [{ group: "listo", reason: null, label: "ready" }, []]);
   const accepted = await fixture.approveDraft(ready.draft_id, ready.version);
-  const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
-  const render = (dossier: BusinessDossier) => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(DossierAttentionStrip, { items: dossierAttention(dossier, i18n.t.bind(i18n), i18n.language) })));
-  const closed = { ...accepted, blockers: [{ code: "business_draft_not_open", field: null }] };
-  assert.equal(render(closed), "");
-  const open = await fixture.dossier(dossierFixtureIds.unknown);
-  assert.match(render(open), /Falta para aceptar/);
-  assert.match(render(open), /Cómo se pagó/);
-  const uncertain = { ...open, review_state: "accepting" as const, approval_result: { status: "outcome_unknown" as const, code: "recording_unknown", reviewed_version: open.version } };
-  assert.match(render(uncertain), /Falta para aceptar/);
-  assert.match(render({ ...closed, approval_result: uncertain.approval_result }), /Falta para aceptar/);
-  assert.match(render({ ...closed, review_state: "open" }), /Falta para aceptar/);
+  assert.deepEqual([accepted.bandeja_group, accepted.listo_gaps], [{ group: null, reason: null, label: "accepted" }, []]);
+  const blocked = await fixture.dossier(dossierFixtureIds.fiscalBlocked);
+  assert.equal(blocked.bandeja_group?.label, "needs_attention");
+  assert.deepEqual(blocked.listo_gaps, ["missing_date"]);
 });
 
 test("canonical draft transport binds explicit ID, version, human effect and idempotency", async () => {
