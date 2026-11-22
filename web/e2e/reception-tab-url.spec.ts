@@ -38,20 +38,17 @@ for (const value of ["", "unknown"]) test(`missing or unknown tab falls back to 
   await expect(page.locator("#reception-tab-all")).toHaveAttribute("aria-selected", "true");
 });
 
-test("back and forward restore the tab without duplicate entries", async ({ page }) => {
+test("choosing a tab adds no history entry", async ({ page }) => {
   await page.goto("/dev/business-preview?view=inbox");
+  const entries = await page.evaluate(() => window.history.length);
   await page.locator("#reception-tab-listos").click();
   await page.locator("#reception-tab-attention").click();
-  await page.locator("#reception-tab-attention").click();
-  await page.goBack();
-  await expect(page.locator("#reception-tab-listos")).toHaveAttribute("aria-selected", "true");
-  await page.goBack();
-  await expect(page.locator("#reception-tab-all")).toHaveAttribute("aria-selected", "true");
-  await page.goForward();
-  await expect(page.locator("#reception-tab-listos")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#reception-tab-attention")).toHaveAttribute("aria-selected", "true");
+  expect(new URL(page.url()).searchParams.get("receptionView")).toBe("attention");
+  expect(await page.evaluate(() => window.history.length)).toBe(entries);
 });
 
-test("closing a dossier preserves its Listos tab and tab history", async ({ page }) => {
+test("closing a dossier preserves its Listos tab", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dev/business-preview?view=inbox");
   await page.locator("#reception-tab-listos").click();
@@ -61,6 +58,16 @@ test("closing a dossier preserves its Listos tab and tab history", async ({ page
   await expect(page.getByTestId("side-drawer")).toHaveCount(0);
   await expect(page.locator("#reception-tab-listos")).toHaveAttribute("aria-selected", "true");
   expect(new URL(page.url()).searchParams.get("receptionView")).toBe("listos");
-  await page.goBack();
+});
+
+test("another screen drops the tab, so the Bandeja opens on Todos again", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/dev/business-preview?view=inbox");
+  await page.locator("#reception-tab-listos").click();
+  const nav = page.getByTestId("business-sidebar-nav");
+  await nav.getByRole("button", { name: /Registros/ }).click();
+  await expect(page).toHaveURL(/view=transactions/);
+  expect(new URL(page.url()).searchParams.has("receptionView")).toBe(false);
+  await nav.getByRole("button", { name: /Bandeja/ }).click();
   await expect(page.locator("#reception-tab-all")).toHaveAttribute("aria-selected", "true");
 });

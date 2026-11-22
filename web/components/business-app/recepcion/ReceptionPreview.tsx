@@ -14,7 +14,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useReceivingChannels } from "../business-context";
-import { useBusiness } from "../BusinessWorkspace";
+import { RECEPTION_VIEW_PARAM, useBusiness } from "../BusinessWorkspace";
 import ReceiptReadingControl from "../ReceiptReadingControl";
 import { loadFailure, type LoadFailure } from "../bandeja-sources";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -52,7 +52,7 @@ import styles from "./reception.module.css";
 const VIEWS: ReceptionView[] = ["all", "attention", "listos", "eliminados"];
 const VIEW_CHANGE = "reception-view-change";
 const readView = (): ReceptionView => {
-  const value = new URLSearchParams(window.location.search).get("receptionView");
+  const value = new URLSearchParams(window.location.search).get(RECEPTION_VIEW_PARAM);
   return VIEWS.find(view => view === value) ?? "all";
 };
 const subscribeView = (notify: () => void) => {
@@ -60,12 +60,12 @@ const subscribeView = (notify: () => void) => {
   window.addEventListener(VIEW_CHANGE, notify);
   return () => { window.removeEventListener("popstate", notify); window.removeEventListener(VIEW_CHANGE, notify); };
 };
-function writeView(view: ReceptionView, replace = false) {
+// Replace, like the workspace's own panel address: a tab is not a history step.
+function writeView(view: ReceptionView) {
   const url = new URL(window.location.href);
-  if (url.searchParams.get("receptionView") === view) return;
-  url.searchParams.set("receptionView", view);
-  // Native history integrates with the app router without reloading the list.
-  window.history[replace ? "replaceState" : "pushState"](null, "", url);
+  if (url.searchParams.get(RECEPTION_VIEW_PARAM) === view) return;
+  url.searchParams.set(RECEPTION_VIEW_PARAM, view);
+  window.history.replaceState(null, "", url);
   window.dispatchEvent(new Event(VIEW_CHANGE));
 }
 /** Each tab's word, under `business.reception_preview`. */
@@ -96,7 +96,7 @@ function ReceptionWorkspace() {
   const [loaded, setLoaded] = useState<ArrivalLoad | null>(null);
   const [attempt, setAttempt] = useState(0);
   const view = useSyncExternalStore<ReceptionView>(subscribeView, readView, () => "all");
-  useEffect(() => { if (panel.kind === "inbox" && panel.view === "eliminados") writeView("eliminados", true); }, [panel]);
+  useEffect(() => { if (panel.kind === "inbox" && panel.view === "eliminados") writeView("eliminados"); }, [panel]);
   const stateWord = useReceiptStateWord();
   const [deleting, setDeleting] = useState<ReceptionRow | null>(null);
   const deletedNotes = useDeletedNotes(view === "eliminados");

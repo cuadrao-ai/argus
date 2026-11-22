@@ -39,7 +39,7 @@ import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessio
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { shownScreen } from "./record-tray";
+import { recordList, shownScreen } from "./record-tray";
 import { browserAuthGeneration } from "@/lib/browser-auth-generation";
 import { withBusinessSession, withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
@@ -203,6 +203,8 @@ const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor, so `has_more` sends the rest to search.
 const NOTES_PAGE = 50;
 const PANEL_KINDS = new Set(["overview", "inbox", "transactions"]);
+/** The Bandeja tab, kept while the Bandeja or a record opened from it is on screen. */
+export const RECEPTION_VIEW_PARAM = "receptionView";
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
@@ -273,6 +275,7 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
     url.searchParams.delete("email");
     url.searchParams.delete("segment");
     url.searchParams.delete("tab");
+    if (panel.kind !== "inbox" && recordList(panel) !== "inbox") url.searchParams.delete(RECEPTION_VIEW_PARAM);
     if (view === "workspace") {
       if (panel.kind === "business" && panel.tab) url.searchParams.set("tab", panel.tab);
       if (panel.kind === "receipt") url.searchParams.set("receipt", panel.receiptId);
