@@ -2833,9 +2833,91 @@
       "view_document": "View document"
     },
     "dossier": {
+      "card": {
+        "billed": "Billed amount",
+        "comprobante": "Receipt",
+        "other_taxes": "Other taxes",
+        "report": "{{form}} report"
+      },
+      "details": {
+        "arrived": "Arrived",
+        "channel": "Channel",
+        "file": "File",
+        "name": "Name",
+        "origin": "Origin",
+        "sent_by": "Sent by",
+        "size": "Size"
+      },
+      "document": {
+        "controls": "Document controls",
+        "download": "Download {{name}}",
+        "region": "Document"
+      },
+      "fiscal": {
+        "add_retention": "Add withholding",
+        "add_tax": "Add tax",
+        "no_other_taxes": "No other taxes.",
+        "no_retentions": "No withholdings.",
+        "remove": "Remove"
+      },
+      "gap": {
+        "missing_amount": {
+          "title": "The total is missing",
+          "text": "Enter the document's total."
+        },
+        "missing_ncf": {
+          "title": "The NCF is missing",
+          "text": "Enter it as the document shows it."
+        },
+        "missing_rnc": {
+          "title": "The RNC is missing",
+          "text": "Enter it as the document shows it."
+        }
+      },
+      "nav": {
+        "group": "Move between documents",
+        "list": "See the list",
+        "list_place": "See the list, {{place}}",
+        "next": "Next",
+        "previous": "Previous",
+        "unopened": "Unopened"
+      },
+      "problems": {
+        "count_one": "{{count}} to resolve",
+        "count_other": "{{count}} to resolve",
+        "list": "To resolve"
+      },
       "read_purchases_title": "Purchases read on this receipt",
       "read_purchases_note": "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.",
       "read_purchase": "Purchase {{index}}",
+      "rnc_registry": {
+        "cese_temporal": "Temporarily ceased in the DGII",
+        "dado_de_baja": "Deregistered in the DGII",
+        "not_found": "Not listed in the DGII",
+        "suspendido": "Suspended in the DGII",
+        "verificado": "Verified"
+      },
+      "row": {
+        "cedula": "Cédula",
+        "date": "Date",
+        "edit": "Correct {{field}}",
+        "no_data": "No value",
+        "subtotal": "Subtotal"
+      },
+      "size": {
+        "narrow": "Narrow",
+        "wide": "Widen"
+      },
+      "tab": {
+        "general": "General",
+        "documento": "Document",
+        "fiscal": "Tax details",
+        "detalles": "Details",
+        "historial": "History",
+        "label": "Information",
+        "count_one": "{{count}} to resolve",
+        "count_other": "{{count}} to resolve"
+      },
       "unknown_amount": "Amount unknown",
       "read_remainder_one": "Recorded {{recorded}} of a total of {{total}}. {{count}} purchase on this receipt is still unrecorded.",
       "read_remainder_other": "Recorded {{recorded}} of a total of {{total}}. {{count}} purchases on this receipt are still unrecorded.",
@@ -3036,8 +3118,74 @@
       "placeholder": {
         "blocks_title": "Needed to approve",
         "expense_type": "Expense type",
+        "gap": {
+          "blocked": {
+            "title": "Something is pending",
+            "text": "Resolve what is pending before you accept it."
+          },
+          "check_details": {
+            "title": "Check the details",
+            "text": "The read left doubtful values. Compare them with the document."
+          },
+          "credit_note": {
+            "title": "It is a credit note",
+            "text": "Check which purchase it belongs to."
+          },
+          "duplicate": {
+            "text": "It looks like another document."
+          },
+          "ecf_check_failed": {
+            "title": "The e-CF did not pass the check",
+            "text": "Compare the values with the document."
+          },
+          "missing_currency": {
+            "title": "The currency is missing",
+            "text": "Choose the document's currency."
+          },
+          "missing_date": {
+            "title": "The date is missing",
+            "text": "Enter it as the document shows it."
+          },
+          "missing_itbis": {
+            "title": "The ITBIS is missing",
+            "text": "Enter it as the document shows it. If it has none, enter 0.00."
+          },
+          "missing_merchant": {
+            "title": "The issuer is missing",
+            "text": "Enter it as the document shows it."
+          },
+          "no_purchase_found": {
+            "title": "We found no purchase",
+            "text": "Enter the values as the document shows them."
+          },
+          "not_read": {
+            "title": "Not read",
+            "text": "This document has not been read yet."
+          },
+          "review_flag": {
+            "title": "It has values to check",
+            "text": "Check the marked values."
+          },
+          "several_purchases": {
+            "title": "Several purchases on one receipt",
+            "text": "Complete this record with one of the purchases."
+          },
+          "sin_comprobante": {
+            "title": "No fiscal receipt",
+            "text": "This document has no NCF or e-CF."
+          },
+          "unverified_sender": {
+            "title": "Unverified sender",
+            "text": "It came by email from a sender who is not on your list."
+          }
+        },
         "more_fiscal": "More tax details",
         "payment_form": "Payment method",
+        "rnc_registry": {
+          "anulado": "Annulled in the DGII",
+          "desconocido": "Status not confirmed in the DGII",
+          "rechazado": "Rejected in the DGII"
+        },
         "save_lost": "We couldn't confirm that {{field}} was saved. Approval is paused.",
         "save_refused": "{{field}} wasn't saved. Check the value.",
         "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
@@ -3208,8 +3356,10 @@
       }
     },
     "history": {
+      "accepted_note": "It moved to Records and the {{form}} report",
       "am": "AM",
       "approved": "Approved",
+      "arrived": "Arrived by {{channel}}",
       "changed": "{{field}} changed from {{before}} to {{after}}",
       "changed_female": "{{field}} changed from {{before}} to {{after}}",
       "channel_email": "Email",
@@ -3225,7 +3375,9 @@
       "rnc_verified": "RNC verified",
       "set": "{{field}}: {{after}}",
       "title": "History",
-      "via_cuadrao": "{{name}} via Cuadrao"
+      "today": "Today",
+      "via_cuadrao": "{{name}} via Cuadrao",
+      "yesterday": "Yesterday"
     },
     "reading": {
       "line": "Reading your receipt…",

@@ -1,5 +1,5 @@
 import type { BusinessAccount, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
-import { factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type RefundCandidate, type ShownSuggestions } from "@/lib/business-dossier";
+import { factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type ListoGap, type RefundCandidate, type ShownSuggestions } from "@/lib/business-dossier";
 import type { DgiiDeclaration, DgiiField, DgiiFields, DgiiReview, PurchaseChoice, SuggestedField, SuggestionSources } from "@/lib/business-dgii";
 import { noteGroup } from "./fixture-server-rules";
 
@@ -12,6 +12,35 @@ function keptSources(before: DgiiDeclaration | null | undefined, after: DgiiDecl
   const next: DgiiDeclaration = { ...after };
   delete next.suggestion_sources;
   return Object.keys(kept).length ? { ...next, suggestion_sources: kept } : next;
+}
+
+const BLOCKED_FIELD_GAP: Partial<Record<string, ListoGap>> = { counterparty: "missing_merchant", occurred_on: "missing_date", amount: "missing_amount", currency: "missing_currency" };
+
+/**
+ * `bandeja_group.py` in short, over what a sample record already states: its
+ * duplicate candidates, its blockers, its RNC and its review flags. A sample
+ * that seeds `bandeja_group` or `listo_gaps` keeps its own.
+ */
+function sampleStanding(draft: BusinessDossier): Pick<BusinessDossier, "bandeja_group" | "listo_gaps"> {
+  if (draft.deleted) return { bandeja_group: { group: "eliminados", reason: null, label: null }, listo_gaps: [] };
+  if (draft.review_state === "accepted") return { bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [] };
+  if (draft.review_state === "dismissed") return { bandeja_group: { group: null, reason: null, label: null }, listo_gaps: [] };
+  if (draft.review_state === "accepting") return { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [] };
+  const flags = draft.review_flags ?? [];
+  const rnc = draft.facts.fiscal?.rnc;
+  const digits = rnc?.state === "known" ? rnc.value.replace(/\D/g, "") : "";
+  const gaps: ListoGap[] = [
+    ...(draft.duplicate_candidates?.length || draft.blockers.some((blocker) => blocker.code === "possible_duplicate") ? ["duplicate" as const] : []),
+    ...draft.blockers.flatMap((blocker) => BLOCKED_FIELD_GAP[blocker.field ?? ""] ?? []),
+    ...(draft.facts.fiscal && !digits ? ["missing_rnc" as const] : []),
+    ...(digits && (flags.some((flag) => flag.code === "rnc_check_digit") || (digits.length !== 9 && digits.length !== 11)) ? ["invalid_rnc" as const] : []),
+    ...(flags.some((flag) => flag.code === "ncf_malformed") ? ["invalid_ncf" as const] : []),
+    ...(flags.length ? ["review_flag" as const] : []),
+    ...(draft.blockers.some((blocker) => blocker.code !== "possible_duplicate" && !BLOCKED_FIELD_GAP[blocker.field ?? ""]) ? ["blocked" as const] : []),
+  ];
+  return gaps.length
+    ? { bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: gaps }
+    : { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [] };
 }
 
 export const dossierFixtureIds = {
@@ -196,7 +225,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     if (!found) return fail(404, "draft_not_found");
     // The sample reads a type the way the server does: open and preparable means it can still change.
     const stated = found.facts.receipt_state.state === "known" && (found.facts.receipt_state.value === "no_receipt" || found.facts.receipt_state.value === "informal_receipt");
-    return structuredClone({ document_type: "recibo" as const, ...found, sin_comprobante: stated && !found.fiscal_value, document_type_editable: found.review_state === "open" && found.capabilities.includes("prepare"), ...served(found) });
+    return structuredClone({ document_type: "recibo" as const, ...sampleStanding(found), ...found, sin_comprobante: stated && !found.fiscal_value, document_type_editable: found.review_state === "open" && found.capabilities.includes("prepare"), ...served(found) });
   };
   let receiptDraftCount = 0;
   let captureCount = 0;

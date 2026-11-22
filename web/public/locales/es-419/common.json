@@ -2833,9 +2833,91 @@
       "view_document": "Ver documento"
     },
     "dossier": {
+      "card": {
+        "billed": "Monto facturado",
+        "comprobante": "Comprobante",
+        "other_taxes": "Otros impuestos",
+        "report": "Reporte {{form}}"
+      },
+      "details": {
+        "arrived": "Llegada",
+        "channel": "Canal",
+        "file": "Archivo",
+        "name": "Nombre",
+        "origin": "Origen",
+        "sent_by": "Enviado por",
+        "size": "Tamaño"
+      },
+      "document": {
+        "controls": "Controles del documento",
+        "download": "Descargar {{name}}",
+        "region": "Documento"
+      },
+      "fiscal": {
+        "add_retention": "Agregar retención",
+        "add_tax": "Agregar impuesto",
+        "no_other_taxes": "Sin otros impuestos.",
+        "no_retentions": "Sin retenciones.",
+        "remove": "Quitar"
+      },
+      "gap": {
+        "missing_amount": {
+          "title": "Falta el total",
+          "text": "Escribe el total del documento."
+        },
+        "missing_ncf": {
+          "title": "Falta el NCF",
+          "text": "Escríbelo como aparece en el documento."
+        },
+        "missing_rnc": {
+          "title": "Falta el RNC",
+          "text": "Escríbelo como aparece en el documento."
+        }
+      },
+      "nav": {
+        "group": "Moverse entre documentos",
+        "list": "Ver la lista",
+        "list_place": "Ver la lista, {{place}}",
+        "next": "Siguiente",
+        "previous": "Anterior",
+        "unopened": "Sin abrir"
+      },
+      "problems": {
+        "count_one": "{{count}} por resolver",
+        "count_other": "{{count}} por resolver",
+        "list": "Por resolver"
+      },
       "read_purchases_title": "Compras leídas en este recibo",
       "read_purchases_note": "La lectura mostró más de una compra. Completa este registro con una de ellas; las demás quedan aquí como evidencia.",
       "read_purchase": "Compra {{index}}",
+      "rnc_registry": {
+        "cese_temporal": "Cese temporal en la DGII",
+        "dado_de_baja": "Dado de baja en la DGII",
+        "not_found": "No aparece en la DGII",
+        "suspendido": "Suspendido en la DGII",
+        "verificado": "Verificado"
+      },
+      "row": {
+        "cedula": "Cédula",
+        "date": "Fecha",
+        "edit": "Corregir {{field}}",
+        "no_data": "Sin dato",
+        "subtotal": "Subtotal"
+      },
+      "size": {
+        "narrow": "Reducir",
+        "wide": "Ampliar"
+      },
+      "tab": {
+        "general": "General",
+        "documento": "Documento",
+        "fiscal": "Datos fiscales",
+        "detalles": "Detalles",
+        "historial": "Historial",
+        "label": "Información",
+        "count_one": "{{count}} por resolver",
+        "count_other": "{{count}} por resolver"
+      },
       "unknown_amount": "Monto desconocido",
       "read_remainder_one": "Registrado {{recorded}} de un total de {{total}}. {{count}} compra de este recibo sigue sin registrar.",
       "read_remainder_other": "Registrado {{recorded}} de un total de {{total}}. {{count}} compras de este recibo siguen sin registrar.",
@@ -3036,8 +3118,74 @@
       "placeholder": {
         "blocks_title": "Falta para aprobar",
         "expense_type": "Tipo de gasto",
+        "gap": {
+          "blocked": {
+            "title": "Tiene algo pendiente",
+            "text": "Resuelve lo pendiente antes de aceptarlo."
+          },
+          "check_details": {
+            "title": "Revisa los datos",
+            "text": "La lectura dejó datos dudosos. Compáralos con el documento."
+          },
+          "credit_note": {
+            "title": "Es una nota de crédito",
+            "text": "Revisa a qué compra corresponde."
+          },
+          "duplicate": {
+            "text": "Se parece a otro documento."
+          },
+          "ecf_check_failed": {
+            "title": "El e-CF no pasó la revisión",
+            "text": "Compara los datos con el documento."
+          },
+          "missing_currency": {
+            "title": "Falta la moneda",
+            "text": "Elige la moneda del documento."
+          },
+          "missing_date": {
+            "title": "Falta la fecha",
+            "text": "Escríbela como aparece en el documento."
+          },
+          "missing_itbis": {
+            "title": "Falta el ITBIS",
+            "text": "Escríbelo como aparece en el documento. Si no tiene, escribe 0.00."
+          },
+          "missing_merchant": {
+            "title": "Falta el emisor",
+            "text": "Escríbelo como aparece en el documento."
+          },
+          "no_purchase_found": {
+            "title": "No encontramos una compra",
+            "text": "Escribe los datos como aparecen en el documento."
+          },
+          "not_read": {
+            "title": "Sin leer",
+            "text": "Este documento todavía no se ha leído."
+          },
+          "review_flag": {
+            "title": "Tiene datos por revisar",
+            "text": "Revisa los datos marcados."
+          },
+          "several_purchases": {
+            "title": "Varias compras en un recibo",
+            "text": "Completa este registro con una de las compras."
+          },
+          "sin_comprobante": {
+            "title": "Sin comprobante fiscal",
+            "text": "Este documento no tiene NCF ni e-CF."
+          },
+          "unverified_sender": {
+            "title": "Remitente sin verificar",
+            "text": "Llegó por correo de un remitente que no está en tu lista."
+          }
+        },
         "more_fiscal": "Más datos fiscales",
         "payment_form": "Forma de pago",
+        "rnc_registry": {
+          "anulado": "Anulado en la DGII",
+          "desconocido": "Estado sin confirmar en la DGII",
+          "rechazado": "Rechazado en la DGII"
+        },
         "save_lost": "No pudimos confirmar si {{field}} se guardó. Aprobar queda en pausa.",
         "save_refused": "No se guardó {{field}}. Revisa el valor.",
         "save_stale": "Este registro cambió mientras editabas. Ya ves la versión actual y tu cambio sigue aquí.",
@@ -3242,8 +3390,10 @@
       }
     },
     "history": {
+      "accepted_note": "Pasó a Registros y al Reporte {{form}}",
       "am": "a.m.",
       "approved": "Aprobado",
+      "arrived": "Llegó por {{channel}}",
       "changed": "{{field}} cambiado de {{before}} a {{after}}",
       "changed_female": "{{field}} cambiada de {{before}} a {{after}}",
       "channel_email": "Correo",
@@ -3259,7 +3409,9 @@
       "rnc_verified": "RNC verificado",
       "set": "{{field}}: {{after}}",
       "title": "Historial",
-      "via_cuadrao": "{{name}} vía Cuadrao"
+      "today": "Hoy",
+      "via_cuadrao": "{{name}} vía Cuadrao",
+      "yesterday": "Ayer"
     },
     "home": {
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",

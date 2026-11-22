@@ -1,4 +1,4 @@
-import type { BusinessAccount, DocumentDeleteAccess } from "./business-api";
+import type { BandejaGroup, BusinessAccount, DocumentDeleteAccess } from "./business-api";
 import type { DgiiDeclaration, SuggestedField, SuggestionSource } from "./business-dgii";
 import type { PersonName, PersonShown } from "./person-name";
 
@@ -161,7 +161,20 @@ export type DeclarationSuggestion = { value: string; source: SuggestionSource };
 /** The suggestions a person saw filled in, which an expense approval saves into its blank answers. */
 export type ShownSuggestions = Partial<Record<SuggestedField, DeclarationSuggestion>>;
 
+/** Every reason `bandeja_group.RULE` gives for a record that is not Listos, in the rule's order. */
+export const LISTO_GAPS = ["not_read", "check_details", "several_purchases", "no_purchase_found", "duplicate", "credit_note", "missing_merchant", "missing_date", "missing_amount", "missing_currency", "sin_comprobante", "missing_rnc", "invalid_rnc", "missing_ncf", "invalid_ncf", "ecf_check_failed", "missing_itbis", "review_flag", "blocked", "unverified_sender"] as const;
+export type ListoGap = (typeof LISTO_GAPS)[number];
+/** What the DGII register says of the supplier RNC: its mapped status, or `not_found` when a loaded register does not list it. */
+export const RNC_REGISTRY_STATUSES = ["verificado", "suspendido", "dado_de_baja", "cese_temporal", "anulado", "rechazado", "desconocido", "not_found"] as const;
+export type RncRegistryStatus = (typeof RNC_REGISTRY_STATUSES)[number];
+
 export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
+  /** Where the record stands in the Bandeja, by the rule the receipt list reads. An accepted record has the label `accepted`; a deleted one has none. */
+  bandeja_group?: Pick<BandejaGroup, "group" | "reason" | "label"> | null;
+  /** Every reason a record that needs attention is not Listos, in the rule's order; empty for any other record. */
+  listo_gaps?: readonly ListoGap[];
+  /** Null when the record has no RNC or no register is loaded. */
+  rnc_registry_status?: RncRegistryStatus | null;
   net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
   inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on" | "rnc" | "original_ncf"; value: string | null; inherited: boolean; paired_with: readonly string[] }>;
   current_note?: string | null;
