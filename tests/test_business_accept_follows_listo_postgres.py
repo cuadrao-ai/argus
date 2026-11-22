@@ -204,7 +204,9 @@ def test_the_table_builds_every_reason_of_the_rule() -> None:
 @pytest.mark.parametrize("reason", BUILD)
 def test_a_single_accept_follows_the_listo_rule(rig, monkeypatch, reason: str) -> None:  # noqa: ANN001, F811
     item = BUILD[reason](rig, monkeypatch)
-    gaps = tuple(_dossier(rig, item)["listo_gaps"])
+    dossier = _dossier(rig, item)
+    gaps = tuple(dossier["listo_gaps"])
+    assert dossier["confirmable"] == [gap for gap in gaps if ACCEPTED_OVER[gap]]
     accepted_over = all(ACCEPTED_OVER[gap] for gap in gaps)
     assert reason in gaps
     assert accepted_over == ACCEPTED_OVER[reason] or reason in BLOCKED_TOO, gaps
@@ -245,6 +247,29 @@ def test_an_accept_that_names_only_some_gaps_is_refused_with_them_all(rig) -> No
     assert _state(item)[0] == "open"
     assert _accept(rig, item, tuple(gaps)).status_code == 200
     assert _money(rig) == 1
+
+
+@pytest.mark.parametrize(
+    ("field", "gap"),
+    [("occurred_on", "missing_date"), ("amount", "missing_amount"), ("currency", "missing_currency")],
+)
+def test_one_missing_fact_has_one_gap(rig, field: str, gap: str) -> None:  # noqa: ANN001, F811
+    item = _named(rig, _read(rig))
+    _resolution(item, "{business,facts," + field + "}", Unknown().model_dump(mode="json"))
+
+    dossier = _dossier(rig, item)
+    assert dossier["listo_gaps"] == [gap]
+    assert dossier["confirmable"] == []
+
+
+def test_unclear_read_and_year_name_check_details_once(rig, monkeypatch) -> None:  # noqa: ANN001, F811
+    item = _read_with_an_issue(rig, monkeypatch)
+    year = _dossier(rig, item)["upload_year"] - 1
+    _resolution(item, "{business,facts,occurred_on,value}", f"{year}-01-15")
+
+    dossier = _dossier(rig, item)
+    assert dossier["year_to_check"]
+    assert dossier["listo_gaps"] == ["check_details"]
 
 
 def test_a_gap_that_went_away_may_still_be_named(rig) -> None:  # noqa: ANN001, F811
