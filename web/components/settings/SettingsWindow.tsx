@@ -7,6 +7,7 @@ import { useModalSurface } from "@/components/layout/useModalSurface";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 import { SettingsWindowSection, type SettingsStep } from "@/components/settings/SettingsSurface";
+import { AccountDeletionState, FinishedAccountDeletion, useAccountDeletionTitle, type AccountDeletionAnswer } from "@/components/settings/AccountDeletionConfirm";
 import {
   SETTINGS_GROUP_TITLE,
   settingsPanelNav,
@@ -114,7 +115,7 @@ function CloseButton({ label, onClick, buttonRef }: { label: string; onClick: ()
   );
 }
 
-function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, onClose }: SettingsWindowProps) {
+function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, onClose, deletion }: SettingsWindowProps & { deletion: AccountDeletionAnswer | null }) {
   const { t } = useTranslation();
   const overlayId = useId();
   const titleId = useId();
@@ -123,7 +124,9 @@ function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, on
   const activeRowRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const [active, setActive] = useState<SettingsPanel | undefined>(sections[0]);
-  const [step, setStep] = useState<SettingsStep | null>(null);
+  const [sectionStep, setStep] = useState<SettingsStep | null>(null);
+  const deletionTitle = useAccountDeletionTitle();
+  const step = deletion ? { title: deletionTitle } : sectionStep;
   if (active !== undefined && !sections.includes(active)) {
     setActive(sections[0]);
   }
@@ -167,7 +170,7 @@ function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, on
                 <p className={`px-2.5 pb-1 text-[14px] ${muted}`}>{group.title}</p>
                 <ul className="flex flex-col gap-0.5">
                   {group.rows.map((row) => {
-                    const isActive = row.id === active;
+                    const isActive = row.id === (deletion ? "account" : active);
                     const Icon = row.icon;
                     return (
                       <li key={row.id}>
@@ -208,7 +211,11 @@ function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, on
             )}
             <CloseButton label={t("common.close", "Close")} onClick={onClose} />
           </header>
-          {active ? (
+          {deletion ? (
+            <div data-testid="settings-pane-account" className={`flex min-h-0 flex-1 flex-col ${styles.pane}`}>
+              <SettingsWindowSection><FinishedAccountDeletion answer={deletion} onClose={onClose} /></SettingsWindowSection>
+            </div>
+          ) : active ? (
             <div key={active} data-testid={`settings-pane-${active}`} className={`flex min-h-0 flex-1 flex-col ${styles.pane}`}>
               <SettingsWindowSection onStep={setStep}>{renderSection(active)}</SettingsWindowSection>
             </div>
@@ -219,13 +226,15 @@ function DesktopWindow({ sections, renderSection, legalLinks, returnFocusRef, on
   );
 }
 
-function PhoneSection({ panel, renderSection, onBack, onClose, returnFocusRef }: { panel: SettingsPanel; renderSection: (panel: SettingsPanel) => ReactNode; onBack: () => void; onClose: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
+function PhoneSection({ panel, renderSection, onBack, onClose, returnFocusRef, deletion }: { panel: SettingsPanel; renderSection: (panel: SettingsPanel) => ReactNode; onBack: () => void; onClose: () => void; returnFocusRef: RefObject<HTMLElement | null>; deletion?: AccountDeletionAnswer }) {
   const { t } = useTranslation();
   const overlayId = useId();
   const titleId = useId();
   const ref = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLButtonElement>(null);
-  const [step, setStep] = useState<SettingsStep | null>(null);
+  const [sectionStep, setStep] = useState<SettingsStep | null>(null);
+  const deletionTitle = useAccountDeletionTitle();
+  const step = deletion ? { title: deletionTitle } : sectionStep;
   const held = step !== null && !step.onBack;
   const leave = held ? onClose : onBack;
   const exit = step?.onBack ?? leave;
@@ -250,7 +259,9 @@ function PhoneSection({ panel, renderSection, onBack, onClose, returnFocusRef }:
         exitRef={backRef}
       />
       <div className="flex min-h-0 flex-1 flex-col">
-        <SettingsWindowSection onStep={setStep}>{renderSection(panel)}</SettingsWindowSection>
+        <SettingsWindowSection onStep={deletion ? undefined : setStep}>
+          {deletion ? <FinishedAccountDeletion answer={deletion} onClose={onClose} /> : renderSection(panel)}
+        </SettingsWindowSection>
       </div>
     </div>
   );
@@ -338,7 +349,13 @@ function PhoneScreen({ sections, renderSection, legalLinks, returnFocusRef, onCl
 
 function SettingsWindowSurface(props: SettingsWindowProps) {
   const { isBelowDesktop } = useResponsiveLayout();
-  return isBelowDesktop ? <PhoneScreen {...props} /> : <DesktopWindow {...props} />;
+  return (
+    <AccountDeletionState>
+      {(deletion) => isBelowDesktop ? (
+        deletion ? <PhoneSection {...props} panel="account" deletion={deletion} onBack={props.onClose} /> : <PhoneScreen {...props} />
+      ) : <DesktopWindow {...props} deletion={deletion} />}
+    </AccountDeletionState>
+  );
 }
 
 export default withViewportPortal(SettingsWindowSurface);
