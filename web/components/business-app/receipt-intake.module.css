@@ -62,4 +62,6 @@
   .page,.bar > i,.total > i { transition:none; }
   .ring { animation:none; opacity:0 !important; }
   .striped > i,.unknown > i,.pop,.bump,.spinner { animation:none; }
+  /* A still part-filled bar would read as a share; with no motion the whole track is tinted. */
+  .unknown > i { width:100%; opacity:.35; }
 }

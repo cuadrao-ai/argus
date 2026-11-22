@@ -126,17 +126,25 @@ test("a pasted file uploads like a chosen one", async () => {
 test("a row shows each stage the queue reports: problems first, then the one sending, then the ones in line", async () => {
   const page = await mount();
   await page.choose(photo("a.jpg"), photo("b.jpg"), photo("c.jpg"), photo("pesado.jpg", 10 * MB + 1));
-  assert.deepEqual(page.rows().map((row) => row.dataset.stage), ["rejected", "sending", "waiting", "waiting"]);
+  assert.deepEqual(page.rows().map((row) => row.dataset.stage), ["rejected", "starting", "waiting", "waiting"]);
   assert.match(page.row("pesado.jpg")?.textContent ?? "", /Pesa más de 10 MB\. Usa una foto o un PDF más pequeño\./);
   assert.match(page.row("b.jpg")?.textContent ?? "", /En cola/);
   assert.match(page.text(), /Subiendo 1 de 3…/);
   assert.match(page.text(), /4 archivos/);
 
   const bar = () => page.row("a.jpg")?.querySelector('[role="progressbar"]');
-  assert.equal(bar()?.getAttribute("aria-valuenow"), "9", "a small start shows at once");
+  const total = () => document.querySelector('[data-testid="receipt-upload-summary-bar"] [role="progressbar"]');
+  for (const unmeasured of [bar(), total()]) {
+    assert.equal(unmeasured?.hasAttribute("aria-valuenow"), false, "no number before a byte is measured");
+    assert.equal(unmeasured?.getAttribute("aria-busy"), "true");
+    assert.equal(unmeasured?.querySelector<HTMLElement>("i")?.style.width, "", "and no width that reads as a share");
+  }
+  assert.doesNotMatch(page.row("a.jpg")?.textContent ?? "", /%/);
   assert.equal(bar()?.getAttribute("aria-label"), "Subiendo a.jpg");
   await page.report(page.attempts[0], 46, 100);
   assert.equal(bar()?.getAttribute("aria-valuenow"), "46");
+  assert.equal(bar()?.hasAttribute("aria-busy"), false);
+  assert.equal(bar()?.querySelector<HTMLElement>("i")?.style.width, "46%");
   assert.match(page.row("a.jpg")?.textContent ?? "", /46%/);
   await page.report(page.attempts[0], 100, 100);
   assert.equal(page.row("a.jpg")?.dataset.stage, "saving");
@@ -147,7 +155,7 @@ test("a row shows each stage the queue reports: problems first, then the one sen
   assert.match(fold().textContent ?? "", /1 guardado/);
   assert.equal(fold().querySelector("button")?.getAttribute("aria-expanded"), "false", "saved files fold away");
   assert.equal(page.row("a.jpg"), undefined);
-  assert.equal(page.row("b.jpg")?.dataset.stage, "sending");
+  assert.equal(page.row("b.jpg")?.dataset.stage, "starting");
 
   await page.report(page.attempts[1], 60, 100);
   await page.settle(() => page.attempts[1].fail(new TypeError("Failed to fetch")));
@@ -155,11 +163,12 @@ test("a row shows each stage the queue reports: problems first, then the one sen
   assert.equal(page.row("b.jpg")?.querySelector('[role="img"]')?.getAttribute("aria-label"), "Se detuvo en 60%", "the bar stays where the bytes really got");
   assert.equal(page.row("b.jpg")?.querySelector<HTMLElement>('[role="img"] i')?.style.width, "60%");
   assert.match(page.row("b.jpg")?.querySelector('[role="alert"]')?.textContent ?? "", /Se perdió la conexión\. Se reintenta solo al volver\./);
-  assert.deepEqual(page.rows().map((row) => row.dataset.stage), ["stopped", "rejected", "sending"], "the next file goes on");
+  assert.deepEqual(page.rows().map((row) => row.dataset.stage), ["stopped", "rejected", "starting"], "the next file goes on");
 
   await page.settle(() => page.attempts[2].finish(savedReceipt("c", { replayed: true })));
   await page.click(page.button("Reintentar b.jpg"));
-  assert.equal(page.row("b.jpg")?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow"), "9", "a retry starts from nothing");
+  assert.equal(page.row("b.jpg")?.dataset.stage, "starting", "a retry starts from nothing");
+  assert.equal(page.row("b.jpg")?.querySelector('[role="progressbar"]')?.hasAttribute("aria-valuenow"), false);
   assert.equal(page.attempts[3].key, page.attempts[1].key, "with the same upload key");
   await page.settle(() => page.attempts[3].finish(savedReceipt("b")));
   assert.match(fold().textContent ?? "", /3 guardados/);
@@ -198,6 +207,23 @@ test("the footer says closing is safe while files go, then offers to review what
   await page.click(page.review());
   assert.deepEqual(page.reviews.map((saved) => saved.map((receipt) => receipt.id)), [["a"]]);
   assert.deepEqual(page.queue.snapshot().map((item) => `${item.file.name}:${item.status}`), ["b.jpg:failed"], "review clears what is settled and keeps the file still to send");
+});
+
+test("two names for the same bytes are one document to review, though each file keeps its row", async () => {
+  const page = await mount();
+  await page.choose(photo("a.jpg"), photo("a-copia.jpg"), photo("b.jpg"));
+  await page.settle(() => page.attempts[0].finish(savedReceipt("a")));
+  await page.settle(() => page.attempts[1].finish(savedReceipt("a", { replayed: true })));
+  await page.settle(() => page.attempts[2].finish(savedReceipt("b")));
+  const fold = document.querySelector<HTMLElement>('[data-testid="receipt-upload-saved-fold"]')!;
+  assert.match(fold.textContent ?? "", /2 guardados/);
+  assert.equal(document.querySelector('[data-testid="receipt-upload-summary"]')?.textContent, "2 guardados");
+  assert.match(page.text(), /3 archivos/);
+  await page.click(fold.querySelector("button"));
+  assert.match(page.row("a-copia.jpg")?.textContent ?? "", /Ya estaba guardado\./);
+  assert.equal(page.review()?.textContent, "Revisar 2 documentos");
+  await page.click(page.review());
+  assert.deepEqual(page.reviews.map((saved) => saved.map((receipt) => receipt.id)), [["a", "b"]]);
 });
 
 test("the time left is vague and only shrinks", async () => {

@@ -23,17 +23,14 @@ export function composerUploadDisposition(origin: UploadOrigin, current: { conve
 
 export type ReceiptUpload = UploadFile & (
   | { status: "queued" }
-  | { status: "uploading"; consent: boolean; bytes: UploadBytes | null; peak: number }
+  | { status: "uploading"; consent: boolean; bytes: UploadBytes | null }
   | { status: "failed"; consent: boolean; failure: FailureClass; share: number }
   | { status: "saved"; consent: boolean; receipt: ReceiptSummary }
   | { status: "rejected"; reason: UploadRejection }
 );
 
 export type DocumentType = "recibo" | "venta";
-/**
- * `peak` is the furthest share (0 to 1) any attempt of this turn reached, so a bar never moves back when the upload
- * limit makes the file send again. A failed file keeps `share`, the share its last attempt had really sent.
- */
+/** A failed file keeps `share`, the share (0 to 1) its last attempt had really sent. */
 /** How far one attempt has gone; the rate and `secondsLeft` are null until a second of sending makes them honest. */
 export type UploadBytes = { sent: number; total: number; bytesPerSecond: number | null; secondsLeft: number | null };
 type Upload = (file: File, consent: boolean, key: string, documentType: DocumentType | null, onProgress: (sent: number, total: number) => void, grant: string | null) => Promise<ReceiptSummary>;
@@ -218,18 +215,16 @@ export class ReceiptUploadQueue {
           this.current = { target: item.target, position, total: position + remaining };
           const attempt = { ...item, consent };
           const uploading = { ...attempt, status: "uploading" as const };
-          this.replace({ ...uploading, bytes: null, peak: 0 });
+          this.replace({ ...uploading, bytes: null });
           let painted = 0;
           let share = 0;
-          let peak = 0;
           const onProgress = (sent: number, total: number, startedAt: number) => {
             share = total > 0 ? Math.min(1, sent / total) : 0;
-            peak = Math.max(peak, share);
             const now = Date.now();
             // The first and the last report of an attempt always show; the ones between repaint at most so often.
             if (sent > 0 && sent < total && now - painted < PROGRESS_REPAINT_MS) return;
             painted = now;
-            this.replace({ ...uploading, peak, bytes: { sent, total, bytesPerSecond: bytesPerSecond(sent, now - startedAt), secondsLeft: uploadSecondsLeft(sent, total, now - startedAt) } });
+            this.replace({ ...uploading, bytes: { sent, total, bytesPerSecond: bytesPerSecond(sent, now - startedAt), secondsLeft: uploadSecondsLeft(sent, total, now - startedAt) } });
           };
           let receipt: ReceiptSummary;
           try {
@@ -264,13 +259,13 @@ export class ReceiptUploadQueue {
   private async uploadPastLimits(item: UploadFile, consent: boolean, onProgress: (sent: number, total: number, startedAt: number) => void): Promise<ReceiptSummary> {
     for (;;) {
       const startedAt = Date.now();
-      // Each attempt starts from nothing sent, so a failure reports this attempt's share, not an earlier one's.
-      onProgress(0, item.file.size, startedAt);
       try {
         return await this.upload(item.file, consent, item.key, item.documentType, (sent, total) => onProgress(sent, total, startedAt), item.grant);
       } catch (error: unknown) {
         const waitMs = limitedFor(error);
         if (waitMs === null) throw error;
+        // The refused attempt's bytes are not progress: the wait and the next attempt start from nothing sent.
+        onProgress(0, item.file.size, startedAt);
         await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
     }

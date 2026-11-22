@@ -116,3 +116,22 @@ test("closing the panel keeps the uploads going behind a chip, leaving asks firs
   assert.equal(page.chip(), null, "the reviewed list is cleared");
   await page.unmount();
 });
+
+test("the same bytes under two names count once in the chip, and the dossier walks each document once", async () => {
+  const page = await workspace();
+  await page.choose("a.jpg", "a-copia.jpg", "b.jpg");
+  await page.close();
+  for (const [index, id] of ["receipt-a", "receipt-a", "receipt-b"].entries()) {
+    await page.until(() => page.attempts.length === index + 1, "the next file is sent");
+    await page.act(async () => page.attempts[index].finish({ ...page.receipt(id), ...(index === 1 ? { replayed: true } : {}) }));
+  }
+  await page.until(() => page.chip()?.dataset.busy === "false", "the batch ended");
+  assert.equal(page.chip()?.textContent, "2 subidos");
+  await page.click(page.chip());
+  await page.until(() => Boolean(page.dialog()), "the chip opens the panel again");
+  const review = page.dialog()!.querySelector<HTMLButtonElement>('[data-testid="receipt-intake-review"]');
+  assert.equal(review?.textContent, "Revisar 2 documentos");
+  await page.click(review);
+  assert.deepEqual(page.state.panel, { kind: "receipt", receiptId: "receipt-a", list: "inbox", receiptIds: ["receipt-a", "receipt-b"] });
+  await page.unmount();
+});

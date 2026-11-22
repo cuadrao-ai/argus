@@ -81,6 +81,7 @@ export default function ReceiptUploadRow({ item, stage, size, problem, restoreCo
       </span>
       <span className={`flex items-center justify-end gap-2 tablet:min-w-[140px] text-[13px] font-medium tabular-nums ${stage.kind === "saved" ? "text-[#2f5a49] dark:text-[#8fcbb0]" : MUTED}`}>
         {stage.kind === "waiting" ? <><Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{t("business.intake.row_waiting")}</> : null}
+        {stage.kind === "starting" ? <span className={`${styles.bar} ${styles.unknown} rounded-full`} role="progressbar" aria-label={t("business.intake.row_uploading", { name })} aria-busy="true"><i /></span> : null}
         {stage.kind === "sending" ? <>
           <span className={`${styles.bar} ${styles.striped} rounded-full`} role="progressbar" aria-label={t("business.intake.row_uploading", { name })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={stage.percent}><i style={{ width: `${stage.percent}%` }} /></span>
           <span className="min-w-[34px] text-right">{t("business.intake.row_percent", { percent: stage.percent })}</span>

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { test } from "bun:test";
+import { afterEach, test } from "bun:test";
 import type { TFunction } from "i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { ReceiptUploadQueue, type ReceiptUpload } from "@/components/business-app/receipt-upload-queue";
-import { UPLOAD_START_PERCENT, uploadBatchView, uploadRemovable, uploadStage, uploadSummaryText, uploadTimeLeftText } from "@/components/business-app/receipt-upload-view";
+import { uploadBatchView, uploadRemovable, uploadStage, uploadSummaryText, uploadTimeLeftText } from "@/components/business-app/receipt-upload-view";
 
 const limits = { max_bytes: 20, media_types: ["text/plain"] };
 const file = (name: string) => new File(["receipt"], name, { type: "text/plain" });
@@ -18,25 +18,32 @@ const settle = async (done: () => boolean) => { for (let turn = 0; turn < 200 &&
 /** The words a key would print, as the key and its values: the tests read which line was chosen, not its copy. */
 const t = ((key: string, values?: Record<string, unknown>) => `${key}${values ? JSON.stringify(values) : ""}`) as unknown as TFunction;
 
+/** The queue repaints a moving file at most every 100 ms; the tests own the clock so each report shows. */
+const clock = { real: Date.now, now: 1_000_000 };
+afterEach(() => { Date.now = clock.real; });
+
 type Attempt = { progress: (sent: number, total: number) => void; finish: (receipt: ReceiptSummary) => void; fail: (error: unknown) => void };
 /** A queue whose every attempt is held open, so a test moves the bytes and ends the attempt by hand. */
 function heldQueue() {
   const attempts: (Attempt & { name: string; key: string })[] = [];
+  Date.now = () => clock.now;
   const queue = new ReceiptUploadQueue((candidate, _consent, key, _type, onProgress) => new Promise<ReceiptSummary>((resolve, reject) => {
-    attempts.push({ name: candidate.name, key, progress: onProgress, finish: resolve, fail: reject });
+    attempts.push({ name: candidate.name, key, progress: (sent, total) => { clock.now += 250; onProgress(sent, total); }, finish: resolve, fail: reject });
   }), () => undefined);
   const start = (...names: string[]) => { queue.add(names.map(file), limits, "inbox"); void queue.save("inbox", false); };
   const stageOf = (name: string) => { const item = queue.snapshot().find((entry) => entry.file.name === name)!; return uploadStage(item, queue.retryWaiting(item.key)); };
   return { queue, attempts, start, stageOf };
 }
 
-test("a file walks waiting, sending from the start nudge, saving once every byte is sent, then saved", async () => {
+test("a file walks waiting, starting with no number, sending at the share really sent, saving once every byte is sent, then saved", async () => {
   const { queue, attempts, start, stageOf } = heldQueue();
   start("a.txt", "b.txt");
   assert.deepEqual(stageOf("b.txt"), { kind: "waiting" });
-  assert.deepEqual(stageOf("a.txt"), { kind: "sending", percent: UPLOAD_START_PERCENT }, "no byte yet still shows the start");
+  assert.deepEqual(stageOf("a.txt"), { kind: "starting" }, "no byte is measured yet, so there is no number");
+  attempts[0].progress(0, 100);
+  assert.deepEqual(stageOf("a.txt"), { kind: "starting" }, "a report of nothing sent is still no number");
   attempts[0].progress(3, 100);
-  assert.deepEqual(stageOf("a.txt"), { kind: "sending", percent: UPLOAD_START_PERCENT }, "the nudge is a floor, not an addition");
+  assert.deepEqual(stageOf("a.txt"), { kind: "sending", percent: 3 });
   attempts[0].progress(100, 100);
   assert.deepEqual(stageOf("a.txt"), { kind: "saving" });
   attempts[0].finish(savedReceipt("a"));
@@ -47,14 +54,59 @@ test("a file walks waiting, sending from the start nudge, saving once every byte
   assert.deepEqual(stageOf("b.txt"), { kind: "saved", replayed: true });
 });
 
-test("the bar never moves back when the upload limit makes the same file send again", async () => {
+for (const [sent, total] of [[1, 1000], [3, 100], [89, 1000], [57, 100], [996, 1000], [999_999, 1_000_000]] as const) {
+  test(`a row's number is never more than the share really sent (${sent} of ${total})`, () => {
+    const { attempts, start, stageOf } = heldQueue();
+    start("a.txt");
+    attempts[0].progress(sent, total);
+    const stage = stageOf("a.txt");
+    assert.equal(stage.kind, "sending");
+    assert.equal(stage.kind === "sending" && stage.percent, Math.floor((sent * 100) / total));
+  });
+}
+
+test("the batch bar has no share before a byte is measured, then only the bytes really sent", async () => {
+  const { queue, attempts, start } = heldQueue();
+  const view = () => uploadBatchView(queue.snapshot(), queue.retryWaiting);
+  start("a.txt", "b.txt");
+  assert.equal(view().share, null);
+  assert.equal(view().secondsLeft, null);
+  attempts[0].progress(0, 7);
+  assert.equal(view().share, null);
+  attempts[0].progress(7, 7);
+  assert.equal(view().share, 0.5);
+  attempts[0].finish(savedReceipt("a"));
+  await settle(() => attempts.length === 2);
+  assert.equal(view().share, 0.5, "a saved file counts whole, the next one not before its first byte");
+});
+
+test("identical bytes under two names are one saved document, in every count and in the review list", async () => {
+  const { queue, attempts, start } = heldQueue();
+  start("a.txt", "a-copia.txt", "b.txt");
+  attempts[0].finish(savedReceipt("a"));
+  await settle(() => attempts.length === 2);
+  attempts[1].finish(savedReceipt("a", { replayed: true }));
+  await settle(() => attempts.length === 3);
+  attempts[2].finish(savedReceipt("b"));
+  await settle(() => !queue.uploading);
+  const batch = uploadBatchView(queue.snapshot(), queue.retryWaiting);
+  assert.deepEqual(batch.saved.map((item) => item.file.name), ["a.txt", "a-copia.txt", "b.txt"], "each file keeps its row");
+  assert.deepEqual(batch.savedReceipts.map((receipt) => receipt.id), ["a", "b"], "first order, once each");
+  assert.equal(batch.savedReceipts[0].replayed, undefined, "the first answer for a document is the one kept");
+  assert.equal(uploadSummaryText(t, batch, null, "panel"), 'business.intake.summary_saved{"count":2}');
+  assert.equal(uploadSummaryText(t, batch, null, "chip"), 'business.intake.chip_saved{"count":2}');
+});
+
+test("a file the upload limit makes send again starts over with no number, not at the share of the attempt that was refused", async () => {
   const { attempts, start, stageOf } = heldQueue();
   start("a.txt");
   attempts[0].progress(100, 100);
   attempts[0].fail(limited());
   await settle(() => attempts.length === 2);
   assert.equal(attempts[1].key, attempts[0].key, "the second send repeats the upload key");
-  assert.deepEqual(stageOf("a.txt"), { kind: "sending", percent: 100 }, "nothing of the new attempt is sent, and the bar holds");
+  assert.deepEqual(stageOf("a.txt"), { kind: "starting" }, "nothing of the new attempt is sent");
+  attempts[1].progress(20, 100);
+  assert.deepEqual(stageOf("a.txt"), { kind: "sending", percent: 20 });
 });
 
 test("a lost connection stops the file at the share it had really sent, and a retry starts from nothing", async () => {
@@ -65,7 +117,7 @@ test("a lost connection stops the file at the share it had really sent, and a re
   await settle(() => !queue.uploading);
   assert.deepEqual(stageOf("a.txt"), { kind: "stopped", percent: 60, failure: "offline" });
   queue.retry(attempts[0].key);
-  assert.deepEqual(stageOf("a.txt"), { kind: "sending", percent: UPLOAD_START_PERCENT });
+  assert.deepEqual(stageOf("a.txt"), { kind: "starting" });
 });
 
 test("the connection coming back retries every file it stopped, each with its own key, and no other failure", async () => {
@@ -131,7 +183,8 @@ test("the panel and the chip read one count and differ only in their words", asy
 });
 
 test("the time left is said in round words, and not at all before there is an honest rate", () => {
-  const batch = (share: number) => ({ share }) as ReturnType<typeof uploadBatchView>;
+  const batch = (share: number | null) => ({ share }) as ReturnType<typeof uploadBatchView>;
+  assert.equal(uploadTimeLeftText(t, batch(null), null), null);
   assert.equal(uploadTimeLeftText(t, batch(0.2), null), null);
   assert.equal(uploadTimeLeftText(t, batch(0.2), 4), "business.intake.time_seconds");
   assert.equal(uploadTimeLeftText(t, batch(0.2), 10), "business.intake.time_seconds");

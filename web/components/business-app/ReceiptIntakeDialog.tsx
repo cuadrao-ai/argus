@@ -117,7 +117,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const addressRef = useRef<HTMLParagraphElement>(null);
   const copyLabels = useCopyLabels(forwardAddress ?? "");
   const batch = uploadBatchView(entries, queue.retryWaiting);
-  const saved = batch.saved.map(item => item.receipt);
+  const saved = batch.savedReceipts;
   const [deletedOpen, setDeletedOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restoreFailures, setRestoreFailures] = useState<ReadonlyMap<string, string>>(new Map());
@@ -383,7 +383,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             <p role="status" aria-live="polite" data-testid="receipt-upload-summary" className="sr-only">{batchSummary}</p>
             {batch.busy ? (
               <div data-testid="receipt-upload-summary-bar" className="flex items-center gap-3 pb-1.5 pr-2 pt-2.5">
-                <span className={`${styles.total} rounded-full`} role="progressbar" aria-label={t("business.intake.total_progress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(batch.share * 100)}><i style={{ width: `${batch.share * 100}%` }} /></span>
+                {batch.share === null
+                  ? <span className={`${styles.total} ${styles.unknown} rounded-full`} role="progressbar" aria-label={t("business.intake.total_progress")} aria-busy="true"><i /></span>
+                  : <span className={`${styles.total} rounded-full`} role="progressbar" aria-label={t("business.intake.total_progress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(batch.share * 100)}><i style={{ width: `${batch.share * 100}%` }} /></span>}
                 {timeLeft ? <span data-testid="receipt-upload-time-left" aria-live="polite" className={`shrink-0 text-[12.5px] font-medium tabular-nums ${MUTED}`}>{timeLeft}</span> : null}
               </div>
             ) : null}
@@ -393,8 +395,8 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             {batch.saved.length > 0 ? (
               <div className={FOLD} data-testid="receipt-upload-saved-fold">
                 <button type="button" aria-expanded={savedOpen} aria-controls="receipt-upload-saved" className={`${FOLD_HEAD} w-full text-[#2f5a49] dark:text-[#8fcbb0]`} onClick={() => setSavedOpen((open) => !open)}>
-                  <span key={batch.saved.length} className={styles.bump}><CircleCheck className="h-[18px] w-[18px] shrink-0" aria-hidden="true" /></span>
-                  <span className="flex-1">{t("business.intake.summary_saved", { count: batch.saved.length })}</span>
+                  <span key={saved.length} className={styles.bump}><CircleCheck className="h-[18px] w-[18px] shrink-0" aria-hidden="true" /></span>
+                  <span className="flex-1">{t("business.intake.summary_saved", { count: saved.length })}</span>
                   <ChevronDown className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${savedOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                 </button>
                 {savedOpen ? <ul id="receipt-upload-saved" className="border-t border-[#ECEAE3] pb-1 pl-3 pr-2 dark:border-white/[0.07]">{batch.saved.map(renderRow)}</ul> : null}
@@ -405,7 +407,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                 <div className="flex items-center pr-1.5">
                   <button type="button" aria-expanded={deletedOpen} aria-controls="receipt-upload-deleted" className={`${FOLD_HEAD} ${MUTED}`} onClick={() => setDeletedOpen(open => !open)}>
                     <RotateCcw className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-                    <span className="flex-1">{t("business.document_delete.upload_deleted_count", { count: batch.deleted.length })}</span>
+                    <span className="flex-1">{t("business.document_delete.upload_deleted_count", { count: batch.deletedReceipts.length })}</span>
                     <ChevronDown className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${deletedOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                   </button>
                   {canRestore && restorable.length > 0 ? <button type="button" className={intakeLinkClass} disabled={restoring} onClick={() => void restore(restorable.map(item => item.receipt.id))}>{t("business.document_delete.restore_all")}</button> : null}
