@@ -25,7 +25,7 @@ const SHARED_CONTEXTS = new Map([
   ["business.intake.write_type.copy_review", "pending_lucas"],
   ["business.month_close.placeholder.copy_review", "pending_lucas"],
 ]);
-const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Personal", "Normal", "No", "Ref.", "Excel", "CSV"]);
+const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Subtotal", "General", "Personal", "Normal", "No", "Ref.", "Excel", "CSV"]);
 
 type Tree = { [key: string]: string | Tree };
 

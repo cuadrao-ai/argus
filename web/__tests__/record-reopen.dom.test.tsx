@@ -109,19 +109,23 @@ async function mount({ serve = () => undefined, reopen }: Options = {}) {
   const facts = () => document.querySelector<HTMLElement>('[data-testid="receipt-current-facts"]');
   const button = () => document.querySelector<HTMLButtonElement>('[data-testid="reopen-record"]');
   const dialog = () => document.querySelector<HTMLElement>('[role="alertdialog"], [role="dialog"]');
+  // An accepted record has no status line; an open draft says where it stands.
+  const status = () => document.querySelector<HTMLElement>('[data-testid="dossier-status"]');
+  const approve = () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="receipt-review-footer"] button')].find((item) => item.textContent?.trim().startsWith("Aceptar")) ?? null;
   const click = async (element: HTMLElement | null, what: string) => {
     assert.ok(element, what);
     await act(async () => element!.click());
   };
   await act(async () => api!.openPanel({ kind: "draft", draftId, list: "transactions" }));
   await wait(() => facts() !== null, "the record's dossier");
-  return { act, wait, sent, facts, button, dialog, click, draftId, start };
+  return { act, wait, sent, facts, button, dialog, status, approve, click, draftId, start };
 }
 
 describe("Reabrir on an approved record", () => {
   test("asks once with the agreed words, sends the version, and the record becomes an open draft", async () => {
     const page = await mount();
-    assert.match(document.body.textContent ?? "", /Se registró un gasto/);
+    assert.equal(page.status(), null, "the record is accepted");
+    assert.equal(page.approve(), null, "an accepted record offers no Aceptar");
     const reopen = page.button();
     assert.ok(reopen, "the approved record offers Reabrir");
     assert.equal(reopen!.textContent, "Reabrir");
@@ -138,13 +142,13 @@ describe("Reabrir on an approved record", () => {
     await page.wait(() => page.sent.length === 1 && page.dialog() === null, "the reopen to go out and the confirm to close");
     assert.equal(page.sent[0].version, page.start.version + 1, "the approved record's version goes with it");
     await page.wait(() => page.button() === null, "Reabrir to leave the open draft");
-    assert.doesNotMatch(document.body.textContent ?? "", /Se registró un gasto/, "the recorded line is gone");
-    assert.ok(document.body.textContent?.includes("Aceptar"), "the open draft can be approved again");
+    assert.ok(page.status(), "the open draft says where it stands");
+    assert.ok(page.approve(), "the open draft can be approved again");
   });
 
   test("a record the server will not reopen offers nothing", async () => {
     const page = await mount({ serve: (dossier) => { dossier.reopen_available = false; } });
-    assert.match(document.body.textContent ?? "", /Se registró un gasto/);
+    assert.equal(page.status(), null, "the record is accepted");
     assert.equal(page.button(), null, "no Reabrir when the server says no");
   });
 
@@ -162,7 +166,8 @@ describe("Reabrir on an approved record", () => {
     const alert = document.querySelector('[role="alert"]')!.textContent ?? "";
     assert.match(alert, /conciliado con un movimiento del banco/);
     assert.match(document.body.textContent ?? "", /Ref\./);
-    assert.match(document.body.textContent ?? "", /Se registró un gasto/, "the record is still recorded");
+    assert.equal(page.status(), null, "the record is still accepted");
+    assert.equal(page.approve(), null, "and still offers no Aceptar");
     assert.ok(page.button(), "Reabrir stays available for after the unmatch");
   });
 });

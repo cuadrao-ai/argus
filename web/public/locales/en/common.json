@@ -2065,7 +2065,6 @@
         "tag_verified": "Verified"
       },
       "load_failed": "We couldn't load the tax fields.",
-      "no_withholdings": "No withholdings",
       "save_failed": "We couldn't confirm the tax details were saved. Check the current record before you accept.",
       "actual_refund": "A refund was received…",
       "option": {
@@ -2833,9 +2832,90 @@
       "view_document": "View document"
     },
     "dossier": {
+      "card": {
+        "billed": "Billed amount",
+        "comprobante": "Receipt",
+        "other_taxes": "Other taxes",
+        "report": "{{form}} report"
+      },
+      "details": {
+        "arrived": "Arrived",
+        "channel": "Channel",
+        "file": "File",
+        "name": "Name",
+        "origin": "Origin",
+        "sent_by": "Sent by",
+        "size": "Size"
+      },
+      "document": {
+        "controls": "Document controls",
+        "download": "Download {{name}}",
+        "region": "Document"
+      },
+      "fiscal": {
+        "add_retention": "Add withholding",
+        "add_tax": "Add tax",
+        "no_other_taxes": "No other taxes.",
+        "no_retentions": "No withholdings.",
+        "remove": "Remove"
+      },
+      "gap": {
+        "missing_amount": {
+          "title": "The total is missing",
+          "text": "Enter the document's total."
+        },
+        "missing_ncf": {
+          "title": "The NCF is missing",
+          "text": "Enter it as the document shows it."
+        },
+        "missing_rnc": {
+          "title": "The RNC is missing",
+          "text": "Enter it as the document shows it."
+        }
+      },
+      "nav": {
+        "group": "Move between documents",
+        "list": "See the list",
+        "list_place": "See the list, {{place}}",
+        "next": "Next",
+        "previous": "Previous",
+        "unopened": "Unopened"
+      },
+      "problems": {
+        "count_one": "{{count}} to resolve",
+        "count_other": "{{count}} to resolve",
+        "list": "To resolve"
+      },
       "read_purchases_title": "Purchases read on this receipt",
       "read_purchases_note": "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.",
       "read_purchase": "Purchase {{index}}",
+      "rnc_registry": {
+        "cese_temporal": "Temporarily ceased in the DGII",
+        "dado_de_baja": "Deregistered in the DGII",
+        "not_found": "Not listed in the DGII",
+        "suspendido": "Suspended in the DGII",
+        "verificado": "Verified"
+      },
+      "row": {
+        "cedula": "Cédula",
+        "date": "Date",
+        "no_data": "No value",
+        "subtotal": "Subtotal"
+      },
+      "size": {
+        "narrow": "Narrow",
+        "wide": "Widen"
+      },
+      "tab": {
+        "general": "General",
+        "documento": "Document",
+        "fiscal": "Tax details",
+        "detalles": "Details",
+        "historial": "History",
+        "label": "Information",
+        "count_one": "{{count}} to resolve",
+        "count_other": "{{count}} to resolve"
+      },
       "unknown_amount": "Amount unknown",
       "read_remainder_one": "Recorded {{recorded}} of a total of {{total}}. {{count}} purchase on this receipt is still unrecorded.",
       "read_remainder_other": "Recorded {{recorded}} of a total of {{total}}. {{count}} purchases on this receipt are still unrecorded.",
@@ -2858,13 +2938,10 @@
       "amount_unknown": "Amount unknown",
       "currency_unknown": "Currency unknown",
       "revision": "Revision {{version}}",
-      "current_details": "Current details",
       "edit": "Edit details",
       "business_amount": "Business amount",
       "default": "Default · not verified",
       "verified": "Verified",
-      "not_verified": "Not verified",
-      "needs_resolution": "Needs a decision before acceptance",
       "messages_title_one": "Original message",
       "messages_title_other": "Original messages",
       "proposals": "Agent proposals",
@@ -2887,17 +2964,12 @@
       "not_recorded": "Not recorded",
       "grant_used": "Permission granted by {{issuer}}",
       "reviewed_revision": "This revision was reviewed.",
-      "no_history": "No revisions have been recorded yet.",
       "decisions": "Needs your decision",
       "for_accountant": "For the accountant",
       "for_owner": "For the owner",
       "approve": "Accept expense",
       "approve_action": "Accept expense",
       "approve_next": "Accept and next",
-      "approve_reason": {
-        "date": "Add the date to accept"
-      },
-      "approved_by": "Accepted by {{name}} · permission granted by {{issuer}}",
       "approving": "Accepting…",
       "approval_effect": "Acceptance records this revision as one expense. Saving review details does not record it.",
       "prepare_only": "Your permission allows preparing this record. A person with acceptance permission must accept it.",
@@ -2913,61 +2985,6 @@
         "business_record_matched": "This receipt is matched to a bank movement. Undo that match to reopen it.",
         "business_refund_linked": "A credit note or refund points at this receipt. Deal with that record first."
       },
-      "ecf_title": "Electronic invoice",
-      "ecf_note": "What the file proves by itself. Nothing here confirms DGII accepted the invoice; a row marked Review does not stop you from accepting it.",
-      "ecf_see_all_one": "See the {{count}} check",
-      "ecf_see_all_other": "See all {{count}} checks",
-      "ecf_summary": "{{ok}} of {{total}} fine",
-      "ecf_document": "e-CF {{encf}} · type {{tipo}}, {{label}}",
-      "ecf_document_untyped": "e-CF {{encf}} · type {{tipo}}",
-      "ecf_type_31": "tax credit",
-      "ecf_type_32": "consumer",
-      "ecf_checked_ago": "checked {{when}}",
-      "ecf_row_signature": "Signature",
-      "ecf_row_totals": "Totals",
-      "ecf_row_read": "Read",
-      "ecf_row_certificate": "Certificate",
-      "ecf_row_dgii": "DGII",
-      "ecf_integrity_verified": "Content unchanged since it was signed",
-      "ecf_integrity_failed": "Review: the content changed after it was signed",
-      "ecf_integrity_not_checked": "Signature not checked: {{reason}}",
-      "ecf_reason_no_signature": "the file carries no signature",
-      "ecf_reason_several_signatures": "it carries more than one signature",
-      "ecf_reason_unsupported": "signature form not supported",
-      "ecf_reason_unreadable": "the signature could not be read",
-      "ecf_totals_verified": "The totals add up",
-      "ecf_totals_failed": "Review: the totals do not add up (total {{total}}, sum {{sum}})",
-      "ecf_totals_items_failed": "Review: the lines do not add up to the base (lines {{items}})",
-      "ecf_totals_not_checked": "Totals not checked",
-      "ecf_read_verified": "The read matches the XML",
-      "ecf_read_failed": "Review: the read differs from the XML in {{fields}}",
-      "ecf_read_not_checked": "Read not compared with the XML",
-      "ecf_field_total": "total",
-      "ecf_field_itbis": "ITBIS",
-      "ecf_field_rnc": "RNC",
-      "ecf_field_ecf": "e-NCF",
-      "ecf_field_occurred_on": "date",
-      "ecf_window_valid": "valid",
-      "ecf_window_expired": "expired",
-      "ecf_window_not_yet": "not yet valid",
-      "ecf_window_unknown": "no declared date",
-      "ecf_validity_facts": "{{at}} on the date the document declares{{when}}; {{today}} today. Revocation not checked.",
-      "ecf_validity_not_checked": "Certificate validity not checked.",
-      "ecf_issuer_not_checked": "Certificate issuer not checked ({{issuer}}).",
-      "ecf_issuer_unknown": "Certificate issuer not checked.",
-      "ecf_subject_named": "The certificate names the issuer's RNC; that does not prove its identity.",
-      "ecf_subject_failed": "Review: the certificate does not name the issuer's RNC ({{serial}}).",
-      "ecf_dgii_not_checked": "DGII acceptance not looked up.",
-      "ecf_security_expected": "Expected security code: {{code}}.",
-      "ecf_security_unavailable": "Security code not available.",
-      "ecf_row_qr": "QR code",
-      "ecf_qr_match": "The QR code matches what was read",
-      "ecf_qr_differs": "Review: the QR code does not match what was read. {{pairs}}",
-      "ecf_qr_pair": "{{field}}: read {{read}}, QR {{qr}}",
-      "ecf_qr_no_read": "QR code read; nothing read from the receipt to compare it with",
-      "ecf_qr_missing": "No readable QR code",
-      "ecf_qr_verify": "Check on DGII",
-      "ecf_qr_verify_note": "Opens DGII's official consultation page in a new tab. Cuadrao sends nothing.",
       "refresh": "Check current record",
       "stale": "This record changed. Open the current revision and review it before taking another action.",
       "unavailable": "This record isn't available with your current access.",
@@ -2993,7 +3010,6 @@
       },
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
       "refused": "This action could not be completed. Check the current record before trying again.",
-      "blocker_fallback": "This record needs further review before acceptance.",
       "blocker_unsaved": "A change didn't save. Save it again to accept.",
       "kind": {
         "expense": "Expense",
@@ -3034,10 +3050,75 @@
         "suggested": "suggested"
       },
       "placeholder": {
-        "blocks_title": "Needed to accept",
         "expense_type": "Expense type",
+        "gap": {
+          "blocked": {
+            "title": "Something is pending",
+            "text": "Resolve what is pending before you accept it."
+          },
+          "check_details": {
+            "title": "Check the details",
+            "text": "The read left doubtful values. Compare them with the document."
+          },
+          "credit_note": {
+            "title": "It is a credit note",
+            "text": "Check which purchase it belongs to."
+          },
+          "duplicate": {
+            "text": "It looks like another document."
+          },
+          "ecf_check_failed": {
+            "title": "The e-CF did not pass the check",
+            "text": "Compare the values with the document."
+          },
+          "missing_currency": {
+            "title": "The currency is missing",
+            "text": "Choose the document's currency."
+          },
+          "missing_date": {
+            "title": "The date is missing",
+            "text": "Enter it as the document shows it."
+          },
+          "missing_itbis": {
+            "title": "The ITBIS is missing",
+            "text": "Enter it as the document shows it. If it has none, enter 0.00."
+          },
+          "missing_merchant": {
+            "title": "The issuer is missing",
+            "text": "Enter it as the document shows it."
+          },
+          "no_purchase_found": {
+            "title": "We found no purchase",
+            "text": "Enter the values as the document shows them."
+          },
+          "not_read": {
+            "title": "Not read",
+            "text": "This document has not been read yet."
+          },
+          "review_flag": {
+            "title": "It has values to check",
+            "text": "Check the marked values."
+          },
+          "several_purchases": {
+            "title": "Several purchases on one receipt",
+            "text": "Complete this record with one of the purchases."
+          },
+          "sin_comprobante": {
+            "title": "No fiscal receipt",
+            "text": "This document has no NCF or e-CF."
+          },
+          "unverified_sender": {
+            "title": "Unverified sender",
+            "text": "It came by email from a sender who is not on your list."
+          }
+        },
         "more_fiscal": "More tax details",
         "payment_form": "Payment method",
+        "rnc_registry": {
+          "anulado": "Annulled in the DGII",
+          "desconocido": "Status not confirmed in the DGII",
+          "rechazado": "Rejected in the DGII"
+        },
         "save_lost": "We couldn't confirm that {{field}} was saved. Acceptance is paused.",
         "save_refused": "{{field}} wasn't saved. Check the value.",
         "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
@@ -3046,14 +3127,10 @@
         "done_back": "Back to Inbox",
         "total_mismatch": "Subtotal + ITBIS = {{sum}}, not {{total}}",
         "save_first": "Save or cancel {{fields}} to accept.",
-        "group_identity": "Identification",
-        "group_amounts": "Billed amounts",
         "group_retentions": "Withholdings",
-        "group_other": "Other",
         "inherited_original_ncf": "Original purchase NCF",
         "inherited_rnc": "RNC",
         "restore_inherited": "Restore: {{value}}",
-        "section_choices": "For the 606",
         "suggestion_source": {
           "last_choice": "Your last choice for this RNC",
           "reading": "Suggested by the reading",
@@ -3072,9 +3149,7 @@
         "fiscal": "Fiscal",
         "payment": "Payment"
       },
-      "tab_form": "Form",
       "tab_original": "Original",
-      "view_label": "View",
       "viewer": {
         "actual_size": "Actual size",
         "exit_full_screen": "Exit full screen",
@@ -3208,8 +3283,10 @@
       }
     },
     "history": {
+      "accepted_note": "It moved to Records",
       "am": "AM",
       "approved": "Accepted",
+      "arrived": "Arrived by {{channel}}",
       "changed": "{{field}} changed from {{before}} to {{after}}",
       "changed_female": "{{field}} changed from {{before}} to {{after}}",
       "channel_email": "Email",
@@ -3225,7 +3302,9 @@
       "rnc_verified": "RNC verified",
       "set": "{{field}}: {{after}}",
       "title": "History",
-      "via_cuadrao": "{{name}} via Cuadrao"
+      "today": "Today",
+      "via_cuadrao": "{{name}} via Cuadrao",
+      "yesterday": "Yesterday"
     },
     "reading": {
       "line": "Reading your receipt…",
@@ -4380,7 +4459,6 @@
       "account": "Paid from",
       "evidence": "What the receipt says",
       "tax": "Tax",
-      "evidence_note": "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.",
       "saved_body": "Saved as one expense of {{amount}}.",
       "view_expenses": "View expenses",
       "confirm": "Confirm expense"

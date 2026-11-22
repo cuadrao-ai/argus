@@ -174,9 +174,9 @@ describe("an Actividad row opens what it is about", () => {
       const row = activityRow(page, "aceptó un gasto");
       assert.ok(row, "the approval row is a button");
       await page.click(row);
-      await page.settle(() => asked.length > 0 && !!document.querySelector('[data-testid="receipt-top-block"]'));
+      await page.settle(() => asked.length > 0 && !!document.querySelector('[data-testid="business-record-review"]'));
       assert.deepEqual([...new Set(asked)], [dossierFixtureIds.ready], "the record the row names is the one read");
-      assert.ok(document.querySelector('[data-testid="receipt-top-block"]'), "the record opened");
+      assert.ok(document.querySelector('[data-testid="business-record-review"]'), "the record opened");
     } finally { await page.close(); }
   });
 
