@@ -1,6 +1,5 @@
 import { browserAuthGeneration, browserLogoutGeneration, invalidateBrowserAuth, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { clearBusinessSelectionOnSignOut, synchronizeBusinessAccount } from "./business-grant";
-import { rememberReceiptFollowupClaim } from './receipt-followup-storage';
 import { parseToolProgress, type ToolProgress, type ToolResultCard, type ToolScalar } from "./tool-result-card";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import type { AccountRequestOptions } from "./argus-api-transport";
@@ -29,10 +28,6 @@ import { currentViewportBand } from "./responsive-layout";
 import {
   runActionIdempotencyKey,
 } from "./usage-allowance";
-import type {
-  DemonstratedInterest,
-  MarketSessionPhase,
-} from "@/components/chat/greetingPool";
 import type { AvatarTheme } from "./avatar-theme";
 import type { GuestPendingActionSummary } from "./guest-conversion";
 import {
@@ -594,9 +589,6 @@ export async function persistBrowserSession(payload: AuthResponsePayload) {
   }
   if (logoutGeneration !== browserLogoutGeneration()) throw new Error("Browser session changed");
   synchronizeBusinessAccount(data?.session?.user.id ?? null);
-  if (payload.guest_claim && data?.session?.user.id) {
-    rememberReceiptFollowupClaim(data.session.user.id, payload.guest_claim.conversation_id);
-  }
 }
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
@@ -622,25 +614,6 @@ function readAccount(response: UserResponse): UserResponse {
 
 export async function getMe(expectedUserId?: string) {
   return readAccount(await apiFetch<UserResponse>("/me", { expectedUserId }));
-}
-
-export type MarketSessionResponse = {
-  session: {
-    phase: MarketSessionPhase;
-    is_market_day: boolean;
-    as_of: string;
-  } | null;
-  interest: DemonstratedInterest | null;
-};
-
-/**
- * Which session US equities are in, resolved by the backend in Eastern time
- * against the real trading calendar, and what the caller's own records show
- * interest in. Either is null when unreadable, and callers say nothing about
- * the market rather than guessing.
- */
-export async function getMarketSession(signal?: AbortSignal) {
-  return apiFetch<MarketSessionResponse>("/market/session", { signal });
 }
 
 export async function patchMe(patch: ProfilePatch) {

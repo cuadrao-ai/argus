@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  headlineReceiptMetric,
-  type PublicReceiptPayload,
-} from "@/lib/public-receipt-contract";
-import {
   displayResultMetricLabel,
   heroDeltaEvidenceView,
   resultMetricDisplayOrder,
@@ -54,14 +50,5 @@ describe("contribution return display contract", () => {
     expect(hero.hero.detail).not.toContain("total return");
   });
 
-  test("is the receipt headline when a run froze it", () => {
-    const payload = {
-      schema_version: 1,
-      metrics: [
-        { key: "cash_value", value: "$200 -> $144" },
-        { key: "contribution_return_pct", value: "-28.0%" },
-      ],
-    } as unknown as PublicReceiptPayload;
-    expect(headlineReceiptMetric(payload)?.key).toBe("contribution_return_pct");
-  });
+
 });
