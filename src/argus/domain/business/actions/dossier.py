@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime, timezone
 from typing import Any, get_args
 from uuid import UUID
 
@@ -28,7 +29,14 @@ from argus.domain.business.amount_inheritance import (
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
-from argus.domain.business.bandeja_group import upload_year, year_to_check
+from argus.domain.business.bandeja_group import (
+    BandejaReason,
+    DraftStanding,
+    group_of,
+    listo_gaps,
+    upload_year,
+    year_to_check,
+)
 from argus.domain.business.config import (
     business_settlement_enabled,
     ecf_checks_panel_enabled,
@@ -46,6 +54,7 @@ from argus.domain.business.contracts.dgii import (
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
     ApprovalResult,
+    BandejaStanding,
     Blocker,
     BusinessDossier,
     DraftRevision,
@@ -65,6 +74,7 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.document_type import DocumentType, kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers
+from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
 from argus.domain.business.purchase_review import (
     blank_answer,
@@ -73,14 +83,19 @@ from argus.domain.business.purchase_review import (
     takes_payment_split,
     takes_purchase_declaration,
 )
+from argus.domain.business.receipts import draft_row
 from argus.domain.business.review_flags import review_flags
 from argus.domain.business.rnc_registry import (
     RncRegistry,
     postgres_rnc_fetch,
     registry_from_config,
 )
+from argus.domain.business.supplier_fast_path import (
+    RncRegistryStatus,
+    registry_status,
+)
 from argus.domain.business.transactions import ActionTransaction
-from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
+from argus.domain.ingestion.receipt_review import duplicate_warning
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 SOURCE = TypeAdapter(SourceEvidence)
@@ -245,6 +260,35 @@ def duplicate_candidates(
     return tuple(candidates)
 
 
+def bandeja_standing(
+    row: Mapping[str, Any], standing: DraftStanding | None, *, accepting: bool
+) -> tuple[BandejaStanding, tuple[BandejaReason, ...]]:
+    """The draft's Bandeja standing and every gap behind it, by the rule the
+    receipt list reads. ``row`` is the receipt row linked to this draft alone:
+    what ``receipts.draft_row`` gives it, its deleted mark and its read."""
+
+    found = group_of(row, standing, accepting=accepting)
+    gaps = listo_gaps(standing) if standing and found["group"] == "attention" else ()
+    return (
+        BandejaStanding(
+            group=found["group"], reason=found["reason"], label=found["label"]
+        ),
+        gaps,
+    )
+
+
+def supplier_registry_status(
+    tx: ActionTransaction, facts: BusinessFacts
+) -> RncRegistryStatus | None:
+    """What the DGII register says of the supplier RNC the draft holds."""
+
+    rnc = facts.fiscal.rnc if facts.fiscal else None
+    digits = identity_digits(rnc.value) if isinstance(rnc, Known) else None
+    if not digits:
+        return None
+    return registry_status(tx.connection, digits, datetime.now(timezone.utc))
+
+
 def workflow_blockers(
     tx: ActionTransaction,
     event: ImportEvent,
@@ -270,12 +314,12 @@ def workflow_blockers(
     duplicate_ids = pending_duplicates(
         tx.imports, event, lambda event_id: attachment_signature(tx, event_id)
     )
-    unresolved_attention = event.attention in DUPLICATE_WARNINGS and (
-        event.attention != "possible_duplicate"
-        or not event.possible_duplicates
-        or bool(duplicate_ids)
-    )
-    if unresolved_attention or duplicate_ids:
+    if (
+        duplicate_warning(
+            event.attention, event.possible_duplicates, lambda: duplicate_ids
+        )
+        or duplicate_ids
+    ):
         # Settled only by a person: the draft stays reviewable, never approvable.
         blocked.append(Blocker(code="possible_duplicate"))
     return blocked, tuple(duplicate_ids)
@@ -586,13 +630,32 @@ def dossier(
         marker,
         people(tx.connection, tx.authorization, [marker and marker.actor.actor_id]),
     )
+    reading = event.state == "open" and is_reading(tx, source_rows)
     delete_available = (
         event.state == "open"
         and "approve" in tx.authorization.capabilities
         and not any(row["shared"] for row in source_rows)
-        and not is_reading(tx, source_rows)
+        and not reading
     )
     uploaded = upload_year(source_rows[0]["received_at"] if source_rows else None)
+    from argus.domain.business.actions.listos import draft_standings
+
+    group, gaps = bandeja_standing(
+        {
+            **draft_row(
+                event,
+                duplicate=duplicate_warning(
+                    event.attention, event.possible_duplicates, lambda: duplicate_ids
+                ),
+            ),
+            "deleted": deleted,
+            "read_pending": reading,
+        },
+        draft_standings(tx, [event], every_gap=True)[event.id]
+        if event.state == "open" and not reading
+        else None,
+        accepting=event.state == "accepting",
+    )
     return BusinessDossier(
         deleted=deleted,
         delete_available=delete_available,
@@ -651,5 +714,8 @@ def dossier(
         due_on=resolution.due_on,
         upload_year=uploaded,
         year_to_check=year_to_check(facts, uploaded),
+        bandeja_group=group,
+        listo_gaps=gaps,
+        rnc_registry_status=supplier_registry_status(tx, facts),
         **draft_marks(tx, draft_id, facts),
     )

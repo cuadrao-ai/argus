@@ -125,7 +125,7 @@ def test_a_receipt_total_with_no_purchase_row_is_an_unverified_draft(
     checked,  # noqa: F811
     monkeypatch,  # noqa: ANN001
 ) -> None:
-    from argus.api.business_drafts import read_attention
+    from argus.domain.business.receipts import read_attention
     from argus.domain.ingestion.reconcile.model import ImportEvent
 
     _, _, _, row = checked
@@ -415,7 +415,7 @@ def test_a_single_read_with_an_uncertain_amount_is_not_labelled_no_purchase_foun
     checked,  # noqa: F811
     monkeypatch,  # noqa: ANN001
 ) -> None:
-    from argus.api.business_drafts import read_attention
+    from argus.domain.business.receipts import read_attention
     from argus.domain.ingestion.reconcile.model import ImportEvent
 
     _, _, _, row = checked

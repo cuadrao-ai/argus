@@ -1,8 +1,9 @@
 """Supplier registry lookup and receipt-date NCF check.
 
 The service runs only when ``CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED``
-is on. Callers pass a database connection. Nothing here opens one, and
-nothing here is wired to a route.
+is on, and is wired to no route. ``registry_status`` is the one read the
+flag does not gate: the dossier shows it beside the RNC. Callers pass a
+database connection. Nothing here opens one.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ from enum import Enum
 from typing import Any, Literal
 
 from argus.domain.business.fiscal_identity import normalized_ncf
-from argus.domain.ingestion.documents.config import enabled_flag
 from argus.settings_names import setting_value
 
 _FLAG = "BUSINESS_SUPPLIER_FAST_PATH_ENABLED"
@@ -94,6 +94,10 @@ UNKNOWN_STATUS = RegistryStatusInfo(
 
 
 def supplier_fast_path_enabled() -> bool:
+    # Lazy: the dossier contract imports this module's status type, and the
+    # Business runtime's contracts load without the ingestion package.
+    from argus.domain.ingestion.documents.config import enabled_flag
+
     return enabled_flag(setting_value(_FLAG))
 
 
@@ -209,6 +213,24 @@ def _lookup(
         file_date=_as_date(file_date),
         checked_at=checked_at,
     )
+
+
+#: What the register says of one RNC: its mapped status, or ``not_found`` when
+#: a loaded register does not list it. ``desconocido`` is a listed RNC whose
+#: publisher text no row maps, never a miss.
+RncRegistryStatus = RegistryStatus | Literal["not_found"]
+
+
+def registry_status(
+    connection: Any, rnc: str, checked_at: datetime
+) -> RncRegistryStatus | None:
+    """The register's answer for ``rnc``. None while no register is loaded:
+    nothing is known, so nothing is said."""
+
+    found = _lookup(connection, rnc, checked_at)
+    if isinstance(found, SupplierRegistryHit):
+        return found.mapped.status
+    return "not_found" if found.outcome == "not_found" else None
 
 
 def lookup_supplier_fast_path(
