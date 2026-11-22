@@ -148,7 +148,6 @@ async function mount(logoutOutcome: LogoutOutcome = "same") {
     mode: "live",
     spaces: async () => spaces,
     spaceDirectory: async () => ({ spaces, closed_spaces: [] }),
-    receiptReading: undefined,
     setReceiptReading: undefined,
     workspace: async () => {
       const deferred = nextRead;
