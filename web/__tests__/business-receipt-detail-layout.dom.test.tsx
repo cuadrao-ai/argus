@@ -191,7 +191,7 @@ describe("the footer", () => {
         approveDraft: async (id, version) => {
           approvals += 1;
           await new Promise<void>((resolve) => { release = resolve; });
-          return fixture.dossier(id).then((dossier) => ({ ...dossier, version }));
+          return { ...await fixture.dossier(id), version, inbox_counts: (await fixture.receiptPage!("inbox")).activity };
         },
       },
     });

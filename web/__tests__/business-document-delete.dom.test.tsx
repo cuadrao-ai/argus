@@ -79,14 +79,14 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
       calls.push({ id, key });
       if (failFirst && calls.length === 1) throw new Error("synthetic outage");
       items = items.map(item => item.id === id || item.draft_id === id ? { ...item, status: "dismissed", deleted: deletion, delete_available: false, restore_available: true, bandeja_group: { ...item.bandeja_group!, group: "eliminados" } } : item);
-      return { document_id: id, deleted: true };
+      return { document_id: id, deleted: true, inbox_counts: counts() };
     },
     purgeDocument: async (id, key) => {
       purges.push({ id, key });
       if (failFirst && purges.length === 1) throw new Error("synthetic outage");
       items = items.filter(item => item.id !== id);
       notes = notes.filter(note => note.draft_id !== id);
-      return { document_id: id, deleted: true };
+      return { document_id: id, deleted: true, inbox_counts: counts() };
     },
     restoreDocument: async id => {
       restores.push(id);
@@ -97,7 +97,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
       dossierDeleted = false;
       notes = notes.map(note => note.draft_id === id ? { ...note, review_state: "open", deleted: null, delete_available: true, restore_available: false, bandeja_group: { ...note.bandeja_group!, group: "attention" } } : note);
       items = items.map(item => item.id === id || item.draft_id === id ? { ...item, status: "needs_attention", deleted: null, delete_available: true, restore_available: false, bandeja_group: { ...item.bandeja_group!, group: "attention" } } : item);
-      return { document_id: id, deleted: false };
+      return { document_id: id, deleted: false, inbox_counts: counts() };
     },
   };
   const i18n = i18next.createInstance();
