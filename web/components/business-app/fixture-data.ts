@@ -5,6 +5,7 @@ import type {
   ReceiptReviewFields,
   BusinessAccessGrant,
   BusinessAccessInvite,
+  ReceiptReading,
 } from "@/lib/business-api";
 import { createDossierFixtures } from "./dossier-fixtures";
 import type { FiscalProfile } from "@/lib/business-dgii";
@@ -385,8 +386,13 @@ function matches(query: string, text: string): boolean {
 
 const delay = (ms = 240) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** `accounts: "none"` starts a Business that has no account yet, as a new one does. */
-export type FixtureOptions = Readonly<{ chatAvailable: boolean; accounts?: "none"; inbox?: "empty" | "loading" | "failed" }>;
+/** `accounts: "none"` starts a Business that has no account yet, as a new one does. `receiptReading` is the workspace's reading setting; without it the server offers none. */
+export type FixtureOptions = Readonly<{ chatAvailable: boolean; accounts?: "none"; inbox?: "empty" | "loading" | "failed"; receiptReading?: Partial<ReceiptReading> }>;
+
+/** The synthetic server's reading setting: off, available and the owner's to change, unless a caller names otherwise. */
+export function fixtureReceiptReading(over: Partial<ReceiptReading> = {}): ReceiptReading {
+  return { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Permiso sintético para leer documentos.", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null, ...over };
+}
 
 /** Sample access: the owner and one accountant with read and prepare. */
 const access: { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] } = {
@@ -401,7 +407,7 @@ const access: { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] }
 const seenGrants = new Set<string>();
 
 export function createFixtureBusinessDataSource(
-  { chatAvailable, accounts: start, inbox }: FixtureOptions = { chatAvailable: true },
+  { chatAvailable, accounts: start, inbox, receiptReading }: FixtureOptions = { chatAvailable: true },
 ): BusinessDataSource & {
   saveReview: (
     id: string,
@@ -519,6 +525,7 @@ export function createFixtureBusinessDataSource(
           max_bytes: 10 * 1024 * 1024,
           media_types: ["application/pdf", "image/jpeg", "image/png"],
         },
+        receipt_reading: receiptReading ? fixtureReceiptReading(receiptReading) : null,
       };
     },
     overview: async (from, end) => {

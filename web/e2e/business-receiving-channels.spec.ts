@@ -10,7 +10,7 @@ async function setup(page: Page, available: boolean, history = false) {
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
-  const source = createFixtureBusinessDataSource({ chatAvailable: false });
+  const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { can_change: false } });
   await page.route("**/api/v1/whatsapp/**", route => {
     requests.push(new URL(route.request().url()).pathname);
     return route.fulfill({ status: 404, json: { code: "whatsapp_unavailable" } });
@@ -25,7 +25,6 @@ async function setup(page: Page, available: boolean, history = false) {
     if (path === "spaces") return route.fulfill({ json: { spaces: (await source.spaces()).slice(0, 1) } });
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
     if (path === "receipts") return route.fulfill({ json: { items: history ? [{ ...await source.receipt("rcpt-ferreteria"), draft_id: null, channel: "email", email_delivery_ids: ["email-ferreteria"] }] : [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } } });
-    if (path === "receipt-reading") return route.fulfill({ json: { enabled: false, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: false, receiving_address: null } });
     if (path === "receipts/rcpt-ferreteria") return route.fulfill({ json: { ...await source.receipt("rcpt-ferreteria"), draft_id: null, channel: "email", email_delivery_ids: ["email-ferreteria"] } });
     if (path === "receipts/rcpt-ferreteria/source") {

@@ -6,7 +6,7 @@ async function openIntake(page: Page, reading = false) {
   // All external traffic is refused. Every Business request is fixture-only.
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
-  const source = createFixtureBusinessDataSource({ chatAvailable: false });
+  const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { enabled: reading } });
   const attempts: { key: string; consent: string | undefined; bytes: Buffer; documentType?: string }[] = [];
   const state: { status: number; limitOnce?: string } = { status: 422 };
   await page.route("**/api/v1/business/**", async (route) => {
@@ -26,7 +26,6 @@ async function openIntake(page: Page, reading = false) {
       if (state.status === 201) return route.fulfill({ status: 201, json: { id: `receipt-${attempts.length}`, channel: "web", filename, media_type: "image/jpeg", size_bytes: 1, received_at: "2026-10-19T12:00:00Z", status: "saved", error_code: null, attention: null, preparable: true, enterable: true, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null } });
       return route.fulfill({ status: state.status, json: { code: state.status === 415 ? "document_media_type_unsupported" : "invalid_document", detail: "PRIVATE_VALIDATION_DETAIL" } });
     }
-    if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: reading, available: true, can_change: true, disclosure: "Permiso explícito del negocio para correo, WhatsApp y archivos.", disclosure_token: "a".repeat(64), route: { gateway: "synthetic", interpretation: [{ model: "fixture-reader" }], reply: [] }, consented_at: null, revoked_at: null } });
     if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Negocio de prueba" } });
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
     if (path === "receipts" || path === "captures") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });

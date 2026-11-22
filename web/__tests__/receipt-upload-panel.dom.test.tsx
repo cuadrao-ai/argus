@@ -47,15 +47,14 @@ async function mount({ read = reading() as ReceiptReading | null, email = false,
   }), () => undefined);
   const changes: boolean[] = [];
   const reviews: ReceiptSummary[][] = [];
-  let current = read;
   const context = {
     source: {
-      receiptReading: async () => { if (!current) throw new Error("synthetic outage"); return current; },
-      setReceiptReading: async (_reading: ReceiptReading, enabled: boolean) => { changes.push(enabled); current = { ...current!, enabled }; return current; },
+      setReceiptReading: async (current: ReceiptReading, enabled: boolean) => { changes.push(enabled); return { ...current, enabled }; },
       emailIntake: async () => ({ enabled: address !== null, receiving_address: address }),
     },
     chosen: { space_id: "own", capabilities: ["read", "prepare", "approve"] },
-    records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, receipt_limits: limits }, error: false },
+    // The workspace answer carries the reading setting; null is a server that did not say.
+    records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, receipt_limits: limits, receipt_reading: read }, workspaceGrant: null, workspaceRevision: 0, error: false },
     receivingChannels: { email: { available: email }, whatsapp: { available: whatsapp } },
     revision: 0, bridge: null, reload() {}, openPanel() {},
   } as unknown as BusinessContextValue;
