@@ -15,6 +15,7 @@ import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useReceivingChannels } from "../business-context";
 import { useBusiness } from "../BusinessWorkspace";
+import { followedReceipts } from "../BusinessReviewShortcuts";
 import ReceiptReadingControl from "../ReceiptReadingControl";
 import { loadFailure, type LoadFailure } from "../bandeja-sources";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -173,10 +174,12 @@ function ReceptionWorkspace() {
   // "N de M" on an open receipt and its neighbours are this list as the server last answered it, never the list as it was when the receipt opened.
   const listedReceipts = matched.flatMap(row => row.kind === "receipt" ? [row.id] : []).join("|");
   const openedFrom = (panel.kind === "receipt" || panel.kind === "draft") && panel.list === "inbox" ? panel.receiptIds : undefined;
+  const openReceipt = panel.kind === "receipt" ? panel.receiptId : null;
   useEffect(() => {
-    if (pending || failed || !openedFrom || openedFrom.join("|") === listedReceipts) return;
-    followReceiptList(listedReceipts ? listedReceipts.split("|") : []);
-  }, [pending, failed, openedFrom, listedReceipts, followReceiptList]);
+    if (pending || failed || !openedFrom) return;
+    const followed = followedReceipts(openReceipt, openedFrom, listedReceipts ? listedReceipts.split("|") : []);
+    if (followed.join("|") !== openedFrom.join("|")) followReceiptList(followed);
+  }, [pending, failed, openedFrom, openReceipt, listedReceipts, followReceiptList]);
   const navigateFrom = (next: Parameters<typeof openPanel>[0]) => {
     dossierReturns.set(source, { scope, view, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
     openPanel(next.kind === "receipt" || next.kind === "draft"

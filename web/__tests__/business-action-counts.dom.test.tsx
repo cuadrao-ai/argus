@@ -51,7 +51,9 @@ async function mount() {
   let held: Promise<void> | null = null;
   let reads = 0;
   const read = <T,>(answer: () => T): Promise<T> => { reads += 1; return silent ? new Promise<T>(() => {}) : Promise.resolve(answer()); };
-  const page = (view: "inbox" | "all"): ReceiptPage => ({ items: view === "all" ? items : items.filter(item => !item.deleted), activity: BEFORE });
+  // A receipt the lists stop naming can still be read by its id, as one accepted or moved to another tab can.
+  const unlisted = new Set<string>();
+  const page = (view: "inbox" | "all"): ReceiptPage => ({ items: items.filter(item => !unlisted.has(item.id) && (view === "all" || !item.deleted)), activity: BEFORE });
   const source: BusinessDataSource = {
     ...fixture,
     receipts: view => read(() => page(view).items),
@@ -108,7 +110,7 @@ async function mount() {
     assert.deepEqual(api!.records.receiptActivity, ANSWERED);
     assert.ok(reads > before, "the lists were asked again, and none of those reads answered");
   };
-  const server = { arrives: (id: string) => { items = [{ ...items[0], id, merchant: `Documento ${id}`, filename: `Documento ${id}` }, ...items]; }, loses: (id: string) => { items = items.filter(item => item.id !== id); } };
+  const server = { arrives: (id: string) => { items = [{ ...items[0], id, merchant: `Documento ${id}`, filename: `Documento ${id}` }, ...items]; }, loses: (id: string) => { items = items.filter(item => item.id !== id); }, unlists: (id: string) => { unlisted.add(id); } };
   const holdAnswers = () => { silent = true; const answer = Promise.withResolvers<void>(); held = answer.promise; return answer.resolve; };
   return { act, wait, click, confirm, acted, server, shown, holdAnswers, api: () => api! };
 }
@@ -168,18 +170,31 @@ test("an open receipt's place follows the list the server last answered with (#2
   page.server.arrives("nuevo");
   await page.act(async () => page.api().reload());
   await page.wait(() => place() === "2 de 3", "a row arrived above");
-  const previous = () => document.querySelector<HTMLButtonElement>('[data-testid="receipt-place"] button[aria-label="Recibo anterior"]');
-  assert.equal(previous()?.disabled, false);
+  const move = (label: string) => document.querySelector<HTMLButtonElement>(`[data-testid="receipt-place"] button[aria-label="${label}"]`);
+  assert.equal(move("Recibo anterior")?.disabled, false);
 
   page.server.loses("nuevo");
-  page.server.loses("attention");
   await page.act(async () => page.api().reload());
-  await page.wait(() => place() === "1 de 1", "the other rows left");
-  assert.equal(previous()?.disabled, true);
+  await page.wait(() => place() === "1 de 2", "the row above left");
+  assert.equal(move("Recibo anterior")?.disabled, true);
 
-  page.server.loses("ready");
+  // The open receipt leaves the list: it keeps its slot until the person moves on, so next still works.
+  page.server.unlists("ready");
   await page.act(async () => page.api().reload());
-  await page.wait(() => place() === null, "the open receipt left the list");
+  await page.wait(() => document.querySelectorAll('[data-testid="reception-row"]').length === 1, "the open receipt left the list");
+  assert.equal(place(), "1 de 2");
+  await page.click(move("Recibo siguiente"));
+  await page.wait(() => place() === "1 de 1", "the next receipt, alone in the list");
+  assert.deepEqual(page.api().panel, { kind: "receipt", receiptId: "attention", list: "inbox", receiptIds: ["attention"] });
+});
+
+test("a receipt that left its list keeps its slot before the first row that followed it", async () => {
+  const { followedReceipts } = await import("@/components/business-app/BusinessReviewShortcuts");
+  assert.deepEqual(followedReceipts("b", ["a", "b", "c"], ["n", "a", "b", "c"]), ["n", "a", "b", "c"], "a listed receipt takes the list as it is");
+  assert.deepEqual(followedReceipts("b", ["a", "b", "c", "d"], ["n", "a", "d"]), ["n", "a", "b", "d"], "its next row left too, so it sits before the one after");
+  assert.deepEqual(followedReceipts("c", ["a", "b", "c"], ["a"]), ["a", "c"], "nothing that followed it is left, so it is last");
+  assert.deepEqual(followedReceipts("x", ["a", "b"], ["a"]), ["a"], "a receipt the list never held has no slot");
+  assert.deepEqual(followedReceipts(null, ["a", "b"], ["a"]), ["a"]);
 });
 
 test("an answer that lands after the person changed Business shows nothing on the other Business", async () => {
