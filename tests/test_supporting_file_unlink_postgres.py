@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -22,6 +23,7 @@ from argus.domain.business.supporting_files import (
     append_file,
     change_file_link,
 )
+from argus.domain.ingestion.connections import ConnectionNotFound
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.ingestion.documents.service import DocumentsService
@@ -492,3 +494,89 @@ def test_an_upload_something_else_holds_is_still_a_receipt(actions, documents):
         )
 
     assert _listings(service, context, name)["all"] == [str(file.receipt_id)]
+
+
+def _upload_count(service, receipt_id) -> int:
+    with service.authority.pool.connection() as db:
+        return db.execute(
+            "select count(*) from public.financial_source_connections where id=%s",
+            (receipt_id,),
+        ).fetchone()[0]
+
+
+@pytest.mark.parametrize("first", ["supporting_file", "receipt"])
+def test_the_same_bytes_as_a_receipt_are_a_receipt_the_erase_never_takes(
+    actions, documents, first
+):
+    service, context, _ = actions
+    docs, objects = documents
+    draft_id, _ = record_expense(service, context)
+    content, name = _content(), f"{uuid4().hex}.txt"
+
+    def upload() -> str:
+        return asyncio.run(
+            docs.upload(
+                user_id=context.owner_id,
+                content=content,
+                filename=name,
+                media_type="text/plain",
+                scope=context.scope,
+            )
+        ).connection_id
+
+    receipt_id = upload() if first == "receipt" else None
+    file = _append(service, docs, context, draft_id, content, name)
+    unlinked = _change(service, context, draft_id, file.source_id, "unlink")
+    receipt_id = receipt_id or upload()
+
+    assert receipt_id != str(file.receipt_id)
+    listed = _listings(service, context, name)
+    assert (listed["all"], listed["inbox"]) == ([receipt_id], [receipt_id])
+
+    result = _expiry(service, objects).run(unlinked.purge_at + timedelta(minutes=1))
+
+    assert (result["failed"], result["left"]) == (0, 0)
+    assert _upload_count(service, file.receipt_id) == 0
+    assert _listings(service, context, name) == listed
+    media_type, stored = docs.store.download_source(
+        user_id=context.owner_id, connection_id=receipt_id
+    )
+    assert (media_type, stored) == ("text/plain", content)
+
+
+@pytest.mark.parametrize("state", ["linked", "unlinked"])
+def test_no_receipt_path_takes_a_supporting_upload(actions, documents, state):
+    from argus.api.business_drafts import require_legacy_receipt_write
+
+    from tests.test_business_receipt_views_postgres import _web
+
+    service, context, _ = actions
+    docs, _ = documents
+    draft_id, _ = record_expense(service, context)
+    content = _content()
+    file = _append(service, docs, context, draft_id, content)
+    if state == "unlinked":
+        _change(service, context, draft_id, file.source_id, "unlink")
+    web = _web(service, context)
+    web.service.documents = docs
+    receipt_id = str(file.receipt_id)
+    before = service.dossier(context, draft_id)
+
+    for read_or_write in (web.service.receipt, web.service.queue):
+        with pytest.raises(ConnectionNotFound):
+            read_or_write(web.scope, receipt_id)
+    with pytest.raises(ConnectionNotFound):
+        require_legacy_receipt_write(web, receipt_id)
+    with pytest.raises(ActionError, match="business_record_not_found"):
+        service.rebind_attachment_preparation(context, file.receipt_id)
+    for action in ("delete_document", "restore_document", "purge_document"):
+        command = DocumentCommand(action=action, document_id=file.receipt_id)
+        refused = change_document(service, context, command, str(uuid4()))
+        assert (refused.outcome, refused.code) == (
+            "not_found",
+            "business_record_not_found",
+        ), action
+
+    assert service.dossier(context, draft_id) == before
+    assert _upload_count(service, file.receipt_id) == 1
+    assert web.service.source(web.scope, receipt_id) == ("text/plain", content)

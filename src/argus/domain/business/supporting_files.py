@@ -14,7 +14,7 @@ from pydantic import Field
 from argus.domain.business.actions import plans, sources
 from argus.domain.business.annotations import (
     SUPPORTING_SOURCE_SQL,
-    UPLOAD_HELD_SQL,
+    SUPPORTING_UPLOAD_NAMESPACE,
     eligible,
     finish,
     save_annotation,
@@ -31,7 +31,11 @@ from argus.domain.business.contracts.deletion import PURGE_AFTER
 from argus.domain.business.contracts.dossier import AttachmentSource, SupportingFile
 from argus.domain.business.reporting_query import Contract
 from argus.domain.business.transactions import ActionTransaction, transaction
-from argus.domain.ingestion.documents.service import DocumentsService, stored_filename
+from argus.domain.ingestion.documents.service import (
+    DocumentsService,
+    document_ref,
+    stored_filename,
+)
 from argus.domain.ingestion.reconcile.model import ImportEvent
 from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
 
@@ -79,7 +83,7 @@ def _files(tx: ActionTransaction, draft_id: UUID | str) -> list[dict[str, Any]]:
     return tx.rows(
         "select s.id as source_id,s.connection_id as receipt_id,"
         " d.draft->>'filename' as filename,d.draft->>'media_type' as media_type,"
-        " (d.draft->>'size_bytes')::bigint as size_bytes,"
+        " (d.draft->>'size_bytes')::bigint as size_bytes,d.source_sha256 as sha256,"
         " l.draft_id is not null as linked,u.created_at as unlinked_at"
         " from public.business_sources s"
         " left join public.business_draft_sources l"
@@ -96,20 +100,6 @@ def _files(tx: ActionTransaction, draft_id: UUID | str) -> list[dict[str, Any]]:
         " where o.source_id=s.id and o.space_id=s.space_id)))"
         " order by s.received_at,s.id",
         (draft_id, tx.context.owner_id, draft_id, tx.context.actor.space_id),
-    )
-
-
-def supporting_uploads(tx: ActionTransaction) -> frozenset[str]:
-    """The Business's uploads that are supporting files and nothing else, on a
-    record or taken off one. None of them is a receipt."""
-
-    return frozenset(
-        str(row["connection_id"])
-        for row in tx.rows(
-            "select s.connection_id from public.business_sources s"
-            f" where s.space_id=%s and {SUPPORTING_SOURCE_SQL} and not {UPLOAD_HELD_SQL}",
-            (tx.context.actor.space_id,),
-        )
     )
 
 
@@ -156,22 +146,70 @@ def supporting_state(
     }
 
 
-def _linked_elsewhere(tx: ActionTransaction, receipt_id: UUID, draft_id: UUID) -> bool:
-    """Another record holds this upload, as a source or as what it was read from."""
+def _same_bytes(tx: ActionTransaction, sha256: str) -> list[UUID]:
+    """The Business's live uploads of these bytes: the receipt, the supporting
+    file, or both."""
+
+    context = tx.context
+    refs = [
+        document_ref(context.owner_id, context.scope, sha256, namespace)
+        for namespace in (None, SUPPORTING_UPLOAD_NAMESPACE)
+    ]
+    return [
+        row["id"]
+        for row in tx.rows(
+            "select id from public.financial_source_connections"
+            " where source='statement' and external_ref=any(%s) and owner_space_id=%s"
+            " and user_id=%s and status<>'disconnected'",
+            (refs, context.actor.space_id, context.owner_id),
+        )
+    ]
+
+
+def _linked_elsewhere(tx: ActionTransaction, uploads: list[UUID], draft_id: UUID) -> bool:
+    """Another record holds these bytes, as a source or as what it was read from."""
 
     return bool(
         tx.rows(
             "select 1 from public.business_sources s join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id "
-            "where s.space_id=%s and s.connection_id=%s and l.draft_id<>%s limit 1",
-            (tx.context.actor.space_id, receipt_id, draft_id),
+            "where s.space_id=%s and s.connection_id=any(%s) and l.draft_id<>%s limit 1",
+            (tx.context.actor.space_id, uploads, draft_id),
         )
         or tx.rows(
             "select 1 from public.financial_import_observations o "
             "join public.financial_import_events e on e.id=o.event_id "
-            "where o.connection_id=%s and e.owner_space_id=%s and e.user_id=%s and e.id<>%s limit 1",
-            (receipt_id, tx.context.actor.space_id, tx.context.owner_id, draft_id),
+            "where o.connection_id=any(%s) and e.owner_space_id=%s and e.user_id=%s and e.id<>%s limit 1",
+            (uploads, tx.context.actor.space_id, tx.context.owner_id, draft_id),
         )
     )
+
+
+def _settled(
+    tx: ActionTransaction, command: SupportingCommand, key: str, event: ImportEvent
+) -> SupportingResult | None:
+    """Bytes this record already holds, as its document or as a file, add
+    nothing. Bytes another record holds are refused."""
+
+    uploads = _same_bytes(tx, command.sha256)
+    if _linked_elsewhere(tx, uploads, command.draft_id):
+        raise ActionError("invalid_input", "supporting_file_already_linked")
+    existing = tx.rows(
+        "select s.id,s.connection_id from public.business_sources s join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id "
+        "where s.space_id=%s and s.connection_id=any(%s) and l.draft_id=%s order by s.id limit 1",
+        (tx.context.actor.space_id, uploads, command.draft_id),
+    )
+    if not existing:
+        return None
+    result = SupportingResult(
+        draft_id=command.draft_id,
+        version=event.version,
+        outcome="duplicate",
+        source_id=existing[0]["id"],
+        receipt_id=existing[0]["connection_id"],
+        sha256=command.sha256,
+    )
+    finish(tx, key, result)
+    return result
 
 
 def _replay(
@@ -209,36 +247,27 @@ def _attach(
     if replay:
         return replay
     event = eligible(tx, command.draft_id, command.expected_version)
-    if _linked_elsewhere(tx, receipt_id, command.draft_id):
-        raise ActionError("invalid_input", "supporting_file_already_linked")
-    existing = tx.rows(
-        "select s.id from public.business_sources s join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id "
-        "where s.space_id=%s and s.connection_id=%s and l.draft_id=%s order by s.id limit 1",
-        (tx.context.actor.space_id, receipt_id, command.draft_id),
+    settled = _settled(tx, command, key, event)
+    if settled:
+        return settled
+    _require_room(tx, command.draft_id)
+    evidence = AttachmentSource(
+        id=uuid4(),
+        channel="web",
+        received_at=datetime.now(timezone.utc),
+        connection_id=receipt_id,
+        filename=command.filename,
+        media_type=command.media_type,
     )
-    if existing:
-        source_id = existing[0]["id"]
-        outcome = "duplicate"
-    else:
-        _require_room(tx, command.draft_id)
-        evidence = AttachmentSource(
-            id=uuid4(),
-            channel="web",
-            received_at=datetime.now(timezone.utc),
-            connection_id=receipt_id,
-            filename=command.filename,
-            media_type=command.media_type,
-        )
-        source_id = sources.record_source(tx, supporting_source_key(receipt_id), evidence)
-        sources.attach(tx, event.id, (source_id,))
-        event = save_annotation(
-            tx, event, source_ids=(source_id,), supporting=("appended", command.filename)
-        )
-        outcome = "appended"
+    source_id = sources.record_source(tx, supporting_source_key(receipt_id), evidence)
+    sources.attach(tx, event.id, (source_id,))
+    event = save_annotation(
+        tx, event, source_ids=(source_id,), supporting=("appended", command.filename)
+    )
     result = SupportingResult(
         draft_id=command.draft_id,
         version=event.version,
-        outcome=outcome,
+        outcome="appended",
         source_id=source_id,
         receipt_id=receipt_id,
         sha256=command.sha256,
@@ -270,11 +299,15 @@ def append_file(
         replay = _replay(tx, command, key)
         if replay:
             return replay
-        eligible(tx, draft_id, expected_version)
+        event = eligible(tx, draft_id, expected_version)
         # Refused before any byte is stored. The capture checks again.
         _require_room(tx, draft_id)
         if plans.receipt(tx, key, command) is None:
             plans.start_receipt(tx, key, command)
+        # Settled here, bytes the record already holds make no second upload.
+        settled = _settled(tx, command, key, event)
+        if settled:
+            return settled
 
     result: SupportingResult | None = None
 
@@ -306,6 +339,7 @@ def append_file(
         source_text=None,
         scope=context.scope,
         on_capture=captured,
+        namespace=SUPPORTING_UPLOAD_NAMESPACE,
     )
     if result is None:
         raise ActionError("invalid_input", "supporting_file_capture_unsettled")
@@ -369,7 +403,8 @@ def _restore(
     draft_id = UUID(event.id)
     if file is None:
         raise _gone(tx, draft_id, source_id)
-    if file["linked"] or _linked_elsewhere(tx, file["receipt_id"], draft_id):
+    uploads = [file["receipt_id"], *_same_bytes(tx, file["sha256"])]
+    if file["linked"] or _linked_elsewhere(tx, uploads, draft_id):
         raise ActionError("invalid_input", "supporting_file_already_linked")
     if file["unlinked_at"] + PURGE_AFTER <= datetime.now(timezone.utc):
         raise ActionError("invalid_input", "supporting_file_restore_expired")

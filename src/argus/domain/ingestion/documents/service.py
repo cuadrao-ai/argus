@@ -136,16 +136,20 @@ def stored_filename(filename: str) -> str:
     return kept[:80] or "document"
 
 
-def document_ref(user_id: str, scope: OwnerScope, digest: str) -> str:
+def document_ref(
+    user_id: str, scope: OwnerScope, digest: str, namespace: str | None = None
+) -> str:
     """The connection reference for one file in one scope.
 
     References are globally unique, so the same bytes uploaded in Personal and
     in Business must differ. The Personal form is the original one, unchanged.
+    The same bytes under a ``namespace`` are an upload of their own.
     """
 
     space = space_id(scope)
     owner = user_id if space is None else f"{user_id}:{space}"
-    return hashlib.sha256(f"{owner}:{digest}".encode()).hexdigest()
+    ref = hashlib.sha256(f"{owner}:{digest}".encode()).hexdigest()
+    return ref if namespace is None else f"{namespace}:{ref}"
 
 
 @dataclass(frozen=True)
@@ -397,10 +401,11 @@ class DocumentsService:
         on_capture: CaptureHook | None,
         consent_id: str | None = None,
         document_type: DocumentType | None = None,
+        namespace: str | None = None,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()
-        external_ref = document_ref(user_id, scope, digest)
+        external_ref = document_ref(user_id, scope, digest, namespace)
         replayed = False
         try:
             connection = self.hub.connections.create(

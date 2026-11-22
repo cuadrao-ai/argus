@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
@@ -50,6 +51,10 @@ def supporting_source_key(connection_id: UUID | str) -> str:
     return f"supporting:{connection_id}"
 
 
+#: A supporting file's upload has its own reference, so the same bytes uploaded
+#: as a receipt are a second upload: neither one is ever the other.
+SUPPORTING_UPLOAD_NAMESPACE = "supporting"
+
 #: A ``business_sources`` row aliased ``s`` is a supporting file: the key above, in SQL.
 SUPPORTING_SOURCE_SQL = "s.kind='attachment' and s.source_key='supporting:' || s.connection_id::text"
 
@@ -62,6 +67,26 @@ UPLOAD_HELD_SQL = (
     " or exists (select 1 from public.financial_import_observations o"
     " where o.connection_id=s.connection_id))"
 )
+
+
+def supporting_uploads(
+    rows: Callable[[str, tuple[Any, ...]], list[dict[str, Any]]],
+    space_id: UUID | str,
+    only: UUID | str | None = None,
+) -> frozenset[str]:
+    """The Business's uploads that are supporting files and nothing else, on a
+    record or taken off one. None of them is a receipt. ``only`` asks about
+    one upload."""
+
+    return frozenset(
+        str(row["connection_id"])
+        for row in rows(
+            "select s.connection_id from public.business_sources s"
+            f" where s.space_id=%s and {SUPPORTING_SOURCE_SQL} and not {UPLOAD_HELD_SQL}"
+            " and (%s::uuid is null or s.connection_id=%s::uuid)",
+            (space_id, only, only),
+        )
+    )
 
 
 def annotation_available(authorization: Authorization, event: ImportEvent | None) -> bool:

@@ -74,4 +74,25 @@ create index business_draft_revisions_unlinked_idx
     on public.business_draft_revisions (space_id, created_at)
     where supporting_change = 'unlinked';
 
+-- A supporting file's upload carries its own reference from now on, so the
+-- same bytes uploaded as a receipt are a second upload, never this one. An
+-- upload from before that only a supporting file holds moves to that form.
+update public.financial_source_connections c
+set external_ref = 'supporting:' || c.external_ref
+where c.source = 'statement'
+    and c.external_ref not like 'supporting:%'
+    and c.external_ref not like 'retained:%'
+    and exists (
+        select 1 from public.business_sources s
+        where s.space_id = c.owner_space_id and s.connection_id = c.id
+            and s.kind = 'attachment'
+            and s.source_key = 'supporting:' || s.connection_id::text
+            and not exists (
+                select 1 from public.business_sources o
+                where o.space_id = s.space_id
+                    and o.connection_id = s.connection_id and o.id <> s.id)
+            and not exists (
+                select 1 from public.financial_import_observations o
+                where o.connection_id = s.connection_id));
+
 commit;

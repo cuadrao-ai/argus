@@ -30,7 +30,7 @@ from argus.domain.business.receipts import (
     updates,
 )
 from argus.domain.business.scope import BusinessScope
-from argus.domain.ingestion.connections import SourceConnection
+from argus.domain.ingestion.connections import ConnectionNotFound, SourceConnection
 from argus.domain.ingestion.documents.config import (
     SOURCE_MEDIA_TYPES,
     load_document_extraction_settings,
@@ -145,15 +145,7 @@ class BusinessService:
         """The Business's live uploads that are receipts. A supporting file is
         not one: only its record's dossier lists it."""
 
-        from argus.domain.business.supporting_files import supporting_uploads
-        from argus.domain.business.transactions import GrantImportStore, transaction
-
-        store = self.imports.store
-        supporting: frozenset[str] = frozenset()
-        # The in-memory app keeps no supporting files.
-        if isinstance(store, GrantImportStore):
-            with transaction(store.authority, store.context) as tx:
-                supporting = supporting_uploads(tx)
+        supporting = self._supporting()
         return [
             connection
             for connection in self.documents.hub.connections.list(
@@ -163,6 +155,27 @@ class BusinessService:
             and connection.status != "disconnected"
             and connection.id not in supporting
         ]
+
+    def _supporting(self, only: str | None = None) -> frozenset[str]:
+        """The uploads that are supporting files and nothing else: all of the
+        Business's, or ``only`` when it is one."""
+
+        from argus.domain.business.annotations import supporting_uploads
+        from argus.domain.business.transactions import GrantImportStore, transaction
+
+        store = self.imports.store
+        # The in-memory app keeps no supporting files.
+        if not isinstance(store, GrantImportStore):
+            return frozenset()
+        with transaction(store.authority, store.context) as tx:
+            return supporting_uploads(tx.rows, tx.context.actor.space_id, only)
+
+    def _require_receipt(self, receipt_id: str) -> None:
+        """A supporting file's upload is not a receipt: to every receipt path
+        it is as unknown as an id nobody uploaded."""
+
+        if self._supporting(receipt_id):
+            raise ConnectionNotFound()
 
     def receipts(self, scope: BusinessScope) -> list[Receipt]:
         person = scope.person_id
@@ -180,6 +193,7 @@ class BusinessService:
         return sorted(found, key=lambda item: item.draft.created_at, reverse=True)
 
     def receipt(self, scope: BusinessScope, receipt_id: str) -> Receipt:
+        self._require_receipt(receipt_id)
         events = self.imports.list(
             user_id=scope.person_id, states=RECEIPT_EVENT_STATES, scope=scope.owner
         )
@@ -242,6 +256,7 @@ class BusinessService:
     def queue(self, scope: BusinessScope, receipt_id: str) -> None:
         """The owner chose AI preparation for a saved receipt."""
 
+        self._require_receipt(receipt_id)
         self.documents.queue(
             user_id=scope.person_id,
             connection_id=receipt_id,

@@ -11303,9 +11303,23 @@ accept path recorded.
   Bandeja and overview counts and the updates feed leave its upload out, and
   it does not complete the `first_document` setup step. The record's dossier
   lists it. The one exception is an upload that something else also holds
-  (another source row or a read): that one is a receipt as before. GET
-  `/api/v1/business/receipts/{receipt_id}/source` still downloads the file by
-  the `receipt_id` the dossier gives.
+  (another source row or a read): that one is a receipt as before.
+
+  Every receipt route treats a supporting file's `receipt_id` as an id nobody
+  uploaded. GET `/api/v1/business/receipts/{receipt_id}` and its `read`,
+  `prepare` and `rebind` routes answer 404: `receipt_not_found`, or
+  `business_record_not_found` from `rebind`. The document commands
+  `delete_document`, `restore_document` and `purge_document` refuse the id
+  as `business_record_not_found`; the record's own id still reaches its
+  supporting files. Nothing reads a supporting file and nothing turns it into
+  a receipt. GET `/api/v1/business/receipts/{receipt_id}/source` is the one
+  route that answers: it downloads the file by the `receipt_id` the dossier
+  gives, until the erase.
+
+  A supporting file's upload is its own upload. The same bytes uploaded as a
+  receipt, before or after, are a second upload with its own `receipt_id`.
+  That one is a receipt in every list, and the erase of the supporting file
+  leaves it and its bytes in place.
 
   An unlinked file leaves the dossier `sources`, report rows, search and
   Eliminados at once. Restore works until `purge_at`. After that the documents

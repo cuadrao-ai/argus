@@ -3680,7 +3680,17 @@ the server refuses the next append or restore.
 An upload is a supporting file and never a receipt when a supporting source
 names it and nothing else holds it: no other `business_sources` row and no
 import observation (`UPLOAD_HELD_SQL` in `annotations.py`). The receipt
-listings and the expiry pass both read that one predicate.
+listings, every receipt route and document command, and the expiry pass read
+that one predicate.
+
+A supporting file's upload has its own `financial_source_connections` row. Its
+`external_ref` is `supporting:` plus the reference a receipt with the same
+bytes has, so an upload of those bytes as a receipt makes a second row and
+neither row is ever the other. Both rows name one stored object. The erase
+removes an object only when no `financial_document_extractions` row names it.
+The migration moves each earlier upload that only a supporting file holds to
+the `supporting:` form. An earlier upload that a read or another source also
+holds keeps its reference and stays a receipt.
 
 The documents worker's expiry pass erases a supporting source that no record
 links and that has no `unlinked` revision newer than 7 days. This also covers a
