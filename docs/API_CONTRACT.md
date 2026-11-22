@@ -11287,6 +11287,9 @@ accept path recorded.
   A record holds at most 3 supporting files at once. The next file is refused
   as 422 `supporting_file_limit_reached` before any byte is stored; an unlinked
   file does not count.
+  The limit refuses only a request that would add a file: at the limit, bytes
+  the record already holds still answer `duplicate`, and bytes another record
+  holds still answer `supporting_file_already_linked`.
 
   The command records its exact intent before object capture. The existing byte
   store retains unavailable custody references across failed writes; retries use

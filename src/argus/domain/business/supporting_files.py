@@ -107,11 +107,6 @@ def _full(files: list[dict[str, Any]]) -> bool:
     return sum(row["linked"] for row in files) >= SUPPORTING_FILE_LIMIT
 
 
-def _require_room(tx: ActionTransaction, draft_id: UUID | str) -> None:
-    if _full(_files(tx, draft_id)):
-        raise ActionError("invalid_input", "supporting_file_limit_reached")
-
-
 def supporting_state(
     tx: ActionTransaction, draft_id: UUID, can_annotate: bool
 ) -> dict[str, Any]:
@@ -188,7 +183,8 @@ def _settled(
     tx: ActionTransaction, command: SupportingCommand, key: str, event: ImportEvent
 ) -> SupportingResult | None:
     """Bytes this record already holds, as its document or as a file, add
-    nothing. Bytes another record holds are refused."""
+    nothing. Bytes another record holds are refused. Only bytes that would
+    add a file meet the limit, so the limit is checked last."""
 
     uploads = _same_bytes(tx, command.sha256)
     if _linked_elsewhere(tx, uploads, command.draft_id):
@@ -199,6 +195,8 @@ def _settled(
         (tx.context.actor.space_id, uploads, command.draft_id),
     )
     if not existing:
+        if _full(_files(tx, command.draft_id)):
+            raise ActionError("invalid_input", "supporting_file_limit_reached")
         return None
     result = SupportingResult(
         draft_id=command.draft_id,
@@ -250,7 +248,6 @@ def _attach(
     settled = _settled(tx, command, key, event)
     if settled:
         return settled
-    _require_room(tx, command.draft_id)
     evidence = AttachmentSource(
         id=uuid4(),
         channel="web",
@@ -300,11 +297,9 @@ def append_file(
         if replay:
             return replay
         event = eligible(tx, draft_id, expected_version)
-        # Refused before any byte is stored. The capture checks again.
-        _require_room(tx, draft_id)
         if plans.receipt(tx, key, command) is None:
             plans.start_receipt(tx, key, command)
-        # Settled here, bytes the record already holds make no second upload.
+        # Settled or refused here, before any byte is stored. The capture checks again.
         settled = _settled(tx, command, key, event)
         if settled:
             return settled

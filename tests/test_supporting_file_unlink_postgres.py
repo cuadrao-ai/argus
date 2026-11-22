@@ -369,6 +369,34 @@ def test_a_record_holds_three_files_and_unlinked_ones_do_not_count(actions, docu
         _change(service, context, draft_id, held[0].source_id, "restore")
 
 
+def test_at_the_limit_a_request_that_adds_no_file_gets_its_own_answer(actions, documents):
+    service, context, _ = actions
+    docs, objects = documents
+    draft_id, _ = record_expense(service, context)
+    other_id, _ = record_expense(service, context)
+    content = _content()
+    elsewhere = _content()
+    _append(service, docs, context, other_id, elsewhere)
+    first = _append(service, docs, context, draft_id, content)
+    for _ in range(SUPPORTING_FILE_LIMIT - 1):
+        _append(service, docs, context, draft_id)
+    full = service.dossier(context, draft_id)
+    assert full.supporting_limit_reached
+    stored = dict(objects.objects)
+
+    again = _append(service, docs, context, draft_id, content)
+
+    assert (again.outcome, again.source_id) == ("duplicate", first.source_id)
+    with pytest.raises(ActionError, match="supporting_file_already_linked"):
+        _append(service, docs, context, draft_id, elsewhere)
+    with pytest.raises(ActionError, match="supporting_file_already_linked"):
+        _change(service, context, draft_id, first.source_id, "restore")
+    with pytest.raises(ActionError, match="supporting_file_limit_reached"):
+        _append(service, docs, context, draft_id)
+    assert service.dossier(context, draft_id).version == full.version
+    assert objects.objects == stored
+
+
 def test_only_a_supporting_file_of_this_record_can_be_unlinked(actions, documents):
     service, context, _ = actions
     docs, _ = documents
