@@ -3,7 +3,7 @@ import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import type { ListoGap } from "../lib/business-dossier";
 import { installReceiptBusiness } from "./support/business-receipt-fixture";
 
-test.use({ viewport: { width: 1440, height: 1100 }, reducedMotion: "reduce" });
+test.use({ viewport: { width: 1440, height: 1100 } });
 
 const cases = [
   {
@@ -28,6 +28,7 @@ for (const { name, gaps, confirmable, labels, canAccept } of cases) {
       throw new Error("Dossier confirmation evidence requires a loopback app");
     }
 
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const id = dossierFixtureIds.ready;
     await installReceiptBusiness(page, ([resource, draftId, section], route, source) => {
       if (resource === "drafts" && draftId === id && section === "dossier" && route.request().method() === "GET") {
