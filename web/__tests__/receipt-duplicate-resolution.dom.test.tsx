@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
-import type { BusinessComparedField, BusinessDossier, BusinessDuplicateCandidate, BusinessDuplicateDecision } from "@/lib/business-dossier";
+import type { BusinessComparedField, BusinessDossier, BusinessDuplicateCandidate, BusinessDuplicateDecision, ListoGap } from "@/lib/business-dossier";
 import { formatTimestamp } from "@/components/business-app/business-format";
 
 beforeAll(() => {
@@ -16,7 +16,6 @@ type Mode = "success" | "deleted" | "error" | "stale" | "hold";
 type Options = {
   closed?: boolean;
   noCandidates?: boolean;
-  externalBusy?: boolean;
   decisions?: BusinessDuplicateDecision[];
   recommendation?: BusinessDuplicateDecision | null;
   differences?: BusinessDuplicateCandidate["comparison"]["differences"];
@@ -25,7 +24,17 @@ type Options = {
   approved?: boolean;
   /** The server's blockers; by default the duplicate and a missing funding answer. */
   blockers?: BusinessDossier["blockers"];
+  /** The server's gaps for them; by default the duplicate and the blockers. */
+  gaps?: ListoGap[];
 };
+
+/** What the server says of an open record with these gaps, or of an accepted one. */
+function standing(gaps: readonly ListoGap[], accepted = false): Pick<BusinessDossier, "listo_gaps" | "bandeja_group"> {
+  if (accepted) return { listo_gaps: [], bandeja_group: { group: null, reason: null, label: "accepted" } };
+  return gaps.length
+    ? { listo_gaps: gaps, bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" } }
+    : { listo_gaps: [], bandeja_group: { group: "listo", reason: null, label: "ready" } };
+}
 
 function candidate(options: Options): BusinessDuplicateCandidate {
   const recommendation = options.recommendation === undefined ? "different_purchase" : options.recommendation;
@@ -50,8 +59,8 @@ async function mount(mode: Mode = "success", options: Options = {}) {
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { ReceiptDuplicateCompare, useDuplicateCompare } = await import("@/components/business-app/ReceiptDuplicateCompare");
-  const { default: DossierAttentionStrip } = await import("@/components/business-app/DossierAttentionStrip");
-  const { dossierAttention } = await import("@/components/business-app/dossier-attention");
+  const { DossierStatus } = await import("@/components/business-app/dossier/DossierHeader");
+  const { dossierProblems } = await import("@/components/business-app/dossier-attention");
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
@@ -61,12 +70,13 @@ async function mount(mode: Mode = "success", options: Options = {}) {
     review_state: options.closed ? "accepted" : "open",
     capabilities: ["read", "prepare", "approve"],
     blockers: options.blockers ?? [{ code: "possible_duplicate", field: null }, { code: "fact_required", field: "funding" }],
+    ...standing(options.gaps ?? ["duplicate", "blocked"], options.closed),
     approval_available: false,
     duplicate_candidates: options.noCandidates ? [] : [candidate(options)],
   };
   const next: BusinessDossier = mode === "deleted"
     ? { ...initial, version: 8, duplicate_candidates: [], deleted: { actor: { actor_id: "owner", display_name: "Dueña" }, at: "2026-11-16T12:00:00Z", purge_at: "2026-11-23T12:00:00Z", key: "key", previous_state: { state: "open", group: "attention" } } }
-    : { ...initial, version: 8, blockers: [{ code: "fact_required", field: "funding" }], duplicate_candidates: [] };
+    : { ...initial, version: 8, blockers: [{ code: "fact_required", field: "funding" }], ...standing(["blocked"]), duplicate_candidates: [] };
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const requests: { url: string; options?: RequestInit }[] = [];
@@ -93,22 +103,35 @@ async function mount(mode: Mode = "success", options: Options = {}) {
     const [dossier, setDossier] = useState(initial);
     const [busy, setBusy] = useState(false);
     const compare = useDuplicateCompare(dossier);
+    // As the review panel wires its header: a problem that names a document to compare opens Comparar.
+    const problems = dossierProblems(dossier, i18n.t.bind(i18n));
     return <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>
       {compare.candidate
-        ? <ReceiptDuplicateCompare dossier={dossier} candidate={compare.candidate} busy={busy || options.externalBusy} onBack={compare.back} onBusyChange={setBusy} onChanged={setDossier} onDeleted={(gone) => deleted.push(gone.draft_id)} frame={(body, footer) => <section data-testid="frame">{body}<footer data-testid="frame-footer">{footer}</footer></section>} />
-        : <section data-testid="frame"><DossierAttentionStrip items={dossierAttention(dossier, i18n.t.bind(i18n), "es-419")} onCompare={compare.open} compareDisabled={busy || options.externalBusy} /><p data-testid="review-form">Formulario</p></section>}
+        ? <ReceiptDuplicateCompare dossier={dossier} candidate={compare.candidate} busy={busy} onBack={compare.back} onBusyChange={setBusy} onChanged={(next) => { setDossier(next); compare.settled(); }} onDeleted={(gone) => deleted.push(gone.draft_id)} frame={(body, footer) => <section data-testid="frame">{body}<footer data-testid="frame-footer">{footer}</footer></section>} />
+        : <section data-testid="frame"><DossierStatus label={dossier.bandeja_group?.label} problems={problems} onProblem={(problem) => { if (problem.compare) compare.open(problem.compare); }} /><p data-testid="review-form">Formulario</p></section>}
     </BusinessContext.Provider></I18nextProvider>;
   }
   await act(async () => { root.render(<View />); });
   const flush = () => act(async () => { for (let turn = 0; turn < 3; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0)); });
-  const strip = () => host.querySelector<HTMLElement>('[data-testid="dossier-attention"]');
-  const box = () => host.querySelector<HTMLElement>('[data-testid="dossier-attention"] [data-testid="duplicate-entry"]');
+  const status = () => host.querySelector<HTMLElement>('[data-testid="dossier-status"]');
+  /** Several problems wait behind "N por resolver"; this opens their list. One sits beside the pill already. */
+  const showProblems = async () => {
+    const several = host.querySelector<HTMLElement>('[data-testid="dossier-problems"]');
+    if (several && several.getAttribute("aria-expanded") !== "true") await act(async () => { several.click(); });
+  };
+  /** The problems as the header shows them once its list is open: the reason, its words and the document it compares with. */
+  const problems = async () => {
+    await showProblems();
+    return Array.from(host.querySelectorAll<HTMLElement>('[data-testid="dossier-reason"], [data-testid="dossier-problem-list"] [role="option"]')).map((item) => ({ reason: item.dataset.reason ?? null, text: item.textContent ?? "", compare: item.dataset.compare ?? null }));
+  };
+  /** The "Parece repetido" problem that opens Comparar, once the list is open. */
+  const entry = async () => { await showProblems(); return host.querySelector<HTMLElement>('[data-testid="dossier-status"] [data-compare]'); };
   const view = () => host.querySelector<HTMLElement>('[data-testid="duplicate-compare"]');
   const button = (name: string) => Array.from(host.querySelectorAll<HTMLButtonElement>("button")).find((item) => item.textContent?.trim() === name);
   const footerButtons = () => Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="frame-footer"] button')).map((item) => item.textContent?.trim());
   const row = (field: BusinessComparedField | "file") => host.querySelector<HTMLElement>(`[data-testid="duplicate-compare-row"][data-field="${field}"]`);
-  const compare = async () => { await act(async () => { button("Comparar")?.click(); }); await flush(); };
-  return { host, requests, fetchedSources, deleted, act, flush, release, strip, box, view, button, footerButtons, row, compare, cleanup: async () => {
+  const compare = async () => { const item = await entry(); assert.ok(item, "Parece repetido opens Comparar"); await act(async () => { item.click(); }); await flush(); };
+  return { host, requests, fetchedSources, deleted, act, flush, release, status, problems, entry, view, button, footerButtons, row, compare, cleanup: async () => {
     release();
     await act(async () => { root.unmount(); });
     host.remove();
@@ -124,16 +147,15 @@ const hasClass = (element: Element | undefined, token: string) => Boolean(elemen
 const sent = (ui: { requests: { options?: RequestInit }[] }, index = 0) => JSON.parse(String(ui.requests[index].options?.body));
 const repeats = (node: Element | null) => (node?.textContent ?? "").match(/Parece repetido/g)?.length ?? 0;
 
-test("the top box lists Parece repetido once, with why and only Comparar, among the other blockers", async () => {
+test("the header lists Parece repetido once among the other problems, and only it opens Comparar", async () => {
   const ui = await mount();
   try {
-    const box = ui.box();
-    assert.ok(box);
-    assert.match(box.textContent ?? "", /Parece repetido/);
+    assert.equal(ui.status()?.querySelector('[data-testid="status-pill"]')?.textContent, "Necesita atención");
+    assert.equal(ui.host.querySelector('[data-testid="dossier-problems"]')?.textContent, "2 por resolver");
+    const shown = await ui.problems();
+    assert.deepEqual(shown.map((item) => [item.reason, item.compare]), [["duplicate", "draft-original"], ["blocked", null]], "the other problem still renders");
+    assert.match(shown[0].text, /^Parece repetido/);
     assert.equal(repeats(ui.host), 1);
-    assert.ok(box.querySelector('[data-testid="duplicate-basis"]')?.textContent);
-    assert.deepEqual(Array.from(box.querySelectorAll("button")).map((item) => item.textContent?.trim()), ["Comparar"]);
-    assert.ok(ui.strip()?.querySelector('[data-field="funding"] button'), "the other blocker still renders");
     assert.doesNotMatch(ui.host.textContent ?? "", /Parece un recibo/);
     assert.equal(ui.button("Son compras distintas"), undefined);
     assert.equal(ui.button("Eliminar este duplicado"), undefined);
@@ -141,38 +163,46 @@ test("the top box lists Parece repetido once, with why and only Comparar, among 
   } finally { await ui.cleanup(); }
 });
 
-test("alone, the duplicate is the box: Parece repetido, its line and Comparar", async () => {
-  const blocked = await mount("success", { blockers: [{ code: "possible_duplicate", field: null }] });
-  // An RNC and NCF pair adds no blocker; the server still lists it, so it still shows here.
-  const fiscal = await mount("success", { blockers: [], basis: "fiscal_number" });
+test("alone, the duplicate is the reason beside the pill, and it opens Comparar", async () => {
+  // A pair with the same RNC and NCF adds no blocker; the server still names it a gap.
+  const facts = await mount("success", { blockers: [], gaps: ["duplicate"] });
+  const fiscal = await mount("success", { blockers: [], gaps: ["duplicate"], basis: "fiscal_number" });
   try {
-    for (const ui of [blocked, fiscal]) {
-      assert.equal(ui.strip()?.querySelector("h3")?.textContent, "Parece repetido");
+    for (const ui of [facts, fiscal]) {
+      const reason = ui.host.querySelector<HTMLElement>('[data-testid="dossier-reason"]');
+      assert.equal(reason?.textContent, "Parece repetido");
+      assert.equal(reason?.dataset.compare, "draft-original");
+      assert.equal(ui.host.querySelector('[data-testid="dossier-problems"]'), null);
       assert.equal(repeats(ui.host), 1);
-      assert.equal(ui.host.querySelectorAll('[data-testid="duplicate-basis"]').length, 1);
-      assert.deepEqual(Array.from(ui.strip()!.querySelectorAll("button")).map((item) => item.textContent?.trim()), ["Comparar"]);
+      await ui.compare();
+      assert.ok(ui.view());
     }
-  } finally { await blocked.cleanup(); await fiscal.cleanup(); }
+  } finally { await facts.cleanup(); await fiscal.cleanup(); }
 });
 
-test("the box line follows the server's basis", async () => {
-  const facts = await mount();
-  const fiscal = await mount("success", { basis: "fiscal_number" });
-  try {
-    const read = facts.box()?.querySelector('[data-testid="duplicate-basis"]')?.textContent;
-    const number = fiscal.box()?.querySelector('[data-testid="duplicate-basis"]')?.textContent;
-    assert.ok(read && number);
-    assert.notEqual(read, number);
-    assert.match(number, /RNC/);
-    assert.match(number, /NCF/);
-  } finally { await facts.cleanup(); await fiscal.cleanup(); }
+test("why it looks repeated follows the server's basis", async () => {
+  const { dossierProblems } = await import("@/components/business-app/dossier-attention");
+  const i18next = (await import("i18next")).default;
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+  const fixture = await createFixtureBusinessDataSource().dossier(dossierFixtureIds.ready);
+  const why = (basis: BusinessDuplicateCandidate["basis"]) => dossierProblems({ ...fixture, listo_gaps: ["duplicate"], duplicate_candidates: [candidate({ basis })] }, i18n.t.bind(i18n))[0].text;
+  const read = why("read_facts");
+  const number = why("fiscal_number");
+  assert.ok(read && number);
+  assert.notEqual(read, number);
+  assert.match(number, /RNC/);
+  assert.match(number, /NCF/);
 });
 
 test("Comparar turns the panel into the compare view with both documents in the existing preview", async () => {
   const ui = await mount();
   try {
     await ui.compare();
-    assert.equal(ui.box(), null);
+    assert.equal(ui.status(), null);
     assert.equal(ui.host.querySelector('[data-testid="review-form"]'), null);
     assert.ok(ui.view());
     assert.equal(ui.host.querySelectorAll('[data-testid="frame"]').length, 1);
@@ -322,15 +352,15 @@ test("someone who is not the owner gets no Eliminar, because the server does not
   } finally { await ui.cleanup(); }
 });
 
-test("Volver returns to the review with the box and its Comparar", async () => {
-  const ui = await mount();
+test("Volver returns to the review with focus back on Parece repetido", async () => {
+  const ui = await mount("success", { blockers: [], gaps: ["duplicate"] });
   try {
     await ui.compare();
     await ui.act(async () => { ui.button("Volver")?.click(); });
     await ui.flush();
     assert.equal(ui.view(), null);
     assert.ok(ui.host.querySelector('[data-testid="review-form"]'));
-    assert.ok(ui.box());
+    assert.equal(document.activeElement, await ui.entry(), "focus is on the reason that opened Comparar");
     assert.equal(ui.requests.length, 0);
   } finally { await ui.cleanup(); }
 });
@@ -357,8 +387,8 @@ test("Son compras distintas sends different_purchase and the server's answer clo
     await ui.flush();
     assert.deepEqual(sent(ui), { version: 7, other_draft_id: "draft-original", other_version: 3, decision: "different_purchase" });
     assert.equal(ui.view(), null);
-    assert.equal(ui.box(), null);
-    assert.ok(ui.strip()?.querySelector('[data-field="funding"]'), "the blocker left stays in the box");
+    assert.equal(repeats(ui.host), 0);
+    assert.deepEqual((await ui.problems()).map((item) => item.text), ["Tiene algo pendiente"], "the problem left stays in the header");
     assert.ok(ui.host.querySelector('[data-testid="review-form"]'));
     assert.deepEqual(ui.deleted, []);
   } finally { await ui.cleanup(); }
@@ -395,32 +425,34 @@ for (const mode of ["error", "stale"] as const) {
   });
 }
 
-for (const options of [{ closed: true }, { noCandidates: true }] as const) {
-  test(`no Comparar for ${Object.keys(options)[0]}; the server's blocker still says Parece repetido`, async () => {
-    const ui = await mount("success", options);
-    try {
-      assert.equal(ui.button("Comparar"), undefined);
-      assert.equal(ui.host.querySelectorAll('[data-testid="duplicate-basis"]').length, 0);
-      assert.equal(repeats(ui.strip()), 1);
-      assert.doesNotMatch(ui.host.textContent ?? "", /Parece un recibo/);
-    } finally { await ui.cleanup(); }
-  });
-}
-
-test("no candidate and no blocker: nothing about a duplicate", async () => {
-  const ui = await mount("success", { noCandidates: true, blockers: [{ code: "fact_required", field: "funding" }] });
+test("an accepted record has no status line, so nothing about a duplicate and no Comparar", async () => {
+  const ui = await mount("success", { closed: true });
   try {
-    assert.equal(ui.box(), null);
+    assert.equal(ui.status(), null);
+    assert.equal(await ui.entry(), null);
     assert.equal(repeats(ui.host), 0);
   } finally { await ui.cleanup(); }
 });
 
-test("while the review is busy Comparar waits", async () => {
-  const ui = await mount("success", { externalBusy: true });
+test("with no candidate listed the server's gap still says Parece repetido, with nothing to compare", async () => {
+  const ui = await mount("success", { noCandidates: true, blockers: [], gaps: ["duplicate"] });
   try {
-    assert.ok(ui.button("Comparar")?.disabled);
-    await ui.compare();
+    const reason = ui.host.querySelector<HTMLElement>('[data-testid="dossier-reason"]');
+    assert.equal(reason?.textContent, "Parece repetido");
+    assert.equal(await ui.entry(), null, "no Comparar");
+    await ui.act(async () => { reason?.click(); });
+    await ui.flush();
     assert.equal(ui.view(), null);
+    assert.doesNotMatch(ui.host.textContent ?? "", /Parece un recibo/);
+  } finally { await ui.cleanup(); }
+});
+
+test("no duplicate gap: nothing about a duplicate, even with a candidate listed", async () => {
+  const ui = await mount("success", { blockers: [{ code: "fact_required", field: "funding" }], gaps: ["blocked"] });
+  try {
+    assert.deepEqual((await ui.problems()).map((item) => item.text), ["Tiene algo pendiente"]);
+    assert.equal(await ui.entry(), null);
+    assert.equal(repeats(ui.host), 0);
   } finally { await ui.cleanup(); }
 });
 
@@ -443,7 +475,7 @@ test("the duplicate transport sends the decision it was given", async () => {
   } finally { globalThis.fetch = oldFetch; }
 });
 
-test("in the review panel the one Parece repetido sits in the top box with Comparar, and Comparar opens the compare view", async () => {
+test("in the review panel the one Parece repetido sits in the header's problem list, above the rows, and opens the compare view", async () => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -459,6 +491,7 @@ test("in the review panel the one Parece repetido sits in the top box with Compa
     ...fixture, draft_id: "draft-new", version: 7, review_state: "open",
     capabilities: ["read", "prepare", "approve"],
     blockers: [{ code: "fact_required", field: "funding" }, { code: "possible_duplicate", field: null }],
+    ...standing(["duplicate", "blocked"]),
     approval_available: false,
     duplicate_candidates: [candidate({})],
   };
@@ -484,21 +517,21 @@ test("in the review panel the one Parece repetido sits in the top box with Compa
   try {
     await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId="draft-new" /></BusinessContext.Provider></I18nextProvider>); });
     await settle();
-    const strip = host.querySelector<HTMLElement>('[data-testid="dossier-attention"]');
-    assert.ok(strip, "the top box is there");
+    const status = host.querySelector<HTMLElement>('[data-testid="dossier-status"]');
+    assert.ok(status, "the header's status line is there");
+    const firstRow = host.querySelector('[data-fact]');
+    assert.ok(firstRow && status.compareDocumentPosition(firstRow) & Node.DOCUMENT_POSITION_FOLLOWING, "the status sits above the rows");
+    await act(async () => { status.querySelector<HTMLElement>('[data-testid="dossier-problems"]')?.click(); });
+    const options = Array.from(status.querySelectorAll<HTMLElement>('[data-testid="dossier-problem-list"] [role="option"]'));
+    assert.deepEqual(options.map((item) => item.dataset.reason), ["duplicate", "blocked"], "the other problem still renders");
     assert.equal(repeats(host), 1, "one Parece repetido on the whole panel");
-    assert.equal(repeats(strip), 1, "and it is in the top box");
+    assert.equal(repeats(status), 1, "and it is in the header");
     assert.doesNotMatch(host.textContent ?? "", /Parece un recibo/);
     assert.equal(host.querySelector('[data-testid="receipt-duplicate-resolution"]'), null, "no second box lower down");
-    const firstRow = host.querySelector('[data-fact]');
-    assert.ok(firstRow && strip.compareDocumentPosition(firstRow) & Node.DOCUMENT_POSITION_FOLLOWING, "the box sits above the rows");
-    assert.ok(strip.querySelector('[data-field="funding"] button'), "the other blocker still renders");
-    const comparar = Array.from(strip.querySelectorAll<HTMLButtonElement>('[data-testid="duplicate-entry"] button'));
-    assert.deepEqual(comparar.map((item) => item.textContent?.trim()), ["Comparar"]);
-    await act(async () => { comparar[0].click(); });
+    assert.equal(options[0].dataset.compare, "draft-original");
+    await act(async () => { options[0].click(); });
     await settle();
-    assert.ok(host.querySelector('[data-testid="duplicate-compare"]'), "Comparar opens the compare view");
-    assert.equal(host.querySelector('[data-testid="dossier-attention"]'), null);
+    assert.ok(host.querySelector('[data-testid="duplicate-compare"]'), "Parece repetido opens the compare view");
   } finally {
     await act(async () => { root.unmount(); });
     host.remove();
@@ -507,7 +540,7 @@ test("in the review panel the one Parece repetido sits in the top box with Compa
 });
 
 for (const outcome of ["settled", "failed"] as const) {
-  test(`in the review panel, Son compras distintas ${outcome === "settled" ? "returns to the review with a toast, no amber entry and Aceptar ready" : "that fails keeps the compare view and retries with the same key"}`, async () => {
+  test(`in the review panel, Son compras distintas ${outcome === "settled" ? "returns to the review with a toast, no Parece repetido and Aceptar ready" : "that fails keeps the compare view and retries with the same key"}`, async () => {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -523,11 +556,12 @@ for (const outcome of ["settled", "failed"] as const) {
     const dossier: BusinessDossier = {
       ...fixture, draft_id: "draft-new", version: 7, review_state: "open",
       capabilities: ["read", "prepare", "approve"],
-      blockers: [{ code: "possible_duplicate", field: null }],
+      blockers: [],
+      ...standing(["duplicate"]),
       approval_available: false,
       duplicate_candidates: [candidate({})],
     };
-    const settled: BusinessDossier = { ...dossier, version: 8, blockers: [], approval_available: true, duplicate_candidates: [] };
+    const settled: BusinessDossier = { ...dossier, version: 8, blockers: [], ...standing([]), approval_available: true, duplicate_candidates: [] };
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
     const decisions: RequestInit[] = [];
@@ -562,15 +596,17 @@ for (const outcome of ["settled", "failed"] as const) {
       await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId="draft-new" /><Toasts /></BusinessContext.Provider></I18nextProvider>); });
       await settle();
       assert.ok(button("Aceptar")?.disabled, "the duplicate blocks Aceptar before the decision");
-      await act(async () => { button("Comparar")?.click(); });
+      const reason = host.querySelector<HTMLElement>('[data-testid="dossier-reason"]');
+      assert.equal(reason?.dataset.compare, "draft-original");
+      await act(async () => { reason?.click(); });
       await settle();
       await act(async () => { button("Son compras distintas")?.click(); });
       await settle();
       const toasts = () => host.querySelector('[data-testid="toasts"]')?.textContent;
       if (outcome === "settled") {
         assert.equal(host.querySelector('[data-testid="duplicate-compare"]'), null, "the compare view closed");
-        assert.equal(host.querySelector('[data-testid="duplicate-entry"]'), null, "no amber Parece repetido entry");
-        assert.equal(repeats(host.querySelector('[data-testid="dossier-attention"]')), 0);
+        assert.equal(repeats(host), 0, "Parece repetido is gone");
+        assert.equal(host.querySelector('[data-testid="status-pill"]')?.textContent, "Listo para aceptar");
         assert.equal(toasts(), "Marcado como compras distintas.");
         const approve = button("Aceptar");
         assert.ok(approve && !approve.disabled, "Aceptar is ready");
@@ -594,3 +630,64 @@ for (const outcome of ["settled", "failed"] as const) {
     }
   });
 }
+
+test("in the review panel, while a row holds an unsaved edit Parece repetido does not open Comparar, and the edit stays", async () => {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+  const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+  const { default: Review } = await import("@/components/business-app/ReceiptDossierReview");
+  const fixture = await createFixtureBusinessDataSource().dossier(dossierFixtureIds.ready);
+  const dossier: BusinessDossier = {
+    ...fixture, draft_id: "draft-new", version: 7, review_state: "open",
+    capabilities: ["read", "prepare", "approve"],
+    blockers: [],
+    ...standing(["duplicate"]),
+    approval_available: false,
+    duplicate_candidates: [candidate({})],
+  };
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => new URL(String(input)).pathname.endsWith("/business/drafts/draft-new/dossier")
+    ? Response.json(dossier)
+    : Response.json({ code: "not_found" }, { status: 404 })) as typeof fetch;
+  const context = {
+    source: liveBusinessDataSource,
+    reload: () => undefined,
+    records: { inbox: [], notes: [], notesError: false, notesTruncated: false, error: false, workspace: null },
+    openPanel: () => undefined,
+    guardPanel: () => () => undefined,
+    actions: { create: [] },
+    panel: { kind: "inbox" },
+    revision: 0,
+  } as unknown as BusinessContextValue;
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  const settle = async () => { for (let turn = 0; turn < 5; turn += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); }); };
+  try {
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId="draft-new" /></BusinessContext.Provider></I18nextProvider>); });
+    await settle();
+    await act(async () => { host.querySelector<HTMLElement>('[data-fact="counterparty"] [data-row-value]')?.click(); });
+    const input = host.querySelector<HTMLInputElement>('[data-testid="edit-counterparty"] input');
+    assert.ok(input, "the row is open");
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Otro nombre");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { host.querySelector<HTMLElement>('[data-testid="dossier-reason"]')?.click(); });
+    await settle();
+    assert.equal(host.querySelector('[data-testid="duplicate-compare"]'), null, "Comparar waits for the edit");
+    assert.equal(host.querySelector<HTMLInputElement>('[data-testid="edit-counterparty"] input')?.value, "Otro nombre", "and the edit stays");
+  } finally {
+    await act(async () => { root.unmount(); });
+    host.remove();
+    globalThis.fetch = oldFetch;
+  }
+});

@@ -6,33 +6,62 @@ import { button, fill, mount, registerReceiptReviewPage, setup, type Dossier } f
 registerReceiptReviewPage();
 const keys: [string, number][] = [];
 
+/** The server's standing for a sample changed after it was read: its reasons and its Bandeja label. */
+function standing(dossier: Dossier, gaps: NonNullable<Dossier["listo_gaps"]>) {
+  dossier.listo_gaps = gaps;
+  dossier.bandeja_group = gaps.length ? { group: "attention", reason: gaps[0], label: "needs_attention" } : { group: "listo", reason: null, label: "ready" };
+}
+
+/** Presses the reason the status line names, beside the pill or in its list. */
+async function pressReason(page: Awaited<ReturnType<typeof setup>>, title: string) {
+  const one = page.host.querySelector<HTMLButtonElement>('[data-testid="dossier-reason"]');
+  if (one) {
+    assert.equal(one.textContent, title);
+    await page.act(async () => one.click());
+    return;
+  }
+  await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="dossier-problems"]')!.click());
+  const option = [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="dossier-problem-list"] [role="option"]')].find((item) => item.textContent?.startsWith(title));
+  assert.ok(option, `missing reason ${title}`);
+  await page.act(async () => option.click());
+}
+
 describe("a receipt with no currency", () => {
   const unknownFact = { state: "unknown" as const, value: null, origin: null, verified: false, source_ids: [] };
   const worksIn = (currencies: string[]) => (fixture: BusinessDataSource): Partial<BusinessDataSource> => ({ workspace: async () => ({ ...await fixture.workspace(), currencies }) });
   async function noCurrency(currencies = ["DOP", "USD"], change: (dossier: Dossier) => void = () => undefined) {
     const page = await setup("noCurrency", change, worksIn(currencies));
     await page.wait(() => Boolean(page.api().records.workspace));
-    const select = () => page.row("currency").querySelector<HTMLSelectElement>('[data-testid="edit-currency"] select')!;
-    const press = (text: string) => page.act(async () => button(page.host.querySelector('[data-testid="dossier-attention"]')!, text).click());
-    return { ...page, select, press };
+    // The Montos heading is the currency's picker; its row opens at the top of the card.
+    const picker = () => page.host.querySelector<HTMLButtonElement>('[data-testid="montos-currency"]')!;
+    const row = (name: string) => page.host.querySelector<HTMLElement>(`li[data-fact="${name}"]`)!;
+    const select = () => row("currency").querySelector<HTMLSelectElement>('[data-testid="edit-currency"] select')!;
+    const action = (name: string, label: "Guardar" | "Cancelar") => row(name).querySelector<HTMLButtonElement>(`button[aria-label^="${label} · "]`)!;
+    const openRow = (name: string) => page.act(async () => (name === "currency" ? picker() : row(name).querySelector<HTMLButtonElement>("button[data-row-value]")!).click());
+    const check = (name: string) => page.act(async () => action(name, "Guardar").click());
+    const dismiss = (name: string) => page.act(async () => action(name, "Cancelar").click());
+    return { ...page, picker, row, select, action, openRow, check, dismiss };
   }
 
   test("a missing currency stays unchosen until the person selects and saves it", async () => {
     const page = await noCurrency(["DOP"]);
     try {
+      assert.equal(page.picker().getAttribute("data-missing"), "true");
       await page.openRow("currency");
       assert.equal(page.select().value, "");
 
       assert.equal(page.writes.length, 0, "opening saves nothing");
       await page.dismiss("currency");
+      assert.equal(page.row("currency"), null, "the X closes the row");
       assert.equal(page.writes.length, 0, "the X drops it");
       await page.openRow("currency");
       await fill(page, '[data-testid="edit-currency"] select', "DOP", HTMLSelectElement);
       await page.check("currency");
-      await page.wait(() => Boolean(page.row("currency").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => Boolean(page.host.querySelector('[data-testid="receipt-facts-montos"] [data-testid="row-saved"]')));
       assert.deepEqual(page.writes.map(({ body }) => body), [{ currency: { state: "known", value: "DOP" } }]);
-      assert.ok(page.row("currency").textContent?.includes("Montos · DOP"));
-      assert.equal(page.host.querySelector('[data-testid="dossier-attention"]'), null, "nothing blocks now");
+      assert.equal(page.picker().textContent, "DOP");
+      assert.equal(page.picker().getAttribute("aria-label"), "Moneda: DOP");
+      assert.equal(page.picker().getAttribute("data-missing"), null);
     } finally { await page.close(); }
   });
 
@@ -56,74 +85,88 @@ describe("a receipt with no currency", () => {
     } finally { await page.close(); }
   });
 
-  test("the header currency select has an accessible name", async () => {
+  test("the currency select has an accessible name", async () => {
     const page = await noCurrency();
     try {
       await page.openRow("currency");
       const label = page.select().closest("label")!;
       const name = [...label.querySelectorAll("span")].find((span) => span.textContent === "Moneda");
       assert.ok(name, "the label names it");
-      assert.ok(name.classList.contains("sr-only"), "the header gives the visible currency context");
+      assert.ok(name.classList.contains("sr-only"), "the row's own label gives the visible context");
+      assert.equal(page.row("currency").firstElementChild?.textContent, "Moneda");
     } finally { await page.close(); }
   });
 
-  test("pressing Moneda opens the row on the currency, also when the row is already open", async () => {
+  test("pressing Falta la moneda puts focus on the currency picker, also the second time, and saves nothing", async () => {
     const page = await noCurrency();
     try {
-      await page.press("Moneda");
-      assert.equal(document.activeElement, page.select());
-      await page.act(async () => page.select().blur());
-      await page.press("Moneda");
-      assert.equal(document.activeElement, page.select());
+      await pressReason(page, "Falta la moneda");
+      assert.equal(document.activeElement, page.picker());
+      await page.act(async () => page.picker().blur());
+      await pressReason(page, "Falta la moneda");
+      assert.equal(document.activeElement, page.picker());
       assert.equal(page.writes.length, 0);
     } finally { await page.close(); }
   });
 
-  test("pressing Monto opens the row on the amount", async () => {
-    const page = await noCurrency(undefined, (dossier) => { dossier.facts.amount = unknownFact; dossier.blockers = [{ code: "fact_required", field: "amount" }, { code: "fact_required", field: "currency" }]; });
+  test("pressing Falta el total washes the amount row and puts focus on it", async () => {
+    const page = await noCurrency(undefined, (dossier) => {
+      dossier.facts.amount = unknownFact;
+      dossier.blockers = [{ code: "fact_required", field: "amount" }, { code: "fact_required", field: "currency" }];
+      standing(dossier, ["missing_amount", "missing_currency"]);
+    });
     try {
-      await page.press("Monto");
-      assert.equal(document.activeElement, page.host.querySelector('[data-testid="dossier-review-amount"]'));
+      await pressReason(page, "Falta el total");
+      assert.ok(page.row("amount").getAttribute("data-flash"));
+      assert.equal(document.activeElement, page.row("amount").querySelector("button[data-row-value]"));
+      assert.equal(page.writes.length, 0);
     } finally { await page.close(); }
   });
 
-  test("someone who cannot edit gets the row, and no field opens", async () => {
+  test("someone who cannot edit can still read why, and no field opens", async () => {
     const page = await noCurrency(undefined, (dossier) => { dossier.capabilities = ["read"]; });
     try {
-      await page.press("Moneda");
-      assert.equal(page.host.querySelector('[data-testid="edit-amount"]'), null);
-      assert.equal(document.activeElement, page.row("currency"));
+      await pressReason(page, "Falta la moneda");
+      assert.equal(page.host.querySelector("[data-row-open]"), null);
+      assert.equal(page.picker().disabled, true);
+      assert.equal(page.host.querySelector('[data-testid="edit-amount"], [data-testid="edit-currency"]'), null);
     } finally { await page.close(); }
   });
 
   test("an amount saved without a currency stays on its row beside what it lacks, never as bare money", async () => {
     const page = await noCurrency();
     try {
-      const shown = page.row("amount").querySelector("[data-number-box]")?.textContent;
+      const shown = page.row("amount").querySelector("[data-row-value]")?.textContent;
       assert.equal(shown, "3,450.00");
-      assert.ok(page.row("currency").textContent?.includes("Falta la moneda"));
+      assert.equal(page.picker().getAttribute("aria-label"), "Moneda: Falta la moneda");
       await page.openRow("amount");
       await fill(page, '[data-testid="dossier-review-amount"]', "950");
       await page.check("amount");
       await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
       assert.deepEqual(page.writes.map(({ body }) => body), [{ amount: { state: "known", value: "950" } }]);
-      assert.ok(page.row("currency").textContent?.includes("Falta la moneda"));
+      assert.equal(page.picker().getAttribute("aria-label"), "Moneda: Falta la moneda");
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
-      assert.ok(page.row("currency").textContent?.includes("Currency missing"));
+      assert.equal(page.picker().getAttribute("aria-label"), "Currency: Currency missing");
       await page.act(async () => { await page.i18n.changeLanguage("es-419"); });
     } finally { await page.close(); }
   });
 
-  test("the rows the box points at open the same way", async () => {
+  test("the rows a reason points at take focus the same way", async () => {
     const page = await setup("fiscalBlocked");
     try {
-      await page.act(async () => button(page.host.querySelector('[data-testid="dossier-attention"]')!, "Fecha del comprobante").click());
-      assert.equal(document.activeElement, page.row("occurred_on").querySelector('[data-testid="edit-occurred_on"] input'));
+      await pressReason(page, "Falta la fecha");
+      assert.ok(page.row("occurred_on").getAttribute("data-flash"));
+      assert.equal(document.activeElement, page.row("occurred_on").querySelector("button[data-row-value]"));
     } finally { await page.close(); }
-    const unpaid = await setup("fiscalBlocked", (dossier) => { dossier.facts.funding = unknownFact; dossier.blockers = [{ code: "unknown_funding", field: "funding" }]; });
+    const unpaid = await setup("fiscalBlocked", (dossier) => {
+      dossier.facts.funding = unknownFact;
+      dossier.blockers = [{ code: "unknown_funding", field: "funding" }];
+      standing(dossier, ["blocked"]);
+    });
     try {
-      await unpaid.act(async () => unpaid.host.querySelector<HTMLButtonElement>('[data-testid="dossier-attention"] [data-field="funding"] button')!.click());
-      assert.equal(document.activeElement, unpaid.row("funding").querySelector('[data-testid="edit-funding"] select'));
+      await pressReason(unpaid, "Tiene algo pendiente");
+      assert.ok(unpaid.row("funding").getAttribute("data-flash"));
+      assert.equal(document.activeElement, unpaid.row("funding").querySelector("button[data-row-value]"));
     } finally { await unpaid.close(); }
   });
 });
@@ -132,19 +175,18 @@ describe("the receipt dossier on an open draft", () => {
   test("the six facts lead, then the two choices; what was removed is gone, in both languages", async () => {
     const page = await setup();
     try {
-      assert.deepEqual([...page.host.querySelectorAll('[data-testid="receipt-current-facts"] [data-fact]')].map((row) => row.getAttribute("data-fact")), ["document_type", "counterparty", "occurred_on", "currency", "net_amount", "itbis", "amount", "rnc", "fiscal_number", "category", "payment_method"]);
-      for (const gone of ["Confirmar", "Comprobante", "Actividad", "Parte del negocio", "Categoría", "Cómo se pagó", "Consultar registro actual", "por revisar"]) assert.ok(!page.host.querySelector('[data-testid="business-record-review"]')?.textContent?.includes(gone), gone);
+      assert.deepEqual([...page.host.querySelectorAll('[data-testid="receipt-current-facts"] [data-fact]')].map((row) => row.getAttribute("data-fact")), ["rnc", "counterparty", "fiscal_number", "occurred_on", "document_type", "category", "payment_method", "currency", "net_amount", "itbis", "amount"]);
+      for (const gone of ["Confirmar", "Actividad", "Parte del negocio", "Categoría", "Cómo se pagó", "Consultar registro actual", "por revisar"]) assert.ok(!page.host.querySelector('[data-testid="business-record-review"]')?.textContent?.includes(gone), gone);
       assert.ok(page.host.querySelector('[data-testid="receipt-more"] [data-testid="receipt-mark-personal"]'), "Personal stays in Más");
-      assert.equal(page.host.querySelector('[data-testid="receipt-business"]')?.textContent, "Taller Lucía · negocio de muestra");
       assert.ok(button(page.host, "Aceptar"), "nothing blocks this record");
       assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null);
-      assert.equal(page.host.querySelector('[data-testid="dossier-attention"]'), null, "no blocker, no top box");
-      assert.equal(page.host.querySelector<HTMLDetailsElement>('[data-testid="fiscal-declaration"]')?.open, false, "the rest of the 606 stays closed");
-      assert.ok(page.host.querySelector('[data-testid="fiscal-declaration"] summary')?.textContent?.includes("Más datos fiscales"));
+      assert.equal(page.host.querySelector('[data-testid="status-pill"]')?.getAttribute("data-label"), "ready");
+      assert.equal(page.host.querySelector('[data-testid="dossier-reason"], [data-testid="dossier-problems"]'), null, "no gap, no reason");
+      assert.ok(page.host.querySelector('[data-testid="fiscal-declaration"]')?.closest<HTMLElement>('[data-tab-panel="fiscal"]')?.hidden, "the rest of the 606 waits in Datos fiscales");
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
       assert.ok(button(page.host, "Accept expense"));
       assert.ok(page.row("category").textContent?.includes("Expense type"));
-      for (const copy of ["Tipo de gasto", "Forma de pago", "Más datos fiscales"]) assert.ok(!page.host.textContent?.includes(copy), copy);
+      for (const copy of ["Tipo de gasto", "Forma de pago", "Datos fiscales"]) assert.ok(!page.host.textContent?.includes(copy), copy);
       await page.act(async () => { await page.i18n.changeLanguage("es-419"); });
       assert.equal(page.writes.length, 0);
     } finally { await page.close(); }
@@ -153,8 +195,8 @@ describe("the receipt dossier on an open draft", () => {
   test("the Spanish review uses the dictionary fact labels and official 606 options", async () => {
     const page = await setup();
     try {
-      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Emisor");
-      assert.equal(page.row("occurred_on").querySelector("dt")?.textContent, "Fecha del comprobante");
+      assert.equal(page.row("counterparty").firstElementChild?.textContent, "Emisor");
+      assert.equal(page.row("occurred_on").firstElementChild?.textContent, "Fecha");
       const spanish = (await import("@/public/locales/es-419/common.json")).default;
       for (const field of ["category", "payment_method"] as const) {
         const options = [...page.row(field).querySelectorAll("option")].filter((option) => option.value);
@@ -169,8 +211,8 @@ describe("the receipt dossier on an open draft", () => {
     const page = await setup();
     try {
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
-      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Supplier");
-      assert.equal(page.row("occurred_on").querySelector("dt")?.textContent, "Receipt date");
+      assert.equal(page.row("counterparty").firstElementChild?.textContent, "Supplier");
+      assert.equal(page.row("occurred_on").firstElementChild?.textContent, "Date");
       const english = (await import("@/public/locales/en/common.json")).default;
       const spanish = (await import("@/public/locales/es-419/common.json")).default;
       const fields = await page.source.dgiiFields();
@@ -185,15 +227,16 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("the top box and the footer say what blocks, and only that", async () => {
+  test("the status line and the row say what keeps the record from Listos, and the footer does not", async () => {
     const page = await setup("fiscalBlocked");
     try {
-      const box = page.host.querySelector('[data-testid="dossier-attention"]');
-      assert.deepEqual([...box!.querySelectorAll("li")].map((item) => item.textContent), ["Fecha del comprobante"]);
-      assert.ok(box?.textContent?.startsWith("Falta para aceptar"));
-      assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null, "the box says it, so the footer does not");
-      assert.equal(page.host.querySelector('[data-testid="business-record-review"]')?.textContent?.includes("Agrega la fecha para aceptar"), false, "nor does the row");
-      assert.ok(page.row("occurred_on").querySelector('[data-testid="attention-marker"]'), "the row keeps its marker");
+      assert.equal(page.host.querySelector('[data-testid="status-pill"]')?.getAttribute("data-label"), "needs_attention");
+      assert.equal(page.host.querySelector('[data-testid="dossier-reason"]')?.textContent, "Falta la fecha");
+      assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null, "the status line says it, so the footer does not");
+      assert.equal(page.host.querySelector('[data-testid="business-record-review"]')?.textContent?.includes("Agrega la fecha para aceptar"), false, "nor does a line under the row");
+      const status = page.row("occurred_on").querySelector('[data-testid="row-status-occurred_on"]');
+      assert.equal(status?.getAttribute("data-status"), "warn", "the row keeps its mark");
+      assert.equal(page.row("occurred_on").getAttribute("data-attention"), "true");
       assert.equal(button(page.host, "Aceptar").disabled, true);
       await page.openRow("occurred_on");
       await fill(page, '[placeholder="dd/mm/aaaa"]', "31/02/2026");
@@ -202,7 +245,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.ok(page.row("occurred_on").querySelector('[role="alert"]')?.textContent?.includes("dd/mm/aaaa"), "and the row says why it stayed open");
       await fill(page, '[placeholder="dd/mm/aaaa"]', "16/10/2026");
       await page.check("occurred_on");
-      await page.wait(() => page.writes.length === 1 && !page.host.querySelector('[data-testid="dossier-attention"]'));
+      await page.wait(() => page.writes.length === 1 && Boolean(page.row("occurred_on").querySelector('[data-testid="row-saved"]')));
       assert.deepEqual(page.writes[0].body, { occurred_on: { state: "known", value: "2026-10-16" } });
       assert.equal(button(page.host, "Aceptar").disabled, false);
       assert.equal(page.approvals(), 0, "saving never approves");
@@ -273,7 +316,7 @@ describe("the receipt dossier on an open draft", () => {
         assert.equal(row.querySelector("select")?.value, code, choice);
         const icon = sourceIcon(row);
         assert.equal(icon?.getAttribute("aria-label"), "Última elección para este RNC");
-        assert.equal(icon?.getAttribute("title"), "Última elección para este RNC");
+        assert.equal(icon?.getAttribute("data-status"), "last_choice");
         assert.ok(icon?.querySelector("svg.lucide-history"), "history marks the last choice");
         assert.equal(row.textContent?.includes("Sugerido"), false, "no helper line");
         assert.equal([...row.querySelectorAll("button")].some((item) => item.textContent === "Usar"), false, "no Usar");
@@ -293,7 +336,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.ok(payment?.querySelector("svg.lucide-receipt-text"));
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
       assert.equal(sourceIcon(page.row("category"))?.getAttribute("aria-label"), "Suggested by the reading");
-      assert.equal(sourceIcon(page.row("payment_method"))?.getAttribute("title"), "Read from the receipt");
+      assert.equal(sourceIcon(page.row("payment_method"))?.getAttribute("aria-label"), "Read from the receipt");
       await page.act(async () => { await page.i18n.changeLanguage("es-419"); });
     } finally { await page.close(); }
   });
@@ -628,7 +671,7 @@ describe("the receipt dossier on an open draft", () => {
     try {
       assert.equal(page.host.querySelector('[role="radiogroup"], [data-segment]'), null);
       assert.match(page.row("document_type").textContent ?? "", /Tipo\s*Compra/);
-      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Emisor");
+      assert.equal(page.row("counterparty").firstElementChild?.textContent, "Emisor");
       await page.openRow("document_type");
       const select = () => page.row("document_type").querySelector("select")!;
       assert.deepEqual([...select().options].map((option) => option.textContent), ["Compra", "Venta"]);
@@ -646,7 +689,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.deepEqual(typed.map(({ version, documentType }) => [version, documentType]), [[2, "venta"]]);
       assert.ok(page.row("document_type").querySelector('[data-testid="row-saved"]'));
       assert.equal(page.row("document_type").getAttribute("data-type"), "venta");
-      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Cliente");
+      assert.equal(page.row("counterparty").firstElementChild?.textContent, "Cliente");
     } finally { await page.close(); }
   });
 
@@ -819,9 +862,11 @@ describe("the receipt dossier on an open draft", () => {
   test("Sin recibo never asks for an RNC: the row is blank and approval goes straight through", async () => {
     const page = await setup("noNumber");
     try {
-      assert.ok(page.row("rnc").querySelector('[data-testid="rnc-status"]'));
       await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="mark-no-receipt"]')!.click());
-      await page.wait(() => !page.row("rnc").querySelector('[data-testid="rnc-status"]'));
+      await page.wait(() => /Sin recibo/.test(page.row("fiscal_number").textContent ?? ""));
+      assert.equal(page.row("rnc").querySelector("[data-row-value]")?.textContent, "Sin dato");
+      assert.equal(page.row("rnc").querySelector('[data-testid="row-status-rnc"]'), null, "nothing asks for the RNC");
+      assert.equal(page.host.querySelector('[data-testid="dossier-reason"], [data-testid="dossier-problems"]'), null);
       await page.act(async () => button(page.host, "Aceptar").click());
       assert.equal(document.querySelector('[role="alertdialog"]'), null);
       assert.equal(page.approvals(), 1);
@@ -898,8 +943,9 @@ describe("the receipt dossier on an open draft", () => {
   test("Tab walks the six facts in reading order, and a saved row hands Tab on from itself", async () => {
     const page = await setup();
     try {
-      const stops = [...page.host.querySelectorAll<HTMLElement>('[data-testid="receipt-facts-activity"] button, [data-testid="receipt-facts-montos"] button, [data-testid="receipt-facts-fiscal"] button')].filter((item) => item.closest("[data-fact]") && item.tabIndex === 0).map((item) => item.closest<HTMLElement>("[data-fact]")!.dataset.fact);
-      assert.deepEqual(stops.filter((fact) => fact !== "document_type"), ["counterparty", "occurred_on", "currency", "itbis", "amount", "rnc", "fiscal_number"]);
+      // The value opens its row; the pencil beside it is the same row's second stop.
+      const stops = [...page.host.querySelectorAll<HTMLElement>('[data-testid="receipt-facts-comprobante"] button, [data-testid="receipt-facts-montos"] button')].filter((item) => item.closest("[data-fact]") && item.tabIndex === 0).map((item) => item.closest<HTMLElement>("[data-fact]")!.dataset.fact);
+      assert.deepEqual(stops.filter((fact, index) => fact !== "document_type" && fact !== stops[index - 1]), ["rnc", "counterparty", "fiscal_number", "occurred_on", "currency", "itbis", "amount"]);
       await page.openRow("counterparty");
       await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
       await page.press('[data-testid="edit-counterparty"] input', "Enter");
@@ -909,21 +955,27 @@ describe("the receipt dossier on an open draft", () => {
 
   test("the total warning follows the server amount flag and carries only its difference", async () => {
     const quiet = await setup("totalsOff");
-    try { assert.equal(quiet.host.querySelector('[data-testid="amounts-difference"]'), null); } finally { await quiet.close(); }
+    try { assert.equal(quiet.host.querySelector('[data-testid="row-status-amount"]'), null); } finally { await quiet.close(); }
     const page = await setup("totalsOff", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "1.00" }]; });
     try {
-      assert.equal(page.row("amount").querySelector('[data-testid="amounts-difference"]')?.textContent, "Diferencia 1.00");
+      const status = page.row("amount").querySelector('[data-testid="row-status-amount"]');
+      assert.equal(status?.getAttribute("data-status"), "warn");
+      assert.equal(status?.getAttribute("aria-label"), "Diferencia 1.00");
     } finally { await page.close(); }
   });
 
-  test("Corregir on a flagged value opens that value's row", async () => {
+  test("Corregir on a flagged value washes that value's row and puts focus on it, without opening it", async () => {
     const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "ncf_malformed", field: "ncf", confirm: true }]; });
     try {
       await page.act(async () => button(page.host, "Aceptar").click());
       const dialog = document.querySelector('[role="alertdialog"]');
       assert.ok(dialog);
       await page.act(async () => button(dialog, "Corregir").click());
-      await page.wait(() => Boolean(page.host.querySelector('[data-testid="edit-fiscal_number"] input')));
+      await page.wait(() => Boolean(page.row("fiscal_number").getAttribute("data-flash")));
+      assert.equal(document.querySelector('[role="alertdialog"]'), null);
+      assert.equal(document.activeElement, page.row("fiscal_number").querySelector("button[data-row-value]"));
+      assert.equal(page.host.querySelector('[data-testid="edit-fiscal_number"]'), null);
+      assert.equal(page.approvals(), 0);
     } finally { await page.close(); }
   });
 

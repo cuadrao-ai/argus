@@ -1,25 +1,17 @@
 "use client";
 
 import ReceiptAmounts from "./ReceiptAmounts";
-import { CircleAlert } from "lucide-react";
-import { useId, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
-import type { BusinessDossier, BusinessFact, BusinessFactField } from "@/lib/business-dossier";
-import { documentFamily, factLabel } from "@/lib/counterparty-term";
-import { rncStatus } from "@/lib/rnc-status";
-import RncStatusBlock from "./RncStatusBlock";
-import type { RowShown } from "./ReceiptEditRow";
+import type { BusinessDossier, BusinessFact, BusinessFactField, RncRegistryStatus } from "@/lib/business-dossier";
+import { formatRnc } from "@/lib/rnc-status";
 import { quietButtonClass, useCategoryLabel } from "./business-ui";
-import { UNKNOWN_VALUE } from "./business-format";
-import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
-import { PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, type FactRow, type ReviewRow } from "./receipt-fact-rows";
-import type { AttentionItem } from "./dossier-attention";
+import { dossierRowLabel, problemWords, rowProblems, type DossierProblem } from "./dossier-attention";
+import { DossierCard, DossierRow, DossierRows, type RowEdit, type RowStatus } from "./dossier/DossierParts";
+import { presentBusinessFact } from "./receipt-fact-presentation";
+import { PAYMENT_FIELDS, doubtfulFields, recordFactRows, type ReviewRow } from "./receipt-fact-rows";
 import { resolveLanguage } from "@/lib/language-features";
-
-/** One label/value row; the document type control uses it too, so the form reads as one list. */
-export const FACT_ROW_CLASS = "grid grid-cols-[minmax(7.5rem,34%)_minmax(0,1fr)] items-start gap-x-4 border-t border-[#E8EBE6] py-1.5 first:border-t-0 max-tablet:[&:has([data-row-open])]:grid-cols-1 dark:border-white/[0.07]";
-export const FACT_LABEL_CLASS = "flex min-h-9 items-center gap-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70";
 
 /** The texts a row's value may appear as in the original message: what it shows and what it stores. */
 function matchAttribute(values: readonly (string | null | undefined)[]): string | undefined {
@@ -27,15 +19,18 @@ function matchAttribute(values: readonly (string | null | undefined)[]): string 
   return kept.length ? JSON.stringify(kept) : undefined;
 }
 
-const DIGIT_ROWS: ReadonlySet<string> = new Set(["amount", "itbis", "rnc", "ncf", "ecf", "fiscal_number"]);
+const REGISTRY_TONE: Record<RncRegistryStatus, "ok" | "warn" | "bad"> = { verificado: "ok", suspendido: "warn", cese_temporal: "warn", not_found: "warn", desconocido: "warn", dado_de_baja: "bad", anulado: "bad", rechazado: "bad" };
 
-/** An open draft's form: what each row edits, and what the page says under it. */
+/** The row a problem jumped to; `n` counts the jumps, so a second jump to the same row washes it again. */
+export type RowFlash = { row: ReviewRow; n: number };
+
+/** How the form edits: what each row opens, and what the page says under it. Absent for a record nobody can edit now. */
 export type FactsReview = {
   amountsPreview?: { net_amount: NonNullable<BusinessDossier["net_amount"]>; mismatch: { difference?: string | null } | null; status: "ready" | "pending" | "error" };
   /** Absent for someone who cannot edit the record now. */
   onEdit?: (row: ReviewRow) => void;
-  /** The row's control: its value with a pencil, or its open field. */
-  row: (row: ReviewRow, shown: RowShown) => ReactNode;
+  /** How the row edits in place. */
+  edit: (row: ReviewRow) => RowEdit;
   /** The row's save state. */
   note: (row: ReviewRow) => ReactNode;
   /** Marking a record that has no fiscal number as Sin recibo. `onMark` is absent for someone who cannot edit it now. */
@@ -43,41 +38,37 @@ export type FactsReview = {
 };
 
 /**
- * The record's facts as one form in three short sections: the activity
- * (headed by its kind), its fiscal facts and how it was paid. A row shows its
- * value as text; a suggestion nobody confirmed says so, and a row the
- * attention list names carries a marker.
+ * The General tab: the record's facts as one form in grouped cards. Comprobante
+ * holds who issued it, its fiscal number and its date; Reporte 606 the owner's
+ * choices; Montos the amounts. Every row is the same grid: label, status slot,
+ * value, action slot. The status slot carries every exception: a problem the
+ * server names, what the DGII register says of the RNC, a doubtful read.
  *
- * With `review`, the form of an open draft: the six read facts with an edit
- * control each. A row a person opens edits in place. `choices` follow the
- * fiscal facts on an open draft and on a recorded one alike.
+ * With `review` a row opens its field in place. Without it the same rows only
+ * show: there is one form, never a second read-only one.
  */
-export default function ReceiptRecordFacts({ dossier, accounts, attention = [], typeRow, review, choices }: {
+export default function ReceiptRecordFacts({ dossier, accounts, problems = [], flash = null, typeRow, review, choices }: {
   dossier: BusinessDossier;
   accounts: BusinessAccount[];
-  /** What needs the person; each row an item points at carries a marker. */
-  attention?: readonly AttentionItem[];
+  /** Why the record is not Listos; each row a problem points at says it in its status slot. */
+  problems?: readonly DossierProblem[];
+  flash?: RowFlash | null;
   /** Compra or Venta, which says the kind: the kind row then shows only while it needs a person. */
   typeRow?: ReactNode;
   review?: FactsReview;
-  /** The owner's choices, as rows. */
+  /** The owner's choices, as a card. */
   choices?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
-  const ids = useId();
   const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const fiscal = dossier.facts.fiscal;
   const sale = dossier.document_type === "venta";
-  const paymentTitle = sale ? t("business.dossier.section.collection") : t("business.dossier.section.payment", "Payment");
-  const flags = dossier.review_flags ?? [];
   const labels = {
     unknown: "",
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
     notRecorded: "",
     noCurrency: t("business.reception_preview.placeholder.reason.missing_currency", "Currency missing"),
-    yes: t("business.marks.yes", "Yes"),
-    no: t("business.marks.no", "No"),
     ownerFunds: t("business.dossier.owner_funds", "Owner's money"),
     businessAccount: t("business.dossier.business_account", "Business account"),
     value: (key: BusinessFactField, value: string) => {
@@ -87,135 +78,90 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     },
   };
   const rows = new Map(recordFactRows(dossier).map((row) => [row.key, row]));
-  const fiscalRows = new Map(fiscalFactRows(dossier.facts).map((row) => [row.key, row]));
   // Without an NCF and an e-CF the record has no fiscal receipt number: one field says so in place of two empty ones.
   const noFiscal = dossier.fiscal_known === true && !dossier.fiscal_value;
-  const flagged = (key: string) => attention.some((item) => item.field === key || (review && key === "amount" && item.field === "currency"));
-
   const doubtful = doubtfulFields(dossier);
-  const origin = (key: string, fact: BusinessFact<unknown> | undefined): ReactNode => {
-    const mark = (text: string, kind?: string | null) => <span data-origin={kind ?? undefined} data-doubtful={kind ? undefined : "true"} className="ml-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/65">· {text}</span>;
-    if (doubtful.has(key)) return mark(t("business.dossier.placeholder.doubtful_read", "check this"));
+  const flashOf = (row: ReviewRow) => flash?.row === row ? flash.n : undefined;
+
+  /** The status slot: a problem first, then a doubtful read, then what the row's own check says, then a suggestion nobody confirmed. */
+  const statusOf = (row: ReviewRow, facts: readonly string[], fact: BusinessFact<unknown> | undefined, own?: RowStatus | null): RowStatus | null => {
+    const found = rowProblems(problems, row);
+    if (found.length) return { kind: "warn", text: problemWords(found) };
+    if (facts.some((key) => doubtful.has(key))) return { kind: "warn", text: t("business.dossier.placeholder.doubtful_read", "check this") };
+    if (own) return own;
     if (!fact || fact.state !== "known" || fact.verified) return null;
     const named = dossier.sources.filter((source) => fact.source_ids.includes(source.id));
     const kinds = new Set((named.length ? named : dossier.sources).map((source) => source.kind));
-    return fact.origin === "extracted" && !kinds.has("attachment") && !kinds.has("message") ? mark(t("business.dossier.origin_tag.suggested", "suggested"), fact.origin) : null;
+    return fact.origin === "extracted" && !kinds.has("attachment") && !kinds.has("message") ? { kind: "reading", text: t("business.dossier.origin_tag.suggested", "suggested") } : null;
   };
+  const edit = (row: ReviewRow) => review?.edit(row);
+  const attention = (row: ReviewRow) => rowProblems(problems, row).length > 0;
 
-  const field = (key: string, label: string, content: ReactNode, row?: FactRow<string>, tag?: ReactNode, match: readonly (string | null | undefined)[] = []) => (
-    <div key={key} data-fact={key} data-standing={row?.standing} data-blocked={row?.blocked || row?.asked ? "true" : undefined} data-attention={flagged(key) ? "true" : undefined} data-match={matchAttribute(match)} className={FACT_ROW_CLASS}>
-      <dt className={FACT_LABEL_CLASS}>
-        {flagged(key) ? <span aria-hidden="true" data-testid="attention-marker" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c27a1e] dark:bg-[#e8b26f]" /> : null}
-        {label}
-      </dt>
-      <dd className={`min-w-0 break-words py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white ${DIGIT_ROWS.has(key) ? "[font-variant-numeric:tabular-nums]" : ""}`}>
-        {key === "amount" || key === "itbis" ? <span className="cuadrao-amount">{content}</span> : content}
-        {tag}
-        {review?.note(key as ReviewRow)}
-        {(row?.blocked || row?.asked) && !(review && flagged(key)) ? (
-          <span className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">
-            <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            {key === "occurred_on" && row?.standing === "empty" ? t("business.dossier.approve_reason.date", "Add the date to approve") : t("business.dossier.needs_resolution", "Needs a decision before approval")}
-          </span>
-        ) : null}
-      </dd>
-    </div>
-  );
-
-  const recordField = (key: BusinessFactField) => {
-    const label = key === "funding" && sale ? t("business.dossier.field.collection_method") : factLabel(t, key, documentFamily(dossier.document_type));
+  const recordRow = (key: BusinessFactField) => {
+    const label = key === "funding" && sale ? t("business.dossier.field.collection_method") : dossierRowLabel(t, key, dossier);
     const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
-    const currency = review && key === "amount" ? rows.get("currency") : undefined;
-    const own = rows.get(key);
-    const row = own && currency ? { ...own, blocked: own.blocked || currency.blocked, asked: own.asked || currency.asked } : own;
-    const tag = origin(key, dossier.facts[key]);
     const fact = dossier.facts[key];
-    const match = [value, fact?.state === "known" && typeof fact.value === "string" ? fact.value : null];
-    if (review) return field(key, label, review.row(key, { label, value: value ? <>{value}{tag}</> : "" }), row, undefined, match);
-    return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, tag, match);
+    return <DossierRow key={key} row={key} label={label} value={value} status={statusOf(key, [key], fact)} edit={edit(key)} below={review?.note(key)} flash={flashOf(key)} attention={attention(key)} match={matchAttribute([value, fact?.state === "known" && typeof fact.value === "string" ? fact.value : null])} />;
   };
 
-  const noNumber = (form: FactsReview) => {
-    const state = dossier.facts.receipt_state;
-    const marked = state.state === "known" && state.value === "no_receipt";
-    const onMark = form.noReceipt.onMark;
-    return <>
-      <p>{dossier.sin_comprobante && state.state === "known" ? <>{t(`business.dossier.receipt.${state.value}`, state.value)}{origin("receipt_state", state)}</> : t("business.marks.no_fiscal_chip", "No fiscal receipt number")}</p>
-      {onMark ? <button type="button" data-testid="mark-no-receipt" disabled={form.noReceipt.busy} className={`${quietButtonClass} mt-1`} onClick={() => onMark(!marked)}>{marked ? t("business.marks.undo", "Undo") : t("business.dossier.placeholder.mark_no_receipt", "Mark as no receipt")}</button> : null}
-    </>;
-  };
+  const registry = dossier.rnc_registry_status;
+  const rncRow = <DossierRow
+    row="rnc"
+    label={dossierRowLabel(t, "rnc", dossier)}
+    look="mono"
+    value={fiscal?.rnc.state === "known" && fiscal.rnc.value.trim() ? formatRnc(fiscal.rnc.value) : ""}
+    status={statusOf("rnc", ["rnc"], fiscal?.rnc, registry ? { kind: REGISTRY_TONE[registry], text: t([`business.dossier.rnc_registry.${registry}`, `business.dossier.placeholder.rnc_registry.${registry}`]) } : null)}
+    edit={edit("rnc")}
+    below={review?.note("rnc")}
+    flash={flashOf("rnc")}
+    attention={attention("rnc")}
+    match={matchAttribute([fiscal?.rnc.value])}
+  />;
 
-  /** The NCF and the e-CF are one fiscal number: every view shows the one the receipt carries, in this one row. */
-  const fiscalNumberField = (content: (shown: { key: "ncf" | "ecf"; label: string; value: string; tag: ReactNode }) => ReactNode, note?: ReactNode) => {
-    const key = fiscal?.ecf.state === "known" ? "ecf" : "ncf";
-    const label = `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`;
-    const value = fiscal?.[key].value ?? (noFiscal ? t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "");
-    return field("fiscal_number", label, content({ key, label, value, tag: origin(key, fiscal?.[key]) }), fiscalRows.get(key), note, [value]);
-  };
-
-  const reviewFiscalFields = (form: FactsReview) => {
-    const rncLabel = t("business.dossier.field.rnc", "RNC");
-    const rncMissing = ["missing", "invalid_length"].includes(rncStatus(fiscal?.rnc, flags));
-    const rncAsked = dossier.sin_comprobante === true && rncMissing;
-    const rncEdit = form.onEdit ? () => form.onEdit?.("rnc") : undefined;
-    return <>
-      {field("rnc", rncLabel, form.row("rnc", rncAsked ? { label: rncLabel, value: "" } : { label: rncLabel, compound: true, pencil: !rncMissing, value: <><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin("rnc", fiscal?.rnc)}</> }), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
-      {fiscalNumberField(({ label, value, tag }) => form.row("fiscal_number", noFiscal ? { label, compound: true, value: noNumber(form) } : { label, value: value ? <>{value}{tag}</> : "" }), form.noReceipt.note)}
-    </>;
-  };
-
-  const section = (id: string, title: string, fields: ReactNode) => (
-    <section key={id} data-testid={`receipt-facts-${id}`} aria-labelledby={`${ids}-${id}`}>
-      <h3 id={`${ids}-${id}`} className="text-[12px] font-medium uppercase leading-4 tracking-[0.06em] text-[#56635e] dark:text-white/60">{title}</h3>
-      <dl className="mt-1">{fields}</dl>
-    </section>
-  );
+  /** The NCF and the e-CF are one fiscal number: the row shows the one the receipt carries. */
+  const fiscalKey = fiscal?.ecf.state === "known" ? "ecf" : "ncf";
+  const state = dossier.facts.receipt_state;
+  const marked = state.state === "known" && state.value === "no_receipt";
+  const onMark = review?.noReceipt.onMark;
+  const numberRow = <DossierRow
+    row="fiscal_number"
+    label={dossierRowLabel(t, "fiscal_number", dossier)}
+    look={noFiscal ? "text" : "mono"}
+    value={fiscal?.[fiscalKey].value ?? (noFiscal ? dossier.sin_comprobante && state.state === "known" ? t(`business.dossier.receipt.${state.value}`, state.value) : t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "")}
+    status={statusOf("fiscal_number", ["ncf", "ecf", "fiscal_number"], fiscal?.[fiscalKey])}
+    edit={edit("fiscal_number")}
+    below={<>
+      {noFiscal && onMark ? <button type="button" data-testid="mark-no-receipt" disabled={review.noReceipt.busy} className={quietButtonClass} onClick={() => onMark(!marked)}>{marked ? t("business.marks.undo", "Undo") : t("business.dossier.placeholder.mark_no_receipt", "Mark as no receipt")}</button> : null}
+      {review?.note("fiscal_number")}
+      {noFiscal ? review?.noReceipt.note : null}
+    </>}
+    flash={flashOf("fiscal_number")}
+    attention={attention("fiscal_number")}
+    match={matchAttribute([fiscal?.[fiscalKey].value])}
+  />;
 
   const kind = dossier.facts.kind;
-  const kindRow = rows.get("kind");
-  // A Compra/Venta control already says the kind; the kind row returns while it needs a person.
-  const kindShown = !typeRow || kind.state !== "known" || kindRow?.blocked || kindRow?.asked || flagged("kind");
-  const choicesSection = choices ? section("choices", t("business.dossier.placeholder.section_choices", "For the 606"), choices) : null;
   const waits = (key: BusinessFactField) => Boolean(rows.get(key)?.blocked || rows.get(key)?.asked);
-  if (review) {
-    const payment = PAYMENT_FIELDS.filter(waits);
-    return (
-      <div data-testid="receipt-current-facts" className="space-y-5">
-        {section("activity", kind.state === "known" ? t(`business.dossier.kind.${kind.value}`, kind.value) : t("business.dossier.field.kind", "Activity"), <>
-          {typeRow}
-          {waits("kind") ? recordField("kind") : null}
-          {recordField("counterparty")}
-          {recordField("occurred_on")}
-        </>)}
-        <ReceiptAmounts attention={attention} dossier={dossier} review={review} />
-        {section("fiscal", t("business.dossier.section.fiscal", "Fiscal"), reviewFiscalFields(review))}
-        {choicesSection}
-        {payment.length ? section("payment", paymentTitle, payment.map(recordField)) : null}
-      </div>
-    );
-  }
-
-  const fiscalFields = fiscal || noFiscal ? <>
-    {field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} />, undefined, origin("rnc", fiscal?.rnc), [fiscal?.rnc.value])}
-    {fiscalNumberField(({ key, value, tag }) => <>{value || presentFiscalFact(key, dossier.facts, locale, labels)}{tag}</>)}
-  </> : null;
-  const paid = PAYMENT_FIELDS.filter((key) => dossier.facts[key]?.state === "known" || waits(key));
-
+  // A Compra/Venta control already says the kind; the kind row returns while it needs a person.
+  const kindShown = !typeRow || kind.state !== "known" || waits("kind");
+  const showsFiscal = Boolean(fiscal) || noFiscal || Boolean(review);
+  // One payment fact on screen: forma de pago lives in the report card, and funding shows only while the server waits on it.
+  const payment = PAYMENT_FIELDS.filter(waits);
   return (
-    <div data-testid="receipt-current-facts" className="space-y-5">
-      {section("activity", kind.state === "known" ? t(`business.dossier.kind.${kind.value}`, kind.value) : t("business.dossier.field.kind", "Activity"), <>
-        {typeRow}
-        {kindShown ? recordField("kind") : null}
-        {recordField("counterparty")}
-        {recordField("occurred_on")}
-      </>)}
-      <ReceiptAmounts attention={attention} dossier={dossier} />
-      {section("fiscal", t("business.dossier.section.fiscal", "Fiscal"), <>
-        {recordField("receipt_state")}
-        {fiscalFields}
-      </>)}
-      {choicesSection}
-      {paid.length ? section("payment", paymentTitle, paid.map(recordField)) : null}
+    <div data-testid="receipt-current-facts" className="contents">
+      <DossierCard title={t("business.dossier.card.comprobante")} testId="receipt-facts-comprobante">
+        <DossierRows>
+          {showsFiscal ? rncRow : null}
+          {recordRow("counterparty")}
+          {showsFiscal ? numberRow : null}
+          {recordRow("occurred_on")}
+          {typeRow}
+          {kindShown ? recordRow("kind") : null}
+          {payment.map(recordRow)}
+        </DossierRows>
+      </DossierCard>
+      {choices}
+      <ReceiptAmounts dossier={dossier} review={review} problems={problems} flash={flash} />
     </div>
   );
 }

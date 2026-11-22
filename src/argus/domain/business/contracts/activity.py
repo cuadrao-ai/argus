@@ -37,6 +37,8 @@ ActivityAction = Literal[
     "resolve_duplicate",
     "edit_current_note",
     "append_supporting_file",
+    "unlink_supporting_file",
+    "restore_supporting_file",
     "receipt_upload",
     "receipt_review",
     "receipt_confirm",

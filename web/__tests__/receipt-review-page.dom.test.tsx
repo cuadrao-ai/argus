@@ -101,13 +101,14 @@ describe("one receipt review page", () => {
       },
     }));
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
-    for (const panel of [
-      { kind: "draft", draftId: dossierFixtureIds.ready },
-      { kind: "receipt", receiptId: "rcpt-saved" },
+    // The pill is the server's Bandeja label alone: the sample's unread receipt carries none.
+    for (const [panel, label] of [
+      [{ kind: "draft", draftId: dossierFixtureIds.ready }, "ready"],
+      [{ kind: "receipt", receiptId: "rcpt-saved" }, null],
     ] as const) {
       await page.open(panel, () => page.frame().fields !== null);
       const review = page.host.querySelector('[data-testid="business-record-review"]');
-      assert.ok(review?.querySelector('[data-testid="receipt-top-block"] [data-testid="status-pill"]'), "the top block is supplier, total and status");
+      assert.equal(review?.querySelector('[data-testid="dossier-status"] [data-testid="status-pill"]')?.getAttribute("data-label") ?? null, label);
       assert.ok(!review?.textContent?.includes("My business"));
       await page.open({ kind: "inbox" }, () => page.frame().count === 0);
     }
@@ -119,8 +120,8 @@ describe("one receipt review page", () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     for (const [panel, title] of [
       [{ kind: "draft", draftId: dossierFixtureIds.ready }, null],
-      [{ kind: "receipt", receiptId: "rcpt-blurry" }, "Revisar recibo"],
-      [{ kind: "receipt", receiptId: "rcpt-saved" }, "Revisar recibo"],
+      [{ kind: "receipt", receiptId: "rcpt-blurry" }, "IMG_2209.jpg"],
+      [{ kind: "receipt", receiptId: "rcpt-saved" }, "almuerzo-cliente.png"],
     ] as const) {
       await page.open(panel, () => page.frame().fields !== null && page.frame().source?.textContent !== "");
       const shown = page.frame();

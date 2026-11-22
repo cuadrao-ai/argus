@@ -4,6 +4,7 @@ approved, and the approval writes the 606 declaration from the stored facts."""
 import io
 from datetime import date, datetime, timedelta, timezone
 from hashlib import sha256
+from itertools import count
 from uuid import UUID, uuid4
 from zipfile import ZipFile
 
@@ -40,6 +41,7 @@ EDITED_SUPPLIER = "199990048"
 NCF = "B0100000001"
 fake = Faker("es_MX")
 Faker.seed(606)
+SHOPS = count(1)
 
 
 def receipt_period() -> ExportPeriod:
@@ -69,10 +71,11 @@ def actions(shared_actions):
 
 
 def colmado(**changes):
-    """A local receipt: RNC, NCF and ITBIS printed, the supplier only in the header."""
+    """A local receipt: RNC, NCF and ITBIS printed, the supplier only in the header.
+    Each one names its own shop: two of one date and total with one name are a repeat."""
 
     read = {
-        "merchant": f"Colmado {fake.last_name()}",
+        "merchant": f"Colmado {fake.last_name()} {next(SHOPS)}",
         "total": "1180.00",
         "currency": "DOP",
         "rnc": SUPPLIER,

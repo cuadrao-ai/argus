@@ -66,13 +66,7 @@ def _receipt_reading(context: BusinessContext) -> bool | None:
 
 def _first_document(context: BusinessContext) -> bool:
     # A received document is a saved source on this Business, however it arrived.
-    connections = context.service.documents.hub.connections.list(
-        user_id=context.scope.person_id, scope=context.scope.owner
-    )
-    return any(
-        connection.source == "statement" and connection.status != "disconnected"
-        for connection in connections
-    )
+    return bool(context.service.uploads(context.scope))
 
 
 def _team(context: BusinessContext) -> bool | None:

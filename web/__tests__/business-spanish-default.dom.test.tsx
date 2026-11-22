@@ -127,8 +127,8 @@ describe("Business stays in Spanish for an en-US browser", () => {
     return visible;
   }
 
-  const spanishCopy = ["Mi negocio", "Resultado neto", "Necesita atención", "Ingresos", "Agregar documentos", "Compra o venta", "Compras", "Emisor", "Fecha"];
-  const englishCopy = ["Net result", "Needs attention", "Income", "Add documents", "Purchase or sale", "Purchases", "Supplier", "Receipt date"];
+  const spanishCopy = ["Resultado neto", "Necesita atención", "Ingresos", "Agregar documentos", "Compra o venta", "Compras", "Emisor", "Fecha"];
+  const englishCopy = ["Net result", "Needs attention", "Income", "Add documents", "Purchase or sale", "Purchases", "Supplier"];
   const retiredEnglishCopy = ["Upload receipts", "Record expense", "Open inbox", "Actual expenses", "to review"];
 
   test("an en-US browser with a Spanish account sees overview, the Agregar sheet, and receipt review in Spanish", async () => {
@@ -146,6 +146,6 @@ describe("Business stays in Spanish for an en-US browser", () => {
     assert.ok(visible.includes(greeting), greeting);
     for (const englishText of englishCopy) assert.ok(visible.includes(englishText), englishText);
     // The sample Business name is shared across languages.
-    for (const spanishText of [...spanishCopy.filter((text) => text !== "Mi negocio" && text !== "Fecha")]) assert.equal(visible.includes(spanishText), false, spanishText);
+    for (const spanishText of [...spanishCopy.filter((text) => text !== "Fecha")]) assert.equal(visible.includes(spanishText), false, spanishText);
   });
 });

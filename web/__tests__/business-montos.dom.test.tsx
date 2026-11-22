@@ -32,46 +32,41 @@ async function mount(content: ReactNode, language = "es-419") {
   cleanup = async () => act(async () => root.unmount());
   return host;
 }
+const closed = { open: false, saving: false, locked: false, onSave: () => {}, onCancel: () => {}, editor: null };
+const montos = (host: Element) => host.querySelector('[data-testid="receipt-facts-montos"]')!;
 for (const documentType of ["recibo", "venta"] as const) {
-  test(`${documentType} has one Montos block between the date and Fiscal, with net, ITBIS, tip, and total`, async () => {
+  test(`${documentType} has one Montos card, the last of General, with subtotal, ITBIS, tip, and total`, async () => {
     const base = await dossier(); base.document_type = documentType;
-    const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} review={{ row: (_, shown) => shown.value, note: () => null, noReceipt: { busy: false, note: null } }} />);
-    const blocks = [...host.querySelectorAll("section")].map((section) => section.dataset.testid);
-    assert.ok(blocks.indexOf("receipt-facts-activity") < blocks.indexOf("receipt-facts-montos"));
-    assert.ok(blocks.indexOf("receipt-facts-montos") < blocks.indexOf("receipt-facts-fiscal"));
-    const amounts = host.querySelector('[data-testid="receipt-facts-montos"]')!;
-    assert.deepEqual([...amounts.querySelectorAll("[data-fact]")].map((row) => row.getAttribute("data-fact")), ["currency", "net_amount", "itbis", "legal_tip", "amount"]);
-    assert.equal(host.querySelector('[data-testid="receipt-facts-fiscal"] [data-fact="itbis"]'), null);
-    assert.equal(host.querySelector('[data-testid="amount-calculated"]')?.getAttribute("aria-label"), "Calculado: Total − ITBIS − propina");
-    const formula = amounts.querySelector('[data-testid="amount-calculated"]')!;
-    assert.equal(formula.closest("dt")?.textContent, "Monto sin ITBISƒ");
-    assert.equal(formula.closest("dd"), null);
-    for (const cell of amounts.querySelectorAll("dd")) { assert.ok(cell.classList.contains("cuadrao-amount")); assert.ok(cell.classList.contains("text-right")); assert.ok(cell.classList.contains("tabular-nums")); }
+    const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} review={{ edit: () => closed, note: () => null, noReceipt: { busy: false, note: null } }} />);
+    assert.deepEqual([...host.querySelectorAll("section")].map((section) => section.dataset.testid), ["receipt-facts-comprobante", "receipt-facts-montos"]);
+    const amounts = montos(host);
+    assert.deepEqual([...amounts.querySelectorAll("li[data-fact]")].map((row) => row.getAttribute("data-fact")), ["net_amount", "itbis", "legal_tip", "amount"]);
+    assert.equal(amounts.querySelector('[data-testid="montos-currency"]')?.textContent, "DOP", "the currency is the heading's picker, as its ISO code");
+    assert.equal(host.querySelector('[data-testid="receipt-facts-comprobante"] [data-fact="itbis"]'), null);
+    const formula = amounts.querySelector('[data-testid="row-status-net_amount"]')!;
+    assert.equal(formula.getAttribute("aria-label"), "Calculado: Total − ITBIS − propina");
+    assert.equal(formula.textContent, "ƒ", "a calculated subtotal says so in its status slot");
+    for (const cell of amounts.querySelectorAll("li[data-fact] [data-row-value]")) assert.ok(cell.classList.contains("cuadrao-amount"));
   });
 }
-test("only calculated net gets the formula badge; no tip has the shorter formula", async () => {
+test("only a calculated subtotal gets the formula mark; no tip has the shorter formula", async () => {
   const base = await dossier(); base.facts.legal_tip = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
   let host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />);
-  assert.equal(host.querySelector('[data-testid="amount-calculated"]')?.getAttribute("aria-label"), "Calculado: Total − ITBIS");
+  assert.equal(host.querySelector('[data-testid="row-status-net_amount"]')?.getAttribute("aria-label"), "Calculado: Total − ITBIS");
   assert.equal(host.querySelector('[data-fact="legal_tip"]'), null);
   await cleanup();
   host = await mount(<ReceiptRecordFacts dossier={{ ...base, net_amount: { amount: "1000.00", source: "read" } }} accounts={[]} />);
-  assert.equal(host.querySelector('[data-testid="amount-calculated"]'), null);
+  assert.equal(host.querySelector('[data-testid="row-status-net_amount"]'), null);
 });
-for (const language of ["es-419", "en"]) test(`${language} puts the warning on Total and one exact difference line below`, async () => {
+for (const language of ["es-419", "en"]) test(`${language} puts the warning on Total, and the server's difference is its words`, async () => {
   const base = await dossier(); base.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "1.23" }];
   const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />, language);
-  const difference = host.querySelector('[data-testid="amounts-difference"]')!;
-  assert.equal(difference.textContent, `${language === "es-419" ? "Diferencia" : "Difference"} 1.23`);
-  assert.equal(host.querySelectorAll('[data-testid="amounts-difference"]').length, 1);
-  assert.equal(difference.querySelector("svg"), null);
-  assert.ok(difference.classList.contains("whitespace-nowrap"));
-  assert.ok(difference.classList.contains("justify-end"));
-  assert.ok(host.querySelector(".lucide-triangle-alert"));
-  const warning = host.querySelector('[data-testid="amounts-warning"]')!;
-  assert.equal(warning.closest("[data-fact]")?.getAttribute("data-fact"), "amount");
-  assert.equal(warning.closest("dt")?.textContent, language === "es-419" ? "Total (con ITBIS)" : "Total (with ITBIS)");
-  assert.match(host.querySelector('[data-fact="amount"] dd')!.className, /9a650d/);
+  const warnings = host.querySelectorAll('[data-status="warn"]');
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].getAttribute("data-testid"), "row-status-amount");
+  assert.equal(warnings[0].getAttribute("aria-label"), `${language === "es-419" ? "Diferencia" : "Difference"} 1.23`);
+  assert.ok(warnings[0].querySelector(".lucide-triangle-alert"));
+  assert.equal(warnings[0].closest("[data-fact]")?.firstElementChild?.textContent, "Total");
 });
 const fields: DgiiFields = { "606": [
   { name: "goods_amount", label: "", kind: "money", options: [] },
@@ -80,15 +75,16 @@ const fields: DgiiFields = { "606": [
   { name: "modified_ncf", label: "", kind: "text", options: [] },
 ], "607": [] };
 const noop = () => {};
-test("approved documents keep Fecha immediately before Montos", async () => {
+test("a record nobody can edit shows the same cards, and Montos follows Comprobante", async () => {
   const host = await mount(<ReceiptRecordFacts dossier={await dossier()} accounts={[]} />);
-  const activity = host.querySelector('[data-testid="receipt-facts-activity"]')!;
-  assert.deepEqual([...activity.querySelectorAll("[data-fact]")].map((row) => row.getAttribute("data-fact")), ["kind", "counterparty", "occurred_on"]);
-  assert.equal(activity.nextElementSibling?.getAttribute("data-testid"), "receipt-facts-montos");
+  const comprobante = host.querySelector('[data-testid="receipt-facts-comprobante"]')!;
+  assert.deepEqual([...comprobante.querySelectorAll("[data-fact]")].map((row) => row.getAttribute("data-fact")).slice(0, 4), ["rnc", "counterparty", "fiscal_number", "occurred_on"]);
+  assert.equal(comprobante.nextElementSibling?.getAttribute("data-testid"), "receipt-facts-montos");
+  assert.equal(host.querySelectorAll("button[data-row-value], [aria-label^='Editar']").length, 0, "no row opens");
 });
 for (const amount of ["181.00", "200.00"]) test(`Fiscal explicitly overriding ITBIS with ${amount} breaks inheritance and saves only in declaration`, async () => {
   const base = await dossier(); const writes: DgiiReview[] = [];
-  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={fields} disabled={false} open reviewFiscal={async (_, __, input) => { writes.push(input); return base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={fields} disabled={false} reviewFiscal={async (_, __, input) => { writes.push(input); return base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
   assert.equal(host.querySelector('[data-inherited="goods_amount"]')?.getAttribute("aria-label"), "Viene de Monto sin ITBIS");
   assert.ok(host.querySelector('[data-inherited="paid_on"]'));
   assert.equal(host.querySelector('[data-inherited="modified_ncf"]'), null);
@@ -137,7 +133,7 @@ const settle = () => act(async () => { await new Promise((resolve) => setTimeout
 async function editing(base: BusinessDossier, options: { values?: Record<string, string | null>; fields?: DgiiFields; fiscal?: () => Promise<BusinessDossier> } = {}) {
   const writes: DgiiReview[] = [];
   const { drafts, preview } = server(base, options.values);
-  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={options.fields ?? fields} disabled={false} open reviewFiscal={async (_, __, input) => { writes.push(input); return options.fiscal?.() ?? base; }} previewLinks={preview} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={options.fields ?? fields} disabled={false} reviewFiscal={async (_, __, input) => { writes.push(input); return options.fiscal?.() ?? base; }} previewLinks={preview} onChanged={noop} onBusy={noop} onDirty={noop} />);
   const ncf = host.querySelector<HTMLInputElement>('[name="modified_ncf"]')!;
   const amount = (name: string) => host.querySelector<HTMLInputElement>(`input[data-testid="fiscal-declaration-${name}"]`)!;
   const enter = async (name: string, text: string) => act(async () => { const input = amount(name); input.setSelectionRange(0, input.value.length); input.dispatchEvent(new InputEvent("beforeinput", { inputType: "insertText", data: text, bubbles: true, cancelable: true })); });
@@ -256,7 +252,7 @@ test("Restaurar to an empty date source clears invalid typed text and leaves no 
 test("switching the form clears typed text that never became a value", async () => {
   const base = await dossier(); base.inheritance = {}; base.dgii = { ...base.dgii!, form: "606" }; base.facts.kind = { ...base.facts.kind, state: "unknown" };
   const both: DgiiFields = { "606": [{ name: "paid_on", label: "", kind: "date", options: [] }], "607": [{ name: "paid_on", label: "", kind: "date", options: [] }] };
-  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={both} disabled={false} open reviewFiscal={async () => base} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={both} disabled={false} reviewFiscal={async () => base} onChanged={noop} onBusy={noop} onDirty={noop} />);
   await type(host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!, "99/99/2026");
   const select = [...host.querySelectorAll("select")].find((element) => [...element.options].some((option) => option.value === "607"))!;
   await act(async () => { select.value = "607"; select.dispatchEvent(new Event("change", { bubbles: true })); });
@@ -283,7 +279,7 @@ test("Fiscal restore shows unknown for null money and date targets", async () =>
     goods_amount: { field: "net_amount", value: null, inherited: false, paired_with: ["services_amount"] },
     paid_on: { field: "occurred_on", value: null, inherited: false, paired_with: [] },
   } };
-  const host = await mount(<FiscalDeclarationEditor dossier={empty} fields={fields} disabled={false} open reviewFiscal={async () => empty} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  const host = await mount(<FiscalDeclarationEditor dossier={empty} fields={fields} disabled={false} reviewFiscal={async () => empty} onChanged={noop} onBusy={noop} onDirty={noop} />);
   const label = (field: string) => host.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label");
   assert.equal(label("goods_amount"), "Restaurar: -");
   assert.equal(label("paid_on"), "Restaurar: -");
@@ -294,7 +290,7 @@ test("a field that follows a code, a text or a date names its source and restore
   const linkedFields: DgiiFields = { "606": [...fields["606"], { name: "id_type", label: "", kind: "select", options: ["1", "2"] }], "607": [] };
   const links = { id_type: { field: "rnc", value: "1", paired_with: [] }, modified_ncf: { field: "original_ncf", value: "E310000000007", paired_with: [] }, paid_on: { field: "occurred_on", value: "2026-11-12", paired_with: [] } } as const;
   const state = (inherited: boolean): BusinessDossier => ({ ...base, inheritance: { ...base.inheritance, ...Object.fromEntries(Object.entries(links).map(([name, link]) => [name, { ...link, inherited }])) } });
-  const editor = (value: BusinessDossier) => <FiscalDeclarationEditor dossier={value} fields={linkedFields} disabled={false} open reviewFiscal={async () => value} onChanged={noop} onBusy={noop} onDirty={noop} />;
+  const editor = (value: BusinessDossier) => <FiscalDeclarationEditor dossier={value} fields={linkedFields} disabled={false} reviewFiscal={async () => value} onChanged={noop} onBusy={noop} onDirty={noop} />;
   const linked = await mount(editor(state(true)));
   const from = (field: string) => linked.querySelector(`[data-inherited="${field}"]`)?.getAttribute("aria-label");
   assert.deepEqual([from("id_type"), from("modified_ncf"), from("paid_on")], ["Viene de RNC", "Viene de NCF de la compra original", "Viene de Fecha del comprobante"]);
@@ -313,7 +309,7 @@ test("a linked field shows its link icon only while it holds a value", async () 
   const link = { field: "net_amount", value: null, inherited: true, paired_with: [] } as const;
   const linked: BusinessDossier = { ...base, dgii: { ...base.dgii!, goods_amount: "1000.00", services_amount: null, legal_tip: null }, inheritance: { ...base.inheritance, goods_amount: { ...link, value: "1000.00", paired_with: ["services_amount"] }, services_amount: { ...link, paired_with: ["goods_amount"] }, legal_tip: { ...link, field: "legal_tip" } } };
   const montos: DgiiFields = { "606": [...fields["606"], ...(["services_amount", "legal_tip"] as const).map((name) => ({ name, label: "", kind: "money" as const, options: [] }))], "607": [] };
-  const host = await mount(<FiscalDeclarationEditor dossier={linked} fields={montos} disabled={false} open reviewFiscal={async () => linked} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  const host = await mount(<FiscalDeclarationEditor dossier={linked} fields={montos} disabled={false} reviewFiscal={async () => linked} onChanged={noop} onBusy={noop} onDirty={noop} />);
   assert.ok(host.querySelector('[data-inherited="goods_amount"]'));
   for (const field of ["services_amount", "legal_tip"]) {
     assert.ok(host.querySelector(`[name="${field}"], [data-testid="fiscal-declaration-${field}"]`));
@@ -326,7 +322,10 @@ for (const currency of ["DOP", "USD", "EUR", null]) test(`Montos names ${currenc
   const base = await dossier();
   base.facts.currency = currency ? known(currency) : { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
   const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />);
-  const block = host.querySelector('[data-testid="receipt-facts-montos"]')!;
-  assert.ok(block.textContent?.includes(currency ? `Montos · ${currency}` : "Falta la moneda"));
-  assert.doesNotMatch(block.querySelector("dl")!.textContent!, /RD\$|US\$|€/);
+  const block = montos(host);
+  const picker = block.querySelector('[data-testid="montos-currency"]')!;
+  assert.equal(picker.textContent, currency ?? "Elegir");
+  assert.equal(picker.getAttribute("aria-label"), `Moneda: ${currency ?? "Falta la moneda"}`);
+  assert.equal(picker.getAttribute("data-missing"), currency ? null : "true");
+  assert.doesNotMatch(block.querySelector("ul")!.textContent!, /RD\$|US\$|€/);
 });

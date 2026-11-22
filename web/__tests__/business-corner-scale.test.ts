@@ -105,6 +105,27 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
     ".confirm | border-radius | 999px",
     ".mobile .preset | border-radius | 999px"
   ],
+  "components/business-app/dossier/dossier.module.css": [
+    ".why | border-radius | var(--radius-mark)",
+    ".pop | border-radius | var(--radius-surface)",
+    ".issue | border-radius | var(--radius-item)",
+    ".navGroup | border-radius | var(--radius-item)",
+    ".jumpButton | border-radius | var(--radius-item) 0 0 var(--radius-item)",
+    ".navButton | border-radius | var(--radius-item)",
+    ".sizeButton | border-radius | var(--radius-item)",
+    ".jumpRow | border-radius | var(--radius-item)",
+    ".unopened | border-radius | 999px",
+    ".tabCount | border-radius | 999px",
+    ".card | border-radius | var(--radius-surface)",
+    ".value | border-radius | var(--radius-item)",
+    ".pen | border-radius | var(--radius-item)",
+    ".act | border-radius | var(--radius-item)",
+    ".icon | border-radius | var(--radius-mark)",
+    ".row[data-flash]::before | border-radius | var(--radius-surface)",
+    ".currency | border-radius | var(--radius-item)",
+    ".link | border-radius | var(--radius-item)",
+    ".eventIcon | border-radius | var(--radius-item)"
+  ],
   "components/business-app/foundation/business-notifications.module.css": [
     ".bellDot | border-radius | 50%",
     ".filterTrigger, .filterOption | border-radius | 12px",

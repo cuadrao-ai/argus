@@ -78,6 +78,10 @@ async function openListed(page: Page) {
   await page.getByTestId("reception-row").filter({ hasText: LISTED_NOTE }).getByRole("button").first().click();
   await expect(page.getByTestId("business-record-review")).toBeVisible();
 }
+/** The approve button. A wide screen adds its keyboard shortcut to the name. */
+function approveButton(page: Page) {
+  return page.getByTestId("receipt-review-footer").getByRole("button", { name: /^Aceptar(?: (?:Ctrl ↵|⌘↵))?$/ });
+}
 async function openMore(page: Page) {
   await page.getByTestId("receipt-more").getByRole("button", { name: "Más", exact: true }).click();
 }
@@ -100,7 +104,7 @@ for (const width of [1280, 390]) {
       await expect(dialog.getByRole("alert")).toContainText("No pudimos confirmar");
       await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue(text);
       await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-      await expect(page.getByRole("button", { name: "Aceptar", exact: true })).toBeDisabled();
+      await expect(approveButton(page)).toBeDisabled();
       expect(state.captures).toHaveLength(1);
       await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
       await screenshot(page, `uncertain-retained-${width}`);
@@ -126,6 +130,7 @@ test.describe("a phone that lands on a record link", () => {
 
 test("denied and stale append preserve text, and read-only exposes no append", async ({ page }) => {
   const { state, source } = await setup(page, dossierFixtureIds.ready);
+  await expect(approveButton(page)).toBeEnabled();
   await openAppend(page);
   const dialog = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
   await dialog.getByRole("textbox", { name: "Nota original", exact: true }).fill("Mi texto sin perder");
@@ -138,7 +143,7 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("Tu acceso actual");
   await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue("Mi texto sin perder");
-  await expect(page.getByRole("button", { name: "Aceptar", exact: true })).toHaveCount(0);
+  await expect(approveButton(page)).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
   await page.getByRole("button", { name: "Volver a abrir la nota conservada", exact: true }).click();
@@ -151,7 +156,9 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);
   await source.approveDraft(dossierFixtureIds.ready, 2, "fixture-explicit-approval", "record_expense");
   await page.goto(`/biz?draft=${dossierFixtureIds.ready}`);
-  await expect(page.getByTestId("business-record-review")).toContainText("Se registró un gasto");
+  // An accepted record says where it went in its Historial and shows no status pill.
+  await expect(page.getByTestId("receipt-review-history").getByTestId("history-sub")).toHaveText("Pasó a Registros");
+  await expect(page.getByTestId("status-pill")).toHaveCount(0);
   await openMore(page);
   await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);
 });
@@ -194,7 +201,7 @@ for (const code of ["business_action_unsettled", "outcome_unknown"] as const) {
     await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true })).toBeEnabled();
     await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-    await expect(page.getByRole("button", { name: "Aceptar", exact: true })).toBeDisabled();
+    await expect(approveButton(page)).toBeDisabled();
     expect(state.captures).toHaveLength(1);
     await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
     await dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true }).click();

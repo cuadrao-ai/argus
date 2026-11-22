@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from argus.api.routers import business_setup
+from argus.domain.business.service import BusinessService
 from argus.domain.business.setup import SetupFacts, setup_steps
 from faker import Faker
 
@@ -64,7 +65,7 @@ def _context(*, reading: dict | None, sources: tuple = ()):  # noqa: ANN202
             person_id=person_id,
             acting_person_id=person_id,
         ),
-        service=SimpleNamespace(documents=SimpleNamespace(business_receipt_consent=consent, hub=hub)),
+        service=BusinessService(SimpleNamespace(business_receipt_consent=consent, hub=hub), SimpleNamespace(store=None, money=SimpleNamespace(accounts=None)), lambda _: frozenset()),
     )
 
 
@@ -100,7 +101,7 @@ def test_every_feature_on_reads_each_fact_from_its_owner(monkeypatch):
     owner = SimpleNamespace(owner=True)
     accountant = SimpleNamespace(owner=False)
     _wire(monkeypatch, email=True, invitations=True, whatsapp_linked=True, grants=(owner, accountant), tax_id={"type": "rnc", "value": "131245678"})
-    received = SimpleNamespace(source="statement", status="ready")
+    received = SimpleNamespace(id=fake.uuid4(), source="statement", status="ready")
     steps = _read(_context(reading={"available": True, "enabled": False}, sources=(received,)))
     assert {key: step["done"] for key, step in steps.items()} == {
         "created": True,
@@ -137,5 +138,5 @@ def test_a_default_name_is_not_a_legal_name(monkeypatch):
 )
 def test_only_a_received_document_completes_the_first_document(monkeypatch, source: str, status: str, done: bool):
     _wire(monkeypatch, email=None, invitations=False, whatsapp_linked=None, grants=(), tax_id=None)
-    connection = SimpleNamespace(source=source, status=status)
+    connection = SimpleNamespace(id=fake.uuid4(), source=source, status=status)
     assert _read(_context(reading=None, sources=(connection,)))["first_document"]["done"] is done

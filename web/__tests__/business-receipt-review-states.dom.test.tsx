@@ -122,10 +122,13 @@ test("a duplicate refusal without an id still says so, with no dead button", asy
   }
 });
 
-test("a disabled Aceptar is described by the top box, which names the missing facts", async () => {
+test("a disabled Aceptar has its reason beside the pill, and the reason points at the row the server blocks on", async () => {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.ready);
   dossier.approval_available = false;
   dossier.blockers = [{ code: "fact_required", field: "funding" }, { code: "fact_required", field: "business_share" }];
+  // The server's rule says a blocked draft is not Listos.
+  dossier.bandeja_group = { group: "attention", reason: "blocked", label: "needs_attention" };
+  dossier.listo_gaps = ["blocked"];
   serveDossier(dossier, () => Response.json(dossier));
   const { default: Review } = await import("@/components/business-app/ReceiptDossierReview");
   const page = await render(() => <Review draftId={dossier.draft_id} />);
@@ -133,9 +136,11 @@ test("a disabled Aceptar is described by the top box, which names the missing fa
     const approve = page.button("Aceptar");
     assert.ok(approve);
     assert.equal(approve.disabled, true);
-    assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null, "the footer holds the action; the top box says what is missing");
-    assert.deepEqual([...page.host.querySelectorAll('[data-testid="dossier-attention"] li')].map((item) => item.textContent), ["Cómo se pagó", "Parte del negocio"]);
-    assert.equal(approve.getAttribute("aria-describedby"), "dossier-attention-title");
+    assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null, "the footer holds the action; the header says why");
+    const reason = page.host.querySelector<HTMLButtonElement>('[data-testid="dossier-reason"]');
+    assert.equal(reason?.textContent, "Tiene algo pendiente");
+    await page.act(async () => reason!.click());
+    assert.ok(page.host.querySelector('[data-fact="funding"]')?.getAttribute("data-flash"), "the jump lands on the row the first blocker names");
   } finally {
     await page.close();
   }

@@ -61,8 +61,8 @@ async function mount(prepared: boolean, width: number) {
   const click = async (node: HTMLElement | null | undefined) => { assert.ok(node); await act(async () => node.click()); };
   await click(host.querySelector("#reception-tab-attention"));
   const place = () => document.querySelector<HTMLElement>('[data-testid="receipt-place"]');
-  const next = () => place()?.querySelectorAll<HTMLButtonElement>("button")[1];
-  const previous = () => place()?.querySelectorAll<HTMLButtonElement>("button")[0];
+  const next = () => place()?.querySelector<HTMLButtonElement>('button[aria-label="Recibo siguiente"]');
+  const previous = () => place()?.querySelector<HTMLButtonElement>('button[aria-label="Recibo anterior"]');
   const openFirst = async () => { await click(host.querySelector('[data-testid="reception-row"] button.rowAction')); await wait(() => place() !== null); };
   return { host, act, click, openFirst, wait, place, next, previous, api: () => api!, cleanup: async () => { await act(async () => root.unmount()); host.remove(); } };
 }
@@ -95,6 +95,7 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
       await page.openFirst();
       await page.wait(() => page.place()?.textContent === "1 de 1");
       assert.equal(page.place()?.textContent, "1 de 1");
+      assert.equal(page.place()?.querySelector('[data-testid="dossier-jump"]')?.textContent, "1 de 1", "the place opens the jump card");
       assert.equal(page.next()?.disabled, true);
       assert.equal(page.previous()?.disabled, true);
     } finally { await page.cleanup(); }

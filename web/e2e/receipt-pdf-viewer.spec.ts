@@ -61,11 +61,8 @@ for (const theme of ["light", "dark"] as const) for (const width of [1440, 390])
     await page.getByTestId("reception-row").getByRole("button", { name: "Abrir", exact: true }).click();
     await expect(page.getByTestId("business-record-review")).toBeVisible();
     const original = page.getByTestId("receipt-original-source");
-    if (width === 390) {
-      await page.getByRole("radio", { name: "Original", exact: true }).check();
-      const expand = original.locator('button[aria-expanded="false"]');
-      if (await expand.count()) await expand.click();
-    }
+    // Below the desktop stop the record is a full page and its file lives in the Documento tab.
+    if (width === 390) await page.getByRole("tab", { name: "Documento", exact: true }).click();
     const viewer = original.getByTestId("receipt-viewer");
     await expect(viewer).toBeVisible();
     await expect(original.locator("iframe")).toHaveCount(0);

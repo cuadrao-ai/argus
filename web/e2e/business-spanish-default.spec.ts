@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { ProfilePatch, UserResponse } from "../lib/argus-api";
 import type { BusinessAccount } from "../lib/business-api";
@@ -39,6 +39,9 @@ async function installAccount(page: Page, language: Language, options: { languag
     else window.localStorage.setItem("i18nextLng", device);
   });
 }
+
+/** A dossier row's label is its first child. */
+const rowLabel = (review: Locator, row: string) => review.locator(`[data-fact="${row}"] > :first-child`);
 
 type Painted = { langs: string[]; texts: string[] };
 
@@ -161,11 +164,12 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   await page.getByTestId("home-attention-rows").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   const review = page.getByTestId("side-drawer");
-  await expect(review).toContainText("Emisor");
-  await expect(review).toContainText("Fecha del comprobante");
-  await expect(review).toContainText("Categoría");
-  await expect(review).toContainText("Moneda");
-  await expect(review).toContainText("Cómo se pagó");
+  await expect(review.getByRole("heading", { name: "Comprobante", exact: true })).toBeVisible();
+  await expect(rowLabel(review, "counterparty")).toHaveText("Emisor");
+  await expect(rowLabel(review, "occurred_on")).toHaveText("Fecha");
+  await expect(rowLabel(review, "funding")).toHaveText("Cómo se pagó");
+  await expect(review.getByRole("heading", { name: "Montos", exact: true })).toBeVisible();
+  await expect(review.getByTestId("montos-currency")).toHaveAccessibleName("Moneda: DOP");
   await expect(review).not.toContainText("Merchant");
   await expect(review).not.toContainText("Paid from");
   await expect(review).not.toContainText("How it was paid");
@@ -195,11 +199,12 @@ test("an English account opens Business in English", async ({ page }) => {
 
   await page.getByTestId("home-attention-rows").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   const review = page.getByTestId("side-drawer");
-  await expect(review).toContainText(en("business.terms.counterparty_purchase"));
-  await expect(review).toContainText(en("business.dossier.field.occurred_on"));
-  await expect(review).toContainText(en("business.dossier.field.category_id"));
-  await expect(review).toContainText(en("business.review.currency"));
-  await expect(review).toContainText("How it was paid");
+  await expect(review.getByRole("heading", { name: en("business.dossier.card.comprobante"), exact: true })).toBeVisible();
+  await expect(rowLabel(review, "counterparty")).toHaveText(en("business.terms.counterparty_purchase"));
+  await expect(rowLabel(review, "occurred_on")).toHaveText(en("business.dossier.row.date"));
+  await expect(rowLabel(review, "funding")).toHaveText("How it was paid");
+  await expect(review.getByRole("heading", { name: en("business.terms.montos_title"), exact: true })).toBeVisible();
+  await expect(review.getByTestId("montos-currency")).toHaveAccessibleName(`${en("business.dossier.field.currency")}: DOP`);
   await expect(review).not.toContainText("Emisor");
   await expect(review).not.toContainText("Pagado desde");
 });

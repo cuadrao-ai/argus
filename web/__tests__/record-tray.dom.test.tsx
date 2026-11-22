@@ -125,18 +125,29 @@ describe("a record in the desktop tray", () => {
     assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Bandeja"), true, "the sidebar marks the Bandeja");
   });
 
-  test("the record sits in one column, source first, and the approve actions sit in the pinned footer", async () => {
+  test("beside the Bandeja the dossier is wide with the document beside its tabs, the size button narrows it, and the approve actions sit in the pinned footer", async () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     const page = await mount();
     await openInbox(page);
     await page.open({ kind: "draft", draftId: dossierFixtureIds.ready, list: "inbox" });
     await page.settle(() => page.tray()?.querySelector('[data-footer-slot] [data-testid="receipt-review-footer"]') != null, "the footer in the drawer slot");
-    const review = page.tray()!.querySelector('[data-testid="business-record-review"]')!;
-    const order = [...review.querySelectorAll("[data-testid^='receipt-review-']")].map((item) => item.getAttribute("data-testid"));
-    assert.deepEqual(order, ["receipt-review-source", "receipt-review-fields", "receipt-review-history"]);
-    assert.equal(review.querySelector('[data-testid="receipt-review-footer"]'), null, "no in-page sticky footer");
+    const review = () => page.tray()!.querySelector('[data-testid="business-record-review"]')!;
+    const source = () => review().querySelector('[data-testid="receipt-review-source"]');
+    assert.equal(page.tray()!.getAttribute("data-width"), "dossier");
+    assert.equal(review().getAttribute("data-size"), "regular");
+    const order = [...review().querySelectorAll("[data-testid^='receipt-review-']")].map((item) => item.getAttribute("data-testid"));
+    assert.deepEqual(order, ["receipt-review-fields", "receipt-review-history", "receipt-review-source"], "the tabs first, the document beside them");
+    assert.equal(source()?.closest("[role='tabpanel']"), null, "the document is not a tab");
+    assert.equal(review().querySelector('[data-testid="receipt-review-footer"]'), null, "no in-page sticky footer");
     const footer = page.tray()!.querySelector('[data-footer-slot]')!;
     assert.ok([...footer.querySelectorAll("button")].some((button) => button.textContent === "Aceptar"), "Aceptar is in the pinned footer");
+
+    await page.click(page.tray()!.querySelector<HTMLElement>('[data-testid="dossier-size"]'));
+    assert.equal(page.tray()!.getAttribute("data-width"), "record", "the size button narrows the drawer");
+    assert.equal(review().getAttribute("data-size"), "narrow");
+    assert.equal(source()?.closest("[role='tabpanel']")?.getAttribute("data-tab-panel"), "documento", "narrow, the document is the Documento tab");
+    await page.click(page.tray()!.querySelector<HTMLElement>('[data-testid="dossier-size"]'));
+    assert.equal(page.tray()!.getAttribute("data-width"), "dossier", "and widens it again");
   });
 
   test("clicking another row swaps the record in the same tray", async () => {
@@ -344,7 +355,7 @@ describe("what a dossier tray covers", () => {
     assert.equal(covered(page), null, "the list beside the receipt stays in the Tab order");
   });
 
-  test("Tab past either end of the dossier wraps inside it, and a layer opened from it keeps its own Tab", async () => {
+  test("Tab past either end of the dossier wraps inside it, and a Tab from outside it is not held", async () => {
     const page = await mount();
     await openInbox(page);
     await openRow(page, "Ferretería La Esquina");
@@ -363,13 +374,6 @@ describe("what a dossier tray covers", () => {
     assert.equal(document.activeElement, stops[stops.length - 1], "Shift+Tab from the first lands on the last");
     stops[1].focus();
     assert.equal(await press(stops[1], false), false, "inside the dossier the browser keeps its own order");
-    const { focusableWithin } = await import("@/components/layout/overlayFocus");
-    const summary = tray.querySelector<HTMLElement>("summary");
-    assert.ok(summary, "the dossier has a disclosure");
-    assert.ok(focusableWithin(tray).includes(summary), "a disclosure is a stop the trap can see");
-    summary.focus();
-    assert.equal(await press(summary, true), false, "Shift+Tab from a disclosure is left to the browser");
-    assert.equal(await press(summary, false), false, "Tab from a disclosure is left to the browser");
     const outside = page.action("Papelería Central")!;
     assert.equal(await press(outside, false), false, "a key from outside the dossier is not held");
   });

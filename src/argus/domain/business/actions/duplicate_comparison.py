@@ -9,6 +9,7 @@ from typing import Any
 from uuid import UUID
 
 from argus.domain.business.actions.facts import facts_of
+from argus.domain.business.annotations import OWN_SOURCE_SQL
 from argus.domain.business.contracts.actions import ResolveDuplicateCommand
 from argus.domain.business.contracts.dossier import (
     ComparedDocument,
@@ -48,6 +49,7 @@ def _first_file(tx: ActionTransaction, draft_id: str) -> dict[str, Any] | None:
         " on s.id=l.source_id and s.space_id=l.space_id"
         " join public.financial_document_extractions d on d.connection_id=s.connection_id"
         " where l.space_id=%s and l.draft_id=%s and s.kind='attachment'"
+        f" and {OWN_SOURCE_SQL}"
         " order by s.received_at,s.id limit 1",
         (tx.context.actor.space_id, draft_id),
     )

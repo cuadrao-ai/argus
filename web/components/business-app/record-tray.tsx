@@ -58,6 +58,9 @@ export type RecordTrayValue = Readonly<{
   setTitle: (title: string | null) => void;
   /** A record opened without a list (a link, a reload) names the list it belongs beside once it has loaded. */
   settleList: (list: RecordList) => void;
+  /** The dossier's size: 640px when narrow, 1040px when not. Absent for a record that keeps the drawer's own width. */
+  narrow?: boolean;
+  toggleNarrow?: () => void;
 }>;
 
 export const RecordTrayContext = createContext<RecordTrayValue | null>(null);
