@@ -15,7 +15,7 @@ describe("approving sends only the suggestions on screen", () => {
     }));
     await page.open({ kind: "draft", draftId: dossierFixtureIds.fiscal }, () => Boolean(page.host.querySelector('[data-fact="category"]') || page.host.querySelector('[data-testid="receipt-facts-choices"] [role="alert"]')));
     const approve = async () => {
-      await page.act(async () => button(page.host, "Aprobar").click());
+      await page.act(async () => button(page.host, "Aceptar").click());
       await page.wait(() => sent.length === 1);
     };
     return { ...page, sent, approve, close: () => page.act(async () => page.root.unmount()) };
@@ -71,7 +71,7 @@ describe("approving sends only the suggestions on screen", () => {
     try {
       await fill(page, '[data-fact="payment_method"] select', "01", HTMLSelectElement);
       await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
-      await page.act(async () => button(page.host, "Aprobar").click());
+      await page.act(async () => button(page.host, "Aceptar").click());
       await page.wait(() => sent.length === 1);
       assert.deepEqual(sent, [{ category: { value: "02", source: "last_choice" } }]);
     } finally { await page.close(); }

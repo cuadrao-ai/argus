@@ -26,12 +26,12 @@ test("the attention strip leaves out a recorded dossier's blockers and keeps the
   const closed = { ...accepted, blockers: [{ code: "business_draft_not_open", field: null }] };
   assert.equal(render(closed), "");
   const open = await fixture.dossier(dossierFixtureIds.unknown);
-  assert.match(render(open), /Falta para aprobar/);
+  assert.match(render(open), /Falta para aceptar/);
   assert.match(render(open), /Cómo se pagó/);
   const uncertain = { ...open, review_state: "accepting" as const, approval_result: { status: "outcome_unknown" as const, code: "recording_unknown", reviewed_version: open.version } };
-  assert.match(render(uncertain), /Falta para aprobar/);
-  assert.match(render({ ...closed, approval_result: uncertain.approval_result }), /Falta para aprobar/);
-  assert.match(render({ ...closed, review_state: "open" }), /Falta para aprobar/);
+  assert.match(render(uncertain), /Falta para aceptar/);
+  assert.match(render({ ...closed, approval_result: uncertain.approval_result }), /Falta para aceptar/);
+  assert.match(render({ ...closed, review_state: "open" }), /Falta para aceptar/);
 });
 
 test("canonical draft transport binds explicit ID, version, human effect and idempotency", async () => {

@@ -48,17 +48,7 @@ Attention = Literal[
     "other",
 ]
 
-from argus.domain.business.contracts.facts import (  # noqa: E402
-    BusinessFacts,
-    FiscalFacts,
-    Known,
-    is_sin_comprobante,
-)
-
-if TYPE_CHECKING:
-    from argus.domain.business.contracts.dossier import ReviewFlag
-
-
+# The dossier contract imports these while the contracts initialize too.
 BandejaGroupName = Literal[ApprovalGroup, "reading", "eliminados"]
 ListoGap = Literal[
     "reading",
@@ -84,6 +74,17 @@ BandejaReason = Literal[Attention, ListoGap]
 ReadState = Literal["finished", "none", "unclear"]
 # The one word the Bandeja list shows for a row.
 BandejaLabel = Literal["reading", "cant_read", "needs_attention", "ready", "accepted"]
+
+from argus.domain.business.contracts.facts import (  # noqa: E402
+    BusinessFacts,
+    FiscalFacts,
+    Known,
+    is_sin_comprobante,
+)
+
+if TYPE_CHECKING:
+    from argus.domain.business.contracts.dossier import ReviewFlag
+
 
 #: A read that ended with nothing to review: the list says it could not be read.
 READ_FAILURES: frozenset[Attention] = frozenset(

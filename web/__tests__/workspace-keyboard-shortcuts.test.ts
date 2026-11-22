@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { matchesWorkspaceShortcut, workspaceShortcutKeys, workspaceShortcutMatchesQuery, workspaceKeyboardTargetBlocked, type WorkspaceKeyboardShortcut } from "../lib/keyboard-shortcuts";
-const approve: WorkspaceKeyboardShortcut = { id: "approve", label: "Aprobar", code: "Enter", keyLabel: "Enter", shift: true };
+const approve: WorkspaceKeyboardShortcut = { id: "approve", label: "Aceptar", code: "Enter", keyLabel: "Enter", shift: true };
 const key = (overrides = {}) => ({ key: "Enter", code: "Enter", metaKey: true, ctrlKey: false, shiftKey: true, altKey: false, repeat: false, ...overrides });
 describe("workspace shortcut boundaries", () => {
   test("matches physical keys only with exactly the platform chord", () => {
@@ -27,7 +27,7 @@ test("shortcut search accepts the label and typed modifier names", () => {
   expect(workspaceShortcutMatchesQuery(approve, true, "cmd shift enter")).toBe(true);
   expect(workspaceShortcutMatchesQuery(approve, true, "⌘⇧Enter")).toBe(true);
   expect(workspaceShortcutMatchesQuery(approve, false, "control+shift+enter")).toBe(true);
-  expect(workspaceShortcutMatchesQuery(approve, true, "aprobar")).toBe(true);
+  expect(workspaceShortcutMatchesQuery(approve, true, "aceptar")).toBe(true);
   expect(workspaceShortcutMatchesQuery(approve, true, "cmd+w")).toBe(false);
 });
 

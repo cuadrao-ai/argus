@@ -92,10 +92,12 @@ def _ecf_failed(resolution: BusinessResolution) -> bool:
 
 
 def draft_standings(
-    tx: ActionTransaction, events: Iterable[ImportEvent]
+    tx: ActionTransaction, events: Iterable[ImportEvent], *, every_gap: bool = False
 ) -> dict[str, DraftStanding]:
-    """The standing of each open Business draft, by id. The sender is read last
-    and only for a draft nothing else keeps out, since it costs the most."""
+    """The standing of each open Business draft, by id. The sender costs the
+    most, so it is read last and only for a draft nothing else keeps out: that
+    answers the first reason. ``every_gap`` reads it for every draft, for a
+    caller that names every gap."""
 
     drafts = {UUID(event.id): event for event in events if "business" in event.resolution}
     if not drafts:
@@ -127,7 +129,7 @@ def draft_standings(
             flags=review_flags(facts, registry, declaration=resolution.dgii),
             upload_year=uploaded.get(draft_id),
         )
-        if listo_reason(standing) is None:
+        if every_gap or listo_reason(standing) is None:
             standing = replace(
                 standing,
                 sender=email_draft_standing(

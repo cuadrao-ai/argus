@@ -149,7 +149,7 @@ test("note and attachment keyboard actions do not open the dossier, dates/money/
   await page.key(page.attachment(), "Enter"); assert.equal(page.calls.opens, 0);
   await page.click(page.note()); await page.type("Keep"); await page.click(page.button("Guardar"));
   const row = page.host.querySelector('[data-record-key="gasto:exp-gas"]')!;
-  assert.equal(row.querySelector('[data-col="date"]')!.textContent, "25 oct 2026");
+  assert.equal(row.querySelector('[data-col="date"]')!.textContent, "25 Oct 2026");
   assert.equal(row.querySelector('[data-col="gross_amount"]')!.textContent, "9,007,199,254,740,993.01");
   assert.ok(row.querySelector('[data-col="gross_amount"] .cuadrao-amount'));
   assert.equal(row.querySelector('[data-col="moneda"]'), null);

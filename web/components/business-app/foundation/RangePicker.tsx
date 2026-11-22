@@ -5,7 +5,7 @@ import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { FormField, useFieldChecks } from "@/components/ui/FormField";
 import { resolveLanguage } from "@/lib/language-features";
-import { formatDay, todayIso } from "../business-format";
+import { formatDate, formatDay, todayIso } from "../business-format";
 import { isoOf, monthOf, shiftDay, weeks } from "./DatePicker";
 import { createRangeDraft, dateInputFormat, parseRangeInput, PRESET_KEYS, presetRange, previewRange, reduceRangeDraft, shiftMonth, validDraftRange, type DateRange, type RangePreset } from "./range-picker-state";
 import styles from "./range-picker.module.css";
@@ -128,8 +128,8 @@ export default function RangePicker({ session, phone = false, embedded = false }
         </div>
         <div ref={grids} className={styles.months} style={phone ? undefined : { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} onKeyDown={onKey} onPointerMove={dragMove} onPointerUp={endDrag} onPointerCancel={() => dispatch({ type: "drag-cancel" })} onPointerLeave={() => { if (!state.drag) dispatch({ type: "hover", day: null }); }}>
           {monthViews.map((month) => {
-            const title = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(month.year, month.month, 1)));
-            return <section key={`${month.year}-${month.month}`}><h3 className={styles.monthTitle}>{title.charAt(0).toLocaleUpperCase(locale) + title.slice(1)}</h3><table role="grid" aria-label={title} className={styles.month}><thead><tr>{t("business.date_picker.weekdays").split(" ").map((day) => <th key={day} scope="col">{day}</th>)}</tr></thead><tbody>{weeks(month).map((week, index) => <tr key={index}>{week.map((day, column) => {
+            const title = formatDate(new Date(Date.UTC(month.year, month.month, 1)), locale, { month: "long", year: "numeric", timeZone: "UTC" });
+            return <section key={`${month.year}-${month.month}`}><h3 className={styles.monthTitle}>{title}</h3><table role="grid" aria-label={title} className={styles.month}><thead><tr>{t("business.date_picker.weekdays").split(" ").map((day) => <th key={day} scope="col">{day}</th>)}</tr></thead><tbody>{weeks(month).map((week, index) => <tr key={index}>{week.map((day, column) => {
               if (!day) return <td key={`empty-${column}`} />;
               const start = day === preview.from; const end = day === preview.to; const inside = day >= preview.from && day <= preview.to;
               const selected = day >= state.range.from && day <= state.range.to;

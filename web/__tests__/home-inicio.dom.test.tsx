@@ -214,7 +214,7 @@ describe("The month card", () => {
       assert.ok(page.find("home-month-net")?.className.includes("text-[34px]"));
       assert.equal(page.find("home-month-itbis-sales")?.textContent, "RD$ 48,248");
       assert.equal(page.find("home-month-itbis-purchases")?.textContent, "RD$ 56,845");
-      assert.doesNotMatch(page.find("home-month")?.textContent ?? "", /Ingresos menos gastos aprobados|por marcar|Ya tienes todo|Para cerrar|Cerrar mes|Mes cerrado/);
+      assert.doesNotMatch(page.find("home-month")?.textContent ?? "", /Ingresos menos gastos aceptados|por marcar|Ya tienes todo|Para cerrar|Cerrar mes|Mes cerrado/);
       assert.equal(page.find("home-month-band")?.className.includes("h-[57px]"), true);
     } finally { await page.close(); }
   });
@@ -287,7 +287,7 @@ describe("The month card", () => {
         assert.equal(page.find(id)?.textContent, "RD$ 0", id);
         assert.ok(page.find(id)?.className.includes("text-[#7d8a84]"), `${id} is muted`);
       }
-      assert.equal(page.find("home-month-first-day")?.textContent, "Las cifras se llenan cuando apruebes tus primeros documentos.");
+      assert.equal(page.find("home-month-first-day")?.textContent, "Las cifras se llenan cuando aceptes tus primeros documentos.");
       assert.equal(page.find("home-month-included"), null);
     } finally { await page.close(); }
   });

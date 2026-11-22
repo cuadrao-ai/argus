@@ -108,7 +108,7 @@ test("six cards show report scope and the readiness card applies ready false", a
   assert.equal(document.querySelectorAll("[data-overview-card]").length, 6);
   assert.match(document.querySelector('[data-overview-card="quantity"]')!.textContent!, /63/);
   const fiscal = overviewCards()[0]; assert.match(fiscal.textContent!, /Faltan datos/); assert.match(fiscal.textContent!, /30/);
-  assert.doesNotMatch(document.querySelector('[data-testid="records-overview-preview"]')!.textContent!, /Listos para exportar|Ya exportados|Por aprobar|Por revisar/);
+  assert.doesNotMatch(document.querySelector('[data-testid="records-overview-preview"]')!.textContent!, /Listos para exportar|Ya exportados|Por aceptar|Por revisar/);
   const before = sentFilters(page).length;
   await page.click(fiscal); await page.settle(() => sentFilters(page).length > before);
   assert.equal(sentFilters(page).at(-1)!.ready, false);

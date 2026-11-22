@@ -88,7 +88,7 @@ test("once applied, the segment reads the range, with an en dash and no em dash"
   const page = await mount(1280, { key: "custom", from: "2026-09-21", to: "2026-10-20" });
   try {
     const segment = page.host.querySelector('[data-segment="custom"]')!;
-    assert.match(segment.textContent ?? "", /21 sept?\.? – 20 oct/);
+    assert.match(segment.textContent ?? "", /21 Sept?\.? – 20 Oct/);
     assert.doesNotMatch(segment.textContent ?? "", /—|Personalizado/);
   } finally { await page.close(); }
 });
@@ -97,7 +97,7 @@ test("on a phone Personalizado opens the same calendar in a sheet, and an applie
   const page = await mount(390, { key: "custom", from: "2026-09-21", to: "2026-10-20" });
   try {
     const select = page.host.querySelector<HTMLSelectElement>("select")!;
-    assert.match(select.selectedOptions[0].textContent ?? "", /21 sept?\.? – 20 oct/);
+    assert.match(select.selectedOptions[0].textContent ?? "", /21 Sept?\.? – 20 Oct/);
     await act(async () => { select.value = "custom"; select.dispatchEvent(new Event("change", { bubbles: true })); });
     const sheet = document.querySelector('[data-testid="period-sheet"]');
     assert.ok(sheet?.querySelector('[data-testid="range-calendar"]'), "the range calendar in a sheet");

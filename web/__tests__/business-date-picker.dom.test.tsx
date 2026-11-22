@@ -69,12 +69,12 @@ async function picker(value: string, onChange: (iso: string | null, invalid: boo
 }
 
 describe("the single-date picker", () => {
-  test("shows the day as 14 oct 2026, never a native date input, and takes dd/mm/aaaa", async () => {
+  test("shows the day as 14 Oct 2026, never a native date input, and takes dd/mm/aaaa", async () => {
     const changes: [string | null, boolean][] = [];
     const page = await picker("2026-10-14", (iso, invalid) => changes.push([iso, invalid]));
     assert.equal(page.host.querySelector('input[type="date"]'), null);
     assert.equal(page.input.type, "text");
-    assert.equal(page.input.value, "14 oct 2026");
+    assert.equal(page.input.value, "14 Oct 2026");
     assert.equal(page.input.placeholder, "dd/mm/aaaa");
     assert.ok(page.trigger.querySelector("svg"), "calendar icon");
     await page.act(async () => { page.input.focus(); });
@@ -86,7 +86,7 @@ describe("the single-date picker", () => {
     await page.type(page.input, "18/10/2026");
     assert.deepEqual(changes, [[null, true], [null, true], ["2026-10-18", false]]);
     await page.act(async () => { page.input.blur(); });
-    assert.equal(page.input.value, "18 oct 2026");
+    assert.equal(page.input.value, "18 Oct 2026");
     await page.close();
   });
 
@@ -104,10 +104,10 @@ describe("the single-date picker", () => {
     assert.equal(dialog.getAttribute("aria-labelledby"), grid.getAttribute("aria-labelledby"));
     assert.deepEqual([...grid.querySelectorAll("th")].map((cell) => cell.textContent), ["lu", "ma", "mi", "ju", "vi", "sá", "do"]);
     const firstWeek = [...grid.querySelectorAll("tbody tr")[0].querySelectorAll("td")].map((cell) => cell.textContent);
-    assert.deepEqual(firstWeek, ["", "", "", "1", "2", "3", "4"], "1 oct 2026 is a Thursday");
+    assert.deepEqual(firstWeek, ["", "", "", "1", "2", "3", "4"], "1 Oct 2026 is a Thursday");
     assert.equal(page.day("2026-10-14").getAttribute("tabindex"), "0");
     assert.equal(page.day("2026-10-14").closest("td")?.getAttribute("aria-selected"), "true");
-    assert.equal(page.day("2026-10-14").getAttribute("aria-label"), "14 oct 2026");
+    assert.equal(page.day("2026-10-14").getAttribute("aria-label"), "14 Oct 2026");
     assert.deepEqual([...dialog.querySelectorAll("button")].slice(0, 2).map((button) => button.textContent), ["Hoy", "Ayer"]);
     for (const button of dialog.querySelectorAll("button")) assert.match(button.className, /(h-11 w-11|min-h-11)/, button.outerHTML);
     await page.close();
@@ -151,7 +151,7 @@ describe("the single-date picker", () => {
     await page.key(page.day("2026-10-30"), "ArrowLeft");
     await page.act(async () => { (document.activeElement as HTMLButtonElement).click(); });
     assert.deepEqual(changes, ["2026-10-29"]);
-    assert.equal(page.input.value, "29 oct 2026");
+    assert.equal(page.input.value, "29 Oct 2026");
     await page.close();
   });
 
@@ -192,7 +192,7 @@ describe("the single-date picker", () => {
     const page = await render(<Harness />);
     const input = page.host.querySelector<HTMLInputElement>("#day")!;
     await page.act(async () => { replace("2026-09-02"); });
-    assert.equal(input.value, "2 sept 2026");
+    assert.equal(input.value, "2 Sept 2026");
     await page.close();
   });
 
@@ -262,7 +262,7 @@ describe("typed dates", () => {
     assert.deepEqual(cases.map(([text]) => [text, parseDayText(text)]), cases);
   });
 
-  test("4/11/26 typed in the field is 4 nov 2026", async () => {
+  test("4/11/26 typed in the field is 4 Nov 2026", async () => {
     const changes: [string | null, boolean][] = [];
     const page = await picker("", (iso, invalid) => changes.push([iso, invalid]));
     await page.act(async () => { page.input.focus(); });
@@ -270,7 +270,7 @@ describe("typed dates", () => {
     assert.deepEqual(changes.at(-1), ["2026-11-04", false]);
     assert.equal(page.input.getAttribute("aria-invalid"), "false");
     await page.act(async () => { page.input.blur(); });
-    assert.equal(page.input.value, "4 nov 2026");
+    assert.equal(page.input.value, "4 Nov 2026");
     await page.close();
   });
 });
@@ -298,13 +298,13 @@ describe("the document date offers the upload year when the server says to check
     assert.ok(shown, "the note shows");
     assert.match(shown.textContent ?? "", /Subido en 2026/);
     assert.deepEqual(changes, [], "the note alone changes nothing");
-    assert.equal(page.input.value, "4 nov 2024");
-    const use = buttonNamed(shown, "Usar 4 nov 2026");
+    assert.equal(page.input.value, "4 Nov 2024");
+    const use = buttonNamed(shown, "Usar 4 Nov 2026");
     assert.ok(use, "the button names the day it sets");
     assert.match(use.className, /min-h-11/);
     await page.act(async () => { use.click(); });
     assert.deepEqual(changes, ["2026-11-04"]);
-    assert.equal(page.input.value, "4 nov 2026");
+    assert.equal(page.input.value, "4 Nov 2026");
     assert.equal(page.dialog(), null, "choosing closes the month like a day does");
     await page.close();
   });
@@ -324,11 +324,11 @@ describe("the document date offers the upload year when the server says to check
     }
   });
 
-  test("29 feb 2024 on a 2026 upload offers 28 feb 2026", async () => {
+  test("29 Feb 2024 on a 2026 upload offers 28 Feb 2026", async () => {
     const changes: (string | null)[] = [];
     const page = await picker("2024-02-29", (iso) => changes.push(iso), check2026);
     await page.act(async () => { page.trigger.click(); });
-    await page.act(async () => { buttonNamed(note(page)!, "Usar 28 feb 2026")!.click(); });
+    await page.act(async () => { buttonNamed(note(page)!, "Usar 28 Feb 2026")!.click(); });
     assert.deepEqual(changes, ["2026-02-28"]);
     await page.close();
   });
@@ -341,14 +341,14 @@ describe("the document date offers the upload year when the server says to check
       const page = await picker("2024-12-31", (iso) => changes.push(iso), { kind: "document", uploadYear: 2025, yearToCheck: true });
       await page.act(async () => { page.trigger.click(); });
       assert.match(note(page)?.textContent ?? "", /Subido en 2025/);
-      await page.act(async () => { buttonNamed(note(page)!, "Usar 31 dic 2025")!.click(); });
+      await page.act(async () => { buttonNamed(note(page)!, "Usar 31 Dic 2025")!.click(); });
       assert.deepEqual(changes, ["2025-12-31"]);
-      assert.equal(page.input.value, "31 dic 2025");
+      assert.equal(page.input.value, "31 Dic 2025");
       await page.act(async () => { page.input.focus(); });
       await page.type(page.input, "1/1/26");
       assert.deepEqual(changes.at(-1), "2026-01-01");
       await page.act(async () => { page.input.blur(); });
-      assert.equal(page.input.value, "1 ene 2026");
+      assert.equal(page.input.value, "1 Ene 2026");
       await page.act(async () => { page.trigger.click(); });
       await page.act(async () => { page.day("2026-01-01").click(); });
       assert.deepEqual(changes.at(-1), "2026-01-01", "picking the first day keeps it");
@@ -435,7 +435,7 @@ describe("receipt detail uses the picker for its date", () => {
     await page.act(async () => { trigger.click(); });
     const dialog = page.host.querySelector('[data-testid="date-picker-dialog"]')!;
     assert.deepEqual([...dialog.querySelectorAll("button")].filter((button) => ["Hoy", "Ayer"].includes(button.textContent ?? "")), [], "a receipt is almost never from today");
-    assert.match(dialog.querySelector('[data-testid="date-picker-upload-year"]')?.textContent ?? "", /Subido en 2026Usar 9 oct 2026/);
+    assert.match(dialog.querySelector('[data-testid="date-picker-upload-year"]')?.textContent ?? "", /Subido en 2026Usar 9 Oct 2026/);
     await page.key(dialog, "Escape");
     await page.act(async () => { input.focus(); });
     await page.type(input, "02/10/2026");

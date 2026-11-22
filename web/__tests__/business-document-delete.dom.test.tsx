@@ -37,7 +37,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     { ...blurry, id: "attention", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
     { ...ready, id: "ready", merchant: "Documento listo", delete_available: true, bandeja_group: { group: "listo", reason: null, draft_id: ready.draft_id, version: 1 } },
     { ...ready, id: "reading", merchant: "Documento leyendo", delete_available: false, bandeja_group: { group: "reading", reason: null, draft_id: null, version: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } },
-    { ...ready, id: "approved", merchant: "Documento aprobado", status: "confirmed", delete_available: false, bandeja_group: { group: null, reason: null, draft_id: null, version: null } },
+    { ...ready, id: "approved", merchant: "Documento aceptado", status: "confirmed", delete_available: false, bandeja_group: { group: null, reason: null, draft_id: null, version: null } },
     { ...(deletedDossier ? ready : blurry), id: "deleted", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } },
     ...extra({ ready, blurry }),
   ];
@@ -144,7 +144,7 @@ test("trash belongs only to the server attention row and only the owner", async 
 test("the row trash follows the server's delete_available: a read the limit holds keeps it, a read in progress and an approval in flight do not", async () => {
   await mount("owner", false, 0, false, ({ ready, blurry }) => [
     { ...blurry, id: "held", merchant: "Documento retenido", filename: "Documento retenido", status: "needs_attention", attention: "read_budget_day", delete_available: true, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } },
-    { ...ready, id: "accepting", merchant: "Documento aprobandose", delete_available: false, bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } },
+    { ...ready, id: "accepting", merchant: "Documento aceptandose", delete_available: false, bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } },
   ]);
   const trash = () => [...document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Eliminar "]')].map(node => node.getAttribute("aria-label"));
   assert.deepEqual(trash().sort(), ["Eliminar Documento equivocado", "Eliminar Documento retenido"]);
@@ -350,7 +350,7 @@ for (const kind of ["draft", "receipt"] as const) {
     const fields = document.querySelector('[data-testid="receipt-current-facts"]');
     assert.ok(frame);
     assert.ok(fields);
-    assert.equal(page.button("Aprobar")?.disabled, true);
+    assert.equal(page.button("Aceptar")?.disabled, true);
     assert.equal(fields.querySelector('button[aria-label^="Editar detalles"]'), null);
 
     await page.click(page.button("Restaurar"));
@@ -358,12 +358,12 @@ for (const kind of ["draft", "receipt"] as const) {
     assert.equal(page.button("Restaurar") === null, true, "Restaurar must disappear after the current dossier reloads");
     assert.equal(document.querySelector('[data-testid="business-record-review"]'), frame);
     assert.equal(page.api().panel.kind, kind);
-    assert.equal(page.button("Aprobar")?.disabled, false);
+    assert.equal(page.button("Aceptar")?.disabled, false);
     assert.ok(fields.querySelector('button[aria-label^="Editar detalles"]'));
     await page.click(page.button("Ver", document.querySelector('[data-testid="toast-viewport"]')!));
     assert.equal(document.querySelector('[data-testid="business-record-review"]'), frame);
     assert.equal(page.button("Restaurar"), null);
-    assert.equal(page.button("Aprobar")?.disabled, false);
+    assert.equal(page.button("Aceptar")?.disabled, false);
     await page.click(fields.querySelector<HTMLButtonElement>('button[aria-label^="Editar detalles"]'));
     assert.ok(fields.querySelector('[data-row-open]'));
   });

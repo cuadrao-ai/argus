@@ -8,7 +8,7 @@ registerReceiptReviewPage();
 async function fiscalPage() {
   const page = await setup("fiscal");
   const pane = () => page.host.querySelector<HTMLElement>('[data-testid="fiscal-declaration"]')!;
-  const approve = () => button(page.host, "Aprobar");
+  const approve = () => button(page.host, "Aceptar");
   const reason = () => page.host.querySelector('[data-testid="approve-reason"]')?.textContent ?? null;
   const edit = () => fill(page, '[data-testid="fiscal-declaration-itbis_cost"]', "12.00");
   /** Whatever a person approving would see: an approval sent or a confirm step opened. */
@@ -27,13 +27,13 @@ test("Guardar is the pane's main button with the short label, and Cancelar is th
   } finally { await page.close(); }
 });
 
-test("an unsaved fiscal edit holds Aprobar with its reason until Cancelar", async () => {
+test("an unsaved fiscal edit holds Aceptar with its reason until Cancelar", async () => {
   const page = await fiscalPage();
   try {
     assert.equal(page.approve().disabled, false, "nothing typed, nothing held");
     await page.edit();
     assert.equal(page.approve().disabled, true);
-    assert.equal(page.reason(), "Guarda o cancela Más datos fiscales para aprobar.");
+    assert.equal(page.reason(), "Guarda o cancela Más datos fiscales para aceptar.");
     assert.equal(page.approve().getAttribute("aria-describedby"), page.host.querySelector('[data-testid="approve-reason"]')!.id);
     await page.act(async () => button(page.pane(), "Cancelar").click());
     assert.equal(page.approve().disabled, false);
@@ -41,7 +41,7 @@ test("an unsaved fiscal edit holds Aprobar with its reason until Cancelar", asyn
   } finally { await page.close(); }
 });
 
-test("an unsaved fiscal edit holds Aprobar until Guardar saves it", async () => {
+test("an unsaved fiscal edit holds Aceptar until Guardar saves it", async () => {
   const page = await fiscalPage();
   try {
     await page.edit();
