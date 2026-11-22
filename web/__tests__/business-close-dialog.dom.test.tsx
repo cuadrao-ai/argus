@@ -99,8 +99,8 @@ test("each period reads as a range of months with the server's counts, never an 
   try {
     const rows = [...document.querySelectorAll('[data-testid="business-close-period"]')].map((row) => row.textContent ?? "");
     assert.equal(rows.length, 2);
-    assert.ok(rows[0].startsWith("ene – dic 2025 · 1,204 registros"), rows[0]);
-    assert.ok(rows[1].startsWith("ene – 21 oct 2026 · 1 registro") && !rows[1].includes("1 registros"), rows[1]);
+    assert.ok(rows[0].startsWith("Ene – Dic 2025 · 1,204 registros"), rows[0]);
+    assert.ok(rows[1].startsWith("Ene – 21 Oct 2026 · 1 registro") && !rows[1].includes("1 registros"), rows[1]);
     assert.equal(/original/i.test(text()), false, "no count of original files");
     assert.equal(/\d{4}-\d{2}-\d{2}/.test(text()), false);
   } finally { await view.close(); }

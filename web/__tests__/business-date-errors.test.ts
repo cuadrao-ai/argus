@@ -12,7 +12,7 @@ for (const language of ["en", "es-419"] as const) {
       return i18n.t.bind(i18n);
     };
     for (const [code,english,spanish] of [
-      ["business_date_before_minimum", "Date can't be more than 10 years old. Use Nov 16, 2016 or a later date.", "Date no puede tener más de 10 años. Usa el 16 nov 2016 o una fecha posterior."],
+      ["business_date_before_minimum", "Date can't be more than 10 years old. Use Nov 16, 2016 or a later date.", "Date no puede tener más de 10 años. Usa el 16 Nov 2016 o una fecha posterior."],
       ["business_date_after_today", "Date can't be after today.", "Date no puede ser después de hoy."],
     ]) {
       test(`${code}: API refusal, bank context and reader reason share the sentence`, async () => {

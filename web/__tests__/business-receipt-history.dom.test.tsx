@@ -76,7 +76,7 @@ describe("Historial", () => {
     const lines = () => [...section.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
     assert.deepEqual(lines(), [
       ["Moneda cambiada de DOP a USD", "Ana Peña · 11/10, 8:00 a.m."],
-      ["Aprobado", "Lucía Mateo · 11/10, 12:05 a.m."],
+      ["Aceptado", "Lucía Mateo · 11/10, 12:05 a.m."],
       ["Total (con ITBIS) cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña · 10/10, 1:05 p.m."],
       ["Leído", "Cuadrao · 10/10, 9:25 a.m."],
       ["Recibido · WhatsApp", "10/10, 9:20 a.m."],
@@ -84,7 +84,7 @@ describe("Historial", () => {
     const dots = [...section.querySelectorAll<HTMLElement>('[data-testid="history-dot"]')].map((dot) => dot.style.backgroundColor);
     assert.deepEqual(dots, ["#56635e", "#2f5a49", "#56635e", "#56635e", "#56635e"], "gray dots except the status change");
     assert.equal(section.querySelectorAll("li svg").length, 0, "no icon per event");
-    assert.doesNotMatch(section.textContent ?? "", /revisi[oó]n|tras aprobar|primer flujo|registrado|desconocido/i);
+    assert.doesNotMatch(section.textContent ?? "", /revisi[oó]n|tras aceptar|primer flujo|registrado|desconocido/i);
     assert.equal(document.activeElement, section.querySelectorAll("li")[0], "focus lands on the newest event the fold revealed");
     await page.close();
   });

@@ -82,7 +82,7 @@ const CASES: readonly { name: string; receipt: Partial<ReceiptDetail>; word: str
   { name: "a receipt being read", receipt: { status: "preparing", attention: null, bandeja_group: group("attention", "reading") }, word: "Leyendo…", tone: "pending" },
   { name: "a Listos receipt", receipt: { status: "review_ready", attention: null, bandeja_group: group("listo", null) }, word: "Listo para revisar", tone: "pending" },
   { name: "a Listos receipt whose status disagrees", receipt: { status: "needs_attention", attention: "check_details", bandeja_group: group("listo", null) }, word: "Listo para revisar", tone: "pending" },
-  { name: "an approved receipt", receipt: { status: "confirmed", attention: null, bandeja_group: null }, word: "Aprobado", tone: "approved" },
+  { name: "an approved receipt", receipt: { status: "confirmed", attention: null, bandeja_group: null }, word: "Aceptado", tone: "approved" },
 ];
 
 describe("the receipt's status is the server's Bandeja group, never its reason", () => {

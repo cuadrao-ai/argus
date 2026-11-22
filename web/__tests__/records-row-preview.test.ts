@@ -5,7 +5,7 @@ import { sampleRecordsPreferences } from "@/components/business-app/transaccione
 import { moveRecordsColumn, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
 
 test("activity dates show a year in the selected language and reject missing or impossible days", () => {
-  assert.equal(formatRecordActivityDate("2026-10-25", "es-419"), "25 oct 2026");
+  assert.equal(formatRecordActivityDate("2026-10-25", "es-419"), "25 Oct 2026");
   assert.equal(formatRecordActivityDate("2026-10-25", "en"), "Oct 25, 2026");
   for (const invalid of [null, "", "2026-02-30", "2026-13-01", "2026-10-25T00:00:00Z"]) assert.equal(formatRecordActivityDate(invalid, "en"), "-");
 });

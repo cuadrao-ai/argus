@@ -24,7 +24,7 @@ describe("the review's document date fixes a misread year in one click", () => {
       const note = field.querySelector<HTMLElement>(NOTE);
       assert.match(note?.textContent ?? "", /Subido en 2026/, "the upload year is the dossier's");
       assert.equal([...field.querySelectorAll("button")].some((node) => node.textContent === "Hoy" || node.textContent === "Ayer"), false);
-      await page.act(async () => button(note!, "Usar 9 oct 2026").click());
+      await page.act(async () => button(note!, "Usar 9 Oct 2026").click());
       assert.equal(page.writes.length, 0, "the button fills the field; the check saves");
       await page.act(async () => field.querySelector<HTMLButtonElement>(CALENDAR)!.click());
       assert.equal(field.querySelector(NOTE), null, "the date in the field is the person's now");

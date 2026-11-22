@@ -95,9 +95,9 @@ describe("the receipt detail's top block", () => {
     await page.close();
   });
 
-  test("the status word is the list's: a confirmed receipt reads Aprobado, not the server's status name", async () => {
+  test("the status word is the list's: a confirmed receipt reads Aceptado, not the server's status name", async () => {
     for (const draft_id of [dossierFixtureIds.fiscal, null]) {
-      for (const [status, bandeja_group, word] of [["review_ready", LISTO, "Listo para revisar"], ["confirmed", null, "Aprobado"]] as const) {
+      for (const [status, bandeja_group, word] of [["review_ready", LISTO, "Listo para revisar"], ["confirmed", null, "Aceptado"]] as const) {
         const page = await mount({ receipt: { status, bandeja_group, draft_id }, until: "top" });
         assert.equal(page.host.querySelector('[data-testid="receipt-top-block"] [data-testid="status-pill"]')?.textContent, word, `${status} ${draft_id ? "with" : "without"} a draft`);
         await page.close();
@@ -128,7 +128,7 @@ describe("a record opened without its receipt", () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
     const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
-    for (const [state, shown] of [["open", "Listo para revisar"], ["accepting", "Consultando resultado de aprobación"]] as const) {
+    for (const [state, shown] of [["open", "Listo para revisar"], ["accepting", "Consultando resultado de aceptación"]] as const) {
       const source: BusinessDataSource = { ...fixture, dossier: async (id) => ({ ...structuredClone(await fixture.dossier(id)), review_state: state }) };
       const host = document.createElement("div");
       document.body.appendChild(host);
@@ -146,39 +146,39 @@ describe("a record opened without its receipt", () => {
 });
 
 describe("the footer", () => {
-  test("holds Más, Aprobar and Aprobar y siguiente, and nothing else, with no reason while Aprobar is open", async () => {
+  test("holds Más, Aceptar and Aceptar y siguiente, and nothing else, with no reason while Aceptar is open", async () => {
     const page = await mount();
     const footer = page.footer()!;
     // Más holds the Personal mark, the note and the refresh; only its trigger sits in the footer row.
-    assert.deepEqual([...footer.querySelectorAll("button")].filter((item) => !item.closest("#receipt-more-panel")).map((item) => item.textContent), ["Más", "Aprobar", "Aprobar y siguiente"]);
-    assert.equal(page.button("Aprobar")?.disabled, false);
+    assert.deepEqual([...footer.querySelectorAll("button")].filter((item) => !item.closest("#receipt-more-panel")).map((item) => item.textContent), ["Más", "Aceptar", "Aceptar y siguiente"]);
+    assert.equal(page.button("Aceptar")?.disabled, false);
     assert.equal(footer.querySelector('[data-testid="approve-reason"]'), null);
     await page.close();
   });
 
-  test("a missing date disables Aprobar, and the top box alone says why", async () => {
+  test("a missing date disables Aceptar, and the top box alone says why", async () => {
     const page = await mount({ change: noDate });
-    assert.equal(page.button("Aprobar")?.disabled, true);
-    assert.equal(page.button("Aprobar y siguiente")?.disabled, true);
+    assert.equal(page.button("Aceptar")?.disabled, true);
+    assert.equal(page.button("Aceptar y siguiente")?.disabled, true);
     assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]'), null, "the footer repeats nothing");
     assert.ok(page.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Fecha del comprobante"));
-    assert.equal(page.button("Aprobar")?.getAttribute("aria-describedby"), "dossier-attention-title", "the box describes the disabled button");
-    assert.equal(page.host.querySelector('[data-fact="occurred_on"]')?.textContent?.includes("Agrega la fecha para aprobar"), false, "nor does the row");
+    assert.equal(page.button("Aceptar")?.getAttribute("aria-describedby"), "dossier-attention-title", "the box describes the disabled button");
+    assert.equal(page.host.querySelector('[data-fact="occurred_on"]')?.textContent?.includes("Agrega la fecha para aceptar"), false, "nor does the row");
     await page.close();
   });
 
   test("a blocker is the top box's to say; a hold with no blocker has no box, so the footer says why", async () => {
     const blocked = await mount({ change: (dossier) => { dossier.blockers = [{ code: "unknown_funding", field: "funding" }]; dossier.approval_available = false; } });
-    assert.equal(blocked.button("Aprobar")?.disabled, true);
+    assert.equal(blocked.button("Aceptar")?.disabled, true);
     assert.ok(blocked.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Confirma cómo se pagó."));
     assert.equal(blocked.footer()!.querySelector('[data-testid="approve-reason"]'), null);
     await blocked.close();
     const held = await mount({ change: (dossier) => { dossier.blockers = []; dossier.approval_available = false; } });
-    assert.equal(held.footer()!.querySelector('[data-testid="approve-reason"]')?.textContent, "Este registro necesita más revisión antes de aprobarse.");
+    assert.equal(held.footer()!.querySelector('[data-testid="approve-reason"]')?.textContent, "Este registro necesita más revisión antes de aceptarse.");
     await held.close();
   });
 
-  test("approving shows a spinner on Aprobar and a second press sends nothing", async () => {
+  test("approving shows a spinner on Aceptar and a second press sends nothing", async () => {
     let release: () => void = () => {};
     let approvals = 0;
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
@@ -195,11 +195,11 @@ describe("the footer", () => {
         },
       },
     });
-    const approve = page.button("Aprobar")!;
+    const approve = page.button("Aceptar")!;
     await page.act(async () => { approve.click(); });
     const busy = page.footer()!.querySelector<HTMLButtonElement>('button[aria-busy="true"]')!;
     assert.ok(busy.querySelector(".animate-spin"), "the spinner shows");
-    assert.equal(busy.textContent, "Aprobando…");
+    assert.equal(busy.textContent, "Aceptando…");
     assert.equal(busy.disabled, true);
     await page.act(async () => { busy.click(); });
     assert.equal(approvals, 1);

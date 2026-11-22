@@ -101,7 +101,7 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
   const tabBadge = () => host.querySelector('[data-testid="business-bottom-tabs"] button span.absolute')?.textContent ?? null;
   const attentionTab = () => host.querySelector('[data-testid="bandeja"] [data-testid="reception-count-attention"]')?.textContent ?? null;
   const shown = () => [sidebarBadge(), tabBadge(), attentionTab()];
-  const approve = () => [...host.querySelectorAll<HTMLButtonElement>('[data-testid="panel"] button')].find((item) => item.textContent === "Aprobar") ?? null;
+  const approve = () => [...host.querySelectorAll<HTMLButtonElement>('[data-testid="panel"] button')].find((item) => item.textContent === "Aceptar") ?? null;
   try {
     await act(async () => root.render(
       <I18nextProvider i18n={i18n}>
@@ -122,9 +122,9 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
     const older = answer(3);
 
     const button = approve();
-    assert.ok(button, "Aprobar is on the page");
+    assert.ok(button, "Aceptar is on the page");
     await act(async () => button.click());
-    const confirmation = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((item) => item.textContent === "Aprobar");
+    const confirmation = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((item) => item.textContent === "Aceptar");
     if (confirmation) await act(async () => confirmation.click());
     await settle(() => sidebarBadge() === "2" && tabBadge() === "2" && attentionTab() === "2");
     assert.deepEqual(shown(), ["2", "2", "2"], "the approval's reload shows 2");

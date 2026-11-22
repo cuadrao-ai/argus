@@ -45,7 +45,7 @@ describe("status is an icon, a word, and a color", () => {
       </>,
     );
     const pills = [...page.host.querySelectorAll<HTMLElement>('[data-testid="status-pill"]')];
-    assert.deepEqual(pills.map((pill) => pill.textContent), ["Aprobado", "Necesita atención", "Pendiente"]);
+    assert.deepEqual(pills.map((pill) => pill.textContent), ["Aceptado", "Necesita atención", "Pendiente"]);
     assert.deepEqual(pills.map((pill) => pill.getAttribute("data-status")), ["approved", "needs_attention", "pending"]);
     const icons = pills.map((pill) => pill.querySelector("svg"));
     assert.deepEqual(icons.map((icon) => [...(icon?.classList ?? [])].find((name) => /^lucide-(circle-check|clock|circle-alert)$/.test(name))), ["lucide-circle-check", "lucide-circle-alert", "lucide-clock"]);
