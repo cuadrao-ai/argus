@@ -126,7 +126,7 @@ const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as co
 const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", inbox: "canvas", transactions: "canvas", invoicing: "canvas", activity: "canvas", receipt: "canvas", draft: "canvas", business: "canvas", expense: "form" };
 
 export default function BusinessPanel() {
-  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus, invoicing, revision } = useBusiness();
+  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus, directoryReference, inboxReady, invoicing, revision } = useBusiness();
   const previewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const scope = JSON.stringify([userId, chosen?.space_id ?? "own", chosen?.grant_id ?? null]);
   const [glance, setGlance] = useState<{ scope: string; row: RecordRow; revision: number; refresh?: RefreshRecordRow } | null>(null);
@@ -162,6 +162,7 @@ export default function BusinessPanel() {
     );
   }
   if (records.serverReference) return <ServerErrorScreen reference={records.serverReference} onRetry={reload} />;
+  if (panel.kind === "inbox" && inboxReady === false && directoryReference) return <ServerErrorScreen reference={directoryReference} onRetry={reload} />;
   if (lostAccess) {
     return (
       <div className={`w-full pb-6 ${COLUMN.reading}`}>
@@ -190,7 +191,7 @@ export default function BusinessPanel() {
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
       <PanelErrorBoundary key={record && !inTray ? recordKey(record) : shown}>
         {shown === "overview" ? <BusinessOverviewPanel /> : null}
-        {shown === "inbox" ? <BusinessInboxPanel /> : null}
+        {shown === "inbox" && inboxReady !== false ? <BusinessInboxPanel /> : null}
         {shown === "transactions" ? <TransaccionesPanel /> : null}
         {shown === "invoicing" && invoicingShown(invoicing) ? <InvoiceWorkspaceEntry directoryStatus={directoryStatus} onRetry={reload} scope={userId && chosen?.permissions?.includes("read") === true ? { userId, businessId: chosen.space_id, grantId: chosen.grant_id } : null} business={chosen?.name ?? ""} capabilities={{ prepare: chosen?.permissions?.includes("prepare") === true, issue: chosen?.permissions?.includes("approve") === true, download: chosen?.permissions?.includes("download") === true }} sample={invoicing === "sample"} /> : null}
         {shown === "activity" ? <ActivityDraft /> : null}
