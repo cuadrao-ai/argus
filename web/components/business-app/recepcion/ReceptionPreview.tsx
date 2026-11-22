@@ -3,7 +3,7 @@
 import BusinessListTabs from "../foundation/BusinessListTabs";
 import GuideCard from "../foundation/GuideCard";
 
-import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { sentByName } from "@/lib/sent-by";
 import { Check } from "lucide-react";
@@ -50,12 +50,30 @@ import { receptionGrid } from "./reception-grid";
 import styles from "./reception.module.css";
 
 const VIEWS: ReceptionView[] = ["all", "attention", "listos", "eliminados"];
+const VIEW_CHANGE = "reception-view-change";
+const readView = (): ReceptionView => {
+  const value = new URLSearchParams(window.location.search).get("receptionView");
+  return VIEWS.find(view => view === value) ?? "all";
+};
+const subscribeView = (notify: () => void) => {
+  window.addEventListener("popstate", notify);
+  window.addEventListener(VIEW_CHANGE, notify);
+  return () => { window.removeEventListener("popstate", notify); window.removeEventListener(VIEW_CHANGE, notify); };
+};
+function writeView(view: ReceptionView, replace = false) {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("receptionView") === view) return;
+  url.searchParams.set("receptionView", view);
+  // Native history integrates with the app router without reloading the list.
+  window.history[replace ? "replaceState" : "pushState"](null, "", url);
+  window.dispatchEvent(new Event(VIEW_CHANGE));
+}
 /** Each tab's word, under `business.reception_preview`. */
 const VIEW_WORD: Record<ReceptionView, string> = { all: "all", attention: "attention", listos: "placeholder.listos", eliminados: "eliminados" };
 type ArrivalLoad = { scope: string; source: ReturnType<typeof useBusiness>["source"]; items: ReceiptSummary[]; failure: LoadFailure | null };
 
 
-type ReturnPosition = { scope: string; view: ReceptionView; filters: ReceptionFiltersValue; query: string; page: number; pageSize: PaginationState["pageSize"]; period: Period; admittedIds: string[] | null; selectedIds: string[] };
+type ReturnPosition = { scope: string; filters: ReceptionFiltersValue; query: string; page: number; pageSize: PaginationState["pageSize"]; period: Period; admittedIds: string[] | null; selectedIds: string[] };
 // Only the immediate dossier return uses this in-memory snapshot. Reload never restores it.
 const dossierReturns = new WeakMap<object, ReturnPosition>();
 
@@ -77,8 +95,8 @@ function ReceptionWorkspace() {
   useEffect(() => { if (panel.kind === "inbox") dossierReturns.delete(source); }, [source, panel.kind]);
   const [loaded, setLoaded] = useState<ArrivalLoad | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [view, setView] = useState<ReceptionView>(returnPosition?.view ?? (panel.kind === "inbox" ? panel.view : undefined) ?? "all");
-  useEffect(() => { if (panel.kind === "inbox" && panel.view === "eliminados") setView("eliminados"); }, [panel]);
+  const view = useSyncExternalStore<ReceptionView>(subscribeView, readView, () => "all");
+  useEffect(() => { if (panel.kind === "inbox" && panel.view === "eliminados") writeView("eliminados", true); }, [panel]);
   const stateWord = useReceiptStateWord();
   const [deleting, setDeleting] = useState<ReceptionRow | null>(null);
   const deletedNotes = useDeletedNotes(view === "eliminados");
@@ -98,7 +116,7 @@ function ReceptionWorkspace() {
   }, [deletedNotes.items]);
   const [selectedIds, setSelectedIds] = useState<string[]>(returnPosition?.selectedIds ?? []);
   const list = useRef<HTMLDivElement>(null);
-  const chooseTab = (next: ReceptionView) => { setView(next); setSelectedIds([]); setPage(1); };
+  const chooseTab = (next: ReceptionView) => { writeView(next); setSelectedIds([]); setPage(1); };
   const applyFilters = (next: ReceptionFiltersValue) => { setFilters(next); setSelectedIds([]); setPage(1); };
   const [query, setQuery] = useState(returnPosition?.query ?? "");
   const [preferences, setPreferences] = useReceptionPreferences();
@@ -171,7 +189,7 @@ function ReceptionWorkspace() {
   const selectable = view === "listos" && chosen?.capabilities.includes("approve") === true;
   const columns = shownReceptionColumns(preferences);
   const navigateFrom = (next: Parameters<typeof openPanel>[0]) => {
-    dossierReturns.set(source, { scope, view, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
+    dossierReturns.set(source, { scope, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
     openPanel(next.kind === "receipt" || next.kind === "draft"
       ? { ...next, receiptIds: matched.flatMap(row => row.kind === "receipt" ? [row.id] : []) }
       : next);

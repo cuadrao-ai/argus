@@ -11,6 +11,7 @@ let cleanup = async () => {};
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 1000 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => {
   await cleanup(); cleanup = async () => {};
+  window.history.replaceState(null, "", "/biz");
   window.localStorage.clear();
   (await import("@/components/business-app/foundation/toasts")).clearToasts();
   (await import("@/components/layout/overlayStack")).resetOverlayStack();
