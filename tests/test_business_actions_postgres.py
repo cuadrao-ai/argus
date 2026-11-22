@@ -21,7 +21,7 @@ from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
-from tests.business_accept_support import seen_gaps
+from tests.business_accept_support import expense_accept
 from tests.test_business_spaces_migration_postgres import space
 
 users = shared.users
@@ -294,13 +294,10 @@ def ready(service, context, *, owner_funds=False):
 
 @pytest.mark.owner_acts
 def test_human_approval_recovers_committed_money_once(actions, monkeypatch):
-    from argus.domain.business.contracts.actions import ApproveExpense
 
     service, context, _ = actions
     draft = ready(service, context)
-    request = ApproveExpense(
-        version=1, action="record_expense", accept_gaps=seen_gaps(service, context, draft)
-    )
+    request = expense_accept(service, context, draft)
     original = service.imports._write
 
     def interrupted(*args, **kwargs):
@@ -329,7 +326,6 @@ def test_human_approval_recovers_committed_money_once(actions, monkeypatch):
 
 
 def test_agent_cannot_approve_and_generic_review_cannot_bypass_history(actions):
-    from argus.domain.business.contracts.actions import ApproveExpense
     from argus.domain.ingestion.reconcile.model import ReconcileError
 
     service, context, _ = actions
@@ -341,11 +337,7 @@ def test_agent_cannot_approve_and_generic_review_cannot_bypass_history(actions):
         service.approve(
             agent,
             draft,
-            ApproveExpense(
-                version=1,
-                action="record_expense",
-                accept_gaps=seen_gaps(service, agent, draft),
-            ),
+            expense_accept(service, agent, draft),
             "agent",
         ).outcome
         == "permission_denied"
@@ -395,7 +387,6 @@ def test_owner_uncertainty_escalates_question_without_inventing_answer(actions):
 
 @pytest.mark.owner_acts
 def test_approval_rechecks_grant_after_preview_before_claim(actions, users, monkeypatch):
-    from argus.domain.business.contracts.actions import ApproveExpense
 
     service, context, grant = actions
     draft = ready(service, context)
@@ -419,11 +410,7 @@ def test_approval_rechecks_grant_after_preview_before_claim(actions, users, monk
     result = service.approve(
         context,
         draft,
-        ApproveExpense(
-            version=1,
-            action="record_expense",
-            accept_gaps=seen_gaps(service, context, draft),
-        ),
+        expense_accept(service, context, draft),
         "approve",
     )
     assert result.outcome == "not_found"
@@ -444,13 +431,10 @@ def test_approval_rechecks_grant_after_preview_before_claim(actions, users, monk
 
 @pytest.mark.owner_acts
 def test_concurrent_approval_and_recorded_correction(actions):
-    from argus.domain.business.contracts.actions import ApproveExpense
 
     service, context, _ = actions
     draft = ready(service, context)
-    request = ApproveExpense(
-        version=1, action="record_expense", accept_gaps=seen_gaps(service, context, draft)
-    )
+    request = expense_accept(service, context, draft)
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(
             executor.map(
@@ -839,7 +823,6 @@ def test_legacy_hand_entry_cannot_create_another_candidate_for_typed_receipt(act
 
 @pytest.mark.owner_acts
 def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatch):
-    from argus.domain.business.contracts.actions import ApproveExpense
     from argus.domain.recording.money_reads import current_activities
     from argus.domain.recording.schemas import account_response
 
@@ -853,9 +836,7 @@ def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatc
         )
     ]
     assert service.dossier(context, draft).approval_available
-    request = ApproveExpense(
-        version=1, action="record_expense", accept_gaps=seen_gaps(service, context, draft)
-    )
+    request = expense_accept(service, context, draft)
     original = money.write
 
     def interrupted(**kwargs):

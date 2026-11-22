@@ -139,6 +139,20 @@ def _flagged(draft: DraftStanding, code: str) -> bool:
     return any(flag.code == code for flag in draft.flags)
 
 
+#: The review flags and the blocker another row of the rule already names, so
+#: one problem is one gap.
+_FLAGS_NAMED = frozenset({"rnc_check_digit", "ncf_malformed"})
+_BLOCKERS_NAMED = frozenset({"possible_duplicate"})
+
+
+def _other_flag(draft: DraftStanding) -> bool:
+    return any(flag.code not in _FLAGS_NAMED for flag in draft.flags)
+
+
+def _other_blocker(draft: DraftStanding) -> bool:
+    return any(code not in _BLOCKERS_NAMED for code in draft.blockers)
+
+
 def _no_number(draft: DraftStanding) -> bool:
     fiscal = _fiscal(draft)
     return _blank(fiscal.ecf) and _blank(fiscal.ncf)
@@ -221,8 +235,8 @@ RULE: tuple[Gap, ...] = (
     Gap("invalid_ncf", True, lambda draft: _flagged(draft, "ncf_malformed")),
     Gap("ecf_check_failed", True, lambda draft: draft.ecf_failed),
     Gap("missing_itbis", True, lambda draft: _blank(_fiscal(draft).itbis)),
-    Gap("review_flag", True, lambda draft: bool(draft.flags)),
-    Gap("blocked", False, lambda draft: bool(draft.blockers)),
+    Gap("review_flag", True, _other_flag),
+    Gap("blocked", False, _other_blocker),
     Gap(
         "unverified_sender",
         False,

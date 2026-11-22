@@ -487,3 +487,46 @@ def test_one_gap_no_person_may_accept_over_refuses_whatever_else_is_named() -> N
 
 def test_a_draft_with_no_gap_refuses_nothing() -> None:
     assert refusing(listo_gaps(LISTO), ()) == ()
+
+
+@pytest.mark.parametrize(
+    ("draft", "gaps"),
+    [
+        pytest.param(
+            replace(LISTO, blockers=("possible_duplicate",)),
+            ("duplicate",),
+            id="a possible repeat",
+        ),
+        pytest.param(
+            replace(
+                LISTO,
+                flags=(ReviewFlag(code="rnc_check_digit", field="rnc", confirm=True),),
+            ),
+            ("invalid_rnc",),
+            id="an RNC check digit",
+        ),
+        pytest.param(
+            replace(
+                LISTO,
+                flags=(ReviewFlag(code="ncf_malformed", field="ncf", confirm=True),),
+            ),
+            ("invalid_ncf",),
+            id="a malformed NCF",
+        ),
+        pytest.param(
+            replace(
+                LISTO,
+                blockers=("possible_duplicate", "business_questions_unresolved"),
+                flags=(
+                    ReviewFlag(code="rnc_check_digit", field="rnc", confirm=True),
+                    ReviewFlag(code="itbis_high", field="itbis", confirm=False),
+                ),
+            ),
+            ("duplicate", "invalid_rnc", "review_flag", "blocked"),
+            id="each with another problem beside it",
+        ),
+    ],
+)
+def test_one_problem_is_one_gap(draft: DraftStanding, gaps: tuple[str, ...]) -> None:
+    assert listo_gaps(draft) == gaps
+    assert listo_reason(draft) == gaps[0]

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.actions import ApproveExpense, MarkPersonal
+from argus.domain.business.contracts.actions import MarkPersonal
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.reporting import summarize
 from argus.domain.business.reporting_query import Purchase606
@@ -13,7 +13,7 @@ from argus.domain.business.reporting_store import read_recorded
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_export_postgres as export_tests
-from tests.business_accept_support import seen_gaps
+from tests.business_accept_support import expense_accept
 from tests.test_business_dgii_postgres import approve, cash_account, reviewed
 from tests.test_business_spaces_migration_postgres import owned_space
 
@@ -38,11 +38,7 @@ def record_expense(service, context, *, owner_funds=False):
     outcome = service.approve(
         context,
         draft,
-        ApproveExpense(
-            version=1,
-            action="record_expense",
-            accept_gaps=seen_gaps(service, context, draft),
-        ),
+        expense_accept(service, context, draft),
         str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
@@ -560,11 +556,7 @@ def record_personal_expense(service, context):
     outcome = service.approve(
         context,
         draft,
-        ApproveExpense(
-            version=version + 1,
-            action="record_expense",
-            accept_gaps=seen_gaps(service, context, draft),
-        ),
+        expense_accept(service, context, draft, version + 1),
         str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome

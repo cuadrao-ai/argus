@@ -78,7 +78,7 @@ class TestConfirmedApproval:
         assert [(f.code, f.confirm) for f in view.review_flags] == [(flag, True)]
         assert view.approval_available is True
 
-        assert {gap, "review_flag"} <= set(view.listo_gaps)
+        assert gap in view.listo_gaps and "review_flag" not in view.listo_gaps
 
         refused = approve_unnamed(service, context, draft)
         assert (refused.outcome, refused.code) == ("invalid_input", "not_listo")

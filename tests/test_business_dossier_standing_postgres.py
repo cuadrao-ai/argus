@@ -73,7 +73,7 @@ def _same_as_the_list(rig, receipt: str, draft_id: str | None = None) -> dict:  
         ),
         pytest.param(
             {"rnc": listos.BAD_CHECK_DIGIT, "ncf": "B01000008"},
-            ["invalid_rnc", "invalid_ncf", "review_flag"],
+            ["invalid_rnc", "invalid_ncf"],
             id="two flagged values",
         ),
     ],

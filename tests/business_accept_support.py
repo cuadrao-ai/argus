@@ -5,9 +5,19 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from argus.domain.business.contracts.actions import ApproveExpense
+
 
 def seen_gaps(service, context, draft_id: UUID | str) -> tuple[str, ...]:  # noqa: ANN001
     return service.dossier(context, UUID(str(draft_id))).listo_gaps
+
+
+def expense_accept(service, context, draft_id, version: int = 1) -> ApproveExpense:  # noqa: ANN001
+    return ApproveExpense(
+        version=version,
+        action="record_expense",
+        accept_gaps=seen_gaps(service, context, draft_id),
+    )
 
 
 #: The gaps each accept named, by its URL and version. A replay is the same

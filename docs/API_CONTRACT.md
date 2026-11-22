@@ -8453,8 +8453,8 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | An RNC or cédula with a valid check digit | `missing_rnc`; `invalid_rnc` when it is not 9 or 11 digits, or its check digit fails and the DGII register does not list it, the rule the 606 export applies |
 | A valid NCF or e-CF | `missing_ncf`; `invalid_ncf`; `ecf_check_failed` for a failed check on the e-CF or its QR, or a file that names an e-CF the record does not hold |
 | ITBIS | `missing_itbis` |
-| No review flag | `review_flag`, for a warning such as `itbis_high` |
-| Nothing else blocks approval | `blocked`, such as an open question |
+| No other review flag | `review_flag`, for a warning such as `itbis_high`. A flag an earlier row names (`rnc_check_digit`, `ncf_malformed`) is that row's gap alone |
+| Nothing else blocks approval | `blocked`, such as an open question. A possible repeat is `duplicate` alone |
 | A verified sender, if it came by email | `unverified_sender` |
 
 The upload year is the year, on the Business calendar (America/Santo_Domingo), of the `received_at` of the draft's first source. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
@@ -9272,8 +9272,8 @@ a present NCF or e-CF that is not B plus 10 digits or E plus 12. Both have
 18% of the total minus the ITBIS, rounded to cents half to even, plus 0.55 in
 the receipt's own currency (16% for a receipt dated before 2013), in decimal
 math; a lower ITBIS is never flagged. The rate and the 0.55 are the ones the 606 holds an approved row for. The RNC and NCF stay exactly as
-read. Every flag is a Listos gap: `rnc_check_digit` is `invalid_rnc`,
-`ncf_malformed` is `invalid_ncf`, and any flag is `review_flag`. So a flagged
+read. Every flag is one Listos gap: `rnc_check_digit` is `invalid_rnc`,
+`ncf_malformed` is `invalid_ncf`, and any other flag is `review_flag`. So a flagged
 record is accepted only by an approve request that names its gaps in
 `accept_gaps` (see the Listos rule), and `confirm` no longer changes what the
 approval refuses. The 606 export still refuses the
