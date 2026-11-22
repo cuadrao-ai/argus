@@ -87,6 +87,8 @@ export type ReceiptActivityCounts = {
   confirmed_count?: number;
   dismissed_count?: number;
 };
+/** What an action that moves a Bandeja row answers with: the counts as the server reads them after it. */
+export type CountedAnswer = { inbox_counts: ReceiptActivityCounts };
 /** Which Bandeja buckets a receipt sits in, by the predicates the counts sum. A closed receipt and an email original sit in none. */
 export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; leyendo: boolean };
 /** The server's one Bandeja group of an open receipt: `reason` is its one plain word, null when Listos. A closed receipt has no group. `draft_id` and `version` are what an approval of this row names. */
@@ -254,12 +256,13 @@ export async function setBusinessDraftDocumentType(draftId: string, version: num
  * `approveAnyway` passes the draft's confirm flags; servers older than #1590 refuse the field, so it is sent only when true.
  * `suggestions` are the ones the screen showed filled in, which the approval saves; sent only when there are some.
  */
-export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction, approveAnyway = false, suggestions?: ShownSuggestions): Promise<BusinessDossier> {
-  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
+export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction, approveAnyway = false, suggestions?: ShownSuggestions): Promise<BusinessDossier & CountedAnswer> {
+  const answer = await apiFetch<CountedAnswer>(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, action, ...(approveAnyway ? { approve_anyway: true } : {}), ...(suggestions ? { suggestions } : {}) }),
   });
+  return { ...readBusinessDossier(answer), inbox_counts: answer.inbox_counts };
 }
 
 /** The flags an approval refused to pass without `approve_anyway`: `approval_confirmation_required` names them in `context.flags`. */
@@ -311,15 +314,17 @@ export async function reopenBusinessDraft(draftId: string, version: number, idem
   });
 }
 
-export function deleteBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
+export type DocumentActionAnswer = { document_id: string; deleted: boolean } & CountedAnswer;
+
+export function deleteBusinessDocument(id: string, key: string): Promise<DocumentActionAnswer> {
   return apiFetch(`/business/drafts/${encodeURIComponent(id)}/delete`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
 }
 
-export function restoreBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
+export function restoreBusinessDocument(id: string, key: string): Promise<DocumentActionAnswer> {
   return apiFetch(`/business/drafts/${encodeURIComponent(id)}/restore`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
 }
 
-export function purgeBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
+export function purgeBusinessDocument(id: string, key: string): Promise<DocumentActionAnswer> {
   return apiFetch(`/business/drafts/${encodeURIComponent(id)}/purge`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
 }
 
@@ -631,7 +636,7 @@ export async function getBusinessOverview(
 export type ListoItem = { draft_id: string; version: number };
 export type ListoApproval = { draft_id: string; outcome: "applied" | "refused" | "outcome_unknown"; code?: string | null; activity_id?: string | null; existing_record_id?: string | null };
 /** The owner approves a named list of Listos receipts: one result per item, in the order named. Replaying the key repeats each item's answer. */
-export function approveBusinessListos(items: readonly ListoItem[], idempotencyKey: string): Promise<{ results: ListoApproval[] }> {
+export function approveBusinessListos(items: readonly ListoItem[], idempotencyKey: string): Promise<{ results: ListoApproval[] } & CountedAnswer> {
   return apiFetch("/business/drafts/approve-listos", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ items }) });
 }
 
