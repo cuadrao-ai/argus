@@ -12,6 +12,7 @@ from psycopg_pool import ConnectionPool
 
 from argus.domain.business.actions import captures, mutations, plans, related, sources
 from argus.domain.business.actions import dossier as views
+from argus.domain.business.annotations import supporting_uploads
 from argus.domain.business.authority import (
     ActionContext,
     ActionError,
@@ -800,7 +801,10 @@ class BusinessActions:
             " and c.source='statement' and c.status<>'disconnected' for update of c,d",
             (connection_id, tx.context.owner_id, tx.context.actor.space_id),
         )
-        if not rows:
+        # A supporting file's upload is never prepared: it is not a receipt.
+        if not rows or supporting_uploads(
+            tx.rows, tx.context.actor.space_id, connection_id
+        ):
             raise ActionError("not_found", "business_record_not_found")
         return rows[0]
 

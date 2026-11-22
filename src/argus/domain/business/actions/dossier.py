@@ -26,7 +26,11 @@ from argus.domain.business.amount_inheritance import (
     original_ncf,
     written_from,
 )
-from argus.domain.business.annotations import annotation_available, current_note
+from argus.domain.business.annotations import (
+    OWN_SOURCE_SQL,
+    annotation_available,
+    current_note,
+)
 from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
 from argus.domain.business.bandeja_group import (
@@ -458,6 +462,7 @@ def _read_answers(tx: ActionTransaction, draft_id: UUID) -> Mapping[str, str | N
         " join public.financial_source_connections c on c.id=s.connection_id"
         " and c.owner_space_id=s.space_id"
         " where l.space_id=%s and l.draft_id=%s and s.kind='attachment' and c.user_id=%s"
+        f" and {OWN_SOURCE_SQL}"
         " and jsonb_typeof(d.batch->'receipt')='object'"
         " order by s.received_at desc,s.id desc limit 1",
         (tx.context.actor.space_id, draft_id, tx.context.owner_id),
@@ -535,7 +540,8 @@ def dossier(
     questions = review_questions(tx, [draft_id]).get(str(draft_id), ())
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,reason"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,reason,"
+        " supporting_change,supporting_filename"
         " from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
@@ -625,6 +631,7 @@ def dossier(
         and linked_reason(tx, event.activity_id) is None
     )
     from argus.domain.business.actions.document_deletion import is_reading
+    from argus.domain.business.supporting_files import supporting_state
 
     marker = deletion(event.state, event.resolution)
     deleted = named_deletion(
@@ -665,7 +672,7 @@ def dossier(
         **context.model_dump(),
         current_note=current_note(event),
         note_edit_available=can_annotate,
-        supporting_append_available=can_annotate,
+        **supporting_state(tx, draft_id, can_annotate),
         annotation_unavailable_reason=None
         if can_annotate
         else "business_annotation_unavailable",

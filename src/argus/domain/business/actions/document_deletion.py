@@ -9,6 +9,7 @@ from uuid import UUID
 from psycopg.types.json import Jsonb
 
 from argus.domain.business.actions import plans
+from argus.domain.business.annotations import supporting_uploads
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.contracts.actions import ActionOutcome, Applied
 from argus.domain.business.contracts.deletion import (
@@ -63,6 +64,9 @@ def target(
     """The draft (or generic candidates) and the uploads one document id names,
     the uploads locked. Either id of a document reaches the same rows."""
 
+    # A supporting file's upload is no document: only its record's id reaches it.
+    if supporting_uploads(rows, space_id, document_id):
+        raise ActionError("not_found", "business_record_not_found")
     candidates = ()
     try:
         event = imports.event(str(document_id))

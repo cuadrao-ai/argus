@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
@@ -17,6 +18,7 @@ from argus.domain.business.authority import (
     BusinessAuthority,
 )
 from argus.domain.business.contracts.actions import NOTE_MAX_LENGTH
+from argus.domain.business.contracts.dossier import SupportingChange
 from argus.domain.business.reporting_query import Contract
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
@@ -47,6 +49,63 @@ class NoteResult(Contract):
 
 def supporting_source_key(connection_id: UUID | str) -> str:
     return f"supporting:{connection_id}"
+
+
+#: A supporting file's upload has its own reference, so the same bytes uploaded
+#: as a receipt are a second upload: neither one is ever the other.
+SUPPORTING_UPLOAD_NAMESPACE = "supporting"
+
+def supporting_source_sql(alias: str) -> str:
+    """A ``business_sources`` row under ``alias`` is a supporting file: the key above, in SQL."""
+
+    return (
+        f"{alias}.kind='attachment'"
+        f" and {alias}.source_key='supporting:' || {alias}.connection_id::text"
+    )
+
+
+SUPPORTING_SOURCE_SQL = supporting_source_sql("s")
+
+
+def own_source_sql(alias: str) -> str:
+    """The row under ``alias`` is one of the record's own sources: its document
+    or a message. A supporting file is context for the record and never its
+    document, so every reader that counts or picks a record's document reads this."""
+
+    return f"({supporting_source_sql(alias)}) is not true"
+
+
+OWN_SOURCE_SQL = own_source_sql("s")
+
+#: Something besides the source row ``s`` holds its upload: another source row
+#: or a read. A supporting file whose upload nothing else holds is never a
+#: receipt, on a record or off it, and its bytes go when the file is erased.
+UPLOAD_HELD_SQL = (
+    "(exists (select 1 from public.business_sources o where o.space_id=s.space_id"
+    " and o.connection_id=s.connection_id and o.id<>s.id)"
+    " or exists (select 1 from public.financial_import_observations o"
+    " where o.connection_id=s.connection_id))"
+)
+
+
+def supporting_uploads(
+    rows: Callable[[str, tuple[Any, ...]], list[dict[str, Any]]],
+    space_id: UUID | str,
+    only: UUID | str | None = None,
+) -> frozenset[str]:
+    """The Business's uploads that are supporting files and nothing else, on a
+    record or taken off one. None of them is a receipt. ``only`` asks about
+    one upload."""
+
+    return frozenset(
+        str(row["connection_id"])
+        for row in rows(
+            "select s.connection_id from public.business_sources s"
+            f" where s.space_id=%s and {SUPPORTING_SOURCE_SQL} and not {UPLOAD_HELD_SQL}"
+            " and (%s::uuid is null or s.connection_id=%s::uuid)",
+            (space_id, only, only),
+        )
+    )
 
 
 def annotation_available(authorization: Authorization, event: ImportEvent | None) -> bool:
@@ -87,7 +146,12 @@ def save_annotation(
     *,
     source_ids: tuple[UUID, ...] = (),
     note: str | None = None,
+    supporting: tuple[SupportingChange, str | None] | None = None,
 ) -> ImportEvent:
+    """One more version of the record with unchanged financial facts.
+    ``supporting`` is what the revision did to the one file in ``source_ids``
+    and the file's name."""
+
     from argus.domain.business.actions.facts import facts_of
 
     before_note = current_note(event)
@@ -105,8 +169,8 @@ def save_annotation(
     business = resolution["business"]
     tx.rows(
         "insert into public.business_draft_revisions "
-        "(space_id,draft_id,version,actor,before_facts,after_facts,source_ids,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note) "
-        "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "(space_id,draft_id,version,actor,before_facts,after_facts,source_ids,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,supporting_change,supporting_filename) "
+        "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -121,6 +185,7 @@ def save_annotation(
             business.get("due_on"),
             before_note if note is not None else None,
             note,
+            *(supporting or (None, None)),
         ),
     )
     return event

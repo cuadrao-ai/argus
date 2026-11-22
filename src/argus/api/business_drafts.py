@@ -34,6 +34,11 @@ from argus.domain.business.actions.marks import (
     record_marks,
 )
 from argus.domain.business.actions.receipts import draft_for_receipt
+from argus.domain.business.annotations import (
+    OWN_SOURCE_SQL,
+    own_source_sql,
+    supporting_uploads,
+)
 from argus.domain.business.authority import ActionContext, ActionError, authorize
 from argus.domain.business.bandeja_group import confirmable_gaps
 from argus.domain.business.contracts.actions import Refused
@@ -57,6 +62,7 @@ from argus.domain.business.transactions import (
     record_legacy_action,
     transaction,
 )
+from argus.domain.ingestion.connections import ConnectionNotFound
 from argus.domain.ingestion.receipt_review import duplicate_warning
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
@@ -363,6 +369,9 @@ def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> N
     store = context.service.imports.store
     if isinstance(store, GrantImportStore):
         with transaction(store.authority, store.context, "prepare") as tx:
+            # A supporting file is no receipt, whatever record holds it.
+            if supporting_uploads(tx.rows, tx.context.actor.space_id, receipt_id):
+                raise ConnectionNotFound()
             rows = tx.rows(
                 "select draft from public.financial_document_extractions where connection_id=%s and user_id=%s",
                 (receipt_id, tx.context.owner_id),
@@ -394,7 +403,7 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
         "   select s2.connection_id from public.business_draft_sources l2"
         "   join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
         "   where l2.space_id=e.owner_space_id and l2.draft_id=(e.possible_duplicates)[1]"
-        "   and s2.connection_id is not null limit 1"
+        f"   and s2.connection_id is not null and {own_source_sql('s2')} limit 1"
         " ) o on true"
         + MARKER_JOIN
         + " where s.space_id=%s and s.connection_id = any(%s) and e.user_id=%s"
@@ -655,7 +664,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
         " left join public.business_draft_sources l on l.draft_id=e.id"
         " and l.space_id=e.owner_space_id"
         " left join public.business_sources s on s.id=l.source_id"
-        " and s.space_id=l.space_id and s.connection_id is not null"
+        f" and s.space_id=l.space_id and s.connection_id is not null and {OWN_SOURCE_SQL}"
         + MARKER_JOIN
         + " where e.owner_space_id=%s and e.user_id=%s and e.activity_id = any(%s)"
         " and e.resolution ? 'business'"

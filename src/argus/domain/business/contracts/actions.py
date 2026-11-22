@@ -321,6 +321,8 @@ class TypedPurchase(Contract):
 
 #: The longest note a person writes, typed or on a record, in characters.
 NOTE_MAX_LENGTH = 500
+#: How many supporting files a record holds at once. An unlinked file does not count.
+SUPPORTING_FILE_LIMIT = 3
 
 
 class CaptureNote(Contract):

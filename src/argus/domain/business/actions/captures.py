@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 from argus.domain.business import analytics as business_analytics
 from argus.domain.business.actions import mutations, plans, sources
 from argus.domain.business.actions.facts import facts_of, patched_facts
+from argus.domain.business.annotations import own_source_sql
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.bandeja_group import note_group
 from argus.domain.business.contracts.actions import (
@@ -147,13 +148,14 @@ _NOTES = (
     " and cardinality(v.source_ids)=1 and s.kind='message' and s.channel='web'"
 )
 # The Bandeja's notes: drafts still awaiting review that no receipt carries.
-# A note added to a receipt's record is part of that receipt's row.
+# A note added to a receipt's record is part of that receipt's row. A
+# supporting file is no receipt, so a note that holds one still has its own row.
 _WITHOUT_RECEIPT = (
     " and not exists ("
     "   select 1 from public.business_draft_sources l2"
     "   join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
     "   where l2.draft_id=e.id and l2.space_id=e.owner_space_id"
-    "   and s2.connection_id is not null)"
+    f"   and s2.connection_id is not null and {own_source_sql('s2')})"
 )
 _AWAITING_WITHOUT_RECEIPT = " and e.state in ('open','accepting')" + _WITHOUT_RECEIPT
 _DELETED_NOTES = (

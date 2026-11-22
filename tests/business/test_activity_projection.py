@@ -43,7 +43,10 @@ from argus.domain.business.contracts.activity import (
 from argus.domain.business.fiscal_profile import FiscalProfileChange, LegalNameChange
 from argus.domain.business.roles import BusinessRole
 from argus.domain.business.search import parse
-from argus.domain.business.supporting_files import SupportingCommand
+from argus.domain.business.supporting_files import (
+    SupportingCommand,
+    SupportingLinkCommand,
+)
 from argus.domain.business.transactions import LegacyAction
 from pydantic import ValidationError
 
@@ -132,6 +135,8 @@ def test_an_area_or_group_filter_is_or_within_and_and_across():
     assert crossed == {
         "rebind_attachment",
         "append_supporting_file",
+        "unlink_supporting_file",
+        "restore_supporting_file",
         "business_attach_source",
         "delete_document",
         "restore_document",
@@ -171,6 +176,7 @@ TYPED_LEDGER_ACTIONS = (
     | _action_names(LegalNameChange)
     | _action_names(NoteCommand)
     | _action_names(SupportingCommand)
+    | _action_names(SupportingLinkCommand)
     | _action_names(LegacyAction)
 )
 #: In the ledger's allow-list (20261014100000) with no Python command type.
