@@ -139,7 +139,7 @@ test("closing the panel keeps the uploads going behind a chip, leaving asks firs
   assert.equal(page.chip(), null);
   assert.match(page.dialog()?.textContent ?? "", /2 guardados/);
   await page.click(page.dialog()!.querySelector<HTMLButtonElement>('[data-testid="receipt-intake-review"]'));
-  assert.deepEqual(page.state.panel, { kind: "receipt", receiptId: "receipt-a", list: "inbox", receiptIds: ["receipt-a", "receipt-b"] }, "the dossier opens on 1 of this batch");
+  assert.deepEqual(page.state.panel, { kind: "receipt", receiptId: "receipt-a", list: "inbox", reviewList: { scope: "batch", receiptIds: ["receipt-a", "receipt-b"] } }, "the dossier opens on 1 of this batch");
   assert.equal(page.dialog(), undefined);
   assert.equal(page.chip(), null, "the reviewed list is cleared");
   await page.unmount();
@@ -160,7 +160,7 @@ test("the same bytes under two names count once in the chip, and the dossier wal
   const review = page.dialog()!.querySelector<HTMLButtonElement>('[data-testid="receipt-intake-review"]');
   assert.equal(review?.textContent, "Revisar 2 documentos");
   await page.click(review);
-  assert.deepEqual(page.state.panel, { kind: "receipt", receiptId: "receipt-a", list: "inbox", receiptIds: ["receipt-a", "receipt-b"] });
+  assert.deepEqual(page.state.panel, { kind: "receipt", receiptId: "receipt-a", list: "inbox", reviewList: { scope: "batch", receiptIds: ["receipt-a", "receipt-b"] } });
   await page.unmount();
 });
 

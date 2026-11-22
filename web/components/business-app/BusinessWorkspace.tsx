@@ -85,6 +85,8 @@ import { applyListSearch, SEARCHABLE_LISTS, useScopedList } from "./foundation/l
 import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, publishBusinessAppearance } from "@/lib/business-profile-api";
 
+type ReceiptReviewList = Readonly<{ scope: "batch" | "inbox"; receiptIds: readonly string[] }>;
+
 export type BusinessPanelState =
   | { kind: "overview" }
   | { kind: "inbox"; view?: "eliminados" }
@@ -97,9 +99,9 @@ export type BusinessPanelState =
   | { kind: "expense"; expenseId: string }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
-  // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
-  | { kind: "receipt"; receiptId: string; list?: RecordList; receiptIds?: readonly string[]; confirmDelete?: boolean }
-  | { kind: "draft"; draftId: string; list?: RecordList; receiptIds?: readonly string[]; confirmDelete?: boolean }
+  // `list` is the screen behind the dossier and the screen it closes to.
+  | { kind: "receipt"; receiptId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean }
+  | { kind: "draft"; draftId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean }
   // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
   | { kind: "email"; emailId: string };
 
@@ -185,7 +187,7 @@ export type BusinessContextValue = Readonly<{
   setPeriod: (next: PeriodKey | Period) => void;
   panel: BusinessPanelState;
   openPanel: (panel: BusinessPanelState) => void;
-  /** The list behind the open receipt changed: its place and its neighbours follow these ids. The receipt stays open. */
+  /** A dossier opened from the Bandeja follows these ids when its list changes. */
   followReceiptList: (receiptIds: readonly string[]) => void;
   /** Asks `guard` before the open panel changes, until the returned function runs. */
   guardPanel: (guard: PanelGuard) => () => void;
@@ -680,7 +682,10 @@ function BusinessWorkspaceContent({
     [bridge],
   );
   const followReceiptList = useCallback((receiptIds: readonly string[]) => {
-    setPanel((current) => ((current.kind === "receipt" || current.kind === "draft") && current.receiptIds ? { ...current, receiptIds } : current));
+    setPanel((current) => {
+      if ((current.kind !== "receipt" && current.kind !== "draft") || current.reviewList?.scope !== "inbox") return current;
+      return { ...current, reviewList: { ...current.reviewList, receiptIds } };
+    });
   }, []);
 
   const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
@@ -841,7 +846,12 @@ function BusinessWorkspaceContent({
           onReview={(saved) => {
             setIntakeTarget(null);
             // The dossier opens on the first one and walks only this batch: "1 de N".
-            if (saved.length > 0) openPanel({ kind: "receipt", receiptId: saved[0].id, list: "inbox", ...(saved.length > 1 ? { receiptIds: saved.map((receipt) => receipt.id) } : {}) });
+            if (saved.length > 0) openPanel({
+              kind: "receipt",
+              receiptId: saved[0].id,
+              list: "inbox",
+              reviewList: { scope: "batch", receiptIds: saved.map((receipt) => receipt.id) },
+            });
           }}
         />
         <ToastViewport />

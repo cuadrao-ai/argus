@@ -112,7 +112,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const primaryKeys = usePrimaryKeys();
   const { source, reload, records, openPanel, guardPanel, panel, chosen } = useBusiness();
   const origin = panel?.kind === "receipt" || panel?.kind === "draft" ? panel : null;
-  const receiptIds = origin?.receiptIds ?? [];
+  const reviewList = origin?.reviewList;
+  const receiptIds = reviewList?.receiptIds ?? [];
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const canDelete = dossier?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
   const deletion = useDocumentDelete(canDelete && dossier ? {
@@ -329,9 +330,14 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     return () => { pageOpen.current = false; };
   }, []);
 
+  const openReceipt = (receiptId: string) => {
+    handTitleFocus(receiptId);
+    openPanel({ kind: "receipt", receiptId, ...(reviewList ? { list: origin?.list, reviewList } : {}) });
+  };
+
   const approveAndNext = async (request: ApprovalSend) => {
     if (!receipt) return;
-    const seen = origin?.receiptIds?.map(id => ({ id })) ?? records.inbox;
+    const seen = reviewList?.receiptIds.map(id => ({ id })) ?? records.inbox;
     setAdvancing(true);
     try {
       const approved = await approveRecord(request);
@@ -339,11 +345,11 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       const fresh = await source.receipts("inbox").catch(() => null);
       if (!pageOpen.current) return;
       const freshById = new Map(fresh?.map(item => [item.id, item]));
-      const ordered = origin?.receiptIds?.flatMap(id => freshById.get(id) ?? []) ?? fresh;
+      const ordered = reviewList?.receiptIds.flatMap(id => freshById.get(id) ?? []) ?? fresh;
       const next = ordered ? nextBandejaReceipt(receipt.id, seen, ordered) : null;
-      if (next) handTitleFocus(next);
-      if (!next && fresh && !bandejaReceipts(fresh).some((item) => item.id !== receipt.id)) setFinished(true);
-      else openPanel(next ? { kind: "receipt", receiptId: next, ...(origin?.receiptIds ? { list: origin.list, receiptIds: origin.receiptIds } : {}) } : { kind: "inbox" });
+      if (next) openReceipt(next);
+      else if (fresh && !bandejaReceipts(fresh).some((item) => item.id !== receipt.id)) setFinished(true);
+      else openPanel({ kind: "inbox" });
     } finally {
       setAdvancing(false);
     }
@@ -421,7 +427,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const approvalLabel = dossier.approval_action === "record_income" ? t("business.dgii.approve_income", "Approve income") : dossier.approval_action === "record_refund" ? t("business.dgii.approve_refund", "Approve refund") : t("business.dossier.approve_action", "Approve expense");
 
   const canMove = settled && !autosave.busy && !advancing && !settling;
-  const moves = canMove && receipt ? receiptNavigationActions(receipt.id, receiptIds, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id, list: origin?.list, receiptIds }); }) : {};
+  const moves = canMove && receipt ? receiptNavigationActions(receipt.id, receiptIds, openReceipt) : {};
   const position = receipt ? receiptPlace(receipt.id, receiptIds) : null;
   // The last document of a run has one verb. A receipt opened with no list still offers the next one waiting in the Bandeja.
   const lastInList = position ? position.index >= position.total : !receipt;
@@ -484,7 +490,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     // The server's Bandeja label and its reasons: the list and its dossier say the same thing. An accepted record has no pill.
     status: <DossierStatus label={dossier.bandeja_group?.label} deleted={Boolean(dossier.deleted)} problems={problems} onProblem={goProblem}>{dossier.bill_mark ? <span data-testid="bill-mark" className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{dossier.bill_mark}</span> : null}</DossierStatus>,
   };
-  const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id, list: origin?.list, receiptIds }); };
   const confirmProblems: ConfirmProblem[] = approvalCheck?.kind === "flags" ? approvalCheck.codes.map((code) => ({ key: code, title: t(`business.dossier.review_flag.${code}.title`, { defaultValue: "" }) || dossierRowLabel(t, FLAGGED_ROW[code], dossier), text: t(`business.dossier.review_flag.${code}.text`, { defaultValue: "" }) || t("business.dossier.placeholder.gap.review_flag.text") })) : problems;
   // Comparar turns this same panel into the compare view; it shows both documents itself, so the frame has no source column.
   if (duplicateCompare.candidate) return (<><ContentFade>

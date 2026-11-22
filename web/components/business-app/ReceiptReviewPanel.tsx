@@ -43,7 +43,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const terminalRead = useTerminalRead();
   const { source, reload, openPanel, revision, panel, actions, chosen } = useBusiness();
   const origin = panel?.kind === "receipt" || panel?.kind === "draft" ? panel : null;
-  const receiptIds = origin?.receiptIds ?? [];
+  const reviewList = origin?.reviewList;
+  const receiptIds = reviewList?.receiptIds ?? [];
   const consent = useBusinessConsent();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   // The reference of the last load that failed.
@@ -138,7 +139,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     );
     return <ReceiptDossierReview draftId={openDraft} onUnprepared={retainReceipt} receipt={detail} notice={notice} />;
   }
-  const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id, list: origin?.list, receiptIds }); };
+  const openReceipt = (id: string) => {
+    handTitleFocus(id);
+    openPanel({ kind: "receipt", receiptId: id, ...(reviewList ? { list: origin?.list, reviewList } : {}) });
+  };
   const position = receiptPlace(receiptId, receiptIds);
   const moves = busy ? {} : receiptNavigationActions(receiptId, receiptIds, openReceipt);
   const place = position ? { ...position, previous: moves.previous, next: moves.next } : null;

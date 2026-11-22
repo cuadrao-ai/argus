@@ -135,16 +135,19 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
       assert.equal(origin.kind, "receipt");
       if (origin.kind !== "receipt") throw new Error("Expected an open receipt");
       const expectedIds = Array.from({ length: 28 }, (_, index) => `origin-${index}`);
-      assert.deepEqual(origin.receiptIds, expectedIds);
+      const reviewList = origin.reviewList;
+      assert.ok(reviewList);
+      assert.equal(reviewList.scope, "inbox");
+      assert.deepEqual(reviewList.receiptIds, expectedIds);
 
-      // Check every transition against the list's actual navigation snapshot,
+      // Check every transition against the receipt list held by the dossier,
       // without rendering the full dossier 28 times in each viewport.
       const { receiptNavigationActions, receiptPlace } = await import("@/components/business-app/BusinessReviewShortcuts");
       let receiptId = origin.receiptId;
       for (let index = 0; index < expectedIds.length; index++) {
         assert.equal(receiptId, expectedIds[index]);
-        assert.deepEqual(receiptPlace(receiptId, origin.receiptIds!), { index: index + 1, total: 28 });
-        const moves = receiptNavigationActions(receiptId, origin.receiptIds!, (id) => { receiptId = id; });
+        assert.deepEqual(receiptPlace(receiptId, reviewList.receiptIds), { index: index + 1, total: 28 });
+        const moves = receiptNavigationActions(receiptId, reviewList.receiptIds, (id) => { receiptId = id; });
         assert.equal(Boolean(moves.next), index < 27);
         assert.equal(Boolean(moves.previous), index > 0);
         moves.next?.();

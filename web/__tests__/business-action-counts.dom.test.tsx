@@ -187,7 +187,7 @@ test("an open receipt's place follows the list the server last answered with (#2
   assert.equal(place(), "1 de 2");
   await page.click(move("Recibo siguiente"));
   await page.wait(() => place() === "1 de 1", "the next receipt, alone in the list");
-  assert.deepEqual(page.api().panel, { kind: "receipt", receiptId: "attention", list: "inbox", receiptIds: ["attention"] });
+  assert.deepEqual(page.api().panel, { kind: "receipt", receiptId: "attention", list: "inbox", reviewList: { scope: "inbox", receiptIds: ["attention"] } });
 });
 
 test("a receipt that left its list keeps its slot before the first row that followed it", async () => {

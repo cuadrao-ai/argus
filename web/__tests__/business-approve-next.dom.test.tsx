@@ -164,7 +164,7 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
   const heading = () => host.querySelector('[data-testid="panel"] h2')?.textContent ?? null;
   await settle(() => badge() !== null);
   const open = async (receiptId: string, receiptIds?: readonly string[]) => {
-    await act(async () => api!.openPanel({ kind: "receipt", receiptId, ...(receiptIds ? { list: "inbox", receiptIds } : {}) }));
+    await act(async () => api!.openPanel({ kind: "receipt", receiptId, ...(receiptIds ? { list: "inbox", reviewList: { scope: "batch", receiptIds } } : {}) }));
     await settle(() => heading() === names[receiptId as keyof typeof names] && (button("Aceptar") !== null || (host.textContent ?? "").includes("Puedes revisar")));
   };
   const click = async (name: string, done: () => boolean) => {
@@ -195,7 +195,7 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     try {
       await page.open("rcpt-uno", receiptIds);
       await page.click("Aceptar y siguiente", () => page.heading() === "Tres");
-      assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-tres", list: "inbox", receiptIds });
+      assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-tres", list: "inbox", reviewList: { scope: "batch", receiptIds } });
     } finally { await page.act(async () => page.root.unmount()); }
   });
 
