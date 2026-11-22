@@ -318,6 +318,36 @@ def read_attention(event) -> dict:  # noqa: ANN001
     return {}
 
 
+#: The receipt status a draft gives the row linked to it alone.
+_DRAFT_STATUS = {
+    "open": "review_ready",
+    "accepting": "review_ready",
+    "accepted": "confirmed",
+    "dismissed": "dismissed",
+}
+
+
+def draft_row(event, *, duplicate: bool) -> dict[str, Any]:  # noqa: ANN001
+    """The status, attention and error code a draft gives the receipt row
+    linked to it alone. The receipt list and the dossier both read the row
+    here. ``duplicate``: the draft carries a duplicate warning nobody settled;
+    an open draft says that before anything its read left."""
+
+    row = {
+        "status": _DRAFT_STATUS.get(event.state, "review_ready"),
+        "attention": None,
+        "error_code": None,
+        **read_attention(event),
+    }
+    if event.state == "open" and duplicate:
+        row.update(
+            status="needs_attention",
+            attention="duplicate",
+            error_code="possible_duplicate",
+        )
+    return row
+
+
 def review_fields(review: ReceiptReview) -> dict[str, str | None]:
     """The review's proposal under the Business wire names.
 
