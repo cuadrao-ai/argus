@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
+import type { CountedAnswer, ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { receptionRows, rowState } from "./support/reception";
 
@@ -85,6 +85,11 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
   let bandejaReads = 0;
   let release = () => undefined as void;
   const held = new Promise<void>((resolve) => { release = resolve; });
+  const counts = () => {
+    const waiting = pending().filter((item) => !item.email_original).length;
+    const confirmed = receipts.filter((item) => item.status === "confirmed" && !item.email_original).length;
+    return { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: waiting, ready_to_review_count: waiting, bandeja_attention_count: waiting, bandeja_listo_count: 0, confirmed_count: confirmed, dismissed_count: 0 };
+  };
   const source = {
     ...fixture,
     // No email waits in this Bandeja, so approving the last receipt empties it.
@@ -97,10 +102,7 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
     },
     receiptPage: async (view: "inbox" | "all") => {
       pageReads += 1;
-      const rows = view === "all" ? receipts : pending();
-      const waiting = pending().filter((item) => !item.email_original).length;
-      const confirmed = receipts.filter((item) => item.status === "confirmed" && !item.email_original).length;
-      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: waiting, ready_to_review_count: waiting, bandeja_attention_count: waiting, bandeja_listo_count: 0, confirmed_count: confirmed, dismissed_count: 0 } };
+      return { items: (view === "all" ? receipts : pending()) as ReceiptSummary[], activity: counts() };
     },
     receipt: async (id: string) => {
       if (id === "rcpt-dos") {
@@ -118,11 +120,11 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
       if (hold === "approval") await held;
       if (refuse) throw Object.assign(new Error(refuse.code), refuse);
       const current = dossiers.get(id)!;
-      if (unrecorded) return { ...structuredClone(current), approval_result: { status: unrecorded, code: "ledger_unavailable", reviewed_version: current.version } } as BusinessDossier;
+      if (unrecorded) return { ...structuredClone(current), approval_result: { status: unrecorded, code: "ledger_unavailable", reviewed_version: current.version }, inbox_counts: counts() } as BusinessDossier & CountedAnswer;
       const recorded: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_result: { status: "recorded", activity_id: `expense-${id}`, reviewed_version: current.version, approved_revision: current.version, approved_at: "2026-10-10T14:40:00Z", actor: { actor_id: "a", actor_kind: "owner", display_name: "Lucía", grant_id: "g", issuer_id: "a", issuer_display_name: "Lucía" } } as BusinessDossier["approval_result"] };
       dossiers.set(id, recorded);
       receipts = receipts.map((item) => (item.draft_id === id ? { ...item, status: "confirmed", version: item.version + 1, bandeja_group: { group: null, reason: null, label: "accepted", draft_id: null, version: null } } : item));
-      return structuredClone(recorded);
+      return { ...structuredClone(recorded), inbox_counts: counts() };
     },
   };
 
@@ -201,7 +203,8 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     const page = await mount({ width: 390 });
     try {
       await page.open("rcpt-uno", receiptIds);
-      await page.click("Aceptar y siguiente", () => page.panel().kind === "inbox");
+      // The last document of a run has one verb, and it still moves on.
+      await page.click(receiptIds.length ? "Aceptar" : "Aceptar y siguiente", () => page.panel().kind === "inbox");
       assert.equal(page.panel().kind, "inbox");
     } finally { await page.act(async () => page.root.unmount()); }
   });

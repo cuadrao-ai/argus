@@ -58,7 +58,7 @@ async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiField
   const dirty: boolean[] = [];
   await act(async () => { root.render(<I18nextProvider i18n={i18n}><FiscalDeclarationEditor dossier={dossier} fields={(shape.fields ?? fields) as never} reviewFiscal={reviewDgii} disabled={false} onChanged={(value) => changes.push(value)} onBusy={() => {}} onDirty={(value) => dirty.push(value)} /></I18nextProvider>); });
   const input = async (label: string, value: string) => {
-    const control = [...host.querySelectorAll("label")].find((node) => node.firstChild?.textContent === label)?.querySelector("input");
+    const control = [...host.querySelectorAll("[data-field]")].find((row) => row.firstElementChild?.textContent === label)?.querySelector("input");
     assert.ok(control);
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -73,9 +73,8 @@ async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiField
 test("the form holds the rest of the 606: the facts with their own row are not fields here, and it sends them unchanged", async () => {
   const view = await mountEditor();
   try {
-    assert.equal(view.host.querySelector("details")?.open, false, "closed by default");
-    assert.equal(view.host.querySelector("summary")?.textContent, "Más datos fiscales");
-    assert.deepEqual([...view.host.querySelectorAll("label")].map((node) => node.firstChild?.textContent).slice(0, 1), ["ITBIS Facturado"]);
+    assert.equal(view.host.querySelector("details"), null, "the tab holds the form: nothing folds it away");
+    assert.deepEqual([...view.host.querySelectorAll("[data-field]")].map((row) => row.firstElementChild?.textContent).slice(0, 1), ["ITBIS Facturado"]);
     await view.input("ITBIS llevado al Costo", "12.00");
     assert.equal(view.dirty.at(-1), true);
     await view.save();
@@ -96,12 +95,12 @@ const fullForm: DgiiFields = {
   ],
   "607": [field("income_type", "Tipo de Ingreso", "select", ["1"]), field("withheld_on", "Fecha de Retención", "date")],
 };
-const groupsOf = (host: Element) => [...host.querySelectorAll<HTMLElement>("[data-group]")].map((group) => [group.dataset.group, (group.querySelector("h4 button > span") ?? group.querySelector("h4"))?.textContent]);
+const groupsOf = (host: Element) => [...host.querySelectorAll<HTMLElement>("[data-group]")].map((group) => [group.dataset.group, group.querySelector("h3")?.textContent]);
 
 test("the fields read in five groups, every field the server sends stays, and no date is a native input", async () => {
   const view = await mountEditor({ fields: fullForm });
   try {
-    assert.deepEqual(groupsOf(view.host), [["identity", "Identificación"], ["amounts", "Montos facturados"], ["itbis", "ITBIS"], ["retentions", "Retenciones"], ["other", "Otros"]]);
+    assert.deepEqual(groupsOf(view.host), [["identity", "Reporte 606"], ["amounts", "Monto facturado"], ["itbis", "ITBIS"], ["retentions", "Retenciones"], ["other", "Otros impuestos"]]);
     const other = view.host.querySelector('[data-group="other"]');
     assert.ok(other?.textContent?.includes("a_new_server_column"), "an unknown field keeps its code instead of backend Spanish");
     assert.equal(view.host.querySelectorAll('input[type="date"]').length, 0);
@@ -110,7 +109,7 @@ test("the fields read in five groups, every field the server sends stays, and no
   } finally { await view.dispose(); }
 });
 
-const foldOf = (host: Element) => host.querySelector<HTMLButtonElement>('[data-group="retentions"] h4 > button[aria-expanded]');
+const foldOf = (host: Element) => host.querySelector<HTMLButtonElement>('[data-group="retentions"] > div > button[aria-expanded]');
 const shown = (host: Element, id: string) => { const control = host.querySelector(`#fiscal-declaration-${id}, [data-testid="fiscal-declaration-${id}"]`); return Boolean(control && !control.closest("[hidden]")); };
 const purchaseWithheld = (value: string) => (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, dgii: { form: "606", itbis_withheld: value } });
 
@@ -118,13 +117,15 @@ test("a purchase with no withholdings folds them behind one row that opens and c
   const view = await mountEditor({ fields: fullForm });
   try {
     const fold = foldOf(view.host);
-    assert.ok(fold, "the group is one row");
+    assert.ok(fold, "the card offers to add one");
     assert.equal(fold.getAttribute("aria-expanded"), "false");
-    assert.equal(fold.textContent, "RetencionesSin retenciones");
+    assert.equal(fold.textContent, "Agregar retención");
+    assert.equal(view.host.querySelector('[data-group="retentions"] > p')?.textContent, "Sin retenciones.");
     assert.equal(shown(view.host, "itbis_withheld"), false, "its fields wait behind the row");
     await act(async () => fold.click());
     assert.equal(fold.getAttribute("aria-expanded"), "true");
-    assert.equal(fold.textContent, "Retenciones", "an open row says nothing more than its title");
+    assert.equal(fold.textContent, "Quitar", "an open card offers the way back");
+    assert.equal(view.host.querySelector('[data-group="retentions"] > p'), null);
     assert.equal(shown(view.host, "itbis_withheld"), true);
     await act(async () => fold.click());
     assert.equal(fold.getAttribute("aria-expanded"), "false");
@@ -136,7 +137,7 @@ test("a purchase that holds a withholding shows the group open, with no row to f
   const saved = await mountEditor({ fields: fullForm, dossier: purchaseWithheld("150.00") });
   try {
     assert.equal(foldOf(saved.host), null);
-    assert.equal(saved.host.querySelector('[data-group="retentions"] h4')?.textContent, "Retenciones");
+    assert.equal(saved.host.querySelector('[data-group="retentions"] h3')?.textContent, "Retenciones");
     assert.equal(shown(saved.host, "itbis_withheld"), true);
   } finally { await saved.dispose(); }
   const typed = await mountEditor({ fields: fullForm });
@@ -154,7 +155,7 @@ test("a sale keeps its withholdings open: they never fold", async () => {
   const view = await mountEditor({ fields: fullForm, dossier: (dossier) => ({ ...dossier, facts: { ...dossier.facts, kind: { ...dossier.facts.kind, state: "known", value: "income" } as never } }) });
   try {
     assert.equal(foldOf(view.host), null);
-    assert.equal(view.host.querySelector('[data-group="retentions"] h4')?.textContent, "Retenciones");
+    assert.equal(view.host.querySelector('[data-group="retentions"] h3')?.textContent, "Retenciones");
     assert.equal(shown(view.host, "withheld_on"), true);
   } finally { await view.dispose(); }
 });
@@ -164,9 +165,9 @@ test("on a phone the fold is the same row, and it opens into the same column as 
   try {
     const fold = foldOf(view.host);
     assert.ok(fold);
-    assert.equal(fold.textContent, "RetencionesSin retenciones");
+    assert.equal(fold.textContent, "Agregar retención");
     await act(async () => fold.click());
-    const grid = (group: string) => view.host.querySelector(`[data-group="${group}"] > div`)?.className;
+    const grid = (group: string) => view.host.querySelector(`[data-group="${group}"] > ul`)?.className;
     assert.ok(grid("identity"));
     assert.equal(grid("retentions"), grid("identity"));
   } finally { await view.dispose(); }

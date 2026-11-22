@@ -139,6 +139,9 @@ describe("a link to a receipt the server no longer has", () => {
   });
 });
 
+/** The receipt's dossier is drawn: its General tab and its name as the title. */
+const loaded = () => Boolean(document.querySelector('[data-testid="receipt-review-fields"]')) && document.querySelector("#receipt-review-title")?.textContent === "Ferretería La Esquina";
+
 describe("a receipt link that fails for any other reason", () => {
   test("keeps the panel with the shared retry line, and Reintentar loads it", async () => {
     let down = true;
@@ -154,18 +157,19 @@ describe("a receipt link that fails for any other reason", () => {
     assert.equal(page.api().panel.kind, "receipt");
     assert.equal(new URLSearchParams(window.location.search).get("receipt"), "rcpt-ferreteria");
     assert.equal(page.toasts.size, 0, "no notice");
+    assert.ok(!loaded(), "no dossier behind the retry line");
     down = false;
     const { act } = await import("react");
     const retry = [...card.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
     await act(async () => { retry.click(); });
-    await page.settle(() => Boolean(document.querySelector('[data-testid="receipt-top-block"]')), "the receipt loads");
+    await page.settle(() => loaded(), "the receipt loads");
   });
 });
 
 describe("a link to a receipt that exists", () => {
   test("opens it", async () => {
     const page = await mount("/biz?receipt=rcpt-ferreteria", DESKTOP, () => ({}));
-    await page.settle(() => Boolean(document.querySelector('[data-testid="receipt-top-block"]')), "the receipt opens");
+    await page.settle(() => loaded(), "the receipt opens");
     assert.equal(page.api().panel.kind, "receipt");
     assert.equal(new URLSearchParams(window.location.search).get("receipt"), "rcpt-ferreteria");
     assert.equal(page.toasts.size, 0);

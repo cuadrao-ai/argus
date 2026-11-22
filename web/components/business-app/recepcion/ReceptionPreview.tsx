@@ -15,6 +15,7 @@ import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useReceivingChannels } from "../business-context";
 import { RECEPTION_VIEW_PARAM, useBusiness } from "../BusinessWorkspace";
+import { followedReceipts } from "../BusinessReviewShortcuts";
 import ReceiptReadingControl from "../ReceiptReadingControl";
 import { loadFailure, type LoadFailure } from "../bandeja-sources";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -88,7 +89,7 @@ function ReceptionWorkspace() {
   const emailAvailable = useReceivingChannels().email.available;
   const locale = resolveLanguage({ device: i18n.resolvedLanguage ?? i18n.language });
   const word = (key: string) => t(`business.reception_preview.${key}`);
-  const { source, userId, records, chosen, panel, openPanel, revision, refresh, reload, retrySources } = useBusiness();
+  const { source, userId, records, chosen, panel, openPanel, followReceiptList, revision, refresh, reload, retrySources } = useBusiness();
   const { isBelowTablet: phone } = useResponsiveLayout();
   const scope = `${chosen?.space_id ?? "own"}:${chosen?.grant_id ?? chosen?.role ?? "unknown"}`;
   const [returnPosition] = useState(() => { const saved = dossierReturns.get(source); return saved?.scope === scope ? saved : undefined; });
@@ -188,10 +189,19 @@ function ReceptionWorkspace() {
   // The boxes live on Listos, for owners.
   const selectable = view === "listos" && chosen?.capabilities.includes("approve") === true;
   const columns = shownReceptionColumns(preferences);
+  // "N de M" on an open receipt and its neighbours are this list as the server last answered it, never the list as it was when the receipt opened.
+  const listedReceipts = matched.flatMap(row => row.kind === "receipt" ? [row.id] : []).join("|");
+  const openedFrom = (panel.kind === "receipt" || panel.kind === "draft") && panel.list === "inbox" ? panel.receiptIds : undefined;
+  const openReceipt = panel.kind === "receipt" ? panel.receiptId : null;
+  useEffect(() => {
+    if (pending || failed || !openedFrom) return;
+    const followed = followedReceipts(openReceipt, openedFrom, listedReceipts ? listedReceipts.split("|") : []);
+    if (followed.join("|") !== openedFrom.join("|")) followReceiptList(followed);
+  }, [pending, failed, openedFrom, openReceipt, listedReceipts, followReceiptList]);
   const navigateFrom = (next: Parameters<typeof openPanel>[0]) => {
     dossierReturns.set(source, { scope, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
     openPanel(next.kind === "receipt" || next.kind === "draft"
-      ? { ...next, receiptIds: matched.flatMap(row => row.kind === "receipt" ? [row.id] : []) }
+      ? { ...next, receiptIds: listedReceipts ? listedReceipts.split("|") : [] }
       : next);
   };
   const rowKey = (row: ReceptionRow) => `${row.kind}:${row.id}`;

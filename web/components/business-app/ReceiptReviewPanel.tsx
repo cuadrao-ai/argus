@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useState, type ReactNode } from "react";
 import { AlertCircle, CircleAlert, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
@@ -10,10 +10,15 @@ import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import ReceiptDossierReview from "./ReceiptDossierReview";
 import ReceiptReadNotice from "./ReceiptReadNotice";
-import ReceiptReadingState, { ReadingSheen } from "./ReceiptReadingState";
+import ReceiptReadingState from "./ReceiptReadingState";
 import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
-import ReceiptSourcePreview from "./ReceiptSourcePreview";
+import type { DossierTab } from "./dossier-attention";
+import DossierDetails from "./dossier/DossierDetails";
+import DossierDocument from "./dossier/DossierDocument";
+import { DossierStatus } from "./dossier/DossierHeader";
+import { DossierBare } from "./dossier/DossierParts";
+import { useJumpRows } from "./dossier/jump-rows";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { DeleteDocumentMenuItem, RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
 import ReceiptReviewFooter, { ReceiptMoreMenu } from "./ReceiptReviewFooter";
@@ -21,20 +26,18 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { showToast } from "./foundation/toasts";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
-import { useReceiptStateWord } from "./receipt-state-word";
 import { useShownRecord } from "./useShownRecord";
-import { receiptTag } from "./recepcion/reception-status";
 import type { ReceiptDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
-import { canAddRecords, dangerButtonClass, primaryButtonClass, quietButtonClass, secondaryButtonClass, StatusPill, useTerminalRead } from "./business-ui";
+import { formatMoney, UNKNOWN_VALUE } from "./business-format";
+import { sentByName } from "@/lib/sent-by";
+import { canAddRecords, dangerButtonClass, primaryButtonClass, quietButtonClass, secondaryButtonClass, useTerminalRead } from "./business-ui";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
-  const stateWord = useReceiptStateWord();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
   const terminalRead = useTerminalRead();
@@ -49,8 +52,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const [busy, setBusy] = useState<"prepare" | "rebind" | "refresh" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
+  const [tab, setTab] = useState<DossierTab>("general");
+  const jumpList = useJumpRows(receiptIds);
   const canDelete = detail?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
-  const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, stateWord(detail), t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
+  const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, detail.bandeja_group?.label ? t(`business.bandeja.label.${detail.bandeja_group.label}`) : t("business.document_delete.deleted_state"), t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
   const retainReceipt = useCallback(() => setUnprepared(true), []);
   const shown = useShownRecord(receiptId);
   // A receipt that is gone closes onto its list, so a dead link never leaves a panel whose Reintentar cannot work.
@@ -106,7 +111,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   // An open dossier stays mounted through a failed refetch: its rows hold what the person typed.
   if (failure !== null && !openDraft) {
     return (
-      <section className={SURFACE_CARD} data-testid="receipt-load-error">
+      <DossierBare><section className={SURFACE_CARD} data-testid="receipt-load-error">
         <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
           <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
           {t("common.refresh_failed", "We couldn't update.")}
@@ -115,10 +120,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
         <button type="button" className={`${secondaryButtonClass} mt-4`} onClick={retry}>
           {t("common.retry", "Retry")}
         </button>
-      </section>
+      </section></DossierBare>
     );
   }
-  if (!detail) return <Settle pending layout="detail" />;
+  if (!detail) return <DossierBare><Settle pending layout="detail" /></DossierBare>;
   const terminal = terminalRead(detail.attention);
   const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (openDraft) {
@@ -137,20 +142,24 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const position = receiptPlace(receiptId, receiptIds);
   const moves = busy ? {} : receiptNavigationActions(receiptId, receiptIds, openReceipt);
   const place = position ? { ...position, previous: moves.previous, next: moves.next } : null;
-  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
+  const frame = (children: ReactNode, reading = false) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
       back={confirmed ? "transactions" : "inbox"}
-      title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
-      badge={<StatusPill tag={receiptTag(detail).tag} label={stateWord(detail)} />}
-      amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
-      origin={{ channel: detail.channel, receivedAt: detail.received_at }}
+      // A receipt nobody named yet goes by its file.
+      title={detail.merchant || detail.filename || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
+      status={<DossierStatus label={detail.bandeja_group?.label} deleted={Boolean(detail.deleted)} />}
       place={place}
-      source={source}
+      jump={place ? { title: origin?.list === "transactions" ? t("business.nav.transactions", "Transactions") : t("business.nav.inbox", "Inbox"), rows: jumpList.rows, onOpen: jumpList.load, onPick: busy ? () => {} : openReceipt } : null}
+      tab={tab}
+      onTab={setTab}
+      tabs={[
+        { key: "general", content: children },
+        { key: "detalles", content: <DossierDetails origin={{ channel: detail.channel, sentBy: detail.sent_by ? sentByName(t, detail.sent_by) : null, receivedAt: detail.received_at, filename: detail.filename, sizeBytes: detail.size_bytes }} /> },
+      ]}
+      document={<DossierDocument file={detail} reading={reading} />}
       footer={deletion.confirmBar ?? (canDelete ? <ReceiptReviewFooter actions={<ReceiptMoreMenu groups={[<DeleteDocumentMenuItem key="delete" disabled={busy !== null || deletion.busy} onClick={deletion.ask} />]} />} /> : detail.restore_available ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} /> : undefined)}
-    >
-      {children}
-    </ReceiptReviewFrame>{deletion.dialog}</ContentFade>
+    />{deletion.dialog}</ContentFade>
   );
   if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice receipt={detail} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
@@ -225,7 +234,6 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           ) : null}
           {detail.activity?.state === "reading" ? <ReceiptReadingControl /> : null}
         </ReceiptReadingState>,
-        <ReadingSheen><ReceiptSourcePreview detail={detail} /></ReadingSheen>,
         true,
       )}
     </>;
@@ -310,28 +318,6 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               </button>
             </div>
           ) : canPrepare ? null : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
-        </>,
-        <>
-          <ReceiptSourcePreview detail={detail} />
-          {detail.evidence ? (
-            <details className={SURFACE_CARD}>
-              <summary className="cursor-pointer text-[14px] font-medium text-black/70 dark:text-white/70">
-                {t("business.review.evidence", "What the receipt says")}
-              </summary>
-              <dl className="mt-3 space-y-1.5 text-[13px] text-black/65 dark:text-white/65">
-                {detail.evidence.merchant ? <div className="flex justify-between gap-3"><dt>{t("business.review.merchant", "Merchant")}</dt><dd className="text-right">{detail.evidence.merchant}</dd></div> : null}
-                {detail.evidence.occurred_on ? <div className="flex justify-between gap-3"><dt>{t("business.review.date", "Date")}</dt><dd>{formatDay(detail.evidence.occurred_on, locale)}</dd></div> : null}
-                {detail.evidence.lines.map((line, index) => (
-                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="cuadrao-amount tabular-nums">{money(line.amount, detail.evidence?.currency ?? null)}</dd></div>
-                ))}
-                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="cuadrao-amount tabular-nums">{money(detail.evidence.tax, detail.evidence.currency)}</dd></div> : null}
-                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="cuadrao-amount tabular-nums">{money(detail.evidence.total, detail.evidence.currency)}</dd></div> : null}
-              </dl>
-              <p className="mt-3 text-[12px] text-black/45 dark:text-white/45">
-                {t("business.review.evidence_note", "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.")}
-              </p>
-            </details>
-          ) : null}
         </>,
       )}
       <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />

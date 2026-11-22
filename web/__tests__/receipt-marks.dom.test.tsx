@@ -395,11 +395,11 @@ describe("the review page's fiscal details", () => {
   test("a record without an NCF or an e-CF reads Sin comprobante fiscal in its fiscal row, never No registrado", async () => {
     for (const fiscal of [null, { rnc: unknown, ncf: unknown, ecf: unknown, itbis: unknown }]) {
       const env = await facts(fiscal);
-      const section = env.host.querySelector('[data-testid="receipt-facts-fiscal"]')!;
+      const section = env.host.querySelector('[data-testid="receipt-facts-comprobante"]')!;
       assert.ok(section, "the fiscal details are there");
       const row = section.querySelector('[data-fact="fiscal_number"]')!;
-      assert.equal(row.querySelector("dt")?.textContent, "NCF / e-CF");
-      assert.equal(row.querySelector("dd")?.textContent, "Sin comprobante fiscal");
+      assert.equal(row.firstElementChild?.textContent, "NCF");
+      assert.equal(row.querySelector("[data-row-value]")?.textContent, "Sin comprobante fiscal");
       assert.equal(section.querySelector('[data-fact="ncf"]'), null);
       assert.equal(section.querySelector('[data-fact="ecf"]'), null);
       assert.ok(!/No registrado|Sin registrar|Not recorded/.test(section.textContent ?? ""));
@@ -409,13 +409,13 @@ describe("the review page's fiscal details", () => {
 
   test("in English it reads No fiscal receipt number; a record with an NCF shows its number", async () => {
     const english = await facts(null, "en");
-    assert.equal(english.host.querySelector('[data-fact="fiscal_number"] dd')?.textContent, "No fiscal receipt number");
+    assert.equal(english.host.querySelector('[data-fact="fiscal_number"] [data-row-value]')?.textContent, "No fiscal receipt number");
     await english.act(async () => english.root.unmount());
     const withNcf = await facts({ rnc: unknown, ncf: { state: "known", value: "B0100000001", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: unknown, itbis: unknown });
     assert.equal(withNcf.host.querySelector('[data-fact="ncf"]'), null);
-    // The read number carries its origin tag after the value.
-    assert.ok(withNcf.host.querySelector('[data-fact="fiscal_number"] dd')?.textContent?.startsWith("B0100000001"));
-    assert.ok(withNcf.host.querySelector('[data-fact="fiscal_number"] dd [data-origin="extracted"]'));
+    assert.equal(withNcf.host.querySelector('[data-fact="fiscal_number"] [data-row-value]')?.textContent, "B0100000001");
+    // A number the read suggested says so in the row's status slot.
+    assert.equal(withNcf.host.querySelector('[data-testid="row-status-fiscal_number"]')?.getAttribute("data-status"), "reading");
     await withNcf.act(async () => withNcf.root.unmount());
   });
 });

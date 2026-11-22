@@ -1,0 +1,438 @@
+import assert from "node:assert/strict";
+import { describe, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import spanish from "@/public/locales/es-419/common.json";
+import type { BandejaLabel, BusinessAccount, ReceiptDetail } from "@/lib/business-api";
+import { LISTO_GAPS, type BusinessDossier, type ListoGap, type RncRegistryStatus } from "@/lib/business-dossier";
+import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
+import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
+
+const accounts: BusinessAccount[] = [{ id: "acct-ops", nickname: "Caja", currency: "DOP", type: "cash" }];
+
+type Sent = { anyway: boolean | undefined };
+type Mount = { dossier: BusinessDossier; receipt?: ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[]; refuse?: Partial<Record<"approveDraft" | "reopenDraft", unknown>> };
+
+/** The dossier as a person opens it: from a draft alone, or from a receipt row, on a full page or in the tray at one of its two sizes. */
+async function mount({ dossier, receipt, size = "page", panel, list = [], refuse = {} }: Mount) {
+  GlobalRegistrator.register({ url: "http://localhost" });
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  const { act, useState } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const es = (await import("@/public/locales/es-419/common.json")).default;
+  const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+  const { RecordTrayContext } = await import("@/components/business-app/record-tray");
+  const { default: Panel } = await import("@/components/business-app/ReceiptReviewPanel");
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: es } }, interpolation: { escapeValue: false } });
+  const sent: Sent[] = [];
+  const opened: BusinessPanelState[] = [];
+  const context = {
+    source: {
+      mode: "live",
+      dossier: async () => dossier,
+      receipt: async () => receipt,
+      receipts: async () => list,
+      receiptSource: async () => new Blob(["x"], { type: "image/png" }),
+      dgiiFields: async () => ({ "606": [], "607": [] }),
+      approveDraft: async (_id: string, _version: number, _key: string, _action: unknown, anyway?: boolean) => { sent.push({ anyway }); if (refuse.approveDraft) throw refuse.approveDraft; return dossier; },
+      reopenDraft: async () => { if (refuse.reopenDraft) throw refuse.reopenDraft; return dossier; },
+    },
+    reload: () => undefined,
+    records: { inbox: [], workspace: null },
+    openPanel: (next: BusinessPanelState) => { opened.push(next); },
+    guardPanel: () => () => undefined,
+    panel: panel ?? (receipt ? { kind: "receipt", receiptId: receipt.id, list: "inbox" } : { kind: "draft", draftId: dossier.draft_id, list: "transactions" }),
+    chosen: { capabilities: ["read", "prepare", "approve"] },
+    actions: { create: [] },
+    revision: 0,
+  } as unknown as BusinessContextValue;
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const slots = { footer: document.createElement("div"), summary: document.createElement("div"), headerActions: document.createElement("div") };
+  for (const slot of Object.values(slots)) document.body.appendChild(slot);
+  const resizes: boolean[] = [];
+  function Tray({ children }: { children: React.ReactNode }) {
+    const [narrow, setNarrow] = useState(size === "narrow");
+    return <RecordTrayContext.Provider value={{ ...slots, setTitle: () => undefined, settleList: () => undefined, narrow, toggleNarrow: () => { resizes.push(!narrow); setNarrow(!narrow); } }}>{children}</RecordTrayContext.Provider>;
+  }
+  const target = receipt ? { kind: "receipt" as const, id: receipt.id } : { kind: "draft" as const, id: dossier.draft_id };
+  const tree = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Panel target={target} /></BusinessContext.Provider></I18nextProvider>;
+  const root = createRoot(host);
+  await act(async () => root.render(size === "page" ? tree : <Tray>{tree}</Tray>));
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+  const all = <T extends Element>(selector: string) => [...document.body.querySelectorAll<T>(selector)];
+  const tabs = () => all<HTMLButtonElement>('[role="tab"]').map((tab) => tab.textContent?.replace(/\d+$/, "") ?? "");
+  const tab = (name: string) => all<HTMLButtonElement>('[role="tab"]').find((item) => item.textContent?.startsWith(name));
+  const panelOf = (key: string) => document.body.querySelector<HTMLElement>(`[data-tab-panel="${key}"]`);
+  const button = (label: string) => all<HTMLButtonElement>("button").find((item) => item.textContent?.trim() === label);
+  const click = async (node: HTMLElement | null | undefined) => { assert.ok(node, "the control is on screen"); await act(async () => node.click()); await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); }); };
+  const close = async () => { await act(async () => root.unmount()); document.body.innerHTML = ""; await GlobalRegistrator.unregister(); };
+  return { act, all, tabs, tab, panelOf, button, click, sent, opened, resizes, close, text: () => document.body.textContent ?? "" };
+}
+
+async function fiscalDossier(over: Partial<BusinessDossier> = {}): Promise<BusinessDossier> {
+  const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.fiscal);
+  return { ...dossier, review_flags: [], duplicate_candidates: [], blockers: [], approval_available: true, approval_action: "record_expense", bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], ...over };
+}
+
+const attention = (gaps: readonly ListoGap[]): Partial<BusinessDossier> => ({ bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: gaps });
+
+function receiptOf(dossier: BusinessDossier, over: Partial<ReceiptDetail> = {}): ReceiptDetail {
+  return { id: `receipt-${dossier.draft_id}`, draft_id: dossier.draft_id, version: dossier.version, merchant: dossier.facts.counterparty.value, filename: "foto-0412.jpg", media_type: "image/jpeg", channel: "whatsapp", received_at: "2026-11-19T13:41:00Z", size_bytes: 1_258_291, status: "review_ready", enterable: true, preparable: false, attention: null, activity: { state: "ready", unread: false }, bandeja: { por_revisar: true, con_problema: false, leyendo: false }, bandeja_group: { ...dossier.bandeja_group, draft_id: dossier.draft_id, version: dossier.version }, sent_by: { id: "s1", kind: "whatsapp", phone_last4: "0142" }, amount: "4720.00", currency: "DOP", occurred_on: "2026-11-18", ...over } as unknown as ReceiptDetail;
+}
+
+/** Words another lane owns: read from the locale, so this suite follows them. */
+const copy = (spanish as unknown as { business: { dossier: { review_flag: { approve_anyway: string; export_blocked: string }; duplicate_recorded: string; outcome_unknown: string; refresh: string; refused: string; reopen: string; reopen_failed: string } } }).business.dossier;
+const acceptedWord = (spanish as unknown as { business: { history: { approved: string } } }).business.history.approved;
+
+describe("the v2 dossier frame", () => {
+  test("the regular size keeps the document beside four tabs, and the narrow size makes it the Documento tab", async () => {
+    const dossier = await fiscalDossier();
+    const page = await mount({ dossier, receipt: receiptOf(dossier), size: "regular" });
+    try {
+      assert.deepEqual(page.tabs(), ["General", "Datos fiscales", "Detalles", "Historial"]);
+      const source = page.all('[data-testid="receipt-review-source"]');
+      assert.equal(source.length, 1);
+      assert.equal(source[0].closest('[role="tabpanel"]'), null, "the document sits beside the tabs");
+      assert.equal(page.all('[data-testid="business-record-review"]')[0].getAttribute("data-size"), "regular");
+      const size = page.all<HTMLButtonElement>('[data-testid="dossier-size"]')[0];
+      assert.equal(size.getAttribute("aria-label"), "Reducir");
+      assert.equal(size.disabled, false);
+      await page.click(size);
+      assert.deepEqual(page.resizes, [true]);
+      assert.deepEqual(page.tabs(), ["General", "Documento", "Datos fiscales", "Detalles", "Historial"]);
+      assert.equal(page.all<HTMLButtonElement>('[data-testid="dossier-size"]')[0].getAttribute("aria-label"), "Ampliar");
+      await page.click(page.tab("Documento"));
+      assert.ok(page.panelOf("documento")?.querySelector('[data-testid="receipt-review-source"]'), "the document is its own tab");
+      assert.equal(page.panelOf("documento")?.hidden, false);
+      assert.equal(page.panelOf("general")?.hidden, true);
+    } finally { await page.close(); }
+  });
+
+  test("a full page, where a phone shows a record, is always narrow and has no size button", async () => {
+    const dossier = await fiscalDossier();
+    const page = await mount({ dossier, receipt: receiptOf(dossier) });
+    try {
+      assert.deepEqual(page.tabs(), ["General", "Documento", "Datos fiscales", "Detalles", "Historial"]);
+      assert.equal(page.all('[data-testid="dossier-size"]').length, 0);
+    } finally { await page.close(); }
+  });
+
+  test("General holds the grouped cards, and every row is the same grid", async () => {
+    const dossier = await fiscalDossier({ declaration_editable: true });
+    const page = await mount({ dossier, size: "regular" });
+    try {
+      const general = page.panelOf("general");
+      assert.ok(general);
+      assert.deepEqual([...general.querySelectorAll("section > div > h3")].map((title) => title.textContent), ["Comprobante", "Reporte 606", "Montos"]);
+      assert.deepEqual([...general.querySelectorAll('[data-testid="receipt-facts-comprobante"] [data-fact]')].slice(0, 4).map((row) => row.getAttribute("data-fact")), ["rnc", "counterparty", "fiscal_number", "occurred_on"]);
+      assert.deepEqual([...general.querySelectorAll('[data-testid="receipt-facts-montos"] li[data-fact]')].map((row) => row.getAttribute("data-fact")), ["net_amount", "itbis", "amount"]);
+      assert.deepEqual([...general.querySelectorAll('[data-testid="receipt-facts-montos"] li[data-fact] > span:first-child')].map((label) => label.textContent), ["Subtotal", "ITBIS", "Total"]);
+      for (const row of general.querySelectorAll("li[data-fact]")) assert.ok(row.children.length >= 3, "label, status slot and value");
+      assert.match(general.querySelector('[data-testid="montos-currency"]')?.textContent ?? "", /^DOP/);
+      assert.ok(!page.text().includes("Lo que dice el recibo"));
+    } finally { await page.close(); }
+  });
+
+  test("Datos fiscales, Detalles and Historial each hold their own content", async () => {
+    const dossier = await fiscalDossier();
+    const page = await mount({ dossier, receipt: receiptOf(dossier), size: "regular" });
+    try {
+      await page.click(page.tab("Datos fiscales"));
+      assert.ok(page.panelOf("fiscal")?.querySelector('[data-testid="fiscal-declaration"]'));
+      assert.equal(page.panelOf("fiscal")?.hidden, false);
+      await page.click(page.tab("Detalles"));
+      const details = page.panelOf("detalles");
+      assert.deepEqual([...(details?.querySelectorAll("h3") ?? [])].map((title) => title.textContent), ["Origen", "Archivo"]);
+      assert.deepEqual([...(details?.querySelectorAll("li[data-fact] > span:first-child") ?? [])].map((label) => label.textContent), ["Canal", "Enviado por", "Llegada", "Nombre", "Tamaño"]);
+      assert.equal(details?.querySelector('[data-fact="channel"] > span:nth-child(3)')?.textContent, "WhatsApp");
+      assert.equal(details?.querySelector('[data-fact="filename"] > span:nth-child(3)')?.textContent, "foto-0412.jpg");
+      assert.match(details?.querySelector('[data-fact="size"] > span:nth-child(3)')?.textContent ?? "", /1[.,]2\s?MB/);
+      await page.click(page.tab("Historial"));
+      assert.ok(page.panelOf("historial")?.querySelector('[data-testid="receipt-history"]'));
+      assert.equal(page.panelOf("historial")?.hidden, false);
+    } finally { await page.close(); }
+  });
+});
+
+describe("the dossier's status is the server's", () => {
+  const labels: [BandejaLabel, string][] = [["ready", "Listo para aceptar"], ["needs_attention", "Necesita atención"], ["reading", "Leyendo…"], ["cant_read", "No se pudo leer"]];
+  for (const [label, words] of labels) {
+    test(`the pill says the Bandeja label ${label}`, async () => {
+      const page = await mount({ dossier: await fiscalDossier({ bandeja_group: { group: "attention", reason: null, label } }) });
+      try {
+        const pill = page.all('[data-testid="status-pill"]');
+        assert.equal(pill.length, 1);
+        assert.equal(pill[0].getAttribute("data-label"), label);
+        assert.equal(pill[0].textContent, words);
+      } finally { await page.close(); }
+    });
+  }
+
+  test("a deleted record has no label, so the line says only that it is deleted", async () => {
+    const page = await mount({ dossier: await fiscalDossier({ bandeja_group: { group: "eliminados", reason: null, label: null }, deleted: { deleted_at: "2026-11-20T10:00:00Z" } as BusinessDossier["deleted"] }) });
+    try {
+      assert.equal(page.all('[data-testid="status-pill"]').length, 0);
+      assert.equal(page.all('[data-testid="dossier-deleted"]')[0]?.textContent, "Eliminado");
+    } finally { await page.close(); }
+  });
+
+  test("one reason sits beside the pill and jumps to its row with a flash", async () => {
+    const page = await mount({ dossier: await fiscalDossier(attention(["invalid_ncf"])), size: "regular" });
+    try {
+      const reason = page.all<HTMLButtonElement>('[data-testid="dossier-reason"]')[0];
+      assert.equal(reason.textContent, "Revisa el NCF");
+      assert.equal(page.all('[data-testid="dossier-problems"]').length, 0);
+      assert.equal(page.tab("General")?.querySelector('[aria-label="1 por resolver"]')?.textContent, "1");
+      const row = () => page.panelOf("general")?.querySelector('[data-fact="fiscal_number"]');
+      assert.equal(row()?.getAttribute("data-attention"), "true");
+      assert.equal(row()?.querySelector('[data-testid="row-status-fiscal_number"]')?.getAttribute("aria-label"), "El NCF no tiene el formato de la serie B o E.");
+      assert.equal(row()?.getAttribute("data-flash"), null);
+      await page.click(page.tab("Historial"));
+      await page.click(reason);
+      assert.equal(page.panelOf("general")?.hidden, false, "the jump switches to the problem's tab");
+      assert.equal(row()?.getAttribute("data-flash"), "a");
+      await page.click(reason);
+      assert.equal(row()?.getAttribute("data-flash"), "b", "a second jump washes the row again");
+    } finally { await page.close(); }
+  });
+
+  test("several reasons open the list of problems, item for item in the server's order", async () => {
+    const gaps: ListoGap[] = ["missing_rnc", "invalid_ncf", "missing_itbis"];
+    const page = await mount({ dossier: await fiscalDossier(attention(gaps)), size: "regular" });
+    try {
+      assert.equal(page.all('[data-testid="dossier-reason"]').length, 0);
+      const open = page.all<HTMLButtonElement>('[data-testid="dossier-problems"]')[0];
+      assert.equal(open.textContent, "3 por resolver");
+      await page.click(open);
+      const items = page.all<HTMLButtonElement>('[data-testid="dossier-problem-list"] [role="option"]');
+      assert.deepEqual(items.map((item) => item.getAttribute("data-reason")), gaps);
+      assert.deepEqual(items.map((item) => item.textContent), ["Falta el RNCGeneral · RNC", "Revisa el NCFGeneral · NCF", "Falta el ITBISGeneral · ITBIS"]);
+      await page.click(items[2]);
+      assert.equal(page.all('[data-testid="dossier-problem-list"]').length, 0);
+      assert.ok(page.panelOf("general")?.querySelector('[data-fact="itbis"]')?.getAttribute("data-flash"));
+    } finally { await page.close(); }
+  });
+
+  test("every reason of the rule shows as itself: no reason falls back to a generic sentence", async () => {
+    for (const reason of LISTO_GAPS) {
+      const page = await mount({ dossier: await fiscalDossier(attention([reason])) });
+      try {
+        const shown = page.all('[data-testid="dossier-reason"]');
+        assert.equal(shown.length, 1, reason);
+        assert.ok(shown[0].textContent?.trim(), reason);
+        assert.ok(!shown[0].textContent?.includes("business."), `${reason} has words`);
+        assert.doesNotMatch(page.text(), /necesita más revisión/i, `${reason} shows no generic sentence`);
+        assert.equal(page.all('[data-testid="approve-reason"]').length, 0, `${reason} leaves the footer quiet`);
+      } finally { await page.close(); }
+    }
+  });
+
+  test("blockers alone are no reason: only listo_gaps are", async () => {
+    const page = await mount({ dossier: await fiscalDossier({ blockers: [{ code: "unknown_funding", field: "funding" }], approval_available: false }) });
+    try {
+      assert.equal(page.all('[data-testid="dossier-reason"], [data-testid="dossier-problems"]').length, 0);
+      assert.equal(page.all('[data-testid="approve-reason"]').length, 0);
+    } finally { await page.close(); }
+  });
+});
+
+describe("accepting a record that is not Listos", () => {
+  test("Aceptar opens one confirm that lists every problem; Corregir jumps to the first", async () => {
+    const page = await mount({ dossier: await fiscalDossier(attention(["missing_rnc", "invalid_ncf"])), size: "regular" });
+    try {
+      await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+      const dialog = page.all('[data-testid="review-flag-confirm"]')[0];
+      assert.ok(dialog);
+      assert.equal(dialog.querySelector("h2")?.textContent, "2 por resolver");
+      assert.deepEqual([...dialog.querySelectorAll("li")].map((item) => item.textContent), ["Falta el RNC. Escríbelo como aparece en el documento.", "Revisa el NCF. El NCF no tiene el formato de la serie B o E."]);
+      assert.deepEqual([...dialog.querySelectorAll("button")].map((item) => item.textContent), [copy.review_flag.approve_anyway, "Corregir"]);
+      assert.ok(dialog.textContent?.includes(copy.review_flag.export_blocked));
+      assert.deepEqual(page.sent, [], "nothing is sent before the person chooses");
+      await page.click(page.button("Corregir"));
+      assert.equal(page.all('[data-testid="review-flag-confirm"]').length, 0);
+      assert.equal(page.panelOf("general")?.querySelector('[data-fact="rnc"]')?.getAttribute("data-flash"), "a");
+      assert.deepEqual(page.sent, []);
+    } finally { await page.close(); }
+  });
+
+  test("accepting anyway sends the approve request the person confirmed", async () => {
+    const page = await mount({ dossier: await fiscalDossier(attention(["invalid_ncf"])) });
+    try {
+      await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+      assert.equal(page.all('[data-testid="review-flag-confirm"] h2')[0]?.textContent, "Revisa el NCF");
+      await page.click(page.button(copy.review_flag.approve_anyway));
+      assert.deepEqual(page.sent, [{ anyway: true }]);
+    } finally { await page.close(); }
+  });
+
+  test("a Listos record is accepted with no confirm", async () => {
+    const page = await mount({ dossier: await fiscalDossier() });
+    try {
+      await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+      assert.equal(page.all('[data-testid="review-flag-confirm"]').length, 0);
+      assert.deepEqual(page.sent, [{ anyway: false }]);
+    } finally { await page.close(); }
+  });
+});
+
+describe("what an action answered shows on every tab", () => {
+  const OTHER_TABS = ["Documento", "Datos fiscales", "Detalles", "Historial"];
+  /** The notice as a person on the open tab sees it: on screen, and in no tab's panel. */
+  const shown = (node: Element | null | undefined, tab: string) => {
+    assert.ok(node, `${tab}: the notice is on the page`);
+    assert.equal(node.closest("[hidden]"), null, `${tab}: nothing hides it`);
+    assert.equal(node.closest('[role="tabpanel"]'), null, `${tab}: it belongs to no tab`);
+  };
+  const notices = (page: Awaited<ReturnType<typeof mount>>) => page.all<HTMLElement>('[data-testid="dossier-notices"]')[0];
+
+  for (const tab of OTHER_TABS) {
+    test(`from ${tab}, accepting a comprobante already recorded says so and offers the recorded one`, async () => {
+      const page = await mount({ dossier: await fiscalDossier(), size: "narrow", refuse: { approveDraft: { code: "duplicate_comprobante", status: 409, details: { record_id: "recorded-1" } } } });
+      try {
+        await page.click(page.tab(tab));
+        await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+        const notice = page.all('[data-testid="dossier-duplicate"]')[0];
+        shown(notice, tab);
+        assert.ok(notice.textContent?.includes(copy.duplicate_recorded));
+      } finally { await page.close(); }
+    });
+
+    test(`from ${tab}, an accept whose answer never came says so and keeps its way out`, async () => {
+      const page = await mount({ dossier: await fiscalDossier(), size: "narrow", refuse: { approveDraft: new TypeError("Failed to fetch") } });
+      try {
+        await page.click(page.tab(tab));
+        await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+        shown(notices(page), tab);
+        assert.ok(notices(page).querySelector('[role="alert"]')?.textContent?.includes(copy.outcome_unknown));
+        shown(page.button(copy.refresh), tab);
+      } finally { await page.close(); }
+    });
+
+    test(`from ${tab}, a refused accept says why`, async () => {
+      const page = await mount({ dossier: await fiscalDossier(), size: "narrow", refuse: { approveDraft: { code: "not_a_known_code", status: 422 } } });
+      try {
+        await page.click(page.tab(tab));
+        await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+        shown(notices(page), tab);
+        assert.equal(notices(page).querySelector('[role="alert"] p')?.textContent, copy.refused);
+      } finally { await page.close(); }
+    });
+
+    test(`from ${tab}, a reopen that failed says so`, async () => {
+      const dossier = await fiscalDossier({ reopen_available: true, review_state: "accepted", bandeja_group: { group: null, reason: null, label: "accepted" }, approval_available: false, approval_action: null, approval_result: { status: "recorded", activity_id: "a1", reviewed_version: 2, approved_revision: 2, approved_at: "2026-11-20T15:02:00Z", actor: { actor_kind: "owner", display_name: "Rosa Díaz" } as never } });
+      const page = await mount({ dossier, size: "narrow", refuse: { reopenDraft: { code: "unexpected", status: 500 } } });
+      try {
+        await page.click(page.tab(tab));
+        await page.click(page.all<HTMLButtonElement>('[data-testid="reopen-record"]')[0]);
+        await page.click(page.all<HTMLButtonElement>('[role="alertdialog"] button, [role="dialog"] button').find((item) => item.textContent?.trim() === copy.reopen));
+        shown(notices(page), tab);
+        assert.equal(notices(page).querySelector('[role="alert"] p')?.textContent, copy.reopen_failed);
+      } finally { await page.close(); }
+    });
+  }
+
+  test("with nothing to say the frame holds no notice region", async () => {
+    const page = await mount({ dossier: await fiscalDossier(), size: "narrow" });
+    try {
+      assert.equal(page.all('[data-testid="dossier-notices"]').length, 0);
+    } finally { await page.close(); }
+  });
+});
+
+describe("the RNC row says what the DGII register says", () => {
+  const statuses: [RncRegistryStatus, string, string][] = [
+    ["verificado", "ok", "Verificado"],
+    ["suspendido", "warn", "Suspendido en la DGII"],
+    ["cese_temporal", "warn", "Cese temporal en la DGII"],
+    ["dado_de_baja", "bad", "Dado de baja en la DGII"],
+    ["not_found", "warn", "No aparece en la DGII"],
+  ];
+  for (const [status, tone, words] of statuses) {
+    test(`${status} shows in the status slot`, async () => {
+      const page = await mount({ dossier: await fiscalDossier({ rnc_registry_status: status }) });
+      try {
+        const slot = page.panelOf("general")?.querySelector('[data-testid="row-status-rnc"]');
+        assert.equal(slot?.getAttribute("aria-label"), words);
+        assert.equal(slot?.getAttribute("data-tone"), tone);
+      } finally { await page.close(); }
+    });
+  }
+
+  test("with no answer from the register the slot stays empty", async () => {
+    const page = await mount({ dossier: await fiscalDossier({ rnc_registry_status: null }) });
+    try {
+      assert.equal(page.panelOf("general")?.querySelector('[data-testid="row-status-rnc"]'), null);
+    } finally { await page.close(); }
+  });
+});
+
+describe("one dossier from both lists", () => {
+  test("the same accepted record opened from Bandeja and from Registros has the same header and tabs: its name and no pill", async () => {
+    const accepted = await fiscalDossier({ review_state: "accepted", bandeja_group: { group: null, reason: null, label: "accepted" }, approval_available: false, approval_action: null, approval_result: { status: "recorded", activity_id: "a1", reviewed_version: 2, approved_revision: 2, approved_at: "2026-11-20T15:02:00Z", actor: { actor_kind: "owner", display_name: "Rosa Díaz" } as never } });
+    const seen: { title: string | null; pills: number; status: number; tabs: string[]; accept: number }[] = [];
+    const receipt = receiptOf(accepted, { status: "confirmed", bandeja_group: { group: null, reason: null, label: "accepted", draft_id: accepted.draft_id, version: accepted.version } });
+    for (const entry of [{ receipt, panel: { kind: "receipt", receiptId: receipt.id, list: "inbox" } as BusinessPanelState }, { panel: { kind: "draft", draftId: accepted.draft_id, list: "transactions" } as BusinessPanelState }]) {
+      const page = await mount({ dossier: accepted, ...entry });
+      try {
+        seen.push({ title: page.all("#receipt-review-title")[0]?.textContent ?? null, pills: page.all('[data-testid="status-pill"]').length, status: page.all('[data-testid="dossier-status"]').length, tabs: page.tabs(), accept: page.all("[data-review-primary]").length });
+        assert.ok(page.panelOf("historial")?.textContent?.includes(acceptedWord), "Historial dates the acceptance");
+        for (const key of ["general", "fiscal", "detalles"]) assert.ok(!page.panelOf(key)?.textContent?.includes(acceptedWord), "the word for accepted lives in Historial alone");
+        assert.equal(page.all('[data-testid="receipt-business"], [data-testid="receipt-total"]').length, 0, "the header holds no Business name and no total");
+      } finally { await page.close(); }
+    }
+    assert.deepEqual(seen[0], seen[1]);
+    assert.deepEqual(seen[0], { title: accepted.facts.counterparty.value, pills: 0, status: 0, tabs: ["General", "Documento", "Datos fiscales", "Detalles", "Historial"], accept: 0 });
+  });
+});
+
+describe("the jump card under N de M", () => {
+  test("it lists the run in the list's order with each row's label, and opens the one picked", async () => {
+    const dossier = await fiscalDossier();
+    const first = receiptOf(dossier);
+    const second = receiptOf(dossier, { id: "receipt-2", merchant: "Refrigeración Juan Martínez", activity: { state: "ready", unread: true } as ReceiptDetail["activity"], bandeja_group: { group: "attention", reason: "missing_rnc", label: "needs_attention", draft_id: "d2", version: 1 } });
+    const page = await mount({ dossier, receipt: first, size: "regular", list: [second, first], panel: { kind: "receipt", receiptId: first.id, list: "inbox", receiptIds: [first.id, second.id] } });
+    try {
+      const jump = page.all<HTMLButtonElement>('[data-testid="dossier-jump"]')[0];
+      assert.equal(jump.getAttribute("aria-label"), "Ver la lista, 1 de 2");
+      await page.click(jump);
+      const rows = page.all<HTMLButtonElement>('[data-testid="dossier-jump-card"] [role="option"]');
+      assert.deepEqual(rows.map((row) => row.getAttribute("data-receipt")), [first.id, second.id]);
+      assert.deepEqual(rows.map((row) => row.getAttribute("aria-selected")), ["true", "false"]);
+      assert.deepEqual(rows.map((row) => row.querySelector('[data-testid="jump-pill"]')?.textContent), ["Listo para aceptar", "Necesita atención"]);
+      assert.deepEqual(rows.map((row) => row.querySelectorAll('[aria-label="Sin abrir"]').length), [0, 1]);
+      await page.click(rows[1]);
+      assert.equal(page.all('[data-testid="dossier-jump-card"]').length, 0);
+      assert.deepEqual(page.opened.at(-1), { kind: "receipt", receiptId: "receipt-2", list: "inbox", receiptIds: [first.id, second.id] });
+    } finally { await page.close(); }
+  });
+
+  test("the last document of a run has one verb", async () => {
+    const dossier = await fiscalDossier();
+    const first = receiptOf(dossier);
+    for (const [receiptIds, buttons] of [[[first.id, "receipt-2"], 2], [["receipt-0", first.id], 1]] as const) {
+      const page = await mount({ dossier, receipt: first, panel: { kind: "receipt", receiptId: first.id, list: "inbox", receiptIds } });
+      try {
+        const footer = page.all('[data-testid="receipt-review-footer"]')[0];
+        assert.equal([...footer.querySelectorAll("button")].filter((item) => !item.closest('[data-testid="receipt-more"]')).length, buttons);
+        assert.equal(footer.querySelectorAll("[data-review-primary]").length, 1);
+      } finally { await page.close(); }
+    }
+  });
+});
+
+describe("Historial", () => {
+  test("it groups events by day, dates the acceptance, and shows no suggestion event and no read duration", async () => {
+    const dossier = await fiscalDossier({ declaration_editable: true, declaration_suggestions: { category: { value: "02", source: "last_choice" }, payment_method: { value: "01", source: "receipt" } } });
+    const page = await mount({ dossier, size: "regular" });
+    try {
+      const history = page.panelOf("historial");
+      assert.ok(history?.querySelectorAll('[data-testid="history-day"]').length);
+      const words = history?.textContent ?? "";
+      assert.ok(!/sugeri|Última elección|Leído del recibo|segundos/i.test(words), "no suggestion event and no read time");
+      assert.ok(history?.querySelectorAll("time").length, "every event carries its full time");
+    } finally { await page.close(); }
+  });
+});

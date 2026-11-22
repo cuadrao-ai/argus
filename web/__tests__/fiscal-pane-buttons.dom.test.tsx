@@ -33,7 +33,7 @@ test("an unsaved fiscal edit holds Aceptar with its reason until Cancelar", asyn
     assert.equal(page.approve().disabled, false, "nothing typed, nothing held");
     await page.edit();
     assert.equal(page.approve().disabled, true);
-    assert.equal(page.reason(), "Guarda o cancela Más datos fiscales para aceptar.");
+    assert.equal(page.reason(), "Guarda o cancela Datos fiscales para aceptar.");
     assert.equal(page.approve().getAttribute("aria-describedby"), page.host.querySelector('[data-testid="approve-reason"]')!.id);
     await page.act(async () => button(page.pane(), "Cancelar").click());
     assert.equal(page.approve().disabled, false);

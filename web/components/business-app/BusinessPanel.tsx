@@ -90,7 +90,11 @@ function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: 
   const settleList = useCallback((next: RecordList) => {
     if ((panel.kind === "receipt" || panel.kind === "draft") && panel.list === undefined) openPanel({ ...panel, list: next });
   }, [openPanel, panel]);
-  const tray = useMemo(() => ({ footer, summary: receiptHeader ? summary : null, headerActions: receiptHeader ? headerActions : null, setTitle, settleList }), [footer, summary, headerActions, receiptHeader, settleList]);
+  // A dossier opens wide over the Bandeja and narrow beside Registros; its size button switches between the two.
+  const [resized, setResized] = useState<boolean | null>(null);
+  const narrow = resized ?? list === "transactions";
+  const toggleNarrow = useCallback(() => setResized((current) => !(current ?? list === "transactions")), [list]);
+  const tray = useMemo(() => ({ footer, summary: receiptHeader ? summary : null, headerActions: receiptHeader ? headerActions : null, setTitle, settleList, ...(receiptHeader ? { narrow, toggleNarrow } : {}) }), [footer, summary, headerActions, receiptHeader, settleList, narrow, toggleNarrow]);
   const close = () => {
     const host = listRef.current;
     returnFocusRef.current = host?.querySelector<HTMLElement>('[aria-current="true"] button, tr[aria-selected="true"]') ?? host;
@@ -99,7 +103,7 @@ function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: 
   return (
     <AdaptivePanel
       modal={false}
-      width={list === "transactions" ? "record" : "dossier"}
+      width={receiptHeader ? narrow ? "record" : "dossier" : list === "transactions" ? "record" : "dossier"}
       title={(receiptHeader ? title : null) ?? t("business.tray.title", "Details")}
       titleId={receiptHeader ? "receipt-review-title" : undefined}
       headerSize={receiptHeader ? "large" : "default"}
@@ -111,7 +115,8 @@ function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: 
       footer={<div ref={setFooter} data-footer-slot="" />}
     >
       <RecordTrayContext.Provider value={tray}>
-        <div className="px-5 py-5">
+        {/* A receipt's dossier fills the drawer: its tabs and its document scroll on their own. */}
+        <div className={receiptHeader ? "relative h-full" : "px-5 py-5"}>
           <PanelErrorBoundary key={recordKey(panel)}>
             <RecordContent panel={panel} preview={preview} />
           </PanelErrorBoundary>

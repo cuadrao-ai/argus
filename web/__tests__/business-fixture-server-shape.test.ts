@@ -54,3 +54,18 @@ test("a receipt sent for reading is leyendo, and one queued that nothing reads i
   const prepared = await source.prepareReceipt(saved.id);
   assert.deepEqual(prepared.bandeja, { por_revisar: false, con_problema: false, leyendo: true });
 });
+
+test("the sample's accept actions answer with the counts its next list read gives, as the server's do", async () => {
+  const source = createFixtureBusinessDataSource();
+  const before = (await source.receiptPage!("inbox")).activity;
+  // The sample refuses one Listos row and leaves another unsettled; the rest record.
+  const [first, second] = (await source.receiptPage!("inbox")).items.filter((item) => item.bandeja_group?.group === "listo" && !["rcpt-listo-suplidora", "rcpt-listo-repuestos"].includes(item.id));
+  const many = await source.approveListos([{ draft_id: first.bandeja_group!.draft_id!, version: first.bandeja_group!.version! }], "key-many");
+  assert.deepEqual(many.results.map((result) => result.outcome), ["applied"]);
+  assert.deepEqual(many.inbox_counts, (await source.receiptPage!("inbox")).activity);
+  assert.equal(many.inbox_counts.bandeja_listo_count, before.bandeja_listo_count! - 1);
+  const dossier = await source.dossier(second.bandeja_group!.draft_id!);
+  const one = await source.approveDraft(dossier.draft_id, dossier.version, "key-one", dossier.approval_action!);
+  assert.equal(one.approval_result?.status, "recorded");
+  assert.deepEqual(one.inbox_counts, (await source.receiptPage!("inbox")).activity);
+});
