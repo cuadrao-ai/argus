@@ -30,6 +30,7 @@ from argus.domain.business.receipts import (
     updates,
 )
 from argus.domain.business.scope import BusinessScope
+from argus.domain.ingestion.connections import SourceConnection
 from argus.domain.ingestion.documents.config import (
     SOURCE_MEDIA_TYPES,
     load_document_extraction_settings,
@@ -140,6 +141,29 @@ class BusinessService:
         )
 
     # --- Receipts --------------------------------------------------------
+    def uploads(self, scope: BusinessScope) -> list[SourceConnection]:
+        """The Business's live uploads that are receipts. A supporting file is
+        not one: only its record's dossier lists it."""
+
+        from argus.domain.business.supporting_files import supporting_uploads
+        from argus.domain.business.transactions import GrantImportStore, transaction
+
+        store = self.imports.store
+        supporting: frozenset[str] = frozenset()
+        # The in-memory app keeps no supporting files.
+        if isinstance(store, GrantImportStore):
+            with transaction(store.authority, store.context) as tx:
+                supporting = supporting_uploads(tx)
+        return [
+            connection
+            for connection in self.documents.hub.connections.list(
+                user_id=scope.person_id, scope=scope.owner
+            )
+            if connection.source == "statement"
+            and connection.status != "disconnected"
+            and connection.id not in supporting
+        ]
+
     def receipts(self, scope: BusinessScope) -> list[Receipt]:
         person = scope.person_id
         events = self.imports.list(
@@ -147,11 +171,7 @@ class BusinessService:
         )
         whatsapp = self.captured(person)
         found = []
-        for connection in self.documents.hub.connections.list(
-            user_id=person, scope=scope.owner
-        ):
-            if connection.source != "statement" or connection.status == "disconnected":
-                continue
+        for connection in self.uploads(scope):
             try:
                 found.append(self._compose(scope, connection.id, events, whatsapp))
             except DocumentServiceError as error:

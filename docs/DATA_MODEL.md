@@ -3677,6 +3677,11 @@ link again and writes a `restored` revision. It is refused once the unlink is
 7 days old (`PURGE_AFTER`). A record holds at most 3 linked supporting files;
 the server refuses the next append or restore.
 
+An upload is a supporting file and never a receipt when a supporting source
+names it and nothing else holds it: no other `business_sources` row and no
+import observation (`UPLOAD_HELD_SQL` in `annotations.py`). The receipt
+listings and the expiry pass both read that one predicate.
+
 The documents worker's expiry pass erases a supporting source that no record
 links and that has no `unlinked` revision newer than 7 days. This also covers a
 file whose record was purged while it was unlinked. The pass deletes the

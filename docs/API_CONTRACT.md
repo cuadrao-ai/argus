@@ -11298,6 +11298,15 @@ accept path recorded.
   same key is 409 `business_action_conflict`; a stale version is 409
   `stale_version`.
 
+  A supporting file is never a receipt, on a record or taken off one. The
+  receipt lists (`/business/receipts`, both views), `receipts` in search, the
+  Bandeja and overview counts and the updates feed leave its upload out, and
+  it does not complete the `first_document` setup step. The record's dossier
+  lists it. The one exception is an upload that something else also holds
+  (another source row or a read): that one is a receipt as before. GET
+  `/api/v1/business/receipts/{receipt_id}/source` still downloads the file by
+  the `receipt_id` the dossier gives.
+
   An unlinked file leaves the dossier `sources`, report rows, search and
   Eliminados at once. Restore works until `purge_at`. After that the documents
   worker erases the upload and its bytes, unless another record or source still

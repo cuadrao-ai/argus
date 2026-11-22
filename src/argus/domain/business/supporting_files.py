@@ -14,6 +14,7 @@ from pydantic import Field
 from argus.domain.business.actions import plans, sources
 from argus.domain.business.annotations import (
     SUPPORTING_SOURCE_SQL,
+    UPLOAD_HELD_SQL,
     eligible,
     finish,
     save_annotation,
@@ -95,6 +96,20 @@ def _files(tx: ActionTransaction, draft_id: UUID | str) -> list[dict[str, Any]]:
         " where o.source_id=s.id and o.space_id=s.space_id)))"
         " order by s.received_at,s.id",
         (draft_id, tx.context.owner_id, draft_id, tx.context.actor.space_id),
+    )
+
+
+def supporting_uploads(tx: ActionTransaction) -> frozenset[str]:
+    """The Business's uploads that are supporting files and nothing else, on a
+    record or taken off one. None of them is a receipt."""
+
+    return frozenset(
+        str(row["connection_id"])
+        for row in tx.rows(
+            "select s.connection_id from public.business_sources s"
+            f" where s.space_id=%s and {SUPPORTING_SOURCE_SQL} and not {UPLOAD_HELD_SQL}",
+            (tx.context.actor.space_id,),
+        )
     )
 
 

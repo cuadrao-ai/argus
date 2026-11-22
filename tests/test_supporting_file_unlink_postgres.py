@@ -417,3 +417,78 @@ def test_the_ledger_takes_the_commands_from_a_person_only(actions, command, acto
         with pytest.raises(CheckViolation) as error, tx.connection.transaction():
             tx.connection.execute(sql, params)
         assert error.value.diag.constraint_name == "business_annotation_human_commands"
+
+
+def _listings(service, context, name: str) -> dict:
+    """What the receipt readers say about the file called ``name``."""
+
+    from argus.api.business_drafts import (
+        overview_with_drafts,
+        receipt_summaries,
+        search_with_drafts,
+        updates_with_drafts,
+    )
+    from argus.api.business_receipt_activity import counts
+    from argus.domain.business.search import parse
+
+    from tests.test_business_receipt_views_postgres import _web
+
+    web = _web(service, context)
+    views = receipt_summaries(web, "all")
+    today = datetime.now(timezone.utc).date()
+    return {
+        "all": [view["id"] for view in views if view["filename"] == name],
+        "inbox": [
+            view["id"]
+            for view in receipt_summaries(web, "inbox")
+            if view["filename"] == name
+        ],
+        "search": [
+            hit["id"] for hit in search_with_drafts(web, parse(name))["receipts"]
+        ],
+        "updates": updates_with_drafts(web),
+        "counts": counts(web, views),
+        "overview": overview_with_drafts(web, today - timedelta(days=1), today),
+    }
+
+
+@pytest.mark.parametrize("record", ["approved", "open"])
+def test_a_supporting_file_is_never_a_receipt(actions, documents, record):
+    service, context, _ = actions
+    docs, _ = documents
+    draft_id = (
+        record_expense(service, context)[0]
+        if record == "approved"
+        else shared.ready(service, context)
+    )
+    name = f"{uuid4().hex}.txt"
+    without = _listings(service, context, name)
+    assert (without["all"], without["inbox"], without["search"]) == ([], [], [])
+
+    file = _append(service, docs, context, draft_id, name=name)
+    assert _listings(service, context, name) == without
+
+    _change(service, context, draft_id, file.source_id, "unlink")
+    assert _listings(service, context, name) == without
+
+    _change(service, context, draft_id, file.source_id, "restore")
+    assert _files(service, context, draft_id)[file.source_id].state == "linked"
+    assert _listings(service, context, name) == without
+
+
+def test_an_upload_something_else_holds_is_still_a_receipt(actions, documents):
+    service, context, _ = actions
+    docs, _ = documents
+    draft_id, _ = record_expense(service, context)
+    name = f"{uuid4().hex}.txt"
+    file = _append(service, docs, context, draft_id, name=name)
+    _change(service, context, draft_id, file.source_id, "unlink")
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_sources"
+            "(space_id,kind,channel,source_key,connection_id,received_at)"
+            " values (%s,'attachment','web',%s,%s,clock_timestamp())",
+            (context.actor.space_id, str(uuid4()), file.receipt_id),
+        )
+
+    assert _listings(service, context, name)["all"] == [str(file.receipt_id)]

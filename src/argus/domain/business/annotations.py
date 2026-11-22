@@ -53,6 +53,16 @@ def supporting_source_key(connection_id: UUID | str) -> str:
 #: A ``business_sources`` row aliased ``s`` is a supporting file: the key above, in SQL.
 SUPPORTING_SOURCE_SQL = "s.kind='attachment' and s.source_key='supporting:' || s.connection_id::text"
 
+#: Something besides the source row ``s`` holds its upload: another source row
+#: or a read. A supporting file whose upload nothing else holds is never a
+#: receipt, on a record or off it, and its bytes go when the file is erased.
+UPLOAD_HELD_SQL = (
+    "(exists (select 1 from public.business_sources o where o.space_id=s.space_id"
+    " and o.connection_id=s.connection_id and o.id<>s.id)"
+    " or exists (select 1 from public.financial_import_observations o"
+    " where o.connection_id=s.connection_id))"
+)
+
 
 def annotation_available(authorization: Authorization, event: ImportEvent | None) -> bool:
     return bool(

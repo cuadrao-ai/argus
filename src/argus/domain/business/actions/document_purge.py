@@ -22,7 +22,7 @@ from loguru import logger
 from psycopg import Connection
 from psycopg.rows import dict_row
 
-from argus.domain.business.annotations import SUPPORTING_SOURCE_SQL
+from argus.domain.business.annotations import SUPPORTING_SOURCE_SQL, UPLOAD_HELD_SQL
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.deletion import PURGE_AFTER, deletion
 from argus.domain.business.transactions import lock_owner
@@ -161,21 +161,14 @@ def purge_supporting(
 
     rows = _rows(connection)
     found = rows(
-        "select s.connection_id from public.business_sources s"
+        f"select s.connection_id,{UPLOAD_HELD_SQL} as held"
+        " from public.business_sources s"
         " where s.space_id=%s and s.id=%s and" + _UNLINKED_DUE,
         (space_id, source_id, now - PURGE_AFTER),
     )
     if not found:
         return False
-    upload = found[0]["connection_id"]
-    held = rows(
-        "select 1 from public.business_sources o"
-        " where o.space_id=%s and o.connection_id=%s and o.id<>%s"
-        " union all select 1 from public.financial_import_observations o"
-        " where o.connection_id=%s limit 1",
-        (space_id, upload, source_id, upload),
-    )
-    uploads = [] if held else [str(upload)]
+    uploads = [] if found[0]["held"] else [str(found[0]["connection_id"])]
     paths = _stored(rows, space_id, owner_id, uploads)
     if uploads:
         ids = [str(source_id), *uploads]
