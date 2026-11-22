@@ -325,7 +325,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const items = found.slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state, earlier_count: earlier(note), bandeja_group: noteGroup(current.review_state, note.draft_id, current.version) }; });
       return { items, has_more: found.length > limit };
     },
-    createReceiptDraft: (receipt: ReceiptDetail, fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }, confirmable = false) => {
+    createReceiptDraft: (receipt: ReceiptDetail, fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }, confirmable?: boolean) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
       const reviewed = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
       const scalar = (value: string | null): BusinessFact<string> => value ? reviewed(value) : unknown();
@@ -350,7 +350,10 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         blockers: [], approval_available: true, approval_result: null,
         sin_comprobante: receipt.sin_comprobante, personal: receipt.personal, personal_marked_by: receipt.personal_marked_by,
       });
-      seededGaps.set(id, LISTO_GAPS.filter((gap) => gap === receipt.bandeja_group?.reason).map((reason) => sampleGap(reason, confirmable)));
+      const previous = receipt.draft_id ? seededGaps.get(receipt.draft_id) : undefined;
+      const reason = LISTO_GAPS.find((gap) => gap === receipt.bandeja_group?.reason);
+      const previousGap = previous?.find((gap) => gap.reason === reason);
+      seededGaps.set(id, reason ? [sampleGap(reason, confirmable ?? previousGap?.confirmable ?? false)] : []);
       return id;
     },
     dossier: async (id: string) => id === dossierFixtureIds.unprepared ? fail(409, "draft_not_prepared") : get(id),
