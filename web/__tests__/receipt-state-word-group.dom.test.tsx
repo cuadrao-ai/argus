@@ -41,7 +41,7 @@ async function open(receipt: Partial<ReceiptDetail>, prepared: boolean) {
     ...fixture,
     receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), draft_id: prepared ? dossierFixtureIds.fiscal : null, delete_available: true, ...receipt }),
     dossier: async (id) => ({ ...structuredClone(await fixture.dossier(id)), delete_available: true }),
-    deleteDocument: async (id) => ({ document_id: id, deleted: true }),
+    deleteDocument: async (id) => ({ document_id: id, deleted: true, inbox_counts: (await fixture.receiptPage!("inbox")).activity }),
   };
   const host = document.createElement("div");
   document.body.appendChild(host);

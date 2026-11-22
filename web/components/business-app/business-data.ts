@@ -61,7 +61,7 @@ export type BusinessDataSource = Readonly<{
   reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>;
   reviewPurchase: (id: string, version: number, purchase: PurchaseChoice, key: string) => Promise<BusinessDossier>;
   setDocumentType: (id: string, version: number, documentType: "recibo" | "venta", key: string) => Promise<BusinessDossier>;
-  approveDraft: (id: string, version: number, key: string, action: BusinessApprovalAction, approveAnyway?: boolean, suggestions?: ShownSuggestions) => Promise<BusinessDossier>;
+  approveDraft: (id: string, version: number, key: string, action: BusinessApprovalAction, approveAnyway?: boolean, suggestions?: ShownSuggestions) => Promise<BusinessDossier & api.CountedAnswer>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner returns an approved record to the Bandeja; the server reverses its money row. */
   reopenDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;

@@ -73,6 +73,7 @@ import BusinessHeader from "./foundation/BusinessHeader";
 import { afterListCheck, useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
+import { withAnsweredCounts } from "./inbox-count";
 import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
 import type { RecordsFocus } from "./transacciones/records-focus";
 import { useEmailDeliveries } from "./useEmailDeliveries";
@@ -182,6 +183,8 @@ export type BusinessContextValue = Readonly<{
   setPeriod: (next: PeriodKey | Period) => void;
   panel: BusinessPanelState;
   openPanel: (panel: BusinessPanelState) => void;
+  /** The list behind the open receipt changed: its place and its neighbours follow these ids. The receipt stays open. */
+  followReceiptList: (receiptIds: readonly string[]) => void;
   /** Asks `guard` before the open panel changes, until the returned function runs. */
   guardPanel: (guard: PanelGuard) => () => void;
   actions: BusinessActions;
@@ -327,8 +330,14 @@ function BusinessWorkspaceContent({
   // workspace-scoped source is in effect, so the first fetch is already scoped.
   const onRecord = directRecord && (panel.kind === "receipt" || panel.kind === "draft");
   const scopedSource = onRecord ? sessionSource : workspaceSource;
-  const previewSourceFor = useMemo(() => createLocalBusinessPreviewSource(scopedSource), [scopedSource]);
-  const source = localPreview ? previewSourceFor(chosenGrant) : scopedSource;
+  const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
+  // An action's counts show only on the Business it started in: an answer that lands after a switch names another one's.
+  const countedSource = useMemo(() => withAnsweredCounts(scopedSource, () => {
+    const asked = getChosenGrant();
+    return (counts) => setRecords((current) => (current.workspaceGrant === asked ? { ...current, receiptActivity: counts } : current));
+  }), [scopedSource]);
+  const previewSourceFor = useMemo(() => createLocalBusinessPreviewSource(countedSource), [countedSource]);
+  const source = localPreview ? previewSourceFor(chosenGrant) : countedSource;
   const [initialView] = useState<ChatShellView>(() =>
     shellViewFromSearch(new URLSearchParams(searchParams.toString())),
   );
@@ -340,7 +349,6 @@ function BusinessWorkspaceContent({
   }), []);
   const [period, setPeriodState] = useState<Period>(() => periodRange("this_month"));
   const setPeriod = useCallback((next: PeriodKey | Period) => setPeriodState(typeof next === "string" ? periodRange(next) : next), []);
-  const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
   const [notesAttempt, setNotesAttempt] = useState(0);
   const [revision, setRevision] = useState(0);
   const [directoryReference, setDirectoryReference] = useState<string | null>(null);
@@ -657,6 +665,9 @@ function BusinessWorkspaceContent({
     },
     [bridge],
   );
+  const followReceiptList = useCallback((receiptIds: readonly string[]) => {
+    setPanel((current) => ((current.kind === "receipt" || current.kind === "draft") && current.receiptIds ? { ...current, receiptIds } : current));
+  }, []);
 
   const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
   // The top bar names the screen on the page, also the list under an open record; Facturación's waits for the server's answer like its screen does.
@@ -703,6 +714,7 @@ function BusinessWorkspaceContent({
       setPeriod,
       panel,
       openPanel,
+      followReceiptList,
       guardPanel,
       actions,
       bridge,
@@ -711,7 +723,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, invitationsAvailable, lostAccess, markAccessSeen, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, followReceiptList, invitationsAvailable, lostAccess, markAccessSeen, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   // A null choice is legitimate while the directory loads, but is not a list scope.
