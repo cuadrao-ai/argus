@@ -203,19 +203,17 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
               return (
                 <li key={event.id} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className={styles.event}>
                   <span className={styles.eventIcon} data-approved={event.approved || undefined} data-testid="history-dot"><Icon size={15} aria-hidden="true" /></span>
-                  <div className={styles.eventBody}>
-                    <p className={styles.eventTitle}>{event.line}</p>
-                    {event.sub ? <p className={styles.eventSub}>{event.sub}</p> : null}
-                    {/* The sentence says it for every reader; the diff shows it at a glance. */}
-                    {event.diff ? <div aria-hidden="true" data-testid="history-diff" className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[13.5px] leading-5 tabular-nums">
-                      <del className={STRUCK}>{event.diff.before}</del>
-                      <span className={ARROW}>→</span>
-                      <ins className={ADDED}>{event.diff.after}</ins>
-                    </div> : null}
-                    {event.changes?.length ? <FiscalChanges changes={event.changes} /> : null}
-                    {event.note ? <p data-testid="history-note" className={styles.eventSub}>{event.note}</p> : null}
-                  </div>
-                  <div className={styles.eventWho}>{event.who ? <span>{event.who}</span> : null}<time dateTime={event.at}>{formatTimestamp(event.at, locale)}</time></div>
+                  <p className={styles.eventTitle}>{event.line}</p>
+                  <div className={styles.eventWho} data-testid="history-who">{event.who ? <span>{event.who}</span> : null}<time dateTime={event.at}>{formatTimestamp(event.at, locale)}</time></div>
+                  {event.sub ? <p className={styles.eventSub} data-testid="history-sub">{event.sub}</p> : null}
+                  {/* The sentence says it for every reader; the diff shows it at a glance. */}
+                  {event.diff ? <div aria-hidden="true" data-testid="history-diff" className={`${styles.eventMore} flex flex-wrap items-center gap-1.5 text-[13.5px] leading-5 tabular-nums`}>
+                    <del className={STRUCK}>{event.diff.before}</del>
+                    <span className={ARROW}>→</span>
+                    <ins className={ADDED}>{event.diff.after}</ins>
+                  </div> : null}
+                  {event.changes?.length ? <div className={styles.eventMore}><FiscalChanges changes={event.changes} /></div> : null}
+                  {event.note ? <p data-testid="history-note" className={styles.eventSub}>{event.note}</p> : null}
                 </li>
               );
             })}

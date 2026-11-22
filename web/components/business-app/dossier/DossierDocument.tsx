@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "../BusinessWorkspace";
 import { DelayedSourceWell } from "../business-skeletons";
-import { secondaryButtonClass, useChannelLabel } from "../business-ui";
+import { quietButtonClass, secondaryButtonClass, useChannelLabel } from "../business-ui";
 import { CHANNEL_ICON } from "../foundation/channel-icons";
 import { ReadingSheen } from "../ReceiptReadingState";
 import { useReceiptSource } from "../ReceiptSourcePreview";
@@ -14,7 +14,7 @@ import styles from "./dossier.module.css";
 
 const ReceiptImageZoom = lazy(() => import("../ReceiptImageZoom"));
 
-export type DossierFile = Pick<ReceiptSummary, "id" | "media_type" | "filename"> & Partial<Pick<ReceiptSummary, "channel">>;
+export type DossierFile = Pick<ReceiptSummary, "id" | "media_type" | "filename"> & Partial<Pick<ReceiptSummary, "channel" | "email_delivery_ids">>;
 
 function FileStage({ file, reading }: { file: DossierFile; reading: boolean }) {
   const { t } = useTranslation();
@@ -39,21 +39,31 @@ function FileStage({ file, reading }: { file: DossierFile; reading: boolean }) {
   </>;
 }
 
-/** Under the document: the channel's icon and word beside the file name, and the download of the file on screen. */
+/**
+ * Under the document: the channel's icon and word beside the file name, and the
+ * download of the file on screen. A file that came by email offers its email,
+ * and says so when it arrived more than once.
+ */
 function DocumentFoot({ file, url }: { file: DossierFile; url: string | null }) {
   const { t } = useTranslation();
+  const { openPanel } = useBusiness();
   const channelLabel = useChannelLabel();
   const Icon = file.channel ? CHANNEL_ICON[file.channel] : null;
   const name = file.filename ?? t("business.review.source", "Original receipt");
-  return (
+  const deliveries = file.email_delivery_ids?.length ?? 0;
+  // The API lists deliveries earliest first; the first one is where the file first arrived by email.
+  const firstEmail = file.email_delivery_ids?.[0];
+  const seeEmail = (label: string, testId?: string) => firstEmail ? <button type="button" data-testid={testId} className={quietButtonClass} onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{label}</button> : null;
+  return <>
+    {deliveries > 1 ? <p className={`${styles.note} px-3.5 pb-2`} data-testid="receipt-email-times">{t("business.dossier.email_times", { count: deliveries, defaultValue: "This file arrived {{count}} times by email." })}{file.channel !== "email" ? <>{" "}{seeEmail(t("business.dossier.see_first_email", "See the first email"))}</> : null}</p> : null}
     <div className={styles.docFoot} data-testid="dossier-document-foot">
       <span className={styles.docName}>
-        {Icon && file.channel ? <><Icon size={15} aria-hidden="true" className="shrink-0" /><span className="whitespace-nowrap" data-testid="receipt-source-channel">{channelLabel(file.channel)}</span><span aria-hidden="true">·</span></> : null}
+        {Icon && file.channel ? <><Icon size={15} aria-hidden="true" className="shrink-0" /><span className="whitespace-nowrap" data-testid="receipt-source-channel">{file.channel === "email" ? t("business.dossier.arrived_by_email", "Arrived by email") : channelLabel(file.channel)}{file.channel === "email" && firstEmail ? <>{" · "}{seeEmail(t("business.dossier.see_email", "See email"), "receipt-see-email")}</> : null}</span><span aria-hidden="true">·</span></> : null}
         <span className={styles.docFile} title={name}>{name}</span>
       </span>
       {url ? <a href={url} download={file.filename ?? "receipt"} className={styles.docLink} aria-label={t("business.dossier.document.download", { name })}><Download size={16} aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
     </div>
-  );
+  </>;
 }
 
 /**

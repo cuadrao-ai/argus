@@ -93,7 +93,8 @@ export function DossierRow({ row, label, value, status, look = "text", total, wr
     item.current?.querySelector<HTMLElement>("button, input, select")?.focus({ preventScroll: true });
   }, [flash]);
   const empty = value === null || value === undefined || value === "";
-  const shape = `${styles.value} ${look === "number" ? styles.num : look === "mono" ? styles.mono : ""}`;
+  // An amount carries the mark Ocultar montos blurs.
+  const shape = `${styles.value} ${look === "number" ? `${styles.num} cuadrao-amount` : look === "mono" ? styles.mono : ""}`;
   const shown = empty ? t("business.dossier.row.no_data") : value;
   const editing = edit?.open === true;
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

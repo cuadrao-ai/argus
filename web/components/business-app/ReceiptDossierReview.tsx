@@ -351,15 +351,15 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
 
   const captureDialog = <ManualCaptureDialog key="capture" isOpen={captureOpen} target={captureTarget} revision={captureRevision} onClose={() => setCaptureOpen(false)} onPending={setCapturePending} onRetained={setCaptureRetained} onUnavailable={() => { setUnavailable(true); setDossier(null); }} onSaved={(saved) => { setDossier(saved); setCaptureOpen(false); setUnavailable(false); reload(); }} />;
   const captureRecovery = businessTypedNotesAvailable(records.workspace) && captureRetained && !captureOpen ? <button type="button" className={`${secondaryButtonClass} mb-4`} onClick={() => setCaptureOpen(true)}>{capturePending ? t("business.capture.reopen", "Reopen unconfirmed note") : t("business.capture.reopen_retained", "Reopen retained note")}</button> : null;
-  if (unavailable || !dossier && problem) return (<DossierBare>
+  if (unavailable || !dossier && problem) return (<><DossierBare>
     {captureRecovery}
     <section className={SURFACE_CARD} data-testid="receipt-load-error">
       <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem?.text ?? t("business.dossier.unavailable", "This record isn't available with your current access.")}</p>
       {problem?.reference ? <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={problem.reference} /></div> : null}
       <button type="button" disabled={checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}>{t("common.retry", "Retry")}</button>
-    </section>{captureDialog}</DossierBare>
+    </section></DossierBare>{captureDialog}</>
   );
-  if (!dossier) return <DossierBare>{captureRecovery}<Settle pending layout="detail" />{captureDialog}</DossierBare>;
+  if (!dossier) return <><DossierBare>{captureRecovery}<Settle pending layout="detail" /></DossierBare>{captureDialog}</>;
   if (finished) return <DossierBare><ReceiptReviewDone onBack={() => openPanel({ kind: "inbox" })} /></DossierBare>;
 
   const accounts = dossier.accounts;
@@ -411,7 +411,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     if (!canApprove || !supportedKind || !approvable || check.draftId !== dossier.draft_id || check.version !== dossier.version) return;
     approve({ next: check.next, anyway });
   };
-  const unsavedNames = [...rows.unsaved.map(rowName), ...(fiscalDirty ? [t("business.dossier.placeholder.more_fiscal", "More tax details")] : [])];
+  const unsavedNames = [...rows.unsaved.map(rowName), ...(fiscalDirty ? [t("business.dossier.tab.fiscal")] : [])];
   const reason = unsavedNames.length ? t("business.dossier.placeholder.save_first", { fields: unsavedNames.join(", "), defaultValue: "Save or cancel {{fields}} to approve." })
     : autosave.failed && !busy ? t("business.dossier.blocker_unsaved", "A change didn't save. Save it again to approve.")
     : null;
@@ -422,7 +422,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const canMove = settled && !autosave.busy && !advancing && !settling;
   const moves = canMove && receipt ? receiptNavigationActions(receipt.id, receiptIds, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id, list: origin?.list, receiptIds }); }) : {};
   const position = receipt ? receiptPlace(receipt.id, receiptIds) : null;
-  const lastInList = !position || position.index >= position.total;
+  // The last document of a run has one verb. A receipt opened with no list still offers the next one waiting in the Bandeja.
+  const lastInList = position ? position.index >= position.total : !receipt;
   const firstSource = dossier.sources[0];
   const fiscalFacts = dossier.facts.fiscal;
   const fiscalEdit: Record<"rnc" | "fiscal_number" | "itbis", { name: "rnc" | "ncf" | "itbis"; value: string }> = {
@@ -563,7 +564,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       ]}
       document={
         <DossierDocument
-          file={original ? { id: original.connection_id, filename: original.filename, media_type: original.media_type, channel: original.channel } : null}
+          file={original ? { id: original.connection_id, filename: original.filename, media_type: original.media_type, channel: original.channel, email_delivery_ids: original.email_delivery_ids } : null}
           extra={supporting.length || !noSource && !original || dossier.sources.some((item) => item.kind !== "attachment") ? <>
             {supporting.map((attachment) => <ReceiptSourcePreview key={attachment.id} initialExpanded detail={{ id: attachment.connection_id, filename: attachment.filename, media_type: attachment.media_type, received_at: attachment.received_at, channel: attachment.channel, email_delivery_ids: attachment.email_delivery_ids }} />)}
             <ReceiptMessages sources={dossier.sources} highlight={highlight} />
@@ -591,7 +592,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
             <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${secondaryButtonClass} whitespace-nowrap`} aria-describedby={acceptAria} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? accepting : approvalLabel}</button>
             <button type="button" data-review-primary="" aria-busy={operation.kind === "approving" && advancing} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={acceptAria} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? accepting : t("business.dossier.approve_next", "Approve and next")}</button>
           </> : (
-            // The last document of a run, and a record opened alone, have one verb.
             <button type="button" data-review-primary="" aria-busy={operation.kind === "approving"} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={acceptAria} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(Boolean(receipt))}>{operation.kind === "approving" ? accepting : approvalLabel}</button>
           ) : null}
         </>}

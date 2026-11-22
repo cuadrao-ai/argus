@@ -166,7 +166,8 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
       : <input id={id} name={field.name} className={REVIEW_INPUT_CLASS} autoComplete="off" value={value} disabled={locked} onChange={(event) => setValue(event.target.value)} />;
     return (
       <li key={field.name} className={styles.row} data-field={field.name}>
-        <label htmlFor={id} className={styles.label}>{label}</label>
+        {/* The money field names itself, currency included. */}
+        {field.kind === "money" ? <span className={styles.label}>{label}</span> : <label htmlFor={id} className={styles.label}>{label}</label>}
         <span className={styles.slot}>{slot}</span>
         <div className={styles.wide}>{control}</div>
         {dateProblem ? <div role="alert" className={`${styles.below} ${FIELD_NOTE_CLASS}`}>{t("business.date_range.invalid_date", { format: t("business.date_picker.placeholder", "dd/mm/aaaa"), defaultValue: "Enter a valid date as {{format}}." })}</div> : null}

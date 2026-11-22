@@ -27,7 +27,7 @@ export type DossierProblem = {
   compare?: string;
 };
 
-type Standing = Pick<BusinessDossier, "listo_gaps" | "review_flags" | "duplicate_candidates" | "document_type" | "facts" | "year_to_check">;
+type Standing = Pick<BusinessDossier, "listo_gaps" | "review_flags" | "duplicate_candidates" | "document_type" | "facts" | "year_to_check"> & Partial<Pick<BusinessDossier, "blockers">>;
 
 const GAP = "business.dossier.gap";
 /** Copy the locked design does not hold yet waits here for its owner. */
@@ -86,7 +86,9 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
       return { key, reason, title: t(`${DUPLICATE_KEYS}.title`), text: basis ? t(basis) : words(reason, "text"), tab: "general", row: null, where: `${general} · ${t(`${DUPLICATE_KEYS}.compare`)}`, compare: candidate?.draft_id };
     }
     const flag = reason === "review_flag" ? flags.find((item) => !OWN_GAP[item.code]) ?? flags[0] : undefined;
-    const row = flag ? FLAGGED_ROW[flag.code] : reason === "check_details" && dossier.year_to_check ? "occurred_on" : GAP_ROW[reason] ?? null;
+    // `blocked` is the server's blockers: the first field one names is where the fix is.
+    const blockedField = reason === "blocked" ? dossier.blockers?.find((blocker) => blocker.field)?.field ?? null : null;
+    const row = flag ? FLAGGED_ROW[flag.code] : reason === "check_details" && dossier.year_to_check ? "occurred_on" : blockedField ?? GAP_ROW[reason] ?? null;
     const text = reason === "invalid_rnc" && !flags.some((item) => item.code === "rnc_check_digit") ? t("business.dgii.rnc_check.invalid_length.reason")
       : flag?.code === "amounts_mismatch" ? flag.difference != null ? t("business.terms.difference", { amount: flag.difference }) : words(reason, "text")
       : flag ? t(`business.dossier.review_flag.${flag.code}.text`)

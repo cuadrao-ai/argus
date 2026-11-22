@@ -53,12 +53,12 @@ describe("people on the screen", () => {
       const approval = { status: "recorded", activity_id: "x", reviewed_version: 4, approved_revision: 4, approved_at: "2026-10-10T17:00:00Z", actor: actor("o", null, "dueno@example.test", "email") } as BusinessDossier["approval_result"];
       const page = await render(<ReceiptHistory history={history} accounts={[]} approval={approval} />, language);
       const section = page.host.querySelector('[data-testid="receipt-history"]')!;
-      await page.act(async () => { section.querySelector<HTMLButtonElement>("h3 button")!.click(); });
       const text = section.textContent ?? "";
       const [former, member] = language === "en" ? ["Former member", "Member"] : ["Exmiembro", "Miembro"];
       for (const shown of ["contadora@example.test", "dueno@example.test", "Ana Peña", former, member]) assert.ok(text.includes(shown), shown);
       assert.equal(text.split(former).length - 1, 1, "the one who left");
-      assert.equal(text.split(`${member} · `).length - 1, 1, "the unnamed teammate this viewer may not read the email of");
+      const who = [...section.querySelectorAll('[data-testid="history-who"] span')].map((name) => name.textContent);
+      assert.equal(who.filter((name) => name === member).length, 1, "the unnamed teammate this viewer may not read the email of");
       assert.doesNotMatch(text, /null/);
       await page.close();
     });

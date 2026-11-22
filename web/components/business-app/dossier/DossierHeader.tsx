@@ -133,7 +133,7 @@ export function DossierPlaceNav({ place, jump }: { place: DossierPlace; jump?: {
                 <span className={styles.jumpName}>{row.name}</span>
                 <span className={styles.jumpMeta}>{row.label ? <BandejaLabelPill label={row.label} small /> : null}<span>{row.wait}</span></span>
               </span>
-              <span className={styles.jumpTotal}>{row.total}</span>
+              <span className={`${styles.jumpTotal} cuadrao-amount`}>{row.total}</span>
             </button>
           ))}
         </div>
