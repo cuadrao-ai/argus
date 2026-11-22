@@ -39,7 +39,7 @@ import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessio
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { shownScreen } from "./record-tray";
+import { recordList, shownScreen } from "./record-tray";
 import { browserAuthGeneration } from "@/lib/browser-auth-generation";
 import { withBusinessSession, withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
@@ -206,6 +206,8 @@ const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor, so `has_more` sends the rest to search.
 const NOTES_PAGE = 50;
 const PANEL_KINDS = new Set(["overview", "inbox", "transactions"]);
+/** The Bandeja tab, kept while the Bandeja or a record opened from it is on screen. */
+export const RECEPTION_VIEW_PARAM = "receptionView";
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
@@ -266,6 +268,13 @@ function shellViewFromSearch(params: URLSearchParams): ChatShellView {
   return params.has("conversation") || params.get("view") === "chat" ? "chat" : "workspace";
 }
 
+/** Whether the Bandeja is on screen; undefined while a linked record has not loaded and said which list it belongs to. */
+function onBandeja(panel: BusinessPanelState): boolean | undefined {
+  if (panel.kind === "inbox") return true;
+  if ((panel.kind === "receipt" || panel.kind === "draft") && panel.list === undefined) return undefined;
+  return recordList(panel) === "inbox";
+}
+
 function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
   try {
     const url = new URL(window.location.href);
@@ -276,6 +285,7 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
     url.searchParams.delete("email");
     url.searchParams.delete("segment");
     url.searchParams.delete("tab");
+    if (onBandeja(panel) === false) url.searchParams.delete(RECEPTION_VIEW_PARAM);
     if (view === "workspace") {
       if (panel.kind === "business" && panel.tab) url.searchParams.set("tab", panel.tab);
       if (panel.kind === "receipt") url.searchParams.set("receipt", panel.receiptId);

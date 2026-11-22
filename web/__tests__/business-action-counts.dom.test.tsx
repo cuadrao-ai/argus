@@ -22,6 +22,7 @@ const BEFORE = counts(2, 1, 1, 1);
 const ANSWERED = counts(41, 17, 23, 5);
 
 async function mount() {
+  window.history.replaceState(null, "", "/biz");
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
