@@ -143,8 +143,8 @@ class Blocker(Contract):
 
 
 class ReviewFlag(Contract):
-    """A read value to check again. ``confirm`` flags need ``approve_anyway``
-    on the approve request; the rest only warn."""
+    """A read value to check again. Each is a Listos gap an accept names to go
+    over it; the 606 export still refuses the ``confirm`` ones."""
 
     code: Literal["rnc_check_digit", "ncf_malformed", "itbis_high", "amounts_mismatch"]
     field: Literal["rnc", "ncf", "itbis", "amount"]

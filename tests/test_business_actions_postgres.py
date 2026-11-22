@@ -21,6 +21,7 @@ from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import seen_gaps
 from tests.test_business_spaces_migration_postgres import space
 
 users = shared.users
@@ -297,7 +298,9 @@ def test_human_approval_recovers_committed_money_once(actions, monkeypatch):
 
     service, context, _ = actions
     draft = ready(service, context)
-    request = ApproveExpense(version=1, action="record_expense")
+    request = ApproveExpense(
+        version=1, action="record_expense", accept_gaps=seen_gaps(service, context, draft)
+    )
     original = service.imports._write
 
     def interrupted(*args, **kwargs):
@@ -336,7 +339,14 @@ def test_agent_cannot_approve_and_generic_review_cannot_bypass_history(actions):
     )
     assert (
         service.approve(
-            agent, draft, ApproveExpense(version=1, action="record_expense"), "agent"
+            agent,
+            draft,
+            ApproveExpense(
+                version=1,
+                action="record_expense",
+                accept_gaps=seen_gaps(service, agent, draft),
+            ),
+            "agent",
         ).outcome
         == "permission_denied"
     )
@@ -407,7 +417,14 @@ def test_approval_rechecks_grant_after_preview_before_claim(actions, users, monk
 
     monkeypatch.setattr(service.imports.money, "preview", revoke_after_preview)
     result = service.approve(
-        context, draft, ApproveExpense(version=1, action="record_expense"), "approve"
+        context,
+        draft,
+        ApproveExpense(
+            version=1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        "approve",
     )
     assert result.outcome == "not_found"
     with service.authority.pool.connection() as db:
@@ -431,7 +448,9 @@ def test_concurrent_approval_and_recorded_correction(actions):
 
     service, context, _ = actions
     draft = ready(service, context)
-    request = ApproveExpense(version=1, action="record_expense")
+    request = ApproveExpense(
+        version=1, action="record_expense", accept_gaps=seen_gaps(service, context, draft)
+    )
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(
             executor.map(
@@ -834,7 +853,9 @@ def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatc
         )
     ]
     assert service.dossier(context, draft).approval_available
-    request = ApproveExpense(version=1, action="record_expense")
+    request = ApproveExpense(
+        version=1, action="record_expense", accept_gaps=seen_gaps(service, context, draft)
+    )
     original = money.write
 
     def interrupted(**kwargs):

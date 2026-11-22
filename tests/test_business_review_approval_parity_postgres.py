@@ -14,6 +14,7 @@ from tests import test_business_approval_fiscal_postgres as fiscal
 from tests import test_business_declaration_after_approval_postgres as recorded
 from tests import test_business_fiscal_links_postgres as links
 from tests.business.receipt_stub import receipt_day
+from tests.business_accept_support import seen_gaps
 
 users = fiscal.users
 shared_actions = fiscal.shared_actions
@@ -127,8 +128,8 @@ def _approve(service, context, draft, shown) -> None:  # noqa: ANN001
         ApproveExpense(
             version=shown.version,
             action="record_expense",
-            approve_anyway=True,
             suggestions=shown.declaration_suggestions,
+            accept_gaps=seen_gaps(service, context, draft),
         ),
         str(uuid4()),
     )

@@ -17,6 +17,7 @@ from argus.domain.business.transactions import transaction
 from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as shared
+from tests.business_accept_support import seen_gaps
 from tests.test_business_spaces_migration_postgres import space
 
 users = shared.users
@@ -230,7 +231,11 @@ def test_original_note_search_is_literal_and_survives_record_state(actions):
     approved = service.approve(
         context,
         first.draft_id,
-        ApproveExpense(version=2, action="record_expense"),
+        ApproveExpense(
+            version=2,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first.draft_id),
+        ),
         "approve",
     )
     assert approved.outcome == "applied"

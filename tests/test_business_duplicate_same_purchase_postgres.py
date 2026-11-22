@@ -15,6 +15,7 @@ from psycopg.types.json import Jsonb
 
 from tests import test_business_duplicate_resolution_postgres as resolution
 from tests.business.receipt_stub import receipt_date
+from tests.business_accept_support import seen_gaps
 
 actions = resolution.actions
 users = resolution.users
@@ -249,7 +250,11 @@ def test_the_comparison_says_where_when_and_in_what_state_each_document_is(actio
     approved = service.approve(
         context,
         first,
-        ApproveExpense(version=ready.version, action="record_expense"),
+        ApproveExpense(
+            version=ready.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first),
+        ),
         str(uuid4()),
     )
     assert approved.outcome == "applied", approved

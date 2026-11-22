@@ -925,7 +925,7 @@ class BusinessActions:
         _, context = self._attachment_context(user_id, connection_id, scope)
         with transaction(self.authority, context) as tx:
             event = tx.imports.event(str(draft_id))
-            standing = draft_standings(tx, [event]).get(event.id)
+            standing = draft_standings(tx, [event], every_gap=True).get(event.id)
         return listo_gaps(standing) if standing is not None else ()
 
     def prepare_attachment(

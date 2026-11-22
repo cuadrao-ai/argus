@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import pytest
 
+from tests.business_accept_support import accepting
 from tests.test_business_fiscal_routes_postgres import _post, world  # noqa: F401
 from tests.test_business_scope_switch_routes_postgres import (
     API,
@@ -134,7 +135,7 @@ def test_counts_marks_and_resumen_agree_through_the_review_journey(world) -> Non
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": record["version"], "action": "record_expense"},
+        accepting(record, "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text

@@ -23,6 +23,7 @@ from tests import test_business_approval_fiscal_postgres as fiscal
 from tests import test_business_declaration_after_approval_postgres as recorded
 from tests.business.receipt_stub import receipt_date, receipt_day
 from tests.business.test_approved_export_unchanged import CASES, PURCHASE
+from tests.business_accept_support import seen_gaps
 from tests.test_business_dgii_postgres import cash_account
 
 users = fiscal.users
@@ -109,6 +110,7 @@ def test_approval_saves_what_the_review_showed(actions):  # noqa: ANN001
             version=shown.version,
             action="record_expense",
             suggestions=shown.declaration_suggestions,
+            accept_gaps=seen_gaps(service, context, draft),
         ),
         str(uuid4()),
     )
@@ -208,8 +210,24 @@ def test_a_linked_credit_note_carries_its_purchases_number(actions):  # noqa: AN
     link = shown.inheritance["modified_ncf"]
     assert (link.field, link.value, link.inherited) == ("original_ncf", "B0100002301", True)
 
+    # A credit note is never Listos: the refund is recorded over that gap, named.
+    assert "credit_note" in shown.listo_gaps
+    unnamed = service.approve_refund(
+        context,
+        credit,
+        ApproveRefund(version=version, action="record_refund"),
+        str(uuid4()),
+    )
+    assert (unnamed.code, unnamed.gaps) == ("not_listo", shown.listo_gaps)
     outcome = service.approve_refund(
-        context, credit, ApproveRefund(version=version, action="record_refund"), str(uuid4())
+        context,
+        credit,
+        ApproveRefund(
+            version=version,
+            action="record_refund",
+            accept_gaps=shown.listo_gaps,
+        ),
+        str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
     assert service.dossier(context, credit).dgii.modified_ncf == "B0100002301"
@@ -333,7 +351,11 @@ def test_approval_saves_the_fecha_pago_shown_on_a_draft_saved_before_the_links(a
     outcome = service.approve(
         context,
         draft,
-        ApproveExpense(version=shown.version, action="record_expense"),
+        ApproveExpense(
+            version=shown.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         str(uuid4()),
     )
 
@@ -368,7 +390,14 @@ def test_a_credit_note_approval_saves_the_ncf_modificado_shown(actions, override
     shown = service.dossier(context, credit)
     assert (shown.dgii.modified_ncf, shown.dgii.id_type) == ("B0100002501", "1")
     outcome = service.approve_refund(
-        context, credit, ApproveRefund(version=version, action="record_refund"), str(uuid4())
+        context,
+        credit,
+        ApproveRefund(
+            version=version,
+            action="record_refund",
+            accept_gaps=seen_gaps(service, context, credit),
+        ),
+        str(uuid4()),
     )
 
     assert outcome.outcome == "applied", outcome
@@ -503,7 +532,14 @@ def test_the_dossier_of_an_approved_credit_note_shows_the_line_it_exports(action
         occurred_on="2026-09-12",
     )
     outcome = service.approve_refund(
-        context, credit, ApproveRefund(version=version, action="record_refund"), str(uuid4())
+        context,
+        credit,
+        ApproveRefund(
+            version=version,
+            action="record_refund",
+            accept_gaps=seen_gaps(service, context, credit),
+        ),
+        str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
     _saved_before_the_links(service, context, credit, (), modified_ncf="B0100000009")

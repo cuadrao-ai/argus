@@ -13,6 +13,7 @@ from argus.domain.business.reporting_store import read_recorded
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_export_postgres as export_tests
+from tests.business_accept_support import seen_gaps
 from tests.test_business_dgii_postgres import approve, cash_account, reviewed
 from tests.test_business_spaces_migration_postgres import owned_space
 
@@ -35,7 +36,14 @@ def report(snapshot):
 def record_expense(service, context, *, owner_funds=False):
     draft = shared.ready(service, context, owner_funds=owner_funds)
     outcome = service.approve(
-        context, draft, ApproveExpense(version=1, action="record_expense"), str(uuid4())
+        context,
+        draft,
+        ApproveExpense(
+            version=1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
     return draft, str(outcome.activity_id)
@@ -552,7 +560,11 @@ def record_personal_expense(service, context):
     outcome = service.approve(
         context,
         draft,
-        ApproveExpense(version=version + 1, action="record_expense"),
+        ApproveExpense(
+            version=version + 1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome

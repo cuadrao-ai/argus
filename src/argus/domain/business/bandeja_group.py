@@ -1,8 +1,9 @@
 """Which Bandeja group a row sits in, the one reason it is not Listos, and the
 one label the list shows for it. The only owner of the rule: the receipt list,
-the notes, the emails, the counts and the approval of a list all read it here.
-A group decides what the Bandeja shows and what the faster approval admits. It
-never approves anything, and any open receipt can still be approved alone.
+the notes, the emails, the counts and every approval read it here. A group
+decides what the Bandeja shows and what an approval admits. A Listos record is
+accepted as it is. A record with gaps is accepted alone, never in a list, and
+only when a person may accept over each gap and the accept names every one.
 
 Listos is a record the server has confirmed in full, a sale, a receipt marked
 Personal and one in a foreign currency included. A credit note and a record
@@ -18,10 +19,10 @@ review calendar offers the upload year on the same answer.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
 from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.ledger import business_day
@@ -174,44 +175,86 @@ def year_to_check(facts: BusinessFacts, upload_year: int | None) -> bool:
     )
 
 
-RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
-    ("not_read", lambda draft: draft.read == "none"),
-    ("check_details", lambda draft: draft.read == "unclear"),
-    ("several_purchases", lambda draft: draft.read_attention == "several_purchases"),
-    ("no_purchase_found", lambda draft: draft.read_attention == "no_purchase_found"),
-    (
+class Gap(NamedTuple):
+    """One row of the rule. ``confirmable``: the record can be recorded as it
+    is, so a person may accept over the gap by naming it. The rest refuse
+    every accept: a fact the money record needs, a blocker with its own
+    refusal, or a sender nobody verified."""
+
+    reason: BandejaReason
+    confirmable: bool
+    found: Callable[[DraftStanding], bool]
+
+
+RULE: tuple[Gap, ...] = (
+    Gap("not_read", True, lambda draft: draft.read == "none"),
+    Gap("check_details", True, lambda draft: draft.read == "unclear"),
+    Gap(
+        "several_purchases",
+        True,
+        lambda draft: draft.read_attention == "several_purchases",
+    ),
+    Gap(
+        "no_purchase_found",
+        False,
+        lambda draft: draft.read_attention == "no_purchase_found",
+    ),
+    Gap(
         "duplicate",
+        True,
         lambda draft: draft.repeated or "possible_duplicate" in draft.blockers,
     ),
-    ("credit_note", lambda draft: draft.credit_note),
-    ("missing_merchant", lambda draft: _lacks(draft, "counterparty")),
-    ("missing_date", lambda draft: _lacks(draft, "occurred_on")),
-    ("check_details", lambda draft: year_to_check(draft.facts, draft.upload_year)),
-    ("missing_amount", lambda draft: _lacks(draft, "amount")),
-    ("missing_currency", lambda draft: _lacks(draft, "currency")),
-    ("sin_comprobante", lambda draft: is_sin_comprobante(draft.facts)),
-    ("missing_rnc", lambda draft: _blank(_fiscal(draft).rnc)),
-    ("invalid_rnc", _invalid_rnc),
-    ("missing_ncf", _no_number),
-    ("invalid_ncf", lambda draft: _flagged(draft, "ncf_malformed")),
-    ("ecf_check_failed", lambda draft: draft.ecf_failed),
-    ("missing_itbis", lambda draft: _blank(_fiscal(draft).itbis)),
-    ("review_flag", lambda draft: bool(draft.flags)),
-    ("blocked", lambda draft: bool(draft.blockers)),
-    ("unverified_sender", lambda draft: draft.sender not in (None, "authorized")),
+    Gap("credit_note", True, lambda draft: draft.credit_note),
+    Gap("missing_merchant", True, lambda draft: _lacks(draft, "counterparty")),
+    Gap("missing_date", False, lambda draft: _lacks(draft, "occurred_on")),
+    Gap(
+        "check_details",
+        True,
+        lambda draft: year_to_check(draft.facts, draft.upload_year),
+    ),
+    Gap("missing_amount", False, lambda draft: _lacks(draft, "amount")),
+    Gap("missing_currency", False, lambda draft: _lacks(draft, "currency")),
+    Gap("sin_comprobante", True, lambda draft: is_sin_comprobante(draft.facts)),
+    Gap("missing_rnc", True, lambda draft: _blank(_fiscal(draft).rnc)),
+    Gap("invalid_rnc", True, _invalid_rnc),
+    Gap("missing_ncf", True, _no_number),
+    Gap("invalid_ncf", True, lambda draft: _flagged(draft, "ncf_malformed")),
+    Gap("ecf_check_failed", True, lambda draft: draft.ecf_failed),
+    Gap("missing_itbis", True, lambda draft: _blank(_fiscal(draft).itbis)),
+    Gap("review_flag", True, lambda draft: bool(draft.flags)),
+    Gap("blocked", False, lambda draft: bool(draft.blockers)),
+    Gap(
+        "unverified_sender",
+        False,
+        lambda draft: draft.sender not in (None, "authorized"),
+    ),
 )
+
+#: The gaps a person may accept a record over. An accept names each one.
+CONFIRMABLE: frozenset[BandejaReason] = frozenset(
+    gap.reason for gap in RULE if gap.confirmable
+)
+
+
+def refusing(
+    gaps: Iterable[BandejaReason], named: Collection[BandejaReason]
+) -> tuple[BandejaReason, ...]:
+    """The gaps that refuse an accept naming ``named``: each one no person may
+    accept over, and each one the accept did not name."""
+
+    return tuple(gap for gap in gaps if gap not in CONFIRMABLE or gap not in named)
 
 
 def listo_reason(draft: DraftStanding) -> BandejaReason | None:
     """The first gap between this draft and Listos, or None when it is Listos."""
 
-    return next((reason for reason, gap in RULE if gap(draft)), None)
+    return next((gap.reason for gap in RULE if gap.found(draft)), None)
 
 
 def listo_gaps(draft: DraftStanding) -> tuple[BandejaReason, ...]:
     """Every gap between this draft and Listos, in the rule's order."""
 
-    return tuple(reason for reason, gap in RULE if gap(draft))
+    return tuple(gap.reason for gap in RULE if gap.found(draft))
 
 
 def _row_reason(

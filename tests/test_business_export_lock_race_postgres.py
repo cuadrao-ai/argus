@@ -20,6 +20,7 @@ from argus.domain.business.actions import mutations
 from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.ingestion.documents import store_postgres
 
+from tests.business_accept_support import accepting
 from tests.test_business_fiscal_routes_postgres import (  # noqa: F401
     API,
     _known,
@@ -94,7 +95,7 @@ def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed.json()["version"], "action": "record_expense"},
+        accepting(reviewed.json(), "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text

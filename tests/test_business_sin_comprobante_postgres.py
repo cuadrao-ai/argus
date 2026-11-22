@@ -25,6 +25,7 @@ from argus.domain.business.month_close_store import read_month
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
 from tests.business.receipt_stub import receipt_month
+from tests.business_accept_support import accepting, seen_gaps
 from tests.test_business_multi_purchase_postgres import _account as cash_account
 from tests.test_business_receipt_views_postgres import _web as receipt_web
 from tests.test_business_scope_switch_routes_postgres import (  # noqa: F401
@@ -117,7 +118,9 @@ def _approve(world, draft: str, version: int, kind: str) -> str:  # noqa: ANN001
         world,
         "POST",
         f"/business/drafts/{draft}/approve",
-        {"version": version, "action": f"record_{kind}"},
+        accepting(
+            _get(world, f"/business/drafts/{draft}/dossier").json(), f"record_{kind}"
+        ),
         world.alice.headers,
     )
     return approved["approval_result"]["activity_id"]
@@ -411,7 +414,11 @@ def test_an_uploaded_receipt_reads_its_mark_after_prepare(
     approved = service.approve(
         context,
         prepared.draft_id,
-        ApproveExpense(version=reviewed.version, action="record_expense"),
+        ApproveExpense(
+            version=reviewed.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, prepared.draft_id),
+        ),
         "approve",
     )
     assert approved.outcome == "applied", approved

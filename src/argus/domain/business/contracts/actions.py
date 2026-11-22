@@ -15,6 +15,7 @@ from pydantic import (
 )
 
 from argus.domain.business.accepted_dates import PastBusinessDate
+from argus.domain.business.bandeja_group import BandejaReason
 from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
@@ -181,13 +182,17 @@ class ReviewDraft(Contract):
         return self
 
 
+#: The gaps the person saw and accepts the record over: every one of them, and
+#: only those ``bandeja_group.CONFIRMABLE`` lists. Kept on the stored approve
+#: command, so the decision is in the action receipt.
+AcceptedGaps = Annotated[
+    tuple[BandejaReason, ...], Field(default=(), exclude_if=lambda value: not value)
+]
+
+
 class ApproveExpense(Contract):
     version: int = Field(ge=1)
-    #: The person saw the review flags and approves anyway. Kept on the
-    #: stored approve command, so the decision is in the action receipt.
-    approve_anyway: Literal[True] | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+    accept_gaps: AcceptedGaps
     action: Literal["record_expense"]
     #: The dossier's suggestions the person saw filled in. The approval saves
     #: each into its 606 answer, with its source, while that answer is blank.
@@ -198,21 +203,13 @@ class ApproveExpense(Contract):
 
 class ApproveIncome(Contract):
     version: int = Field(ge=1, strict=True)
-    #: The person saw the review flags and approves anyway. Kept on the
-    #: stored approve command, so the decision is in the action receipt.
-    approve_anyway: Literal[True] | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+    accept_gaps: AcceptedGaps
     action: Literal["record_income"]
 
 
 class ApproveRefund(Contract):
     version: int = Field(ge=1, strict=True)
-    #: The person saw the review flags and approves anyway. Kept on the
-    #: stored approve command, so the decision is in the action receipt.
-    approve_anyway: Literal[True] | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+    accept_gaps: AcceptedGaps
     action: Literal["record_refund"]
 
 
@@ -479,7 +476,10 @@ class Refused(Contract):
     code: str
     # The approved record a duplicate_comprobante refusal points at.
     existing_record_id: UUID | None = None
-    # The review flags an approval_confirmation_required refusal names.
+    # Every gap a not_listo refusal found between the record and Listos.
+    gaps: tuple[str, ...] = ()
+    # Read back only: the review flags an approval_confirmation_required
+    # refusal stored before an accept named its gaps.
     flags: tuple[str, ...] = ()
     context: dict[str, str] | None = None
 
@@ -492,6 +492,8 @@ class Refused(Contract):
             payload.pop("existing_record_id", None)
         if self.context is None:
             payload.pop("context", None)
+        if not self.gaps:
+            payload.pop("gaps", None)
         if not self.flags:
             payload.pop("flags", None)
         return payload

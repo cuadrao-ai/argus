@@ -28,6 +28,7 @@ from psycopg.types.json import Jsonb
 from tests import test_business_actions_postgres as shared
 from tests.business.action_counts import count_no_rows
 from tests.business.receipt_stub import receipt_date
+from tests.business_accept_support import accept, seen_gaps
 from tests.test_business_dgii_postgres import handover_dgii
 from tests.test_business_spaces_migration_postgres import connection
 
@@ -203,7 +204,11 @@ def approve(service, context, draft, version):
     return service.approve(
         context,
         draft,
-        ApproveExpense(version=version, action="record_expense"),
+        ApproveExpense(
+            version=version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         str(uuid4()),
     )
 
@@ -540,7 +545,8 @@ def test_same_rnc_and_ncf_already_approved_is_refused_with_its_record(actions):
     key = str(uuid4())
     with drafts_client(service, context) as client:
         refused, replayed = (
-            client.post(
+            accept(
+                client,
                 f"/business/drafts/{second}/approve",
                 json={"version": approved, "action": "record_expense"},
                 headers={"Idempotency-Key": key},
@@ -832,7 +838,11 @@ def test_a_failed_clear_still_stores_the_refusal(actions, monkeypatch):
     monkeypatch.setattr(service.imports.money, "write", refuse)
     monkeypatch.setattr(approval, "facts_of", unreadable)
     key = str(uuid4())
-    command = ApproveExpense(version=approved, action="record_expense")
+    command = ApproveExpense(
+        version=approved,
+        action="record_expense",
+        accept_gaps=seen_gaps(service, context, draft),
+    )
 
     failed, replayed = (service.approve(context, draft, command, key) for _ in range(2))
 

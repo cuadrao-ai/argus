@@ -120,7 +120,7 @@ def _listed(view: dict, draft: DraftStanding | None, **more: object) -> dict:
 
 
 def test_the_table_covers_every_reason_of_the_rule() -> None:
-    assert set(GAPS) == {reason for reason, _ in RULE}
+    assert set(GAPS) == {gap.reason for gap in RULE}
 
 
 @pytest.mark.parametrize("reason", GAPS)

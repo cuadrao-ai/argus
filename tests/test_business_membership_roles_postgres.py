@@ -15,6 +15,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as action_fixtures
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import seen_gaps
 
 actions = action_fixtures.actions
 
@@ -505,12 +506,12 @@ def test_both_owners_approve_shared_records_without_moving_custody(actions, user
     )
     for actor in (first, second):
         draft = ready(service, first)
-        result = service.approve(
-            actor,
-            draft,
-            ApproveExpense(version=1, action="record_expense"),
-            str(actor.actor.actor_id),
+        request = ApproveExpense(
+            version=1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, actor, draft),
         )
+        result = service.approve(actor, draft, request, str(actor.actor.actor_id))
         assert result.outcome == "applied", result
         with pool.connection() as db:
             assert db.execute(
@@ -519,12 +520,7 @@ def test_both_owners_approve_shared_records_without_moving_custody(actions, user
             ).fetchone() == (users["owner"], first.actor.space_id)
     assert PostgresSpaceStore(pool).open_space(users["other"]).id == own.id
     access.revoke_grant(str(first.actor.space_id), users["owner"], accepted)
-    replay = service.approve(
-        second,
-        draft,
-        ApproveExpense(version=1, action="record_expense"),
-        str(second.actor.actor_id),
-    )
+    replay = service.approve(second, draft, request, str(second.actor.actor_id))
     assert replay.outcome != "applied"
 
 

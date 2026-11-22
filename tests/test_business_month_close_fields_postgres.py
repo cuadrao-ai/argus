@@ -20,6 +20,7 @@ from argus.domain.business.actions import approval
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import accept
 from tests.test_business_open_items_postgres import (  # noqa: F401
     API,
     PRACTICE,
@@ -88,7 +89,8 @@ def _reviewed(
 
 
 def _approve(world, draft: str, version: int, kind: str, key: str | None = None):  # noqa: ANN001, ANN202
-    return world.client.post(
+    return accept(
+        world.client,
         f"{API}/business/drafts/{draft}/approve",
         json={"version": version, "action": f"record_{kind}"},
         headers={**world.alice.headers, "Idempotency-Key": key or str(uuid4())},

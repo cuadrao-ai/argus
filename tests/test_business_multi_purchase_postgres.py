@@ -31,6 +31,7 @@ from tests import test_business_actions_postgres as shared
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_financial_accounts_postgres as accounts
 from tests.business.receipt_stub import receipt_date
+from tests.business_accept_support import seen_gaps
 from tests.test_business_spaces_migration_postgres import connection
 
 actions = shared.actions
@@ -190,7 +191,11 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
     refused = service.approve(
         context,
         first.draft_id,
-        ApproveExpense(version=filled.version, action="record_expense"),
+        ApproveExpense(
+            version=filled.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first.draft_id),
+        ),
         "too-early",
     )
     assert refused.outcome != "applied", refused
@@ -211,7 +216,11 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
     recorded = service.approve(
         context,
         first.draft_id,
-        ApproveExpense(version=chosen.version, action="record_expense"),
+        ApproveExpense(
+            version=chosen.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first.draft_id),
+        ),
         "approve",
     )
     assert recorded.outcome == "applied", recorded

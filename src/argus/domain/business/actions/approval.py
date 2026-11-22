@@ -25,6 +25,7 @@ from argus.domain.business.actions.fiscal import (
 )
 from argus.domain.business.amount_inheritance import approved_from
 from argus.domain.business.authority import ActionContext, ActionError
+from argus.domain.business.bandeja_group import BandejaReason, refusing
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
     Applied,
@@ -55,7 +56,6 @@ from argus.domain.business.contracts.listos import (
     ListosApproved,
 )
 from argus.domain.business.document_type import require_type_kind
-from argus.domain.business.review_flags import unconfirmed
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import ImportEvent
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
@@ -74,9 +74,12 @@ def _reviewed_facts(
     draft_id: UUID,
     version: int,
     kind: Literal["expense", "income", "refund"],
-    approve_anyway: bool = False,
-    listo: bool = False,
+    accept_gaps: tuple[BandejaReason, ...] = (),
 ) -> tuple[ImportEvent, BusinessFacts]:
+    """The draft and its facts, once the Listos rule admits the accept: the
+    record has no gap, or a person may accept over each one and ``accept_gaps``
+    names them all."""
+
     event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=version))
     view = dossier.dossier(tx, draft_id)
     if view.blockers:
@@ -93,13 +96,11 @@ def _reviewed_facts(
     )
     validate_facts(tx, view.facts)
     require_distinct_fiscal_document(tx, event, view.facts)
-    flagged = unconfirmed(view.review_flags)
-    if flagged and not approve_anyway:
-        raise ActionError(
-            "invalid_input", "approval_confirmation_required", flags=flagged
-        )
-    if listo and view.bandeja_group.group != "listo":
-        raise ActionError("invalid_input", "not_listo")
+    standing = view.bandeja_group
+    if standing.group != "listo":
+        gaps = view.listo_gaps or ((standing.reason,) if standing.reason else ())
+        if standing.group != "attention" or refusing(gaps, accept_gaps):
+            raise ActionError("invalid_input", "not_listo", gaps=gaps)
     return event, view.facts
 
 
@@ -245,10 +246,10 @@ def reviewed_request(
     draft_id: UUID,
     version: int,
     kind: Literal["expense", "income", "refund"],
-    approve_anyway: bool = False,
+    accept_gaps: tuple[BandejaReason, ...] = (),
 ) -> MoneyRequest:
     with transaction(service.authority, context, "approve") as tx:
-        event, facts = _reviewed_facts(tx, draft_id, version, kind, approve_anyway)
+        event, facts = _reviewed_facts(tx, draft_id, version, kind, accept_gaps)
         purchase = refund_reference(event) if kind == "refund" else None
     draft = _money_request(facts, context.actor.space_id, kind, purchase)
     preview = service.imports.money.preview(
@@ -267,10 +268,11 @@ def approve(
     draft_id: UUID,
     request: ApproveExpense | ApproveIncome | ApproveRefund,
     key: str,
-    listo: bool = False,
+    bulk: bool = False,
 ) -> ActionOutcome:
-    """``listo`` admits the draft only while the Listos rule still holds, read
-    in the transaction that claims it."""
+    """The Listos rule admits the draft, read again in the transaction that
+    claims it. ``bulk``: one receipt of a list, which no person reviewed, so
+    its declaration takes the server's own suggestions."""
 
     kind: Literal["expense", "income", "refund"] = (
         "refund"
@@ -320,7 +322,7 @@ def approve(
                     draft_id,
                     request.version,
                     kind,
-                    bool(request.approve_anyway),
+                    request.accept_gaps,
                 )
             )
         except (ActionError, *_NOT_WRITTEN) as error:
@@ -352,12 +354,11 @@ def approve(
                             draft_id,
                             request.version,
                             kind,
-                            bool(request.approve_anyway),
-                            listo,
+                            request.accept_gaps,
                         )
                         failed = _failed_approval_revision(tx, event)
                         declared = _approval_declaration(
-                            tx, event, facts, failed, None if listo else shown
+                            tx, event, facts, failed, None if bulk else shown
                         )
                     except ActionError as error:
                         return plans.finish_receipt(tx, key, error.result)
@@ -502,7 +503,7 @@ def _approve_listo(
             item.draft_id,
             _listo_request(service, context, item, key),
             key,
-            listo=True,
+            bulk=True,
         )
     except ActionError as error:
         outcome = error.result
