@@ -26,6 +26,7 @@ from faker import Faker
 from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
+from tests.business.receipt_stub import receipt_date
 from tests.test_business_dgii_postgres import handover_dgii
 from tests.test_business_spaces_migration_postgres import connection
 
@@ -36,9 +37,13 @@ FILER = "199990013"
 SUPPLIER = "199990021"
 EDITED_SUPPLIER = "199990048"
 NCF = "B0100000001"
-SEPTEMBER = ExportPeriod(date(2026, 9, 1), date(2026, 9, 30))
 fake = Faker("es_MX")
 Faker.seed(606)
+
+
+def receipt_period() -> ExportPeriod:
+    day = date.fromisoformat(receipt_date())
+    return ExportPeriod(day, day)
 
 
 @pytest.fixture
@@ -72,7 +77,7 @@ def colmado(**changes):
         "rnc": SUPPLIER,
         "ncf": NCF,
         "itbis": "180.00",
-        "occurred_on": "2026-09-05",
+        "occurred_on": receipt_date(),
     }
     return {**read, **changes}
 
@@ -235,10 +240,10 @@ def booked(service, context) -> list[tuple]:
 
 
 def lines_606(service, context) -> tuple[list[str], list[dict]]:
-    """Each 606 row of September with its values joined by ``|``, and the DGII
+    """Each 606 row on the shared receipt day with its values joined by ``|``, and the DGII
     summary's issues."""
 
-    manifest, rows = handover_dgii(service, context, SEPTEMBER)
+    manifest, rows = handover_dgii(service, context, receipt_period())
     return ["|".join(row) for row in rows["606"]], manifest["issues"]
 
 
@@ -252,7 +257,7 @@ def saved_declaration(**changes):
         "legal_tip": "0.00",
         "category": "02",
         "category_suggested": False,
-        "paid_on": "2026-09-05",
+        "paid_on": receipt_date(),
         "services_amount": "1000.00",
         "goods_amount": "0.00",
         "itbis_withheld": "0.00",
@@ -691,7 +696,7 @@ def test_records_sheet_has_the_accountant_columns(actions):
     outcome = approve(service, context, draft, approved)
     assert outcome.outcome == "applied", outcome
 
-    blob = export_package(service.authority, context, SEPTEMBER, InMemorySourceObjects())
+    blob = export_package(service.authority, context, receipt_period(), InMemorySourceObjects())
 
     with ZipFile(io.BytesIO(blob)) as archive:
         text = archive.read("records.csv").decode("utf-8-sig")
@@ -713,7 +718,7 @@ def test_records_sheet_has_the_accountant_columns(actions):
             "Pago",
         ],
         [
-            "2026-09-05",
+            receipt_date(),
             read["merchant"],
             SUPPLIER,
             NCF,

@@ -10,9 +10,7 @@ from tests.agent_runtime.test_shared_loop_import_boundary import REPO_ROOT
 
 _BUSINESS_IMPORT_FIREWALL = (
     "import importlib,importlib.abc,sys\n"
-    "F=('argus.domain.capability_registry','argus.domain.backtesting',"
-    "'argus.domain.engine_launch','argus.agent_runtime.strategy_contract',"
-    "'argus.domain.strategy_capabilities','argus.agent_runtime.tools.registered_backtest',"
+    "F=('argus.domain.capability_registry','argus.domain.strategy_capabilities',"
     "'argus.domain.ingestion')\n"
     "class G(importlib.abc.MetaPathFinder):\n"
     " def find_spec(self,n,p=None,t=None):\n"

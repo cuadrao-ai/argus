@@ -7,15 +7,14 @@ from argus.api.ingestion import ingestion_hub
 from argus.domain.ingestion.documents.failures import READ_DEADLINE_PASSED
 from argus.domain.ingestion.documents.jobs import OUTCOME_UNKNOWN
 
-from tests.business.receipt_stub import PURCHASE, ReceiptStub
+from tests.business.receipt_stub import ReceiptStub, receipt_date, receipt_purchase
 from tests.business.test_business_api import (  # noqa: F401
-    EVIDENCE,
     Owner,
     alice,
+    evidence,
     prepared,
 )
 
-WINDOW = {"from": "2026-10-01", "to": "2026-10-31"}
 UNREAD = ["account_id", "amount", "currency", "occurred_on"]
 CONSENT = {"X-Extraction-Consent": "true"}
 NEXT = ("status", "attention", "preparable", "enterable")
@@ -41,7 +40,7 @@ def _enter_and_confirm(alice: Owner, receipt_id: str) -> dict:  # noqa: F811
     account = alice.account()
     fields = {
         "merchant": "Ferretería La Esquina",
-        "occurred_on": "2026-10-06",
+        "occurred_on": receipt_date(),
         "amount": "3450.00",
         "currency": "DOP",
         "account_id": account,
@@ -59,7 +58,7 @@ def _enter_and_confirm(alice: Owner, receipt_id: str) -> dict:  # noqa: F811
     second = alice.confirm(receipt_id, body["version"], "other-tab").json()
     assert first["status"] == second["status"] == "confirmed"
     assert first["expense_id"] == second["expense_id"]
-    [expense] = alice.get("/expenses", **WINDOW).json()["items"]
+    [expense] = alice.get("/expenses", **{"from": receipt_date(), "to": receipt_date()}).json()["items"]
     assert (expense["id"], expense["receipt_id"], expense["amount"]) == (
         first["expense_id"],
         receipt_id,
@@ -114,7 +113,7 @@ def test_a_failed_read_offers_a_consented_retry_and_entry_by_hand(
     ready = alice.detail(receipt_id)
     assert (_next(ready), ready["evidence"]) == (
         ("review_ready", None, False, False),
-        EVIDENCE,
+        evidence(),
     )
     assert stub.calls == [receipt_id, receipt_id]
 
@@ -133,7 +132,7 @@ def test_an_unknown_outcome_is_retried_only_with_the_owners_consent(
         OUTCOME_UNKNOWN,
     )
     alice.get("/receipts")
-    alice.get("/overview", **WINDOW)
+    alice.get("/overview", **{"from": receipt_date(), "to": receipt_date()})
     assert stub.calls == []
 
     assert alice.reading(True).status_code == 200
@@ -177,15 +176,15 @@ def test_an_unreadable_read_is_finished_by_hand_and_keeps_what_was_read(
         "unreadable_document",
         0,
         UNREAD,
-        EVIDENCE,
+        evidence(),
     )
     entered = _enter_and_confirm(alice, receipt_id)
-    assert entered["evidence"] == EVIDENCE
+    assert entered["evidence"] == evidence()
     assert _events(alice) == [("accepted", "expense")]
     assert alice.post(f"/receipts/{receipt_id}/prepare", **CONSENT).status_code == 200
     assert stub.calls == [receipt_id]
     assert alice.detail(receipt_id)["status"] == "confirmed"
-    assert len(alice.get("/expenses", **WINDOW).json()["items"]) == 1
+    assert len(alice.get("/expenses", **{"from": receipt_date(), "to": receipt_date()}).json()["items"]) == 1
 
 
 def test_a_document_with_no_receipt_purchase_sets_the_reading_aside(
@@ -222,8 +221,8 @@ def test_several_purchases_are_set_aside_for_the_owners_one_purchase(
     stub: ReceiptStub,
 ) -> None:
     stub.rows = [
-        PURCHASE,
-        {**PURCHASE, "row": 2, "evidence": "payment_notice", "amount": "100.00"},
+        receipt_purchase(),
+        {**receipt_purchase(), "row": 2, "evidence": "payment_notice", "amount": "100.00"},
     ]
     receipt_id = prepared(alice)
     assert _next(alice.detail(receipt_id)) == (
@@ -245,12 +244,12 @@ def test_an_ambiguous_purchase_is_entered_by_hand(
     alice: Owner,  # noqa: F811
     stub: ReceiptStub,
 ) -> None:
-    stub.rows = [{**PURCHASE, "amount": "3000.00"}]
+    stub.rows = [{**receipt_purchase(), "amount": "3000.00"}]
     receipt_id = prepared(alice)
     read = alice.detail(receipt_id)
     assert (_next(read), read["evidence"]) == (
         ("needs_attention", "several_purchases", False, True),
-        EVIDENCE,
+        evidence(),
     )
     _enter_and_confirm(alice, receipt_id)
     assert _events(alice) == [("accepted", "expense")]

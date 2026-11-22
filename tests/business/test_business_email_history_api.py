@@ -8,9 +8,10 @@ from argus.api import email_intake as intake
 from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
 from faker import Faker
 
+from tests.business.receipt_stub import receipt_date
 from tests.business.test_business_api import BASE, Owner, alice, bob  # noqa: F401
 from tests.business.test_business_email_api import runtime  # noqa: F401
-from tests.business.test_business_review_counts import PERIOD, _email
+from tests.business.test_business_review_counts import _email
 
 
 @pytest.mark.parametrize("runtime_present", [True, False])
@@ -37,7 +38,7 @@ def test_history_counts_and_provenance_survive_receiving_off(
     before = {
         path: alice.get(path, **params).json()
         for path, params in (("/email/deliveries", {}), ("/email/inbox", {}),
-                             ("/receipt-activity", {}), ("/overview", PERIOD))
+                             ("/receipt-activity", {}), ("/overview", {"from": receipt_date(), "to": receipt_date()}))
     }
     assert any(row["id"] == waiting.id for row in before["/email/deliveries"]["items"])
     [waiting_row] = [
@@ -56,7 +57,7 @@ def test_history_counts_and_provenance_survive_receiving_off(
         intake.configure_email_intake(None)
     assert alice.get("/workspace").json()["receiving_channels"]["email"] == {"available": False}
     for path, params in (("/email/deliveries", {}), ("/email/inbox", {}),
-                         ("/receipt-activity", {}), ("/overview", PERIOD)):
+                         ("/receipt-activity", {}), ("/overview", {"from": receipt_date(), "to": receipt_date()})):
         response = alice.get(path, **params)
         assert response.status_code == 200, response.text
         assert response.json() == before[path]

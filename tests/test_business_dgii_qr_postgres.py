@@ -17,6 +17,7 @@ from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionRes
 from psycopg.types.json import Jsonb
 
 from tests import test_business_attachment_preparation_postgres as bridge
+from tests.business.receipt_stub import receipt_date
 from tests.dgii_qr_support import ENCF, RNC, TOTAL, URL
 from tests.test_business_spaces_migration_postgres import connection
 
@@ -59,7 +60,7 @@ def _saved_with_qr(actions):  # noqa: ANN001
                         status="posted",
                         amount=None,
                         currency="DOP",
-                        occurred_on="2026-10-09",
+                        occurred_on=receipt_date(now),
                         direction="outflow",
                         kind_hint="expense",
                         merchant="Hotel Brisa del Este SRL",

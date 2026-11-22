@@ -27,7 +27,12 @@ from psycopg import Connection
 from psycopg.errors import CheckViolation
 
 from tests import test_financial_accounts_postgres as shared
-from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
+from tests.business.receipt_stub import (
+    ReceiptStub,
+    receipt_date,
+    receipt_details,
+    receipt_purchase,
+)
 from tests.business.test_business_api import RECEIPT
 from tests.business_cleanup import delete_spaces
 from tests.business_reading_support import ROUTE
@@ -148,23 +153,24 @@ def _upload(
     rnc: str | None,
     document_type: str | None = None,
     *,
-    occurred_on: str = "2026-09-03",
+    occurred_on: str | None = None,
     total: str = "1180.00",
     unsure: bool = False,
 ) -> dict:
     """One read receipt: the stub prints ``rnc`` as the RNC the read found.
     ``unsure`` reads it without knowing whether money went out or came in."""
 
+    occurred_on = occurred_on or receipt_date()
     world.stub.rows = [
         {
-            **PURCHASE,
+            **receipt_purchase(),
             "amount": total,
             "occurred_on": occurred_on,
             **({"direction": "unknown", "kind_hint": "unknown"} if unsure else {}),
         }
     ]
     world.stub.details = {
-        **DETAILS,
+        **receipt_details(),
         "occurred_on": occurred_on,
         "total": total,
         "subtotal": None,
@@ -790,7 +796,7 @@ def test_the_first_business_rnc_leaves_other_issuers_and_the_next_read_uses_it(
     receipt read after it is compared with it: the Business's own number reads
     as a Venta."""
 
-    early = [_upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"]]
+    early = [_upload(web, SUPPLIER_RNC)["draft_id"]]
     note = _capture(web, {"text": "Compra de clavos"})
     assert note.status_code == 200, note.text
     early.append(note.json()["draft_id"])
@@ -800,7 +806,7 @@ def test_the_first_business_rnc_leaves_other_issuers_and_the_next_read_uses_it(
     _own_rnc(web)
 
     assert {draft: _as_saved(_dossier(web, draft)) for draft in early} == before
-    later = _upload(web, OWN_RNC, occurred_on="2026-09-05")
+    later = _upload(web, OWN_RNC)
     assert _typed(later) == ("venta", True, True)
     assert _typed(_dossier(web, later["draft_id"])) == ("venta", True, True)
 

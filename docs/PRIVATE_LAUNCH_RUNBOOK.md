@@ -1240,8 +1240,6 @@ Keep true secrets manual in Render:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_JWT_SECRET`
 - `CUADRAO_OPENROUTER_API_KEY_STG` for staging, `CUADRAO_OPENROUTER_API_KEY_PROD` for production, one name per environment with no fallback; selection belongs to `src/argus/llm/openrouter_key_policy.py`
-- `ALPACA_API_KEY`
-- `ALPACA_SECRET_KEY`
 - `CUADRAO_OPS_TOKEN`
 - `CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`
 - `POSTHOG_PROJECT_TOKEN`
