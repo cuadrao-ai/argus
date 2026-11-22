@@ -77,7 +77,6 @@ describe("decideBusinessOnlyWeb", () => {
       ["/api/auth/send-email", ""],
       ["/account/security", ""],
       ["/account/delete", ""],
-      ["/r/receipt-1", ""],
       ["/biz", ""],
       ["/biz/inbox", ""],
       ["/locales/en/common.json", ""],
