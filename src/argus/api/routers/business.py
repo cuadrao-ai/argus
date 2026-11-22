@@ -825,6 +825,7 @@ def rename_space(
 def get_workspace(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
+    language: Literal["en", "es-419"] = "en",
 ) -> dict[str, Any]:
     space_id = context.scope.owner.space_id
     workspace = {
@@ -839,6 +840,11 @@ def get_workspace(
             "whatsapp": {"available": whatsapp_receiving_available(context.scope)},
         },
         "logo_url": picture_urls("business", [space_id])[space_id],
+        "receipt_reading": (
+            receipt_reading(request, language, context)
+            if context.service.documents.business_receipt_consent is not None
+            else None
+        ),
     }
     if not context.scope.acting_as_owner:
         # Business chat is the owner's: the client's shell shows no composer.

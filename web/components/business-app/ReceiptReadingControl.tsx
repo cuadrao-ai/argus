@@ -4,12 +4,18 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { Switch } from "@/components/ui/Switch";
-import type { ReceiptReading } from "@/lib/business-api";
+import type { BusinessWorkspaceInfo, ReceiptReading } from "@/lib/business-api";
+import { getChosenGrant } from "@/lib/business-grant";
 import { normalizeEnabledLanguage, resolveLanguage } from "@/lib/language-features";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
 import { quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { showToast } from "./foundation/toasts";
+
+/** The reading setting the workspace answered, only while that answer is the chosen Business's. */
+export function workspaceReading({ workspace, workspaceGrant }: { workspace: BusinessWorkspaceInfo | null; workspaceGrant?: string | null }): ReceiptReading | null {
+  return workspaceGrant === getChosenGrant() ? workspace?.receipt_reading ?? null : null;
+}
 
 /**
  * The one notice about document reading and the one home of its switch. The
@@ -21,8 +27,8 @@ import { showToast } from "./foundation/toasts";
  * (a dash while it is unknown) and, for whoever may change it, the button that
  * opens the same sheet.
  */
-export default function ReceiptReadingControl({ showWhenOn = false, variant = "notice" }: { showWhenOn?: boolean; variant?: "notice" | "row" | "inline" }) {
-  const { source, reload, chosen } = useBusiness();
+export default function ReceiptReadingControl({ showWhenOn = false, variant = "notice", pending = false }: { showWhenOn?: boolean; variant?: "notice" | "row" | "inline"; pending?: boolean }) {
+  const { source, reload, chosen, records, revision } = useBusiness();
   const consent = useBusinessConsent();
   const { t, i18n } = useTranslation();
   const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? resolveLanguage({}));
@@ -33,20 +39,20 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
     generation.current += 1;
     return () => { generation.current += 1; mutation.current?.abort(); };
   }, [source, businessKey, language]);
-  const [stored, setReading] = useState<ReceiptReading | null>(null);
+  const committedRevision = useRef(revision);
+  useLayoutEffect(() => { committedRevision.current = revision; }, [revision]);
+  const snapshot = workspaceReading(records);
+  // A saved answer stands until a workspace read that started after it answers.
+  const [saved, setReading] = useState<{ value: ReceiptReading; answeredAt: number } | null>(null);
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
   const titleId = useId();
   useEffect(() => {
-    let current = true;
-    const controller = new AbortController();
     setReading(null);
     setOpen(false);
     setFailed(false);
-    source.receiptReading?.(language, controller.signal).then((value) => { if (current) setReading(value); }, () => undefined);
-    return () => { current = false; controller.abort(); };
   }, [source, language, businessKey]);
-  const reading = consent.accepted ? stored : null;
+  const reading = consent.accepted && snapshot ? (saved && (records.workspaceRevision ?? -1) <= saved.answeredAt ? saved.value : snapshot) : null;
   const isRow = variant === "row";
   const isInline = variant === "inline";
   if (!reading || (reading.enabled && !showWhenOn && !isRow && !isInline)) {
@@ -63,7 +69,7 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
     try {
       const next = await source.setReceiptReading(reading, enabled, language, controller.signal);
       if (generation.current !== current || controller.signal.aborted) return;
-      setReading(next);
+      setReading({ value: next, answeredAt: committedRevision.current });
       setOpen(false);
       reload();
       if (!isInline) showToast({ kind: "success", text: next.enabled ? t("business.activity.turned_on") : t("business.activity.turned_off") });
@@ -93,7 +99,7 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
           onChange={() => setOpen(true)}
         />
       ) : (
-        <div data-testid="receipt-reading-control" data-enabled={reading.enabled ? "true" : "false"} className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div data-testid="receipt-reading-control" data-surface-block="reading" data-enabled={reading.enabled ? "true" : "false"} aria-hidden={pending || undefined} style={pending ? { visibility: "hidden" } : undefined} className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <p className="min-w-[16rem] flex-1 text-[14px] text-[#56635e] dark:text-white/70">{line}</p>
           {reading.can_change ? (
             <button type="button" onClick={() => setOpen(true)} className={reading.enabled ? quietButtonClass : secondaryButtonClass}>

@@ -1,3 +1,4 @@
+import { withReceiptReading } from "./support/receipt-reading";
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, describe, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
@@ -223,12 +224,12 @@ describe("the Negocio page", () => {
   });
 
   describe("Lectura de documentos", () => {
-    const reading = (over: Partial<ReceiptReading> = {}): ReceiptReading => ({ scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Texto del servidor", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null, ...over });
+    const reading = (over: Partial<ReceiptReading> = {}): Partial<ReceiptReading> => ({ disclosure: "Texto del servidor", ...over });
     const row = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector('[data-testid="receipt-reading-inline"]');
     const toggle = (page: Awaited<ReturnType<typeof mount>>) => row(page)?.querySelector<HTMLButtonElement>('[role="switch"]');
 
     test("Reception has the inline switch and disclosure, while Profile has neither", async () => {
-      const page = await mount("view=business", OWN, { receiptReading: async () => reading({ enabled: true }), setReceiptReading: async (_snapshot,enabled) => reading({enabled}) });
+      const page = await mount("view=business", OWN, withReceiptReading(reading({ enabled: true })));
       try {
         assert.equal(row(page),null);
         await page.choose("Recepción");
@@ -242,7 +243,7 @@ describe("the Negocio page", () => {
       } finally { await page.close(); }
     });
     test("an off setting stays off when an update fails and offers inline retry", async () => {
-      const page = await mount("view=business&tab=correo", OWN, { receiptReading: async () => reading(), setReceiptReading: async () => {throw new Error("offline");} });
+      const page = await mount("view=business&tab=correo", OWN, { ...withReceiptReading(reading()), setReceiptReading: async () => {throw new Error("offline");} });
       try {
         await page.settle(() => toggle(page) != null);
         await page.click(toggle(page)!);
@@ -252,7 +253,7 @@ describe("the Negocio page", () => {
       } finally { await page.close(); }
     });
     test("a failed load shows unavailable and no switch rather than guessing off", async () => {
-      const page = await mount("view=business&tab=correo", OWN, { receiptReading: async () => { throw new Error("offline"); } });
+      const page = await mount("view=business&tab=correo", OWN, withReceiptReading(null));
       try {
         await page.settle(() => row(page) != null);
         assert.equal(row(page)?.getAttribute("data-enabled"), "unknown");
@@ -261,7 +262,7 @@ describe("the Negocio page", () => {
       } finally { await page.close(); }
     });
     test("a member without change access sees a disabled switch", async () => {
-      const page = await mount("view=business&tab=correo", CLIENT, { receiptReading: async () => reading({ can_change: false }) });
+      const page = await mount("view=business&tab=correo", CLIENT, withReceiptReading(reading({ can_change: false })));
       try {
         await page.settle(() => toggle(page) != null);
         assert.equal(toggle(page)?.getAttribute("aria-checked"),"false");

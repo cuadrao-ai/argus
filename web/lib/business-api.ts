@@ -103,9 +103,6 @@ export type ReceiptReading = { scope_version: number; enabled: boolean; availabl
 export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
   return apiFetch("/business/receipt-activity", { signal });
 }
-export function getReceiptReading(language: ArgusLanguage, signal?: AbortSignal): Promise<ReceiptReading> {
-  return apiFetch(`/business/receipt-reading?language=${encodeURIComponent(language)}`, { signal });
-}
 export function setReceiptReading(reading: ReceiptReading, enabled: boolean, language: ArgusLanguage, signal?: AbortSignal): Promise<ReceiptReading> {
   return apiFetch("/business/receipt-reading", { method: "POST", signal, headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ enabled, scope_version: reading.scope_version, disclosure_token: reading.disclosure_token, language }) });
 }
@@ -378,6 +375,8 @@ export type BusinessWorkspaceInfo = {
   receiving_channels?: ReceivingChannels;
   /** What a receipt upload accepts. The backend's document settings own it. */
   receipt_limits: ReceiptLimits;
+  /** The Business's reading permission arrives before its lists render; null means unavailable. */
+  receipt_reading?: ReceiptReading | null;
 };
 
 /** The Business's own currency, the one reader of the workspace `currency`. A workspace still loading, or an older server without the field, is unknown, never pesos. */
@@ -622,8 +621,8 @@ export function acceptBusinessConsent(version: string): Promise<BusinessConsent>
   });
 }
 
-export async function getBusinessWorkspace(): Promise<BusinessWorkspaceInfo> {
-  return apiFetch("/business/workspace");
+export async function getBusinessWorkspace(language: ArgusLanguage = "en"): Promise<BusinessWorkspaceInfo> {
+  return apiFetch(`/business/workspace?language=${encodeURIComponent(language)}`);
 }
 
 export async function getBusinessOverview(
