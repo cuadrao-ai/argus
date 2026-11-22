@@ -39,7 +39,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(verify).toHaveText("Verificar en DGII");
       await expect(card).toContainText("Vigente en la fecha que declara el documento");
       // The fixture was checked days ago: recent checks read in words, older ones as a date.
-      await expect(card).toContainText(/comprobado (hace|anteayer|ayer|\d{1,2} [a-z]{3})/);
+      await expect(card).toContainText(/comprobado (hace|anteayer|ayer|\d{1,2} [A-Z][a-z]{2})/);
       await expect(card).not.toContainText("firma verificada");
       await expect(card).not.toContainText("al firmar");
       // A line to review is information for a person, never a blocker.
