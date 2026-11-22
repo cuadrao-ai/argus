@@ -2,7 +2,7 @@
 
 import type { SavedInvoice } from "@/lib/business-invoices-api";
 import { useTranslation } from "react-i18next";
-import { formatAmount } from "../business-format";
+import { formatAmount, formatDate } from "../business-format";
 import { currencySymbol } from "@/lib/money-entry";
 import { SavedIdentityMark } from "@/components/identity/IdentityMark";
 import { useBusiness } from "../BusinessWorkspace";
@@ -21,7 +21,7 @@ export function InvoiceMoney({ amount, currency, numberOnly = false }: { amount:
 }
 export function InvoiceDate({ date }: { date: string }) {
   const { locale } = useInvoiceWords();
-  return <>{validIsoDate(date) ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`)) : "-"}</>;
+  return <>{validIsoDate(date) ? formatDate(new Date(`${date}T12:00:00Z`), locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "-"}</>;
 }
 export default function InvoiceDocument({ invoice, business, activeSection, connection }: { connection?: { amounts: SavedInvoice["amounts"] }; invoice: InvoicePreview; business: string; activeSection?: "customer" | "items" | "terms" | "review" }) {
   const { word, locale } = useInvoiceWords();

@@ -163,7 +163,7 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
   await settle(() => badge() !== null);
   const open = async (receiptId: string, receiptIds?: readonly string[]) => {
     await act(async () => api!.openPanel({ kind: "receipt", receiptId, ...(receiptIds ? { list: "inbox", receiptIds } : {}) }));
-    await settle(() => heading() === names[receiptId as keyof typeof names] && (button("Aprobar") !== null || (host.textContent ?? "").includes("Puedes revisar")));
+    await settle(() => heading() === names[receiptId as keyof typeof names] && (button("Aceptar") !== null || (host.textContent ?? "").includes("Puedes revisar")));
   };
   const click = async (name: string, done: () => boolean) => {
     const target = button(name);
@@ -186,13 +186,13 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
   };
 }
 
-describe("Aprobar y siguiente on the receipt review page", () => {
+describe("Aceptar y siguiente on the receipt review page", () => {
   test("approval follows the origin list order and preserves it on the next receipt", async () => {
     const page = await mount({ width: 390 });
     const receiptIds = ["rcpt-uno", "rcpt-tres", "rcpt-dos"];
     try {
       await page.open("rcpt-uno", receiptIds);
-      await page.click("Aprobar y siguiente", () => page.heading() === "Tres");
+      await page.click("Aceptar y siguiente", () => page.heading() === "Tres");
       assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-tres", list: "inbox", receiptIds });
     } finally { await page.act(async () => page.root.unmount()); }
   });
@@ -201,21 +201,21 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     const page = await mount({ width: 390 });
     try {
       await page.open("rcpt-uno", receiptIds);
-      await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox");
+      await page.click("Aceptar y siguiente", () => page.panel().kind === "inbox");
       assert.equal(page.panel().kind, "inbox");
     } finally { await page.act(async () => page.root.unmount()); }
   });
 
-  test("the owner sees green Aprobar y siguiente as the primary action, with Aprobar beside it and its keys named", async () => {
+  test("the owner sees green Aceptar y siguiente as the primary action, with Aceptar beside it and its keys named", async () => {
     const page = await mount();
     await page.open("rcpt-uno");
-    const next = page.button("Aprobar y siguiente");
-    const plain = page.button("Aprobar");
-    assert.ok(next, "Aprobar y siguiente is shown");
-    assert.ok(plain, "Aprobar stays");
-    // The approved footer design: Aprobar y siguiente is the primary, with its keyboard hint.
-    assert.ok(next.className.includes("bg-[var(--cuadrao-green)]"), "Aprobar y siguiente is the green primary button");
-    assert.ok(plain.className.includes("border"), "Aprobar is the secondary button");
+    const next = page.button("Aceptar y siguiente");
+    const plain = page.button("Aceptar");
+    assert.ok(next, "Aceptar y siguiente is shown");
+    assert.ok(plain, "Aceptar stays");
+    // The approved footer design: Aceptar y siguiente is the primary, with its keyboard hint.
+    assert.ok(next.className.includes("bg-[var(--cuadrao-green)]"), "Aceptar y siguiente is the green primary button");
+    assert.ok(plain.className.includes("border"), "Aceptar is the secondary button");
     assert.match(next.getAttribute("data-keys") ?? "", /↵/);
     await page.act(async () => page.root.unmount());
   });
@@ -225,26 +225,26 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     assert.equal(page.badge(), "3");
     await page.open("rcpt-uno");
     const readsBefore = page.pageReads();
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "receipt" && (page.panel() as { receiptId: string }).receiptId === "rcpt-dos" && page.badge() === "2");
+    await page.click("Aceptar y siguiente", () => page.panel().kind === "receipt" && (page.panel() as { receiptId: string }).receiptId === "rcpt-dos" && page.badge() === "2");
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-dos" });
     assert.equal(page.badge(), "2", "the badge reads the server's pending_review_count after the approval");
     assert.ok(page.pageReads() > readsBefore, "the Bandeja page was read again from the server");
-    await page.settle(() => page.button("Aprobar y siguiente") !== null);
-    assert.ok(page.button("Aprobar y siguiente"), "the next receipt opens on its own review page");
+    await page.settle(() => page.button("Aceptar y siguiente") !== null);
+    assert.ok(page.button("Aceptar y siguiente"), "the next receipt opens on its own review page");
     await page.act(async () => page.root.unmount());
   });
 
-  test("the approve request is the one Aprobar sends: same record, same version, one key", async () => {
+  test("the approve request is the one Aceptar sends: same record, same version, one key", async () => {
     const viaNext = await mount();
     await viaNext.open("rcpt-uno");
-    await viaNext.click("Aprobar y siguiente", () => viaNext.approvals.length === 1);
+    await viaNext.click("Aceptar y siguiente", () => viaNext.approvals.length === 1);
     await viaNext.act(async () => viaNext.root.unmount());
 
     const viaPlain = await mount();
     await viaPlain.open("rcpt-uno");
-    await viaPlain.click("Aprobar", () => viaPlain.approvals.length === 1);
+    await viaPlain.click("Aceptar", () => viaPlain.approvals.length === 1);
     await viaPlain.settle(() => false);
-    assert.deepEqual(viaPlain.panel(), { kind: "receipt", receiptId: "rcpt-uno" }, "Aprobar stays on the record");
+    assert.deepEqual(viaPlain.panel(), { kind: "receipt", receiptId: "rcpt-uno" }, "Aceptar stays on the record");
     await viaPlain.act(async () => viaPlain.root.unmount());
 
     assert.equal(viaNext.approvals.length, 1);
@@ -259,7 +259,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("the next receipt is the row after the approved one, not the top of the Bandeja", async () => {
     const page = await mount();
     await page.open("rcpt-dos");
-    await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
+    await page.click("Aceptar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-tres" });
     await page.act(async () => page.root.unmount());
   });
@@ -267,7 +267,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("approving the last row returns to the Bandeja, which lists the rows skipped before it", async () => {
     const page = await mount();
     await page.open("rcpt-tres");
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector('[data-testid="reception-row"]') !== null);
+    await page.click("Aceptar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector('[data-testid="reception-row"]') !== null);
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "inbox" }, "no jump back to an earlier row");
     const stateOf = (name: string) => rowState(receptionRows(page.host).find((row) => row.textContent?.includes(name))!);
@@ -278,7 +278,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   for (const strict of [false, true]) test(`after advancing, keyboard focus is on the next receipt heading (Strict Mode ${strict})`, async () => {
     const page = await mount({ strict });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => page.heading() === "Dos" && document.activeElement?.id === "receipt-review-title");
+    await page.click("Aceptar y siguiente", () => page.heading() === "Dos" && document.activeElement?.id === "receipt-review-title");
     assert.equal(document.activeElement?.id, "receipt-review-title");
     assert.equal(document.activeElement?.textContent, "Dos");
     await page.act(async () => page.root.unmount());
@@ -288,7 +288,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     test(`an unavailable next ${nextUnavailable} never hands focus to a later receipt`, async () => {
       const page = await mount({ nextUnavailable });
       await page.open("rcpt-uno");
-      await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
+      await page.click("Aceptar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
       assert.ok(page.host.querySelector('[data-testid="panel"] [role="alert"]'), "the next page failed to load");
       await page.open("rcpt-tres");
       assert.equal(page.heading(), "Tres");
@@ -300,7 +300,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("leaving the next receipt while it loads never hands focus to a later page", async () => {
     const page = await mount({ hold: "next-receipt" });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
+    await page.click("Aceptar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
     assert.equal(page.heading(), null, "the intended receipt is still loading");
     await page.act(async () => page.workspace().openPanel({ kind: "transactions" }));
     await page.release();
@@ -313,11 +313,11 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("approving the last receipt waiting shows the done state, with a way back to the Bandeja", async () => {
     const page = await mount();
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
-    await page.settle(() => page.button("Aprobar y siguiente") !== null);
-    await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
-    await page.settle(() => page.button("Aprobar y siguiente") !== null);
-    await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="receipt-review-done"]') !== null);
+    await page.click("Aceptar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
+    await page.settle(() => page.button("Aceptar y siguiente") !== null);
+    await page.click("Aceptar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
+    await page.settle(() => page.button("Aceptar y siguiente") !== null);
+    await page.click("Aceptar y siguiente", () => page.host.querySelector('[data-testid="receipt-review-done"]') !== null);
     assert.ok(page.host.querySelector('[data-testid="receipt-review-done"]')?.textContent?.includes("No quedan recibos por revisar"));
     assert.ok(document.activeElement?.contains(page.host.querySelector('[data-testid="receipt-review-done"]')), "focus lands on the done state");
     await page.click("Volver a la Bandeja", () => page.panel().kind === "inbox" && page.host.querySelector("#reception-tab-attention")?.textContent === "Por resolver0");
@@ -330,10 +330,10 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("a refused approval stays on the receipt with the existing error", async () => {
     const page = await mount({ refuse: { status: 409, code: "unresolved_facts" } });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
+    await page.click("Aceptar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
-    assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"] p')?.textContent, "Resuelve los datos pendientes antes de aprobar.");
+    assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"] p')?.textContent, "Resuelve los datos pendientes antes de aceptar.");
     assert.ok(page.host.querySelector('[data-testid="panel"] [role="alert"] [data-testid="error-reference"]'), "a refusal shows its reference");
     assert.equal(page.badge(), "3");
     await page.act(async () => page.root.unmount());
@@ -342,7 +342,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("an approval whose outcome is unknown stays on the receipt", async () => {
     const page = await mount({ refuse: { status: 503, code: "unavailable" } });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
+    await page.click("Aceptar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
     assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"] p')?.textContent, "Todavía no se conoce el resultado de la acción. Consulta el estado guardado antes de realizar otra acción.");
@@ -352,10 +352,10 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("a 200 whose approval failed stays on the receipt and reads nothing more", async () => {
     const page = await mount({ unrecorded: "failed" });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
+    await page.click("Aceptar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
-    assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"]')?.textContent, "La aprobación no terminó. Consulta el registro actual antes de realizar otra acción.");
+    assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"]')?.textContent, "La aceptación no terminó. Consulta el registro actual antes de realizar otra acción.");
     assert.equal(page.bandejaReads(), 0);
     await page.act(async () => page.root.unmount());
   });
@@ -363,7 +363,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("a 200 whose outcome is unknown stays on the receipt and reads nothing more", async () => {
     const page = await mount({ unrecorded: "outcome_unknown" });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => (page.host.textContent ?? "").includes("Todavía no se conoce el resultado"));
+    await page.click("Aceptar y siguiente", () => (page.host.textContent ?? "").includes("Todavía no se conoce el resultado"));
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
     assert.equal(page.bandejaReads(), 0);
@@ -373,7 +373,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("when the Bandeja cannot be read after a recorded approval, the Bandeja opens", async () => {
     const page = await mount({ bandejaFails: true });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox");
+    await page.click("Aceptar y siguiente", () => page.panel().kind === "inbox");
     assert.deepEqual(page.panel(), { kind: "inbox" });
     assert.equal(page.approvals.length, 1);
     assert.equal(page.bandejaReads(), 1);
@@ -383,7 +383,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("opening Transacciones while the approval is pending keeps it open when it records", async () => {
     const page = await mount({ hold: "approval" });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => page.approvals.length === 1);
+    await page.click("Aceptar y siguiente", () => page.approvals.length === 1);
     await page.act(async () => page.workspace().openPanel({ kind: "transactions" }));
     await page.release();
     assert.deepEqual(page.panel(), { kind: "transactions" });
@@ -394,7 +394,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("switching Business while the approval is pending opens no receipt when it records", async () => {
     const page = await mount({ hold: "approval" });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => page.approvals.length === 1);
+    await page.click("Aceptar y siguiente", () => page.approvals.length === 1);
     await page.act(async () => page.workspace().chooseBusiness("fixture-grant-client"));
     await page.release();
     assert.deepEqual(page.panel(), { kind: "overview" });
@@ -405,19 +405,19 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("switching Business while the Bandeja read is pending opens no receipt from the old Business", async () => {
     const page = await mount({ hold: "bandeja" });
     await page.open("rcpt-uno");
-    await page.click("Aprobar y siguiente", () => page.bandejaReads() === 1);
+    await page.click("Aceptar y siguiente", () => page.bandejaReads() === 1);
     await page.act(async () => page.workspace().chooseBusiness("fixture-grant-client"));
     await page.release();
     assert.deepEqual(page.panel(), { kind: "overview" });
     await page.act(async () => page.root.unmount());
   });
 
-  test("a person without approval permission never sees Aprobar y siguiente", async () => {
+  test("a person without approval permission never sees Aceptar y siguiente", async () => {
     const page = await mount({ role: "accountant" });
     await page.open("rcpt-uno");
     await page.settle(() => (page.host.textContent ?? "").includes("Puedes revisar"));
-    assert.equal(page.button("Aprobar y siguiente"), null);
-    assert.equal(page.button("Aprobar"), null);
+    assert.equal(page.button("Aceptar y siguiente"), null);
+    assert.equal(page.button("Aceptar"), null);
     await page.act(async () => page.root.unmount());
   });
 });

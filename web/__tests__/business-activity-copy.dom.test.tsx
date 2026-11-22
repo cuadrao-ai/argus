@@ -35,11 +35,11 @@ async function mount(i18n: i18n) {
 const WORDS: Record<TestLanguage, { title: string; body: string }> = {
   "es-419": {
     title: "Todavía no hay actividad",
-    body: "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
+    body: "Cuando alguien suba, revise o acepte algo en este negocio, lo verás aquí.",
   },
   en: {
     title: "No activity yet",
-    body: "When someone uploads, reviews or approves something in this business, you will see it here.",
+    body: "When someone uploads, reviews or accepts something in this business, you will see it here.",
   },
 };
 

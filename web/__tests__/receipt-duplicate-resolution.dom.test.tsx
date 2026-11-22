@@ -244,7 +244,7 @@ test("each column head names its document's file, with Este or the other's state
   const saved = await mount();
   const approved = await mount("success", { approved: true });
   try {
-    for (const [ui, state] of [[saved, "Guardado antes"], [approved, "Aprobado"]] as const) {
+    for (const [ui, state] of [[saved, "Guardado antes"], [approved, "Aceptado"]] as const) {
       await ui.compare();
       const heads = Array.from(ui.view()!.querySelectorAll<HTMLElement>("thead [data-compare-side]"));
       assert.deepEqual(heads.map((head) => head.dataset.compareSide), ["document", "other"]);
@@ -507,7 +507,7 @@ test("in the review panel the one Parece repetido sits in the top box with Compa
 });
 
 for (const outcome of ["settled", "failed"] as const) {
-  test(`in the review panel, Son compras distintas ${outcome === "settled" ? "returns to the review with a toast, no amber entry and Aprobar ready" : "that fails keeps the compare view and retries with the same key"}`, async () => {
+  test(`in the review panel, Son compras distintas ${outcome === "settled" ? "returns to the review with a toast, no amber entry and Aceptar ready" : "that fails keeps the compare view and retries with the same key"}`, async () => {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -561,7 +561,7 @@ for (const outcome of ["settled", "failed"] as const) {
     try {
       await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId="draft-new" /><Toasts /></BusinessContext.Provider></I18nextProvider>); });
       await settle();
-      assert.ok(button("Aprobar")?.disabled, "the duplicate blocks Aprobar before the decision");
+      assert.ok(button("Aceptar")?.disabled, "the duplicate blocks Aceptar before the decision");
       await act(async () => { button("Comparar")?.click(); });
       await settle();
       await act(async () => { button("Son compras distintas")?.click(); });
@@ -572,8 +572,8 @@ for (const outcome of ["settled", "failed"] as const) {
         assert.equal(host.querySelector('[data-testid="duplicate-entry"]'), null, "no amber Parece repetido entry");
         assert.equal(repeats(host.querySelector('[data-testid="dossier-attention"]')), 0);
         assert.equal(toasts(), "Marcado como compras distintas.");
-        const approve = button("Aprobar");
-        assert.ok(approve && !approve.disabled, "Aprobar is ready");
+        const approve = button("Aceptar");
+        assert.ok(approve && !approve.disabled, "Aceptar is ready");
         assert.equal(document.activeElement, approve, "focus is on the review's main action");
         assert.equal(decisions.length, 1);
       } else {

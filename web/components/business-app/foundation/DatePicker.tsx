@@ -41,7 +41,7 @@ export function isoOf(year: number, month: number, day: number): string {
   return value.toISOString().slice(0, 10);
 }
 
-/** The same day of the month in another month, or that month's last day when it is shorter: 29 feb 2024 in 2026 is 28 feb. */
+/** The same day of the month in another month, or that month's last day when it is shorter: 29 Feb 2024 in 2026 is 28 Feb. */
 export function dayIn(iso: string, year: number, month: number): string {
   return isoOf(year, month, Math.min(Number(iso.slice(8)), new Date(Date.UTC(year, month + 1, 0)).getUTCDate()));
 }
@@ -77,7 +77,7 @@ const headerButton = `inline-flex min-h-11 items-center gap-1 rounded-item px-2 
 const choiceButton = (chosen: boolean) => `min-h-11 rounded-item px-2 text-[15px] tabular-nums ${focusRing} ${chosen ? "bg-[#2f5a49] font-medium text-[#FFFEFA]" : "text-[#172b26] hover:bg-black/[0.04] dark:text-white dark:hover:bg-white/[0.06]"}`;
 
 /**
- * The one single-date field: shows the day as "14 oct 2026", takes a typed
+ * The one single-date field: shows the day as "14 Oct 2026", takes a typed
  * d/m/aa, and opens one Monday-first month. Its header jumps to a month and a
  * year. On a phone the month opens as a bottom sheet. Values are ISO days.
  */

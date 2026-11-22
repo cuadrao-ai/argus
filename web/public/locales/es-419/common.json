@@ -922,7 +922,7 @@
       "ai_on": "Activado. Puedes desactivarlo cuando quieras.",
       "ai_replaces": "Otro permiso de IA está activo en este número. Al activar este, lo reemplaza.",
       "ai_off": "Desactivado. Los documentos que envíes esperan en tu bandeja para que los llenes tú.",
-      "ai_approval": "Tú siempre apruebas los registros de dinero en Cuadrao.",
+      "ai_approval": "Tú siempre aceptas los registros de dinero en Cuadrao.",
       "ai_reason_unavailable": "Ahora no se puede activar la lectura con IA.",
       "ai_reason_whatsapp_link_required": "Primero vincula tu número.",
       "ai_reason_business_permission_denied": "Tu cuenta no tiene permiso para activarla en este negocio.",
@@ -1979,14 +1979,14 @@
           "label": "Sin RNC",
           "reason": "El recibo no tiene RNC. Agrégalo para poder reportarlo en el 606.",
           "action": "Agregar RNC",
-          "approval_title": "Este recibo no tiene RNC. ¿Aprobar de todos modos?",
+          "approval_title": "Este recibo no tiene RNC. ¿Aceptar de todos modos?",
           "approval_body": "Tendrás que agregar el RNC antes de exportar el 606."
         },
         "invalid_length": {
           "label": "RNC con error",
           "reason": "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). Revisa que esté bien escrito.",
           "action": "Editar RNC",
-          "approval_title": "Este RNC tiene un error. ¿Aprobar de todos modos?",
+          "approval_title": "Este RNC tiene un error. ¿Aceptar de todos modos?",
           "approval_body": "Tendrás que corregirlo antes de exportar el 606."
         },
         "check_digit": {
@@ -2009,7 +2009,7 @@
       "business_name_required": "Escribe el nombre del negocio.",
       "save_profile": "Guardar",
       "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
-      "review_note": "Usa los montos del comprobante y tu clasificación fiscal. Deja en blanco los datos que no sabes. Guardar crea una revisión; aprobar es otro paso.",
+      "review_note": "Usa los montos del comprobante y tu clasificación fiscal. Deja en blanco los datos que no sabes. Guardar crea una revisión; aceptar es otro paso.",
       "field": {
         "category": "$t(business.dossier.placeholder.expense_type)",
         "goods_amount": "Monto Facturado en Bienes",
@@ -2066,7 +2066,7 @@
       },
       "load_failed": "No se pudieron cargar los campos fiscales.",
       "no_withholdings": "Sin retenciones",
-      "save_failed": "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aprobar.",
+      "save_failed": "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aceptar.",
       "actual_refund": "Se recibió un reembolso…",
       "option": {
         "category": {
@@ -2118,16 +2118,16 @@
       },
       "original_purchase": "Compra original",
       "refund_candidate_refused": "Esa compra no se puede usar para este reembolso. Elige otra.",
-      "refund_candidates_none": "No hay compras aprobadas para elegir.",
+      "refund_candidates_none": "No hay compras aceptadas para elegir.",
       "save": "Guardar",
-      "approve_income": "Aprobar ingreso",
-      "approve_refund": "Aprobar reembolso",
-      "recorded_income": "Se registró un ingreso después de aprobar la revisión {{version}}.",
-      "recorded_refund": "Se registró un reembolso después de aprobar la revisión {{version}}.",
+      "approve_income": "Aceptar ingreso",
+      "approve_refund": "Aceptar reembolso",
+      "recorded_income": "Se registró un ingreso después de aceptar la revisión {{version}}.",
+      "recorded_refund": "Se registró un reembolso después de aceptar la revisión {{version}}.",
       "error": {
-        "fiscal_duplicate_document": "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo antes de aprobar.",
+        "fiscal_duplicate_document": "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo antes de aceptar.",
         "fiscal_credit_settlement_required": "Registra un reembolso solo después de confirmar que se recibió el dinero y elegir la compra original.",
-        "recorded_correction_unsupported": "Los datos fiscales de un registro aprobado no se pueden cambiar en este flujo.",
+        "recorded_correction_unsupported": "Los datos fiscales de un registro aceptado no se pueden cambiar en este flujo.",
         "stale_version": "Este registro cambió. Abre la revisión actual antes de guardar.",
         "tax_id_type": "Elige RNC o cédula.",
         "tax_id_not_digits": "Usa solo dígitos y guiones.",
@@ -2161,9 +2161,9 @@
       "actions": {
         "accept_invite": "aceptó una invitación",
         "append_supporting_file": "adjuntó un archivo de soporte",
-        "approve_expense": "aprobó un gasto",
-        "approve_income": "aprobó un ingreso",
-        "approve_refund": "aprobó un reembolso",
+        "approve_expense": "aceptó un gasto",
+        "approve_income": "aceptó un ingreso",
+        "approve_refund": "aceptó un reembolso",
         "business_ask": "le preguntó a Cuadrao",
         "business_attach_source": "vinculó un documento",
         "business_propose_activity": "propuso un registro",
@@ -2192,7 +2192,7 @@
         "receipt_reading_enabled": "activó la lectura de documentos",
         "receipt_review": "revisó un documento",
         "receipt_upload": "subió un documento",
-        "reopen_draft": "reabrió un registro aprobado",
+        "reopen_draft": "reabrió un registro aceptado",
         "resolve_duplicate": "resolvió un duplicado",
         "restore_document": "restauró {{document}}.",
         "review_draft": "revisó un registro",
@@ -2235,13 +2235,13 @@
         "today": "Hoy",
         "week": "Últimos 7 días"
       },
-      "first_run_body": "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
+      "first_run_body": "Cuando alguien suba, revise o acepte algo en este negocio, lo verás aquí.",
       "first_run_title": "Todavía no hay actividad",
       "former_member": "Exmiembro",
       "go_home": "Ir a Inicio",
       "groups": {
         "access": "Accesos",
-        "approvals": "Aprobaciones",
+        "approvals": "Aceptaciones",
         "edits": "Cambios en registros",
         "files": "Adjuntos",
         "invoices": "Facturas",
@@ -2928,7 +2928,7 @@
       "type_label": "Tipo",
       "type_detected_venta": "La detectamos por el RNC de tu negocio. Completa el RNC del cliente.",
       "type_detected_recibo": "Lo detectamos como compra. Cámbialo si es una venta.",
-      "type_locked": "Este registro ya está aprobado. Su tipo no cambia.",
+      "type_locked": "Este registro ya está aceptado. Su tipo no cambia.",
       "type_clears_choices": "Cambiar el tipo borra el tipo de gasto y la forma de pago.",
       "title": "Revisar registro",
       "unknown": "Desconocido",
@@ -2945,7 +2945,7 @@
       "default": "Predeterminada · sin verificar",
       "verified": "Verificado",
       "not_verified": "Sin verificar",
-      "needs_resolution": "Necesita una decisión antes de aprobar",
+      "needs_resolution": "Necesita una decisión antes de aceptar",
       "messages_title_one": "Mensaje original",
       "messages_title_other": "Mensajes originales",
       "proposals": "Propuestas del agente",
@@ -2972,22 +2972,22 @@
       "decisions": "Necesita tu decisión",
       "for_accountant": "Para el contador",
       "for_owner": "Para el dueño",
-      "approve": "Aprobar gasto",
-      "approve_action": "Aprobar",
-      "approve_next": "Aprobar y siguiente",
+      "approve": "Aceptar gasto",
+      "approve_action": "Aceptar",
+      "approve_next": "Aceptar y siguiente",
       "approve_reason": {
-        "date": "Agrega la fecha para aprobar"
+        "date": "Agrega la fecha para aceptar"
       },
-      "approved_by": "Aprobado por {{name}} · permiso otorgado por {{issuer}}",
-      "approving": "Aprobando…",
-      "approval_effect": "Aprobar registra esta revisión como un gasto. Guardar los detalles de revisión no lo registra.",
-      "prepare_only": "Puedes revisar y preparar este recibo. El dueño lo aprueba.",
+      "approved_by": "Aceptado por {{name}} · permiso otorgado por {{issuer}}",
+      "approving": "Aceptando…",
+      "approval_effect": "Aceptar registra esta revisión como un gasto. Guardar los detalles de revisión no lo registra.",
+      "prepare_only": "Puedes revisar y preparar este recibo. El dueño lo acepta.",
       "read_only": "Tu permiso permite ver este registro.",
-      "recorded": "Se registró un gasto tras aprobar la revisión {{version}}.",
+      "recorded": "Se registró un gasto tras aceptar la revisión {{version}}.",
       "correction_unsupported": "Las correcciones después del registro no están disponibles en este primer flujo.",
       "reopen": "Reabrir",
       "reopen_title": "¿Reabrir este recibo?",
-      "reopen_body": "Vuelve a la Bandeja para corregirlo. Sale de tus registros hasta que lo apruebes de nuevo.",
+      "reopen_body": "Vuelve a la Bandeja para corregirlo. Sale de tus registros hasta que lo aceptes de nuevo.",
       "reopening": "Reabriendo…",
       "reopen_failed": "No se pudo reabrir este recibo. Revisa el registro actual antes de intentarlo de nuevo.",
       "reopen_refused": {
@@ -2995,7 +2995,7 @@
         "business_refund_linked": "Una nota de crédito o un reembolso apunta a este recibo. Atiende ese registro primero."
       },
       "ecf_title": "Factura electrónica",
-      "ecf_note": "Lo que el archivo demuestra por sí mismo. Nada aquí confirma que la DGII aceptó la factura; una fila con «Revisar» no impide aprobar.",
+      "ecf_note": "Lo que el archivo demuestra por sí mismo. Nada aquí confirma que la DGII aceptó la factura; una fila con «Revisar» no te impide aceptarla.",
       "ecf_see_all_one": "Ver la {{count}} comprobación",
       "ecf_see_all_other": "Ver las {{count}} comprobaciones",
       "ecf_summary": "{{ok}} de {{total}} bien",
@@ -3053,7 +3053,7 @@
       "stale": "Este registro cambió. Abre la revisión actual y revísala antes de realizar otra acción.",
       "unavailable": "Este registro no está disponible con tu acceso actual.",
       "outcome_unknown": "Todavía no se conoce el resultado de la acción. Consulta el estado guardado antes de realizar otra acción.",
-      "approval_failed": "La aprobación no terminó. Consulta el registro actual antes de realizar otra acción.",
+      "approval_failed": "La aceptación no terminó. Consulta el registro actual antes de realizar otra acción.",
       "duplicate_recorded": "Ya registraste este comprobante.",
       "see_recorded": "Ver el registrado",
       "review_flag": {
@@ -3068,14 +3068,14 @@
         "itbis_high": {
           "text": "El ITBIS parece alto. Revisa que esté bien."
         },
-        "export_blocked": "Si lo apruebas así, el 606 del mes no se podrá exportar hasta que lo corrijas.",
+        "export_blocked": "Si lo aceptas así, el 606 del mes no se podrá exportar hasta que lo corrijas.",
         "fix": "Corregir",
-        "approve_anyway": "Aprobar de todos modos"
+        "approve_anyway": "Aceptar de todos modos"
       },
       "missing_draft": "El movimiento preparado todavía no está disponible. Revisa el recibo actual antes de continuar.",
       "refused": "No se pudo completar esta acción. Consulta el registro actual antes de intentarlo de nuevo.",
-      "blocker_fallback": "Este registro necesita más revisión antes de aprobarse.",
-      "blocker_unsaved": "Un cambio no se guardó. Guárdalo de nuevo para aprobar.",
+      "blocker_fallback": "Este registro necesita más revisión antes de aceptarse.",
+      "blocker_unsaved": "Un cambio no se guardó. Guárdalo de nuevo para aceptar.",
       "kind": {
         "expense": "Gasto",
         "income": "Ingreso",
@@ -3115,7 +3115,7 @@
         "suggested": "sugerida"
       },
       "placeholder": {
-        "blocks_title": "Falta para aprobar",
+        "blocks_title": "Falta para aceptar",
         "expense_type": "Tipo de gasto",
         "gap": {
           "blocked": {
@@ -3185,14 +3185,14 @@
           "desconocido": "Estado sin confirmar en la DGII",
           "rechazado": "Rechazado en la DGII"
         },
-        "save_lost": "No pudimos confirmar si {{field}} se guardó. Aprobar queda en pausa.",
+        "save_lost": "No pudimos confirmar si {{field}} se guardó. Aceptar queda en pausa.",
         "save_refused": "No se guardó {{field}}. Revisa el valor.",
         "save_stale": "Este registro cambió mientras editabas. Ya ves la versión actual y tu cambio sigue aquí.",
         "doubtful_read": "revisar",
         "done_title": "No quedan recibos por revisar",
         "done_back": "Volver a la Bandeja",
         "total_mismatch": "Subtotal + ITBIS = {{sum}}, no {{total}}",
-        "save_first": "Guarda o cancela {{fields}} para aprobar.",
+        "save_first": "Guarda o cancela {{fields}} para aceptar.",
         "group_identity": "Identificación",
         "group_amounts": "Montos facturados",
         "group_retentions": "Retenciones",
@@ -3248,15 +3248,15 @@
       },
       "state": {
         "open": "Pendiente de revisión",
-        "accepting": "Consultando resultado de aprobación",
+        "accepting": "Consultando resultado de aceptación",
         "accepted": "Registrado",
         "dismissed": "Descartado"
       },
       "blocker": {
         "unknown_funding": "Confirma cómo se pagó.",
         "missing_fields": "Completa los detalles necesarios.",
-        "unresolved_facts": "Resuelve los datos pendientes antes de aprobar.",
-        "unsupported_kind": "Esta actividad no admite aprobación en este primer flujo.",
+        "unresolved_facts": "Resuelve los datos pendientes antes de aceptar.",
+        "unsupported_kind": "Esta actividad no admite aceptación en este primer flujo.",
         "owner_funding_unsupported": "Todavía no se pueden registrar gastos con dinero del dueño en este primer flujo.",
         "permission_denied": "Tu permiso actual no permite esta acción.",
         "currency_mismatch": "La cuenta de pago y el registro necesitan la misma moneda.",
@@ -3300,10 +3300,10 @@
     "empty": {
       "access_error": "No pudimos cargar el acceso",
       "all_clear_body": "Cuando llegue otro recibo, aparece aquí para que lo revises.",
-      "all_clear_title": "Todo aprobado. Pa'que cuadre.",
+      "all_clear_title": "Todo aceptado. Pa'que cuadre.",
       "email_error": "No pudimos cargar tus correos",
       "error_body": "Tus datos siguen guardados. Revisa tu conexión e inténtalo otra vez.",
-      "inbox_body": "Súbelos, escríbelos o reenvíalos por correo. Los revisas y los apruebas para que cuenten en tus números.",
+      "inbox_body": "Súbelos, escríbelos o reenvíalos por correo. Los revisas y los aceptas para que cuenten en tus números.",
       "inbox_error": "No pudimos cargar tu bandeja",
       "inbox_title": "Aquí llegan tus recibos",
       "month_body": "Agrega los recibos y facturas de este mes para ver tus ingresos, gastos e ITBIS.",
@@ -3327,7 +3327,7 @@
           "label": "Nada se pierde de vista"
         },
         "follow": {
-          "body": "Ve quién subió, aprobó, editó o eliminó documentos, y cuándo.",
+          "body": "Ve quién subió, aceptó, editó o eliminó documentos, y cuándo.",
           "label": "Sigue la actividad"
         },
         "open": {
@@ -3343,8 +3343,8 @@
           "label": "Retoma lo pendiente"
         },
         "review": {
-          "body": "Revisa los datos y corrige lo necesario. Al aprobar, el documento pasa a Registros.",
-          "label": "Revisa y aprueba"
+          "body": "Revisa los datos y corrige lo necesario. Al aceptar, el documento pasa a Registros.",
+          "label": "Revisa y acepta"
         },
         "title": "Del documento al registro",
         "upload": {
@@ -3391,7 +3391,7 @@
     "history": {
       "accepted_note": "Pasó a Registros y al Reporte {{form}}",
       "am": "a.m.",
-      "approved": "Aprobado",
+      "approved": "Aceptado",
       "arrived": "Llegó por {{channel}}",
       "changed": "{{field}} cambiado de {{before}} a {{after}}",
       "changed_female": "{{field}} cambiada de {{before}} a {{after}}",
@@ -3475,7 +3475,7 @@
       "copy_review": "pending_lucas",
       "month": {
         "expenses": "Gastos",
-        "first_day": "Las cifras se llenan cuando apruebes tus primeros documentos.",
+        "first_day": "Las cifras se llenan cuando aceptes tus primeros documentos.",
         "fiscal_one": "Faltan datos en 1 registro",
         "fiscal_other": "Faltan datos en {{count}} registros",
       "fiscal_purchases_one": "Faltan datos en 1 compra",
@@ -3493,12 +3493,12 @@
         "review": "Revisar",
         "see": "Ver",
         "terms": {
-          "expenses": "Compras y gastos aprobados del mes, sin ITBIS.",
+          "expenses": "Compras y gastos aceptados del mes, sin ITBIS.",
           "fiscal": "Completa los datos que faltan antes de declarar.",
-          "income": "Ventas aprobadas del mes, sin ITBIS.",
-          "itbis_purchases": "ITBIS pagado en tus compras aprobadas.",
-          "itbis_sales": "ITBIS cobrado en tus ventas aprobadas.",
-          "net": "Ingresos menos gastos aprobados del mes, sin ITBIS."
+          "income": "Ventas aceptadas del mes, sin ITBIS.",
+          "itbis_purchases": "ITBIS pagado en tus compras aceptadas.",
+          "itbis_sales": "ITBIS cobrado en tus ventas aceptadas.",
+          "net": "Ingresos menos gastos aceptados del mes, sin ITBIS."
         },
         "under_one": "menos de {{amount}}"
       }
@@ -3708,7 +3708,7 @@
       "write": "Escríbelo",
       "write_title": "Escríbelo",
       "write_placeholder": "Ej.: Pagué RD$500 de gasolina hoy, en efectivo.",
-      "write_help": "Qué compraste o vendiste, cuánto, cuándo y cómo pagaste. Lo revisas en la Bandeja antes de aprobar.",
+      "write_help": "Qué compraste o vendiste, cuánto, cuándo y cómo pagaste. Lo revisas en la Bandeja antes de aceptar.",
       "write_back": "Subir archivos",
       "write_save": "Guardar",
       "write_type": {
@@ -4288,7 +4288,7 @@
       "reopen_access": "Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes.",
       "transfer": {
         "accept": "Aceptar transferencia",
-        "accept_body": "Serás el dueño. Solo tú podrás aprobar, cerrar el negocio y dar o quitar accesos. {{ownerName}} podrá seguir editando. La lectura automática de documentos se apaga hasta que tú la actives. No se puede deshacer.",
+        "accept_body": "Serás el dueño. Solo tú podrás aceptar registros, cerrar el negocio y dar o quitar accesos. {{ownerName}} podrá seguir editando. La lectura automática de documentos se apaga hasta que tú la actives. No se puede deshacer.",
         "accept_title": "¿Aceptar {{businessName}}?",
         "accepted": "Transferencia completada",
         "cancelled": "Transferencia retirada",
@@ -4355,7 +4355,7 @@
       "itbis_cobrado": "ITBIS cobrado",
       "approved_figures": {
         "copy_review": "approved",
-        "net_detail": "Ingresos menos gastos aprobados"
+        "net_detail": "Ingresos menos gastos aceptados"
       },
       "receipts_failed": "No pudimos cargar el conteo de recibos. Aún no se puede cerrar el mes.",
       "receipts_loading": "Cargando el conteo de recibos. Aún no se puede cerrar el mes.",
@@ -4528,7 +4528,7 @@
       "empty_attention_help": "Cuando un documento necesite atención o no se pueda leer, aparece aquí.",
       "empty_help": "Prueba otra vista o cambia los filtros.",
       "empty_listos": "No hay recibos listos",
-      "empty_listos_help": "Cuando un recibo tenga todo confirmado, aparece aquí para aprobarlo.",
+      "empty_listos_help": "Cuando un recibo tenga todo confirmado, aparece aquí para aceptarlo.",
       "empty_start": "Tus archivos y notas llegan aquí",
       "empty_start_help": "Agrega un archivo o recibe documentos por correo.",
       "empty_start_upload_help": "Agrega un archivo.",
@@ -4545,16 +4545,16 @@
       "page_size": "Elementos por página",
       "pagination": "Páginas de Bandeja",
       "placeholder": {
-        "approve_all": "Aprobar todos",
-        "approve_confirm_help_one": "Pasa a Registros como gasto aprobado.",
-        "approve_confirm_help_other": "Pasan a Registros como gastos aprobados.",
-        "approve_confirm_one": "¿Aprobar {{count}} recibo?",
-        "approve_confirm_other": "¿Aprobar {{count}} recibos?",
-        "approve_failed_one": "No se aprobó {{count}} de {{total}}.",
-        "approve_failed_other": "No se aprobaron {{count}} de {{total}}.",
-        "approved_one": "{{count}} recibo aprobado.",
-        "approved_other": "{{count}} recibos aprobados.",
-        "bulk_actions": "Aprobar selección",
+        "approve_all": "Aceptar todos",
+        "approve_confirm_help_one": "Pasa a Registros como gasto aceptado.",
+        "approve_confirm_help_other": "Pasan a Registros como gastos aceptados.",
+        "approve_confirm_one": "¿Aceptar {{count}} recibo?",
+        "approve_confirm_other": "¿Aceptar {{count}} recibos?",
+        "approve_failed_one": "No se aceptó {{count}} de {{total}}.",
+        "approve_failed_other": "No se aceptaron {{count}} de {{total}}.",
+        "approved_one": "{{count}} recibo aceptado.",
+        "approved_other": "{{count}} recibos aceptados.",
+        "bulk_actions": "Aceptar selección",
         "listos": "Listos",
         "open": "Abrir",
         "reason": {
@@ -4569,10 +4569,10 @@
         },
         "refused": {
           "duplicate_comprobante": "Este comprobante ya está registrado",
-          "not_listo": "Ya no está listo para aprobar",
-          "other": "No se pudo aprobar",
+          "not_listo": "Ya no está listo para aceptar",
+          "other": "No se pudo aceptar",
           "stale_version": "Cambió después de listarlo. Ábrelo y revísalo.",
-          "unknown": "No sabemos si se aprobó. Reintenta para confirmarlo."
+          "unknown": "No sabemos si se aceptó. Reintenta para confirmarlo."
         }
       },
       "remove_filter": "Quitar filtro: {{label}}",
@@ -4637,7 +4637,7 @@
       "confirmed": "Gasto guardado",
       "dismissed": "Descartado",
       "needs_attention": "Necesita atención",
-      "pill_approved": "Aprobado",
+      "pill_approved": "Aceptado",
       "pill_attention": "Necesita atención",
       "pill_pending": "Pendiente",
       "preparing": "Preparando",
@@ -4880,7 +4880,7 @@
     "invitations_title": "Invitaciones",
     "nav": "Acceso",
     "title": "Acceso",
-    "subtitle": "Quién puede ver y preparar los registros de tu negocio. Solo tú apruebas.",
+    "subtitle": "Quién puede ver y preparar los registros de tu negocio. Solo tú los aceptas.",
     "owner": "Dueño",
     "member": "Miembro",
     "since": "Desde {{date}}",
@@ -4888,7 +4888,7 @@
     "pending_until": "Vence {{date}}",
     "pending_note": "Recibe acceso la primera vez que inicie sesión con este correo confirmado.",
     "give_title": "Dar acceso a tu contador",
-    "give_body": "Escribe su correo. Podrá ver y preparar recibos. Nunca podrá aprobar.",
+    "give_body": "Escribe su correo. Podrá ver y preparar recibos. Nunca podrá aceptarlos.",
     "email_label": "Correo electrónico",
     "give": "Dar acceso",
     "giving": "Dando acceso...",
@@ -5034,17 +5034,17 @@
     "your_access": "Tu acceso",
     "permission_label": "Acceso",
     "permission_owner": "Dueño",
-    "permission_owner_detail": "Acceso completo al negocio. Puede aprobar registros e invitar a otros dueños.",
+    "permission_owner_detail": "Acceso completo al negocio. Puede aceptar registros e invitar a otros dueños.",
     "permission_admin": "Administrador",
-    "permission_admin_detail": "Configura el negocio y gestiona colaboradores. No puede aprobar registros.",
+    "permission_admin_detail": "Configura el negocio y gestiona colaboradores. No puede aceptar registros.",
     "permission_editor": "Editor",
-    "permission_editor_detail": "Agrega documentos y prepara registros. No puede aprobarlos ni administrar el negocio.",
+    "permission_editor_detail": "Agrega documentos y prepara registros. No puede aceptarlos ni administrar el negocio.",
     "permission_viewer": "Lector",
     "permission_viewer_detail": "Consulta documentos y registros. No puede editarlos ni descargarlos.",
     "invite_access": "Acceso",
     "invite_access_allow": "Puede ver y preparar los documentos del negocio.",
     "invite_access_details": "Detalles del acceso",
-    "invite_access_limit": "No puede aprobar registros ni administrar el negocio.",
+    "invite_access_limit": "No puede aceptar registros ni administrar el negocio.",
     "invite_access_summary": "Ver y preparar registros",
     "invite_email_example": "nombre@ejemplo.com",
     "invite_email_invalid": "Revisa el correo. Por ejemplo, nombre@ejemplo.com.",
@@ -5171,7 +5171,7 @@
     "qr_error": "No pudimos generar el QR. Usa Conectar manualmente.",
     "reading_description": "Cuadrao extrae los datos de tus documentos para que los revises. Esto aplica a archivos, correo y WhatsApp.",
     "reading_enable": "Activar y continuar",
-    "reading_limits": "La lectura no aprueba registros. Puedes cambiarla en Configuración.",
+    "reading_limits": "La lectura no acepta registros. Puedes cambiarla en Configuración.",
     "reading_question": "¿Leemos tus documentos automáticamente?",
     "reading_skip": "Continuar sin lectura",
     "ready_status": "Listo para enviar",

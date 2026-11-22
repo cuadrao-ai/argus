@@ -53,8 +53,8 @@ describe("relative time", () => {
   });
 
   test("from seven days on it is a short date, with the year only when it is not this year", () => {
-    expect(formatRelativeTime(ago(7 * DAY), "es-419", now)).toBe("13 oct");
-    expect(formatRelativeTime(new Date(2025, 11, 24, 9).toISOString(), "es-419", now)).toBe("24 dic 2025");
+    expect(formatRelativeTime(ago(7 * DAY), "es-419", now)).toBe("13 Oct");
+    expect(formatRelativeTime(new Date(2025, 11, 24, 9).toISOString(), "es-419", now)).toBe("24 Dic 2025");
     expect(formatRelativeTime(null, "es-419", now)).toBe("");
   });
 
@@ -62,9 +62,9 @@ describe("relative time", () => {
     expect(formatRelativeDay("2026-10-20", "2026-10-20", "es-419")).toBe("hoy");
     expect(formatRelativeDay("2026-10-19", "2026-10-20", "es-419")).toBe("ayer");
     expect(formatRelativeDay("2026-10-14", "2026-10-20", "es-419")).toBe("hace 6 días");
-    expect(formatRelativeDay("2026-10-13", "2026-10-20", "es-419")).toBe("13 oct");
-    expect(formatRelativeDay("2026-10-27", "2026-10-20", "es-419")).toBe("27 oct");
-    expect(formatShortDay("2025-10-02", "es-419", now)).toBe("2 oct 2025");
+    expect(formatRelativeDay("2026-10-13", "2026-10-20", "es-419")).toBe("13 Oct");
+    expect(formatRelativeDay("2026-10-27", "2026-10-20", "es-419")).toBe("27 Oct");
+    expect(formatShortDay("2025-10-02", "es-419", now)).toBe("2 Oct 2025");
   });
 });
 

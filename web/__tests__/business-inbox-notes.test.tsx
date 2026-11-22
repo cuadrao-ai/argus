@@ -15,13 +15,13 @@ const CAPTURES: BusinessCapture[] = [
   { ...note("draft-a", 2, "Pagué con mi dinero.", "2026-10-10T15:30:00Z"), earlier_count: 4 },
   note("draft-c", 3, "Recorded already", "2026-10-11T10:00:00Z", "accepted"),
   note("draft-d", 1, "Dismissed", "2026-10-11T11:00:00Z", "dismissed"),
-  note("draft-e", 2, "Aprobando el pago de luz", "2026-10-11T12:00:00Z", "accepting"),
+  note("draft-e", 2, "Aceptando el pago de luz", "2026-10-11T12:00:00Z", "accepting"),
 ];
 
 describe("notes awaiting review in the Inbox", () => {
   test("one row per open draft, newest first, with its latest note and the server's count of earlier ones", () => {
     assert.deepEqual(openNotesByDraft(CAPTURES), [
-      { draftId: "draft-e", text: "Aprobando el pago de luz", receivedAt: "2026-10-11T12:00:00Z", revision: 2, earlier: 0 },
+      { draftId: "draft-e", text: "Aceptando el pago de luz", receivedAt: "2026-10-11T12:00:00Z", revision: 2, earlier: 0 },
       { draftId: "draft-b", text: "Me pagaron 5,000 por la reparación.", receivedAt: "2026-10-11T09:00:00Z", revision: 1, earlier: 0 },
       { draftId: "draft-a", text: "Pagué con mi dinero.", receivedAt: "2026-10-10T15:30:00Z", revision: 2, earlier: 4 },
     ].map(row => ({ ...row, deleted: undefined, delete_available: undefined, restore_available: undefined, bandeja_group: undefined, sent_by: undefined })));
