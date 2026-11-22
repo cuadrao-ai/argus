@@ -251,7 +251,11 @@ def test_an_accept_that_names_only_some_gaps_is_refused_with_them_all(rig) -> No
 
 @pytest.mark.parametrize(
     ("field", "gap"),
-    [("occurred_on", "missing_date"), ("amount", "missing_amount"), ("currency", "missing_currency")],
+    [
+        ("occurred_on", "missing_date"),
+        ("amount", "missing_amount"),
+        ("currency", "missing_currency"),
+    ],
 )
 def test_one_missing_fact_has_one_gap(rig, field: str, gap: str) -> None:  # noqa: ANN001, F811
     item = _named(rig, _read(rig))
@@ -260,6 +264,8 @@ def test_one_missing_fact_has_one_gap(rig, field: str, gap: str) -> None:  # noq
     dossier = _dossier(rig, item)
     assert dossier["listo_gaps"] == [gap]
     assert dossier["confirmable"] == []
+    assert dossier["approval_available"] is False
+    assert ("fact_required", field) in [(b["code"], b["field"]) for b in dossier["blockers"]]
 
 
 def test_unclear_read_and_year_name_check_details_once(rig, monkeypatch) -> None:  # noqa: ANN001, F811

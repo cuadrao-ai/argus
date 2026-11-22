@@ -372,6 +372,8 @@ class BusinessDossier(RecordContext):
     #: Every reason a record that needs attention is not Listos, in the rule's
     #: order; empty for any other record. ``bandeja_group.reason`` is one of them.
     listo_gaps: tuple[BandejaReason, ...] = ()
+    #: The gaps in listo_gaps a person may name to accept this record.
+    confirmable: tuple[BandejaReason, ...] = ()
     #: What the DGII register says of the supplier RNC: its mapped status, or
     #: ``not_found`` when the register does not list it. Null when the record
     #: has no RNC or no register is loaded.
@@ -412,6 +414,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "year_to_check": True,
     "bandeja_group": True,
     "listo_gaps": True,
+    "confirmable": True,
     "rnc_registry_status": True,
     "history": {
         "__all__": {

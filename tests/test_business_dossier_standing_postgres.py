@@ -56,9 +56,7 @@ def _same_as_the_list(rig, receipt: str, draft_id: str | None = None) -> dict:  
     [
         pytest.param({}, [], id="a clean read"),
         pytest.param({"merchant": None}, ["missing_merchant"], id="no supplier"),
-        pytest.param(
-            {"occurred_on": None}, ["missing_date", "blocked"], id="no date"
-        ),
+        pytest.param({"occurred_on": None}, ["missing_date"], id="no date"),
         pytest.param({"rnc": None}, ["missing_rnc"], id="no RNC"),
         pytest.param(
             {"rnc": "12345"}, ["invalid_rnc"], id="an RNC of the wrong length"

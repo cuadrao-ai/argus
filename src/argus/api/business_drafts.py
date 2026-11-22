@@ -35,7 +35,7 @@ from argus.domain.business.actions.marks import (
 )
 from argus.domain.business.actions.receipts import draft_for_receipt
 from argus.domain.business.authority import ActionContext, ActionError, authorize
-from argus.domain.business.bandeja_group import CONFIRMABLE
+from argus.domain.business.bandeja_group import confirmable_gaps
 from argus.domain.business.contracts.actions import Refused
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.deletion import DeletedDocument, deletion
@@ -84,7 +84,7 @@ def action_problem(request: Request, refusal: Refused) -> HTTPException:
         if refusal.existing_record_id
         else {
             "gaps": list(refusal.gaps),
-            "confirmable": [gap for gap in refusal.gaps if gap in CONFIRMABLE],
+            "confirmable": list(confirmable_gaps(refusal.gaps)),
         }
         if refusal.gaps
         else None),

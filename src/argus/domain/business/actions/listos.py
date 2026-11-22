@@ -125,7 +125,15 @@ def draft_standings(
             credit_note=refund_shaped(facts),
             ecf_failed=_ecf_failed(resolution),
             repeated=draft_id in repeated,
-            blockers=tuple(blocker.code for blocker in blocked),
+            # RULE already reports these missing facts individually.
+            blockers=tuple(
+                blocker.code
+                for blocker in blocked
+                if not (
+                    blocker.code == "fact_required"
+                    and blocker.field in {"occurred_on", "amount", "currency"}
+                )
+            ),
             flags=review_flags(facts, registry, declaration=resolution.dgii),
             upload_year=uploaded.get(draft_id),
         )

@@ -250,6 +250,10 @@ CONFIRMABLE: frozenset[BandejaReason] = frozenset(
 )
 
 
+def confirmable_gaps(gaps: Iterable[BandejaReason]) -> tuple[BandejaReason, ...]:
+    return tuple(gap for gap in gaps if gap in CONFIRMABLE)
+
+
 def refusing(
     gaps: Iterable[BandejaReason], named: Collection[BandejaReason]
 ) -> tuple[BandejaReason, ...]:
@@ -268,7 +272,7 @@ def listo_reason(draft: DraftStanding) -> BandejaReason | None:
 def listo_gaps(draft: DraftStanding) -> tuple[BandejaReason, ...]:
     """Every gap between this draft and Listos, in the rule's order."""
 
-    return tuple(gap.reason for gap in RULE if gap.found(draft))
+    return tuple(dict.fromkeys(gap.reason for gap in RULE if gap.found(draft)))
 
 
 def _row_reason(
