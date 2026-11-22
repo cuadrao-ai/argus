@@ -120,7 +120,7 @@ def _listed(view: dict, draft: DraftStanding | None, **more: object) -> dict:
 
 
 def test_the_table_covers_every_reason_of_the_rule() -> None:
-    assert set(GAPS) == {reason for reason, _ in RULE}
+    assert set(GAPS) == {gap.reason for gap in RULE}
 
 
 @pytest.mark.parametrize("reason", GAPS)
@@ -307,7 +307,7 @@ def test_a_repeat_shows_first_and_stays_among_the_gaps() -> None:
 
     assert group.model_dump() == _listed({**OPEN_VIEW, "attention": "duplicate"}, draft)
     assert group.reason == "duplicate"
-    assert gaps == ("check_details", "duplicate", "missing_ncf", "blocked")
+    assert gaps == ("check_details", "duplicate", "missing_ncf")
 
 
 STATES = ("open", "accepting", "accepted", "dismissed")

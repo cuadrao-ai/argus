@@ -25,6 +25,7 @@ from tests import test_business_actions_postgres as shared
 from tests import test_business_receipt_activity_postgres as receipts
 from tests.business.action_counts import NO_ROWS, count_no_rows
 from tests.business.test_business_api import RECEIPT
+from tests.business_accept_support import seen_gaps
 
 users = shared.users
 actions = shared.actions
@@ -119,7 +120,7 @@ def _captured_purchase(service, context, *, approve=False):
             ApproveExpense(
                 action="record_expense",
                 version=reviewed.version,
-                approve_anyway=True,
+                accept_gaps=seen_gaps(service, context, created.draft_id),
             ),
             str(uuid4()),
         )
@@ -275,7 +276,9 @@ def test_accepted_draft_cannot_be_deleted(actions):
         context,
         draft,
         ApproveExpense(
-            action="record_expense", version=view.version, approve_anyway=True
+            action="record_expense",
+            version=view.version,
+            accept_gaps=seen_gaps(service, context, draft),
         ),
         str(uuid4()),
     )

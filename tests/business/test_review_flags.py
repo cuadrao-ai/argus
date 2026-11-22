@@ -7,7 +7,7 @@ import pytest
 from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts, Known
 from argus.domain.business.dgii_line import reason
 from argus.domain.business.month_close import summarize
-from argus.domain.business.review_flags import review_flags, unconfirmed
+from argus.domain.business.review_flags import review_flags
 from argus.domain.business.rnc_registry import RncRecord
 from loguru import logger
 
@@ -41,7 +41,7 @@ class TestRncCheckDigit:
     def test_a_wrong_check_digit_is_flagged_and_needs_confirmation(self):
         flagged = review_flags(facts(rnc="199990022"))
         assert [flag.code for flag in flagged] == ["rnc_check_digit"]
-        assert unconfirmed(flagged) == ("rnc_check_digit",)
+        assert [flag.confirm for flag in flagged] == [True]
 
     def test_a_corrected_rnc_clears_the_flag(self):
         assert codes(facts(rnc="199990021")) == []
@@ -135,7 +135,7 @@ class TestItbisRate:
     def test_one_cent_over_the_tolerance_is_flagged_and_only_warns(self):
         flagged = review_flags(facts(amount="1180.56", itbis="180.56"))
         assert [flag.code for flag in flagged] == ["itbis_high"]
-        assert unconfirmed(flagged) == ()
+        assert [flag.confirm for flag in flagged] == [False]
 
     def test_a_low_itbis_is_not_flagged(self):
         assert codes(facts(amount="1160", itbis="160")) == []

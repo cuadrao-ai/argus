@@ -36,6 +36,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.bandeja_group import (
     BandejaReason,
     DraftStanding,
+    confirmable_gaps,
     group_of,
     listo_gaps,
     upload_year,
@@ -723,6 +724,7 @@ def dossier(
         year_to_check=year_to_check(facts, uploaded),
         bandeja_group=group,
         listo_gaps=gaps,
+        confirmable=confirmable_gaps(gaps),
         rnc_registry_status=supplier_registry_status(tx, facts),
         **draft_marks(tx, draft_id, facts),
     )

@@ -27,6 +27,7 @@ from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import ReceiptStub, receipt_details, receipt_purchase
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
+from tests.business_accept_support import accept
 from tests.business_reading_support import ROUTE
 from tests.document_reads_support import leave_reads_waiting
 from tests.test_business_approve_unpaid_postgres import _declaration
@@ -204,7 +205,8 @@ def _results(answer) -> list[tuple[str, str | None]]:  # noqa: ANN001
 
 
 def _approve_alone(rig, item: dict, key: str | None = None):  # noqa: ANN001, ANN202
-    return rig.client.post(
+    return accept(
+        rig.client,
         f"{API}/business/drafts/{item['draft_id']}/approve",
         json={"version": item["version"], "action": "record_expense"},
         headers={**rig.alice.headers, "Idempotency-Key": key or str(uuid4())},
@@ -974,7 +976,7 @@ def test_the_list_limit_is_stated_and_held(rig) -> None:  # noqa: ANN001
     unknown = [{"draft_id": str(uuid4()), "version": 1} for _ in range(LIMIT + 1)]
 
     assert len(_results(_approve_many(rig, unknown[:LIMIT]))) == LIMIT
-    confirmed = {**unknown[0], "approve_anyway": True}
+    confirmed = {**unknown[0], "accept_gaps": ["missing_itbis"]}
     for body in (unknown, [], [unknown[0], unknown[0]], [confirmed]):
         refused = _approve_many(rig, body)
         assert (refused.status_code, refused.json()["code"]) == (422, "validation_error")

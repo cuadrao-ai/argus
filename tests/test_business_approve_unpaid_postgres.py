@@ -26,6 +26,7 @@ from psycopg import Connection
 from tests import test_business_actions_postgres as business
 from tests import test_business_fiscal_routes_postgres as routes
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import accept, seen_gaps
 from tests.test_business_fiscal_routes_postgres import _known, _review
 from tests.test_business_scope_switch_routes_postgres import API, _note
 from tests.test_business_scope_switch_routes_postgres import (
@@ -118,7 +119,8 @@ def _reviewed(  # noqa: ANN202
 
 
 def _approve(world, draft: str, version: int, kind: str, key: str | None = None):  # noqa: ANN001, ANN202
-    return world.client.post(
+    return accept(
+        world.client,
         f"{API}/business/drafts/{draft}/approve",
         json={"version": version, "action": ACTION[kind]},
         headers={**world.alice.headers, "Idempotency-Key": key or str(uuid4())},
@@ -335,6 +337,9 @@ def test_a_lost_acknowledgement_reuses_the_one_row(
         raise ConnectionError("Synthetic lost acknowledgement after the money commit")
 
     run = getattr(service, approve)
+    command = command.model_copy(
+        update={"accept_gaps": seen_gaps(service, context, draft)}
+    )
     monkeypatch.setattr(service.imports, "_write", interrupted)
     assert run(context, draft, command, "lost").outcome == "outcome_unknown"
     monkeypatch.setattr(service.imports, "_write", original)

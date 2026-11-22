@@ -49,9 +49,11 @@ function sampleSender(channel: ReceiptDetail["channel"], deliveries: readonly st
   return emailSender(SAMPLE_EMAILS.find((email) => email.id === deliveries?.[0])?.sender);
 }
 
+type SampleReceipt = ReceiptDetail & { confirmableGap?: boolean };
+
 function receipt(
-  partial: Partial<ReceiptDetail> & Pick<ReceiptDetail, "id" | "status">,
-): ReceiptDetail {
+  partial: Partial<SampleReceipt> & Pick<ReceiptDetail, "id" | "status">,
+): SampleReceipt {
   const channel = partial.channel ?? "web";
   return {
     channel,
@@ -89,7 +91,7 @@ function hoursAgo(hours: number): string {
 }
 
 /** A receipt the sample read in full, a draft of its own included; `reason` is what keeps it from Listos, null for one that is Listos. */
-function read(id: string, reason: string | null, merchant: string, amount: string, partial: Partial<ReceiptDetail>): ReceiptDetail {
+function read(id: string, reason: string | null, merchant: string, amount: string, partial: Partial<SampleReceipt>): SampleReceipt {
   return receipt({
     id,
     status: "review_ready",
@@ -112,13 +114,14 @@ const SAMPLE_REFUSED = "rcpt-listo-suplidora";
 /** This one comes back unsettled once; replaying the key settles it, as on the server. */
 const SAMPLE_UNSETTLED = "rcpt-listo-repuestos";
 
-function seedReceipts(): ReceiptDetail[] {
+function seedReceipts(): SampleReceipt[] {
   return [
     receipt({
       id: "rcpt-ferreteria",
       // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
       sin_comprobante: true,
       bandeja_group: groupRow("attention", "sin_comprobante"),
+      confirmableGap: true,
       // New since the last visit until it is opened, as the server marks it.
       activity: { state: "ready", unread: true, completion_cursor: "sample-ferreteria" },
       fiscal_known: true,
@@ -152,6 +155,7 @@ function seedReceipts(): ReceiptDetail[] {
       // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
       sin_comprobante: true,
       bandeja_group: groupRow("attention", "sin_comprobante"),
+      confirmableGap: true,
       fiscal_known: true,
       status: "review_ready",
       // The accountant marked it Personal; the owner sees who and can take it back.
@@ -257,8 +261,8 @@ function seedReceipts(): ReceiptDetail[] {
     listo(SAMPLE_REFUSED, "Suplidora Duarte", "8850.00", "1350.00", { filename: "suplidora-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(7) }),
     listo(SAMPLE_UNSETTLED, "Repuestos El Cibao", "3186.00", "486.00", { channel: "email", email_delivery_ids: ["email-repuestos"], filename: "repuestos-0931.pdf", media_type: "application/pdf", received_at: hoursAgo(9) }),
     listo("rcpt-listo-limpieza", "Limpieza Total", "1416.00", "216.00", { filename: "limpieza-oct.jpg", received_at: hoursAgo(26) }),
-    gap("rcpt-falta-rnc", "missing_rnc", "Colmado La Bendición", "1250.00", { channel: "whatsapp", filename: "IMG_2219.jpg", received_at: hoursAgo(28) }),
-    gap("rcpt-falta-ncf", "missing_ncf", "Taller Peña", "5900.00", { filename: "taller-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(30) }),
+    gap("rcpt-falta-rnc", "missing_rnc", "Colmado La Bendición", "1250.00", { confirmableGap: true, channel: "whatsapp", filename: "IMG_2219.jpg", received_at: hoursAgo(28) }),
+    gap("rcpt-falta-ncf", "missing_ncf", "Taller Peña", "5900.00", { confirmableGap: true, filename: "taller-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(30) }),
     gap("rcpt-usd", "foreign_currency", "Servicios en la Nube SRL", "59.00", { channel: "email", email_delivery_ids: ["email-nube"], currency: "USD", filename: "nube-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(32) }),
     gap("rcpt-remitente", "unverified_sender", "Papelería Nueva", "767.00", { channel: "email", email_delivery_ids: ["email-nueva"], filename: "papeleria-nueva.pdf", media_type: "application/pdf", received_at: hoursAgo(34) }),
     receipt({
@@ -419,7 +423,15 @@ export function createFixtureBusinessDataSource(
   const sampleEmails = inbox === "empty" ? [] : SAMPLE_EMAILS;
   const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
   // Each read sample row has a draft of its own, so its review opens.
-  let receipts = inbox === "empty" ? [] : seedReceipts().map((item) => item.bandeja_group ? { ...item, draft_id: createReceiptDraft(item, item.sin_comprobante ? undefined : { rnc: item.bandeja_group.reason === "missing_rnc" ? null : "199990021", ncf: item.fiscal_value ? `B01${item.id.length.toString().padStart(8, "0")}` : null, itbis: item.evidence?.tax ?? null }) } : item);
+  let receipts = inbox === "empty" ? [] : seedReceipts().map(({ confirmableGap, ...item }) => {
+    if (!item.bandeja_group) return item;
+    const fiscal = item.sin_comprobante ? undefined : {
+      rnc: item.bandeja_group.reason === "missing_rnc" ? null : "199990021",
+      ncf: item.fiscal_value ? `B01${item.id.length.toString().padStart(8, "0")}` : null,
+      itbis: item.evidence?.tax ?? null,
+    };
+    return { ...item, draft_id: createReceiptDraft(item, fiscal, confirmableGap) };
+  });
   if (inbox !== "empty") void dossierSource.captureNote({ text: "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger los materiales del negocio." }, "sample-note");
   let expenses = seedExpenses();
   let counter = 0;
@@ -462,8 +474,8 @@ export function createFixtureBusinessDataSource(
   return {
     mode: "fixture",
     ...dossierSource,
-    approveDraft: async (id, version, key, action, _anyway, suggestions) => {
-      const dossier = await dossierSource.approveDraft(id, version, action, suggestions);
+    approveDraft: async (id, version, key, action, options) => {
+      const dossier = await dossierSource.approveDraft(id, version, action, options);
       const receipt = receipts.find((item) => item.draft_id === id);
       if (receipt && dossier.approval_result?.status === "recorded") {
         const facts = dossier.facts;

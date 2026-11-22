@@ -2975,6 +2975,10 @@
       "prepare_only": "Puedes revisar y preparar este recibo. El dueño lo acepta.",
       "read_only": "Tu permiso permite ver este registro.",
       "recorded": "Se registró un gasto tras aceptar la revisión {{version}}.",
+      "confirm": {
+        "accept_anyway": "Aceptar de todos modos",
+        "fix": "Corregir"
+      },
       "correction_unsupported": "Las correcciones después del registro no están disponibles en este primer flujo.",
       "reopen": "Reabrir",
       "reopen_title": "¿Reabrir este recibo?",
@@ -3003,10 +3007,7 @@
         },
         "itbis_high": {
           "text": "El ITBIS parece alto. Revisa que esté bien."
-        },
-        "export_blocked": "Si lo aceptas así, el 606 del mes no se podrá exportar hasta que lo corrijas.",
-        "fix": "Corregir",
-        "approve_anyway": "Aceptar de todos modos"
+        }
       },
       "missing_draft": "El movimiento preparado todavía no está disponible. Revisa el recibo actual antes de continuar.",
       "refused": "No se pudo completar esta acción. Consulta el registro actual antes de intentarlo de nuevo.",
@@ -3094,6 +3095,10 @@
           "not_read": {
             "title": "Sin leer",
             "text": "Este documento todavía no se ha leído."
+          },
+          "reading": {
+            "title": "Lectura en curso",
+            "text": "Espera a que termine la lectura."
           },
           "review_flag": {
             "title": "Tiene datos por revisar",

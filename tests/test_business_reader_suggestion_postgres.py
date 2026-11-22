@@ -9,6 +9,7 @@ from argus.domain.business.contracts.dgii import PurchaseReview
 from loguru import logger
 
 from tests import test_business_approval_fiscal_postgres as fiscal
+from tests.business_accept_support import seen_gaps
 
 users = fiscal.users
 shared_actions = fiscal.shared_actions
@@ -95,6 +96,7 @@ def test_an_approval_saves_what_the_reader_read_with_its_source(actions):
             version=shown.version,
             action="record_expense",
             suggestions=shown.declaration_suggestions,
+            accept_gaps=seen_gaps(service, context, draft),
         ),
         str(uuid4()),
     )

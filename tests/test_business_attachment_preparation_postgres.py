@@ -22,6 +22,7 @@ from tests import test_business_actions_postgres as shared
 from tests import test_financial_accounts_postgres as database
 from tests.business.action_counts import count_no_rows
 from tests.business.test_business_api import RECEIPT
+from tests.business_accept_support import accept, seen_gaps
 from tests.document_reads_support import leave_reads_waiting, read_receipt
 from tests.test_business_actions_postgres import create
 from tests.test_business_reading_setting_postgres import (  # noqa: F401
@@ -388,7 +389,8 @@ def post_approve(service, context, draft_id, *, version=1, extra=None):
     configure_email_intake(None)
     try:
         with TestClient(app) as drafts:
-            return drafts.post(
+            return accept(
+                drafts,
                 f"/business/drafts/{draft_id}/approve",
                 json={"version": version, "action": "record_expense", **(extra or {})},
                 headers={"Idempotency-Key": str(uuid4())},
@@ -475,7 +477,11 @@ def test_accepted_target_refuses_completion(prepared):
     result = service.approve(
         context,
         draft_id,
-        ApproveExpense(version=1, action="record_expense"),
+        ApproveExpense(
+            version=1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft_id),
+        ),
         str(uuid4()),
     )
     assert result.outcome == "applied", result
@@ -765,7 +771,8 @@ def test_a_stuck_fiscal_receipt_with_no_currency_recovers_without_a_new_read(
     )
     assert Decimal(str(facts["amount"]["value"])) == Decimal("10189.45")
     assert facts["fiscal"]["ecf"]["value"] == ECF
-    approved = web.client.post(
+    approved = accept(
+        web.client,
         f"{API}/business/drafts/{detail['draft_id']}/approve",
         json={"version": detail["version"], "action": "record_expense"},
         headers={**web.alice.headers, "Idempotency-Key": str(uuid4())},

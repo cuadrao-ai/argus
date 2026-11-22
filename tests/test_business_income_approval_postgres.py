@@ -15,6 +15,7 @@ from argus.domain.recording.repository import NewAccount
 from argus.domain.recording.schemas import account_response
 
 from tests import test_business_actions_postgres as shared
+from tests.business_accept_support import seen_gaps
 
 actions = shared.actions
 users = shared.users
@@ -87,7 +88,9 @@ def test_member_approves_income_once_with_real_account_credit(actions):
     )
     before = _account(service, context, account)
     assert before.balance.state == "known"
-    request = ApproveIncome(version=1, action="record_income")
+    request = ApproveIncome(
+        version=1, action="record_income", accept_gaps=seen_gaps(service, context, draft)
+    )
     assert service.dossier(context, draft).approval_available
     result = service.approve_income(context, draft, request, "income-approval")
     assert result.outcome == "applied"
@@ -129,7 +132,7 @@ def test_member_approves_income_once_with_real_account_credit(actions):
         assert receipt[1] == {
             "action": "approve_income",
             "draft_id": str(draft),
-            "request": {"version": 1, "action": "record_income"},
+            "request": request.model_dump(mode="json"),
         }
         assert receipt[2]["outcome"] == "applied"
         assert receipt[3:] == (None, None)
@@ -164,7 +167,11 @@ def test_income_requires_current_kind_and_complete_sourced_facts(actions):
         service.approve(
             context,
             draft,
-            ApproveExpense(version=1, action="record_expense"),
+            ApproveExpense(
+                version=1,
+                action="record_expense",
+                accept_gaps=seen_gaps(service, context, draft),
+            ),
             "wrong-kind",
         ).code
         == "activity_kind_unsupported"
@@ -206,7 +213,11 @@ def test_income_dossier_blocks_nonliquid_business_account_without_money_write(ac
         result = service.approve_income(
             context,
             draft,
-            ApproveIncome(version=view.version, action="record_income"),
+            ApproveIncome(
+                version=view.version,
+                action="record_income",
+                accept_gaps=seen_gaps(service, context, draft),
+            ),
             f"blocked-{account_type}",
         )
         assert result.outcome == "invalid_input" and result.code == "account_ineligible"
@@ -228,15 +239,31 @@ def test_income_stale_version_and_changed_command_never_post(actions):
     draft, account, _ = _income(service, context)
     before = _account(service, context, account)
     stale = service.approve_income(
-        context, draft, ApproveIncome(version=2, action="record_income"), "stale"
+        context,
+        draft,
+        ApproveIncome(
+            version=2,
+            action="record_income",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        "stale",
     )
     assert stale.outcome == "stale_version"
     assert _account(service, context, account) == before
-    request = ApproveIncome(version=1, action="record_income")
+    request = ApproveIncome(
+        version=1, action="record_income", accept_gaps=seen_gaps(service, context, draft)
+    )
     first = service.approve_income(context, draft, request, "approved")
     assert first.outcome == "applied"
     changed = service.approve_income(
-        context, draft, ApproveIncome(version=2, action="record_income"), "approved"
+        context,
+        draft,
+        ApproveIncome(
+            version=2,
+            action="record_income",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        "approved",
     )
     assert changed.outcome == "idempotency_conflict"
     assert _account(service, context, account).balance.amount_minor == (
@@ -252,7 +279,14 @@ def test_agent_cannot_approve_income_or_create_human_receipt(actions):
     )
     before = _account(service, context, account)
     result = service.approve_income(
-        agent, draft, ApproveIncome(version=1, action="record_income"), "agent-income"
+        agent,
+        draft,
+        ApproveIncome(
+            version=1,
+            action="record_income",
+            accept_gaps=seen_gaps(service, agent, draft),
+        ),
+        "agent-income",
     )
     assert result.outcome == "permission_denied"
     assert _account(service, context, account) == before
@@ -271,7 +305,9 @@ def test_agent_cannot_approve_income_or_create_human_receipt(actions):
 def test_income_lost_acknowledgement_reuses_one_money_activity(actions, monkeypatch):
     service, context, _ = actions
     draft, account, _ = _income(service, context)
-    request = ApproveIncome(version=1, action="record_income")
+    request = ApproveIncome(
+        version=1, action="record_income", accept_gaps=seen_gaps(service, context, draft)
+    )
     original = service.imports._write
 
     def interrupted(*args, **kwargs):
@@ -302,7 +338,9 @@ def test_income_lost_acknowledgement_reuses_one_money_activity(actions, monkeypa
 def test_concurrent_same_income_approval_records_one_activity(actions):
     service, context, _ = actions
     draft, account, _ = _income(service, context)
-    request = ApproveIncome(version=1, action="record_income")
+    request = ApproveIncome(
+        version=1, action="record_income", accept_gaps=seen_gaps(service, context, draft)
+    )
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(
             executor.map(

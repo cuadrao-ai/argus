@@ -23,13 +23,15 @@ BAD_RNC = "199990022"
 MALFORMED_NCF = "B01000008"
 
 
-def approve_anyway(service, context, draft, key=None):
+def approve_unnamed(service, context, draft):
+    """The accept before the person confirms: it names no gap."""
+
     identifier, version, _ = draft
     return service.approve(
         context,
         identifier,
-        ApproveExpense(version=version, action="record_expense", approve_anyway=True),
-        key or str(uuid4()),
+        ApproveExpense(version=version, action="record_expense"),
+        str(uuid4()),
     )
 
 
@@ -59,14 +61,14 @@ def export_issues(service, context):
 
 class TestConfirmedApproval:
     @pytest.mark.parametrize(
-        "override,flag",
+        "override,flag,gap",
         [
-            ({"rnc": BAD_RNC}, "rnc_check_digit"),
-            ({"ncf": MALFORMED_NCF}, "ncf_malformed"),
+            ({"rnc": BAD_RNC}, "rnc_check_digit", "invalid_rnc"),
+            ({"ncf": MALFORMED_NCF}, "ncf_malformed", "invalid_ncf"),
         ],
     )
     def test_a_flagged_receipt_needs_confirmation_then_approves_and_is_logged(
-        self, actions, override, flag
+        self, actions, override, flag, gap
     ):
         service, context, _ = actions
         draft = dgii.reviewed(
@@ -76,17 +78,18 @@ class TestConfirmedApproval:
         assert [(f.code, f.confirm) for f in view.review_flags] == [(flag, True)]
         assert view.approval_available is True
 
-        refused = dgii.approve(service, context, draft)
-        assert refused.outcome == "invalid_input"
-        assert refused.code == "approval_confirmation_required"
-        assert refused.flags == (flag,)
+        assert gap in view.listo_gaps and "review_flag" not in view.listo_gaps
 
-        applied = approve_anyway(service, context, draft)
+        refused = approve_unnamed(service, context, draft)
+        assert (refused.outcome, refused.code) == ("invalid_input", "not_listo")
+        assert refused.gaps == view.listo_gaps
+
+        applied = dgii.approve(service, context, draft)
         assert applied.outcome == "applied", applied
         logged = receipts(service, context, draft)
-        assert [row[0]["request"].get("approve_anyway") for row in logged] == [
+        assert [row[0]["request"].get("accept_gaps") for row in logged] == [
             None,
-            True,
+            list(view.listo_gaps),
         ]
         assert logged[-1][1]["outcome"] == "applied"
 
@@ -98,16 +101,18 @@ class TestConfirmedApproval:
             dgii.cash_account(service, context),
             override={"ncf": MALFORMED_NCF},
         )
-        assert approve_anyway(service, context, draft).outcome == "applied"
+        assert dgii.approve(service, context, draft).outcome == "applied"
         assert service.dossier(context, draft[0]).facts.fiscal.ncf.value == MALFORMED_NCF
 
-    def test_a_clean_receipt_approves_without_confirmation(self, actions):
+    def test_a_clean_receipt_has_no_flag_to_accept_over(self, actions):
         service, context, _ = actions
         draft = dgii.reviewed(service, context, dgii.cash_account(service, context))
-        assert service.dossier(context, draft[0]).review_flags == ()
+        view = service.dossier(context, draft[0])
+        assert view.review_flags == ()
+        assert not {"review_flag", "invalid_rnc", "invalid_ncf"} & set(view.listo_gaps)
         assert dgii.approve(service, context, draft).outcome == "applied"
 
-    def test_a_high_itbis_only_warns(self, actions):
+    def test_a_high_itbis_is_a_gap_the_accept_names(self, actions):
         service, context, _ = actions
         draft = dgii.reviewed(
             service,
@@ -117,6 +122,8 @@ class TestConfirmedApproval:
         )
         view = service.dossier(context, draft[0])
         assert [(f.code, f.confirm) for f in view.review_flags] == [("itbis_high", False)]
+        assert "review_flag" in view.listo_gaps
+        assert approve_unnamed(service, context, draft).code == "not_listo"
         assert dgii.approve(service, context, draft).outcome == "applied"
 
     def test_the_export_still_refuses_a_confirmed_bad_rnc(self, actions):
@@ -128,7 +135,7 @@ class TestConfirmedApproval:
             dgii.cash_account(service, context),
             override={"rnc": BAD_RNC},
         )
-        assert approve_anyway(service, context, draft).outcome == "applied"
+        assert dgii.approve(service, context, draft).outcome == "applied"
         assert "fiscal_identity_check_digit" in export_issues(service, context)
 
 

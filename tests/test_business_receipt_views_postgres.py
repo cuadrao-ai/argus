@@ -39,6 +39,7 @@ from starlette.requests import Request
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
 from tests.business.receipt_stub import receipt_date, receipt_month
+from tests.business_accept_support import seen_gaps
 from tests.document_sources_support import source_objects
 from tests.ingestion.whatsapp_support import RefusingExtractor
 
@@ -176,7 +177,9 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
         context,
         result.draft_id,
         ApproveExpense(
-            version=filled.version, action="record_expense", approve_anyway=True
+            version=filled.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, result.draft_id),
         ),
         "approve",
     )
@@ -447,7 +450,11 @@ def test_an_approved_draft_still_asking_for_purchases_says_so_in_every_view(acti
     recorded = service.approve(
         context,
         first.draft_id,
-        ApproveExpense(version=chosen.version, action="record_expense"),
+        ApproveExpense(
+            version=chosen.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first.draft_id),
+        ),
         "approve",
     )
     assert recorded.outcome == "applied", recorded

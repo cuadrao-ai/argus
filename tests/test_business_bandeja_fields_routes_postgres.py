@@ -14,6 +14,7 @@ import pytest
 
 from tests.business.receipt_stub import receipt_details, receipt_purchase
 from tests.business.test_business_api import RECEIPT
+from tests.business_accept_support import accepting
 from tests.document_reads_support import leave_reads_waiting
 from tests.test_business_approval_fiscal_postgres import (
     EDITED_SUPPLIER,
@@ -148,7 +149,7 @@ def test_each_receipt_says_which_bandeja_buckets_it_sits_in_and_the_counts_agree
     approved = _post(
         web,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed.json()["version"], "action": "record_expense"},
+        accepting(reviewed.json(), "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -265,7 +266,7 @@ def test_the_dossier_names_its_approve_action_and_the_606_gate_agrees_with_the_a
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed["version"], "action": "record_expense"},
+        accepting(reviewed, "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -359,7 +360,7 @@ def _approved_purchase(world, person, facts: dict, dgii: dict) -> str:  # noqa: 
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed["version"], "action": "record_expense"},
+        accepting(reviewed, "record_expense"),
         person.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -471,7 +472,7 @@ def test_the_server_picks_the_purchases_a_credit_note_may_refund(world) -> None:
     denied = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": refused["version"], "action": "record_refund"},
+        accepting(refused, "record_refund"),
         alice.headers,
     )
     assert (denied.status_code, denied.json()["code"]) == (
@@ -488,7 +489,7 @@ def test_the_server_picks_the_purchases_a_credit_note_may_refund(world) -> None:
     recorded = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": named["version"], "action": "record_refund"},
+        accepting(named, "record_refund"),
         alice.headers,
     )
     assert recorded.status_code == 200, recorded.text

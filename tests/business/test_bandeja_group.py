@@ -1,6 +1,7 @@
 """The Listos rule as a table, with no database: each gap has one reason, the
 first gap names a receipt with several, every row sits in one count, and one
-function gives every Bandeja row its label."""
+function gives every Bandeja row its label. An accept goes over a gap only
+when a person may accept over it and the accept names it."""
 
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.business.bandeja_group import (
+    CONFIRMABLE,
     READ_FAILURES,
     READ_HELD,
     RULE,
@@ -19,6 +21,7 @@ from argus.domain.business.bandeja_group import (
     listo_gaps,
     listo_reason,
     note_group,
+    refusing,
     upload_year,
     year_to_check,
 )
@@ -203,7 +206,7 @@ def test_a_receipt_with_several_gaps_names_the_first_in_rule_order() -> None:
     draft = with_fiscal(ncf=Unknown(), itbis=Unknown())
     assert listo_reason(replace(draft, read="unclear")) == "check_details"
     assert listo_reason(draft) == "missing_ncf"
-    order = [reason for reason, _ in RULE]
+    order = [gap.reason for gap in RULE]
     assert order.index("missing_ncf") < order.index("missing_itbis")
     assert order[-1] == "unverified_sender"
 
@@ -430,3 +433,100 @@ def test_a_year_to_check_comes_after_a_missing_fact() -> None:
 
     assert listo_reason(lacking) == "missing_merchant"
     assert listo_gaps(lacking) == ("missing_merchant", "check_details")
+
+
+#: Whether a person may accept a record over each reason of the rule.
+ACCEPTED_OVER: dict[str, bool] = {
+    "not_read": True,
+    "check_details": True,
+    "several_purchases": True,
+    "no_purchase_found": False,
+    "duplicate": True,
+    "credit_note": True,
+    "missing_merchant": True,
+    "missing_date": False,
+    "missing_amount": False,
+    "missing_currency": False,
+    "sin_comprobante": True,
+    "missing_rnc": True,
+    "invalid_rnc": True,
+    "missing_ncf": True,
+    "invalid_ncf": True,
+    "ecf_check_failed": True,
+    "missing_itbis": True,
+    "review_flag": True,
+    "blocked": False,
+    "unverified_sender": False,
+}
+
+
+def test_every_reason_of_the_rule_says_whether_a_person_may_accept_over_it() -> None:
+    assert {(gap.reason, gap.confirmable) for gap in RULE} == set(ACCEPTED_OVER.items())
+    assert CONFIRMABLE == {reason for reason, over in ACCEPTED_OVER.items() if over}
+
+
+@pytest.mark.parametrize("reason", ACCEPTED_OVER)
+def test_an_accept_goes_over_a_gap_only_when_it_may_and_names_it(reason: str) -> None:
+    assert refusing((reason,), ()) == (reason,)
+    assert refusing((reason,), (reason,)) == (() if ACCEPTED_OVER[reason] else (reason,))
+
+
+def test_an_accept_names_every_gap_it_goes_over() -> None:
+    gaps = ("missing_rnc", "missing_ncf", "missing_itbis")
+
+    assert refusing(gaps, ("missing_rnc", "missing_itbis")) == ("missing_ncf",)
+    assert refusing(gaps, gaps) == ()
+    assert refusing(gaps, (*gaps, "invalid_rnc")) == ()
+
+
+def test_one_gap_no_person_may_accept_over_refuses_whatever_else_is_named() -> None:
+    gaps = ("missing_rnc", "unverified_sender")
+
+    assert refusing(gaps, gaps) == ("unverified_sender",)
+
+
+def test_a_draft_with_no_gap_refuses_nothing() -> None:
+    assert refusing(listo_gaps(LISTO), ()) == ()
+
+
+@pytest.mark.parametrize(
+    ("draft", "gaps"),
+    [
+        pytest.param(
+            replace(LISTO, blockers=("possible_duplicate",)),
+            ("duplicate",),
+            id="a possible repeat",
+        ),
+        pytest.param(
+            replace(
+                LISTO,
+                flags=(ReviewFlag(code="rnc_check_digit", field="rnc", confirm=True),),
+            ),
+            ("invalid_rnc",),
+            id="an RNC check digit",
+        ),
+        pytest.param(
+            replace(
+                LISTO,
+                flags=(ReviewFlag(code="ncf_malformed", field="ncf", confirm=True),),
+            ),
+            ("invalid_ncf",),
+            id="a malformed NCF",
+        ),
+        pytest.param(
+            replace(
+                LISTO,
+                blockers=("possible_duplicate", "business_questions_unresolved"),
+                flags=(
+                    ReviewFlag(code="rnc_check_digit", field="rnc", confirm=True),
+                    ReviewFlag(code="itbis_high", field="itbis", confirm=False),
+                ),
+            ),
+            ("duplicate", "invalid_rnc", "review_flag", "blocked"),
+            id="each with another problem beside it",
+        ),
+    ],
+)
+def test_one_problem_is_one_gap(draft: DraftStanding, gaps: tuple[str, ...]) -> None:
+    assert listo_gaps(draft) == gaps
+    assert listo_reason(draft) == gaps[0]
