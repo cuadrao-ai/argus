@@ -189,9 +189,10 @@ function ReceptionWorkspace() {
   // The boxes live on Listos, for owners.
   const selectable = view === "listos" && chosen?.capabilities.includes("approve") === true;
   const columns = shownReceptionColumns(preferences);
-  // "N de M" on an open receipt and its neighbours are this list as the server last answered it, never the list as it was when the receipt opened.
+  // Receipts opened from the Bandeja follow the list as the server last answered it.
   const listedReceipts = matched.flatMap(row => row.kind === "receipt" ? [row.id] : []).join("|");
-  const openedFrom = (panel.kind === "receipt" || panel.kind === "draft") && panel.list === "inbox" ? panel.receiptIds : undefined;
+  const reviewList = panel.kind === "receipt" || panel.kind === "draft" ? panel.reviewList : undefined;
+  const openedFrom = reviewList?.scope === "inbox" ? reviewList.receiptIds : undefined;
   const openReceipt = panel.kind === "receipt" ? panel.receiptId : null;
   useEffect(() => {
     if (pending || failed || !openedFrom) return;
@@ -201,7 +202,7 @@ function ReceptionWorkspace() {
   const navigateFrom = (next: Parameters<typeof openPanel>[0]) => {
     dossierReturns.set(source, { scope, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
     openPanel(next.kind === "receipt" || next.kind === "draft"
-      ? { ...next, receiptIds: listedReceipts ? listedReceipts.split("|") : [] }
+      ? { ...next, reviewList: { scope: "inbox", receiptIds: listedReceipts ? listedReceipts.split("|") : [] } }
       : next);
   };
   const rowKey = (row: ReceptionRow) => `${row.kind}:${row.id}`;

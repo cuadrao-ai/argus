@@ -22,7 +22,6 @@ const SHARED_CONTEXTS = new Map([
   ["business.guide_cards.actividad_intro.copy_review", "approved"],
   ["business.home_setup.copy_review", "pending_lucas"],
   ["business.inicio.copy_review", "pending_lucas"],
-  ["business.intake.write_type.copy_review", "pending_lucas"],
   ["business.month_close.placeholder.copy_review", "pending_lucas"],
 ]);
 const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Subtotal", "General", "Personal", "Normal", "No", "Ref.", "Excel", "CSV"]);

@@ -31,7 +31,7 @@ const A = clientSpace.grant_id;
 const B = ownSpace.grant_id;
 
 test("reviewing what one Business saved keeps another Business's failed upload, which still retries with its key", async () => {
-  page = await mountIntakeWorkspace([], [ownSpace, clientSpace], ["lost", "ok", "ok"]);
+  page = await mountIntakeWorkspace([ownSpace, clientSpace], ["lost", "ok", "ok"]);
   await page.openAgregar();
   await page.pickFile("factura.png");
   assert.deepEqual(page.uploadRows(), ["failed"], "A's upload failed");
@@ -56,8 +56,8 @@ test("reviewing what one Business saved keeps another Business's failed upload, 
   assert.deepEqual(page.uploadRows(), ["saved"]);
 });
 
-test("closing Agregar in one Business forgets only that Business's finished uploads", async () => {
-  page = await mountIntakeWorkspace([], [ownSpace, clientSpace], ["ok", "ok"]);
+test("closing Agregar keeps each Business's finished uploads, and only its own", async () => {
+  page = await mountIntakeWorkspace([ownSpace, clientSpace], ["ok", "ok"]);
   await page.openAgregar();
   await page.pickFile("factura.png");
   assert.deepEqual(page.uploadRows(), ["saved"]);
@@ -68,17 +68,18 @@ test("closing Agregar in one Business forgets only that Business's finished uplo
   assert.deepEqual(page.uploadRows(), ["saved"]);
   await page.closeAgregar();
   await page.openAgregar();
-  assert.deepEqual(page.uploadRows(), [], "closing forgot B's finished upload");
+  assert.deepEqual(page.uploadRows(), ["saved"], "closing kept B's finished upload");
   await page.closeAgregar();
 
   await page.choose(A);
   await page.openAgregar();
   assert.deepEqual(page.uploadRows(), ["saved"], "A's saved upload is still listed");
-  assert.ok(page.button("Revisar los recibos guardados"), "A can still review it");
+  assert.equal(page.review()?.textContent, "Revisar 1 documento");
+  assert.equal(page.review()?.disabled, false, "A can still review it");
 });
 
 test("the same file picked in two Businesses uploads to each; one Business's copy never hides the other's", async () => {
-  page = await mountIntakeWorkspace([], [ownSpace, clientSpace], ["lost", "ok"]);
+  page = await mountIntakeWorkspace([ownSpace, clientSpace], ["lost", "ok"]);
   await page.openAgregar();
   await page.pickFile("recibo.png", 1_700_000_000_000);
   assert.deepEqual(page.uploadRows(), ["failed"]);
@@ -91,19 +92,8 @@ test("the same file picked in two Businesses uploads to each; one Business's cop
   assert.deepEqual(page.uploadRows(), ["saved"]);
 });
 
-test("closing Agregar in a Business forgets the typed notes that Business finished", async () => {
-  page = await mountIntakeWorkspace(["ok"], [ownSpace, clientSpace]);
-  await page.openAgregar();
-  await page.writeNote("Pagué RD$900 de flete", "Compra");
-  assert.deepEqual(page.rows(), [{ status: "saved", text: "Pagué RD$900 de flete" }]);
-  await page.closeAgregar();
-  await page.openAgregar();
-  assert.deepEqual(page.rows(), [], "the saved note is finished, so closing forgot it");
-  assert.deepEqual(page.captures.map((capture) => capture.grant), [A]);
-});
-
 test("opening the composer in one Business starts it clean without touching another Business's unfinished composer file", async () => {
-  page = await mountIntakeWorkspace([], [ownSpace, clientSpace], ["ok", "lost"]);
+  page = await mountIntakeWorkspace([ownSpace, clientSpace], ["ok", "lost"]);
   await page.choose(B);
   await page.openComposer();
   await page.pickFile("adjunto.png");

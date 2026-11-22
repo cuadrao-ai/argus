@@ -111,7 +111,7 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
       </I18nextProvider>,
     ));
     await settle(() => sidebarBadge() === "3" && attentionTab() === "3");
-    await act(async () => api!.openPanel({ kind: "receipt", receiptId: "rcpt-Uno", list: "inbox", receiptIds: ["rcpt-Uno", "rcpt-Dos", "rcpt-Tres"] }));
+    await act(async () => api!.openPanel({ kind: "receipt", receiptId: "rcpt-Uno", list: "inbox", reviewList: { scope: "inbox", receiptIds: ["rcpt-Uno", "rcpt-Dos", "rcpt-Tres"] } }));
     await settle(() => approve() !== null);
     assert.deepEqual(shown(), ["3", "3", "3"], "before the approval: badge, phone tab and Bandeja tab all show 3");
 

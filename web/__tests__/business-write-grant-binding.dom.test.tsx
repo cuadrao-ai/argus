@@ -9,7 +9,6 @@ import { BusinessContext, type BusinessContextValue } from "@/components/busines
 import ManualCaptureDialog from "@/components/business-app/ManualCaptureDialog";
 import ReceiptIntakeDialog from "@/components/business-app/ReceiptIntakeDialog";
 import { ReceiptUploadQueue } from "@/components/business-app/receipt-upload-queue";
-import { TypedNoteQueue } from "@/components/business-app/typed-note-queue";
 import * as api from "@/lib/business-api";
 import { GRANT_HEADER, setChosenGrant } from "@/lib/business-grant";
 import spanish from "@/public/locales/es-419/common.json";
@@ -85,25 +84,6 @@ test("an export entered in A refuses to send once the person has switched to B",
   assert.deepEqual(sent, []);
 });
 
-test("a typed note saved in A carries A's grant when the person switches to B before authentication answers", async () => {
-  const notes = new TypedNoteQueue(() => undefined);
-  await actInAThenSwitchToB(() => notes.add({ grant: A, text: "Compré gasoil", documentType: "recibo" }, (input, key, grant) => api.captureBusinessNote(input, key, grant)));
-  assert.deepEqual(sent.map((request) => request.grant), [A]);
-  assert.equal(notes.snapshot()[0].status, "saved");
-});
-
-test("a typed note retried after the person moved to B still goes to A, where it was typed", async () => {
-  const notes = new TypedNoteQueue(() => undefined);
-  const capture = (input: Parameters<typeof api.captureBusinessNote>[0], key: string, grant: string | null) => api.captureBusinessNote(input, key, grant);
-  loseNext = true;
-  await notes.add({ grant: A, text: "Vendí cemento", documentType: "venta" }, capture);
-  assert.equal(notes.snapshot()[0].status, "uncertain");
-  setChosenGrant(B);
-  await notes.retry(notes.snapshot()[0].key, capture);
-  assert.deepEqual(sent.map((request) => request.grant), [A, A]);
-  assert.equal(notes.snapshot()[0].status, "saved");
-});
-
 test("a file added in A uploads to A when the person switches to B before it is sent", async () => {
   const queue = new ReceiptUploadQueue((candidate, consent, key, documentType, onProgress, grant) => api.uploadBusinessReceipt(candidate, consent, key, documentType, onProgress, grant), () => undefined);
   queue.add([file()], limits, "inbox", null, null, A);
@@ -148,7 +128,7 @@ test("Agregar hands the queue the Business it is open in, lists only that Busine
     if (lose) { lose = false; throw new TypeError("Failed to fetch"); }
     return { id: "receipt-a" } as unknown as api.ReceiptSummary;
   }, () => undefined);
-  const page = await mount(() => <ReceiptIntakeDialog target="inbox" notes={new TypedNoteQueue(() => undefined)} queue={queue} onClose={() => undefined} onReview={() => undefined} />, {});
+  const page = await mount(() => <ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} />, {});
   const input = document.querySelector<HTMLInputElement>('input[type="file"]:not([capture])')!;
   const transfer = new DataTransfer();
   transfer.items.add(file());
