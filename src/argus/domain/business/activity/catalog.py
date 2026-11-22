@@ -100,6 +100,8 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         ),
         "edit_current_note": ActionSpec("records", "edits", object=_DRAFT),
         "append_supporting_file": ActionSpec("documents", "files", object=_DRAFT),
+        "unlink_supporting_file": ActionSpec("documents", "files", object=_DRAFT),
+        "restore_supporting_file": ActionSpec("documents", "files", object=_DRAFT),
         "receipt_upload": ActionSpec("documents", "uploads", object=_SUBJECT),
         "receipt_review": ActionSpec("records", "reviews", object=_SUBJECT),
         "receipt_confirm": ActionSpec("records", "approvals", object=_SUBJECT),

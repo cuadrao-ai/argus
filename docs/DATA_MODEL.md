@@ -3660,6 +3660,34 @@ prevent key reuse with changed payload. Existing document connections, object
 custody, source records and same-space source links own the bytes. No new table,
 foreign key, client grant or alternative evidence owner is introduced.
 
+`20261122135103_business_supporting_file_unlink.sql` lets a person take a
+supporting file off a record and put it back. `business_action_receipts` permits
+the human-only commands `unlink_supporting_file` and `restore_supporting_file`
+on the same terms as the two above. `business_draft_revisions` gains nullable
+`supporting_change` (`appended`, `unlinked` or `restored`) and
+`supporting_filename` (at most 80 characters). A revision that sets them names
+exactly one source in `source_ids`. Appends from before the migration keep both
+null.
+
+An unlink deletes the file's `business_draft_sources` row and writes one
+`unlinked` revision. The `business_sources` row, the upload and its bytes stay.
+A supporting file is unlinked when no record links its source; the newest
+`unlinked` revision is the one owner of when that happened. Restore inserts the
+link again and writes a `restored` revision. It is refused once the unlink is
+7 days old (`PURGE_AFTER`). A record holds at most 3 linked supporting files;
+the server refuses the next append or restore.
+
+The documents worker's expiry pass erases a supporting source that no record
+links and that has no `unlinked` revision newer than 7 days. This also covers a
+file whose record was purged while it was unlinked. The pass deletes the
+`business_sources` row. It deletes the upload, records the stored objects in
+`argus_private.business_document_purges` (reason `expiry`) and erases them only
+when no other source and no import observation holds the same upload. The
+revision is immutable, so who, when and the file name stay in the record's
+history. Two partial indexes serve the pass: `business_sources_supporting_idx`
+and `business_draft_revisions_unlinked_idx`. No table, policy or grant changes;
+row-level security is as before.
+
 ### Durable Business workspace identity
 
 `20261025223500_business_workspace_persistence.sql` adds

@@ -11,7 +11,7 @@ from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.space_name import GivenName
 
-from .actions import ApprovalAction, DuplicateDecision
+from .actions import SUPPORTING_FILE_LIMIT, ApprovalAction, DuplicateDecision
 from .authority import ActorView, Capability, PersonName
 from .checks import DgiiQr, EcfVerification
 from .dgii import DeclarationSuggestions, DgiiDeclaration
@@ -98,6 +98,7 @@ class ReviewQuestion(Contract):
 # Why a revision no person and no read made exists, as
 # business_draft_revisions.reason stores it.
 RevisionReason = Literal["business_rnc_set"]
+SupportingChange = Literal["appended", "unlinked", "restored"]
 
 
 class DuplicateRevision(Contract):
@@ -127,6 +128,10 @@ class DraftRevision(Contract):
     after_due_on: date | None = None
     reason: RevisionReason | None = None
     duplicate: DuplicateRevision | None = None
+    #: What the revision did to the one supporting file in ``source_ids``, and
+    #: the file's name then. The name stays after the file's bytes are erased.
+    supporting_change: SupportingChange | None = None
+    supporting_filename: str | None = None
 
 
 class Blocker(Contract):
@@ -254,6 +259,23 @@ class DuplicateCandidate(Contract):
     comparison: DuplicateComparison
 
 
+class SupportingFile(Contract):
+    """A supporting file of a record: on it now (``linked``), or taken off and
+    still restorable (``unlinked``). An erased file is not listed."""
+
+    source_id: UUID
+    receipt_id: UUID
+    filename: str | None
+    media_type: str | None
+    size_bytes: int | None
+    state: Literal["linked", "unlinked"]
+    #: When an unlinked file's bytes are erased. Restore is refused from then on.
+    purge_at: datetime | None = None
+    #: What the caller may do with this file now.
+    unlink_available: bool = False
+    restore_available: bool = False
+
+
 class BusinessDossier(RecordContext):
     deleted: DeletedDocument | None = None
     delete_available: bool = False
@@ -265,6 +287,11 @@ class BusinessDossier(RecordContext):
     review_note: str | None = None
     note_edit_available: bool = False
     supporting_append_available: bool = False
+    #: The record's supporting files, oldest first, and its cap. A record at
+    #: the cap takes no new file and no restore until one is unlinked.
+    supporting_files: tuple[SupportingFile, ...] = ()
+    supporting_file_limit: int = SUPPORTING_FILE_LIMIT
+    supporting_limit_reached: bool = False
     annotation_unavailable_reason: str | None = None
     dgii: DgiiDeclaration | None = None
     draft_id: UUID
@@ -370,6 +397,9 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "current_note": True,
     "note_edit_available": True,
     "supporting_append_available": True,
+    "supporting_files": True,
+    "supporting_file_limit": True,
+    "supporting_limit_reached": True,
     "annotation_unavailable_reason": True,
     "due_on": True,
     "declaration_editable": True,
@@ -389,6 +419,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
             "after_due_on": True,
             "before_current_note": True,
             "after_current_note": True,
+            "supporting_change": True,
+            "supporting_filename": True,
             "before": set(HUMAN_AMOUNT_FIELDS),
             "after": set(HUMAN_AMOUNT_FIELDS),
             "before_dgii": {"itbis", "suggestion_sources"},

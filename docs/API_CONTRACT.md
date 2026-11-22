@@ -9278,7 +9278,8 @@ grant history exists (the extractor, an erased account).
 `approve_expense`, `approve_income`, `approve_refund`, `capture_note`,
 `prepare_attachment`, `rebind_attachment`, `settle_remainder`, `mark_personal`,
 `decide_606`, `resolve_duplicate`, `edit_current_note`,
-`append_supporting_file`, `receipt_upload`, `receipt_review`,
+`append_supporting_file`, `unlink_supporting_file`, `restore_supporting_file`,
+`receipt_upload`, `receipt_review`,
 `receipt_confirm`, `set_business_rnc`, `set_business_legal_name`,
 `business_propose_activity`, `business_attach_source`,
 `business_propose_allocation`, `business_ask`, `owner_grant`, `grant_access`, `invite_access`, `accept_invite`,
@@ -9292,7 +9293,8 @@ does not list yet: the consent table records when, not who.
 
 `area` places the action for the Area filter and is server-owned: `documents`
 (`receipt_upload`, `prepare_attachment`, `rebind_attachment`,
-`append_supporting_file`, `business_attach_source`, `resolve_duplicate`),
+`append_supporting_file`, `unlink_supporting_file`, `restore_supporting_file`,
+`business_attach_source`, `resolve_duplicate`),
 `records` (`review_draft`, the approvals, `capture_note`, `settle_remainder`,
 `mark_personal`, `decide_606`, `edit_current_note`, `receipt_review`,
 `receipt_confirm`, `business_propose_activity`, `business_propose_allocation`,
@@ -9340,7 +9342,8 @@ inclusive; `to` before `from`, or `to` on the calendar's last day
 approvals, `receipt_confirm`, `decide_606`; `edits` for `capture_note`,
 `settle_remainder`, `mark_personal`, `edit_current_note`,
 `business_propose_activity`, `business_propose_allocation`; `files` for
-`rebind_attachment`, `append_supporting_file`, `business_attach_source`;
+`rebind_attachment`, `append_supporting_file`, `unlink_supporting_file`,
+`restore_supporting_file`, `business_attach_source`;
 `invoices`, reserved and empty; `access` for the access changes and
 `ownership_transferred`; `settings` for `set_business_rnc`,
 `set_business_legal_name` and `receipt_reading_enabled`). Values of one filter are OR'ed and the filters are
@@ -11266,6 +11269,9 @@ accept path recorded.
   links are never replaced. Duplicate bytes already linked here add no history
   or version. A link to another record is refused as
   `supporting_file_already_linked`; no automatic move is supported.
+  A record holds at most 3 supporting files at once. The next file is refused
+  as 422 `supporting_file_limit_reached` before any byte is stored; an unlinked
+  file does not count.
 
   The command records its exact intent before object capture. The existing byte
   store retains unavailable custody references across failed writes; retries use
@@ -11275,7 +11281,43 @@ accept path recorded.
   Business/grant/human authority and source standing. Append never dispatches
   extraction, toggles consent, creates activity or changes payment state.
   Existing original downloads keep their separate live download permission.
-  Received-document selection and unlink remain unavailable.
+  Received-document selection remains unavailable.
+
+- DELETE `/api/v1/business/drafts/{draft_id}/supporting-files/{source_id}` takes
+  one supporting file off the record, and POST
+  `/api/v1/business/drafts/{draft_id}/supporting-files/{source_id}/restore` puts
+  it back. Both are human-only and need a current prepare grant, an open or
+  accepted draft, `X-Draft-Version` and `Idempotency-Key`. Neither takes a body.
+  The response is `{result: {draft_id, version, outcome, source_id, purge_at},
+  dossier}` with outcome `unlinked` or `restored`. `purge_at` is set on
+  `unlinked`: the unlink time plus 7 days. Each command increments the draft
+  version and adds one history revision with `supporting_change` (`unlinked` or
+  `restored`), the file's `supporting_filename`, the actor and the time.
+  Financial facts, approval and settlement do not change. A same-key replay
+  returns the saved result with no second revision; a changed payload under the
+  same key is 409 `business_action_conflict`; a stale version is 409
+  `stale_version`.
+
+  An unlinked file leaves the dossier `sources`, report rows, search and
+  Eliminados at once. Restore works until `purge_at`. After that the documents
+  worker erases the upload and its bytes, unless another record or source still
+  holds the same upload. The history revision keeps who, when and the file
+  name. Refusals: 404 `supporting_file_not_found` (the id is not a supporting
+  file of this record), 422 `supporting_file_not_linked` (unlink of a file
+  already off the record), 422 `supporting_file_already_linked` (restore of a
+  file on this or another record), 422 `supporting_file_restore_expired`
+  (restore after the window or after the erase) and 422
+  `supporting_file_limit_reached` (restore onto a record that holds 3 files).
+
+  The dossier carries `supporting_files`: each file on the record (`state`
+  `linked`) and each unlinked file still inside its window (`state`
+  `unlinked`, with `purge_at`), oldest first, as `{source_id, receipt_id,
+  filename, media_type, size_bytes, state, purge_at, unlink_available,
+  restore_available}`. `supporting_file_limit` is 3, and
+  `supporting_limit_reached` says the record holds that many. At the limit
+  `supporting_append_available`, a report row's `can_append_supporting` and
+  every `restore_available` are false. A history revision made by an append,
+  an unlink or a restore carries `supporting_change` and `supporting_filename`.
 
 - GET `/api/v1/business/search?q&limit&kind&cursor` returns
   `{expenses: ExpenseHit[], ventas: ExpenseHit[], receipts: ReceiptHit[],

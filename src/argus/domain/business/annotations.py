@@ -17,6 +17,7 @@ from argus.domain.business.authority import (
     BusinessAuthority,
 )
 from argus.domain.business.contracts.actions import NOTE_MAX_LENGTH
+from argus.domain.business.contracts.dossier import SupportingChange
 from argus.domain.business.reporting_query import Contract
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
@@ -47,6 +48,10 @@ class NoteResult(Contract):
 
 def supporting_source_key(connection_id: UUID | str) -> str:
     return f"supporting:{connection_id}"
+
+
+#: A ``business_sources`` row aliased ``s`` is a supporting file: the key above, in SQL.
+SUPPORTING_SOURCE_SQL = "s.kind='attachment' and s.source_key='supporting:' || s.connection_id::text"
 
 
 def annotation_available(authorization: Authorization, event: ImportEvent | None) -> bool:
@@ -87,7 +92,12 @@ def save_annotation(
     *,
     source_ids: tuple[UUID, ...] = (),
     note: str | None = None,
+    supporting: tuple[SupportingChange, str | None] | None = None,
 ) -> ImportEvent:
+    """One more version of the record with unchanged financial facts.
+    ``supporting`` is what the revision did to the one file in ``source_ids``
+    and the file's name."""
+
     from argus.domain.business.actions.facts import facts_of
 
     before_note = current_note(event)
@@ -105,8 +115,8 @@ def save_annotation(
     business = resolution["business"]
     tx.rows(
         "insert into public.business_draft_revisions "
-        "(space_id,draft_id,version,actor,before_facts,after_facts,source_ids,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note) "
-        "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "(space_id,draft_id,version,actor,before_facts,after_facts,source_ids,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,supporting_change,supporting_filename) "
+        "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -121,6 +131,7 @@ def save_annotation(
             business.get("due_on"),
             before_note if note is not None else None,
             note,
+            *(supporting or (None, None)),
         ),
     )
     return event

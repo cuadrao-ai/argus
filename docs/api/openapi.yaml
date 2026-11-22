@@ -3291,6 +3291,144 @@ paths:
             schema:
               type: string
               format: binary
+  /api/v1/business/drafts/{draft_id}/supporting-files/{source_id}:
+    delete:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: source_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+      - name: X-Draft-Version
+        in: header
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportingLinkResponse'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/supporting-files/{source_id}/restore:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: source_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+      - name: X-Draft-Version
+        in: header
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportingLinkResponse'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/email:
     get:
       tags:
@@ -15860,6 +15998,8 @@ components:
           - resolve_duplicate
           - edit_current_note
           - append_supporting_file
+          - unlink_supporting_file
+          - restore_supporting_file
           - receipt_upload
           - receipt_review
           - receipt_confirm
@@ -17940,6 +18080,17 @@ components:
           type: boolean
           default: false
         supporting_append_available:
+          type: boolean
+          default: false
+        supporting_files:
+          items:
+            $ref: '#/components/schemas/SupportingFile'
+          type: array
+          default: []
+        supporting_file_limit:
+          type: integer
+          default: 3
+        supporting_limit_reached:
           type: boolean
           default: false
         annotation_unavailable_reason:
@@ -21174,6 +21325,18 @@ components:
         duplicate:
           anyOf:
           - $ref: '#/components/schemas/DuplicateRevision'
+          - type: 'null'
+        supporting_change:
+          anyOf:
+          - type: string
+            enum:
+            - appended
+            - unlinked
+            - restored
+          - type: 'null'
+        supporting_filename:
+          anyOf:
+          - type: string
           - type: 'null'
       additionalProperties: false
       type: object
@@ -28531,8 +28694,8 @@ components:
         group:
           type: string
           enum:
-          - attention
           - listo
+          - attention
         events:
           additionalProperties:
             type: string
@@ -32902,6 +33065,92 @@ components:
       type: object
       required:
       - suggestions
+    SupportingFile:
+      properties:
+        source_id:
+          type: string
+          format: uuid
+        receipt_id:
+          type: string
+          format: uuid
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        media_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+        size_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        state:
+          type: string
+          enum:
+          - linked
+          - unlinked
+        purge_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        unlink_available:
+          type: boolean
+          default: false
+        restore_available:
+          type: boolean
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - source_id
+      - receipt_id
+      - filename
+      - media_type
+      - size_bytes
+      - state
+      description: 'A supporting file of a record: on it now (``linked``), or taken off and
+
+        still restorable (``unlinked``). An erased file is not listed.'
+    SupportingLinkResponse:
+      properties:
+        result:
+          $ref: '#/components/schemas/SupportingLinkResult'
+        dossier:
+          $ref: '#/components/schemas/BusinessDossier'
+      additionalProperties: false
+      type: object
+      required:
+      - result
+      - dossier
+    SupportingLinkResult:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        outcome:
+          type: string
+          enum:
+          - unlinked
+          - restored
+        source_id:
+          type: string
+          format: uuid
+        purge_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - version
+      - outcome
+      - source_id
     SupportingResponse:
       properties:
         result:
