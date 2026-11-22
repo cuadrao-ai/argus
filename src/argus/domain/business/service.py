@@ -14,7 +14,6 @@ from datetime import date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from fastapi.concurrency import run_in_threadpool
 from psycopg import Connection
 
 from argus.domain import financial_search
@@ -216,7 +215,7 @@ class BusinessService:
             )
         # The same bytes saved before come back as that receipt, said so.
         return replace(
-            await run_in_threadpool(self.receipt, scope, outcome.connection_id),
+            await asyncio.to_thread(self.receipt, scope, outcome.connection_id),
             replayed=outcome.replayed,
         )
 
@@ -281,7 +280,7 @@ class BusinessService:
         if current.enterable:
             if version != current.version:
                 raise StaleEvent()
-            if account_id and account_id not in await run_in_threadpool(
+            if account_id and account_id not in await asyncio.to_thread(
                 self._account_ids, scope
             ):
                 raise ReconcileError(
