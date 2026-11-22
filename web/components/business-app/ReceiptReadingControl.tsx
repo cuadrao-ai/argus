@@ -4,12 +4,18 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { Switch } from "@/components/ui/Switch";
-import type { ReceiptReading } from "@/lib/business-api";
+import type { BusinessWorkspaceInfo, ReceiptReading } from "@/lib/business-api";
+import { getChosenGrant } from "@/lib/business-grant";
 import { normalizeEnabledLanguage, resolveLanguage } from "@/lib/language-features";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
 import { quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { showToast } from "./foundation/toasts";
+
+/** The reading setting the workspace answered, only while that answer is the chosen Business's. */
+export function workspaceReading({ workspace, workspaceGrant }: { workspace: BusinessWorkspaceInfo | null; workspaceGrant?: string | null }): ReceiptReading | null {
+  return workspaceGrant === getChosenGrant() ? workspace?.receipt_reading ?? null : null;
+}
 
 /**
  * The one notice about document reading and the one home of its switch. The
@@ -33,7 +39,7 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
     generation.current += 1;
     return () => { generation.current += 1; mutation.current?.abort(); };
   }, [source, businessKey, language]);
-  const snapshot = records.workspace?.receipt_reading ?? null;
+  const snapshot = workspaceReading(records);
   const [saved, setReading] = useState<{ snapshot: ReceiptReading; value: ReceiptReading } | null>(null);
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);

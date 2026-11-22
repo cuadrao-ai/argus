@@ -33,7 +33,7 @@ async function mount(typedNotes = true) {
     source: {
       captureNote: async (body: { text: string; document_type?: string }) => { notes.push(body); return {}; },
     },
-    records: { workspace: { receipt_reading: { enabled: true, can_change: true, available: true, disclosure: "" }, accounts: [], currencies: [], assistant_available: false, chat_available: false, typed_notes_available: typedNotes, receipt_limits: { max_bytes: 1024, media_types: ["image/jpeg"] } }, overview: null, inbox: [], notes: [], notesTruncated: false, error: false },
+    records: { workspaceGrant: null, workspace: { receipt_reading: { enabled: true, can_change: true, available: true, disclosure: "" }, accounts: [], currencies: [], assistant_available: false, chat_available: false, typed_notes_available: typedNotes, receipt_limits: { max_bytes: 1024, media_types: ["image/jpeg"] } }, overview: null, inbox: [], notes: [], notesTruncated: false, error: false },
     bridge: null,
     reload: () => undefined,
   } as unknown as BusinessContextValue;

@@ -1,7 +1,7 @@
 "use client";
 
 import {useState} from "react";
-import {InlineReading} from "@/components/business-app/ReceiptReadingControl";
+import {InlineReading,workspaceReading} from "@/components/business-app/ReceiptReadingControl";
 import {useBusiness} from "@/components/business-app/BusinessWorkspace";
 import {useBusinessConsent} from "@/components/business-app/business-consent-context";
 import {receptionPreviewEvent,useReceptionPreview} from "./BusinessEmailAliasPreview";
@@ -13,7 +13,7 @@ export default function ReceiptReadingPreview() {
   const businessId=chosen?.space_id ?? "";
   const preview=useReceptionPreview(businessId);
   const [failed,setFailed]=useState(false);
-  const disclosure=records.workspace?.receipt_reading?.disclosure ?? "";
+  const disclosure=workspaceReading(records)?.disclosure ?? "";
   const canChange=chosen?.role === "owner";
   return <InlineReading reading={consent.accepted && businessId ? {enabled:preview.reading,can_change:canChange,available:true,disclosure} : null} failed={failed} onChange={async enabled=>{
     if(!consent.accepted || !canChange || !businessId)return;

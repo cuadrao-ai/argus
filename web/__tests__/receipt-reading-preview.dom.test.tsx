@@ -17,7 +17,7 @@ async function mount() {
   const i18n=i18next.createInstance();await i18n.init({lng:"es-419",resources:{"es-419":{translation:messages}}});
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   let networkCalls=0;
-  const render=(businessId:string,accepted=true,role="owner",disclosure="")=>act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted={accepted}><BusinessContext.Provider value={{chosen:{space_id:businessId,role},records:{workspace:{receipt_reading:{disclosure}}},source:{setReceiptReading:()=>{networkCalls++;throw new Error("network_must_not_run");}}} as unknown as BusinessContextValue}><Reading key={businessId}/></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>));
+  const render=(businessId:string,accepted=true,role="owner",disclosure="")=>act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted={accepted}><BusinessContext.Provider value={{chosen:{space_id:businessId,role},records:{workspace:{receipt_reading:{disclosure}},workspaceGrant:null},source:{setReceiptReading:()=>{networkCalls++;throw new Error("network_must_not_run");}}} as unknown as BusinessContextValue}><Reading key={businessId}/></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>));
   return {host,render,toggle:()=>host.querySelector<HTMLButtonElement>('[role="switch"]'),networkCalls:()=>networkCalls,close:()=>act(async()=>root.unmount())};
 }
 test("mock reading starts off, persists by business and never writes to the API",async()=>{
