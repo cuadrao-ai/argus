@@ -1,4 +1,5 @@
-import type { BusinessCapture, DocumentDeleteAccess, BandejaGroup, ReceiptActivityCounts } from "@/lib/business-api";
+import type { BusinessCapture, CountedAnswer, DocumentDeleteAccess, BandejaGroup, ReceiptActivityCounts } from "@/lib/business-api";
+import type { BusinessDataSource } from "./business-data";
 import type { BusinessEmailDelivery, EmailStanding } from "@/lib/business-email";
 import type { SentBy } from "@/lib/sent-by";
 
@@ -35,6 +36,28 @@ export type CountRecords = { receiptActivity?: ReceiptActivityCounts | null };
 // The Bandeja's numbers are the server's: it counts every receipt, note and
 // email past any page the browser loaded. Without its answer a number is
 // unknown, never 0 and never a count of the rows that happened to load.
+
+/**
+ * The source whose actions hand the counts they answer with to the workspace, the one owner of them. Every screen
+ * reads its actions from this source, so the tabs and badges change with the answer and no screen asks again.
+ * `expect` runs as an action starts and returns where that action's counts go.
+ */
+export function withAnsweredCounts(source: BusinessDataSource, expect: () => (counts: ReceiptActivityCounts) => void): BusinessDataSource {
+  const counted = <A extends unknown[], R extends CountedAnswer>(act: (...args: A) => Promise<R>) => async (...args: A): Promise<R> => {
+    const show = expect();
+    const answer = await act(...args);
+    show(answer.inbox_counts);
+    return answer;
+  };
+  return {
+    ...source,
+    approveDraft: counted(source.approveDraft),
+    approveListos: counted(source.approveListos),
+    deleteDocument: source.deleteDocument && counted(source.deleteDocument),
+    restoreDocument: source.restoreDocument && counted(source.restoreDocument),
+    purgeDocument: source.purgeDocument && counted(source.purgeDocument),
+  };
+}
 
 /** The one number Inicio, the sidebar badge and the phone tab show: every row waiting in the Bandeja, which the server keeps equal to its two tabs together. */
 export function inboxCount(records: CountRecords): number | null {

@@ -76,7 +76,7 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
       const recorded: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_result: { status: "recorded", activity_id: `expense-${id}`, reviewed_version: current.version, approved_revision: current.version, approved_at: "2026-10-10T14:40:00Z", actor: { actor_id: "a", actor_kind: "member", display_name: "Lucía", grant_id: "g-own", issuer_id: "a", issuer_display_name: "Lucía" } } };
       dossiers.set(id, recorded);
       receipts = receipts.map((item) => (item.draft_id === id ? { ...item, status: "confirmed", version: item.version + 1 } : item));
-      return structuredClone(recorded);
+      return { ...structuredClone(recorded), inbox_counts: answer(pending().length).activity };
     },
   };
 
