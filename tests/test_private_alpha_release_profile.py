@@ -348,7 +348,9 @@ def test_render_blueprint_production_api_matches_the_manifest() -> None:
 
     marketing = services["cuadrao-marketing"]
     assert marketing["rootDir"] == "marketing"
-    assert "envVars" not in marketing
+    # Exact web/marketing inventories and production literals are checked in
+    # test_render_release_profile_contract.py.
+    assert marketing["envVars"]
     assert marketing["autoDeployTrigger"] == profile["services"]["marketing"][
         "auto_deploy_trigger"
     ]
