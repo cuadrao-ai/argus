@@ -82,20 +82,20 @@ async function mountReview(dossier: BusinessDossier, language = "es-419") {
   let current = dossier;
   const context = { source: { mode: "fixture", dossier: async () => current, dgiiFields: async () => ({ "606": [], "607": [] }), approveDraft: async () => { approvals += 1; return dossier; } }, reload: () => undefined, records: { inbox: [] }, openPanel: () => undefined } as unknown as BusinessContextValue;
   await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={context}><Review draftId={dossier.draft_id} /></BusinessContext.Provider></env.I18nextProvider>));
-  const clickApprove = async () => { const button = [...env.host.querySelectorAll("button")].find((b) => b.textContent === (language === "es-419" ? "Aprobar" : "Approve expense")); assert.ok(button); await env.act(async () => button.click()); };
+  const clickApprove = async () => { const button = [...env.host.querySelectorAll("button")].find((b) => b.textContent === (language === "es-419" ? "Aceptar" : "Accept expense")); assert.ok(button); await env.act(async () => button.click()); };
   return { ...env, clickApprove, approvals: () => approvals, refreshDossier: async (next: BusinessDossier) => {
     current = next;
     await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={{ ...context, source: { ...context.source } }}><Review draftId={dossier.draft_id} /></BusinessContext.Provider></env.I18nextProvider>));
   } };
 }
 for (const [value, title, body] of [
-  [null, "Este recibo no tiene RNC. ¿Aprobar de todos modos?", "Tendrás que agregar el RNC antes de exportar el 606."],
-  ["123", "Este RNC tiene un error. ¿Aprobar de todos modos?", "Tendrás que corregirlo antes de exportar el 606."],
+  [null, "Este recibo no tiene RNC. ¿Aceptar de todos modos?", "Tendrás que agregar el RNC antes de exportar el 606."],
+  ["123", "Este RNC tiene un error. ¿Aceptar de todos modos?", "Tendrás que corregirlo antes de exportar el 606."],
 ] as const) test(`cancel and continue ${title}`, async () => {
   const page = await mountReview(await fixture(value)); await page.clickApprove(); const dialog = document.querySelector('[role="alertdialog"]')!;
   assert.ok(dialog.textContent?.includes(title)); assert.ok(dialog.textContent?.includes(body)); assert.equal(page.approvals(), 0);
   await page.act(async () => [...dialog.querySelectorAll("button")].find((b) => b.textContent === "Cancelar")!.click()); assert.equal(document.querySelector('[role="alertdialog"]'), null); assert.equal(page.approvals(), 0);
-  await page.clickApprove(); const confirm = [...document.querySelectorAll('[role="alertdialog"] button')].find((b) => b.textContent === "Aprobar") as HTMLButtonElement;
+  await page.clickApprove(); const confirm = [...document.querySelectorAll('[role="alertdialog"] button')].find((b) => b.textContent === "Aceptar") as HTMLButtonElement;
   await page.act(async () => { confirm.click(); confirm.click(); }); assert.equal(page.approvals(), 1); await page.close();
 });
 test("unverified and unrelated records approve directly", async () => {
@@ -104,11 +104,11 @@ test("unverified and unrelated records approve directly", async () => {
 });
 test("read-only grants have no approval or RNC action", async () => {
   const dossier = await fixture(null); dossier.capabilities = ["read"]; const page = await mountReview(dossier);
-  assert.equal([...page.host.querySelectorAll("button")].some((b) => /^(Aprobar|Agregar RNC|Editar RNC)$/.test(b.textContent ?? "")), false); assert.equal(page.approvals(), 0); await page.close();
+  assert.equal([...page.host.querySelectorAll("button")].some((b) => /^(Aceptar|Agregar RNC|Editar RNC)$/.test(b.textContent ?? "")), false); assert.equal(page.approvals(), 0); await page.close();
 });
 for (const [value, label, title, body] of [
-  [null, "No RNC", "This receipt has no RNC. Approve anyway?", "You'll need to add the RNC before exporting the 606."],
-  ["123", "RNC has an error", "This RNC has an error. Approve anyway?", "You'll need to fix it before exporting the 606."],
+  [null, "No RNC", "This receipt has no RNC. Accept anyway?", "You'll need to add the RNC before exporting the 606."],
+  ["123", "RNC has an error", "This RNC has an error. Accept anyway?", "You'll need to fix it before exporting the 606."],
 ] as const) test(`English ${label} warning`, async () => {
   const page = await mountReview(await fixture(value), "en"); assert.equal(page.host.querySelector('[data-fact="rnc"] [aria-label]')?.textContent, label); await page.clickApprove(); const dialog = document.querySelector('[role="alertdialog"]')!; assert.ok(dialog.textContent?.includes(title)); assert.ok(dialog.textContent?.includes(body)); await page.close();
 });
@@ -133,7 +133,7 @@ test("a warning for an older revision never approves the refreshed record", asyn
   const page = await mountReview(dossier);
   await page.clickApprove();
   await page.refreshDossier({ ...dossier, version: dossier.version + 1 });
-  const confirm = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((button) => button.textContent === "Aprobar");
+  const confirm = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((button) => button.textContent === "Aceptar");
   assert.ok(confirm);
   await page.act(async () => confirm.click());
   assert.equal(page.approvals(), 0);

@@ -152,12 +152,12 @@ test("Restaurar on an unsaved edit shows the server's linked value, saves nothin
   await type(view.date, "18/11/2026");
   const button = view.restore("paid_on")!;
   assert.equal(button.disabled, false);
-  assert.equal(button.getAttribute("aria-label"), "Restaurar: 12 nov 2026", "the last value the server gave, while its preview is on the way");
+  assert.equal(button.getAttribute("aria-label"), "Restaurar: 12 Nov 2026", "the last value the server gave, while its preview is on the way");
   await settle();
-  assert.equal(await tooltip(view.restore("paid_on")!), "Restaurar: 15 nov 2026", "the server's linked value for this draft");
+  assert.equal(await tooltip(view.restore("paid_on")!), "Restaurar: 15 Nov 2026", "the server's linked value for this draft");
   assert.deepEqual(view.drafts.at(-1)!.override_inherited, ["paid_on"]);
   await act(async () => view.restore("paid_on")!.click());
-  assert.equal(view.date.value, "15 nov 2026");
+  assert.equal(view.date.value, "15 Nov 2026");
   assert.ok(view.linked("paid_on"));
   assert.equal(view.restore("paid_on"), null);
   assert.equal(view.ncf.value, "E310000000099");
@@ -305,7 +305,7 @@ test("a field that follows a code, a text or a date names its source and restore
   const restore = (field: string) => overridden.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label");
   assert.equal(restore("id_type"), `Restaurar: ${es.business.dgii.option.id_type["1"]}`);
   assert.equal(restore("modified_ncf"), "Restaurar: E310000000007");
-  assert.equal(restore("paid_on"), "Restaurar: 12 nov 2026");
+  assert.equal(restore("paid_on"), "Restaurar: 12 Nov 2026");
 });
 
 test("a linked field shows its link icon only while it holds a value", async () => {

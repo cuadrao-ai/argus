@@ -160,12 +160,12 @@ describe("§1.8 line 100: the Business is named by its name, and Argus is not na
   });
 });
 
-describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the period", () => {
-  test("a fixed day reads 1 oct 2026 wherever a Business date is shown", async () => {
+describe("§1.8 line 101: dates read 1 Oct 2026 and the period label follows the period", () => {
+  test("a fixed day reads 1 Oct 2026 wherever a Business date is shown", async () => {
     const { formatDay, formatTimestamp } = await import("@/components/business-app/business-format");
-    assert.equal(formatDay("2026-10-01", "es-419"), "1 oct 2026");
-    assert.equal(formatDay("2026-10-01T23:30:00Z", "es-419"), "1 oct 2026");
-    assert.match(formatTimestamp("2026-10-01T16:00:00Z", "es-419"), /^1 oct 2026, /);
+    assert.equal(formatDay("2026-10-01", "es-419"), "1 Oct 2026");
+    assert.equal(formatDay("2026-10-01T23:30:00Z", "es-419"), "1 Oct 2026");
+    assert.match(formatTimestamp("2026-10-01T16:00:00Z", "es-419"), /^1 Oct 2026, /);
     const { renderToStaticMarkup } = await import("react-dom/server");
     const i18next = (await import("i18next")).default;
     const { I18nextProvider } = await import("react-i18next");
@@ -177,7 +177,7 @@ describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the
         <AccessList access={{ grants: [{ id: "g", email: null, display_name: "Lucía", capabilities: ["read"], created_at: "2026-10-01T16:00:00Z", owner: true }], invites: [] }} busyId={null} onRemove={() => undefined} onResend={() => undefined} />
       </I18nextProvider>,
     );
-    assert.ok(html.includes("Desde 1 oct 2026"));
+    assert.ok(html.includes("Desde 1 Oct 2026"));
   });
 
   test("the Resumen leads with what to review, ahead of the month figures", async () => {
