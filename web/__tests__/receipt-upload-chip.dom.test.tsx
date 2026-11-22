@@ -35,10 +35,11 @@ async function workspace(withBandeja = false) {
   const base = createFixtureBusinessDataSource({ chatAvailable: false });
   const template = await base.receipt("rcpt-ferreteria");
   const older = await base.receipt("rcpt-blurry");
-  const arrivals: ReceiptDetail[] = ["receipt-older", "receipt-b", "receipt-a"].map((id, index) => ({
+  const arrivals: ReceiptDetail[] = ["older", "b", "a"].map((name, index) => ({
     ...older,
-    id,
-    merchant: id,
+    id: `receipt-${name}`,
+    merchant: `receipt-${name}`,
+    filename: `${name}.jpg`,
     activity: { state: "ready", unread: false, completion_cursor: null },
     received_at: new Date(Date.UTC(2026, 9, 28, 12, 0, -index)).toISOString(),
   }));
@@ -181,12 +182,12 @@ test("the upload review button walks only the saved batch while desktop Bandeja 
     const position = () => document.querySelector<HTMLElement>('[data-testid="receipt-place"]');
     const heading = () => document.getElementById("receipt-review-title")?.textContent;
     const next = () => position()?.querySelector<HTMLButtonElement>('button[aria-label="Recibo siguiente"]');
-    await page.until(() => heading() === "receipt-a" && position() != null, "the first uploaded receipt is open");
+    await page.until(() => heading() === "a.jpg" && position() != null, "the first uploaded receipt is open");
     assert.deepEqual(page.rows(), inbox);
     assert.equal(position()?.textContent, "1 de 2", "Bandeja order must not replace upload order");
     assert.equal(position()?.querySelector<HTMLButtonElement>('button[aria-label="Recibo anterior"]')?.disabled, true);
     await page.click(next());
-    await page.until(() => heading() === "receipt-b" && position() != null, "the next uploaded receipt is open");
+    await page.until(() => heading() === "b.jpg" && position() != null, "the next uploaded receipt is open");
     assert.equal(position()?.textContent, "2 de 2");
     assert.equal(next()?.disabled, true);
   } finally {
