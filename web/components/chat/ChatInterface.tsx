@@ -5,7 +5,6 @@ import { Avatar } from "@/components/ui/Avatar";
 import { BANNER_HEIGHT_PX, ConnectionBanner, useOnline } from "@/components/ui/ConnectionBanner";
 import { useCallback, useContext, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
 import { useProfileUpdates } from "@/components/chat/useProfileUpdates";
 import { useTranslation } from "react-i18next";
 import { signedInHomePath } from "@/lib/landing-intent";
@@ -57,7 +56,6 @@ import {
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
 import { commitShellLanguage } from "@/lib/language-features";
-import { omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
 import { isLeavingSession, leaveSession } from "@/lib/logout-flow";
 import { createSessionRecovery } from "@/lib/session-recovery";
 import { SessionRecoveryScreen } from "@/components/status/SessionRecoveryScreen";
@@ -172,9 +170,6 @@ import {
 import { renamePrefillTitle } from "@/lib/chat-title-display";
 import { useActiveConversationTitle } from "@/lib/chat-header-title-state";
 import ChatHeaderMenu from "./ChatHeaderMenu";
-import { ShareReceiptPanel } from "./ShareReceiptAction";
-import { ReceiptConversationProvider, ReceiptConversationTurn, ReceiptSelectionComposer } from "./ReceiptConversationSelection";
-import { evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import ChatHeaderTitle from "./ChatHeaderTitle";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
@@ -351,7 +346,7 @@ function ChatInterfaceContent() {
   const shouldAutoScrollRef = useRef(true);
   const postTurnHistoryRefreshTimersRef = useRef<number[]>([]);
   const activeConversationIdRef = useRef<string | null>(null);
-  const hasAcceptedUserInputRef = useRef(Boolean(readReceiptFollowup()));
+  const hasAcceptedUserInputRef = useRef(false);
   const sendAdmissionInFlightRef = useRef(false);
   const currentViewRef = useRef<View>("chat");
   const [transcriptSessionCache] = useState(
@@ -603,15 +598,14 @@ function ChatInterfaceContent() {
   const online = useOnline();
   const bannerSpace = workspace && !online ? BANNER_HEIGHT_PX : 0;
   const surfaceFade = `${layout.businessShell ? "bg-[#F7F5EE]/80" : "bg-[#f9f9f9]/80"} dark:bg-[#141517]/80`;
-  const searchEntryEnabled = omnisearchEnabled;
   // A click handler may pass its event: only a string seeds the search.
   const [searchSeed, setSearchSeed] = useState("");
-  const openSearch = useCallback((query?: unknown) => { if (!searchEntryEnabled) return; setSearchSeed(typeof query === "string" ? query : ""); setSearchOverlayOpen(true); }, [searchEntryEnabled]);
+  const openSearch = useCallback((query?: unknown) => { setSearchSeed(typeof query === "string" ? query : ""); setSearchOverlayOpen(true); }, []);
   const [invitationOpenRequest, setInvitationOpenRequest] = useState<InvitationOpenRequest | null>(null);
   const openPersonalInvitation = useCallback((trigger: HTMLElement) => {
     setInvitationOpenRequest((previous) => ({ id: (previous?.id ?? 0) + 1, trigger }));
   }, []);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, memberId: account?.user.id, dismissedGuideCards: account?.dismissed_guide_cards, dismissGuideCard, openSearch: searchEntryEnabled ? openSearch : undefined, openPersonalInvitation, resetToEmptyChatSurface, closeTransientSidebar });
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, memberId: account?.user.id, dismissedGuideCards: account?.dismissed_guide_cards, dismissGuideCard, openSearch, openPersonalInvitation, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;
@@ -933,10 +927,8 @@ function ChatInterfaceContent() {
     canSubmitFeedback,
     requestNewChat,
     requestOmnisearch,
-    receiptSharing,
   } = useChatShellCapabilities({
     account,
-    conversationId,
     closeTransientSidebar,
     onNewChat: startNewChat,
     // The one door into Omnisearch, so the drawer closes here rather than at
@@ -949,7 +941,7 @@ function ChatInterfaceContent() {
     // never claims it. Whether any surface is open is asked at press time
     // against the layer registry. Withheld below the mobile threshold, and
     // when a workspace owns its own shortcuts.
-    omnisearchShortcutEnabled: omnisearchEnabled && !mobileShell.isBelowTablet && !workspace?.keyboardShortcuts,
+    omnisearchShortcutEnabled: !mobileShell.isBelowTablet && !workspace?.keyboardShortcuts,
   });
 
   const memoryChrome = useMemoryChrome(isGuest, conversationId);
@@ -1700,7 +1692,6 @@ function ChatInterfaceContent() {
     }
   };
 
-  const receiptFollowup = useReceiptFollowup({ profileState, account, conversationId, hydrating: isHydratingConversation, refreshAccount, navigate: navigateConversationTranscript, send: (text, options) => handleSend(text, undefined, undefined, options) });
   // ── Action routing ─────────────────────────────────────────────────────────
 
   const handleLogout = async (options: LogoutOptions = {}) => {
@@ -2009,16 +2000,9 @@ function ChatInterfaceContent() {
     messages,
     isStreamingResponse,
   );
-  // Spec 10b: both empty-state placeholders carry the same invitation once the
-  // rail ships; the pre-rail strings stay behind the flag so flag-off behavior
-  // is unchanged. The follow-up placeholder is deliberately untouched.
   const chatInputPlaceholder =
     messages.length === 0
-      ? t(
-          researchRailEnabled
-            ? "chat.input_placeholder"
-            : "chat.input_placeholder_prerail",
-        )
+      ? t("chat.input_placeholder")
       : t("chat.followup_placeholder", "Ask a follow-up...");
   const hasConversationLoadFailure =
     failedConversationId !== null && failedConversationId === conversationId;
@@ -2027,14 +2011,13 @@ function ChatInterfaceContent() {
     isHydratingConversation,
     hasConversationLoadFailure,
   });
-  const conversationComposerUnavailable = Boolean(readReceiptFollowup()) ||
-    isStreamingResponse ||
+  const conversationComposerUnavailable = isStreamingResponse ||
     isHydratingConversation ||
     hasConversationLoadFailure;
 
   const keyboardShortcuts = useChatKeyboardShortcuts({
     enabled: !mobileShell.isBelowTablet,
-    requestSearch: searchEntryEnabled ? () => setSearchOverlayOpen(true) : undefined,
+    requestSearch: () => setSearchOverlayOpen(true),
     isChatView: currentView === "chat",
     canManageConversation,
     conversationId,
@@ -2072,7 +2055,6 @@ function ChatInterfaceContent() {
   }
 
   return (
-    <ReceiptConversationProvider target={evidenceReceiptSharingEnabled ? receiptSharing.target : null} conversationId={conversationId} onClose={receiptSharing.close}>
     <ConversationActivityPresentationProvider
       selectPresentation={conversationActivity.selectPresentation}
       selectAggregatePresentation={conversationActivity.selectAggregatePresentation} selectOperationLabel={conversationActivity.selectOperationLabel}
@@ -2117,9 +2099,7 @@ function ChatInterfaceContent() {
         onLoadMoreHistory={loadMoreHistory}
         onOpenSearch={() => {
           closeDrawer();
-          if (searchEntryEnabled) {
-            requestOmnisearch();
-          }
+          requestOmnisearch();
         }}
         onHistoryMutated={refreshHistory}
         onProfileUpdated={onProfileUpdated}
@@ -2141,8 +2121,8 @@ function ChatInterfaceContent() {
         settingsOpenRequest={keyboardShortcuts.settingsOpenRequest}
         invitationOpenRequest={invitationOpenRequest}
         mode={sidebarMode}
-        omnisearchEnabled={
-          searchEntryEnabled && (!isGuest || canUseOmnisearch) && !(workspace?.headerSearch && !mobileShell.isBelowTablet)
+        showSearch={
+          (!isGuest || canUseOmnisearch) && !(workspace?.headerSearch && !mobileShell.isBelowTablet)
         }
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
@@ -2167,8 +2147,7 @@ function ChatInterfaceContent() {
         }
       />
 
-      {searchEntryEnabled &&
-        (!isGuest || canUseOmnisearch) &&
+      {(!isGuest || canUseOmnisearch) &&
         searchOverlayOpen && (
           <ChatCommandPalette
             initialQuery={searchSeed}
@@ -2245,8 +2224,6 @@ function ChatInterfaceContent() {
                 conversationId &&
                 canManageConversation ? (
                 <ChatHeaderMenu
-                  conversationId={conversationId}
-                  onShare={receiptSharing.request}
                   isOpen={showChatOptions}
                   onToggleOpen={() => setShowChatOptions(!showChatOptions)}
                   onRequestClose={closeChatOptions}
@@ -2281,11 +2258,9 @@ function ChatInterfaceContent() {
             <ConversationActivityAnnouncement activity={conversationActivity} conversationId={conversationId} title={activeTitleRecord ? headerConversationTitle : null} enabled={!isHydratingConversation} />
             {showEmptyChatSurface ? (
               <EmptyChatSurface
-                isGuest={isGuest}
                 isStreamingResponse={isStreamingResponse}
                 isHydratingConversation={isHydratingConversation}
                 canConsumeLandingStarter={initialRoutingSettled}
-                preferredName={greetingName}
                 placeholder={chatInputPlaceholder}
                 composerNotice={dailyCap.notice}
                 onSend={handleSend}
@@ -2340,7 +2315,7 @@ function ChatInterfaceContent() {
                           tabIndex={-1}
                           className="scroll-m-24 outline-none"
                         >
-                          <ReceiptConversationTurn messageId={msg.id}><ChatMessage
+                          <ChatMessage
                             message={msg}
                             onAction={handleAction}
                             onDirectEdit={handleDirectEditConfirmation}
@@ -2369,7 +2344,7 @@ function ChatInterfaceContent() {
                               if (conversationId) invalidateTranscriptForMutation(conversationId, "durable_result_action");
                             }}
                             resumeDecisionArtifactId={null}
-                          /></ReceiptConversationTurn>
+                          />
                         </div>
                       );
                     })}
@@ -2404,14 +2379,14 @@ function ChatInterfaceContent() {
                       </div>
                     )}
                     {dailyCap.notice}
-                    <ReceiptSelectionComposer><ChatInput
+                    <ChatInput
                       key={conversationId ?? "unowned-transcript"}
                       onSend={handleSend}
                       disabled={conversationComposerUnavailable}
                       placeholder={chatInputPlaceholder}
                       onToast={showToast}
                       {...workspaceComposerProps(workspace, shellBridge)}
-                    /></ReceiptSelectionComposer>
+                    />
                     <ChatLegalNotice
                       showRegisteredDisclaimer={showConversationDisclaimer}
                     />
@@ -2438,9 +2413,7 @@ function ChatInterfaceContent() {
         context={feedbackState.context}
       />
       {workspace?.bottomNavigation?.(shellBridge)}
-      {receiptFollowup}
-      {evidenceReceiptSharingEnabled && receiptSharing.target && <ShareReceiptPanel key={receiptSharing.target.conversationId} {...receiptSharing.target} onClose={receiptSharing.close} />}
       </div>
-    </ConversationActivityPresentationProvider></ReceiptConversationProvider>
+    </ConversationActivityPresentationProvider>
   );
 }

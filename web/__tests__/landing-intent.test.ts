@@ -442,7 +442,7 @@ describe("landing intent storage", () => {
 describe("landing starter prefill wiring", () => {
   const root = join(import.meta.dir, "..");
 
-  test("reuses the receipt-followup consume-once hook and never auto-sends", () => {
+  test("consumes the landing starter once and never auto-sends", () => {
     const hook = readFileSync(
       join(root, "components/chat/useLandingStarterPrefill.ts"),
       "utf-8",
@@ -499,22 +499,7 @@ describe("landing starter prefill wiring", () => {
     expect(chat).not.toContain("admitSend");
   });
 
-  test("public receipt landings capture the live path before a follow-up forks", () => {
-    const layout = readFileSync(join(root, "app/r/layout.tsx"), "utf-8");
-    const followup = readFileSync(
-      join(root, "components/receipt/ReceiptFollowup.tsx"),
-      "utf-8",
-    );
-    const capture = readFileSync(
-      join(root, "components/receipt/LandingIntentCapture.tsx"),
-      "utf-8",
-    );
-    expect(layout).toContain("LandingIntentCapture");
-    expect(capture).toContain("captureLandingIntentFromLocation");
-    expect(followup).toContain("captureLandingIntentFromLocation");
-    expect(followup).toContain("receiptFollowupTarget()");
-    expect(followup).not.toContain('router.push("/chat")');
-  });
+
 
   test("Playwright config owns the mock-signup network flag instead of webdriver", () => {
     const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
