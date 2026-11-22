@@ -348,7 +348,8 @@ def test_async_logo_uploads_keep_distinct_borrowed_connections(management, monke
                 if arrivals == 2:
                     ready.set()
                 await asyncio.wait_for(ready.wait(), timeout=2)
-                result = await business_logo.put_logo(request, upload, guarded)
+                # FastAPI runs a plain handler on a worker thread; so does the test.
+                result = await asyncio.to_thread(business_logo.put_logo, request, upload, guarded)
                 assert result["id"] == context.scope.owner.space_id
                 return guarded.connection
 

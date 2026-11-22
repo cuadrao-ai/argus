@@ -1151,18 +1151,19 @@ async def prepare_receipt(
     try:
         if consent != "true":
             raise DocumentServiceError("document_extraction_consent_required")
-        _refuse_email_original(request, context, receipt_id)
-        require_legacy_receipt_write(context, receipt_id)
-        context.service.queue(context.scope, receipt_id)
+        await run_in_threadpool(_refuse_email_original, request, context, receipt_id)
+        await run_in_threadpool(require_legacy_receipt_write, context, receipt_id)
+        await run_in_threadpool(context.service.queue, context.scope, receipt_id)
         await dispatch_preparation(
             context.service.documents,
             context.scope.person_id,
             receipt_id,
             scope=context.scope.owner,
         )
-        [receipt] = _email_flagged(
-            context, [context.service.receipt(context.scope, receipt_id)]
+        receipt = await run_in_threadpool(
+            context.service.receipt, context.scope, receipt_id
         )
+        [receipt] = await run_in_threadpool(_email_flagged, context, [receipt])
         return await run_in_threadpool(receipt_summary, context, receipt)
     except Exception as error:
         raise _problem(request, error) from None

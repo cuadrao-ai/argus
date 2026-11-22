@@ -215,7 +215,8 @@ class BusinessService:
             )
         # The same bytes saved before come back as that receipt, said so.
         return replace(
-            self.receipt(scope, outcome.connection_id), replayed=outcome.replayed
+            await asyncio.to_thread(self.receipt, scope, outcome.connection_id),
+            replayed=outcome.replayed,
         )
 
     def queue(self, scope: BusinessScope, receipt_id: str) -> None:
@@ -279,7 +280,9 @@ class BusinessService:
         if current.enterable:
             if version != current.version:
                 raise StaleEvent()
-            if account_id and account_id not in self._account_ids(scope):
+            if account_id and account_id not in await asyncio.to_thread(
+                self._account_ids, scope
+            ):
                 raise ReconcileError(
                     "financial_account_not_found", "Choose your own account."
                 )

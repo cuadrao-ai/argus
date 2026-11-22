@@ -186,7 +186,7 @@ def _suggestion(service, row: Suggestion) -> BankSuggestionResponse:  # noqa: AN
     status_code=201,
     dependencies=[Depends(require_bank_surface)],
 )
-async def import_statement(
+def import_statement(
     request: Request,
     response: Response,
     person: Annotated[BusinessPerson, Depends(require_business_person)],
@@ -217,7 +217,7 @@ async def import_statement(
     key = required_key(request, idempotency_key)
     scope = _scope(request, person)
     actor_id = UUID(scope.actor_id or scope.person_id)
-    content = await statement.read(_MAX_BYTES + 1)
+    content = statement.file.read(_MAX_BYTES + 1)
     if len(content) > _MAX_BYTES:
         raise problem(
             request,
