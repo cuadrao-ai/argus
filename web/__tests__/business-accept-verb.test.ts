@@ -29,9 +29,9 @@ test("the accept action and its result use the one verb", () => {
   const en = new Map(copy(english));
   assert.equal(es.get("business.dossier.approve_action"), "Aceptar");
   assert.equal(es.get("business.dossier.approve_next"), "Aceptar y siguiente");
-  assert.equal(es.get("business.dossier.review_flag.approve_anyway"), "Aceptar de todos modos");
+  assert.equal(es.get("business.dossier.confirm.accept_anyway"), "Aceptar de todos modos");
   assert.equal(es.get("business.history.approved"), "Aceptado");
   assert.equal(en.get("business.dossier.approve_next"), "Accept and next");
-  assert.equal(en.get("business.dossier.review_flag.approve_anyway"), "Accept anyway");
+  assert.equal(en.get("business.dossier.confirm.accept_anyway"), "Accept anyway");
   assert.equal(en.get("business.history.approved"), "Accepted");
 });

@@ -391,7 +391,7 @@ describe("the receipt dossier on an open draft", () => {
   test("approving sends the suggestions shown, and the approved record keeps their icons", async () => {
     const sent: unknown[] = [];
     const page = await setup("fiscal", () => undefined, (fixture) => ({
-      approveDraft: async (id, version, key, action, anyway, suggestions) => { sent.push(suggestions); return fixture.approveDraft(id, version, key, action, anyway, suggestions); },
+      approveDraft: async (id, version, key, action, options) => { sent.push(options?.suggestions); return fixture.approveDraft(id, version, key, action, options); },
     }));
     try {
       await page.act(async () => button(page.host, "Aceptar").click());
@@ -965,7 +965,11 @@ describe("the receipt dossier on an open draft", () => {
   });
 
   test("Corregir on a flagged value washes that value's row and puts focus on it, without opening it", async () => {
-    const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "ncf_malformed", field: "ncf", confirm: true }]; });
+    const page = await setup("fiscal", (dossier) => {
+      dossier.review_flags = [{ code: "ncf_malformed", field: "ncf", confirm: true }];
+      dossier.listo_gaps = ["invalid_ncf"];
+      dossier.confirmable = ["invalid_ncf"];
+    });
     try {
       await page.act(async () => button(page.host, "Aceptar").click());
       const dialog = document.querySelector('[role="alertdialog"]');

@@ -1,5 +1,5 @@
-import type { BusinessAccount, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
-import { LISTO_GAPS, factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type ListoGap, type RefundCandidate, type ShownSuggestions } from "@/lib/business-dossier";
+import type { BusinessAccount, BusinessApprovalOptions, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
+import { LISTO_GAPS, factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type ListoGap, type RefundCandidate } from "@/lib/business-dossier";
 import type { DgiiDeclaration, DgiiField, DgiiFields, DgiiReview, PurchaseChoice, SuggestedField, SuggestionSources } from "@/lib/business-dgii";
 import { noteGroup } from "./fixture-server-rules";
 
@@ -14,7 +14,14 @@ function keptSources(before: DgiiDeclaration | null | undefined, after: DgiiDecl
   return Object.keys(kept).length ? { ...next, suggestion_sources: kept } : next;
 }
 
-const BLOCKED_FIELD_GAP: Partial<Record<string, ListoGap>> = { counterparty: "missing_merchant", occurred_on: "missing_date", amount: "missing_amount", currency: "missing_currency" };
+type SampleGap = { reason: ListoGap; confirmable: boolean };
+const sampleGap = (reason: ListoGap, confirmable: boolean): SampleGap => ({ reason, confirmable });
+const BLOCKED_FIELD_GAP: Partial<Record<string, SampleGap>> = {
+  counterparty: sampleGap("missing_merchant", true),
+  occurred_on: sampleGap("missing_date", false),
+  amount: sampleGap("missing_amount", false),
+  currency: sampleGap("missing_currency", false),
+};
 
 /**
  * `bandeja_group.py` in short, over what a sample record already states: its
@@ -23,26 +30,26 @@ const BLOCKED_FIELD_GAP: Partial<Record<string, ListoGap>> = { counterparty: "mi
  * The standing is worked out on every read and never stored, so a write clears
  * what it fixed.
  */
-function sampleStanding(draft: BusinessDossier, seeded?: readonly ListoGap[]): Pick<BusinessDossier, "bandeja_group" | "listo_gaps"> {
-  if (draft.deleted) return { bandeja_group: { group: "eliminados", reason: null, label: null }, listo_gaps: [] };
-  if (draft.review_state === "accepted") return { bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [] };
-  if (draft.review_state === "dismissed") return { bandeja_group: { group: null, reason: null, label: null }, listo_gaps: [] };
-  if (draft.review_state === "accepting") return { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [] };
+function sampleStanding(draft: BusinessDossier, seeded?: readonly SampleGap[]): Pick<BusinessDossier, "bandeja_group" | "listo_gaps" | "confirmable"> {
+  if (draft.deleted) return { bandeja_group: { group: "eliminados", reason: null, label: null }, listo_gaps: [], confirmable: [] };
+  if (draft.review_state === "accepted") return { bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [], confirmable: [] };
+  if (draft.review_state === "dismissed") return { bandeja_group: { group: null, reason: null, label: null }, listo_gaps: [], confirmable: [] };
+  if (draft.review_state === "accepting") return { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [] };
   const flags = draft.review_flags ?? [];
   const rnc = draft.facts.fiscal?.rnc;
   const digits = rnc?.state === "known" ? rnc.value.replace(/\D/g, "") : "";
-  const gaps: readonly ListoGap[] = seeded ?? [
-    ...(draft.duplicate_candidates?.length || draft.blockers.some((blocker) => blocker.code === "possible_duplicate") ? ["duplicate" as const] : []),
+  const gaps = seeded ?? [
+    ...(draft.duplicate_candidates?.length || draft.blockers.some((blocker) => blocker.code === "possible_duplicate") ? [sampleGap("duplicate", true)] : []),
     ...draft.blockers.flatMap((blocker) => BLOCKED_FIELD_GAP[blocker.field ?? ""] ?? []),
-    ...(draft.facts.fiscal && !digits ? ["missing_rnc" as const] : []),
-    ...(digits && (flags.some((flag) => flag.code === "rnc_check_digit") || (digits.length !== 9 && digits.length !== 11)) ? ["invalid_rnc" as const] : []),
-    ...(flags.some((flag) => flag.code === "ncf_malformed") ? ["invalid_ncf" as const] : []),
-    ...(flags.length ? ["review_flag" as const] : []),
-    ...(draft.blockers.some((blocker) => blocker.code !== "possible_duplicate" && !BLOCKED_FIELD_GAP[blocker.field ?? ""]) ? ["blocked" as const] : []),
+    ...(draft.facts.fiscal && !digits ? [sampleGap("missing_rnc", true)] : []),
+    ...(digits && (flags.some((flag) => flag.code === "rnc_check_digit") || (digits.length !== 9 && digits.length !== 11)) ? [sampleGap("invalid_rnc", true)] : []),
+    ...(flags.some((flag) => flag.code === "ncf_malformed") ? [sampleGap("invalid_ncf", true)] : []),
+    ...(flags.length ? [sampleGap("review_flag", true)] : []),
+    ...(draft.blockers.some((blocker) => blocker.code !== "possible_duplicate" && !BLOCKED_FIELD_GAP[blocker.field ?? ""]) ? [sampleGap("blocked", false)] : []),
   ];
   return gaps.length
-    ? { bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: gaps }
-    : { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [] };
+    ? { bandeja_group: { group: "attention", reason: gaps[0].reason, label: "needs_attention" }, listo_gaps: gaps.map((gap) => gap.reason), confirmable: gaps.filter((gap) => gap.confirmable).map((gap) => gap.reason) }
+    : { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [] };
 }
 
 export const dossierFixtureIds = {
@@ -132,7 +139,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     fiscal: null,
   };
   const dossiers = new Map<string, BusinessDossier>();
-  const seededGaps = new Map<string, readonly ListoGap[]>();
+  const seededGaps = new Map<string, readonly SampleGap[]>();
   for (const [name, id] of Object.entries(dossierFixtureIds)) {
     const ready = name !== "unknown" && name !== "unknownAmount";
     const current: BusinessFacts = { ...facts, category_id: { ...known("other"), origin: "member_set", source_ids: [reviewSourceId] }, funding: ready ? { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "member_set", source_ids: [reviewSourceId] } : unknown(), amount: name === "unknownAmount" ? unknown() : facts.amount, kind: name === "unknownKind" ? unknown() : name === "income" ? known("income") : facts.kind };
@@ -222,7 +229,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     refund_candidates: refundCandidates(draft),
   });
   const reviewReceipts = new Map<string, { input: string; result: BusinessDossier }>();
-  const fail = (status: number, code: string): never => { throw Object.assign(new Error(code), { status, code, requestId: `sample-${code}` }); };
+  const fail = (status: number, code: string, context?: unknown): never => { throw Object.assign(new Error(code), { status, code, context, requestId: `sample-${code}` }); };
   const get = (id: string) => {
     const found = dossiers.get(id);
     if (!found) return fail(404, "draft_not_found");
@@ -318,7 +325,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const items = found.slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state, earlier_count: earlier(note), bandeja_group: noteGroup(current.review_state, note.draft_id, current.version) }; });
       return { items, has_more: found.length > limit };
     },
-    createReceiptDraft: (receipt: ReceiptDetail, fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }) => {
+    createReceiptDraft: (receipt: ReceiptDetail, fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }, confirmable = false) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
       const reviewed = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
       const scalar = (value: string | null): BusinessFact<string> => value ? reviewed(value) : unknown();
@@ -343,7 +350,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         blockers: [], approval_available: true, approval_result: null,
         sin_comprobante: receipt.sin_comprobante, personal: receipt.personal, personal_marked_by: receipt.personal_marked_by,
       });
-      seededGaps.set(id, LISTO_GAPS.filter((gap) => gap === receipt.bandeja_group?.reason));
+      seededGaps.set(id, LISTO_GAPS.filter((gap) => gap === receipt.bandeja_group?.reason).map((reason) => sampleGap(reason, confirmable)));
       return id;
     },
     dossier: async (id: string) => id === dossierFixtureIds.unprepared ? fail(409, "draft_not_prepared") : get(id),
@@ -403,7 +410,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       dossiers.set(id, { ...current, version: current.version + 1, review_state: "open", approval_available: true, approval_result: null, reopen_available: false });
       return get(id);
     },
-    approveDraft: async (id: string, version: number, action: BusinessApprovalAction = "record_expense", suggestions?: ShownSuggestions) => {
+    approveDraft: async (id: string, version: number, action: BusinessApprovalAction = "record_expense", { acceptGaps = [], suggestions }: BusinessApprovalOptions = {}) => {
       const current = get(id);
       if (current.approval_action && action !== current.approval_action) fail(422, "invalid_request");
       if (id === dossierFixtureIds.denied) fail(403, "permission_denied");
@@ -417,6 +424,9 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       }
       if (current.version !== version) fail(409, "stale_version");
       if (!current.approval_available) fail(422, "unresolved_facts");
+      const gaps = current.listo_gaps ?? [];
+      const confirmable = current.confirmable ?? [];
+      if (gaps.some((gap) => !confirmable.includes(gap) || !acceptGaps.includes(gap))) fail(422, "not_listo", { gaps, confirmable });
       if (id === dossierFixtureIds.outcomeUnknown) {
         const next: BusinessDossier = { ...current, review_state: "accepting", approval_available: false, approval_result: { status: "outcome_unknown", code: "recording_unknown", reviewed_version: version } };
         dossiers.set(id, next);

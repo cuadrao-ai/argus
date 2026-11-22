@@ -10,7 +10,7 @@ export const DUPLICATE_KEYS = "business.receipts.duplicate_resolution";
 /** The dossier's tabs. Documento joins them only in the narrow size. */
 export type DossierTab = "general" | "documento" | "fiscal" | "detalles" | "historial";
 
-export const FLAGGED_ROW: Record<ReviewFlagCode, ReviewRow> = { rnc_check_digit: "rnc", ncf_malformed: "fiscal_number", itbis_high: "itbis", amounts_mismatch: "amount" };
+const FLAGGED_ROW: Record<ReviewFlagCode, ReviewRow> = { rnc_check_digit: "rnc", ncf_malformed: "fiscal_number", itbis_high: "itbis", amounts_mismatch: "amount" };
 
 /** One reason the record is not Listos, as the panel says it: the server's gap, its words, and the row that fixes it. */
 export type DossierProblem = {
@@ -78,7 +78,11 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
   const flags = dossier.review_flags ?? [];
   const candidate = dossier.duplicate_candidates?.[0];
   const general = t("business.dossier.tab.general");
-  const words = (reason: ListoGap, part: "title" | "text") => t([`${OWN_WORDS[reason] ?? `${GAP}.${reason}`}.${part}`, `${PLACEHOLDER_GAP}.${reason}.${part}`]);
+  const words = (reason: ListoGap, part: "title" | "text") => t([
+    `${OWN_WORDS[reason] ?? `${GAP}.${reason}`}.${part}`,
+    `${PLACEHOLDER_GAP}.${reason}.${part}`,
+    ...(part === "title" ? [`business.attention_short.${reason}`] : []),
+  ], { defaultValue: "" });
   return (dossier.listo_gaps ?? []).map((reason, index): DossierProblem => {
     const key = `${index}-${reason}`;
     if (reason === "duplicate") {

@@ -18,6 +18,7 @@ const fields = { "606": [
   { name: "rnc", label: "RNC o Cédula", kind: "text", options: [] },
   { name: "ncf", label: "NCF", kind: "text", options: [] },
   { name: "itbis", label: "ITBIS Facturado", kind: "money", options: [] },
+  { name: "category", label: "Tipo de gasto", kind: "select", options: ["02"], labels: { "02": "Gastos por trabajos, suministros y servicios" } },
 ], "607": [] };
 
 beforeEach(() => {
@@ -34,13 +35,14 @@ afterEach(async () => {
 
 /** What the server answers a recorded approval with. Flags are read on every request, so they stay; the record leaves the Bandeja. */
 function recorded(dossier: BusinessDossier): BusinessDossier {
-  return { ...dossier, version: dossier.version + 1, review_state: "accepted", approval_available: false, bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: dossier.version, approved_revision: factsRevision(dossier), approved_at: "2026-10-31T14:40:00Z", actor: dossier.history.at(-1)!.actor } };
+  return { ...dossier, version: dossier.version + 1, review_state: "accepted", approval_available: false, bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [], confirmable: [], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: dossier.version, approved_revision: factsRevision(dossier), approved_at: "2026-10-31T14:40:00Z", actor: dossier.history.at(-1)!.actor } };
 }
 
 /** A flagged read with the gaps the server's Bandeja rule gives it. */
-async function flagged(codes: readonly ReviewFlagCode[], gaps: readonly ListoGap[]): Promise<BusinessDossier> {
+async function flagged(codes: readonly ReviewFlagCode[], gaps: readonly ListoGap[], confirmable = gaps): Promise<BusinessDossier> {
   const dossier = await flaggedReceipt(codes, accounts);
   dossier.listo_gaps = gaps;
+  dossier.confirmable = confirmable;
   dossier.bandeja_group = gaps.length ? { group: "attention", reason: gaps[0], label: "needs_attention" } : { group: "listo", reason: null, label: "ready" };
   return dossier;
 }
@@ -93,7 +95,7 @@ async function render(dossier: BusinessDossier, language: Language = "es-419") {
   await settle();
   const copy = locales[language].business.dossier;
   const button = (label: string, within: ParentNode = document) => [...within.querySelectorAll("button")].find((item) => item.textContent === label);
-  const step = () => document.querySelector<HTMLElement>('[data-testid="review-flag-confirm"]');
+  const step = () => document.querySelector<HTMLElement>('[data-testid="dossier-confirm"]');
   const tap = async (label: string, within?: ParentNode) => {
     const target = button(label, within);
     assert.ok(target, `${label} is offered`);
@@ -103,10 +105,10 @@ async function render(dossier: BusinessDossier, language: Language = "es-419") {
   return {
     act, host, opened, settle, button, step, tap,
     approve: () => tap(copy.approve_action),
-    approveAnyway: () => tap(copy.review_flag.approve_anyway, step() ?? undefined),
+    approveAnyway: () => tap(copy.confirm.accept_anyway, step() ?? undefined),
     // A recorded receipt offers no Aceptar and has no Bandeja pill.
     recorded: () => host.querySelector('[data-testid="receipt-review-footer"]') !== null && host.querySelector("[data-review-primary]") === null && host.querySelector('[data-testid="status-pill"]') === null,
-    problems: () => [...(document.querySelector('[data-testid="review-flag-confirm"]')?.querySelectorAll("li") ?? [])].map((item) => item.textContent),
+    problems: () => [...(document.querySelector('[data-testid="dossier-confirm"]')?.querySelectorAll("li") ?? [])].map((item) => item.textContent),
     status: (row: string) => host.querySelector<HTMLElement>(`[data-testid="row-status-${row}"]`),
     close: async () => { await act(async () => root.unmount()); host.remove(); },
   };
@@ -129,9 +131,9 @@ test("an RNC with a wrong check digit opens a step before approval, with Corregi
     assert.equal(step.getAttribute("role"), "alertdialog");
     assert.equal(step.querySelector("h2")?.textContent, "2 por resolver");
     assert.deepEqual(page.problems(), [`${flagCopy.rnc_check_digit.title}. ${flagCopy.rnc_check_digit.text}`, `${copy.placeholder.gap.review_flag.title}. ${copy.placeholder.gap.review_flag.text}`]);
-    assert.ok(step.textContent?.includes(flagCopy.export_blocked), "the step says approving anyway still blocks the export");
-    const fix = page.button(flagCopy.fix, step);
-    const anyway = page.button(flagCopy.approve_anyway, step);
+    assert.doesNotMatch(step.textContent ?? "", /606/);
+    const fix = page.button(copy.confirm.fix, step);
+    const anyway = page.button(copy.confirm.accept_anyway, step);
     assert.equal(fix?.className, primaryButtonClass);
     assert.equal(anyway?.className, secondaryButtonClass);
     assert.equal(document.activeElement, fix, "the cursor starts on Corregir");
@@ -148,7 +150,7 @@ test("Corregir closes the step, approves nothing and points at the RNC row", asy
   try {
     assert.equal(page.host.querySelector('[data-fact="rnc"]')?.getAttribute("data-flash"), null);
     await page.approve();
-    await page.tap(flagCopy.fix, page.step()!);
+    await page.tap(copy.confirm.fix, page.step()!);
     assert.equal(page.step(), null);
     assert.equal(approvals.length, 0);
     assert.ok(page.host.querySelector('[data-fact="rnc"]')?.getAttribute("data-flash"), "the RNC's own row flashes");
@@ -224,15 +226,17 @@ test("Escape and the backdrop close the step without approving", async () => {
   }
 });
 
-test("Aceptar de todos modos sends approve_anyway and records the receipt", async () => {
+test("Aceptar de todos modos sends every confirmed gap and the suggestion shown on screen", async () => {
   const dossier = await flagged(["rnc_check_digit"], ["invalid_rnc", "review_flag"]);
+  const suggestions = { category: { value: "02", source: "last_choice" } } as const;
+  dossier.declaration_suggestions = { ...suggestions, payment_method: null };
   const approvals = serve(dossier);
   const page = await render(dossier);
   try {
     await page.approve();
     await page.approveAnyway();
     assert.equal(page.step(), null);
-    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, approve_anyway: true }]);
+    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, accept_gaps: dossier.listo_gaps, suggestions }]);
     assert.ok(approvals[0].key, "the request carries a key");
     assert.ok(page.recorded(), "the receipt is recorded");
   } finally {
@@ -240,44 +244,93 @@ test("Aceptar de todos modos sends approve_anyway and records the receipt", asyn
   }
 });
 
-test("a refusal naming flags the read did not carry opens the step from its context; approving anyway uses a new key", async () => {
-  // Read before the server sent review flags, so the read names no gap either.
-  const dossier = await flagged(["ncf_malformed"], []);
-  delete dossier.review_flags;
-  const approvals = serve(dossier, refusal("approval_confirmation_required", { flags: ["ncf_malformed"] }));
+test("a refusal updates the dialog and the next approval names the new gaps with a new key", async () => {
+  const dossier = await flagged(["ncf_malformed"], ["invalid_ncf"]);
+  const updated = ["invalid_ncf", "missing_itbis"] satisfies ListoGap[];
+  const approvals = serve(dossier, refusal("not_listo", { gaps: updated, confirmable: updated }));
   const page = await render(dossier);
   try {
     await page.approve();
-    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action }]);
-    const step = page.step();
-    assert.ok(step, "the refusal becomes the step, not a generic error");
-    assert.deepEqual([...step.querySelectorAll("li[data-problem]")].map((item) => item.getAttribute("data-problem")), ["ncf_malformed"]);
-    assert.equal(step.querySelector("h2")?.textContent, flagCopy.ncf_malformed.title);
-    assert.ok(step.textContent?.includes(flagCopy.ncf_malformed.text));
-    assert.equal(page.host.textContent?.includes(es.business.dossier.refused), false);
     await page.approveAnyway();
-    assert.equal(approvals.length, 2);
-    assert.equal(approvals[1].body.approve_anyway, true);
+    const step = page.step();
+    assert.ok(step, "the refusal opens a new confirmation");
+    assert.deepEqual(page.problems(), [
+      `${flagCopy.ncf_malformed.title}. ${flagCopy.ncf_malformed.text}`,
+      `${copy.placeholder.gap.missing_itbis.title}. ${copy.placeholder.gap.missing_itbis.text}`,
+    ]);
+    assert.equal(approvals.length, 1, "the new gaps need their own confirmation");
+    await page.approveAnyway();
+    assert.deepEqual(approvals.map((item) => item.body), [
+      { version: dossier.version, action: dossier.approval_action, accept_gaps: ["invalid_ncf"] },
+      { version: dossier.version, action: dossier.approval_action, accept_gaps: updated },
+    ]);
     assert.ok(approvals[0].key && approvals[1].key);
-    assert.notEqual(approvals[1].key, approvals[0].key, "approving anyway is a new request, never a replay of the refused one");
+    assert.notEqual(approvals[1].key, approvals[0].key);
     assert.ok(page.recorded(), "the receipt is recorded");
   } finally {
     await page.close();
   }
 });
 
-test("Corregir after such a refusal points at the row the refusal's code is about", async () => {
-  const dossier = await flagged(["ncf_malformed"], []);
-  delete dossier.review_flags;
-  const approvals = serve(dossier, refusal("approval_confirmation_required", { flags: ["ncf_malformed"] }));
+test("Corregir after a refusal points at its first gap even when the dossier showed Listo", async () => {
+  const dossier = await flagged([], []);
+  const approvals = serve(dossier, refusal("not_listo", { gaps: ["missing_date", "invalid_ncf"], confirmable: ["invalid_ncf"] }));
   const page = await render(dossier);
   try {
     await page.approve();
-    await page.tap(flagCopy.fix, page.step()!);
+    const step = page.step();
+    assert.ok(step);
+    assert.deepEqual([...step.querySelectorAll("button")].map((button) => button.textContent), [copy.confirm.fix]);
+    await page.tap(copy.confirm.fix, step);
     assert.equal(page.step(), null);
-    assert.ok(page.host.querySelector('[data-fact="fiscal_number"]')?.getAttribute("data-flash"), "the NCF row flashes");
-    assert.equal(page.host.querySelector('[data-fact="rnc"]')?.getAttribute("data-flash"), null, "and no other");
+    assert.ok(page.host.querySelector('[data-fact="occurred_on"]')?.getAttribute("data-flash"), "the date row flashes");
+    await page.approve();
+    assert.ok(page.step(), "the latest gaps remain after closing the dialog");
+    assert.deepEqual([...page.step()!.querySelectorAll("button")].map((button) => button.textContent), [copy.confirm.fix]);
     assert.equal(approvals.length, 1);
+    assert.deepEqual(approvals[0].body, { version: dossier.version, action: dossier.approval_action });
+  } finally {
+    await page.close();
+  }
+});
+
+test("a read that restarted is listed and offers only Corregir", async () => {
+  const dossier = await flagged([], []);
+  const approvals = serve(dossier, refusal("not_listo", { gaps: ["reading"], confirmable: [] }));
+  const page = await render(dossier);
+  try {
+    await page.approve();
+    const step = page.step();
+    assert.ok(step);
+    assert.equal(step.querySelector("h2")?.textContent, "Lectura en curso");
+    assert.deepEqual(page.problems(), ["Lectura en curso. Espera a que termine la lectura."]);
+    assert.deepEqual([...step.querySelectorAll("button")].map((button) => button.textContent), [copy.confirm.fix]);
+    assert.equal(approvals.length, 1);
+    await page.tap(copy.confirm.fix, step);
+    await page.approve();
+    assert.equal(approvals.length, 2, "the owner can try again after the read finishes");
+    assert.deepEqual(approvals[1].body, approvals[0].body);
+    assert.notEqual(approvals[1].key, approvals[0].key, "a new request must not replay the saved refusal");
+    assert.ok(page.recorded());
+  } finally {
+    await page.close();
+  }
+});
+
+test("mixed gaps list every issue and offer only Corregir", async () => {
+  const dossier = await flagged(["ncf_malformed"], ["invalid_ncf", "unverified_sender"], ["invalid_ncf"]);
+  const approvals = serve(dossier);
+  const page = await render(dossier);
+  try {
+    await page.approve();
+    const step = page.step();
+    assert.ok(step);
+    assert.deepEqual(page.problems(), [
+      `${flagCopy.ncf_malformed.title}. ${flagCopy.ncf_malformed.text}`,
+      `${copy.placeholder.gap.unverified_sender.title}. ${copy.placeholder.gap.unverified_sender.text}`,
+    ]);
+    assert.deepEqual([...step.querySelectorAll("button")].map((button) => button.textContent), [copy.confirm.fix]);
+    assert.deepEqual(approvals, []);
   } finally {
     await page.close();
   }
@@ -302,7 +355,7 @@ test("an RNC of the wrong length and the flags share one step before anything is
     ]);
     assert.equal(approvals.length, 0, "nothing is sent while the step is open");
     await page.approveAnyway();
-    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, approve_anyway: true }]);
+    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, accept_gaps: dossier.listo_gaps }]);
     assert.ok(page.recorded(), "the receipt is recorded");
   } finally {
     await page.close();
@@ -320,7 +373,7 @@ test("a high ITBIS shows on the ITBIS row, and as the server's reason it asks be
     assert.deepEqual(page.problems(), [`${copy.placeholder.gap.review_flag.title}. ${flagCopy.itbis_high.text}`]);
     assert.equal(approvals.length, 0);
     await page.approveAnyway();
-    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, approve_anyway: true }]);
+    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, accept_gaps: dossier.listo_gaps }]);
     assert.ok(page.recorded(), "the receipt is recorded");
   } finally {
     await page.close();
@@ -362,7 +415,7 @@ test("a receipt with no flags approves at once, as before", async () => {
   }
 });
 
-test("in English, one step lists every confirm flag and the export line once", async () => {
+test("in English, one step lists every gap", async () => {
   const dossier = await flagged(["rnc_check_digit", "ncf_malformed", "itbis_high"], ["invalid_rnc", "invalid_ncf", "review_flag"]);
   const approvals = serve(dossier);
   const page = await render(dossier, "en");
@@ -373,9 +426,9 @@ test("in English, one step lists every confirm flag and the export line once", a
     assert.ok(step);
     assert.equal(step.querySelector("h2")?.textContent, "3 to resolve");
     assert.deepEqual([...step.querySelectorAll("li strong")].map((item) => item.textContent), [`${copy.rnc_check_digit.title}.`, `${copy.ncf_malformed.title}.`, `${en.business.dossier.placeholder.gap.review_flag.title}.`]);
-    assert.equal(step.textContent?.split(copy.export_blocked).length, 2, "the export line shows once");
+    assert.doesNotMatch(step.textContent ?? "", /606/);
     await page.approveAnyway();
-    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, approve_anyway: true }]);
+    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, accept_gaps: dossier.listo_gaps }]);
   } finally {
     await page.close();
   }

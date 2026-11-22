@@ -1,4 +1,4 @@
-import type { BandejaGroup, BusinessAccount, DocumentDeleteAccess } from "./business-api";
+import type { BandejaGroup, BusinessAccount, DocumentDeleteAccess, ReceiptAttention } from "./business-api";
 import type { DgiiDeclaration, SuggestedField, SuggestionSource } from "./business-dgii";
 import type { PersonName, PersonShown } from "./person-name";
 
@@ -145,12 +145,8 @@ export function readBusinessDossier(value: unknown): BusinessDossier {
 
 export const REVIEW_FLAG_CODES = ["rnc_check_digit", "ncf_malformed", "itbis_high", "amounts_mismatch"] as const;
 export type ReviewFlagCode = (typeof REVIEW_FLAG_CODES)[number];
-/** A read value to check again. A `confirm` flag stops approval until the person approves anyway; the rest only warn. */
+/** A read value to check again. The Listo rule decides whether the owner may accept over it. */
 export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis" | "amount"; confirm: boolean; difference?: string | null };
-
-export function isReviewFlagCode(value: unknown): value is ReviewFlagCode {
-  return REVIEW_FLAG_CODES.includes(value as ReviewFlagCode);
-}
 
 export type BusinessApprovalAction = "record_expense" | "record_income" | "record_refund";
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
@@ -161,9 +157,9 @@ export type DeclarationSuggestion = { value: string; source: SuggestionSource };
 /** The suggestions a person saw filled in, which an expense approval saves into its blank answers. */
 export type ShownSuggestions = Partial<Record<SuggestedField, DeclarationSuggestion>>;
 
-/** Every reason `bandeja_group.RULE` gives for a record that is not Listos, in the rule's order. */
-export const LISTO_GAPS = ["not_read", "check_details", "several_purchases", "no_purchase_found", "duplicate", "credit_note", "missing_merchant", "missing_date", "missing_amount", "missing_currency", "sin_comprobante", "missing_rnc", "invalid_rnc", "missing_ncf", "invalid_ncf", "ecf_check_failed", "missing_itbis", "review_flag", "blocked", "unverified_sender"] as const;
-export type ListoGap = (typeof LISTO_GAPS)[number];
+/** Reasons from the Listo rule, plus a read in progress. */
+export const LISTO_GAPS = ["not_read", "check_details", "several_purchases", "no_purchase_found", "duplicate", "credit_note", "missing_merchant", "missing_date", "missing_amount", "missing_currency", "sin_comprobante", "missing_rnc", "invalid_rnc", "missing_ncf", "invalid_ncf", "ecf_check_failed", "missing_itbis", "review_flag", "blocked", "unverified_sender", "reading"] as const;
+export type ListoGap = (typeof LISTO_GAPS)[number] | ReceiptAttention;
 /** What the DGII register says of the supplier RNC: its mapped status, or `not_found` when a loaded register does not list it. */
 export const RNC_REGISTRY_STATUSES = ["verificado", "suspendido", "dado_de_baja", "cese_temporal", "anulado", "rechazado", "desconocido", "not_found"] as const;
 export type RncRegistryStatus = (typeof RNC_REGISTRY_STATUSES)[number];
@@ -173,6 +169,8 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   bandeja_group?: Pick<BandejaGroup, "group" | "reason" | "label"> | null;
   /** Every reason a record that needs attention is not Listos, in the rule's order; empty for any other record. */
   listo_gaps?: readonly ListoGap[];
+  /** The gaps the owner may explicitly accept over, as named by the server. */
+  confirmable?: readonly ListoGap[];
   /** Null when the record has no RNC or no register is loaded. */
   rnc_registry_status?: RncRegistryStatus | null;
   net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };

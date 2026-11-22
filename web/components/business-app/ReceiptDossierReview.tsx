@@ -11,17 +11,17 @@ import type { ReceiptDetail } from "@/lib/business-api";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import { CircleAlert, Loader2, RotateCcw, StickyNote } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { factsRevision, readReviewNote, type BusinessDossier, type ReviewFlagCode, type ShownSuggestions } from "@/lib/business-dossier";
+import { factsRevision, readReviewNote, type BusinessDossier, type ListoGap } from "@/lib/business-dossier";
 import { documentFamily } from "@/lib/counterparty-term";
 import type { DgiiFields } from "@/lib/business-dgii";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
-import DossierConfirm, { type ConfirmProblem } from "./dossier/DossierConfirm";
+import DossierConfirm from "./dossier/DossierConfirm";
 import DossierDetails from "./dossier/DossierDetails";
 import DossierDocument from "./dossier/DossierDocument";
 import { DossierStatus } from "./dossier/DossierHeader";
 import { DossierBare, type RowEdit } from "./dossier/DossierParts";
 import { useJumpRows } from "./dossier/jump-rows";
-import { businessTypedNotesAvailable, confirmationFlags, duplicateRecordId, type BusinessCaptureInput } from "@/lib/business-api";
+import { approvalRefusalGaps, businessTypedNotesAvailable, duplicateRecordId, type BusinessApprovalOptions, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
@@ -36,7 +36,7 @@ import ReceiptRowSave from "./ReceiptRowSave";
 import ReceiptReviewDone from "./ReceiptReviewDone";
 import { READ_FACT_ROWS, type ReviewRow } from "./receipt-fact-rows";
 import { changesRecord, useReviewAutosave, useReviewRows, type SaveRow } from "./receipt-review-save";
-import { FLAGGED_ROW, dossierProblems, dossierRowLabel, type DossierProblem, type DossierTab } from "./dossier-attention";
+import { dossierProblems, dossierRowLabel, type DossierProblem, type DossierTab } from "./dossier-attention";
 import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
 import ReceiptHistory from "./ReceiptHistory";
 import ReceiptDocumentType from "./ReceiptDocumentType";
@@ -63,11 +63,16 @@ function rowValues(target: EventTarget): string[] {
 
 type Operation = { kind: "idle" | "approving" } | { kind: "uncertain"; version: number };
 type Problem = { text: string; reference?: string };
-type ApprovalRequest = { next: boolean; anyway: boolean };
-/** One approve request: the suggestions it carries are the ones on screen when the person approved. */
-type ApprovalSend = ApprovalRequest & { suggestions?: ShownSuggestions };
-/** The step shown before accepting one revision that is not Listos: every reason the server gives, or the flags an approve request was refused for. */
-type ApprovalCheck = { draftId: string; version: number; next: boolean } & ({ kind: "problems" } | { kind: "flags"; codes: ReviewFlagCode[] });
+type ApprovalRequest = { next: boolean; acceptGaps?: readonly ListoGap[] };
+type ApprovalSend = { next: boolean } & BusinessApprovalOptions;
+/** The gap list the owner is reviewing for this draft revision. */
+type ApprovalCheck = {
+  draftId: string;
+  version: number;
+  next: boolean;
+  gaps: readonly ListoGap[];
+  confirmable: readonly ListoGap[];
+};
 
 export function approvalLine(canApprove: boolean, canPrepare: boolean): "prepare_only" | null {
   return !canApprove && canPrepare ? "prepare_only" : null;
@@ -157,8 +162,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const [retyping, setRetyping] = useState(false);
   const releaseGuard = useRef<(() => void) | null>(null);
   const inFlight = useRef(false);
-  // One key per request body: a retry repeats it, and approving anyway is a different request with its own key.
-  const approvalKey = useRef<{ version: number; anyway: boolean; suggestions: string; key: string } | null>(null);
+  // Reuse the key only when the approval request is the same.
+  const approvalKey = useRef<{ body: string; key: string } | null>(null);
 
   // A draft that is gone closes onto its list, so a dead link never leaves a panel whose Reintentar cannot work.
   // Only a refusal says the person's access; any other failure can pass, so it offers Reintentar.
@@ -284,18 +289,18 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     setDuplicate(null);
     try {
       const previous = approvalKey.current;
-      const suggestions = approval === "record_expense" ? request.suggestions : undefined;
-      const body = JSON.stringify(suggestions ?? null);
-      const sent = previous?.version === dossier.version && previous.anyway === request.anyway && previous.suggestions === body ? previous : { version: dossier.version, anyway: request.anyway, suggestions: body, key: randomId() };
+      const options = { acceptGaps: request.acceptGaps, suggestions: approval === "record_expense" ? request.suggestions : undefined };
+      const body = JSON.stringify({ draftId, version: dossier.version, action: approval, ...options });
+      const sent = previous?.body === body ? previous : { body, key: randomId() };
       approvalKey.current = sent;
-      const next = await source.approveDraft(draftId, dossier.version, sent.key, approval, request.anyway, suggestions);
+      const next = await source.approveDraft(draftId, dossier.version, sent.key, approval, options);
       setDossier(next);
       setOperation(next.approval_result?.status === "outcome_unknown" ? { kind: "uncertain", version: dossier.version } : { kind: "idle" });
       reload();
       return next;
     } catch (error) {
       const { code, status } = error as { code?: string; status?: number };
-      const flagged = request.anyway ? [] : confirmationFlags(error);
+      const refusedGaps = approvalRefusalGaps(error);
       const reference = referenceCode(error);
       if (code === "stale_version" || code === "suggestion_stale") {
         setOperation({ kind: "idle" });
@@ -309,9 +314,14 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       } else if (code === "duplicate_comprobante") {
         setOperation({ kind: "idle" });
         setDuplicate({ recordId: duplicateRecordId(error) });
-      } else if (flagged.length) {
+      } else if (refusedGaps) {
+        approvalKey.current = null;
         setOperation({ kind: "idle" });
-        setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, next: request.next, kind: "flags", codes: flagged });
+        // Reading is temporary. Let the next click ask the server again.
+        if (!refusedGaps.gaps.includes("reading")) {
+          setDossier((current) => current === dossier ? { ...current, listo_gaps: refusedGaps.gaps, confirmable: refusedGaps.confirmable } : current);
+        }
+        setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, next: request.next, ...refusedGaps });
       } else if (status && status >= 400 && status < 500) {
         setOperation({ kind: "idle" });
         setProblem({ text: t(`business.dgii.error.${code}`, "") || t(`business.dossier.blocker.${code}`, "") || t("business.dossier.refused", "This action could not be completed. Check the current record before trying again."), reference });
@@ -388,29 +398,25 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     if (problem.row) setFlash((current) => ({ row: problem.row as ReviewRow, n: (current?.n ?? 0) + 1 }));
   };
 
-  const flags = dossier.review_flags ?? [];
-  const confirmCodes = flags.filter((flag) => flag.confirm).map((flag) => flag.code);
   // Approval needs no 606 data, so a recorded purchase keeps these choices.
   const showsChoices = (reviewing || dossier.review_state === "accepted") && !dossier.sin_comprobante && (dossier.declaration_editable === true || dossier.dgii?.form === "606");
   const choicesView: ChoicesView | null = showsChoices ? { dossier, fields, failed: fieldsFailed, readOnly: !reviewing && !canPrepare } : null;
-  const approve = ({ next, anyway }: ApprovalRequest) => {
-    const request = { next, anyway, suggestions: choicesView ? shownSuggestions(choicesView) : undefined };
+  const approve = ({ next, acceptGaps }: ApprovalRequest) => {
+    const request = { next, acceptGaps, suggestions: choicesView ? shownSuggestions(choicesView) : undefined };
     if (next) void approveAndNext(request);
     else void approveRecord(request);
   };
-  // A record that is not Listos is accepted through one confirm that names every reason.
   const requestApproval = (next = false) => {
     if (!canApprove || !supportedKind || !approvable) return;
-    const at = { draftId: dossier.draft_id, version: dossier.version, next };
-    if (problems.length) setApprovalCheck({ ...at, kind: "problems" });
-    else if (confirmCodes.length) setApprovalCheck({ ...at, kind: "flags", codes: confirmCodes });
-    else approve({ next, anyway: false });
+    const gaps = dossier.listo_gaps ?? [];
+    if (gaps.length) setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, next, gaps, confirmable: dossier.confirmable ?? [] });
+    else approve({ next });
   };
-  /** A step opened for an older revision, or one that can no longer be approved, approves nothing. */
-  const confirmApproval = (check: ApprovalCheck, anyway: boolean) => {
+  const currentCheck = approvalCheck?.draftId === dossier.draft_id && approvalCheck.version === dossier.version ? approvalCheck : null;
+  const canAcceptGaps = canApprove && supportedKind && approvable && currentCheck?.gaps.every((gap) => currentCheck.confirmable.includes(gap));
+  const confirmApproval = (check: ApprovalCheck) => {
     setApprovalCheck(null);
-    if (!canApprove || !supportedKind || !approvable || check.draftId !== dossier.draft_id || check.version !== dossier.version) return;
-    approve({ next: check.next, anyway });
+    if (canAcceptGaps && currentCheck === check) approve({ next: check.next, acceptGaps: check.gaps });
   };
   const unsavedNames = [...rows.unsaved.map(rowName), ...(fiscalDirty ? [t("business.dossier.tab.fiscal")] : [])];
   const reason = unsavedNames.length ? t("business.dossier.placeholder.save_first", { fields: unsavedNames.join(", "), defaultValue: "Save or cancel {{fields}} to approve." })
@@ -485,7 +491,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     status: <DossierStatus label={dossier.bandeja_group?.label} deleted={Boolean(dossier.deleted)} problems={problems} onProblem={goProblem}>{dossier.bill_mark ? <span data-testid="bill-mark" className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{dossier.bill_mark}</span> : null}</DossierStatus>,
   };
   const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id, list: origin?.list, receiptIds }); };
-  const confirmProblems: ConfirmProblem[] = approvalCheck?.kind === "flags" ? approvalCheck.codes.map((code) => ({ key: code, title: t(`business.dossier.review_flag.${code}.title`, { defaultValue: "" }) || dossierRowLabel(t, FLAGGED_ROW[code], dossier), text: t(`business.dossier.review_flag.${code}.text`, { defaultValue: "" }) || t("business.dossier.placeholder.gap.review_flag.text") })) : problems;
+  const confirmProblems = currentCheck ? dossierProblems({ ...dossier, listo_gaps: currentCheck.gaps }, t) : [];
   // Comparar turns this same panel into the compare view; it shows both documents itself, so the frame has no source column.
   if (duplicateCompare.candidate) return (<><ContentFade>
     {captureRecovery}
@@ -615,15 +621,14 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       onCancel={() => { if (reopening === "asking") setReopening(null); }}
       onConfirm={() => void reopen()}
     /> : null}
-    {approvalCheck && confirmProblems.length ? <DossierConfirm
+    {currentCheck && confirmProblems.length ? <DossierConfirm
       problems={confirmProblems}
       onClose={() => setApprovalCheck(null)}
       onFix={() => {
         setApprovalCheck(null);
-        const first = approvalCheck.kind === "flags" ? { tab: "general" as const, row: FLAGGED_ROW[approvalCheck.codes[0]] } : problems[0];
-        if (first) goProblem(first);
+        goProblem(confirmProblems[0]);
       }}
-      onAcceptAnyway={() => confirmApproval(approvalCheck, true)}
+      onAcceptAnyway={canAcceptGaps ? () => confirmApproval(currentCheck) : undefined}
     /> : null}
     {leaving ? <ConfirmDialog
       isOpen

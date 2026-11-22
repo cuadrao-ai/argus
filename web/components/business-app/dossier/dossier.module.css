@@ -152,4 +152,3 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 .confirmList { margin:0 0 10px; padding-left:18px; font-size:14px; line-height:20px; color:var(--d-soft); }
 .confirmList li { margin:0 0 6px; }
 .confirmList strong { color:var(--d-ink); font-weight:600; }
-.confirmNote { margin:0; font-size:13px; line-height:18px; color:var(--d-muted); }

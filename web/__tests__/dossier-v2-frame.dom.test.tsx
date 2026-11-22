@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import spanish from "@/public/locales/es-419/common.json";
-import type { BandejaLabel, BusinessAccount, ReceiptDetail } from "@/lib/business-api";
+import type { BandejaLabel, BusinessAccount, BusinessApprovalOptions, ReceiptDetail } from "@/lib/business-api";
 import { LISTO_GAPS, type BusinessDossier, type ListoGap, type RncRegistryStatus } from "@/lib/business-dossier";
 import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 
 const accounts: BusinessAccount[] = [{ id: "acct-ops", nickname: "Caja", currency: "DOP", type: "cash" }];
 
-type Sent = { anyway: boolean | undefined };
+type Sent = { acceptGaps: readonly ListoGap[] | undefined };
 type Mount = { dossier: BusinessDossier; receipt?: ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[]; refuse?: Partial<Record<"approveDraft" | "reopenDraft", unknown>> };
 
 /** The dossier as a person opens it: from a draft alone, or from a receipt row, on a full page or in the tray at one of its two sizes. */
@@ -36,7 +36,7 @@ async function mount({ dossier, receipt, size = "page", panel, list = [], refuse
       receipts: async () => list,
       receiptSource: async () => new Blob(["x"], { type: "image/png" }),
       dgiiFields: async () => ({ "606": [], "607": [] }),
-      approveDraft: async (_id: string, _version: number, _key: string, _action: unknown, anyway?: boolean) => { sent.push({ anyway }); if (refuse.approveDraft) throw refuse.approveDraft; return dossier; },
+      approveDraft: async (_id: string, _version: number, _key: string, _action: unknown, options?: BusinessApprovalOptions) => { sent.push({ acceptGaps: options?.acceptGaps }); if (refuse.approveDraft) throw refuse.approveDraft; return dossier; },
       reopenDraft: async () => { if (refuse.reopenDraft) throw refuse.reopenDraft; return dossier; },
     },
     reload: () => undefined,
@@ -74,17 +74,17 @@ async function mount({ dossier, receipt, size = "page", panel, list = [], refuse
 
 async function fiscalDossier(over: Partial<BusinessDossier> = {}): Promise<BusinessDossier> {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.fiscal);
-  return { ...dossier, review_flags: [], duplicate_candidates: [], blockers: [], approval_available: true, approval_action: "record_expense", bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], ...over };
+  return { ...dossier, review_flags: [], duplicate_candidates: [], blockers: [], approval_available: true, approval_action: "record_expense", bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [], ...over };
 }
 
-const attention = (gaps: readonly ListoGap[]): Partial<BusinessDossier> => ({ bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: gaps });
+const attention = (gaps: readonly ListoGap[], confirmable: readonly ListoGap[] = []): Partial<BusinessDossier> => ({ bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: gaps, confirmable });
 
 function receiptOf(dossier: BusinessDossier, over: Partial<ReceiptDetail> = {}): ReceiptDetail {
   return { id: `receipt-${dossier.draft_id}`, draft_id: dossier.draft_id, version: dossier.version, merchant: dossier.facts.counterparty.value, filename: "foto-0412.jpg", media_type: "image/jpeg", channel: "whatsapp", received_at: "2026-11-19T13:41:00Z", size_bytes: 1_258_291, status: "review_ready", enterable: true, preparable: false, attention: null, activity: { state: "ready", unread: false }, bandeja: { por_revisar: true, con_problema: false, leyendo: false }, bandeja_group: { ...dossier.bandeja_group, draft_id: dossier.draft_id, version: dossier.version }, sent_by: { id: "s1", kind: "whatsapp", phone_last4: "0142" }, amount: "4720.00", currency: "DOP", occurred_on: "2026-11-18", ...over } as unknown as ReceiptDetail;
 }
 
 /** Words another lane owns: read from the locale, so this suite follows them. */
-const copy = (spanish as unknown as { business: { dossier: { review_flag: { approve_anyway: string; export_blocked: string }; duplicate_recorded: string; outcome_unknown: string; refresh: string; refused: string; reopen: string; reopen_failed: string } } }).business.dossier;
+const copy = (spanish as unknown as { business: { dossier: { confirm: { accept_anyway: string }; duplicate_recorded: string; outcome_unknown: string; refresh: string; refused: string; reopen: string; reopen_failed: string } } }).business.dossier;
 const acceptedWord = (spanish as unknown as { business: { history: { approved: string } } }).business.history.approved;
 
 describe("the v2 dossier frame", () => {
@@ -241,30 +241,31 @@ describe("the dossier's status is the server's", () => {
 
 describe("accepting a record that is not Listos", () => {
   test("Aceptar opens one confirm that lists every problem; Corregir jumps to the first", async () => {
-    const page = await mount({ dossier: await fiscalDossier(attention(["missing_rnc", "invalid_ncf"])), size: "regular" });
+    const gaps = ["missing_rnc", "invalid_ncf"] satisfies ListoGap[];
+    const page = await mount({ dossier: await fiscalDossier(attention(gaps, gaps)), size: "regular" });
     try {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-      const dialog = page.all('[data-testid="review-flag-confirm"]')[0];
+      const dialog = page.all('[data-testid="dossier-confirm"]')[0];
       assert.ok(dialog);
       assert.equal(dialog.querySelector("h2")?.textContent, "2 por resolver");
       assert.deepEqual([...dialog.querySelectorAll("li")].map((item) => item.textContent), ["Falta el RNC. Escríbelo como aparece en el documento.", "Revisa el NCF. El NCF no tiene el formato de la serie B o E."]);
-      assert.deepEqual([...dialog.querySelectorAll("button")].map((item) => item.textContent), [copy.review_flag.approve_anyway, "Corregir"]);
-      assert.ok(dialog.textContent?.includes(copy.review_flag.export_blocked));
+      assert.deepEqual([...dialog.querySelectorAll("button")].map((item) => item.textContent), [copy.confirm.accept_anyway, "Corregir"]);
+      assert.doesNotMatch(dialog.textContent ?? "", /606/);
       assert.deepEqual(page.sent, [], "nothing is sent before the person chooses");
       await page.click(page.button("Corregir"));
-      assert.equal(page.all('[data-testid="review-flag-confirm"]').length, 0);
+      assert.equal(page.all('[data-testid="dossier-confirm"]').length, 0);
       assert.equal(page.panelOf("general")?.querySelector('[data-fact="rnc"]')?.getAttribute("data-flash"), "a");
       assert.deepEqual(page.sent, []);
     } finally { await page.close(); }
   });
 
   test("accepting anyway sends the approve request the person confirmed", async () => {
-    const page = await mount({ dossier: await fiscalDossier(attention(["invalid_ncf"])) });
+    const page = await mount({ dossier: await fiscalDossier(attention(["invalid_ncf"], ["invalid_ncf"])) });
     try {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-      assert.equal(page.all('[data-testid="review-flag-confirm"] h2')[0]?.textContent, "Revisa el NCF");
-      await page.click(page.button(copy.review_flag.approve_anyway));
-      assert.deepEqual(page.sent, [{ anyway: true }]);
+      assert.equal(page.all('[data-testid="dossier-confirm"] h2')[0]?.textContent, "Revisa el NCF");
+      await page.click(page.button(copy.confirm.accept_anyway));
+      assert.deepEqual(page.sent, [{ acceptGaps: ["invalid_ncf"] }]);
     } finally { await page.close(); }
   });
 
@@ -272,8 +273,8 @@ describe("accepting a record that is not Listos", () => {
     const page = await mount({ dossier: await fiscalDossier() });
     try {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-      assert.equal(page.all('[data-testid="review-flag-confirm"]').length, 0);
-      assert.deepEqual(page.sent, [{ anyway: false }]);
+      assert.equal(page.all('[data-testid="dossier-confirm"]').length, 0);
+      assert.deepEqual(page.sent, [{ acceptGaps: undefined }]);
     } finally { await page.close(); }
   });
 });

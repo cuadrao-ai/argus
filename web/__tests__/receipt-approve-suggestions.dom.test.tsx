@@ -10,7 +10,7 @@ describe("approving sends only the suggestions on screen", () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     const sent: unknown[] = [];
     const page = await mount((fixture) => ({
-      approveDraft: async (id, version, key, action, anyway, suggestions) => { sent.push(suggestions); return fixture.approveDraft(id, version, key, action, anyway, suggestions); },
+      approveDraft: async (id, version, key, action, options) => { sent.push(options?.suggestions); return fixture.approveDraft(id, version, key, action, options); },
       ...(dgiiFields ? { dgiiFields: dgiiFields(fixture) } : {}),
     }));
     await page.open({ kind: "draft", draftId: dossierFixtureIds.fiscal }, () => Boolean(page.host.querySelector('[data-fact="category"]') || page.host.querySelector('[data-testid="receipt-facts-choices"] [role="alert"]')));
@@ -66,7 +66,7 @@ describe("approving sends only the suggestions on screen", () => {
   test("a choice the person changed sends no suggestion for it", async () => {
     const sent: unknown[] = [];
     const page = await setup("fiscal", () => undefined, (fixture) => ({
-      approveDraft: async (id, version, key, action, anyway, suggestions) => { sent.push(suggestions); return fixture.approveDraft(id, version, key, action, anyway, suggestions); },
+      approveDraft: async (id, version, key, action, options) => { sent.push(options?.suggestions); return fixture.approveDraft(id, version, key, action, options); },
     }));
     try {
       await fill(page, '[data-fact="payment_method"] select', "01", HTMLSelectElement);
