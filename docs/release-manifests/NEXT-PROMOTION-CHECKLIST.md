@@ -159,7 +159,7 @@ The explicit focused command is useful first so release failures appear early.
 
 ```bash
 export CUADRAO_OPENROUTER_API_KEY_DEV= PERPLEXITY_API_KEY=
-export ALPACA_API_KEY= ALPACA_SECRET_KEY= CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD=
+export CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD=
 export ARGUS_RUN_LIVE_EVALS=0 ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture
 poetry run python .agent/scripts/ownership/verify_branch_ownership.py
 poetry run ruff check src tests workflows scripts

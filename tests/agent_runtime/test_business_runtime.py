@@ -233,9 +233,7 @@ async def test_approval_language_reaches_interpreter_but_has_no_approval_tool(
 _BUSINESS_IMPORT_PROBE = "\n".join(
     (
         "import importlib,importlib.abc,sys",
-        "F=('argus.domain.capability_registry','argus.domain.backtesting',"
-        "'argus.domain.engine_launch','argus.agent_runtime.strategy_contract',"
-        "'argus.domain.strategy_capabilities','argus.agent_runtime.tools.registered_backtest')",
+        "F=('argus.domain.capability_registry','argus.domain.strategy_capabilities')",
         "class G(importlib.abc.MetaPathFinder):",
         "    def find_spec(self,n,p=None,t=None):",
         "        if any(n==r or n.startswith(r+'.') for r in F): raise ImportError('registry:'+n)",

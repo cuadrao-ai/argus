@@ -174,8 +174,6 @@ esac
         # the daily-gate warmup step, which exports neither.
         github_dir = _copy_release_scripts(tmp_path)
         for secret in (
-            "ALPACA_API_KEY",
-            "ALPACA_SECRET_KEY",
             "CUADRAO_OPENROUTER_API_KEY_DEV",
             "ARGUS_WORKFLOW_DATABASE_URL",
         ):
