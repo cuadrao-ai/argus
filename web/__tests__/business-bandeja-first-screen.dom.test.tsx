@@ -1,3 +1,4 @@
+import { withReceiptReading } from "./support/receipt-reading";
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
@@ -42,13 +43,16 @@ async function mountInbox(overrides: Partial<BusinessDataSource> = {}, { bar = f
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
-  const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
   const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
   setChosenGrant(null);
+  function ReadyInbox() {
+    return useBusiness().inboxReady ? <BusinessInboxPanel /> : null;
+  }
   function Bar() {
     const workspace = useChatWorkspace();
     return <header data-testid="top-bar">{workspace?.headerSearch?.(DESKTOP_SHELL as never)}</header>;
@@ -65,7 +69,7 @@ async function mountInbox(overrides: Partial<BusinessDataSource> = {}, { bar = f
         <BusinessConsentTestProvider accepted>
           <BusinessWorkspaceProvider source={source as BusinessDataSource}>
             {bar ? <Bar /> : null}
-            <BusinessInboxPanel />
+            <ReadyInbox />
           </BusinessWorkspaceProvider>
         </BusinessConsentTestProvider>
       </I18nextProvider>,
@@ -86,15 +90,48 @@ function ownText(element: Element) {
   return [...element.childNodes].filter((node) => node.nodeType === 3).map((node) => node.textContent ?? "").join("");
 }
 
+for (const enabled of [false, true]) test(`reading ${enabled ? "on" : "off"}: the loading list keeps its place when the notice settles`, async () => {
+  const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
+  let releaseList!: () => void;
+  let releaseReading!: () => void;
+  const listGate = new Promise<void>(resolve => { releaseList = resolve; });
+  const readingGate = new Promise<void>(resolve => { releaseReading = resolve; });
+  let separateReads = 0;
+  const page = await mountInbox({
+    workspace: async () => ({ ...await fixture.workspace(), receipt_reading: reading(enabled) }),
+    receiptPage: async (view, signal) => { if (view === "all") await listGate; return fixture.receiptPage!(view, signal); },
+    ...{ receiptReading: async () => { separateReads++; await readingGate; return reading(enabled); } },
+  });
+  const beforeList = () => {
+    const list = page.host.querySelector("#reception-list")!;
+    return [...list.parentElement!.children].slice(0, [...list.parentElement!.children].indexOf(list))
+      .map(node => node.getAttribute("data-testid") ?? node.getAttribute("data-surface-block"));
+  };
+  try {
+    await page.settle(() => page.host.querySelector('[data-testid="reception-pending"]') !== null);
+    const loading = beforeList();
+    const reserved = page.host.querySelector<HTMLElement>('[data-testid="receipt-reading-control"]');
+    if (!enabled) assert.equal(reserved?.style.visibility, "hidden", "the pending notice holds its geometry without offering an action");
+    await page.act(async () => { releaseList(); });
+    await page.settle(() => page.host.querySelector('[data-testid="reception-row"]') !== null);
+    const loaded = beforeList();
+    await page.act(async () => { releaseReading(); });
+    assert.deepEqual(beforeList(), loaded, "a delayed reading response must not insert a block and push the list down");
+    assert.deepEqual(loaded, loading, "the loading view reserves exactly the final notice space");
+    assert.equal(reserved !== null, !enabled, "only a Business with reading off reserves the notice");
+    assert.equal(separateReads, 0, "the workspace answer is the only reading-setting read");
+  } finally { releaseList(); releaseReading(); await page.close(); }
+});
+
 test("a turned-on reading stays off the first screen, and a turned-off reading still explains how to turn it on", async () => {
-  const on = await mountInbox({ receiptReading: async () => reading(true) });
+  const on = await mountInbox(withReceiptReading(reading(true)));
   try {
     await on.settle(() => on.host.querySelector('[data-testid="reception-row"]') !== null);
     assert.equal(on.host.querySelector('[data-testid="receipt-reading-control"]'), null);
     assert.equal(on.host.textContent?.includes("La lectura de documentos está activada."), false);
   } finally { await on.close(); }
 
-  const off = await mountInbox({ receiptReading: async () => reading(false) });
+  const off = await mountInbox(withReceiptReading(reading(false)));
   try {
     await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null);
     assert.equal(off.host.querySelector('[data-testid="receipt-reading-control"]')?.textContent?.includes("Activar lectura de documentos"), true);
@@ -103,9 +140,10 @@ test("a turned-on reading stays off the first screen, and a turned-off reading s
 
 test("reading off is one line under the title with an outlined action; the words agreed to and the switch live in Lectura de documentos", async () => {
   const turnedOn: boolean[] = [];
+  const server = withReceiptReading(reading(false));
   const off = await mountInbox({
-    receiptReading: async () => reading(false),
-    setReceiptReading: async (current, enabled) => { turnedOn.push(enabled); return { ...current, enabled }; },
+    ...server,
+    setReceiptReading: async (current, enabled) => { turnedOn.push(enabled); return server.setReceiptReading!(current, enabled, "es-419"); },
   });
   try {
     await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null);
@@ -130,7 +168,7 @@ test("reading off is one line under the title with an outlined action; the words
 });
 
 test("a reading setting that did not load claims nothing", async () => {
-  const unknown = await mountInbox({ receiptReading: async () => { throw Object.assign(new Error("down"), { status: 503 }); } });
+  const unknown = await mountInbox(withReceiptReading(null));
   try {
     await unknown.settle(() => unknown.host.querySelector('[role="tablist"]') !== null);
     assert.equal(unknown.host.querySelector('[data-testid="receipt-reading-control"]'), null);

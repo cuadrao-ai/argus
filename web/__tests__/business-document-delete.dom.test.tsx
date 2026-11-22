@@ -73,7 +73,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     receiptSource: async () => new Blob([Buffer.from(PREVIEW_PNG, "base64")], { type: "image/png" }),
     uploadReceipt: async () => items.find(item => item.id === "deleted")!,
     emailDeliveries: async () => [],
-    ...(readingOff ? { receiptReading: async () => ({ scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Texto sintético.", disclosure_token: null, route: null, consented_at: null, revoked_at: null }) } : {}),
+    ...(readingOff ? { workspace: async () => ({ ...await fixture.workspace(), receipt_reading: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Texto sintético.", disclosure_token: null, route: null, consented_at: null, revoked_at: null } }) } : {}),
     deleteDocument: async (id, key) => {
       calls.push({ id, key });
       if (failFirst && calls.length === 1) throw new Error("synthetic outage");

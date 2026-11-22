@@ -534,7 +534,7 @@ function BusinessWorkspaceContent({
     let cancelled = false;
     if (onRecord) return;
     runQuietRetries(() => Promise.all([
-      source.workspace(),
+      source.workspace(normalizeEnabledLanguage(i18n.language)),
       source.overview(period.from, period.to),
       source.receiptPage?.("inbox") ?? source.receipts("inbox").then((items) => ({ items, activity: null })),
     ]))
@@ -579,7 +579,7 @@ function BusinessWorkspaceContent({
     return () => {
       cancelled = true;
     };
-  }, [chosenGrant, onRecord, period.from, period.to, revision, source, reloadWaits]);
+  }, [chosenGrant, i18n.language, onRecord, period.from, period.to, revision, source, reloadWaits]);
 
   const notificationsAvailable = records.workspaceGrant === chosenGrant && records.workspace?.notifications_available === true;
   const receivingChannels = useMemo(() => businessReceivingChannels(records.workspaceGrant === chosenGrant ? records.workspace : null), [chosenGrant, records.workspace, records.workspaceGrant]);

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import (
@@ -140,6 +140,19 @@ class ReceivingChannels(_Wire):
     whatsapp: ReceivingChannel
 
 
+class ReceiptReading(_Wire):
+    available: bool
+    can_change: bool
+    consent_id: str | None
+    consented_at: datetime | None
+    disclosure: str
+    disclosure_token: str | None
+    enabled: bool
+    revoked_at: datetime | None
+    route: dict[str, Any] | None
+    scope_version: int
+
+
 class BusinessWorkspace(_Wire):
     country: str
     currency: str
@@ -156,6 +169,7 @@ class BusinessWorkspace(_Wire):
     typed_notes_available: bool
     receiving_channels: ReceivingChannels
     receipt_limits: ReceiptLimits
+    receipt_reading: ReceiptReading | None
     records_default_currency: Literal["DOP", "USD", "EUR"]
     logo_url: str | None = None
 

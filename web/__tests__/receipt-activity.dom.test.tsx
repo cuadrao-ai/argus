@@ -1,3 +1,4 @@
+import { withReceiptReading } from "./support/receipt-reading";
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
@@ -486,10 +487,11 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   let resolve!: (value: ReceiptReading) => void;
   let signal: AbortSignal | undefined;
   let reloads = 0;
-  const sourceA: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => reading, setReceiptReading: async (_reading, _enabled, _language, requestSignal) => { signal = requestSignal; return new Promise((done) => { resolve = done; }); } };
-  const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => ({ ...reading, disclosure: "Business B disclosure" }) };
+  const sourceA: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading(reading), setReceiptReading: async (_reading, _enabled, _language, requestSignal) => { signal = requestSignal; return new Promise((done) => { resolve = done; }); } };
+  const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading({ ...reading, disclosure: "Business B disclosure" }) };
   const page = await host();
-  const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={context(source, () => { reloads++; })}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
+  const workspaces = new Map([[sourceA, await sourceA.workspace()], [sourceB, await sourceB.workspace()]]);
+  const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={{ ...context(source, () => { reloads++; }), records: { ...context(source, () => {}).records, workspace: workspaces.get(source)! } }}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
   const turnOn = () => [...page.element.querySelectorAll("button")].find((button) => button.textContent === "Turn on document reading");
   await act(async () => page.root.render(render(sourceA)));
   await act(async () => turnOn()?.click());
