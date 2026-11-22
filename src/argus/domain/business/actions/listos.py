@@ -17,6 +17,7 @@ from argus.domain.business.actions.dossier import (
 )
 from argus.domain.business.actions.fiscal import repeated_comprobantes
 from argus.domain.business.actions.refunds import refund_shaped
+from argus.domain.business.annotations import OWN_SOURCE_SQL
 from argus.domain.business.bandeja_group import (
     DraftStanding,
     ReadState,
@@ -45,7 +46,8 @@ def _attachments(
         " from public.business_draft_sources l"
         " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
         " left join public.financial_document_extractions d on d.connection_id=s.connection_id"
-        " where l.space_id=%s and l.draft_id=any(%s) and s.kind='attachment'",
+        " where l.space_id=%s and l.draft_id=any(%s) and s.kind='attachment'"
+        f" and {OWN_SOURCE_SQL}",
         (tx.context.actor.space_id, list(draft_ids)),
     )
     found: dict[UUID, list[dict[str, Any]]] = {}

@@ -10,8 +10,9 @@ from argus.domain.business.bandeja_group import ApprovalGroup
 from argus.domain.business.contracts.authority import PersonShown
 from argus.domain.business.contracts.facts import Contract
 
-#: How long a deleted document stays in Eliminados before it is purged. The
-#: privacy text promises deletion within 10 business days.
+#: How long a deleted document stays in Eliminados before it is purged, and
+#: how long an unlinked supporting file can be restored before its bytes are
+#: erased. The privacy text promises deletion within 10 business days.
 PURGE_AFTER = timedelta(days=7)
 
 

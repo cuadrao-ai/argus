@@ -1,4 +1,4 @@
-"""Public current-note and inert supporting-file commands for an existing record."""
+"""Public current-note and supporting-file commands for an existing record."""
 
 from __future__ import annotations
 
@@ -21,7 +21,13 @@ from argus.api.documents import (
 from argus.domain.business.annotations import EditCurrentNote, NoteResult, edit_note
 from argus.domain.business.contracts.dossier import BusinessDossier
 from argus.domain.business.reporting_query import Contract
-from argus.domain.business.supporting_files import SupportingResult, append_file
+from argus.domain.business.supporting_files import (
+    SupportingLinkCommand,
+    SupportingLinkResult,
+    SupportingResult,
+    append_file,
+    change_file_link,
+)
 from argus.domain.ingestion.documents.preparation import DocumentExtractionError
 from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
@@ -33,6 +39,7 @@ router = APIRouter(
 )
 
 Key = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=80)]
+Version = Annotated[int, Header(alias="X-Draft-Version", ge=1)]
 
 
 class NoteResponse(Contract):
@@ -42,6 +49,11 @@ class NoteResponse(Contract):
 
 class SupportingResponse(Contract):
     result: SupportingResult
+    dossier: BusinessDossier
+
+
+class SupportingLinkResponse(Contract):
+    result: SupportingLinkResult
     dossier: BusinessDossier
 
 
@@ -90,7 +102,7 @@ async def upload_supporting_file(
     draft_id: UUID,
     context: Context,
     key: Key,
-    version: Annotated[int, Header(alias="X-Draft-Version", ge=1)],
+    version: Version,
     documents: Annotated[DocumentsService, Depends(require_saved_documents)],
     filename: Annotated[str | None, Header(alias="X-Document-Filename")] = None,
 ) -> SupportingResponse:
@@ -124,3 +136,64 @@ async def upload_supporting_file(
             detail=error.code,
             headers={"Cache-Control": "no-store"},
         ) from None
+
+
+def _change_link(
+    request: Request,
+    response: Response,
+    context: Context,
+    key: str,
+    command: SupportingLinkCommand,
+) -> SupportingLinkResponse:
+    def change() -> SupportingLinkResponse:
+        actor = context.for_draft(command.draft_id)
+        result = change_file_link(context.service.authority, actor, command, key)
+        return SupportingLinkResponse(
+            result=result, dossier=_dossier(context, actor, command.draft_id)
+        )
+
+    return _run(request, response, change)
+
+
+@router.delete(
+    "/drafts/{draft_id}/supporting-files/{source_id}",
+    response_model=SupportingLinkResponse,
+)
+def unlink_supporting_file(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    source_id: UUID,
+    context: Context,
+    key: Key,
+    version: Version,
+) -> SupportingLinkResponse:
+    command = SupportingLinkCommand(
+        action="unlink_supporting_file",
+        draft_id=draft_id,
+        expected_version=version,
+        source_id=source_id,
+    )
+    return _change_link(request, response, context, key, command)
+
+
+@router.post(
+    "/drafts/{draft_id}/supporting-files/{source_id}/restore",
+    response_model=SupportingLinkResponse,
+)
+def restore_supporting_file(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    source_id: UUID,
+    context: Context,
+    key: Key,
+    version: Version,
+) -> SupportingLinkResponse:
+    command = SupportingLinkCommand(
+        action="restore_supporting_file",
+        draft_id=draft_id,
+        expected_version=version,
+        source_id=source_id,
+    )
+    return _change_link(request, response, context, key, command)

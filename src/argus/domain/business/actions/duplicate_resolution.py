@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 from argus.domain.business.actions import document_deletion, mutations, plans, sources
 from argus.domain.business.actions.fiscal import repeated_comprobantes
+from argus.domain.business.annotations import OWN_SOURCE_SQL
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
@@ -39,6 +40,7 @@ def attachment_signature(tx: ActionTransaction, draft_id: str) -> str:
         " join public.financial_source_connections c on c.id=s.connection_id"
         " and c.owner_space_id=s.space_id"
         " where l.space_id=%s and l.draft_id=%s and s.kind='attachment' and c.user_id=%s"
+        f" and {OWN_SOURCE_SQL}"
         " order by s.id",
         (tx.context.actor.space_id, draft_id, tx.context.owner_id),
     )
