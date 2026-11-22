@@ -38,6 +38,19 @@ export function receiptPlace(receiptId: string, receipts: readonly string[]): { 
   return index < 0 ? null : { index: index + 1, total: receipts.length };
 }
 
+/**
+ * The receipts an open receipt is walked among: its list as the server last answered. An open receipt that left the
+ * list keeps its slot, before the first row that followed it and is still listed, so previous and next start from
+ * where the person is.
+ */
+export function followedReceipts(openId: string | null, held: readonly string[], listed: readonly string[]): readonly string[] {
+  const at = openId === null ? -1 : held.indexOf(openId);
+  if (openId === null || at < 0 || listed.includes(openId)) return listed;
+  const follower = held.slice(at + 1).find((id) => listed.includes(id));
+  const slot = follower === undefined ? listed.length : listed.indexOf(follower);
+  return [...listed.slice(0, slot), openId, ...listed.slice(slot)];
+}
+
 export function receiptNavigationActions(receiptId: string, receipts: readonly string[], open: (id: string) => void): ReviewShortcutActions {
   const index = receipts.indexOf(receiptId);
   if (index < 0) return {};

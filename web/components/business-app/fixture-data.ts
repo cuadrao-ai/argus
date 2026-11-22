@@ -451,6 +451,14 @@ export function createFixtureBusinessDataSource(
     injected: injectedWriteError,
   });
 
+  // The sample's stand-in for the server's one count projection: every row
+  // the Bandeja lists (never the email itself), notes no receipt carries,
+  // and each email that is a row of its own.
+  const countsNow = async () => {
+    const notes = new Map((await dossierSource.captures("", 50, "inbox")).items.map((note) => [note.draft_id, note.bandeja_group]));
+    return servedCounts(receipts, [...notes.values()], sampleEmails.map((email) => servedEmail(email).standing));
+  };
+
   return {
     mode: "fixture",
     ...dossierSource,
@@ -465,27 +473,26 @@ export function createFixtureBusinessDataSource(
         }
       }
       void key;
-      return dossier;
+      return { ...dossier, inbox_counts: await countsNow() };
     },
     approveListos: async (items, key) => {
       await delay(600);
       const injected = injectedWriteError();
       if (injected) throw injected;
-      return {
-        results: items.map(({ draft_id }) => {
-          const found = receipts.find((item) => item.draft_id === draft_id);
-          if (!found) return { draft_id, outcome: "refused" as const, code: "business_record_not_found" };
-          if (found.id === SAMPLE_REFUSED) return { draft_id, outcome: "refused" as const, code: "duplicate_comprobante", existing_record_id: "exp-gas" };
-          if (found.id === SAMPLE_UNSETTLED && !unsettled.has(key)) {
-            unsettled.add(key);
-            return { draft_id, outcome: "outcome_unknown" as const, code: "business_recording_unsettled" };
-          }
-          const expenseId = `exp-${found.id}`;
-          expenses = [{ id: expenseId, fiscal_known: true, merchant: found.merchant, amount: found.amount ?? "0", currency: found.currency ?? "DOP", category_id: found.category_id, account_id: found.account_id, occurred_on: found.occurred_on ?? dayOnly(daysAgo(0)), receipt_id: found.id, draft_id, fiscal_value: found.fiscal_value }, ...expenses];
-          replace({ ...found, status: "confirmed", expense_id: expenseId });
-          return { draft_id, outcome: "applied" as const, activity_id: expenseId };
-        }),
-      };
+      const results = items.map(({ draft_id }) => {
+        const found = receipts.find((item) => item.draft_id === draft_id);
+        if (!found) return { draft_id, outcome: "refused" as const, code: "business_record_not_found" };
+        if (found.id === SAMPLE_REFUSED) return { draft_id, outcome: "refused" as const, code: "duplicate_comprobante", existing_record_id: "exp-gas" };
+        if (found.id === SAMPLE_UNSETTLED && !unsettled.has(key)) {
+          unsettled.add(key);
+          return { draft_id, outcome: "outcome_unknown" as const, code: "business_recording_unsettled" };
+        }
+        const expenseId = `exp-${found.id}`;
+        expenses = [{ id: expenseId, fiscal_known: true, merchant: found.merchant, amount: found.amount ?? "0", currency: found.currency ?? "DOP", category_id: found.category_id, account_id: found.account_id, occurred_on: found.occurred_on ?? dayOnly(daysAgo(0)), receipt_id: found.id, draft_id, fiscal_value: found.fiscal_value }, ...expenses];
+        replace({ ...found, status: "confirmed", expense_id: expenseId });
+        return { draft_id, outcome: "applied" as const, activity_id: expenseId };
+      });
+      return { results, inbox_counts: await countsNow() };
     },
     ensureSpace: async () => {
       await delay();
@@ -571,17 +578,13 @@ export function createFixtureBusinessDataSource(
         ? receipts
         : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed")).map(served);
     },
-    // The sample's stand-in for the server's one count projection: every row
-    // the Bandeja lists (never the email itself), notes no receipt carries,
-    // and each email that is a row of its own.
     receiptPage: async (view) => {
       await delay();
       // The full list alone, so the Bandeja's own states show inside a working Business.
       if (view === "all" && inbox === "loading") await new Promise(() => {});
       if (view === "all" && inbox === "failed") throw Object.assign(new Error("Sample server failure"), { status: 503, code: "business_unavailable", requestId: "sample-ref-7f3a9c21" });
       const items = view === "all" ? receipts : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
-      const notes = new Map((await dossierSource.captures("", 50, "inbox")).items.map((note) => [note.draft_id, note.bandeja_group]));
-      return { items: items.map(served), activity: servedCounts(receipts, [...notes.values()], sampleEmails.map((email) => servedEmail(email).standing)) };
+      return { items: items.map(served), activity: await countsNow() };
     },
     receipt: async (id) => {
       await delay();
