@@ -13,7 +13,7 @@ import { Unknown } from "../transacciones/transacciones-parts";
 import { resolveLanguage } from "@/lib/language-features";
 import { sentByName } from "@/lib/sent-by";
 import type { BusinessPanelState } from "../BusinessWorkspace";
-import { formatAmount, formatMoney, formatRelativeTime } from "../business-format";
+import { formatAmount, formatDate, formatMoney, formatRelativeTime } from "../business-format";
 import { isOpenRecord } from "../record-tray";
 import { receptionSentBy, receptionDocumentTitle, receptionTarget, type ReceptionRow } from "./reception-model";
 import type { ReceptionColumnKey, ReceptionPreferences } from "./reception-columns";
@@ -79,7 +79,7 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, panel, openP
   const SourceIcon = CHANNEL_ICON[row.source];
   const selected = isOpenRecord(panel, target);
   const [titleRef, titleCut] = useCutOff<HTMLSpanElement>(title);
-  const arrival = has("arrival") ? <time dateTime={row.receivedAt} title={new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(row.receivedAt))}>{formatRelativeTime(row.receivedAt, locale)}</time> : null;
+  const arrival = has("arrival") ? <time dateTime={row.receivedAt} title={formatDate(new Date(row.receivedAt), locale, { dateStyle: "medium", timeStyle: "short" })}>{formatRelativeTime(row.receivedAt, locale)}</time> : null;
   const identity = <button type="button" onClick={open} className={styles.identity}>
     <span className={styles.documentText}>{unseen ? <span className={styles.unseenDot} aria-hidden="true" /> : null}<span ref={titleRef} className={styles.title}>{unseen ? <span className="sr-only">{word("unseen")}: </span> : null}{row.kind === "note" ? <ChatCircle className={styles.noteIcon} size={15} aria-hidden="true" /> : null}{title}</span>{money ? <span className={`${styles.mobileMoney} cuadrao-amount`}>{money}</span> : null}</span>
   </button>;

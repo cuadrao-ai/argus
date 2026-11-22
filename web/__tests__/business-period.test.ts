@@ -70,11 +70,11 @@ test("a range that is exactly a whole period is named by it, anything else is cu
 
 test("a span of days reads as months where it covers them whole, with the year once", () => {
   const span = (from: string, to: string, locale = "es-419") => formatDaySpan(from, to, locale);
-  assert.deepEqual(span("2025-01-01", "2025-12-31"), { from: "ene", to: "dic 2025" });
-  assert.deepEqual(span("2026-01-01", "2026-10-21"), { from: "ene", to: "21 oct 2026" });
-  assert.deepEqual(span("2024-02-29", "2025-02-28"), { from: "29 feb 2024", to: "feb 2025" });
-  assert.deepEqual(span("2025-03-01", "2025-03-31"), { from: "mar 2025", to: null });
-  assert.deepEqual(span("2026-10-21", "2026-10-21"), { from: "21 oct 2026", to: null });
+  assert.deepEqual(span("2025-01-01", "2025-12-31"), { from: "Ene", to: "Dic 2025" });
+  assert.deepEqual(span("2026-01-01", "2026-10-21"), { from: "Ene", to: "21 Oct 2026" });
+  assert.deepEqual(span("2024-02-29", "2025-02-28"), { from: "29 Feb 2024", to: "Feb 2025" });
+  assert.deepEqual(span("2025-03-01", "2025-03-31"), { from: "Mar 2025", to: null });
+  assert.deepEqual(span("2026-10-21", "2026-10-21"), { from: "21 Oct 2026", to: null });
   assert.deepEqual(span("2025-01-01", "2025-12-31", "en"), { from: "Jan", to: "Dec 2025" });
   assert.deepEqual(span("not-a-day", "2025-12-31"), { from: "not-a-day", to: "2025-12-31" });
 });

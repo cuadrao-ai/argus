@@ -91,32 +91,40 @@ export function belowOneUnit(amount: string | null): boolean {
   return !/[1-9]/.test(whole) && /[1-9]/.test(fraction) && fraction[0] < "5";
 }
 
-/** A day as "4 Nov 2026": the month starts with a capital in every language. */
+/**
+ * The one owner of how a month reads in a Business date: it starts with a capital in every language.
+ * Not for a month inside a sentence ("22 de noviembre"), which keeps the language's own case.
+ */
+export function formatDate(date: Date, locale: string, options: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat(locale, options).formatToParts(date)
+    .map(({ type, value }) => type === "month" ? value.charAt(0).toLocaleUpperCase(locale) + value.slice(1) : value).join("");
+}
+
+/** A day as "4 Nov 2026". */
 export function formatDay(day: string | null, locale: string): string {
   if (!day) return "";
   const date = new Date(`${day.slice(0, 10)}T12:00:00`);
   if (Number.isNaN(date.getTime())) return day;
-  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).formatToParts(date)
-    .map(({ type, value }) => type === "month" ? value.charAt(0).toLocaleUpperCase(locale) + value.slice(1) : value).join("");
+  return formatDate(date, locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
 export function formatTimestamp(iso: string, locale: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
+  return formatDate(date, locale, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 /** Relative wording ("hace 3 días") holds under this many days; after it a date reads better. */
 export const RELATIVE_WINDOW_DAYS = 7;
 const DAY_MS = 86_400_000;
 
-/** "12 oct", with the year only when it is not this year. */
+/** "12 Oct", with the year only when it is not this year. */
 function shortDate(date: Date, locale: string, now: Date): string {
   const year = date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" as const };
-  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", ...year }).format(date);
+  return formatDate(date, locale, { day: "numeric", month: "short", ...year });
 }
 
-/** A `YYYY-MM-DD` day as "12 oct", with the year only when it is not this year. */
+/** A `YYYY-MM-DD` day as "12 Oct", with the year only when it is not this year. */
 export function formatShortDay(day: string, locale: string, now = new Date()): string {
   const date = new Date(`${day.slice(0, 10)}T12:00:00`);
   if (Number.isNaN(date.getTime())) return day;
@@ -124,7 +132,7 @@ export function formatShortDay(day: string, locale: string, now = new Date()): s
 }
 
 /**
- * A span of days as "ene" to "dic 2025", or "ene" to "21 oct 2026": the month
+ * A span of days as "Ene" to "Dic 2025", or "Ene" to "21 Oct 2026": the month
  * alone where the span starts on its first day or ends on its last, and the
  * year once when both ends share it. `to` is null when one label says it all.
  */
@@ -133,7 +141,7 @@ export function formatDaySpan(from: string, to: string, locale: string): { from:
   const [start, end] = [day(from), day(to)];
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return { from, to };
   const label = (date: Date, withDay: boolean, withYear: boolean) =>
-    new Intl.DateTimeFormat(locale, { timeZone: "UTC", month: "short", ...(withDay ? { day: "numeric" as const } : {}), ...(withYear ? { year: "numeric" as const } : {}) }).format(date);
+    formatDate(date, locale, { timeZone: "UTC", month: "short", ...(withDay ? { day: "numeric" as const } : {}), ...(withYear ? { year: "numeric" as const } : {}) });
   const startsMonth = start.getUTCDate() === 1;
   const endsMonth = new Date(end.getTime() + DAY_MS).getUTCDate() === 1;
   const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
@@ -142,7 +150,7 @@ export function formatDaySpan(from: string, to: string, locale: string): { from:
   return { from: label(start, !startsMonth, !sameYear), to: label(end, !endsMonth, true) };
 }
 
-/** "hace 15 minutos", "ayer", "hace 3 días" under seven days; "12 oct" from then on. */
+/** "hace 15 minutos", "ayer", "hace 3 días" under seven days; "12 Oct" from then on. */
 export function formatRelativeTime(iso: string | null, locale: string, now = new Date()): string {
   if (!iso) return "";
   const date = new Date(iso);
@@ -158,7 +166,7 @@ export function formatRelativeTime(iso: string | null, locale: string, now = new
   return rtf.format(Math.trunc(elapsed / DAY_MS), "day");
 }
 
-/** A calendar day against today: "hoy", "ayer", "hace 3 días", "en 2 días" under seven days; "12 oct" from then on. */
+/** A calendar day against today: "hoy", "ayer", "hace 3 días", "en 2 días" under seven days; "12 Oct" from then on. */
 export function formatRelativeDay(day: string, today: string, locale: string): string {
   const at = (value: string) => Date.UTC(Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10)));
   const days = Math.round((at(day) - at(today)) / DAY_MS);
@@ -231,8 +239,7 @@ export function periodRange(key: PeriodKey, now = new Date()): Period {
 
 /** The month a day falls in, as a title: "Octubre de 2026". */
 export function formatMonthYear(day: string, locale: string): string {
-  const month = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(`${day}T12:00:00`));
-  return month.charAt(0).toLocaleUpperCase() + month.slice(1);
+  return formatDate(new Date(`${day}T12:00:00`), locale, { month: "long", year: "numeric" });
 }
 
 /** A range the person typed; both days are required and in order. */
