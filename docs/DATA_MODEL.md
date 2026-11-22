@@ -3683,6 +3683,12 @@ import observation (`UPLOAD_HELD_SQL` in `annotations.py`). The receipt
 listings, every receipt route and document command, and the expiry pass read
 that one predicate.
 
+A supporting file is never its record's document. Each reader that counts or
+picks a record's document reads the record's own sources (`own_source_sql` in
+`annotations.py`): the Listos rule, the reader's
+answers on the dossier, the file a repeat is compared by, the signature a
+settled repeat holds, the Bandeja's notes, and the one receipt a record names.
+
 A supporting file's upload has its own `financial_source_connections` row. Its
 `external_ref` is `supporting:` plus the reference a receipt with the same
 bytes has, so an upload of those bytes as a receipt makes a second row and

@@ -10,7 +10,7 @@ from argus.domain.business import supporting_files
 from argus.domain.business.actions.document_deletion import change_document
 from argus.domain.business.actions.document_purge import DocumentExpiry
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.actions import SUPPORTING_FILE_LIMIT
+from argus.domain.business.contracts.actions import SUPPORTING_FILE_LIMIT, CaptureNote
 from argus.domain.business.contracts.deletion import (
     PURGE_AFTER,
     DocumentCommand,
@@ -34,6 +34,7 @@ from psycopg.errors import CheckViolation
 from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
+from tests import test_business_duplicate_one_comprobante_postgres as repeats
 from tests.test_business_reporting_postgres import record_expense
 from tests.test_registros_annotations_postgres import NoExtraction
 
@@ -56,6 +57,19 @@ def documents(actions):
     return DocumentsService(
         hub, PostgresDocumentStore(service.authority.pool, objects), NoExtraction()
     ), objects
+
+
+@pytest.fixture
+def filer(actions):
+    """The Business named as the repeat helpers' fiscal profile expects."""
+
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    service, context, _ = actions
+    PostgresSpaceStore(service.authority.pool).rename(
+        context.owner_id, repeats.dgii.PRACTICE_NAME
+    )
+    return actions
 
 
 def _content() -> bytes:
@@ -608,3 +622,65 @@ def test_no_receipt_path_takes_a_supporting_upload(actions, documents, state):
     assert service.dossier(context, draft_id) == before
     assert _upload_count(service, file.receipt_id) == 1
     assert web.service.source(web.scope, receipt_id) == ("text/plain", content)
+
+
+def test_a_note_with_a_supporting_file_keeps_its_row_in_the_bandeja(actions, documents):
+    service, context, _ = actions
+    docs, _ = documents
+    note = service.capture(context, CaptureNote(text=fake.sentence()), str(uuid4()))
+    assert note.outcome == "applied", note
+
+    def listed() -> list[str]:
+        return [str(row["draft_id"]) for row in service.captures(context, view="inbox")]
+
+    assert listed() == [str(note.draft_id)]
+    _append(service, docs, context, note.draft_id)
+
+    assert listed() == [str(note.draft_id)]
+
+
+def test_a_supporting_file_reopens_no_settled_repeat(filer, documents):
+    service, context, _ = filer
+    docs, _ = documents
+    first, second, account = repeats._pair(filer)
+    for draft_id, ncf in zip((first, second), repeats._ncfs(2), strict=True):
+        repeats._comprobante(service, context, draft_id, account, ncf)
+    decided = repeats._decide(service, context, second, first, "different_purchase")
+    assert decided.outcome == "applied", decided
+    settled = {first: None, second: None}
+    assert repeats._listo(service, context, first, second) == settled
+
+    _append(service, docs, context, second)
+
+    assert repeats._listo(service, context, first, second) == settled
+    assert service.dossier(context, second).duplicate_candidates == ()
+
+
+def test_an_approved_record_with_a_supporting_file_still_names_its_receipt(
+    filer, documents
+):
+    from argus.api.business_drafts import linked_records
+    from argus.domain.business.transactions import transaction
+
+    service, context, _ = filer
+    docs, _ = documents
+    repeats.set_profile(
+        service.authority, context, repeats.dgii.filer_change(repeats.FILER), str(uuid4())
+    )
+    [draft_id] = repeats._prepared(filer, merchants=(fake.company(),))
+    account = repeats.dgii.cash_account(service, context)
+    repeats._comprobante(service, context, draft_id, account, repeats._ncfs(1)[0])
+    approved = repeats._approve(service, context, draft_id)
+    assert approved.outcome == "applied", approved
+
+    def receipt() -> str | None:
+        with transaction(service.authority, context) as tx:
+            return linked_records(tx, [str(approved.activity_id)])[
+                str(approved.activity_id)
+            ]["receipt_id"]
+
+    named = receipt()
+    assert named is not None
+    _append(service, docs, context, draft_id)
+
+    assert receipt() == named

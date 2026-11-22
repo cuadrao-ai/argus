@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.business.supplier_fast_path import STATUS_BY_RAW, RegistryStatus
+from faker import Faker
 from psycopg import Connection
 
 from tests import test_business_listos_postgres as listos
@@ -34,6 +35,7 @@ people = listos.people
 rig = listos.rig
 
 LISTED = "101999996"
+fake = Faker()
 
 
 def _dossier(rig, draft_id: str) -> dict:  # noqa: ANN001
@@ -168,6 +170,43 @@ def test_a_read_with_an_issue_says_check_details_first(rig) -> None:  # noqa: AN
     dossier = _same_as_the_list(rig, receipt)
 
     assert dossier["listo_gaps"] == ["check_details", "missing_itbis"]
+
+
+#: What a supporting file changes on its record's dossier: one more version
+#: with its history entry, the file as a source, and the file in its own list.
+SUPPORTING_FILE_FIELDS = {"version", "history", "sources", "supporting_files"}
+
+
+def _append_supporting_file(rig, draft_id: str, version: int) -> None:  # noqa: ANN001
+    answer = rig.client.post(
+        f"{API}/business/drafts/{draft_id}/supporting-files",
+        content=fake.paragraph().encode(),
+        headers={
+            **rig.alice.headers,
+            "X-Draft-Version": str(version),
+            "X-Document-Filename": fake.file_name(extension="txt"),
+            "Content-Type": "text/plain",
+            "Idempotency-Key": str(uuid4()),
+        },
+    )
+    assert answer.status_code == 200, answer.text
+
+
+def test_a_supporting_file_leaves_a_clean_record_in_listos(rig) -> None:  # noqa: ANN001
+    receipt = _read(rig)
+    before = _same_as_the_list(rig, receipt)
+    assert before["listo_gaps"] == []
+    counts = listos._counts(rig)
+
+    _append_supporting_file(rig, _named(rig, receipt)["draft_id"], before["version"])
+    after = _same_as_the_list(rig, receipt)
+
+    assert after["listo_gaps"] == []
+    assert after["bandeja_group"]["label"] == "ready"
+    assert {
+        name for name in after if after[name] != before[name]
+    } == SUPPORTING_FILE_FIELDS
+    assert listos._counts(rig) == counts
 
 
 def test_a_repeat_says_so_on_the_dossier_as_on_the_row(rig) -> None:  # noqa: ANN001

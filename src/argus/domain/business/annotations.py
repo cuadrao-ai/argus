@@ -55,8 +55,27 @@ def supporting_source_key(connection_id: UUID | str) -> str:
 #: as a receipt are a second upload: neither one is ever the other.
 SUPPORTING_UPLOAD_NAMESPACE = "supporting"
 
-#: A ``business_sources`` row aliased ``s`` is a supporting file: the key above, in SQL.
-SUPPORTING_SOURCE_SQL = "s.kind='attachment' and s.source_key='supporting:' || s.connection_id::text"
+def supporting_source_sql(alias: str) -> str:
+    """A ``business_sources`` row under ``alias`` is a supporting file: the key above, in SQL."""
+
+    return (
+        f"{alias}.kind='attachment'"
+        f" and {alias}.source_key='supporting:' || {alias}.connection_id::text"
+    )
+
+
+SUPPORTING_SOURCE_SQL = supporting_source_sql("s")
+
+
+def own_source_sql(alias: str) -> str:
+    """The row under ``alias`` is one of the record's own sources: its document
+    or a message. A supporting file is context for the record and never its
+    document, so every reader that counts or picks a record's document reads this."""
+
+    return f"({supporting_source_sql(alias)}) is not true"
+
+
+OWN_SOURCE_SQL = own_source_sql("s")
 
 #: Something besides the source row ``s`` holds its upload: another source row
 #: or a read. A supporting file whose upload nothing else holds is never a

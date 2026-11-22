@@ -26,7 +26,11 @@ from argus.domain.business.amount_inheritance import (
     original_ncf,
     written_from,
 )
-from argus.domain.business.annotations import annotation_available, current_note
+from argus.domain.business.annotations import (
+    OWN_SOURCE_SQL,
+    annotation_available,
+    current_note,
+)
 from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
 from argus.domain.business.bandeja_group import (
@@ -457,6 +461,7 @@ def _read_answers(tx: ActionTransaction, draft_id: UUID) -> Mapping[str, str | N
         " join public.financial_source_connections c on c.id=s.connection_id"
         " and c.owner_space_id=s.space_id"
         " where l.space_id=%s and l.draft_id=%s and s.kind='attachment' and c.user_id=%s"
+        f" and {OWN_SOURCE_SQL}"
         " and jsonb_typeof(d.batch->'receipt')='object'"
         " order by s.received_at desc,s.id desc limit 1",
         (tx.context.actor.space_id, draft_id, tx.context.owner_id),
