@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { Archive, Brain, CircleUser, Globe, History, Link2, MapPin, MessageCircle, Palette, PanelLeft, type LucideIcon } from "lucide-react";
+import { Archive, Brain, CircleUser, Globe, History, MapPin, MessageCircle, Palette, PanelLeft, type LucideIcon } from "lucide-react";
 
 import AccountSettings, { type AccountActions } from "@/components/settings/AccountSettings";
 import BusinessNameSettings from "@/components/settings/BusinessNameSettings";
@@ -11,7 +11,6 @@ import ArchivedChatsView from "@/components/settings/ArchivedChatsView";
 import DeletedItemsView from "@/components/settings/DeletedItemsView";
 import HomeCountryModal from "@/components/settings/HomeCountryModal";
 import MemoryControlsModal from "@/components/settings/MemoryControlsModal";
-import SharedReceiptsView from "@/components/settings/SharedReceiptsView";
 import WhatsAppLinkModal from "@/components/settings/WhatsAppLinkModal";
 import SidebarPreferenceModal, { type SidebarMode } from "@/components/settings/SidebarPreferenceModal";
 import type { ApiUser } from "@/lib/argus-api";
@@ -157,18 +156,6 @@ const SETTINGS_PANELS = {
     nav: { label: ["settings.account.title", "Account"], icon: CircleUser },
     render: ({ profile, account, onClose }) => (account ? <AccountSettings profile={profile} onClose={onClose} {...account} /> : null),
   },
-  receipts: {
-    parent: "data",
-    nav: { label: ["settings.data.shared_links", "Shared links"], icon: Link2 },
-    render: ({ onClose, onBack, backLabel, anchorRef }) => (
-      <SharedReceiptsView
-        onClose={onClose}
-        onBack={onBack}
-        backLabel={backLabel}
-        returnFocusRef={anchorRef}
-      />
-    ),
-  },
 } satisfies Record<string, SettingsPanelEntry>;
 
 export type SettingsPanel = keyof typeof SETTINGS_PANELS;
@@ -181,7 +168,6 @@ export const SETTINGS_WINDOW_ORDER: readonly SettingsPanel[] = [
   "sidebar",
   "whatsapp",
   "memory",
-  "receipts",
   "archived",
   "deleted",
   "account",

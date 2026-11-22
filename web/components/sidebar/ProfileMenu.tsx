@@ -67,7 +67,6 @@ import {
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
-import { evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { navigateFromOverlay } from "@/lib/overlay-history";
 import { QuickJumpBadge } from "@/components/keyboard/QuickJumpBadge";
 import { useQuickJump } from "@/components/keyboard/useQuickJump";
@@ -160,11 +159,6 @@ export default function ProfileMenu({
     null,
   );
   const [memoryControlsAvailable, setMemoryControlsAvailable] = useState(false);
-  // Every receipt endpoint requires the registered-only can_save_decision
-  // capability, so showing this to a guest offers a modal whose only action is a
-  // retry that can never succeed.
-  const receiptsAvailable =
-    evidenceReceiptSharingEnabled && accountKind === "registered";
   // A country is a registered-account setting; a guest has nowhere to keep one.
   const homeCountryAvailable = !isBusiness && accountKind === "registered";
   const whatsappLinkAvailable =
@@ -178,7 +172,6 @@ export default function ProfileMenu({
     sidebar: Boolean(sidebarPreference),
     whatsapp: whatsappLinkAvailable,
     memory: memoryControlsAvailable,
-    receipts: receiptsAvailable,
     archived: !isBusiness,
     // Business keeps no deleted chats, so it never asks for that list.
     deleted: !isBusiness,

@@ -413,11 +413,6 @@ export function businessShellPath(search: URLSearchParams | SearchRecord | strin
   return query ? `/biz?${query}` : "/biz";
 }
 
-/** Where a public-receipt follow-up goes: on a consumer build it is saved and sent into chat; on a Business build nothing is saved or sent, the person lands on the Business inbox. */
-export function receiptFollowupTarget(businessBuild: boolean = true): { send: boolean; href: string } {
-  return businessBuild ? { send: false, href: "/biz?view=inbox" } : { send: true, href: currentChatPath() };
-}
-
 export type SignedInHome = { readonly href: "/biz" };
 
 /** Business is the signed-in home. */

@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { hasOpenOverlay } from "@/components/layout/overlayStack";
 import type { UserResponse } from "@/lib/guest-account";
 import { matchesKeyboardShortcut } from "@/lib/keyboard-shortcuts";
-import type { ReceiptShareTarget } from "@/lib/receipt-selection";
 
 type UseChatShellCapabilitiesInput = {
   account: UserResponse | null;
-  conversationId: string | null;
   closeTransientSidebar: () => void;
   onNewChat: () => void | Promise<unknown>;
   onOpenOmnisearch: () => void;
@@ -17,7 +15,6 @@ type UseChatShellCapabilitiesInput = {
 
 export function useChatShellCapabilities({
   account,
-  conversationId,
   closeTransientSidebar,
   onNewChat,
   onOpenOmnisearch,
@@ -54,20 +51,6 @@ export function useChatShellCapabilities({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [omnisearchShortcutEnabled, requestOmnisearch]);
 
-  const [receiptShareTarget, setReceiptShareTarget] =
-    useState<ReceiptShareTarget | null>(null);
-  const requestReceiptShare = useCallback(
-    (sourceConversationId: string, messageId?: string) => {
-      if (sourceConversationId !== conversationId) return;
-      setReceiptShareTarget({
-        conversationId: sourceConversationId,
-        messageId,
-      });
-    },
-    [conversationId],
-  );
-  const closeReceiptShare = useCallback(() => setReceiptShareTarget(null), []);
-
   return {
     isGuest: false,
     isEstablishedGuest: false,
@@ -78,13 +61,5 @@ export function useChatShellCapabilities({
     canSubmitFeedback,
     requestNewChat,
     requestOmnisearch,
-    receiptSharing: {
-      target:
-        receiptShareTarget?.conversationId === conversationId
-          ? receiptShareTarget
-          : null,
-      request: requestReceiptShare,
-      close: closeReceiptShare,
-    },
   };
 }

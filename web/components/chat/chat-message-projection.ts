@@ -1,4 +1,3 @@
-import { sharedConversationFromMetadata } from "@/lib/shared-conversation";
 import { answerAssumptionsFromMetadata, toolCardsFromMetadata, hasUnavailableToolCards } from "@/lib/tool-result-card";
 import {
   resultCardFromConversationCard,
@@ -368,8 +367,6 @@ export function hydrateMessagesFromApi(
     .filter((message) => !hiddenMessageIds.has(message.id))
     .map((message) => {
       const metadata = message.metadata ?? {};
-      const sharedConversation = sharedConversationFromMetadata(metadata);
-      if (sharedConversation) return { id: message.id, role: message.role === "user" ? "user" as const : "ai" as const, kind: "text" as const, content: message.content, sharedConversation };
       const toolResultCards = message.role !== "user" ? toolCardsFromMetadata(metadata) : undefined;
       const hasUnavailableToolResults = message.role !== "user" && hasUnavailableToolCards(metadata);
       const toolJobs = message.role !== "user" ? toolJobsFromMetadata(metadata) : undefined;
