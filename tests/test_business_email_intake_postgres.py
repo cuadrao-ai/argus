@@ -25,6 +25,7 @@ from PIL import Image
 
 from tests import test_business_actions_postgres as shared
 from tests.business.action_counts import count_no_rows
+from tests.business_accept_support import accept
 from tests.business_cleanup import delete_spaces
 from tests.document_sources_support import source_objects
 from tests.ingestion.whatsapp_support import RefusingExtractor
@@ -787,7 +788,8 @@ def approve(receipts, draft_id):
     configure_email_intake(receipts["runtime"])
     try:
         with TestClient(app) as drafts:
-            return drafts.post(
+            return accept(
+                drafts,
                 f"/business/drafts/{draft_id}/approve",
                 json={"version": reviewed.version, "action": "record_expense"},
                 headers={"Idempotency-Key": str(uuid4())},

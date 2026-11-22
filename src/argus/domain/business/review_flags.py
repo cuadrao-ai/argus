@@ -1,9 +1,9 @@
 """What a person should look at again before approving a receipt.
 
 A flag never changes a stored value: the RNC and NCF stay exactly as read.
-Normalizing happens here, for the comparison only. ``confirm`` flags need an
-explicit "approve anyway" on the approve request; the 606 export still refuses
-them. An ITBIS flag only warns.
+Normalizing happens here, for the comparison only. Every flag is a Listos gap
+(``bandeja_group.RULE``), which an accept names to go over it. The 606 export
+still refuses the ``confirm`` ones.
 """
 
 from __future__ import annotations
@@ -84,7 +84,3 @@ def review_flags(
                 difference=exact_amount_text(difference),
             ))
     return tuple(flags)
-
-
-def unconfirmed(flags: tuple[ReviewFlag, ...]) -> tuple[str, ...]:
-    return tuple(flag.code for flag in flags if flag.confirm)

@@ -8,6 +8,7 @@ import pytest
 
 from tests import test_business_attachment_preparation_postgres as preparation
 from tests import test_business_duplicates_postgres as receipts
+from tests.business_accept_support import seen_gaps
 
 actions = receipts.actions
 users = receipts.users
@@ -197,7 +198,11 @@ def test_changed_read_evidence_reopens_guard_and_invalidates_replay(actions, sid
     refused = service.approve(
         context,
         second,
-        ApproveExpense(version=view.version, action="record_expense"),
+        ApproveExpense(
+            version=view.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, second),
+        ),
         str(uuid4()),
     )
     assert refused.code == "possible_duplicate", refused
@@ -351,7 +356,11 @@ def test_accepted_comparison_and_financial_record_stay_unchanged(actions):
     approved = service.approve(
         context,
         first,
-        ApproveExpense(version=ready.version, action="record_expense"),
+        ApproveExpense(
+            version=ready.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first),
+        ),
         str(uuid4()),
     )
     assert approved.outcome == "applied", approved
@@ -464,7 +473,11 @@ def test_owner_reviews_resolved_receipt_then_approves_once(actions):
     )
     assert reviewed.outcome == "applied", reviewed
     assert service.dossier(context, second).approval_available is True
-    command = ApproveExpense(version=reviewed.version, action="record_expense")
+    command = ApproveExpense(
+        version=reviewed.version,
+        action="record_expense",
+        accept_gaps=seen_gaps(service, context, second),
+    )
     key = str(uuid4())
     approved = service.approve(context, second, command, key)
     assert approved.outcome == "applied", approved

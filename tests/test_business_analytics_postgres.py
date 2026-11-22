@@ -15,6 +15,7 @@ import httpx
 import psycopg
 import pytest
 from argus.domain.business import analytics as business_analytics
+from argus.domain.business.actions import listos
 from argus.domain.business.analytics_events import business_hash_for_id
 from argus.domain.business.contracts.actions import (
     Applied,
@@ -31,6 +32,7 @@ from argus.observability.product_events import actor_hash_for_user
 from psycopg.types.json import Jsonb
 
 from tests import test_business_approval_fiscal_postgres as fiscal
+from tests.business_accept_support import seen_gaps
 from tests.money_assertions import _assert_no_money_properties
 
 users = fiscal.users
@@ -202,7 +204,14 @@ def test_approval_uses_the_read_group_after_a_person_edits(actions, sent, faker,
     reviewed = fiscal.reviewed(service, context, draft, version)
 
     outcome = service.approve(
-        context, draft, ApproveExpense(version=reviewed, action="record_expense"), faker.uuid4()
+        context,
+        draft,
+        ApproveExpense(
+            version=reviewed,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        faker.uuid4(),
     )
 
     assert outcome.outcome == "applied", outcome
@@ -253,10 +262,13 @@ def test_approval_reads_the_filled_names_and_the_first_arrival(actions, sent):  
     settled: list[str | None] = []
     sent.on_post(lambda body: settled.append(_receipt_outcome(service, context, key)))
 
-    before = datetime.now(timezone.utc)
-    outcome = service.approve(
-        context, draft, ApproveExpense(version=approved, action="record_expense"), key
+    request = ApproveExpense(
+        version=approved,
+        action="record_expense",
+        accept_gaps=seen_gaps(service, context, draft),
     )
+    before = datetime.now(timezone.utc)
+    outcome = service.approve(context, draft, request, key)
     after = datetime.now(timezone.utc)
 
     assert outcome.outcome == "applied", outcome
@@ -300,9 +312,7 @@ def test_approval_reads_the_filled_names_and_the_first_arrival(actions, sent):  
             _assert_no_money_properties(body["properties"], amount)
 
     # The same approval again replays the stored outcome and reports nothing again.
-    replayed = service.approve(
-        context, draft, ApproveExpense(version=approved, action="record_expense"), key
-    )
+    replayed = service.approve(context, draft, request, key)
     assert replayed == outcome
     assert len(sent) == 2
 
@@ -326,7 +336,14 @@ def test_a_failing_analytics_read_leaves_the_approval_committed(
     key = str(uuid4())
 
     outcome = service.approve(
-        context, draft, ApproveExpense(version=approved, action="record_expense"), key
+        context,
+        draft,
+        ApproveExpense(
+            version=approved,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        key,
     )
 
     assert outcome.outcome == "applied", outcome
@@ -359,6 +376,25 @@ def test_review_gaps_reads_a_prepared_drafts_gaps_from_postgres(actions, sent): 
     )
     [review] = _events(sent, "business_document_needs_review")
     assert review["reason_codes"] == list(gaps)
+
+
+def test_review_gaps_names_an_unverified_sender_beside_another_gap(  # noqa: ANN201
+    actions,  # noqa: ANN001
+    monkeypatch: pytest.MonkeyPatch,
+):
+    service, context = actions
+    draft, _ = fiscal.receipt_draft(service, context, fiscal.colmado(), "DOP")
+    [(_, connection_id, _)] = _sources(service, draft)
+    monkeypatch.setattr(listos, "email_draft_standing", lambda *args: "new")
+
+    gaps = service.review_gaps(
+        user_id=context.owner_id,
+        connection_id=str(connection_id),
+        scope=context.scope,
+        draft_id=draft,
+    )
+
+    assert len(gaps) > 1 and gaps[-1] == "unverified_sender", gaps
 
 
 def test_a_failing_gap_read_sends_nothing_and_raises_nothing(actions, sent):  # noqa: ANN001
@@ -408,7 +444,11 @@ def test_two_approvals_under_one_key_report_the_approval_once(
     draft, version = fiscal.receipt_draft(service, context, fiscal.colmado(), "DOP")
     approved = fiscal.reviewed(service, context, draft, version)
     key = str(uuid4())
-    request = ApproveExpense(version=approved, action="record_expense")
+    request = ApproveExpense(
+        version=approved,
+        action="record_expense",
+        accept_gaps=seen_gaps(service, context, draft),
+    )
 
     first = service.approve(context, draft, request, key)
     assert first.outcome == "applied", first

@@ -47,12 +47,15 @@ on:
       - web/components/sidebar/command-palette/*
       - web/components/status/*
       - web/components/ui/*
+      - web/e2e/business-dossier-confirm.spec.ts
       - web/e2e/support/breakpoint-fixture.ts
+      - web/e2e/support/business-receipt-fixture.ts
       - web/e2e/support/month-close-wire.ts
       - web/e2e/support/synthetic-business-fallback.ts
       - web/lib/*
       - web/next.config.ts
       - web/package.json
+      - web/playwright.config.ts
       - web/postcss.config.mjs
       - web/proxy.ts
       - web/public/brand/*
@@ -77,6 +80,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
+      OPENROUTER_API_KEY: ""
       NEXT_PUBLIC_MOCK_AUTH: "true"
       NEXT_PUBLIC_ARGUS_API_URL: http://127.0.0.1:3198/api/v1
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:3198
@@ -110,6 +114,7 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:3198/ > /dev/null
           bun scripts/receipt-duplicate-resolution-evidence.ts
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:3198 bunx playwright test e2e/business-dossier-confirm.spec.ts --output ../temp/duplicate-resolution-evidence/dossier-confirm
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

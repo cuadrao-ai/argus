@@ -387,7 +387,8 @@ to check when the reader wrote it (origin `extracted`) and its year is not the
 upload year: the year, in America/Santo_Domingo, of the `received_at` of the
 draft's first source. A date from the QR or from a person is never checked.
 Such a record stays out of Listos, in Por resolver with the reason
-`check_details`, and can still be approved alone. `year_to_check` in
+`check_details`. A single approval must name `check_details` and every other
+gap in `accept_gaps`, and every gap must be confirmable. `year_to_check` in
 `src/argus/domain/business/bandeja_group.py` owns the rule. The dossier carries
 its answer (`upload_year`, `year_to_check`), and the review calendar offers the
 date in the upload year from that answer. The web compares no years.

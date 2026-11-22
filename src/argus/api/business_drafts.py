@@ -40,6 +40,7 @@ from argus.domain.business.annotations import (
     supporting_uploads,
 )
 from argus.domain.business.authority import ActionContext, ActionError, authorize
+from argus.domain.business.bandeja_group import confirmable_gaps
 from argus.domain.business.contracts.actions import Refused
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.deletion import DeletedDocument, deletion
@@ -87,8 +88,11 @@ def action_problem(request: Request, refusal: Refused) -> HTTPException:
         detail=refusal.code,
         context=refusal.context or ({"existing_record_id": str(refusal.existing_record_id)}
         if refusal.existing_record_id
-        else {"flags": list(refusal.flags)}
-        if refusal.flags
+        else {
+            "gaps": list(refusal.gaps),
+            "confirmable": list(confirmable_gaps(refusal.gaps)),
+        }
+        if refusal.gaps
         else None),
         headers=NO_STORE,
     )

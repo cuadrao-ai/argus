@@ -15,6 +15,7 @@ import pytest
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import accepting
 from tests.test_business_scope_switch_routes_postgres import (  # noqa: F401
     API,
     _as,
@@ -102,7 +103,7 @@ def _record(
         world,
         "POST",
         f"/business/drafts/{note['draft_id']}/approve",
-        {"version": reviewed["version"], "action": f"record_{kind}"},
+        accepting(reviewed, f"record_{kind}"),
         owner,
     )
     return approved["approval_result"]["activity_id"]

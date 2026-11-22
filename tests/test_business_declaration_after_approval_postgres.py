@@ -34,6 +34,7 @@ from argus.domain.business.fiscal_profile import set_profile
 from tests import test_business_actions_postgres as shared
 from tests import test_business_dgii_postgres as dgii
 from tests import test_financial_accounts_postgres as accounts
+from tests.business_accept_support import seen_gaps
 from tests.test_business_dgii_postgres import (
     business_account,
     cash_account,
@@ -115,7 +116,11 @@ def approved(service, context, draft_id, version):  # noqa: ANN001, ANN201
     outcome = service.approve(
         context,
         draft_id,
-        ApproveExpense(version=version, action="record_expense"),
+        ApproveExpense(
+            version=version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft_id),
+        ),
         str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
@@ -434,7 +439,11 @@ def test_an_approved_credit_note_keeps_the_refund_its_approval_recorded(actions)
         return service.approve_refund(
             context,
             draft_id,
-            ApproveRefund(version=version, action="record_refund"),
+            ApproveRefund(
+                version=version,
+                action="record_refund",
+                accept_gaps=seen_gaps(service, context, draft_id),
+            ),
             str(uuid4()),
         )
 
@@ -626,7 +635,11 @@ def test_a_receipt_with_a_total_beyond_the_606_limit_opens_to_be_corrected(actio
     refused = service.approve(
         context,
         draft_id,
-        ApproveExpense(version=version, action="record_expense"),
+        ApproveExpense(
+            version=version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft_id),
+        ),
         str(uuid4()),
     )
 
@@ -715,7 +728,11 @@ def test_a_record_that_takes_no_606_refuses_the_606_write(actions):  # noqa: ANN
     recorded = service.approve_income(
         context,
         draft_id,
-        ApproveIncome(version=version, action="record_income"),
+        ApproveIncome(
+            version=version,
+            action="record_income",
+            accept_gaps=seen_gaps(service, context, draft_id),
+        ),
         str(uuid4()),
     )
     assert recorded.outcome == "applied", recorded

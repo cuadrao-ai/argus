@@ -23,6 +23,7 @@ from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 
 from tests import test_business_actions_postgres as shared
+from tests.business_accept_support import seen_gaps
 from tests.test_business_spaces_migration_postgres import connection
 
 users = shared.users
@@ -61,7 +62,11 @@ def test_sheet_payment_state_follows_the_stored_settlement(actions):
     approved = service.approve(
         context,
         draft,
-        ApproveExpense(version=version + 1, action="record_expense"),
+        ApproveExpense(
+            version=version + 1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         "approve",
     )
     assert approved.outcome == "applied"
@@ -114,7 +119,11 @@ def test_read_only_export_uses_canonical_owner_funds_and_exact_sources(actions):
     approved = service.approve(
         context,
         draft,
-        ApproveExpense(version=version + 1, action="record_expense"),
+        ApproveExpense(
+            version=version + 1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         "approve",
     )
     assert approved.outcome == "applied"
@@ -630,7 +639,11 @@ def test_personal_purchase_is_handed_over_apart_with_its_original(actions):
     business = service.approve(
         context,
         draft,
-        ApproveExpense(version=version + 1, action="record_expense"),
+        ApproveExpense(
+            version=version + 1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         "approve",
     )
     assert business.outcome == "applied"

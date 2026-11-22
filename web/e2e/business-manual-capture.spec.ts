@@ -53,13 +53,17 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false,
       if (draft) {
         if (draft[2] === "dossier") return route.fulfill({ json: await source.dossier(draft[1]) });
         const body = route.request().postDataJSON();
-        if (draft[2] === "approve") { state.approvals++; return route.fulfill({ json: await source.approveDraft(draft[1], body.version, route.request().headers()["idempotency-key"], body.action) }); }
+        if (draft[2] === "approve") {
+          state.approvals++;
+          const options = { acceptGaps: body.accept_gaps, suggestions: body.suggestions };
+          return route.fulfill({ json: await source.approveDraft(draft[1], body.version, route.request().headers()["idempotency-key"], body.action, options) });
+        }
         return route.fulfill({ json: await source.reviewDraft(draft[1], body.version, body.facts, route.request().headers()["idempotency-key"]) });
       }
       return route.fulfill({ json: { items: [] } });
     } catch (error) {
-      const failure = error as { status?: number; code?: string };
-      return route.fulfill({ status: failure.status ?? 500, json: { code: failure.code ?? "unknown" } });
+      const failure = error as { status?: number; code?: string; context?: unknown };
+      return route.fulfill({ status: failure.status ?? 500, json: { code: failure.code ?? "unknown", context: failure.context } });
     }
   });
   await page.goto(`/biz${draftId ? `?draft=${draftId}` : ""}`);

@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from tests import test_business_actions_postgres as shared
 from tests.business.test_records_export_filename import one_stem
+from tests.business_accept_support import seen_gaps
 from tests.test_business_dgii_postgres import cash_account
 from tests.test_business_reporting_postgres import record_expense, viewer_context
 
@@ -446,7 +447,11 @@ def document_backed_expense(service, context, *, personal):
     approved = service.approve(
         context,
         draft,
-        ApproveExpense(version=version, action="record_expense"),
+        ApproveExpense(
+            version=version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         str(uuid4()),
     )
     assert approved.outcome == "applied", approved
