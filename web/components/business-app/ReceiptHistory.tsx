@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useId, useState } from "react";
+import { ArrowDownToLine, BadgeCheck, ChevronDown, Copy, Paperclip, Pencil, ScanText, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import type { BusinessAccount } from "@/lib/business-api";
-import { documentFamily, factLabel } from "@/lib/counterparty-term";
 import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
 import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFacts, type BusinessFiscalField } from "@/lib/business-dossier";
-import { BUSINESS_STATUS, FOCUS_RING, MUTED_TEXT } from "./foundation/presentation";
-import { SURFACE_CARD } from "./foundation/surfaces";
+import { formatDay, formatTimestamp } from "./business-format";
+import { dossierRowLabel } from "./dossier-attention";
+import { DossierCard } from "./dossier/DossierParts";
+import styles from "./dossier/dossier.module.css";
+import { FOCUS_RING } from "./foundation/presentation";
 import { useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentDgiiValue, presentFiscalFact } from "./receipt-fact-presentation";
 import { resolveLanguage } from "@/lib/language-features";
@@ -18,7 +20,9 @@ import { resolveLanguage } from "@/lib/language-features";
 type FiscalChange = { name: string; field: string; before: string | null; after: string };
 
 /** One thing that happened to the record, as the rail shows it. Only an approval changes the status, so only it gets a status dot. */
-type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; note?: string; approved?: boolean; testId?: string; diff?: { before: string; after: string }; changes?: FiscalChange[] };
+type HistoryEvent = { id: string; at: string; kind?: keyof typeof EVENT_ICON; line: string | null; sub?: string; who: string | null; note?: string; approved?: boolean; testId?: string; diff?: { before: string; after: string }; changes?: FiscalChange[] };
+
+const EVENT_ICON = { received: ArrowDownToLine, read: ScanText, edit: Pencil, approved: BadgeCheck, duplicate: Copy, supporting: Paperclip } satisfies Record<string, LucideIcon>;
 
 const STRUCK = "rounded-mark bg-[#f6dfe0] px-1.5 text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]";
 const ADDED = "rounded-mark bg-[#e3ebe1] px-1.5 text-[#2f5a49] no-underline dark:bg-[#293b32] dark:text-[#8fcbb0]";
@@ -29,20 +33,20 @@ const CHANGES_SHOWN = 2;
 /** Spanish agrees the participle with the field's name. */
 const FEMININE = new Set<string>(["occurred_on", "currency", "category_id", "kind", "business_share"]);
 
-/** "DD/MM, h:mm a.m.", in the reader's local time. */
-export function historyWhen(iso: string, am: string, pm: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
+/** The local calendar day of an instant, as `YYYY-MM-DD`. */
+function localDay(date: Date): string {
   const two = (value: number) => String(value).padStart(2, "0");
-  const hours = date.getHours();
-  return `${two(date.getDate())}/${two(date.getMonth() + 1)}, ${hours % 12 || 12}:${two(date.getMinutes())} ${hours < 12 ? am : pm}`;
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 }
 
 /**
- * The record's Historial: what the API already records, newest first, as a
- * rail. Recibido comes from the first source, Leído from the reading's
- * revision, one correction per changed field from a person's revision, and
- * Aprobado from the recorded approval. Nothing here can be edited.
+ * The Historial tab: what the API already records, newest first, in one card
+ * per day ("Hoy", "Ayer", then the date). Its arrival comes from the first
+ * source, Leído from the reading's revision, one correction per changed field
+ * from a person's revision with its struck-to-green diff, and the dated
+ * acceptance from the recorded approval: the one place an accepted record says
+ * so. A suggestion nobody saved is not an event, and no event says how long a
+ * read took. Nothing here can be edited.
  */
 export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null }: {
   history: BusinessDraftRevision[];
@@ -56,15 +60,6 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const categoryLabel = useCategoryLabel();
-  const [open, setOpen] = useState(false);
-  const titleId = useId();
-  const list = useRef<HTMLOListElement>(null);
-  const opened = useRef(false);
-  // Opening the fold moves focus to the newest event it revealed.
-  useEffect(() => {
-    if (!open || !opened.current) return;
-    (list.current?.children[0] as HTMLElement | undefined)?.focus();
-  }, [open]);
   const labels = {
     unknown: "",
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
@@ -87,7 +82,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   /** One correction as a sentence, or null when the shown value did not change (a confirmation changes only who stated it). */
   const changed = (key: string, before: string, after: string): string | null => {
     if (before === after) return null;
-    const field = key === "net_amount" || key === "legal_tip" ? t(`business.terms.${key}`) : key === "amount" ? t("business.terms.total_review") : factLabel(t, key, documentFamily(documentType));
+    const field = dossierRowLabel(t, key as Parameters<typeof dossierRowLabel>[1], { document_type: documentType });
     if (!before) return t("business.history.set", "{{field}}: {{after}}", { field, after });
     if (!after) after = t("business.dossier.not_recorded", "Not recorded");
     return t(FEMININE.has(key) ? "business.history.changed_female" : "business.history.changed", "{{field}} changed from {{before}} to {{after}}", { field, before, after });
@@ -116,7 +111,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     .sort((a, b) => Date.parse(a.received_at) - Date.parse(b.received_at))[0];
   if (first) {
     const channel = first.channel === "whatsapp" ? "WhatsApp" : first.channel === "email" ? t("business.history.channel_email", "Email") : t("business.history.channel_web", "Uploaded");
-    events.push({ id: `source-${first.id}`, at: first.received_at, line: `${t("business.history.received", "Received")} · ${channel}`, who: null });
+    events.push({ id: `source-${first.id}`, at: first.received_at, kind: "received", line: t("business.history.arrived", { channel }), sub: first.kind === "attachment" ? first.filename ?? undefined : undefined, who: null });
   }
   for (const revision of history) {
     const at = revision.created_at;
@@ -127,11 +122,11 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     if (revision.duplicate) {
       const { other_counterparty: counterparty, other_filename: filename } = revision.duplicate;
       const other = [counterparty, filename].filter(Boolean).join(", ") || t("business.receipts.duplicate_resolution.documents.other");
-      events.push({ id: `${revision.version}-duplicate`, at, line: t(`business.history.duplicate.${revision.duplicate.decision}`, { other }), who });
+      events.push({ id: `${revision.version}-duplicate`, at, kind: "duplicate", line: t(`business.history.duplicate.${revision.duplicate.decision}`, { other }), who });
       continue;
     }
     if (!revision.reason && revision.actor.actor_kind === "extractor") {
-      events.push({ id: `read-${revision.version}`, at, line: t("business.history.read", "Read"), who: t("business.activity_feed.extractor_name") });
+      events.push({ id: `read-${revision.version}`, at, kind: "read", line: t("business.history.read", "Read"), who: t("business.activity_feed.extractor_name") });
       continue;
     }
     const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal") as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
@@ -164,7 +159,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     }
     const attachments = revision.source_ids.map((id) => sources.find((source) => source.id === id)).filter((source) => source?.kind === "attachment");
     if (revision.before && attachments.length && same(revision.before, revision.after)) {
-      events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.map((source) => source?.kind === "attachment" ? source.filename ?? t("business.transactions.layout.annotations.received_document") : "").join(", ")}`, who, testId: "history-supporting" });
+      events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.map((source) => source?.kind === "attachment" ? source.filename ?? t("business.transactions.layout.annotations.received_document") : "").join(", ")}`, who, kind: "supporting", testId: "history-supporting" });
     }
     if (revision.after_dgii) {
       const changes = fiscalChanges(revision.before_dgii, revision.after_dgii, revision.after);
@@ -180,43 +175,54 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     if (explained) explained.note = t(`business.history.reason.${revision.reason}`);
   }
   if (approval?.status === "recorded") {
-    events.push({ id: "approved", at: approval.approved_at, line: t("business.history.approved", "Approved"), who: personName(t, approval.actor), approved: true });
+    events.push({ id: "approved", at: approval.approved_at, kind: "approved", line: t("business.history.approved", "Approved"), sub: t("business.history.accepted_note", { form: documentType === "venta" ? "607" : "606" }), who: personName(t, approval.actor), approved: true });
   }
   const kept = events.filter((event): event is HistoryEvent & { line: string } => event.line !== null);
   if (!kept.length) return null;
   // Newest first; events of one revision keep their field order.
   const newestFirst = kept.map((event, index) => ({ event, index })).sort((a, b) => Date.parse(b.event.at) - Date.parse(a.event.at) || a.index - b.index).map(({ event }) => event);
-  const shown = newestFirst;
-  const am = t("business.history.am", "a.m.");
-  const pm = t("business.history.pm", "p.m.");
+  const today = new Date();
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  const dayName = (day: string) => day === localDay(today) ? t("business.history.today") : day === localDay(yesterday) ? t("business.history.yesterday") : formatDay(day, locale);
+  const days: { day: string; events: typeof newestFirst }[] = [];
+  for (const event of newestFirst) {
+    const at = new Date(event.at);
+    const day = Number.isNaN(at.getTime()) ? "" : localDay(at);
+    const last = days[days.length - 1];
+    if (last?.day === day) last.events.push(event);
+    else days.push({ day, events: [event] });
+  }
 
   return (
-    <section className={SURFACE_CARD} aria-labelledby={titleId} data-testid="receipt-history" data-open={open ? "true" : undefined}>
-      <h3 id={titleId} className="font-display text-[16px] font-medium leading-6 text-[#172b26] dark:text-white">
-        <button type="button" aria-expanded={open} onClick={() => { opened.current = true; setOpen((value) => !value); }} className="-m-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-item p-2 text-left hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.05]">
-          <span>{t("business.history.title", "History")} <span data-testid="history-count" className="text-[#56635e] dark:text-white/70">· {newestFirst.length}</span></span>
-          <ChevronDown className={`h-4 w-4 shrink-0 text-[#56635e] transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden="true" />
-        </button>
-      </h3>
-      <ol ref={list} hidden={!open} className="mt-4">
-        {shown.map((event, index) => (
-          <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative rounded-item pb-5 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
-            {index < shown.length - 1 ? <span aria-hidden="true" data-testid="history-rail" className="absolute bottom-0 left-[5px] top-3 w-px bg-[#56635e]/40 dark:bg-white/25" /> : null}
-            <span aria-hidden="true" data-testid="history-dot" className="absolute left-0 top-[5px] h-3 w-3 rounded-full" style={{ backgroundColor: event.approved ? BUSINESS_STATUS.approved.ink : MUTED_TEXT }} />
-            <p className="break-words text-[15px] leading-[22px] text-[#172b26] dark:text-white">{event.line}</p>
-            {/* The sentence says it for every reader; the diff shows it at a glance. */}
-            {event.diff ? <div aria-hidden="true" data-testid="history-diff" className="mt-1 flex flex-wrap items-center gap-1.5 text-[14px] leading-5">
-              <del className={STRUCK}>{event.diff.before}</del>
-              <span className={ARROW}>→</span>
-              <ins className={ADDED}>{event.diff.after}</ins>
-            </div> : null}
-            {event.changes?.length ? <FiscalChanges changes={event.changes} /> : null}
-            {event.note ? <p data-testid="history-note" className="mt-1 text-[14px] leading-5 text-[#172b26] dark:text-white">{event.note}</p> : null}
-            <p className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{[event.who, historyWhen(event.at, am, pm)].filter(Boolean).join(" · ")}</p>
-          </li>
-        ))}
-      </ol>
-    </section>
+    <div className={styles.stack} data-testid="receipt-history">
+      {days.map(({ day, events: dated }) => (
+        <DossierCard key={day} title={day ? dayName(day) : t("business.history.title", "History")} testId="history-day">
+          <ol className={styles.events}>
+            {dated.map((event) => {
+              const Icon = EVENT_ICON[event.kind ?? "edit"];
+              return (
+                <li key={event.id} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className={styles.event}>
+                  <span className={styles.eventIcon} data-approved={event.approved || undefined} data-testid="history-dot"><Icon size={15} aria-hidden="true" /></span>
+                  <div className={styles.eventBody}>
+                    <p className={styles.eventTitle}>{event.line}</p>
+                    {event.sub ? <p className={styles.eventSub}>{event.sub}</p> : null}
+                    {/* The sentence says it for every reader; the diff shows it at a glance. */}
+                    {event.diff ? <div aria-hidden="true" data-testid="history-diff" className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[13.5px] leading-5 tabular-nums">
+                      <del className={STRUCK}>{event.diff.before}</del>
+                      <span className={ARROW}>→</span>
+                      <ins className={ADDED}>{event.diff.after}</ins>
+                    </div> : null}
+                    {event.changes?.length ? <FiscalChanges changes={event.changes} /> : null}
+                    {event.note ? <p data-testid="history-note" className={styles.eventSub}>{event.note}</p> : null}
+                  </div>
+                  <div className={styles.eventWho}>{event.who ? <span>{event.who}</span> : null}<time dateTime={event.at}>{formatTimestamp(event.at, locale)}</time></div>
+                </li>
+              );
+            })}
+          </ol>
+        </DossierCard>
+      ))}
+    </div>
   );
 }
 

@@ -40,7 +40,7 @@ export function useDuplicateCompare(dossier: BusinessDossier | null) {
     open: (otherId: string) => { if (dossier) setShown({ draftId: dossier.draft_id, otherId }); },
     back: () => close([`[data-compare="${shown?.otherId}"]`]),
     /** A decision kept the document: the review's main action, else what the top box still asks. */
-    settled: () => close(["[data-review-primary]", '[data-testid="dossier-attention"] button']),
+    settled: () => close(["[data-review-primary]", '[data-testid="dossier-status"] button']),
   };
 }
 

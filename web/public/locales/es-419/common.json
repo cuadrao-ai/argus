@@ -2900,7 +2900,6 @@
       "row": {
         "cedula": "Cédula",
         "date": "Fecha",
-        "edit": "Corregir {{field}}",
         "no_data": "Sin dato",
         "subtotal": "Subtotal"
       },

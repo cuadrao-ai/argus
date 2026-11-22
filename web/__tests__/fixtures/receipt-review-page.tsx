@@ -111,7 +111,7 @@ export async function setup(id: keyof typeof import("@/components/business-app/d
     approveDraft: async () => { approvals += 1; throw new Error("probe records the separate approval call"); },
     ...overrides(fixture),
   }));
-  await page.open({ kind: "draft", draftId: dossierFixtureIds[id] }, () => Boolean(page.host.querySelector('[data-testid="receipt-current-facts"]') && page.host.querySelector('[data-testid="fiscal-declaration"] summary')));
+  await page.open({ kind: "draft", draftId: dossierFixtureIds[id] }, () => Boolean(page.host.querySelector('[data-testid="receipt-current-facts"]') && page.host.querySelector('[data-testid="fiscal-declaration"]')));
   await page.wait(() => Boolean(page.host.querySelector('[data-fact="category"] option') || !page.host.querySelector('[data-testid="receipt-facts-choices"]')));
   const row = (name: string) => page.host.querySelector<HTMLElement>(`[data-fact="${name}"]`)!;
   const open = async (name: string) => page.act(async () => row(name).querySelector<HTMLButtonElement>("button")!.click());

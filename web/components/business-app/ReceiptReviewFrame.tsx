@@ -1,91 +1,59 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useBusiness } from "./BusinessWorkspace";
 import { takeTitleFocus } from "./bandeja-order";
-import { CHANNEL_ICON } from "./foundation/channel-icons";
-import { formatTimestamp } from "./business-format";
+import type { DossierTab } from "./dossier-attention";
+import { DossierPlaceNav, DossierSizeButton, type DossierPlace, type JumpRow } from "./dossier/DossierHeader";
+import styles from "./dossier/dossier.module.css";
 import { TrayFooter, TraySlot, useRecordTray } from "./record-tray";
-import { resolveLanguage } from "@/lib/language-features";
-
-/** Where the record came from, as its first source says: the channel is the source's own. */
-export type ReceiptOrigin = { channel: keyof typeof CHANNEL_ICON; receivedAt: string; message?: boolean };
 
 /** The receipt's place in the list it was opened from, with the moves the list allows now. */
-export type ReceiptPlace = { index: number; total: number; previous?: () => void; next?: () => void };
-
-function OriginLine({ origin }: { origin: ReceiptOrigin }) {
-  const { t, i18n } = useTranslation();
-  const Icon = CHANNEL_ICON[origin.channel];
-  const label = origin.channel === "whatsapp" ? "WhatsApp"
-    : origin.channel === "email" ? t("business.history.channel_email", "Email")
-    : origin.message ? t("business.dossier.web_message", "Web message")
-    : t("business.history.channel_web", "Uploaded");
-  return (
-    <p data-testid="receipt-origin" className="mt-1 flex items-center gap-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">
-      <Icon size={15} aria-hidden="true" className="shrink-0" />
-      <span>{label} · {formatTimestamp(origin.receivedAt, i18n.resolvedLanguage ?? resolveLanguage({}))}</span>
-    </p>
-  );
-}
-
-function PlaceNav({ place }: { place: ReceiptPlace }) {
-  const { t } = useTranslation();
-  const button = "flex min-h-11 min-w-11 items-center justify-center rounded-full text-black/65 hover:bg-black/5 disabled:opacity-35 disabled:hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10";
-  return (
-    <div data-testid="receipt-place" className="flex items-center">
-      <span className="mr-1 whitespace-nowrap text-[13px] tabular-nums text-[#56635e] dark:text-white/70">{t("business.dossier.place", { index: place.index, total: place.total, defaultValue: "{{index}} of {{total}}" })}</span>
-      <button type="button" className={button} disabled={!place.previous} onClick={place.previous} aria-label={t("business.shortcuts.previous_receipt", "Previous receipt")}><ChevronUp className="h-5 w-5" aria-hidden="true" /></button>
-      <button type="button" className={button} disabled={!place.next} onClick={place.next} aria-label={t("business.shortcuts.next_receipt", "Next receipt")}><ChevronDown className="h-5 w-5" aria-hidden="true" /></button>
-    </div>
-  );
-}
+export type ReceiptPlace = DossierPlace;
+/** The list's rows for the jump card under "N de M"; absent without a list to jump through. */
+export type ReceiptJump = { title: string; rows: readonly JumpRow[] | null; onOpen: () => void; onPick: (id: string) => void };
+/** One tab of the dossier. `count` is how many problems wait in it. */
+export type DossierTabView = { key: Exclude<DossierTab, "documento">; count?: number; content: ReactNode };
 
 /**
- * The one receipt review page. One header holds the supplier, the total, the
- * status, where it came from and its place in the list; then the form and the
- * original. Every state of a receipt renders inside this frame.
+ * The one dossier frame. Its header holds the name and, on line two, the
+ * record's status; then its place in the list with the jump card, the size
+ * button and the way out. Under it the tabs: General, Datos fiscales, Detalles
+ * and Historial on the left, and the document on the right.
  *
- * Inside the tray (the wide dossier drawer) the header is the drawer's own:
- * the receipt names the drawer and fills its summary and its controls, and the
- * footer goes to the drawer's pinned footer. A wide drawer puts the form and
- * its history on the left and the original on the right, held in view while
- * the form scrolls. On a full page the header sticks to the top, and below the
- * tablet stop the form and the original are two tabs. A view with no
- * original of its own (comparing two documents) fills the frame in one column.
+ * The frame has two sizes. In the regular one (1040px) the document stays
+ * beside the tabs. In the narrow one (640px) the document is the Documento tab.
+ * A full page, where a phone shows a record, is always narrow. Every tab stays
+ * mounted while another shows, so a form keeps what the person typed.
+ *
+ * Inside the tray the drawer's header is the receipt's: the title names the
+ * drawer, and the status and the controls fill its slots. A view with no
+ * document of its own (comparing two documents) fills the frame in one column.
  */
-export default function ReceiptReviewFrame({ recordId, back, title, business, badge, amount, mark, origin, place, source, children, history, footer }: {
+export default function ReceiptReviewFrame({ recordId, back, title, status, place, jump, tabs, tab, onTab, document, footer }: {
   recordId: string;
   back: "inbox" | "transactions";
   title: string;
-  /** The Business this record belongs to. */
-  business?: string;
-  badge?: ReactNode;
-  /** The formatted total; absent while it is unknown, never a zero. */
-  amount?: string | null;
-  mark?: string | null;
-  origin?: ReceiptOrigin | null;
+  /** Line two of the header; absent on an accepted record. */
+  status?: ReactNode;
   /** Absent without a list to move through. */
   place?: ReceiptPlace | null;
+  jump?: ReceiptJump | null;
+  tabs: readonly DossierTabView[];
+  tab: DossierTab;
+  onTab: (tab: DossierTab) => void;
   /** Absent when the view shows its documents itself. */
-  source?: ReactNode;
-  children: ReactNode;
-  /** Under the fields on a desktop; last of all on a phone. */
-  history?: ReactNode;
+  document?: ReactNode;
   footer?: ReactNode;
 }) {
   const { t } = useTranslation();
   const { openPanel } = useBusiness();
   const tray = useRecordTray();
-  const { isBelowTablet } = useResponsiveLayout();
-  const [tab, setTab] = useState<"form" | "original">("form");
+  const ids = useId();
   const heading = useRef<HTMLHeadingElement>(null);
   const setTitle = tray?.setTitle;
-  const presentation = tray ? "tray" : "page";
   useEffect(() => {
     if (!setTitle) return undefined;
     setTitle(title);
@@ -94,71 +62,76 @@ export default function ReceiptReviewFrame({ recordId, back, title, business, ba
   useEffect(() => {
     if (!takeTitleFocus(recordId)) return;
     // In the tray the drawer's title is the receipt's.
-    (heading.current ?? document.getElementById("receipt-review-title"))?.focus();
+    (heading.current ?? window.document.getElementById("receipt-review-title"))?.focus();
   }, [recordId]);
   const settleList = tray?.settleList;
   useEffect(() => {
     settleList?.(back);
   }, [settleList, back]);
-  const meta = (
-    <div data-testid="receipt-top-block">
-      {business ? <p data-testid="receipt-business" className="mb-0.5 break-words text-[13px] font-medium leading-[18px] text-[#56635e] dark:text-white/70">{business}</p> : null}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {amount ? <span data-testid="receipt-total" className="cuadrao-amount text-[20px] font-medium leading-7 tabular-nums text-[#172b26] dark:text-white">{amount}</span> : null}
-        {badge}
-        {mark ? <span data-testid="bill-mark" className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{mark}</span> : null}
+
+  const narrow = tray ? tray.narrow === true : true;
+  const views: { key: DossierTab; count?: number; content: ReactNode }[] = narrow && document !== undefined
+    ? [...tabs.slice(0, 1), { key: "documento", content: document }, ...tabs.slice(1)]
+    : [...tabs];
+  const current = views.some((view) => view.key === tab) ? tab : views[0]?.key;
+  const walk = (event: KeyboardEvent<HTMLDivElement>) => {
+    const at = views.findIndex((view) => view.key === current);
+    const next = event.key === "ArrowRight" ? at + 1 : event.key === "ArrowLeft" ? at - 1 : null;
+    if (next === null) return;
+    event.preventDefault();
+    const view = views[(next + views.length) % views.length];
+    onTab(view.key);
+    event.currentTarget.querySelector<HTMLElement>(`[data-tab="${view.key}"]`)?.focus();
+  };
+  const nav = place ? <DossierPlaceNav place={place} jump={jump ? { ...jump, current: recordId } : null} /> : null;
+  const body = (
+    <div className={styles.split} data-narrow={narrow || undefined} data-single={document === undefined || undefined} style={tray ? undefined : { height: "auto" }}>
+      <div className={styles.info}>
+        {views.length > 1 ? <div role="tablist" aria-label={t("business.dossier.tab.label")} data-testid="dossier-tabs" className={styles.tabs} onKeyDown={walk}>
+          {views.map((view) => (
+            <button key={view.key} type="button" role="tab" id={`${ids}-tab-${view.key}`} data-tab={view.key} aria-selected={view.key === current} aria-controls={`${ids}-panel-${view.key}`} tabIndex={view.key === current ? 0 : -1} className={styles.tab} onClick={() => onTab(view.key)}>
+              {t(`business.dossier.tab.${view.key}`)}
+              {view.count ? <span className={styles.tabCount} aria-label={t("business.dossier.tab.count", { count: view.count })}>{view.count}</span> : null}
+            </button>
+          ))}
+        </div> : null}
+        {views.map((view) => (
+          <div key={view.key} role="tabpanel" id={`${ids}-panel-${view.key}`} aria-labelledby={views.length > 1 ? `${ids}-tab-${view.key}` : undefined} hidden={view.key !== current} data-tab-panel={view.key} data-document={view.key === "documento" || undefined} data-testid={view.key === "general" ? "receipt-review-fields" : view.key === "historial" ? "receipt-review-history" : `dossier-panel-${view.key}`} className={styles.panel}>
+            {view.key === "documento" ? view.content : <div className={styles.stack}>{view.content}</div>}
+          </div>
+        ))}
       </div>
-      {origin ? <OriginLine origin={origin} /> : null}
+      {!narrow && document !== undefined ? document : null}
     </div>
   );
-  if (presentation === "tray") {
+  if (tray) {
     return (
-      <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="tray" className="@container">
-        <TraySlot slot="summary">{meta}</TraySlot>
-        {place ? <TraySlot slot="headerActions"><PlaceNav place={place} /></TraySlot> : null}
-        {source === undefined ? <div className="min-w-0 space-y-5" data-testid="receipt-review-fields">{children}</div> : <div className="grid gap-6 @[44rem]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @[44rem]:items-start">
-          <div className="min-w-0 space-y-4 @[44rem]:sticky @[44rem]:top-0 @[44rem]:col-start-2 @[44rem]:row-span-2 @[44rem]:row-start-1 @[44rem]:max-h-[calc(100dvh-13rem)] @[44rem]:overflow-y-auto" data-testid="receipt-review-source">{source}</div>
-          <div className="min-w-0 space-y-5 @[44rem]:col-start-1 @[44rem]:row-start-1" data-testid="receipt-review-fields">{children}</div>
-          {history ? <div className="min-w-0 empty:hidden @[44rem]:col-start-1 @[44rem]:row-start-2" data-testid="receipt-review-history">{history}</div> : null}
-        </div>}
+      <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="tray" data-size={narrow ? "narrow" : "regular"} className={`${styles.scope} absolute inset-0`}>
+        {status ? <TraySlot slot="summary">{status}</TraySlot> : null}
+        <TraySlot slot="headerActions"><div className="flex items-center gap-2">{nav}<DossierSizeButton /></div></TraySlot>
+        {body}
         {footer ? <TrayFooter><div data-testid="receipt-review-footer">{footer}</div></TrayFooter> : null}
       </section>
     );
   }
-  const tabs = isBelowTablet && source !== undefined;
   return (
-    <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="page">
+    <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="page" data-size="narrow" className={styles.scope}>
       {/* Opaque, and its shadow fills the see-through app bar above it, so the form never shows through either while it scrolls under. */}
-      <header className="sticky top-0 z-20 -mx-4 mb-4 border-b border-[#DCE0DA] bg-[#F7F5EE] px-4 pb-3 pt-2 shadow-[0_-6rem_0_0_#F7F5EE] tablet:-mx-8 tablet:px-8 dark:border-white/10 dark:bg-[#141517] dark:shadow-[0_-6rem_0_0_#141517]">
+      <header className="sticky top-0 z-20 -mx-4 border-b border-[#DCE0DA] bg-[#F7F5EE] px-4 pb-3 pt-2 shadow-[0_-6rem_0_0_#F7F5EE] tablet:-mx-8 tablet:px-8 dark:border-white/10 dark:bg-[#141517] dark:shadow-[0_-6rem_0_0_#141517]">
         <div className="flex items-center justify-between gap-2">
           <button type="button" onClick={() => openPanel({ kind: back })} className="flex min-h-11 items-center gap-2 rounded-full pr-3 text-[15px] text-[#56635e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70">
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             {back === "transactions" ? t("business.nav.transactions", "Transactions") : t("business.nav.inbox", "Inbox")}
           </button>
-          {place ? <PlaceNav place={place} /> : null}
+          {nav}
         </div>
         <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className="mt-1 min-w-0 break-words rounded-mark font-display text-[22px] font-medium leading-7 text-[#172b26] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white">{title}</h2>
-        <div className="mt-1">{meta}</div>
-        {tabs ? (
-          <div className="mt-3">
-            <SegmentedControl
-              testId="receipt-review-tabs"
-              label={t("business.dossier.view_label", "View")}
-              segments={[{ key: "form" as const, label: t("business.dossier.tab_form", "Form") }, { key: "original" as const, label: t("business.dossier.tab_original", "Original") }]}
-              value={tab}
-              onChange={setTab}
-            />
-          </div>
-        ) : null}
+        {status ? <div className="mt-1">{status}</div> : null}
       </header>
-      {source === undefined ? <div className="min-w-0 space-y-5" data-testid="receipt-review-fields">{children}</div> : <div className="grid items-start gap-4 tablet:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] tablet:grid-rows-[auto_1fr] desktop:gap-6">
-        <div hidden={tabs && tab !== "form"} className="min-w-0 space-y-5 tablet:col-start-2 tablet:row-start-1" data-testid="receipt-review-fields">{children}</div>
-        <div hidden={tabs && tab !== "original"} className="min-w-0 space-y-4 tablet:sticky tablet:top-64 tablet:col-start-1 tablet:row-span-2 tablet:row-start-1 tablet:max-h-[calc(100dvh-22rem)] tablet:overflow-y-auto desktop:space-y-6" data-testid="receipt-review-source">{source}</div>
-        {history ? <div hidden={tabs && tab !== "form"} className="min-w-0 empty:hidden tablet:col-start-2 tablet:row-start-2" data-testid="receipt-review-history">{history}</div> : null}
-      </div>}
+      <div className="-mx-4 tablet:-mx-8">{body}</div>
       {footer ? (
         // The workspace region pads its bottom by 48px and sticky offsets count from inside that padding; -48px on both puts the footer on the pane's edge.
-        <div data-testid="receipt-review-footer" className="sticky bottom-[-48px] z-10 -mx-4 -mb-12 mt-6 border-t border-[#DCE0DA] bg-[#FFFEFA] px-4 py-3 tablet:-mx-8 tablet:px-6 dark:border-white/10 dark:bg-[#1f2225]">
+        <div data-testid="receipt-review-footer" className="sticky bottom-[-48px] z-10 -mx-4 -mb-12 border-t border-[#DCE0DA] bg-[#FFFEFA] px-4 py-3 tablet:-mx-8 tablet:px-6 dark:border-white/10 dark:bg-[#1f2225]">
           {footer}
         </div>
       ) : null}

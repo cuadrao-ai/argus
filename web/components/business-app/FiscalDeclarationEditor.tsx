@@ -4,7 +4,7 @@ import { businessDateMessage } from "@/lib/business-date-errors";
 
 import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Link2, Loader2, RotateCcw } from "lucide-react";
+import { Link2, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import MoneyInput from "@/components/money/MoneyInput";
 import type { BusinessDossier, RefundCandidate } from "@/lib/business-dossier";
@@ -15,7 +15,7 @@ import { resolveLanguage } from "@/lib/language-features";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { DatePicker } from "./foundation/DatePicker";
-import { SURFACE_CARD } from "./foundation/surfaces";
+import styles from "./dossier/dossier.module.css";
 import { REVIEW_INPUT_CLASS, ReviewSelect } from "./ReceiptFieldControls";
 import type { BusinessDataSource } from "./business-data";
 import ReceiptRowSave from "./ReceiptRowSave";
@@ -25,17 +25,20 @@ import { dgiiOptionLabel } from "./receipt-fact-presentation";
 import { usePreview } from "./useAmountsPreview";
 
 const EDITOR_ID = "fiscal-declaration";
-const GROUP_TITLE_CLASS = "text-[12px] font-medium uppercase leading-4 tracking-[0.06em] text-[#56635e] dark:text-white/60";
-const FIELD_LABEL_CLASS = "mb-1 block text-[13px] leading-[18px] text-[#56635e] dark:text-white/70";
-const FIELD_NOTE_CLASS = "mt-1 block min-h-5 text-[13px] leading-5 text-[#9e2f39] dark:text-[#ec9aa0]";
+const FIELD_NOTE_CLASS = "text-[#9e2f39] dark:text-[#ec9aa0]";
 const MONEY_NOTE_CLASS = "[&_p[aria-live]]:mt-1 [&_p[aria-live]]:min-h-5 [&_p[aria-live]]:text-[13px] [&_p[aria-live]]:leading-5";
 // A switched-off amount or date dims like a switched-off select or text field.
 const OFF_FIELD_CLASS = "[&_.rounded-item:has(>input:disabled)]:bg-[#eceeea] [&_input:disabled]:text-[#56635e] [&_input:disabled]:opacity-100 dark:[&_.rounded-item:has(>input:disabled)]:bg-[#263b35] dark:[&_input:disabled]:text-white/70";
-const FOLD_ROW_CLASS = "-mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-item bg-[#f7f5ee] px-2 text-left hover:bg-[#efece3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]";
 const OWN_ROWS: ReadonlySet<string> = new Set(["rnc", "ncf", "category", "payment_method"]);
 type Links = NonNullable<BusinessDossier["inheritance"]>;
 
-export default function FiscalDeclarationEditor({ dossier, fields, disabled, open, onOpenChange, reviewFiscal, previewLinks, onChanged, onBusy, onDirty, saved = false }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; /** Held by the page, because a saved row gives this form a fresh revision. */ open?: boolean; onOpenChange?: (open: boolean) => void; /** Whether this revision is the one this form just saved; held by the page for the same reason. */ saved?: boolean; /** The server's preview of the unsaved form: what each linked field shows. */ previewLinks?: BusinessDataSource["previewAmounts"]; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
+/**
+ * The Datos fiscales tab: the declaration's fields in grouped cards, each a row
+ * of the dossier's grid. A field that follows a source says so in its status
+ * slot, and holding it apart offers the way back there. Retenciones stays
+ * folded on a purchase until someone adds one. Guardar sends the whole form.
+ */
+export default function FiscalDeclarationEditor({ dossier, fields, disabled, reviewFiscal, previewLinks, onChanged, onBusy, onDirty, saved = false }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; /** Whether this revision is the one this form just saved; held by the page for the same reason. */ saved?: boolean; /** The server's preview of the unsaved form: what each linked field shows. */ previewLinks?: BusinessDataSource["previewAmounts"]; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const recordForm = dossier.facts.kind.value === "income" ? "607" : "606";
@@ -127,11 +130,11 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
   const locked = !editable || uncertain;
   const currency = dossier.facts.currency.value ?? "";
   const groupTitle: Record<FiscalGroup, string> = {
-    identity: t("business.dossier.placeholder.group_identity", "Identification"),
-    amounts: t("business.dossier.placeholder.group_amounts", "Amounts"),
+    identity: t("business.dossier.card.report", { form }),
+    amounts: t("business.dossier.card.billed"),
     itbis: t("business.dossier.field.itbis", "ITBIS"),
     retentions: t("business.dossier.placeholder.group_retentions", "Withholdings"),
-    other: t("business.dossier.placeholder.group_other", "Other"),
+    other: t("business.dossier.card.other_taxes"),
   };
   const fieldControl = (field: DgiiField): ReactNode => {
     const id = `${EDITOR_ID}-${field.name}`;
@@ -152,57 +155,61 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     const sourceValue = inherited?.value == null ? UNKNOWN_VALUE : inherited.field === "occurred_on" ? formatDay(inherited.value, locale) : inherited.field === "rnc" ? dgiiOptionLabel(t, field.name, inherited.value) : inherited.field === "original_ncf" ? inherited.value : formatMoney(inherited.value, currency, locale) || UNKNOWN_VALUE;
     const inheritedLabel = t("business.terms.inherited_from", { field: sourceLabel });
     const restoreLabel = t("business.dossier.placeholder.restore_inherited", { value: sourceValue });
-    const title = <span className={`${FIELD_LABEL_CLASS} flex items-center gap-1.5`}>{label}{inherited ? linked ? value === "" ? null : <Tooltip content={inheritedLabel} side="top"><span tabIndex={0} aria-label={inheritedLabel} data-inherited={field.name}><Link2 className="h-3.5 w-3.5" aria-hidden="true" /></span></Tooltip> : <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-inherited={field.name} className="-my-2 flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.06]" disabled={locked} onClick={() => restore(field.name)}><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /></button></Tooltip> : null}</span>;
+    // The status slot: the link a field follows, or the way back to it once a person held the field apart.
+    const slot = !inherited ? null : linked ? value === "" ? null
+      : <Tooltip content={inheritedLabel} side="top"><span tabIndex={0} role="img" aria-label={inheritedLabel} data-inherited={field.name} className={styles.icon}><Link2 size={16} aria-hidden="true" /></span></Tooltip>
+      : <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-inherited={field.name} className={styles.pen} style={{ opacity: 1, width: 24, height: 24 }} disabled={locked} onClick={() => restore(field.name)}><RotateCcw size={14} aria-hidden="true" /></button></Tooltip>;
     const dateProblem = checked && broken.has(field.name);
-    if (field.kind === "date") return <div key={field.name}>
-      <label htmlFor={id}>{title}</label>
-      <DatePicker key={fieldResets[field.name]} id={id} label={label} value={value} disabled={locked} invalid={dateProblem} onChange={(iso, invalid) => setValue(iso ?? "", invalid)} />
-      <span role={dateProblem ? "alert" : undefined} className={FIELD_NOTE_CLASS}>{dateProblem ? t("business.date_range.invalid_date", { format: t("business.date_picker.placeholder", "dd/mm/aaaa"), defaultValue: "Enter a valid date as {{format}}." }) : null}</span>
-    </div>;
-    if (field.kind === "money") return <label key={field.name} className={`block ${MONEY_NOTE_CLASS}`}>{title}<MoneyInput key={fieldResets[field.name]} flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} /></label>;
-    return <label key={field.name} className="block">{title}
-      {field.kind === "select"
-        ? <ReviewSelect id={id} name={field.name} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{dgiiOptionLabel(t, field.name, option)}</option>)}</ReviewSelect>
-        : <input id={id} name={field.name} className={REVIEW_INPUT_CLASS} autoComplete="off" value={value} disabled={locked} onChange={(event) => setValue(event.target.value)} />}
-      <span className={FIELD_NOTE_CLASS} />
-    </label>;
+    const control = field.kind === "date" ? <DatePicker key={fieldResets[field.name]} id={id} label={label} value={value} disabled={locked} invalid={dateProblem} onChange={(iso, invalid) => setValue(iso ?? "", invalid)} />
+      : field.kind === "money" ? <div className={MONEY_NOTE_CLASS}><MoneyInput key={fieldResets[field.name]} flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} /></div>
+      : field.kind === "select" ? <ReviewSelect id={id} name={field.name} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{dgiiOptionLabel(t, field.name, option)}</option>)}</ReviewSelect>
+      : <input id={id} name={field.name} className={REVIEW_INPUT_CLASS} autoComplete="off" value={value} disabled={locked} onChange={(event) => setValue(event.target.value)} />;
+    return (
+      <li key={field.name} className={styles.row} data-field={field.name}>
+        <label htmlFor={id} className={styles.label}>{label}</label>
+        <span className={styles.slot}>{slot}</span>
+        <div className={styles.wide}>{control}</div>
+        {dateProblem ? <div role="alert" className={`${styles.below} ${FIELD_NOTE_CLASS}`}>{t("business.date_range.invalid_date", { format: t("business.date_picker.placeholder", "dd/mm/aaaa"), defaultValue: "Enter a valid date as {{format}}." })}</div> : null}
+      </li>
+    );
   };
-  return <details className={`group ${SURFACE_CARD} @container`} data-testid={EDITOR_ID} open={open} onToggle={(event) => onOpenChange?.(event.currentTarget.open)}>
-    <summary className="-m-2 flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-item p-2 font-display text-[16px] font-medium leading-6 text-[#172b26] hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white dark:hover:bg-white/[0.05] [&::-webkit-details-marker]:hidden">
-      {t("business.dossier.placeholder.more_fiscal", "More tax details")}
-      <ChevronDown className="h-4 w-4 shrink-0 text-[#56635e] transition-transform group-open:rotate-180 motion-reduce:transition-none dark:text-white/60" aria-hidden="true" />
-    </summary>
-    <p className="mb-5 mt-4 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t("business.dgii.review_note", "Use the amounts on the receipt and your tax classification. Leave blank anything you don't know. Saving creates a revision; approving is a separate step.")}</p>
-    {formFollows ? null : <label className="mb-5 block">
-      <span className={FIELD_LABEL_CLASS}>{t("business.dgii.form", "Form")}</span>
-      <ReviewSelect value={form} disabled={locked} onChange={(event) => { change(); setForm(event.target.value === "607" ? "607" : "606"); setValues({}); setLinks(new Map()); setBroken(new Set()); setResets((value) => value + 1); }}><option value="606">606</option><option value="607">607</option></ReviewSelect>
-    </label>}
-    <div key={resets} className={`space-y-5 ${OFF_FIELD_CLASS}`}>
+  return <div className={`${styles.stack} @container`} data-testid={EDITOR_ID}>
+    {formFollows ? null : <section className={styles.card}><ul className={styles.rows}><li className={styles.row}>
+      <label htmlFor={`${EDITOR_ID}-form`} className={styles.label}>{t("business.dgii.form", "Form")}</label>
+      <span className={styles.slot} />
+      <div className={styles.wide}><ReviewSelect id={`${EDITOR_ID}-form`} value={form} disabled={locked} onChange={(event) => { change(); setForm(event.target.value === "607" ? "607" : "606"); setValues({}); setLinks(new Map()); setBroken(new Set()); setResets((value) => value + 1); }}><option value="606">606</option><option value="607">607</option></ReviewSelect></div>
+    </li></ul></section>}
+    <div key={resets} className={`${styles.stack} ${OFF_FIELD_CLASS}`}>
       {fiscalFieldGroups(fields?.[form].filter((field) => !OWN_ROWS.has(field.name)) ?? []).map(({ group, fields: grouped }) => {
         const folds = foldsBehindRow(form, group, grouped, values, broken);
         const fieldsId = `${EDITOR_ID}-${group}-fields`;
-        return <section key={group} aria-label={groupTitle[group]} data-group={group}>
-          <h4 className={folds ? (unfolded ? "mb-3" : undefined) : `${GROUP_TITLE_CLASS} mb-2`}>{folds ? <button type="button" aria-expanded={unfolded} aria-controls={fieldsId} className={FOLD_ROW_CLASS} onClick={() => setUnfolded((current) => !current)}>
-            <span className={GROUP_TITLE_CLASS}>{groupTitle[group]}</span>
-            <span className="flex items-center gap-2 text-[13px] leading-[18px] text-[#56635e] dark:text-white/60">{unfolded ? null : t("business.dgii.no_withholdings", "No withholdings")}<ChevronDown className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${unfolded ? "rotate-180" : ""}`} aria-hidden="true" /></span>
-          </button> : groupTitle[group]}</h4>
-          <div id={fieldsId} hidden={folds && !unfolded} className="grid grid-cols-1 items-end gap-x-4 gap-y-1 @[26rem]:grid-cols-2">{grouped.map(fieldControl)}</div>
+        const folded = folds && !unfolded;
+        return <section key={group} className={styles.card} aria-label={groupTitle[group]} data-group={group}>
+          <div className={styles.cardHead}>
+            <h3 className={styles.cardTitle}>{groupTitle[group]}</h3>
+            {folds ? <button type="button" aria-expanded={unfolded} aria-controls={fieldsId} className={styles.link} data-danger={unfolded || undefined} onClick={() => setUnfolded((current) => !current)}>{unfolded ? t("business.dossier.fiscal.remove") : t("business.dossier.fiscal.add_retention")}</button> : null}
+          </div>
+          {folded ? <p className={styles.emptyLine}>{t("business.dossier.fiscal.no_retentions")}</p> : null}
+          <ul id={fieldsId} hidden={folded} className={styles.rows}>{grouped.map(fieldControl)}</ul>
         </section>;
       })}
     </div>
-    {form === "606" ? <div className="my-4 space-y-3"><label className="flex min-h-11 items-center gap-2 text-[13px]"><input type="checkbox" checked={actualRefund} disabled={!editable || uncertain} onChange={(event) => { change(); setActualRefund(event.target.checked); }} />{t("business.dgii.actual_refund", "Money was refunded for this credit note")}</label>{actualRefund ? <RefundCandidates candidates={candidates} chosen={values.purchase_activity_id ?? ""} refused={refused} disabled={!editable || uncertain} locale={locale} onChoose={(id) => { change(); setRefused(null); setValues((current) => ({ ...current, purchase_activity_id: id })); }} /> : null}</div> : null}
-    {preparing ? <div className="mt-3 flex flex-wrap gap-2">
-      <button type="button" className={primaryButtonClass} aria-busy={saving} disabled={!editable || !fields} onClick={() => void save()}>
-        {/* The resting label keeps its width while saving, so Cancelar stays where it was. */}
-        <span className="grid justify-items-center [&>*]:col-start-1 [&>*]:row-start-1">
-          <span className={saving ? "invisible" : undefined}>{t("business.dgii.save", "Save")}</span>
-          {saving ? <span className="flex items-center gap-2"><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" /><span role="status">{t("business.capture.saving", "Saving…")}</span></span> : null}
-        </span>
-      </button>
-      <button type="button" className={secondaryButtonClass} disabled={!editable || uncertain} onClick={reset}>{t("common.cancel", "Cancel")}</button>
-    </div> : null}
+    {form === "606" ? <section className={styles.card}><div className={`${styles.cardBody} space-y-3`}><label className="flex min-h-11 items-center gap-2 text-[13px]"><input type="checkbox" checked={actualRefund} disabled={!editable || uncertain} onChange={(event) => { change(); setActualRefund(event.target.checked); }} />{t("business.dgii.actual_refund", "Money was refunded for this credit note")}</label>{actualRefund ? <RefundCandidates candidates={candidates} chosen={values.purchase_activity_id ?? ""} refused={refused} disabled={!editable || uncertain} locale={locale} onChoose={(id) => { change(); setRefused(null); setValues((current) => ({ ...current, purchase_activity_id: id })); }} /> : null}</div></section> : null}
+    {preparing ? <>
+      <p className={styles.note}>{t("business.dgii.review_note", "Use the amounts on the receipt and your tax classification. Leave blank anything you don't know. Saving creates a revision; approving is a separate step.")}</p>
+      <div className={styles.bar}>
+        <button type="button" className={primaryButtonClass} aria-busy={saving} disabled={!editable || !fields} onClick={() => void save()}>
+          {/* The resting label keeps its width while saving, so Cancelar stays where it was. */}
+          <span className="grid justify-items-center [&>*]:col-start-1 [&>*]:row-start-1">
+            <span className={saving ? "invisible" : undefined}>{t("business.dgii.save", "Save")}</span>
+            {saving ? <span className="flex items-center gap-2"><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" /><span role="status">{t("business.capture.saving", "Saving…")}</span></span> : null}
+          </span>
+        </button>
+        <button type="button" className={secondaryButtonClass} disabled={!editable || uncertain} onClick={reset}>{t("common.cancel", "Cancel")}</button>
+      </div>
+    </> : null}
     <ReceiptRowSave save={problem ?? (saved && !dirty ? { state: "saved" } : undefined)} onRetry={() => void save()} />
-  </details>;
+  </div>;
 }
 
 /**
