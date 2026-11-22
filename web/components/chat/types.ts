@@ -309,7 +309,6 @@ export type ToolJob = {
 };
 
 export type Message = {
-  sharedConversation?: import("@/lib/shared-conversation").SharedConversation;
   id: string;
   /** Hidden durable message ids that should focus this projected transcript row. */
   transcriptAnchorIds?: string[];
