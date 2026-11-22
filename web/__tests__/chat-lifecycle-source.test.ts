@@ -269,14 +269,15 @@ describe("chat archive/delete lifecycle source contract", () => {
     expect(es.chat.disclaimer).toBe("Cuadrao puede equivocarse. Solo con fines educativos. No es asesoría financiera.");
   });
 
-  test("guest expiry copy is gone and the registered disclaimer stays on both layouts", () => {
+  test("guest expiry copy is gone and the registered disclaimer stays on the conversation layout", () => {
     const chat = readFileSync(join(root, "components/chat/ChatInterface.tsx"), "utf-8");
     const emptyChat = readFileSync(join(root, "components/chat/EmptyChatSurface.tsx"), "utf-8");
     const legal = readFileSync(join(root, "components/chat/ChatLegalNotice.tsx"), "utf-8");
     const sidebar = readFileSync(join(root, "components/sidebar/ChatSidebar.tsx"), "utf-8");
 
     expect(existsSync(join(root, "components/guest/GuestLegalFooter.tsx"))).toBe(false);
-    expect(`${chat}\n${emptyChat}`.match(/<ChatLegalNotice/g)?.length).toBe(2);
+    expect(chat.match(/<ChatLegalNotice/g)?.length).toBe(1);
+    expect(emptyChat).not.toContain("ChatLegalNotice");
     expect(`${chat}\n${emptyChat}`).not.toContain("temporaryExpiresAt=");
     expect(legal).not.toContain("GuestLegalFooter");
     expect(sidebar).not.toContain("guest-sidebar-expiry");

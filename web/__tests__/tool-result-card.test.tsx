@@ -101,8 +101,8 @@ describe("declaration-owned result cards", () => {
     test(`typed values retain their declaration-owned display in ${language}`, async () => {
       const instance = await translate(language);
       const card = toolCardFixture();
-      const fact = { ...card.presentation.inputs[0], value: "monthly", value_text: { locale_key: "receipt.cadence_values.monthly", interpolation_args: {} } };
-      expect(toolFactValue(fact, instance.t.bind(instance), language)).toBe((language === "en" ? en : es).receipt.cadence_values.monthly);
+      const fact = { ...card.presentation.inputs[0], value: "monthly", value_text: { locale_key: "command_palette.dossier_values.cadences.monthly", interpolation_args: {} } };
+      expect(toolFactValue(fact, instance.t.bind(instance), language)).toBe((language === "en" ? en : es).command_palette.dossier_values.cadences.monthly);
       expect(fact.value).toBe("monthly");
     });
     test(`boolean facts and controls localize in ${language}`, async () => {

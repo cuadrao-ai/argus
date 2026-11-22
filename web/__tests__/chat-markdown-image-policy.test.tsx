@@ -6,11 +6,7 @@ import type { Message } from "../components/chat/types";
 import { translate } from "./support/i18n-instance";
 
 import SafeMarkdown from "../components/chat/SafeMarkdown";
-import ReceiptTurnContent from "../components/receipt/ReceiptTurnContent";
 import ToolCardPresentation from "../components/chat/ToolCardPresentation";
-import { receiptCopy } from "../lib/receipt-copy";
-import { receiptPresentations } from "../lib/receipt-presentation";
-import { researchTurn } from "./fixtures/receipt-turns";
 import calculationFixture from "./fixtures/calculation-cards.json";
 import type { ToolResultCard } from "../lib/tool-result-card";
 import nextConfig from "../next.config";
@@ -19,10 +15,9 @@ import nextConfig from "../next.config";
 const markdown = 'Readable **answer** ![Chart description](https://tracking.invalid/pixel.png) and [source](https://example.org/report).';
 
 describe("chat Markdown image privacy", () => {
-  test.each([false, true])("renders image descriptions without fetchable images, shared=%s", async (shared) => {
+  test("renders image descriptions without fetchable images", async () => {
     const i18n = await translate("en");
     const message: Message = { id: "image-policy", role: "ai", content: markdown,
-      ...(shared ? { sharedConversation: { snapshot_at: "2026-09-26T12:00:00Z" } } : {}),
     };
     const html = renderToStaticMarkup(<I18nextProvider i18n={i18n}><ChatMessage message={message} /></I18nextProvider>);
     expect(html).not.toContain("<img");
@@ -46,15 +41,7 @@ test.each([
   expect(html).not.toContain("tracking.invalid");
 });
 
-test("public research receipts retain image descriptions and ordinary source links", () => {
-  const turn = { ...researchTurn, answer: markdown };
-  const entry = receiptPresentations({ schema_version: 2, kind: "turns", turns: [turn] }, "2026-09-26T12:00:00Z", "en")[0];
-  const html = renderToStaticMarkup(<ReceiptTurnContent entry={entry} copy={receiptCopy("en")} language="en" />);
-  expect(html).not.toContain("<img");
-  expect(html).not.toContain("tracking.invalid");
-  expect(html).toContain("Chart description");
-  expect(html).toContain('href="https://example.org/report"');
-});
+
 
 test("tool card narratives share the image policy", () => {
   const card = calculationFixture.cards.growth_projection.card as ToolResultCard;

@@ -185,7 +185,7 @@ describe("a saved profile reaches the greeting", () => {
     const hook = source("components/chat/useProfileUpdates.ts");
     expect(chat).toContain("useProfileUpdates(account, setAccount)");
     expect(chat).toContain("onProfileUpdated={onProfileUpdated}");
-    expect(chat).toContain("preferredName={greetingName}");
+    expect(chat).toContain("sidebarCollapsed: layout.sidebarCollapsed, greetingName,");
     expect(hook).toContain("applyProfileUpdate(current, user)");
     expect(hook).toContain("greetingNameFor(account)");
     // No second reader of the raw field, which is how the two copies drifted.
