@@ -37,14 +37,18 @@ for (const width of [1280, 390]) {
       await page.getByTestId("reception-row").first().getByRole("button", { name: "Abrir", exact: true }).click();
       const place = page.getByTestId("receipt-place");
       await expect(place).toContainText(`1 de ${count}`);
-      await expect(place.getByRole("button").first()).toBeDisabled();
+      // The place opens the jump card; the two moves beside it are the ones the list bounds.
+      const previous = place.locator('button[aria-keyshortcuts*="ArrowUp"]');
+      const next = place.locator('button[aria-keyshortcuts*="ArrowDown"]');
+      await expect(place.getByTestId("dossier-jump")).toBeEnabled();
+      await expect(previous).toBeDisabled();
       if (count === 1) {
-        await expect(place.getByRole("button").last()).toBeDisabled();
+        await expect(next).toBeDisabled();
       } else {
-        await place.getByRole("button").last().click();
+        await next.click();
         await expect(page).toHaveURL(/receipt=navigation-2/);
         await expect(place).toContainText("2 de 28");
-        await place.getByRole("button").first().click();
+        await previous.click();
         await expect(page).toHaveURL(/receipt=navigation-1/);
         await expect(place).toContainText("1 de 28");
       }

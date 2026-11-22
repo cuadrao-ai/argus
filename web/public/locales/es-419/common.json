@@ -3317,7 +3317,7 @@
       }
     },
     "history": {
-      "accepted_note": "Pasó a Registros y al Reporte {{form}}",
+      "accepted_note": "Pasó a Registros",
       "am": "a.m.",
       "approved": "Aceptado",
       "arrived": "Llegó por {{channel}}",

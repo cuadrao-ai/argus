@@ -26,13 +26,14 @@ export type DossierTabView = { key: Exclude<DossierTab, "documento">; count?: nu
  * The frame has two sizes. In the regular one (1040px) the document stays
  * beside the tabs. In the narrow one (640px) the document is the Documento tab.
  * A full page, where a phone shows a record, is always narrow. Every tab stays
- * mounted while another shows, so a form keeps what the person typed.
+ * mounted while another shows, so a form keeps what the person typed. What an
+ * action answered belongs to the record, not to a tab: it shows over all of them.
  *
  * Inside the tray the drawer's header is the receipt's: the title names the
  * drawer, and the status and the controls fill its slots. A view with no
  * document of its own (comparing two documents) fills the frame in one column.
  */
-export default function ReceiptReviewFrame({ recordId, back, title, status, place, jump, tabs, tab, onTab, document, footer }: {
+export default function ReceiptReviewFrame({ recordId, back, title, status, place, jump, tabs, tab, onTab, notices, document, footer }: {
   recordId: string;
   back: "inbox" | "transactions";
   title: string;
@@ -44,6 +45,8 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
   tabs: readonly DossierTabView[];
   tab: DossierTab;
   onTab: (tab: DossierTab) => void;
+  /** What an action or a refetch answered. It sits over the tabs' content, so it shows whichever tab is open. */
+  notices?: ReactNode;
   /** Absent when the view shows its documents itself. */
   document?: ReactNode;
   footer?: ReactNode;
@@ -95,6 +98,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
             </button>
           ))}
         </div> : null}
+        {notices ? <div className={styles.notices} data-testid="dossier-notices">{notices}</div> : null}
         {views.map((view) => (
           <div key={view.key} role="tabpanel" id={`${ids}-panel-${view.key}`} aria-labelledby={views.length > 1 ? `${ids}-tab-${view.key}` : undefined} hidden={view.key !== current} data-tab-panel={view.key} data-document={view.key === "documento" || undefined} data-testid={view.key === "general" ? "receipt-review-fields" : view.key === "historial" ? "receipt-review-history" : `dossier-panel-${view.key}`} className={styles.panel}>
             {view.key === "documento" ? view.content : <div className={styles.stack}>{view.content}</div>}

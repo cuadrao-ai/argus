@@ -37,7 +37,7 @@ function recorded(dossier: BusinessDossier): BusinessDossier {
   return { ...dossier, version: dossier.version + 1, review_state: "accepted", approval_available: false, bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: dossier.version, approved_revision: factsRevision(dossier), approved_at: "2026-10-31T14:40:00Z", actor: dossier.history.at(-1)!.actor } };
 }
 
-/** A flagged read with the gaps the server's Bandeja rule gives it (src/argus/domain/business/bandeja_group.py). */
+/** A flagged read with the gaps the server's Bandeja rule gives it. */
 async function flagged(codes: readonly ReviewFlagCode[], gaps: readonly ListoGap[]): Promise<BusinessDossier> {
   const dossier = await flaggedReceipt(codes, accounts);
   dossier.listo_gaps = gaps;

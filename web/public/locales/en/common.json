@@ -3283,7 +3283,7 @@
       }
     },
     "history": {
-      "accepted_note": "It moved to Records and the {{form}} report",
+      "accepted_note": "It moved to Records",
       "am": "AM",
       "approved": "Accepted",
       "arrived": "Arrived by {{channel}}",

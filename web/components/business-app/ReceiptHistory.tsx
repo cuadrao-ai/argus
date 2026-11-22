@@ -175,7 +175,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     if (explained) explained.note = t(`business.history.reason.${revision.reason}`);
   }
   if (approval?.status === "recorded") {
-    events.push({ id: "approved", at: approval.approved_at, kind: "approved", line: t("business.history.approved", "Approved"), sub: t("business.history.accepted_note", { form: documentType === "venta" ? "607" : "606" }), who: personName(t, approval.actor), approved: true });
+    events.push({ id: "approved", at: approval.approved_at, kind: "approved", line: t("business.history.approved", "Approved"), sub: t("business.history.accepted_note"), who: personName(t, approval.actor), approved: true });
   }
   const kept = events.filter((event): event is HistoryEvent & { line: string } => event.line !== null);
   if (!kept.length) return null;

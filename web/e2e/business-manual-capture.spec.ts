@@ -221,7 +221,7 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await source.approveDraft(dossierFixtureIds.ready, 2, "fixture-explicit-approval", "record_expense");
   await page.goto(`/biz?draft=${dossierFixtureIds.ready}`);
   // An accepted record says where it went in its Historial and shows no status pill.
-  await expect(page.getByTestId("receipt-review-history")).toContainText("Pasó a Registros y al Reporte 606");
+  await expect(page.getByTestId("receipt-review-history").getByTestId("history-sub")).toHaveText("Pasó a Registros");
   await expect(page.getByTestId("status-pill")).toHaveCount(0);
   await openMore(page);
   await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);

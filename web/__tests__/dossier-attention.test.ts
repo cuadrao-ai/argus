@@ -9,7 +9,18 @@ import { createDossierFixtures, dossierFixtureIds } from "@/components/business-
 import { dossierProblems } from "@/components/business-app/dossier-attention";
 import { LISTO_GAPS, RNC_REGISTRY_STATUSES, type BusinessDossier, type ListoGap } from "@/lib/business-dossier";
 
-const SERVER = join(import.meta.dir, "../../src/argus/domain/business");
+/** The enum values the checked API document lists under one line of it, up to the first line that is not a value. */
+function contractEnum(after: (lines: string[]) => number): string[] {
+  const lines = readFileSync(join(import.meta.dir, "../../docs/api/openapi.yaml"), "utf8").split("\n");
+  const values: string[] = [];
+  for (const line of lines.slice(after(lines) + 1)) {
+    const value = line.match(/^ +- ([a-z_]+)$/);
+    if (value) values.push(value[1]);
+    else if (values.length) break;
+  }
+  return values;
+}
+const within = (schema: string, field: string) => (lines: string[]) => lines.findIndex((line, index) => index > lines.indexOf(`    ${schema}:`) && line === field);
 
 async function setup(locale = "es-419") {
   const i18n = i18next.createInstance();
@@ -20,15 +31,15 @@ async function setup(locale = "es-419") {
 }
 
 describe("why a record is not Listos", () => {
-  test("the web's gap list is the server rule's, reason for reason and in its order", () => {
-    const rule = readFileSync(join(SERVER, "bandeja_group.py"), "utf8").split("\nRULE:")[1].split("\n)\n")[0];
-    const reasons = [...rule.matchAll(/^ {4}\(?\s*"([a-z_]+)"/gm)].map((match) => match[1]);
-    assert.deepEqual([...new Set(reasons)], [...LISTO_GAPS]);
+  test("every gap the web names is one the API's dossier may send", () => {
+    const sent = contractEnum(within("BusinessDossier", "        listo_gaps:"));
+    assert.ok(sent.length, "the API document lists the dossier's gaps");
+    assert.deepEqual(LISTO_GAPS.filter((gap) => !sent.includes(gap)), []);
   });
 
-  test("the web's register statuses are the server's", () => {
-    const source = readFileSync(join(SERVER, "supplier_fast_path.py"), "utf8");
-    const statuses = [...source.split("class RegistryStatus(str, Enum):")[1].split("\n\n\n")[0].matchAll(/= "([a-z_]+)"/g)].map((match) => match[1]);
+  test("the web's register statuses are the API's", () => {
+    const statuses = contractEnum(within("RegistryStatus", "      enum:"));
+    assert.ok(statuses.length, "the API document lists the register statuses");
     assert.deepEqual([...statuses, "not_found"].sort(), [...RNC_REGISTRY_STATUSES].sort());
   });
 

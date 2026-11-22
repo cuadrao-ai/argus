@@ -500,6 +500,19 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       frame={(body, footer) => <ReceiptReviewFrame {...head} tabs={[{ key: "general", content: body }]} tab="general" onTab={setTab} footer={footer} />}
     />
   </ContentFade>{captureDialog}</>);
+  // An unsettled action keeps its way out in view, not only behind Más.
+  const unsettled = !approval && (dossier.approval_result?.status === "failed" || operation.kind === "uncertain" || dossier.approval_result?.status === "outcome_unknown" || dossier.review_state === "accepting");
+  // What an action or a refetch answered is the record's, not General's: the footer acts from every tab.
+  const notices = notice || problem || duplicate || unsettled ? <>
+    {notice}
+    {problem ? <div role="alert" className="text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><p className="flex items-start gap-2"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem.text}</p>{problem.reference ? <ReferenceCode reference={problem.reference} /> : null}</div> : null}
+    {duplicate ? <div role="alert" data-testid="dossier-duplicate" className={SURFACE_CARD}><p className="text-[15px] leading-[22px] text-[#172b26] dark:text-white">{t("business.dossier.duplicate_recorded", "You already recorded this fiscal receipt.")}</p>{duplicate.recordId ? <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "draft", draftId: duplicate.recordId as string })}>{t("business.dossier.see_recorded", "See the recorded one")}</button> : null}</div> : null}
+    {unsettled ? <div className={SURFACE_CARD}>
+      {dossier.approval_result?.status === "failed" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.approval_failed", "Approval did not finish. Check the current record before another action.")}</p> : null}
+      {operation.kind === "uncertain" || dossier.approval_result?.status === "outcome_unknown" || dossier.review_state === "accepting" ? <p role="status" className="mt-3 text-[13px] text-black/70 first:mt-0 dark:text-white/70">{t("business.dossier.outcome_unknown", "The action's outcome isn't known yet. Check the saved status before taking another action.")}</p> : null}
+      <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
+    </div> : null}
+  </> : null;
   const noSource = !attachments.length && !dossier.sources.some((item) => item.kind === "message" || item.kind === "agent_proposal");
   const [original, ...supporting] = attachments;
   const acceptAria = reason ? reasonId : undefined;
@@ -523,10 +536,10 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       jump={position ? { title: origin?.list === "transactions" ? t("business.nav.transactions", "Transactions") : t("business.nav.inbox", "Inbox"), rows: jumpList.rows, onOpen: jumpList.load, onPick: canMove ? openReceipt : () => {} } : null}
       tab={tab}
       onTab={setTab}
+      notices={notices}
       tabs={[
         { key: "general", count: problems.filter((problem) => problem.tab === "general").length, content: <>
           {captureRecovery}
-          {notice}
           <OpenRecordMissingReasons />
           {/* The row in focus or under the pointer marks its value where the message says it verbatim. */}
           <div
@@ -549,14 +562,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
             } : undefined} />
           </div>
           <ReceiptReviewQuestions questions={dossier.questions} />
-          {problem ? <div role="alert" className="text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><p className="flex items-start gap-2"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem.text}</p>{problem.reference ? <ReferenceCode reference={problem.reference} /> : null}</div> : null}
-          {duplicate ? <div role="alert" data-testid="dossier-duplicate" className={SURFACE_CARD}><p className="text-[15px] leading-[22px] text-[#172b26] dark:text-white">{t("business.dossier.duplicate_recorded", "You already recorded this fiscal receipt.")}</p>{duplicate.recordId ? <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "draft", draftId: duplicate.recordId as string })}>{t("business.dossier.see_recorded", "See the recorded one")}</button> : null}</div> : null}
-          {/* An unsettled action keeps its way out in view, not only behind Más. */}
-          {!approval && (dossier.approval_result?.status === "failed" || operation.kind === "uncertain" || dossier.approval_result?.status === "outcome_unknown" || dossier.review_state === "accepting") ? <div className={SURFACE_CARD}>
-            {dossier.approval_result?.status === "failed" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.approval_failed", "Approval did not finish. Check the current record before another action.")}</p> : null}
-            {operation.kind === "uncertain" || dossier.approval_result?.status === "outcome_unknown" || dossier.review_state === "accepting" ? <p role="status" className="mt-3 text-[13px] text-black/70 first:mt-0 dark:text-white/70">{t("business.dossier.outcome_unknown", "The action's outcome isn't known yet. Check the saved status before taking another action.")}</p> : null}
-            <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
-          </div> : null}
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
         </> },
         { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} onBusy={setFiscalBusy} onDirty={setFiscalDirty} saved={fiscalSaved === dossier} onChanged={(value) => { setFiscalSaved(value); setDossier(value); reload(); }} /> },
