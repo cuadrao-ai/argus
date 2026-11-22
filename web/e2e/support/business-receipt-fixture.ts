@@ -12,7 +12,7 @@ export type BusinessOverride = (parts: string[], route: Route, source: Source) =
 export async function installReceiptBusiness(page: Page, override?: BusinessOverride, theme: "light" | "dark" = "light") {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await installBreakpointFixture(page, { language: "es-419", theme, emptyChat: true });
-  const source = createFixtureBusinessDataSource({ chatAvailable: false });
+  const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { enabled: true } });
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const parts = url.pathname.split("/business/")[1].split("/");
@@ -28,7 +28,6 @@ export async function installReceiptBusiness(page: Page, override?: BusinessOver
       else if (parts[0] === "spaces") json = { spaces: await source.spaces() };
       else if (parts[0] === "workspace") json = await source.workspace();
       else if (parts[0] === "overview") json = await source.overview(url.searchParams.get("from") ?? "2026-10-01", url.searchParams.get("to") ?? "2026-10-31");
-      else if (parts[0] === "receipt-reading") json = { enabled: true, available: true, can_change: true, disclosure: "Permiso", disclosure_token: "a".repeat(64), route: { gateway: "synthetic", interpretation: [], reply: [] }, consented_at: null, revoked_at: null };
       else if (parts[0] === "receipts" && parts.length === 1) json = await source.receiptPage!(url.searchParams.get("view") === "all" ? "all" : "inbox");
       else if (parts[0] === "receipts" && parts[2] === "source") {
         const blob = await source.receiptSource(parts[1]);

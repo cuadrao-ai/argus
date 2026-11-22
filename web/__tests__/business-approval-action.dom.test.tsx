@@ -47,7 +47,7 @@ for (const mode of ["live", "fixture"] as const) {
     // The facts say expense; the server's approval_action is the one that approves.
     const page = await mountReview(await ready({ approval_action: "record_income" }), mode);
     try {
-      const button = page.approve("Aprobar ingreso");
+      const button = page.approve("Aceptar ingreso");
       assert.ok(button, "the label follows the server's action");
       assert.equal(button.disabled, false);
       await page.act(async () => button.click());
@@ -60,7 +60,7 @@ test("with no approval action from the server there is nothing to approve", asyn
   for (const approval_action of [null, undefined]) {
     const page = await mountReview(await ready({ approval_action }), "live");
     try {
-      const button = page.approve("Aprobar");
+      const button = page.approve("Aceptar");
       assert.ok(button);
       assert.equal(button.disabled, true);
       await page.act(async () => button.click());

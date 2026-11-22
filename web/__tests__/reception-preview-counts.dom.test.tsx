@@ -11,6 +11,7 @@ let cleanup = async () => {};
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 1000 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => {
   await cleanup(); cleanup = async () => {};
+  window.history.replaceState(null, "", "/biz");
   window.localStorage.clear();
   (await import("@/components/business-app/foundation/toasts")).clearToasts();
   (await import("@/components/layout/overlayStack")).resetOverlayStack();
@@ -154,16 +155,16 @@ test("the tab numbers are the server's, not a count of the rows loaded", async (
 
 test("every row sits on the tab its server group names, so each tab shows as many rows as its number", async () => {
   // As the server counts this Business: Listos holds the three receipts and the note being approved; Por resolver holds two receipts, the open note and the email that brought nothing; the receipt and the email still being read are on Todos only.
-  const accepting: BusinessCapture = { draft_id: "accepting-note", source_id: "accepting-source", version: 2, revision: 2, text: "Nota en aprobación", received_at: "2026-10-27T12:00:00Z", review_state: "accepting", bandeja_group: { group: "listo", reason: null, label: "ready", draft_id: null, version: null } };
+  const accepting: BusinessCapture = { draft_id: "accepting-note", source_id: "accepting-source", version: 2, revision: 2, text: "Nota en aceptación", received_at: "2026-10-27T12:00:00Z", review_state: "accepting", bandeja_group: { group: "listo", reason: null, label: "ready", draft_id: null, version: null } };
   const page = await mount({ extraNotes: [accepting], activity: { bandeja_attention_count: 4, bandeja_listo_count: 4 } });
   assert.equal(rows(page).length, 10, "six receipts, two notes and two emails on Todos");
   for (const view of ["attention", "listos"] as const) {
     await page.click(page.tab(view));
     assert.equal(String(rows(page).length), page.badge(view), view);
   }
-  assert.ok(page.row("Nota en aprobación"), "the note being approved is on Listos");
+  assert.ok(page.row("Nota en aceptación"), "the note being approved is on Listos");
   await page.click(page.tab("attention"));
-  assert.equal(page.row("Nota en aprobación"), undefined, "and not on Por resolver");
+  assert.equal(page.row("Nota en aceptación"), undefined, "and not on Por resolver");
   assert.ok(page.row("Nota admitida"));
   const emails = () => rows(page).filter(row => row.getAttribute("data-kind") === "email").map(row => row.textContent?.includes("Boletín semanal") ? "boletin" : "other");
   assert.deepEqual(emails(), ["boletin"], "the email that brought nothing needs attention; the one being read does not");
@@ -457,7 +458,7 @@ test("the page box takes the Listos rows", async () => {
   assert.equal(approveSelected(page), null, "taking the page box off clears the page");
 });
 
-for (const [who, options] of [["an accountant", { role: "accountant" as const }], ["a viewer", { prepare: false }]] as const) test(`${who} sees no selection and no Aprobar todos, on the server's word`, async () => {
+for (const [who, options] of [["an accountant", { role: "accountant" as const }], ["a viewer", { prepare: false }]] as const) test(`${who} sees no selection and no Aceptar todos, on the server's word`, async () => {
   const page = await mount(options);
   assert.equal(page.host.querySelector('input[type="checkbox"]'), null);
   await page.click(page.tab("listos"));
@@ -474,7 +475,7 @@ test("nothing is approved until the owner confirms the count", async () => {
   await page.click(box(page, "Listo tres"));
   await page.click(approveSelected(page));
   assert.equal(calls.length, 0);
-  assert.match(document.querySelector('[role="alertdialog"]')?.textContent ?? "", /¿Aprobar 2 recibos\?/);
+  assert.match(document.querySelector('[role="alertdialog"]')?.textContent ?? "", /¿Aceptar 2 recibos\?/);
   await page.click([...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find(button => button.textContent === "Cancelar"));
   assert.equal(calls.length, 0);
   assert.equal(box(page, "Listo uno")?.checked, true, "cancelling keeps the selection");
@@ -498,13 +499,13 @@ test("a second press of the confirm sends nothing more", async () => {
   assert.equal(calls.length, 1);
 });
 
-test("Aprobar todos sits on Listos and takes every Listos row in view, past the page", async () => {
+test("Aceptar todos sits on Listos and takes every Listos row in view, past the page", async () => {
   const { calls, approveListos } = answering();
   const page = await mount({ approveListos });
   assert.equal(page.host.querySelector('[data-testid="reception-approve-all"]'), null, "not on Todos");
   await page.click(page.tab("listos"));
   await page.click(page.host.querySelector<HTMLButtonElement>('[data-testid="reception-approve-all"]'));
-  assert.match(document.querySelector('[role="alertdialog"]')?.textContent ?? "", /¿Aprobar 3 recibos\?/);
+  assert.match(document.querySelector('[role="alertdialog"]')?.textContent ?? "", /¿Aceptar 3 recibos\?/);
   await page.click(confirmButton());
   await page.settle(() => calls.length === 1);
   assert.deepEqual(calls[0].items.map(item => item.draft_id).sort(), ["draft-dos", "draft-tres", "draft-uno"]);
@@ -538,15 +539,15 @@ test("a partial failure says which, and those stay selected in Listos; only the 
   const failure = () => page.host.querySelector<HTMLElement>('[data-testid="reception-approval-failure"]');
   await page.settle(() => failure() !== null);
   assert.equal(failure()?.getAttribute("role"), "alert");
-  assert.match(failure()?.textContent ?? "", /No se aprobaron 2 de 3/);
+  assert.match(failure()?.textContent ?? "", /No se aceptaron 2 de 3/);
   const failedRows = [...page.host.querySelectorAll('[data-testid="reception-approval-failed-row"]')].map(row => row.textContent);
-  assert.deepEqual(failedRows, ["Listo dosEste comprobante ya está registrado", "Listo tresNo sabemos si se aprobó. Reintenta para confirmarlo."]);
+  assert.deepEqual(failedRows, ["Listo dosEste comprobante ya está registrado", "Listo tresNo sabemos si se aceptó. Reintenta para confirmarlo."]);
   assert.equal(box(page, "Listo uno")?.checked, false);
   assert.deepEqual([box(page, "Listo dos")?.checked, box(page, "Listo tres")?.checked], [true, true]);
   await page.click([...failure()!.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Reintentar"));
   await page.settle(() => calls.length === 2);
   assert.deepEqual(calls[1], { items: [{ draft_id: "draft-tres", version: 3 }], key: calls[0].key });
-  await page.settle(() => /No se aprobó 1 de 3/.test(failure()?.textContent ?? ""));
+  await page.settle(() => /No se aceptó 1 de 3/.test(failure()?.textContent ?? ""));
   assert.equal([...failure()!.querySelectorAll("button")].some(button => button.textContent === "Reintentar"), false, "a refusal is not retried");
 });
 

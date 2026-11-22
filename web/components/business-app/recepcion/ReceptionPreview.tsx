@@ -3,7 +3,7 @@
 import BusinessListTabs from "../foundation/BusinessListTabs";
 import GuideCard from "../foundation/GuideCard";
 
-import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { sentByName } from "@/lib/sent-by";
 import { Check } from "lucide-react";
@@ -14,7 +14,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useReceivingChannels } from "../business-context";
-import { useBusiness } from "../BusinessWorkspace";
+import { RECEPTION_VIEW_PARAM, useBusiness } from "../BusinessWorkspace";
 import ReceiptReadingControl from "../ReceiptReadingControl";
 import { loadFailure, type LoadFailure } from "../bandeja-sources";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -50,12 +50,30 @@ import { receptionGrid } from "./reception-grid";
 import styles from "./reception.module.css";
 
 const VIEWS: ReceptionView[] = ["all", "attention", "listos", "eliminados"];
+const VIEW_CHANGE = "reception-view-change";
+const readView = (): ReceptionView => {
+  const value = new URLSearchParams(window.location.search).get(RECEPTION_VIEW_PARAM);
+  return VIEWS.find(view => view === value) ?? "all";
+};
+const subscribeView = (notify: () => void) => {
+  window.addEventListener("popstate", notify);
+  window.addEventListener(VIEW_CHANGE, notify);
+  return () => { window.removeEventListener("popstate", notify); window.removeEventListener(VIEW_CHANGE, notify); };
+};
+// Replace, like the workspace's own panel address: a tab is not a history step.
+function writeView(view: ReceptionView) {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get(RECEPTION_VIEW_PARAM) === view) return;
+  url.searchParams.set(RECEPTION_VIEW_PARAM, view);
+  window.history.replaceState(null, "", url);
+  window.dispatchEvent(new Event(VIEW_CHANGE));
+}
 /** Each tab's word, under `business.reception_preview`. */
 const VIEW_WORD: Record<ReceptionView, string> = { all: "all", attention: "attention", listos: "placeholder.listos", eliminados: "eliminados" };
 type ArrivalLoad = { scope: string; source: ReturnType<typeof useBusiness>["source"]; items: ReceiptSummary[]; failure: LoadFailure | null };
 
 
-type ReturnPosition = { scope: string; view: ReceptionView; filters: ReceptionFiltersValue; query: string; page: number; pageSize: PaginationState["pageSize"]; period: Period; admittedIds: string[] | null; selectedIds: string[] };
+type ReturnPosition = { scope: string; filters: ReceptionFiltersValue; query: string; page: number; pageSize: PaginationState["pageSize"]; period: Period; admittedIds: string[] | null; selectedIds: string[] };
 // Only the immediate dossier return uses this in-memory snapshot. Reload never restores it.
 const dossierReturns = new WeakMap<object, ReturnPosition>();
 
@@ -77,8 +95,8 @@ function ReceptionWorkspace() {
   useEffect(() => { if (panel.kind === "inbox") dossierReturns.delete(source); }, [source, panel.kind]);
   const [loaded, setLoaded] = useState<ArrivalLoad | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [view, setView] = useState<ReceptionView>(returnPosition?.view ?? (panel.kind === "inbox" ? panel.view : undefined) ?? "all");
-  useEffect(() => { if (panel.kind === "inbox" && panel.view === "eliminados") setView("eliminados"); }, [panel]);
+  const view = useSyncExternalStore<ReceptionView>(subscribeView, readView, () => "all");
+  useEffect(() => { if (panel.kind === "inbox" && panel.view === "eliminados") writeView("eliminados"); }, [panel]);
   const stateWord = useReceiptStateWord();
   const [deleting, setDeleting] = useState<ReceptionRow | null>(null);
   const deletedNotes = useDeletedNotes(view === "eliminados");
@@ -98,7 +116,7 @@ function ReceptionWorkspace() {
   }, [deletedNotes.items]);
   const [selectedIds, setSelectedIds] = useState<string[]>(returnPosition?.selectedIds ?? []);
   const list = useRef<HTMLDivElement>(null);
-  const chooseTab = (next: ReceptionView) => { setView(next); setSelectedIds([]); setPage(1); };
+  const chooseTab = (next: ReceptionView) => { writeView(next); setSelectedIds([]); setPage(1); };
   const applyFilters = (next: ReceptionFiltersValue) => { setFilters(next); setSelectedIds([]); setPage(1); };
   const [query, setQuery] = useState(returnPosition?.query ?? "");
   const [preferences, setPreferences] = useReceptionPreferences();
@@ -171,7 +189,7 @@ function ReceptionWorkspace() {
   const selectable = view === "listos" && chosen?.capabilities.includes("approve") === true;
   const columns = shownReceptionColumns(preferences);
   const navigateFrom = (next: Parameters<typeof openPanel>[0]) => {
-    dossierReturns.set(source, { scope, view, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
+    dossierReturns.set(source, { scope, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
     openPanel(next.kind === "receipt" || next.kind === "draft"
       ? { ...next, receiptIds: matched.flatMap(row => row.kind === "receipt" ? [row.id] : []) }
       : next);
@@ -239,7 +257,7 @@ function ReceptionWorkspace() {
         <div className={styles.tools}>{reviewNext && !searchOnly ? <button type="button" data-testid="business-primary-review" className={`${styles.quietAction} rounded-full`} onClick={() => navigateFrom({ kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}{allListos.length && !selected.length ? <button type="button" data-testid="reception-approve-all" className={`${styles.quietAction} rounded-full`} onClick={() => approval.ask(allListos)}><Check size={16} aria-hidden="true" />{word("placeholder.approve_all")}</button> : null}<ReceptionAddMenu key={scope} addInBar={barTools} />{searchOnly ? <span className={styles.settingsSlot} aria-hidden="true" /> : <ReceptionSettings value={preferences} onChange={setPreferences} />}</div>
       </div>
       {searchOnly ? null : <ReceptionFilterChips value={filters} senders={senders} onChange={applyFilters} />}
-      <ReceiptReadingControl />
+      <ReceiptReadingControl pending={waiting} />
       {approval.failed.length ? <ReceptionApprovalFailure failed={approval.failed} attempted={approval.attempted} onRetry={approval.retry} onDismiss={approval.dismiss} /> : null}
       {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : onlySourcesFailed ? t(`business.inbox.${sourcesLine}`) : word("error")}{refusedForGood ? <> {t("auth.business_unavailable.body", { supportEmail })}</> : null}{reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
       <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${view}`} tabIndex={0} className={styles.list} data-surface-block="list">

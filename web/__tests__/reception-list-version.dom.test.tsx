@@ -23,7 +23,7 @@ async function mount(paged: boolean, listVersion: string | null = "version-1") {
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } } });
   const seed = (await fixture.receipts("all"))[0];
   const inbox: ReceiptSummary[] = [{ ...seed, id: "inbox-receipt", merchant: "Recibo pendiente" }];
-  let all: ReceiptSummary[] = [...inbox, { ...seed, id: "accepted-receipt", merchant: "Recibo aprobado", bandeja_group: { group: null, reason: null, label: "accepted", draft_id: null, version: null } }];
+  let all: ReceiptSummary[] = [...inbox, { ...seed, id: "accepted-receipt", merchant: "Recibo aceptado", bandeja_group: { group: null, reason: null, label: "accepted", draft_id: null, version: null } }];
   let reads = 0;
   const readAll = async (view: string) => { assert.equal(view, "all"); reads++; return all; };
   let context: BusinessContextValue = {
@@ -59,13 +59,13 @@ for (const paged of [true, false]) {
   test(`${method}: a new list version updates Todos while the inbox stays identical`, async () => {
     const page = await mount(paged);
     const inbox = page.inbox();
-    assert.match(page.titles(), /Recibo aprobado/);
+    assert.match(page.titles(), /Recibo aceptado/);
     assert.equal(page.reads(), 1);
     page.editAccepted();
     await page.tick({ listVersion: "version-2" });
     assert.strictEqual(page.inbox(), inbox);
     assert.match(page.titles(), /Recibo corregido/);
-    assert.doesNotMatch(page.titles(), /Recibo aprobado/);
+    assert.doesNotMatch(page.titles(), /Recibo aceptado/);
     assert.equal(page.reads(), 2);
     assert.equal(page.host.querySelector('[role="status"], [role="progressbar"]'), null, "refresh stays quiet");
   });
@@ -78,7 +78,7 @@ for (const paged of [true, false]) {
     assert.equal(page.reads(), 1, "answered checks and new array identities do not re-read");
     await page.tick({ inbox: page.inbox()!.map(row => ({ ...row, merchant: "Cambio en inbox" })) });
     assert.equal(page.reads(), 1, "inbox content is not a second trigger when a version exists");
-    assert.match(page.titles(), /Recibo aprobado/, "Todos still comes from the all response");
+    assert.match(page.titles(), /Recibo aceptado/, "Todos still comes from the all response");
     assert.doesNotMatch(page.titles(), /Cambio en inbox|Recibo corregido/);
   });
 

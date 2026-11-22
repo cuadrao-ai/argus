@@ -136,7 +136,7 @@ describe("a record in the desktop tray", () => {
     assert.deepEqual(order, ["receipt-review-source", "receipt-review-fields", "receipt-review-history"]);
     assert.equal(review.querySelector('[data-testid="receipt-review-footer"]'), null, "no in-page sticky footer");
     const footer = page.tray()!.querySelector('[data-footer-slot]')!;
-    assert.ok([...footer.querySelectorAll("button")].some((button) => button.textContent === "Aprobar"), "Aprobar is in the pinned footer");
+    assert.ok([...footer.querySelectorAll("button")].some((button) => button.textContent === "Aceptar"), "Aceptar is in the pinned footer");
   });
 
   test("clicking another row swaps the record in the same tray", async () => {

@@ -38,6 +38,7 @@ const note = (draft_id: string, text: string, received_at: string): BusinessCapt
   ({ draft_id, version: 2, revision: 1, source_id: `${draft_id}-1`, text, received_at, review_state: "open", bandeja_group: noteGroup("open", draft_id, 2) });
 
 async function mount({ width = 800, overrides = () => ({}), panel }: { width?: number; overrides?: (fixture: BusinessDataSource) => Partial<BusinessDataSource>; panel?: BusinessPanelState } = {}) {
+  window.history.replaceState(null, "", "/biz");
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");

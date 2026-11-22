@@ -56,7 +56,7 @@ async function render(node: (context: BusinessContextValue) => ReactNode, overri
   return { act, host, opened, uploads, settle, button, close: async () => { await act(async () => root.unmount()); host.remove(); } };
 }
 
-/** A fiscal receipt whose RNC has the right length, so Aprobar goes straight to the server. */
+/** A fiscal receipt whose RNC has the right length, so Aceptar goes straight to the server. */
 async function fiscalDossier(): Promise<BusinessDossier> {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.fiscal);
   assert.ok(dossier.facts.fiscal);
@@ -88,7 +88,7 @@ test("a duplicate comprobante refusal names it and opens the record already appr
   const { default: Review } = await import("@/components/business-app/ReceiptDossierReview");
   const page = await render(() => <Review draftId={dossier.draft_id} />);
   try {
-    const approve = page.button("Aprobar");
+    const approve = page.button("Aceptar");
     assert.ok(approve, "approval is offered");
     await page.act(async () => approve.click());
     await page.settle();
@@ -113,7 +113,7 @@ test("a duplicate refusal without an id still says so, with no dead button", asy
   const { default: Review } = await import("@/components/business-app/ReceiptDossierReview");
   const page = await render(() => <Review draftId={dossier.draft_id} />);
   try {
-    await page.act(async () => page.button("Aprobar")!.click());
+    await page.act(async () => page.button("Aceptar")!.click());
     await page.settle();
     assert.match(page.host.querySelector('[data-testid="dossier-duplicate"]')?.textContent ?? "", /Ya registraste este comprobante\./);
     assert.equal(page.button("Ver el registrado"), undefined);
@@ -122,7 +122,7 @@ test("a duplicate refusal without an id still says so, with no dead button", asy
   }
 });
 
-test("a disabled Aprobar is described by the top box, which names the missing facts", async () => {
+test("a disabled Aceptar is described by the top box, which names the missing facts", async () => {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.ready);
   dossier.approval_available = false;
   dossier.blockers = [{ code: "fact_required", field: "funding" }, { code: "fact_required", field: "business_share" }];
@@ -130,7 +130,7 @@ test("a disabled Aprobar is described by the top box, which names the missing fa
   const { default: Review } = await import("@/components/business-app/ReceiptDossierReview");
   const page = await render(() => <Review draftId={dossier.draft_id} />);
   try {
-    const approve = page.button("Aprobar");
+    const approve = page.button("Aceptar");
     assert.ok(approve);
     assert.equal(approve.disabled, true);
     assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null, "the footer holds the action; the top box says what is missing");
