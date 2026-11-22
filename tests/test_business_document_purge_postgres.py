@@ -19,6 +19,7 @@ from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_document_delete_postgres as deleting
+from tests.business.action_counts import NO_ROWS
 from tests.document_sources_support import source_objects
 
 users = shared.users
@@ -90,7 +91,11 @@ def test_owner_purge_removes_the_document_and_keeps_one_nameless_entry(
     purged = deleting._act(client, target, "purge", key)
 
     assert purged.status_code == 200, purged.text
-    assert purged.json() == {"document_id": str(target), "deleted": True}
+    assert purged.json() == {
+        "document_id": str(target),
+        "deleted": True,
+        "inbox_counts": NO_ROWS,
+    }
     assert deleting._act(client, target, "purge", key).json() == purged.json()
     with service.authority.pool.connection() as db:
         assert set(_remaining(db, context.actor.space_id, cid, draft_id).values()) == {0}

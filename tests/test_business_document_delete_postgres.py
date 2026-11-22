@@ -23,6 +23,7 @@ from fastapi.testclient import TestClient
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_receipt_activity_postgres as receipts
+from tests.business.action_counts import NO_ROWS, count_no_rows
 from tests.business.test_business_api import RECEIPT
 
 users = shared.users
@@ -36,6 +37,7 @@ def _client(service, context):
     app = FastAPI()
     add_core_middleware_and_handlers(app)
     app.include_router(router, prefix="/api/v1")
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, context.actor.actor_id, str(context.actor.space_id), context.grant_id
     )
@@ -144,7 +146,11 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
     key = str(uuid4())
     deleted = _act(client, target, "delete", key)
     assert deleted.status_code == 200, deleted.text
-    assert deleted.json() == {"document_id": str(target), "deleted": True}
+    assert deleted.json() == {
+        "document_id": str(target),
+        "deleted": True,
+        "inbox_counts": NO_ROWS,
+    }
     assert _act(client, target, "delete", key).json() == deleted.json()
     rows = receipt_summaries(web, "all")
     [view] = [row for row in rows if row["id"] == cid]

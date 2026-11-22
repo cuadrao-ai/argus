@@ -8309,8 +8309,12 @@ Amounts remain outside this change (#2176).
 `POST /business/drafts/{draft_id}/restore` require `Idempotency-Key` and the
 same owner-only `approve` permission as approval. The identifier is a draft
 UUID or the receipt connection UUID already used by the Bandeja when no draft
-exists. No body is required. Both return `{document_id, deleted}` and
-`Cache-Control: no-store`. Repeating the same action key returns its saved
+exists. No body is required. Both return `{document_id, deleted,
+inbox_counts}` and `Cache-Control: no-store`. `inbox_counts` is the
+`ReceiptActivityCounts` object `GET /business/receipt-activity` returns, read
+after the action from the same function, so the web shows the new counts from
+this answer and needs no second read. The counts are read when the answer is
+made: a repeated key returns the saved outcome with the counts of now. Repeating the same action key returns its saved
 outcome without another change. Reusing it for another action or document
 returns 409 `business_action_conflict`.
 
@@ -8363,8 +8367,9 @@ is the deletion `at` plus 7 days; the stored marker does not hold it.
 
 `POST /business/drafts/{draft_id}/purge` purges one deleted document at once.
 It requires `Idempotency-Key`, the owner-only `approve` permission and a person
-actor, takes no body, and returns `{document_id, deleted: true}` with
-`Cache-Control: no-store`. The identifier rules match delete and restore. A
+actor, takes no body, and returns `{document_id, deleted: true,
+inbox_counts}` with `Cache-Control: no-store`; `inbox_counts` is the same
+object delete and restore return. The identifier rules match delete and restore. A
 document outside Eliminados returns 422 `business_document_not_deleted`;
 shared attachments return 422 `business_document_ambiguous`; a Business whose
 owner account is being deleted or whose files are being moved returns 422
@@ -8556,7 +8561,10 @@ answers 403 `business_permission_denied` and nothing runs, so only the owner
 reaches an item.
 
 The answer is 200 with `{results: [{draft_id, outcome, code, activity_id,
-existing_record_id}]}`, one result per item in the order named. `outcome` is
+existing_record_id}], inbox_counts}`, one result per item in the order named.
+`inbox_counts` is the `ReceiptActivityCounts` object
+`GET /business/receipt-activity` returns, read after every item ran; a replay
+returns the counts of now. `outcome` is
 `applied`, `refused` or `outcome_unknown`. A partial failure leaves the rest:
 every item runs whatever the one before it answered, and a refused receipt stays
 open. Each item runs `record_expense` on the same approval path as
@@ -9036,6 +9044,9 @@ sender who is not yet authorized is refused with 403 `email_sender_unauthorized`
 until that sender is authorized. Nothing in the message is approved by receiving
 it. Both approval variants and unchanged human
 review return the authoritative `BusinessDossier` with `Cache-Control: no-store`.
+An approval's answer also carries `inbox_counts`, the `ReceiptActivityCounts`
+object `GET /business/receipt-activity` returns, read after the approval; review
+answers carry none.
 The same no-store problem responses and refusal mapping apply to both variants.
 Human review and approval remain separate from model actions. This contract
 extension does not claim delivery of the pending income handler.

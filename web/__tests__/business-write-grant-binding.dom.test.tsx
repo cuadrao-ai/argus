@@ -124,12 +124,12 @@ test("a file that failed in A retries to A after the person moved to B", async (
   assert.deepEqual(sent.map((request) => request.grant), [A, A]);
 });
 
-async function mount(element: () => ReactElement, source: Partial<BusinessContextValue["source"]>) {
+async function mount(element: () => ReactElement, source: Partial<BusinessContextValue["source"]>, typedNotes = false) {
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const context = {
     source,
-    records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, receipt_limits: limits }, overview: null, inbox: [], notes: [], notesError: false, notesTruncated: false, error: false },
+    records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, typed_notes_available: typedNotes, receipt_limits: limits }, overview: null, inbox: [], notes: [], notesError: false, notesTruncated: false, error: false },
     bridge: null,
   } as unknown as BusinessContextValue;
   const host = document.createElement("div");
@@ -172,7 +172,7 @@ test("a record note retried after the person moved to B still goes to A, where i
     if (lose) { lose = false; throw new TypeError("Failed to fetch"); }
     return { draft_id: "draft-a" } as Awaited<ReturnType<typeof api.captureBusinessNote>>;
   };
-  const page = await mount(() => <ManualCaptureDialog isOpen onClose={() => undefined} onSaved={() => undefined} />, { captureNote });
+  const page = await mount(() => <ManualCaptureDialog isOpen onClose={() => undefined} onSaved={() => undefined} />, { captureNote }, true);
   const field = document.querySelector<HTMLTextAreaElement>("textarea")!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(field, "Pagué RD$900 de flete");

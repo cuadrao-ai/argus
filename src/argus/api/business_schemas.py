@@ -21,8 +21,12 @@ from argus.domain.business.bandeja_group import (
     BandejaReason,
 )
 from argus.domain.business.contracts.authority import PersonName
-from argus.domain.business.contracts.deletion import DeletedDocument
-from argus.domain.business.contracts.dossier import RecordContext
+from argus.domain.business.contracts.deletion import (
+    DeletedDocument,
+    DocumentActionResult,
+)
+from argus.domain.business.contracts.dossier import BusinessDossier, RecordContext
+from argus.domain.business.contracts.listos import ListosApproved
 from argus.domain.business.country import CountryCode
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipt_consent import SCOPE_VERSION
@@ -321,6 +325,21 @@ class ReceiptActivityCounts(_Wire):
     confirmed_count: int = 0
     dismissed_count: int = 0
     bandeja_eliminados_count: int = 0
+
+
+# An action that moves a row of the Bandeja answers with ``inbox_counts``, the
+# counts ``GET /business/receipt-activity`` gives right after it. They are read
+# when the answer is made, so a replayed key answers with the counts of then.
+class DocumentActionCounted(DocumentActionResult):
+    inbox_counts: ReceiptActivityCounts
+
+
+class ListosApprovedCounted(ListosApproved):
+    inbox_counts: ReceiptActivityCounts
+
+
+class DossierApprovedCounted(BusinessDossier):
+    inbox_counts: ReceiptActivityCounts
 
 
 class ReceiptReadingBody(_Wire):

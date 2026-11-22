@@ -3,11 +3,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
-import type { BusinessCaptureInput } from "@/lib/business-api";
+import { businessTypedNotesAvailable, type BusinessCaptureInput } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { randomId } from "@/lib/random-id";
 import { getChosenGrant } from "@/lib/business-grant";
-import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { useBusiness } from "./BusinessWorkspace";
 import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import NoteCount, { NOTE_LIMIT, noteLength, withinNoteLimit } from "./NoteCount";
@@ -35,7 +34,7 @@ export default function ManualCaptureDialog({ isOpen, target, revision, onClose,
 }) {
   const { t } = useTranslation();
   const textId = useId();
-  const { source } = useBusiness();
+  const { source, records } = useBusiness();
   const [text, setText] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -46,6 +45,9 @@ export default function ManualCaptureDialog({ isOpen, target, revision, onClose,
   const inFlight = useRef(false);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const available = businessTypedNotesAvailable(records.workspace);
+  // The server can turn typed notes off while the note is open; a hidden dialog must not stay open and hold the record busy.
+  useEffect(() => { if (isOpen && !available && phase !== "saving") onClose(); }, [isOpen, available, phase, onClose]);
 
   const save = async () => {
     if (inFlight.current || phase === "refused" || !validCaptureText(text)) return;
@@ -83,7 +85,7 @@ export default function ManualCaptureDialog({ isOpen, target, revision, onClose,
     } finally { inFlight.current = false; }
   };
 
-  if (!NOTES_ENTRY_ENABLED || !isOpen) return null;
+  if (!available || !isOpen) return null;
   const saving = phase === "saving";
   const displayedTarget = submittedTarget ?? target;
   return <AdaptivePanel title={t(target ? "business.capture.append" : "business.capture.write", target ? "Add a note to this record" : "Save a note")} closeLabel={t("common.close", "Close")} onClose={() => { if (!saving) onClose(); }} width="md">
