@@ -8416,7 +8416,7 @@ it returns 503 `business_guide_unavailable` with a request reference.
 
 A Business owner explicitly enables scope version 3 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
 
-`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the scope version, configured route and exact words shown as its acceptance record. For the Business and its live consenting Owner, `enabled` depends on that generation remaining unrevoked. A change of model, gateway, scope version or disclosure keeps reading on with the same consent ID and never asks for consent again. An accepted ownership transfer or loss of the consenting person's Owner role still revokes the generation; the recipient must enable reading explicitly. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the one the `GET` returned (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
+`GET /business/workspace?language=en|es-419` returns the current permission and disclosure in `receipt_reading`. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the scope version, configured route and exact words shown as its acceptance record. For the Business and its live consenting Owner, `enabled` depends on that generation remaining unrevoked. A change of model, gateway, scope version or disclosure keeps reading on with the same consent ID and never asks for consent again. An accepted ownership transfer or loss of the consenting person's Owner role still revokes the generation; the recipient must enable reading explicitly. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the version in `receipt_reading` (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
 
 The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
@@ -9931,8 +9931,8 @@ person starts their space, every route below except POST `/space` answers 404
   `created` is always done. `fiscal_identity` is done when the RNC or cédula is
   saved and the name is not a default. `receiving_address` is done when the
   receiving address can receive, as GET `/api/v1/business/email` says.
-  `receipt_reading` is done when the owner turned reading on, as GET
-  `/api/v1/business/receipt-reading` says. `first_document` is done once the
+  `receipt_reading` is done when `GET /api/v1/business/workspace` returns
+  `receipt_reading.enabled` as true. `first_document` is done once the
   Business received a document by any channel; opening upload, copying the
   address or linking a phone does not complete it. `team` is done once someone was
   invited or holds access besides the owner. `whatsapp` is done when a number is
@@ -10223,15 +10223,13 @@ accept path recorded.
   `business_typed_notes_unavailable`, and the web offers no "Escríbelo" in Agregar. Saved notes
   still list, open, accept, delete and restore, and a capture with `draft` still saves.
   `country` and `currency` are the Business's own,
-  the same values `GET /business/space` returns. `receipt_reading` carries the existing
-  `GET /business/receipt-reading` answer for this Business, including `enabled`,
-  `can_change`, and the disclosure used by the switch; it is null when the reading
+  the same values `GET /business/space` returns. `receipt_reading` carries the reading permission
+  for this Business, including `enabled`, `can_change`, and the disclosure used by the switch; it is null when the reading
   permission service is unavailable, never an invented off state. Optional query
   `language=en|es-419` (default `en`) selects that disclosure's language.
   `BusinessReceiptConsentStore`, backed by `business_receipt_reading_consents`,
-  remains the setting's owner. The web reads it once with the workspace bootstrap;
-  it does not issue a separate receipt-reading GET. While the list loads, only an
-  off setting reserves the notice's space. The existing receipt-reading POST
+  remains the setting's owner. The web reads it once with the workspace bootstrap.
+  While the list loads, only an off setting reserves the notice's space. The existing receipt-reading POST
   remains the mutation endpoint. `records_default_currency` is the
   server-owned initial Registros selection, currently DOP, independent of the
   Business currency. Its supported values are DOP, USD and EUR. The web waits for

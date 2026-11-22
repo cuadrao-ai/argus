@@ -954,7 +954,6 @@ async def upload_receipt(
     return await run_in_threadpool(receipt_summary, context, receipt)
 
 
-@router.get("/receipt-reading")
 def receipt_reading(
     request: Request,
     language: Literal["en", "es-419"] = "en",

@@ -70,8 +70,15 @@ class Owner:
             headers["Idempotency-Key"] = key
         return self.client.post(BASE + path, json=body, headers={**self.auth, **headers})
 
+    def reading_status(self, **params: str) -> dict:
+        response = self.get("/workspace", **params)
+        assert response.status_code == 200, response.text
+        setting = response.json()["receipt_reading"]
+        assert setting is not None
+        return setting
+
     def reading(self, enabled: bool):
-        shown = self.get("/receipt-reading").json()
+        shown = self.reading_status()
         return self.post(
             "/receipt-reading",
             {
@@ -103,7 +110,7 @@ class Owner:
             "Idempotency-Key": str(uuid4()),
             "X-Document-Filename": quote(name),
         }
-        shown = self.get("/receipt-reading").json()
+        shown = self.reading_status()
         if not consent and shown["enabled"]:
             assert (
                 self.post(
@@ -336,7 +343,7 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
             "email": {"available": False}, "whatsapp": {"available": False}
         },
         "logo_url": None,
-        "receipt_reading": alice.get("/receipt-reading").json(),
+        "receipt_reading": empty["receipt_reading"],
         "receipt_limits": {
             "max_bytes": 10485760,
             "media_types": [
@@ -475,7 +482,7 @@ def test_saved_receipt_prepares_only_with_consent(
         "document_extraction_consent_required",
     )
     assert stub.calls == []
-    shown = alice.get("/receipt-reading").json()
+    shown = alice.reading_status()
     enabled = alice.post(
         "/receipt-reading",
         {
@@ -796,13 +803,13 @@ def test_upload_header_does_not_enable_business_reading(alice, stub):
     assert response.status_code == 200
     assert response.json()["activity"]["state"] == "saved_unread"
     assert stub.calls == []
-    assert alice.get("/receipt-reading").json()["enabled"] is False
+    assert alice.reading_status()["enabled"] is False
 
 
 def test_owner_enabling_reads_backlog_once_and_disabling_stops_new_reads(alice, stub):
     saved = alice.upload(consent=False).json()
     assert alice.get("/receipt-activity").json()["unread_count"] == 1
-    shown = alice.get("/receipt-reading").json()
+    shown = alice.reading_status()
     body = {
         "enabled": True,
         "scope_version": SCOPE_VERSION,
@@ -852,7 +859,7 @@ def test_missing_source_does_not_strand_other_unread_receipts(alice, stub):
         user_id=alice.scope().person_id, connection_id=first["id"]
     )
     documents._update(alice.scope().person_id, draft, source_available=False)
-    shown = alice.get("/receipt-reading").json()
+    shown = alice.reading_status()
     enabled = alice.post(
         "/receipt-reading",
         {

@@ -7,6 +7,7 @@ import asyncio
 from copy import copy
 
 import pytest
+from argus.api.business_schemas import ReceiptReading
 from argus.api.documents import documents_service
 from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.ingestion.documents.service import DocumentServiceError
@@ -18,10 +19,15 @@ from tests.business.test_business_api import RECEIPT, Owner, alice  # noqa: F401
 @pytest.mark.parametrize("enabled", [False, True])
 @pytest.mark.parametrize("language", ["en", "es-419"])
 def test_workspace_carries_the_reading_setting_once(alice, monkeypatch, enabled, language):  # noqa: F811, ANN001
-    alice.reading(enabled)
-    expected = alice.get("/receipt-reading", language=language).json()
+    changed = alice.reading(enabled)
+    assert changed.status_code == 200, changed.text
+    space_id = alice.scope().owner.space_id
     setting = documents_service().business_receipt_consent
     status = setting.status
+    expected = ReceiptReading(
+        **status(space_id, alice.person, language), can_change=True
+    ).model_dump(mode="json")
+    assert expected["enabled"] is enabled
     calls = []
 
     def counted(space_id, owner_id, language="en"):  # noqa: ANN001, ANN202
@@ -32,7 +38,7 @@ def test_workspace_carries_the_reading_setting_once(alice, monkeypatch, enabled,
     response = alice.get("/workspace", language=language)
     assert response.status_code == 200, response.text
     assert response.json()["receipt_reading"] == expected
-    assert calls == [(alice.scope().owner.space_id, alice.person, language)]
+    assert calls == [(space_id, alice.person, language)]
 
 
 def test_a_service_without_the_setting_never_reads_a_business_receipt(

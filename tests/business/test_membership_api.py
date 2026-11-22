@@ -157,7 +157,9 @@ def test_viewer_reads_receipt_metadata_but_cannot_read_original_or_use_personal_
 def test_coowner_reading_consent_is_explicit_and_stops_with_role_loss(alice, bob):
     grant = join(alice, bob, "owner")
     selected = {**bob.auth, "X-Business-Grant": grant}
-    before = bob.client.get("/api/v1/business/receipt-reading", headers=selected).json()
+    workspace = bob.client.get("/api/v1/business/workspace", headers=selected)
+    assert workspace.status_code == 200, workspace.text
+    before = workspace.json()["receipt_reading"]
     assert before["can_change"] and not before["enabled"]
     body = {
         "enabled": True,
@@ -170,14 +172,14 @@ def test_coowner_reading_consent_is_explicit_and_stops_with_role_loss(alice, bob
         json=body,
     )
     assert changed.status_code == 200 and changed.json()["enabled"], changed.text
-    assert alice.get("/receipt-reading").json()["enabled"]
+    assert alice.reading_status()["enabled"]
     demoted = alice.client.patch(
         f"/api/v1/business/access/grants/{grant}",
         headers=alice.auth,
         json={"role": "editor"},
     )
     assert demoted.status_code == 200
-    assert not alice.get("/receipt-reading").json()["enabled"]
+    assert not alice.reading_status()["enabled"]
     replay = bob.client.post(
         "/api/v1/business/receipt-reading",
         headers={**selected, "Idempotency-Key": "coowner-reading"},
