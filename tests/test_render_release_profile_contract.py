@@ -134,7 +134,6 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
         "bun install --frozen-lockfile && bun run build --webpack",
         "bun run start -- -p $PORT",
     )
-    assert "envVars" not in web
     stage_api = services["cuadrao-api-staging"]
     assert (
         stage_api["runtime"],
@@ -159,6 +158,77 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
     assert services["cuadrao-marketing-staging"]["branch"] == "main"
     assert "NEXT_PUBLIC_CUADRAO_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")
     assert "NEXT_PUBLIC_CUADRAO_API_URL" in _render_env("cuadrao-app")
+
+
+@pytest.mark.parametrize(
+    ("surface", "expected_names"),
+    [
+        (
+            "web",
+            {
+                "CUADRAO_APP_ORIGIN",
+                "CUADRAO_AUTH_EMAIL_HOOK_ENABLED",
+                "CUADRAO_AUTH_EMAIL_HOOK_SECRET",
+                "CUADRAO_AUTH_EMAIL_OTP_EXP_SECONDS",
+                "CUADRAO_AUTH_EMAIL_PROJECT_REF",
+                "CUADRAO_AUTH_EMAIL_RESEND_API_KEY",
+                "CUADRAO_EMAIL_ASSET_ORIGIN",
+                "NEXT_PUBLIC_BUSINESS_ONLY_WEB",
+                "NEXT_PUBLIC_CUADRAO_API_URL",
+                "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
+                "NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED",
+                "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY",
+                "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED",
+                "NEXT_PUBLIC_MOCK_AUTH",
+                "NEXT_PUBLIC_OMNISEARCH_ENABLED",
+                "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED",
+                "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+                "NEXT_PUBLIC_SUPABASE_URL",
+            },
+        ),
+        (
+            "marketing",
+            {
+                "CUADRAO_INQUIRY_FROM",
+                "CUADRAO_INQUIRY_TO",
+                "CUADRAO_SITE_INDEXING",
+                "MARKETING_POSTAL_ADDRESS",
+                "RESEND_API_KEY",
+            },
+        ),
+    ],
+)
+def test_production_web_blueprint_declares_current_inventory_without_values_drifting(
+    surface: str, expected_names: set[str]
+) -> None:
+    # Founder-supplied direct-variable inventory for #2212, 2026-11-22.
+    # Omit unused NEXT_PUBLIC_BUSINESS_PILOT_ENABLED and the duplicate fallback
+    # NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED from the web inventory.
+    profile = json.loads(_source(".github/private-alpha-release-profile.json"))
+    config = yaml.safe_load(_source("render.yaml"))
+    service = next(
+        service
+        for service in config["services"]
+        if service["name"] == profile["services"][surface]["name"]
+    )
+    items = service.get("envVars", [])
+    declared = {item["key"]: item for item in items}
+    assert len(items) == len(declared), "duplicate production environment names"
+    assert set(declared) == expected_names
+
+    manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
+    entries = {entry["name"]: entry for entry in manifest["services"][surface]["entries"]}
+    for name in expected_names:
+        entry = entries.get(name, {})
+        production = entry.get("production", {})
+        assert not production.get("not_set"), name
+        if entry.get("kind") == "plain" and "value" in production:
+            expected = {"key": name, "value": production["value"]}
+        else:
+            # Secrets, absent production literals and names outside the manifest
+            # must never acquire a value or a reference to a legacy name.
+            expected = {"key": name, "sync": False}
+        assert declared[name] == expected, name
 
 
 def test_argus_api_disables_the_default_render_subdomain() -> None:

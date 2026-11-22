@@ -146,6 +146,17 @@ services:
         value: "false"
   - type: web
     name: cuadrao-marketing
+    envVars:
+      - key: CUADRAO_INQUIRY_FROM
+        value: "Cuadrao <website@notify.cuadrao.ai>"
+      - key: CUADRAO_INQUIRY_TO
+        value: "hola@cuadrao.ai"
+      - key: CUADRAO_SITE_INDEXING
+        sync: false
+      - key: MARKETING_POSTAL_ADDRESS
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
     runtime: node
     repo: https://github.com/cuadrao-ai/argus
     branch: main
@@ -158,6 +169,43 @@ services:
 
   - type: web
     name: cuadrao-app
+    envVars:
+      - key: CUADRAO_APP_ORIGIN
+        sync: false
+      - key: CUADRAO_AUTH_EMAIL_HOOK_ENABLED
+        value: "false"
+      - key: CUADRAO_AUTH_EMAIL_HOOK_SECRET
+        sync: false
+      - key: CUADRAO_AUTH_EMAIL_OTP_EXP_SECONDS
+        value: "3600"
+      - key: CUADRAO_AUTH_EMAIL_PROJECT_REF
+        value: "lgdhvepyrzbnscqssgqq"
+      - key: CUADRAO_AUTH_EMAIL_RESEND_API_KEY
+        sync: false
+      - key: CUADRAO_EMAIL_ASSET_ORIGIN
+        sync: false
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
+        value: "true"
+      - key: NEXT_PUBLIC_CUADRAO_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY
+        sync: false
+      - key: NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_MOCK_AUTH
+        value: "false"
+      - key: NEXT_PUBLIC_OMNISEARCH_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_RESEARCH_RAIL_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: "https://lgdhvepyrzbnscqssgqq.supabase.co"
     runtime: node
     repo: https://github.com/cuadrao-ai/argus
     branch: main
