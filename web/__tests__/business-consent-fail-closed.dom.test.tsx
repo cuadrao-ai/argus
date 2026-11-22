@@ -5,7 +5,7 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
-import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
+import { createFixtureBusinessDataSource, fixtureReceiptReading } from "@/components/business-app/fixture-data";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import { periodRange } from "@/components/business-app/business-format";
 import BusinessInboxPanel from "@/components/business-app/BusinessInboxPanel";
@@ -29,7 +29,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 function context(source: BusinessDataSource, inbox: ReceiptSummary[] = []): BusinessContextValue {
   return {
     source,
-    records: { workspace: null, overview: null, inbox, notes: [], notesTruncated: false, emails: [], error: false },
+    records: { workspace: null, workspaceGrant: null, overview: null, inbox, notes: [], notesTruncated: false, emails: [], error: false },
     spaces: [],
     chosen: { space_id: "own", grant_id: "own", name: "Colmado", role: "owner", capabilities: ["prepare", "approve"], access_seen: true },
     chooseBusiness: () => {},
@@ -101,7 +101,7 @@ const inboxReceipt = {
 } as unknown as ReceiptSummary;
 
 test("without a consent provider, model actions stay blocked and manual recording stays available", async () => {
-  const calls = { reading: 0, enable: 0, prepare: 0, rebind: 0 };
+  const calls = { enable: 0, prepare: 0, rebind: 0 };
   const fixture = createFixtureBusinessDataSource();
   const rows = await fixture.receipts("inbox");
   const base = await fixture.receipt(rows[0].id);
@@ -122,7 +122,6 @@ test("without a consent provider, model actions stay blocked and manual recordin
   } as ReceiptDetail;
   const source: BusinessDataSource = {
     ...fixture,
-    receiptReading: async () => { calls.reading += 1; return { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Shown only when accepted.", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null }; },
     setReceiptReading: async (reading) => { calls.enable += 1; return { ...reading, enabled: true }; },
     receipt: async () => detail,
     prepareReceipt: async () => { calls.prepare += 1; },
@@ -133,9 +132,10 @@ test("without a consent provider, model actions stay blocked and manual recordin
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
+  const workspace = { ...await source.workspace(), receipt_reading: fixtureReceiptReading({ disclosure: "Shown only when accepted." }) };
   const tree = (node: ReactNode, inbox: ReceiptSummary[] = []) => (
     <I18nextProvider i18n={i18n}>
-      <BusinessContext.Provider value={context(source, inbox)}>{node}</BusinessContext.Provider>
+      <BusinessContext.Provider value={{ ...context(source, inbox), records: { ...context(source, inbox).records, workspace } }}>{node}</BusinessContext.Provider>
     </I18nextProvider>
   );
   await act(async () => { root.render(tree(<><Starters /><ReceiptReadingControl /><BusinessInboxPanel /></>, [inboxReceipt])); });
@@ -159,7 +159,6 @@ test("without a consent provider, model actions stay blocked and manual recordin
   assert.equal(calls.prepare, 0);
   assert.equal(host.textContent?.includes("Bind to my current access"), true);
 
-  calls.reading = 0;
   calls.enable = 0;
   calls.prepare = 0;
   calls.rebind = 0;

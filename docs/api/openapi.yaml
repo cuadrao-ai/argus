@@ -8192,6 +8192,15 @@ paths:
       - financial-accounts
       - business
       parameters:
+      - name: language
+        in: query
+        required: false
+        schema:
+          enum:
+          - en
+          - es-419
+          type: string
+          default: en
       - name: X-Business-Grant
         in: header
         required: false
@@ -19091,6 +19100,10 @@ components:
           $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
           $ref: '#/components/schemas/ReceiptLimits'
+        receipt_reading:
+          anyOf:
+          - $ref: '#/components/schemas/ReceiptReading'
+          - type: 'null'
         records_default_currency:
           type: string
           enum:
@@ -19116,6 +19129,7 @@ components:
       - typed_notes_available
       - receiving_channels
       - receipt_limits
+      - receipt_reading
       - records_default_currency
     CallbackRequest:
       properties:
@@ -30354,6 +30368,54 @@ components:
       type: object
       required:
       - completion_cursor
+    ReceiptReading:
+      properties:
+        available:
+          type: boolean
+        can_change:
+          type: boolean
+        consent_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        consented_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        disclosure:
+          type: string
+        disclosure_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+        enabled:
+          type: boolean
+        revoked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        route:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+        scope_version:
+          type: integer
+      additionalProperties: false
+      type: object
+      required:
+      - available
+      - can_change
+      - consent_id
+      - consented_at
+      - disclosure
+      - disclosure_token
+      - enabled
+      - revoked_at
+      - route
+      - scope_version
     ReceiptReadingBody:
       properties:
         enabled:

@@ -10186,7 +10186,7 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  settlement_available, typed_notes_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  settlement_available, typed_notes_available, receipt_limits: {max_bytes, media_types}, receipt_reading, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
   is final, the open items read and the settlement PATCH are refused with 404
@@ -10200,7 +10200,16 @@ accept path recorded.
   `business_typed_notes_unavailable`, and the web offers no "Escríbelo" in Agregar. Saved notes
   still list, open, accept, delete and restore, and a capture with `draft` still saves.
   `country` and `currency` are the Business's own,
-  the same values `GET /business/space` returns. `records_default_currency` is the
+  the same values `GET /business/space` returns. `receipt_reading` carries the existing
+  `GET /business/receipt-reading` answer for this Business, including `enabled`,
+  `can_change`, and the disclosure used by the switch; it is null when the reading
+  permission service is unavailable, never an invented off state. Optional query
+  `language=en|es-419` (default `en`) selects that disclosure's language.
+  `BusinessReceiptConsentStore`, backed by `business_receipt_reading_consents`,
+  remains the setting's owner. The web reads it once with the workspace bootstrap;
+  it does not issue a separate receipt-reading GET. While the list loads, only an
+  off setting reserves the notice's space. The existing receipt-reading POST
+  remains the mutation endpoint. `records_default_currency` is the
   server-owned initial Registros selection, currently DOP, independent of the
   Business currency. Its supported values are DOP, USD and EUR. The web waits for
   the current grant's workspace before the first report request. A valid singleton

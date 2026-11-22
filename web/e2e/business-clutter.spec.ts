@@ -7,7 +7,7 @@ const evidence = process.env.CUADRAO_CLUTTER_EVIDENCE_DIR;
 async function setup(page: Page) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
-  const source = createFixtureBusinessDataSource({ chatAvailable: false });
+  const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { enabled: true, can_change: false } });
   const receipt = await source.receipt("rcpt-ferreteria");
   const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 8 };
   await page.route("**/api/v1/business/**", async (route) => {
@@ -18,7 +18,6 @@ async function setup(page: Page) {
     if (path === "spaces") return route.fulfill({ json: { spaces: (await source.spaces()).slice(0, 1) } });
     if (path === "overview") return route.fulfill({ json: { ...await source.overview("2026-10-01", "2026-10-31"), totals: [], fiscal_totals: [], without_fiscal_totals: [] } });
     if (path === "receipts") return route.fulfill({ json: { items: [{ ...receipt, status: "review_ready" }], activity } });
-    if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
     if (["email/deliveries", "captures"].includes(path)) return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
