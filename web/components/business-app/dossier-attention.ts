@@ -1,11 +1,15 @@
 import type { TFunction } from "i18next";
-import type { BusinessDossier, ListoGap, ReviewFlagCode } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessDuplicateCandidate, ListoGap, ReviewFlagCode } from "@/lib/business-dossier";
 import { documentFamily, factLabel } from "@/lib/counterparty-term";
 import type { ReviewRow } from "./receipt-fact-rows";
 import type { SaveRow } from "./receipt-review-save";
 
 /** The words of the "Parece repetido" flow: the problem and the compare view. */
 export const DUPLICATE_KEYS = "business.receipts.duplicate_resolution";
+
+export function duplicateBasisKey(basis: BusinessDuplicateCandidate["basis"], type?: BusinessDossier["document_type"]): string {
+  return `${DUPLICATE_KEYS}.basis.${basis === "fiscal_number" && documentFamily(type) === "sale" ? "fiscal_number_sale_placeholder" : basis}`;
+}
 
 /** The dossier's tabs. Documento joins them only in the narrow size. */
 export type DossierTab = "general" | "documento" | "fiscal" | "detalles" | "historial";
@@ -82,7 +86,7 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
   return (dossier.listo_gaps ?? []).map((reason, index): DossierProblem => {
     const key = `${index}-${reason}`;
     if (reason === "duplicate") {
-      const basis = candidate ? `${DUPLICATE_KEYS}.basis.${candidate.basis === "fiscal_number" && documentFamily(dossier.document_type) === "sale" ? "fiscal_number_sale_placeholder" : candidate.basis}` : null;
+      const basis = candidate ? duplicateBasisKey(candidate.basis, dossier.document_type) : null;
       return { key, reason, title: t(`${DUPLICATE_KEYS}.title`), text: basis ? t(basis) : words(reason, "text"), tab: "general", row: null, where: `${general} · ${t(`${DUPLICATE_KEYS}.compare`)}`, compare: candidate?.draft_id };
     }
     // A flag with its own gap is already said there: `review_flag` speaks for the others, or in its own words.

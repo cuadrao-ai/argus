@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
+import type { Window as HappyWindow } from "happy-dom";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import spanish from "@/public/locales/es-419/common.json";
 import type { BandejaLabel, BusinessAccount, ReceiptDetail } from "@/lib/business-api";
@@ -10,10 +11,10 @@ import { createDossierFixtures, dossierFixtureIds } from "@/components/business-
 const accounts: BusinessAccount[] = [{ id: "acct-ops", nickname: "Caja", currency: "DOP", type: "cash" }];
 
 type Sent = { anyway: boolean | undefined };
-type Mount = { dossier: BusinessDossier; receipt?: ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[]; refuse?: Partial<Record<"approveDraft" | "reopenDraft", unknown>> };
+type Mount = { dossier: BusinessDossier; receipt?: ReceiptDetail; readReceipt?: () => ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[]; refuse?: Partial<Record<"approveDraft" | "reopenDraft", unknown>> };
 
 /** The dossier as a person opens it: from a draft alone, or from a receipt row, on a full page or in the tray at one of its two sizes. */
-async function mount({ dossier, receipt, size = "page", panel, list = [], refuse = {} }: Mount) {
+async function mount({ dossier, receipt, readReceipt, size = "page", panel, list = [], refuse = {} }: Mount) {
   GlobalRegistrator.register({ url: "http://localhost" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   const { act, useState } = await import("react");
@@ -32,7 +33,7 @@ async function mount({ dossier, receipt, size = "page", panel, list = [], refuse
     source: {
       mode: "live",
       dossier: async () => dossier,
-      receipt: async () => receipt,
+      receipt: async () => readReceipt?.() ?? receipt,
       receipts: async () => list,
       receiptSource: async () => new Blob(["x"], { type: "image/png" }),
       dgiiFields: async () => ({ "606": [], "607": [] }),
@@ -88,6 +89,41 @@ const copy = (spanish as unknown as { business: { dossier: { review_flag: { appr
 const acceptedWord = (spanish as unknown as { business: { history: { approved: string } } }).business.history.approved;
 
 describe("the v2 dossier frame", () => {
+  for (const reduced of [false, true]) test(`the server settles the read and its rows land once, reduced motion ${reduced}`, async () => {
+    const dossier = await fiscalDossier({ ...attention(["missing_rnc"]) });
+    const completed = receiptOf(dossier);
+    let current = receiptOf(dossier, { draft_id: null, status: "queued", read_pending: true, bandeja: { por_revisar: false, con_problema: false, leyendo: true } });
+    const page = await mount({ dossier, receipt: current, readReceipt: () => current, size: "regular" });
+    const effects: { row: string; delay: number; colors: string[] }[] = [];
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (this: Element, frames: Keyframe[], options: KeyframeAnimationOptions) {
+      const row = this.getAttribute("data-fact");
+      if (row) effects.push({ row, delay: Number(options.delay), colors: frames.map(frame => String(frame.backgroundColor ?? "")) });
+      return { cancel() {} } as Animation;
+    } as typeof animate;
+    const device = (window as unknown as HappyWindow).happyDOM.settings.device;
+    device.prefersReducedMotion = reduced ? "reduce" : "no-preference";
+    try {
+      assert.equal(page.all('[data-testid="receipt-current-facts"]').length, 0);
+      current = completed;
+      await page.act(async () => { window.dispatchEvent(new Event("focus")); });
+      assert.ok(page.all('[data-fact="rnc"]').length, "the server supplied the draft");
+      if (reduced) assert.deepEqual(effects, [], "all fields are visible immediately");
+      else {
+        const rows = [...new Set(effects.map(effect => effect.row))];
+        assert.equal(rows[0], "rnc");
+        assert.equal(rows[1], "counterparty");
+        assert.deepEqual(rows.map(row => effects.find(effect => effect.row === row)?.delay), rows.map((_, i) => i * 80));
+        assert.ok(effects.some(effect => effect.row === "rnc" && effect.colors.includes("var(--d-warn-bg)")), "the problem row gets the amber wash");
+        assert.ok(effects.some(effect => effect.row === "counterparty" && effect.colors.includes("var(--d-flash)")), "the clear row gets the green wash");
+        const count = effects.length;
+        await page.click(page.tab("Detalles"));
+        await page.click(page.tab("General"));
+        assert.equal(effects.length, count, "revisiting General does not replay the read");
+      }
+    } finally { Element.prototype.animate = animate; await page.close(); }
+  });
+
   test("the regular size keeps the document beside four tabs, and the narrow size makes it the Documento tab", async () => {
     const dossier = await fiscalDossier();
     const page = await mount({ dossier, receipt: receiptOf(dossier), size: "regular" });

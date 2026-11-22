@@ -159,8 +159,8 @@ describe("one receipt review page", () => {
     for (const [attention, errorCode, withPrepare, labels] of [
       ["unreadable", "unreadable_document", true, ["Subir otro documento"]],
       ["unreadable", "unreadable_document", false, ["Subir otro documento"]],
-      ["not_a_receipt", "not_a_receipt", true, []],
-      ["not_a_receipt", "not_a_receipt", false, []],
+      ["not_a_receipt", "not_a_receipt", true, ["Subir otro documento"]],
+      ["not_a_receipt", "not_a_receipt", false, ["Subir otro documento"]],
     ] as const) {
       const page = await mount((fixture) => ({
         receipt: async (id, signal) => {
@@ -182,9 +182,9 @@ describe("one receipt review page", () => {
       await page.open(
         { kind: "receipt", receiptId: "rcpt-blurry" },
         () => page.host.querySelector('[data-testid="receipt-attention"]') !== null
-          && (attention !== "unreadable" || page.host.textContent?.includes("Subir otro documento") === true),
+          && page.host.textContent?.includes("Subir otro documento") === true,
       );
-      const shown = [...page.host.querySelector('[data-testid="receipt-attention"]')!.querySelectorAll("button")].map((button) => button.textContent);
+      const shown = [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button:not([aria-label])')].map((button) => button.textContent);
       assert.deepEqual(shown, [...labels], `${attention} prepare=${withPrepare}`);
       await page.act(async () => page.root.unmount());
     }
@@ -201,24 +201,24 @@ describe("one receipt review page", () => {
     }));
     await page.open({ kind: "receipt", receiptId: "rcpt-blurry" }, () => page.host.textContent?.includes("Subir otro documento") === true);
     const unreadable = page.host.querySelector('[data-testid="receipt-attention"]');
-    assert.equal(unreadable?.querySelector(".font-medium")?.textContent, "No pudimos leer este archivo");
+    assert.equal(unreadable?.querySelector("h3")?.textContent, "No pudimos leer este archivo");
     assert.equal(
-      unreadable?.querySelector(".mt-1")?.textContent,
-      "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz.",
+      unreadable?.querySelector("p")?.textContent,
+      "Archivo borroso, cortado o dañado. Sube una foto clara del recibo completo.",
     );
-    const unreadableLabels = [...unreadable!.querySelectorAll("button")].map((button) => button.textContent);
+    const unreadableLabels = [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button:not([aria-label])')].map((button) => button.textContent);
     assert.deepEqual(unreadableLabels, ["Subir otro documento"]);
 
     await page.open(
       { kind: "receipt", receiptId: "rcpt-unknown" },
-      () => page.host.textContent?.includes("Esto no parece un recibo.") === true,
+      () => page.host.textContent?.includes("Esto no parece un recibo") === true,
     );
     const notice = page.host.querySelector('[data-testid="receipt-attention"]');
-    assert.equal(notice?.querySelector(".font-medium")?.textContent, "Esto no parece un recibo.");
-    assert.equal(notice?.querySelector(".mt-1")?.textContent, "Sube la foto o el PDF de un comprobante.");
+    assert.equal(notice?.querySelector("h3")?.textContent, "Esto no parece un recibo");
+    assert.equal(notice?.querySelector("p")?.textContent, "Sube la foto o el PDF de un comprobante.");
     assert.equal(notice?.textContent?.includes("No pudimos leer este archivo"), false);
     assert.equal(notice?.textContent?.includes("borroso, cortado o dañado"), false);
-    const noticeLabels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
+    const noticeLabels = [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button:not([aria-label])')].map((button) => button.textContent);
     assert.deepEqual(noticeLabels, ["Subir otro documento"]);
     await page.act(async () => page.root.unmount());
   });

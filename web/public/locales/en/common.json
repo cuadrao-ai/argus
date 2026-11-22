@@ -3307,9 +3307,7 @@
       "yesterday": "Yesterday"
     },
     "reading": {
-      "line": "Reading your receipt…",
-      "supplier": "Supplier",
-      "total": "Total"
+      "document": "Reading the document"
     },
     "status": {
       "pill_approved": "Accepted",
@@ -3335,13 +3333,13 @@
       "interest_fees": "Interest and fees"
     },
     "file_read": {
-      "unreadable_title": "We couldn't read this file",
-      "not_a_receipt_title": "This doesn't look like a receipt.",
+      "held_day": "Reads tomorrow · Today's read limit was reached.",
       "not_a_receipt_body": "Upload the photo or the PDF of a receipt.",
-      "read_deadline_passed_body": "The reading service wasn't available. You can read it again.",
-      "placeholder": {
-        "unreadable_body": "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light."
-      },
+      "not_a_receipt_title": "This doesn’t look like a receipt",
+      "outcome_unknown_body": "File unread: the read was interrupted. You can read it again.",
+      "read_deadline_passed_body": "File unread: reading was unavailable. You can read it again.",
+      "unreadable_body": "The file is blurry, cropped or damaged. Upload a clear photo of the whole receipt.",
+      "unreadable_title": "We couldn't read this file",
       "upload_another": "Upload another document"
     },
     "actions": {
@@ -4268,6 +4266,7 @@
     },
     "receipts": {
       "duplicate_resolution": {
+        "arrived": "Arrived {{stamp}}",
         "basis": {
           "fiscal_number": "Same RNC and NCF as another document.",
           "fiscal_number_sale_placeholder": "[placeholder] Same NCF as another sale.",
@@ -4278,29 +4277,32 @@
           "this": "This"
         },
         "compare": "Compare",
+        "compare_saved": "Compare with the saved document",
         "decision": {
           "different_purchase": "They are different purchases",
           "same_purchase": "Delete this duplicate"
         },
+        "deleted": "Duplicate deleted.",
         "different": "Different",
         "documents": {
           "other": "Deleted document"
         },
         "field": {
           "amount": "Total",
-          "counterparty": "Merchant",
           "currency": "Currency",
           "fiscal_number": "NCF",
           "occurred_on": "Date"
         },
         "marked_different": "Marked as different purchases.",
         "no_file": "This document has no file.",
+        "origin": "Compare origin",
         "recommendation": {
           "different_purchase": "Same merchant, date, total and currency. The NCF is different: these are probably two different purchases.",
           "same_purchase": "It is the same document."
         },
         "refused_same_comprobante": "Same RNC and NCF: it's the same receipt. Keep one.",
         "same": "Same",
+        "select_document": "Document to view",
         "table": {
           "caption": "Main data of both documents",
           "field": "Field"

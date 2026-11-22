@@ -18,6 +18,7 @@ import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
 import DossierConfirm, { type ConfirmProblem } from "./dossier/DossierConfirm";
 import DossierDetails from "./dossier/DossierDetails";
 import DossierDocument from "./dossier/DossierDocument";
+import { useReadLanding } from "./dossier/DossierReadFields";
 import { DossierStatus } from "./dossier/DossierHeader";
 import { DossierBare, type RowEdit } from "./dossier/DossierParts";
 import { useJumpRows } from "./dossier/jump-rows";
@@ -107,13 +108,14 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
   );
 }
 
-export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, notice }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail; notice?: ReactNode }) {
+export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, notice, readLanded }: { draftId: string; readLanded?: boolean; onUnprepared?: () => void; receipt?: ReceiptDetail; notice?: ReactNode }) {
   const { t } = useTranslation();
   const primaryKeys = usePrimaryKeys();
   const { source, reload, records, openPanel, guardPanel, panel, chosen } = useBusiness();
   const origin = panel?.kind === "receipt" || panel?.kind === "draft" ? panel : null;
   const receiptIds = origin?.receiptIds ?? [];
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
+  const landing = useReadLanding(readLanded ? dossier?.draft_id ?? null : null);
   const canDelete = dossier?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
   const deletion = useDocumentDelete(canDelete && dossier ? {
     id: draftId,
@@ -486,7 +488,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   };
   const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id, list: origin?.list, receiptIds }); };
   const confirmProblems: ConfirmProblem[] = approvalCheck?.kind === "flags" ? approvalCheck.codes.map((code) => ({ key: code, title: t(`business.dossier.review_flag.${code}.title`, { defaultValue: "" }) || dossierRowLabel(t, FLAGGED_ROW[code], dossier), text: t(`business.dossier.review_flag.${code}.text`, { defaultValue: "" }) || t("business.dossier.placeholder.gap.review_flag.text") })) : problems;
-  // Comparar turns this same panel into the compare view; it shows both documents itself, so the frame has no source column.
   if (duplicateCompare.candidate) return (<><ContentFade>
     {captureRecovery}
     <ReceiptDuplicateCompare
@@ -497,7 +498,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       onBusyChange={setDuplicateBusy}
       onChanged={(next) => { setDossier(next); duplicateCompare.settled(); reload(); }}
       onDeleted={() => { reload(); openPanel({ kind: "inbox" }); }}
-      frame={(body, footer) => <ReceiptReviewFrame {...head} tabs={[{ key: "general", content: body }]} tab="general" onTab={setTab} footer={footer} />}
+      head={{ ...head, status: <DossierStatus label={dossier.bandeja_group?.label} /> }}
     />
   </ContentFade>{captureDialog}</>);
   // An unsettled action keeps its way out in view, not only behind Más.
@@ -543,7 +544,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           <OpenRecordMissingReasons />
           {/* The row in focus or under the pointer marks its value where the message says it verbatim. */}
           <div
-            className="contents"
+            ref={landing}
+            className={readLanded ? "contents [&_li[data-fact]]:rounded-item" : "contents"}
             onFocus={(event) => setHighlight(rowValues(event.target))}
             onMouseOver={(event) => setHighlight(rowValues(event.target))}
             onMouseLeave={() => setHighlight([])}

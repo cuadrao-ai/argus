@@ -14,6 +14,7 @@ const client: GrantedSpace = { space_id: "client-space", name: "Colmado de prueb
 beforeEach(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  globalThis.fetch = async () => Response.json({ code: "not_found" }, { status: 404 });
   Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, writable: true, value: true });
 });
 afterEach(async () => {
@@ -166,9 +167,9 @@ test("a client's record for a file that is not a receipt says so and offers Subi
   const page = await render(() => <ReceiptReviewPanel target={{ kind: "receipt", id: receipt.id }} />, { source: { ...liveBusinessDataSource, receipt: async () => detail } } as Partial<BusinessContextValue>);
   try {
     const notice = page.host.querySelector('[data-testid="receipt-attention"]');
-    assert.equal(notice?.querySelector(".font-medium")?.textContent, "Esto no parece un recibo.");
+    assert.equal(notice?.querySelector("h3")?.textContent, "Esto no parece un recibo");
     assert.equal(notice?.textContent?.includes("borroso"), false);
-    const labels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
+    const labels = [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button:not([aria-label])')].map((button) => button.textContent);
     assert.deepEqual(labels, ["Subir otro documento"], "a prepare grant can upload another document");
     await page.act(async () => page.button("Subir otro documento")!.click());
     assert.deepEqual(page.uploads, ["upload"]);
@@ -251,10 +252,10 @@ async function openRetryable(state: Pick<ReceiptDetail, "attention" | "error_cod
 test("a read that passed its deadline says the read did not finish, why, and reads again", async () => {
   const { page, prepared, id, notice } = await openRetryable({ attention: "read_deadline_passed", error_code: "document_read_deadline_passed" });
   try {
-    assert.equal(notice().querySelector("span.font-medium")?.textContent, "La lectura no terminó");
-    assert.match(notice().textContent ?? "", /El servicio de lectura no estuvo disponible\. Puedes leerlo de nuevo\./);
+    assert.equal(notice().querySelector("h3")?.textContent, "La lectura no terminó");
+    assert.match(notice().textContent ?? "", /Archivo sin leer: la lectura no estuvo disponible\. Puedes leerlo de nuevo\./);
     assert.equal(/PENDIENTE|Subir otro documento/.test(notice().textContent ?? ""), false);
-    assert.deepEqual([...notice().querySelectorAll("button")].map((button) => button.textContent), ["Leer de nuevo"]);
+    assert.ok(page.button("Leer de nuevo"));
     await page.act(async () => page.button("Leer de nuevo")!.click());
     await page.settle();
     assert.deepEqual(prepared, [id]);
@@ -284,17 +285,17 @@ async function openFailed(state: Partial<ReceiptDetail>, chosen: GrantedSpace = 
   };
   const page = await render(() => <BusinessConsentTestProvider accepted><ReceiptReviewPanel target={{ kind: "receipt", id: detail.id }} /></BusinessConsentTestProvider>, { source, chosen, reload: () => { reloads += 1; } } as Partial<BusinessContextValue>);
   const notice = () => page.host.querySelector('[data-testid="receipt-attention"]')!;
-  return { page, deleted, id: detail.id, notice, labels: () => [...notice().querySelectorAll("button")].map((button) => button.textContent), reloads: () => reloads };
+  return { page, deleted, id: detail.id, notice, labels: () => [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button:not([aria-label])')].map((button) => button.textContent), reloads: () => reloads };
 }
 
 for (const errorCode of ["unreadable_document", "encrypted_document"]) {
   test(`an unreadable read (${errorCode}) asks for a clearer copy and offers Eliminar documento`, async () => {
     const { page, labels, notice } = await openFailed({ attention: "unreadable", error_code: errorCode });
     try {
-      assert.equal(notice().querySelector("span.font-medium")?.textContent, "No pudimos leer este archivo");
-      assert.match(notice().textContent ?? "", /Sube una foto más clara del recibo completo/);
+      assert.equal(notice().querySelector("h3")?.textContent, "No pudimos leer este archivo");
+      assert.match(notice().textContent ?? "", /Archivo borroso, cortado o dañado. Sube una foto clara del recibo completo/);
       assert.equal(/No se pudo leer/.test(notice().textContent ?? ""), false, "the shared short word gives way to the step");
-      assert.deepEqual(labels(), ["Subir otro documento", "Eliminar documento"]);
+      assert.deepEqual(labels(), ["Subir otro documento"]);
       await page.act(async () => page.button("Subir otro documento")!.click());
       assert.deepEqual(page.uploads, ["upload"]);
     } finally {
@@ -304,10 +305,10 @@ for (const errorCode of ["unreadable_document", "encrypted_document"]) {
 }
 
 test("Eliminar documento on an unreadable read confirms, deletes it and returns to the Bandeja", async () => {
-  const { page, deleted, id, reloads, notice } = await openFailed({ attention: "unreadable", error_code: "unreadable_document" });
+  const { page, deleted, id, reloads } = await openFailed({ attention: "unreadable", error_code: "unreadable_document" });
   try {
-    const discard = [...notice().querySelectorAll("button")].find((button) => button.textContent === "Eliminar documento");
-    assert.ok(discard, "the card itself offers it");
+    const discard = page.host.querySelector<HTMLButtonElement>('[data-testid="receipt-review-footer"] button[aria-label="Eliminar documento"]');
+    assert.ok(discard, "the footer offers it");
     await page.act(async () => discard.click());
     const confirm = document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]');
     assert.equal(confirm?.textContent, "Eliminar", "a confirm step names the delete");
@@ -327,42 +328,69 @@ test("an unreadable read offers no Eliminar the server or the grant did not allo
     const { page, labels } = await openFailed({ attention: "unreadable", error_code: "unreadable_document", ...state }, chosen);
     try {
       assert.deepEqual(labels(), ["Subir otro documento"]);
+      assert.equal(page.host.querySelector('[aria-label="Eliminar documento"]'), null);
     } finally {
       await page.close();
     }
   }
 });
 
-test("other reasons keep their words and their one way out, with no Eliminar on the card", async () => {
-  const cases = [
-    [{ attention: "read_deadline_passed", error_code: "document_read_deadline_passed", preparable: true }, "La lectura no terminó", ["Leer de nuevo"]],
-    [{ attention: "ai_unavailable", error_code: "extraction_provider_failed", preparable: true }, null, ["Leer de nuevo"]],
-    [{ attention: "not_a_receipt", error_code: "not_a_receipt" }, "Esto no parece un recibo.", ["Subir otro documento"]],
-  ] as const;
-  for (const [state, title, buttons] of cases) {
-    const { page, notice, labels } = await openFailed(state);
+for (const [reason, title, body, preparable] of [
+  ["ai_unavailable", "No se pudo leer", null, true],
+  ["interrupted", "La lectura se detuvo", null, true],
+  ["not_a_receipt", "Esto no parece un recibo", "Sube la foto o el PDF de un comprobante.", false],
+  ["outcome_unknown", "No recuperamos la lectura", "Archivo sin leer: la lectura se cortó. Puedes leerlo de nuevo.", true],
+  ["read_deadline_passed", "La lectura no terminó", "Archivo sin leer: la lectura no estuvo disponible. Puedes leerlo de nuevo.", true],
+  ["source_unavailable", "Falta el archivo original", null, false],
+] as const) {
+  test(`the failed read shows the server's ${reason} and its one action`, async () => {
+    const { page, notice, labels } = await openFailed({
+      attention: reason, preparable, merchant: "Nombre antiguo", filename: "recibo.jpg",
+      bandeja_group: { group: "attention", reason, label: "cant_read", draft_id: null, version: null },
+    });
     try {
-      assert.equal(notice().querySelector("span.font-medium")?.textContent ?? null, title, state.attention);
-      if (!title) assert.equal(notice().querySelector("p")?.textContent, "No se pudo leer");
-      if (state.attention === "read_deadline_passed") assert.match(notice().textContent ?? "", /El servicio de lectura no estuvo disponible\. Puedes leerlo de nuevo\./);
-      assert.deepEqual(labels(), buttons, state.attention);
-    } finally {
-      await page.close();
-    }
-  }
+      assert.equal(page.host.querySelector("#receipt-review-title")?.textContent, "recibo.jpg");
+      assert.equal(page.host.querySelector('[data-testid="status-pill"]')?.textContent, "No se pudo leer");
+      assert.equal(page.host.querySelector('[data-tab="fiscal"]'), null);
+      assert.equal(notice().querySelector("h3")?.textContent, title);
+      if (body) assert.equal(notice().querySelector("p")?.textContent, body);
+      assert.deepEqual(labels(), [preparable ? "Leer de nuevo" : "Subir otro documento"]);
+      assert.equal(notice().textContent?.includes("Si reintentas, el recibo se envía"), preparable);
+    } finally { await page.close(); }
+  });
+}
+
+test("a daily hold uses still rows and the daily note, with only delete in its footer", async () => {
+  const { page } = await openFailed({
+    attention: "read_budget_day", error_code: "business_read_budget_day", preparable: true, read_pending: false,
+    bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null },
+  });
+  try {
+    const general = page.host.querySelector('[data-tab-panel="general"]')!;
+    assert.equal(general.querySelector('[role="status"]')?.textContent, "Se lee mañana · Hoy se alcanzó el límite de lecturas.");
+    assert.ok(general.textContent?.includes("Comprobante"));
+    await page.act(async () => page.button("Historial")!.click());
+    const events = page.host.querySelectorAll('[data-tab-panel="historial"] [data-testid="history-event"]');
+    assert.equal(events.length, 1);
+    assert.match(events[0].textContent ?? "", /foto-perro.jpg/);
+    assert.equal(page.host.querySelector('[data-testid="status-pill"]')?.textContent, "Leyendo…");
+    assert.deepEqual([...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button')].map(button => button.getAttribute("aria-label")), ["Eliminar documento"]);
+    assert.equal(page.host.querySelector('[data-testid="receipt-reading-band"]'), null);
+  } finally { await page.close(); }
 });
 
-test("a read that stopped keeps its one short line and its Leer de nuevo", async () => {
+test("a monthly hold never says the read will happen tomorrow", async () => {
+  const { page } = await openFailed({ attention: "read_budget_month", preparable: true, bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null } });
+  try { assert.doesNotMatch(page.host.textContent ?? "", /Se lee mañana/); } finally { await page.close(); }
+});
+
+test("a read that stopped keeps its consent line and retries the same receipt", async () => {
   const { page, prepared, id, notice } = await openRetryable({ attention: "interrupted", error_code: "business_preparation_binding_missing" });
   try {
-    assert.equal(notice().querySelector("span.font-medium"), null, "no title: the short word stays alone");
-    assert.equal(notice().querySelector("p")?.textContent, "La lectura se detuvo");
+    assert.equal(notice().querySelector("h3")?.textContent, "La lectura se detuvo");
     assert.match(notice().textContent ?? "", /Si reintentas, el recibo se envía/);
-    assert.deepEqual([...notice().querySelectorAll("button")].map((button) => button.textContent), ["Leer de nuevo"]);
     await page.act(async () => page.button("Leer de nuevo")!.click());
     await page.settle();
     assert.deepEqual(prepared, [id]);
-  } finally {
-    await page.close();
-  }
+  } finally { await page.close(); }
 });

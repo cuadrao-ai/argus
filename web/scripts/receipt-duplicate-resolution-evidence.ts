@@ -25,8 +25,8 @@ const base = await source.dossier(dossierFixtureIds.ready);
 const receiptImage = (ncf: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="520"><rect width="360" height="520" fill="#fff"/><rect x="20" y="20" width="320" height="480" fill="none" stroke="#999"/><text x="40" y="70" font-family="sans-serif" font-size="20">Ferreteria de prueba</text><text x="40" y="110" font-family="sans-serif" font-size="16">03/11/2026</text><text x="40" y="150" font-family="sans-serif" font-size="16">NCF ${ncf}</text><text x="40" y="440" font-family="sans-serif" font-size="22">Total 1,180.00</text></svg>`;
 const FILES: Record<string, string> = { "synthetic-file-new": receiptImage("B0100000456"), "synthetic-file-original": receiptImage("B0100000123") };
 
-type State = "problems" | "compare" | "same" | "readonly" | "pending" | "failure" | "success" | "deleted";
-const STATES: State[] = ["problems", "compare", "same", "readonly", "pending", "failure", "success", "deleted"];
+type State = "problems" | "compare" | "origin" | "same" | "readonly" | "pending" | "failure" | "success" | "deleted";
+const STATES: State[] = ["problems", "compare", "origin", "same", "readonly", "pending", "failure", "success", "deleted"];
 
 /** The server's candidate for each state: `same` is an RNC and NCF pair, which lists only same_purchase. */
 function candidate(state: State): BusinessDuplicateCandidate {
@@ -63,6 +63,10 @@ try {
       const path = new URL(route.request().url()).pathname.split("/business/")[1];
       const file = /^receipts\/([^/]+)\/source$/.exec(path)?.[1];
       if (file && FILES[file]) return route.fulfill({ body: FILES[file], contentType: "image/svg+xml" });
+      if (route.request().method() === "GET" && /^receipts\/synthetic-file-(new|original)$/.test(path)) {
+        const id = path.split("/")[1];
+        return route.fulfill({ json: { id, sent_by: { id, kind: "email", address: id === "synthetic-file-new" ? "nueva@example.test" : "anterior@example.test" } } });
+      }
       if (path === "drafts/synthetic-new/duplicate-resolution") {
         if (route.request().method() !== "POST") {
           unexpected.push(`Unexpected synthetic method ${route.request().method()} for ${path}`);
@@ -74,7 +78,7 @@ try {
         if (state === "pending") await held;
         if (state === "failure") return route.fulfill({ status: 409, json: { code: "stale_version" } });
         dossier = state === "deleted"
-          ? { ...dossier, version: 8, duplicate_candidates: [], deleted: { actor: { actor_id: "synthetic-owner", display_name: "Dueña de prueba", shown_as: "name" }, at: "2026-11-16T12:00:00Z", purge_at: "2026-11-23T12:00:00Z", key: "synthetic-key", previous_state: { state: "open", group: "attention" } } }
+          ? { ...dossier, version: 8, duplicate_candidates: [], restore_available: true, deleted: { actor: { actor_id: "synthetic-owner", display_name: "Dueña de prueba", shown_as: "name" }, at: "2026-11-16T12:00:00Z", purge_at: "2026-11-23T12:00:00Z", key: "synthetic-key", previous_state: { state: "open", group: "attention" } } }
           : { ...dossier, version: 8, duplicate_candidates: [], blockers: [{ code: "fact_required", field: "funding" }], bandeja_group: { group: "attention", reason: "blocked", label: "needs_attention" }, listo_gaps: ["blocked"] };
         return route.fulfill({ json: dossier });
       }
@@ -117,11 +121,26 @@ try {
         await expect(list).toHaveCount(0);
         await expect(view.getByTestId("duplicate-compare-row")).toHaveCount(5);
         await expect(view.locator('[data-testid="duplicate-compare-row"][data-state="different"]')).toHaveCount(state === "same" ? 0 : 1);
-        await expect(view.locator('[data-testid="duplicate-compare-row"] th [data-compare-marker="different"]')).toHaveCount(state === "same" ? 0 : 1);
-        await expect(view.locator('[data-testid="duplicate-compare-row"] th [data-compare-marker="same"][aria-label="Igual"]')).toHaveCount(state === "same" ? 5 : 4);
-        await expect(view.locator("thead [data-compare-file]")).toHaveText(["factura-nueva.svg", "factura.svg"]);
-        await expect(view.getByTestId("receipt-original-source")).toHaveCount(2);
-        await expect(view.getByTestId("receipt-viewer")).toHaveCount(2);
+        await expect(view.locator('[data-testid="duplicate-compare-row"] td [data-compare-marker="different"]')).toHaveCount(state === "same" ? 0 : 1);
+        await expect(view.locator('[data-testid="duplicate-compare-row"] td [data-compare-marker="same"][aria-label="Igual"]')).toHaveCount(state === "same" ? 5 : 4);
+        const ncf = view.locator('[data-field="fiscal_number"] td[title]');
+        expect(await ncf.evaluateAll(cells => cells.every(cell => cell.scrollWidth <= cell.clientWidth))).toBe(true);
+        const frame = page.getByTestId("business-record-review");
+        await expect(frame.getByRole("tab")).toHaveText(["General", "Detalles"]);
+        await expect(view.getByRole("columnheader")).toContainText(["Dato", "Este", "Guardado antes"]);
+        await expect(frame.getByTestId("receipt-original-source")).toHaveCount(1);
+        await expect(frame.getByTestId("receipt-viewer")).toHaveCount(1);
+        const original = frame.getByRole("radio", { name: "Guardado antes" });
+        await original.check();
+        await expect(frame.getByTestId("dossier-document-foot")).toContainText("factura.svg");
+        if (state === "origin") {
+          await frame.getByRole("tab", { name: "Detalles" }).click();
+          const table = frame.getByTestId("duplicate-origin");
+          await expect(table.getByRole("rowheader")).toHaveText(["Canal", "Enviado por", "Llegada", "Archivo"]);
+          await expect(table.getByTitle("anterior@example.test")).toBeVisible();
+        } else if (state === "compare") {
+          await frame.getByRole("tab", { name: "General" }).scrollIntoViewIfNeeded();
+        }
         await expect(footer.getByRole("button", { name: "Volver", exact: true })).toBeVisible();
         if (state === "same") {
           await expect(view.getByTestId("duplicate-recommendation")).toHaveText("Es el mismo documento.");
@@ -153,9 +172,10 @@ try {
           await remove.click();
           await expect(view).toHaveCount(0);
           await expect(page.getByTestId("business-record-review")).toHaveCount(0);
+          await expect(page.getByRole("button", { name: "Deshacer", exact: true })).toBeVisible();
         }
       }
-      expect(writes.length).toBe(["problems", "compare", "same", "readonly"].includes(state) ? 0 : 1);
+      expect(writes.length).toBe(["problems", "compare", "origin", "same", "readonly"].includes(state) ? 0 : 1);
       expect(unexpected).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       const file = `${state}-${width}.png`;

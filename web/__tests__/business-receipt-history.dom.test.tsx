@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import type { Window as HappyWindow } from "happy-dom";
 import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
@@ -168,7 +170,7 @@ describe("Historial", () => {
 });
 
 describe("the AI reading state", () => {
-  test("holds Proveedor, NCF, ITBIS and Total as empty bars, says Leyendo tu recibo…, sweeps the source, and hides the total", async () => {
+  for (const reduced of [false, true]) test(`holds the General layout with a paper scan and dot ripple; reduced motion ${reduced}`, async () => {
     const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
     const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
@@ -178,17 +180,40 @@ describe("the AI reading state", () => {
       ...fixture,
       receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), draft_id: null, activity: { state: "reading", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } }),
     };
+    const device = (window as unknown as HappyWindow).happyDOM.settings.device;
+    const original = device.prefersReducedMotion;
+    device.prefersReducedMotion = reduced ? "reduce" : "no-preference";
+    const sheet = document.createElement("style");
+    sheet.textContent = readFileSync(new URL("../components/business-app/receipt-reading.module.css", import.meta.url), "utf8");
+    document.head.append(sheet);
     const page = await render(<BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source}><ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-ferreteria" }} /></BusinessWorkspaceProvider></BusinessConsentTestProvider>);
-    for (let i = 0; i < 80 && !page.host.querySelector('[data-testid="receipt-reading-state"]'); i += 1) await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
-    const state = page.host.querySelector('[data-testid="receipt-reading-state"]')!;
-    assert.equal(state.querySelector('[role="status"]')?.textContent, "Leyendo tu recibo…");
-    assert.deepEqual([...state.querySelectorAll("dt")].map((label) => label.textContent), ["Proveedor", "NCF", "ITBIS", "Total"]);
-    assert.ok([...state.querySelectorAll("dd")].every((bar) => bar.textContent === "" && bar.className.includes("bg-[#e3ebe1]")));
-    assert.equal(page.host.querySelector('[data-testid="receipt-total"]'), null, "the amount waits for the read");
-    assert.doesNotMatch(page.host.querySelector('[data-testid="receipt-top-block"]')?.textContent ?? "", /RD\$|0\.00/);
-    assert.ok(page.host.querySelector('[data-testid="receipt-review-source"] [data-testid="receipt-reading-band"]'), "the band sweeps the source");
-    assert.equal(page.host.querySelector('[data-testid="receipt-review-fields"] input'), null, "no field to fill before the read returns");
-    await page.close();
+    try {
+      for (let i = 0; i < 80 && !page.host.querySelector('[data-testid="receipt-viewer"]'); i++) await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+      const state = page.host.querySelector('[role="status"][aria-label="Leyendo el documento"]');
+      assert.ok(state, "the pending read is announced");
+      assert.deepEqual([...state.querySelectorAll("h3")].map(heading => heading.textContent), ["Comprobante", "Reporte 606", "Montos"]);
+      assert.deepEqual([...state.querySelectorAll("ul")].map(list => list.querySelectorAll("li").length), [4, 2, 3]);
+      assert.doesNotMatch(state.textContent ?? "", /RD\$|0\.00|%/);
+      assert.equal(state.querySelector("input, [role=progressbar]"), null);
+      const band = page.host.querySelector('[data-testid="receipt-reading-band"]');
+      const clip = band?.parentElement;
+      const paper = clip?.previousElementSibling as HTMLElement;
+      assert.ok(clip && paper?.matches("img, canvas"), "the band overlays the viewed page");
+      assert.ok(clip.classList.contains("overflow-hidden"), "the scan stays inside the paper");
+      for (const property of ["width", "height", "transform"] as const) assert.equal(clip.style[property], paper.style[property]);
+      const ripple = page.host.querySelector('[data-testid="receipt-reading-ripple"]');
+      const bar = state.querySelector("li span");
+      for (const part of [bar, ripple, band]) {
+        assert.ok(part);
+        const motion = getComputedStyle(part).animation;
+        if (reduced) assert.ok(!motion || motion === "none", "the board is still");
+        else assert.ok(motion && motion !== "none", "the board animates");
+      }
+    } finally {
+      await page.close();
+      sheet.remove();
+      device.prefersReducedMotion = original;
+    }
   });
 });
 

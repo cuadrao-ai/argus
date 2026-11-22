@@ -14,7 +14,9 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 type Mode = "success" | "deleted" | "error" | "stale" | "hold";
 type Options = {
+  documentType?: BusinessDossier["document_type"];
   closed?: boolean;
+  senderUnavailable?: boolean;
   noCandidates?: boolean;
   decisions?: BusinessDuplicateDecision[];
   recommendation?: BusinessDuplicateDecision | null;
@@ -72,16 +74,18 @@ async function mount(mode: Mode = "success", options: Options = {}) {
     blockers: options.blockers ?? [{ code: "possible_duplicate", field: null }, { code: "fact_required", field: "funding" }],
     ...standing(options.gaps ?? ["duplicate", "blocked"], options.closed),
     approval_available: false,
+    document_type: options.documentType ?? "recibo",
     duplicate_candidates: options.noCandidates ? [] : [candidate(options)],
   };
   const next: BusinessDossier = mode === "deleted"
-    ? { ...initial, version: 8, duplicate_candidates: [], deleted: { actor: { actor_id: "owner", display_name: "Dueña" }, at: "2026-11-16T12:00:00Z", purge_at: "2026-11-23T12:00:00Z", key: "key", previous_state: { state: "open", group: "attention" } } }
+    ? { ...initial, version: 8, duplicate_candidates: [], restore_available: true, deleted: { actor: { actor_id: "owner", display_name: "Dueña", shown_as: "name" }, at: "2026-11-16T12:00:00Z", purge_at: "2026-11-23T12:00:00Z", key: "key", previous_state: { state: "open", group: "attention" } } }
     : { ...initial, version: 8, blockers: [{ code: "fact_required", field: "funding" }], ...standing(["blocked"]), duplicate_candidates: [] };
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const requests: { url: string; options?: RequestInit }[] = [];
   const fetchedSources: string[] = [];
   const deleted: string[] = [];
+  const restored: string[] = [];
   const oldFetch = globalThis.fetch;
   let release = () => {};
   const hold = new Promise<void>((resolve) => { release = resolve; });
@@ -92,14 +96,20 @@ async function mount(mode: Mode = "success", options: Options = {}) {
     return new Response(JSON.stringify(mode === "stale" ? { code: "stale_version" } : next), { status: mode === "stale" ? 409 : 200, headers: { "Content-Type": "application/json" } });
   };
   const context = {
-    source: { mode: "live", receiptSource: async (id: string) => { fetchedSources.push(id); return new Blob(["%PDF-1.4"], { type: "application/pdf" }); } },
+    source: { mode: "live", restoreDocument: async (id: string) => { restored.push(id); }, receipt: async (id: string) => {
+      if (options.senderUnavailable && id === "file-original") throw new Error("Offline");
+      return { sent_by: { id, kind: "email", address: id === "file-new" ? "nueva@example.test" : "anterior@example.test" } };
+    }, receiptSource: async (id: string) => { fetchedSources.push(id); return new Blob(["%PDF-1.4"], { type: "application/pdf" }); } },
     openPanel: () => undefined,
     reload: () => undefined,
   } as unknown as BusinessContextValue;
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
+  const { useToasts, clearToasts } = await import("@/components/business-app/foundation/toasts");
+  clearToasts();
   function View() {
+    const toast = useToasts()[0];
     const [dossier, setDossier] = useState(initial);
     const [busy, setBusy] = useState(false);
     const compare = useDuplicateCompare(dossier);
@@ -107,8 +117,9 @@ async function mount(mode: Mode = "success", options: Options = {}) {
     const problems = dossierProblems(dossier, i18n.t.bind(i18n));
     return <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>
       {compare.candidate
-        ? <ReceiptDuplicateCompare dossier={dossier} candidate={compare.candidate} busy={busy} onBack={compare.back} onBusyChange={setBusy} onChanged={(next) => { setDossier(next); compare.settled(); }} onDeleted={(gone) => deleted.push(gone.draft_id)} frame={(body, footer) => <section data-testid="frame">{body}<footer data-testid="frame-footer">{footer}</footer></section>} />
+        ? <ReceiptDuplicateCompare dossier={dossier} candidate={compare.candidate} busy={busy} onBack={compare.back} onBusyChange={setBusy} onChanged={(next) => { setDossier(next); compare.settled(); }} onDeleted={(gone) => deleted.push(gone.draft_id)} head={{ recordId: dossier.draft_id, title: "Factura", back: "inbox" }} />
         : <section data-testid="frame"><DossierStatus label={dossier.bandeja_group?.label} problems={problems} onProblem={(problem) => { if (problem.compare) compare.open(problem.compare); }} /><p data-testid="review-form">Formulario</p></section>}
+      {toast?.action ? <button onClick={toast.action.run}>{toast.action.label}</button> : null}
     </BusinessContext.Provider></I18nextProvider>;
   }
   await act(async () => { root.render(<View />); });
@@ -128,10 +139,10 @@ async function mount(mode: Mode = "success", options: Options = {}) {
   const entry = async () => { await showProblems(); return host.querySelector<HTMLElement>('[data-testid="dossier-status"] [data-compare]'); };
   const view = () => host.querySelector<HTMLElement>('[data-testid="duplicate-compare"]');
   const button = (name: string) => Array.from(host.querySelectorAll<HTMLButtonElement>("button")).find((item) => item.textContent?.trim() === name);
-  const footerButtons = () => Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="frame-footer"] button')).map((item) => item.textContent?.trim());
+  const footerButtons = () => Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="receipt-review-footer"] button')).map((item) => item.textContent?.trim());
   const row = (field: BusinessComparedField | "file") => host.querySelector<HTMLElement>(`[data-testid="duplicate-compare-row"][data-field="${field}"]`);
   const compare = async () => { const item = await entry(); assert.ok(item, "Parece repetido opens Comparar"); await act(async () => { item.click(); }); await flush(); };
-  return { host, requests, fetchedSources, deleted, act, flush, release, status, problems, entry, view, button, footerButtons, row, compare, cleanup: async () => {
+  return { host, requests, fetchedSources, deleted, restored, act, flush, release, status, problems, entry, view, button, footerButtons, row, compare, cleanup: async () => {
     release();
     await act(async () => { root.unmount(); });
     host.remove();
@@ -139,7 +150,7 @@ async function mount(mode: Mode = "success", options: Options = {}) {
   } };
 }
 
-const LABELS = { counterparty: "Comercio", occurred_on: "Fecha", amount: "Total", currency: "Moneda", fiscal_number: "NCF" } as const;
+const LABELS = { counterparty: "Emisor", occurred_on: "Fecha", amount: "Total", currency: "Moneda", fiscal_number: "NCF" } as const;
 const PRIMARY = "bg-[var(--cuadrao-green)]";
 const DANGER_FILL = "bg-[#9e2f39]";
 // Class tokens, not substrings: a pressed fill such as active:bg-[#9e2f39]/[0.08] is not the fill.
@@ -198,19 +209,24 @@ test("why it looks repeated follows the server's basis", async () => {
   assert.match(number, /NCF/);
 });
 
-test("Comparar turns the panel into the compare view with both documents in the existing preview", async () => {
+test("Comparar opens General, shows only General and Detalles, and switches the original in place", async () => {
   const ui = await mount();
   try {
     await ui.compare();
-    assert.equal(ui.status(), null);
+    const tabs = Array.from(ui.host.querySelectorAll('[role="tab"]'));
+    assert.deepEqual(tabs.map((tab) => tab.textContent), ["General", "Detalles"]);
     assert.equal(ui.host.querySelector('[data-testid="review-form"]'), null);
-    assert.ok(ui.view());
-    assert.equal(ui.host.querySelectorAll('[data-testid="frame"]').length, 1);
-    assert.equal(ui.host.querySelectorAll('[data-testid="receipt-original-source"]').length, 2);
-    assert.deepEqual(ui.fetchedSources.sort(), ["file-new", "file-original"]);
-    assert.match(ui.view()?.textContent ?? "", /factura-nueva\.pdf/);
-    assert.match(ui.view()?.textContent ?? "", /factura\.pdf/);
+    assert.equal(ui.host.querySelectorAll('[data-testid="receipt-original-source"]').length, 1);
+    assert.deepEqual(ui.fetchedSources, ["file-new"]);
     assert.equal(document.activeElement?.getAttribute("data-testid"), "duplicate-compare-title");
+    const radio = (value: string) => ui.host.querySelector<HTMLInputElement>('input[type="radio"][value="' + value + '"]');
+    assert.equal(radio("document")?.checked, true);
+    await ui.act(async () => { radio("other")?.click(); });
+    await ui.flush();
+    assert.equal(radio("other")?.checked, true);
+    assert.match(ui.host.querySelector('[data-testid="dossier-document-foot"]')?.textContent ?? "", /factura\.pdf/);
+    assert.deepEqual(ui.fetchedSources, ["file-new", "file-original"]);
+    assert.equal(ui.requests.length, 0);
   } finally { await ui.cleanup(); }
 });
 
@@ -229,66 +245,57 @@ test("the diff shows both documents' values and marks each row as the server's d
   } finally { await ui.cleanup(); }
 });
 
-test("only a Diferente row carries the shared chip, an Igual row a quiet check, both right after the field name", async () => {
+test("a sale compares the customer named by the server", async () => {
+  const page = await mount("success", { documentType: "venta" });
+  try {
+    await page.compare();
+    assert.equal(page.row("counterparty")?.querySelector("th")?.textContent, "Cliente");
+  } finally { await page.cleanup(); }
+});
+
+test("each field has two values followed by its server difference marker", async () => {
   const ui = await mount("success", { differences: ["amount", "fiscal_number"] });
   try {
     await ui.compare();
-    const { StatusChip } = await import("@/components/business-app/foundation/StatusChip");
-    const { createRoot } = await import("react-dom/client");
-    const { act } = await import("react");
-    const probe = document.createElement("div");
-    const probeRoot = createRoot(probe);
-    await act(async () => { probeRoot.render(<StatusChip tone="warning">x</StatusChip>); });
-    const shared = probe.firstElementChild as HTMLElement;
     for (const field of ["counterparty", "occurred_on", "amount", "currency", "fiscal_number"] as const) {
       const line = ui.row(field)!;
-      const different = field === "amount" || field === "fiscal_number";
-      const head = line.querySelector("th")!;
-      const marker = head.querySelector<HTMLElement>("[data-compare-marker]")!;
-      assert.ok(marker, `${field} has a marker`);
-      assert.equal(marker.dataset.compareMarker, different ? "different" : "same");
-      // The marker sits on the left, right after the field name, before either value.
-      assert.equal(line.firstElementChild, head);
-      assert.equal(marker.previousElementSibling?.textContent, LABELS[field]);
-      assert.ok(marker.compareDocumentPosition(line.querySelector("td")!) & Node.DOCUMENT_POSITION_FOLLOWING);
-      assert.equal(line.querySelectorAll("[data-compare-marker]").length, 1);
-      if (different) {
-        assert.equal(marker.textContent, "Diferente");
-        assert.equal(marker.className, shared.className);
-        assert.equal(marker.getAttribute("style"), shared.getAttribute("style"));
-      } else {
-        assert.equal(marker.getAttribute("aria-label"), "Igual");
-        assert.equal(marker.getAttribute("role"), "img");
-        assert.equal(marker.tagName.toLowerCase(), "svg");
-      }
-      assert.doesNotMatch(Array.from(line.querySelectorAll("td")).map((cell) => cell.textContent).join(" "), /Igual|Diferente/, "no words on the right");
+      assert.equal(line.querySelector("th")?.textContent, LABELS[field]);
+      const marker = line.lastElementChild?.querySelector("[data-compare-marker]");
+      assert.ok(marker, field);
+      if (field === "amount" || field === "fiscal_number") assert.equal(marker.textContent, "Diferente");
+      else assert.equal(marker.getAttribute("aria-label"), "Igual");
     }
-    assert.equal(ui.view()?.querySelectorAll('[data-compare-marker="different"]').length, 2);
-    assert.match(ui.row("amount")!.className, /bg-\[#fdf6ec\]/, "the Diferente tint stays");
-    assert.doesNotMatch(ui.row("currency")!.className, /bg-\[#fdf6ec\]/);
-    await act(async () => { probeRoot.unmount(); });
   } finally { await ui.cleanup(); }
 });
 
-test("each column head names its document's file, with Este or the other's state, its channel and when it arrived", async () => {
-  const saved = await mount();
-  const approved = await mount("success", { approved: true });
+test("Detalles compares channel, sender, arrival and file from both receipts", async () => {
+  const ui = await mount();
   try {
-    for (const [ui, state] of [[saved, "Guardado antes"], [approved, "Aceptado"]] as const) {
-      await ui.compare();
-      const heads = Array.from(ui.view()!.querySelectorAll<HTMLElement>("thead [data-compare-side]"));
-      assert.deepEqual(heads.map((head) => head.dataset.compareSide), ["document", "other"]);
-      const [mine, theirs] = heads;
-      assert.equal(mine.querySelector("[data-compare-file]")?.textContent, "factura-nueva.pdf");
-      assert.equal(mine.querySelector("[data-compare-arrival]")?.textContent, `Este · Carga web · ${formatTimestamp("2026-11-04T12:00:00Z", "es-419")}`);
-      assert.equal(theirs.querySelector("[data-compare-file]")?.textContent, "factura.pdf");
-      assert.equal(theirs.querySelector("[data-compare-arrival]")?.textContent, `${state} · WhatsApp · ${formatTimestamp("2026-11-03T12:00:00Z", "es-419")}`);
-      assert.doesNotMatch(ui.view()?.textContent ?? "", /Este documento|El otro documento/);
-    }
-  } finally { await saved.cleanup(); await approved.cleanup(); }
+    await ui.compare();
+    await ui.act(async () => { ui.button("Detalles")?.click(); });
+    await ui.flush();
+    const rows = [...ui.host.querySelectorAll('[data-testid="duplicate-origin"] tbody tr')];
+    assert.deepEqual(rows.map(row => row.querySelector("th")?.textContent), ["Canal", "Enviado por", "Llegada", "Archivo"]);
+    const values = (index: number) => [...rows[index].querySelectorAll("td[title]")].map(cell => cell.getAttribute("title"));
+    assert.deepEqual(values(0), ["Carga web", "WhatsApp"]);
+    assert.deepEqual(values(1), ["nueva@example.test", "anterior@example.test"]);
+    assert.deepEqual(values(2), ["2026-11-04T12:00:00Z", "2026-11-03T12:00:00Z"].map(stamp => formatTimestamp(stamp, "es-419")));
+    assert.deepEqual(values(3), ["factura-nueva.pdf", "factura.pdf"]);
+  } finally { await ui.cleanup(); }
 });
 
-test("the diff has no Archivo row: the heads name the files and the previews show them", async () => {
+test("a sender lookup failure only marks the affected sender unavailable", async () => {
+  const ui = await mount("success", { senderUnavailable: true });
+  try {
+    await ui.compare();
+    await ui.act(async () => { ui.button("Detalles")?.click(); });
+    await ui.flush();
+    const senders = ui.host.querySelector('[data-testid="duplicate-origin"] [data-field="sent_by"]');
+    assert.deepEqual([...senders!.querySelectorAll("td[title]")].map(cell => cell.textContent), ["nueva@example.test", "No disponible"]);
+  } finally { await ui.cleanup(); }
+});
+
+test("General compares the five facts and leaves Archivo to Detalles", async () => {
   const ui = await mount("success", { differences: ["file"] });
   try {
     await ui.compare();
@@ -298,14 +305,14 @@ test("the diff has no Archivo row: the heads name the files and the previews sho
   } finally { await ui.cleanup(); }
 });
 
-test("a different NCF recommends two purchases and makes Son compras distintas the primary action", async () => {
+test("a different NCF recommends two purchases and leaves delete last", async () => {
   const ui = await mount("success", { recommendation: "different_purchase" });
   try {
     await ui.compare();
     assert.match(ui.view()?.textContent ?? "", /Mismo comercio, fecha, total y moneda\. El NCF es distinto: probablemente son dos compras distintas\./);
-    assert.ok(hasClass(ui.button("Son compras distintas"), PRIMARY));
+    assert.ok(!hasClass(ui.button("Son compras distintas"), PRIMARY));
     assert.ok(!hasClass(ui.button("Eliminar este duplicado"), DANGER_FILL));
-    assert.deepEqual(ui.footerButtons(), ["Volver", "Eliminar este duplicado", "Son compras distintas"]);
+    assert.deepEqual(ui.footerButtons(), ["Volver", "Son compras distintas", "Eliminar este duplicado"]);
   } finally { await ui.cleanup(); }
 });
 
@@ -320,11 +327,11 @@ test("the same NCF says it is the same document and makes Eliminar este duplicad
   } finally { await ui.cleanup(); }
 });
 
-test("with no NCF there is no recommendation and no primary action", async () => {
+test("with no NCF the verdict gives the known basis and neither action is primary", async () => {
   const ui = await mount("success", { recommendation: null });
   try {
     await ui.compare();
-    assert.equal(ui.host.querySelector('[data-testid="duplicate-recommendation"]'), null);
+    assert.equal(ui.host.querySelector('[data-testid="duplicate-recommendation"]')?.textContent, "Mismo suplidor, fecha y total que otro documento.");
     assert.ok(!hasClass(ui.button("Son compras distintas"), PRIMARY));
     assert.ok(!hasClass(ui.button("Eliminar este duplicado"), DANGER_FILL));
   } finally { await ui.cleanup(); }
@@ -376,6 +383,10 @@ test("Eliminar este duplicado sends same_purchase with both versions and hands o
     assert.equal(ui.requests[0].options?.method, "POST");
     assert.deepEqual(sent(ui), { version: 7, other_draft_id: "draft-original", other_version: 3, decision: "same_purchase" });
     assert.deepEqual(ui.deleted, ["draft-new"]);
+    assert.ok(ui.button("Deshacer"), "a server-restorable deletion offers undo");
+    await ui.act(async () => { ui.button("Deshacer")?.click(); });
+    await ui.flush();
+    assert.deepEqual(ui.restored, ["draft-new"]);
   } finally { await ui.cleanup(); }
 });
 
@@ -401,7 +412,7 @@ test("in flight every decision is disabled and a second click cannot write", asy
     await ui.act(async () => { ui.button("Son compras distintas")?.click(); ui.button("Son compras distintas")?.click(); ui.button("Eliminar este duplicado")?.click(); });
     assert.equal(ui.requests.length, 1);
     assert.equal(ui.view()?.getAttribute("aria-busy"), "true");
-    assert.ok(Array.from(ui.host.querySelectorAll<HTMLButtonElement>('[data-testid="frame-footer"] button')).every((item) => item.disabled));
+    assert.ok(Array.from(ui.host.querySelectorAll<HTMLButtonElement>('[data-testid="receipt-review-footer"] button')).every((item) => item.disabled));
     ui.release();
     await ui.flush();
   } finally { await ui.cleanup(); }
