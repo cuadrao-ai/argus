@@ -19,6 +19,7 @@ from argus.api.business_schemas import (
     DocumentActionCounted,
     DossierApprovedCounted,
     ListosApprovedCounted,
+    ReceiptActivityCounts,
 )
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
@@ -287,7 +288,11 @@ def approve_draft(
     dossier = _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)
     )
-    return DossierApprovedCounted(**dict(dossier), inbox_counts=counts())
+    # Each dossier field is passed on as it is: a rebuilt set could list its
+    # members in another order than the dossier read does.
+    return DossierApprovedCounted.model_construct(
+        **dict(dossier), inbox_counts=ReceiptActivityCounts.model_validate(counts())
+    )
 
 
 @router.post("/approve-listos", response_model=ListosApprovedCounted)
