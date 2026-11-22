@@ -274,16 +274,23 @@ test("a refusal updates the dialog and the next approval names the new gaps with
 
 test("Corregir after a refusal points at its first gap even when the dossier showed Listo", async () => {
   const dossier = await flagged([], []);
+  const current = await flagged(["ncf_malformed"], ["missing_date", "invalid_ncf"], ["invalid_ncf"]);
   const approvals = serve(dossier, refusal("not_listo", { gaps: ["missing_date", "invalid_ncf"], confirmable: ["invalid_ncf"] }));
   const page = await render(dossier);
+  const label = () => page.host.querySelector('[data-testid="status-pill"]')?.getAttribute("data-label");
   try {
     await page.approve();
     const step = page.step();
     assert.ok(step);
     assert.deepEqual([...step.querySelectorAll("button")].map((button) => button.textContent), [copy.confirm.fix]);
+    assert.equal(label(), "ready");
+    assert.equal(page.host.querySelector('[data-testid="dossier-problems"]'), null, "the refusal only updates the dialog");
+    Object.assign(dossier, current);
     await page.tap(copy.confirm.fix, step);
     assert.equal(page.step(), null);
     assert.ok(page.host.querySelector('[data-fact="occurred_on"]')?.getAttribute("data-flash"), "the date row flashes");
+    assert.equal(document.activeElement, page.host.querySelector('[data-fact="occurred_on"] button[data-row-value]'));
+    assert.equal(label(), "needs_attention");
     await page.approve();
     assert.ok(page.step(), "the latest gaps remain after closing the dialog");
     assert.deepEqual([...page.step()!.querySelectorAll("button")].map((button) => button.textContent), [copy.confirm.fix]);
@@ -293,6 +300,32 @@ test("Corregir after a refusal points at its first gap even when the dossier sho
     await page.close();
   }
 });
+
+for (const origin of ["dossier", "refusal"] as const) {
+  test(`closing a hard gap from the ${origin} rechecks a sender cleared at the same version`, async () => {
+    const gaps = ["invalid_ncf", "unverified_sender"] satisfies ListoGap[];
+    const dossier = origin === "dossier" ? await flagged(["ncf_malformed"], gaps, ["invalid_ncf"]) : await flagged(["ncf_malformed"], []);
+    const current = await flagged(["ncf_malformed"], ["invalid_ncf"]);
+    const approvals = serve(dossier, ...(origin === "refusal" ? [refusal("not_listo", { gaps, confirmable: ["invalid_ncf"] })] : []));
+    const page = await render(dossier);
+    try {
+      await page.approve();
+      assert.ok(page.step());
+      assert.equal(page.button(copy.confirm.accept_anyway, page.step()!), undefined);
+      assert.equal(dossier.version, current.version);
+      Object.assign(dossier, current);
+      await page.act(async () => document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+      await page.settle();
+      await page.approve();
+      assert.deepEqual(page.problems(), [`${flagCopy.ncf_malformed.title}. ${flagCopy.ncf_malformed.text}`]);
+      await page.approveAnyway();
+      assert.deepEqual(approvals.at(-1)?.body, { version: dossier.version, action: dossier.approval_action, accept_gaps: ["invalid_ncf"] });
+      assert.ok(page.recorded());
+    } finally {
+      await page.close();
+    }
+  });
+}
 
 test("a read that restarted is listed and offers only Corregir", async () => {
   const dossier = await flagged([], []);

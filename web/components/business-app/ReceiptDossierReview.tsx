@@ -8,7 +8,7 @@ import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } f
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import { CircleAlert, Loader2, RotateCcw, StickyNote } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, readReviewNote, type BusinessDossier, type ListoGap } from "@/lib/business-dossier";
@@ -69,6 +69,7 @@ type ApprovalSend = { next: boolean } & BusinessApprovalOptions;
 type ApprovalCheck = {
   draftId: string;
   version: number;
+  origin: "dossier" | "refusal";
   next: boolean;
   gaps: readonly ListoGap[];
   confirmable: readonly ListoGap[];
@@ -154,6 +155,11 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const [finished, setFinished] = useState(false);
   const [fiscalBusy, setFiscalBusy] = useState(false);
   const [fiscalDirty, setFiscalDirty] = useState(false);
+  const pendingFiscalEdits = useRef(false);
+  const trackFiscalEdits = useCallback((dirty: boolean) => {
+    pendingFiscalEdits.current = dirty;
+    setFiscalDirty(dirty);
+  }, []);
   const [fiscalSaved, setFiscalSaved] = useState<BusinessDossier | null>(null);
   const [duplicate, setDuplicate] = useState<{ recordId: string | null } | null>(null);
   const [highlight, setHighlight] = useState<string[]>([]);
@@ -265,18 +271,23 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     }
   };
 
-  const refresh = async () => {
+  const refresh = async ({ keepEdits = false } = {}) => {
     const asked = draftId;
     setChecking(true);
     try {
       const next = await source.dossier(draftId);
       if (!shown(asked)) return;
+      if (keepEdits) {
+        // A new version remounts the fiscal form. Keep any input started during the read.
+        if (!pendingFiscalEdits.current) setDossier((current) => current === dossier ? next : current);
+        return;
+      }
       setDossier(next);
       setUnavailable(false);
       if (operation.kind !== "uncertain") { setProblem(null); setDuplicate(null); rows.clear(); }
       else if (next.approval_result?.status === "recorded" || next.approval_result?.status === "failed") { setOperation({ kind: "idle" }); rows.clear(); setProblem(null); }
     } catch (error) {
-      if (shown(asked)) loadFailed(error);
+      if (shown(asked) && !keepEdits) loadFailed(error);
     } finally { setChecking(false); }
   };
 
@@ -317,11 +328,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       } else if (refusedGaps) {
         approvalKey.current = null;
         setOperation({ kind: "idle" });
-        // Reading is temporary. Let the next click ask the server again.
-        if (!refusedGaps.gaps.includes("reading")) {
-          setDossier((current) => current === dossier ? { ...current, listo_gaps: refusedGaps.gaps, confirmable: refusedGaps.confirmable } : current);
-        }
-        setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, next: request.next, ...refusedGaps });
+        setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, origin: "refusal", next: request.next, ...refusedGaps });
       } else if (status && status >= 400 && status < 500) {
         setOperation({ kind: "idle" });
         setProblem({ text: t(`business.dgii.error.${code}`, "") || t(`business.dossier.blocker.${code}`, "") || t("business.dossier.refused", "This action could not be completed. Check the current record before trying again."), reference });
@@ -387,7 +394,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const title = dossier.facts.counterparty.state === "known" ? dossier.facts.counterparty.value : receipt?.filename ?? attachments[0]?.filename ?? t("business.dossier.title", "Review record");
   const busy = duplicateBusy || autosave.busy || operation.kind === "approving";
   const saveHolds = autosave.busy || autosave.failed || dirty;
-  const approvable = mutable && dossier.approval_available && !saveHolds;
+  const approvable = mutable && dossier.approval_available && !saveHolds && !checking;
   const reviewing = dossier.review_state === "open" && !recorded;
   const problems = dossierProblems(dossier, t);
   /** A problem's way to its fix: Parece repetido opens Comparar; any other switches to its tab and washes its row. */
@@ -409,11 +416,17 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const requestApproval = (next = false) => {
     if (!canApprove || !supportedKind || !approvable) return;
     const gaps = dossier.listo_gaps ?? [];
-    if (gaps.length) setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, next, gaps, confirmable: dossier.confirmable ?? [] });
+    if (gaps.length) setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, origin: "dossier", next, gaps, confirmable: dossier.confirmable ?? [] });
     else approve({ next });
   };
   const currentCheck = approvalCheck?.draftId === dossier.draft_id && approvalCheck.version === dossier.version ? approvalCheck : null;
-  const canAcceptGaps = canApprove && supportedKind && approvable && currentCheck?.gaps.every((gap) => currentCheck.confirmable.includes(gap));
+  const everyGapConfirmable = currentCheck?.gaps.every((gap) => currentCheck.confirmable.includes(gap));
+  const canAcceptGaps = canApprove && supportedKind && approvable && everyGapConfirmable;
+  const closeApprovalCheck = () => {
+    setApprovalCheck(null);
+    // The standing can change without a new draft version, such as when a sender is verified.
+    if (currentCheck && (currentCheck.origin === "refusal" || !everyGapConfirmable)) void refresh({ keepEdits: true });
+  };
   const confirmApproval = (check: ApprovalCheck) => {
     setApprovalCheck(null);
     if (canAcceptGaps && currentCheck === check) approve({ next: check.next, acceptGaps: check.gaps });
@@ -570,7 +583,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
         </> },
-        { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} onBusy={setFiscalBusy} onDirty={setFiscalDirty} saved={fiscalSaved === dossier} onChanged={(value) => { setFiscalSaved(value); setDossier(value); reload(); }} /> },
+        { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} onBusy={setFiscalBusy} onDirty={trackFiscalEdits} saved={fiscalSaved === dossier} onChanged={(value) => { setFiscalSaved(value); setDossier(value); reload(); }} /> },
         { key: "detalles", content: <DossierDetails origin={cameFrom} /> },
         { key: "historial", content: <ReceiptHistory documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} dgiiFields={fields} /> },
       ]}
@@ -623,9 +636,9 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     /> : null}
     {currentCheck && confirmProblems.length ? <DossierConfirm
       problems={confirmProblems}
-      onClose={() => setApprovalCheck(null)}
+      onClose={closeApprovalCheck}
       onFix={() => {
-        setApprovalCheck(null);
+        closeApprovalCheck();
         goProblem(confirmProblems[0]);
       }}
       onAcceptAnyway={canAcceptGaps ? () => confirmApproval(currentCheck) : undefined}
