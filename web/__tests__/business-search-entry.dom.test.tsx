@@ -89,7 +89,6 @@ function SearchKeys({ business }: { business: boolean }) {
   });
   useChatShellCapabilities({
     account: { account_kind: "registered" } as UserResponse,
-    conversationId: "conversation-1",
     closeTransientSidebar: () => {},
     onNewChat: () => {},
     onOpenOmnisearch: () => setOpen(true),
@@ -131,7 +130,7 @@ async function mount(business: boolean) {
             onLoadMoreHistory={() => {}}
             onOpenSearch={() => {}}
             onLogout={() => {}}
-            omnisearchEnabled
+            showSearch
             showProfileMenu={false}
           />
         </SearchSurface>

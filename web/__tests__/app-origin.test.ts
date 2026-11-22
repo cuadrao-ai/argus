@@ -11,14 +11,7 @@ mock.module("../lib/supabase-server", () => ({
     },
   }),
 }));
-mock.module("next/headers", () => ({ headers: async () => new Headers() }));
-mock.module("../lib/private-alpha-flags", () => ({ evidenceReceiptSharingEnabled: true }));
-mock.module("../lib/public-receipt-contract", () => ({
-  readPublicReceipt: async () => ({ kind: "revoked" }),
-}));
-
 const { POST } = await import("../app/api/auth/recovery/route");
-const { generateMetadata } = await import("../app/r/[receiptId]/page");
 const { authEmailHookConfig } = await import("../server/emails/auth-hook");
 const original = {
   CUADRAO_APP_ORIGIN: process.env.CUADRAO_APP_ORIGIN,
@@ -52,8 +45,6 @@ describe("server app origin at each read site", () => {
       }));
       expect(response.status).toBe(202);
       expect(sent).toEqual([`${expected}/auth/recovery`]);
-      const metadata = await generateMetadata({ params: Promise.resolve({ receiptId: "receipt-test" }) });
-      expect(metadata.metadataBase?.origin).toBe(expected);
       expect(authEmailHookConfig(process.env).appOrigin).toBe(expected);
     });
   }
@@ -62,8 +53,6 @@ describe("server app origin at each read site", () => {
     Object.assign(process.env, { NODE_ENV: "production" });
     process.env.CUADRAO_APP_ORIGIN = "";
     process.env.ARGUS_APP_ORIGIN = "https://legacy.example.test";
-    const metadata = await generateMetadata({ params: Promise.resolve({ receiptId: "receipt-test" }) });
-    expect(metadata.metadataBase).toBeUndefined();
     expect(authEmailHookConfig(process.env).appOrigin).toBe("");
     const response = await POST(new Request("https://legacy.example.test/api/auth/recovery", {
       method: "POST",

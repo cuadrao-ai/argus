@@ -129,7 +129,7 @@ def test_local_smoke_contract_reports_sha_flags_mode_and_fingerprint() -> None:
     assert f"candidate_sha={expected_sha}" in result.stdout
     assert "workflow_mode=proof-shadow" in result.stdout
     assert "feature_flags=" in result.stdout
-    assert '"NEXT_PUBLIC_OMNISEARCH_ENABLED":"true"' in result.stdout
+    assert "feature_flags={}" in result.stdout
     assert "runtime_mode=" in result.stdout
     assert '"CUADRAO_PERSISTENCE_MODE":"memory"' in result.stdout
     assert '"ARGUS_MARKET_DATA_PROVIDER_MODE":"synthetic_unit_fixture"' in (result.stdout)

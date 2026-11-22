@@ -281,9 +281,6 @@ describe("Spanish UI Smoke Harness", () => {
   test("English and Spanish are offered with no language environment configuration", () => {
     const probe = `
       import { ENABLED_LANGUAGE_CODES, ENABLED_LANGUAGES, landingLanguageChoices } from "./lib/language-features.ts";
-      import { receiptLanguageFromAcceptLanguage } from "./lib/receipt-copy.ts";
-      if (receiptLanguageFromAcceptLanguage("es-DO,es;q=0.9,en;q=0.8") !== "es-419") throw new Error("Spanish receipt language missing");
-      if (receiptLanguageFromAcceptLanguage("en;q=1,es;q=0.8") !== "en") throw new Error("English receipt preference ignored");
       if (JSON.stringify(ENABLED_LANGUAGE_CODES) !== JSON.stringify(["en", "es-419"])) throw new Error("Both language codes must be available");
       if (!ENABLED_LANGUAGES.some((language) => language.code === "es-419")) throw new Error("Spanish option missing");
       if (landingLanguageChoices("en")[0]?.code !== "es-419") throw new Error("Spanish choice missing");

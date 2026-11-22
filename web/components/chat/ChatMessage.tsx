@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { ThumbsUp, ThumbsDown, MoreHorizontal, Copy, MessageSquareWarning, RotateCcw } from "lucide-react";
 import SafeMarkdown from "@/components/chat/SafeMarkdown";
 import { useTranslation } from "react-i18next";
-import SharedConversationMessage from "./SharedConversationMessage";
 import StrategyResultCard from "./StrategyResultCard";
 import ToolResultCard from "./ToolResultCard";
 import { answerAssumptionsText, type ToolRecompute } from "@/lib/tool-result-card";
@@ -341,8 +340,6 @@ export default function ChatMessage({
       </div>
     );
   }
-
-  if (message.sharedConversation) return <SharedConversationMessage message={message} />;
 
   if (isUser) {
     return (

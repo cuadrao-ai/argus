@@ -239,11 +239,6 @@ describe("Argus Alpha frontend contract", () => {
       join(root, "components/chat/ChatInput.tsx"),
       "utf-8",
     );
-    const flags = readFileSync(
-      join(root, "lib/private-alpha-flags.ts"),
-      "utf-8",
-    );
-    const envExample = readFileSync(join(root, ".env.local.example"), "utf-8");
     const enSource = readFileSync(
       join(root, "public/locales/en/common.json"),
       "utf-8",
@@ -255,13 +250,6 @@ describe("Argus Alpha frontend contract", () => {
     const en = JSON.parse(enSource);
     const es = JSON.parse(esSource);
 
-    // The research rail replaced the exploratory-suggestions flag and retired
-    // the composer typewriter; suggestions ship behind the rail flag instead.
-    expect(flags).toContain("NEXT_PUBLIC_RESEARCH_RAIL_ENABLED");
-    expect(flags).toContain("researchRailEnabled");
-    expect(flags).not.toContain("chatExploratorySuggestionsEnabled");
-    expect(envExample).toContain("NEXT_PUBLIC_RESEARCH_RAIL_ENABLED=false");
-    expect(emptyChat).toContain("researchRailEnabled");
     expect(emptyChat).not.toContain("showSuggestions");
     expect(chat).not.toContain("showSuggestions");
     expect(en.chat.show_suggestions).toBeUndefined();
@@ -2804,22 +2792,13 @@ describe("Argus Alpha frontend contract", () => {
       join(root, "components/sidebar/ChatSidebar.tsx"),
       "utf-8",
     );
-    const flags = readFileSync(
-      join(root, "lib/private-alpha-flags.ts"),
-      "utf-8",
-    );
 
-    expect(flags).toContain("NEXT_PUBLIC_OMNISEARCH_ENABLED");
-    expect(flags).toContain(
-      'process.env.NEXT_PUBLIC_OMNISEARCH_ENABLED !== "false"',
-    );
-    expect(chat).toContain("const searchEntryEnabled = omnisearchEnabled;");
     expect(chat).toMatch(
-      /searchEntryEnabled &&\s*\(!isGuest \|\| canUseOmnisearch\) &&\s*searchOverlayOpen/,
+      /\(!isGuest \|\| canUseOmnisearch\) &&\s*searchOverlayOpen/,
     );
     expect(sidebar).not.toContain("strategiesEnabled");
-    expect(sidebar).toContain("omnisearchEnabled");
-    expect(sidebar).toContain("{omnisearchEnabled && (");
+    expect(sidebar).toContain("showSearch");
+    expect(sidebar).toContain("{showSearch && (");
     expect(sidebar).not.toContain('onNavigate("strategies")');
     expect(sidebar).toContain("common.recents");
   });

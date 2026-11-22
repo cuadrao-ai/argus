@@ -10,7 +10,6 @@ import { RailCalculationPreview } from "../components/chat/ConversationActivityR
 import { ComputedAnswerDecision } from "../components/chat/DecisionAffordance";
 import { DecisionReruns } from "../components/chat/DecisionRerunView";
 import { hydrateMessagesFromApi } from "../components/chat/chat-message-projection";
-import ReceiptBody from "../components/receipt/ReceiptBody";
 import { AnswerDossierView } from "../components/sidebar/command-palette/AnswerDossierView";
 import type { AnswerDossier } from "../lib/answer-dossier-contract";
 import type { ApiMessage } from "../lib/argus-api";
@@ -23,25 +22,14 @@ import {
   type DecisionRerun,
 } from "../lib/decision-contract";
 import { rerunDecision, rerunMessageComputation } from "../lib/decisions-api";
-import type {
-  CalculationReceiptFact,
-  CalculationReceiptFigures,
-  CalculationReceiptTurn,
-  PublicReceiptDocument,
-} from "../lib/public-receipt-turns";
-import { receiptDocumentKind, receiptDocumentSupported } from "../lib/public-receipt-turns";
-import { receiptCopy } from "../lib/receipt-copy";
-import { receiptPresentations } from "../lib/receipt-presentation";
-import { receiptPreviewFacts } from "../lib/receipt-preview-facts";
-import { localizedToolText, toolFactValue, type ToolFact, type ToolResultCard } from "../lib/tool-result-card";
+import { localizedToolText, toolFactValue, type ToolResultCard } from "../lib/tool-result-card";
 import { translate } from "./support/i18n-instance";
 
-/** Cards, markers and the receipt turn come from scripts/dump_calculation_fixtures.py. */
+/** Cards and markers come from scripts/dump_calculation_fixtures.py. */
 const fixture = JSON.parse(
   readFileSync(join(import.meta.dir, "fixtures/calculation-cards.json"), "utf-8"),
 ) as {
   cards: Record<string, { card: ToolResultCard; computation: { kind: string; inputs: Record<string, unknown>; symbols?: string[] } }>;
-  receipt_turn: CalculationReceiptTurn & CalculationReceiptFigures;
 };
 const loan = fixture.cards.time_value;
 const growth = fixture.cards.growth_projection;
@@ -315,73 +303,5 @@ describe("compare is offered only for a single calculation", () => {
     expect(renderToStaticMarkup(
       <ComputedAnswerActions conversationId="c1" messageId="m1" kind={null} t={instance.t.bind(instance)} locale="en" />,
     )).toBe("");
-  });
-});
-
-const flatTurn = fixture.receipt_turn;
-const { title, answer: flatAnswer, rows, inputs, notes, ...turnShared } = flatTurn;
-const receiptFact = (fact: ToolFact): CalculationReceiptFact => ({ label: fact.label, value: fact.value, value_text: fact.value_text ?? null, unit: fact.unit, source: null });
-const growthPresentation = growth.card.presentation;
-const severalTurn: CalculationReceiptTurn = {
-  ...turnShared,
-  calculations: [
-    { title, answer: flatAnswer, rows, inputs, notes },
-    { title: growthPresentation.title, answer: receiptFact(growthPresentation.answer!), rows: growthPresentation.rows.map(receiptFact), inputs: [], notes: [] },
-  ],
-};
-const documentOf = (turn: CalculationReceiptTurn): PublicReceiptDocument => ({ schema_version: 2, kind: "turns", turns: [turn] });
-
-describe.each(["en", "es-419"] as const)("a calculation receipt in either shape in %s", (language) => {
-  const copy = receiptCopy(language);
-
-  test("both shapes parse and present every calculation in order", () => {
-    for (const document of [documentOf(flatTurn), documentOf(severalTurn)]) {
-      expect(receiptDocumentSupported(document)).toBe(true);
-      expect(receiptDocumentKind(document)).toBe("calculation");
-    }
-    expect(receiptDocumentSupported(documentOf({ ...turnShared, calculations: [] }))).toBe(false);
-    const [flat] = receiptPresentations(documentOf(flatTurn), null, language);
-    expect(flat.calculations).toBeUndefined();
-    const [entry] = receiptPresentations(documentOf(severalTurn), null, language);
-    expect(entry.title).toBe(flatTurn.question);
-    expect(entry.headline).toBeUndefined();
-    expect(entry.calculations).toHaveLength(2);
-    expect(entry.calculations?.[0]).toEqual({ title: entry.calculations![0].title, headline: flat.headline, neutralHeadline: true, verdict: flat.verdict, rows: flat.rows, plan: flat.plan });
-    expect(entry.calculations?.[1].plan).toBeUndefined();
-  });
-
-  test("the body renders each calculation's title and headline in order, read-only", () => {
-    const markup = renderToStaticMarkup(
-      <ReceiptBody payload={documentOf(severalTurn)} createdAt="2026-09-11T12:00:00Z" language={language} copy={copy} />,
-    );
-    const [entry] = receiptPresentations(documentOf(severalTurn), null, language);
-    inOrder(markup, [flatTurn.question, ...entry.calculations!.flatMap((calculation) => [calculation.title, calculation.headline!])]);
-    expect(markup).toContain("Apple quote");
-    expect(markup).toContain(copy.calculation.used);
-    expect(markup).not.toContain("<input");
-    expect(markup).toContain(copy.thread.read_only);
-    expect(markup.match(/<textarea/g)).toHaveLength(1);
-    expect(markup).toContain(`aria-label="${copy.followup.label}"`);
-    expect(markup).not.toContain('href="/"');
-    expect(markup).not.toMatch(/tools\.(calc|card)\.[a-z_.]+/);
-    expect(markup).not.toContain("—");
-    const flatMarkup = renderToStaticMarkup(
-      <ReceiptBody payload={documentOf(flatTurn)} createdAt="2026-09-11T12:00:00Z" language={language} copy={copy} />,
-    );
-    expect(flatMarkup).not.toContain(escapeHtml(entry.calculations![0].title));
-  });
-
-  test("the preview facts state every headline in order", () => {
-    const [entry] = receiptPresentations(documentOf(severalTurn), null, language);
-    const headlines = entry.calculations!.map((calculation) => calculation.headline).join(" · ");
-    const facts = receiptPreviewFacts(documentOf(severalTurn), language);
-    expect(facts.title).toBe(flatTurn.question);
-    expect(facts.description).toContain(headlines);
-    expect(facts.verdict).toBe(headlines);
-    expect(facts.metricValue).toBe("");
-    const flatFacts = receiptPreviewFacts(documentOf(flatTurn), language);
-    const [flat] = receiptPresentations(documentOf(flatTurn), null, language);
-    expect(flatFacts.metricValue).toBe(flat.headline!);
-    expect(flatFacts.verdict).toBe(flat.verdict!);
   });
 });

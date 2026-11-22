@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as landingEntry from "../lib/landing-entry";
 import { conversationExitHref, surfacePath } from "../lib/conversation-surface-guard";
-import { receiptFollowupTarget } from "../lib/landing-intent";
 
 const root = join(import.meta.dir, "..");
 const { resolveLandingEntrySurface } = landingEntry;
@@ -137,13 +136,7 @@ describe("a Cuadrao Business build has no guest chat", () => {
     expect(conversationExitHref("http://localhost/chat?conversation=c1", "c1", "business", false)).toBe("/biz?conversation=c1");
   });
 
-  test("a public-receipt follow-up never auto-sends into a Business conversation", () => {
-    expect(receiptFollowupTarget(true)).toEqual({ send: false, href: "/biz?view=inbox" });
-    expect(receiptFollowupTarget(false).send).toBe(true);
-    expect(receiptFollowupTarget(false).href).toMatch(/^\/chat/);
-    const followup = readFileSync(join(root, "components/receipt/ReceiptFollowup.tsx"), "utf-8");
-    expect(followup.indexOf("if (!target.send) { router.push(target.href); return; }")).toBeLessThan(followup.indexOf("saveReceiptFollowup("));
-  });
+
 
   test("the investing chat route is gone; the Security link and the reload button use the signed-in home", () => {
     expect(existsSync(join(root, "app/chat/page.tsx"))).toBe(false);
