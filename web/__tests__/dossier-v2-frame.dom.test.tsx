@@ -83,7 +83,7 @@ function receiptOf(dossier: BusinessDossier, over: Partial<ReceiptDetail> = {}):
 }
 
 /** Words another lane owns: read from the locale, so this suite follows them. */
-const copy = (spanish as unknown as { business: { dossier: { review_flag: { approve_anyway: string; export_blocked: string }; blocker_fallback: string }; history: { approved: string } } }).business.dossier;
+const copy = (spanish as unknown as { business: { dossier: { review_flag: { approve_anyway: string; export_blocked: string } }; history: { approved: string } } }).business.dossier;
 const acceptedWord = (spanish as unknown as { business: { history: { approved: string } } }).business.history.approved;
 
 describe("the v2 dossier frame", () => {
@@ -223,7 +223,7 @@ describe("the dossier's status is the server's", () => {
         assert.equal(shown.length, 1, reason);
         assert.ok(shown[0].textContent?.trim(), reason);
         assert.ok(!shown[0].textContent?.includes("business."), `${reason} has words`);
-        assert.ok(!page.text().includes(copy.blocker_fallback), `${reason} shows no fallback`);
+        assert.doesNotMatch(page.text(), /necesita más revisión/i, `${reason} shows no generic sentence`);
         assert.equal(page.all('[data-testid="approve-reason"]').length, 0, `${reason} leaves the footer quiet`);
       } finally { await page.close(); }
     }

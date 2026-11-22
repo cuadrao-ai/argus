@@ -23,7 +23,7 @@ afterAll(async () => {
 type Change = (dossier: BusinessDossier) => void;
 
 /** Ferretería La Esquina opened as a prepared record; the change edits the record the server returns. */
-async function mount({ change, overrides = {}, receipt = {}, until = "footer" }: { change?: Change; overrides?: Partial<BusinessDataSource>; receipt?: Partial<ReceiptDetail>; until?: "footer" | "top" } = {}) {
+async function mount({ change, overrides = {}, receipt = {}, until = "footer" }: { change?: Change; overrides?: Partial<BusinessDataSource>; receipt?: Partial<ReceiptDetail>; until?: "footer" | "title" } = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -69,52 +69,56 @@ async function mount({ change, overrides = {}, receipt = {}, until = "footer" }:
   };
   const footer = () => host.querySelector<HTMLElement>('[data-testid="receipt-review-footer"]');
   const button = (name: string) => [...(footer()?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((item) => item.textContent === name);
-  await settle(() => Boolean(until === "top" ? host.querySelector('[data-testid="receipt-top-block"]') : footer()));
+  await settle(() => Boolean(until === "title" ? host.querySelector("#receipt-review-title") : footer()));
   return { host, act, settle, footer, button, close: () => act(async () => { root.unmount(); host.remove(); }) };
 }
 
-const LISTO = { group: "listo", reason: null, draft_id: null, version: null } as const;
+const LISTO = { group: "listo", reason: null, label: "ready", draft_id: null, version: null } as const;
+const ACCEPTED = { group: null, reason: null, label: "accepted", draft_id: null, version: null } as const;
 
 const noDate: Change = (dossier) => {
   dossier.facts.occurred_on = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
   dossier.blockers = [{ code: "fact_required", field: "occurred_on" }];
+  dossier.bandeja_group = { group: "attention", reason: "missing_date", label: "needs_attention" };
+  dossier.listo_gaps = ["missing_date"];
   dossier.approval_available = false;
 };
 
-describe("the receipt detail's top block", () => {
-  test("supplier, total and status come first, with no business name or revision number", async () => {
+describe("the receipt detail's header", () => {
+  test("the supplier is the title and the status comes under it, with no business name or revision number", async () => {
     const page = await mount({ receipt: { bandeja_group: LISTO } });
-    // One header: the supplier is its title, and the block under it holds the total and the status.
-    const top = page.host.querySelector('[data-testid="receipt-top-block"]')!;
     assert.equal(page.host.querySelector("#receipt-review-title")?.textContent, "Ferretería La Esquina");
-    assert.match(top.querySelector('[data-testid="receipt-total"]')?.textContent ?? "", /^RD\$ \d{1,3}(,\d{3})*\.\d{2}$/);
-    assert.equal(top.querySelector('[data-testid="status-pill"]')?.textContent, "Listo para revisar");
-    assert.doesNotMatch(top.textContent ?? "", /Revisión|Mi negocio/);
+    const status = page.host.querySelector('[data-testid="dossier-status"]')!;
+    assert.equal(status.querySelector('[data-testid="status-pill"]')?.textContent, "Listo para aceptar");
+    assert.doesNotMatch(status.textContent ?? "", /Revisión|Mi negocio/);
     const review = page.host.querySelector('[data-testid="business-record-review"]')!;
-    assert.ok(review.textContent!.indexOf("Ferretería La Esquina") < review.textContent!.indexOf("Fecha del comprobante"));
+    assert.ok(review.textContent!.indexOf("Ferretería La Esquina") < review.textContent!.indexOf("Fecha"));
     await page.close();
   });
 
-  test("the status word is the list's: a confirmed receipt reads Aceptado, not the server's status name", async () => {
+  test("the status word is the list's, and an accepted receipt has no pill", async () => {
     for (const draft_id of [dossierFixtureIds.fiscal, null]) {
-      for (const [status, bandeja_group, word] of [["review_ready", LISTO, "Listo para revisar"], ["confirmed", null, "Aceptado"]] as const) {
-        const page = await mount({ receipt: { status, bandeja_group, draft_id }, until: "top" });
-        assert.equal(page.host.querySelector('[data-testid="receipt-top-block"] [data-testid="status-pill"]')?.textContent, word, `${status} ${draft_id ? "with" : "without"} a draft`);
+      for (const [status, bandeja_group, word] of [["review_ready", LISTO, "Listo para aceptar"], ["confirmed", ACCEPTED, null]] as const) {
+        const change: Change = (dossier) => { dossier.bandeja_group = { group: bandeja_group.group, reason: null, label: bandeja_group.label }; dossier.listo_gaps = []; };
+        const page = await mount({ receipt: { status, bandeja_group, draft_id }, change, until: "title" });
+        assert.equal(page.host.querySelector('[data-testid="status-pill"]')?.textContent ?? null, word, `${status} ${draft_id ? "with" : "without"} a draft`);
         await page.close();
       }
     }
   });
 
-  test("an unknown total is hidden, never shown as zero", async () => {
+  test("an unknown total reads Sin dato, never zero", async () => {
     const page = await mount({ change: (dossier) => { dossier.facts.amount = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }; } });
-    assert.equal(page.host.querySelector('[data-testid="receipt-total"]'), null);
-    assert.doesNotMatch(page.host.querySelector('[data-testid="receipt-top-block"]')?.textContent ?? "", /0\.00|desconocido/i);
+    const total = page.host.querySelector('[data-fact="amount"] [data-row-value]');
+    assert.equal(total?.textContent, "Sin dato");
+    assert.equal(total?.getAttribute("data-empty"), "true");
+    assert.doesNotMatch(page.host.querySelector('[data-testid="receipt-facts-montos"]')?.textContent ?? "", /0\.00|desconocido/i);
     await page.close();
   });
 });
 
 describe("a record opened without its receipt", () => {
-  test("shows the record's own review state when no status pill can say it", async () => {
+  test("a record still being accepted says its outcome is not known yet; an open one does not", async () => {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -128,7 +132,7 @@ describe("a record opened without its receipt", () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
     const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
-    for (const [state, shown] of [["open", "Listo para revisar"], ["accepting", "Consultando resultado de aceptación"]] as const) {
+    for (const state of ["open", "accepting"] as const) {
       const source: BusinessDataSource = { ...fixture, dossier: async (id) => ({ ...structuredClone(await fixture.dossier(id)), review_state: state }) };
       const host = document.createElement("div");
       document.body.appendChild(host);
@@ -136,10 +140,10 @@ describe("a record opened without its receipt", () => {
       await act(async () => {
         root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source}><ReceiptReviewPanel target={{ kind: "draft", id: dossierFixtureIds.ready }} /></BusinessWorkspaceProvider></BusinessConsentTestProvider></I18nextProvider>);
       });
-      for (let i = 0; i < 80 && !host.querySelector('[data-testid="receipt-top-block"]'); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
-      const top = host.querySelector('[data-testid="receipt-top-block"]')!;
-      assert.ok(top.textContent?.includes(shown), `${state}: ${top.textContent}`);
-      assert.equal(Boolean(top.querySelector('[data-testid="status-pill"]')), state === "open");
+      for (let i = 0; i < 80 && !host.querySelector('[data-testid="receipt-review-footer"]'); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+      const unknown = [...host.querySelectorAll('[role="status"]')].some((item) => item.textContent?.includes("Todavía no se conoce el resultado de la acción."));
+      assert.equal(unknown, state === "accepting", `${state}: ${host.textContent?.slice(0, 300)}`);
+      assert.equal(Boolean([...host.querySelectorAll("button")].find((item) => item.textContent === "Consultar registro actual")), state === "accepting", `${state}: the way to check`);
       await act(async () => { root.unmount(); host.remove(); });
     }
   });
@@ -156,26 +160,16 @@ describe("the footer", () => {
     await page.close();
   });
 
-  test("a missing date disables Aceptar, and the top box alone says why", async () => {
+  test("a missing date disables Aceptar, and the header reason alone says why", async () => {
     const page = await mount({ change: noDate });
     assert.equal(page.button("Aceptar")?.disabled, true);
     assert.equal(page.button("Aceptar y siguiente")?.disabled, true);
     assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]'), null, "the footer repeats nothing");
-    assert.ok(page.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Fecha del comprobante"));
-    assert.equal(page.button("Aceptar")?.getAttribute("aria-describedby"), "dossier-attention-title", "the box describes the disabled button");
-    assert.equal(page.host.querySelector('[data-fact="occurred_on"]')?.textContent?.includes("Agrega la fecha para aceptar"), false, "nor does the row");
+    assert.equal(page.host.querySelector('[data-testid="dossier-reason"]')?.textContent, "Falta la fecha");
+    const row = page.host.querySelector('[data-fact="occurred_on"]')!;
+    assert.equal(row.querySelector('[data-testid="row-status-occurred_on"]')?.getAttribute("data-status"), "warn", "the row marks where");
+    assert.equal(row.textContent?.includes("Agrega la fecha para aceptar"), false, "and adds no sentence of its own");
     await page.close();
-  });
-
-  test("a blocker is the top box's to say; a hold with no blocker has no box, so the footer says why", async () => {
-    const blocked = await mount({ change: (dossier) => { dossier.blockers = [{ code: "unknown_funding", field: "funding" }]; dossier.approval_available = false; } });
-    assert.equal(blocked.button("Aceptar")?.disabled, true);
-    assert.ok(blocked.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Confirma cómo se pagó."));
-    assert.equal(blocked.footer()!.querySelector('[data-testid="approve-reason"]'), null);
-    await blocked.close();
-    const held = await mount({ change: (dossier) => { dossier.blockers = []; dossier.approval_available = false; } });
-    assert.equal(held.footer()!.querySelector('[data-testid="approve-reason"]')?.textContent, "Este registro necesita más revisión antes de aceptarse.");
-    await held.close();
   });
 
   test("approving shows a spinner on Aceptar and a second press sends nothing", async () => {
@@ -246,9 +240,9 @@ describe("a receipt that will not load", () => {
     assert.ok(alert.querySelector(".lucide-circle-alert"));
     const retry = [...error.querySelectorAll("button")].find((item) => item.textContent === "Reintentar")!;
     await act(async () => { retry.click(); });
-    for (let i = 0; i < 80 && !host.querySelector('[data-testid="receipt-top-block"]'); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+    for (let i = 0; i < 80 && !host.querySelector("#receipt-review-title"); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     assert.equal(calls, 2);
-    assert.ok(host.querySelector('[data-testid="receipt-top-block"]'));
+    assert.ok(host.querySelector("#receipt-review-title"));
     await act(async () => { root.unmount(); host.remove(); });
   });
 });

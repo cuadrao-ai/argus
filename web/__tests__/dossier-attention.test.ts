@@ -34,16 +34,16 @@ describe("why a record is not Listos", () => {
 
   for (const locale of ["es-419", "en"]) {
     test(`every reason has its own title and text in ${locale}, and none is the old fallback`, async () => {
-      const { fixtures, problems, t } = await setup(locale);
+      const { fixtures, problems } = await setup(locale);
       const dossier = await fixtures.dossier(dossierFixtureIds.fiscal);
-      const fallback = t("business.dossier.blocker_fallback");
+      const fallback = /necesita más revisión|needs further review/i;
       for (const reason of LISTO_GAPS) {
         const [problem] = problems({ ...dossier, listo_gaps: [reason], review_flags: [], duplicate_candidates: [] });
         assert.equal(problem.reason, reason);
         for (const words of [problem.title, problem.text, problem.where]) {
           assert.ok(words.trim(), `${reason} says something`);
           assert.ok(!words.includes("business."), `${reason} has a key in ${locale}: ${words}`);
-          assert.notEqual(words, fallback);
+          assert.doesNotMatch(words, fallback);
         }
       }
     });

@@ -85,7 +85,8 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
       const basis = candidate ? `${DUPLICATE_KEYS}.basis.${candidate.basis === "fiscal_number" && documentFamily(dossier.document_type) === "sale" ? "fiscal_number_sale_placeholder" : candidate.basis}` : null;
       return { key, reason, title: t(`${DUPLICATE_KEYS}.title`), text: basis ? t(basis) : words(reason, "text"), tab: "general", row: null, where: `${general} · ${t(`${DUPLICATE_KEYS}.compare`)}`, compare: candidate?.draft_id };
     }
-    const flag = reason === "review_flag" ? flags.find((item) => !OWN_GAP[item.code]) ?? flags[0] : undefined;
+    // A flag with its own gap is already said there: `review_flag` speaks for the others, or in its own words.
+    const flag = reason === "review_flag" ? flags.find((item) => !OWN_GAP[item.code]) : undefined;
     // `blocked` is the server's blockers: the first field one names is where the fix is.
     const blockedField = reason === "blocked" ? dossier.blockers?.find((blocker) => blocker.field)?.field ?? null : null;
     const row = flag ? FLAGGED_ROW[flag.code] : reason === "check_details" && dossier.year_to_check ? "occurred_on" : blockedField ?? GAP_ROW[reason] ?? null;
@@ -100,4 +101,9 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
 /** The problems that point at one row, for its status slot. */
 export function rowProblems(problems: readonly DossierProblem[], row: SaveRow): DossierProblem[] {
   return problems.filter((problem) => problem.row === row);
+}
+
+/** What a row's status slot says of its problems: each sentence once. */
+export function problemWords(problems: readonly DossierProblem[]): string {
+  return [...new Set(problems.map((problem) => problem.text))].join("\n");
 }

@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { resolveLanguage } from "@/lib/language-features";
 import { formatAmount } from "./business-format";
-import { dossierRowLabel, rowProblems, type DossierProblem } from "./dossier-attention";
+import { dossierRowLabel, problemWords, rowProblems, type DossierProblem } from "./dossier-attention";
 import { DossierCard, DossierRow, DossierRows, type RowStatus } from "./dossier/DossierParts";
 import styles from "./dossier/dossier.module.css";
 import type { FactsReview, RowFlash } from "./ReceiptRecordFacts";
@@ -39,7 +39,7 @@ export default function ReceiptAmounts({ dossier, review, problems = [], flash =
     if (key === "amount" && mismatch) return { kind: "warn", text: mismatch.difference != null ? t("business.terms.difference", { amount: formatAmount(mismatch.difference, currency ?? "DOP", locale) }) : t("business.terms.difference_unavailable") };
     if (key === "amount" && review?.amountsPreview?.status === "error") return { kind: "warn", text: t("business.terms.difference_unavailable") };
     const found = [...rowProblems(problems, key), ...(key === "amount" ? rowProblems(problems, "currency") : [])];
-    if (found.length) return { kind: "warn", text: found.map((problem) => problem.text).join("\n") };
+    if (found.length) return { kind: "warn", text: problemWords(found) };
     if (doubtful.has(key)) return { kind: "warn", text: t("business.dossier.placeholder.doubtful_read", "check this") };
     if (key === "net_amount" && net?.source === "calculated") return { kind: "calculated", text: t(tip != null ? "business.terms.calculated_hint_with_tip" : "business.terms.calculated_hint") };
     return null;

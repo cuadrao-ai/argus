@@ -7,7 +7,7 @@ import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDossier, BusinessFact, BusinessFactField, RncRegistryStatus } from "@/lib/business-dossier";
 import { formatRnc } from "@/lib/rnc-status";
 import { quietButtonClass, useCategoryLabel } from "./business-ui";
-import { dossierRowLabel, rowProblems, type DossierProblem } from "./dossier-attention";
+import { dossierRowLabel, problemWords, rowProblems, type DossierProblem } from "./dossier-attention";
 import { DossierCard, DossierRow, DossierRows, type RowEdit, type RowStatus } from "./dossier/DossierParts";
 import { presentBusinessFact } from "./receipt-fact-presentation";
 import { PAYMENT_FIELDS, doubtfulFields, recordFactRows, type ReviewRow } from "./receipt-fact-rows";
@@ -86,7 +86,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
   /** The status slot: a problem first, then a doubtful read, then what the row's own check says, then a suggestion nobody confirmed. */
   const statusOf = (row: ReviewRow, facts: readonly string[], fact: BusinessFact<unknown> | undefined, own?: RowStatus | null): RowStatus | null => {
     const found = rowProblems(problems, row);
-    if (found.length) return { kind: "warn", text: found.map((problem) => problem.text).join("\n") };
+    if (found.length) return { kind: "warn", text: problemWords(found) };
     if (facts.some((key) => doubtful.has(key))) return { kind: "warn", text: t("business.dossier.placeholder.doubtful_read", "check this") };
     if (own) return own;
     if (!fact || fact.state !== "known" || fact.verified) return null;

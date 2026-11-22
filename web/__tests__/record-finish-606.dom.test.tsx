@@ -41,7 +41,6 @@ type Options = {
   /** What the server would answer on this dossier: read-only, and so on. */
   serve?: (dossier: Dossier) => void;
 };
-const CORRECTIONS_LINE = "Las correcciones después del registro no están disponibles en este primer flujo.";
 
 async function mount({ width = 1280, record = "fiscal", target = "draft", readiness, serve = () => undefined }: Options = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
@@ -201,7 +200,7 @@ describe("a recorded purchase with 606 data still missing", () => {
     assert.equal(page.chip(), "Faltan datos");
     await page.openRecord();
 
-    assert.match(page.section()?.textContent ?? "", /Para el 606/);
+    assert.equal(page.section()?.querySelector("h3")?.textContent, "Reporte 606");
     assert.equal(page.choice("category")?.disabled, false);
     assert.equal(page.choice("payment_method")?.disabled, false);
     assert.equal(page.choice("category")?.querySelectorAll("option").length, 12, "the same 11 types and Elegir as before approval");
@@ -209,7 +208,6 @@ describe("a recorded purchase with 606 data still missing", () => {
     assert.equal(page.facts()?.querySelector('[data-fact="amount"] button'), null, "the recorded facts stay locked");
     assert.equal(page.facts()?.querySelector('[data-fact="category_id"]'), null, "tipo de gasto is the only classification a Business record shows");
     assert.equal(page.facts()?.textContent?.includes("Categoría"), false);
-    assert.equal(document.body.textContent?.includes(CORRECTIONS_LINE), false, "the screen does not deny what it offers");
 
     const dossier = page.facts();
     const list = document.querySelector("[data-report-connected]");
@@ -268,15 +266,15 @@ describe("a recorded purchase that cannot take a change", () => {
     assert.ok(section);
     await page.wait(() => /Gastos por trabajos, suministros y servicios/.test(section.querySelector('[data-fact="category"]')?.textContent ?? ""), "the type's label");
     assert.equal(section.querySelector("select, button, input"), null);
-    assert.match(section.querySelector('[data-fact="payment_method"]')?.textContent ?? "", /Forma de pago\s*-/);
-    assert.equal(document.body.textContent?.includes(CORRECTIONS_LINE), true);
+    const unanswered = section.querySelector('[data-fact="payment_method"]');
+    assert.equal(unanswered?.firstElementChild?.textContent, "Forma de pago");
+    assert.equal(unanswered?.querySelector('[data-row-value][data-empty="true"]')?.textContent, "Sin dato");
   });
 
-  test("an income and a record with no comprobante have no Para el 606", async () => {
+  test("an income and a record with no comprobante have no Reporte 606 card", async () => {
     const income = await mount({ record: "income", serve: (dossier) => Object.assign(dossier, { review_state: "accepted", approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000009", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor: dossier.history[0].actor } }) });
     await income.openDirectly();
     assert.equal(income.section(), null);
-    assert.equal(document.body.textContent?.includes(CORRECTIONS_LINE), true);
     await cleanups.pop()!();
     document.body.innerHTML = "";
     const none = await mount({ serve: (dossier) => { dossier.sin_comprobante = true; dossier.declaration_editable = false; } });

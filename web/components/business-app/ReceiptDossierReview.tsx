@@ -382,7 +382,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const problems = dossierProblems(dossier, t);
   /** A problem's way to its fix: Parece repetido opens Comparar; any other switches to its tab and washes its row. */
   const goProblem = (problem: Pick<DossierProblem, "tab" | "row" | "compare">) => {
-    if (problem.compare) { duplicateCompare.open(problem.compare); return; }
+    // Comparar waits while the form holds an edit: the compare view could neither save nor drop it.
+    if (problem.compare) { if (!(busy || dirty || fiscalDirty || capturePending || captureOpen)) duplicateCompare.open(problem.compare); return; }
     setTab(problem.tab);
     if (problem.row) setFlash((current) => ({ row: problem.row as ReviewRow, n: (current?.n ?? 0) + 1 }));
   };
