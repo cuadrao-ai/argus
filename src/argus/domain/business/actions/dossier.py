@@ -651,7 +651,7 @@ def dossier(
             "deleted": deleted,
             "read_pending": reading,
         },
-        draft_standings(tx, [event])[event.id]
+        draft_standings(tx, [event], every_gap=True)[event.id]
         if event.state == "open" and not reading
         else None,
         accepting=event.state == "accepting",

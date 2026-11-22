@@ -221,6 +221,25 @@ def test_an_open_question_blocks_on_the_dossier_as_on_the_row(rig) -> None:  # n
     assert _same_as_the_list(rig, receipt)["listo_gaps"] == ["blocked"]
 
 
+def test_an_unverified_sender_stays_among_the_gaps_behind_another(
+    rig,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    set_read = listos._set_read
+    monkeypatch.setattr(
+        listos, "_set_read", lambda rig, index, read: set_read(rig, index, {"ncf": None})
+    )
+    runtime, receipt, _ = listos._delivered(rig, monkeypatch, RECEIPT + b"\xd7")
+    assert _same_as_the_list(rig, receipt)["listo_gaps"] == ["missing_ncf"]
+
+    [rule] = runtime.store.list_senders(rig.alice.space_id)
+    runtime.store.remove_sender(rig.alice.space_id, rule.id)
+    dossier = _same_as_the_list(rig, receipt)
+
+    assert dossier["bandeja_group"]["reason"] == "missing_ncf"
+    assert dossier["listo_gaps"] == ["missing_ncf", "unverified_sender"]
+
+
 #: The publisher text behind each status; ``desconocido`` is text no row maps.
 RAW_BY_STATUS = {
     **{info.status: raw for raw, info in STATUS_BY_RAW.items()},

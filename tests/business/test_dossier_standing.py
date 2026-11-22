@@ -11,12 +11,14 @@ from uuid import uuid4
 
 import pytest
 from argus.api.business_drafts import draft_overlay
+from argus.domain.business.actions import listos
 from argus.domain.business.actions.dossier import bandeja_standing
 from argus.domain.business.bandeja_group import (
     RULE,
     DraftStanding,
     group_of,
     listo_gaps,
+    listo_reason,
 )
 from argus.domain.business.contracts.dossier import ReviewFlag
 from argus.domain.business.contracts.facts import (
@@ -158,6 +160,93 @@ def test_a_draft_with_several_gaps_names_them_all_in_the_rules_order() -> None:
         "unverified_sender",
     )
     assert gaps == listo_gaps(draft)
+
+
+@pytest.fixture
+def senders(monkeypatch):  # noqa: ANN001, ANN201
+    """A database where every read is clean and every draft came by email from
+    a sender nobody verified; the drafts whose sender was read."""
+
+    asked: list[str] = []
+
+    def sender(connection: object, space_id: str, draft_id: str) -> str:
+        asked.append(draft_id)
+        return "new"
+
+    clean_read = {"status": "review_ready", "shared": False}
+    for name, answer in {
+        "review_questions": lambda tx, ids: {},
+        "_attachments": lambda tx, ids: {draft_id: [clean_read] for draft_id in ids},
+        "_upload_years": lambda tx, ids: {},
+        "repeated_comprobantes": lambda tx, events: {},
+        "record_context": lambda tx: SimpleNamespace(accounts=()),
+        "rnc_registry": lambda tx: None,
+        "review_flags": lambda *args, **more: (),
+        "workflow_blockers": lambda *args: ([], ()),
+        "email_draft_standing": sender,
+    }.items():
+        monkeypatch.setattr(listos, name, answer)
+    return asked
+
+
+def _read_standing(draft: DraftStanding, **more: object) -> DraftStanding:
+    event = SimpleNamespace(
+        id=str(uuid4()),
+        state="open",
+        version=draft.version,
+        resolution={
+            "business": BusinessResolution(facts=draft.facts).model_dump(mode="json")
+        },
+    )
+    tx = SimpleNamespace(
+        connection=None,
+        context=SimpleNamespace(actor=SimpleNamespace(space_id=uuid4())),
+    )
+    return listos.draft_standings(tx, [event], **more)[event.id]
+
+
+#: The reasons a draft's facts alone give, each read before the sender.
+FACT_GAPS = (
+    "missing_merchant",
+    "missing_date",
+    "missing_amount",
+    "missing_currency",
+    "missing_rnc",
+    "invalid_rnc",
+    "missing_ncf",
+    "missing_itbis",
+)
+
+
+@pytest.mark.parametrize("reason", FACT_GAPS)
+def test_the_dossier_names_an_unverified_sender_beside_another_gap(
+    senders: list[str], reason: str
+) -> None:
+    standing = _read_standing(GAPS[reason], every_gap=True)
+
+    group, gaps = _open(standing)
+
+    assert group.reason == reason
+    assert gaps == (reason, "unverified_sender")
+
+
+@pytest.mark.parametrize("reason", FACT_GAPS)
+def test_the_list_does_not_read_the_sender_of_a_draft_another_gap_keeps_out(
+    senders: list[str], reason: str
+) -> None:
+    standing = _read_standing(GAPS[reason])
+
+    assert listo_reason(standing) == reason
+    assert senders == []
+
+
+def test_the_list_reads_the_sender_of_a_draft_nothing_else_keeps_out(
+    senders: list[str],
+) -> None:
+    standing = _read_standing(LISTO)
+
+    assert listo_reason(standing) == "unverified_sender"
+    assert len(senders) == 1
 
 
 def test_a_draft_with_no_gap_is_ready_and_names_none() -> None:
