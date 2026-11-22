@@ -5,13 +5,12 @@ export type BusinessOnlyDecision =
   | { action: "redirect"; location: string };
 
 // Paths the switch must leave alone: auth callbacks, account deletion and its
-// API, legal pages, health, receipts, the Business shell, and static assets.
+// API, legal pages, health, the Business shell, and static assets.
 const STAY_PREFIXES = [
   "/auth",
   "/account",
   "/api",
   "/biz",
-  "/r",
   "/_next",
   "/locales",
   "/icons",

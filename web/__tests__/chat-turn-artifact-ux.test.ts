@@ -290,7 +290,7 @@ describe("chat turn artifact UX", () => {
       "utf-8",
     );
     const handleSendStart = chat.indexOf("const handleSend =");
-    const handleSendEnd = chat.indexOf("const receiptFollowup", handleSendStart);
+    const handleSendEnd = chat.indexOf("// ── Action routing", handleSendStart);
     const handleSendBlock = chat.slice(handleSendStart, handleSendEnd);
     const consumeIndex = handleSendBlock.indexOf(
       "consumeConfirmationActionOnMessages",
@@ -312,7 +312,7 @@ describe("chat turn artifact UX", () => {
       "utf-8",
     );
     const handleSendStart = chat.indexOf("const handleSend =");
-    const handleSendEnd = chat.indexOf("const receiptFollowup", handleSendStart);
+    const handleSendEnd = chat.indexOf("// ── Action routing", handleSendStart);
     const handleSendBlock = chat.slice(handleSendStart, handleSendEnd);
 
     expect(handleSendBlock).toContain("sendAdmissionInFlightRef.current");
