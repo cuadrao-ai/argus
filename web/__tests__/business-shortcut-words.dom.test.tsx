@@ -43,7 +43,7 @@ test("the shortcut list reads its words from the catalog in Spanish and in Engli
   const en = await labels("en");
   const pick = (shown: Record<string, string>) => Object.fromEntries(SHORTCUTS.map((id) => [id, shown[id]]));
   assert.deepEqual(pick(es), {
-    approve: "Aprobar",
+    approve: "Aceptar",
     previous: "Recibo anterior",
     next: "Recibo siguiente",
     edit: "Editar dato",
@@ -54,7 +54,7 @@ test("the shortcut list reads its words from the catalog in Spanish and in Engli
     settings: "Ajustes",
   });
   assert.deepEqual(pick(en), {
-    approve: "Approve expense",
+    approve: "Accept expense",
     previous: "Previous receipt",
     next: "Next receipt",
     edit: "Edit a detail",

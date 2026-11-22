@@ -28,10 +28,10 @@ test("a saved expense outside the period is named with its date and a way to sho
   const render = (count: number, latestOn: string | null) =>
     renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(OutsidePeriodNote, { count, latestOn, onShowAll: () => undefined })));
   const one = render(1, "2026-08-26");
-  assert.match(one, /1 gasto guardado fuera de este período, el 26 ago 2026\./);
+  assert.match(one, /1 gasto guardado fuera de este período, el 26 Ago 2026\./);
   assert.match(one, /Ver todos/);
   const three = render(3, "2026-08-26");
-  assert.match(three, /3 gastos guardados fuera de este período, el último el 26 ago 2026\./);
+  assert.match(three, /3 gastos guardados fuera de este período, el último el 26 Ago 2026\./);
   assert.equal(render(0, null), "");
 });
 

@@ -113,7 +113,7 @@ for (const width of [1280, 390]) {
       const record = page.getByTestId("business-record-review");
       await expect(record).toBeVisible();
       // A sparse note lists what is missing before it can be approved.
-      await expect(record.getByRole("region", { name: "Falta para aprobar", exact: true })).toBeVisible();
+      await expect(record.getByRole("region", { name: "Falta para aceptar", exact: true })).toBeVisible();
       await expect(record).not.toContainText("RD$ 0");
       await showOriginal(page, width);
       await expect(record.getByRole("blockquote")).toHaveText(original.trim());
@@ -153,7 +153,7 @@ for (const width of [1280, 390]) {
       await expect(dialog.getByRole("alert")).toContainText("No pudimos confirmar");
       await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue(text);
       await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-      await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Aceptar", exact: true })).toBeDisabled();
       expect(state.captures).toHaveLength(1);
       await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
       await screenshot(page, `uncertain-retained-${width}`);
@@ -179,7 +179,7 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("Tu acceso actual");
   await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue("Mi texto sin perder");
-  await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Aceptar", exact: true })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
   await page.getByRole("button", { name: "Volver a abrir la nota conservada", exact: true }).click();
@@ -235,7 +235,7 @@ for (const code of ["business_action_unsettled", "outcome_unknown"] as const) {
     await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true })).toBeEnabled();
     await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-    await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Aceptar", exact: true })).toBeDisabled();
     expect(state.captures).toHaveLength(1);
     await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
     await dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true }).click();

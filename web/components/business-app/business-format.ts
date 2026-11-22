@@ -91,11 +91,13 @@ export function belowOneUnit(amount: string | null): boolean {
   return !/[1-9]/.test(whole) && /[1-9]/.test(fraction) && fraction[0] < "5";
 }
 
+/** A day as "4 Nov 2026": the month starts with a capital in every language. */
 export function formatDay(day: string | null, locale: string): string {
   if (!day) return "";
   const date = new Date(`${day.slice(0, 10)}T12:00:00`);
   if (Number.isNaN(date.getTime())) return day;
-  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).formatToParts(date)
+    .map(({ type, value }) => type === "month" ? value.charAt(0).toLocaleUpperCase(locale) + value.slice(1) : value).join("");
 }
 
 export function formatTimestamp(iso: string, locale: string): string {

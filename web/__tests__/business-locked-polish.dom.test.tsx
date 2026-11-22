@@ -160,11 +160,11 @@ describe("§1.8 line 100: the Business is named by its name, and Argus is not na
   });
 });
 
-describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the period", () => {
-  test("a fixed day reads 1 oct 2026 wherever a Business date is shown", async () => {
+describe("§1.8 line 101: dates read 1 Oct 2026 and the period label follows the period", () => {
+  test("a fixed day reads 1 Oct 2026 wherever a Business date is shown", async () => {
     const { formatDay, formatTimestamp } = await import("@/components/business-app/business-format");
-    assert.equal(formatDay("2026-10-01", "es-419"), "1 oct 2026");
-    assert.equal(formatDay("2026-10-01T23:30:00Z", "es-419"), "1 oct 2026");
+    assert.equal(formatDay("2026-10-01", "es-419"), "1 Oct 2026");
+    assert.equal(formatDay("2026-10-01T23:30:00Z", "es-419"), "1 Oct 2026");
     assert.match(formatTimestamp("2026-10-01T16:00:00Z", "es-419"), /^1 oct 2026, /);
     const { renderToStaticMarkup } = await import("react-dom/server");
     const i18next = (await import("i18next")).default;

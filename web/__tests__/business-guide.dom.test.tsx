@@ -41,7 +41,7 @@ async function mount(start: Start = {}) {
           <GuideCard cardId="bandeja-intro" pending={pending} title="Del documento al registro"
             points={[
               { label: "Sube tus documentos", body: "Agrega fotos o PDF." },
-              { label: "Revisa y aprueba", body: "El documento pasa a Registros." },
+              { label: "Revisa y acepta", body: "El documento pasa a Registros." },
               { label: "Retoma lo pendiente", body: "Vuelve a la revisión." },
             ]}
           />
@@ -85,7 +85,7 @@ test("the guide draws from the account without a read, hides at once on dismiss 
     assert.equal(page.guide()?.querySelector("h3")?.textContent, "Del documento al registro");
     assert.deepEqual(
       [...page.host.querySelectorAll("li strong")].map(item => item.textContent),
-      ["Sube tus documentos", "Revisa y aprueba", "Retoma lo pendiente"],
+      ["Sube tus documentos", "Revisa y acepta", "Retoma lo pendiente"],
     );
     assert.equal(page.requests.length, 0, "no guide read");
     await act(async () => page.button("Ocultar guía").click());

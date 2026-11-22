@@ -97,7 +97,7 @@ describe("the form marks the fields the server's blockers name; the attention st
     assert.ok(html.includes('data-fact="amount" data-standing="empty" data-blocked="true"'));
     assert.ok(html.includes('data-fact="funding" data-standing="empty" data-blocked="true"'));
     assert.ok(!html.includes(">Falta<"), "a missing value is an empty field, not a chip");
-    assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 2);
+    assert.equal((html.match(/Necesita una decisión antes de aceptar/g) ?? []).length, 2);
     assert.ok(!html.includes('data-fact="category_id"'), "a Business record shows no ledger category row; its 606 tipo de gasto is the one classification");
     assert.ok(!html.includes("Sin dato") && !html.includes("Desconocido"));
   });
@@ -135,7 +135,7 @@ describe("the form marks the fields the server's blockers name; the attention st
     assert.ok(!html.includes("confirm-amount"));
     assert.ok(html.includes('data-fact="funding" data-standing="owner_unknown" data-blocked="true"'));
     assert.ok(html.includes('data-fact="currency"'), "currency belongs to the Montos header");
-    assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 2);
+    assert.equal((html.match(/Necesita una decisión antes de aceptar/g) ?? []).length, 2);
   });
 
   test("a blocker marks its row and a read value nobody confirmed does not", async () => {
@@ -237,7 +237,7 @@ describe("the record facts on the review page", () => {
     const dossier = { ...base, facts: { ...base.facts, funding: ownerUnknown }, blockers: [], questions: [{ id: "q", draft_id: base.draft_id, field: "funding", asked_of: "accountant", channel: "web", state: "open", prompt: "¿Cómo se pagó?", allowed_answers: ["known"], answer_source_id: null }] } as unknown as BusinessDossier;
     const { html } = await render(dossier);
     assert.ok(html.includes('data-fact="funding" data-standing="owner_unknown" data-blocked="true"'));
-    assert.ok(html.includes("Necesita una decisión antes de aprobar"));
+    assert.ok(html.includes("Necesita una decisión antes de aceptar"));
   });
 
   test("a row is marked only when the read is in doubt; a reviewer's change carries no 'del revisor' tag", async () => {

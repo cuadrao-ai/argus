@@ -43,7 +43,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(card).not.toContainText("firma verificada");
       await expect(card).not.toContainText("al firmar");
       // A line to review is information for a person, never a blocker.
-      await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toHaveCount(1);
+      await expect(page.getByRole("button", { name: "Aceptar", exact: true })).toHaveCount(1);
     });
 
     test("a record from any other source shows no card", async ({ page }) => {
