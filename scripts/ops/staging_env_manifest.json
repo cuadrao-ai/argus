@@ -1020,14 +1020,6 @@
           }
         },
         {
-          "name": "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED",
-          "kind": "plain",
-          "production_only": true,
-          "production": {
-            "value": "false"
-          }
-        },
-        {
           "name": "NEXT_PUBLIC_MOCK_AUTH",
           "kind": "plain",
           "production_only": true,
@@ -1036,25 +1028,6 @@
           },
           "local": {
             "value": "false"
-          }
-        },
-        {
-          "name": "NEXT_PUBLIC_OMNISEARCH_ENABLED",
-          "kind": "plain",
-          "production_only": true,
-          "production": {
-            "value": "true"
-          },
-          "local": {
-            "value": "true"
-          }
-        },
-        {
-          "name": "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED",
-          "kind": "plain",
-          "production_only": true,
-          "production": {
-            "value": "true"
           }
         }
       ],
