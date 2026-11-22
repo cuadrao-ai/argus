@@ -60,6 +60,20 @@ test("closing a dossier preserves its Listos tab", async ({ page }) => {
   expect(new URL(page.url()).searchParams.get("receptionView")).toBe("listos");
 });
 
+test("a reloaded record link returns to its Listos tab", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/dev/business-preview?view=inbox");
+  await page.locator("#reception-tab-listos").click();
+  await page.getByTestId("reception-row").first().getByRole("button", { name: "Abrir", exact: true }).click();
+  await expect(page.getByTestId("side-drawer")).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("side-drawer")).toBeVisible();
+  await page.getByTestId("side-drawer").getByRole("button", { name: "Cerrar", exact: true }).click();
+  await expect(page.getByTestId("side-drawer")).toHaveCount(0);
+  await expect(page.locator("#reception-tab-listos")).toHaveAttribute("aria-selected", "true");
+  expect(new URL(page.url()).searchParams.get("receptionView")).toBe("listos");
+});
+
 test("another screen drops the tab, so the Bandeja opens on Todos again", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dev/business-preview?view=inbox");
