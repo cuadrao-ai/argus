@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
-async function openIntake(page: Page) {
+async function openIntake(page: Page, reading = false) {
   // All external traffic is refused. Every Business request is fixture-only.
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
@@ -26,7 +26,7 @@ async function openIntake(page: Page) {
       if (state.status === 201) return route.fulfill({ status: 201, json: { id: `receipt-${attempts.length}`, channel: "web", filename, media_type: "image/jpeg", size_bytes: 1, received_at: "2026-10-19T12:00:00Z", status: "saved", error_code: null, attention: null, preparable: true, enterable: true, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null } });
       return route.fulfill({ status: state.status, json: { code: state.status === 415 ? "document_media_type_unsupported" : "invalid_document", detail: "PRIVATE_VALIDATION_DETAIL" } });
     }
-    if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Permiso explícito del negocio para correo, WhatsApp y archivos.", disclosure_token: "a".repeat(64), route: { gateway: "synthetic", interpretation: [{ model: "fixture-reader" }], reply: [] }, consented_at: null, revoked_at: null } });
+    if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: reading, available: true, can_change: true, disclosure: "Permiso explícito del negocio para correo, WhatsApp y archivos.", disclosure_token: "a".repeat(64), route: { gateway: "synthetic", interpretation: [{ model: "fixture-reader" }], reply: [] }, consented_at: null, revoked_at: null } });
     if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Negocio de prueba" } });
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
     if (path === "receipts" || path === "captures") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
@@ -56,8 +56,8 @@ for (const width of [1280, 390]) {
       if (!readingBounds) throw new Error("Reading setting must render");
       expect(readingBounds.y).toBeGreaterThanOrEqual(0);
       expect(readingBounds.y + readingBounds.height).toBeLessThanOrEqual(844);
-      // The footer holds only the review action, which waits for a saved receipt.
-      await expect(dialog.getByTestId("receipt-intake-footer")).toHaveCount(0);
+      // The review action waits for a saved receipt.
+      await expect(dialog.getByTestId("receipt-intake-review")).toBeDisabled();
       await page.screenshot({ path: testInfo.outputPath(`receipt-upload-reading-${width}.png`) });
       await expect(dialog.getByRole("alert")).toHaveText("No se pudo subir. Tu archivo sigue aquí.");
       await expect(dialog).not.toContainText("PRIVATE_VALIDATION_DETAIL");
@@ -88,9 +88,11 @@ for (const width of [1280, 390]) {
       const files = Array.from({ length: 9 }, (_, index) => ({ name: `recibo-${index + 1}.jpg`, mimeType: "image/jpeg", buffer: Buffer.from(`synthetic receipt ${index + 1}`) }));
       await dialog.locator('input[type="file"]').first().setInputFiles(files);
       await expect(dialog.getByTestId("receipt-upload-summary")).toContainText("Subiendo 6 de 9…");
+      // With files listed the zone is one line; only a screen that can take a drop asks for one.
+      await expect(dialog.getByTestId("intake-drop-zone")).toContainText(width < 720 ? "Sube tus documentos" : "Arrastra más archivos aquí");
       await page.screenshot({ path: testInfo.outputPath(`receipt-upload-limit-${width}.png`) });
       await expect(dialog).not.toContainText("No pudimos leer el recibo");
-      await expect(dialog.getByRole("button", { name: "Revisar los recibos guardados", exact: true })).toBeVisible({ timeout: 15_000 });
+      await expect(dialog.getByRole("button", { name: "Revisar 9 documentos", exact: true })).toBeEnabled({ timeout: 15_000 });
       // The X closes the sheet; the footer holds the next step alone.
       await expect(dialog.getByTestId("receipt-intake-footer").getByRole("button")).toHaveCount(1);
       await expect(dialog.getByRole("button", { name: "Listo", exact: true })).toHaveCount(0);
@@ -122,11 +124,23 @@ test("a Venta upload names its type, and its retry keeps it", async ({ page }) =
 });
 
 test("an unpicked type sends no document type, so the server detects it", async ({ page }) => {
-  const { dialog, attempts, state } = await openIntake(page);
+  const { dialog, attempts, state } = await openIntake(page, true);
+  await expect(dialog.locator('[data-segment="auto"]')).toHaveAttribute("aria-checked", "true");
   state.status = 201;
   await dialog.locator('input[type="file"]').first().setInputFiles({ name: "recibo.jpg", mimeType: "image/jpeg", buffer: Buffer.from("synthetic fixture") });
   await expect.poll(() => attempts.length).toBe(1);
   expect(attempts[0].documentType).toBeUndefined();
+});
+
+test("with reading off Detectar is not offered and the batch goes as Compras", async ({ page }) => {
+  const { dialog, attempts, state } = await openIntake(page);
+  await expect(dialog.locator('[data-segment="auto"]')).toBeDisabled();
+  await expect(dialog.locator('[data-segment="recibo"]')).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByTestId("intake-type-help")).toHaveText("Sin lectura, eliges tú.");
+  state.status = 201;
+  await dialog.locator('input[type="file"]').first().setInputFiles({ name: "recibo.jpg", mimeType: "image/jpeg", buffer: Buffer.from("synthetic fixture") });
+  await expect.poll(() => attempts.length).toBe(1);
+  expect(attempts[0].documentType).toBe("recibo");
 });
 
 test("a picked Compra names its type, which turns detection off", async ({ page }) => {

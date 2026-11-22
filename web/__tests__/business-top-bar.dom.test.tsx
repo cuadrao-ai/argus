@@ -142,7 +142,7 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(copied.length, 1);
     assert.match(copied[0], /@/);
     await page.act(async () => add.click());
-    await page.settle(() => (document.body.textContent ?? "").includes("Elegir archivos"), "the upload sheet");
+    await page.settle(() => (document.body.textContent ?? "").includes("Agregar documentos"), "the upload panel");
   });
 
   for (const status of [429, 503]) {

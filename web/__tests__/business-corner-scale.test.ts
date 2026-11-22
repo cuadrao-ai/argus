@@ -88,6 +88,13 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
   "components/ui/adaptive-panel.module.css": [
     ".expandButton | border-radius | 999px",
   ],
+  // Each one takes the corner of the element around it, whose own corner is a class on the scale.
+  "components/business-app/receipt-intake.module.css": [
+    ".drop::before | border-radius | inherit",
+    ".ring | border-radius | inherit",
+    ".bar > i | border-radius | inherit",
+    ".total > i | border-radius | inherit",
+  ],
   "components/business-app/foundation/range-picker.module.css": [
     ".preset | border-radius | 8px",
     ".icon,.today,.load | border-radius | 999px",
