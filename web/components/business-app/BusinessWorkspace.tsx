@@ -109,6 +109,8 @@ const BUSINESS_TABS = new Set<string>(["datos", "equipo", "correo"]);
 type Records = {
   workspace: BusinessWorkspaceInfo | null;
   workspaceGrant?: string | null;
+  /** The `revision` whose read answered `workspace`; a read always starts after its revision commits. */
+  workspaceRevision?: number;
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
   receiptActivity?: ReceiptActivityCounts | null;
@@ -544,13 +546,13 @@ function BusinessWorkspaceContent({
     let cancelled = false;
     if (onRecord) return;
     runQuietRetries(() => Promise.all([
-      source.workspace(),
+      source.workspace(normalizeEnabledLanguage(i18n.language)),
       source.overview(period.from, period.to),
       source.receiptPage?.("inbox") ?? source.receipts("inbox").then((items) => ({ items, activity: null })),
     ]))
       .then(([workspace, overview, page]) => {
         if (cancelled) return;
-        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, overview, inbox: page.items, receiptActivity: page.activity, listVersion: "version" in page ? page.version : null, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
+        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, workspaceRevision: revision, overview, inbox: page.items, receiptActivity: page.activity, listVersion: "version" in page ? page.version : null, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
         reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {
@@ -589,7 +591,7 @@ function BusinessWorkspaceContent({
     return () => {
       cancelled = true;
     };
-  }, [chosenGrant, onRecord, period.from, period.to, revision, source, reloadWaits]);
+  }, [chosenGrant, i18n.language, onRecord, period.from, period.to, revision, source, reloadWaits]);
 
   const notificationsAvailable = records.workspaceGrant === chosenGrant && records.workspace?.notifications_available === true;
   const receivingChannels = useMemo(() => businessReceivingChannels(records.workspaceGrant === chosenGrant ? records.workspace : null), [chosenGrant, records.workspace, records.workspaceGrant]);

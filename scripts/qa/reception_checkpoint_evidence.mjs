@@ -61,7 +61,7 @@ try {
     const copy = words.business.reception_preview;
     const context = await browser.newContext({ viewport: { width, height: 1000 }, hasTouch: width < 1024, locale: language === "en" ? "en-US" : "es-DO", colorScheme: theme, reducedMotion: "reduce", serviceWorkers: "block" });
     const page = await context.newPage(), requests = [], writes = [];
-    const source = createFixtureBusinessDataSource({ chatAvailable: false });
+    const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { enabled: true, available: false, can_change: false, disclosure: "", disclosure_token: null } });
     const reports = createBusinessReportHttpFixture();
     let release, sourceDenied = true, emailDenied = true, stage = "fixture setup";
     const held = new Promise(resolve => { release = resolve; });
@@ -88,7 +88,6 @@ try {
         if (path === `/api/v1/business/spaces/${fixtureId(3000)}/profile`) return json({ space_id: fixtureId(3000), name: "Negocio sintético", country: "DO", currency: "DOP", revision: 1, details: {}, appearance: { kind: "default" }, image: null });
         if (path.endsWith("/workspace")) return json(await source.workspace());
         if (path.endsWith("/receipt-activity")) return json((await source.receiptPage("all")).activity);
-        if (path.endsWith("/receipt-reading")) return json({ scope_version: 1, enabled: true, available: false, can_change: false, disclosure: "", disclosure_token: null, route: null, consented_at: null, revoked_at: null });
         if (path.endsWith("/receipts")) {
           if (url.searchParams.get("view") === "all") await held;
           const value = await source.receiptPage(url.searchParams.get("view") === "all" ? "all" : "inbox");

@@ -15,6 +15,26 @@ from tests.business.receipt_stub import ReceiptStub
 from tests.business.test_business_api import RECEIPT, Owner, alice  # noqa: F401
 
 
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("language", ["en", "es-419"])
+def test_workspace_carries_the_reading_setting_once(alice, monkeypatch, enabled, language):  # noqa: F811, ANN001
+    alice.reading(enabled)
+    expected = alice.get("/receipt-reading", language=language).json()
+    setting = documents_service().business_receipt_consent
+    status = setting.status
+    calls = []
+
+    def counted(space_id, owner_id, language="en"):  # noqa: ANN001, ANN202
+        calls.append((space_id, owner_id, language))
+        return status(space_id, owner_id, language)
+
+    monkeypatch.setattr(setting, "status", counted)
+    response = alice.get("/workspace", language=language)
+    assert response.status_code == 200, response.text
+    assert response.json()["receipt_reading"] == expected
+    assert calls == [(alice.scope().owner.space_id, alice.person, language)]
+
+
 def test_a_service_without_the_setting_never_reads_a_business_receipt(
     alice: Owner,  # noqa: F811
     stub: ReceiptStub,
