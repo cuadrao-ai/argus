@@ -7,8 +7,9 @@ registerReceiptReviewPage();
 const keys: [string, number][] = [];
 
 /** The server's standing for a sample changed after it was read: its reasons and its Bandeja label. */
-function standing(dossier: Dossier, gaps: NonNullable<Dossier["listo_gaps"]>) {
+function standing(dossier: Dossier, gaps: NonNullable<Dossier["listo_gaps"]>, confirmable: typeof gaps = []) {
   dossier.listo_gaps = gaps;
+  dossier.confirmable = confirmable;
   dossier.bandeja_group = gaps.length ? { group: "attention", reason: gaps[0], label: "needs_attention" } : { group: "listo", reason: null, label: "ready" };
 }
 
@@ -965,11 +966,7 @@ describe("the receipt dossier on an open draft", () => {
   });
 
   test("Corregir on a flagged value washes that value's row and puts focus on it, without opening it", async () => {
-    const page = await setup("fiscal", (dossier) => {
-      dossier.review_flags = [{ code: "ncf_malformed", field: "ncf", confirm: true }];
-      dossier.listo_gaps = ["invalid_ncf"];
-      dossier.confirmable = ["invalid_ncf"];
-    });
+    const page = await setup("fiscal", (dossier) => standing(dossier, ["invalid_ncf"], ["invalid_ncf"]));
     try {
       await page.act(async () => button(page.host, "Aceptar").click());
       const dialog = document.querySelector('[role="alertdialog"]');
