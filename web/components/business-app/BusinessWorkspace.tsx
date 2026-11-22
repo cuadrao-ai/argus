@@ -62,8 +62,8 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
+import ReceiptUploadChip from "./ReceiptUploadChip";
 import { intakeWork } from "./intake-work";
-import { TypedNoteQueue } from "./typed-note-queue";
 import { openRecordsExport } from "./transacciones/records-export-request";
 import { HandHeart } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -80,10 +80,12 @@ import { useEmailDeliveries } from "./useEmailDeliveries";
 import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
-import { canAddRecords, canManageBusiness, quietButtonClass } from "./business-ui";
+import { canAddRecords, canManageBusiness } from "./business-ui";
 import { applyListSearch, SEARCHABLE_LISTS, useScopedList } from "./foundation/list-search";
 import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, publishBusinessAppearance } from "@/lib/business-profile-api";
+
+type ReceiptReviewList = Readonly<{ scope: "batch" | "inbox"; receiptIds: readonly string[] }>;
 
 export type BusinessPanelState =
   | { kind: "overview" }
@@ -97,9 +99,9 @@ export type BusinessPanelState =
   | { kind: "expense"; expenseId: string }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
-  // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
-  | { kind: "receipt"; receiptId: string; list?: RecordList; receiptIds?: readonly string[]; confirmDelete?: boolean }
-  | { kind: "draft"; draftId: string; list?: RecordList; receiptIds?: readonly string[]; confirmDelete?: boolean }
+  // `list` is the screen behind the dossier and the screen it closes to.
+  | { kind: "receipt"; receiptId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean }
+  | { kind: "draft"; draftId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean }
   // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
   | { kind: "email"; emailId: string };
 
@@ -185,7 +187,7 @@ export type BusinessContextValue = Readonly<{
   setPeriod: (next: PeriodKey | Period) => void;
   panel: BusinessPanelState;
   openPanel: (panel: BusinessPanelState) => void;
-  /** The list behind the open receipt changed: its place and its neighbours follow these ids. The receipt stays open. */
+  /** A dossier opened from the Bandeja follows these ids when its list changes. */
   followReceiptList: (receiptIds: readonly string[]) => void;
   /** Asks `guard` before the open panel changes, until the returned function runs. */
   guardPanel: (guard: PanelGuard) => () => void;
@@ -531,12 +533,14 @@ function BusinessWorkspaceContent({
       if (disposition === "attach_and_close") setIntakeTarget(null);
     });
   }, [uploadQueue, reload, conversationId, intakeTarget]);
-  const uploads = useSyncExternalStore(uploadQueue.subscribe, uploadQueue.snapshot, uploadQueue.snapshot);
-  const [typedNotes] = useState(() => new TypedNoteQueue(reload));
-  // Every way Agregar closes forgets finished typed notes; one still saving or unconfirmed waits for its retry.
-  useEffect(() => { if (!intakeTarget) typedNotes.clearSettled(chosenGrant); }, [intakeTarget, typedNotes, chosenGrant]);
-  // Leaving the page asks first while anything Agregar took is still being sent, or a typed note is not saved yet.
-  const [inFlight] = useState(() => intakeWork([uploadQueue, typedNotes]));
+  // A lost connection stops a file where it was; when the browser is back online each one goes again by itself.
+  useEffect(() => {
+    const resume = () => uploadQueue.retryOffline();
+    window.addEventListener("online", resume);
+    return () => window.removeEventListener("online", resume);
+  }, [uploadQueue]);
+  // Leaving the page asks first while anything Agregar took is still being sent.
+  const [inFlight] = useState(() => intakeWork([uploadQueue]));
   const unfinishedIntake = useSyncExternalStore(inFlight.subscribe, inFlight.unfinished, () => false);
   useEffect(() => {
     if (!unfinishedIntake) return;
@@ -678,7 +682,10 @@ function BusinessWorkspaceContent({
     [bridge],
   );
   const followReceiptList = useCallback((receiptIds: readonly string[]) => {
-    setPanel((current) => ((current.kind === "receipt" || current.kind === "draft") && current.receiptIds ? { ...current, receiptIds } : current));
+    setPanel((current) => {
+      if ((current.kind !== "receipt" && current.kind !== "draft") || current.reviewList?.scope !== "inbox") return current;
+      return { ...current, reviewList: { ...current.reviewList, receiptIds } };
+    });
   }, []);
 
   const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
@@ -785,9 +792,7 @@ function BusinessWorkspaceContent({
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
       headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
-        {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
-          {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
-        </button> : null}
+        {intakeTarget ? null : <ReceiptUploadChip queue={uploadQueue} grant={chosenGrant} onOpen={setIntakeTarget} />}
         {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
         {localPreview && !shell.isBelowTablet && shell.openPersonalInvitation ? <Tooltip content={t("cuadrao_invitation.title")} side="bottom">
           <button type="button" data-testid="personal-invitation-shortcut" aria-label={t("cuadrao_invitation.title")} aria-haspopup="dialog" onClick={(event) => shell.openPersonalInvitation?.(event.currentTarget)} className="flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0]">
@@ -822,7 +827,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
+  }, [notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, chosenGrant, intakeTarget, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>
@@ -833,14 +838,20 @@ function BusinessWorkspaceContent({
         <ReceiptIntakeDialog
           target={intakeTarget}
           queue={uploadQueue}
-          notes={typedNotes}
           onClose={() => {
-            if (intakeTarget) uploadQueue.clearSettled(intakeTarget, chosenGrant);
+            // The Bandeja batch stays for its chip; a composer upload is one file and is forgotten once it is done.
+            if (intakeTarget === "composer") uploadQueue.clearSettled(intakeTarget, chosenGrant);
             setIntakeTarget(null);
           }}
           onReview={(saved) => {
             setIntakeTarget(null);
-            openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id, list: "inbox" } : { kind: "inbox" });
+            // The dossier opens on the first one and walks only this batch: "1 de N".
+            if (saved.length > 0) openPanel({
+              kind: "receipt",
+              receiptId: saved[0].id,
+              list: "inbox",
+              reviewList: { scope: "batch", receiptIds: saved.map((receipt) => receipt.id) },
+            });
           }}
         />
         <ToastViewport />

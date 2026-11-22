@@ -24,12 +24,13 @@ export function composerUploadDisposition(origin: UploadOrigin, current: { conve
 export type ReceiptUpload = UploadFile & (
   | { status: "queued" }
   | { status: "uploading"; consent: boolean; bytes: UploadBytes | null }
-  | { status: "failed"; consent: boolean; failure: FailureClass }
+  | { status: "failed"; consent: boolean; failure: FailureClass; share: number }
   | { status: "saved"; consent: boolean; receipt: ReceiptSummary }
   | { status: "rejected"; reason: UploadRejection }
 );
 
 export type DocumentType = "recibo" | "venta";
+/** A failed file keeps `share`, the share (0 to 1) its last attempt had really sent. */
 /** How far one attempt has gone; the rate and `secondsLeft` are null until a second of sending makes them honest. */
 export type UploadBytes = { sent: number; total: number; bytesPerSecond: number | null; secondsLeft: number | null };
 type Upload = (file: File, consent: boolean, key: string, documentType: DocumentType | null, onProgress: (sent: number, total: number) => void, grant: string | null) => Promise<ReceiptSummary>;
@@ -103,9 +104,22 @@ export class ReceiptUploadQueue {
 
   /** One tap retries a failed file with the same file, upload key and consent; during a drain it waits its turn. */
   retry(key: string) {
-    const item = this.items.find((candidate) => candidate.key === key);
-    if (item?.status !== "failed") return;
-    this.asked.set(key, item.consent);
+    this.retryWhere((item) => item.key === key);
+  }
+
+  /** The connection is back: every file it stopped goes again, as if each had been tapped. */
+  retryOffline() {
+    this.retryWhere((item) => item.status === "failed" && item.failure === "offline");
+  }
+
+  private retryWhere(chosen: (item: ReceiptUpload) => boolean) {
+    let asked = false;
+    for (const item of this.items) {
+      if (item.status !== "failed" || !chosen(item)) continue;
+      this.asked.set(item.key, item.consent);
+      asked = true;
+    }
+    if (!asked) return;
     this.publish([...this.items]);
     void this.drain();
   }
@@ -156,14 +170,17 @@ export class ReceiptUploadQueue {
     return true;
   }
 
-  /** Closing the dialog forgets what is finished; queued, running and failed files stay. */
+  /** Forgets what is finished, once it is reviewed; queued, running and failed files stay. */
   clearSettled(target: IntakeTarget, grant: string | null) {
     const own = this.within(target, grant);
     if (!this.running) this.publish(this.items.filter((item) => !own(item) || isUnfinishedUpload(item)));
   }
 
+  /** A file that waits, failed or was refused leaves the list, during a drain too; the one being sent stays. */
   remove(key: string) {
-    if (!this.running) this.publish(this.items.filter((item) => item.key !== key));
+    if (this.items.some((item) => item.key === key && item.status === "uploading")) return;
+    this.asked.delete(key);
+    this.publish(this.items.filter((item) => item.key !== key));
   }
 
   clear(target: IntakeTarget, grant: string | null) {
@@ -200,9 +217,12 @@ export class ReceiptUploadQueue {
           const uploading = { ...attempt, status: "uploading" as const };
           this.replace({ ...uploading, bytes: null });
           let painted = 0;
+          let share = 0;
           const onProgress = (sent: number, total: number, startedAt: number) => {
+            share = total > 0 ? Math.min(1, sent / total) : 0;
             const now = Date.now();
-            if (sent < total && now - painted < PROGRESS_REPAINT_MS) return;
+            // The first and the last report of an attempt always show; the ones between repaint at most so often.
+            if (sent > 0 && sent < total && now - painted < PROGRESS_REPAINT_MS) return;
             painted = now;
             this.replace({ ...uploading, bytes: { sent, total, bytesPerSecond: bytesPerSecond(sent, now - startedAt), secondsLeft: uploadSecondsLeft(sent, total, now - startedAt) } });
           };
@@ -218,6 +238,7 @@ export class ReceiptUploadQueue {
                 ...attempt,
                 status: "failed",
                 failure: classifyFailure(error, { fetch: true, online }),
+                share,
               });
             }
             return;
@@ -243,6 +264,8 @@ export class ReceiptUploadQueue {
       } catch (error: unknown) {
         const waitMs = limitedFor(error);
         if (waitMs === null) throw error;
+        // The refused attempt's bytes are not progress: the wait and the next attempt start from nothing sent.
+        onProgress(0, item.file.size, startedAt);
         await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
     }

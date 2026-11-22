@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { createSpringDriver, LEAD, TRAIL } from "./spring";
 
 /** `count` follows the label in a lighter weight: how many rows the segment holds, or the screen's mark for a count it does not know ("-"), never a 0. */
-export type Segment<K extends string> = { key: K; label: string; count?: number | string | null; icon?: LucideIcon };
+export type Segment<K extends string> = { key: K; label: string; count?: number | string | null; icon?: LucideIcon; /** This one choice is not offered now; the others still are. */ disabled?: boolean };
 
 type Edges = { l: number; r: number };
 
@@ -91,7 +91,7 @@ export function SegmentedControl<K extends string>({ label, segments, value, onC
   const reach = (key: K) => {
     const from = edgesOf(value);
     const to = edgesOf(key);
-    if (!from || !to || key === value || disabled) return;
+    if (!from || !to || key === value || disabled || segments.find((segment) => segment.key === key)?.disabled) return;
     driver.current?.set(to.l > from.l ? { r: from.r + PRESS_REACH_PX } : { l: from.l - PRESS_REACH_PX });
   };
   const settle = () => {
@@ -103,7 +103,11 @@ export function SegmentedControl<K extends string>({ label, segments, value, onC
     const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
     if (!step) return;
     event.preventDefault();
-    const next = segments[(index + step + segments.length) % segments.length];
+    const wrap = (place: number) => (place + segments.length) % segments.length;
+    let target = wrap(index + step);
+    while (target !== index && segments[target].disabled) target = wrap(target + step);
+    if (target === index) return;
+    const next = segments[target];
     onChange(next.key);
     group.current?.querySelector<HTMLButtonElement>(`[data-segment="${next.key}"]`)?.focus();
   };
@@ -130,7 +134,7 @@ export function SegmentedControl<K extends string>({ label, segments, value, onC
             type="button"
             role="radio"
             aria-checked={checked}
-            disabled={disabled}
+            disabled={disabled || segment.disabled}
             data-segment={segment.key}
             tabIndex={segment.key === focusable ? 0 : -1}
             onPointerDown={(event: PointerEvent<HTMLButtonElement>) => { if (event.button === 0) reach(segment.key); }}

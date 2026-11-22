@@ -7,7 +7,6 @@ import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import ReceiptIntakeDialog from "@/components/business-app/ReceiptIntakeDialog";
-import { TypedNoteQueue } from "@/components/business-app/typed-note-queue";
 import PanelErrorBoundary from "@/components/business-app/PanelErrorBoundary";
 import { ReceiptUploadQueue } from "@/components/business-app/receipt-upload-queue";
 import type { ReceiptSummary } from "@/lib/business-api";
@@ -50,7 +49,7 @@ async function mount(queue: ReceiptUploadQueue) {
   const render = () => root.render(
     <I18nextProvider i18n={i18n}>
       <BusinessContext.Provider value={context()}>
-        <ReceiptIntakeDialog target="inbox" notes={new TypedNoteQueue(() => undefined)} queue={queue} onClose={() => undefined} onReview={() => undefined} />
+        <ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} />
       </BusinessContext.Provider>
     </I18nextProvider>,
   );
@@ -78,7 +77,7 @@ function choose(files: File[]) {
 }
 
 function drop(files: File[]) {
-  const zone = surface().querySelector("div.border-dashed");
+  const zone = surface().querySelector('[data-testid="intake-drop-zone"]');
   assert.ok(zone, "the drop zone is on the page");
   const transfer = new DataTransfer();
   for (const item of files) transfer.items.add(item);
@@ -89,7 +88,7 @@ function drop(files: File[]) {
   }
 }
 
-test("a file added by picker or drop while another uploads starts at once, shows En espera, omits the wait warning, and stays across a rerender", async () => {
+test("a file added by picker or drop while another uploads starts at once, shows En cola, omits the wait warning, and stays across a rerender", async () => {
   let releaseA!: (receipt: ReceiptSummary) => void;
   const order: string[] = [];
   const queue = new ReceiptUploadQueue(async (candidate) => {
@@ -99,7 +98,7 @@ test("a file added by picker or drop while another uploads starts at once, shows
   }, () => undefined);
   let page = await mount(queue);
   try {
-    assert.match(surface().textContent ?? "", /Arrastra tus recibos aquí/);
+    assert.match(surface().textContent ?? "", /Sube tus documentos/);
     await act(async () => { choose([file("a.txt")]); });
     assert.equal([...surface().querySelectorAll("button")].some((button) => /Guardar/.test(button.textContent ?? "")), false, "there is no save button to press");
     assert.equal(queue.snapshot()[0]?.status, "uploading", "a chosen file starts uploading on its own");
@@ -109,8 +108,7 @@ test("a file added by picker or drop while another uploads starts at once, shows
     assert.equal(shown.includes("Espera a que termine la subida actual"), false);
     assert.match(shown, /b\.txt/);
     assert.match(shown, /c\.txt/);
-    assert.match(shown, /En espera/);
-    assert.equal(shown.includes("En cola"), false);
+    assert.match(shown, /En cola/);
     await page.unmount();
     const remounted = await mount(queue);
     page = remounted;
@@ -118,7 +116,7 @@ test("a file added by picker or drop while another uploads starts at once, shows
     assert.equal(again.includes("Espera a que termine la subida actual"), false);
     assert.match(again, /b\.txt/);
     assert.match(again, /c\.txt/);
-    assert.match(again, /En espera/);
+    assert.match(again, /En cola/);
     releaseA(savedReceipt("a.txt"));
     for (let turn = 0; order.length < 3 && turn < 20; turn += 1) {
       await act(async () => { await Promise.resolve(); });
@@ -183,7 +181,7 @@ test("an offline upload keeps the file and offers another try", async () => {
     const row = surface().querySelector('[data-testid="receipt-upload-row"]');
     assert.equal(row?.getAttribute("data-status"), "failed");
     const shown = surface().textContent ?? "";
-    assert.match(shown, /Se perdió la conexión\. Tu archivo sigue aquí\./);
+    assert.match(shown, /Se perdió la conexión\. Se reintenta solo al volver\./);
     assert.match(shown, /recibo\.txt/);
     assert.equal(queue.snapshot()[0]?.status, "failed");
     const retry = surface().querySelector<HTMLButtonElement>('button[aria-label="Reintentar recibo.txt"]');

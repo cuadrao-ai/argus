@@ -162,7 +162,8 @@ describe("a record in the desktop tray", () => {
     const panel = page.panel();
     assert.ok(panel.kind === "receipt");
     assert.deepEqual({ kind: panel.kind, receiptId: panel.receiptId, list: panel.list }, { kind: "receipt", receiptId: "rcpt-papeleria", list: "inbox" });
-    assert.ok(panel.receiptIds?.includes("rcpt-papeleria"));
+    assert.equal(panel.reviewList?.scope, "inbox");
+    assert.ok(panel.reviewList.receiptIds.includes("rcpt-papeleria"));
   });
 
   test("Escape inside the tray closes it, returns to the Bandeja, and puts focus on the row", async () => {

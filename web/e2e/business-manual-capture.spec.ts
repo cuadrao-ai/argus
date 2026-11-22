@@ -71,12 +71,6 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false,
   return { state, source };
 }
 
-/** Agregar is the one door: the owner types the note into its "Escríbelo" panel and it lands in the Bandeja. */
-async function newNote(page: Page) {
-  await page.getByTestId("business-primary-upload").click();
-  await page.getByTestId("intake-write-open").click();
-  return page.getByTestId("intake-write");
-}
 /** A record keeps "Agregar nota" in its Más menu. */
 async function openAppend(page: Page) {
   await openMore(page);
@@ -87,10 +81,6 @@ async function openListed(page: Page) {
   await page.getByRole("button", { name: /Bandeja/ }).first().click();
   await page.getByTestId("reception-row").filter({ hasText: LISTED_NOTE }).getByRole("button").first().click();
   await expect(page.getByTestId("business-record-review")).toBeVisible();
-}
-/** A phone shows a record as a full page: its original is the Documento tab. */
-async function showOriginal(page: Page, width: number) {
-  if (width < 720) await page.getByTestId("business-record-review").getByRole("tab", { name: "Documento", exact: true }).click();
 }
 /** The approve button. A wide screen adds its keyboard shortcut to the name. */
 function approveButton(page: Page) {
@@ -106,60 +96,6 @@ async function screenshot(page: Page, name: string) {
 for (const width of [1280, 390]) {
   test.describe(`Spanish manual notes ${width}px`, () => {
     test.use({ viewport: { width, height: 900 } });
-    test("original sparse note opens canonical review, appends and returns through note search", async ({ page }) => {
-      // Quarantined at 1280px: fails about 1 run in 3 on integration too (#2208). 390px still runs.
-      test.skip(width === 1280, "Flaky on integration, see #2208");
-      const { state } = await setup(page);
-      const write = await newNote(page);
-      const original = "  Ayer compré pintura para el taller.\nNo sé cuánto pagué.  ";
-      await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill("  ");
-      // A typed note names its own type inside its card: Guardar waits for text and Compra or Venta.
-      await expect(write.getByTestId("intake-write-save")).toBeDisabled();
-      await write.getByTestId("intake-write-type").getByRole("radio", { name: "Compra", exact: true }).click();
-      await expect(write.getByTestId("intake-write-save")).toBeDisabled();
-      expect(state.captures).toHaveLength(0);
-      await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill(original);
-      const starts = state.starts;
-      await write.getByTestId("intake-write-save").click();
-      await expect(page.getByTestId("receipt-typed-row")).toContainText("Guardado en la Bandeja");
-      expect(state.captures[0].input).toMatchObject({ text: original.trim(), document_type: "recibo" });
-      await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog")).toHaveCount(0);
-      await page.getByRole("button", { name: /Bandeja/ }).first().click();
-      await page.getByTestId("reception-row").filter({ hasText: "Ayer compré pintura" }).getByRole("button").first().click();
-      const record = page.getByTestId("business-record-review");
-      await expect(record).toBeVisible();
-      // A sparse note says it needs attention and why before it can be approved.
-      await expect(record.getByTestId("status-pill")).toHaveAttribute("data-label", "needs_attention");
-      await expect(record.getByTestId("dossier-reason").or(record.getByTestId("dossier-problems"))).toBeVisible();
-      await expect(record).not.toContainText("RD$ 0");
-      await showOriginal(page, width);
-      await expect(record.getByRole("blockquote")).toHaveText(original.trim());
-      expect(state.starts).toBe(starts);
-      expect(state.approvals).toBe(0);
-      await screenshot(page, `sparse-original-${width}`);
-      await openAppend(page);
-      const append = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
-      await append.getByRole("textbox", { name: "Nota original", exact: true }).fill("Pagué con mi dinero %_");
-      await append.getByRole("button", { name: "Guardar nota", exact: true }).click();
-      await expect(record).toContainText("Pagué con mi dinero %_");
-      expect(state.captures[1].input.draft?.version).toBe(1);
-      expect(state.captures[1].key).not.toBe(state.captures[0].key);
-      expect(state.approvals).toBe(0);
-      // A phone has a Buscar button in its header; a wide screen's top-bar field sits under the open record, so the shortcut opens search.
-      if (width < 720) await page.getByRole("button", { name: "Buscar", exact: true }).click();
-      else await page.keyboard.press("Control+K");
-      await page.getByPlaceholder("Busca comercio, monto o nota").fill("pintura");
-      const hit = page.getByTestId("workspace-search-results").getByRole("button", { name: /Ayer compré pintura/ });
-      await expect(hit).toContainText("Nota original guardada");
-      await hit.click();
-      // The hit opens the saved note with every message on its record, and from there the record itself.
-      await expect(page.getByRole("region", { name: "Nota original guardada", exact: true })).toContainText("Pagué con mi dinero %_");
-      await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
-      await showOriginal(page, width);
-      await expect(record).toContainText("Pagué con mi dinero %_");
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    });
     test("lost append response retains verbatim intent across close and explicit same-key retry without approval", async ({ page }) => {
       const { state } = await setup(page, undefined, false, dossierFixtureIds.ready);
       await openListed(page);
@@ -231,12 +167,12 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);
 });
 
-test("new-note entry waits for successful own-workspace load", async ({ page }) => {
-  const { state } = await setup(page, undefined, true);
-  await expect(page.getByTestId("workspace-panel-region").getByRole("heading", { name: "Cuadrao Business aún no está disponible para tu cuenta." })).toBeVisible();
+test("Agregar has no door to a typed note", async ({ page }) => {
+  const { state } = await setup(page);
   await page.getByTestId("business-primary-upload").click();
-  // Agregar opens, but the typed-note door stays closed until the own workspace has loaded.
-  await expect(page.getByRole("dialog", { name: "Agregar", exact: true })).toBeVisible();
+  const upload = page.getByRole("dialog", { name: "Agregar documentos", exact: true });
+  await expect(upload.getByTestId("intake-drop-zone")).toBeVisible();
+  await expect(upload).not.toContainText("Escríbelo");
   await expect(page.getByTestId("intake-write-open")).toHaveCount(0);
   expect(state.captures).toEqual([]);
 });

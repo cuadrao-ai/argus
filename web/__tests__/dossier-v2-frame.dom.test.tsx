@@ -394,7 +394,8 @@ describe("the jump card under N de M", () => {
     const dossier = await fiscalDossier();
     const first = receiptOf(dossier);
     const second = receiptOf(dossier, { id: "receipt-2", merchant: "Refrigeración Juan Martínez", activity: { state: "ready", unread: true } as ReceiptDetail["activity"], bandeja_group: { group: "attention", reason: "missing_rnc", label: "needs_attention", draft_id: "d2", version: 1 } });
-    const page = await mount({ dossier, receipt: first, size: "regular", list: [second, first], panel: { kind: "receipt", receiptId: first.id, list: "inbox", receiptIds: [first.id, second.id] } });
+    const reviewList = { scope: "batch" as const, receiptIds: [first.id, second.id] };
+    const page = await mount({ dossier, receipt: first, size: "regular", list: [second, first], panel: { kind: "receipt", receiptId: first.id, list: "inbox", reviewList } });
     try {
       const jump = page.all<HTMLButtonElement>('[data-testid="dossier-jump"]')[0];
       assert.equal(jump.getAttribute("aria-label"), "Ver la lista, 1 de 2");
@@ -406,7 +407,7 @@ describe("the jump card under N de M", () => {
       assert.deepEqual(rows.map((row) => row.querySelectorAll('[aria-label="Sin abrir"]').length), [0, 1]);
       await page.click(rows[1]);
       assert.equal(page.all('[data-testid="dossier-jump-card"]').length, 0);
-      assert.deepEqual(page.opened.at(-1), { kind: "receipt", receiptId: "receipt-2", list: "inbox", receiptIds: [first.id, second.id] });
+      assert.deepEqual(page.opened.at(-1), { kind: "receipt", receiptId: "receipt-2", list: "inbox", reviewList });
     } finally { await page.close(); }
   });
 
@@ -414,7 +415,7 @@ describe("the jump card under N de M", () => {
     const dossier = await fiscalDossier();
     const first = receiptOf(dossier);
     for (const [receiptIds, buttons] of [[[first.id, "receipt-2"], 2], [["receipt-0", first.id], 1]] as const) {
-      const page = await mount({ dossier, receipt: first, panel: { kind: "receipt", receiptId: first.id, list: "inbox", receiptIds } });
+      const page = await mount({ dossier, receipt: first, panel: { kind: "receipt", receiptId: first.id, list: "inbox", reviewList: { scope: "inbox", receiptIds } } });
       try {
         const footer = page.all('[data-testid="receipt-review-footer"]')[0];
         assert.equal([...footer.querySelectorAll("button")].filter((item) => !item.closest('[data-testid="receipt-more"]')).length, buttons);

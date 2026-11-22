@@ -151,19 +151,13 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   }
 
   await page.getByTestId("business-primary-upload").click();
-  const upload = page.getByRole("dialog", { name: "Agregar" });
+  const upload = page.getByRole("dialog", { name: "Agregar documentos" });
   await expect(upload).toBeVisible();
   await expect(upload).not.toContainText("Upload receipt");
-  await expect(upload.getByTestId("intake-choose")).toHaveText("Elegir archivos");
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  await page.getByTestId("business-primary-upload").click();
-  await page.getByTestId("intake-write-open").click();
-  const record = page.getByRole("dialog");
-  await expect(record.getByTestId("intake-write")).toBeVisible();
-  await expect(record).toContainText("Escríbelo");
-  await expect(record).not.toContainText("Write it");
+  await expect(upload.getByTestId("intake-drop-zone")).toContainText("Sube tus documentos");
+  await expect(upload.getByTestId("intake-drop-zone")).toContainText("Haz clic para elegir");
+  await expect(upload).toContainText("Compra o venta");
+  await expect(upload).not.toContainText("Purchase or sale");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -196,15 +190,10 @@ test("an English account opens Business in English", async ({ page }) => {
   }
 
   await page.getByTestId("business-primary-upload").click();
-  const upload = page.getByRole("dialog", { name: en("business.intake.add_title") });
+  const upload = page.getByRole("dialog", { name: en("business.intake.panel_title") });
   await expect(upload).toBeVisible();
-  await expect(upload.getByTestId("intake-choose")).toHaveText(en("business.intake.choose_multiple"));
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  await page.getByTestId("business-primary-upload").click();
-  await page.getByTestId("intake-write-open").click();
-  await expect(page.getByRole("dialog")).toContainText(en("business.intake.write"));
+  await expect(upload.getByTestId("intake-drop-zone")).toContainText(en("business.intake.drop_click"));
+  await expect(upload).toContainText(en("business.intake.kind_label"));
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 

@@ -8,7 +8,6 @@ import { I18nextProvider } from "react-i18next";
 import { BusinessContext, type BusinessContextValue, type BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import ReceiptIntakeDialog from "@/components/business-app/ReceiptIntakeDialog";
 import { ReceiptUploadQueue } from "@/components/business-app/receipt-upload-queue";
-import { TypedNoteQueue } from "@/components/business-app/typed-note-queue";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { ToastViewport } from "@/components/business-app/foundation/ToastViewport";
 import { clearToasts } from "@/components/business-app/foundation/toasts";
@@ -69,7 +68,7 @@ async function mount({ count = 1, saved = 0, approve = true, available = true, f
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const host = document.createElement("div"); document.body.appendChild(host);
   const root = createRoot(host);
-  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ReceiptIntakeDialog target="inbox" queue={queue} notes={new TypedNoteQueue(() => undefined)} onClose={() => undefined} onReview={items => reviews.push(items)} /><ToastViewport /></BusinessContext.Provider></I18nextProvider>));
+  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={items => reviews.push(items)} /><ToastViewport /></BusinessContext.Provider></I18nextProvider>));
   cleanups.push(async () => { await act(async () => root.unmount()); host.remove(); });
   const group = () => document.querySelector('[data-testid="receipt-upload-deleted-fold"]');
   const button = (text: string, within: ParentNode = document) => [...within.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === text);
@@ -78,13 +77,13 @@ async function mount({ count = 1, saved = 0, approve = true, available = true, f
   return { group, button, click, expand, calls, reads, reviews, panels, queue };
 }
 
-test("one deleted match starts collapsed, has no saved count or review footer, and expands without a success check", async () => {
+test("one deleted match starts collapsed, has no saved count and nothing to review, and expands without a success check", async () => {
   const page = await mount();
   assert.ok(page.group());
   assert.equal(page.group()?.querySelector("button")?.getAttribute("aria-expanded"), "false");
   assert.match(page.group()?.textContent ?? "", /1 eliminado antes/);
   assert.equal(document.querySelector('[data-testid="receipt-upload-row"]'), null);
-  assert.equal(document.querySelector('[data-testid="receipt-intake-footer"]'), null);
+  assert.equal(document.querySelector<HTMLButtonElement>('[data-testid="receipt-intake-review"]')?.disabled, true, "nothing saved, nothing to review");
   assert.equal(document.querySelector('[data-testid="receipt-upload-summary"]')?.textContent?.includes("guardado"), false);
   await page.expand();
   const row = page.group()?.querySelector('[data-testid="receipt-upload-row"]');
@@ -98,7 +97,7 @@ test("mixed uploads keep saved and deleted counts separate and review only saved
   const page = await mount({ count: 2, saved: 2 });
   assert.match(page.group()?.textContent ?? "", /2 eliminados antes/);
   assert.match(document.querySelector('[data-testid="receipt-upload-saved-fold"]')?.textContent ?? "", /2 guardados/);
-  await page.click(page.button("Revisar los recibos guardados"));
+  await page.click(page.button("Revisar 2 documentos"));
   assert.deepEqual(page.reviews[0]?.map(receipt => receipt.id), ["receipt-2", "receipt-3"]);
 });
 
@@ -137,7 +136,7 @@ test("the reread owns the group even when a restore response says success", asyn
   const page = await mount({ stillDeleted: true });
   await page.click(page.button("Restaurar todos"));
   assert.ok(page.group());
-  assert.equal(document.querySelector('[data-testid="receipt-intake-footer"]'), null);
+  assert.equal(document.querySelector<HTMLButtonElement>('[data-testid="receipt-intake-review"]')?.disabled, true, "nothing saved, nothing to review");
   assert.equal(document.querySelector('[data-testid="toast"]'), null);
   await page.click(page.button("Restaurar todos"));
   assert.equal(page.calls[0]?.key, page.calls[1]?.key);
@@ -160,7 +159,7 @@ test("a failed reread retains the deleted match and request key until retry conf
   const page = await mount({ failRead: true });
   await page.click(page.button("Restaurar todos"));
   assert.ok(page.group());
-  assert.equal(document.querySelector('[data-testid="receipt-intake-footer"]'), null);
+  assert.equal(document.querySelector<HTMLButtonElement>('[data-testid="receipt-intake-review"]')?.disabled, true, "nothing saved, nothing to review");
   await page.click(page.button("Restaurar todos"));
   assert.equal(page.calls[0]?.key, page.calls[1]?.key);
   assert.equal(page.group(), null);
