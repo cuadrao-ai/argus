@@ -8,7 +8,7 @@ stores a copy of any of them.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
 from typing import Any, Literal, get_args
@@ -37,6 +37,22 @@ Blocker = Literal[
 ]
 # The import event warnings that mean "this may be a purchase already saved".
 DUPLICATE_WARNINGS = ("possible_duplicate", "ambiguous_match")
+
+
+def duplicate_warning(
+    attention: str | None,
+    named: Sequence[str] | None,
+    pending: Callable[[], Sequence[str]],
+) -> bool:
+    """An import event's ``attention`` is a duplicate warning no person's
+    answer has settled. A possible duplicate that names its repeats is settled
+    once ``pending`` finds none of them open; it is read only then."""
+
+    return attention in DUPLICATE_WARNINGS and (
+        attention != "possible_duplicate" or not named or bool(pending())
+    )
+
+
 # The import event states ``receipt_review`` reads; list events with these.
 RECEIPT_EVENT_STATES: tuple[EventState, ...] = get_args(EventState)
 _EVENT_STATUS: dict[str, ReceiptStatus] = {
@@ -200,14 +216,8 @@ def receipt_review(
     duplicate_ids = tuple(
         identity for identity in stored_duplicates if identity in live_ids
     )
-    repeated = (
-        event["state"] == "open"
-        and event.get("attention") in DUPLICATE_WARNINGS
-        and (
-            event.get("attention") != "possible_duplicate"
-            or not stored_duplicates
-            or bool(duplicate_ids)
-        )
+    repeated = event["state"] == "open" and duplicate_warning(
+        event.get("attention"), stored_duplicates, lambda: duplicate_ids
     )
     return ReceiptReview(
         receipt_id=draft.connection_id,

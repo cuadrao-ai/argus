@@ -16910,6 +16910,72 @@ components:
       - por_revisar
       - con_problema
       - leyendo
+    BandejaStanding:
+      properties:
+        group:
+          anyOf:
+          - type: string
+            enum:
+            - listo
+            - attention
+            - reading
+            - eliminados
+          - type: 'null'
+        reason:
+          anyOf:
+          - type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - read_budget_day
+            - read_budget_month
+            - read_deadline_passed
+            - other
+            - reading
+            - not_read
+            - credit_note
+            - missing_merchant
+            - missing_date
+            - missing_amount
+            - missing_currency
+            - sin_comprobante
+            - missing_rnc
+            - invalid_rnc
+            - missing_ncf
+            - invalid_ncf
+            - ecf_check_failed
+            - missing_itbis
+            - review_flag
+            - blocked
+            - unverified_sender
+          - type: 'null'
+        label:
+          anyOf:
+          - type: string
+            enum:
+            - reading
+            - cant_read
+            - needs_attention
+            - ready
+            - accepted
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - group
+      - reason
+      - label
+      description: 'Where a record stands in the Bandeja: the group, reason and label
+
+        ``bandeja_group.group_of`` gives its row in the receipt list.'
     BankImportResponse:
       properties:
         id:
@@ -18152,6 +18218,51 @@ components:
         year_to_check:
           type: boolean
           default: false
+        bandeja_group:
+          $ref: '#/components/schemas/BandejaStanding'
+        listo_gaps:
+          items:
+            type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - read_budget_day
+            - read_budget_month
+            - read_deadline_passed
+            - other
+            - reading
+            - not_read
+            - credit_note
+            - missing_merchant
+            - missing_date
+            - missing_amount
+            - missing_currency
+            - sin_comprobante
+            - missing_rnc
+            - invalid_rnc
+            - missing_ncf
+            - invalid_ncf
+            - ecf_check_failed
+            - missing_itbis
+            - review_flag
+            - blocked
+            - unverified_sender
+          type: array
+          default: []
+        rnc_registry_status:
+          anyOf:
+          - $ref: '#/components/schemas/RegistryStatus'
+          - type: string
+            const: not_found
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -30690,6 +30801,17 @@ components:
       - trade_name
       - status
       - file_date
+    RegistryStatus:
+      type: string
+      enum:
+      - verificado
+      - suspendido
+      - dado_de_baja
+      - cese_temporal
+      - anulado
+      - rechazado
+      - desconocido
+      description: Publisher status after the app mapping. Not the SQL verification column.
     RememberSearch:
       properties:
         q:

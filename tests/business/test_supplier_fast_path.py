@@ -10,12 +10,15 @@ from pathlib import Path
 import pytest
 import yaml
 from argus.domain.business.supplier_fast_path import (
+    STATUS_BY_RAW,
+    RegistryStatus,
     SupplierFastPath,
     SupplierFastPathDisabled,
     SupplierRegistryHit,
     lookup_supplier_fast_path,
     map_registry_status,
     ncf_valid_on_issue_date,
+    registry_status,
     supplier_fast_path_enabled,
 )
 
@@ -224,6 +227,34 @@ def test_empty_registry_is_not_loaded_and_a_miss_is_not_found(
     assert empty.registry.checked_at == CHECKED_AT
     assert isinstance(missing, SupplierFastPath)
     assert missing.registry.outcome == "not_found"
+
+
+#: The publisher text behind each status; ``desconocido`` is text no row maps.
+RAW_BY_STATUS = {
+    **{info.status: raw for raw, info in STATUS_BY_RAW.items()},
+    RegistryStatus.DESCONOCIDO: "EN TRAMITE",
+}
+
+
+@pytest.mark.parametrize("status", list(RegistryStatus))
+def test_a_listed_rnc_answers_its_mapped_status_with_the_flag_off(
+    status: RegistryStatus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(FLAG, raising=False)
+    row = ("109990011", "FERRETERIA PRUEBA", RAW_BY_STATUS[status], date(2026, 10, 1))
+
+    assert registry_status(_Connection(row), "1-09-99001-1", CHECKED_AT) is status
+
+
+def test_an_rnc_a_loaded_register_does_not_list_is_not_found_never_desconocido() -> None:
+    found = registry_status(_Connection(None, loaded=True), "109990099", CHECKED_AT)
+
+    assert found == "not_found"
+    assert found not in set(RegistryStatus)
+
+
+def test_an_empty_register_answers_nothing() -> None:
+    assert registry_status(_Connection(None, loaded=False), "109990099", CHECKED_AT) is None
 
 
 def test_database_errors_still_propagate(monkeypatch: pytest.MonkeyPatch) -> None:

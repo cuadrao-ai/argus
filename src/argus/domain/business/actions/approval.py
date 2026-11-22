@@ -23,10 +23,8 @@ from argus.domain.business.actions.fiscal import (
     refund_reference,
     require_distinct_fiscal_document,
 )
-from argus.domain.business.actions.listos import draft_standings
 from argus.domain.business.amount_inheritance import approved_from
 from argus.domain.business.authority import ActionContext, ActionError
-from argus.domain.business.bandeja_group import listo_reason
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
     Applied,
@@ -100,7 +98,7 @@ def _reviewed_facts(
         raise ActionError(
             "invalid_input", "approval_confirmation_required", flags=flagged
         )
-    if listo and listo_reason(draft_standings(tx, [event])[event.id]) is not None:
+    if listo and view.bandeja_group.group != "listo":
         raise ActionError("invalid_input", "not_listo")
     return event, view.facts
 

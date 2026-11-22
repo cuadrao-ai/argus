@@ -922,7 +922,7 @@
       "ai_on": "On. You can turn it off at any time.",
       "ai_replaces": "Another AI permission is on for this number. Turning this on replaces it.",
       "ai_off": "Off. Documents you send wait in your Inbox for you to fill in.",
-      "ai_approval": "You always approve money records yourself in Cuadrao.",
+      "ai_approval": "You always accept money records yourself in Cuadrao.",
       "ai_reason_unavailable": "AI reading cannot be turned on right now.",
       "ai_reason_whatsapp_link_required": "Link your number first.",
       "ai_reason_business_permission_denied": "Your account cannot turn it on for this business.",
@@ -1979,14 +1979,14 @@
           "label": "No RNC",
           "reason": "This receipt has no RNC. Add it so it can go on the 606.",
           "action": "Add RNC",
-          "approval_title": "This receipt has no RNC. Approve anyway?",
+          "approval_title": "This receipt has no RNC. Accept anyway?",
           "approval_body": "You'll need to add the RNC before exporting the 606."
         },
         "invalid_length": {
           "label": "RNC has an error",
           "reason": "An RNC has 9 digits (business) or 11 (cédula). Check that it's typed correctly.",
           "action": "Edit RNC",
-          "approval_title": "This RNC has an error. Approve anyway?",
+          "approval_title": "This RNC has an error. Accept anyway?",
           "approval_body": "You'll need to fix it before exporting the 606."
         },
         "check_digit": {
@@ -2009,7 +2009,7 @@
       "business_name_required": "Enter the business name.",
       "save_profile": "Save",
       "profile_failed": "We couldn't read or save the RNC. Check the open business before you try again.",
-      "review_note": "Use the amounts on the receipt and your tax classification. Leave blank anything you don't know. Saving creates a revision; approving is a separate step.",
+      "review_note": "Use the amounts on the receipt and your tax classification. Leave blank anything you don't know. Saving creates a revision; accepting is a separate step.",
       "field": {
         "category": "$t(business.dossier.placeholder.expense_type)",
         "goods_amount": "Amount billed for goods",
@@ -2066,7 +2066,7 @@
       },
       "load_failed": "We couldn't load the tax fields.",
       "no_withholdings": "No withholdings",
-      "save_failed": "We couldn't confirm the tax details were saved. Check the current record before you approve.",
+      "save_failed": "We couldn't confirm the tax details were saved. Check the current record before you accept.",
       "actual_refund": "A refund was received…",
       "option": {
         "category": {
@@ -2118,16 +2118,16 @@
       },
       "original_purchase": "Original purchase",
       "refund_candidate_refused": "That purchase can't be used for this refund. Pick another one.",
-      "refund_candidates_none": "There are no approved purchases to pick.",
+      "refund_candidates_none": "There are no accepted purchases to pick.",
       "save": "Save",
-      "approve_income": "Approve income",
-      "approve_refund": "Approve refund",
-      "recorded_income": "Income was recorded after revision {{version}} was approved.",
-      "recorded_refund": "A refund was recorded after revision {{version}} was approved.",
+      "approve_income": "Accept income",
+      "approve_refund": "Accept refund",
+      "recorded_income": "Income was recorded after revision {{version}} was accepted.",
+      "recorded_refund": "A refund was recorded after revision {{version}} was accepted.",
       "error": {
-        "fiscal_duplicate_document": "This fiscal receipt already belongs to another saved record. Check it before you approve.",
+        "fiscal_duplicate_document": "This fiscal receipt already belongs to another saved record. Check it before you accept.",
         "fiscal_credit_settlement_required": "Record a refund only after you confirm the money arrived and you choose the original purchase.",
-        "recorded_correction_unsupported": "The tax details of an approved record can't be changed in this flow.",
+        "recorded_correction_unsupported": "The tax details of an accepted record can't be changed in this flow.",
         "stale_version": "This record changed. Open the current review before you save.",
         "tax_id_type": "Choose RNC or cédula.",
         "tax_id_not_digits": "Use digits and hyphens only.",
@@ -2161,9 +2161,9 @@
       "actions": {
         "accept_invite": "accepted an invitation",
         "append_supporting_file": "attached a supporting file",
-        "approve_expense": "approved an expense",
-        "approve_income": "approved an income",
-        "approve_refund": "approved a refund",
+        "approve_expense": "accepted an expense",
+        "approve_income": "accepted an income",
+        "approve_refund": "accepted a refund",
         "business_ask": "asked Cuadrao",
         "business_attach_source": "linked a document",
         "business_propose_activity": "proposed a record",
@@ -2192,7 +2192,7 @@
         "receipt_reading_enabled": "turned on document reading",
         "receipt_review": "reviewed a document",
         "receipt_upload": "uploaded a document",
-        "reopen_draft": "reopened an approved record",
+        "reopen_draft": "reopened an accepted record",
         "resolve_duplicate": "resolved a duplicate",
         "restore_document": "restored {{document}}.",
         "review_draft": "reviewed a record",
@@ -2235,13 +2235,13 @@
         "today": "Today",
         "week": "Last 7 days"
       },
-      "first_run_body": "When someone uploads, reviews or approves something in this business, you will see it here.",
+      "first_run_body": "When someone uploads, reviews or accepts something in this business, you will see it here.",
       "first_run_title": "No activity yet",
       "former_member": "Former member",
       "go_home": "Go to Home",
       "groups": {
         "access": "Access",
-        "approvals": "Approvals",
+        "approvals": "Acceptances",
         "edits": "Record changes",
         "files": "Attachments",
         "invoices": "Invoices",
@@ -2847,7 +2847,7 @@
       "type_label": "Type",
       "type_detected_venta": "We read it as a sale from your business's RNC. Add the client's RNC.",
       "type_detected_recibo": "We read it as a purchase. Change it if it is a sale.",
-      "type_locked": "This record is approved. Its type no longer changes.",
+      "type_locked": "This record is accepted. Its type no longer changes.",
       "type_clears_choices": "Changing the type clears the expense type and payment form.",
       "title": "Review record",
       "unknown": "Unknown",
@@ -2864,7 +2864,7 @@
       "default": "Default · not verified",
       "verified": "Verified",
       "not_verified": "Not verified",
-      "needs_resolution": "Needs a decision before approval",
+      "needs_resolution": "Needs a decision before acceptance",
       "messages_title_one": "Original message",
       "messages_title_other": "Original messages",
       "proposals": "Agent proposals",
@@ -2891,22 +2891,22 @@
       "decisions": "Needs your decision",
       "for_accountant": "For the accountant",
       "for_owner": "For the owner",
-      "approve": "Approve expense",
-      "approve_action": "Approve expense",
-      "approve_next": "Approve and next",
+      "approve": "Accept expense",
+      "approve_action": "Accept expense",
+      "approve_next": "Accept and next",
       "approve_reason": {
-        "date": "Add the date to approve"
+        "date": "Add the date to accept"
       },
-      "approved_by": "Approved by {{name}} · permission granted by {{issuer}}",
-      "approving": "Approving…",
-      "approval_effect": "Approval records this revision as one expense. Saving review details does not record it.",
-      "prepare_only": "Your permission allows preparing this record. A person with approval permission must approve it.",
+      "approved_by": "Accepted by {{name}} · permission granted by {{issuer}}",
+      "approving": "Accepting…",
+      "approval_effect": "Acceptance records this revision as one expense. Saving review details does not record it.",
+      "prepare_only": "Your permission allows preparing this record. A person with acceptance permission must accept it.",
       "read_only": "Your permission allows viewing this record.",
-      "recorded": "One expense was recorded after approval of revision {{version}}.",
+      "recorded": "One expense was recorded after acceptance of revision {{version}}.",
       "correction_unsupported": "Corrections after recording aren't available in this first flow.",
       "reopen": "Reopen",
       "reopen_title": "Reopen this receipt?",
-      "reopen_body": "It goes back to the Inbox so you can correct it. It leaves your records until you approve it again.",
+      "reopen_body": "It goes back to the Inbox so you can correct it. It leaves your records until you accept it again.",
       "reopening": "Reopening…",
       "reopen_failed": "This receipt could not be reopened. Check the current record before trying again.",
       "reopen_refused": {
@@ -2914,7 +2914,7 @@
         "business_refund_linked": "A credit note or refund points at this receipt. Deal with that record first."
       },
       "ecf_title": "Electronic invoice",
-      "ecf_note": "What the file proves by itself. Nothing here confirms DGII accepted the invoice; a row marked Review does not block approval.",
+      "ecf_note": "What the file proves by itself. Nothing here confirms DGII accepted the invoice; a row marked Review does not stop you from accepting it.",
       "ecf_see_all_one": "See the {{count}} check",
       "ecf_see_all_other": "See all {{count}} checks",
       "ecf_summary": "{{ok}} of {{total}} fine",
@@ -2972,7 +2972,7 @@
       "stale": "This record changed. Open the current revision and review it before taking another action.",
       "unavailable": "This record isn't available with your current access.",
       "outcome_unknown": "The action's outcome isn't known yet. Check the saved status before taking another action.",
-      "approval_failed": "Approval did not finish. Check the current record before another action.",
+      "approval_failed": "Acceptance did not finish. Check the current record before another action.",
       "duplicate_recorded": "You already recorded this fiscal receipt.",
       "see_recorded": "See the recorded one",
       "review_flag": {
@@ -2987,14 +2987,14 @@
         "itbis_high": {
           "text": "The ITBIS looks high. Check that it is right."
         },
-        "export_blocked": "If you approve it as is, the month's 606 can't be exported until you fix it.",
+        "export_blocked": "If you accept it as is, the month's 606 can't be exported until you fix it.",
         "fix": "Fix",
-        "approve_anyway": "Approve anyway"
+        "approve_anyway": "Accept anyway"
       },
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
       "refused": "This action could not be completed. Check the current record before trying again.",
-      "blocker_fallback": "This record needs further review before approval.",
-      "blocker_unsaved": "A change didn't save. Save it again to approve.",
+      "blocker_fallback": "This record needs further review before acceptance.",
+      "blocker_unsaved": "A change didn't save. Save it again to accept.",
       "kind": {
         "expense": "Expense",
         "income": "Income",
@@ -3034,18 +3034,18 @@
         "suggested": "suggested"
       },
       "placeholder": {
-        "blocks_title": "Needed to approve",
+        "blocks_title": "Needed to accept",
         "expense_type": "Expense type",
         "more_fiscal": "More tax details",
         "payment_form": "Payment method",
-        "save_lost": "We couldn't confirm that {{field}} was saved. Approval is paused.",
+        "save_lost": "We couldn't confirm that {{field}} was saved. Acceptance is paused.",
         "save_refused": "{{field}} wasn't saved. Check the value.",
         "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
         "doubtful_read": "check this",
         "done_title": "No receipts left to review",
         "done_back": "Back to Inbox",
         "total_mismatch": "Subtotal + ITBIS = {{sum}}, not {{total}}",
-        "save_first": "Save or cancel {{fields}} to approve.",
+        "save_first": "Save or cancel {{fields}} to accept.",
         "group_identity": "Identification",
         "group_amounts": "Billed amounts",
         "group_retentions": "Withholdings",
@@ -3101,15 +3101,15 @@
       },
       "state": {
         "open": "Awaiting review",
-        "accepting": "Checking approval outcome",
+        "accepting": "Checking acceptance outcome",
         "accepted": "Recorded",
         "dismissed": "Dismissed"
       },
       "blocker": {
         "unknown_funding": "Confirm how this was paid.",
         "missing_fields": "Resolve the required details.",
-        "unresolved_facts": "Resolve the open facts before approval.",
-        "unsupported_kind": "This activity isn't supported for approval in this first flow.",
+        "unresolved_facts": "Resolve the open facts before acceptance.",
+        "unsupported_kind": "This activity isn't supported for acceptance in this first flow.",
         "owner_funding_unsupported": "Owner-funded expenses cannot be recorded in this first flow yet.",
         "permission_denied": "Your current permission does not allow this action.",
         "currency_mismatch": "The funding account and record need the same currency.",
@@ -3119,10 +3119,10 @@
     "empty": {
       "access_error": "We couldn't load access",
       "all_clear_body": "When another receipt arrives, it shows up here for review.",
-      "all_clear_title": "All approved. Squared away.",
+      "all_clear_title": "All accepted. Squared away.",
       "email_error": "We couldn't load your emails",
       "error_body": "Your data is still saved. Check your connection and try again.",
-      "inbox_body": "Upload, type or forward them by email. You review and approve them so they count in your numbers.",
+      "inbox_body": "Upload, type or forward them by email. You review and accept them so they count in your numbers.",
       "inbox_error": "We couldn't load your inbox",
       "inbox_title": "Your receipts land here",
       "month_body": "Add this month's receipts and invoices to see your income, expenses and ITBIS.",
@@ -3146,7 +3146,7 @@
           "label": "Nothing slips by"
         },
         "follow": {
-          "body": "See who uploaded, approved, edited or deleted documents, and when.",
+          "body": "See who uploaded, accepted, edited or deleted documents, and when.",
           "label": "Follow the activity"
         },
         "open": {
@@ -3162,8 +3162,8 @@
           "label": "Return to pending documents"
         },
         "review": {
-          "body": "Review the details and correct what you need to. Once approved, the document moves to Records.",
-          "label": "Review and approve"
+          "body": "Review the details and correct what you need to. Once accepted, the document moves to Records.",
+          "label": "Review and accept"
         },
         "title": "From document to record",
         "upload": {
@@ -3209,7 +3209,7 @@
     },
     "history": {
       "am": "AM",
-      "approved": "Approved",
+      "approved": "Accepted",
       "changed": "{{field}} changed from {{before}} to {{after}}",
       "changed_female": "{{field}} changed from {{before}} to {{after}}",
       "channel_email": "Email",
@@ -3233,7 +3233,7 @@
       "total": "Total"
     },
     "status": {
-      "pill_approved": "Approved",
+      "pill_approved": "Accepted",
       "pill_attention": "Needs attention",
       "pill_pending": "Pending",
       "saved": "Saved, unread",
@@ -3802,7 +3802,7 @@
       "reopen_access": "Reopening restores access for members whose permissions are still valid.",
       "transfer": {
         "accept": "Accept transfer",
-        "accept_body": "You will become the owner. Only you can approve, close the business, and grant or remove access. {{ownerName}} can keep editing. Automatic document reading turns off until you activate it. This cannot be undone.",
+        "accept_body": "You will become the owner. Only you can accept records, close the business, and grant or remove access. {{ownerName}} can keep editing. Automatic document reading turns off until you activate it. This cannot be undone.",
         "accept_title": "Accept {{businessName}}?",
         "accepted": "Transfer completed",
         "cancelled": "Transfer withdrawn",
@@ -3869,7 +3869,7 @@
       "itbis_cobrado": "ITBIS collected",
       "approved_figures": {
         "copy_review": "pending_lucas",
-        "net_detail": "Approved income minus expenses"
+        "net_detail": "Accepted income minus expenses"
       },
       "receipts_failed": "We couldn't load the receipt count. The month cannot be closed yet.",
       "receipts_loading": "Loading the receipt count. The month cannot be closed yet.",
@@ -3972,7 +3972,7 @@
       "copy_review": "pending_lucas",
       "month": {
         "expenses": "Expenses",
-        "first_day": "The figures fill in when you approve your first documents.",
+        "first_day": "The figures fill in when you accept your first documents.",
         "fiscal_one": "Missing data on 1 record",
         "fiscal_other": "Missing data on {{count}} records",
       "fiscal_purchases_one": "Missing data on 1 purchase",
@@ -3990,12 +3990,12 @@
         "review": "Review",
         "see": "See",
         "terms": {
-          "expenses": "Approved purchases and expenses for the month, before ITBIS.",
+          "expenses": "Accepted purchases and expenses for the month, before ITBIS.",
           "fiscal": "Complete the missing data before filing.",
-          "income": "Approved sales for the month, before ITBIS.",
-          "itbis_purchases": "ITBIS paid on your approved purchases.",
-          "itbis_sales": "ITBIS charged on your approved sales.",
-          "net": "Approved income minus expenses for the month, before ITBIS."
+          "income": "Accepted sales for the month, before ITBIS.",
+          "itbis_purchases": "ITBIS paid on your accepted purchases.",
+          "itbis_sales": "ITBIS charged on your accepted sales.",
+          "net": "Accepted income minus expenses for the month, before ITBIS."
         },
         "under_one": "less than {{amount}}"
       }
@@ -4280,7 +4280,7 @@
       "empty_attention_help": "When a document needs attention or can't be read, it shows up here.",
       "empty_help": "Try another view or change the filters.",
       "empty_listos": "No receipts are ready",
-      "empty_listos_help": "When a receipt has everything confirmed, it shows here to approve.",
+      "empty_listos_help": "When a receipt has everything confirmed, it shows here to accept.",
       "empty_start": "Your files and notes arrive here",
       "empty_start_help": "Add a file or receive documents by email.",
       "empty_start_upload_help": "Add a file.",
@@ -4297,16 +4297,16 @@
       "page_size": "Items per page",
       "pagination": "Inbox pages",
       "placeholder": {
-        "approve_all": "Approve all",
-        "approve_confirm_help_one": "It moves to Records as an approved expense.",
-        "approve_confirm_help_other": "They move to Records as approved expenses.",
-        "approve_confirm_one": "Approve {{count}} receipt?",
-        "approve_confirm_other": "Approve {{count}} receipts?",
-        "approve_failed_one": "{{count}} of {{total}} was not approved.",
-        "approve_failed_other": "{{count}} of {{total}} were not approved.",
-        "approved_one": "{{count}} receipt approved.",
-        "approved_other": "{{count}} receipts approved.",
-        "bulk_actions": "Approve selection",
+        "approve_all": "Accept all",
+        "approve_confirm_help_one": "It moves to Records as an accepted expense.",
+        "approve_confirm_help_other": "They move to Records as accepted expenses.",
+        "approve_confirm_one": "Accept {{count}} receipt?",
+        "approve_confirm_other": "Accept {{count}} receipts?",
+        "approve_failed_one": "{{count}} of {{total}} was not accepted.",
+        "approve_failed_other": "{{count}} of {{total}} were not accepted.",
+        "approved_one": "{{count}} receipt accepted.",
+        "approved_other": "{{count}} receipts accepted.",
+        "bulk_actions": "Accept selection",
         "listos": "Ready",
         "open": "Open",
         "reason": {
@@ -4321,10 +4321,10 @@
         },
         "refused": {
           "duplicate_comprobante": "This comprobante is already recorded",
-          "not_listo": "No longer ready to approve",
-          "other": "It could not be approved",
+          "not_listo": "No longer ready to accept",
+          "other": "It could not be accepted",
           "stale_version": "It changed after it was listed. Open it and review it.",
-          "unknown": "We don't know if it was approved. Retry to find out."
+          "unknown": "We don't know if it was accepted. Retry to find out."
         }
       },
       "remove_filter": "Remove filter: {{label}}",
@@ -4407,7 +4407,7 @@
       "write": "Write it",
       "write_title": "Write it",
       "write_placeholder": "For example: I paid RD$500 for gas today, in cash.",
-      "write_help": "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.",
+      "write_help": "What you bought or sold, how much, when and how you paid. You review it in the Inbox before accepting.",
       "write_back": "Upload files",
       "write_save": "Save",
       "write_type": {
@@ -4729,7 +4729,7 @@
     "invitations_title": "Invitations",
     "nav": "Access",
     "title": "Access",
-    "subtitle": "Who can see and prepare your business records. Only you approve.",
+    "subtitle": "Who can see and prepare your business records. Only you accept them.",
     "owner": "Owner",
     "member": "Member",
     "since": "Since {{date}}",
@@ -4737,7 +4737,7 @@
     "pending_until": "Expires {{date}}",
     "pending_note": "Gets access the first time they sign in with this confirmed email.",
     "give_title": "Give access to your accountant",
-    "give_body": "Enter their email. They can see and prepare receipts. They can never approve.",
+    "give_body": "Enter their email. They can see and prepare receipts. They can never accept them.",
     "email_label": "Email address",
     "give": "Give access",
     "giving": "Giving access...",
@@ -4883,17 +4883,17 @@
     "your_access": "Your access",
     "permission_label": "Access",
     "permission_owner": "Owner",
-    "permission_owner_detail": "Full access to the business. Can approve records and invite other owners.",
+    "permission_owner_detail": "Full access to the business. Can accept records and invite other owners.",
     "permission_admin": "Admin",
-    "permission_admin_detail": "Sets up the business and manages collaborators. Cannot approve records.",
+    "permission_admin_detail": "Sets up the business and manages collaborators. Cannot accept records.",
     "permission_editor": "Editor",
-    "permission_editor_detail": "Adds documents and prepares records. Cannot approve them or manage the business.",
+    "permission_editor_detail": "Adds documents and prepares records. Cannot accept them or manage the business.",
     "permission_viewer": "Viewer",
     "permission_viewer_detail": "Views documents and records. Cannot edit or download them.",
     "invite_access": "Access",
     "invite_access_allow": "Can view and prepare business documents.",
     "invite_access_details": "Access details",
-    "invite_access_limit": "Cannot approve records or manage the business.",
+    "invite_access_limit": "Cannot accept records or manage the business.",
     "invite_access_summary": "View and prepare records",
     "invite_email_example": "name@example.com",
     "invite_email_invalid": "Check the email. For example, name@example.com.",
@@ -5020,7 +5020,7 @@
     "qr_error": "We could not generate the QR. Use Connect manually.",
     "reading_description": "Cuadrao extracts document details for your review. This applies to uploads, email and WhatsApp.",
     "reading_enable": "Enable and continue",
-    "reading_limits": "Reading does not approve records. You can change it in Settings.",
+    "reading_limits": "Reading does not accept records. You can change it in Settings.",
     "reading_question": "Read your documents automatically?",
     "reading_skip": "Continue without reading",
     "ready_status": "Ready to send",

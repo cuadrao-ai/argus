@@ -54,7 +54,7 @@ test("close entry binds server export windows and stable retry key without neste
     assert.equal(document.querySelectorAll("form form").length, 0);
     assert.equal(document.querySelectorAll('input[type="date"]').length, 0);
     assert.ok(document.querySelector('[data-testid="business-close-dialog"]'), "closing opens the centered dialog");
-    assert.ok(document.body.textContent?.includes("ene – dic 2025 · 40 registros"), "the count is the server's");
+    assert.ok(document.body.textContent?.includes("Ene – Dic 2025 · 40 registros"), "the count is the server's");
     assert.equal(document.body.textContent?.includes("original"), false);
     await act(async () => button("Continuar sin descargar").click());
     assert.equal(button("Cerrar negocio").disabled, true);

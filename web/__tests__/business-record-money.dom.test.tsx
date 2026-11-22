@@ -156,7 +156,7 @@ describe("the original purchase picker in the tax details", () => {
   test("with no candidates it says so", async () => {
     const { view } = await mountEditor([]);
     try {
-      assert.equal(view.host.querySelector('[data-testid="refund-candidates-none"]')?.textContent, "No hay compras aprobadas para elegir.");
+      assert.equal(view.host.querySelector('[data-testid="refund-candidates-none"]')?.textContent, "No hay compras aceptadas para elegir.");
     } finally { await view.dispose(); }
   });
 

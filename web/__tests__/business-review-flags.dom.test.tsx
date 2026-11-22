@@ -219,7 +219,7 @@ test("Escape and the backdrop close the step without approving", async () => {
   }
 });
 
-test("Aprobar de todos modos sends approve_anyway and records the receipt", async () => {
+test("Aceptar de todos modos sends approve_anyway and records the receipt", async () => {
   const dossier = await flaggedReceipt(["rnc_check_digit"], accounts);
   const approvals = serve(dossier);
   const page = await render(dossier);
