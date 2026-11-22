@@ -178,10 +178,7 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
                 "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
                 "NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED",
                 "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY",
-                "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED",
                 "NEXT_PUBLIC_MOCK_AUTH",
-                "NEXT_PUBLIC_OMNISEARCH_ENABLED",
-                "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED",
                 "NEXT_PUBLIC_SUPABASE_ANON_KEY",
                 "NEXT_PUBLIC_SUPABASE_URL",
             },
@@ -203,7 +200,8 @@ def test_production_web_blueprint_declares_current_inventory_without_values_drif
 ) -> None:
     # Founder-supplied direct-variable inventory for #2212, 2026-11-22.
     # Omit unused NEXT_PUBLIC_BUSINESS_PILOT_ENABLED and the duplicate fallback
-    # NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED from the web inventory.
+    # NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED from the web inventory. The research
+    # rail, evidence sharing and omnisearch switches are left unset and retire (#2369).
     profile = json.loads(_source(".github/private-alpha-release-profile.json"))
     config = yaml.safe_load(_source("render.yaml"))
     service = next(
@@ -222,7 +220,10 @@ def test_production_web_blueprint_declares_current_inventory_without_values_drif
         entry = entries.get(name, {})
         production = entry.get("production", {})
         assert not production.get("not_set"), name
-        if entry.get("kind") == "plain" and "value" in production:
+        # The support address has one owner (test_support_email_agreement.py).
+        if name == "CUADRAO_INQUIRY_TO":
+            expected = {"key": name, "sync": False}
+        elif entry.get("kind") == "plain" and "value" in production:
             expected = {"key": name, "value": production["value"]}
         else:
             # Secrets, absent production literals and names outside the manifest

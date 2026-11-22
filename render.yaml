@@ -150,7 +150,7 @@ services:
       - key: CUADRAO_INQUIRY_FROM
         value: "Cuadrao <website@notify.cuadrao.ai>"
       - key: CUADRAO_INQUIRY_TO
-        value: "hola@cuadrao.ai"
+        sync: false
       - key: CUADRAO_SITE_INDEXING
         sync: false
       - key: MARKETING_POSTAL_ADDRESS
@@ -194,14 +194,8 @@ services:
         value: "false"
       - key: NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY
         sync: false
-      - key: NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED
-        value: "false"
       - key: NEXT_PUBLIC_MOCK_AUTH
         value: "false"
-      - key: NEXT_PUBLIC_OMNISEARCH_ENABLED
-        value: "true"
-      - key: NEXT_PUBLIC_RESEARCH_RAIL_ENABLED
-        value: "true"
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_URL
