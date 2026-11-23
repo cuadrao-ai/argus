@@ -96,6 +96,33 @@ for (const width of [1440, 390]) test.describe(`at ${width}px`, () => {
   });
 });
 
+test("Registros protects an unsaved Nota on close and reload", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openRegistros(page, 1, { dossier: true });
+  await page.locator("button[data-record-note]").click();
+  const drawer = page.getByTestId("side-drawer");
+  const note = drawer.getByRole("textbox", { name: "Nota", exact: true });
+  const close = drawer.getByRole("button", { name: "Cerrar", exact: true });
+  const changed = "Verificar el recibo.";
+  await note.fill(changed);
+  await close.click();
+  const warning = page.getByRole("alertdialog", { name: "¿Descartar los cambios?" });
+  await expect(warning).toBeVisible();
+  await warning.getByRole("button", { name: "Seguir editando" }).click();
+  await expect(note).toHaveValue(changed);
+  const reloadWarning = page.waitForEvent("dialog").then(async dialog => {
+    const type = dialog.type();
+    await dialog.dismiss();
+    return type;
+  });
+  await page.evaluate(() => { window.location.reload(); });
+  expect(await reloadWarning).toBe("beforeunload");
+  await expect(note).toHaveValue(changed);
+  await close.click();
+  await warning.getByRole("button", { name: "Descartar cambios" }).click();
+  await expect(drawer).toHaveCount(0);
+});
+
 test("the Registros skeleton holds its height while the first page loads", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   let release = () => {};

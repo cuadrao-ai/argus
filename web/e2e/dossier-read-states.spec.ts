@@ -135,3 +135,31 @@ test("Detalles edits a record note and opens its supporting file in the document
   await expect(foot.getByRole("link")).toHaveAttribute("download", support.filename);
   await page.screenshot({ path: testInfo.outputPath("dossier-note-and-backing-file.png"), animations: "disabled" });
 });
+
+test("Historial shows the deletion date supplied for an unlinked file", async ({ page }, testInfo) => {
+  const purgeAt = "2026-11-22T16:00:00Z";
+  await page.clock.setFixedTime(new Date("2026-11-21T12:00:00Z"));
+  const source = createFixtureBusinessDataSource();
+  const receipt = await source.receipt("rcpt-ferreteria");
+  const record = await source.dossier(receipt.draft_id!);
+  const support = {
+    source_id: "source-backing", receipt_id: "receipt-backing", filename: "respaldo.pdf",
+    media_type: "application/pdf", size_bytes: 512, state: "unlinked", purge_at: purgeAt,
+    unlink_available: false, restore_available: false,
+  };
+  const unlink = {
+    ...record.history[0], version: record.version + 1, created_at: "2026-11-15T16:00:00Z",
+    supporting_change: "unlinked", supporting_filename: support.filename, source_ids: [support.source_id],
+  };
+  await installReceiptBusiness(page, ([resource, target, action]) => {
+    if (resource === "drafts" && target === record.draft_id && action === "dossier") {
+      return Promise.resolve({ ...record, version: unlink.version, space_id: "fixture-space", supporting_files: [support], history: [...record.history, unlink] });
+    }
+  });
+  await page.goto(`/biz?draft=${record.draft_id}`);
+  await page.getByRole("tab", { name: "Historial", exact: true }).click();
+  const event = page.getByTestId("history-supporting").filter({ hasText: support.filename });
+  await expect(event.locator(`time[datetime="${purgeAt}"]`)).toContainText(/22.*nov.*2026/i);
+  await expect(event.getByRole("button", { name: "Restaurar" })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("dossier-supporting-file-deadline.png"), animations: "disabled" });
+});
