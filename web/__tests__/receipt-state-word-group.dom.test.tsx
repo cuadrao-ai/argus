@@ -63,10 +63,12 @@ async function open(receipt: Partial<ReceiptDetail>, prepared: boolean) {
   };
   const click = (element: Element | null) => act(async () => { assert.ok(element); (element as HTMLElement).click(); });
   try {
-    await settle(() => Boolean(document.querySelector('[data-testid="delete-document-menu"]')));
+    // A prepared record deletes from Más; a receipt with no draft names the action in its footer.
+    const remove = () => document.querySelector(prepared ? '[data-testid="delete-document-menu"]' : '[data-testid="receipt-review-footer"] button[aria-label="Eliminar documento"]');
+    await settle(() => Boolean(remove()));
     const pill = host.querySelector('[data-testid="dossier-status"] [data-testid="status-pill"]');
-    await click(document.querySelector('[data-testid="receipt-more"] > button'));
-    await click(document.querySelector('[data-testid="delete-document-menu"]'));
+    if (prepared) await click(document.querySelector('[data-testid="receipt-more"] > button'));
+    await click(remove());
     const state = [...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dl > div')].find((row) => row.querySelector("dt")?.textContent === "Estado")?.querySelector("dd")?.textContent;
     return { header: pill?.textContent ?? null, label: pill?.getAttribute("data-label") ?? null, dialog: state };
   } finally {

@@ -356,7 +356,8 @@ describe("a fiscal save in Historial", () => {
     const page = await render(<ReceiptHistory history={[save(3, declared("606", { id_type: null }), after)]} accounts={[]} dgiiFields={fields} />, { dgiiNames: true });
     const [entry] = entries(page.host);
     assert.equal(entry.querySelector("p")?.textContent, "Datos del 606 guardados");
-    assert.deepEqual(changes(entry), [["Tipo Id", "Desconocido", "01 - RNC"], ["Monto Facturado en Bienes", null, "RD$ 3,450.00"]]);
+    // The names Datos fiscales gives the same fields, not the DGII column headers.
+    assert.deepEqual(changes(entry), [["Tipo de ID", "Desconocido", "01 - RNC"], ["Bienes", null, "RD$ 3,450.00"]]);
     assert.equal(entry.querySelector('[data-testid="history-more"]'), null, "two changes need no button");
     await page.close();
   });
