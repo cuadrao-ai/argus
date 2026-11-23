@@ -85,6 +85,7 @@ test("Nota opens the editor from its entry, counts characters, cancels with Esca
     await page.details({ dossier, detailsCard: "note", onSaveNote });
     assert.equal(page.field()?.value, "Nota anterior");
     assert.equal(document.activeElement, page.field());
+    assert.equal(page.host.querySelector('[data-testid="dossier-note"] [data-landing], [data-testid="dossier-note"][data-landing]'), null, "the text box's own focus edge is the one highlight");
     await page.type("🧰 nuevo");
     assert.match(page.host.textContent ?? "", /7 \/ 500/);
     await page.key("Escape");
@@ -244,6 +245,9 @@ test("Agregar archivo passes the selected file and the server's cap hides the ch
     const add = page.button("Agregar archivo");
     assert.ok(add);
     assert.equal(document.activeElement, add);
+    const card = page.host.querySelector<HTMLElement>('[data-testid="dossier-supporting"]');
+    assert.equal(card?.getAttribute("data-landing"), "true", "the card's own edge is the highlight");
+    assert.equal(card?.querySelector("[data-landing]"), null, "no second box inside it");
     assert.match(page.host.textContent ?? "", /Sin archivos de respaldo\./);
     const input = page.host.querySelector('input[type="file"]');
     assert.ok(input);

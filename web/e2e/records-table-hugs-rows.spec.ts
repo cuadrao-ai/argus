@@ -66,12 +66,16 @@ for (const width of [1440, 390]) test.describe(`at ${width}px`, () => {
       const details = page.getByRole("tabpanel", { name: "Detalles", exact: true });
       await expect(page.getByRole("tab", { name: "Detalles", exact: true })).toHaveAttribute("aria-selected", "true");
       await expect(details.getByRole("heading", { name: heading, exact: true })).toBeVisible();
-      await expect(details.locator(`[data-testid="dossier-${column === "note" ? "note" : "supporting"}"] [data-landing]`)).toBeVisible();
       if (column === "note") {
+        // The text box's own focus edge is the one highlight.
         const note = details.getByRole("textbox", { name: "Nota", exact: true });
         await expect(note).toBeFocused();
         await expect(note).toHaveValue(CURRENT_NOTE);
+        await expect(details.locator("[data-landing]")).toHaveCount(0);
       } else {
+        // The files card marks its own edge, with no second box inside it.
+        await expect(details.locator('[data-testid="dossier-supporting"][data-landing]')).toBeVisible();
+        await expect(details.locator('[data-testid="dossier-supporting"] [data-landing]')).toHaveCount(0);
         await expect(details.getByRole("button", { name: "Agregar archivo", exact: true })).toBeFocused();
       }
     });

@@ -60,6 +60,10 @@
 .stack { display:flex; flex-direction:column; gap:12px; }
 
 .card { background:var(--d-card); border:1px solid var(--d-line); border-radius:var(--radius-surface); padding:0 8px 0 16px; }
+/* A card Registros opened the record at marks its own edge for a moment. */
+.card[data-landing] { animation:cardLanding 2.4s ease-out; }
+@keyframes cardLanding { from, 70% { border-color:var(--d-green); box-shadow:0 0 0 3px var(--d-ring); } }
+@media (prefers-reduced-motion:reduce) { .card[data-landing] { animation:none; border-color:var(--d-green); } }
 .cardHead { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; padding-right:8px; border-bottom:1px solid var(--d-hair); }
 .cardHead:last-child { border-bottom:0; }
 .cardTitle { margin:0; font-family:var(--font-display, inherit); font-size:14px; font-weight:600; color:var(--d-ink); }
