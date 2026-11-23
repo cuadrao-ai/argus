@@ -112,7 +112,7 @@ test.describe("the General tab against the locked board", () => {
     await expect(row.locator("[data-row-open]")).toHaveCount(0);
     await expect(row.getByRole("button", { name: /^Editar detalles/ })).toHaveCount(1);
     await expect(page.getByTestId("row-saved")).toHaveCount(0);
-    await expect(page.getByRole("tabpanel").filter({ visible: true })).not.toContainText("Guardado");
+    await expect(page.getByTestId("receipt-review-fields")).not.toContainText("Guardado");
     expect((await box(row)).height).toBe(before.height);
   });
 
