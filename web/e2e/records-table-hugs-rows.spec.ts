@@ -96,10 +96,15 @@ for (const width of [1440, 390]) test.describe(`at ${width}px`, () => {
   });
 });
 
-test("Registros protects an unsaved Nota on close and reload", async ({ page }) => {
+test("Registros protects an unsaved Nota on close, reload, and another row", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await openRegistros(page, 1, { dossier: true });
-  await page.locator("button[data-record-note]").click();
+  await openRegistros(page, 2, { dossier: true });
+  const noteEntry = page.locator("button[data-record-note]").filter({ hasText: CURRENT_NOTE });
+  const editedRow = page.getByRole("row").filter({ has: noteEntry });
+  const otherRow = page.getByRole("grid", { name: "Registros" }).getByRole("rowgroup").nth(1)
+    .getByRole("row").filter({ hasNot: noteEntry });
+  await expect(editedRow).toHaveCount(1);
+  await noteEntry.click();
   const drawer = page.getByTestId("side-drawer");
   const note = drawer.getByRole("textbox", { name: "Nota", exact: true });
   const close = drawer.getByRole("button", { name: "Cerrar", exact: true });
@@ -117,6 +122,10 @@ test("Registros protects an unsaved Nota on close and reload", async ({ page }) 
   });
   await page.evaluate(() => { window.location.reload(); });
   expect(await reloadWarning).toBe("beforeunload");
+  await expect(note).toHaveValue(changed);
+  await otherRow.click({ position: { x: 40, y: 20 } });
+  await expect(warning).toBeVisible();
+  await warning.getByRole("button", { name: "Seguir editando" }).click();
   await expect(note).toHaveValue(changed);
   await close.click();
   await warning.getByRole("button", { name: "Descartar cambios" }).click();

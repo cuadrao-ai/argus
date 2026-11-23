@@ -22,9 +22,11 @@ export type DossierAnnotationsProps = {
   busy?: boolean;
   dossier?: BusinessDossier;
   detailsCard?: DossierDetailsCard;
+  entryVisit?: number;
   receiptLimits?: ReceiptLimits | null;
   selectedSupportingSourceId?: string | null;
   onSaveNote?: (note: string) => Promise<void>;
+  onNoteDirty?: (dirty: boolean) => void;
   onAppend?: (file: File) => Promise<void>;
   onViewFile?: (sourceId: string) => void;
   onUnlink?: (sourceId: string) => Promise<void>;
@@ -35,40 +37,43 @@ export function dossierFileSize(bytes: number, locale: string): string {
   return new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "short", maximumFractionDigits: unit === "megabyte" ? 1 : 0 }).format(amount);
 }
 
-function useCardLanding(focus: boolean) {
+function useCardLanding(focus: boolean, entryVisit: number) {
   const target = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (focus) target.current?.scrollIntoView?.({ block: "center" });
-  }, [focus]);
+  }, [focus, entryVisit]);
   return target;
 }
 
 type NoteEditor = { text: string; state: "ready" | "saving" | "failed" | "stale" };
 
-export function DossierNoteCard({ busy, dossier, detailsCard, onSaveNote }: Pick<DossierAnnotationsProps, "busy" | "detailsCard" | "onSaveNote"> & { dossier: BusinessDossier }) {
+export function DossierNoteCard({ busy, dossier, detailsCard, entryVisit = 0, onSaveNote, onNoteDirty }: Pick<DossierAnnotationsProps, "busy" | "detailsCard" | "entryVisit" | "onSaveNote" | "onNoteDirty"> & { dossier: BusinessDossier }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const canEdit = dossier.note_edit_available === true && !!onSaveNote;
   const note = dossier.current_note ?? "";
   const fromEntry = detailsCard === "note";
-  const shouldEnter = fromEntry && canEdit;
+  const shouldEnter = fromEntry && canEdit ? entryVisit : null;
   const [entered, setEntered] = useState(shouldEnter);
-  const [editor, setEditor] = useState<NoteEditor | null>(() => shouldEnter ? { text: note, state: "ready" } : null);
+  const [editor, setEditor] = useState<NoteEditor | null>(() => shouldEnter !== null ? { text: note, state: "ready" } : null);
   if (entered !== shouldEnter) {
     setEntered(shouldEnter);
-    if (shouldEnter) setEditor({ text: note, state: "ready" });
+    if (shouldEnter !== null && !editor) setEditor({ text: note, state: "ready" });
   }
   if (!canEdit && editor) setEditor(null);
   const editing = canEdit ? editor : null;
+  const dirty = editing !== null && editing.text !== note;
   const saving = editing?.state === "saving";
-  const landing = useCardLanding(fromEntry);
+  const landing = useCardLanding(fromEntry, entryVisit);
   const field = useRef<HTMLTextAreaElement>(null);
   const pencil = useRef<HTMLButtonElement>(null);
   const count = useId();
   const open = editing !== null;
   useEffect(() => {
     if (open) field.current?.focus();
-  }, [open]);
+  }, [open, shouldEnter]);
+  useEffect(() => { onNoteDirty?.(dirty); }, [dirty, onNoteDirty]);
+  useEffect(() => () => onNoteDirty?.(false), [onNoteDirty]);
   const close = () => {
     setEditor(null);
     // The pencil remounts when the field closes.
@@ -142,7 +147,7 @@ export function DossierNoteCard({ busy, dossier, detailsCard, onSaveNote }: Pick
 
 type SupportFailure = { kind: "append_error"; retry?: File } | { kind: "unlink_error" };
 
-export function DossierSupportingCard({ busy, dossier, detailsCard, receiptLimits, selectedSupportingSourceId, onAppend, onViewFile, onUnlink }: Omit<DossierAnnotationsProps, "onSaveNote">) {
+export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit = 0, receiptLimits, selectedSupportingSourceId, onAppend, onViewFile, onUnlink }: Omit<DossierAnnotationsProps, "onSaveNote" | "onNoteDirty">) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const add = useRef<HTMLButtonElement>(null);
@@ -151,13 +156,13 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, receiptLimit
   const [failure, setFailure] = useState<SupportFailure | null>(null);
   const [added, setAdded] = useState(0);
   const fromEntry = detailsCard === "support";
-  const landing = useCardLanding(fromEntry);
+  const landing = useCardLanding(fromEntry, entryVisit);
   const files = dossier?.supporting_files?.filter((file) => file.state === "linked") ?? [];
   const full = dossier?.supporting_limit_reached === true;
   const canAdd = dossier?.supporting_append_available === true && !full && !!onAppend;
   useEffect(() => {
     if (fromEntry && canAdd) add.current?.focus({ preventScroll: true });
-  }, [fromEntry, canAdd]);
+  }, [fromEntry, canAdd, entryVisit]);
   const label = t("business.dossier.supporting.add");
   const limit = dossier?.supporting_file_limit;
   const mutate = async (command: () => Promise<void>, file?: File) => {

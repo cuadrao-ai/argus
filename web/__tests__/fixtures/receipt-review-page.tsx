@@ -17,7 +17,7 @@ export function registerReceiptReviewPage() {
   afterAll(async () => { await GlobalRegistrator.unregister(); });
 }
 
-export async function mount(overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({})) {
+export async function mount(overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({}), userId?: string) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -57,7 +57,7 @@ export async function mount(overrides: (fixture: BusinessDataSource) => Partial<
     root.render(
       <I18nextProvider i18n={i18n}>
         <BusinessConsentTestProvider accepted>
-          <BusinessWorkspaceProvider source={source as never}>
+          <BusinessWorkspaceProvider source={source as never} userId={userId}>
             <Probe />
           </BusinessWorkspaceProvider>
         </BusinessConsentTestProvider>
@@ -123,8 +123,8 @@ export async function setup(id: keyof typeof import("@/components/business-app/d
   return { ...page, writes, approvals: () => approvals, row, openRow: open, leave, action, check, dismiss, press, close: () => page.act(async () => page.root.unmount()) };
 }
 
-export async function fill(page: { host: Element; act: (run: () => Promise<void>) => Promise<void> }, selector: string, value: string, element: typeof HTMLInputElement | typeof HTMLSelectElement = HTMLInputElement) {
-  const input = page.host.querySelector<HTMLInputElement>(selector);
+export async function fill(page: { host: ParentNode; act: (run: () => Promise<void>) => Promise<void> }, selector: string, value: string, element: typeof HTMLInputElement | typeof HTMLSelectElement | typeof HTMLTextAreaElement = HTMLInputElement) {
+  const input = page.host.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(selector);
   assert.ok(input, selector);
   await page.act(async () => {
     input.focus();

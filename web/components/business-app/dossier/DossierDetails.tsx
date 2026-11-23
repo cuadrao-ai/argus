@@ -30,7 +30,7 @@ export default function DossierDetails({ origin, ...annotations }: { origin: Dos
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const channelLabel = useChannelLabel();
   const Icon = origin.channel ? CHANNEL_ICON[origin.channel] : null;
-  const { busy, dossier, detailsCard, onSaveNote, ...supporting } = annotations;
+  const { busy, dossier, detailsCard, entryVisit, onSaveNote, onNoteDirty, ...supporting } = annotations;
   return (
     <div className={styles.stack} data-testid="dossier-details">
       <DossierCard title={t("business.dossier.details.origin")}>
@@ -40,8 +40,8 @@ export default function DossierDetails({ origin, ...annotations }: { origin: Dos
           <Row fact="received_at" label={t("business.dossier.details.arrived")} value={origin.receivedAt ? formatTimestamp(origin.receivedAt, locale) : null} />
         </DossierRows>
       </DossierCard>
-      {dossier ? <DossierNoteCard key={`note-${dossier.draft_id}`} busy={busy} dossier={dossier} detailsCard={detailsCard} onSaveNote={onSaveNote} /> : null}
-      {dossier || detailsCard === "support" ? <DossierSupportingCard key={`support-${dossier?.draft_id ?? "receipt"}`} busy={busy} dossier={dossier} detailsCard={detailsCard} {...supporting} /> : null}
+      {dossier ? <DossierNoteCard key={`note-${dossier.draft_id}`} busy={busy} dossier={dossier} detailsCard={detailsCard} entryVisit={entryVisit} onSaveNote={onSaveNote} onNoteDirty={onNoteDirty} /> : null}
+      {dossier || detailsCard === "support" ? <DossierSupportingCard key={`support-${dossier?.draft_id ?? "receipt"}`} busy={busy} dossier={dossier} detailsCard={detailsCard} entryVisit={entryVisit} {...supporting} /> : null}
       <DossierCard title={t("business.dossier.details.file")}>
         <DossierRows>
           <Row fact="filename" label={t("business.dossier.details.name")} value={origin.filename} />
