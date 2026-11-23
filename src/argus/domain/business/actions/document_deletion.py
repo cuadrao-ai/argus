@@ -8,7 +8,7 @@ from uuid import UUID
 
 from psycopg.types.json import Jsonb
 
-from argus.domain.business.actions import plans
+from argus.domain.business.actions import document_ledger, plans
 from argus.domain.business.annotations import supporting_uploads
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.contracts.actions import ActionOutcome, Applied
@@ -201,9 +201,12 @@ def _change(
     resolution = dict(event.resolution if event else document.get("resolution", {}))
     marker = deletion(state, resolution)
     deleting = command.action == "delete_document"
+    now = datetime.now(timezone.utc)
+    activity = None
     if deleting and marker is None:
+        accepted = event is not None and state == "accepted" and "business" in resolution
         if (
-            (event is not None and state != "open")
+            (event is not None and state != "open" and not (accepted and reason is None))
             or state == "dismissed"
             or any(
                 candidate.state not in ("open", "dismissed") for candidate in candidates
@@ -213,7 +216,13 @@ def _change(
         if is_reading(tx, attachments):
             raise ActionError("invalid_input", "business_document_reading")
         group = "attention"
-        if event is not None and "business" in event.resolution:
+        if accepted:
+            activity = document_ledger.original_activity(event)
+            if document_ledger.linked(tx, event, activity):
+                raise ActionError("invalid_input", "business_document_linked")
+            document_ledger.set_reversed(tx, activity, now)
+            group = None
+        elif event is not None and "business" in resolution:
             from argus.domain.business.actions.listos import draft_standings
             from argus.domain.business.bandeja_group import draft_group, listo_reason
 
@@ -221,7 +230,7 @@ def _change(
             group = draft_group(listo_reason(standing))
         marker = DeletedDocument(
             actor=DeletingActor(actor_id=tx.context.actor.actor_id),
-            at=datetime.now(timezone.utc),
+            at=now,
             key=key,
             previous_state=PreviousDocumentState(
                 state=state,
@@ -235,18 +244,28 @@ def _change(
     elif not deleting:
         if marker is None:
             raise ActionError("invalid_input", "business_document_not_deleted")
+        if not marker.can_restore(now):
+            raise ActionError("invalid_input", "business_document_restore_expired")
         state = marker.previous_state.state
+        if event is not None and state == "accepted":
+            activity = document_ledger.original_activity(event)
+            document_ledger.set_reversed(tx, activity, None)
         resolution.pop("deleted")
     else:
-        return Applied(outcome="applied", draft_id=event.id if event else None)
+        if event is not None and marker.previous_state.state == "accepted":
+            activity = document_ledger.original_activity(event)
+        return Applied(
+            outcome="applied", draft_id=event.id if event else None, activity_id=activity
+        )
     if event is not None:
         tx.imports.put_event(
             replace(
                 event,
                 state=state,
                 resolution=resolution,
+                activity_id=str(activity) if activity and not deleting else None,
                 version=event.version + 1,
-                updated_at=datetime.now(timezone.utc),
+                updated_at=now,
             )
         )
         if not deleting:
@@ -255,6 +274,7 @@ def _change(
             outcome="applied",
             draft_id=event.id,
             version=tx.imports.event(event.id).version,
+            activity_id=activity,
         )
     for candidate in candidates:
         candidate_state = (

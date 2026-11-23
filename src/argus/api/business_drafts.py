@@ -557,7 +557,9 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
             and view["status"] not in ("confirmed", "dismissed")
             and not view.get("read_pending")
             and (view.get("bandeja_group") or {}).get("group") is not None,
-            "restore_available": can_delete and view.get("deleted") is not None,
+            "restore_available": can_delete
+            and view.get("deleted") is not None
+            and view["deleted"].can_restore(),
         }
         for view in views
     ]

@@ -8314,27 +8314,35 @@ inbox_counts}` and `Cache-Control: no-store`. `inbox_counts` is the
 `ReceiptActivityCounts` object `GET /business/receipt-activity` returns, read
 after the action from the same function, so the web shows the new counts from
 this answer and needs no second read. The counts are read when the answer is
-made: a repeated key returns the saved outcome with the counts of now. Repeating the same action key returns its saved
-outcome without another change. Reusing it for another action or document
-returns 409 `business_action_conflict`.
+made. An accepted record's delete or restore also returns `registros_count`,
+the count of all current Registros rows in the selected Business. It matches
+`matching_count` for an unfiltered `POST /business/reports/query`.
+A repeat of the same key returns the saved outcome with current counts.
+Reusing the key for another action or document returns 409 `business_action_conflict`.
 
-Delete accepts an open draft or a document with no draft that has finished
-reading. It refuses an approved or otherwise closed draft with 422
-`business_document_not_open`, a document being read with 422
-`business_document_reading`, and a non-owner with 403
-`business_permission_denied`. An approved document must use the existing
-reopen flow first. Restore requires the deletion marker and otherwise returns
-422 `business_document_not_deleted`. Sources, revisions and financial records
-are retained until the purge below. A deleted or restored purged document
-returns 404 `business_document_purged`.
+The owner may delete an open draft, an unlinked accepted Business record, or
+a document without a draft that has finished reading. Delete returns 422
+`business_document_linked` for an accepted record linked to a refund, credit
+note, settlement or active bank match. Other ineligible states return 422
+`business_document_not_open`. A read in progress returns 422
+`business_document_reading`. A non-owner receives 403 `business_permission_denied`.
+
+Restore requires a deletion marker. A missing marker returns 422
+`business_document_not_deleted`. At `purge_at`, restore returns 422
+`business_document_restore_expired` until the worker purges the document.
+After purge, delete and restore return 404 `business_document_purged`.
+During the restore window, an accepted record keeps its comprobante reserved.
+An attempt to approve another purchase or sale with that identity gets the
+existing duplicate-comprobante error.
 
 Receipt summary, detail and dossier responses expose `deleted`,
-`delete_available` and `restore_available`. The deletion metadata contains
+`delete_available` and `restore_available`. Registros reads `delete_available`
+from the accepted record's dossier. The deletion metadata contains
 `actor: {actor_id, display_name, email, shown_as}` (named live for the reader, as in the dossier), `at`, `key`, and `previous_state: {state, group}`,
 plus `reason: "duplicate"` when the owner deleted it as a duplicate (absent
 for a plain delete).
-The previous group is `attention` or `listo`. For several generic read
-candidates, `previous_state.events` retains their IDs and prior states for
+The previous group is `attention` or `listo` for a Bandeja row and null for an accepted
+record. For several generic read candidates, `previous_state.events` retains their IDs and prior states for
 restore under the document's one marker. Server availability uses the
 current permission and document state: a document being read or being approved
 is not available. Row trash follows `delete_available` in every group but
@@ -8349,9 +8357,11 @@ deleted standalone typed documents with the same metadata and availability.
 search and restore also reach older deleted documents.
 Notes attached to a receipt remain part of that receipt and are not counted
 again. Deleted documents leave every other Bandeja group,
-its Inicio counts, month-close pending work, and duplicate checks. Registros,
-financial totals and exports do not change. Restore removes the marker and
-returns the stored state, retaining the document's facts and original.
+its Inicio counts, and month-close pending work. Deleting an accepted record
+also removes its money from period totals, Registros, Inicio, and exports,
+including the 606 and 607. Restore brings back the same money activity and
+document facts. The undo message for an accepted record is
+“Eliminado. Lo restauras en 7 días desde Eliminados.”
 
 An exact-byte repeat upload returns the existing deleted document with its
 deletion metadata and restore availability. It neither creates another item
@@ -8379,7 +8389,9 @@ nothing, so the button and the expiry can race safely.
 
 A purge removes the stored file, the read, the draft with its revisions,
 questions and source links, and the draft's own message sources. A message
-source that another draft also uses stays. The Activity entries stay. A purge
+source that another draft also uses stays. Purging an accepted record also
+erases its reversed activity and its own money records and revisions.
+The Activity entries stay. A purge
 by the owner adds `purge_document` and the expiry adds `expire_document` with
 the Cuadrao actor; neither names the document or links to it. Older entries
 of the purged document keep their `object` with `purged: true` and `label:

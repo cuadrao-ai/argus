@@ -13,6 +13,7 @@ from argus.domain.recording.errors import (
     RecordingInputError,
     RegisteredAccountRequired,
 )
+from argus.domain.recording.import_claim import ImportClaim, require_import_claim
 from argus.domain.recording.money_postgres import owner_lock
 from argus.domain.recording.owner_funds import NoAccountRecord
 
@@ -63,6 +64,8 @@ def transact(
     key: str,
     identity: str,
     preview_valid: bool,
+    *,
+    import_claim: ImportClaim | None = None,
 ) -> dict[str, Any]:
     with repository._pool.connection() as connection:
         with connection.transaction():
@@ -97,6 +100,9 @@ def transact(
                 if saved is None:
                     raise IdempotencyConflict()
                 return {"activity": saved.response(), "accounts": [], "replayed": True}
+            require_import_claim(
+                connection, row.user_id, BusinessSpace(row.owner_space_id), import_claim
+            )
             if not preview_valid:
                 raise RecordingInputError(
                     "preview_required", "Review the proposed change before saving it."

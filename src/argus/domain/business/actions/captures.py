@@ -233,6 +233,7 @@ def page(
                 delete_available=row["review_state"] == "open"
                 and "approve" in tx.authorization.capabilities,
                 restore_available=marker is not None
+                and marker.can_restore()
                 and "approve" in tx.authorization.capabilities,
                 bandeja_group=note_group(
                     row["review_state"],

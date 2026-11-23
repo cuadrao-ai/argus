@@ -13,6 +13,7 @@ from argus.domain.recording.errors import (
     IdempotencyConflict,
     RegisteredAccountRequired,
 )
+from argus.domain.recording.import_claim import ImportClaim, require_import_claim
 from argus.domain.recording.loop import ExpenseRecord
 from argus.domain.recording.money_plan import MoneyPlan
 from argus.domain.recording.repository import StoredAccount
@@ -158,6 +159,7 @@ def transact_postgres(
     legacy_account: str | None,
     *,
     scope: OwnerScope,
+    import_claim: ImportClaim | None = None,
 ) -> tuple[list[StoredAccount], str, int, tuple[str, ...], bool]:
     in_scope, in_params = sql_predicate(scope, "owner_space_id")
     with repository._pool.connection() as connection:
@@ -192,6 +194,7 @@ def transact_postgres(
                     tuple(str(a) for a in receipt[3]),
                     True,
                 )
+            require_import_claim(connection, user_id, scope, import_claim)
             initial = planner(
                 VisibleAccounts(
                     load_owner(repository, connection, user_id, scope=scope),

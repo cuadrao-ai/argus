@@ -3,8 +3,9 @@ definitivamente" and the 7-day expiry run the same two steps:
 
 1. ``purge``, in one transaction under the owner lock: record the purge with
    the stored objects still to erase, then delete the draft, its revisions,
-   its message sources and the uploads with their reads. From the commit on,
-   the document is gone for every reader and cannot be restored.
+   its message sources and the uploads with their reads. For an accepted
+   record, also erase its reversed money row and private ledger records.
+   From the commit on, the document is gone for every reader and cannot be restored.
 2. ``erase``: remove each recorded object and take it off the record. A
    failed erase keeps the rest on the record, and the next run finishes it.
 
@@ -22,6 +23,7 @@ from loguru import logger
 from psycopg import Connection
 from psycopg.rows import dict_row
 
+from argus.domain.business.actions.document_ledger import original_activity
 from argus.domain.business.annotations import SUPPORTING_SOURCE_SQL, UPLOAD_HELD_SQL
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.deletion import PURGE_AFTER, deletion
@@ -190,6 +192,30 @@ def was_purged(connection: Connection, space_id: UUID, document_id: UUID) -> boo
     )
 
 
+def _remove_activity(connection: Connection, owner_id: str, activity: UUID) -> None:
+    records = [
+        row[0]
+        for row in connection.execute(
+            "select distinct record_id from public.financial_activity_memberships"
+            " where activity_id=%s and user_id=%s and record_owner_id=%s",
+            (activity, owner_id, owner_id),
+        ).fetchall()
+    ]
+    removed = connection.execute(
+        "delete from public.financial_activity_groups"
+        " where id=%s and user_id=%s and reversed_at is not null returning id",
+        (activity, owner_id),
+    ).fetchone()
+    if removed is None:
+        raise ActionError("invalid_input", "business_record_not_found")
+    connection.execute(
+        "delete from public.financial_records r where r.user_id=%s and r.id=any(%s::uuid[])"
+        " and not exists (select 1 from public.financial_activity_memberships m"
+        " where m.record_id=r.id and m.record_owner_id=r.user_id)",
+        (owner_id, records),
+    )
+
+
 def purge(
     connection: Connection,
     imports: ImportTx,
@@ -244,6 +270,8 @@ def purge(
     ]
     for item in events:
         duplicates.forget(imports, item, now)
+    if event is not None and marker.previous_state.state == "accepted":
+        _remove_activity(connection, owner_id, original_activity(event))
     _remove(
         connection,
         space_id,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 
@@ -31,7 +31,7 @@ class DeletingActor(Contract):
 
 class PreviousDocumentState(Contract):
     state: str
-    group: ApprovalGroup
+    group: ApprovalGroup | None
     events: dict[str, Literal["open", "dismissed"]] = Field(
         default_factory=dict, exclude_if=lambda value: not value
     )
@@ -60,6 +60,9 @@ class DeletedDocument(Contract):
     @property
     def purge_at(self) -> datetime:
         return self.at + PURGE_AFTER
+
+    def can_restore(self, now: datetime | None = None) -> bool:
+        return self.purge_at > (now or datetime.now(timezone.utc))
 
     def stored(self) -> dict:
         return self.model_dump(
