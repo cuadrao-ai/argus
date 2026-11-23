@@ -229,7 +229,8 @@ test("Archivos de respaldo shows the server's current restore offer and deadline
     assert.equal(time(), null);
   } finally {
     pinTestClock();
-    try { await page.close(); } finally { Object.assign(browserWindow, { setTimeout, clearTimeout }); }
+    Object.assign(browserWindow, { setTimeout, clearTimeout });
+    await page.close();
   }
 });
 
