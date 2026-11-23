@@ -1,5 +1,5 @@
 import type { BusinessAccount, BusinessApprovalOptions, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
-import { LISTO_GAPS, factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type BusinessMontosReview, type EditableDossierField, type ListoGap, type RefundCandidate } from "@/lib/business-dossier";
+import { LISTO_GAPS, factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessDraftRevision, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type BusinessMontosReview, type EditableDossierField, type ListoGap, type RefundCandidate } from "@/lib/business-dossier";
 import type { DgiiDeclaration, DgiiField, DgiiFields, DgiiReview, PurchaseChoice, SuggestedField, SuggestionSources } from "@/lib/business-dgii";
 import { noteGroup } from "./fixture-server-rules";
 
@@ -366,28 +366,44 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const items = found.slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state, earlier_count: earlier(note), bandeja_group: noteGroup(current.review_state, note.draft_id, current.version) }; });
       return { items, has_more: found.length > limit };
     },
-    createReceiptDraft: (receipt: ReceiptDetail, fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }, confirmable?: boolean) => {
+    /**
+     * The draft of a sample receipt, with the history the server writes. A read
+     * (`by: "read"`) is revision 1 by the extractor, for the person whose grant
+     * it used: read values from the file, and the answers no read gives left
+     * open. A mark a person gave after it is revision 2, by that person. A
+     * receipt a person filled in by hand (`by: "person"`) starts as theirs.
+     */
+    createReceiptDraft: (receipt: ReceiptDetail, { fiscal, confirmable, by = "read" }: { fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }; confirmable?: boolean; by?: "read" | "person" } = {}) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
-      const reviewed = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
-      const scalar = (value: string | null): BusinessFact<string> => value ? reviewed(value) : unknown();
-      const current: BusinessFacts = {
-        kind: reviewed("expense"),
+      const read = by === "read";
+      const stated = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
+      const found = <T>(value: T): BusinessFact<T> => read ? { state: "known", value, origin: "extracted", verified: false, source_ids: [sourceId] } : stated(value);
+      const scalar = (value: string | null): BusinessFact<string> => value ? found(value) : unknown();
+      const answer = <T>(value: T | null | undefined): BusinessFact<T> => value == null || read ? unknown() : stated(value);
+      const first: BusinessFacts = {
+        kind: found("expense"),
         amount: scalar(receipt.amount),
         currency: scalar(receipt.currency),
         occurred_on: scalar(receipt.occurred_on),
         counterparty: scalar(receipt.merchant),
-        funding: receipt.account_id ? reviewed({ kind: "business_account", account_id: receipt.account_id }) : unknown(),
-        business_share: reviewed({ kind: "all" }),
-        receipt_state: reviewed(receipt.sin_comprobante ? "no_receipt" : fiscal ? "fiscal_receipt" : "informal_receipt"),
-        category_id: scalar(receipt.category_id),
+        funding: answer(receipt.account_id ? { kind: "business_account" as const, account_id: receipt.account_id } : null),
+        business_share: answer({ kind: "all" as const }),
+        receipt_state: answer(receipt.sin_comprobante ? "no_receipt" as const : fiscal ? "fiscal_receipt" as const : "informal_receipt" as const),
+        category_id: answer(receipt.category_id),
         fiscal: fiscal ? { rnc: scalar(fiscal.rnc), ncf: scalar(fiscal.ncf), ecf: unknown(), itbis: scalar(fiscal.itbis) } : null,
       };
+      const marked = read && receipt.sin_comprobante;
+      const current: BusinessFacts = marked ? { ...first, receipt_state: stated("no_receipt") } : first;
+      // The read ends a moment after the file arrives, and a person marks it after that: seconds, so no sample time runs ahead of the clock for long.
+      const later = (seconds: number) => new Date(Date.parse(receipt.received_at) + seconds * 1000).toISOString();
       const source = { id: sourceId, kind: "attachment" as const, channel: receipt.channel, received_at: receipt.received_at, connection_id: receipt.id, filename: receipt.filename, media_type: receipt.media_type };
-      const action = { id: reviewSourceId, kind: "web_action" as const, channel: "web" as const, received_at: receipt.received_at, text: JSON.stringify({ version: receipt.version - 1, fields: { merchant: receipt.merchant, amount: receipt.amount, currency: receipt.currency, occurred_on: receipt.occurred_on, account_id: receipt.account_id, category_id: receipt.category_id } }) };
+      const action = { id: reviewSourceId, kind: "web_action" as const, channel: "web" as const, received_at: read ? later(20) : receipt.received_at, text: JSON.stringify(read ? { version: 1, facts: { receipt_state: { state: "known", value: "no_receipt" } } } : { version: receipt.version - 1, fields: { merchant: receipt.merchant, amount: receipt.amount, currency: receipt.currency, occurred_on: receipt.occurred_on, account_id: receipt.account_id, category_id: receipt.category_id } }) };
+      const history: BusinessDraftRevision[] = [{ draft_id: id, version: 1, actor: read ? { ...actor, actor_kind: "extractor" } : actor, before: null, after: first, source_ids: [read ? sourceId : reviewSourceId], turn_key: null, created_at: read ? later(10) : receipt.received_at, before_document_type: null, after_document_type: "recibo" }];
+      if (marked) history.push({ draft_id: id, version: 2, actor, before: first, after: current, source_ids: [reviewSourceId], turn_key: null, created_at: later(20) });
       dossiers.set(id, {
         draft_id: id, space_id: receipt.record_context?.space_id ?? "fixture-space", space_name: receipt.record_context?.space_name ?? "Mi negocio", accounts: receipt.record_context?.accounts ?? [],
-        capabilities: receipt.record_context?.capabilities ?? [], version: 1, review_state: "open", facts: current, sources: [source, action], questions: [],
-        history: [{ draft_id: id, version: 1, actor, before: null, after: current, source_ids: [reviewSourceId], turn_key: null, created_at: receipt.received_at }],
+        capabilities: receipt.record_context?.capabilities ?? [], version: history.length, review_state: "open", facts: current, sources: read && !marked ? [source] : [source, action], questions: [],
+        history,
         blockers: [], approval_available: true, approval_result: null,
         sin_comprobante: receipt.sin_comprobante, personal: receipt.personal, personal_marked_by: receipt.personal_marked_by,
       });
