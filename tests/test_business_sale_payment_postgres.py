@@ -4,6 +4,7 @@ split, the dossier says the pick back, and the bucket follows the total."""
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import get_args
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from argus.domain.business.contracts.dgii import SalePayment, SalePaymentForm
 from argus.domain.business.contracts.facts import BusinessFactPatch
 
 from tests import test_business_actions_postgres as business
+from tests import test_business_dgii_postgres as fiscal
 
 actions = business.actions
 users = business.users
@@ -88,3 +90,21 @@ def test_a_purchase_has_no_payment_form_and_refuses_one(actions) -> None:  # noq
     assert service.dossier(context, draft).sale_payment == SalePayment(form=None, options=FORMS)
     _review(service, context, draft, typed, document_type="recibo")
     assert service.dossier(context, draft).sale_payment is None
+
+
+@pytest.mark.owner_acts
+def test_the_owner_picks_the_form_of_an_approved_sale(actions) -> None:  # noqa: ANN001
+    service, context, _ = actions
+    account = fiscal.cash_account(service, context)
+    draft = fiscal.reviewed(service, context, account, 4)
+    assert draft[2] == "income"
+    assert fiscal.approve(service, context, draft).outcome == "applied"
+    approved = service.dossier(context, draft[0])
+    assert (approved.review_state, approved.payment_split_editable) == ("accepted", True)
+
+    _review(service, context, draft[0], approved.version, sale_payment_form="gift")
+
+    picked = service.dossier(context, draft[0])
+    assert picked.sale_payment.form == "gift"
+    assert _buckets(picked) == {"gift": f"{Decimal(approved.facts.amount.value):.2f}"}
+    assert picked.facts == approved.facts
