@@ -1,14 +1,13 @@
 "use client";
 
-import { ChevronDown, RotateCcw } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { resolveLanguage } from "@/lib/language-features";
-import { Tooltip } from "@/components/ui/Tooltip";
-import { formatAmount } from "./business-format";
+import { formatAmount, UNKNOWN_VALUE } from "./business-format";
 import { dossierRowLabel, problemWords, rowProblems, type DossierProblem } from "./dossier-attention";
-import { DossierCard, DossierRow, DossierRows, SavedMark, type RowStatus } from "./dossier/DossierParts";
+import { DossierCard, DossierRow, DossierRows, RestoreButton, type RowStatus } from "./dossier/DossierParts";
 import styles from "./dossier/dossier.module.css";
 import type { FactsReview, RowFlash } from "./ReceiptRecordFacts";
 import { doubtfulFields } from "./receipt-fact-rows";
@@ -53,9 +52,9 @@ export default function ReceiptAmounts({ dossier, review, problems = [], flash =
     if (key === "amount" && addsUp) return { kind: "ok", text: t(tip != null ? "business.terms.total_adds_up_with_tip" : "business.terms.total_adds_up") };
     return null;
   };
-  const restoreLabel = t("business.dossier.placeholder.restore_calculated");
+  // The server states no calculated Subtotal beside a typed one, so the way back names no amount.
   const restoreSubtotal = dossier.net_amount?.source === "edited" && review?.restoreSubtotal && !review.edit("net_amount").open
-    ? <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-calculated="net_amount" className={styles.pen} style={{ opacity: 1, width: 24, height: 24 }} onClick={review.restoreSubtotal}><RotateCcw size={14} aria-hidden="true" /></button></Tooltip>
+    ? <RestoreButton field="net_amount" value={UNKNOWN_VALUE} onRestore={review.restoreSubtotal} />
     : null;
   const row = (key: AmountRow, amount: string | null | undefined) => (
     <DossierRow
@@ -75,13 +74,12 @@ export default function ReceiptAmounts({ dossier, review, problems = [], flash =
     />
   );
   const choose = currencyEdit?.onOpen;
-  const heading = (<span className="flex items-center gap-2">
-    {currencyEdit?.saved && !currencyEdit.open ? <SavedMark /> : null}
+  const heading = (
     <button ref={picker} type="button" data-fact="currency" data-testid="montos-currency" data-missing={currency ? undefined : true} className={styles.currency} disabled={!choose} aria-label={`${t("business.dossier.field.currency")}: ${currency ?? t("business.terms.currency_missing")}`} onClick={choose}>
       {currency ?? t("business.terms.currency_choose")}
       {choose ? <ChevronDown size={14} aria-hidden="true" /> : null}
     </button>
-  </span>);
+  );
   return (
     <DossierCard title={t("business.terms.montos_title")} aside={heading} testId="receipt-facts-montos">
       <div aria-busy={review?.amountsPreview?.status === "pending" || undefined}>

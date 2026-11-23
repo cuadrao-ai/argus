@@ -150,11 +150,11 @@ describe("a record opened without its receipt", () => {
 });
 
 describe("the footer", () => {
-  test("holds Más, Aceptar and Aceptar y siguiente, and nothing else, with no reason while Aceptar is open", async () => {
+  test("holds Más and the one Aceptar for a record opened with no list, and nothing else, with no reason while Aceptar is open", async () => {
     const page = await mount();
     const footer = page.footer()!;
     // Más holds the Personal mark, the note and the refresh; only its trigger sits in the footer row.
-    assert.deepEqual([...footer.querySelectorAll("button")].filter((item) => !item.closest("#receipt-more-panel")).map((item) => item.textContent), ["Más", "Aceptar", "Aceptar y siguiente"]);
+    assert.deepEqual([...footer.querySelectorAll("button")].filter((item) => !item.closest("#receipt-more-panel")).map((item) => item.textContent), ["Más", "Aceptar"]);
     assert.equal(page.button("Aceptar")?.disabled, false);
     assert.equal(footer.querySelector('[data-testid="approve-reason"]'), null);
     await page.close();
@@ -163,7 +163,6 @@ describe("the footer", () => {
   test("a missing date disables Aceptar, and the header reason alone says why", async () => {
     const page = await mount({ change: noDate });
     assert.equal(page.button("Aceptar")?.disabled, true);
-    assert.equal(page.button("Aceptar y siguiente")?.disabled, true);
     assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]'), null, "the footer repeats nothing");
     assert.equal(page.host.querySelector('[data-testid="dossier-reason"]')?.textContent, "Falta la fecha");
     const row = page.host.querySelector('[data-fact="occurred_on"]')!;

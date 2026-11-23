@@ -7,9 +7,8 @@ import type {
   BusinessAccessInvite,
   ReceiptReading,
 } from "@/lib/business-api";
-import type { BusinessDossier } from "@/lib/business-dossier";
-import { createDossierFixtures } from "./dossier-fixtures";
-import type { FiscalProfile } from "@/lib/business-dgii";
+import { createDossierFixtures, type StatedDraft } from "./dossier-fixtures";
+import type { DgiiDeclaration, FiscalProfile } from "@/lib/business-dgii";
 import type { SentBy } from "@/lib/sent-by";
 import { normalizeSearchText } from "@/lib/search-text";
 import { emailSender, groupRow, projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
@@ -50,7 +49,7 @@ function sampleSender(channel: ReceiptDetail["channel"], deliveries: readonly st
   return emailSender(SAMPLE_EMAILS.find((email) => email.id === deliveries?.[0])?.sender);
 }
 
-type SampleReceipt = ReceiptDetail & { confirmableGap?: boolean; /** The Montos check the server states for the receipt's draft. */ amountsCheck?: BusinessDossier["amounts_check"] };
+type SampleReceipt = ReceiptDetail & { confirmableGap?: boolean; /** What the server states for the receipt's draft. */ stated?: StatedDraft; /** A person saved the stated 606. */ savedDeclaration?: boolean };
 
 function receipt(
   partial: Partial<SampleReceipt> & Pick<ReceiptDetail, "id" | "status">,
@@ -107,20 +106,59 @@ function read(id: string, reason: string | null, merchant: string, amount: strin
     ...partial,
   });
 }
-// A Listo sample was read with its Total and its ITBIS, so the server states that its amounts add up.
-const listo = (id: string, merchant: string, amount: string, itbis: string, partial: Partial<ReceiptDetail>) => read(id, null, merchant, amount, { ...partial, amountsCheck: { state: "adds_up" }, evidence: { merchant, occurred_on: dayOnly(daysAgo(1)), total: amount, currency: "DOP", tax: itbis, tip: null, service: null, lines: [] } });
+/** Every field the server sends for a purchase's 606 nobody answered, in its order. */
+const BLANK_606: DgiiDeclaration = {
+  id_type: null, modified_ncf: null, selective_tax: null, other_taxes: null, legal_tip: null, form: "606", category: null, category_suggested: false,
+  paid_on: null, services_amount: null, goods_amount: null, itbis_withheld: null, itbis_proportionality: null, itbis_cost: null, itbis_perceived: null,
+  income_withholding_type: null, income_withheld: null, income_perceived: null, payment_method: null, actual_refund: false, purchase_activity_id: null,
+};
+const lastChoice = (category: string, paymentMethod: string) => ({ category: { value: category, source: "last_choice" as const }, payment_method: { value: paymentMethod, source: "last_choice" as const } });
+type Listo606 = {
+  /** The amount on each side of Monto facturado, and the two amounts the server calculates from the declaration. */
+  services?: string; goods?: string; billed: string; advance: string;
+  /** The answers the server suggests for a supplier it has seen. */
+  suggestions?: ReturnType<typeof lastChoice>;
+  /** The server states the receipt's date as the Fecha de pago the field follows. */
+  paidOnReceiptDay?: boolean;
+  /** A Fecha de pago a person saved apart from the receipt's date. */
+  paidApart?: string;
+};
+/**
+ * A Listo sample: a purchase read with its Total, Subtotal and ITBIS. Every
+ * value of its 606 is written here as the server would state it for this
+ * receipt: the declaration, each link and its source value, and the two
+ * calculated amounts. Nothing is worked out from another value.
+ */
+function listo(id: string, merchant: string, amount: string, subtotal: string, itbis: string, declared: Listo606, partial: Partial<ReceiptDetail>): SampleReceipt {
+  const day = dayOnly(daysAgo(1));
+  const paidOn = declared.paidOnReceiptDay ? day : null;
+  const link = (field: "net_amount" | "rnc" | "itbis" | "legal_tip" | "occurred_on", value: string | null, paired: string[] = [], inherited = true) => ({ field, value, inherited, paired_with: paired });
+  return read(id, null, merchant, amount, {
+    ...partial,
+    evidence: { merchant, occurred_on: day, total: amount, currency: "DOP", tax: itbis, tip: null, service: null, lines: [] },
+    savedDeclaration: declared.paidApart !== undefined,
+    stated: {
+      net_amount: { amount: subtotal, source: "read" },
+      amounts_check: { state: "adds_up" },
+      review_flags: [],
+      ...(declared.suggestions ? { declaration_suggestions: declared.suggestions } : {}),
+      dgii: { ...BLANK_606, id_type: "1", itbis, paid_on: declared.paidApart ?? paidOn, services_amount: declared.services ?? null, goods_amount: declared.goods ?? null },
+      inheritance: {
+        goods_amount: link("net_amount", declared.goods ?? null, ["services_amount"]),
+        id_type: link("rnc", "1"),
+        itbis: link("itbis", itbis),
+        legal_tip: link("legal_tip", null),
+        paid_on: link("occurred_on", paidOn, [], declared.paidApart === undefined),
+        services_amount: link("net_amount", declared.services ?? null, ["goods_amount"]),
+      },
+      dgii_calculated: { billed_amount: declared.billed, itbis_advance: declared.advance },
+    },
+  });
+}
 const gap = read;
 
-const lastChoice = (category: string, paymentMethod: string) => ({ category: { value: category, source: "last_choice" as const }, payment_method: { value: paymentMethod, source: "last_choice" as const } });
-/**
- * The 606 answers the sample's server suggests for a supplier it has seen, so Datos fiscales shows its linked rows:
- * a service paid by card, goods paid in cash, and a service paid by transfer the day after its receipt.
- */
-const SAMPLE_606: Partial<Record<string, { suggestions: ReturnType<typeof lastChoice>; paidOn?: string }>> = {
-  "rcpt-listo-imprenta": { suggestions: lastChoice("02", "03") },
-  "rcpt-listo-gasolinera": { suggestions: lastChoice("09", "01") },
-  "rcpt-listo-limpieza": { suggestions: lastChoice("02", "02"), paidOn: dayOnly(daysAgo(0)) },
-};
+/** A sample receipt read with no tax: the server states its Total as the Subtotal it calculated. */
+const NO_TAX_SUBTOTAL = (amount: string | null): NonNullable<StatedDraft["net_amount"]> => amount === null ? { amount: null, source: null } : { amount, source: "calculated" };
 
 /** Approving this sample row is refused: the partial failure of an approval of many. */
 const SAMPLE_REFUSED = "rcpt-listo-suplidora";
@@ -269,11 +307,11 @@ function seedReceipts(): SampleReceipt[] {
       version: 0,
       missing_fields: UNREAD,
     }),
-    listo("rcpt-listo-imprenta", "Imprenta Caribe", "4720.00", "720.00", { channel: "email", email_delivery_ids: ["email-imprenta"], filename: "factura-1182.pdf", media_type: "application/pdf", received_at: hoursAgo(3) }),
-    listo("rcpt-listo-gasolinera", "Gasolinera Ruta 3", "2100.00", "320.34", { channel: "whatsapp", filename: "IMG_2228.jpg", received_at: hoursAgo(5) }),
-    listo(SAMPLE_REFUSED, "Suplidora Duarte", "8850.00", "1350.00", { filename: "suplidora-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(7) }),
-    listo(SAMPLE_UNSETTLED, "Repuestos El Cibao", "3186.00", "486.00", { channel: "email", email_delivery_ids: ["email-repuestos"], filename: "repuestos-0931.pdf", media_type: "application/pdf", received_at: hoursAgo(9) }),
-    listo("rcpt-listo-limpieza", "Limpieza Total", "1416.00", "216.00", { filename: "limpieza-oct.jpg", received_at: hoursAgo(26) }),
+    listo("rcpt-listo-imprenta", "Imprenta Caribe", "4720.00", "4000.00", "720.00", { services: "4000.00", billed: "4000.00", advance: "720.00", suggestions: lastChoice("02", "03"), paidOnReceiptDay: true }, { channel: "email", email_delivery_ids: ["email-imprenta"], filename: "factura-1182.pdf", media_type: "application/pdf", received_at: hoursAgo(3) }),
+    listo("rcpt-listo-gasolinera", "Gasolinera Ruta 3", "2100.00", "1779.66", "320.34", { goods: "1779.66", billed: "1779.66", advance: "320.34", suggestions: lastChoice("09", "01"), paidOnReceiptDay: true }, { channel: "whatsapp", filename: "IMG_2228.jpg", received_at: hoursAgo(5) }),
+    listo(SAMPLE_REFUSED, "Suplidora Duarte", "8850.00", "7500.00", "1350.00", { billed: "0.00", advance: "1350.00" }, { filename: "suplidora-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(7) }),
+    listo(SAMPLE_UNSETTLED, "Repuestos El Cibao", "3186.00", "2700.00", "486.00", { billed: "0.00", advance: "486.00" }, { channel: "email", email_delivery_ids: ["email-repuestos"], filename: "repuestos-0931.pdf", media_type: "application/pdf", received_at: hoursAgo(9) }),
+    listo("rcpt-listo-limpieza", "Limpieza Total", "1416.00", "1200.00", "216.00", { services: "1200.00", billed: "1200.00", advance: "216.00", suggestions: lastChoice("02", "02"), paidOnReceiptDay: true, paidApart: dayOnly(daysAgo(0)) }, { filename: "limpieza-oct.jpg", received_at: hoursAgo(26) }),
     gap("rcpt-falta-rnc", "missing_rnc", "Colmado La Bendición", "1250.00", { confirmableGap: true, channel: "whatsapp", filename: "IMG_2219.jpg", received_at: hoursAgo(28) }),
     gap("rcpt-falta-ncf", "missing_ncf", "Taller Peña", "5900.00", { confirmableGap: true, filename: "taller-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(30) }),
     gap("rcpt-usd", "foreign_currency", "Servicios en la Nube SRL", "59.00", { channel: "email", email_delivery_ids: ["email-nube"], currency: "USD", filename: "nube-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(32) }),
@@ -436,14 +474,14 @@ export function createFixtureBusinessDataSource(
   const sampleEmails = inbox === "empty" ? [] : SAMPLE_EMAILS;
   const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
   // Each read sample row has a draft of its own, so its review opens.
-  let receipts = inbox === "empty" ? [] : seedReceipts().map(({ confirmableGap, amountsCheck, ...item }) => {
+  let receipts = inbox === "empty" ? [] : seedReceipts().map(({ confirmableGap, stated, savedDeclaration, ...item }) => {
     if (!item.bandeja_group) return item;
     const fiscal = item.sin_comprobante ? undefined : {
       rnc: item.bandeja_group.reason === "missing_rnc" ? null : "199990021",
       ncf: item.fiscal_value ? `B01${item.id.length.toString().padStart(8, "0")}` : null,
       itbis: item.evidence?.tax ?? null,
     };
-    return { ...item, draft_id: createReceiptDraft(item, { fiscal, confirmable: confirmableGap, amountsCheck, ...SAMPLE_606[item.id] }) };
+    return { ...item, draft_id: createReceiptDraft(item, { fiscal, confirmable: confirmableGap, savedDeclaration, stated: { net_amount: NO_TAX_SUBTOTAL(item.amount), ...stated } }) };
   });
   if (inbox !== "empty") void dossierSource.captureNote({ text: "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger los materiales del negocio." }, "sample-note");
   let expenses = seedExpenses();

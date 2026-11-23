@@ -357,7 +357,7 @@ describe("a fiscal save in Historial", () => {
     const [entry] = entries(page.host);
     assert.equal(entry.querySelector("p")?.textContent, "Datos del 606 guardados");
     // The names Datos fiscales gives the same fields, not the DGII column headers.
-    assert.deepEqual(changes(entry), [["Tipo de ID", "Desconocido", "01 - RNC"], ["Bienes", null, "RD$ 3,450.00"]]);
+    assert.deepEqual(changes(entry), [["Tipo de ID", "Desconocido", "01 · RNC"], ["Bienes", null, "RD$ 3,450.00"]]);
     assert.equal(entry.querySelector('[data-testid="history-more"]'), null, "two changes need no button");
     await page.close();
   });
@@ -407,15 +407,15 @@ describe("a fiscal save in Historial", () => {
       <ReceiptHistory history={[save(4, null, declared("607", { id_type: "3", income_type: "1" }))]} accounts={[]} dgiiFields={named} documentType="venta" />
     </>, { dgiiNames: true });
     assert.deepEqual(entries(page.host).map((entry) => changes(entry)), [
-      [["Tipo de Retención en ISR", null, "02 - Honorarios por servicios"]],
-      [["Tipo Identificación", null, "03 - Pasaporte o ID tributaria"], ["Tipo de ingreso", null, "01 - Ingresos por operaciones (no financieros)"]],
+      [["Tipo de Retención en ISR", null, "02 · Honorarios por servicios"]],
+      [["Tipo de ID", null, "03 · Pasaporte o ID tributaria"], ["Tipo de ingreso", null, "01 · Ingresos por operaciones (no financieros)"]],
     ]);
     await page.close();
   });
 
   test.each([
-    ["es-419", ["01 - RNC", "02 - Cédula", "03 - Pasaporte o ID tributaria"]],
-    ["en", ["01 - RNC", "02 - Cédula", "03 - Passport or tax ID"]],
+    ["es-419", ["01 · RNC", "02 · Cédula", "03 · Pasaporte o ID tributaria"]],
+    ["en", ["01 · RNC", "02 · Cédula", "03 · Passport or tax ID"]],
   ])("Tipo Id reads with two digits in %s", async (lng, shown) => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const ids: DgiiFields = { "606": [], "607": [field("id_type", "select", ["1", "2", "3"])] };
@@ -459,7 +459,7 @@ describe("a fiscal save in Historial", () => {
         declared("607", { income_type: "2", billed_amount: "1000.00", cash: "0.00", card: "1000.00" }),
       );
       assert.deepEqual(lines, [
-        ["Tipo de ingreso", "01 - Ingresos por operaciones (no financieros)", "02 - Ingresos financieros"],
+        ["Tipo de ingreso", "01 · Ingresos por operaciones (no financieros)", "02 · Ingresos financieros"],
         ["Forma de pago", "Efectivo", "Tarjeta de débito o crédito"],
       ]);
       assert.doesNotMatch(text, /1,000\.00|0\.00/);
@@ -477,7 +477,7 @@ describe("a fiscal save in Historial", () => {
 
     test("an amount that moved inside the same form is not a change of Forma de pago", async () => {
       const { lines } = await shown(declared("607", { billed_amount: "1000.00", cash: "1000.00" }), declared("607", { billed_amount: "1200.00", cash: "1200.00" }));
-      assert.deepEqual(lines, [["Monto Facturado", "RD$ 1,000.00", "RD$ 1,200.00"]]);
+      assert.deepEqual(lines, [["Monto facturado", "RD$ 1,000.00", "RD$ 1,200.00"]]);
     });
   });
 

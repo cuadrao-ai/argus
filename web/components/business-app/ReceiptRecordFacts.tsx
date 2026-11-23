@@ -34,7 +34,7 @@ export type FactsReview = {
   /** What a row's failed save says, and its way back. */
   note: (row: ReviewRow) => ReactNode;
   /** Marking a record that has no fiscal number as Sin recibo. `onMark` is absent for someone who cannot edit it now. */
-  noReceipt: { onMark?: (marked: boolean) => void; busy: boolean; saved: boolean; note: ReactNode };
+  noReceipt: { onMark?: (marked: boolean) => void; busy: boolean; note: ReactNode };
 };
 
 /**
@@ -130,7 +130,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
     value={fiscal?.[fiscalKey].value ?? (noFiscal ? dossier.sin_comprobante && state.state === "known" ? t(`business.dossier.receipt.${state.value}`, state.value) : t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "")}
     status={statusOf("fiscal_number", ["ncf", "ecf", "fiscal_number"], fiscal?.[fiscalKey])}
     edit={edit("fiscal_number")}
-    saved={noFiscal && review?.noReceipt.saved}
     below={<>
       {noFiscal && onMark ? <button type="button" data-testid="mark-no-receipt" disabled={review.noReceipt.busy} className={quietButtonClass} onClick={() => onMark(!marked)}>{marked ? t("business.marks.undo", "Undo") : t("business.dossier.placeholder.mark_no_receipt", "Mark as no receipt")}</button> : null}
       {review?.note("fiscal_number")}

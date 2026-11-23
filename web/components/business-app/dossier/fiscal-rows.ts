@@ -70,6 +70,18 @@ export function foldOf(group: FiscalGroup, fields: readonly DgiiField[], values:
   return fields.some((field) => values[field.name] || broken.has(field.name)) ? null : FOLDS[group] ?? null;
 }
 
+/**
+ * The amounts the server calculates for a purchase, each closing the card it
+ * sums. A sale has none, and an amount the server leaves blank shows no row.
+ */
+export function calculatedRows(calculated: BusinessDossier["dgii_calculated"]): { row: "billed_total" | "itbis_advance"; group: FiscalGroup; amount: string }[] {
+  if (!calculated) return [];
+  return [
+    { row: "billed_total" as const, group: "amounts" as const, amount: calculated.billed_amount },
+    ...(calculated.itbis_advance === null ? [] : [{ row: "itbis_advance" as const, group: "itbis" as const, amount: calculated.itbis_advance }]),
+  ];
+}
+
 const rank = (name: string) => { const at = ROW_ORDER.indexOf(name); return at < 0 ? ROW_ORDER.length : at; };
 
 /** The fields this tab shows, by card; a card with nothing to show is left out. `paymentForms` are the buckets of a sale's one payment pick. */

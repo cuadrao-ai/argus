@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
-import { button, fill, kindAsked, openList, pick, registerReceiptReviewPage, setup } from "./fixtures/receipt-review-page";
+import { button, fill, kindAsked, openList, pick, registerReceiptReviewPage, setup, landed } from "./fixtures/receipt-review-page";
 
 registerReceiptReviewPage();
 
@@ -77,33 +77,31 @@ describe("a row edited in place", () => {
     } finally { await page.close(); }
   });
 
-  test("Guardado shows once in the action slot, adds no line, and leaves by itself", async () => {
+  test("a save that lands returns the row to read mode with the new value, and no tab says Guardado", async () => {
     const page = await setup();
     try {
       const row = page.row("counterparty");
       await page.openRow("counterparty");
       await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
       await page.check("counterparty");
-      await page.wait(() => Boolean(row.querySelector('[data-testid="row-saved"]')));
-      const saved = row.querySelector<HTMLElement>('[data-testid="row-saved"]')!;
-      assert.equal(saved.textContent, "Guardado");
-      assert.equal(saved.getAttribute("role"), "status");
-      assert.equal(saved.parentElement, row.children[3], "in the action slot");
+      await page.wait(() => landed(row));
+      assert.equal(row.querySelector("[data-row-value]")?.textContent, "Ferretería Norte");
       assert.deepEqual(slots(row), ["SPAN", "SPAN", "BUTTON", "SPAN"], "no line under the row");
-      await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 2500)); });
-      assert.equal(row.querySelector('[data-testid="row-saved"]'), null, "it leaves without a press");
-      assert.ok(row.children[3].querySelector('button[aria-label="Editar detalles · Emisor"]'), "the pencil is back");
+      assert.deepEqual([...row.children[3].querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["Editar detalles · Emisor"], "the pencil is back at once, alone");
+      assert.equal(page.host.querySelector('[data-testid="row-saved"], [data-fact] [role="status"]'), null, "no saved mark");
+      assert.ok(!page.host.textContent?.includes("Guardado"));
     } finally { await page.close(); }
   });
 
-  test("a saved pick says Guardado where its chevron is", async () => {
+  test("a saved pick shows its new value and keeps its chevron", async () => {
     const page = await setup();
     try {
       const trigger = () => page.row("category").querySelector<HTMLElement>('button[aria-haspopup="listbox"]')!;
       assert.ok(trigger().querySelector("svg.lucide-chevron-down"), "the chevron marks a row that opens a list");
       await pick(page, "category", "05");
-      await page.wait(() => Boolean(trigger().querySelector('[data-testid="row-saved"]')));
-      assert.equal(page.row("category").querySelector("[data-row-value]")?.textContent, "Gastos de representación");
+      await page.wait(() => landed(page.row("category")) && page.row("category").querySelector("[data-row-value]")?.textContent === "Gastos de representación");
+      assert.ok(trigger().querySelector("svg.lucide-chevron-down"), "the chevron stays");
+      assert.ok(!page.row("category").textContent?.includes("Guardado"));
       assert.deepEqual(slots(page.row("category")), ["SPAN", "SPAN", "BUTTON"], "label, status, and the value with its action as one control");
     } finally { await page.close(); }
   });
