@@ -151,14 +151,16 @@ describe("a record with no draft", () => {
     }
   });
 
-  test("the way back returns to Registros", async () => {
+  test("the way back returns to Registros and names the record, so its row takes focus", async () => {
     const page = await mountWorkspace({ detail: expense({}) });
     const back = dossier(page.host)!.querySelector("header button")!;
     await page.act(async () => { (back as HTMLButtonElement).click(); });
-    assert.deepEqual(page.opened, [{ kind: "transactions" }]);
+    assert.deepEqual(page.opened, [{ kind: "transactions", cameFrom: { kind: "expense", expenseId: "exp-gas" } }]);
     await page.settle();
     assert.equal(dossier(page.host), null, "the dossier is gone");
-    assert.ok(page.host.querySelector('[data-record-id="exp-gas"]'), "Registros rendered the row");
+    const row = page.host.querySelector<HTMLElement>('[data-record-id="exp-gas"]');
+    assert.ok(row, "Registros rendered the row");
+    assert.ok(document.activeElement === row || document.activeElement === row.querySelector("button"), "the row that opened the record has focus");
     await page.act(async () => page.root.unmount());
   });
 

@@ -100,6 +100,21 @@ describe("a search hit's note preview", () => {
     assert.equal(page.host.querySelector('[data-testid="error-reference"]'), null);
   });
 
+  test("the note shows its state and never a revision number, before and after its record loads", async () => {
+    const page = await mount({}, "note");
+    assert.doesNotMatch(page.text(), /Revisi[oó]n \d/i);
+    await page.settle(() => !page.host.querySelector('[aria-busy="true"]') && page.asked() === 1, "the record loads");
+    assert.ok(page.text().includes("Compra de cemento"));
+    assert.doesNotMatch(page.text(), /Revisi[oó]n \d/i);
+  });
+
+  test("no locale keeps the revision line", async () => {
+    for (const language of ["es-419", "en"]) {
+      const words = (await import(`@/public/locales/${language}/common.json`)).default as { business: { dossier: Record<string, unknown> } };
+      assert.equal("revision" in words.business.dossier, false, language);
+    }
+  });
+
   test("any other failure shows the shared retry line, and Reintentar loads the record", async () => {
     let down = true;
     const page = await mount({ dossier: async (id) => {

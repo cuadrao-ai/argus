@@ -190,6 +190,18 @@ describe("opened records show only their server readiness list", () => {
       assert.deepEqual(shown(), [], "ready owns visibility even if an old missing list is present");
     });
 
+    test(`${target}: on a phone, the way back puts focus on the live report row that opened it`, async () => {
+      const page = await mount({ width: 390, target, readiness: { ready: true, missing: [] } });
+      await page.openRecord();
+      assert.equal(document.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "page", "the record is the page");
+      await page.act(async () => [...document.querySelectorAll("button")].find((button) => button.textContent === "Registros")!.click());
+      const opener = () => {
+        const selected = document.querySelector<HTMLElement>("[data-record-key]");
+        return selected?.matches("tr") ? selected : selected?.querySelector("button") ?? null;
+      };
+      await page.wait(() => opener() !== null && document.activeElement === opener(), "focus on the row that opened the record");
+    });
+
     test(`${target}: another opened record never inherits the selected report's reasons`, async () => {
       const page = await mount({ target, readiness: { ready: false, missing } });
       await page.openRecord();

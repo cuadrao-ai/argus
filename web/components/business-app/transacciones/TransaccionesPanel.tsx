@@ -17,6 +17,7 @@ import OutsidePeriodNote from "../OutsidePeriodNote";
 import { formatShortDay, formatMonthYear } from "../business-format";
 import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "../business-ui";
 import { EmptyState } from "../foundation/EmptyState";
+import { isOpenRecord } from "../record-tray";
 import { DENSITIES, DENSITY_ROW_PX, setTableDensity, useTableDensity, type Density, type DensityState } from "./table-density";
 import { headerCurrency, inHeaderOrder, perCurrency, SEGMENTS, suggestionRun, tableCounts, type CurrencyTotals, type IgualarView, type Money, type OtherCurrency, type RecordsTotals, type RecordRow } from "./transacciones-model";
 import { useIgualarEnabled } from "./transacciones-gate";
@@ -159,14 +160,14 @@ function LegacyTransaccionesPanel() {
   const exportAction = <RecordsExportButton onExport={openExport} enabled={canExport} />;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
-  const cameFrom = panel.kind === "transactions" ? panel.expenseId : undefined;
+  const cameFrom = panel.kind === "transactions" ? panel.cameFrom : undefined;
   const screen = useRef<HTMLElement>(null);
-  const focusedFor = useRef<string | null>(null);
+  const focusedFor = useRef<typeof cameFrom>(undefined);
   useEffect(() => {
-    if (!cameFrom) focusedFor.current = null;
+    if (!cameFrom) focusedFor.current = undefined;
     if (!cameFrom || !saved || focusedFor.current === cameFrom) return;
     focusedFor.current = cameFrom;
-    const restored = saved.find((row) => row.opens?.kind === "expense" && row.opens.expenseId === cameFrom);
+    const restored = saved.find((row) => row.opens && isOpenRecord(cameFrom, row.opens));
     (restored ? rowNodes.current.get(recordRowKey(restored)) : screen.current)?.focus();
   }, [cameFrom, saved]);
   const changePreviewFilters = (next: PreviewFilters) => {

@@ -2980,7 +2980,6 @@
       "business_account": "Business account",
       "amount_unknown": "Amount unknown",
       "currency_unknown": "Currency unknown",
-      "revision": "Revision {{version}}",
       "edit": "Edit details",
       "business_amount": "Business amount",
       "default": "Default · not verified",

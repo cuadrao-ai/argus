@@ -2980,7 +2980,6 @@
       "business_account": "Cuenta del negocio",
       "amount_unknown": "Monto desconocido",
       "currency_unknown": "Moneda desconocida",
-      "revision": "Revisión {{version}}",
       "edit": "Editar detalles",
       "business_amount": "Monto del negocio",
       "default": "Predeterminada · sin verificar",
