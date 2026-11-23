@@ -87,17 +87,22 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                 pass
 
 
+def _workspace_reading(world) -> dict:  # noqa: ANN001
+    response = world.client.get(f"{API}/business/workspace", headers=world.alice.headers)
+    assert response.status_code == 200, response.text
+    reading = response.json()["receipt_reading"]
+    assert reading is not None
+    return reading
+
+
 def _reading(world, enabled: bool):  # noqa: ANN001, ANN202
-    shown = world.client.get(
-        f"{API}/business/receipt-reading", headers=world.alice.headers
-    )
-    assert shown.status_code == 200, shown.text
+    shown = _workspace_reading(world)
     return world.client.post(
         f"{API}/business/receipt-reading",
         json={
             "enabled": enabled,
             "scope_version": SCOPE_VERSION,
-            "disclosure_token": shown.json()["disclosure_token"],
+            "disclosure_token": shown["disclosure_token"],
         },
         headers={**world.alice.headers, "Idempotency-Key": str(uuid4())},
     )
@@ -152,10 +157,7 @@ def test_reading_turned_off_while_a_read_is_in_flight_stops_before_the_provider(
     assert web.stub.calls == []
     detail = _receipt(web, receipt_id)
     assert (detail["status"], detail["read_pending"]) == ("saved", False)
-    reading = web.client.get(
-        f"{API}/business/receipt-reading", headers=web.alice.headers
-    ).json()
-    assert reading["enabled"] is False
+    assert _workspace_reading(web)["enabled"] is False
 
 
 def test_legacy_prepare_is_refused_while_reading_is_off(web) -> None:  # noqa: ANN001
