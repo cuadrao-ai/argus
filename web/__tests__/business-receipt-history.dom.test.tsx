@@ -60,6 +60,32 @@ const at = (day: number, hour: number, minute: number) => new Date(2026, 9, day,
 const eventLines = (item: Element) => [...[...item.querySelectorAll("p")].map((line) => line.textContent), item.querySelector('[data-testid="history-who"] span')?.textContent ?? null];
 const accepted = "Aceptado";
 
+test("Historial shows the server's supporting-file deadline and restore offer on the latest unlink", async () => {
+  const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+  const file = { source_id: "s1", receipt_id: "r1", filename: "respaldo.pdf", media_type: "application/pdf", size_bytes: 42, state: "unlinked" as const, purge_at: at(22, 14, 5), unlink_available: false, restore_available: true };
+  const documentFacts = facts("1200.00");
+  const history = ([["unlinked", 1], ["restored", 2], ["unlinked", 3]] as const).map(([supporting_change, version]) => ({
+    ...revision(version, at(10 + version, 9, 0), actor("Ana Peña"), documentFacts, documentFacts),
+    source_ids: [file.source_id], supporting_change, supporting_filename: file.filename,
+  }));
+  const onRestore = async () => {};
+  for (const [supportingFiles, deadline, restore] of [
+    [[file], true, true],
+    [[{ ...file, restore_available: false }], true, false],
+    [[], false, false],
+  ] as const) {
+    const page = await render(<ReceiptHistory history={history} accounts={[]} supportingFiles={[...supportingFiles]} onRestore={onRestore} />);
+    try {
+      const events = [...page.host.querySelectorAll('[data-testid="history-supporting"]')];
+      assert.equal(events.length, 3, "earlier history survives a restore or expiry");
+      const times = [...page.host.querySelectorAll(`time[datetime="${file.purge_at}"]`)];
+      assert.deepEqual(times.map(time => time.closest("li")), deadline ? [events[0]] : []);
+      if (deadline) assert.match(times[0].textContent ?? "", /^Se borra el 22 Oct 2026, 2:05/);
+      assert.deepEqual([...page.host.querySelectorAll("button")].map(button => button.textContent), restore ? ["Restaurar"] : []);
+    } finally { await page.close(); }
+  }
+});
+
 describe("Historial", () => {
   test("reads what happened, newest first, with who and when in one gray line, and colours only the approval", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");

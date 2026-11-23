@@ -251,7 +251,8 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
 }
 
 function RestoreFile({ file, onRestore, busy }: { file: BusinessSupportingFile; onRestore?: (sourceId: string) => Promise<void>; busy?: boolean }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [state, setState] = useState<"ready" | "restoring" | "failed">("ready");
   const restore = async () => {
     if (!onRestore || busy || state === "restoring") return;
@@ -261,7 +262,7 @@ function RestoreFile({ file, onRestore, busy }: { file: BusinessSupportingFile; 
   };
   return (
     <div className={`${styles.eventSub} ${annotation.restoreRow}`}>
-      {file.purge_at ? <time dateTime={file.purge_at}>{t("business.history.supporting.purge")}</time> : null}
+      {file.purge_at ? <time dateTime={file.purge_at}>{t("business.history.supporting.purge", { date: formatTimestamp(file.purge_at, locale) })}</time> : null}
       {file.restore_available && onRestore ? <button type="button" className={styles.link} disabled={busy || state === "restoring"} aria-busy={state === "restoring"} onClick={() => void restore()}>{t("business.history.supporting.restore")}</button> : null}
       {state === "failed" ? <p role="alert" className={annotation.error}>{t("business.dossier.supporting.restore_error")}</p> : null}
     </div>

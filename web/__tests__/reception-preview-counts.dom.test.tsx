@@ -735,7 +735,7 @@ for (const width of [1440, 390]) test(`Eliminados at ${width}px keeps search and
   await page.settle(() => deletedRows(page).length === 1);
   for (const [name, find] of Object.entries(LIST_CONTROLS)) assert.ok(!find(page), `Eliminados hides ${name}`);
   assert.equal(!!search(), width < 768, "search stays where it was");
-  assert.equal(toolbar(page).querySelector('[data-testid="deleted-list-help"]')?.textContent, "No cuentan en ningún total. Se borran definitivamente 7 días después.");
+  assert.equal(toolbar(page).querySelector('[data-testid="deleted-list-help"]')?.textContent, "No cuentan en ningún total. Cada documento indica cuándo se borra definitivamente.");
   assert.equal(page.host.textContent?.split("No cuentan en ningún total.").length, 2, "the help shows once");
   await page.click(page.tab("all"));
   for (const [name, find] of Object.entries(LIST_CONTROLS)) assert.ok(find(page), `back on Todos, ${name} returns`);

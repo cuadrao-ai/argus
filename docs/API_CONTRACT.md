@@ -8360,8 +8360,9 @@ again. Deleted documents leave every other Bandeja group,
 its Inicio counts, and month-close pending work. Deleting an accepted record
 also removes its money from period totals, Registros, Inicio, and exports,
 including the 606 and 607. Restore brings back the same money activity and
-document facts. The undo message for an accepted record is
-“Eliminado. Lo restauras en 7 días desde Eliminados.”
+document facts. The delete confirmation points to Eliminados for restoration.
+Eliminados shows the deadline from each document’s `purge_at` and offers
+restore when `restore_available` is true.
 
 An exact-byte repeat upload returns the existing deleted document with its
 deletion metadata and restore availability. It neither creates another item

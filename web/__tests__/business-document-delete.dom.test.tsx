@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, mock, setSystemTime, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessCapture, ReceiptDetail, ReceiptActivityCounts } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
@@ -432,20 +432,27 @@ test("the reading notice keeps its place on Eliminados, so the list under it doe
   assert.equal(notice(), onTodos, "the same notice stays mounted, with no second read of the setting");
 });
 
-test("Eliminados counts down to the server's purge day", async () => {
-  const { purgeDays } = await import("@/components/business-app/recepcion/ReceptionDeletedRow");
-  const now = new Date(2026, 10, 13, 9);
-  assert.equal(purgeDays(new Date(2026, 10, 20, 8).toISOString(), now), 7);
-  assert.equal(purgeDays(new Date(2026, 10, 14, 23).toISOString(), now), 1);
-  assert.equal(purgeDays(new Date(2026, 10, 13, 23).toISOString(), now), 0);
-  assert.equal(purgeDays(new Date(2026, 10, 12, 23).toISOString(), now), 0);
-  const page = await mount();
+test("Eliminados counts down on the server's calendar day and shows the date after it passes", async () => {
+  setSystemTime(new Date(2026, 10, 26, 12));
+  const entries = [
+    { id: "expired", day: 25, label: /^Borrado definitivo el 25 Nov 2026, 2:05/, restore: false, lastDay: false },
+    { id: "due-today", day: 26, label: /^Borrado definitivo hoy$/, restore: true, lastDay: true },
+    { id: "future", day: 28, label: /^Borrado definitivo en 2 días$/, restore: true, lastDay: false },
+  ].map(entry => ({ ...entry, purgeAt: new Date(2026, 10, entry.day, 14, 5).toISOString() }));
+  const page = await mount("owner", false, 0, false, ({ blurry }) => entries.map(({ id, purgeAt, restore }) => ({
+    ...blurry, id, merchant: id, status: "dismissed", delete_available: false, restore_available: restore,
+    deleted: { actor: { actor_id: "ana", display_name: "Ana Peña", shown_as: "name" }, at: "2026-11-12T10:00:00Z", purge_at: purgeAt, key: id, previous_state: { state: "open", group: "attention" } },
+    bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null },
+  })));
   await page.click(document.getElementById("reception-tab-eliminados"));
-  const countdown = document.querySelector('[data-testid="purge-countdown"]')!;
-  assert.equal(countdown.getAttribute("datetime"), "2026-11-19T10:00:00Z");
-  const days = purgeDays("2026-11-19T10:00:00Z");
-  assert.equal(countdown.textContent, days > 0 ? `Borrado definitivo en ${days} ${days === 1 ? "día" : "días"}` : "Borrado definitivo hoy");
-  assert.match(document.body.textContent ?? "", /No cuentan en ningún total\. Se borran definitivamente 7 días después\./);
+  for (const { purgeAt, label, restore, lastDay } of entries) {
+    const time = document.querySelector(`time[datetime="${purgeAt}"]`);
+    assert.ok(time);
+    assert.match(time.textContent ?? "", label);
+    assert.equal(time.getAttribute("data-last-day"), String(lastDay));
+    assert.equal(!!page.button("Restaurar", time.closest("li")!), restore);
+  }
+  assert.equal(document.querySelector('[data-testid="deleted-list-help"]')?.textContent, "No cuentan en ningún total. Cada documento indica cuándo se borra definitivamente.");
 });
 
 test("Borrar definitivamente asks without Estado, retries its key and leaves no undo", async () => {
@@ -477,7 +484,7 @@ test("Borrar definitivamente asks without Estado, retries its key and leaves no 
   assert.equal(page.purges[0].id, "deleted");
   assert.match(document.body.textContent ?? "", /Documento borrado definitivamente/);
   assert.equal(page.button("Deshacer"), null);
-  assert.match(document.body.textContent ?? "", /Los documentos que elimines quedan aquí 7 días\. Después se borran definitivamente\./);
+  assert.match(document.body.textContent ?? "", /Los documentos que elimines aparecerán aquí hasta que se borren definitivamente\./);
 });
 
 test("only the owner sees Borrar definitivamente", async () => {

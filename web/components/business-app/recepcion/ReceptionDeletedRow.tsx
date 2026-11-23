@@ -3,18 +3,12 @@
 import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import { dueDistance } from "@/lib/business-month-close";
-import { formatRelativeTime, todayIso } from "../business-format";
+import { formatRelativeTime, formatTimestamp, todayIso } from "../business-format";
 import { PurgeDocumentButton, RestoreDocumentButton } from "../DocumentDeleteControls";
 import type { BusinessPanelState } from "../BusinessWorkspace";
 import ReceptionCutText from "./ReceptionCutText";
 import { receptionTarget, rowDeleteTarget, type ReceptionRow } from "./reception-model";
 import styles from "./reception.module.css";
-
-/** Calendar days until the server's purge, 0 on its day and after. */
-export function purgeDays(purgeAt: string, now = new Date()): number {
-  const distance = dueDistance(todayIso(new Date(purgeAt)), todayIso(now));
-  return distance?.direction === "future" ? distance.days : 0;
-}
 
 export function DeletedColumns() {
   const { t } = useTranslation();
@@ -28,12 +22,17 @@ export default function ReceptionDeletedRow({ row, title, openPanel }: { row: Re
   const deletion = document.deleted;
   if (!deletion) return null;
   const target = receptionTarget(row);
-  const days = purgeDays(deletion.purge_at);
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const distance = dueDistance(todayIso(new Date(deletion.purge_at)), todayIso());
+  const lastDay = distance?.direction === "today";
+  const deadline = distance?.direction === "future" ? t("business.document_delete.purge_in", { count: distance.days })
+    : lastDay ? t("business.document_delete.purge_today")
+    : t("business.document_delete.purge_at", { date: formatTimestamp(deletion.purge_at, locale) });
   return <li className={styles.deletedRow} data-testid="deleted-document-row">
     <ReceptionCutText text={title} className={styles.deletedName} />
     <span className={`${styles.deletedMeta} ${styles.deletedPrevious}`}>{t(`business.document_delete.previous.${deletion.previous_state.group}`)}</span>
-    <span className={styles.deletedActor} data-testid="deleted-actor"><ReceptionCutText text={personName(t, deletion.actor)} className={styles.deletedActorName} /><time className={styles.deletedMeta} dateTime={deletion.at}>{formatRelativeTime(deletion.at, i18n.resolvedLanguage ?? i18n.language)}</time></span>
-    <time className={styles.deletedMeta} dateTime={deletion.purge_at} data-testid="purge-countdown" data-last-day={days === 0}><span className={styles.purgeLead}>{t("business.document_delete.columns.purge")} </span>{days > 0 ? t("business.document_delete.purge_in", { count: days }) : t("business.document_delete.purge_today")}</time>
+    <span className={styles.deletedActor} data-testid="deleted-actor"><ReceptionCutText text={personName(t, deletion.actor)} className={styles.deletedActorName} /><time className={styles.deletedMeta} dateTime={deletion.at}>{formatRelativeTime(deletion.at, locale)}</time></span>
+    <time className={styles.deletedMeta} dateTime={deletion.purge_at} data-testid="purge-countdown" data-last-day={lastDay}><span className={styles.purgeLead}>{t("business.document_delete.columns.purge")} </span>{deadline}</time>
     <span className={styles.deletedActions}><button type="button" className={styles.viewAction} onClick={() => openPanel(target)}>{t("business.document_delete.view")}</button>{document.restore_available ? <RestoreDocumentButton id={row.id} target={target} className={styles.restoreAction} /> : null}{document.restore_available ? <PurgeDocumentButton target={rowDeleteTarget(row, "", title)} className={styles.trashAction} /> : null}</span>
   </li>;
 }

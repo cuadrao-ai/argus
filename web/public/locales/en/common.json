@@ -2173,7 +2173,7 @@
         "document_read": "read a document",
         "document_read_failed": "could not read a document",
         "edit_current_note": "edited a note",
-        "expire_document": "deleted a document for good after 7 days in Deleted.",
+        "expire_document": "deleted a document for good from Deleted.",
         "grant_access": "gave access",
         "invite_access": "sent an invitation",
         "invoice_draft_created": "created an invoice draft",
@@ -2789,7 +2789,7 @@
       "delete": "Delete",
       "deleted_state": "Deleted",
       "description": "It leaves the Inbox and its counts. You can restore it from Deleted.",
-      "empty_body": "Documents you delete stay here for 7 days. After that, they are deleted for good.",
+      "empty_body": "Documents you delete appear here until they are deleted for good.",
       "empty_title": "No deleted documents",
       "failed": "The document could not be deleted. Try again.",
       "fields": {
@@ -2799,7 +2799,7 @@
         "total": "Total"
       },
       "label": "Delete {{name}}",
-      "list_help": "They do not count in any total. They are deleted for good after 7 days.",
+      "list_help": "They do not count in any total. Each document shows when it is deleted for good.",
       "menu": "Delete document",
       "open": "Open",
       "previous": {
@@ -2807,6 +2807,7 @@
         "listo": "Ready"
       },
       "purge": "Delete for good",
+      "purge_at": "on {{date}}",
       "purge_description": "This cannot be undone. The file and its data are erased from Cuadrao.",
       "purge_failed": "The document could not be deleted for good. Try again.",
       "purge_in_one": "in {{count}} day",
@@ -3339,7 +3340,7 @@
       "set": "{{field}}: {{after}}",
       "supporting": {
         "appended": "File added",
-        "purge": "Deleted in 7 days",
+        "purge": "Deleted on {{date}}",
         "restore": "Restore",
         "restored": "File restored",
         "unlinked": "File removed"

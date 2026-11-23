@@ -227,11 +227,11 @@ test("Historial shows saved note diffs and one restore action for the most recen
     assert.match(text, /Archivo agregado/);
     assert.match(text, /Archivo restaurado/);
     assert.equal(text.match(/Archivo quitado/g)?.length, 2);
-    assert.equal(text.match(/Se borra en 7 días/g)?.length, 1);
+    assert.equal(page.host.querySelectorAll(`time[datetime="${file.purge_at}"]`).length, 1);
     await page.click(page.button("Restaurar"));
     assert.deepEqual(restored, [file.source_id]);
     await page.history({ ...dossier, history, supporting_files: [{ ...file, restore_available: false }] }, async () => {});
     assert.equal(page.button("Restaurar"), undefined);
-    assert.match(page.host.textContent ?? "", /Se borra en 7 días/);
+    assert.match(page.host.querySelector(`time[datetime="${file.purge_at}"]`)?.textContent ?? "", /^Se borra el /);
   } finally { await page.close(); }
 });

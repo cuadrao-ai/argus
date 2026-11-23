@@ -2173,7 +2173,7 @@
         "document_read": "leyó un documento",
         "document_read_failed": "no pudo leer un documento",
         "edit_current_note": "editó una nota",
-        "expire_document": "borró definitivamente un documento después de 7 días en Eliminados.",
+        "expire_document": "borró definitivamente un documento de Eliminados.",
         "grant_access": "dio acceso",
         "invite_access": "envió una invitación",
         "invoice_draft_created": "creó un borrador de factura",
@@ -2789,7 +2789,7 @@
       "delete": "Eliminar",
       "deleted_state": "Eliminado",
       "description": "Sale de la Bandeja y de los conteos. Puedes restaurarlo desde Eliminados.",
-      "empty_body": "Los documentos que elimines quedan aquí 7 días. Después se borran definitivamente.",
+      "empty_body": "Los documentos que elimines aparecerán aquí hasta que se borren definitivamente.",
       "empty_title": "No hay documentos eliminados",
       "failed": "No se pudo eliminar el documento. Intenta de nuevo.",
       "fields": {
@@ -2799,7 +2799,7 @@
         "total": "Total"
       },
       "label": "Eliminar {{name}}",
-      "list_help": "No cuentan en ningún total. Se borran definitivamente 7 días después.",
+      "list_help": "No cuentan en ningún total. Cada documento indica cuándo se borra definitivamente.",
       "menu": "Eliminar documento",
       "open": "Abrir",
       "previous": {
@@ -2807,6 +2807,7 @@
         "listo": "Listos"
       },
       "purge": "Borrar definitivamente",
+      "purge_at": "el {{date}}",
       "purge_description": "No se puede deshacer. El archivo y sus datos se borran de Cuadrao.",
       "purge_failed": "No se pudo borrar definitivamente el documento. Intenta de nuevo.",
       "purge_in_one": "en {{count}} día",
@@ -3373,7 +3374,7 @@
       "set": "{{field}}: {{after}}",
       "supporting": {
         "appended": "Archivo agregado",
-        "purge": "Se borra en 7 días",
+        "purge": "Se borra el {{date}}",
         "restore": "Restaurar",
         "restored": "Archivo restaurado",
         "unlinked": "Archivo quitado"
