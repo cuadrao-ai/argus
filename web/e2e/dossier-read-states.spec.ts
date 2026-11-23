@@ -1,6 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import type { ReceiptDetail } from "../lib/business-api";
+import type { BusinessDossier, BusinessSupportingFile } from "../lib/business-dossier";
 import { installReceiptBusiness } from "./support/business-receipt-fixture";
 
 const file = "lectura-de-prueba.svg";
@@ -136,30 +137,68 @@ test("Detalles edits a record note and opens its supporting file in the document
   await page.screenshot({ path: testInfo.outputPath("dossier-note-and-backing-file.png"), animations: "disabled" });
 });
 
-test("Historial shows the deletion date supplied for an unlinked file", async ({ page }, testInfo) => {
-  const purgeAt = "2026-11-22T16:00:00Z";
-  await page.clock.setFixedTime(new Date("2026-11-21T12:00:00Z"));
+test("Detalles keeps a removed file until the server withdraws its link-back offer", async ({ page }, testInfo) => {
   const source = createFixtureBusinessDataSource();
   const receipt = await source.receipt("rcpt-ferreteria");
-  const record = await source.dossier(receipt.draft_id!);
-  const support = {
-    source_id: "source-backing", receipt_id: "receipt-backing", filename: "respaldo.pdf",
-    media_type: "application/pdf", size_bytes: 512, state: "unlinked", purge_at: purgeAt,
-    unlink_available: false, restore_available: false,
+  const base = await source.dossier(receipt.draft_id!);
+  const sourceId = "00000000-0000-4000-8000-000000000198";
+  const linked: BusinessSupportingFile = {
+    source_id: sourceId, receipt_id: "00000000-0000-4000-8000-000000000199", filename: "respaldo.pdf",
+    media_type: "application/pdf", size_bytes: 512, state: "linked", purge_at: null,
+    unlink_available: true, restore_available: false,
   };
-  const unlink = {
-    ...record.history[0], version: record.version + 1, created_at: "2026-11-15T16:00:00Z",
-    supporting_change: "unlinked", supporting_filename: support.filename, source_ids: [support.source_id],
-  };
-  await installReceiptBusiness(page, ([resource, target, action]) => {
-    if (resource === "drafts" && target === record.draft_id && action === "dossier") {
-      return Promise.resolve({ ...record, version: unlink.version, space_id: "fixture-space", supporting_files: [support], history: [...record.history, unlink] });
-    }
+  let dossier: BusinessDossier = { ...base, space_id: "fixture-space", current_note: null, note_edit_available: true,
+    supporting_append_available: true, annotation_unavailable_reason: null, supporting_files: [linked] };
+  let now = "2026-11-15T16:00:00Z";
+  let purgeAt = "2026-11-22T16:00:00Z";
+  await page.clock.setFixedTime(new Date(now));
+  await installReceiptBusiness(page, ([resource, target, action, fileId, command], route) => {
+    if (resource !== "drafts" || target !== dossier.draft_id) return;
+    if (action === "dossier") return Promise.resolve(dossier);
+    if (action !== "supporting-files" || fileId !== sourceId) return;
+    const restoring = command === "restore";
+    expect(route.request().method()).toBe(restoring ? "POST" : "DELETE");
+    expect(route.request().headers()["x-draft-version"]).toBe(String(dossier.version));
+    const outcome = restoring ? "restored" : "unlinked";
+    const version = dossier.version + 1;
+    const file: BusinessSupportingFile = restoring ? linked : {
+      ...linked, state: "unlinked", purge_at: purgeAt, restore_available: true, unlink_available: false,
+    };
+    dossier = { ...dossier, version, supporting_files: [file], history: [...dossier.history, {
+      ...base.history[0], version, created_at: now, supporting_change: outcome,
+      source_ids: [sourceId], supporting_filename: linked.filename,
+    }] };
+    return Promise.resolve({ result: { draft_id: target, version, outcome, source_id: sourceId, purge_at: file.purge_at }, dossier });
   });
-  await page.goto(`/biz?draft=${record.draft_id}`);
+  const details = page.getByRole("tab", { name: "Detalles", exact: true });
+  const row = page.getByTestId("dossier-supporting").getByRole("listitem").filter({ hasText: "respaldo.pdf" });
+  const unlink = row.getByRole("button", { name: /^Quitar/ });
+  await page.goto(`/biz?draft=${dossier.draft_id}`);
+  await details.click();
+  await unlink.click();
+  await expect(row).toContainText("Se borra en 7 días");
+  now = "2026-11-21T16:00:00Z";
+  await page.clock.setFixedTime(new Date(now));
+  await page.reload();
+  await details.click();
+  await expect(row).toContainText("Se borra mañana");
+  await expect(row.getByRole("button")).toHaveCount(1);
+  await page.screenshot({ path: testInfo.outputPath("dossier-supporting-file-link-back.png"), animations: "disabled" });
+
+  await row.getByRole("button", { name: "Restaurar respaldo.pdf", exact: true }).click();
+  await expect(unlink).toBeVisible();
+  await expect(row).not.toContainText("Se borra");
+  purgeAt = "2026-11-28T16:00:00Z";
+  await unlink.click();
+  await expect(row).toContainText("Se borra en 7 días");
+
+  dossier = { ...dossier, supporting_files: dossier.supporting_files!.map(file => ({ ...file, restore_available: false })) };
+  await page.reload();
+  await details.click();
+  await expect(row).toHaveCount(0);
   await page.getByRole("tab", { name: "Historial", exact: true }).click();
-  const event = page.getByTestId("history-supporting").filter({ hasText: support.filename });
-  await expect(event.locator(`time[datetime="${purgeAt}"]`)).toContainText(/22.*nov.*2026/i);
-  await expect(event.getByRole("button", { name: "Restaurar" })).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath("dossier-supporting-file-deadline.png"), animations: "disabled" });
+  const removals = page.getByTestId("history-supporting").filter({ hasText: "Archivo quitado" });
+  await expect(removals).toHaveCount(2);
+  await expect(removals.getByRole("button")).toHaveCount(0);
+  await expect(removals.getByText(/Se borra|respaldo.pdf/)).toHaveCount(0);
 });
