@@ -3203,7 +3203,6 @@
         "group_retentions": "Retenciones",
         "inherited_original_ncf": "NCF de la compra original",
         "inherited_rnc": "RNC",
-        "restore_calculated": "Volver al subtotal calculado",
         "restore_inherited": "Restaurar: {{value}}",
         "suggestion_source": {
           "last_choice": "Última vez",
