@@ -8,7 +8,7 @@ import * as searchApi from "@/lib/business-search-api";
 import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
 import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
-import { getDgiiFields, getFiscalProfile, lookupRegistry, reviewDgii, reviewPurchase, setFiscalProfile, setLegalName, type DgiiFields, type DgiiReview, type FiscalProfile, type FiscalProfileInput, type FiscalProfileSaved, type LegalNameInput, type PurchaseChoice, type RegistryAnswer, type TaxId } from "@/lib/business-dgii";
+import { getDgiiFields, getFiscalProfile, lookupRegistry, reviewDgii, reviewPurchase, reviewSalePayment, setFiscalProfile, setLegalName, type DgiiFields, type DgiiReview, type FiscalProfile, type FiscalProfileInput, type FiscalProfileSaved, type LegalNameInput, type PurchaseChoice, type RegistryAnswer, type TaxId } from "@/lib/business-dgii";
 import type {
   GrantedSpace,
   BusinessAccount,
@@ -59,6 +59,7 @@ export type BusinessDataSource = Readonly<{
   dgiiFields: () => Promise<DgiiFields>;
   reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>;
   reviewPurchase: (id: string, version: number, purchase: PurchaseChoice, key: string) => Promise<BusinessDossier>;
+  reviewSalePayment: (id: string, version: number, form: string, key: string) => Promise<BusinessDossier>;
   setDocumentType: (id: string, version: number, documentType: "recibo" | "venta", key: string) => Promise<BusinessDossier>;
   approveDraft: typeof api.approveBusinessDraft;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
@@ -133,6 +134,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   dgiiFields: getDgiiFields,
   reviewFiscal: reviewDgii,
   reviewPurchase,
+  reviewSalePayment,
   setDocumentType: api.setBusinessDraftDocumentType,
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
@@ -256,6 +258,7 @@ export function withBusinessSpace(
     dgiiFields: source.dgiiFields,
     reviewFiscal: source.reviewFiscal,
     reviewPurchase: source.reviewPurchase,
+    reviewSalePayment: source.reviewSalePayment,
     setDocumentType: source.setDocumentType,
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,

@@ -135,7 +135,8 @@ test("changing an accepted document type shows the server's before and after typ
     await page.openRow("document_type");
     await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);
     await page.check("document_type");
-    await page.wait(() => page.row("document_type").querySelector("[data-row-value]")?.textContent === "Venta");
+    await page.wait(() => page.host.querySelector('[data-testid="receipt-mark-sale"]')?.getAttribute("aria-checked") === "true");
+    assert.equal(page.host.querySelector('[data-fact="document_type"]'), null, "the row leaves once the type is settled");
     assert.equal(page.host.querySelector("[data-review-primary]"), null);
     assert.ok(diff(await history(page), /Tipo/, /Compra/, /Venta/));
   } finally { await page.close(); }

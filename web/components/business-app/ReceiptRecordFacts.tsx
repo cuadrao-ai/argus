@@ -51,7 +51,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
   /** Why the record is not Listos; each row a problem points at says it in its status slot. */
   problems?: readonly DossierProblem[];
   flash?: RowFlash | null;
-  /** Compra or Venta. A purchase shows it only while its kind needs a person; a sale always does. */
+  /** Compra or Venta, shown only while the record's kind needs a person: the Venta switch of Más changes a settled one. */
   typeRow?: ReactNode;
   review?: FactsReview;
   /** The owner's choices, as a card. */
@@ -144,7 +144,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
   // A clean purchase says its kind nowhere: the kind row and Compra/Venta show only while the kind needs a person.
   const kindWaits = kind.state !== "known" || waits("kind");
   const kindShown = !typeRow || kindWaits;
-  const typeShown = sale || kindWaits;
   const showsFiscal = Boolean(fiscal) || noFiscal || Boolean(edit("rnc")?.onOpen);
   // One payment fact on screen: forma de pago lives in the report card, and funding shows only while the server waits on it.
   const payment = PAYMENT_FIELDS.filter(waits);
@@ -156,7 +155,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
           {recordRow("counterparty")}
           {showsFiscal ? numberRow : null}
           {recordRow("occurred_on")}
-          {typeShown ? typeRow : null}
+          {kindWaits ? typeRow : null}
           {kindShown ? recordRow("kind") : null}
           {payment.map(recordRow)}
         </DossierRows>

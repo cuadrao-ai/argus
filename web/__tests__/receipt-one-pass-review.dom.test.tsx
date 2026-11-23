@@ -5,6 +5,8 @@ import { button, fill, kindAsked, mount, openList, pick, registerReceiptReviewPa
 
 registerReceiptReviewPage();
 const keys: [string, number][] = [];
+/** The server still waits on the kind after a type change, so the Tipo row stays to show its save. */
+const stillAsked = (dossier: Dossier) => { kindAsked(dossier); return dossier; };
 
 /** The server's standing for a sample changed after it was read: its reasons and its Bandeja label. */
 function standing(dossier: Dossier, gaps: NonNullable<Dossier["listo_gaps"]>, confirmable: typeof gaps = []) {
@@ -647,7 +649,7 @@ describe("the receipt dossier on an open draft", () => {
 
   test("Tipo is a fact row: the pencil opens its two options, the check saves through the type write, the X cancels", async () => {
     const typed: { version: number; documentType: string }[] = [];
-    const page = await setup("fiscal", kindAsked, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push({ version, documentType }); return fixture.setDocumentType(draft, version, documentType, key); } }));
+    const page = await setup("fiscal", kindAsked, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push({ version, documentType }); return stillAsked(await fixture.setDocumentType(draft, version, documentType, key)); } }));
     try {
       assert.equal(page.host.querySelector('[role="radiogroup"], [data-segment]'), null);
       assert.match(page.row("document_type").textContent ?? "", /Tipo\s*Compra/);
@@ -693,7 +695,7 @@ describe("the receipt dossier on an open draft", () => {
     const dialog = () => document.querySelector('[role="alertdialog"]');
     for (const choice of [{ category: "05", payment_method: null }, { category: null, payment_method: "01" }]) {
       const typed: string[] = [];
-      const page = await setup("fiscal", (dossier) => { kindAsked(dossier); dossier.dgii = { form: "606", ...choice }; }, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push(documentType); return fixture.setDocumentType(draft, version, documentType, key); } }));
+      const page = await setup("fiscal", (dossier) => { kindAsked(dossier); dossier.dgii = { form: "606", ...choice }; }, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push(documentType); return stillAsked(await fixture.setDocumentType(draft, version, documentType, key)); } }));
       try {
         await page.openRow("document_type");
         await page.check("document_type");
@@ -718,7 +720,7 @@ describe("the receipt dossier on an open draft", () => {
 
   test("changing Tipo with neither tipo de gasto nor forma de pago set saves with no warning", async () => {
     const typed: string[] = [];
-    const page = await setup("fiscal", (dossier) => { kindAsked(dossier); dossier.dgii = { form: "606", category: null, payment_method: null }; }, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push(documentType); return fixture.setDocumentType(draft, version, documentType, key); } }));
+    const page = await setup("fiscal", (dossier) => { kindAsked(dossier); dossier.dgii = { form: "606", category: null, payment_method: null }; }, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push(documentType); return stillAsked(await fixture.setDocumentType(draft, version, documentType, key)); } }));
     try {
       await page.openRow("document_type");
       await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);

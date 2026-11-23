@@ -9,6 +9,7 @@ import pytest
 from argus.domain.business.amount_inheritance import (
     INHERITANCE,
     NO_SOURCES,
+    SOURCE_OWNED,
     LinkedSources,
     approved_from,
     inherit_amounts,
@@ -181,7 +182,10 @@ def _typed(name: str) -> object:
     return {"id_type": "2", "paid_on": date(2026, 9, 20), "modified_ncf": NCF}.get(name, "5.00")
 
 
-@pytest.mark.parametrize("name", sorted(name for name, (form, _) in INHERITANCE.items() if form != "607"))
+@pytest.mark.parametrize(
+    "name",
+    sorted(name for name, (form, _) in INHERITANCE.items() if form != "607" and name not in SOURCE_OWNED),
+)
 def test_an_override_holds_until_it_is_restored(name):
     purchase = uuid4()
     facts, declaration = credit_note(

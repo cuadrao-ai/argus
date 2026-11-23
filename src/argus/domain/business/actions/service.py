@@ -384,6 +384,7 @@ class BusinessActions:
                             fiscal_review=request.dgii,
                             purchase=request.purchase,
                             payment_split=request.payment_split,
+                            sale_payment_form=request.sale_payment_form,
                             document_type=request.document_type,
                             due_on=request.due_on,
                             montos=request.montos,

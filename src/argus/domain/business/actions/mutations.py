@@ -46,6 +46,7 @@ from argus.domain.business.contracts.dgii import (
     FiscalReview,
     PurchaseDeclaration,
     PurchaseReview,
+    SalePaymentForm,
     SalePaymentSplit,
 )
 from argus.domain.business.contracts.dossier import RevisionReason
@@ -78,6 +79,7 @@ from argus.domain.business.purchase_review import (
     apply_purchase,
     takes_payment_split,
     takes_purchase_declaration,
+    whole_payment,
 )
 from argus.domain.business.receipt_amounts import read_amount, read_amount_facts
 from argus.domain.business.transactions import ActionTransaction
@@ -277,6 +279,7 @@ def revise(
     fiscal_review: FiscalReview | None = None,
     purchase: PurchaseReview | None = None,
     payment_split: SalePaymentSplit | None = None,
+    sale_payment_form: SalePaymentForm | None = None,
     document_type: DocumentType | None = None,
     document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
@@ -375,7 +378,10 @@ def revise(
     # With none saved, the amounts an open review starts from are the server's.
     unsaved = stored is None and linked is not APPROVED
     amount_derived = unsaved or bool(previous_resolution.get("amount_derived"))
-    if any(change is not None for change in (fiscal_review, purchase, payment_split, montos)):
+    if any(
+        change is not None
+        for change in (fiscal_review, purchase, payment_split, sale_payment_form, montos)
+    ):
         # A write to the declaration is read against what the person was shown.
         linked = dossier.review_sources(
             tx, event.id, event.state, before or after, stored, current_type
@@ -394,6 +400,15 @@ def revise(
             if not takes_payment_split(current_type):
                 raise ActionError("invalid_input", "fiscal_direction_unsupported")
             written = apply_payment_split(current, payment_split)
+        if sale_payment_form is not None:
+            if not takes_payment_split(current_type):
+                raise ActionError("invalid_input", "fiscal_direction_unsupported")
+            total = after.amount.value
+            if total is None:
+                raise ActionError("invalid_input", "fact_required", context={"field": "amount"})
+            written = whole_payment(written or stored, sale_payment_form, total)
+            if written is None:
+                raise ActionError("invalid_input", "fiscal_amount_precision_or_limit")
         return written
 
     stored, declared, fiscal_overrides = written_declaration(

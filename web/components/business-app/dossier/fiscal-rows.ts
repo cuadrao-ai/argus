@@ -37,21 +37,21 @@ const GROUP_OF: Readonly<Record<string, FiscalGroup>> = {
   withheld_on: "retentions",
 };
 
-/** The agreed order of a purchase's rows inside their cards. Any other field follows, in the server's order. */
-const ROW_ORDER: readonly string[] = ["id_type", "paid_on", "services_amount", "goods_amount", "itbis", "itbis_cost", "itbis_proportionality", "income_withholding_type", "itbis_withheld", "income_withheld", "selective_tax", "other_taxes"];
+/** The agreed order of a record's rows inside their cards, a purchase's then a sale's. Any other field follows, in the server's order. */
+const ROW_ORDER: readonly string[] = [
+  "id_type", "paid_on", "services_amount", "goods_amount", "itbis", "itbis_cost", "itbis_proportionality", "income_withholding_type", "itbis_withheld", "income_withheld", "selective_tax", "other_taxes",
+  "billed_amount", "itbis_withheld_by_third_parties", "income_withheld_by_third_parties", "withheld_on",
+];
 
-/** General shows these four as its own rows. */
-const GENERAL_ROWS: readonly string[] = ["rnc", "ncf", "category", "payment_method"];
 /**
- * The server's fields this tab leaves out, by form. On a purchase Montos owns
- * the tip, and the server refuses any perceived amount. A hidden field keeps
- * its saved value: every save sends it back as it came.
+ * The server's fields this tab leaves out. General shows the RNC, the number
+ * and the report's answers as its own rows, Montos owns the tip (the server
+ * keeps the declaration's on it, whatever a save sends), and the server
+ * refuses any perceived amount. A sale's payment buckets are General's one
+ * pick, named by the dossier. Every save sends a hidden field back as it came.
  */
-const LEFT_OUT: Readonly<Record<FiscalForm, ReadonlySet<string>>> = {
-  "606": new Set([...GENERAL_ROWS, "legal_tip", "itbis_perceived", "income_perceived"]),
-  "607": new Set(GENERAL_ROWS),
-};
-/** A purchase's NCF modificado belongs to a note: a regular purchase modifies no comprobante. */
+const LEFT_OUT: ReadonlySet<string> = new Set(["rnc", "ncf", "category", "payment_method", "income_type", "legal_tip", "itbis_perceived", "income_perceived"]);
+/** NCF modificado belongs to a note: a regular purchase or sale modifies no comprobante. */
 const NOTE_ROWS: ReadonlySet<string> = new Set(["modified_ncf"]);
 export type FiscalNote = "credit" | "debit";
 /** The comprobante types that modify another one, by the two digits after the series letter. The server requires the reference of each on a 606. */
@@ -60,17 +60,19 @@ const NOTE_OF_TYPE: Readonly<Record<string, FiscalNote>> = { "03": "debit", "33"
 const READ_ONLY: Readonly<Record<FiscalForm, ReadonlySet<string>>> = { "606": new Set(["id_type"]), "607": new Set() };
 /** What a folded card says, and how it offers its first row, as locale keys. */
 export type FoldCopy = { empty: string; add: string };
-/** The cards of a purchase that sit behind one line while they hold nothing. A sale's stay open. */
-const FOLDS: Readonly<Record<FiscalForm, Partial<Record<FiscalGroup, FoldCopy>>>> = {
-  "606": {
-    retentions: { empty: "business.dossier.fiscal.no_retentions", add: "business.dossier.fiscal.add_retention" },
-    other: { empty: "business.dossier.fiscal.no_other_taxes", add: "business.dossier.fiscal.add_tax" },
-  },
-  "607": {},
+/** The cards that sit behind one line while they hold nothing. */
+const FOLDS: Partial<Record<FiscalGroup, FoldCopy>> = {
+  retentions: { empty: "business.dossier.fiscal.no_retentions", add: "business.dossier.fiscal.add_retention" },
+  other: { empty: "business.dossier.fiscal.no_other_taxes", add: "business.dossier.fiscal.add_tax" },
 };
 
+/** The form a record declares on: a sale the 607, a purchase the 606. Money with no document goes by its kind. */
+export function recordForm(dossier: Pick<BusinessDossier, "document_type" | "facts">): FiscalForm {
+  return dossier.document_type === "venta" || (!dossier.document_type && dossier.facts.kind.value === "income") ? "607" : "606";
+}
+
 /**
- * The note a purchase is, or null for a regular one. Its comprobante number
+ * The note a record is, or null for a regular one. Its comprobante number
  * says so first, as the server reads it: the e-CF, else the NCF. A record with
  * no note number is a credit note by what the server says of it: the gap it
  * names on an open one, or the refund or reference a saved one holds.
@@ -88,16 +90,16 @@ export function isReadOnlyRow(form: FiscalForm, name: string): boolean {
 }
 
 /** The line a card sits behind: one that folds, while none of its fields holds anything saved or typed. Null for a card that stays open. */
-export function foldOf(form: FiscalForm, group: FiscalGroup, fields: readonly DgiiField[], values: Readonly<Record<string, string>>, broken: ReadonlySet<string>): FoldCopy | null {
-  return fields.some((field) => values[field.name] || broken.has(field.name)) ? null : FOLDS[form][group] ?? null;
+export function foldOf(group: FiscalGroup, fields: readonly DgiiField[], values: Readonly<Record<string, string>>, broken: ReadonlySet<string>): FoldCopy | null {
+  return fields.some((field) => values[field.name] || broken.has(field.name)) ? null : FOLDS[group] ?? null;
 }
 
 const rank = (name: string) => { const at = ROW_ORDER.indexOf(name); return at < 0 ? ROW_ORDER.length : at; };
 
-/** The fields this tab shows, by card; a card with nothing to show is left out. */
-export function fiscalFieldGroups(form: FiscalForm, fields: readonly DgiiField[], note: boolean): { group: FiscalGroup; fields: DgiiField[] }[] {
+/** The fields this tab shows, by card; a card with nothing to show is left out. `paymentForms` are the buckets of a sale's one payment pick. */
+export function fiscalFieldGroups(fields: readonly DgiiField[], note: boolean, paymentForms: readonly string[] = []): { group: FiscalGroup; fields: DgiiField[] }[] {
   const shown = fields
-    .filter((field) => !LEFT_OUT[form].has(field.name) && (form !== "606" || note || !NOTE_ROWS.has(field.name)))
+    .filter((field) => !LEFT_OUT.has(field.name) && !paymentForms.includes(field.name) && (note || !NOTE_ROWS.has(field.name)))
     .sort((left, right) => rank(left.name) - rank(right.name));
   return ORDER
     .map((group) => ({ group, fields: shown.filter((field) => (GROUP_OF[field.name] ?? "other") === group) }))
