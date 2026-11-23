@@ -9,7 +9,6 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { joinCurrencyList } from "@/lib/business-month-close";
 import { reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
-import { consumeOverlayEntriesForNavigation } from "@/lib/overlay-history";
 import type { ExportPreview, RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
 import { saveBlobDownload } from "@/lib/save-blob-download";
 import { canSaveAs, chooseSavePlace, saveToPlace, type SaveAsPlace } from "@/lib/save-file-as";
@@ -156,7 +155,6 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const pendingFiscal = pendingFiscalSentence ? <>{pendingFiscalSentence} {reviewFiscal}</> : null;
   const pendingRate = preview?.dgii.pending_rate_count ? t(sale ? "business.transactions.reporting.export.pending_rate_sales" : "business.transactions.reporting.export.pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) }) : null;
   // The 606 notices, then the Bandeja's count for the period in either mode, inside the chosen option.
-  // Leaving for the Bandeja claims the dialog's history entry first, or its close would step back to Registros' address.
   const formNotices = preview && !sale && mode === "dgii";
   const noticeItems = preview ? [
     formNotices && preview.dgii.rnc_warning_count > 0 ? <li key="rnc" data-testid="records-export-rnc-notice" className={noticeClass}>
@@ -173,7 +171,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     preview.bandeja_count > 0 ? <li key="bandeja" data-testid="records-export-bandeja-notice" className={noticeClass}>
       {noticeMark}
       <p className="min-w-0 flex-1">{t("business.transactions.reporting.export.bandeja_notice", { count: preview.bandeja_count })}</p>
-      {onOpenBandeja ? <NoticeAction><button type="button" className={noticeLinkClass} onClick={() => { consumeOverlayEntriesForNavigation(); onClose(); onOpenBandeja(); }}>{t("business.transactions.reporting.export.bandeja_open")}</button></NoticeAction> : null}
+      {onOpenBandeja ? <NoticeAction><button type="button" className={noticeLinkClass} onClick={() => { onClose(); onOpenBandeja(); }}>{t("business.transactions.reporting.export.bandeja_open")}</button></NoticeAction> : null}
     </li> : null,
   ].filter(Boolean) : [];
   const notices = noticeItems.length ? <ul data-testid="records-export-notices" className="flex flex-col gap-[10px] pb-3 pl-10 pr-3 text-[14px] text-[#56635e] dark:text-white/70">{noticeItems}</ul> : null;

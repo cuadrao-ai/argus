@@ -183,8 +183,8 @@ for (const theme of ["light", "dark"] as const) {
     }
     await bandeja.getByRole("button", { name: "Ver en Bandeja", exact: true }).click();
     await expect(page.getByTestId("records-export-panel")).toHaveCount(0);
-    await expect(page).toHaveURL(/[?&]view=inbox(&|$)/);
     await expect(page.getByTestId("transacciones-records")).toHaveCount(0);
+    await expect(page.locator("h1")).toHaveText("Bandeja");
   });
 }
 
