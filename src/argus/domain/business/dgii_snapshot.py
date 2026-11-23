@@ -26,10 +26,8 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
         (context.actor.space_id,),
     )
     profile = cursor.fetchone()
-    # Facts and evidence come from the approved revision. The declaration is
-    # the latest revision's: the approval's own, or 606 data a person added
-    # after approval. The Personal mark and the 606 answer come from the
-    # draft as it stands now.
+    # Use the facts the owner last posted to this activity. Reapproval can
+    # supersede an earlier correction. Marks still come from the live draft.
     cursor.execute(
         "select e.id,e.activity_id,e.resolution,v.version,v.after_facts,d.after_dgii"
         " from public.financial_import_events e"
@@ -39,7 +37,10 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
         " and a.command->>'action' in ('approve_expense','approve_income','approve_refund')"
         " join lateral ("
         + approved_revision_sql(
-            "e.id", "e.owner_space_id", "(a.command->'request'->>'version')::integer"
+            "e.id",
+            "e.owner_space_id",
+            "greatest((a.command->'request'->>'version')::integer,"
+            "(e.resolution->>'accepted_edit_version')::integer)",
         )
         + ") v on true"
         " join lateral (select after_dgii from public.business_draft_revisions"

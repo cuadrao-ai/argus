@@ -299,3 +299,46 @@ def test_a_write_arriving_during_the_build_lands_after_it(world):  # noqa: ANN00
     view = dossier(world, draft)
     assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
     assert shipped_payment_form(download(world)) == "03"
+
+
+@pytest.mark.parametrize("field", ["amount", "ncf"])
+def test_an_accepted_edit_during_export_updates_the_whole_package(world, field):  # noqa: F811
+    draft, version = recorded(world, "B0100001006")
+    reached, resume = threading.Event(), threading.Event()
+    outcome = {}
+    with patch.object(
+        store_postgres,
+        "PostgresDocumentStore",
+        paused(store_postgres.PostgresDocumentStore, reached, resume),
+    ):
+        exporter = in_thread(outcome, "export", lambda: download(world))
+        try:
+            assert reached.wait(20)
+            edit = {"facts": _known({"amount": "1380.00"})} if field == "amount" else {
+                "dgii": {
+                    "fiscal": {"rnc": SUPPLIER, "ncf": "B0100001007", "itbis": "180.00"},
+                    "declaration": dossier(world, draft)["dgii"],
+                }
+            }
+            changed = _review(
+                world, draft, {"version": version, **edit},
+                world.alice.headers,
+            )
+            assert changed.status_code == 200, changed.text
+        finally:
+            resume.set()
+            exporter.join(30)
+    response = outcome["export"]
+    assert response.status_code == 200, response.text
+    with ZipFile(io.BytesIO(response.content)) as archive:
+        [row] = csv.DictReader(io.StringIO(archive.read("records.csv").decode("utf-8-sig")))
+        manifest = json.loads(archive.read("manifest.json"))
+    if field == "amount":
+        assert (row["Total"], row["Subtotal"]) == ("1380.00", "1200.00")
+    else:
+        assert row["NCF"] == "B0100001007"
+        assert manifest["records"][0]["activity_revision"] == "1"
+    assert manifest["dgii"]["issues"] == []
+    source_ids = {item["source_id"] for item in manifest["sources"]}
+    [reconciled] = manifest["dgii"]["reconciliation"]
+    assert set(reconciled["source_ids"]) <= source_ids

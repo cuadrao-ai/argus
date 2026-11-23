@@ -52,7 +52,7 @@ def persist(
         and m.record.current.role != "destination"
     )
     connection.execute(
-        "insert into public.financial_activity_groups(id,user_id,kind,current_revision) values(%s,%s,%s,%s) on conflict(id) do update set current_revision=excluded.current_revision",
+        "insert into public.financial_activity_groups(id,user_id,kind,current_revision) values(%s,%s,%s,%s) on conflict(id) do update set current_revision=excluded.current_revision,kind=excluded.kind",
         (result.activity_id, user_id, primary.kind, result.revision),
     )
     connection.execute(
@@ -98,7 +98,7 @@ def persist(
                 raise AccountNotFound()
             details["reversal_of_owner_id"] = str(original[0])
         connection.execute(
-            "insert into public.financial_records(id,account_id,user_id,record_kind,current_revision,created_at) values(%s,%s,%s,%s,%s,%s) on conflict(id) do update set current_revision=excluded.current_revision",
+            "insert into public.financial_records(id,account_id,user_id,record_kind,current_revision,created_at) values(%s,%s,%s,%s,%s,%s) on conflict(id) do update set current_revision=excluded.current_revision,record_kind=excluded.record_kind",
             (record.id, account_id, record_owner, r.kind, r.revision, r.recorded_at),
         )
         connection.execute(

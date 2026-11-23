@@ -77,6 +77,7 @@ CalendarDate = Annotated[date, BeforeValidator(_calendar_date)]
         },
         403: {"description": "The live grant does not permit reading this Business."},
         404: {"description": "The Business or canonical draft anchor is unavailable."},
+        409: {"description": "Records changed again while the export refreshed its snapshot."},
         413: {
             "description": "A bounded export collection, cell or archive limit was exceeded."
         },

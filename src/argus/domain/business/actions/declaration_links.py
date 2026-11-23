@@ -2,6 +2,7 @@
 holds apart from their source. A save and the amounts preview both run it."""
 
 from collections.abc import Callable
+from dataclasses import replace
 from typing import NamedTuple
 
 from argus.domain.business.actions.fiscal import validate_changed_dates
@@ -9,11 +10,16 @@ from argus.domain.business.amount_inheritance import (
     LinkedSources,
     inherit_amounts,
     inheritance_overrides,
+    inheritance_state,
     written_from,
 )
 from argus.domain.business.contracts.dgii import DgiiDeclaration, SalePaymentSplit
 from argus.domain.business.contracts.facts import BusinessFacts
-from argus.domain.business.purchase_review import apply_payment_split, kept_sources
+from argus.domain.business.purchase_review import (
+    apply_payment_split,
+    id_type_of,
+    kept_sources,
+)
 
 
 class Written(NamedTuple):
@@ -80,4 +86,19 @@ def saved_declaration_links(
             before, declaration, None, previous,
             amount_derived=amount_derived, linked=linked,
         )
+    if linked.amounts_only and before != after:
+        changed = set()
+        if before.occurred_on.value != after.occurred_on.value:
+            changed.add("occurred_on")
+        if id_type_of(before) != id_type_of(after):
+            changed.add("rnc")
+        linked = replace(linked, corrected_sources=frozenset(changed))
+        if previous is None and changed:
+            # Older declarations tracked a manual value by its difference from
+            # the old source. Preserve it before applying the corrected source.
+            manual = {
+                target for target, state in inheritance_state(before, declaration, None, linked).items()
+                if state.field in changed and not state.inherited
+            }
+            overrides = tuple(sorted(set(overrides) | manual))
     return inherit_amounts(after, declaration, overrides, linked), overrides

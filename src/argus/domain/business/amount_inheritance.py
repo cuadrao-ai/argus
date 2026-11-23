@@ -47,6 +47,7 @@ class LinkedSources:
     original_ncf: str | None = None
     #: Only the amounts follow the receipt: a record that is not an open draft.
     amounts_only: bool = False
+    corrected_sources: frozenset[str] = frozenset()
     #: The 606 declaration the facts of an open expense state on their own,
     #: its Forma de pago the one of the account a person said paid it.
     built: PurchaseDeclaration | None = None
@@ -149,7 +150,7 @@ def inheritance_state(
             continue
         if source == "original_ncf" and linked.original_ncf is None:
             continue
-        if linked.amounts_only and source not in _MONEY_SOURCES:
+        if linked.amounts_only and source not in _MONEY_SOURCES | linked.corrected_sources:
             continue
         expected = getattr(split, target) if target in AMOUNT_SIDES else sources[source]
         current = getattr(declaration, target)

@@ -282,7 +282,7 @@ def sheet_rows(
     settlements: Mapping[str, Mapping[str, Any]],
 ) -> list[dict[str, str]]:
     """Each recorded row as the accountant reads it: supplier and fiscal facts
-    from the approved revision, the 606 answer from its declaration, the
+    from the last accepted review, the 606 answer from its declaration, the
     DGII summary's disposition and the month-close settlement. Net amount
     comes from the same owner as review and monthly figures."""
 
@@ -577,7 +577,26 @@ def _without_removed_activities(
     return tuple(remaining_activities), remaining_sources
 
 
+class _ActivityRevised(Exception):
+    """A correction committed while the export was preparing originals."""
+
+
 def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
+    from argus.domain.business.authority import ActionError
+
+    try:
+        return _export_snapshot(authority, context, period, objects)
+    except _ActivityRevised:
+        pass
+
+    # Re-select the period, money rows and evidence together after a correction.
+    try:
+        return _export_snapshot(authority, context, period, objects)
+    except _ActivityRevised:
+        raise ActionError("stale_version", "stale_version") from None
+
+
+def _export_snapshot(authority, context, period: ExportPeriod, objects) -> bytes:
     from loguru import logger
     from psycopg.rows import dict_row
 
@@ -813,15 +832,32 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 return cursor.fetchone()
 
             # The scoped canonical read selected these globally unique group IDs.
-            activity_ids = {UUID(a["activity_id"]) for a in activities}
+            versions = {UUID(a["activity_id"]): a["revision"] for a in activities}
+            activity_ids = versions.keys()
             removed_ids = set()
             if activity_ids:
                 cursor.execute(
-                    "select id from public.financial_activity_groups"
+                    "select id,current_revision from public.financial_activity_groups"
                     " where id=any(%s::uuid[]) and reversed_at is null",
                     (list(activity_ids),),
                 )
-                removed_ids = activity_ids - {row["id"] for row in cursor.fetchall()}
+                live = cursor.fetchall()
+                if any(row["current_revision"] != versions[row["id"]] for row in live):
+                    raise _ActivityRevised
+                removed_ids = activity_ids - {row["id"] for row in live}
+            edited_drafts = {
+                d["id"]: d["resolution"].get("accepted_edit_version")
+                for d in drafts if d["state"] == "accepted"
+            }
+            if edited_drafts:
+                cursor.execute(
+                    "select id, resolution->'accepted_edit_version' as version"
+                    " from public.financial_import_events where owner_space_id=%s"
+                    " and id=any(%s::uuid[]) and state='accepted'",
+                    (context.actor.space_id, list(edited_drafts)),
+                )
+                if any(row["version"] != edited_drafts[row["id"]] for row in cursor.fetchall()):
+                    raise _ActivityRevised
             if removed_ids:
                 activities, downloads = _without_removed_activities(
                     activities, downloads, removed_ids

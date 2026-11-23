@@ -277,7 +277,7 @@ class Recording:
                 event,
                 state="accepted",
                 activity_id=activity["activity_id"],
-                resolution={**event.resolution, "accepted": _recorded(activity)},
+                resolution={**event.resolution, "accepted": recorded_activity_facts(activity)},
             )
             tx.put_event(_bump(event, now))
         return self.detail(user_id=user_id, event_id=event_id, scope=scope)
@@ -385,7 +385,7 @@ class Recording:
             if current.state == "accepting" and current.accept_key == event.accept_key:
                 resolution = dict(current.resolution)
                 resolution["accepted_request"] = resolution.pop("pending_request", None)
-                resolution["accepted"] = _recorded(activity)
+                resolution["accepted"] = recorded_activity_facts(activity)
                 current = replace(
                     current,
                     state="accepted",
@@ -473,7 +473,7 @@ class Recording:
         return draft
 
 
-def _recorded(activity: dict[str, Any]) -> dict[str, Any]:
+def recorded_activity_facts(activity: dict[str, Any]) -> dict[str, Any]:
     """Facts of the recorded activity, kept so the event can still be matched
     after its evidence is redacted (a disconnect)."""
 

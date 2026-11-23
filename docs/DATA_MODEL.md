@@ -3954,8 +3954,7 @@ declaration and the API, so no client reads or sets it. No migration.
 
 The resolution's `due_on` is the due date a person set in review: a date, or
 absent while it is unknown. No read, default or issue date fills it. A change
-is a normal revision on an open draft, and the draft locks it with the other
-facts once approved. Migration `20261020120000_business_due_on.sql` adds the
+writes a draft revision. The owner may correct the date after approval. Migration `20261020120000_business_due_on.sql` adds the
 nullable `business_draft_revisions.before_due_on` and `after_due_on` date
 columns, so each revision keeps the value before and after it. The table keeps
 row-level security with no client policy; anon and authenticated hold no
@@ -4072,13 +4071,19 @@ two filled in; its expense type stays unknown and its payment form is known
 only from the Business account that paid. If the money write then fails, the
 reopened draft appends one revision that puts the declaration back as it was
 before the approval; if it cannot, the next approval writes from that earlier
-declaration. The export reads the reviewed revision's facts and the declaration
-from the latest revision, then checks current money amount, date and currency.
-On an accepted record the same `ReviewCommand`, carrying only the 606 fields or
-only a sale's 607 payment split, appends one more revision, whether or not an
-earlier download recorded the record's line
-(`business_dgii_export_lines`, migration `20261101010000`, read-only history),
-and the next export carries it; the recorded facts stay refused. The tipo de gasto suggested for an RNC has no column: the dossier
+declaration. An owner's review of an accepted record appends a draft revision and an
+action receipt in one transaction. A change to posted money facts advances
+the same activity's current revision in that transaction. A declaration-only
+change keeps its money revision. The event resolution records `accepted_edit_version`.
+Fiscal reports and exports use the latest posted facts and their source IDs,
+plus the current declaration. The original approval receipt continues to
+identify the revision that the owner first approved. Records accepted before
+in-place editing use the facts from their approval until corrected.
+
+Migration `20261123003924_business_accepted_edit_history.sql` adds nullable
+`before_document_type` and `after_document_type` to `business_draft_revisions`.
+New type changes record the previous and new type for Historial. Older
+revisions keep nulls. The tipo de gasto suggested for an RNC has no column: the dossier
 reads it from the declarations in this Business through
 `financial_import_events.business_rnc`, and a typed purchase is a draft with
 `receipt_state` `no_receipt` and no declaration. An approval that saves a

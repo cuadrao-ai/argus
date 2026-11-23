@@ -541,7 +541,7 @@ def dossier(
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
         " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,reason,"
-        " supporting_change,supporting_filename"
+        " supporting_change,supporting_filename,before_document_type,after_document_type"
         " from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
@@ -621,8 +621,11 @@ def dossier(
     approvable = not blocked and "approve" in tx.authorization.capabilities
     can_prepare = "prepare" in tx.authorization.capabilities
     can_annotate = annotation_available(tx.authorization, event)
-    fiscal_writable = can_prepare and event.state in ("open", "accepted")
-    declaration_editable = fiscal_writable and takes_purchase_declaration(
+    facts_editable = can_prepare and (
+        event.state == "open"
+        or (event.state == "accepted" and "approve" in tx.authorization.capabilities)
+    )
+    declaration_editable = facts_editable and takes_purchase_declaration(
         resolution.document_type, facts
     )
     reopen_available = (
@@ -720,12 +723,13 @@ def dossier(
         dgii=declaration.model_dump(mode="json") if declaration else None,
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,
-        document_type_editable=event.state == "open" and can_prepare,
+        document_type_editable=facts_editable,
+        facts_editable=facts_editable,
         declaration_editable=declaration_editable,
         declaration_suggestions=linked.suggestions
         if declaration_editable
         else DeclarationSuggestions(),
-        payment_split_editable=fiscal_writable
+        payment_split_editable=facts_editable
         and takes_payment_split(resolution.document_type),
         reopen_available=reopen_available,
         due_on=resolution.due_on,
