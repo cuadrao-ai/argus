@@ -167,18 +167,18 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const held = needsAttention && reason === "read_budget_day";
   const cannotRead = detail.bandeja_group?.label === "cant_read";
   const failed = needsAttention && (cannotRead || replaceUnreadable || reason === "read_deadline_passed") ? reason : null;
-  const readBoard = waitingForAi || held || Boolean(failed);
+  const readBoard = waitingForAi || held || (cannotRead && Boolean(failed));
   const footer = (primary?: ReactNode) => {
     if (deletion.confirmBar) return deletion.confirmBar;
     const disabled = busy !== null || deletion.busy;
     const documentAction = canDelete
-      ? readBoard
+      ? readBoard || failed
         ? <ReadStateDelete onClick={deletion.ask} disabled={disabled} />
         : <ReceiptMoreMenu groups={[<DeleteDocumentMenuItem key="delete" disabled={disabled} onClick={deletion.ask} />]} />
       : detail.restore_available
         ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} />
         : null;
-    if (readBoard) {
+    if (readBoard || failed) {
       if (!documentAction && !primary) return null;
       return <div className="flex flex-wrap items-center gap-2">
         {documentAction}
