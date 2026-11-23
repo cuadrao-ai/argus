@@ -630,6 +630,7 @@ def dossier(
         and "approve" in tx.authorization.capabilities
         and linked_reason(tx, event.activity_id) is None
     )
+    from argus.domain.business.actions import document_ledger
     from argus.domain.business.actions.document_deletion import is_reading
     from argus.domain.business.supporting_files import supporting_state
 
@@ -638,12 +639,19 @@ def dossier(
         marker,
         people(tx.connection, tx.authorization, [marker and marker.actor.actor_id]),
     )
-    reading = event.state == "open" and is_reading(tx, source_rows)
+    in_flight = event.state in ("open", "accepted") and is_reading(tx, source_rows)
+    reading = event.state == "open" and in_flight
     delete_available = (
-        event.state == "open"
-        and "approve" in tx.authorization.capabilities
+        "approve" in tx.authorization.capabilities
         and not any(row["shared"] for row in source_rows)
-        and not reading
+        and not in_flight
+        and (
+            event.state == "open"
+            or (
+                event.state == "accepted"
+                and not document_ledger.linked(tx, event, UUID(event.activity_id))
+            )
+        )
     )
     uploaded = upload_year(source_rows[0]["received_at"] if source_rows else None)
     from argus.domain.business.actions.listos import draft_standings
@@ -668,6 +676,7 @@ def dossier(
         deleted=deleted,
         delete_available=delete_available,
         restore_available=deleted is not None
+        and deleted.can_restore()
         and "approve" in tx.authorization.capabilities,
         **context.model_dump(),
         current_note=current_note(event),

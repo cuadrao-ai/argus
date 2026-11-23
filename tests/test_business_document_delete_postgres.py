@@ -219,9 +219,11 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
 
 
 @pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
-@pytest.mark.parametrize("prepared", [False, True])
-def test_only_owner_can_delete_or_restore(actions, users, role, prepared):
-    service, context, cid, draft_id, web = (_ready if prepared else _unread)(actions)
+@pytest.mark.parametrize("state", ["unread", "open", "accepted"])
+def test_only_owner_can_delete_or_restore(actions, users, role, state):
+    service, context, cid, draft_id, web = (_ready if state == "open" else _unread)(actions)
+    if state == "accepted":
+        draft_id = _captured_purchase(service, context, approve=True)
     capabilities = ["read"] if role == "viewer" else ["read", "prepare"]
     with service.authority.pool.connection() as db:
         db.execute(
@@ -247,7 +249,7 @@ def test_only_owner_can_delete_or_restore(actions, users, role, prepared):
             "business_permission_denied",
         )
     assert receipt_detail(web, web.service.receipt(web.scope, cid))["deleted"] is None
-    if prepared:
+    if draft_id:
         view = service.dossier(other, draft_id)
         assert not view.delete_available and not view.restore_available
 
@@ -267,10 +269,10 @@ def test_reading_document_cannot_be_deleted(actions, status):
     )
 
 
-def test_accepted_draft_cannot_be_deleted(actions):
+def test_owner_can_restore_the_same_accepted_draft_and_money(actions):
     from argus.domain.business.contracts.actions import ApproveExpense
 
-    service, context, _, draft, _ = _ready(actions)
+    service, context, receipt, draft, _ = _ready(actions)
     view = service.dossier(context, UUID(str(draft)))
     approved = service.approve(
         context,
@@ -283,11 +285,50 @@ def test_accepted_draft_cannot_be_deleted(actions):
         str(uuid4()),
     )
     assert approved.outcome == "applied", approved
-    refused = _act(_client(service, context), draft, "delete")
-    assert (refused.status_code, refused.json()["code"]) == (
-        422,
-        "business_document_not_open",
-    )
+    before = service.dossier(context, draft)
+    client = _client(service, context)
+    delete_key, restore_key = str(uuid4()), str(uuid4())
+
+    def money():
+        with service.authority.pool.connection() as db:
+            return db.execute(
+                "select g.reversed_at, g.current_revision, m.record_id, v.amount_minor"
+                " from public.financial_activity_groups g"
+                " join public.financial_activity_memberships m on m.activity_id=g.id"
+                " join public.financial_record_revisions v on v.record_id=m.record_id"
+                " where g.id=%s",
+                (approved.activity_id,),
+            ).fetchone()
+
+    original = money()
+    assert original[0] is None
+    deleted = _act(client, receipt, "delete", delete_key)
+    assert deleted.status_code == 200, deleted.text
+    assert before.delete_available is True and before.restore_available is False
+    dismissed = service.dossier(context, draft)
+    assert dismissed.review_state == "dismissed"
+    assert dismissed.deleted.previous_state.state == "accepted"
+    assert dismissed.deleted.previous_state.group is None
+    assert dismissed.restore_available is True and dismissed.delete_available is False
+    reversed_money = money()
+    assert reversed_money[0] is not None and reversed_money[1:] == original[1:]
+    assert _act(client, receipt, "delete", delete_key).status_code == 200
+    assert _act(client, draft, "delete").status_code == 200
+    assert service.dossier(context, draft).version == before.version + 1
+    assert money() == reversed_money
+
+    restored = _act(client, draft, "restore", restore_key)
+    assert restored.status_code == 200, restored.text
+    assert _act(client, draft, "restore", restore_key).status_code == 200
+    assert _act(client, receipt, "delete", delete_key).status_code == 200
+    after = service.dossier(context, draft)
+    assert after.version == before.version + 2
+    assert after.review_state == "accepted"
+    assert after.approval_result == before.approval_result
+    assert after.facts == before.facts and after.sources == before.sources
+    assert after.history == before.history and after.dgii == before.dgii
+    assert after.delete_available is True and after.restore_available is False
+    assert money() == original
 
 
 @pytest.mark.parametrize("prepared", [False, True])

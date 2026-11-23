@@ -57,7 +57,7 @@ from argus.domain.business.contracts.listos import (
 )
 from argus.domain.business.document_type import require_type_kind
 from argus.domain.business.transactions import ActionTransaction, transaction
-from argus.domain.ingestion.reconcile.model import ImportEvent
+from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
 from argus.domain.recording.money_schemas import (
     MoneyRequest,
@@ -432,6 +432,8 @@ def approve(
             result = Refused(
                 outcome="invalid_input", code=getattr(error, "code", "activity_invalid")
             )
+        except EventNotFound:
+            raise
         except Exception:
             return OutcomeUnknown(code="business_recording_unsettled")
         else:
@@ -460,6 +462,8 @@ def approve(
                 service, context, draft_id, request.version, datetime.now(timezone.utc)
             )
         return result
+    except EventNotFound:
+        return Refused(outcome="not_found", code="business_record_not_found")
     except ActionError as error:
         return error.result
 

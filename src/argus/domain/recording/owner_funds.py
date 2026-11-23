@@ -23,6 +23,7 @@ from argus.domain.recording.money_plan import request_identity
 from argus.domain.recording.money_schemas import MoneyRequest
 
 if TYPE_CHECKING:
+    from argus.domain.recording.import_claim import ImportClaim
     from argus.domain.recording.repository import (
         FinancialAccountRepository,
         StoredAccount,
@@ -147,6 +148,8 @@ def write(
     now: datetime,
     activity_id: str | None = None,
     entered: bool = False,
+    *,
+    import_claim: ImportClaim | None = None,
 ) -> dict[str, Any]:
     from argus.domain.recording.repository import InMemoryFinancialAccountRepository
 
@@ -171,7 +174,9 @@ def write(
     if not isinstance(repository, InMemoryFinancialAccountRepository):
         from argus.domain.recording.owner_funds_postgres import transact
 
-        return transact(repository, row, key, identity, preview_valid)
+        return transact(
+            repository, row, key, identity, preview_valid, import_claim=import_claim
+        )
     with repository._lock:
         receipt = repository._money_receipts.get((user_id, None, key))
         if receipt:

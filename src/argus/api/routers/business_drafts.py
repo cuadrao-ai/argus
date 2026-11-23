@@ -394,12 +394,14 @@ def _document_action(
     action: str,
 ) -> DocumentActionCounted:
     from argus.domain.business.actions.document_deletion import change_document
+    from argus.domain.business.reporting_store import registros_count
 
     response.headers.update(NO_STORE)
     try:
+        actor = context.for_space(request)
         result = change_document(
             context.service,
-            context.for_space(request),
+            actor,
             DocumentCommand(action=action, document_id=draft_id),
             _key(request, key),
         )
@@ -414,6 +416,11 @@ def _document_action(
                 detail=result.code,
                 headers=NO_STORE,
             )
+        record_count = (
+            registros_count(context.service.authority, actor)
+            if result.activity_id is not None
+            else None
+        )
     except ActionError as error:
         raise action_problem(request, error.result) from None
     if action == "purge_document":
@@ -422,6 +429,7 @@ def _document_action(
         document_id=draft_id,
         deleted=action != "restore_document",
         inbox_counts=counts(),
+        registros_count=record_count,
     )
 
 
@@ -460,7 +468,7 @@ def _erase_now(context: DraftContext) -> None:
             "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
         },
         422: {
-            "description": "`business_document_not_open` for an approved or set-aside document; `business_document_reading` while being read; `business_document_ambiguous` for shared attachments."
+            "description": "`business_document_not_open` for an ineligible state; `business_document_linked` for a linked accepted record; `business_document_reading` while being read; `business_document_ambiguous` for shared attachments."
         },
     },
 )
@@ -491,7 +499,7 @@ def delete_document(
             "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
         },
         422: {
-            "description": "`business_document_not_deleted` without a deletion marker; `business_document_ambiguous` for shared attachments."
+            "description": "`business_document_not_deleted` without a deletion marker; `business_document_restore_expired` once the 7-day window closes; `business_document_ambiguous` for shared attachments."
         },
     },
 )

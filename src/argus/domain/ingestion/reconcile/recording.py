@@ -33,6 +33,7 @@ from argus.domain.recording.errors import (
     RecordingInputError,
     StaleVersion,
 )
+from argus.domain.recording.import_claim import ImportClaim, ImportClaimLost
 from argus.domain.recording.money_schemas import DESTINATION_ELIGIBILITY, MoneyRequest
 
 DEFAULT_ZONE = "America/Santo_Domingo"
@@ -352,6 +353,8 @@ class Recording:
     ) -> dict[str, Any]:
         """Write (or replay) under the claiming key, then finalize the event."""
 
+        if event.accept_key is None:
+            raise ReconcileError("import_not_open", "Nothing is waiting to be recorded.")
         try:
             if request is None:
                 stored = event.resolution.get("pending_request")
@@ -367,14 +370,19 @@ class Recording:
                 request=request,
                 idempotency_key=f"imp:{event.id}:{event.accept_key}",
                 scope=scope,
+                import_claim=ImportClaim(event.id, event.accept_key),
             )
+        except ImportClaimLost:
+            with self.store.transaction(user_id, scope=scope) as tx:
+                tx.event(event.id)  # Raises EventNotFound if it was purged.
+            raise ReconcileError("import_not_open", "Nothing is waiting to be recorded.") from None
         except _NOT_WRITTEN:
             self._release(user_id, event, now, scope=scope)
             raise
         activity = result["activity"]
         with self.store.transaction(user_id, scope=scope) as tx:
             current = tx.event(event.id)
-            if current.state == "accepting":
+            if current.state == "accepting" and current.accept_key == event.accept_key:
                 resolution = dict(current.resolution)
                 resolution["accepted_request"] = resolution.pop("pending_request", None)
                 resolution["accepted"] = _recorded(activity)

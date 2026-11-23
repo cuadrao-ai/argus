@@ -107,7 +107,7 @@ _UNIQUE_CODES = {
 def confirm_suggestion(
     pool, context: ActionContext, suggestion_id: UUID, key: str
 ) -> dict:  # noqa: ANN001
-    with bank_session(pool, context, "prepare") as connection:
+    with bank_session(pool, context, "prepare", owner_lock=True) as connection:
         space_id = context.actor.space_id
         offer = _suggestion(connection, suggestion_id, space_id)
         line = lock_line(connection, space_id, offer["line_id"])
@@ -156,7 +156,7 @@ def decline_suggestion(
 def match_line(
     pool, context: ActionContext, line_id: UUID, activity_id: UUID, key: str
 ) -> dict:  # noqa: ANN001
-    with bank_session(pool, context, "prepare") as connection:
+    with bank_session(pool, context, "prepare", owner_lock=True) as connection:
         space_id = context.actor.space_id
         line = lock_line(connection, space_id, line_id)
         if _replayed(connection, line_id, key, kind="match", target=str(activity_id)):
@@ -175,7 +175,7 @@ def match_line(
 
 
 def unmatch_line(pool, context: ActionContext, line_id: UUID, key: str) -> dict:  # noqa: ANN001
-    with bank_session(pool, context, "prepare") as connection:
+    with bank_session(pool, context, "prepare", owner_lock=True) as connection:
         space_id = context.actor.space_id
         line = lock_line(connection, space_id, line_id)
         live = _one(connection, _LIVE, (line_id,))
