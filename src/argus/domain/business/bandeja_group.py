@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
 from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.ledger import business_day
-from argus.domain.ingestion.email_intake import sender_policy
 
 # The deletion contract imports this type while receipt contracts initialize.
 ApprovalGroup = Literal["listo", "attention"]
@@ -154,6 +153,12 @@ def _other_blocker(draft: DraftStanding) -> bool:
     return any(code not in _BLOCKERS_NAMED for code in draft.blockers)
 
 
+def _unverified_sender(draft: DraftStanding) -> bool:
+    from argus.domain.ingestion.email_intake.sender_policy import sender_refusal
+
+    return sender_refusal(draft.sender) is not None
+
+
 def _no_number(draft: DraftStanding) -> bool:
     fiscal = _fiscal(draft)
     return _blank(fiscal.ecf) and _blank(fiscal.ncf)
@@ -238,11 +243,7 @@ RULE: tuple[Gap, ...] = (
     Gap("missing_itbis", True, lambda draft: _blank(_fiscal(draft).itbis)),
     Gap("review_flag", True, _other_flag),
     Gap("blocked", False, _other_blocker),
-    Gap(
-        "unverified_sender",
-        False,
-        lambda draft: sender_policy.sender_refusal(draft.sender) is not None,
-    ),
+    Gap("unverified_sender", False, _unverified_sender),
 )
 
 #: The gaps a person may accept a record over. An accept names each one.
