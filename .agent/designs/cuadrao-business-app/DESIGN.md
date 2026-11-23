@@ -1624,11 +1624,10 @@ Every receipt that Cuadrao sorted automatically shows why it was sorted that way
 
 One dossier shows every record. A Bandeja row and a Registros row open the same
 frame, `web/components/business-app/ReceiptReviewFrame.tsx`. This section
-describes the purchase dossier as the code draws it at this date. The server
-decides every value, every editable field and every link, as
+describes the dossier of a purchase and of a sale as the code draws them at
+this date. The server decides every value, every editable field and every
+link, as
 [the dossier architecture](../../../docs/ARCHITECTURE.md#the-record-dossier) says.
-The 607 report card for a sale and the Venta switch in Más are not merged yet,
-so this section leaves them out.
 
 **Frame.** The header shows the name of who issued the document, or the file
 name while nobody is named. Line two shows the Bandeja label that the server
@@ -1652,7 +1651,7 @@ a refetch returned sits over the tab content and shows on every tab.
 | Label | 148px | The name of the fact. |
 | Status slot | 24px | One icon, or the restore button of a linked field. |
 | Value | the rest | The value. An empty value reads "Sin dato". |
-| Action slot | 72px | The pencil, the check and the X, or "Guardado". |
+| Action slot | 72px | The pencil, or the check and the X. |
 
 Every tab uses this grid. No card draws a row of its own. A line under the
 value holds a failed save with its retry, or an action that the value offers.
@@ -1675,15 +1674,17 @@ pencil opens the field inside the value's own box, so the row keeps its height
 and nothing moves. While the row is open, the action slot holds a check and an
 X. The check or Enter saves. The X or Escape cancels. During the save the check
 turns into a spinner. A save whose outcome is unknown cannot be cancelled.
-After a save lands on a General row, the action slot says "Guardado" for 2.4
-seconds, and then the pencil returns. Nothing below the row moves. A row in
-Datos fiscales says "Guardado" on the line under its value, and the line
-stays until the record changes again.
+After a save lands, the row returns to read mode with the new value. The
+check and the X are the whole save UI: no tab of the dossier says "Guardado".
+A failed save keeps its error and its retry on the line under the value.
 
-**Pick rows.** Tipo de gasto and Forma de pago are `DossierPickRow`. The value
+**Pick rows.** Tipo de gasto, Tipo de ingreso and Forma de pago are
+`DossierPickRow`. The value
 and a chevron are one button across the value and action columns. The list
 opens over the form, above the row when there is room. A pick saves at once, so
-the row has no check and no X. A suggestion shows filled, with its source icon
+the row has no check and no X, and it shows the new value when the save lands.
+A DGII choice reads as its code and its name, "02 · Gastos por trabajos,
+suministros y servicios". A suggestion shows filled, with its source icon
 in the status slot. The icon leaves when the person picks a value.
 
 **Linked fields.** A field that follows another fact shows the link icon, and
@@ -1694,11 +1695,15 @@ shows a restore button in the status slot. Its tooltip is
 source value, and the check links the field again. Servicios and Bienes
 override and restore together.
 
-**Calculated fields.** A calculated value shows ƒ in the status slot. Today the
-Subtotal in Montos is the one such row, when the server calculated it from the
-Total. Its tooltip is "Calculado: Total − ITBIS". That row keeps its pencil,
-and a typed Subtotal replaces the calculation. Total facturado and ITBIS por
-adelantar, which no person may enter, are not drawn yet.
+**Calculated fields.** A calculated value shows ƒ in the status slot. The
+Subtotal in Montos shows it when the server calculated it from the Total. Its
+tooltip is "Calculado: Total − ITBIS". That row keeps its pencil, and a typed
+Subtotal replaces the calculation. A typed Subtotal shows the same restore
+button as a linked field held apart, with the same "Restaurar: " tooltip. The
+dossier has one restore control. In a purchase's Datos fiscales, Total
+facturado and ITBIS por adelantar show ƒ and have no pencil: the server
+calculates them and no person may enter them. Their tooltips are
+"Servicios + Bienes" and "ITBIS facturado − llevado al costo".
 
 **General.** Three cards on the tint.
 
@@ -1708,6 +1713,9 @@ adelantar, which no person may enter, are not drawn yet.
   fiscal" and offers "Marcar sin recibo".
 - Reporte 606: Tipo de gasto and Forma de pago as pick rows. Neither blocks
   Aceptar.
+- A sale shows Cliente in place of Emisor, and Reporte 607 in place of Reporte
+  606: Tipo de ingreso and Forma de pago as pick rows. Forma de pago is one
+  pick of the form the sale was paid in, never an amount for each form.
 - Montos: Subtotal, ITBIS, Propina legal when the receipt has one, and Total.
   Amounts align right and carry no currency symbol. The currency is a picker in
   the card heading, as its ISO code. The Total row carries the amounts check.
@@ -1718,9 +1726,9 @@ which card, the row order and the fields the tab leaves out.
 
 - Reporte 606: Tipo de ID, which follows the RNC and has no pencil, and Fecha
   de pago.
-- Monto facturado: Servicios and Bienes.
-- ITBIS: ITBIS facturado, ITBIS llevado al costo and ITBIS sujeto a
-  proporcionalidad.
+- Monto facturado: Servicios, Bienes and Total facturado.
+- ITBIS: ITBIS facturado, ITBIS llevado al costo, ITBIS sujeto a
+  proporcionalidad and ITBIS por adelantar.
 - Retenciones and Otros impuestos: each is folded to one line while it holds
   no value, "Sin retenciones." or "Sin otros impuestos.". The heading offers
   "Agregar retención" or "Agregar impuesto", which unfolds the rows, and then
@@ -1728,8 +1736,16 @@ which card, the row order and the fields the tab leaves out.
 - NCF modificado shows only on a credit note or a debit note. The refund
   question shows only on a credit note.
 
+A sale shows its own rows in the same cards. Reporte 607 holds Tipo de ID,
+and NCF modificado on a note. Monto facturado holds one row,
+Monto facturado, which follows the Subtotal. ITBIS holds ITBIS facturado.
+Retenciones holds ITBIS retenido por terceros, Retención de renta por terceros
+and Fecha de retención. The tab leaves out Tipo de ingreso and the payment
+amounts, because General owns them. A sale has no calculated row.
+
 One row is open at a time. A field that the server lists and this file does not
-name still shows, under Otros impuestos.
+name still shows, under Otros impuestos. The tab has no picker for the form:
+the record's type decides whether it declares on the 606 or the 607.
 
 **Detalles.** Origen holds Canal, Enviado por and Llegada. Then come Nota and
 Archivos de respaldo. Archivo holds Nombre and Tamaño.
@@ -1755,12 +1771,18 @@ full timestamp and, when the server names one, who did it.
 the actions sit on the right.
 
 - Más holds the less frequent actions: Agregar nota when typed notes are on,
-  the Personal switch, and "Eliminar documento" last, in red.
+  the Personal switch, the Venta switch when the server lets the type change,
+  and "Eliminar documento" last, in red. The Venta switch is drawn as the
+  Personal row. Turning it on makes the record a sale and shows the toast
+  "Ahora es una venta. Va al Reporte 607." with Deshacer. When the change
+  would clear answers the record holds, a confirm names them first. Historial
+  records the change as one line, "Tipo: Compra → Venta".
 - While the record is open, the right side holds Aceptar as the secondary
   button and "Aceptar y siguiente" as the primary one. The last document of a
-  list, and a record that has no receipt, show one primary Aceptar. ⌘↵, or
-  Ctrl ↵ off Apple keyboards, runs the primary button. The button reads
-  "Aceptar ingreso" for an income and "Aceptar reembolso" for a refund.
+  list, a record opened with no list, and a record that has no receipt show
+  one primary Aceptar. ⌘↵, or Ctrl ↵ off Apple keyboards, runs the primary
+  button. The verb is always "Aceptar", whatever the record is: an expense, an
+  income or a refund.
 - An accepted record has no accept button.
 - While a row holds an unsaved edit, the accept buttons are disabled and a
   line between Más and the buttons says which rows to save or cancel.
@@ -1779,6 +1801,9 @@ reason is confirmable.
 - A second read-only form for accepted records. An accepted record edits in
   the same rows.
 - Reabrir, and any edit mode.
+- The word "Guardado" after a save, in any tab, and a picker for the 606 or
+  607 form in Datos fiscales.
+- "Aceptar ingreso" and "Aceptar reembolso". The accept verb is "Aceptar".
 - The form-level Guardar and Cancelar in Datos fiscales, its help paragraph
   and the DGII column names as labels.
 - The "Falta para aprobar" box, the red line under a row, the row dots and the

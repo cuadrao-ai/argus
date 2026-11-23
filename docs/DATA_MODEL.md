@@ -4015,6 +4015,13 @@ actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
 
+`after_dgii` is the declaration stored once the revision is written, or null
+with none. `before_dgii` is the declaration the history compares against. It
+is the stored one when one exists. On a revision that writes the first
+declaration, a person's fiscal save or an approval, it is the declaration the
+review showed. To read the declaration stored before a revision, read
+`after_dgii` of the revision before it.
+
 Montos adds `facts.net_amount` and `facts.legal_tip` to the existing resolution
 and immutable revision JSON. These are provenance-bearing facts: read subtotal
 or human net edit, and read service charge with tip as an absence-only fallback.
@@ -4024,8 +4031,8 @@ records which fields no longer inherit from their source; null denotes older rec
 whose override state must be interpreted from their saved declaration. The
 names are the keys of `amount_inheritance.INHERITANCE`, which now include
 `id_type` and `modified_ncf`. A name in `amount_inheritance.SOURCE_OWNED`
-(`legal_tip`) is never recorded once the record carries that fact: a save
-removes one an older save kept. No table,
+is never recorded: `legal_tip` once the record carries that fact, and
+`id_type` on any purchase. A save removes one an older save kept. No table,
 column, migration, or backfill is added. The review action receipt records every
 edit and restore under the existing version, grant and idempotency checks.
 

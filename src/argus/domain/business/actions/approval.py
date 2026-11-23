@@ -23,7 +23,7 @@ from argus.domain.business.actions.fiscal import (
     refund_reference,
     require_distinct_fiscal_document,
 )
-from argus.domain.business.amount_inheritance import approved_from
+from argus.domain.business.amount_inheritance import approved_from, written_from
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.bandeja_group import BandejaReason, refusing
 from argus.domain.business.contracts.actions import (
@@ -148,32 +148,30 @@ def _approval_declaration(
     facts: BusinessFacts,
     failed: dict | None,
     shown: DeclarationSuggestions | None,
-) -> DgiiDeclaration | None:
-    """The declaration an approval writes: the one its review showed, which
-    ``approved_from`` owns, with the suggestions the person was ``shown`` or
-    for a bulk approval (None) the server's own, read now. None when there
-    is none, or the draft already holds it with its overrides recorded.
+) -> tuple[DgiiDeclaration | None, DgiiDeclaration | None]:
+    """The declaration an approval writes, and the one its review showed.
+
+    It writes the shown one, which ``approved_from`` owns, with the
+    suggestions the person was ``shown`` or for a bulk approval (None) the
+    server's own, read now. It writes None when there is none, or the draft
+    already holds it with its overrides recorded.
 
     After a ``failed`` approval whose revision was never undone, the person's
-    declaration is the one before that revision, and it is written back.
+    declaration is the one stored before that revision, and it is written back.
     """
 
     business = event.resolution.get("business") or {}
-    saved = failed["before_dgii"] if failed is not None else business.get("dgii")
+    saved = failed["saved_dgii"] if failed is not None else business.get("dgii")
     held = _declaration(saved) if saved else None
     overrides = business.get("fiscal_overrides")
-    reviewed = approved_from(
-        facts,
-        held,
-        overrides,
-        business.get("bill_mark"),
-        dossier.review_sources(
-            tx, event.id, event.state, facts, held, business.get("document_type", "recibo"), shown=shown
-        ),
+    bill_mark = business.get("bill_mark")
+    linked = dossier.review_sources(
+        tx, event.id, event.state, facts, held, business.get("document_type", "recibo"), shown=shown
     )
+    reviewed = approved_from(facts, held, overrides, bill_mark, linked)
     if failed is None and (reviewed is None or reviewed == held and overrides is not None):
-        return None
-    return reviewed
+        return None, None
+    return reviewed, written_from(facts, held, overrides, bill_mark, linked)
 
 
 def _declaration(stored: dict) -> DgiiDeclaration:
@@ -181,9 +179,13 @@ def _declaration(stored: dict) -> DgiiDeclaration:
 
 
 def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict | None:
-    """The revision the last approval wrote on this open draft, while it is
-    still the draft's declaration: that approval's money write failed and
-    its revision was never undone. None otherwise.
+    """The last approval of this open draft, while its revision is still the
+    draft's declaration: that approval's money write failed and its revision
+    was never undone. None otherwise.
+
+    ``saved_dgii`` is the declaration stored before that approval, the one to
+    put back: the revision before the approval's holds it, because every write
+    of a declaration is a revision.
 
     The approval writes its revision at the version its claim took (request
     version + 1); a person's saved declaration is never there.
@@ -194,7 +196,11 @@ def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict
     if event.state != "open" or not dgii or not pointer:
         return None
     built = tx.rows(
-        "select r.before_dgii,r.after_dgii from public.business_action_receipts a"
+        "select r.after_dgii,("
+        "select p.after_dgii from public.business_draft_revisions p"
+        " where p.space_id=r.space_id and p.draft_id=r.draft_id and p.version<r.version"
+        " order by p.version desc limit 1) as saved_dgii"
+        " from public.business_action_receipts a"
         " join public.business_draft_revisions r on r.space_id=a.space_id"
         " and r.draft_id=%s and r.version=(a.command->'request'->>'version')::integer+1"
         " where a.space_id=%s and a.actor_id::text=%s and a.idempotency_key=%s",
@@ -219,7 +225,7 @@ def _clear_approval_declaration(
             failed = _failed_approval_revision(tx, event)
             if failed is None:
                 return
-            before = failed["before_dgii"]
+            saved = failed["saved_dgii"]
             facts = facts_of(event)
             mutations.save_revision(
                 tx,
@@ -233,8 +239,8 @@ def _clear_approval_declaration(
                 (),
                 tx.authorization.provenance,
                 None,
-                dgii=_declaration(before) if before else None,
-                clear_dgii=not before,
+                dgii=_declaration(saved) if saved else None,
+                clear_dgii=not saved,
             )
     except ActionError as error:
         logger.warning("business.approval_declaration_not_cleared code={}", error.code)
@@ -357,7 +363,7 @@ def approve(
                             request.accept_gaps,
                         )
                         failed = _failed_approval_revision(tx, event)
-                        declared = _approval_declaration(
+                        declared, shown_dgii = _approval_declaration(
                             tx, event, facts, failed, None if bulk else shown
                         )
                     except ActionError as error:
@@ -396,6 +402,7 @@ def approve(
                             None,
                             dgii=declared,
                             clear_dgii=declared is None,
+                            shown_dgii=shown_dgii,
                         )
                         event = tx.imports.event(str(draft_id))
                     plans.finish_receipt(

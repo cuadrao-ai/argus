@@ -8,47 +8,47 @@ import es from "../public/locales/es-419/common.json";
 const approved = {
   "es-419": {
     income_withholding_type: {
-      "01": "01 - Alquileres",
-      "02": "02 - Honorarios por servicios",
-      "03": "03 - Otras rentas",
-      "04": "04 - Otras rentas (rentas presuntas)",
-      "05": "05 - Intereses a personas jurídicas residentes",
-      "06": "06 - Intereses a personas físicas residentes",
-      "07": "07 - Retención por proveedores del Estado",
-      "08": "08 - Juegos telefónicos",
-      "09": "09 - Retenciones subsector ganadería de carne bovina",
+      "01": "01 · Alquileres",
+      "02": "02 · Honorarios por servicios",
+      "03": "03 · Otras rentas",
+      "04": "04 · Otras rentas (rentas presuntas)",
+      "05": "05 · Intereses a personas jurídicas residentes",
+      "06": "06 · Intereses a personas físicas residentes",
+      "07": "07 · Retención por proveedores del Estado",
+      "08": "08 · Juegos telefónicos",
+      "09": "09 · Retenciones subsector ganadería de carne bovina",
     },
     income_type: {
-      "1": "01 - Ingresos por operaciones (no financieros)",
-      "2": "02 - Ingresos financieros",
-      "3": "03 - Ingresos extraordinarios",
-      "4": "04 - Ingresos por arrendamientos",
-      "5": "05 - Ingresos por venta de activo depreciable",
-      "6": "06 - Otros ingresos",
+      "1": "01 · Ingresos por operaciones (no financieros)",
+      "2": "02 · Ingresos financieros",
+      "3": "03 · Ingresos extraordinarios",
+      "4": "04 · Ingresos por arrendamientos",
+      "5": "05 · Ingresos por venta de activo depreciable",
+      "6": "06 · Otros ingresos",
     },
-    id_type: { "1": "01 - RNC", "2": "02 - Cédula", "3": "03 - Pasaporte o ID tributaria" },
+    id_type: { "1": "01 · RNC", "2": "02 · Cédula", "3": "03 · Pasaporte o ID tributaria" },
   },
   en: {
     income_withholding_type: {
-      "01": "01 - Rent",
-      "02": "02 - Professional services fees",
-      "03": "03 - Other income",
-      "04": "04 - Other income (presumed income)",
-      "05": "05 - Interest paid to resident legal entities",
-      "06": "06 - Interest paid to resident individuals",
-      "07": "07 - Withholding by government suppliers",
-      "08": "08 - Telephone games",
-      "09": "09 - Beef cattle subsector withholdings",
+      "01": "01 · Rent",
+      "02": "02 · Professional services fees",
+      "03": "03 · Other income",
+      "04": "04 · Other income (presumed income)",
+      "05": "05 · Interest paid to resident legal entities",
+      "06": "06 · Interest paid to resident individuals",
+      "07": "07 · Withholding by government suppliers",
+      "08": "08 · Telephone games",
+      "09": "09 · Beef cattle subsector withholdings",
     },
     income_type: {
-      "1": "01 - Operating income (non-financial)",
-      "2": "02 - Financial income",
-      "3": "03 - Extraordinary income",
-      "4": "04 - Lease income",
-      "5": "05 - Income from sale of depreciable assets",
-      "6": "06 - Other income",
+      "1": "01 · Operating income (non-financial)",
+      "2": "02 · Financial income",
+      "3": "03 · Extraordinary income",
+      "4": "04 · Lease income",
+      "5": "05 · Income from sale of depreciable assets",
+      "6": "06 · Other income",
     },
-    id_type: { "1": "01 - RNC", "2": "02 - Cédula", "3": "03 - Passport or tax ID" },
+    id_type: { "1": "01 · RNC", "2": "02 · Cédula", "3": "03 · Passport or tax ID" },
   },
 } as const;
 
@@ -58,7 +58,7 @@ for (const [language, catalog] of [["es-419", es], ["en", en]] as const) {
   describe(`606 screen labels in ${language}`, () => {
     for (const field of ["category", "payment_method"] as const) {
       test.each(Object.entries(catalog.business.dgii.option[field]))(`${field} %s includes the code and locale name`, (code, name) => {
-        expect(instance.t(`business.dgii.option.${field}.${code}`)).toBe(`${code} - ${name}`);
+        expect(instance.t(`business.dgii.option.${field}.${code}`)).toBe(`${code} · ${name}`);
       });
     }
     for (const field of ["income_withholding_type", "income_type", "id_type"] as const) {

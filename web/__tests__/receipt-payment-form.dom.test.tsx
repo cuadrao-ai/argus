@@ -59,8 +59,8 @@ test("an approved purchase shows its forma de pago once, in the Reporte 606 card
   const screen = await recordScreen(await approvedPurchase((record) => {
     record.facts.funding = unknown;
   }));
-  assert.equal(screen.count("01 - Efectivo"), 1);
-  assert.deepEqual(screen.rows["Forma de pago"], { value: "01 - Efectivo", card: "receipt-facts-choices" });
+  assert.equal(screen.count("01 · Efectivo"), 1);
+  assert.deepEqual(screen.rows["Forma de pago"], { value: "01 · Efectivo", card: "receipt-facts-choices" });
   assert.equal(screen.count("Cómo se pagó"), 0);
   assert.ok(screen.headings.includes("Reporte 606"));
   assert.equal(screen.headings.includes("Pago"), false);
@@ -72,7 +72,7 @@ test("a known paying account the server does not wait on stays off the screen: f
   const screen = await recordScreen(await approvedPurchase(() => {}));
   assert.equal(screen.count("Cuenta corriente"), 0);
   assert.equal(screen.rows["Cómo se pagó"], undefined);
-  assert.equal(screen.count("01 - Efectivo"), 1);
+  assert.equal(screen.count("01 · Efectivo"), 1);
   assert.equal(screen.headings.includes("Pago"), false);
   assert.equal(screen.rows["Parte del negocio"], undefined);
   assert.equal(screen.count("del revisor"), 0);
@@ -85,6 +85,6 @@ test("while the server waits on how it was paid, Cómo se pagó shows once in Co
   }));
   assert.deepEqual(screen.rows["Cómo se pagó"], { value: "Sin dato", card: "receipt-facts-comprobante" });
   assert.equal(screen.count("Cómo se pagó"), 1);
-  assert.deepEqual(screen.rows["Forma de pago"], { value: "01 - Efectivo", card: "receipt-facts-choices" });
+  assert.deepEqual(screen.rows["Forma de pago"], { value: "01 · Efectivo", card: "receipt-facts-choices" });
   assert.equal(screen.headings.includes("Pago"), false);
 });

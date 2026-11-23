@@ -163,8 +163,10 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
   const badge = () => host.querySelector('[data-testid="business-inbox-count"]')?.textContent ?? null;
   const heading = () => host.querySelector('[data-testid="panel"] h2')?.textContent ?? null;
   await settle(() => badge() !== null);
-  const open = async (receiptId: string, receiptIds?: readonly string[]) => {
-    await act(async () => api!.openPanel({ kind: "receipt", receiptId, ...(receiptIds ? { list: "inbox", reviewList: { scope: "batch", receiptIds } } : {}) }));
+  /** Opens a receipt as the Bandeja does, with the list it was opened from; `receiptIds` names another list, and null opens it with none. */
+  const open = async (receiptId: string, receiptIds?: readonly string[] | null) => {
+    const reviewList = receiptIds === null ? undefined : receiptIds ? { scope: "batch" as const, receiptIds } : { scope: "inbox" as const, receiptIds: Object.keys(names) };
+    await act(async () => api!.openPanel({ kind: "receipt", receiptId, ...(reviewList ? { list: "inbox", reviewList } : {}) }));
     await settle(() => heading() === names[receiptId as keyof typeof names] && (button("Aceptar") !== null || (host.textContent ?? "").includes("Puedes revisar")));
   };
   const click = async (name: string, done: () => boolean) => {
@@ -188,6 +190,9 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
   };
 }
 
+/** The record a panel shows, whatever list it was opened from. */
+const opened = (panel: unknown) => { const { kind, receiptId } = panel as { kind: string; receiptId?: string }; return { kind, receiptId }; };
+
 describe("Aceptar y siguiente on the receipt review page", () => {
   test("approval follows the origin list order and preserves it on the next receipt", async () => {
     const page = await mount({ width: 390 });
@@ -204,8 +209,22 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     try {
       await page.open("rcpt-uno", receiptIds);
       // The last document of a run has one verb, and it still moves on.
-      await page.click(receiptIds.length ? "Aceptar" : "Aceptar y siguiente", () => page.panel().kind === "inbox");
+      assert.equal(page.button("Aceptar y siguiente"), null);
+      await page.click("Aceptar", () => page.panel().kind === "inbox");
       assert.equal(page.panel().kind, "inbox");
+    } finally { await page.act(async () => page.root.unmount()); }
+  });
+
+  test("a receipt opened with no list shows the one Aceptar, which accepts and stays on the record", async () => {
+    const page = await mount();
+    try {
+      await page.open("rcpt-uno", null);
+      assert.equal(page.button("Aceptar y siguiente"), null, "nothing says there is a next one");
+      const accept = page.button("Aceptar");
+      assert.ok(accept?.hasAttribute("data-review-primary"), "the one verb is the primary action");
+      await page.click("Aceptar", () => page.approvals.length === 1 && page.button("Aceptar") === null);
+      assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
+      assert.equal(page.heading(), "Uno");
     } finally { await page.act(async () => page.root.unmount()); }
   });
 
@@ -229,7 +248,7 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     await page.open("rcpt-uno");
     const readsBefore = page.pageReads();
     await page.click("Aceptar y siguiente", () => page.panel().kind === "receipt" && (page.panel() as { receiptId: string }).receiptId === "rcpt-dos" && page.badge() === "2");
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-dos" });
+    assert.deepEqual(opened(page.panel()), { kind: "receipt", receiptId: "rcpt-dos" });
     assert.equal(page.badge(), "2", "the badge reads the server's pending_review_count after the approval");
     assert.ok(page.pageReads() > readsBefore, "the Bandeja page was read again from the server");
     await page.settle(() => page.button("Aceptar y siguiente") !== null);
@@ -247,7 +266,7 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     await viaPlain.open("rcpt-uno");
     await viaPlain.click("Aceptar", () => viaPlain.approvals.length === 1);
     await viaPlain.settle(() => false);
-    assert.deepEqual(viaPlain.panel(), { kind: "receipt", receiptId: "rcpt-uno" }, "Aceptar stays on the record");
+    assert.deepEqual(opened(viaPlain.panel()), { kind: "receipt", receiptId: "rcpt-uno" }, "Aceptar stays on the record");
     await viaPlain.act(async () => viaPlain.root.unmount());
 
     assert.equal(viaNext.approvals.length, 1);
@@ -263,14 +282,14 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     const page = await mount();
     await page.open("rcpt-dos");
     await page.click("Aceptar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-tres" });
+    assert.deepEqual(opened(page.panel()), { kind: "receipt", receiptId: "rcpt-tres" });
     await page.act(async () => page.root.unmount());
   });
 
   test("approving the last row returns to the Bandeja, which lists the rows skipped before it", async () => {
     const page = await mount();
     await page.open("rcpt-tres");
-    await page.click("Aceptar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector('[data-testid="reception-row"]') !== null);
+    await page.click("Aceptar", () => page.panel().kind === "inbox" && page.host.querySelector('[data-testid="reception-row"]') !== null);
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "inbox" }, "no jump back to an earlier row");
     const stateOf = (name: string) => rowState(receptionRows(page.host).find((row) => row.textContent?.includes(name))!);
@@ -319,8 +338,10 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     await page.click("Aceptar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
     await page.settle(() => page.button("Aceptar y siguiente") !== null);
     await page.click("Aceptar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
-    await page.settle(() => page.button("Aceptar y siguiente") !== null);
-    await page.click("Aceptar y siguiente", () => page.host.querySelector('[data-testid="receipt-review-done"]') !== null);
+    // The last one waiting has the one verb.
+    await page.settle(() => page.heading() === "Tres" && page.button("Aceptar") !== null);
+    assert.equal(page.button("Aceptar y siguiente"), null);
+    await page.click("Aceptar", () => page.host.querySelector('[data-testid="receipt-review-done"]') !== null);
     assert.ok(page.host.querySelector('[data-testid="receipt-review-done"]')?.textContent?.includes("No quedan recibos por revisar"));
     assert.ok(document.activeElement?.contains(page.host.querySelector('[data-testid="receipt-review-done"]')), "focus lands on the done state");
     await page.click("Volver a la Bandeja", () => page.panel().kind === "inbox" && page.host.querySelector("#reception-tab-attention")?.textContent === "Por resolver0");
@@ -335,7 +356,7 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     await page.open("rcpt-uno");
     await page.click("Aceptar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
     await page.settle(() => false);
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
+    assert.deepEqual(opened(page.panel()), { kind: "receipt", receiptId: "rcpt-uno" });
     assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"] p')?.textContent, "Resuelve los datos pendientes antes de aceptar.");
     assert.ok(page.host.querySelector('[data-testid="panel"] [role="alert"] [data-testid="error-reference"]'), "a refusal shows its reference");
     assert.equal(page.badge(), "3");
@@ -347,7 +368,7 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     await page.open("rcpt-uno");
     await page.click("Aceptar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
     await page.settle(() => false);
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
+    assert.deepEqual(opened(page.panel()), { kind: "receipt", receiptId: "rcpt-uno" });
     assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"] p')?.textContent, "Todavía no se conoce el resultado de la acción. Consulta el estado guardado antes de realizar otra acción.");
     await page.act(async () => page.root.unmount());
   });
@@ -357,7 +378,7 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     await page.open("rcpt-uno");
     await page.click("Aceptar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
     await page.settle(() => false);
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
+    assert.deepEqual(opened(page.panel()), { kind: "receipt", receiptId: "rcpt-uno" });
     assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"]')?.textContent, "La aceptación no terminó. Consulta el registro actual antes de realizar otra acción.");
     assert.equal(page.bandejaReads(), 0);
     await page.act(async () => page.root.unmount());
@@ -368,7 +389,7 @@ describe("Aceptar y siguiente on the receipt review page", () => {
     await page.open("rcpt-uno");
     await page.click("Aceptar y siguiente", () => (page.host.textContent ?? "").includes("Todavía no se conoce el resultado"));
     await page.settle(() => false);
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
+    assert.deepEqual(opened(page.panel()), { kind: "receipt", receiptId: "rcpt-uno" });
     assert.equal(page.bandejaReads(), 0);
     await page.act(async () => page.root.unmount());
   });

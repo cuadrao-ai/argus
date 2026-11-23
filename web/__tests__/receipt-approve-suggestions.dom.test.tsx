@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
-import { button, mount, pick, registerReceiptReviewPage, setup } from "./fixtures/receipt-review-page";
+import { button, mount, pick, registerReceiptReviewPage, setup, landed } from "./fixtures/receipt-review-page";
 
 registerReceiptReviewPage();
 
@@ -70,7 +70,7 @@ describe("approving sends only the suggestions on screen", () => {
     }));
     try {
       await pick(page, "payment_method", "01");
-      await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("payment_method")));
       await page.act(async () => button(page.host, "Aceptar").click());
       await page.wait(() => sent.length === 1);
       assert.deepEqual(sent, [{ category: { value: "02", source: "last_choice" } }]);

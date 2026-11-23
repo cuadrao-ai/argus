@@ -606,7 +606,7 @@ The payload fields that the dossier screen reads:
 
 | Field | What it says | Owner |
 | --- | --- | --- |
-| `facts`, `net_amount` | The record's values. `net_amount.source` is `read`, `calculated` or `edited`. | `facts_of`; `net_amount` in `purchase_review.py` |
+| `facts`, `net_amount` | The record's values. `net_amount.source` is `read`, `calculated` or `edited`. `net_amount.calculated` is the Subtotal the server calculates, whatever the source. | `facts_of`; `net_amount` in `purchase_review.py` |
 | `dgii` | The 606 or 607 declaration. On an open expense with none saved, it is the declaration that an approval would write. | `written_from` in `amount_inheritance.py` |
 | `inheritance` | The linked state of each fiscal field: `{field, value, inherited, paired_with}`. `field` names the source fact, `value` is the source value to restore, and `inherited` is false after a person overrides the field. | `inheritance_state` and the `INHERITANCE` map in `amount_inheritance.py` |
 | `dgii_calculated` | `{billed_amount, itbis_advance}`: the two amounts the 606 calculates and no person enters. Null for a sale and for a record with no 606 declaration. | `purchase_calculated` in `dgii_validation.py`, which the 606 line also reads |
@@ -616,6 +616,9 @@ The payload fields that the dossier screen reads:
 | `declaration_suggestions` | One suggestion, with its source, for each 606 answer the person has not given. | `review_sources` in `actions/dossier.py` |
 | `bandeja_group`, `listo_gaps`, `confirmable` | The Bandeja label, every reason the record is not in Listos in rule order, and the reasons a person may accept over. | `bandeja_group.py` |
 | `review_flags`, `rnc_registry_status` | The checks on the amounts and numbers, and what the DGII register says of the RNC. | `review_flags.py`; `supplier_registry_read` in `actions/dossier.py` |
+| `amounts_check` | Whether Montos adds up: `adds_up`, `difference` with the amount left over, or `unchecked`. | `amounts_check` in `review_flags.py`, which the `amounts_mismatch` flag also reads |
+| `note_kind` | The note the record is: `credit`, `debit` or null. | `record_note` in `fact_blockers.py`, on the type table in `fiscal_identity.py` that the 606 and 607 checks read |
+| `source_owned_fields` | The declaration fields that always follow their source, so their row is read-only: a purchase's Tipo de ID, and Propina legal. | `source_owned` in `amount_inheritance.py` |
 | `history` | Every saved revision with its before and after. | `business_draft_revisions` |
 | `approval_available`, `approval_action`, `delete_available`, `restore_available` | The actions the caller may take now. | `dossier` |
 
@@ -641,24 +644,42 @@ the link icon when its `inheritance` entry has `inherited` true, and it shows
 the restore button when that entry has `inherited` false. While the fiscal form
 holds an unsaved change, the web asks
 `POST /business/drafts/{id}/amounts-preview` what each linked field would show.
+The same answer carries `dgii_calculated` for that unsaved draft.
 It does not work the value out. The web adds no amounts, compares no years and
 decides no status.
 
+A fiscal row has no pencil when `source_owned_fields` names it. NCF modificado
+shows when `note_kind` is set, and the refund question when it is `credit` on
+a purchase. The Total shows its check on `amounts_check.state` `adds_up`, and
+the difference on `difference`. The Subtotal shows ƒ while `net_amount.source`
+is `calculated`, and the way back to it once the source is `edited`. A
+purchase's Datos fiscales shows Total facturado and ITBIS por adelantar from
+`dgii_calculated`, each with ƒ and no pencil. A sale, whose `dgii_calculated`
+is null, shows neither.
+
+**A sale is the same dossier.** `document_type` `venta` makes the record a
+sale, and the record then declares on the 607. General shows Cliente and the
+Reporte 607 card: Tipo de ingreso, which is `dgii.income_type`, and Forma de
+pago, which is `sale_payment.form` picked from `sale_payment.options`. The
+server writes the pick as the sale's whole payment split, so the web shows one
+form and never an amount for each. The Venta switch in Más shows when
+`document_type_editable` is true, and it sends `document_type` through the
+same review request as every other write. Datos fiscales has no form
+picker: the form is `dgii.form`, or the form of the record's type when no
+declaration is saved.
+
 The web does hold layout. `dossier/fiscal-rows.ts` decides which card a fiscal
-field sits in, the row order, the fields the Datos fiscales tab leaves out, and
-that Tipo de ID has no pencil on a purchase. A field that the server lists and
-that file does not name still shows.
+field sits in, the row order, the card each calculated amount closes, and the
+fields the Datos fiscales tab leaves out. A field that the server lists and
+that file does not name still shows. `dossier/fiscal-field-label.ts` gives a
+fiscal field its one name, which Datos fiscales and Historial both read.
 
-Three known gaps remain between this rule and the code:
-
-- The web does not read `dgii_calculated` yet, so the dossier does not show
-  Total facturado or ITBIS por adelantar.
-- `fiscalNote` in `dossier/fiscal-rows.ts` reads the comprobante type from the
-  number to tell a credit note from a debit note. `dgii_validation.py` owns
-  that rule on the server, and the dossier does not carry its answer.
-- `ReceiptAmounts.tsx` shows the amounts check as passed when the dossier has
-  a total, a subtotal and an ITBIS and carries no `amounts_mismatch` flag. The
-  dossier carries no explicit "adds up" state.
+**The sample states values.** The web's sample data
+(`dossier-fixtures.ts`, `fixture-data.ts`) writes each record's `net_amount`,
+`amounts_check`, `dgii`, `inheritance`, `dgii_calculated`, `bandeja_group`,
+`listo_gaps` and `confirmable` as literal values. It does not copy the server's
+rules for them. A sample write keeps what was sent and moves no linked,
+calculated or standing value. A test that needs one sets the field.
 
 ---
 # 7. Communication Protocols

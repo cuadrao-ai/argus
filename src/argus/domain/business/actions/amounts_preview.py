@@ -23,6 +23,7 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     FiscalInput,
     FiscalReview,
+    PurchaseCalculated,
     PurchaseReview,
 )
 from argus.domain.business.contracts.facts import (
@@ -32,6 +33,7 @@ from argus.domain.business.contracts.facts import (
     InheritedValue,
     MontosReview,
 )
+from argus.domain.business.dgii_validation import purchase_calculated
 from argus.domain.business.document_type import direction
 from argus.domain.business.purchase_review import apply_purchase, net_amount
 from argus.domain.business.review_flags import review_flags
@@ -53,15 +55,15 @@ def _fixed(linked: LinkedSources) -> DraftSources:
     return DraftSources(review=lambda *_: linked, stored=lambda *_: linked)
 
 
-def previewed_links(
+def previewed_declaration(
     resolution: BusinessResolution,
     request: AmountsPreviewRequest,
     after: BusinessFacts,
     sources: DraftSources,
-) -> dict[str, InheritedValue]:
-    """The links the dossier shows once the request's draft is saved: the
-    write and save a revision runs, read as the dossier reads it. It saves
-    nothing."""
+) -> tuple[dict[str, InheritedValue], PurchaseCalculated | None]:
+    """The links and the calculated 606 amounts the dossier shows once the
+    request's draft is saved: the write and save a revision runs, read as the
+    dossier reads it. It saves nothing."""
 
     before = resolution.facts
     previous = resolution.fiscal_overrides
@@ -92,7 +94,8 @@ def previewed_links(
     )
     bill_mark = None if venta else resolution.bill_mark
     shown = sources.review(after, saved)
-    return inheritance_state(after, written_from(after, saved, overrides, bill_mark, shown), overrides, shown)
+    declaration = written_from(after, saved, overrides, bill_mark, shown)
+    return inheritance_state(after, declaration, overrides, shown), purchase_calculated(after, declaration, overrides)
 
 
 def preview_amounts(resolution: BusinessResolution, request: AmountsPreviewRequest, linked: LinkedSources = NO_SOURCES, sources: DraftSources | None = None) -> AmountsPreview:
@@ -112,8 +115,10 @@ def preview_amounts(resolution: BusinessResolution, request: AmountsPreviewReque
     if request.net_amount is not None or request.legal_tip is not None:
         after = reviewed_amount_facts(after, MontosReview(net_amount=request.net_amount, legal_tip=request.legal_tip), source_ids, origin="member_set")
     declaration = inherit_amounts(after, declaration, overrides, linked)
+    inheritance, calculated = previewed_declaration(resolution, request, after, sources or _fixed(linked))
     return AmountsPreview(
         net_amount=net_amount(after, declaration),
         mismatch=next((flag for flag in review_flags(after, declaration=declaration) if flag.code == "amounts_mismatch"), None),
-        inheritance=previewed_links(resolution, request, after, sources or _fixed(linked)),
+        inheritance=inheritance,
+        dgii_calculated=calculated,
     )

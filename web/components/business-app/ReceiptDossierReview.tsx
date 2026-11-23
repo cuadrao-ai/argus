@@ -178,7 +178,6 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     pendingFiscalEdits.current = dirty;
     setFiscalDirty(dirty);
   }, []);
-  const [fiscalSaved, setFiscalSaved] = useState<{ dossier: BusinessDossier; row: string } | null>(null);
   const [duplicate, setDuplicate] = useState<{ recordId: string | null } | null>(null);
   const [highlight, setHighlight] = useState<string[]>([]);
   const [approvalCheck, setApprovalCheck] = useState<ApprovalCheck | null>(null);
@@ -357,8 +356,9 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   };
 
   const approveAndNext = async (request: ApprovalSend) => {
-    if (!receipt) return;
-    const seen = reviewList?.receiptIds.map(id => ({ id })) ?? records.inbox;
+    // Only a record opened from a list moves on: the list is where the next one comes from.
+    if (!receipt || !reviewList) return;
+    const seen = reviewList.receiptIds.map(id => ({ id }));
     setAdvancing(true);
     try {
       const approved = await approveRecord(request);
@@ -366,8 +366,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       const fresh = await source.receipts("inbox").catch(() => null);
       if (!pageOpen.current) return;
       const freshById = new Map(fresh?.map(item => [item.id, item]));
-      const ordered = reviewList?.receiptIds.flatMap(id => freshById.get(id) ?? []) ?? fresh;
-      const next = ordered ? nextBandejaReceipt(receipt.id, seen, ordered) : null;
+      const next = nextBandejaReceipt(receipt.id, seen, reviewList.receiptIds.flatMap(id => freshById.get(id) ?? []));
       if (next) openReceipt(next);
       else if (fresh && !bandejaReceipts(fresh).some((item) => item.id !== receipt.id)) setFinished(true);
       else openPanel({ kind: "inbox" });
@@ -468,13 +467,15 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     : null;
   const reviewNote = readReviewNote(dossier.review_note);
   const reasonId = `approve-reason-${dossier.draft_id}`;
-  const approvalLabel = dossier.approval_action === "record_income" ? t("business.dgii.approve_income", "Approve income") : dossier.approval_action === "record_refund" ? t("business.dgii.approve_refund", "Approve refund") : t("business.dossier.approve_action", "Approve expense");
+  const approvalLabel = t("business.dossier.approve_action");
 
   const canMove = settled && !autosave.busy && !advancing && !settling;
   const moves = canMove && receipt ? receiptNavigationActions(receipt.id, receiptIds, openReceipt) : {};
   const position = receipt ? receiptPlace(receipt.id, receiptIds) : null;
-  // The last document of a run has one verb. A receipt opened with no list still offers the next one waiting in the Bandeja.
-  const lastInList = position ? position.index >= position.total : !receipt;
+  // "Aceptar y siguiente" needs a next one: the last document of a run, and a record opened with no list, have the one verb.
+  const hasNext = position !== null && position.index < position.total;
+  // Accepting the last of a run leaves the run; with no list there is nowhere to move on to, so the record stays open.
+  const leavesRun = Boolean(receipt && reviewList);
   const firstSource = primarySources[0];
   const fiscalFacts = dossier.facts.fiscal;
   const fiscalEdit: Record<"rnc" | "fiscal_number" | "itbis", { name: "rnc" | "ncf" | "itbis"; value: string }> = {
@@ -502,7 +503,6 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     return {
       open: Boolean(open),
       saving,
-      saved: save?.state === "saved",
       locked: save?.state === "failed" && save.unknown,
       onOpen: mayEdit(row) && mutable ? () => rows.open(row) : undefined,
       disabled: !mayEdit(row) || !mutable,
@@ -533,7 +533,6 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const choicePick = (choice: ReportChoice): ChoicePick => ({
     onPick: (value) => void autosave.save(choice, choice === "income_type" ? { write: "income_type", incomeType: value } : choice === "sale_payment" ? { write: "sale_payment", form: value } : { write: "purchase", purchase: { [choice]: value } }),
     saving: autosave.saves[choice]?.state === "saving",
-    saved: autosave.saves[choice]?.state === "saved",
     disabled: !mayEdit(choice) || !mutable,
   });
   const failedSave = (row: ReviewRow) => { const save = autosave.saves[row]; return save?.state === "failed" ? save : undefined; };
@@ -588,7 +587,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const accepting = <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</>;
   return (<><ContentFade><>
     <ReceiptShortcutRegistration actions={{
-      ...(canApprove && supportedKind && approvable && !Object.keys(rows.rows).length ? { approve: () => requestApproval(), ...(receipt ? { approve_next: () => requestApproval(true) } : {}) } : {}),
+      ...(canApprove && supportedKind && approvable && !Object.keys(rows.rows).length ? { approve: () => requestApproval(), approve_next: () => requestApproval(leavesRun) } : {}),
       ...moves,
       ...(mutable && READ_FACT_ROWS.some(mayEdit) ? { edit: () => {
         const focused = document.activeElement?.closest<HTMLElement>("[data-fact]")?.dataset.fact;
@@ -622,12 +621,12 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           >
             <ReceiptRecordFacts dossier={dossier} accounts={accounts} problems={problems} flash={flash} choices={choicesView ? <ReceiptOwnerChoices {...choicesView} pick={choicePick} note={choiceNote} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} edit={rowEdit("document_type")} note={rowNote("document_type")} /> : undefined} review={{
               amountsPreview,
+              restoreSubtotal: mayEdit("net_amount") && mutable ? () => void autosave.save("net_amount", { write: "montos", montos: { net_amount: { state: "unknown", value: null } } }) : undefined,
               edit: rowEdit,
               note: rowNote,
               noReceipt: {
                 onMark: mayEdit("receipt_state") && mutable ? (marked) => void autosave.save("receipt_state", { write: "facts", facts: { receipt_state: marked ? { state: "known", value: "no_receipt" } : { state: "unknown", value: null } } }) : undefined,
                 busy: autosave.busy,
-                saved: autosave.saves.receipt_state?.state === "saved",
                 note: <ReceiptRowSave save={failedSave("receipt_state")} onRetry={() => void autosave.retry("receipt_state")} onCancel={() => autosave.clear("receipt_state")} />,
               },
             }} />
@@ -635,11 +634,11 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
         </> },
-        { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen || markBusy || settling || deletion.busy} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} onBusy={setFiscalBusy} onDirty={trackFiscalEdits} savedRow={fiscalSaved?.dossier === dossier ? fiscalSaved.row : null} onChanged={(value, row) => { setFiscalSaved({ dossier: value, row }); setDossier(value); reload(); }} /> },
+        { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen || markBusy || settling || deletion.busy} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} onBusy={setFiscalBusy} onDirty={trackFiscalEdits} onChanged={(value) => { setDossier(value); reload(); }} /> },
         { key: "detalles", content: <DossierDetails entryVisit={entry.visit} origin={cameFrom} dossier={dossier} detailsCard={detailsCard} selectedSupportingSourceId={viewed?.source_id} receiptLimits={records.workspace?.receipt_limits} busy={annotations.busy || annotationBlocked}
           onSaveNote={annotations.onSaveNote} onNoteDirty={setNoteDirty} onAppend={annotations.onAppend} onUnlink={removeFile} onRestore={annotations.onRestore}
           onViewFile={canViewFile ? sourceId => { pickFile(sourceId); if (!tray || tray.narrow) setTab("documento"); } : undefined} /> },
-        { key: "historial", content: <ReceiptHistory supportingFiles={files} documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} dgiiFields={fields} /> },
+        { key: "historial", content: <ReceiptHistory supportingFiles={files} documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} dgiiFields={fields} salePaymentForms={dossier.sale_payment?.options} /> },
       ]}
       document={
         <DossierDocument
@@ -670,11 +669,11 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           ]} />}
         actions={<>
           {dossier.restore_available ? <RestoreDocumentButton id={draftId} onRestored={() => void refresh()} target={receipt ? { kind: "receipt", receiptId: receipt.id, list: "inbox" } : { kind: "draft", draftId, list: "inbox" }} /> : null}
-          {!recorded && canApprove ? receipt && !lastInList ? <>
+          {!recorded && canApprove ? hasNext ? <>
             <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${secondaryButtonClass} whitespace-nowrap`} aria-describedby={acceptAria} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? accepting : approvalLabel}</button>
             <button type="button" data-review-primary="" aria-busy={operation.kind === "approving" && advancing} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={acceptAria} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? accepting : t("business.dossier.approve_next", "Approve and next")}</button>
           </> : (
-            <button type="button" data-review-primary="" aria-busy={operation.kind === "approving"} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={acceptAria} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(Boolean(receipt))}>{operation.kind === "approving" ? accepting : approvalLabel}</button>
+            <button type="button" data-review-primary="" aria-busy={operation.kind === "approving"} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={acceptAria} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(leavesRun)}>{operation.kind === "approving" ? accepting : approvalLabel}</button>
           ) : null}
         </>}
       />}

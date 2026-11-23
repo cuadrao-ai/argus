@@ -24,10 +24,11 @@ export function useAmountsPreview(dossier: BusinessDossier | null, rows: ReturnT
   const active = Object.keys(input).length > 0;
   const preview = usePreview(ask, dossier, active ? input : null, invalid);
   if (!active) return undefined;
-  const mismatch = dossier?.review_flags?.find((flag) => flag.code === "amounts_mismatch");
+  // Until the server answers this draft, the saved record's own check stands.
+  const saved = dossier?.amounts_check;
   const value: Pick<BusinessAmountsPreview, "net_amount" | "mismatch"> = preview.current ?? {
     net_amount: dossier?.net_amount ?? { amount: null, source: null },
-    mismatch: mismatch?.difference != null ? { code: "amounts_mismatch", difference: mismatch.difference } : null,
+    mismatch: saved?.state === "difference" ? { code: "amounts_mismatch", difference: saved.difference } : null,
   };
   return { ...value, status: preview.status };
 }

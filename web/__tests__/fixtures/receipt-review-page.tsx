@@ -90,6 +90,9 @@ export async function mount(overrides: (fixture: BusinessDataSource) => Partial<
   return { act, root, host, wait, open, frame, source, i18n, api: () => api!, runShortcut };
 }
 
+/** A row whose save landed: back in read mode, with nothing working. A row says nothing more about a save. */
+export const landed = (row: Element) => !row.querySelector('[data-row-open], [aria-busy="true"], [data-testid="row-saving"]');
+
 export function button(host: Element, text: string) {
   const found = [...host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === text);
   assert.ok(found, `missing button ${text}`);
@@ -113,7 +116,8 @@ export async function setup(id: keyof typeof import("@/components/business-app/d
   }));
   await page.open({ kind: "draft", draftId: dossierFixtureIds[id] }, () => Boolean(page.host.querySelector('[data-testid="receipt-current-facts"]') && page.host.querySelector('[data-testid="fiscal-declaration"]')));
   const row = (name: string) => page.host.querySelector<HTMLElement>(`[data-fact="${name}"]`)!;
-  const open = async (name: string) => page.act(async () => row(name).querySelector<HTMLButtonElement>("button")!.click());
+  // A row opens from its value. The status slot before it can hold a button of its own.
+  const open = async (name: string) => page.act(async () => (row(name).querySelector<HTMLButtonElement>("button[data-row-value]") ?? row(name).querySelector<HTMLButtonElement>("button"))!.click());
   const leave = (selector: string) => page.act(async () => { page.host.querySelector<HTMLElement>(selector)!.blur(); await new Promise((resolve) => setTimeout(resolve, 10)); });
   const action = (name: string, label: "Guardar" | "Cancelar") => row(name).querySelector<HTMLButtonElement>(`button[aria-label^="${label} · "]`)!;
   const check = (name: string) => page.act(async () => action(name, "Guardar").click());
