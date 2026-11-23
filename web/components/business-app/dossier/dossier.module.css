@@ -137,7 +137,7 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 .currency[aria-expanded="true"] { border-color:var(--d-green); }
 /* The currency's list hangs under its button, at the card's right edge. */
 .currencyHost { position:relative; }
-.currencyHost .list { left:auto; right:0; top:calc(100% + 4px); width:240px; max-width:calc(100vw - 32px); }
+.currencyHost .list { left:auto; right:0; top:calc(100% + 4px); width:max-content; min-width:200px; max-width:calc(100vw - 32px); }
 .currency[data-missing="true"] { color:var(--d-warn-ink); border-color:var(--d-warn-bg); background:var(--d-warn-bg); }
 .link { min-height:40px; padding:0 10px; margin-right:-6px; border:0; border-radius:var(--radius-item); background:transparent; font:inherit; font-size:13.5px; font-weight:600; color:var(--d-green); cursor:pointer; }
 .link:hover { background:var(--d-hover); }
