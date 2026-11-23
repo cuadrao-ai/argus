@@ -16,6 +16,7 @@ import { latestNoteChange } from "./annotation-history";
 import { DossierCard } from "./DossierParts";
 import styles from "./dossier.module.css";
 import annotation from "./annotations.module.css";
+import pointer from "@/components/sidebar/pointerAffordances.module.css";
 
 export type DossierAnnotationsProps = {
   busy?: boolean;
@@ -129,9 +130,9 @@ export function DossierNoteCard({ busy, dossier, detailsCard, onSaveNote }: Pick
             </div> : null}
           </div>
         ) : (
-          <div className={annotation.noteRead}>
+          <div className={`group ${annotation.noteRead}`}>
             <p className={note ? annotation.noteText : annotation.empty}>{note || t("business.dossier.note.empty")}</p>
-            {canEdit ? <button ref={pencil} type="button" className={styles.pen} aria-label={t("business.dossier.note.edit")} disabled={busy} onClick={() => setEditor({ text: note, state: "ready" })}><Pencil size={16} aria-hidden="true" /></button> : null}
+            {canEdit ? <span className={pointer.rowActions}><button ref={pencil} type="button" className={styles.pen} aria-label={t("business.dossier.note.edit")} disabled={busy} onClick={() => setEditor({ text: note, state: "ready" })}><Pencil size={16} aria-hidden="true" /></button></span> : null}
           </div>
         )}
       </div>
@@ -191,11 +192,11 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, receiptLimit
           const name = file.filename ?? t("business.dossier.row.no_data");
           const selected = selectedSupportingSourceId === file.source_id;
           return (
-            <li key={file.source_id} className={`rounded-item ${annotation.supportFile}`} data-selected={selected || undefined}>
+            <li key={file.source_id} className={`group rounded-item ${annotation.supportFile}`} data-selected={selected || undefined}>
               <File size={16} className={styles.icon} aria-hidden="true" />
               <span className={annotation.filename} title={name}>{name}</span>
               {file.size_bytes != null ? <span className={annotation.status}>{dossierFileSize(file.size_bytes, locale)}</span> : null}
-              <span className={annotation.fileActions}>
+              <span className={`${annotation.fileActions} ${pointer.rowActions}`}>
                 {onViewFile ? <button type="button" className={styles.pen} title={t("business.dossier.supporting.view")} aria-label={t("business.dossier.supporting.view_named", { name })} aria-pressed={selected} onClick={() => onViewFile(file.source_id)}><Eye size={16} aria-hidden="true" /></button> : null}
                 {file.unlink_available && onUnlink ? <button type="button" className={styles.pen} title={t("business.dossier.supporting.unlink")} aria-label={t("business.dossier.supporting.unlink_named", { name })} disabled={pending || busy} onClick={() => void mutate(() => onUnlink(file.source_id))}><Unlink size={16} aria-hidden="true" /></button> : null}
               </span>

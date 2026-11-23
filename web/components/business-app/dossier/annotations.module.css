@@ -21,14 +21,7 @@
 .fileActions { grid-column:4; }
 .noteRead button { flex:none; }
 .noteRead button:disabled, .fileActions button:disabled { cursor:default; }
-@media (hover:hover) and (pointer:fine) {
-  .noteRead button, .fileActions button { opacity:0; }
-  .noteRead:hover button, .noteRead button:focus-visible,
-  .supportFile:hover .fileActions button, .supportFile:has(:focus-visible) .fileActions button { opacity:1; }
-}
-@media (hover:none), (pointer:coarse) {
-  .noteRead button, .fileActions button { opacity:1; }
-}
+.fileActions button, .noteRead button { opacity:1; }
 .link:disabled, .link:disabled:hover { background:none; color:var(--d-muted); cursor:default; opacity:.65; }
 .restoreRow { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; }
 .restoreRow .error { flex-basis:100%; }
