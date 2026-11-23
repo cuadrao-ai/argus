@@ -2113,6 +2113,15 @@
           "05": "Barter",
           "06": "Credit note",
           "07": "Mixed"
+        },
+        "sale_payment_form": {
+          "cash": "Cash",
+          "bank": "Check, transfer or deposit",
+          "card": "Debit or credit card",
+          "credit": "Sale on credit",
+          "gift": "Gift vouchers or certificates",
+          "barter": "Barter",
+          "other_payment": "Other forms of sale"
         }
       },
       "original_purchase": "Original purchase",
@@ -2864,15 +2873,19 @@
         "add_retention": "Add withholding",
         "add_tax": "Add tax",
         "field": {
+          "billed_amount": "Billed amount",
           "goods_amount": "Goods",
           "id_type": "ID type",
+          "income_withheld_by_third_parties": "Income tax withheld by third parties",
           "itbis": "ITBIS billed",
           "itbis_cost": "ITBIS taken to cost",
           "itbis_proportionality": "ITBIS subject to proportionality",
+          "itbis_withheld_by_third_parties": "ITBIS withheld by third parties",
           "modified_ncf": "Modified NCF",
           "other_taxes": "Other taxes/fees",
           "paid_on": "Payment date",
-          "services_amount": "Services"
+          "services_amount": "Services",
+          "withheld_on": "Withholding date"
         },
         "no_other_taxes": "No other taxes.",
         "no_retentions": "No withholdings.",
@@ -3105,6 +3118,8 @@
       },
       "placeholder": {
         "expense_type": "Expense type",
+        "income_type": "Income type",
+        "type_clears_sale_choices": "Changing the type clears the income type and payment form.",
         "gap": {
           "blocked": {
             "title": "Something is pending",
@@ -4828,6 +4843,7 @@
       "mark_failed": "We could not save the change. Try again.",
       "question_606": "Include in 606?",
       "include_606": "Include in the 606",
+      "include_607": "Include in the 607",
       "yes": "Yes",
       "no": "No",
       "pending_606": "Waiting for the accountant",
@@ -4837,6 +4853,11 @@
       "excluded_606_by": "Left out of the 606 by {{name}}",
       "decide_failed": "We could not save the answer. Try again.",
       "personal_help": "It does not count in the Business totals.",
+      "mark_sale": "Sale",
+      "sale_help_off": "Move it to Report 607.",
+      "sale_help_on": "It goes to Report 607.",
+      "marked_sale": "Now it is a sale. It goes to Report 607.",
+      "marked_purchase": "Now it is a purchase. It goes to Report 606.",
       "sin_comprobante_chip": "No comprobante",
       "missing_ncf_chip": "NCF missing"
     }

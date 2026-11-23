@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ReceiptText, UserRound } from "lucide-react";
+import { ArrowRightLeft, ReceiptText, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import type { BusinessDossier } from "@/lib/business-dossier";
@@ -9,7 +9,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import { primaryButtonClass, quietButtonClass, RecordMarks, recordFiscalMark, secondaryButtonClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { dismissToast, showToast } from "./foundation/toasts";
-import { MenuCheckItem } from "./ReceiptReviewFooter";
+import { MenuCheckItem, useCloseMoreMenu } from "./ReceiptReviewFooter";
 import { Switch } from "@/components/ui/Switch";
 
 /**
@@ -19,10 +19,12 @@ import { Switch } from "@/components/ui/Switch";
  * someone else's mark in one tap; a prepare-holder who is not the owner
  * answers whether a personal receipt with a fiscal number goes into the 606,
  * when the server says the caller may. The owner reads that answer; the app never gives it.
+ * In Más a third switch says whether the record is a sale, when the server allows that change.
  */
-export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, onChanged, bare = false }: { dossier: BusinessDossier; busy?: boolean; onBusyChange?: (busy: boolean) => void; onChanged: (next: BusinessDossier) => void; /** As rows of the footer's Más menu: a switch per decision, the 606 only under Personal, no chips and no words for an open answer. */ bare?: boolean }) {
+export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, onChanged, bare = false, retype }: { dossier: BusinessDossier; busy?: boolean; onBusyChange?: (busy: boolean) => void; onChanged: (next: BusinessDossier) => void; /** As rows of the footer's Más menu: a switch per decision, the 606 only under Personal, no chips and no words for an open answer. */ bare?: boolean; /** The Venta switch of Más, for a record whose type the server lets this person change. `confirm` answers whether the change goes ahead. */ retype?: { confirm: () => Promise<boolean> } }) {
   const { t } = useTranslation();
   const { source, chosen, reload } = useBusiness();
+  const closeMenu = useCloseMoreMenu();
   const [undoToast, setUndoToast] = useState<number | null>(null);
   useEffect(() => {
     if (busy && undoToast !== null) dismissToast(undoToast);
@@ -104,12 +106,35 @@ export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, 
         throw error;
       }
     };
+    const sale = dossier.document_type === "venta";
+    // The type changes through the one command that owns it; Deshacer sends the other type on the revision this change left.
+    const markSale = async (next: boolean) => {
+      setProblem(null);
+      if (!retype || !(await retype.confirm())) return;
+      const failed = t("business.marks.mark_failed", "We could not save the change. Try again.");
+      const type = (on: boolean) => on ? "venta" as const : "recibo" as const;
+      try {
+        const typed = await source.setDocumentType(dossier.draft_id, dossier.version, type(next), crypto.randomUUID());
+        onChanged(typed);
+        reload();
+        closeMenu();
+        setUndoToast(showToast({
+          kind: "success",
+          text: next ? t("business.marks.marked_sale") : t("business.marks.marked_purchase"),
+          action: { label: t("business.marks.undo", "Undo"), run: () => void run(() => source.setDocumentType(dossier.draft_id, typed.version, type(!next), crypto.randomUUID()), failed) },
+        }));
+      } catch (error) {
+        fail(failed, () => void once(markSale)(next).catch(() => undefined));
+        throw error;
+      }
+    };
     return (
       <>
         <MenuCheckItem icon={UserRound} testId="receipt-mark-personal" label={t("business.marks.mark_personal", "Personal")} hint={t("business.marks.personal_help", "It does not count in the Business totals.")} checked={personal} disabled={disabled || !canPrepare} onChange={once(markPersonal)} />
         {personal && dossier.fiscal_question_applies === true ? (
-          <MenuCheckItem icon={ReceiptText} testId="receipt-606" label={t("business.marks.include_606", "Include in the 606")} checked={inclusion === true} disabled={disabled || !canPrepare || !dossier.fiscal_inclusion_available} onChange={once(decide606)} />
+          <MenuCheckItem icon={ReceiptText} testId="receipt-606" label={sale ? t("business.marks.include_607") : t("business.marks.include_606", "Include in the 606")} checked={inclusion === true} disabled={disabled || !canPrepare || !dossier.fiscal_inclusion_available} onChange={once(decide606)} />
         ) : null}
+        {retype ? <MenuCheckItem icon={ArrowRightLeft} testId="receipt-mark-sale" label={t("business.marks.mark_sale")} hint={sale ? t("business.marks.sale_help_on") : t("business.marks.sale_help_off")} checked={sale} disabled={disabled} onChange={once(markSale)} /> : null}
         {problemLine}
       </>
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronDown, Ellipsis, Info, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SwitchIndicator, useOptimisticToggle } from "@/components/ui/Switch";
@@ -41,6 +41,10 @@ export function MenuCheckItem({ icon: Icon, label, hint, checked, onChange, disa
   );
 }
 
+const CloseMenu = createContext<() => void>(() => undefined);
+/** Closes Más from one of its rows: a change that moves the whole form says so in a toast, with the menu out of the way. */
+export const useCloseMoreMenu = () => useContext(CloseMenu);
+
 /** Arrow keys, Home and End walk the rows that can be used; the walk wraps. */
 function walkRows(event: KeyboardEvent<HTMLDivElement>) {
   const rows = [...event.currentTarget.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)')];
@@ -78,8 +82,9 @@ export function ReceiptMoreMenu({ groups }: { groups: ReactNode[] }) {
     return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
   const shown = groups.filter(Boolean);
+  const close = () => { setOpen(false); trigger.current?.focus(); };
   return (
-    <div
+    <CloseMenu.Provider value={close}><div
       ref={host}
       className="mr-auto tablet:relative"
       data-testid="receipt-more"
@@ -87,8 +92,7 @@ export function ReceiptMoreMenu({ groups }: { groups: ReactNode[] }) {
         if (event.key !== "Escape" || !open) return;
         // The menu closes first; the dossier's own Escape waits for the next press.
         event.preventDefault();
-        setOpen(false);
-        trigger.current?.focus();
+        close();
       }}
     >
       <button ref={trigger} type="button" aria-haspopup="menu" aria-expanded={open} aria-controls="receipt-more-panel" onClick={() => setOpen((value) => !value)} className={`${secondaryButtonClass} whitespace-nowrap max-tablet:px-3`}>
@@ -99,7 +103,7 @@ export function ReceiptMoreMenu({ groups }: { groups: ReactNode[] }) {
       <div ref={panel} id="receipt-more-panel" role="menu" aria-label={t("common.more", "More")} hidden={!open} onKeyDown={walkRows} className="absolute inset-x-0 bottom-full z-20 mb-2 tablet:right-auto tablet:w-[22rem] rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-1.5 shadow-[0_8px_28px_rgba(23,43,38,0.14)] dark:border-white/10 dark:bg-[#1f2225]">
         {shown.map((group, index) => <Fragment key={index}>{index ? <div role="separator" className="my-1.5 h-px bg-[#DCE0DA] dark:bg-white/10" /> : null}{group}</Fragment>)}
       </div>
-    </div>
+    </div></CloseMenu.Provider>
   );
 }
 

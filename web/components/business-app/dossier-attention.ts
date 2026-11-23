@@ -68,7 +68,8 @@ export function dossierRowLabel(t: TFunction, row: SaveRow | "ncf" | "ecf", doss
     case "currency": return t("business.dossier.field.currency");
     case "document_type": return t("business.dossier.type_label");
     case "category": return t("business.dossier.placeholder.expense_type");
-    case "payment_method": return t("business.dossier.placeholder.payment_form");
+    case "payment_method": case "sale_payment": return t("business.dossier.placeholder.payment_form");
+    case "income_type": return t("business.dossier.placeholder.income_type");
     default: return factLabel(t, row, documentFamily(dossier?.document_type));
   }
 }

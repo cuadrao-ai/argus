@@ -187,13 +187,17 @@ test("a regular purchase hides NCF modificado and the refund question whatever i
   }
 });
 
-test("a sale shows every field of its form, with nothing folded", async () => {
-  const fields = await serverFields();
-  const view = await mountEditor({ fields, dossier: sale });
+test("a sale shows its own agreed rows, folds like a purchase, and leaves the payment buckets to General's pick", async () => {
+  const paid = (dossier: BusinessDossier): BusinessDossier => ({ ...sale(dossier), sale_payment: { form: null, options: ["cash", "bank", "card", "credit", "gift", "barter", "other_payment"] } });
+  const view = await mountEditor({ fields: await serverFields(), dossier: paid });
   try {
-    const shown = [...view.host.querySelectorAll<HTMLElement>("ul:not([hidden]) > [data-field]")].map((row) => row.dataset.field);
-    assert.deepEqual(shown.toSorted(), fields["607"].map((field) => field.name).filter((name) => !["rnc", "ncf"].includes(name)).toSorted());
-    assert.equal(view.host.querySelector("button[aria-expanded]"), null);
+    assert.deepEqual(cards(view.host), [
+      { title: "Reporte 607", rows: ["Tipo de ID"], line: null, add: null },
+      { title: "Monto facturado", rows: ["Monto facturado"], line: null, add: null },
+      { title: "ITBIS", rows: ["ITBIS facturado"], line: null, add: null },
+      { title: "Retenciones", rows: [], line: "Sin retenciones.", add: "Agregar retención" },
+      { title: "Otros impuestos", rows: [], line: "Sin otros impuestos.", add: "Agregar impuesto" },
+    ]);
     assert.equal(view.host.querySelector('[data-fact="actual_refund"]'), null);
   } finally { await view.dispose(); }
 });

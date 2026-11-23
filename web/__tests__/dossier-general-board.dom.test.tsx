@@ -54,10 +54,11 @@ describe("Compra or Venta on the General tab", () => {
     } finally { await page.close(); }
   });
 
-  test("a sale keeps its Tipo row", async () => {
+  test("a clean sale has no Tipo row either: the Venta switch of Más says it", async () => {
     const page = await setup("fiscal", (dossier) => { dossier.document_type = "venta"; });
     try {
-      assert.match(page.row("document_type").textContent ?? "", /Tipo\s*Venta/);
+      assert.equal(page.host.querySelector('[data-fact="document_type"]'), null);
+      assert.equal(page.host.querySelector('[data-testid="receipt-mark-sale"]')?.getAttribute("aria-checked"), "true");
     } finally { await page.close(); }
   });
 });

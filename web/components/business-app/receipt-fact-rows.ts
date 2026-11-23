@@ -96,7 +96,9 @@ export const PAYMENT_FIELDS: readonly BusinessFactField[] = ["funding"];
 /** The fiscal rows of an open draft: the NCF and the e-CF are one number there. */
 export type FiscalRow = "rnc" | "fiscal_number" | "itbis";
 /** The rows a person edits in place. `amount` holds the total and its currency. */
-export type ReviewRow = BusinessFactField | FiscalRow | "document_type" | SuggestedField;
+export type ReviewRow = BusinessFactField | FiscalRow | "document_type" | SuggestedField | SaleChoice;
+/** The 607 answers a person picks on a sale: the type of income and the one payment form. */
+export type SaleChoice = "income_type" | "sale_payment";
 export type DocumentType = NonNullable<BusinessDossier["document_type"]>;
 /** Compra then Venta, each by its intake word. */
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = { recibo: "business.intake.type_recibo", venta: "business.intake.type_venta" };

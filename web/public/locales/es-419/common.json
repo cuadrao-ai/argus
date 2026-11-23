@@ -2113,6 +2113,15 @@
           "05": "Permuta",
           "06": "Nota de crédito",
           "07": "Mixto"
+        },
+        "sale_payment_form": {
+          "cash": "Efectivo",
+          "bank": "Cheque, transferencia o depósito",
+          "card": "Tarjeta de débito o crédito",
+          "credit": "Venta a crédito",
+          "gift": "Bonos o certificados de regalo",
+          "barter": "Permuta",
+          "other_payment": "Otras formas de venta"
         }
       },
       "original_purchase": "Compra original",
@@ -2864,15 +2873,19 @@
         "add_retention": "Agregar retención",
         "add_tax": "Agregar impuesto",
         "field": {
+          "billed_amount": "Monto facturado",
           "goods_amount": "Bienes",
           "id_type": "Tipo de ID",
+          "income_withheld_by_third_parties": "Retención de renta por terceros",
           "itbis": "ITBIS facturado",
           "itbis_cost": "ITBIS llevado al costo",
           "itbis_proportionality": "ITBIS sujeto a proporcionalidad",
+          "itbis_withheld_by_third_parties": "ITBIS retenido por terceros",
           "modified_ncf": "NCF modificado",
           "other_taxes": "Otros Impuestos/Tasas",
           "paid_on": "Fecha de pago",
-          "services_amount": "Servicios"
+          "services_amount": "Servicios",
+          "withheld_on": "Fecha de retención"
         },
         "no_other_taxes": "Sin otros impuestos.",
         "no_retentions": "Sin retenciones.",
@@ -3105,6 +3118,8 @@
       },
       "placeholder": {
         "expense_type": "Tipo de gasto",
+        "income_type": "Tipo de ingreso",
+        "type_clears_sale_choices": "Cambiar el tipo borra el tipo de ingreso y la forma de pago.",
         "gap": {
           "blocked": {
             "title": "Tiene algo pendiente",
@@ -4828,6 +4843,7 @@
       "mark_failed": "No pudimos guardar el cambio. Inténtalo de nuevo.",
       "question_606": "¿Incluir en 606?",
       "include_606": "Incluir en el 606",
+      "include_607": "Incluir en el 607",
       "yes": "Sí",
       "no": "No",
       "pending_606": "Pendiente del contador",
@@ -4837,6 +4853,11 @@
       "excluded_606_by": "Fuera del 606 por {{name}}",
       "decide_failed": "No pudimos guardar la respuesta. Inténtalo de nuevo.",
       "personal_help": "No cuenta en los totales del negocio.",
+      "mark_sale": "Venta",
+      "sale_help_off": "Pásalo al Reporte 607.",
+      "sale_help_on": "Va al Reporte 607.",
+      "marked_sale": "Ahora es una venta. Va al Reporte 607.",
+      "marked_purchase": "Ahora es una compra. Va al Reporte 606.",
       "sin_comprobante_chip": "Sin comprobante",
       "missing_ncf_chip": "Falta NCF"
     }

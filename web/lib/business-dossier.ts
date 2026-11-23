@@ -1,5 +1,5 @@
 import type { BandejaGroup, BusinessAccount, DocumentDeleteAccess, ReceiptAttention } from "./business-api";
-import type { DgiiDeclaration, SuggestedField, SuggestionSource } from "./business-dgii";
+import type { DgiiDeclaration, SalePayment, SuggestedField, SuggestionSource } from "./business-dgii";
 import type { PersonName, PersonShown } from "./person-name";
 
 export type BusinessFact<T> =
@@ -209,6 +209,10 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   editable_fields?: readonly EditableDossierField[];
   /** The caller may write the general 606 choices for this record. */
   declaration_editable?: boolean;
+  /** The caller may write a sale's 607 answers now. */
+  payment_split_editable?: boolean;
+  /** How a sale was paid, as one pick; null for a record that is not a sale. */
+  sale_payment?: SalePayment | null;
   /** The Business year in which the first source arrived, and whether the issue date is a read whose year is not that year. The server decides both; the date field offers the upload year exactly when `year_to_check` is true. */
   upload_year?: number | null;
   year_to_check?: boolean;
