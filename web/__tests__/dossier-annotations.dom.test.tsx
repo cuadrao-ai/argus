@@ -197,7 +197,8 @@ test("Archivos de respaldo shows the server's current restore offer and deadline
     assert.equal(page.button("Quitar evidencia.pdf"), undefined);
     assert.equal(card()?.querySelector("a[download]"), null);
     const restore = page.button("Restaurar evidencia.pdf");
-    assert.ok(restore?.querySelector("svg.lucide-unlink"));
+    assert.ok(restore);
+    assert.ok(restore.querySelector("svg.lucide-unlink"));
     await page.act(async () => restore.focus());
     await page.click(restore);
     assert.deepEqual(restored, [file.source_id]);
