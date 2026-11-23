@@ -133,9 +133,9 @@ describe("Historial", () => {
     }
   });
 
-  test("names the channel a receipt came in by: Correo and Subido", async () => {
+  test("names the channel a receipt came in by: Correo and Web, never a participle", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
-    for (const [channel, word] of [["email", "Correo"], ["web", "Subido"]] as const) {
+    for (const [channel, word] of [["email", "Correo"], ["web", "Web"]] as const) {
       const sources = [{ id: "s", kind: "attachment", channel, received_at: at(10, 9, 0), connection_id: "c", filename: null, media_type: "application/pdf" }] as BusinessDossier["sources"];
       const page = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources} />);
       assert.equal(page.host.querySelector("li p")?.textContent, `Llegó por ${word}`);
@@ -367,7 +367,7 @@ describe("a fiscal save in Historial", () => {
     const page = await render(<ReceiptHistory history={[save(3, null, declared("607", { income_type: "1", card: "12980.00" }))]} accounts={[]} dgiiFields={fields} documentType="venta" />);
     const [entry] = entries(page.host);
     assert.equal(entry.querySelector("p")?.textContent, "Datos del 607 guardados");
-    assert.deepEqual(changes(entry).map(([name]) => name), ["Tipo de Ingreso", "Tarjeta"]);
+    assert.deepEqual(changes(entry).map(([name]) => name), ["Tipo de ingreso", "Tarjeta de débito o crédito"]);
     await page.close();
   });
 
@@ -408,7 +408,7 @@ describe("a fiscal save in Historial", () => {
     </>, { dgiiNames: true });
     assert.deepEqual(entries(page.host).map((entry) => changes(entry)), [
       [["Tipo de Retención en ISR", null, "02 - Honorarios por servicios"]],
-      [["Tipo Identificación", null, "03 - Pasaporte o ID tributaria"], ["Tipo de Ingreso", null, "01 - Ingresos por operaciones (no financieros)"]],
+      [["Tipo Identificación", null, "03 - Pasaporte o ID tributaria"], ["Tipo de ingreso", null, "01 - Ingresos por operaciones (no financieros)"]],
     ]);
     await page.close();
   });
@@ -438,6 +438,57 @@ describe("a fiscal save in Historial", () => {
     const [entry] = entries(page.host);
     assert.deepEqual(eventLines(entry), ["Leído", "Cuadrao"]);
     await page.close();
+  });
+
+  describe("a 607 save", () => {
+    const forms = ["cash", "bank", "card", "credit", "gift", "barter", "other_payment"];
+    const sale: DgiiFields = { "606": [], "607": [field("income_type", "select", ["1", "2"]), field("billed_amount"), ...forms.map((name) => field(name))] };
+    const shown = async (before: DgiiDeclaration | null, after: DgiiDeclaration) => {
+      const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+      const page = await render(<ReceiptHistory documentType="venta" history={[save(3, before, after)]} accounts={[]} dgiiFields={sale} salePaymentForms={forms} />, { dgiiNames: true });
+      const [entry] = entries(page.host);
+      const lines = entry ? changes(entry) : null;
+      const text = entry?.textContent ?? "";
+      await page.close();
+      return { lines, text };
+    };
+
+    test("Tipo de ingreso and Forma de pago are one line each, named as General names them, with no bucket amount", async () => {
+      const { lines, text } = await shown(
+        declared("607", { income_type: "1", billed_amount: "1000.00", cash: "1000.00", card: null }),
+        declared("607", { income_type: "2", billed_amount: "1000.00", cash: "0.00", card: "1000.00" }),
+      );
+      assert.deepEqual(lines, [
+        ["Tipo de ingreso", "01 - Ingresos por operaciones (no financieros)", "02 - Ingresos financieros"],
+        ["Forma de pago", "Efectivo", "Tarjeta de débito o crédito"],
+      ]);
+      assert.doesNotMatch(text, /1,000\.00|0\.00/);
+    });
+
+    test("a first save names the form the sale was paid by, with nothing to strike", async () => {
+      const { lines } = await shown(null, declared("607", { gift: "250.00" }));
+      assert.deepEqual(lines, [["Forma de pago", null, "Bonos o certificados de regalo"]]);
+    });
+
+    test("a split names each form it holds", async () => {
+      const { lines } = await shown(declared("607", { cash: "1000.00" }), declared("607", { cash: "400.00", other_payment: "600.00" }));
+      assert.deepEqual(lines, [["Forma de pago", "Efectivo", "Efectivo, Otras formas de venta"]]);
+    });
+
+    test("an amount that moved inside the same form is not a change of Forma de pago", async () => {
+      const { lines } = await shown(declared("607", { billed_amount: "1000.00", cash: "1000.00" }), declared("607", { billed_amount: "1200.00", cash: "1200.00" }));
+      assert.deepEqual(lines, [["Monto Facturado", "RD$ 1,000.00", "RD$ 1,200.00"]]);
+    });
+  });
+
+  test("no 607 field name is cut short, in either language", async () => {
+    const i18next = (await import("i18next")).default;
+    for (const lng of ["es-419", "en"]) {
+      const translation = JSON.parse(readFileSync(new URL(`../public/locales/${lng}/common.json`, import.meta.url), "utf8"));
+      const i18n = i18next.createInstance();
+      await i18n.init({ lng, resources: { [lng]: { translation } } });
+      for (const name of Object.keys(translation.business.dgii.field_607)) assert.doesNotMatch(i18n.t(`business.dgii.field_607.${name}`), /…|\.\.\.|·/, `${lng} ${name}`);
+    }
   });
 
   test("the card never says 606 / 607 and has no field dump", async () => {
