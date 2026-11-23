@@ -57,6 +57,8 @@ test("the small switch draws its off track with the segment border token", async
   const off = page.host.querySelector('[data-switch-indicator="off"]') as HTMLElement;
   const on = page.host.querySelector('[data-switch-indicator="on"]') as HTMLElement;
   assert.ok(off.classList.contains("bg-[var(--segment-thumb-border)]"), off.className);
+  // A white knob needs 3:1 on the dark off track too: #7d8a84 gives 4.4:1 to the dark menu and 3.6:1 to the knob.
+  assert.ok(off.classList.contains("dark:bg-[#7d8a84]"), off.className);
   assert.doesNotMatch(off.className, /bg-\[#c9cec9\]|bg-white\/20/);
   assert.ok(on.classList.contains("bg-[#2f5a49]") && on.classList.contains("dark:bg-[#8fcbb0]"), "on keeps its green");
   assert.ok(!on.classList.contains("bg-[var(--segment-thumb-border)]"));
