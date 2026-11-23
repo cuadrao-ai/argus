@@ -430,7 +430,7 @@ export function createFixtureBusinessDataSource(
       ncf: item.fiscal_value ? `B01${item.id.length.toString().padStart(8, "0")}` : null,
       itbis: item.evidence?.tax ?? null,
     };
-    return { ...item, draft_id: createReceiptDraft(item, fiscal, confirmableGap) };
+    return { ...item, draft_id: createReceiptDraft(item, { fiscal, confirmable: confirmableGap }) };
   });
   if (inbox !== "empty") void dossierSource.captureNote({ text: "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger los materiales del negocio." }, "sample-note");
   let expenses = seedExpenses();
@@ -706,7 +706,7 @@ export function createFixtureBusinessDataSource(
         version: current.version + 1,
         missing_fields: missing(merged),
       };
-      return served(replace({ ...reviewed, draft_id: createReceiptDraft(reviewed) }));
+      return served(replace({ ...reviewed, draft_id: createReceiptDraft(reviewed, { by: "person" }) }));
     },
     confirmReceipt: async (id, version) => {
       await delay(400);
