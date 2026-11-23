@@ -59,7 +59,7 @@ test("only a calculated subtotal gets the formula mark; no tip has the shorter f
   assert.equal(host.querySelector('[data-testid="row-status-net_amount"]'), null);
 });
 for (const language of ["es-419", "en"]) test(`${language} puts the warning on Total, and the server's difference is its words`, async () => {
-  const base = await dossier(); base.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "1.23" }];
+  const base = await dossier(); base.amounts_check = { state: "difference", difference: "1.23" };
   const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />, language);
   const warnings = host.querySelectorAll('[data-status="warn"]');
   assert.equal(warnings.length, 1);
@@ -69,7 +69,7 @@ for (const language of ["es-419", "en"]) test(`${language} puts the warning on T
   assert.equal(warnings[0].closest("[data-fact]")?.firstElementChild?.textContent, "Total");
 });
 test("Total carries the check when the server found the saved amounts add up, in the reader's language", async () => {
-  const base = await dossier(); base.review_flags = [];
+  const base = await dossier(); base.amounts_check = { state: "adds_up" };
   let host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />);
   const check = host.querySelector('[data-testid="row-status-amount"]')!;
   assert.equal(check.getAttribute("data-status"), "ok");
@@ -80,33 +80,42 @@ test("Total carries the check when the server found the saved amounts add up, in
   assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("aria-label"), "Subtotal + ITBIS = total");
 });
 test("a read subtotal, ITBIS and total the server let through carry the check; a real mismatch carries its difference", async () => {
-  const base = await dossier(); base.review_flags = [];
+  const base = await dossier(); base.amounts_check = { state: "adds_up" };
   const read = { ...base, net_amount: { amount: "1000.00", source: "read" as const }, facts: { ...base.facts, amount: known("1180.00"), legal_tip: undefined, fiscal: { ...base.facts.fiscal!, itbis: known("180.00") } } };
   let host = await mount(<ReceiptRecordFacts dossier={read} accounts={[]} />);
   assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("data-status"), "ok");
   assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("aria-label"), "Subtotal + ITBIS = total");
   await cleanup();
-  host = await mount(<ReceiptRecordFacts dossier={{ ...read, review_flags: [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }] }} accounts={[]} />);
+  host = await mount(<ReceiptRecordFacts dossier={{ ...read, amounts_check: { state: "difference", difference: "20.00" } }} accounts={[]} />);
   assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("data-status"), "warn");
   assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("aria-label"), "Diferencia 20.00");
 });
-test("Total has no check the server did not make: no flags sent, no subtotal, no total, no ITBIS, or an edit still in preview", async () => {
+test("Total has no check the server did not make: unchecked, no state sent, or an edit still in preview", async () => {
   const base = await dossier(); base.review_flags = [];
-  const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } as const;
   const preview = { edit: () => closed, note: () => null, noReceipt: { busy: false, saved: false, note: null }, amountsPreview: { net_amount: base.net_amount!, mismatch: null, status: "ready" as const } };
   for (const [why, record, review] of [
-    ["an older server sends no flags", { ...base, review_flags: undefined }, undefined],
-    ["no subtotal", { ...base, net_amount: { amount: null, source: null } }, undefined],
-    ["no total", { ...base, facts: { ...base.facts, amount: unknown } }, undefined],
-    ["an unread ITBIS could fill the gap, so the server flags nothing", { ...base, net_amount: { amount: "1000.00", source: "read" }, facts: { ...base.facts, amount: known("1180.00"), fiscal: { ...base.facts.fiscal!, itbis: unknown } } }, undefined],
-    ["an unread ITBIS, even when subtotal and total match", { ...base, net_amount: { amount: "1181.00", source: "read" }, facts: { ...base.facts, fiscal: { ...base.facts.fiscal!, itbis: unknown } } }, undefined],
-    ["no fiscal facts", { ...base, facts: { ...base.facts, fiscal: null } }, undefined],
-    ["a preview speaks of an unsaved edit", base, preview],
+    ["the server did not check amounts that would add up", { ...base, amounts_check: { state: "unchecked" } }, undefined],
+    ["an older server sends no state", { ...base, amounts_check: undefined }, undefined],
+    ["a preview speaks of an unsaved edit", { ...base, amounts_check: { state: "adds_up" } }, preview],
   ] as const) {
     const host = await mount(<ReceiptRecordFacts dossier={record as BusinessDossier} accounts={[]} review={review} />);
     assert.equal(host.querySelector('[data-testid="row-status-amount"]'), null, why);
     await cleanup();
   }
+});
+test("the Total's check is the server's state alone: no amount on the page and no flag changes it", async () => {
+  const base = await dossier();
+  const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } as const;
+  const mismatch = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "9.99" }] as const;
+  const bare = { ...base, net_amount: { amount: null, source: null }, facts: { ...base.facts, legal_tip: undefined, fiscal: { ...base.facts.fiscal!, itbis: unknown } } };
+  let host = await mount(<ReceiptRecordFacts dossier={{ ...bare, review_flags: [...mismatch], amounts_check: { state: "adds_up" } } as BusinessDossier} accounts={[]} />);
+  assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("data-status"), "ok");
+  await cleanup();
+  host = await mount(<ReceiptRecordFacts dossier={{ ...base, review_flags: [...mismatch], amounts_check: { state: "unchecked" } } as BusinessDossier} accounts={[]} />);
+  assert.equal(host.querySelector('[data-testid="row-status-amount"]'), null);
+  await cleanup();
+  host = await mount(<ReceiptRecordFacts dossier={{ ...bare, review_flags: [], amounts_check: { state: "difference", difference: "4.50" } } as BusinessDossier} accounts={[]} />);
+  assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("aria-label"), "Diferencia 4.50");
 });
 const fields: DgiiFields = { "606": [
   { name: "goods_amount", label: "", kind: "money", options: [] },
@@ -215,6 +224,7 @@ async function editing(base: BusinessDossier, options: { values?: Record<string,
 test("Restaurar on an unsaved edit shows the server's linked value and preserves the other saved fields", async () => {
   const base = await dossier();
   base.dgii = { ...base.dgii!, modified_ncf: "E310000000099" };
+  base.note_kind = "credit";
   const view = await editing(base, { values: { paid_on: "2026-11-15" } });
   await view.open("paid_on");
   await type(view.date, "18/11/2026");
@@ -379,7 +389,7 @@ test("a field that follows a code, a text or a date names its source and restore
   const base = await dossier();
   const linkedFields: DgiiFields = { "606": [...fields["606"], { name: "id_type", label: "", kind: "select", options: ["1", "2"] }], "607": [] };
   const links = { id_type: { field: "rnc", value: "1", paired_with: [] }, modified_ncf: { field: "original_ncf", value: "E310000000007", paired_with: [] }, paid_on: { field: "occurred_on", value: "2026-11-12", paired_with: [] } } as const;
-  const state = (inherited: boolean): BusinessDossier => ({ ...base, inheritance: { ...base.inheritance, ...Object.fromEntries(Object.entries(links).map(([name, link]) => [name, { ...link, inherited }])) } });
+  const state = (inherited: boolean): BusinessDossier => ({ ...base, note_kind: "credit", inheritance: { ...base.inheritance, ...Object.fromEntries(Object.entries(links).map(([name, link]) => [name, { ...link, inherited }])) } });
   const editor = (value: BusinessDossier) => <FiscalDeclarationEditor dossier={value} fields={linkedFields} disabled={false} reviewFiscal={async () => value} onChanged={noop} onBusy={noop} onDirty={noop} />;
   const linked = await mount(editor(state(true)));
   const from = (field: string) => sourceLabel(linked, field);

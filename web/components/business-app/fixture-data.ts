@@ -7,6 +7,7 @@ import type {
   BusinessAccessInvite,
   ReceiptReading,
 } from "@/lib/business-api";
+import type { BusinessDossier } from "@/lib/business-dossier";
 import { createDossierFixtures } from "./dossier-fixtures";
 import type { FiscalProfile } from "@/lib/business-dgii";
 import type { SentBy } from "@/lib/sent-by";
@@ -49,7 +50,7 @@ function sampleSender(channel: ReceiptDetail["channel"], deliveries: readonly st
   return emailSender(SAMPLE_EMAILS.find((email) => email.id === deliveries?.[0])?.sender);
 }
 
-type SampleReceipt = ReceiptDetail & { confirmableGap?: boolean };
+type SampleReceipt = ReceiptDetail & { confirmableGap?: boolean; /** The Montos check the server states for the receipt's draft. */ amountsCheck?: BusinessDossier["amounts_check"] };
 
 function receipt(
   partial: Partial<SampleReceipt> & Pick<ReceiptDetail, "id" | "status">,
@@ -106,7 +107,8 @@ function read(id: string, reason: string | null, merchant: string, amount: strin
     ...partial,
   });
 }
-const listo = (id: string, merchant: string, amount: string, itbis: string, partial: Partial<ReceiptDetail>) => read(id, null, merchant, amount, { ...partial, evidence: { merchant, occurred_on: dayOnly(daysAgo(1)), total: amount, currency: "DOP", tax: itbis, tip: null, service: null, lines: [] } });
+// A Listo sample was read with its Total and its ITBIS, so the server states that its amounts add up.
+const listo = (id: string, merchant: string, amount: string, itbis: string, partial: Partial<ReceiptDetail>) => read(id, null, merchant, amount, { ...partial, amountsCheck: { state: "adds_up" }, evidence: { merchant, occurred_on: dayOnly(daysAgo(1)), total: amount, currency: "DOP", tax: itbis, tip: null, service: null, lines: [] } });
 const gap = read;
 
 /** Approving this sample row is refused: the partial failure of an approval of many. */
@@ -423,14 +425,14 @@ export function createFixtureBusinessDataSource(
   const sampleEmails = inbox === "empty" ? [] : SAMPLE_EMAILS;
   const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
   // Each read sample row has a draft of its own, so its review opens.
-  let receipts = inbox === "empty" ? [] : seedReceipts().map(({ confirmableGap, ...item }) => {
+  let receipts = inbox === "empty" ? [] : seedReceipts().map(({ confirmableGap, amountsCheck, ...item }) => {
     if (!item.bandeja_group) return item;
     const fiscal = item.sin_comprobante ? undefined : {
       rnc: item.bandeja_group.reason === "missing_rnc" ? null : "199990021",
       ncf: item.fiscal_value ? `B01${item.id.length.toString().padStart(8, "0")}` : null,
       itbis: item.evidence?.tax ?? null,
     };
-    return { ...item, draft_id: createReceiptDraft(item, { fiscal, confirmable: confirmableGap }) };
+    return { ...item, draft_id: createReceiptDraft(item, { fiscal, confirmable: confirmableGap, amountsCheck }) };
   });
   if (inbox !== "empty") void dossierSource.captureNote({ text: "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger los materiales del negocio." }, "sample-note");
   let expenses = seedExpenses();

@@ -14,6 +14,7 @@ from argus.domain.business.bandeja_group import (
 )
 from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.document_type import DocumentType
+from argus.domain.business.fiscal_identity import NoteKind
 from argus.domain.business.rnc_registry import RncRegistryStatus
 from argus.domain.business.space_name import GivenName
 
@@ -162,6 +163,20 @@ class ReviewFlag(Contract):
     field: Literal["rnc", "ncf", "itbis", "amount"]
     confirm: bool
     difference: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class AmountsCheck(Contract):
+    """Whether the Total is the Subtotal plus its taxes and tip. ``difference``
+    is what the Total leaves over, and is set on ``difference`` alone."""
+
+    state: Literal["adds_up", "difference", "unchecked"]
+    difference: str | None = None
+
+    @model_validator(mode="after")
+    def difference_goes_with_its_state(self) -> AmountsCheck:
+        if (self.state == "difference") != (self.difference is not None):
+            raise ValueError("difference is set exactly on a difference")
+        return self
 
 
 class RecordedApproval(Contract):
@@ -343,6 +358,15 @@ class BusinessDossier(RecordContext):
     history: tuple[DraftRevision, ...]
     blockers: tuple[Blocker, ...]
     review_flags: tuple[ReviewFlag, ...] = ()
+    #: The Montos check, by the rule behind the ``amounts_mismatch`` flag.
+    amounts_check: AmountsCheck = AmountsCheck(state="unchecked")
+    #: The note this record is, credit (04, 34) or debit (03, 33); null for a
+    #: regular purchase or sale. See ``fact_blockers.record_note``.
+    note_kind: NoteKind | None = None
+    #: The declaration fields of this record that always follow their source
+    #: (see ``amount_inheritance.source_owned``): the server drops a write or
+    #: an override of one, so a review shows it read-only.
+    source_owned_fields: tuple[str, ...] = ()
     approval_available: bool
     duplicate_candidates: tuple[DuplicateCandidate, ...] = ()
     #: The approve action this draft takes once ``approval_available``, by its
@@ -444,6 +468,9 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "facts": set(HUMAN_AMOUNT_FIELDS),
     "dgii": {"itbis", "suggestion_sources"},
     "dgii_calculated": True,
+    "amounts_check": True,
+    "note_kind": True,
+    "source_owned_fields": True,
     "deleted": True,
     "delete_available": True,
     "restore_available": True,

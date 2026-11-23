@@ -616,6 +616,9 @@ The payload fields that the dossier screen reads:
 | `declaration_suggestions` | One suggestion, with its source, for each 606 answer the person has not given. | `review_sources` in `actions/dossier.py` |
 | `bandeja_group`, `listo_gaps`, `confirmable` | The Bandeja label, every reason the record is not in Listos in rule order, and the reasons a person may accept over. | `bandeja_group.py` |
 | `review_flags`, `rnc_registry_status` | The checks on the amounts and numbers, and what the DGII register says of the RNC. | `review_flags.py`; `supplier_registry_read` in `actions/dossier.py` |
+| `amounts_check` | Whether Montos adds up: `adds_up`, `difference` with the amount left over, or `unchecked`. | `amounts_check` in `review_flags.py`, which the `amounts_mismatch` flag also reads |
+| `note_kind` | The note the record is: `credit`, `debit` or null. | `record_note` in `fact_blockers.py`, on the type table in `fiscal_identity.py` that the 606 and 607 checks read |
+| `source_owned_fields` | The declaration fields that always follow their source, so their row is read-only: a purchase's Tipo de ID, and Propina legal. | `source_owned` in `amount_inheritance.py` |
 | `history` | Every saved revision with its before and after. | `business_draft_revisions` |
 | `approval_available`, `approval_action`, `delete_available`, `restore_available` | The actions the caller may take now. | `dossier` |
 
@@ -644,21 +647,20 @@ holds an unsaved change, the web asks
 It does not work the value out. The web adds no amounts, compares no years and
 decides no status.
 
-The web does hold layout. `dossier/fiscal-rows.ts` decides which card a fiscal
-field sits in, the row order, the fields the Datos fiscales tab leaves out, and
-that Tipo de ID has no pencil on a purchase. A field that the server lists and
-that file does not name still shows.
+A fiscal row has no pencil when `source_owned_fields` names it. NCF modificado
+shows when `note_kind` is set, and the refund question when it is `credit` on
+a purchase. The Total shows its check on `amounts_check.state` `adds_up`, and
+the difference on `difference`. The Subtotal shows ƒ while `net_amount.source`
+is `calculated`, and the way back to it once the source is `edited`.
 
-Three known gaps remain between this rule and the code:
+The web does hold layout. `dossier/fiscal-rows.ts` decides which card a fiscal
+field sits in, the row order, and the fields the Datos fiscales tab leaves
+out. A field that the server lists and that file does not name still shows.
+
+One known gap remains between this rule and the code:
 
 - The web does not read `dgii_calculated` yet, so the dossier does not show
   Total facturado or ITBIS por adelantar.
-- `fiscalNote` in `dossier/fiscal-rows.ts` reads the comprobante type from the
-  number to tell a credit note from a debit note. `dgii_validation.py` owns
-  that rule on the server, and the dossier does not carry its answer.
-- `ReceiptAmounts.tsx` shows the amounts check as passed when the dossier has
-  a total, a subtotal and an ITBIS and carries no `amounts_mismatch` flag. The
-  dossier carries no explicit "adds up" state.
 
 ---
 # 7. Communication Protocols

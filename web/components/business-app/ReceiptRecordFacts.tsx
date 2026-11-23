@@ -27,6 +27,8 @@ export type RowFlash = { row: ReviewRow; n: number };
 /** How the form edits: what each row opens, and what the page says under it. Absent for a record nobody can edit now. */
 export type FactsReview = {
   amountsPreview?: { net_amount: NonNullable<BusinessDossier["net_amount"]>; mismatch: { difference?: string | null } | null; status: "ready" | "pending" | "error" };
+  /** Puts the Subtotal back to the one the server calculates. Absent for someone who cannot change it now. */
+  restoreSubtotal?: () => void;
   /** How the row edits in place. */
   edit: (row: ReviewRow) => RowEdit;
   /** What a row's failed save says, and its way back. */

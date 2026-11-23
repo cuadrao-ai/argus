@@ -165,17 +165,17 @@ def test_an_approval_saves_and_exports_the_line_its_review_showed(actions, shape
 
 
 @pytest.mark.parametrize("account", [None, "checking"], ids=["owner funds", "checking"])
-def test_a_tipo_id_a_person_cleared_is_approved_blank(actions, account):  # noqa: ANN001
+def test_a_tipo_id_a_person_cleared_still_follows_the_rnc(actions, account):  # noqa: ANN001
     service, context = actions
     draft = _open(service, context, Shape("yes", "01", "id_type", account=account))
     shown = service.dossier(context, draft)
-    assert shown.dgii.id_type is None
-    assert shown.inheritance["id_type"].inherited is False
+    assert shown.dgii.id_type == "1"
+    assert shown.inheritance["id_type"].inherited is True
 
     _approve(service, context, draft, shown)
 
-    assert fiscal.revisions(service, draft)[-1]["dgii"]["id_type"] is None
-    assert links._line(service, context, draft)["id_type"] == ""
+    assert fiscal.revisions(service, draft)[-1]["dgii"]["id_type"] == "1"
+    assert links._line(service, context, draft)["id_type"] == "1"
 
 
 def test_a_saved_blank_forma_de_pago_shows_the_account_that_paid(actions):  # noqa: ANN001

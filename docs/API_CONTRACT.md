@@ -9222,6 +9222,20 @@ an approved record exports its saved declaration unchanged until that save.
 A record saved before Montos carried the tip (`facts.legal_tip` unknown with
 no origin) has no source: its declaration keeps and takes its `legal_tip`.
 
+A purchase's `id_type` is source-owned in the same set: the supplier's RNC in
+General is its one editor, so the 606 `id_type` always follows the length of
+`facts.fiscal.rnc`. The server drops an `id_type` named in
+`override_inherited` and a declaration `id_type` that differs from the RNC's.
+An override an older save recorded is ignored on an open draft and removed by
+the record's next save. An approved record keeps its saved `id_type` until a
+save corrects the RNC. A sale's `id_type` follows no source, and a person
+gives it.
+
+The dossier lists these fields in `source_owned_fields`, for the record's own
+form: `id_type` on every purchase, and `legal_tip` once the record carries the
+tip fact. `amount_inheritance.source_owned` owns the list. A review shows each
+of them read-only, with no restore.
+
 The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
 Each entry holds `{field, value, inherited, paired_with}`; `value` is the
 current source value to restore, not a copy calculated by the browser.
@@ -9306,6 +9320,30 @@ zero, and it appears only when the difference is below -0.01: ITBIS is never
 negative, so it cannot close that gap. It is recomputed for every read and revision. The
 existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
 overrides are excluded from the model-facing dossier and source text.
+
+The dossier states the same check as `amounts_check: {state, difference}`.
+`review_flags.amounts_check` owns both: `difference`, with the signed
+`difference` of the flag, exactly when the flag is present; `adds_up` when the
+Total, a Subtotal and the ITBIS are known and no flag is present; `unchecked`
+for a record with no fiscal facts, without a Total or a Subtotal, and while
+the ITBIS is unknown, because an unknown ITBIS lets a gap pass. `difference` is null on the other two states.
+A review shows the Total check on `adds_up` alone.
+
+`net_amount.source` says who gave the Subtotal: `read`, `calculated` while the
+server derives it, or `edited` once a person typed one. The Subtotal stays in
+`editable_fields` in every state. A `montos.net_amount` of
+`{state: "unknown"}` takes the person's Subtotal away, and the server derives
+it again.
+
+The dossier carries `note_kind`: `credit`, `debit` or null.
+`fact_blockers.record_note` owns it. The comprobante number says it first,
+the e-CF, else the NCF: types 04 and 34 are a credit note and types 03 and 33
+a debit note, from `fiscal_identity.NOTE_KINDS`, the table the 606 and 607
+checks read through `dgii_validation.is_credit` and `is_debit`. A record with
+no note number is `credit` when its kind is `refund`, or when its declaration
+holds `actual_refund` or a `modified_ncf`. Any other record is null. A review
+shows NCF modificado on a note and the refund question on a purchase's credit
+note.
 
 The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
 objects, with `difference` on `amounts_mismatch`

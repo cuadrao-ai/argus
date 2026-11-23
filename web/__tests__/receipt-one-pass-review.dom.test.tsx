@@ -935,10 +935,10 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("the total warning follows the server amount flag and carries only its difference", async () => {
-    const quiet = await setup("totalsOff");
+  test("the total warning follows the server's Montos check and carries only its difference", async () => {
+    const quiet = await setup("totalsOff", (dossier) => { dossier.amounts_check = { state: "unchecked" }; });
     try { assert.equal(quiet.host.querySelector('[data-testid="row-status-amount"]'), null); } finally { await quiet.close(); }
-    const page = await setup("totalsOff", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "1.00" }]; });
+    const page = await setup("totalsOff", (dossier) => { dossier.amounts_check = { state: "difference", difference: "1.00" }; });
     try {
       const status = page.row("amount").querySelector('[data-testid="row-status-amount"]');
       assert.equal(status?.getAttribute("data-status"), "warn");
