@@ -5,6 +5,7 @@ import { CircleCheck, Info, X, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { quietButtonClass } from "../business-ui";
+import { FOCUS_RING } from "./presentation";
 import { dismissToast, springEasing, toastDuration, useToasts, type Toast, type ToastKind } from "./toasts";
 
 const SPRING = springEasing(180, 20);
@@ -12,10 +13,13 @@ const GAP_PX = 8;
 const SWIPE_DISMISS_PX = 80;
 const SWIPE_FLICK = 0.5;
 
-/** Every kind carries an icon and a left border, so colour is never the only signal. */
-const TONE: Record<ToastKind, { icon: LucideIcon; border: string; ink: string }> = {
-  info: { icon: Info, border: "#56635e", ink: "text-[#56635e] dark:text-white/70" },
-  success: { icon: CircleCheck, border: "#2f5a49", ink: "text-[#2f5a49] dark:text-[#8fcbb0]" },
+/**
+ * Every kind carries an icon and a left border, so colour is never the only signal.
+ * Each stripe names its dark colour too: the card's dark hairline would otherwise win it.
+ */
+const TONE: Record<ToastKind, { icon: LucideIcon; stripe: string; ink: string }> = {
+  info: { icon: Info, stripe: "border-l-[#56635e] dark:border-l-white/70", ink: "text-[#56635e] dark:text-white/70" },
+  success: { icon: CircleCheck, stripe: "border-l-[var(--cuadrao-green)] dark:border-l-[var(--cuadrao-green)]", ink: "text-[#2f5a49] dark:text-[#8fcbb0]" },
 };
 
 /**
@@ -129,9 +133,8 @@ function ToastCard({ toast, edge, offset, onHeight }: { toast: Toast; edge: "top
         transform: `translate3d(${dragX}px, ${entered ? y : y + enterFrom}px, 0)`,
         opacity: entered ? Math.max(0.2, 1 - Math.abs(dragX) / 240) : 0,
         transition: dragX !== 0 ? "none" : `transform ${SPRING.durationMs}ms ${SPRING.easing}, opacity 160ms ease-out`,
-        borderLeftColor: tone.border,
       }}
-      className={`pointer-events-auto absolute inset-x-0 ${edge === "bottom" ? "bottom-0" : "top-0"} flex touch-pan-y items-start gap-3 rounded-surface border border-l-4 border-[#DCE0DA] bg-white py-2 pl-3 pr-1 motion-reduce:!transition-none dark:border-white/10 dark:bg-[#1f2225]`}
+      className={`pointer-events-auto absolute inset-x-0 ${edge === "bottom" ? "bottom-0" : "top-0"} flex touch-pan-y items-start gap-3 rounded-surface border border-l-4 border-[#DCE0DA] bg-white py-2 pl-3 pr-1 motion-reduce:!transition-none dark:border-white/10 dark:bg-[#1f2225] ${tone.stripe}`}
     >
       <Icon className={`mt-2.5 h-5 w-5 shrink-0 ${tone.ink}`} aria-hidden="true" />
       <p className="min-w-0 flex-1 break-words py-2 text-[14px] leading-5 text-[#172b26] dark:text-white">{toast.text}</p>
@@ -148,7 +151,7 @@ function ToastCard({ toast, edge, offset, onHeight }: { toast: Toast; edge: "top
         type="button"
         aria-label={t("common.close", "Close")}
         onClick={() => dismissToast(toast.id)}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#56635e] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10"
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#56635e] hover:bg-black/5 ${FOCUS_RING} dark:text-white/70 dark:hover:bg-white/10`}
       >
         <X className="h-4 w-4" aria-hidden="true" />
       </button>

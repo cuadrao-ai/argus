@@ -115,7 +115,7 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 .pen { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border:0; border-radius:var(--radius-item); background:transparent; color:var(--d-muted); cursor:pointer; opacity:0; }
 .pen:hover { background:var(--d-hover); color:var(--d-ink); }
 .row:hover .pen, .row:has(:focus-visible) .pen { opacity:1; }
-.act { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid var(--d-field-line); border-radius:var(--radius-item); background:var(--d-field); color:var(--d-soft); cursor:pointer; }
+.act { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid var(--segment-thumb-border); border-radius:var(--radius-item); background:var(--d-field); color:var(--d-soft); cursor:pointer; }
 .act:disabled { opacity:.5; cursor:default; }
 .actSave { background:var(--d-green); border-color:var(--d-green); color:var(--d-on-green); }
 .below { grid-column:3 / 5; min-width:0; padding:0 8px 8px 10px; font-size:13px; line-height:18px; color:var(--d-muted); }
@@ -131,7 +131,7 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 @keyframes dossierFlashA { from, 70% { background-color:var(--d-warn-bg); } }
 @keyframes dossierFlashB { from, 70% { background-color:var(--d-warn-bg); } }
 @media (prefers-reduced-motion:reduce) { .row[data-flash]::before { animation:none; background-color:var(--d-warn-hover); } }
-.currency { display:inline-flex; align-items:center; gap:4px; height:36px; padding:0 6px 0 10px; border:1px solid var(--d-field-line); border-radius:var(--radius-item); background:var(--d-field); font:inherit; font-size:13px; font-weight:600; color:var(--d-ink); cursor:pointer; }
+.currency { display:inline-flex; align-items:center; gap:4px; height:36px; padding:0 6px 0 10px; border:1px solid var(--segment-thumb-border); border-radius:var(--radius-item); background:var(--d-field); font:inherit; font-size:13px; font-weight:600; color:var(--d-ink); cursor:pointer; }
 .currency:disabled { cursor:default; }
 .currency[data-missing="true"] { color:var(--d-warn-ink); border-color:var(--d-warn-bg); background:var(--d-warn-bg); }
 .link { min-height:40px; padding:0 10px; margin-right:-6px; border:0; border-radius:var(--radius-item); background:transparent; font:inherit; font-size:13.5px; font-weight:600; color:var(--d-green); cursor:pointer; }
