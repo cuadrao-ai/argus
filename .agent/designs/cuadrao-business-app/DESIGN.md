@@ -537,7 +537,9 @@ Use it; never restyle a field by hand (Lucas, October 21, 2026).
   Continuar / Continue. Signup keeps its approved action copy. No claim that an
   account is free is added by the form.
 
-**Edit in place** (Lucas, November 11, 2026). One owner draws the actions:
+**Edit in place** (Lucas, November 11, 2026). Historical for the record dossier
+since November 23, 2026: `dossier/DossierParts.tsx` owns its rows, as
+[Receipt detail](#receipt-detail) says. This note still holds for Perfil. One owner draws the actions:
 `web/components/business-app/ReceiptEditRow.tsx`, around the field from
 `web/components/business-app/ReceiptFactEditor.tsx`. Any later in-place editor
 reuses it, including Perfil (`web/components/sidebar/ProfileNameFields.tsx`).
@@ -1586,6 +1588,9 @@ FlujoComparar). It changes layer 5 only. Every other layer stays as it is.
 1. In the review panel, the amber box says "Parece repetido" with one line on
    why (same comercio, fecha and total) and one button, Comparar. The box has no
    decision buttons. Más does not change.
+   Historical since November 23, 2026: the dossier has no amber box. "Parece
+   repetido" is a reason beside the status pill, or an item of the problem
+   list, and it opens Comparar. See [Receipt detail](#receipt-detail).
 2. Comparar turns the same panel into a compare view. It shows a recommendation
    line and a split diff of the main data only: comercio, fecha, total, moneda
    and NCF. There is no Archivo row: the column heads name the files and the
@@ -1614,9 +1619,185 @@ marker.
 ### Receipt detail
 
 Every receipt that Cuadrao sorted automatically shows why it was sorted that way.
-Product's rules set the exact presentation.
 
-**Behavior rules (pending from Product).**
+#### Record dossier, built November 23, 2026 (#2317)
+
+One dossier shows every record. A Bandeja row and a Registros row open the same
+frame, `web/components/business-app/ReceiptReviewFrame.tsx`. This section
+describes the purchase dossier as the code draws it at this date. The server
+decides every value, every editable field and every link, as
+[the dossier architecture](../../../docs/ARCHITECTURE.md#the-record-dossier) says.
+The 607 report card for a sale and the Venta switch in Más are not merged yet,
+so this section leaves them out.
+
+**Frame.** The header shows the name of who issued the document, or the file
+name while nobody is named. Line two shows the Bandeja label that the server
+gives, and the reasons the record is not in Listos. One reason sits beside the
+pill and jumps to its row. Several reasons open a list. An accepted record has
+no pill. Beside the name sit "N de M" with the jump card, the previous and next
+buttons, and the size button. The tray has two sizes. At 1040px the document
+stays beside the tabs. At 640px the document becomes the Documento tab. A full
+page, which is how a phone shows a record, is always narrow.
+
+**Tabs.** General, Datos fiscales, Detalles and Historial, in that order. A tab
+shows the count of problems that wait in it. Every tab stays mounted while
+another shows, so a row keeps what the person typed. A notice that an action or
+a refetch returned sits over the tab content and shows on every tab.
+
+**The row grid.** `web/components/business-app/dossier/DossierParts.tsx` owns it.
+`DossierRow` draws one fact as four columns, sized in `dossier.module.css`:
+
+| Column | Width | Holds |
+| --- | --- | --- |
+| Label | 148px | The name of the fact. |
+| Status slot | 24px | One icon, or the restore button of a linked field. |
+| Value | the rest | The value. An empty value reads "Sin dato". |
+| Action slot | 72px | The pencil, the check and the X, or "Guardado". |
+
+Every tab uses this grid. No card draws a row of its own. A line under the
+value holds a failed save with its retry, or an action that the value offers.
+
+**Status slot.** The slot says its meaning by shape and colour. The words are
+the tooltip, which opens on hover and on focus.
+
+| Icon | Meaning |
+| --- | --- |
+| Badge with a check | A server check passed, such as a verified RNC or amounts that add up. |
+| Amber triangle | A warning: a problem the server names, a doubtful read, or a difference in the amounts. |
+| Red circle with an X | An error, such as an RNC that the DGII register lists as cancelled. |
+| Link | The value follows another fact. |
+| ƒ | The value is calculated. |
+| Clock with an arrow, receipt, or sparkle | Where a suggested Tipo de gasto or Forma de pago came from: the last choice, the receipt, or the read. |
+
+**Edit in place.** A row that the person can edit shows a pencil in the action
+slot on hover and on focus, and always on touch. A click on the value or the
+pencil opens the field inside the value's own box, so the row keeps its height
+and nothing moves. While the row is open, the action slot holds a check and an
+X. The check or Enter saves. The X or Escape cancels. During the save the check
+turns into a spinner. A save whose outcome is unknown cannot be cancelled.
+After a save lands on a General row, the action slot says "Guardado" for 2.4
+seconds, and then the pencil returns. Nothing below the row moves. A row in
+Datos fiscales says "Guardado" on the line under its value, and the line
+stays until the record changes again.
+
+**Pick rows.** Tipo de gasto and Forma de pago are `DossierPickRow`. The value
+and a chevron are one button across the value and action columns. The list
+opens over the form, above the row when there is room. A pick saves at once, so
+the row has no check and no X. A suggestion shows filled, with its source icon
+in the status slot. The icon leaves when the person picks a value.
+
+**Linked fields.** A field that follows another fact shows the link icon, and
+its tooltip names the source, for example "Sale de Montos". The field stays
+editable. An edit overrides the link and removes the icon. A field held apart
+shows a restore button in the status slot. Its tooltip is
+"Restaurar: " followed by the source value. Restore opens the row with the
+source value, and the check links the field again. Servicios and Bienes
+override and restore together.
+
+**Calculated fields.** A calculated value shows ƒ in the status slot. Today the
+Subtotal in Montos is the one such row, when the server calculated it from the
+Total. Its tooltip is "Calculado: Total − ITBIS". That row keeps its pencil,
+and a typed Subtotal replaces the calculation. Total facturado and ITBIS por
+adelantar, which no person may enter, are not drawn yet.
+
+**General.** Three cards on the tint.
+
+- Comprobante: RNC or Cédula with what the DGII register says, Emisor, NCF or
+  e-CF, and Fecha. The Compra or Venta row shows on a purchase only while the
+  kind needs a person. A record with no fiscal number says "Sin comprobante
+  fiscal" and offers "Marcar sin recibo".
+- Reporte 606: Tipo de gasto and Forma de pago as pick rows. Neither blocks
+  Aceptar.
+- Montos: Subtotal, ITBIS, Propina legal when the receipt has one, and Total.
+  Amounts align right and carry no currency symbol. The currency is a picker in
+  the card heading, as its ISO code. The Total row carries the amounts check.
+
+**Datos fiscales.** `FiscalDeclarationEditor.tsx` draws the declaration in
+cards, in the same row grid. `dossier/fiscal-rows.ts` owns which field goes in
+which card, the row order and the fields the tab leaves out.
+
+- Reporte 606: Tipo de ID, which follows the RNC and has no pencil, and Fecha
+  de pago.
+- Monto facturado: Servicios and Bienes.
+- ITBIS: ITBIS facturado, ITBIS llevado al costo and ITBIS sujeto a
+  proporcionalidad.
+- Retenciones and Otros impuestos: each is folded to one line while it holds
+  no value, "Sin retenciones." or "Sin otros impuestos.". The heading offers
+  "Agregar retención" or "Agregar impuesto", which unfolds the rows, and then
+  "Quitar", which folds them again. A card that holds a value cannot fold.
+- NCF modificado shows only on a credit note or a debit note. The refund
+  question shows only on a credit note.
+
+One row is open at a time. A field that the server lists and this file does not
+name still shows, under Otros impuestos.
+
+**Detalles.** Origen holds Canal, Enviado por and Llegada. Then come Nota and
+Archivos de respaldo. Archivo holds Nombre and Tamaño.
+
+**Historial.** `ReceiptHistory.tsx` draws one card for each day, newest first.
+The cards are titled "Hoy", "Ayer", and then the date. Every event shows a
+full timestamp and, when the server names one, who did it.
+
+- The arrival is one line that names the channel, with the file name under it.
+- The revision that creates the record is one line and never a list of its
+  values. It is "Leído", by Cuadrao, when Cuadrao read a document or a message.
+- A later change is one event for each changed field: the field name, then the
+  old value struck in red, an arrow, and the new value in green. A field that
+  had no value shows only the new value.
+- A save in Datos fiscales is one event, "Datos del 606 guardados", that lists
+  the changed fields the same way. It shows two changes, and the rest wait
+  behind a button.
+- A change of Compra or Venta is one event named Tipo.
+- "Aceptado", with "Pasó a Registros" under it, is the one place an accepted
+  record says so.
+
+**Footer.** `ReceiptReviewFooter.tsx` draws one shape. Más sits on the left and
+the actions sit on the right.
+
+- Más holds the less frequent actions: Agregar nota when typed notes are on,
+  the Personal switch, and "Eliminar documento" last, in red.
+- While the record is open, the right side holds Aceptar as the secondary
+  button and "Aceptar y siguiente" as the primary one. The last document of a
+  list, and a record that has no receipt, show one primary Aceptar. ⌘↵, or
+  Ctrl ↵ off Apple keyboards, runs the primary button. The button reads
+  "Aceptar ingreso" for an income and "Aceptar reembolso" for a refund.
+- An accepted record has no accept button.
+- While a row holds an unsaved edit, the accept buttons are disabled and a
+  line between Más and the buttons says which rows to save or cancel.
+- A document that is being read, is held for tomorrow, or could not be read
+  has no Más. It shows a red "Eliminar documento" button with its label on the
+  left, and the recovery action on the right. In the narrow size the button
+  shows only its icon.
+
+**Accepting over a problem.** Aceptar on a record with reasons opens one
+confirm that lists every reason. "Corregir" is the primary button and jumps to
+the first row. "Aceptar de todos modos" shows only when the server says every
+reason is confirmable.
+
+**Removed on purpose.** Do not bring these back.
+
+- A second read-only form for accepted records. An accepted record edits in
+  the same rows.
+- Reabrir, and any edit mode.
+- The form-level Guardar and Cancelar in Datos fiscales, its help paragraph
+  and the DGII column names as labels.
+- The "Falta para aprobar" box, the red line under a row, the row dots and the
+  text tags "sugerido" and "revisa esto". The status slot carries all of them.
+- The Business name, the total and the origin line in the header.
+- The "Aprobado" pill on an accepted record, the recorded card and revision
+  numbers in copy.
+- The e-CF checks card. Its results show only in the row status slots.
+- The separate panel for a record with no draft, and the separate Registros
+  panel for notes and attachments.
+- In Datos fiscales: Monto Propina Legal, because Montos owns it, and ITBIS
+  percibido and ISR percibido, because the server refuses any perceived amount.
+- A funding row on a clean record. Forma de pago in the report card is the one
+  payment fact on screen. A funding row shows only while the server waits on it.
+
+**Historical.** The line below was the whole section before November 23, 2026.
+The section above replaces it.
+
+> **Behavior rules (pending from Product).**
 
 ### Month close
 
