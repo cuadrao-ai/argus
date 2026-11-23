@@ -23,14 +23,26 @@ const BLOCKED_FIELD_GAP: Partial<Record<string, SampleGap>> = {
   currency: sampleGap("missing_currency", false),
 };
 
+/** A seeded gap the record's own facts state stays only while they still state it. The others (a sender, a read) rest on nothing a dossier holds. */
+const SEEDED_WHILE: Partial<Record<ListoGap, (draft: BusinessDossier) => boolean>> = {
+  sin_comprobante: (draft) => draft.facts.receipt_state.state === "known" && draft.facts.receipt_state.value !== "fiscal_receipt" && !draft.fiscal_value,
+  missing_rnc: (draft) => !heldValue(draft.facts.fiscal?.rnc)?.trim(),
+  missing_ncf: (draft) => !heldValue(draft.facts.fiscal?.ecf)?.trim() && !heldValue(draft.facts.fiscal?.ncf)?.trim(),
+};
+/** The review flags another gap already names (`_FLAGS_NAMED`), so one problem is one gap. */
+const FLAGS_NAMED = new Set(["rnc_check_digit", "ncf_malformed"]);
+/** The facts whose blank is a gap of its own, whether or not a blocker names it. */
+const GAP_FACTS = ["counterparty", "occurred_on", "amount", "currency"] as const;
+
 /**
- * `bandeja_group.py` in short, over what a sample record already states: its
- * duplicate candidates, its blockers, its RNC and its review flags. A sample
- * with `seeded` gaps (a receipt's draft, from its row) keeps those while open.
- * The standing is worked out on every read and never stored, so a write clears
- * what it fixed.
+ * `bandeja_group.py` in short, over what a sample record states now: its
+ * duplicate candidates, its blockers, its facts and its review flags, beside
+ * the `seeded` gaps of a receipt's row that still hold. Every gap is listed
+ * once, in the order of `RULE`, which `LISTO_GAPS` keeps. The standing is
+ * worked out on every read and never stored, so a write adds the gap it
+ * opens and clears the one it fixed.
  */
-function sampleStanding(draft: BusinessDossier, seeded?: readonly SampleGap[]): Pick<BusinessDossier, "bandeja_group" | "listo_gaps" | "confirmable"> {
+function sampleStanding(draft: BusinessDossier, seeded: readonly SampleGap[] = []): Pick<BusinessDossier, "bandeja_group" | "listo_gaps" | "confirmable"> {
   if (draft.deleted) return { bandeja_group: { group: "eliminados", reason: null, label: null }, listo_gaps: [], confirmable: [] };
   if (draft.review_state === "accepted") return { bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [], confirmable: [] };
   if (draft.review_state === "dismissed") return { bandeja_group: { group: null, reason: null, label: null }, listo_gaps: [], confirmable: [] };
@@ -38,15 +50,19 @@ function sampleStanding(draft: BusinessDossier, seeded?: readonly SampleGap[]): 
   const flags = draft.review_flags ?? [];
   const rnc = draft.facts.fiscal?.rnc;
   const digits = rnc?.state === "known" ? rnc.value.replace(/\D/g, "") : "";
-  const gaps = seeded ?? [
+  const found = [
+    ...seeded.filter((gap) => SEEDED_WHILE[gap.reason]?.(draft) ?? true),
     ...(draft.duplicate_candidates?.length || draft.blockers.some((blocker) => blocker.code === "possible_duplicate") ? [sampleGap("duplicate", true)] : []),
+    ...GAP_FACTS.flatMap((fact) => String(heldValue<unknown>(draft.facts[fact]) ?? "").trim() ? [] : [BLOCKED_FIELD_GAP[fact]!]),
     ...draft.blockers.flatMap((blocker) => BLOCKED_FIELD_GAP[blocker.field ?? ""] ?? []),
     ...(draft.facts.fiscal && !digits ? [sampleGap("missing_rnc", true)] : []),
     ...(digits && (flags.some((flag) => flag.code === "rnc_check_digit") || (digits.length !== 9 && digits.length !== 11)) ? [sampleGap("invalid_rnc", true)] : []),
     ...(flags.some((flag) => flag.code === "ncf_malformed") ? [sampleGap("invalid_ncf", true)] : []),
-    ...(flags.length ? [sampleGap("review_flag", true)] : []),
+    ...(flags.some((flag) => !FLAGS_NAMED.has(flag.code)) ? [sampleGap("review_flag", true)] : []),
     ...(draft.blockers.some((blocker) => blocker.code !== "possible_duplicate" && !BLOCKED_FIELD_GAP[blocker.field ?? ""]) ? [sampleGap("blocked", false)] : []),
   ];
+  const order = (gap: SampleGap) => (LISTO_GAPS as readonly string[]).indexOf(gap.reason);
+  const gaps = found.filter((gap, index) => found.findIndex((other) => other.reason === gap.reason) === index).sort((a, b) => order(a) - order(b));
   return gaps.length
     ? { bandeja_group: { group: "attention", reason: gaps[0].reason, label: "needs_attention" }, listo_gaps: gaps.map((gap) => gap.reason), confirmable: gaps.filter((gap) => gap.confirmable).map((gap) => gap.reason) }
     : { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [] };
@@ -447,7 +463,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     reviewPurchase: async (id: string, version: number, purchase: PurchaseChoice, key: string) => writeDeclaration(id, version, key, purchase, (current) => {
       const blank = Object.fromEntries(SAMPLE_DGII_FIELDS["606"].filter(({ name }) => !["rnc", "ncf", "itbis"].includes(name)).map(({ name }) => [name, null]));
       const dgii: DgiiDeclaration = { ...blank, actual_refund: false, purchase_activity_id: null, ...current.dgii, ...purchase, form: "606" };
-      if (typeof dgii.category === "string" && !dgii.services_amount && !dgii.goods_amount && current.facts.amount.state === "known") {
+      // A stand-in has no links, so its amount is filled here. A sample receipt's follows its Subtotal through its link: as `apply_purchase`, the write holds only what the person gave.
+      if (!receiptDrafts.has(id) && typeof dgii.category === "string" && !dgii.services_amount && !dgii.goods_amount && current.facts.amount.state === "known") {
         const cents = Math.round(Number(current.facts.amount.value) * 100) - Math.round(Number(current.facts.fiscal?.itbis.value ?? 0) * 100);
         dgii[SERVICE_EXPENSE_TYPES.has(dgii.category) ? "services_amount" : "goods_amount"] = (cents / 100).toFixed(2);
       }

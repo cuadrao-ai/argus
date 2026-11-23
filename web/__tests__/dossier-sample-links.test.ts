@@ -163,3 +163,63 @@ test("every write to an open sample leaves its links in step", async () => {
   assertInStep(taxed, "ITBIS edited");
   assert.equal(taxed.dgii?.itbis, "306.00");
 });
+
+test("an amount the sample filled for a chosen Tipo de gasto stays linked", async () => {
+  const { source, dossier } = await sample("rcpt-listo-suplidora");
+  const chosen = await source.reviewPurchase!(dossier.draft_id, dossier.version, { category: "02" }, "choose-services");
+  assertInStep(chosen, "Tipo de gasto chosen");
+  assert.deepEqual([chosen.dgii?.services_amount, chosen.inheritance?.services_amount, chosen.inheritance?.goods_amount?.inherited], ["7500.00", link("net_amount", "7500.00", true, ["goods_amount"]), true]);
+  const subtotal = await source.reviewMontos!(chosen.draft_id, chosen.version, { net_amount: { state: "known", value: "7000.00" } }, "chosen-subtotal");
+  assertInStep(subtotal, "Subtotal edited");
+  assert.deepEqual([subtotal.dgii?.services_amount, subtotal.dgii_calculated?.billed_amount], ["7000.00", "7000.00"]);
+  const goods = await source.reviewPurchase!(subtotal.draft_id, subtotal.version, { category: "09" }, "chosen-goods");
+  assertInStep(goods, "Tipo de gasto changed");
+  assert.deepEqual([goods.dgii?.services_amount, goods.dgii?.goods_amount], [null, "7000.00"]);
+});
+
+const standing = (dossier: BusinessDossier) => [dossier.bandeja_group?.group, dossier.listo_gaps, dossier.confirmable];
+const refusal = (attempt: Promise<unknown>) => attempt.then(() => null, (error: { code?: string }) => error.code);
+
+test("a Subtotal that no longer adds up takes the sample out of Listos until a person accepts over it", async () => {
+  const { source, dossier } = await sample("rcpt-listo-imprenta");
+  assert.deepEqual(standing(dossier), ["listo", [], []]);
+  const off = await source.reviewMontos!(dossier.draft_id, dossier.version, { net_amount: { state: "known", value: "3900.00" } }, "subtotal-off");
+  assert.deepEqual(standing(off), ["attention", ["review_flag"], ["review_flag"]]);
+  assert.equal(off.bandeja_group?.reason, "review_flag");
+  assert.equal(await refusal(source.approveDraft!(off.draft_id, off.version, "approve-unnamed", "record_expense")), "not_listo");
+  const fixed = await source.reviewMontos!(off.draft_id, off.version, { net_amount: { state: "known", value: "4000.00" } }, "subtotal-back");
+  assert.deepEqual(standing(fixed), ["listo", [], []], "the write that fixes it clears it");
+  const again = await source.reviewMontos!(fixed.draft_id, fixed.version, { net_amount: { state: "known", value: "3900.00" } }, "subtotal-off-again");
+  const accepted = await source.approveDraft!(again.draft_id, again.version, "approve-named", "record_expense", { acceptGaps: ["review_flag"] });
+  assert.equal(accepted.review_state, "accepted");
+});
+
+test("a gap the sample seeds stays beside a new one, in the rule's order", async () => {
+  const { source, dossier } = await sample("rcpt-remitente");
+  assert.deepEqual(standing(dossier), ["attention", ["unverified_sender"], []]);
+  const off = await source.reviewMontos!(dossier.draft_id, dossier.version, { net_amount: { state: "known", value: "800.00" } }, "sender-subtotal");
+  assert.deepEqual(standing(off), ["attention", ["review_flag", "unverified_sender"], ["review_flag"]]);
+});
+
+for (const [receiptId, gap, fiscal] of [
+  ["rcpt-falta-rnc", "missing_rnc", { rnc: "131999888" }],
+  ["rcpt-falta-ncf", "missing_ncf", { ncf: "B0100000123" }],
+  ["rcpt-ferreteria", "sin_comprobante", { rnc: "131999888", ncf: "B0100000123" }],
+] as const) {
+  test(`the seeded ${gap} gap ends with the write that gives what it lacked`, async () => {
+    const { source, dossier } = await sample(receiptId);
+    assert.deepEqual(standing(dossier), ["attention", [gap], [gap]]);
+    const held = dossier.facts.fiscal;
+    const given = await source.reviewFiscal!(dossier.draft_id, dossier.version, { fiscal: { rnc: held?.rnc.value ?? null, ncf: held?.ncf.value ?? null, itbis: held?.itbis.value ?? null, ...fiscal }, declaration: dossier.dgii ?? { form: "606" } }, `give-${gap}`);
+    assert.deepEqual(standing(given), ["listo", [], []]);
+  });
+}
+
+test("a date a person clears takes the sample out of Listos, and nobody can accept over it", async () => {
+  const { source, dossier, receipt } = await sample("rcpt-listo-imprenta");
+  const cleared = await source.reviewDraft!(dossier.draft_id, dossier.version, { occurred_on: { state: "unknown", value: null } }, "clear-date");
+  assert.deepEqual(standing(cleared), ["attention", ["missing_date"], []]);
+  assert.equal(await refusal(source.approveDraft!(cleared.draft_id, cleared.version, "approve-undated", "record_expense", { acceptGaps: ["missing_date"] })), "not_listo");
+  const given = await source.reviewDraft!(cleared.draft_id, cleared.version, { occurred_on: { state: "known", value: receipt.occurred_on! } }, "give-date");
+  assert.deepEqual(standing(given), ["listo", [], []]);
+});
