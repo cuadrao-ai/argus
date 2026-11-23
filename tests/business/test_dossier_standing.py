@@ -173,10 +173,9 @@ def senders(monkeypatch):  # noqa: ANN001, ANN201
         asked.append(draft_id)
         return "new"
 
-    clean_read = {"status": "review_ready", "shared": False}
     for name, answer in {
         "review_questions": lambda tx, ids: {},
-        "_attachments": lambda tx, ids: {draft_id: [clean_read] for draft_id in ids},
+        "attachment_reads": lambda tx, ids, *, live_siblings=False: {draft_id: "finished" for draft_id in ids},
         "_upload_years": lambda tx, ids: {},
         "repeated_comprobantes": lambda tx, events: {},
         "record_context": lambda tx: SimpleNamespace(accounts=()),

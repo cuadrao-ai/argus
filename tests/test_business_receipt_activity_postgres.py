@@ -23,7 +23,7 @@ pytestmark = bridge.pytestmark
 def ready(actions):
     saved = single._saved(actions, "expense")
     bridge.bind(saved)
-    result = bridge.finish(saved)
+    result = bridge.finish(saved, keep_lease=True)
     assert result.outcome == "applied"
     service, context, _, cid, _, _ = saved
     web = views._web(service, context)
@@ -31,6 +31,7 @@ def ready(actions):
     web.service.documents._update(
         context.owner_id, draft, holder=saved[4], status="review_ready", error_code=None
     )
+    web.service.documents.hub.connections.release(connection_id=cid, holder=saved[4])
     return service, context, cid, result.draft_id, web
 
 

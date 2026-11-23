@@ -223,6 +223,8 @@ def test_a_saved_read_whose_handoff_failed_waits_as_interrupted_on_postgres(acti
             ),
         )
     web = _web(service, context)
+    connections = web.service.documents.hub.connections
+    connections.release(connection_id=cid, holder=saved[4])
     row, detail = _views(web, cid)
     for view in (row, detail):
         assert (view["status"], view["attention"], view["error_code"]) == (
@@ -234,6 +236,9 @@ def test_a_saved_read_whose_handoff_failed_waits_as_interrupted_on_postgres(acti
     assert detail["draft_id"] is None
     assert detail["evidence"]["total"] == "33254.91"
     # The hand-off then succeeds: the draft owns the receipt.
+    assert connections.lease(
+        connection_id=cid, holder=saved[4], now=web.service.documents.hub.clock()
+    )
     result = bridge.finish(saved)
     assert result.outcome == "applied", result
     row, detail = _views(web, cid)
@@ -319,6 +324,7 @@ def test_a_receipt_whose_grant_went_away_asks_the_owner_to_rebind(actions):  # n
             ),
         )
     web = _web(service, context)
+    web.service.documents.hub.connections.release(connection_id=cid, holder=saved[4])
     row, detail = _views(web, cid)
     for view in (row, detail):
         assert (view["status"], view["attention"], view["error_code"]) == (

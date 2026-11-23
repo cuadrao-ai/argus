@@ -113,7 +113,7 @@ def test_the_second_receipt_with_the_same_read_is_marked_and_the_first_stays_cle
     service, context, _ = actions
     original = _receipt(actions, b"synthetic receipt 250.50 DOP")
     shared.bind(original)
-    first = shared.finish(original)
+    first = shared.finish(original, keep_lease=True)
     assert first.outcome == "applied", first
     second_receipt = _receipt(actions, b"the same receipt, photographed again")
     shared.bind(second_receipt)

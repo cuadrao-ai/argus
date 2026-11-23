@@ -139,7 +139,7 @@ def test_one_clean_candidate_always_becomes_one_draft_at_the_total(
     saved = _saved(actions, kind_hint, direction)
     service, context, _, cid, _, _ = saved
     bridge.bind(saved)
-    result = bridge.finish(saved)
+    result = bridge.finish(saved, keep_lease=True)
     assert result.outcome == "applied", result
     view = service.dossier(context, result.draft_id)
     assert Decimal(view.facts.amount.value) == Decimal("33254.91")

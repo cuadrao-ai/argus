@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from datetime import datetime, timezone
 from typing import Any, get_args
 from uuid import UUID
 
@@ -91,13 +90,9 @@ from argus.domain.business.purchase_review import (
 from argus.domain.business.receipts import draft_row
 from argus.domain.business.review_flags import review_flags
 from argus.domain.business.rnc_registry import (
-    RncRegistry,
-    postgres_rnc_fetch,
-    registry_from_config,
-)
-from argus.domain.business.supplier_fast_path import (
+    DgiiRncRegistry,
+    RncRegistrySnapshot,
     RncRegistryStatus,
-    registry_status,
 )
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.receipt_review import duplicate_warning
@@ -120,13 +115,8 @@ def record_context(tx: ActionTransaction) -> RecordContext:
     )
 
 
-def rnc_registry(tx: ActionTransaction) -> RncRegistry:
-    return registry_from_config(
-        "dgii",
-        postgres_rnc_fetch(
-            lambda query, params: next(iter(tx.rows(query, params)), None)
-        ),
-    )
+def rnc_registry(tx: ActionTransaction) -> DgiiRncRegistry:
+    return DgiiRncRegistry.for_connection(tx.connection)
 
 
 def review_questions(
@@ -215,6 +205,7 @@ def duplicate_candidates(
     tx: ActionTransaction,
     event: ImportEvent,
     pending: tuple[str, ...],
+    repeated: tuple[UUID, ...],
     *,
     can_prepare: bool,
     can_delete: bool,
@@ -233,8 +224,7 @@ def duplicate_candidates(
         or event.resolution.get("different_purchases")
     )
     read = pending if warned else ()
-    draft_id = UUID(event.id)
-    fiscal = tuple(str(i) for i in repeated_comprobantes(tx, [event]).get(draft_id, ()))
+    fiscal = tuple(str(i) for i in repeated)
     candidates = []
     for other_id in dict.fromkeys((*read, *fiscal)):
         try:
@@ -282,16 +272,17 @@ def bandeja_standing(
     )
 
 
-def supplier_registry_status(
+def supplier_registry_read(
     tx: ActionTransaction, facts: BusinessFacts
-) -> RncRegistryStatus | None:
+) -> tuple[RncRegistrySnapshot, RncRegistryStatus | None]:
     """What the DGII register says of the supplier RNC the draft holds."""
 
     rnc = facts.fiscal.rnc if facts.fiscal else None
     digits = identity_digits(rnc.value) if isinstance(rnc, Known) else None
     if not digits:
-        return None
-    return registry_status(tx.connection, digits, datetime.now(timezone.utc))
+        return RncRegistrySnapshot(), None
+    answer = rnc_registry(tx).read(digits)
+    return RncRegistrySnapshot({digits: answer.record}), answer.status
 
 
 def workflow_blockers(
@@ -547,7 +538,7 @@ def dossier(
         (tx.context.actor.space_id, draft_id),
     )
     source_rows = tx.rows(
-        "select s.id,s.kind,s.channel,s.received_at,s.text_content,s.connection_id,d.draft,"
+        "select s.id,s.kind,s.channel,s.received_at,s.text_content,s.connection_id,d.draft,c.lease_until,"
         " exists (select 1 from public.business_draft_sources l2"
         " join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
         " where l2.space_id=l.space_id and s2.connection_id=s.connection_id and l2.draft_id<>l.draft_id"
@@ -556,6 +547,7 @@ def dossier(
         " from public.business_draft_sources l join public.business_sources s"
         " on s.id=l.source_id and s.space_id=l.space_id"
         " left join public.financial_document_extractions d on d.connection_id=s.connection_id"
+        " left join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id"
         " where l.space_id=%s and l.draft_id=%s order by s.received_at,s.id",
         (tx.context.actor.space_id, draft_id),
     )
@@ -612,6 +604,7 @@ def dossier(
         found,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
+    registry, registry_status = supplier_registry_read(tx, facts)
     linked = review_sources(
         tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type, context.accounts
     )
@@ -634,7 +627,7 @@ def dossier(
         and linked_reason(tx, event.activity_id) is None
     )
     from argus.domain.business.actions import document_ledger
-    from argus.domain.business.actions.document_deletion import is_reading
+    from argus.domain.business.actions.document_deletion import reading_uploads
     from argus.domain.business.supporting_files import supporting_state
 
     marker = deletion(event.state, event.resolution)
@@ -642,7 +635,7 @@ def dossier(
         marker,
         people(tx.connection, tx.authorization, [marker and marker.actor.actor_id]),
     )
-    in_flight = event.state in ("open", "accepted") and is_reading(tx, source_rows)
+    in_flight = event.state in ("open", "accepted") and bool(reading_uploads(tx, source_rows))
     reading = event.state == "open" and in_flight
     delete_available = (
         "approve" in tx.authorization.capabilities
@@ -657,8 +650,24 @@ def dossier(
         )
     )
     uploaded = upload_year(source_rows[0]["received_at"] if source_rows else None)
-    from argus.domain.business.actions.listos import draft_standings
+    from argus.domain.business.actions.listos import attachment_reads, draft_standing
 
+    flags = review_flags(facts, registry, declaration=resolution.dgii)
+    repeated = (
+        repeated_comprobantes(tx, [event]).get(draft_id, ())
+        if event.state == "open" else ()
+    )
+    standing = None
+    if event.state == "open" and not reading:
+        standing = draft_standing(
+            tx, event, resolution,
+            blocked=blocked,
+            flags=flags,
+            read=attachment_reads(tx, [draft_id]).get(draft_id, "none"),
+            repeated=bool(repeated),
+            uploaded=uploaded,
+            every_gap=True,
+        )
     group, gaps = bandeja_standing(
         {
             **draft_row(
@@ -670,9 +679,7 @@ def dossier(
             "deleted": deleted,
             "read_pending": reading,
         },
-        draft_standings(tx, [event], every_gap=True)[event.id]
-        if event.state == "open" and not reading
-        else None,
+        standing,
         accepting=event.state == "accepting",
     )
     return BusinessDossier(
@@ -698,12 +705,13 @@ def dossier(
         questions=questions,
         history=revisions,
         blockers=tuple(blocked),
-        review_flags=review_flags(facts, rnc_registry(tx), declaration=resolution.dgii),
+        review_flags=flags,
         approval_available=approvable,
         duplicate_candidates=duplicate_candidates(
             tx,
             event,
             duplicate_ids,
+            repeated,
             can_prepare=can_prepare,
             can_delete=delete_available,
         ),
@@ -738,6 +746,6 @@ def dossier(
         bandeja_group=group,
         listo_gaps=gaps,
         confirmable=confirmable_gaps(gaps),
-        rnc_registry_status=supplier_registry_status(tx, facts),
+        rnc_registry_status=registry_status,
         **draft_marks(tx, draft_id, facts),
     )

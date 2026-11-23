@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
 from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.ledger import business_day
+from argus.domain.ingestion.email_intake import sender_policy
 
 # The deletion contract imports this type while receipt contracts initialize.
 ApprovalGroup = Literal["listo", "attention"]
@@ -72,7 +73,7 @@ ListoGap = Literal[
     "unverified_sender",
 ]
 BandejaReason = Literal[Attention, ListoGap]
-ReadState = Literal["finished", "none", "unclear"]
+ReadState = Literal["finished", "none", "unclear", "reading"]
 # The one word the Bandeja list shows for a row.
 BandejaLabel = Literal["reading", "cant_read", "needs_attention", "ready", "accepted"]
 
@@ -240,7 +241,7 @@ RULE: tuple[Gap, ...] = (
     Gap(
         "unverified_sender",
         False,
-        lambda draft: draft.sender not in (None, "authorized"),
+        lambda draft: sender_policy.sender_refusal(draft.sender) is not None,
     ),
 )
 
@@ -278,7 +279,11 @@ def listo_gaps(draft: DraftStanding) -> tuple[BandejaReason, ...]:
 def _row_reason(
     view: Mapping[str, Any], draft: DraftStanding | None
 ) -> BandejaReason | None:
-    if view.get("read_pending") or view.get("attention") in READ_HELD:
+    if (
+        view.get("read_pending")
+        or (draft and draft.read == "reading")
+        or view.get("attention") in READ_HELD
+    ):
         return "reading"
     if view.get("attention"):
         return view["attention"]

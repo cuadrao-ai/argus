@@ -4,6 +4,7 @@ it back. None of these changes a financial fact."""
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -107,8 +108,8 @@ def _files(tx: ActionTransaction, draft_id: UUID | str) -> list[dict[str, Any]]:
     )
 
 
-def _full(files: list[dict[str, Any]]) -> bool:
-    return sum(row["linked"] for row in files) >= SUPPORTING_FILE_LIMIT
+def supporting_files_full(linked: Iterable[bool]) -> bool:
+    return sum(linked) >= SUPPORTING_FILE_LIMIT
 
 
 def supporting_state(
@@ -120,9 +121,10 @@ def supporting_state(
 
     now = datetime.now(timezone.utc)
     files = _files(tx, draft_id)
+    full = supporting_files_full(row["linked"] for row in files)
 
     def offered(action: SupportingAction, file: dict[str, Any] | None = None) -> bool:
-        return can_annotate and _refusal(tx, draft_id, files, action, file) is None
+        return can_annotate and _refusal(tx, draft_id, full, action, file) is None
 
     shown = []
     for row in files:
@@ -144,7 +146,7 @@ def supporting_state(
         )
     return {
         "supporting_files": tuple(shown),
-        "supporting_limit_reached": _full(files),
+        "supporting_limit_reached": full,
         "supporting_append_available": offered("append_supporting_file"),
     }
 
@@ -190,7 +192,7 @@ def _linked_elsewhere(tx: ActionTransaction, uploads: list[UUID], draft_id: UUID
 def _refusal(
     tx: ActionTransaction,
     draft_id: UUID,
-    files: list[dict[str, Any]],
+    full: bool,
     action: SupportingAction,
     file: dict[str, Any] | None = None,
 ) -> str | None:
@@ -200,7 +202,7 @@ def _refusal(
     is asked for bytes that would add a file."""
 
     if action == "append_supporting_file":
-        return "supporting_file_limit_reached" if _full(files) else None
+        return "supporting_file_limit_reached" if full else None
     assert file is not None
     if action == "unlink_supporting_file":
         return None if file["linked"] else "supporting_file_not_linked"
@@ -210,7 +212,7 @@ def _refusal(
         return "supporting_file_already_linked"
     if file["unlinked_at"] + PURGE_AFTER <= datetime.now(timezone.utc):
         return "supporting_file_restore_expired"
-    return "supporting_file_limit_reached" if _full(files) else None
+    return "supporting_file_limit_reached" if full else None
 
 
 def _require(
@@ -220,7 +222,8 @@ def _require(
     action: SupportingAction,
     file: dict[str, Any] | None = None,
 ) -> None:
-    code = _refusal(tx, draft_id, files, action, file)
+    full = supporting_files_full(row["linked"] for row in files)
+    code = _refusal(tx, draft_id, full, action, file)
     if code:
         raise ActionError("invalid_input", code)
 

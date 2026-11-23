@@ -1,110 +1,29 @@
 """Supplier registry lookup and receipt-date NCF check.
 
 The service runs only when ``CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED``
-is on, and is wired to no route. ``registry_status`` is the one read the
-flag does not gate: the dossier shows it beside the RNC. Callers pass a
-database connection. Nothing here opens one.
+is on. Callers pass a database connection and the time of the check.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from enum import Enum
 from typing import Any, Literal
 
 from argus.domain.business.fiscal_identity import normalized_ncf
+from argus.domain.business.rnc_registry import DgiiRncRegistry, RegistryStatusInfo
 from argus.settings_names import setting_value
 
 _FLAG = "BUSINESS_SUPPLIER_FAST_PATH_ENABLED"
-_EXCLUDED_NOTICE = (
-    "La DGII puede no aceptar el ITBIS de esta factura, por eso quedó fuera del 606. "
-    "Si ya lo confirmaste con el suplidor, puedes incluirla."
-)
 _INVALID_NCF = "Este comprobante no es válido. Pide al suplidor uno nuevo."
 _NO_DUE_DATE = "Sin fecha de vencimiento"
 _B_TYPES = frozenset({"01", "02", "03", "04", "11", "12", "13", "14", "15", "17"})
 
 
-class RegistryStatus(str, Enum):
-    """Publisher status after the app mapping. Not the SQL verification column."""
-
-    VERIFICADO = "verificado"
-    SUSPENDIDO = "suspendido"
-    DADO_DE_BAJA = "dado_de_baja"
-    CESE_TEMPORAL = "cese_temporal"
-    ANULADO = "anulado"
-    RECHAZADO = "rechazado"
-    DESCONOCIDO = "desconocido"
-
-
-@dataclass(frozen=True)
-class RegistryStatusInfo:
-    status: RegistryStatus
-    label: str | None
-    notice: str | None
-
-
-def _known(
-    status: RegistryStatus,
-    label: str | None,
-    *,
-    excluded: bool,
-) -> RegistryStatusInfo:
-    return RegistryStatusInfo(
-        status=status,
-        label=label,
-        notice=_EXCLUDED_NOTICE if excluded else None,
-    )
-
-
-STATUS_BY_RAW: dict[str, RegistryStatusInfo] = {
-    "ACTIVO": _known(RegistryStatus.VERIFICADO, None, excluded=False),
-    "SUSPENDIDO": _known(
-        RegistryStatus.SUSPENDIDO,
-        "Suplidor suspendido en la DGII",
-        excluded=True,
-    ),
-    "DADO DE BAJA": _known(
-        RegistryStatus.DADO_DE_BAJA,
-        "Suplidor dado de baja en la DGII",
-        excluded=True,
-    ),
-    "CESE TEMPORAL": _known(
-        RegistryStatus.CESE_TEMPORAL,
-        "Suplidor en cese temporal en la DGII",
-        excluded=True,
-    ),
-    "ANULADO": _known(
-        RegistryStatus.ANULADO,
-        "RNC anulado en la DGII",
-        excluded=True,
-    ),
-    "RECHAZADO": _known(
-        RegistryStatus.RECHAZADO,
-        "RNC rechazado en la DGII",
-        excluded=True,
-    ),
-}
-UNKNOWN_STATUS = RegistryStatusInfo(
-    status=RegistryStatus.DESCONOCIDO,
-    label=None,
-    notice=None,
-)
-
-
 def supplier_fast_path_enabled() -> bool:
-    # Lazy: the dossier contract imports this module's status type, and the
-    # Business runtime's contracts load without the ingestion package.
     from argus.domain.ingestion.documents.config import enabled_flag
 
     return enabled_flag(setting_value(_FLAG))
-
-
-def map_registry_status(raw_status: str) -> RegistryStatusInfo:
-    """Map trimmed, case-insensitive publisher text. Anything else is desconocido."""
-
-    return STATUS_BY_RAW.get(str(raw_status).strip().upper(), UNKNOWN_STATUS)
 
 
 @dataclass(frozen=True)
@@ -156,7 +75,7 @@ class SupplierRegistryHit:
     name: str
     raw_status: str
     mapped: RegistryStatusInfo
-    file_date: date
+    file_date: date | None
     checked_at: datetime
 
 
@@ -183,54 +102,23 @@ def _lookup(
     rnc: str,
     checked_at: datetime,
 ) -> SupplierRegistryHit | SupplierRegistryMiss:
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "select rnc, name, status, file_date from public.dgii_rnc_lookup(%s)",
-            (rnc,),
+    answer = DgiiRncRegistry.for_connection(connection).read(rnc)
+    record = answer.record
+    if record is None:
+        return SupplierRegistryMiss(
+            outcome="not_found" if answer.loaded else "not_loaded",
+            rnc=rnc,
+            checked_at=checked_at,
         )
-        row = cursor.fetchone()
-        if row is None:
-            # No row covers two facts the function does not separate: the
-            # registry table is empty, or this RNC is absent from a loaded file.
-            cursor.execute("select exists (select 1 from public.dgii_rnc)")
-            loaded = cursor.fetchone()
-            outcome: Literal["not_found", "not_loaded"] = (
-                "not_found" if loaded and loaded[0] else "not_loaded"
-            )
-            return SupplierRegistryMiss(
-                outcome=outcome,
-                rnc=rnc,
-                checked_at=checked_at,
-            )
-    registry_rnc, name, raw_status, file_date = row
-    raw_text = raw_status if isinstance(raw_status, str) else str(raw_status)
     return SupplierRegistryHit(
         outcome="found",
-        rnc=str(registry_rnc),
-        name=str(name),
-        raw_status=raw_text,
-        mapped=map_registry_status(raw_text),
-        file_date=_as_date(file_date),
+        rnc=record.rnc,
+        name=record.name,
+        raw_status=record.status,
+        mapped=record.mapped,
+        file_date=record.file_date,
         checked_at=checked_at,
     )
-
-
-#: What the register says of one RNC: its mapped status, or ``not_found`` when
-#: a loaded register does not list it. ``desconocido`` is a listed RNC whose
-#: publisher text no row maps, never a miss.
-RncRegistryStatus = RegistryStatus | Literal["not_found"]
-
-
-def registry_status(
-    connection: Any, rnc: str, checked_at: datetime
-) -> RncRegistryStatus | None:
-    """The register's answer for ``rnc``. None while no register is loaded:
-    nothing is known, so nothing is said."""
-
-    found = _lookup(connection, rnc, checked_at)
-    if isinstance(found, SupplierRegistryHit):
-        return found.mapped.status
-    return "not_found" if found.outcome == "not_found" else None
 
 
 def lookup_supplier_fast_path(

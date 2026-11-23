@@ -9,10 +9,11 @@ from datetime import date
 from uuid import uuid4
 
 import pytest
-from argus.domain.business.supplier_fast_path import STATUS_BY_RAW, RegistryStatus
+from argus.domain.business.rnc_registry import INACTIVE_BY_RAW, RegistryStatus
 from faker import Faker
 from psycopg import Connection
 
+from tests import test_business_actions_postgres as actions_support
 from tests import test_business_listos_postgres as listos
 from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import receipt_purchase
@@ -33,6 +34,8 @@ from tests.test_business_scope_switch_routes_postgres import API
 pytestmark = listos.pytestmark
 people = listos.people
 rig = listos.rig
+actions = actions_support.actions
+users = actions_support.users
 
 LISTED = "101999996"
 fake = Faker()
@@ -279,7 +282,8 @@ def test_an_unverified_sender_stays_among_the_gaps_behind_another(
 
 #: The publisher text behind each status; ``desconocido`` is text no row maps.
 RAW_BY_STATUS = {
-    **{info.status: raw for raw, info in STATUS_BY_RAW.items()},
+    RegistryStatus.VERIFICADO: "ACTIVO",
+    **{info.status: raw for raw, info in INACTIVE_BY_RAW.items()},
     RegistryStatus.DESCONOCIDO: "EN TRAMITE",
 }
 
@@ -331,3 +335,24 @@ def test_a_record_with_no_rnc_carries_no_register_status(rig, register) -> None:
     dossier = _same_as_the_list(rig, _read(rig, {"rnc": None}))
 
     assert dossier["rnc_registry_status"] is None
+
+
+def test_one_dossier_computes_its_standing_inputs_once(actions) -> None:
+    from cProfile import Profile
+
+    from argus.domain.business.actions import dossier
+
+    service, context, _ = actions
+    draft_id = actions_support.ready(service, context)
+    with Profile() as calls:
+        view = service.dossier(context, draft_id)
+
+    assert view.review_state == "open"
+    inputs = (
+        dossier.record_context, dossier.review_questions, dossier.workflow_blockers,
+        dossier.review_flags, dossier.repeated_comprobantes,
+    )
+    counts = {entry.code: entry.callcount for entry in calls.getstats()}
+    assert {read.__name__: counts.get(read.__code__, 0) for read in inputs} == {
+        read.__name__: 1 for read in inputs
+    }
