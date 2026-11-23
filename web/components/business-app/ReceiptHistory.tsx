@@ -44,10 +44,12 @@ function localDay(date: Date): string {
 /**
  * The Historial tab: what the API already records, newest first, in one card
  * per day ("Hoy", "Ayer", then the date). Its arrival comes from the first
- * source, Leído from the reading's revision, one correction per changed field
- * from a person's revision with its struck-to-green diff, and the dated
- * acceptance from the recorded approval: the one place an accepted record says
- * so. Notes and supporting file changes come from saved revisions.
+ * source. The revision that creates the record is one line, never a list of
+ * its values: Leído when Cuadrao read a document or a message, the person's
+ * line when a person started it. Later revisions give one correction per
+ * changed field with its struck-to-green diff, and the dated acceptance comes
+ * from the recorded approval: the one place an accepted record says so. Notes
+ * and supporting file changes come from saved revisions.
  */
 export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null, supportingFiles = [] }: {
   history: BusinessDraftRevision[];
@@ -81,10 +83,11 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     return fact && fact.state === "known" ? fact.value : null;
   };
   const said606 = (answer: boolean | null) => answer === null ? t("business.marks.pending_606", "Waiting for the accountant") : answer ? labels.yes : labels.no;
+  const fieldName = (key: string) => dossierRowLabel(t, key as Parameters<typeof dossierRowLabel>[1], { document_type: documentType });
   /** One correction as a sentence, or null when the shown value did not change (a confirmation changes only who stated it). */
   const changed = (key: string, before: string, after: string): string | null => {
     if (before === after) return null;
-    const field = dossierRowLabel(t, key as Parameters<typeof dossierRowLabel>[1], { document_type: documentType });
+    const field = fieldName(key);
     if (!before) return t("business.history.set", "{{field}}: {{after}}", { field, after });
     if (!after) after = t("business.dossier.not_recorded", "Not recorded");
     return t(FEMININE.has(key) ? "business.history.changed_female" : "business.history.changed", "{{field}} changed from {{before}} to {{after}}", { field, before, after });
@@ -94,6 +97,11 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   const diffOf = (before: string, after: string) => before !== after
     ? { before: before || null, after: after || t("business.dossier.row.no_data") }
     : undefined;
+  /** One changed field as the rail shows it: its name, then the diff. The sentence is for a screen reader. */
+  const correction = (key: string, before: string, after: string): Pick<HistoryEvent, "line" | "heading" | "diff"> => {
+    const diff = diffOf(before, after);
+    return { line: changed(key, before, after), heading: diff ? fieldName(key) : undefined, diff };
+  };
   /** The dictionary's fields a save changed, in its order, worded as the fiscal editor shows them; a field the earlier declaration lacked has nothing to strike. */
   const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration, facts: BusinessFacts): FiscalChange[] | null => {
     if (!dgiiFields) return null;
@@ -131,14 +139,24 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       events.push({ id: `${revision.version}-duplicate`, at, kind: "duplicate", line: t(`business.history.duplicate.${revision.duplicate.decision}`, { other }), who });
       continue;
     }
-    if (!revision.reason && revision.actor.actor_kind === "extractor") {
+    // The server writes a read as the extractor, for a file from any channel, and a chat message as the owner's agent.
+    const readByCuadrao = revision.actor.actor_kind === "extractor" || (!revision.before && revision.actor.actor_kind === "owner_via_agent");
+    if (!revision.reason && readByCuadrao) {
       events.push({ id: `read-${revision.version}`, at, kind: "read", line: t("business.history.read", "Read"), who: t("business.activity_feed.extractor_name") });
       continue;
     }
-    const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal") as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
+    if (!revision.before) {
+      // A person started the record: its first values are not corrections.
+      events.push({ id: `${revision.version}-reviewed`, at, line: t("business.dossier.reviewed_revision", "This revision was reviewed."), who });
+      continue;
+    }
+    const { before_document_type: typeBefore, after_document_type: typeAfter } = revision;
+    const retyped = typeBefore && typeAfter && typeBefore !== typeAfter ? { before: t(DOCUMENT_TYPE_LABELS[typeBefore]), after: t(DOCUMENT_TYPE_LABELS[typeAfter]) } : null;
+    // The activity follows the type on the server, so a type change says it once, as Tipo.
+    const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal" && !(retyped && key === "kind")) as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
     for (const key of facts) {
       const show = (side: BusinessDraftRevision["before"]) => side ? presentBusinessFact(key, side, accounts, locale, labels) : "";
-      events.push({ id: `${revision.version}-${key}`, at, line: changed(key, show(revision.before), show(revision.after)), who, diff: diffOf(show(revision.before), show(revision.after)) });
+      events.push({ id: `${revision.version}-${key}`, at, ...correction(key, show(revision.before), show(revision.after)), who });
     }
     for (const key of BUSINESS_FISCAL_FIELDS) {
       if (key === "include_606") {
@@ -153,15 +171,11 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       const after = revision.after.fiscal?.[key as Exclude<BusinessFiscalField, "include_606">] as BusinessFact<string> | undefined;
       if (same(before, after)) continue;
       const show = (side: BusinessDraftRevision["before"]) => side ? presentFiscalFact(key, side, locale, labels) : "";
-      const line = changed(key, show(revision.before), show(revision.after));
-      const verified = key === "rnc" && line === null && after?.state === "known" && after.verified && !before?.verified;
-      events.push({ id: `${revision.version}-${key}`, at, line: verified ? t("business.history.rnc_verified", "RNC verified") : line, who, diff: verified ? undefined : diffOf(show(revision.before), show(revision.after)) });
+      const change = correction(key, show(revision.before), show(revision.after));
+      const verified = key === "rnc" && change.line === null && after?.state === "known" && after.verified && !before?.verified;
+      events.push({ id: `${revision.version}-${key}`, at, ...(verified ? { line: t("business.history.rnc_verified", "RNC verified") } : change), who });
     }
-    if (revision.before_document_type && revision.after_document_type && revision.before_document_type !== revision.after_document_type) {
-      const before = t(DOCUMENT_TYPE_LABELS[revision.before_document_type]);
-      const after = t(DOCUMENT_TYPE_LABELS[revision.after_document_type]);
-      events.push({ id: `${revision.version}-document-type`, at, line: changed("document_type", before, after), who, diff: diffOf(before, after) });
-    }
+    if (retyped) events.push({ id: `${revision.version}-document-type`, at, ...correction("document_type", retyped.before, retyped.after), who });
     if (hasNoteChange(revision)) {
       const field = t("business.dossier.note.title");
       const after = revision.after_current_note || t("business.dossier.not_recorded", "Not recorded");
