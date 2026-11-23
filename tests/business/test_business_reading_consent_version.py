@@ -35,8 +35,8 @@ ENGLISH = (
 def test_the_card_sentence_is_the_consent_in_both_languages(
     alice: Owner,  # noqa: F811
 ) -> None:
-    spanish = alice.get("/receipt-reading", language="es-419").json()
-    english = alice.get("/receipt-reading", language="en").json()
+    spanish = alice.reading_status(language="es-419")
+    english = alice.reading_status(language="en")
 
     assert (spanish["scope_version"], spanish["disclosure"]) == (3, SPANISH)
     assert (english["scope_version"], english["disclosure"]) == (3, ENGLISH)
@@ -46,7 +46,7 @@ def test_the_card_sentence_is_the_consent_in_both_languages(
 def test_a_command_for_an_earlier_version_reads_nothing(
     alice: Owner,  # noqa: F811
 ) -> None:
-    shown = alice.get("/receipt-reading", language="es-419").json()
+    shown = alice.reading_status(language="es-419")
 
     for earlier in (1, 2):
         stale = alice.post(
@@ -61,7 +61,7 @@ def test_a_command_for_an_earlier_version_reads_nothing(
 
         assert stale.status_code == 422, stale.text
         assert "business_receipt_consent_changed" in stale.text
-    assert alice.get("/receipt-reading").json()["enabled"] is False
+    assert alice.reading_status()["enabled"] is False
 
 
 def test_a_new_wording_of_the_same_scope_keeps_reading_on(
@@ -74,7 +74,7 @@ def test_a_new_wording_of_the_same_scope_keeps_reading_on(
 
     monkeypatch.setitem(receipt_consent.DISCLOSURES, "en", "Edited words, same scope.")
 
-    shown = alice.get("/receipt-reading").json()
+    shown = alice.reading_status()
     assert (shown["enabled"], shown["consent_id"]) == (
         True,
         accepted.json()["consent_id"],
@@ -108,7 +108,7 @@ def test_configuration_changes_keep_the_same_consent_and_queued_read(
         monkeypatch.setattr(receipt_consent, "SCOPE_VERSION", accepted["scope_version"] + 1)
     monkeypatch.setattr(setting, "route_resolver", lambda: route)
 
-    shown = alice.get("/receipt-reading").json()
+    shown = alice.reading_status()
     assert (shown["enabled"], shown["consent_id"]) == (True, accepted["consent_id"])
     assert setting._rows[(scope.owner.space_id, scope.person_id)] == saved
     assert documents._reading_allowed(scope.person_id, connection_id)

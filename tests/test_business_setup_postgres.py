@@ -83,6 +83,12 @@ def _steps(world, headers: dict) -> dict[str, dict]:  # noqa: ANN001
     return {step["key"]: step for step in response.json()["steps"]}
 
 
+def _workspace_reading(world, headers: dict) -> dict | None:  # noqa: ANN001
+    response = world.client.get(f"{API}/business/workspace", headers=headers)
+    assert response.status_code == 200, response.text
+    return response.json()["receipt_reading"]
+
+
 def _profile(world, name: str, previous: str, tax_id: dict | None, before: dict | None):  # noqa: ANN001, ANN202
     saved = world.client.patch(
         f"{API}/business/fiscal-profile",
@@ -103,8 +109,8 @@ def test_each_step_follows_the_saved_facts(world):  # noqa: ANN001
     assert steps["team"] == {"key": "team", "required": False, "done": False}
     assert steps["first_document"] == {"key": "first_document", "required": False, "done": False}
 
-    reading = world.client.get(f"{API}/business/receipt-reading", headers=alice.headers).json()
-    if reading["available"]:
+    reading = _workspace_reading(world, alice.headers)
+    if reading is not None and reading["available"]:
         assert steps["receipt_reading"] == {"key": "receipt_reading", "required": True, "done": reading["enabled"]}
     else:
         assert "receipt_reading" not in steps
@@ -127,5 +133,7 @@ def test_setup_is_complete_when_every_required_step_is_done(world):  # noqa: ANN
     _profile(world, "Ferretería Prueba", "Mi negocio", rnc, None)
     steps = _steps(world, world.alice.headers).values()
     open_required = [step["key"] for step in steps if step["required"] and not step["done"]]
-    reading = world.client.get(f"{API}/business/receipt-reading", headers=world.alice.headers).json()
-    assert open_required == (["receipt_reading"] if reading["available"] else [])
+    reading = _workspace_reading(world, world.alice.headers)
+    assert open_required == (
+        ["receipt_reading"] if reading is not None and reading["available"] else []
+    )
