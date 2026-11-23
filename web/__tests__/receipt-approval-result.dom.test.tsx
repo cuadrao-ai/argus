@@ -16,8 +16,8 @@ describe("the receipt dossier on an open draft", () => {
       assert.deepEqual(sent, [{ category: { value: "02", source: "last_choice" }, payment_method: { value: "03", source: "last_choice" } }]);
       await page.wait(() => Boolean(page.host.querySelector('[data-approved="true"]') && !page.host.querySelector("[data-review-primary]")));
       assert.match(page.row("category").querySelector("[data-row-value]")?.textContent ?? "", /Gastos por trabajos/);
-      assert.equal(page.row("category").querySelector('[role="img"]')?.getAttribute("aria-label"), "Última elección para este RNC");
-      assert.equal(page.row("payment_method").querySelector('[role="img"]')?.getAttribute("aria-label"), "Última elección para este RNC");
+      assert.equal(page.row("category").querySelector('[role="img"]')?.getAttribute("aria-label"), "Última vez");
+      assert.equal(page.row("payment_method").querySelector('[role="img"]')?.getAttribute("aria-label"), "Última vez");
     } finally { await page.close(); }
   });
 

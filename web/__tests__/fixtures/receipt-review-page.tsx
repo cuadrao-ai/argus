@@ -132,3 +132,23 @@ export async function fill(page: { host: ParentNode; act: (run: () => Promise<vo
   });
 }
 
+
+/** The server waits on the record's kind: the one state in which a purchase shows Compra/Venta. */
+export const kindAsked = (dossier: Dossier) => { dossier.questions = [{ id: "question-kind", draft_id: dossier.draft_id, field: "kind", asked_of: "accountant", channel: "web", state: "open", prompt: "", allowed_answers: ["known"], answer_source_id: null, created_at: "2026-10-10T14:22:00Z" }]; };
+
+type Host = { host: ParentNode; act: (run: () => Promise<void>) => Promise<void> };
+
+/** Opens a pick row's list, as a press on the row does, and returns its options. */
+export async function openList(page: Host, name: string) {
+  const trigger = page.host.querySelector<HTMLButtonElement>(`[data-fact="${name}"] button[aria-haspopup="listbox"]`);
+  assert.ok(trigger, `${name} opens no list`);
+  if (trigger.getAttribute("aria-expanded") !== "true") await page.act(async () => trigger.click());
+  return [...page.host.querySelectorAll<HTMLButtonElement>(`[data-fact="${name}"] [role="option"]`)];
+}
+
+/** Picks one option of a pick row. The pick saves at once: the row has no check. */
+export async function pick(page: Host, name: string, value: string) {
+  const option = (await openList(page, name)).find((item) => item.dataset.value === value);
+  assert.ok(option, `${name} offers no ${value}`);
+  await page.act(async () => option.click());
+}

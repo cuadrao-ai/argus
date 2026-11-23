@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
-import { fill, registerReceiptReviewPage, setup } from "./fixtures/receipt-review-page";
+import { fill, kindAsked, pick, registerReceiptReviewPage, setup } from "./fixtures/receipt-review-page";
 
 registerReceiptReviewPage();
 
@@ -110,20 +110,18 @@ test("accepted record edit controls follow the server field allowlist", async ()
   });
   try {
     assert.ok(page.row("counterparty").querySelector("button[data-row-value]"));
-    for (const row of ["amount", "occurred_on", "document_type", "itbis", "itbis_cost"]) {
+    for (const row of ["amount", "occurred_on", "itbis", "itbis_cost"]) {
       assert.equal(page.row(row).querySelector("button[data-row-value]"), null, row);
     }
     assert.equal(page.host.querySelector<HTMLButtonElement>('[data-testid="montos-currency"]')?.disabled, true);
   } finally { await page.close(); }
 });
 
-test("accepted 606 choices use their own check and the returned fiscal diff", async () => {
+test("accepted 606 choices save on the pick and show the returned fiscal diff", async () => {
   const page = await setup("recordedThenMarked", (dossier) => { dossier.sin_comprobante = false; });
   try {
     for (const value of ["01", "03"]) {
-      await page.openRow("payment_method");
-      await fill(page, '[data-fact="payment_method"] select', value, HTMLSelectElement);
-      await page.check("payment_method");
+      await pick(page, "payment_method", value);
       await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
     }
     assert.deepEqual(page.writes.map(({ body }) => body), [{ payment_method: "01" }, { payment_method: "03" }]);
@@ -132,7 +130,7 @@ test("accepted 606 choices use their own check and the returned fiscal diff", as
 });
 
 test("changing an accepted document type shows the server's before and after types", async () => {
-  const page = await setup("recordedThenMarked");
+  const page = await setup("recordedThenMarked", kindAsked);
   try {
     await page.openRow("document_type");
     await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);

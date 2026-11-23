@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
-import { button, fill, mount, registerReceiptReviewPage, setup } from "./fixtures/receipt-review-page";
+import { button, mount, pick, registerReceiptReviewPage, setup } from "./fixtures/receipt-review-page";
 
 registerReceiptReviewPage();
 
@@ -21,16 +21,16 @@ describe("approving sends only the suggestions on screen", () => {
     return { ...page, sent, approve, close: () => page.act(async () => page.root.unmount()) };
   }
 
-  test("while the tax fields load, no select shows and the approval saves no suggestion", async () => {
+  test("while the tax fields load, no list opens and the approval saves no suggestion", async () => {
     const page = await approveWith(() => () => new Promise(() => undefined));
     try {
-      assert.equal(page.host.querySelector('[data-fact="category"] select'), null, "no select is drawn yet");
+      assert.equal(page.host.querySelector('[data-fact="category"] button'), null, "no list is offered yet");
       await page.approve();
       assert.deepEqual(page.sent, [undefined]);
     } finally { await page.close(); }
   });
 
-  test("the approve shortcut reads the same rows: no select drawn, no suggestion sent", async () => {
+  test("the approve shortcut reads the same rows: no list offered, no suggestion sent", async () => {
     const page = await approveWith(() => () => new Promise(() => undefined));
     try {
       await page.act(async () => { assert.equal(page.runShortcut("approve"), true); });
@@ -69,9 +69,7 @@ describe("approving sends only the suggestions on screen", () => {
       approveDraft: async (id, version, key, action, options) => { sent.push(options?.suggestions); return fixture.approveDraft(id, version, key, action, options); },
     }));
     try {
-      await page.openRow("payment_method");
-      await fill(page, '[data-fact="payment_method"] select', "01", HTMLSelectElement);
-      await page.check("payment_method");
+      await pick(page, "payment_method", "01");
       await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
       await page.act(async () => button(page.host, "Aceptar").click());
       await page.wait(() => sent.length === 1);

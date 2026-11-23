@@ -2364,6 +2364,8 @@
       "net_card_purchases": "Purchases before ITBIS",
       "net_card_sales": "Sales before ITBIS",
       "total": "Total",
+      "total_adds_up": "Subtotal + ITBIS = total",
+      "total_adds_up_with_tip": "Subtotal + ITBIS + legal tip = total",
       "total_review": "Total (with ITBIS)"
     },
     "transactions": {
@@ -3171,9 +3173,9 @@
         "inherited_rnc": "RNC",
         "restore_inherited": "Restore: {{value}}",
         "suggestion_source": {
-          "last_choice": "Your last choice for this RNC",
+          "last_choice": "Last time",
           "reading": "Suggested by the reading",
-          "receipt": "Read from the receipt"
+          "receipt": "From the receipt"
         },
         "mark_no_receipt": "Mark as no receipt"
       },
