@@ -263,7 +263,9 @@ class BusinessActions:
         with transaction(self.authority, context, "prepare") as tx:
             if context.actor.actor_kind != "member":
                 raise ActionError("permission_denied", "business_human_command_required")
-            event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=request.version))
+            event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=request.version), True)
+            if event.state == "accepted":
+                tx.authorization.require("approve")
             mutations.facts_of(event)
             resolution = BusinessResolution.model_validate(event.resolution.get("business"))
             sources = DraftSources(
@@ -385,6 +387,7 @@ class BusinessActions:
                             document_type=request.document_type,
                             due_on=request.due_on,
                             montos=request.montos,
+                            web_accounts=self.imports.money.accounts,
                         )
                 except ActionError as error:
                     result = error.result

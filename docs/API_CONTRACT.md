@@ -8621,10 +8621,8 @@ Business or an unknown id is `refused` with `business_record_not_found` and leav
 no ledger row. The route takes no `accept_gaps`, and nothing but a person's
 request reaches it.
 
-Post-recording corrections to the recorded facts are refused with
-`recorded_correction_unsupported`; the 606 declaration alone stays writable
-through the review route, before and after an export (see the review route).
-The way to correct a recorded fact is Reabrir.
+Owners can correct accepted records through `PATCH /business/drafts/{draft_id}/review`.
+The record stays accepted and keeps its money activity ID. Reopen remains available.
 
 `POST /business/drafts/{draft_id}/reopen` takes `{version}` and an
 `Idempotency-Key` and returns the dossier. It is the owner's, on the approve
@@ -8694,14 +8692,11 @@ immutable before/after `history`, live `capabilities`, `blockers`,
 approve action this draft takes, by its kind (`record_expense`,
 `record_income`, `record_refund`, the `action` the approve route's body
 discriminates on), and null while `approval_available` is false.
-`declaration_editable` is true while the caller may write the 606
-declaration: the caller holds `prepare`, the record takes a 606 (its
-`document_type` is `recibo`; a `venta`, whether it holds a 607 or nothing, and
-a record with `sin_comprobante` true read false, and a 606 write on either
-answers 422 `fiscal_direction_unsupported`), and the draft is open or
-approved. A download changes nothing here. `payment_split_editable`
-is true on the same terms for a sale: a `venta`. The type alone decides which
-form a record takes; neither flag reads the kind or a saved declaration.
+The dossier exposes `facts_editable` for review writes. Open drafts require
+`prepare`. Accepted records require the owner. `document_type_editable` follows
+the same permission. `declaration_editable` also requires a purchase eligible
+for the 606. `payment_split_editable` requires a sale. An incompatible fiscal
+form returns 422 `fiscal_direction_unsupported`.
 `declaration_suggestions` holds one suggestion for each 606 answer a person
 gives one by one, under the declaration's field name: `category` (tipo de
 gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
@@ -8784,9 +8779,8 @@ issuer_shown_as}`.
 A recorded `approval_result` carries `activity_id`, the approving `actor`,
 `reviewed_version` (the draft version the approval named, which also counts
 approvals and settlements), `approved_revision` (the latest `history` version
-at or below `reviewed_version`: the facts revision the person approved, the
-same revision the DGII export reads its facts and evidence from) and
-`approved_at` (when the approval receipt was written). Marks and 606 answers
+at or below `reviewed_version`: the facts revision the person approved) and
+`approved_at` (when the approval receipt was written). Owner corrections, marks and 606 answers
 after approval add `history` revisions without changing either field. So does
 an expense approval whose draft holds no 606 declaration, or whose saved
 declaration leaves the Tipo Id or the Forma de Pago unknown: it adds one
@@ -8916,25 +8910,35 @@ digit groups are removed and `a` to `z` upper-cased, so an RNC printed
 `1-23-45678-9` saves as `123456789` and `b0100000001` as `B0100000001`.
 Nothing else is folded: a word typed in the field (`no tiene`), a separator
 beside a letter (`ab-123`) and a letter that upper-cases to two (`ß`) are still
-a 422 `validation_error`. On an approved (`accepted`) draft the same route accepts a
-review that carries only `purchase` or only `payment_split`: it writes the declaration as one more
-revision with the same web source and action receipt, the recorded facts
-unchanged. An export is not final: this route, `POST /business/drafts/{id}/personal`
-and `POST /business/drafts/{id}/fiscal-inclusion` stay open on a record a
-download already carried, the next export carries the change, and the app
-and a file already handed over can differ. The handover package
-(`GET /business/exports`) reads the declarations and builds its records sheet
-under the Business's owner lock, the lock every review write takes, so a 606
-write that runs at the same time either lands before the build, and the sheet
-carries it, or waits for the build, lands after it, and the next download
-carries it. The declaration is `prepare`'s to write,
-before and after approval: an accountant holding `prepare` adds 606 data on the
-owner's approved record, and the revision names the accountant; `approve`
-stays the owner's and is not needed for the declaration; a read-only grant is
-403 `business_permission_denied`. Any other review input on an
-approved draft is still 422 `recorded_correction_unsupported`. So is a `purchase`
+a 422 `validation_error`.
+
+On an accepted record the owner can send `facts`, `document_type`, `montos`,
+`dgii`, `purchase`, `payment_split` or `due_on` through this route. A prepare
+grant alone returns 403 `business_permission_denied`. Total, currency and the
+transaction date must have values. Clearing one returns 422 `fact_required`.
+ITBIS and subtotal may be empty or zero. A money-changing edit to a linked
+record returns 422 `business_document_linked`, including when a refund names
+the purchase.
+
+Type changes include `history[].before_document_type` and `after_document_type`.
+Older revisions may omit both values. An accepted save commits its draft
+revision and action receipt together. Changing the total, currency, transaction
+date, counterparty or document type advances the revision of the same money
+activity. An accepted review that changes the funding account or ledger
+category directly returns 422 `recorded_correction_unsupported`. The 606
+expense type is a declaration field and can be corrected. A declaration-only
+edit keeps the money revision. Historial shows the change. Actividad names
+the action and actor. The original approval stays in
+history. The same request and idempotency key replay one result. A new request
+must name the current draft version. Period totals, Registros, the 606 or 607,
+and the next export use the corrected values. If an edit commits while an
+export prepares its files, the export rebuilds the snapshot once. A second
+concurrent change returns 409 `stale_version`. A downloaded copy keeps the
+values it held when generated.
+
+The existing refund checks still apply. A `purchase`
 that changes `purchase_activity_id` or `actual_refund` on an approved refund, or
-that changes either one and leaves `actual_refund` true on any record: the
+that changes either one and leaves `actual_refund` true on any record is refused. The
 approval checked a refund and its purchase against the money and the money keeps
 them, so an approved credit note cannot move to another purchase, and no record
 gains a refund claim the money does not hold. An approved expense holds no refund
@@ -8944,15 +8948,13 @@ the export holds it as `fiscal_credit_reference_not_applicable`. The same values
 answer 200, and `modified_ncf` stays writable, with a number that disagrees with
 the linked purchase held by the export as `fiscal_credit_reference_conflict`.
 It may also carry `document_type` (`recibo` or `venta`),
-alone or with facts and `dgii`, for an open draft from an upload, a note or a
+alone or with facts and `dgii`, for a document from an upload, a note or a
 chat. A change
 is one revision: a `venta` becomes income and loses a payable bill mark, a
 `recibo` becomes an expense, and a declaration saved under the other type is
 cleared unless the same request saves one. The printed RNC, NCF and ITBIS stay
-as read. Setting the type, changed or not, ends `document_type_detected`. After
-approval the change is `422` `document_type_locked`. `BusinessDossier` carries
-`document_type`, `document_type_detected` and `document_type_editable` (open,
-and the caller holds `prepare`). A stale `version` is still `409`
+as read. Setting the type, changed or not, ends `document_type_detected`. The
+owner can change the type after approval. A stale `version` is still `409`
 `stale_version` first.
 
 The type is the one answer to purchase or sale; a known `facts.kind` is always
@@ -8978,8 +8980,7 @@ The same review may carry `due_on`, alone or with other review input.
 `{"state": "unknown"}` clears it. Absent, the due date stays as it is. Only a
 person sets it: no read, default or issue date fills it. A change is one
 revision, and each `history` entry carries `before_due_on` and `after_due_on`.
-After approval the change is `422` `recorded_correction_unsupported`, the same
-as the other facts. `BusinessDossier.due_on`, `ReceiptDetail.due_on` and every
+The owner can also set or clear the due date after approval. `BusinessDossier.due_on`, `ReceiptDetail.due_on` and every
 month-close and open-items line carry the date as `YYYY-MM-DD`, or `null` while
 it is unknown. Open items list the soonest due date first (see the
 [month-close contract](contracts/business-month-close.md)).
@@ -9104,7 +9105,7 @@ approval with the activity ID named by the applied or replayed action result.
 Replaying an old approval after reopening or approving again returns
 409 `stale_version` if that recorded activity is absent or different.
 
-`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, `Pago`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. `Pago` is the stored settlement status of a recorded income or expense (`pendiente`, `pagado` or `cobrado`, the same words month close and bank matching write): `pendiente` until a settlement or a confirmed bank match stores one, and empty for a transfer. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows. A record that carries the owner's Personal mark (`business_share` none, stated by a person) is not a business row: it leaves `records.csv` and the first sheet and is listed in `personal.csv` and the fourth sheet `Personal` with the columns `Registro`, `Fecha`, `Total`, `Moneda`, `Originales` (the `originals/` paths of its included sources). Its originals stay under `originals/`, its canonical row stays in the second sheet and in `manifest.json` `records` with `personal` `yes`, and `manifest.json` `files` hashes `personal.csv`. In the DGII summary such a record has disposition `excluded` with reason `personal` unless it is a purchase the accountant answered `include_606` yes, the same rule month close applies; that answer also puts the purchase back among the business rows of `records.csv` and the first sheet, while a personal sale stays out whatever the answer. The mark and the 606 answer are read from the draft as it stands when the package is built, not from the approved revision: both change after approval, and month close, Registros and this package read them from the same place, so one mark moves the record on every surface at once.
+`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, `Pago`, in that order. The supplier and fiscal facts come from the latest accepted correction or the original approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. `Pago` is the stored settlement status of a recorded income or expense (`pendiente`, `pagado` or `cobrado`, the same words month close and bank matching write): `pendiente` until a settlement or a confirmed bank match stores one, and empty for a transfer. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows. A record that carries the owner's Personal mark (`business_share` none, stated by a person) is not a business row: it leaves `records.csv` and the first sheet and is listed in `personal.csv` and the fourth sheet `Personal` with the columns `Registro`, `Fecha`, `Total`, `Moneda`, `Originales` (the `originals/` paths of its included sources). Its originals stay under `originals/`, its canonical row stays in the second sheet and in `manifest.json` `records` with `personal` `yes`, and `manifest.json` `files` hashes `personal.csv`. In the DGII summary such a record has disposition `excluded` with reason `personal` unless it is a purchase the accountant answered `include_606` yes, the same rule month close applies; that answer also puts the purchase back among the business rows of `records.csv` and the first sheet, while a personal sale stays out whatever the answer. The mark and the 606 answer are read from the draft as it stands when the package is built, not from the approved revision: both change after approval, and month close, Registros and this package read them from the same place, so one mark moves the record on every surface at once.
 
 **DGII summary in the package.** The ZIP carries no DGII file: no 606 or 607
 TXT, no DGII workbook and no `dgii/` entry. The one DGII output is the Registros
@@ -9121,8 +9122,8 @@ calendar month, otherwise `DRY RUN`; it labels the period and blocks nothing.
 The summary states that official prevalidation is `NOT RUN` and no tax
 return has been submitted. The download writes nothing: it no longer records
 lines in `business_dgii_export_lines`.
-A record's fiscal facts are those of its approved revision (the one
-`approved_revision` names), and its evidence (`source_ids` in the manifest
+A record's fiscal facts come from its latest accepted correction, or from the
+original approved revision until the first correction, and its evidence (`source_ids` in the manifest
 `reconciliation` and the `Conciliación` sheet) is every source those facts
 name. A note edit, a reopen, the approval's own 606 revision and its undo after
 a failed money write attach no document and change no fact, so none of them
@@ -9138,9 +9139,8 @@ that matches keeps its origin, `verified` and sources. Printed dashes and spaces
 do not make an RNC differ, letter case and surrounding spaces do not make a
 fiscal number differ, and trailing zeros do not make the ITBIS differ. A changed
 fiscal number replaces both the NCF and the e-CF, and a null one clears both.
-The existing live
-prepare grant, expected version, immutable web-action source and review receipt
-govern this operation. Tax fields never enter the
+Fiscal writes use the same review permissions, expected version, web-action
+source and review receipt as other edits. Tax fields never enter the
 model-facing `BusinessFactPatch` or `TurnPlan` schema. A person may send an
 optional top-level `purchase` review, any field of the purchase declaration but
 `form`: the 606 expense type, payment form, payment date, goods and services
@@ -9149,11 +9149,8 @@ declaration, which remains the only 606 column owner. A suggested
 expense type is not confirmed and stays out of the export column. The 606
 manifest keeps blocking problems in `issues` and lists warn-only gaps in
 `warnings`, including an unverified or inactive supplier RNC. An RNC registry
-state never blocks approval or the export file. On an accepted record `dgii` is
-422 `recorded_correction_unsupported` and this operation never reposts money;
-`purchase` alone still writes the 606 declaration, and `payment_split` alone
-the 607 payment split, before and after an export, as the review route above
-states.
+state never blocks approval or the export file. The owner can correct fiscal facts and declarations on an accepted record
+through the review route above.
 The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note
 settlements remain unsupported. The owner alone approves income, expense or
@@ -9183,8 +9180,9 @@ the unsaved fiscal form: an optional `declaration`, and the
 `override_inherited` and `restore_inherited` field names a review accepts in
 `montos`. A name in both lists is refused with 422, and so is a name that
 follows no source (`business_amount_inheritance_invalid`). It requires the
-same selected Business, human actor, prepare permission, open draft and current
-version as amount review. The response contains `net_amount`, `mismatch`
+same selected Business, human actor, permission and current version as amount
+review. A prepare holder can preview an open draft. The owner can also
+preview an accepted record. The response contains `net_amount`, `mismatch`
 (the existing `amounts_mismatch` review flag, or null) and `inheritance`: the
 map the dossier shows once that draft is saved, with the same entries. It uses the review's fact mutations,
 inheritance, net owner and shared parts check without saving facts, sources,
@@ -9199,8 +9197,8 @@ request.
 Human review also accepts top-level `montos`, with optional `net_amount` and
 `legal_tip` fact inputs and `override_inherited` or `restore_inherited` field
 names. These inputs do not enter the interpreter's fact patch. Changing a
-main amount requires an open draft. Restoring or overriding fiscal inheritance
-uses the existing fiscal edit permission and version checks.
+main amount or its fiscal inheritance follows the review permissions and
+version checks above.
 
 The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
 Each entry holds `{field, value, inherited, paired_with}`; `value` is the
@@ -10308,8 +10306,8 @@ accept path recorded.
   `ReceiptSummary.document_type` reports the current
   type (`recibo` until a read or a person sets it),
   `document_type_detected` is true while the read's choice stands, and
-  `document_type_editable` is true while the receipt's draft is open and the
-  caller holds `prepare`. Both flags are left out of the wire when false. The
+  `document_type_editable` is true for a caller with `prepare` on an open draft
+  or the owner on an accepted record. Both flags are left out of the wire when false. The
   field meanings are in the
   [month-close contract](contracts/business-month-close.md).
 - Receiving channel availability is owned by the server. GET

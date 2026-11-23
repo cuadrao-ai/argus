@@ -182,8 +182,21 @@ class MoneyService:
         aid = self._id(activity_id)
         assert aid is not None
         for row in getattr(records, "no_account", ()):
-            if row.activity_id == aid:
-                return {"items": [row.response()], "next_cursor": None}
+            if row.activity_id != aid:
+                continue
+            from argus.domain.recording.owner_funds_postgres import load_history
+            from argus.domain.recording.postgres_repository import (
+                PostgresFinancialAccountRepository,
+            )
+
+            rows = (
+                load_history(self.repository, user_id, scope, aid)
+                if isinstance(self.repository, PostgresFinancialAccountRepository)
+                else [row]
+            )
+            if not rows:
+                raise AccountNotFound()
+            return {"items": [entry.response() for entry in rows], "next_cursor": None}
         revisions = groups(records).get(aid)
         if not revisions:
             raise AccountNotFound()

@@ -571,11 +571,11 @@ def test_a_sale_with_no_declaration_gets_the_split_and_nothing_else(world) -> No
     )
 
 
-def test_an_approved_sale_keeps_its_facts_whatever_comes_with_the_split(world) -> None:  # noqa: ANN001
+def test_an_approved_sale_can_change_a_fact_and_its_split_together(world) -> None:  # noqa: ANN001
     draft, _ = _sale(world, "B0100000117")
     before = _dossier(world, draft)
 
-    refused = _review(
+    corrected = _review(
         world,
         draft,
         {
@@ -586,9 +586,12 @@ def test_an_approved_sale_keeps_its_facts_whatever_comes_with_the_split(world) -
         world.alice.headers,
     )
 
-    assert refused.status_code == 422, refused.text
-    assert refused.json()["code"] == "recorded_correction_unsupported"
-    assert _dossier(world, draft)["dgii"]["cash"] is None
+    assert corrected.status_code == 200, corrected.text
+    after = _dossier(world, draft)
+    assert after["review_state"] == "accepted"
+    assert after["approval_result"] == before["approval_result"]
+    assert after["facts"]["counterparty"]["value"] == "Otro"
+    assert after["dgii"]["cash"] == "1180.00"
 
 
 def test_a_purchase_takes_no_split(world) -> None:  # noqa: ANN001
@@ -631,13 +634,22 @@ def test_an_open_sale_takes_the_split_on_the_same_route(world) -> None:  # noqa:
 def test_someone_who_prepares_writes_the_split_and_a_stale_write_is_refused(
     world,
 ) -> None:  # noqa: ANN001
-    draft, _ = _sale(world, "B0100000116")
-    version = _dossier(world, draft)["version"]
+    draft, before = _reviewed(world, "income", "B0100000116")
+    version = before["version"]
+    accountant = _as(world.bob, world.grant)
 
-    written = _split(world, draft, version, _as(world.bob, world.grant), cash="1180.00")
+    written = _split(world, draft, version, accountant, cash="1180.00")
     assert written.status_code == 200, written.text
     stale = _split(world, draft, version, cash="1000.00")
     assert stale.status_code == 409, stale.text
+
+    approved = _approve(world, draft, written.json()["version"], "income")
+    assert approved.status_code == 200, approved.text
+    refused = _split(world, draft, approved.json()["version"], accountant, cash="1000.00")
+    assert (refused.status_code, refused.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
     assert _dossier(world, draft)["dgii"]["cash"] == "1180.00"
 
 

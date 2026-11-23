@@ -250,9 +250,10 @@ def test_confirming_the_detected_type_keeps_the_facts_and_the_declaration(
         (("read", "prepare"), "open", True),
         (("read",), "open", False),
         (("read", "prepare"), "accepted", False),
+        (("read", "prepare", "approve"), "accepted", True),
     ],
 )
-def test_a_listed_receipt_type_is_editable_by_preparers_while_open(
+def test_a_listed_receipt_type_is_editable_by_preparers_while_open_and_owners_after_acceptance(
     monkeypatch, capabilities, state, expected
 ):
     from argus.api import business_drafts

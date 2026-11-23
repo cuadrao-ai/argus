@@ -226,7 +226,7 @@ def test_review_write_path_from_capture_to_the_606_line(world) -> None:  # noqa:
     assert len(declared["history"]) == len(recorded["history"]) + 1
     assert declared["approval_result"] == recorded["approval_result"]
 
-    locked = _review(
+    corrected = _review(
         world,
         draft,
         {
@@ -235,8 +235,11 @@ def test_review_write_path_from_capture_to_the_606_line(world) -> None:  # noqa:
         },
         alice.headers,
     )
-    assert locked.status_code == 422, locked.text
-    assert locked.json()["code"] == "recorded_correction_unsupported"
+    assert corrected.status_code == 200, corrected.text
+    after = corrected.json()
+    assert after["review_state"] == "accepted"
+    assert after["history"][-1]["after"]["counterparty"]["value"] == "Otro comercio"
+    assert after["approval_result"] == recorded["approval_result"]
 
     profile = client.patch(
         f"{API}/business/fiscal-profile",
@@ -373,9 +376,8 @@ def test_an_edit_after_the_tipo_de_gasto_reaches_the_606_line(world) -> None:  #
     ) == ("600.00", "", "100.00")
 
 
-def _recorded(world) -> tuple[str, dict]:  # noqa: ANN001
-    """One purchase Alice captured, reviewed and approved: its draft id and
-    the approved dossier."""
+def _purchase_draft(world) -> tuple[str, dict]:  # noqa: ANN001
+    """One purchase Alice captured and reviewed: its draft id and dossier."""
 
     note = _note(world, world.alice, "Pagué 1180 en Ferretería Prueba")
     assert note.status_code == 200, note.text
@@ -412,24 +414,12 @@ def _recorded(world) -> tuple[str, dict]:  # noqa: ANN001
         world.alice.headers,
     )
     assert reviewed.status_code == 200, reviewed.text
-    approved = _post(
-        world,
-        f"/business/drafts/{draft}/approve",
-        accepting(reviewed.json(), "record_expense"),
-        world.alice.headers,
-    )
-    assert approved.status_code == 200, approved.text
-    return draft, approved.json()
+    return draft, reviewed.json()
 
 
-def test_an_accountant_holding_prepare_adds_606_data_after_approval(world) -> None:  # noqa: ANN001
-    """The 606 declaration is prepare's to write, before and after approval:
-    an accountant adds it on the owner's approved record, and the revision
-    names the accountant. Approval stays the owner's. A read-only grant is
-    refused."""
-
+def test_an_accountant_holding_prepare_adds_606_data_only_before_approval(world) -> None:  # noqa: ANN001
     client, bob = world.client, world.bob
-    draft, recorded = _recorded(world)
+    draft, reviewed = _purchase_draft(world)
     as_bob = _as(bob, world.grant)
     dossier = f"{API}/business/drafts/{draft}/dossier"
     assert client.get(dossier, headers=as_bob).json()["declaration_editable"] is True
@@ -438,7 +428,7 @@ def test_an_accountant_holding_prepare_adds_606_data_after_approval(world) -> No
         world,
         draft,
         {
-            "version": recorded["version"],
+            "version": reviewed["version"],
             "purchase": {"category": "02", "payment_method": "03"},
         },
         as_bob,
@@ -450,11 +440,28 @@ def test_an_accountant_holding_prepare_adds_606_data_after_approval(world) -> No
         "03",
     )
     assert declared["history"][-1]["actor"]["actor_id"] == bob.id
-    # The same approval, the owner's; the accountant reads an unnamed owner
-    # as a member, never by email (#2219).
+
+    approved = _post(
+        world,
+        f"/business/drafts/{draft}/approve",
+        accepting(declared, "record_expense"),
+        world.alice.headers,
+    )
+    assert approved.status_code == 200, approved.text
+    recorded = approved.json()
+    accepted = client.get(dossier, headers=as_bob).json()
+    assert accepted["declaration_editable"] is False
+    change = {"version": recorded["version"], "purchase": {"category": "03"}}
+    refused = _review(world, draft, change, as_bob)
+    assert (refused.status_code, refused.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
+
+    # The accountant reads the unnamed owner as a member (#2219).
     shown = ("display_name", "email", "shown_as")
     owner_shown = (*shown, *(f"issuer_{key}" for key in shown))
-    approval = declared["approval_result"]
+    approval = accepted["approval_result"]
     assert {k: v for k, v in approval.items() if k != "actor"} == {
         k: v for k, v in recorded["approval_result"].items() if k != "actor"
     }
@@ -474,16 +481,13 @@ def test_an_accountant_holding_prepare_adds_606_data_after_approval(world) -> No
         )
         db.commit()
     assert client.get(dossier, headers=as_bob).json()["declaration_editable"] is False
-    refused = _review(
-        world,
-        draft,
-        {"version": declared["version"], "purchase": {"category": "03"}},
-        as_bob,
-    )
+    refused = _review(world, draft, change, as_bob)
     assert (refused.status_code, refused.json().get("code")) == (
         403,
         "business_permission_denied",
     ), refused.text[:200]
+    after = client.get(dossier, headers=world.alice.headers).json()
+    assert (after["version"], after["dgii"]) == (recorded["version"], recorded["dgii"])
 
 
 def test_every_route_carrying_marks_answers_200_with_the_same_marks(world) -> None:  # noqa: ANN001

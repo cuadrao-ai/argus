@@ -1,7 +1,7 @@
 """Over HTTP on the real app, Auth and Postgres: a person sets and clears a
-record's due date in review, each change is a revision, nothing else fills it,
-it locks once approved, and the dossier, the receipt detail, the month close
-and the open items carry it, soonest due first. A local stub stands in for the
+record's due date in review before or after approval. Each change is a revision.
+The dossier, the receipt detail, the month close and the open items carry it,
+soonest due first. A local stub stands in for the
 provider."""
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ def _pending_bills(world) -> list[tuple]:  # noqa: ANN001
     ]
 
 
-def test_a_person_sets_and_clears_the_due_date_and_it_locks_once_approved(web) -> None:  # noqa: ANN001, F811
+def test_a_person_sets_and_clears_the_due_date_before_and_after_approval(web) -> None:  # noqa: ANN001, F811
     account = _account(web)
     receipt = _upload(web, SUPPLIER_RNC)
     draft = receipt["draft_id"]
@@ -91,15 +91,19 @@ def test_a_person_sets_and_clears_the_due_date_and_it_locks_once_approved(web) -
     assert approved["due_on"] == "2026-10-20"
     assert _revision(approved) == ("2026-10-20", "2026-10-20")
 
-    locked = _review(web, draft, _due("2026-12-01"))
-    assert (locked.status_code, locked.json()["code"]) == (
-        422,
-        "recorded_correction_unsupported",
-    )
+    redated = _review(web, draft, _due("2026-12-01"))
+    assert redated.status_code == 200, redated.text
+    assert _revision(redated.json()) == ("2026-10-20", "2026-12-01")
+    assert _receipt(web, receipt["id"])["due_on"] == "2026-12-01"
+
     cleared_late = _review(web, draft, {"due_on": {"state": "unknown"}})
-    assert cleared_late.status_code == 422, cleared_late.text
-    assert _dossier(web, draft)["due_on"] == "2026-10-20"
-    assert _receipt(web, receipt["id"])["due_on"] == "2026-10-20"
+    assert cleared_late.status_code == 200, cleared_late.text
+    assert _revision(cleared_late.json()) == ("2026-12-01", None)
+    after = _dossier(web, draft)
+    assert after["review_state"] == "accepted"
+    assert after["approval_result"] == approved["approval_result"]
+    assert after["due_on"] is None
+    assert _receipt(web, receipt["id"])["due_on"] is None
 
     listed = web.client.get(
         f"{API}/business/receipts", params={"view": "all"}, headers=web.alice.headers

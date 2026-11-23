@@ -57,11 +57,13 @@ class NoAccountRecord:
     kind: Literal["expense", "income"]
     #: None when nobody has stated how it was paid.
     funding: Literal["owner_funds"] | None
+    revision: int = 1
+    recorded_by: str | None = None
 
     def response(self) -> dict[str, Any]:
         return {
             "activity_id": self.activity_id,
-            "revision": 1,
+            "revision": self.revision,
             "kind": self.kind,
             "amount_minor": self.amount_minor,
             "amount": format_minor_units(self.amount_minor, self.currency),
@@ -78,7 +80,7 @@ class NoAccountRecord:
             "reversal_of_revision": None,
             "reason": None,
             "recorded_at": self.recorded_at,
-            "recorded_by": self.user_id,
+            "recorded_by": self.recorded_by,
             "funding": self.funding,
             "legs": [],
         }
@@ -170,6 +172,7 @@ def write(
         now,
         request.kind,
         OWNER_FUNDS if request.owner_funding else None,
+        recorded_by=user_id,
     )
     if not isinstance(repository, InMemoryFinancialAccountRepository):
         from argus.domain.recording.owner_funds_postgres import transact

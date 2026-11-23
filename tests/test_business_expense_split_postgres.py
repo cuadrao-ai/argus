@@ -273,7 +273,7 @@ def test_the_606_line_after_each_order_of_edits(actions, name):  # noqa: ANN001
     ) == case.line
 
 
-def test_an_edit_on_an_approved_record_is_refused_and_the_line_stays(actions):  # noqa: ANN001
+def test_an_amount_edit_on_an_approved_record_updates_the_606_line(actions):  # noqa: ANN001
     service, context, _ = actions
     draft = drafted(service, context)
     draft.pick("09")
@@ -281,23 +281,16 @@ def test_an_edit_on_an_approved_record_is_refused_and_the_line_stays(actions):  
     view = records.approved(service, context, draft.id, draft.view.version)
     assert draft.split == (None, "300.00")
 
-    refused = service.review(
-        context,
-        draft.id,
-        ReviewDraft(
-            version=view.version,
-            facts=BusinessFactPatch.model_validate(
-                {"amount": {"state": "known", "value": "700.00"}}
-            ),
-        ),
-        str(uuid4()),
-    )
+    draft.total("700.00")
 
-    assert refused.code == "recorded_correction_unsupported"
-    assert len(draft.view.history) == len(view.history)
+    after = draft.view
+    assert after.review_state == "accepted"
+    assert after.approval_result == view.approval_result
+    assert len(after.history) == len(view.history) + 1
+    assert draft.split == (None, "700.00")
     manifest, [row] = records.rows_606(service, context)
     assert manifest["issues"] == []
-    assert (row["goods_amount"], row["itbis"]) == ("300.00", "0.00")
+    assert (row["goods_amount"], row["itbis"]) == ("700.00", "0.00")
 
 
 def test_a_606_write_on_an_approved_record_still_moves_the_amount(actions):  # noqa: ANN001

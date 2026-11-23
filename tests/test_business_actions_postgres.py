@@ -453,8 +453,13 @@ def test_concurrent_approval_and_recorded_correction(actions):
         ),
         "correct",
     )
-    assert correction.code == "recorded_correction_unsupported"
-    assert service.dossier(context, draft).history == view.history
+    assert correction.outcome == "applied", correction
+    corrected = service.dossier(context, draft)
+    assert corrected.review_state == "accepted"
+    assert corrected.approval_result == view.approval_result
+    assert corrected.facts.amount.value == "99"
+    assert corrected.history[:-1] == view.history
+    assert corrected.history[-1].after.amount == corrected.facts.amount
 
 
 def test_cross_client_source_and_account_are_not_found(actions, users):

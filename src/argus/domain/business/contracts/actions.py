@@ -158,9 +158,9 @@ class ReviewDraft(Contract):
     purchase: PurchaseReview | None = None
     #: The 607 payment split a person writes on a sale; absent buckets stay.
     payment_split: SalePaymentSplit | None = None
-    #: Sets the uploaded document's type while the draft is open.
+    #: Sets the uploaded document's type.
     document_type: DocumentType | None = None
-    #: Sets the due date, or takes it back to unknown, while the draft is open.
+    #: Sets the due date or takes it back to unknown.
     due_on: DueOnInput | None = None
     montos: MontosReview | None = None
 

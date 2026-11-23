@@ -4307,6 +4307,8 @@ paths:
           description: The live grant does not permit reading this Business.
         '404':
           description: The Business or canonical draft anchor is unavailable.
+        '409':
+          description: Records changed again while the export refreshed its snapshot.
         '413':
           description: A bounded export collection, cell or archive limit was exceeded.
         '422':
@@ -18380,6 +18382,9 @@ components:
         document_type_editable:
           type: boolean
           default: false
+        facts_editable:
+          type: boolean
+          default: false
         declaration_editable:
           type: boolean
           default: false
@@ -21652,6 +21657,9 @@ components:
         document_type_editable:
           type: boolean
           default: false
+        facts_editable:
+          type: boolean
+          default: false
         declaration_editable:
           type: boolean
           default: false
@@ -21890,6 +21898,20 @@ components:
           anyOf:
           - type: string
             format: date
+          - type: 'null'
+        before_document_type:
+          anyOf:
+          - type: string
+            enum:
+            - recibo
+            - venta
+          - type: 'null'
+        after_document_type:
+          anyOf:
+          - type: string
+            enum:
+            - recibo
+            - venta
           - type: 'null'
         reason:
           anyOf:

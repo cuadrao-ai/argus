@@ -250,7 +250,6 @@ def test_606_data_is_added_after_approval_and_the_606_carries_it(actions):  # no
     assert view.history[-1].actor.actor_id == context.actor.actor_id
     assert view.approval_result.approved_revision < view.history[-1].version
 
-    # The recorded facts stay locked; only the declaration moved.
     facts = service.review(
         context,
         draft_id,
@@ -262,7 +261,11 @@ def test_606_data_is_added_after_approval_and_the_606_carries_it(actions):  # no
         ),
         str(uuid4()),
     )
-    assert facts.code == "recorded_correction_unsupported"
+    assert facts.outcome == "applied", facts
+    corrected = service.dossier(context, draft_id)
+    assert corrected.review_state == "accepted"
+    assert corrected.approval_result == view.approval_result
+    assert corrected.facts.counterparty.value == "Otro"
 
     manifest, row = row_606(service, context)
     assert manifest["forms"]["606"]["status"] == "prepared_candidate", manifest["issues"]

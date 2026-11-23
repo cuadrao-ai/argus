@@ -365,7 +365,7 @@ def test_accountant_cannot_change_rnc_or_approve_refund_but_reads_same_fiscal_pa
         )
 
 
-def test_rnc_profile_revision_and_accepted_fiscal_edit_never_reposts_money(actions):
+def test_rnc_profile_revision_and_accepted_fiscal_edit_keep_the_original_activity(actions):
     service, context, _ = actions
     account = cash_account(service, context)
     command = filer_change("199990013")
@@ -382,15 +382,20 @@ def test_rnc_profile_revision_and_accepted_fiscal_edit_never_reposts_money(actio
     draft = reviewed(service, context, account)
     assert approve(service, context, draft).outcome == "applied"
     saved = service.dossier(context, draft[0])
+    corrected = json.loads(json.dumps(INPUTS[0]["input"]))
+    corrected["fiscal"]["ncf"] = "B0100000091"
     result = service.review(
         context,
         draft[0],
-        ReviewDraft(
-            version=saved.version, dgii=FiscalReview.model_validate(INPUTS[0]["input"])
-        ),
+        ReviewDraft(version=saved.version, dgii=FiscalReview.model_validate(corrected)),
         "late-fiscal",
     )
-    assert result.code == "recorded_correction_unsupported"
+    assert result.outcome == "applied", result
+    after = service.dossier(context, draft[0])
+    assert after.review_state == "accepted"
+    assert after.facts.fiscal.ncf.value == "B0100000091"
+    assert after.approval_result == saved.approval_result
+    assert len(read_export_source(service.authority, context).approved) == 1
 
 
 def test_legacy_printed_supplier_identity_blocks_new_canonical_duplicate(actions):
