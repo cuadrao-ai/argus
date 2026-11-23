@@ -135,7 +135,7 @@ describe("Historial", () => {
 
   test("names the channel a receipt came in by: Correo and Web, never a participle", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
-    for (const [channel, word] of [["email", "Correo"], ["web", "Web"]] as const) {
+    for (const [channel, word] of [["email", "Correo"], ["web", "Carga Web"]] as const) {
       const sources = [{ id: "s", kind: "attachment", channel, received_at: at(10, 9, 0), connection_id: "c", filename: null, media_type: "application/pdf" }] as BusinessDossier["sources"];
       const page = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources} />);
       assert.equal(page.host.querySelector("li p")?.textContent, `Llegó por ${word}`);

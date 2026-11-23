@@ -3394,7 +3394,7 @@
       "changed": "{{field}} cambiado de {{before}} a {{after}}",
       "changed_female": "{{field}} cambiada de {{before}} a {{after}}",
       "channel_email": "Correo",
-      "channel_web": "Web",
+      "channel_web": "Carga Web",
       "duplicate": { "different_purchase": "Marcado como compra distinta de {{other}}" },
       "fiscal_saved": "Datos del {{form}} guardados",
       "more_changes_one": "Ver {{count}} cambio más",
