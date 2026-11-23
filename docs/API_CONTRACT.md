@@ -9015,8 +9015,8 @@ each with `payment_form` null; it adds no `reasons` code and does not read into
 `closed`) and `missing_fiscal_data` (every document the 606 or 607 holds this
 month, as a document line plus `missing`, the export's own words for what it
 still needs, first fix first, a missing value before a wrong one:
-`expense_type_missing`, `rnc_missing`, `rnc_invalid`, `ncf_invalid`,
-`date_missing`, `ncf_missing`, `payment_method_missing`,
+`expense_type_missing`, `missing_rnc`, `invalid_rnc`, `invalid_ncf`,
+`missing_date`, `missing_ncf`, `payment_method_missing`,
 `payment_date_missing`, `duplicate_document`, `own_rnc_required`,
 `billed_amount_zero`, `itbis_cost_over_itbis`, `payment_after_month`,
 `credit_note_reference`, `credit_note_too_late`, `credit_note_payment_form`,
@@ -11033,12 +11033,17 @@ accept path recorded.
   `missing_fiscal_data` words, and `export_missing_several` is true when there
   is more than one.
   Independently of these legacy fields, every row carries `ready` and `missing`,
-  the full ordered list of reason keys. `readiness` is their one owner. Fiscal
-  reasons and their order come from `missing_items` in `dgii_line.py`, reading
-  the original issues preserved by `dgii_export.py`. Distinct blocker reasons
+  the full ordered list of reason keys. `readiness` is their one owner. Every
+  key is a code of the one registry, `missing_reasons.py`, which holds each
+  reason's code, the field a person fixes and the locale path of its words. A
+  reason the Bandeja's Listo rule also names has the same code there
+  (`missing_rnc`, `invalid_rnc`, `missing_ncf`, `invalid_ncf`, `missing_date`,
+  `duplicate`). Fiscal reasons come from `missing_items` in `dgii_line.py`,
+  reading the original issues preserved by `dgii_export.py`, in the registry's
+  order. Distinct blocker reasons
   follow in the projection's blocker-table order; repeated reasons appear once.
   The `possible_duplicate` blocker (a repeated read) yields its own word,
-  `possible_duplicate`; `duplicate_document` stays the fiscal number already
+  `duplicate`; `duplicate_document` stays the fiscal number already
   recorded.
   Unmapped blockers yield `detail_missing` and log a warning. Technical failures
   also yield `detail_missing`. Blocker rows and old exported rows receive the

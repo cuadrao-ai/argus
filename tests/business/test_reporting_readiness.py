@@ -11,7 +11,7 @@ from argus.domain.business.dgii_export import (
     line_assessments,
     line_verdicts,
 )
-from argus.domain.business.dgii_line import reason
+from argus.domain.business.missing_reasons import words
 from argus.domain.business.reporting_file import (
     RecordsExport,
     build_file,
@@ -142,7 +142,7 @@ def test_row_filter_and_count_agree_before_pagination(mixed_rows, ready):
     )
     assert several.missing == (
         "expense_type_missing",
-        "rnc_missing",
+        "missing_rnc",
         "payment_method_missing",
     )
 
@@ -161,7 +161,7 @@ def test_currency_only_is_ready_but_never_becomes_a_dgii_line(
     assert row.ready is (not missing_type)
     assert row.missing == (("expense_type_missing",) if missing_type else ())
     if missing_type:
-        assert reason(row.missing[0]) == "Falta el tipo de gasto"
+        assert words(row.missing[0], "es-419") == "Falta el tipo de gasto"
     assert (row.stage, row.fiscal_data, row.export_line) == (
         "needs_fiscal_data",
         "missing",
@@ -214,7 +214,7 @@ def test_missing_ncf_keeps_all_readiness_reasons_and_legacy_export(
     assert row.ready is False
     assert row.missing == (
         "expense_type_missing",
-        "ncf_missing",
+        "missing_ncf",
         "payment_method_missing",
     )
     if currency == "DOP":
@@ -223,7 +223,7 @@ def test_missing_ncf_keeps_all_readiness_reasons_and_legacy_export(
             row.fiscal_data,
             row.export_missing,
             row.export_missing_several,
-        ) == ("needs_fiscal_data", "missing", "ncf_missing", False)
+        ) == ("needs_fiscal_data", "missing", "missing_ncf", False)
     assert row.export_line is False
 
     def export(record):
@@ -460,7 +460,7 @@ def test_blocker_and_fiscal_reasons_are_ordered_and_deduplicated(approved_rows):
     [judged] = judge((subject,), (row,))
     assert judged.missing == (
         "expense_type_missing",
-        "possible_duplicate",
+        "duplicate",
         "detail_missing",
     )
     assert judged.ready is False

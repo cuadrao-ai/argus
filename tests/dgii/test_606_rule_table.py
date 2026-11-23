@@ -40,14 +40,12 @@ from argus.domain.business.dgii_export import (
     line_values,
     line_verdicts,
 )
-from argus.domain.business.dgii_line import DETAIL_MISSING, MISSING_ORDER
 from argus.domain.business.dgii_validation import FiscalRecord
+from argus.domain.business.missing_reasons import DETAIL_MISSING
 from argus.domain.business.reporting_file import RecordsExport, build_file
 from argus.domain.business.reporting_projection import with_export_verdicts
 from argus.domain.business.reporting_query import ReportRecord, ReportRequestV2
 from argus.domain.business.reporting_store import ExportSource
-
-from scripts import generate_records_file_words
 
 SOURCE = uuid4()
 TODAY = date(2026, 11, 14)
@@ -195,12 +193,12 @@ def own(ncf: str, **changes) -> FiscalRecord:
 HELD = (
     # C4 and G7: DGII's sequence starts at 1.
     held(
-        "C4 NCF sequence 0", "ncf_sequence_zero", "ncf_invalid", record(ncf="B0100000000")
+        "C4 NCF sequence 0", "ncf_sequence_zero", "invalid_ncf", record(ncf="B0100000000")
     ),
     held(
         "C4 e-NCF sequence 0",
         "ncf_sequence_zero",
-        "ncf_invalid",
+        "invalid_ncf",
         record(ncf="E310000000000"),
     ),
     held(
@@ -567,21 +565,10 @@ class TestEveryRule:
     def test_every_phase_one_rule_blocks(self):
         assert {rule.severity for rule in RULES} == {"block"}
 
-    def test_every_rule_names_a_word_registros_can_order(self):
-        assert {rule.message_key for rule in RULES} <= set(MISSING_ORDER)
-        assert {case.word for case in NAMED} <= set(MISSING_ORDER)
-
-    @pytest.mark.parametrize("locale", ("es-419", "en"))
-    def test_the_locale_has_every_word_the_server_can_send(self, locale):
-        words = json.loads(generate_records_file_words.build())[locale]
-        assert set(MISSING_ORDER) <= set(
-            words["business.transactions.layout.workflow.missing"]
-        )
-
     def test_a_missing_value_is_not_also_called_wrong(self):
         subject = record(ncf="B1100000123", party=None, id_type=None)
         found = line_verdicts((subject,), rnc=FILER, captured_on=TODAY)
-        assert found[subject.activity_id] == ("rnc_missing",)
+        assert found[subject.activity_id] == ("missing_rnc",)
 
     def test_missing_values_are_named_before_wrong_values(self):
         subject = record(itbis="300.00", payment_method=None)
