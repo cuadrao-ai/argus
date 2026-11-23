@@ -109,6 +109,17 @@ function read(id: string, reason: string | null, merchant: string, amount: strin
 const listo = (id: string, merchant: string, amount: string, itbis: string, partial: Partial<ReceiptDetail>) => read(id, null, merchant, amount, { ...partial, evidence: { merchant, occurred_on: dayOnly(daysAgo(1)), total: amount, currency: "DOP", tax: itbis, tip: null, service: null, lines: [] } });
 const gap = read;
 
+const lastChoice = (category: string, paymentMethod: string) => ({ category: { value: category, source: "last_choice" as const }, payment_method: { value: paymentMethod, source: "last_choice" as const } });
+/**
+ * The 606 answers the sample's server suggests for a supplier it has seen, so Datos fiscales shows its linked rows:
+ * a service paid by card, goods paid in cash, and a service paid by transfer the day after its receipt.
+ */
+const SAMPLE_606: Partial<Record<string, { suggestions: ReturnType<typeof lastChoice>; paidOn?: string }>> = {
+  "rcpt-listo-imprenta": { suggestions: lastChoice("02", "03") },
+  "rcpt-listo-gasolinera": { suggestions: lastChoice("09", "01") },
+  "rcpt-listo-limpieza": { suggestions: lastChoice("02", "02"), paidOn: dayOnly(daysAgo(0)) },
+};
+
 /** Approving this sample row is refused: the partial failure of an approval of many. */
 const SAMPLE_REFUSED = "rcpt-listo-suplidora";
 /** This one comes back unsettled once; replaying the key settles it, as on the server. */
@@ -430,7 +441,7 @@ export function createFixtureBusinessDataSource(
       ncf: item.fiscal_value ? `B01${item.id.length.toString().padStart(8, "0")}` : null,
       itbis: item.evidence?.tax ?? null,
     };
-    return { ...item, draft_id: createReceiptDraft(item, { fiscal, confirmable: confirmableGap }) };
+    return { ...item, draft_id: createReceiptDraft(item, { fiscal, confirmable: confirmableGap, ...SAMPLE_606[item.id] }) };
   });
   if (inbox !== "empty") void dossierSource.captureNote({ text: "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger los materiales del negocio." }, "sample-note");
   let expenses = seedExpenses();

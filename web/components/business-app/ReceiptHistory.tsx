@@ -12,6 +12,7 @@ import { DOCUMENT_TYPE_LABELS } from "./receipt-fact-rows";
 import { dossierRowLabel } from "./dossier-attention";
 import { DossierCard } from "./dossier/DossierParts";
 import { hasNoteChange } from "./dossier/annotation-history";
+import { fiscalFieldLabel } from "./dossier/fiscal-field-label";
 import styles from "./dossier/dossier.module.css";
 import { FOCUS_RING } from "./foundation/presentation";
 import { useCategoryLabel } from "./business-ui";
@@ -102,7 +103,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     const diff = diffOf(before, after);
     return { line: changed(key, before, after), heading: diff ? fieldName(key) : undefined, diff };
   };
-  /** The dictionary's fields a save changed, in its order, worded as the fiscal editor shows them; a field the earlier declaration lacked has nothing to strike. */
+  /** The dictionary's fields a save changed, in its order, named and worded as Datos fiscales shows them; a field the earlier declaration lacked has nothing to strike. */
   const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration, facts: BusinessFacts): FiscalChange[] | null => {
     if (!dgiiFields) return null;
     const shown = (field: DgiiField, value: DgiiDeclaration[string] | undefined) => presentDgiiValue(field, value, facts, locale, t, t("business.dossier.unknown", "Unknown"));
@@ -110,7 +111,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       .filter((field) => (before?.[field.name] ?? null) !== (after[field.name] ?? null))
       .map((field) => ({
         name: field.name,
-        field: t([`business.dgii.field_${after.form}.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name }),
+        field: fiscalFieldLabel(t, after.form, field.name),
         before: before && field.name in before ? shown(field, before[field.name]) : null,
         after: shown(field, after[field.name]),
       }));

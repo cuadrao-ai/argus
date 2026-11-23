@@ -203,6 +203,8 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   supporting_limit_reached?: boolean;
   annotation_unavailable_reason?: string | null;
   dgii?: DgiiDeclaration | null;
+  /** What the 606 calculates from `dgii` for a purchase; null for a sale and for a record with no 606 declaration. */
+  dgii_calculated?: { billed_amount: string; itbis_advance: string | null } | null;
   /** The server authorizes writing this dossier's facts and fiscal details. */
   facts_editable?: boolean;
   /** The fields the caller can correct at this revision. */

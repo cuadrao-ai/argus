@@ -23,14 +23,26 @@ const BLOCKED_FIELD_GAP: Partial<Record<string, SampleGap>> = {
   currency: sampleGap("missing_currency", false),
 };
 
+/** A seeded gap the record's own facts state stays only while they still state it. The others (a sender, a read) rest on nothing a dossier holds. */
+const SEEDED_WHILE: Partial<Record<ListoGap, (draft: BusinessDossier) => boolean>> = {
+  sin_comprobante: (draft) => draft.facts.receipt_state.state === "known" && draft.facts.receipt_state.value !== "fiscal_receipt" && !draft.fiscal_value,
+  missing_rnc: (draft) => !heldValue(draft.facts.fiscal?.rnc)?.trim(),
+  missing_ncf: (draft) => !heldValue(draft.facts.fiscal?.ecf)?.trim() && !heldValue(draft.facts.fiscal?.ncf)?.trim(),
+};
+/** The review flags another gap already names (`_FLAGS_NAMED`), so one problem is one gap. */
+const FLAGS_NAMED = new Set(["rnc_check_digit", "ncf_malformed"]);
+/** The facts whose blank is a gap of its own, whether or not a blocker names it. */
+const GAP_FACTS = ["counterparty", "occurred_on", "amount", "currency"] as const;
+
 /**
- * `bandeja_group.py` in short, over what a sample record already states: its
- * duplicate candidates, its blockers, its RNC and its review flags. A sample
- * with `seeded` gaps (a receipt's draft, from its row) keeps those while open.
- * The standing is worked out on every read and never stored, so a write clears
- * what it fixed.
+ * `bandeja_group.py` in short, over what a sample record states now: its
+ * duplicate candidates, its blockers, its facts and its review flags, beside
+ * the `seeded` gaps of a receipt's row that still hold. Every gap is listed
+ * once, in the order of `RULE`, which `LISTO_GAPS` keeps. The standing is
+ * worked out on every read and never stored, so a write adds the gap it
+ * opens and clears the one it fixed.
  */
-function sampleStanding(draft: BusinessDossier, seeded?: readonly SampleGap[]): Pick<BusinessDossier, "bandeja_group" | "listo_gaps" | "confirmable"> {
+function sampleStanding(draft: BusinessDossier, seeded: readonly SampleGap[] = []): Pick<BusinessDossier, "bandeja_group" | "listo_gaps" | "confirmable"> {
   if (draft.deleted) return { bandeja_group: { group: "eliminados", reason: null, label: null }, listo_gaps: [], confirmable: [] };
   if (draft.review_state === "accepted") return { bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [], confirmable: [] };
   if (draft.review_state === "dismissed") return { bandeja_group: { group: null, reason: null, label: null }, listo_gaps: [], confirmable: [] };
@@ -38,18 +50,121 @@ function sampleStanding(draft: BusinessDossier, seeded?: readonly SampleGap[]): 
   const flags = draft.review_flags ?? [];
   const rnc = draft.facts.fiscal?.rnc;
   const digits = rnc?.state === "known" ? rnc.value.replace(/\D/g, "") : "";
-  const gaps = seeded ?? [
+  const found = [
+    ...seeded.filter((gap) => SEEDED_WHILE[gap.reason]?.(draft) ?? true),
     ...(draft.duplicate_candidates?.length || draft.blockers.some((blocker) => blocker.code === "possible_duplicate") ? [sampleGap("duplicate", true)] : []),
+    ...GAP_FACTS.flatMap((fact) => String(heldValue<unknown>(draft.facts[fact]) ?? "").trim() ? [] : [BLOCKED_FIELD_GAP[fact]!]),
     ...draft.blockers.flatMap((blocker) => BLOCKED_FIELD_GAP[blocker.field ?? ""] ?? []),
     ...(draft.facts.fiscal && !digits ? [sampleGap("missing_rnc", true)] : []),
     ...(digits && (flags.some((flag) => flag.code === "rnc_check_digit") || (digits.length !== 9 && digits.length !== 11)) ? [sampleGap("invalid_rnc", true)] : []),
     ...(flags.some((flag) => flag.code === "ncf_malformed") ? [sampleGap("invalid_ncf", true)] : []),
-    ...(flags.length ? [sampleGap("review_flag", true)] : []),
+    ...(flags.some((flag) => !FLAGS_NAMED.has(flag.code)) ? [sampleGap("review_flag", true)] : []),
     ...(draft.blockers.some((blocker) => blocker.code !== "possible_duplicate" && !BLOCKED_FIELD_GAP[blocker.field ?? ""]) ? [sampleGap("blocked", false)] : []),
   ];
+  const order = (gap: SampleGap) => (LISTO_GAPS as readonly string[]).indexOf(gap.reason);
+  const gaps = found.filter((gap, index) => found.findIndex((other) => other.reason === gap.reason) === index).sort((a, b) => order(a) - order(b));
   return gaps.length
     ? { bandeja_group: { group: "attention", reason: gaps[0].reason, label: "needs_attention" }, listo_gaps: gaps.map((gap) => gap.reason), confirmable: gaps.filter((gap) => gap.confirmable).map((gap) => gap.reason) }
     : { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [] };
+}
+
+const SERVICE_EXPENSE_TYPES = new Set(["02", "03", "07", "11"]);
+/** Forma de pago codes that pay at the purchase: Fecha de pago is the receipt's date. */
+const PAID_AT_PURCHASE = new Set(["01", "02", "03", "07"]);
+const PAYMENT_FORM_BY_ACCOUNT_TYPE: Partial<Record<string, string>> = { cash: "01", checking: "02", savings: "02", credit_card: "03" };
+/** Every field the server dumps for a purchase declaration nobody answered, in its order. */
+const BLANK_606: DgiiDeclaration = {
+  id_type: null, modified_ncf: null, selective_tax: null, other_taxes: null, legal_tip: null, form: "606", category: null, category_suggested: false,
+  paid_on: null, services_amount: null, goods_amount: null, itbis_withheld: null, itbis_proportionality: null, itbis_cost: null, itbis_perceived: null,
+  income_withholding_type: null, income_withheld: null, income_perceived: null, payment_method: null, actual_refund: false, purchase_activity_id: null,
+};
+type LinkSource = NonNullable<BusinessDossier["inheritance"]>[string]["field"];
+/** `INHERITANCE` for a purchase, in the server's order: each 606 field and the source it follows. */
+const PURCHASE_LINKS: readonly (readonly [string, LinkSource])[] = [["goods_amount", "net_amount"], ["id_type", "rnc"], ["itbis", "itbis"], ["legal_tip", "legal_tip"], ["paid_on", "occurred_on"], ["services_amount", "net_amount"]];
+const AMOUNT_SIDES = ["services_amount", "goods_amount"];
+const MONEY_SOURCES = new Set<LinkSource>(["net_amount", "itbis", "legal_tip"]);
+const cents = (value: string | null | undefined) => Math.round(Number(value ?? 0) * 100);
+const money = (value: number) => (value / 100).toFixed(2);
+const text = (value: DgiiDeclaration[string] | undefined) => typeof value === "string" ? value : null;
+const heldValue = <T>(fact: BusinessFact<T> | null | undefined) => fact?.state === "known" ? fact.value : null;
+const idTypeOf = (facts: BusinessFacts) => { const digits = heldValue(facts.fiscal?.rnc)?.replace(/\D/g, "").length; return digits === 9 ? "1" : digits === 11 ? "2" : null; };
+const sameLinked = (source: LinkSource, a: string | null, b: string | null) => a === null || b === null ? a === b : MONEY_SOURCES.has(source) ? cents(a) === cents(b) : a === b;
+
+type SampleDeclared = Required<Pick<BusinessDossier, "net_amount" | "inheritance" | "dgii_calculated" | "review_flags">> & Pick<BusinessDossier, "dgii">;
+
+/**
+ * The 606 a sample purchase shows, in short: `written_from` and
+ * `inheritance_state` (amount_inheritance.py), `net_amount` and
+ * `declaration_from_facts` (purchase_review.py), `purchase_calculated`
+ * (dgii_validation.py) and the Montos check of review_flags.py. Worked out on
+ * every read from the facts, the declaration a person saved, the fields that
+ * person holds `apart` and the answers the server suggests, so a write moves
+ * every field that follows it. `apart` is undefined for a declaration saved
+ * before any link was recorded: a field then follows its source while it is
+ * blank or equal to it. `corrected` is given when a revision is saved
+ * (`saved_declaration_links`): the sources besides the amounts that it moved,
+ * which an approved record follows in that save alone.
+ */
+function sampleDeclared(draft: BusinessDossier, { sinComprobante = false, apart, suggestions, corrected }: { sinComprobante?: boolean; apart: readonly string[] | undefined; suggestions?: BusinessDossier["declaration_suggestions"]; corrected?: ReadonlySet<LinkSource> }): SampleDeclared {
+  const { facts } = draft;
+  const saved = draft.dgii?.form === "606" ? draft.dgii : null;
+  const itbis = heldValue(facts.fiscal?.itbis);
+  const tip = heldValue(facts.legal_tip);
+  const total = heldValue(facts.amount);
+  const parts = cents(itbis) + cents(tip ?? text(saved?.legal_tip)) + cents(text(saved?.selective_tax)) + cents(text(saved?.other_taxes));
+  const stated = facts.net_amount;
+  const net: SampleDeclared["net_amount"] = stated?.state === "known" ? { amount: stated.value, source: stated.origin === "extracted" || stated.origin === "qr_decoded" ? "read" : "edited" }
+    : total === null ? { amount: null, source: null } : { amount: money(cents(total) - parts), source: "calculated" };
+  const difference = total === null || net.amount === null ? 0 : cents(total) - cents(net.amount) - parts;
+  // An unknown ITBIS counts as zero and can only close a gap the Total leaves.
+  const review_flags: SampleDeclared["review_flags"] = [...(draft.review_flags ?? []).filter((flag) => flag.code !== "amounts_mismatch"), ...(difference < -1 || (itbis !== null && difference > 1) ? [{ code: "amounts_mismatch" as const, field: "amount" as const, confirm: false, difference: money(difference) }] : [])];
+  const none = { dgii: draft.dgii, net_amount: net, inheritance: {}, dgii_calculated: null, review_flags };
+  if (draft.dgii?.form === "607") return none;
+
+  const rnc = heldValue(facts.fiscal?.rnc);
+  const number = heldValue(facts.fiscal?.ecf) ?? heldValue(facts.fiscal?.ncf);
+  const idType = idTypeOf(facts);
+  const approved = draft.review_state !== "open" && draft.review_state !== "accepting";
+  const reviewing = draft.review_state === "open" && facts.kind.value === "expense" && draft.document_type !== "venta" && !sinComprobante;
+  const funding = heldValue(facts.funding);
+  const account = funding?.kind === "business_account" ? draft.accounts.find((item) => item.id === funding.account_id)?.type : undefined;
+  // The 606 does not report a purchase with no RNC, no fiscal number, or a consumer one (B02, E32).
+  const built: DgiiDeclaration | null = reviewing && rnc && number && !["02", "32"].includes(number.slice(1, 3)) ? { ...BLANK_606, id_type: idType, payment_method: PAYMENT_FORM_BY_ACCOUNT_TYPE[account ?? ""] ?? null } : null;
+  const start: DgiiDeclaration | null = built ? saved ?? { ...built, payment_method: null } : saved;
+  if (!start) return none;
+  // A suggested Forma de pago stays beside its blank answer, so the account's fills only without one.
+  const shown: DgiiDeclaration = built && !start.payment_method && !suggestions?.payment_method ? { ...start, payment_method: built.payment_method } : { ...start };
+  // A suggested answer counts as given, so the links show what approving saves.
+  const category = text(shown.category) && shown.category_suggested !== true ? text(shown.category) : suggestions?.category?.value ?? null;
+  const paidBy = text(shown.payment_method) ?? suggestions?.payment_method?.value ?? null;
+  const split = category && net.amount !== null && cents(net.amount) >= 0 ? money(cents(net.amount)) : null;
+  const services = category !== null && SERVICE_EXPENSE_TYPES.has(category);
+  const expected: Record<string, string | null> = {
+    goods_amount: services ? null : split,
+    id_type: idType,
+    itbis,
+    legal_tip: tip,
+    paid_on: paidBy && PAID_AT_PURCHASE.has(paidBy) ? heldValue(facts.occurred_on) : null,
+    services_amount: services ? split : null,
+  };
+  const inheritance: SampleDeclared["inheritance"] = {};
+  for (const [target, source] of PURCHASE_LINKS) {
+    // Tipo de ID and Fecha de pago follow their source while an open draft is reviewed, and in the save that corrects that source.
+    if (approved && !MONEY_SOURCES.has(source) && !corrected?.has(source)) continue;
+    const current = text(shown[target]);
+    const inherited = apart ? !apart.includes(target) : current === null || sameLinked(source, current, expected[target]);
+    inheritance[target] = { field: source, value: expected[target], inherited, paired_with: AMOUNT_SIDES.includes(target) ? AMOUNT_SIDES.filter((side) => side !== target) : [] };
+    // An approved record shows what its last revision saved; one saved before links were recorded keeps its blank amounts filled.
+    if (!inherited || (approved && apart && !corrected)) continue;
+    const value = expected[target];
+    shown[target] = value !== null && MONEY_SOURCES.has(source) ? cents(value) >= 0 ? money(cents(value)) : null : value;
+  }
+  if (shown.itbis == null) delete shown.itbis;
+  const declaredItbis = text(shown.itbis) ?? (inheritance.itbis.inherited ? itbis : null);
+  return {
+    dgii: shown, net_amount: net, inheritance, review_flags,
+    dgii_calculated: { billed_amount: money(cents(text(shown.services_amount)) + cents(text(shown.goods_amount))), itbis_advance: declaredItbis === null ? null : money(cents(declaredItbis) - cents(text(shown.itbis_cost))) },
+  };
 }
 
 export const dossierFixtureIds = {
@@ -86,7 +201,6 @@ export const dossierFixtureIds = {
 
 export const EXPENSE_TYPES: Record<string, string> = { "01": "Gastos de personal", "02": "Gastos por trabajos, suministros y servicios", "03": "Arrendamientos", "04": "Gastos de activos fijo", "05": "Gastos de representación", "06": "Otras deducciones admitidas", "07": "Gastos financieros", "08": "Gastos extraordinarios", "09": "Compras y gastos que formarán parte del costo de venta", "10": "Adquisiciones de activos", "11": "Gastos de seguros" };
 export const PAYMENT_FORMS: Record<string, string> = { "01": "Efectivo", "02": "Cheques/transferencias/depósito", "03": "Tarjeta crédito/débito", "04": "Compra a crédito", "05": "Permuta", "06": "Nota de crédito", "07": "Mixto" };
-const SERVICE_EXPENSE_TYPES = new Set(["02", "03", "07", "11"]);
 const sampleField = (name: string, label: string, kind: DgiiField["kind"] = "money", options: string[] = [], labels: Record<string, string> = {}): DgiiField => ({ name, label, kind, options, labels });
 const SAMPLE_DGII_FIELDS: DgiiFields = {
   "606": [
@@ -143,6 +257,10 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   };
   const dossiers = new Map<string, BusinessDossier>();
   const seededGaps = new Map<string, readonly SampleGap[]>();
+  /** The drafts of the sample's receipts. */
+  const receiptDrafts = new Set<string>();
+  /** The linked 606 fields a person holds apart from their source, per draft, once the sample recorded them. */
+  const heldApart = new Map<string, readonly string[]>();
   for (const [name, id] of Object.entries(dossierFixtureIds)) {
     const ready = name !== "unknown" && name !== "unknownAmount";
     const current: BusinessFacts = { ...facts, category_id: { ...known("other"), origin: "member_set", source_ids: [reviewSourceId] }, funding: ready ? { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "member_set", source_ids: [reviewSourceId] } : unknown(), amount: name === "unknownAmount" ? unknown() : facts.amount, kind: name === "unknownKind" ? unknown() : name === "income" ? known("income") : facts.kind };
@@ -251,13 +369,29 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     if (!found) return fail(404, "draft_not_found");
     const stated = found.facts.receipt_state.state === "known" && (found.facts.receipt_state.value === "no_receipt" || found.facts.receipt_state.value === "informal_receipt");
     const editable = editableFields(found);
-    return structuredClone({ document_type: "recibo" as const, ...found, ...sampleStanding(found, seededGaps.get(id)), sin_comprobante: stated && !found.fiscal_value, facts_editable: factsEditable(found), editable_fields: editable, document_type_editable: editable.includes("document_type"), ...served(found) });
+    const offers = served(found);
+    // Only a sample receipt's draft answers its 606 by the server's rule; a stand-in a test opens by id keeps what that test gives it.
+    const declared = receiptDrafts.has(id) ? sampleDeclared(found, { sinComprobante: stated && !found.fiscal_value, apart: heldApart.get(id), suggestions: offers.declaration_suggestions }) : null;
+    // As the server does on a first write: from here the links are recorded, so a stored copy of a followed value never reads as a person's.
+    if (declared && !heldApart.has(id) && found.review_state === "open" && declared.dgii?.form === "606") heldApart.set(id, Object.entries(declared.inheritance).filter(([, link]) => !link.inherited).map(([name]) => name));
+    return structuredClone({ document_type: "recibo" as const, ...found, ...sampleStanding({ ...found, review_flags: declared?.review_flags ?? found.review_flags }, seededGaps.get(id)), sin_comprobante: stated && !found.fiscal_value, facts_editable: factsEditable(found), editable_fields: editable, document_type_editable: editable.includes("document_type"), ...offers, ...declared });
   };
   let receiptDraftCount = 0;
   let captureCount = 0;
   const captures: BusinessCapture[] = [];
   const captureReceipts = new Map<string, { input: string; draftId: string }>();
-  const writeDeclaration = (id: string, version: number, key: string, body: unknown, change: (current: BusinessDossier, stated: <T>(value: T | null) => BusinessFact<T>) => { facts?: BusinessFacts; dgii: DgiiDeclaration }) => {
+  /**
+   * `saved_declaration_links` in short: the 606 a revision of a sample receipt
+   * saves, each linked field a person does not hold apart at the value it
+   * follows after the write. An open draft is worked out on every read, so
+   * only an approved record stores it.
+   */
+  const savedDeclaration = (before: BusinessFacts, next: BusinessDossier): BusinessDossier["dgii"] => {
+    if (!receiptDrafts.has(next.draft_id) || next.review_state === "open" || next.review_state === "accepting") return next.dgii;
+    const corrected = new Set<LinkSource>([...(heldValue(before.occurred_on) === heldValue(next.facts.occurred_on) ? [] : ["occurred_on" as const]), ...(idTypeOf(before) === idTypeOf(next.facts) ? [] : ["rnc" as const])]);
+    return sampleDeclared(next, { apart: heldApart.get(next.draft_id), corrected }).dgii;
+  };
+  const writeDeclaration = (id: string, version: number, key: string, body: unknown, change: (current: BusinessDossier, stated: <T>(value: T | null) => BusinessFact<T>) => { facts?: BusinessFacts; dgii: DgiiDeclaration }, links: Pick<BusinessMontosReview, "override_inherited" | "restore_inherited"> = {}) => {
     if (!key) fail(422, "idempotency_key_required");
     const input = JSON.stringify({ id, version, body });
     const prior = reviewReceipts.get(key);
@@ -269,7 +403,15 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
     const stated = <T>(value: T | null): BusinessFact<T> => value === null ? { state: "unknown", value: null, origin: "member_set", verified: false, source_ids: [actionSourceId] } : { state: "known", value, origin: "member_set", verified: false, source_ids: [actionSourceId] };
     const { facts: nextFacts = current.facts, dgii: written } = change(current, stated);
-    const dgii = keptSources(current.dgii, written);
+    // `inheritance_overrides` in short: a linked field a person changed or named is held apart, the two amount sides together, until it is restored.
+    const apart = new Set(heldApart.get(id));
+    if (current.dgii?.form === "606") for (const [name, source] of PURCHASE_LINKS) if (!sameLinked(source, text(written[name]), text(current.dgii[name]))) apart.add(name);
+    for (const name of links.override_inherited ?? []) apart.add(name);
+    const restored = new Set(links.restore_inherited);
+    for (const side of AMOUNT_SIDES) if (AMOUNT_SIDES.some((other) => restored.has(other))) apart.delete(side); else if (AMOUNT_SIDES.some((other) => apart.has(other))) apart.add(side);
+    for (const name of restored) apart.delete(name);
+    heldApart.set(id, [...apart].sort());
+    const dgii = savedDeclaration(current.facts, { ...current, facts: nextFacts, dgii: keptSources(current.dgii, written) });
     const fiscalValue = nextFacts.fiscal?.ecf.state === "known" ? "ecf" : nextFacts.fiscal?.ncf.state === "known" ? "ncf" : null;
     const next: BusinessDossier = { ...current, version: current.version + 1, facts: nextFacts, fiscal_value: fiscalValue, dgii, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, body }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: nextFacts, before_dgii: current.dgii ?? null, after_dgii: dgii, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
     dossiers.set(id, next);
@@ -304,6 +446,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     next.blockers = next.blockers.filter((blocker) => !(blocker.code === "fact_required" && blocker.field && next.facts[blocker.field]?.state === "known"));
     if (patch.net_amount) next.net_amount = { amount: next.facts.net_amount?.value ?? null, source: next.facts.net_amount?.value == null ? null : "edited" };
     next.approval_available = next.review_state === "open" && next.blockers.length === 0 && next.capabilities.includes("approve") && next.facts.kind.state === "known" && next.facts.kind.value === "expense";
+    next.dgii = savedDeclaration(current.facts, next);
     dossiers.set(id, next);
     reviewReceipts.set(key, { input, result: get(id) });
     if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
@@ -324,11 +467,12 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const itbis = held(fiscal.itbis);
       if (itbis === null || review.fiscal.itbis === null ? itbis !== review.fiscal.itbis : Number(itbis) !== Number(review.fiscal.itbis)) fiscal.itbis = stated(review.fiscal.itbis);
       return { facts: { ...current.facts, fiscal }, dgii: review.declaration };
-    }),
+    }, review.montos),
     reviewPurchase: async (id: string, version: number, purchase: PurchaseChoice, key: string) => writeDeclaration(id, version, key, purchase, (current) => {
       const blank = Object.fromEntries(SAMPLE_DGII_FIELDS["606"].filter(({ name }) => !["rnc", "ncf", "itbis"].includes(name)).map(({ name }) => [name, null]));
       const dgii: DgiiDeclaration = { ...blank, actual_refund: false, purchase_activity_id: null, ...current.dgii, ...purchase, form: "606" };
-      if (typeof dgii.category === "string" && !dgii.services_amount && !dgii.goods_amount && current.facts.amount.state === "known") {
+      // A stand-in has no links, so its amount is filled here. A sample receipt's follows its Subtotal through its link: as `apply_purchase`, the write holds only what the person gave.
+      if (!receiptDrafts.has(id) && typeof dgii.category === "string" && !dgii.services_amount && !dgii.goods_amount && current.facts.amount.state === "known") {
         const cents = Math.round(Number(current.facts.amount.value) * 100) - Math.round(Number(current.facts.fiscal?.itbis.value ?? 0) * 100);
         dgii[SERVICE_EXPENSE_TYPES.has(dgii.category) ? "services_amount" : "goods_amount"] = (cents / 100).toFixed(2);
       }
@@ -387,8 +531,11 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
      * it used: read values from the file, and the answers no read gives left
      * open. A mark a person gave after it is revision 2, by that person. A
      * receipt a person filled in by hand (`by: "person"`) starts as theirs.
+     * A fiscal read with its ITBIS also read the Subtotal. `suggestions` are
+     * the 606 answers the server offers beside the blank ones, and `paidOn`
+     * is a Fecha de pago a person then saved apart from the receipt's date.
      */
-    createReceiptDraft: (receipt: ReceiptDetail, { fiscal, confirmable, by = "read" }: { fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }; confirmable?: boolean; by?: "read" | "person" } = {}) => {
+    createReceiptDraft: (receipt: ReceiptDetail, { fiscal, confirmable, by = "read", suggestions, paidOn }: { fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }; confirmable?: boolean; by?: "read" | "person"; suggestions?: BusinessDossier["declaration_suggestions"]; paidOn?: string } = {}) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
       const read = by === "read";
       const stated = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
@@ -406,6 +553,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         receipt_state: answer(receipt.sin_comprobante ? "no_receipt" as const : fiscal ? "fiscal_receipt" as const : "informal_receipt" as const),
         category_id: answer(receipt.category_id),
         fiscal: fiscal ? { rnc: scalar(fiscal.rnc), ncf: scalar(fiscal.ncf), ecf: unknown(), itbis: scalar(fiscal.itbis) } : null,
+        ...(read && fiscal?.itbis && receipt.amount ? { net_amount: found(money(cents(receipt.amount) - cents(fiscal.itbis))) } : {}),
       };
       const marked = read && receipt.sin_comprobante;
       const current: BusinessFacts = marked ? { ...first, receipt_state: stated("no_receipt") } : first;
@@ -421,7 +569,20 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         history,
         blockers: [], approval_available: true, approval_result: null,
         sin_comprobante: receipt.sin_comprobante, personal: receipt.personal, personal_marked_by: receipt.personal_marked_by,
+        ...(suggestions ? { declaration_suggestions: suggestions } : {}),
       });
+      receiptDrafts.add(id);
+      const shown = paidOn ? get(id) : null;
+      if (shown?.dgii && paidOn) {
+        const saved: DgiiDeclaration = { ...shown.dgii, paid_on: paidOn };
+        const savedSourceId = "20000000-0000-4000-8000-000000000021";
+        dossiers.set(id, {
+          ...dossiers.get(id)!, version: shown.version + 1, dgii: saved,
+          sources: [...shown.sources, { id: savedSourceId, kind: "web_action", channel: "web", received_at: later(40), text: JSON.stringify({ version: shown.version, dgii: { declaration: saved }, montos: { override_inherited: ["paid_on"] } }) }],
+          history: [...shown.history, { draft_id: id, version: shown.version + 1, actor, before: current, after: current, before_dgii: null, after_dgii: saved, source_ids: [savedSourceId], turn_key: null, created_at: later(40) }],
+        });
+        heldApart.set(id, ["paid_on"]);
+      }
       const previous = receipt.draft_id ? seededGaps.get(receipt.draft_id) : undefined;
       const reason = LISTO_GAPS.find((gap) => gap === receipt.bandeja_group?.reason);
       const previousGap = previous?.find((gap) => gap.reason === reason);
