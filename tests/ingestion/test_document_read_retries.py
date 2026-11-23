@@ -200,10 +200,10 @@ class Rig:
 
     def leyendo(self, connection: str) -> bool:
         """The person sees the receipt being read, with no reason on it."""
-        draft = self.draft(connection)
-        return draft.error_code is None and self.service.read_pending(
-            self.owner, connection, draft
+        draft, reading = self.service.get_with_read_pending(
+            user_id=self.owner, connection_id=connection, scope=self.scope
         )
+        return draft.error_code is None and reading
 
     def wait_out(self, connection: str) -> float:
         """Pass the wait of the read's next take; the seconds it was."""

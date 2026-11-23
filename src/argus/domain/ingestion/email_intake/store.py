@@ -23,6 +23,7 @@ from psycopg_pool import ConnectionPool
 from argus.domain.business.notifications.store import InMemoryNotificationStore
 from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
 from argus.domain.ingestion.documents.store import CaptureHook
+from argus.domain.ingestion.email_intake import sender_policy
 from argus.domain.ingestion.email_intake.addressing import (
     MemoryAddressing,
     PostgresAddressing,
@@ -759,8 +760,9 @@ def email_connection_standing(
                 " and kind='address' and value=%s for share",
                 (space_id, bare_address(delivery["sender"])),
             ).fetchone()
-            if sender is None or sender["status"] != "authorized":
-                return sender["status"] if sender else "new"
+            standing = sender["status"] if sender else "new"
+            if sender_policy.sender_refusal(standing):
+                return standing
     return "authorized"
 
 
@@ -782,7 +784,7 @@ def email_draft_standing(
         for source in sources
     ]
     for standing in standings:
-        if standing is not None and standing != "authorized":
+        if sender_policy.sender_refusal(standing):
             return standing
     return "authorized" if "authorized" in standings else None
 
@@ -927,7 +929,7 @@ class InMemoryEmailStore(MemorySenderSeen, MemoryAddressing):
             ):
                 return "new"
             standing = self.sender_standing(space_id, delivery.sender)
-            if standing != "authorized":
+            if sender_policy.sender_refusal(standing):
                 return standing
         return "authorized"
 

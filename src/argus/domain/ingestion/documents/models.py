@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Annotated, Final, Literal
 
@@ -284,9 +285,25 @@ class DocumentDraft(_Frozen):
         default=None, exclude_if=lambda value: value is None
     )
 
-    def read_pending(self, reading_allowed: bool) -> bool:
-        return self.status == "preparing" or (
-            self.status == "queued" and self.consent and reading_allowed
+    def reading_allowed(self, permission: Mapping[str, object]) -> bool:
+        return bool(
+            permission["enabled"]
+            and self.business_reading_consent_id
+            and permission["consent_id"] == self.business_reading_consent_id
+        )
+
+    def read_pending(
+        self,
+        *,
+        business_permission: Mapping[str, object] | None,
+        lease_until: datetime | None,
+        now: datetime,
+    ) -> bool:
+        """A personal queue entry needs only its own consent."""
+        if self.status == "preparing" or (lease_until is not None and lease_until > now):
+            return True
+        return self.status == "queued" and self.consent and (
+            business_permission is None or self.reading_allowed(business_permission)
         )
 
 

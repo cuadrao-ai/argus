@@ -72,7 +72,7 @@ ListoGap = Literal[
     "unverified_sender",
 ]
 BandejaReason = Literal[Attention, ListoGap]
-ReadState = Literal["finished", "none", "unclear"]
+ReadState = Literal["finished", "none", "unclear", "reading"]
 # The one word the Bandeja list shows for a row.
 BandejaLabel = Literal["reading", "cant_read", "needs_attention", "ready", "accepted"]
 
@@ -151,6 +151,12 @@ def _other_flag(draft: DraftStanding) -> bool:
 
 def _other_blocker(draft: DraftStanding) -> bool:
     return any(code not in _BLOCKERS_NAMED for code in draft.blockers)
+
+
+def _unverified_sender(draft: DraftStanding) -> bool:
+    from argus.domain.ingestion.email_intake.sender_policy import sender_refusal
+
+    return sender_refusal(draft.sender) is not None
 
 
 def _no_number(draft: DraftStanding) -> bool:
@@ -237,11 +243,7 @@ RULE: tuple[Gap, ...] = (
     Gap("missing_itbis", True, lambda draft: _blank(_fiscal(draft).itbis)),
     Gap("review_flag", True, _other_flag),
     Gap("blocked", False, _other_blocker),
-    Gap(
-        "unverified_sender",
-        False,
-        lambda draft: draft.sender not in (None, "authorized"),
-    ),
+    Gap("unverified_sender", False, _unverified_sender),
 )
 
 #: The gaps a person may accept a record over. An accept names each one.
@@ -278,7 +280,11 @@ def listo_gaps(draft: DraftStanding) -> tuple[BandejaReason, ...]:
 def _row_reason(
     view: Mapping[str, Any], draft: DraftStanding | None
 ) -> BandejaReason | None:
-    if view.get("read_pending") or view.get("attention") in READ_HELD:
+    if (
+        view.get("read_pending")
+        or (draft and draft.read == "reading")
+        or view.get("attention") in READ_HELD
+    ):
         return "reading"
     if view.get("attention"):
         return view["attention"]

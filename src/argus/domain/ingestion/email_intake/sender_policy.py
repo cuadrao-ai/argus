@@ -11,7 +11,7 @@ unless a row for that address already exists."""
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Literal, Protocol
 
 from argus.domain.ingestion.email_intake.alignment import bare_address
 from argus.domain.ingestion.email_intake.standing import SENDER_PENDING
@@ -24,6 +24,12 @@ PENDING_CODE = SENDER_PENDING
 #: aligned message approves them; failed, none, ambiguous and no_result stay
 #: pending (Sin verificar). The tag on the row is shown either way.
 DEFAULT_APPROVAL_REQUIRES_ALIGNED = False
+
+
+def sender_refusal(standing: str | None) -> Literal["email_sender_unauthorized"] | None:
+    """A receipt may be read or approved if its sender is authorized or it came without email."""
+
+    return None if standing in (None, "authorized") else "email_sender_unauthorized"
 
 
 def default_approves(is_member: bool, verdict: str) -> bool:

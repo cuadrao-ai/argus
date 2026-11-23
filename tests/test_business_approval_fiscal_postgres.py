@@ -1,19 +1,17 @@
 """On real local Postgres: a receipt photo is read, bound, reviewed and
 approved, and the approval writes the 606 declaration from the stored facts."""
 
+import asyncio
 import io
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from hashlib import sha256
 from itertools import count
 from uuid import UUID, uuid4
 from zipfile import ZipFile
 
 import pytest
-from argus.domain.business.contracts.actions import (
-    ApproveExpense,
-    ReviewDraft,
-    canonical_input_hash,
-)
+from argus.domain.business.actions import BusinessActions
+from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
 from argus.domain.business.contracts.dgii import FiscalReview
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.export import ExportPeriod, export_package
@@ -22,6 +20,7 @@ from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
+from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.recording.repository import NewAccount
 from faker import Faker
 from psycopg.types.json import Jsonb
@@ -30,7 +29,9 @@ from tests import test_business_actions_postgres as shared
 from tests.business.action_counts import count_no_rows
 from tests.business.receipt_stub import receipt_date
 from tests.business_accept_support import accept, seen_gaps
+from tests.business_reading_support import turn_reading
 from tests.test_business_dgii_postgres import handover_dgii
+from tests.test_business_postgres import _service
 from tests.test_business_spaces_migration_postgres import connection
 
 users = shared.users
@@ -87,18 +88,31 @@ def colmado(**changes):
     return {**read, **changes}
 
 
+def receipt_reader(service: BusinessActions) -> DocumentsService:
+    documents = _service(service.authority.pool, InMemorySourceObjects()).documents
+    documents.business_actions = service
+    return documents
+
+
 def receipt_draft(
-    service, context, receipt: dict, currency: str | None, account: str | None = None
+    service, context, receipt: dict, currency: str | None, account: str | None = None,
+    *, complete: bool = True,
 ):
     """Prepare and bind one saved photo read. The purchase row leaves the supplier unknown."""
 
     content = f"{fake.uuid4()} {receipt['total']}".encode()
     digest = sha256(content).hexdigest()
     now = datetime.now(timezone.utc)
-    holder = str(uuid4())
+    documents = receipt_reader(service)
+    setting = documents.business_receipt_consent
+    space = str(context.actor.space_id)
+    permission = setting.status(space, context.owner_id)
+    if not permission["enabled"]:
+        turn_reading(setting, space, context.owner_id)
+        permission = setting.status(space, context.owner_id)
     result = ExtractionResult.model_validate(
         dict(
-            complete=True,
+            complete=complete,
             readable=True,
             pages_read=[1],
             observations=[
@@ -126,6 +140,7 @@ def receipt_draft(
             sha256=digest,
             size_bytes=len(content),
             consent=True,
+            business_reading_consent_id=permission["consent_id"],
             created_at=now,
             updated_at=now,
         )
@@ -157,22 +172,31 @@ def receipt_draft(
                 Jsonb(batch.model_dump(mode="json")),
             ),
         )
-        db.execute(
-            "update public.financial_source_connections set lease_holder=%s,"
-            " lease_until=%s where id=%s",
-            (holder, now + timedelta(minutes=3), cid),
-        )
     service.capture_attachment_preparation(context, UUID(cid), target=None)
-    prepared = service.prepare_attachment(
-        user_id=context.owner_id,
-        connection_id=cid,
-        scope=context.scope,
-        holder=holder,
-        attempt_id=None,
-        expected_batch_sha256=canonical_input_hash(batch),
+    asyncio.run(
+        documents.resume(user_id=context.owner_id, connection_id=cid, scope=context.scope)
     )
-    assert prepared.outcome == "applied", prepared
-    return prepared.draft_id, prepared.version
+    with service.authority.pool.connection() as db:
+        return db.execute(
+            "select e.id, e.version from public.business_sources s"
+            " join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id"
+            " join public.financial_import_events e on e.id=l.draft_id where s.connection_id=%s",
+            (cid,),
+        ).fetchone()
+
+
+@pytest.mark.parametrize(("complete", "group"), [(True, "listo"), (False, "attention")])
+def test_a_completed_read_no_longer_counts_as_reading(actions, complete, group):
+    service, context = actions
+    draft, _ = receipt_draft(service, context, colmado(), "DOP", complete=complete)
+
+    dossier = service.dossier(context, draft)
+    [source] = dossier.sources
+    _, pending = receipt_reader(service).get_with_read_pending(
+        user_id=context.owner_id, connection_id=str(source.connection_id), scope=context.scope
+    )
+    assert pending is False
+    assert dossier.bandeja_group.group == group
 
 
 def review(service, context, draft, version, *, funding=None, dgii=None):

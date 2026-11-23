@@ -800,3 +800,16 @@ def test_an_approved_record_with_a_supporting_file_still_names_its_receipt(
     _append(service, docs, context, draft_id)
 
     assert receipt() == named
+
+
+def test_registros_and_dossier_take_the_cap_from_supporting_files(actions, documents, monkeypatch):
+    service, context, _ = actions
+    docs, _ = documents
+    draft_id, _ = record_expense(service, context)
+    _append(service, docs, context, draft_id)
+    monkeypatch.setattr(supporting_files, "supporting_files_full", lambda linked: any(linked))
+
+    dossier = service.dossier(context, draft_id)
+    [row] = read_report(service.authority, context, ReportRequestV2()).items
+    assert dossier.supporting_limit_reached
+    assert row.can_append_supporting == dossier.supporting_append_available

@@ -134,6 +134,8 @@ def _project(views, states, baseline, drafts=None, standings=None):
         row = {**view, "activity": activity.wire()}
         only = canonical[0] if len(canonical) == 1 else None
         standing = (standings or {}).get(str(only["id"])) if only else None
+        if standing and standing.read == "reading":
+            row["delete_available"] = False
         group = group_of(
             row, standing, accepting=bool(only) and only["state"] == "accepting"
         )

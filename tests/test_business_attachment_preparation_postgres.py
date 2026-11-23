@@ -12,6 +12,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
     canonical_input_hash,
 )
+from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
@@ -122,9 +123,9 @@ def bind(prepared, target=None):
     return service.capture_attachment_preparation(context, UUID(cid), target=target)
 
 
-def finish(prepared, digest=None):
+def finish(prepared, digest=None, *, keep_lease=False):
     service, context, _, cid, holder, batch = prepared
-    return service.prepare_attachment(
+    result = service.prepare_attachment(
         user_id=context.owner_id,
         connection_id=cid,
         scope=context.scope,
@@ -132,6 +133,11 @@ def finish(prepared, digest=None):
         attempt_id=None,
         expected_batch_sha256=canonical_input_hash(batch) if digest is None else digest,
     )
+    if not keep_lease:
+        PostgresConnectionRepository(service.authority.pool).release(
+            connection_id=cid, holder=holder
+        )
+    return result
 
 
 def test_exact_saved_batch_creates_one_unverified_draft_and_replays(
@@ -142,7 +148,7 @@ def test_exact_saved_batch_creates_one_unverified_draft_and_replays(
     monkeypatch.setattr(
         service.imports.money, "write", lambda **kw: pytest.fail("capture wrote money")
     )
-    result = finish(prepared)
+    result = finish(prepared, keep_lease=True)
     assert result.outcome == "applied"
     assert finish(prepared).draft_id == result.draft_id
     dossier = service.dossier(context, result.draft_id)
@@ -341,8 +347,6 @@ def test_new_grant_does_not_rescue_revoked_original(prepared):
 def test_disconnected_source_refuses_completion(prepared):
     service, _, _, cid, _, _ = prepared
     bind(prepared)
-    from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
-
     PostgresConnectionRepository(service.authority.pool).disconnect(
         user_id=prepared[1].owner_id, connection_id=cid, now=datetime.now(timezone.utc)
     )
@@ -622,7 +626,7 @@ def test_unrelated_upload_ledger_cannot_authorize_email(prepared, users, wrong):
 def test_legacy_default_direct_origin_does_not_authorize_linked_email(prepared):
     service, context, _, cid, holder, _ = prepared
     bind(prepared)
-    draft_id = finish(prepared).draft_id
+    draft_id = finish(prepared, keep_lease=True).draft_id
     store, route = link_prepared_email(prepared)
     assert stored_origin(service, draft_id) == "direct"
     with service.authority.pool.connection() as db:

@@ -117,7 +117,7 @@ def test_completion_uses_the_captured_generation_after_configuration_changes(
         assert replacement["consent_id"] != agreed
 
     if state == "active":
-        applied = bridge.finish(prepared)
+        applied = bridge.finish(prepared, keep_lease=True)
         assert applied.outcome == "applied"
         assert bridge.finish(prepared).draft_id == applied.draft_id
     else:

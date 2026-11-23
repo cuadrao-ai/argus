@@ -94,14 +94,16 @@ async def test_the_read_over_the_day_budget_stays_saved_with_the_reason(rig):
         assert (await read(service, owner, scope, receipt)).status == "review_ready"
     with pytest.raises(DocumentServiceError, match="business_read_budget_day"):
         await read(service, owner, scope, receipts[2])
-    draft = service.get(user_id=owner, connection_id=receipts[2], scope=scope)
+    draft, reading = service.get_with_read_pending(
+        user_id=owner, connection_id=receipts[2], scope=scope
+    )
     assert (draft.status, draft.consent, draft.error_code) == (
         "saved",
         False,
         "business_read_budget_day",
     )
     assert draft.source_available
-    assert not service.read_pending(owner, receipts[2], draft)
+    assert not reading
     assert extractor.provider_calls == 2
 
 

@@ -135,21 +135,18 @@ def target(
     return event, attachments, candidates
 
 
-def is_reading(tx: ActionTransaction, attachments: list[dict]) -> bool:
+def reading_uploads(tx: ActionTransaction, attachments: list[dict]) -> set[UUID]:
     now = datetime.now(timezone.utc)
     permission = BusinessReceiptConsentStore().status_on_connection(
         tx.connection, str(tx.context.actor.space_id), tx.context.owner_id
     )
-    return any(
-        DocumentDraft.model_validate(row["draft"]).read_pending(
-            permission["enabled"]
-            and permission["consent_id"]
-            == row["draft"].get("business_reading_consent_id")
-        )
-        or (row.get("lease_until") is not None and row["lease_until"] > now)
+    return {
+        row["connection_id"]
         for row in attachments
-        if row.get("draft")
-    )
+        if row.get("draft") and DocumentDraft.model_validate(row["draft"]).read_pending(
+            business_permission=permission, lease_until=row["lease_until"], now=now,
+        )
+    }
 
 
 def _purge(tx: ActionTransaction, command: DocumentCommand) -> Applied:
@@ -213,7 +210,7 @@ def _change(
             )
         ):
             raise ActionError("invalid_input", "business_document_not_open")
-        if is_reading(tx, attachments):
+        if reading_uploads(tx, attachments):
             raise ActionError("invalid_input", "business_document_reading")
         group = "attention"
         if accepted:

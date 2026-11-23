@@ -66,6 +66,7 @@ from argus.domain.business.transactions import (
     transaction,
 )
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
+from argus.domain.ingestion.email_intake import sender_policy
 from argus.domain.ingestion.email_intake.store import email_connection_standing
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.owner_scope import OwnerScope, space_id
@@ -853,8 +854,8 @@ class BusinessActions:
         standing = email_connection_standing(
             tx.connection, str(tx.context.actor.space_id), str(connection_id)
         )
-        if standing is not None and standing != "authorized":
-            raise ActionError("permission_denied", "email_sender_unauthorized")
+        if refusal := sender_policy.sender_refusal(standing):
+            raise ActionError("permission_denied", refusal)
 
     def _checked_attachment(
         self,
