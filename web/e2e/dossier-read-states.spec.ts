@@ -165,7 +165,8 @@ test("Detalles keeps a removed file until the server withdraws its link-back off
       ...linked, state: "unlinked", purge_at: purgeAt, restore_available: true, unlink_available: false,
     };
     dossier = { ...dossier, version, supporting_files: [file], history: [...dossier.history, {
-      ...base.history[0], version, created_at: now, supporting_change: outcome,
+      // A person's save over the record's facts, as the server writes a supporting file change.
+      ...base.history.at(-1)!, before: base.facts, after: base.facts, version, created_at: now, supporting_change: outcome,
       source_ids: [sourceId], supporting_filename: linked.filename,
     }] };
     return Promise.resolve({ result: { draft_id: target, version, outcome, source_id: sourceId, purge_at: file.purge_at }, dossier });
