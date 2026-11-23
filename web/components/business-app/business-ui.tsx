@@ -2,7 +2,6 @@
 
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { ReceiptAttention } from "@/lib/business-api";
 import { personName, type PersonName } from "@/lib/person-name";
 import { BusinessContext } from "./BusinessWorkspace";
 import { FOCUS_RING } from "./foundation/presentation";
@@ -57,54 +56,6 @@ export function useCategoryLabel() {
           }[id] ?? id,
         })
       : t("business.category.none", "No category");
-}
-
-/**
- * Title, body and next steps for a read that ended with something to say. Other attention values keep their short word.
- * `discard` offers the delete there, shown only where the server allows it.
- */
-export function useTerminalRead() {
-  const { t } = useTranslation();
-  return (attention: ReceiptAttention | null) => {
-    const uploadLabel = t("business.file_read.upload_another");
-    if (attention === "unreadable") {
-      return {
-        title: t("business.file_read.unreadable_title", "We couldn't read this file"),
-        body: t(
-          "business.file_read.placeholder.unreadable_body",
-          "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light.",
-        ),
-        upload: true,
-        uploadLabel,
-        discard: true,
-      };
-    }
-    if (attention === "not_a_receipt") {
-      return {
-        title: t("business.file_read.not_a_receipt_title", "This doesn't look like a receipt."),
-        body: t(
-          "business.file_read.not_a_receipt_body",
-          "Upload the photo or the PDF of a receipt.",
-        ),
-        upload: true,
-        uploadLabel,
-        discard: false,
-      };
-    }
-    if (attention === "read_deadline_passed") {
-      return {
-        title: t("business.attention_short.read_deadline_passed", "Reading didn't finish"),
-        body: t(
-          "business.file_read.read_deadline_passed_body",
-          "The reading service wasn't available. You can read it again.",
-        ),
-        upload: false,
-        uploadLabel,
-        discard: false,
-      };
-    }
-    return null;
-  };
 }
 
 export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layout?: "rows" | "overview" | "detail" }) {

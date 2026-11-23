@@ -140,6 +140,22 @@ test("trash belongs only to the server attention row and only the owner", async 
   }
 });
 
+test("a held receipt keeps the size button enabled and names its delete action in both sizes", async () => {
+  const page = await mount("owner", false, 0, false, ({ blurry }) => [{
+    ...blurry, id: "held", attention: "read_budget_day", delete_available: true,
+    bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null },
+  }]);
+  await page.act(async () => page.api().openPanel({ kind: "receipt", receiptId: "held", list: "inbox" }));
+  await page.wait(() => !!document.querySelector('[data-testid="dossier-size"]'));
+  const size = document.querySelector<HTMLButtonElement>('[data-testid="dossier-size"]')!;
+  const discard = () => document.querySelector<HTMLButtonElement>('[data-testid="receipt-review-footer"] button[aria-label="Eliminar documento"]');
+  assert.equal(size.disabled, false);
+  assert.equal(discard()?.textContent, "Eliminar documento");
+  await page.click(size);
+  assert.equal(discard()?.textContent, "");
+  assert.ok(discard()?.querySelector("svg"));
+});
+
 test("the row trash follows the server's delete_available: a read the limit holds keeps it, a read in progress and an approval in flight do not", async () => {
   await mount("owner", false, 0, false, ({ ready, blurry }) => [
     { ...blurry, id: "held", merchant: "Documento retenido", filename: "Documento retenido", status: "needs_attention", attention: "read_budget_day", delete_available: true, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } },

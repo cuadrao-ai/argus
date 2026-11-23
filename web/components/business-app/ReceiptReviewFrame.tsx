@@ -31,9 +31,9 @@ export type DossierTabView = { key: Exclude<DossierTab, "documento">; count?: nu
  *
  * Inside the tray the drawer's header is the receipt's: the title names the
  * drawer, and the status and the controls fill its slots. A view with no
- * document of its own (comparing two documents) fills the frame in one column.
+ * document of its own fills the frame in one column.
  */
-export default function ReceiptReviewFrame({ recordId, back, title, status, place, jump, tabs, tab, onTab, notices, document, footer }: {
+export default function ReceiptReviewFrame({ recordId, back, title, status, place, jump, tabs, tab, onTab, notices, document, documentBelow, footer }: {
   recordId: string;
   back: "inbox" | "transactions";
   title: string;
@@ -49,6 +49,8 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
   notices?: ReactNode;
   /** Absent when the view shows its documents itself. */
   document?: ReactNode;
+  /** Keep the document below the tabs in the narrow comparison. */
+  documentBelow?: boolean;
   footer?: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -73,7 +75,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
   }, [settleList, back]);
 
   const narrow = tray ? tray.narrow === true : true;
-  const views: { key: DossierTab; count?: number; content: ReactNode }[] = narrow && document !== undefined
+  const views: { key: DossierTab; count?: number; content: ReactNode }[] = narrow && !documentBelow && document !== undefined
     ? [...tabs.slice(0, 1), { key: "documento", content: document }, ...tabs.slice(1)]
     : [...tabs];
   const current = views.some((view) => view.key === tab) ? tab : views[0]?.key;
@@ -88,7 +90,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
   };
   const nav = place ? <DossierPlaceNav place={place} jump={jump ? { ...jump, current: recordId } : null} /> : null;
   const body = (
-    <div className={styles.split} data-narrow={narrow || undefined} data-single={document === undefined || undefined} style={tray ? undefined : { height: "auto" }}>
+    <div className={styles.split} data-narrow={narrow || undefined} data-stacked-document={narrow && documentBelow || undefined} data-single={document === undefined || undefined} style={tray ? undefined : { height: "auto" }}>
       <div className={styles.info}>
         {views.length > 1 ? <div role="tablist" aria-label={t("business.dossier.tab.label")} data-testid="dossier-tabs" className={styles.tabs} onKeyDown={walk}>
           {views.map((view) => (
@@ -105,7 +107,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
           </div>
         ))}
       </div>
-      {!narrow && document !== undefined ? document : null}
+      {(!narrow || documentBelow) && document !== undefined ? document : null}
     </div>
   );
   if (tray) {

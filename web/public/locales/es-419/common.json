@@ -3220,13 +3220,13 @@
       "label": "Crear"
     },
     "file_read": {
-      "unreadable_title": "No pudimos leer este archivo",
-      "not_a_receipt_title": "Esto no parece un recibo.",
+      "held_day": "Se lee mañana · Hoy se alcanzó el límite de lecturas.",
       "not_a_receipt_body": "Sube la foto o el PDF de un comprobante.",
-      "read_deadline_passed_body": "El servicio de lectura no estuvo disponible. Puedes leerlo de nuevo.",
-      "placeholder": {
-        "unreadable_body": "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz."
-      },
+      "not_a_receipt_title": "Esto no parece un recibo",
+      "outcome_unknown_body": "Archivo sin leer: la lectura se cortó. Puedes leerlo de nuevo.",
+      "read_deadline_passed_body": "Archivo sin leer: la lectura no estuvo disponible. Puedes leerlo de nuevo.",
+      "unreadable_body": "Archivo borroso, cortado o dañado. Sube una foto clara del recibo completo.",
+      "unreadable_title": "No pudimos leer este archivo",
       "upload_another": "Subir otro documento"
     },
     "empty": {
@@ -4363,15 +4363,14 @@
       "this_year": "Este año"
     },
     "reading": {
-      "line": "Leyendo tu recibo…",
-      "supplier": "Proveedor",
-      "total": "Total"
+      "document": "Leyendo el documento"
     },
     "receipt": {
       "untitled": "Recibo"
     },
     "receipts": {
       "duplicate_resolution": {
+        "arrived": "Llegó {{stamp}}",
         "basis": {
           "fiscal_number": "Mismo RNC y NCF que otro documento.",
           "fiscal_number_sale_placeholder": "[placeholder] Same NCF as another sale.",
@@ -4382,29 +4381,32 @@
           "this": "Este"
         },
         "compare": "Comparar",
+        "compare_saved": "Comparar con el guardado",
         "decision": {
           "different_purchase": "Son compras distintas",
           "same_purchase": "Eliminar este duplicado"
         },
+        "deleted": "Duplicado eliminado.",
         "different": "Diferente",
         "documents": {
           "other": "Documento eliminado"
         },
         "field": {
           "amount": "Total",
-          "counterparty": "Comercio",
           "currency": "Moneda",
           "fiscal_number": "NCF",
           "occurred_on": "Fecha"
         },
         "marked_different": "Marcado como compras distintas.",
         "no_file": "Este documento no tiene archivo.",
+        "origin": "Comparar origen",
         "recommendation": {
           "different_purchase": "Mismo comercio, fecha, total y moneda. El NCF es distinto: probablemente son dos compras distintas.",
           "same_purchase": "Es el mismo documento."
         },
         "refused_same_comprobante": "Mismo RNC y NCF: es el mismo comprobante. Quédate con uno.",
         "same": "Igual",
+        "select_document": "Documento a ver",
         "table": {
           "caption": "Datos principales de los dos documentos",
           "field": "Dato"
