@@ -32,12 +32,16 @@ for (const width of [1280, 390]) {
     await setup(page);
     for (const view of ["overview", "inbox"]) {
       await page.goto(view === "overview" ? "/biz" : "/biz?view=inbox");
-      await expect(page.getByTestId(view === "overview" ? "home-attention" : "reception-preview")).toBeVisible();
+      const panel = page.getByTestId(view === "overview" ? "home-attention" : "reception-preview");
+      await expect(panel).toBeVisible();
+      if (evidence) await expect(panel).toContainText("Ferretería La Esquina");
       if (evidence) await page.screenshot({ path: `${evidence}/${baseline ? "before" : "after"}-${view}-${width}.png`, fullPage: true });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (baseline) continue;
       if (view === "overview") {
         const action = page.getByTestId("home-attention");
+        await expect(action.getByRole("heading", { name: "Pendientes", exact: true })).toBeVisible();
+        await expect(action.getByTestId("status-pill")).toHaveText("Necesita atención");
         await expect(action.getByTestId("home-attention-count")).toHaveText("8");
         await expect(action.getByTestId("home-attention-rows").locator("li")).toHaveCount(1);
         const cards = page.getByTestId("home-month");

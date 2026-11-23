@@ -1,8 +1,5 @@
 "use client";
 
-// Inicio's left card, Necesita atención: what waits in the Bandeja, problems first, as the Bandeja itself words it.
-// The count is the server's one Bandeja number, the one the sidebar shows; a row never shows an amount.
-
 import { CircleCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveLanguage } from "@/lib/language-features";
@@ -11,29 +8,26 @@ import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useBusiness } from "../BusinessWorkspace";
 import { formatRelativeTime } from "../business-format";
 import { canAddRecords, quietButtonClass, secondaryButtonClass } from "../business-ui";
-import { useEmailWords } from "../BusinessEmailDeliveries";
 import { inboxCount } from "../inbox-count";
+import { StatusPill } from "../foundation/StatusChip";
 import { CHANNEL_ICON } from "../foundation/channel-icons";
 import { FOCUS_RING } from "../foundation/presentation";
-import { receptionDocumentTitle, receptionRows, receptionTarget, type ReceptionRow } from "../recepcion/reception-model";
-import { BANDEJA_REASON_KEY, receptionTag } from "../recepcion/reception-status";
+import { receptionDocumentTitle, receptionRows, receptionTarget, rowLabel, type ReceptionRow } from "../recepcion/reception-model";
+import { BANDEJA_LABEL_TONE } from "../recepcion/ReceptionStatus";
 import { HomeCard, HOME_MUTED, HOME_SKELETON, HOME_TYPE } from "./HomeCard";
 import ReceptionEmptyState from "../recepcion/ReceptionEmptyState";
 
-/** Rows the card shows; "Ver todo" opens the rest in the Bandeja. */
-export const ATTENTION_ROWS = 6;
+const ATTENTION_ROWS = 6;
 
-/** A row that needs a fix: the Bandeja's attention tag, except a written note, which only waits to be reviewed. */
-export const attentionProblem = (row: ReceptionRow) => row.kind !== "note" && receptionTag(row).tag === "attention";
-
-/** Problems first, then the rest, each keeping the Bandeja's own order. */
-export function attentionRows(rows: readonly ReceptionRow[]): ReceptionRow[] {
-  return [...rows.filter(attentionProblem), ...rows.filter((row) => !attentionProblem(row))].slice(0, ATTENTION_ROWS);
+function attentionProblem(row: ReceptionRow) {
+  const label = rowLabel(row);
+  return label === "cant_read" || label === "needs_attention";
 }
 
-const TAG = `inline-flex items-center gap-1 rounded-mark px-1.5 py-0.5 ${HOME_TYPE.tag} font-medium`;
-const NEUTRAL = `${TAG} bg-black/5 text-[#56635e] dark:bg-white/10 dark:text-white/70`;
-const ALERT = `${TAG} bg-[#f6dfe0] text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]`;
+/** Problems first, then the rest, each keeping the Bandeja's own order. */
+function attentionRows(rows: readonly ReceptionRow[]): ReceptionRow[] {
+  return [...rows.filter(attentionProblem), ...rows.filter((row) => !attentionProblem(row))].slice(0, ATTENTION_ROWS);
+}
 
 function SkeletonRows() {
   const { t } = useTranslation();
@@ -59,7 +53,6 @@ function SkeletonRows() {
  */
 export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
   const { records, openPanel, reload, chosen, actions } = useBusiness();
-  const emailWords = useEmailWords();
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const prepares = canAddRecords(chosen);
@@ -118,34 +111,29 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
     if (row.kind === "receipt" && row.source === "whatsapp" && !row.receipt.filename?.trim() && !(row.receipt.merchant?.trim() && row.receipt.attention !== "unreadable")) return t("business.inicio.attention.whatsapp_photo");
     return receptionDocumentTitle(row, { untitled: t("business.inicio.attention.untitled"), pending: t("business.reception_preview.intake_pending"), exception: t("business.reception_preview.intake_exception"), text: t("business.reception_preview.text_intake") });
   };
-  // The Bandeja's own words for each row: its reason for a problem, its state otherwise.
-  const tag = (row: ReceptionRow) => {
-    const state = receptionTag(row);
-    if (row.kind === "note") return <span className={NEUTRAL}>{t("business.inbox.row_note")}</span>;
-    if (attentionProblem(row)) {
-      const reason = row.kind === "email" ? emailWords.noReceipt(row.email.delivery) : state.tag === "attention" && state.reason && BANDEJA_REASON_KEY[state.reason] ? t(BANDEJA_REASON_KEY[state.reason]) : t("business.attention_short.other");
-      return <span data-tone="attention" className={ALERT}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{reason}</span>;
-    }
-    const word = state.tag === "reading" ? t(row.kind === "email" && row.email.delivery.waiting ? "business.email.waiting_label" : "business.inbox.row_reading") : t("business.inbox.row_ready");
-    return <span className={NEUTRAL}>{word}</span>;
-  };
   return card(
     <ul data-testid="home-attention-rows">
       {attentionRows(waiting).map((row) => {
         const Icon = CHANNEL_ICON[row.source];
-        const verb = prepares ? t(attentionProblem(row) ? "business.inicio.attention.resolve" : "business.inicio.attention.review") : null;
+        const label = rowLabel(row);
+        const problem = attentionProblem(row);
+        const verbKey = problem ? "business.inicio.attention.resolve" : label === "ready" ? "business.inicio.attention.review" : null;
         return (
-          <li key={`${row.kind}:${row.id}`} data-kind={row.kind} data-problem={attentionProblem(row) ? "true" : undefined} className="border-b border-[color:var(--surface-divider)] last:border-b-0">
+          <li key={`${row.kind}:${row.id}`} data-kind={row.kind} data-problem={problem ? "true" : undefined} className="border-b border-[color:var(--surface-divider)] last:border-b-0">
             <button type="button" onClick={() => openPanel(receptionTarget(row))} className={`flex min-h-[62px] w-full items-center gap-3 px-5 py-1.5 text-left transition-colors duration-[80ms] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] ${FOCUS_RING}`}>
               <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--surface-divider)] bg-[var(--cuadrao-cream)] text-[#56635e] dark:bg-white/[0.06] dark:text-white/70"><Icon size={16} /></span>
               <span className="min-w-0 flex-1">
                 <span data-testid="home-attention-title" className={`block truncate ${HOME_TYPE.rowTitle} font-medium text-[#172b26] dark:text-white`}>{title(row)}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  {tag(row)}
+                  {label ? (
+                    <StatusPill tone={BANDEJA_LABEL_TONE[label]} data-testid="status-pill" data-label={label}>
+                      {t(`business.bandeja.label.${label}`)}
+                    </StatusPill>
+                  ) : null}
                   <span data-testid="home-attention-time" className={`${HOME_TYPE.secondary} ${HOME_MUTED}`}>{formatRelativeTime(row.receivedAt, locale)}</span>
                 </span>
               </span>
-              {verb ? <span data-testid="home-attention-verb" className={`shrink-0 ${HOME_TYPE.action} font-medium text-[var(--cuadrao-green)]`}>{verb}</span> : null}
+              {prepares && verbKey ? <span data-testid="home-attention-verb" className={`shrink-0 ${HOME_TYPE.action} font-medium text-[var(--cuadrao-green)]`}>{t(verbKey)}</span> : null}
             </button>
           </li>
         );
