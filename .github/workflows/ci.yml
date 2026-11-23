@@ -293,9 +293,6 @@ jobs:
       - name: Lint frontend
         run: cd web && bun run lint
 
-      - name: Run frontend tests
-        run: cd web && bun test
-
       - name: Build frontend
         run: cd web && bun run build
 
@@ -351,6 +348,88 @@ jobs:
             web/temp/playwright-results/**/receipt-upload-*.png
             web/temp/consent-results/**/channels-*.png
           if-no-files-found: warn
+
+  # Bun sorts the test files it finds and gives every Nth one to each shard,
+  # so a new test file lands in a shard without editing this workflow.
+  frontend-test-shards:
+    runs-on: ubuntu-24.04
+    needs: docs-change-gate
+    if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || (github.event_name == 'workflow_dispatch' && inputs.full_run)) && needs.docs-change-gate.outputs.run_heavy == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    env:
+      CI_SHARD_INDEX: ${{ matrix.shard }}
+      CI_SHARD_COUNT: "3"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.ARGUS_CI_BUN_VERSION }}
+
+      - name: Install frontend dependencies
+        run: cd web && bun install --frozen-lockfile
+
+      - name: Run frontend tests
+        run: |
+          set -o pipefail
+          mkdir -p temp/ci-inventory
+          cd web
+          bun test --shard="$((CI_SHARD_INDEX + 1))/${CI_SHARD_COUNT}" \
+            --reporter=junit --reporter-outfile="../temp/ci-inventory/web-${CI_SHARD_INDEX}.xml" \
+            2>&1 | tee "../temp/ci-inventory/web-${CI_SHARD_INDEX}.log"
+
+      - name: Retain frontend test report and log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-inventory-web-${{ github.run_id }}-${{ matrix.shard }}
+          path: temp/ci-inventory/web-*
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 14
+
+  frontend-test-checks:
+    runs-on: ubuntu-latest
+    needs: [docs-change-gate, frontend-test-shards]
+    if: always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || (github.event_name == 'workflow_dispatch' && inputs.full_run)) && needs.docs-change-gate.outputs.run_heavy == 'true'
+    steps:
+      - name: Require every frontend test shard
+        env:
+          SHARDS_RESULT: ${{ needs.frontend-test-shards.result }}
+        run: test "$SHARDS_RESULT" = success
+
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.10"
+
+      - name: Download frontend test reports
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: ci-inventory-web-${{ github.run_id }}-*
+          path: temp/ci-inventory
+          merge-multiple: true
+
+      - name: Prove frontend test union
+        run: >-
+          python scripts/ci/web_test_shards.py temp/ci-inventory/web-*.xml
+          --output temp/ci-proof/web.json
+
+      - name: Retain frontend union proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-proof-web-${{ github.run_id }}-${{ github.run_attempt }}
+          path: temp/ci-proof/web.json
+          if-no-files-found: error
+          retention-days: 14
 
   marketing-checks:
     runs-on: ubuntu-24.04
@@ -610,6 +689,7 @@ jobs:
       - docs-checks
       - backend-checks
       - frontend-checks
+      - frontend-test-checks
       - marketing-checks
       - database-checks
     steps:
@@ -623,6 +703,7 @@ jobs:
           DOCS_CHECKS: ${{ needs.docs-checks.result }}
           BACKEND_CHECKS: ${{ needs.backend-checks.result }}
           FRONTEND_CHECKS: ${{ needs.frontend-checks.result }}
+          FRONTEND_TEST_CHECKS: ${{ needs.frontend-test-checks.result }}
           MARKETING_CHECKS: ${{ needs.marketing-checks.result }}
           DATABASE_CHECKS: ${{ needs.database-checks.result }}
         # A selected job must succeed; only an unselected job may skip.
@@ -656,6 +737,7 @@ jobs:
           require_selected docs-checks "$DOCS_ONLY" "$DOCS_CHECKS"
           require_selected backend-checks "$RUN_HEAVY" "$BACKEND_CHECKS"
           require_selected frontend-checks "$RUN_HEAVY" "$FRONTEND_CHECKS"
+          require_selected frontend-test-checks "$RUN_HEAVY" "$FRONTEND_TEST_CHECKS"
           require_selected marketing-checks "$RUN_MARKETING" "$MARKETING_CHECKS"
           require_selected database-checks "$RUN_HEAVY" "$DATABASE_CHECKS"
           echo "CI checks passed."

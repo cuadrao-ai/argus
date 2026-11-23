@@ -106,7 +106,13 @@ def test_aggregate_rejects_invalid_flag(tmp_path, flag):
     assert aggregate(tmp_path, flag).returncode != 0
 
 
-HEAVY_JOBS = {"BACKEND_CHECKS", "FRONTEND_CHECKS", "MARKETING_CHECKS", "DATABASE_CHECKS"}
+HEAVY_JOBS = {
+    "BACKEND_CHECKS",
+    "FRONTEND_CHECKS",
+    "FRONTEND_TEST_CHECKS",
+    "MARKETING_CHECKS",
+    "DATABASE_CHECKS",
+}
 
 
 def selected(job, flag):
@@ -136,6 +142,7 @@ def aggregate(tmp_path, flag="true", **overrides):
         "DOCS_CHECKS",
         "BACKEND_CHECKS",
         "FRONTEND_CHECKS",
+        "FRONTEND_TEST_CHECKS",
         "MARKETING_CHECKS",
         "DATABASE_CHECKS",
     ],

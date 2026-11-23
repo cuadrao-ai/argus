@@ -114,3 +114,42 @@ def test_artifacts_cannot_overwrite_another_shards_inventory() -> None:
         "${{ matrix.supabase-cli }}"
         in JOBS["database-shards"]["steps"][-1]["with"]["name"]
     )
+
+
+def test_frontend_shards_let_bun_split_every_test_file() -> None:
+    job = JOBS["frontend-test-shards"]
+    count = int(job["env"]["CI_SHARD_COUNT"])
+    assert count > 1
+    assert job["strategy"]["fail-fast"] is False
+    assert job["strategy"]["matrix"]["shard"] == list(range(count))
+    assert job["if"] == JOBS["frontend-checks"]["if"]
+    run = next(s for s in job["steps"] if s["name"] == "Run frontend tests")["run"]
+    assert "set -o pipefail" in run
+    assert 'bun test --shard="$((CI_SHARD_INDEX + 1))/${CI_SHARD_COUNT}"' in run
+    assert "web-${CI_SHARD_INDEX}.xml" in run
+    assert 'tee "../temp/ci-inventory/web-${CI_SHARD_INDEX}.log"' in run
+    upload = next(s for s in job["steps"] if s["name"].startswith("Retain "))
+    assert upload["if"] == "always()"
+    assert upload["with"]["name"].endswith("${{ github.run_id }}-${{ matrix.shard }}")
+    assert upload["with"]["if-no-files-found"] == "error"
+
+
+def test_frontend_test_gate_requires_every_shard_and_the_union() -> None:
+    gate = JOBS["frontend-test-checks"]
+    assert gate["needs"] == ["docs-change-gate", "frontend-test-shards"]
+    assert gate["if"].startswith("always() && ")
+    check = gate["steps"][0]
+    assert check["env"]["SHARDS_RESULT"] == "${{ needs.frontend-test-shards.result }}"
+    for state in ["success", "failure", "cancelled", "skipped", ""]:
+        result = subprocess.run(
+            ["bash", "-e", "-c", check["run"]],
+            env={**os.environ, "SHARDS_RESULT": state},
+            capture_output=True,
+            check=False,
+        )
+        assert (result.returncode == 0) == (state == "success")
+    proof = next(s for s in gate["steps"] if "web_test_shards.py" in s.get("run", ""))
+    assert "temp/ci-inventory/web-*.xml" in proof["run"]
+    assert "if" not in proof
+    assert not any(s.get("continue-on-error") for s in gate["steps"])
+    assert "frontend-test-checks" in JOBS["ci"]["needs"]
