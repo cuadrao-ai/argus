@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { BusinessAccount, GrantedSpace, ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
+import type { BusinessDataSource } from "@/components/business-app/business-data";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 
 const accounts: BusinessAccount[] = [{ id: "acct-ops", nickname: "Caja", currency: "DOP", type: "cash" }];
@@ -267,7 +268,7 @@ test("a read that passed its deadline says the read did not finish, why, and rea
 const owner: GrantedSpace = { ...client, role: "owner", capabilities: ["read", "prepare", "approve"] };
 
 /** A failed read opened by the owner, with the server's delete answer and a recording delete. */
-async function openFailed(state: Partial<ReceiptDetail>, chosen: GrantedSpace = owner) {
+async function openFailed(state: Partial<ReceiptDetail>, chosen: GrantedSpace = owner, overrides: Partial<BusinessDataSource> = {}) {
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
@@ -277,18 +278,22 @@ async function openFailed(state: Partial<ReceiptDetail>, chosen: GrantedSpace = 
   const detail = { ...base, ...notReceipt(), ...failedRead, delete_available: true, record_context: { ...base.record_context, capabilities: chosen.capabilities }, ...state } as ReceiptDetail;
   const deleted: string[] = [];
   const readRequests: string[] = [];
+  const restored: string[] = [];
+  const loaded: string[] = [];
   let reloads = 0;
-  const source = {
+  const source: BusinessDataSource = {
     ...liveBusinessDataSource,
-    receipt: async () => detail,
+    receipt: async (id) => { loaded.push(id); return detail; },
     receiptSource: async () => new Blob([], { type: "image/jpeg" }),
     rebindReceipt: async (id: string) => { readRequests.push(`rebind:${id}`); return { ...detail, error_code: null }; },
     prepareReceipt: async (id: string) => { readRequests.push(`prepare:${id}`); },
     deleteDocument: async (id: string) => { deleted.push(id); return { document_id: id, deleted: true }; },
+    restoreDocument: async (id) => { restored.push(id); return { document_id: id, deleted: false }; },
+    ...overrides,
   };
   const page = await render(() => <BusinessConsentTestProvider accepted><ReceiptReviewPanel target={{ kind: "receipt", id: detail.id }} /></BusinessConsentTestProvider>, { source, chosen, reload: () => { reloads += 1; } } as Partial<BusinessContextValue>);
   const notice = () => page.host.querySelector('[data-testid="receipt-attention"]')!;
-  return { page, deleted, readRequests, id: detail.id, notice, labels: () => [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button:not([aria-label])')].map((button) => button.textContent), reloads: () => reloads };
+  return { page, deleted, restored, readRequests, loaded, id: detail.id, notice, labels: () => [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button:not([aria-label])')].map((button) => button.textContent), reloads: () => reloads };
 }
 
 const interruptedBinding = {
@@ -324,6 +329,73 @@ test("a grant without approval can retry an interrupted read and cannot link it 
     assert.deepEqual(readRequests, [`prepare:${id}`]);
   } finally { await page.close(); }
 });
+
+test("an owner can still retry directly when a stopped read also offers linking", async () => {
+  const { page, id, readRequests } = await openFailed(interruptedBinding);
+  try {
+    const retry = page.host.querySelector<HTMLButtonElement>('[data-tab-panel="general"] button');
+    assert.equal(retry?.textContent, "Leer de nuevo");
+    await page.act(async () => retry!.click());
+    await page.settle();
+    assert.deepEqual(readRequests, [`prepare:${id}`]);
+  } finally { await page.close(); }
+});
+
+test("a cannot-read record still opens the original when the server names it", async () => {
+  const originalId = "receipt-already-saved";
+  const { page, labels } = await openFailed({ ...interruptedBinding, duplicate_of: originalId });
+  try {
+    assert.deepEqual(labels(), ["Vincular a mi acceso actual"]);
+    await page.act(async () => {
+      const original = page.button("Ver el recibo ya guardado");
+      assert.ok(original);
+      original.click();
+    });
+    assert.deepEqual(page.opened, [{ kind: "receipt", receiptId: originalId }]);
+  } finally { await page.close(); }
+});
+
+test("a cannot-read record keeps the server's restore action", async () => {
+  const { page, restored, id } = await openFailed({ ...interruptedBinding, preparable: false, error_code: null, delete_available: false, restore_available: true });
+  try {
+    const restore = page.button("Restaurar");
+    assert.ok(restore);
+    await page.act(async () => restore.click());
+    await page.settle();
+    assert.deepEqual(restored, [id]);
+  } finally { await page.close(); }
+});
+
+test("a cannot-read receipt whose draft is unprepared can check the current receipt", async () => {
+  const { page, loaded, id } = await openFailed({ ...interruptedBinding, draft_id: dossierFixtureIds.unprepared }, owner, {
+    dossier: async () => { throw Object.assign(new Error("draft not prepared"), { code: "draft_not_prepared" }); },
+  });
+  try {
+    assert.deepEqual(loaded, [id]);
+    const refresh = page.button("Consultar registro actual");
+    assert.ok(refresh);
+    await page.act(async () => refresh.click());
+    await page.settle();
+    assert.deepEqual(loaded, [id, id]);
+  } finally { await page.close(); }
+});
+
+for (const [label, preparable] of [["cant_read", true], ["needs_attention", false]] as const) {
+  test(`an unreadable ${label} record keeps the upload action`, async () => {
+    const { page, notice, labels } = await openFailed({
+      preparable,
+      bandeja_group: { group: "attention", reason: "unreadable", label, draft_id: null, version: null },
+    });
+    try {
+      assert.equal(notice().querySelector("h3")?.textContent, "No pudimos leer este archivo");
+      assert.deepEqual(labels(), [preparable ? "Leer de nuevo" : "Subir otro documento"]);
+      const upload = page.button("Subir otro documento");
+      assert.ok(upload);
+      await page.act(async () => upload.click());
+      assert.deepEqual(page.uploads, ["upload"]);
+    } finally { await page.close(); }
+  });
+}
 
 for (const errorCode of ["unreadable_document", "encrypted_document"]) {
   test(`an unreadable read (${errorCode}) asks for a clearer copy and offers Eliminar documento`, async () => {
@@ -397,11 +469,13 @@ for (const [reason, title, body, preparable] of [
   });
 }
 
-test("a daily hold uses still rows and the daily note, with only delete in its footer", async () => {
-  const { page } = await openFailed({
+const dailyHold = {
     attention: "read_budget_day", error_code: "business_read_budget_day", preparable: true, read_pending: false,
     bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null },
-  });
+} satisfies Partial<ReceiptDetail>;
+
+test("a daily hold uses still rows and offers the server-authorized retry", async () => {
+  const { page, id, readRequests } = await openFailed(dailyHold);
   try {
     const general = page.host.querySelector('[data-tab-panel="general"]')!;
     assert.equal(general.querySelector('[role="status"]')?.textContent, "Se lee mañana · Hoy se alcanzó el límite de lecturas.");
@@ -411,10 +485,39 @@ test("a daily hold uses still rows and the daily note, with only delete in its f
     assert.equal(events.length, 1);
     assert.match(events[0].textContent ?? "", /foto-perro.jpg/);
     assert.equal(page.host.querySelector('[data-testid="status-pill"]')?.textContent, "Leyendo…");
-    assert.deepEqual([...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button')].map(button => button.getAttribute("aria-label")), ["Eliminar documento"]);
+    assert.match(general.textContent ?? "", /Si reintentas, el recibo se envía/);
+    assert.deepEqual([...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button')].map(button => button.getAttribute("aria-label") ?? button.textContent), ["Eliminar documento", "Leer de nuevo"]);
     assert.equal(page.host.querySelector('[data-testid="receipt-reading-band"]'), null);
+    assert.deepEqual(readRequests, []);
+    await page.act(async () => page.button("Leer de nuevo")!.click());
+    await page.settle();
+    assert.deepEqual(readRequests, [`prepare:${id}`]);
   } finally { await page.close(); }
 });
+
+test("a daily hold explains a refused retry", async () => {
+  const { page } = await openFailed(dailyHold, owner, { prepareReceipt: async () => { throw new Error("still held"); } });
+  try {
+    const retry = page.button("Leer de nuevo");
+    assert.ok(retry);
+    await page.act(async () => retry.click());
+    await page.settle();
+    assert.match(page.host.querySelector('[data-tab-panel="general"] [role="alert"]')?.textContent ?? "", /No pudimos iniciar la preparación/);
+    assert.equal(retry.disabled, false);
+  } finally { await page.close(); }
+});
+
+for (const [state, chosen] of [[{ ...dailyHold, preparable: false }, owner], [dailyHold, { ...client, capabilities: ["read"] }]] satisfies [Partial<ReceiptDetail>, GrantedSpace][]) {
+  test(`a daily hold without ${state.preparable ? "prepare permission" : "the server's retry flag"} offers no retry`, async () => {
+    const { page, labels, readRequests } = await openFailed(state, chosen);
+    try {
+      assert.deepEqual(labels(), []);
+      assert.equal(page.button("Leer de nuevo"), undefined);
+      assert.doesNotMatch(page.host.textContent ?? "", /Si reintentas, el recibo se envía/);
+      assert.deepEqual(readRequests, []);
+    } finally { await page.close(); }
+  });
+}
 
 test("a monthly hold never says the read will happen tomorrow", async () => {
   const { page } = await openFailed({ attention: "read_budget_month", preparable: true, bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null } });

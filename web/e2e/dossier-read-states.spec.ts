@@ -74,19 +74,20 @@ for (const state of ["reading", "held", "failed"] as const) {
 }
 
 test("an owner can recover an interrupted read with an expired preparation grant", async ({ page }, testInfo) => {
-  const base = await createFixtureBusinessDataSource().receipt("rcpt-blurry");
+  const prepared = await createFixtureBusinessDataSource().receipt("rcpt-ferreteria");
   const receipt: ReceiptDetail = {
-    ...base, draft_id: null, preparable: true, read_pending: false,
+    ...prepared, status: "needs_attention", activity: { state: "read_failed", unread: false, completion_cursor: null },
+    merchant: null, draft_id: null, preparable: true, read_pending: false,
     attention: "interrupted", error_code: "business_record_not_found",
     bandeja_group: { group: "attention", reason: "interrupted", label: "cant_read", draft_id: null, version: null },
   };
   const writes: string[] = [];
   await installReceiptBusiness(page, ([resource, id, action], route) => {
     if (resource !== "receipts" || id !== receipt.id) return;
-    if (!action) return Promise.resolve(receipt);
+    if (!action) return Promise.resolve(writes.includes("prepare") ? prepared : receipt);
     if (route.request().method() === "POST" && (action === "rebind" || action === "prepare")) {
       writes.push(action);
-      return Promise.resolve(receipt);
+      return Promise.resolve(action === "prepare" ? prepared : receipt);
     }
   });
   await page.goto(`/biz?receipt=${receipt.id}`);
@@ -94,5 +95,6 @@ test("an owner can recover an interrupted read with an expired preparation grant
   await expect(rebind).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("dossier-interrupted-grant.png"), animations: "disabled" });
   await rebind.click();
-  await expect.poll(() => writes).toEqual(["rebind", "prepare"]);
+  await expect(page.locator('[data-fact="amount"]')).toBeVisible();
+  expect(writes).toEqual(["rebind", "prepare"]);
 });
