@@ -4,8 +4,8 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessExpense, BusinessExpenseDetail, BusinessWorkspaceInfo } from "@/lib/business-api";
 import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 
-// A real DOM: the workspace shows one panel at a time, so closing the detail
-// unmounts it and mounts Transacciones' saved records, as the app does.
+// A record with no draft opens the one dossier, read only. The workspace shows one
+// panel at a time here, as a phone does.
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -29,7 +29,7 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-  const { default: ExpenseDetailPanel } = await import("@/components/business-app/ExpenseDetailPanel");
+  const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
   const { default: TransaccionesPanel } = await import("@/components/business-app/transacciones/TransaccionesPanel");
   const { TransaccionesSourceOverride } = await import("@/components/business-app/transacciones/useTransacciones");
   const { createRecordsTransaccionesSource } = await import("@/components/business-app/transacciones/transacciones-adapter");
@@ -48,7 +48,7 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
     setPanelOutside = setPanel;
     reloadOutside = () => setRevision((value) => value + 1);
     // The source is one object for the life of the workspace, as the app's is; openPanel is built inline, so
-    // every re-render hands the panels a fresh one (the hazard the detail panel must shrug off).
+    // every re-render hands the panels a fresh one (the hazard the dossier must shrug off).
     const source = useRef({
       expense: typeof options.detail === "function" ? options.detail : async () => options.detail as BusinessExpenseDetail,
       expenses: async () => options.list ?? LIST,
@@ -75,7 +75,7 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
     return (
       <I18nextProvider i18n={i18n}>
         <BusinessContext.Provider value={value}>
-          {panel.kind === "expense" ? <ExpenseDetailPanel expenseId={panel.expenseId} detailsCard={panel.detailsCard} /> : <TransaccionesSourceOverride source={saved}><TransaccionesPanel /></TransaccionesSourceOverride>}
+          {panel.kind === "expense" ? <ReceiptReviewPanel key={panel.expenseId} target={{ kind: "expense", id: panel.expenseId }} detailsCard={panel.detailsCard} /> : <TransaccionesSourceOverride source={saved}><TransaccionesPanel /></TransaccionesSourceOverride>}
         </BusinessContext.Provider>
       </I18nextProvider>
     );
@@ -89,15 +89,35 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
   return { act, root, host, opened, settle, setPanel: (next: BusinessPanelState) => act(async () => setPanelOutside(next)), reload: () => act(async () => reloadOutside()) };
 }
 
-describe("the expense detail panel", () => {
-  test("an expense entered by hand shows its detail, labelled by a title that exists, takes focus, and says no receipt is attached", async () => {
+const dossier = (host: HTMLElement) => host.querySelector<HTMLElement>('[data-testid="business-record-review"]');
+const title = (host: HTMLElement) => host.querySelector("#receipt-review-title")?.textContent ?? null;
+const fact = (host: HTMLElement, row: string) => host.querySelector(`[data-fact="${row}"] [data-row-value]`)?.textContent ?? null;
+
+describe("a record with no draft", () => {
+  test("opens the one dossier, read only, with the facts the server has and nothing to act on", async () => {
     const page = await mountWorkspace({ detail: expense({}) });
-    const section = page.host.querySelector('[data-testid="business-expense-detail"]')!;
-    assert.equal(section.getAttribute("aria-labelledby"), "expense-detail-title");
-    assert.equal(page.host.querySelector("#expense-detail-title")!.textContent, "Estación Ruta 3");
-    assert.equal(document.activeElement, section);
-    assert.ok(page.host.textContent?.includes("Sin recibo adjunto"));
+    const frame = dossier(page.host)!;
+    assert.ok(frame, "the v2 dossier frame");
+    assert.equal(title(page.host), "Estación Ruta 3");
+    assert.equal(fact(page.host, "occurred_on"), "9 Oct 2026");
+    assert.equal(fact(page.host, "account"), "Cuenta corriente");
+    assert.ok(fact(page.host, "amount")?.includes("2,100.00"), fact(page.host, "amount") ?? "");
+    assert.deepEqual([...frame.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent), ["General", "Detalles", "Historial"]);
+    assert.ok(frame.querySelector('[data-tab-panel="detalles"]')?.textContent?.includes("Sin recibo adjunto"));
+    assert.ok(frame.querySelector('[data-tab-panel="historial"]')?.textContent?.includes("Registrado el"));
+    assert.equal(frame.querySelector('[data-testid="receipt-review-footer"]'), null, "no Aceptar, no footer");
+    assert.equal(frame.querySelector('[data-testid="dossier-status"]'), null, "no pill");
+    assert.deepEqual([...frame.querySelectorAll('[data-tab-panel] button, [data-tab-panel] input, [data-tab-panel] select')], [], "nothing to edit");
+    assert.equal(page.host.querySelector('[data-testid="business-expense-detail"]'), null, "never the old panel");
+    assert.ok(!/Revisi[oó]n\s+\d/i.test(page.host.textContent ?? ""), "no revision number");
+    assert.ok(!page.host.textContent?.includes("Gasto guardado"));
     assert.deepEqual(page.opened, []);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("a record the money read gives no time for has no Historial tab", async () => {
+    const page = await mountWorkspace({ detail: expense({ recorded_at: null }) });
+    assert.deepEqual([...dossier(page.host)!.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent), ["General", "Detalles"]);
     await page.act(async () => page.root.unmount());
   });
 
@@ -115,7 +135,7 @@ describe("the expense detail panel", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("an expense entered by hand shows its Tipo de gasto as Registros does, and no Categoría", async () => {
+  test("shows its Tipo de gasto as Registros does, and no Categoría", async () => {
     const services = { code: "02", label: "Gastos por trabajos, suministros y servicios" };
     const cases: [BusinessExpenseDetail["dgii_606"], string][] = [
       [{ expense_type: services, payment_form: null }, services.label],
@@ -124,89 +144,56 @@ describe("the expense detail panel", () => {
     ];
     for (const [dgii_606, word] of cases) {
       const page = await mountWorkspace({ detail: expense({ dgii_606 }) });
-      const terms = [...page.host.querySelectorAll('[data-testid="business-expense-detail"] dt')];
-      assert.deepEqual(terms.filter((term) => term.textContent === "Categoría"), []);
-      const answer = terms.find((term) => term.textContent === "Tipo de gasto")?.nextElementSibling;
-      assert.ok(answer?.textContent?.includes(word), `${word} in ${answer?.textContent}`);
+      assert.equal(page.host.querySelector('[data-fact="category"]'), null);
+      const answer = page.host.querySelector('[data-fact="expense_type"] [data-row-value]');
+      assert.ok(answer?.textContent?.includes(word) || answer?.innerHTML.includes(word), `${word} in ${answer?.innerHTML}`);
       await page.act(async () => page.root.unmount());
     }
   });
 
-  test("closing returns to Transacciones naming the expense; after the real remount the list focuses that row", async () => {
+  test("the way back returns to Registros and names the record, so its row takes focus", async () => {
     const page = await mountWorkspace({ detail: expense({}) });
-    const back = page.host.querySelector('[data-testid="business-expense-detail"] button')!;
+    const back = dossier(page.host)!.querySelector("header button")!;
     await page.act(async () => { (back as HTMLButtonElement).click(); });
-    assert.deepEqual(page.opened, [{ kind: "transactions", expenseId: "exp-gas" }]);
+    assert.deepEqual(page.opened, [{ kind: "transactions", cameFrom: { kind: "expense", expenseId: "exp-gas" } }]);
     await page.settle();
-    assert.equal(page.host.querySelector('[data-testid="business-expense-detail"]'), null, "the detail panel is gone");
-    const row = page.host.querySelector('[data-record-id="exp-gas"]');
-    assert.ok(row, "Transacciones rendered the row");
-    assert.equal(document.activeElement, row);
+    assert.equal(dossier(page.host), null, "the dossier is gone");
+    const row = page.host.querySelector<HTMLElement>('[data-record-id="exp-gas"]');
+    assert.ok(row, "Registros rendered the row");
+    assert.ok(document.activeElement === row || document.activeElement === row.querySelector("button"), "the row that opened the record has focus");
     await page.act(async () => page.root.unmount());
   });
 
-  test("focus returns to the row once per arrival: a background reload re-renders the list without taking focus back", async () => {
-    const page = await mountWorkspace({ detail: expense({}) });
-    const back = page.host.querySelector('[data-testid="business-expense-detail"] button')!;
-    await page.act(async () => { (back as HTMLButtonElement).click(); });
-    await page.settle();
-    const row = page.host.querySelector('[data-record-id="exp-gas"]') as HTMLElement;
-    assert.equal(document.activeElement, row);
-    // The person moves on to another row.
-    const other = page.host.querySelector('[data-record-id="exp-hosting"]') as HTMLElement;
-    await page.act(async () => { other.focus(); });
-    assert.equal(document.activeElement, other);
-    // Two background reloads re-fetch and re-render the list; focus stays where the person put it.
-    await page.reload();
-    await page.settle();
-    await page.reload();
-    await page.settle();
-    assert.equal(document.activeElement, other);
-    assert.ok(page.host.querySelector('[data-record-id="exp-gas"]'), "the list is still there");
-    await page.act(async () => page.root.unmount());
-  });
-
-  test("a row outside the listed period cannot take focus, so the screen itself does (the documented fallback)", async () => {
-    const page = await mountWorkspace({ detail: expense({}), list: [LIST[0]] });
-    const back = page.host.querySelector('[data-testid="business-expense-detail"] button')!;
-    await page.act(async () => { (back as HTMLButtonElement).click(); });
-    await page.settle();
-    assert.equal(document.activeElement, page.host.querySelector('[data-testid="transacciones"]'));
-    await page.act(async () => page.root.unmount());
-  });
-
-  test("while loading, the labelled element already exists with the panel's title; a failed load offers Reintentar, which fetches again", async () => {
+  test("a failed load offers Reintentar, which fetches again", async () => {
     let calls = 0;
     const page = await mountWorkspace({ detail: async () => { calls += 1; if (calls === 1) throw new Error("boom"); return expense({}); } });
-    assert.ok(page.host.querySelector('[data-testid="expense-load-error"] [role="alert"]')?.textContent?.includes("No pudimos actualizar."));
-    assert.equal(page.host.querySelector("#expense-detail-title")?.textContent, "Gasto guardado");
-    const retry = page.host.querySelector('[data-testid="expense-detail-retry"]') as HTMLButtonElement;
-    assert.equal(retry.textContent, "Reintentar");
+    const card = page.host.querySelector('[data-testid="receipt-load-error"]')!;
+    assert.ok(card.querySelector('[role="alert"]')?.textContent?.includes("No pudimos actualizar."));
+    const retry = [...card.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
     await page.act(async () => { retry.click(); });
     await page.settle();
     assert.equal(calls, 2);
-    assert.equal(page.host.querySelector("#expense-detail-title")?.textContent, "Estación Ruta 3");
+    assert.equal(title(page.host), "Estación Ruta 3");
     await page.act(async () => page.root.unmount());
   });
 
-  test("a workspace re-render that hands out a new openPanel does not fetch the expense again", async () => {
+  test("a workspace re-render that hands out a new openPanel does not fetch the record again", async () => {
     let calls = 0;
     const page = await mountWorkspace({ detail: async () => { calls += 1; return expense({}); } });
     assert.equal(calls, 1);
-    // Each reload re-renders the provider with a fresh openPanel (as this harness builds it inline).
     await page.reload();
     await page.settle();
     await page.reload();
     await page.settle();
     assert.equal(calls, 1, "the record was asked for once");
-    assert.equal(page.host.querySelector("#expense-detail-title")?.textContent, "Estación Ruta 3");
+    assert.equal(title(page.host), "Estación Ruta 3");
     await page.act(async () => page.root.unmount());
   });
 
   test("an expense that names a receipt opens that receipt's record instead; one from a draft opens the draft", async () => {
     const withReceipt = await mountWorkspace({ detail: expense({ id: "exp-hosting", receipt_id: "rcpt-confirmed" }) });
     assert.deepEqual(withReceipt.opened, [{ kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" }]);
-    assert.ok(!withReceipt.host.querySelector('[data-testid="business-expense-detail"]')?.textContent?.includes("Sin recibo adjunto"));
+    assert.equal(dossier(withReceipt.host), null, "no read-only frame for a record that has a receipt");
     await withReceipt.act(async () => withReceipt.root.unmount());
     const fromDraft = await mountWorkspace({ detail: expense({ id: "exp-note", draft_id: "draft-7" }) });
     assert.deepEqual(fromDraft.opened, [{ kind: "draft", draftId: "draft-7", list: "transactions" }]);

@@ -95,9 +95,9 @@ export type BusinessPanelState =
   | { kind: "invoicing" }
   // Actividad: the history of changes in this Business, live from the server.
   | { kind: "activity" }
-  // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
+  // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `cameFrom` is the record a phone comes back from.
   // `focus` opens Registros on one list, as a count elsewhere counted it.
-  | { kind: "transactions"; expenseId?: string; focus?: RecordsFocus; deletedDraftId?: string }
+  | { kind: "transactions"; cameFrom?: Extract<BusinessPanelState, { kind: "receipt" | "draft" | "expense" }>; focus?: RecordsFocus; deletedDraftId?: string }
   | { kind: "expense"; expenseId: string; detailsCard?: DossierDetailsCard }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }

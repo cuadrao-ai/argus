@@ -3012,7 +3012,6 @@
       "business_account": "Cuenta del negocio",
       "amount_unknown": "Monto desconocido",
       "currency_unknown": "Moneda desconocida",
-      "revision": "Revisión {{version}}",
       "edit": "Editar detalles",
       "business_amount": "Monto del negocio",
       "default": "Predeterminada · sin verificar",
@@ -3314,11 +3313,9 @@
     "expenses": {
       "no_merchant": "Gasto",
       "title": "Gastos",
-      "detail_title": "Gasto guardado",
       "gone": "Ese gasto ya no está",
       "no_receipt": "Sin recibo adjunto",
-      "recorded_on": "Registrado el {{when}}",
-      "account_unknown": "Desconocida"
+      "recorded_on": "Registrado el {{when}}"
     },
     "guide_cards": {
       "actividad_intro": {

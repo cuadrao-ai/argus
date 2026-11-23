@@ -241,6 +241,7 @@ describe("original note search", () => {
     const captures = groups.find((group) => group.id === "captures")!;
     assert.deepEqual(captures.hits.map((hit) => [hit.id, hit.title, hit.amount]), [["source-1", note.text, null], ["source-2", "Agrego el pago", null]]);
     assert.equal(captures.hits[1].badge, "Note");
+    assert.doesNotMatch(captures.hits[0].detail, /Revisi[oó]n/i, "a note's hit carries no revision number");
     captures.hits[1].open?.();
     assert.deepEqual(opened, [{ kind: "draft", draftId: "draft-1", list: "inbox" }]);
   });
@@ -305,6 +306,7 @@ describe("record preview in the results", () => {
     const html = (group: string) => renderToStaticMarkup(<I18nextProvider i18n={i18n}>{found.find((item) => item.id === group)!.hits[0].preview}</I18nextProvider>);
     assert.ok(html("expenses").includes("Ferretería La Esquina") && html("expenses").includes("RD$"));
     assert.ok(html("receipts").includes("factura-9.pdf"));
-    assert.ok(html("captures").includes("pintura sin recibo") && html("captures").includes("Revision 2"));
+    assert.ok(html("captures").includes("pintura sin recibo"));
+    assert.doesNotMatch(html("captures"), /Revisi[oó]n/i, "a note's preview carries no revision number");
   });
 });

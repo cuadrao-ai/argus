@@ -54,7 +54,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
   footer?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const { openPanel } = useBusiness();
+  const { openPanel, panel } = useBusiness();
   const tray = useRecordTray();
   const ids = useId();
   const heading = useRef<HTMLHeadingElement>(null);
@@ -125,7 +125,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
       {/* Opaque, and its shadow fills the see-through app bar above it, so the form never shows through either while it scrolls under. */}
       <header className="sticky top-0 z-20 -mx-4 border-b border-[#DCE0DA] bg-[#F7F5EE] px-4 pb-3 pt-2 shadow-[0_-6rem_0_0_#F7F5EE] tablet:-mx-8 tablet:px-8 dark:border-white/10 dark:bg-[#141517] dark:shadow-[0_-6rem_0_0_#141517]">
         <div className="flex items-center justify-between gap-2">
-          <button type="button" onClick={() => openPanel({ kind: back })} className="flex min-h-11 items-center gap-2 rounded-full pr-3 text-[15px] text-[#56635e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70">
+          <button type="button" onClick={() => openPanel(back === "transactions" && (panel.kind === "receipt" || panel.kind === "draft" || panel.kind === "expense") ? { kind: back, cameFrom: panel } : { kind: back })} className="flex min-h-11 items-center gap-2 rounded-full pr-3 text-[15px] text-[#56635e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70">
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             {back === "transactions" ? t("business.nav.transactions", "Transactions") : t("business.nav.inbox", "Inbox")}
           </button>

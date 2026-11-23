@@ -10868,8 +10868,8 @@ accept path recorded.
 - GET `/api/v1/business/expenses/{expense_id}` returns that expense with
   `recorded_at` and `revision` from the money read; 404 `expense_not_found`
   for any other id, including another Business's. An expense entered by hand
-  has `receipt_id` and `draft_id` null: the web shows a plain detail that says
-  no receipt is attached, with when it was recorded and its revision. It
+  has `receipt_id` and `draft_id` null: the web opens it in the same dossier,
+  read only, with that no receipt is attached and when it was recorded. It
   carries `dgii_606`, the same value as its Registros row (below), read for
   this one record without reading every activity; null when Registros does not
   list it yet.

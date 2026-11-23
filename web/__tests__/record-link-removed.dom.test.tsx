@@ -183,7 +183,7 @@ describe("a link to an expense the server no longer has", () => {
       await page.settle(() => page.api().panel.kind === "transactions", "the dead panel closed onto Registros");
       await page.settle(() => Boolean(page.host.querySelector('[data-testid="transacciones"]')), "Registros shows");
       await page.quiet();
-      assert.equal(document.querySelector('[data-testid="business-expense-detail"]'), null, "no dead panel");
+      assert.equal(document.querySelector('[data-testid="business-record-review"]'), null, "no dead panel");
       assert.equal(document.querySelector('[data-testid="side-drawer"]'), null, "no record tray");
       assert.equal(new URLSearchParams(window.location.search).get("expense"), null, window.location.search);
       assert.deepEqual([...page.toasts.values()], ["Ese gasto ya no está"], "one notice");
@@ -201,8 +201,8 @@ describe("an expense link that fails for any other reason", () => {
       if (down) throw failure(500, "internal_error");
       return fixture.expense(id);
     } }));
-    await page.settle(() => Boolean(document.querySelector('[data-testid="expense-load-error"]')), "the retry card shows");
-    const card = document.querySelector('[data-testid="expense-load-error"]')!;
+    await page.settle(() => Boolean(document.querySelector('[data-testid="receipt-load-error"]')), "the retry card shows");
+    const card = document.querySelector('[data-testid="receipt-load-error"]')!;
     assert.ok(card.querySelector('[role="alert"]')?.textContent?.includes("No pudimos actualizar."), card.textContent ?? "");
     assert.ok(card.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref."));
     assert.ok(!page.text().includes("quitado"));
@@ -213,7 +213,7 @@ describe("an expense link that fails for any other reason", () => {
     const { act } = await import("react");
     const retry = [...card.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
     await act(async () => { retry.click(); });
-    await page.settle(() => document.querySelector("#expense-detail-title")?.textContent === "Estación Ruta 3", "the expense loads");
+    await page.settle(() => document.querySelector("#receipt-review-title")?.textContent === "Estación Ruta 3" && Boolean(document.querySelector('[data-testid="business-record-review"]')), "the record opens in the dossier");
   });
 });
 

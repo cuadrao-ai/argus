@@ -155,15 +155,15 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", readin
       const selected = document.querySelector<HTMLElement>(`[data-record-key="${row.row_id}"]`)!;
       (selected.matches("tr") ? selected : selected.querySelector<HTMLButtonElement>("button")!).click();
     });
-    await wait(() => target === "expense" ? document.querySelector('[data-testid="business-expense-detail"]') !== null : facts() !== null, "the record's detail");
+    await wait(() => target === "expense" ? document.querySelector('[data-testid="record-facts-comprobante"]') !== null : facts() !== null, "the record's detail");
   };
   const openDirectly = async () => {
     await act(async () => api!.openPanel({ kind: "draft", draftId, list: "transactions" }));
-    await wait(() => target === "expense" ? document.querySelector('[data-testid="business-expense-detail"]') !== null : facts() !== null, "the record's detail");
+    await wait(() => target === "expense" ? document.querySelector('[data-testid="record-facts-comprobante"]') !== null : facts() !== null, "the record's detail");
   };
   const openOtherExpense = async () => {
     await act(async () => api!.openPanel({ kind: "expense", expenseId: "00000000-0000-4000-8000-000000009999" }));
-    await wait(() => document.querySelector("#expense-detail-title")?.textContent === "Registro 00000000-0000-4000-8000-000000009999", "the other expense");
+    await wait(() => document.querySelector("#receipt-review-title")?.textContent === "Registro 00000000-0000-4000-8000-000000009999", "the other expense");
   };
   return { act, wait, writes, chip, reason, listButton, options, toggleChoice, valueOf, pick, facts, queries, section, openRecord, openDirectly, openOtherExpense };
 }
@@ -184,6 +184,18 @@ describe("opened records show only their server readiness list", () => {
       const page = await mount({ target, readiness: { ready: true, missing } });
       await page.openRecord();
       assert.deepEqual(shown(), [], "ready owns visibility even if an old missing list is present");
+    });
+
+    test(`${target}: on a phone, the way back puts focus on the live report row that opened it`, async () => {
+      const page = await mount({ width: 390, target, readiness: { ready: true, missing: [] } });
+      await page.openRecord();
+      assert.equal(document.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "page", "the record is the page");
+      await page.act(async () => [...document.querySelectorAll("button")].find((button) => button.textContent === "Registros")!.click());
+      const opener = () => {
+        const selected = document.querySelector<HTMLElement>("[data-record-key]");
+        return selected?.matches("tr") ? selected : selected?.querySelector("button") ?? null;
+      };
+      await page.wait(() => opener() !== null && document.activeElement === opener(), "focus on the row that opened the record");
     });
 
     test(`${target}: another opened record never inherits the selected report's reasons`, async () => {
