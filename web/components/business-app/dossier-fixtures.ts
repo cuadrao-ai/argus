@@ -107,6 +107,9 @@ const SAMPLE_DGII_FIELDS: DgiiFields = {
     sampleField("cash", "Efectivo"), sampleField("bank", "Cheque/ Transferencia/ Depósito"), sampleField("card", "Tarjeta Débito/Crédito"), sampleField("credit", "Venta a Crédito"), sampleField("gift", "Bonos o Certificados de Regalo"), sampleField("barter", "Permuta"), sampleField("other_payment", "Otras Formas de Ventas"),
   ],
 };
+/** The buckets of a sale's payment split, as the server's 607 names them. */
+const SALE_PAYMENT_FORMS = ["cash", "bank", "card", "credit", "gift", "barter", "other_payment"] as const;
+const blank607 = (): DgiiDeclaration => ({ ...Object.fromEntries(SAMPLE_DGII_FIELDS["607"].filter(({ name }) => !["rnc", "ncf", "itbis"].includes(name)).map(({ name }) => [name, null])), form: "607" });
 const printedIdentifier = (value: string | null) => value === null ? null : value.trim().replace(/(?<=[0-9])[-\s]+(?=[0-9])/g, "").toUpperCase();
 
 const sourceId = "20000000-0000-4000-8000-000000000001";
@@ -227,8 +230,13 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     if (draft.review_state === "open" || draft.facts.funding.value?.kind !== "business_account") fields.push("currency");
     return fields;
   };
-  const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates" | "declaration_editable" | "declaration_suggestions"> => ({
-    declaration_editable: declarationEditable(draft),
+  const isSale = (draft: BusinessDossier) => draft.document_type === "venta";
+  const paidForms = (draft: BusinessDossier) => SALE_PAYMENT_FORMS.filter((name) => Number(draft.dgii?.[name] ?? 0) > 0);
+  const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates" | "declaration_editable" | "declaration_suggestions" | "payment_split_editable" | "sale_payment"> => ({
+    declaration_editable: declarationEditable(draft) && !isSale(draft),
+    payment_split_editable: factsEditable(draft) && isSale(draft),
+    // The one form a sale was paid in: the only bucket of its split, when it holds the whole total.
+    sale_payment: isSale(draft) ? { form: paidForms(draft).length === 1 && draft.facts.amount.state === "known" && Number(draft.dgii?.[paidForms(draft)[0]]) === Number(draft.facts.amount.value) ? paidForms(draft)[0] : null, options: [...SALE_PAYMENT_FORMS] } : null,
     // The server offers a suggestion only for an answer the record lacks.
     // Only on an open expense, whose approval saves it, and only for an answer the record lacks.
     declaration_suggestions: Object.fromEntries(SUGGESTED.map((field) => [field, declarationEditable(draft) && draft.review_state === "open" && draft.facts.kind.value === "expense" && blankAnswer(draft.dgii, field) ? draft.declaration_suggestions?.[field] ?? null : null])),
@@ -326,6 +334,13 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       }
       return { dgii };
     }),
+    // The server puts the record's whole total in the picked bucket and clears the others.
+    reviewSalePayment: async (id: string, version: number, form: string, key: string) => writeDeclaration(id, version, key, { sale_payment_form: form }, (current) => {
+      if (!isSale(current)) fail(422, "fiscal_direction_unsupported");
+      if (current.facts.amount.state !== "known") fail(422, "fact_required", { field: "amount" });
+      const split = Object.fromEntries(SALE_PAYMENT_FORMS.map((name) => [name, name === form ? Number(current.facts.amount.value).toFixed(2) : null]));
+      return { dgii: { ...blank607(), ...(current.dgii?.form === "607" ? current.dgii : {}), ...split, form: "607" } };
+    }),
     captureNote: async (request: BusinessCaptureInput, key: string) => {
       const input = JSON.stringify(request);
       const receipt = captureReceipts.get(key);
@@ -421,7 +436,9 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       if (current.version !== version) fail(409, "stale_version");
       if (!current.document_type_editable) fail(422, "document_type_locked");
       if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
-      dossiers.set(id, { ...current, version: current.version + 1, document_type: documentType, document_type_detected: undefined, history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: current.facts, before_document_type: current.document_type, after_document_type: documentType, source_ids: [], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] });
+      // A new type drops the other form's declaration; a sale starts its 607 with nothing answered.
+      const dgii = documentType === current.document_type ? current.dgii : documentType === "venta" ? blank607() : null;
+      dossiers.set(id, { ...current, version: current.version + 1, document_type: documentType, document_type_detected: undefined, dgii, history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: current.facts, before_document_type: current.document_type, after_document_type: documentType, source_ids: [], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] });
       return get(id);
     },
     settleRemainder: async (id: string, version: number) => {

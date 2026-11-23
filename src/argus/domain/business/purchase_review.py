@@ -10,6 +10,8 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     PurchaseDeclaration,
     PurchaseReview,
+    SalePayment,
+    SalePaymentForm,
     SalePaymentSplit,
     SalesDeclaration,
     SuggestedField,
@@ -54,6 +56,69 @@ def apply_payment_split(
     )
     data.update({name: getattr(split, name) for name in split.model_fields_set})
     return SalesDeclaration.model_validate(data)
+
+
+def whole_payment(
+    current: DgiiDeclaration | None, form: SalePaymentForm, total: str
+) -> SalesDeclaration | None:
+    """The 607 of a sale paid one way: the whole ``total`` in ``form``'s
+    bucket and nothing in the others. None when no bucket holds ``total``
+    exactly."""
+
+    amount = Decimal(total)
+    held = money_text(amount)
+    if not 0 <= amount < MONEY_LIMIT or Decimal(held) != amount:
+        return None
+    split = {name: held if name == form else None for name in get_args(SalePaymentForm)}
+    return apply_payment_split(
+        current if isinstance(current, SalesDeclaration) else None,
+        SalePaymentSplit(**split),
+    )
+
+
+def _paid_forms(declaration: DgiiDeclaration | None) -> list[str]:
+    if not isinstance(declaration, SalesDeclaration):
+        return []
+    return [
+        name
+        for name in get_args(SalePaymentForm)
+        if amount_or_zero(getattr(declaration, name)) > 0
+    ]
+
+
+def sale_payment(
+    document_type: DocumentType, declaration: DgiiDeclaration | None, total: str | None
+) -> SalePayment | None:
+    """How a sale was paid, as the one pick a review offers: the form whose
+    bucket holds the whole ``total``. A split across forms, or one bucket that
+    is not the total, is no pick, so any form a person picks is a new one.
+    None for a record that takes no payment split."""
+
+    if not takes_payment_split(document_type):
+        return None
+    paid = _paid_forms(declaration)
+    whole = (
+        len(paid) == 1
+        and total is not None
+        and Decimal(getattr(declaration, paid[0])) == Decimal(total)
+    )
+    return SalePayment(form=paid[0] if whole else None, options=get_args(SalePaymentForm))
+
+
+def payment_following_total(
+    declaration: DgiiDeclaration | None, before: BusinessFacts, after: BusinessFacts
+) -> DgiiDeclaration | None:
+    """``declaration`` with a sale's one payment form still holding its whole
+    total: the bucket that held the old total holds the new one. A split
+    across forms, or one that was not the total, stays as a person wrote it."""
+
+    paid = _paid_forms(declaration)
+    old, new = before.amount.value, after.amount.value
+    if len(paid) != 1 or old is None or new is None or Decimal(old) == Decimal(new):
+        return declaration
+    if Decimal(getattr(declaration, paid[0])) != Decimal(old):
+        return declaration
+    return whole_payment(declaration, paid[0], new) or declaration
 
 
 def apply_purchase(
@@ -170,6 +235,16 @@ def exact_amount_text(value: Decimal) -> str:
 AMOUNT_PARTS = ("itbis", "legal_tip", "selective_tax", "other_taxes")
 
 
+def stated_tip(facts: BusinessFacts) -> str | None:
+    """The legal tip Montos states: its amount, or zero once a read or a
+    person left it unknown. None on a record saved before Montos carried the
+    tip, whose declaration alone holds it."""
+
+    if isinstance(facts.legal_tip, Known):
+        return facts.legal_tip.value
+    return "0" if facts.legal_tip.origin is not None else None
+
+
 def amount_parts(
     facts: BusinessFacts | None = None,
     declaration: DgiiDeclaration | None = None,
@@ -180,10 +255,8 @@ def amount_parts(
     if facts is not None:
         _, known_itbis = total_and_itbis(facts)
         itbis = known_itbis if known_itbis is not None else itbis
-        if isinstance(facts.legal_tip, Known):
-            legal_tip = facts.legal_tip.value
-        elif facts.legal_tip.origin is not None:
-            legal_tip = "0"
+        stated = stated_tip(facts)
+        legal_tip = stated if stated is not None else legal_tip
     values = {
         "itbis": itbis,
         "legal_tip": legal_tip if legal_tip is not None else getattr(declaration, "legal_tip", None),

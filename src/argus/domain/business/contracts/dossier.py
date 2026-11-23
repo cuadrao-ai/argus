@@ -20,7 +20,12 @@ from argus.domain.business.space_name import GivenName
 from .actions import SUPPORTING_FILE_LIMIT, ApprovalAction, DuplicateDecision
 from .authority import ActorView, Capability, PersonName
 from .checks import DgiiQr, EcfVerification
-from .dgii import DeclarationSuggestions, DgiiDeclaration, PurchaseCalculated
+from .dgii import (
+    DeclarationSuggestions,
+    DgiiDeclaration,
+    PurchaseCalculated,
+    SalePayment,
+)
 from .facts import (
     HUMAN_AMOUNT_FIELDS,
     BusinessFacts,
@@ -390,6 +395,9 @@ class BusinessDossier(RecordContext):
     #: The caller may write the 607 payment split now, on the same terms as
     #: declaration_editable, on a sale.
     payment_split_editable: bool = False
+    #: How a sale was paid, as the one pick the review offers; null for any
+    #: other record. ``payment_split_editable`` says whether the caller may pick.
+    sale_payment: SalePayment | None = None
     #: The due date a person set in review; null while unknown. Never read
     #: from the document or defaulted.
     due_on: date | None = None
@@ -452,6 +460,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "declaration_editable": True,
     "declaration_suggestions": True,
     "payment_split_editable": True,
+    "sale_payment": True,
     "approval_action": True,
     "fiscal_inclusion_available": True,
     "refund_candidates": True,
@@ -482,7 +491,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
 }
 
 
-_UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split", "montos")
+_UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split", "sale_payment_form", "montos")
 
 
 def _unmeasured_removed(source: dict[str, Any]) -> dict[str, Any]:

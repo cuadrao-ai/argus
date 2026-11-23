@@ -20,7 +20,7 @@ import type { BusinessDataSource } from "./business-data";
 import { DossierRow, type RowEdit, type RowStatus } from "./dossier/DossierParts";
 import ReceiptRowSave from "./ReceiptRowSave";
 import type { RowSave } from "./receipt-review-save";
-import { fiscalFieldGroups, fiscalNote, foldOf, isReadOnlyRow, type FiscalGroup } from "./dossier/fiscal-rows";
+import { fiscalFieldGroups, fiscalNote, foldOf, isReadOnlyRow, recordForm, type FiscalForm, type FiscalGroup } from "./dossier/fiscal-rows";
 import { dgiiOptionLabel } from "./receipt-fact-presentation";
 import { usePreview } from "./useAmountsPreview";
 
@@ -33,17 +33,17 @@ type Links = NonNullable<BusinessDossier["inheritance"]>;
 /**
  * The Datos fiscales tab: the declaration's fields in grouped cards, each a row
  * of the dossier's grid. A field that follows a source says so in its status
- * slot, and holding it apart offers the way back there. On a purchase,
- * Retenciones and Otros impuestos stay folded until someone adds a row. NCF
- * modificado shows on a credit or debit note, and the refund question on a
- * credit note alone. Each row saves its own change.
+ * slot, and holding it apart offers the way back there. Retenciones and Otros
+ * impuestos stay folded until someone adds a row. NCF modificado shows on a
+ * credit or debit note, and the refund question on a purchase's credit note
+ * alone. Each row saves its own change.
  */
 export default function FiscalDeclarationEditor({ dossier, fields, disabled, reviewFiscal, previewLinks, onChanged, onBusy, onDirty, savedRow = null }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; savedRow?: string | null; /** The server's preview of the unsaved form: what each linked field shows. */ previewLinks?: BusinessDataSource["previewAmounts"]; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier, row: string) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
-  const recordForm = dossier.document_type === "venta" || (!dossier.document_type && dossier.facts.kind.value === "income") ? "607" : "606";
-  const formFollows = dossier.document_type != null || (dossier.facts.kind.state === "known" && (dossier.dgii?.form ?? recordForm) === recordForm);
-  const [form, setForm] = useState<"606" | "607">(dossier.dgii?.form ?? recordForm);
+  const ownForm = recordForm(dossier);
+  const formFollows = dossier.document_type != null || (dossier.facts.kind.state === "known" && (dossier.dgii?.form ?? ownForm) === ownForm);
+  const [form, setForm] = useState<FiscalForm>(dossier.dgii?.form ?? ownForm);
   const initialValues = () => Object.fromEntries([
     ...Object.entries(dossier.dgii ?? {}).map(([name, value]) => [name, String(value ?? "")]),
     ...Object.entries(dossier.inheritance ?? {}).filter(([, entry]) => entry.inherited).map(([name, entry]) => [name, entry.value ?? ""]),
@@ -72,7 +72,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
   const editable = dossier.facts_editable === true && !disabled && !saving;
   const change = () => { setDirty(true); onDirty(true); };
   const reset = () => {
-    setForm(dossier.dgii?.form ?? recordForm);
+    setForm(dossier.dgii?.form ?? ownForm);
     setValues(stored);
     setLinks(new Map());
     setActualRefund(dossier.dgii?.actual_refund === true);
@@ -80,7 +80,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
     setProblem(null); setRefused(null); setDirty(false); onDirty(false);
   };
   // The links apply to the record's own form; another form's draft follows none of them.
-  const given: Links = form === (dossier.dgii?.form ?? recordForm) ? dossier.inheritance ?? {} : {};
+  const given: Links = form === (dossier.dgii?.form ?? ownForm) ? dossier.inheritance ?? {} : {};
   const follows = (name: string, shown: Links) => links.get(name) ?? shown[name]?.inherited;
   /** The review Guardar sends. A field that follows its source goes as the dossier gave it: the server works out its value. */
   const draft = (): DgiiReview | null => {
@@ -167,7 +167,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
       setValues((current) => ({ ...current, ...Object.fromEntries(held.filter((side) => follows(side, known)).map((side) => [side, known[side]?.value ?? ""])), [field.name]: next }));
       setBroken((current) => { const kept = new Set(current); if (invalid) kept.add(field.name); else kept.delete(field.name); return kept; });
     };
-    const label = t([form === "606" ? `business.dossier.fiscal.field.${field.name}` : `business.dgii.field_607.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name });
+    const label = t([`business.dossier.fiscal.field.${field.name}`, ...(form === "607" ? [`business.dgii.field_607.${field.name}`] : []), `business.dgii.field.${field.name}`], { defaultValue: field.name });
     // A source that is not money says its own name and shows its value as the field does.
     const sourceLabel = inherited?.field === "occurred_on" ? t("business.dossier.field.occurred_on") : inherited?.field === "rnc" || inherited?.field === "original_ncf" ? t(`business.dossier.placeholder.inherited_${inherited.field}`) : t(`business.terms.${inherited?.field}`);
     const sourceValue = inherited?.value == null ? UNKNOWN_VALUE : inherited.field === "occurred_on" ? formatDay(inherited.value, locale) : inherited.field === "rnc" ? dgiiOptionLabel(t, field.name, inherited.value) : inherited.field === "original_ncf" ? inherited.value : formatMoney(inherited.value, currency, locale) || UNKNOWN_VALUE;
@@ -205,8 +205,8 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
       <DossierRow row="form" label={formLabel} value={form} edit={edit("form", formControl)} below={note("form")} />
     </ul></section>}
     <div className={`${styles.stack} ${OFF_FIELD_CLASS}`}>
-      {fiscalFieldGroups(form, fields?.[form] ?? [], noteKind !== null).map(({ group, fields: grouped }) => {
-        const fold = foldOf(form, group, grouped, values, broken);
+      {fiscalFieldGroups(fields?.[form] ?? [], noteKind !== null, form === "607" ? dossier.sale_payment?.options : undefined).map(({ group, fields: grouped }) => {
+        const fold = foldOf(group, grouped, values, broken);
         const fieldsId = `${EDITOR_ID}-${group}-fields`;
         const open = unfolded.has(group);
         const folded = fold !== null && !open && !grouped.some((field) => field.name === editing);

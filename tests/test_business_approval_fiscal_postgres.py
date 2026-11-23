@@ -287,7 +287,8 @@ def saved_declaration(**changes):
         "modified_ncf": None,
         "selective_tax": "0.00",
         "other_taxes": "0.00",
-        "legal_tip": "0.00",
+        # Montos owns the tip: the receipt states none, so the declaration holds none.
+        "legal_tip": None,
         "category": "02",
         "category_suggested": False,
         "paid_on": receipt_date(),

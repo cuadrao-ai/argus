@@ -6,6 +6,8 @@ import type { BusinessDossier, DeclarationSuggestion, ShownSuggestions } from "@
 import type { DgiiField, DgiiFields, PurchaseChoice, SuggestedField, SuggestionSource } from "@/lib/business-dgii";
 import { quietButtonClass } from "./business-ui";
 import { DossierCard, DossierPickRow, DossierRow, DossierRows, type RowStatus } from "./dossier/DossierParts";
+import { recordForm } from "./dossier/fiscal-rows";
+import type { SaleChoice } from "./receipt-fact-rows";
 
 type Choice = keyof PurchaseChoice;
 const CHOICES: readonly SuggestedField[] = ["category", "payment_method"];
@@ -45,40 +47,51 @@ export function shownSuggestions(view: ChoicesView): ShownSuggestions | undefine
   return shown.length ? Object.fromEntries(shown) : undefined;
 }
 
-/** How one choice saves: absent for someone who cannot write the 606 answers now. */
+/** How one choice saves: absent for someone who cannot write the report's answers now. */
 export type ChoicePick = { onPick: (value: string) => void; saving: boolean; saved: boolean; disabled: boolean };
+/** A row of the report card: one of the 606's two answers, or one of the 607's. */
+export type ReportChoice = Choice | SaleChoice;
+type Answer = { row: ReportChoice; label: string; value: string; codes: readonly string[] | null; name: (code: string) => string; source?: SuggestionSource | null; suggested?: DeclarationSuggestion | null };
 
 /**
- * The report card of General: tipo de gasto and forma de pago, from the server's codes and
- * the locale's text. Neither blocks approval. Each is a row that opens its list and saves the
- * pick at once. A suggestion shows filled, with an icon for its source in the status slot,
- * and the approval saves it; a value the person chose has no icon.
+ * The report card of General, from the server's codes and the locale's text. A
+ * purchase answers tipo de gasto and forma de pago; a sale answers tipo de
+ * ingreso and its one forma de pago, whose whole amount the server places.
+ * None blocks approval. Each is a row that opens its list and saves the pick
+ * at once. A suggestion shows filled, with an icon for its source in the
+ * status slot, and the approval saves it; a value the person chose has no icon.
  */
 export default function ReceiptOwnerChoices({ dossier, fields, failed, readOnly = false, pick, note, onReload }: ChoicesView & {
-  pick: (choice: Choice) => ChoicePick;
-  note: (choice: Choice) => ReactNode;
+  pick: (choice: ReportChoice) => ChoicePick;
+  note: (choice: ReportChoice) => ReactNode;
   onReload: () => void;
 }) {
   const { t } = useTranslation();
-  const row = (choice: Choice, label: string) => {
-    const field = catalogField(fields, choice);
+  // The type names the report, not a declaration left from the other one.
+  const form = recordForm(dossier);
+  const sourceStatus = (from: SuggestionSource): RowStatus => ({ kind: from, text: t(`business.dossier.placeholder.suggestion_source.${from}`) });
+  const option = (field: string) => (code: string) => t(`business.dgii.option.${field}.${code}`, { defaultValue: code }) || code;
+  const purchase = (choice: Choice, label: string): Answer => {
     const { value, source } = shownChoice({ dossier, fields, failed, readOnly }, choice);
-    const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code }) || code;
-    const sourceStatus = (from: SuggestionSource): RowStatus => ({ kind: from, text: t(`business.dossier.placeholder.suggestion_source.${from}`) });
+    return { row: choice, label, value, source, codes: catalogField(fields, choice)?.options ?? null, name: option(choice), suggested: dossier.declaration_suggestions?.[choice] };
+  };
+  const answers: Answer[] = form === "607" ? [
+    { row: "income_type", label: t("business.dossier.placeholder.income_type"), value: dossier.dgii?.form === "607" ? String(dossier.dgii.income_type ?? "") : "", codes: fields?.["607"].find((item) => item.name === "income_type")?.options ?? null, name: option("income_type") },
+    { row: "sale_payment", label: t("business.dossier.placeholder.payment_form"), value: dossier.sale_payment?.form ?? "", codes: dossier.sale_payment?.options ?? null, name: option("sale_payment_form") },
+  ] : [
+    purchase("category", t("business.dossier.placeholder.expense_type", "Expense type")),
+    purchase("payment_method", t("business.dossier.placeholder.payment_form", "Payment method")),
+  ];
+  const row = ({ row: choice, label, value, codes, name, source, suggested }: Answer) => {
     const status = source ? sourceStatus(source) : null;
     const data = { "data-suggestion-source": source ?? undefined };
-    if (!field || readOnly) return <DossierRow key={choice} row={choice} label={label} status={status} value={value ? name(value) : ""} below={note(choice)} data={data} />;
-    const suggested = dossier.declaration_suggestions?.[choice];
-    const options = field.options.map((code) => ({ value: code, label: name(code), status: suggested?.value === code ? sourceStatus(suggested.source) : null }));
+    if (!codes || readOnly) return <DossierRow key={choice} row={choice} label={label} status={status} value={value ? name(value) : ""} below={note(choice)} data={data} />;
+    const options = codes.map((code) => ({ value: code, label: name(code), status: suggested?.value === code ? sourceStatus(suggested.source) : null }));
     return <DossierPickRow key={choice} row={choice} label={label} status={status} value={value ? name(value) : ""} pick={{ value, options, ...pick(choice) }} below={note(choice)} data={data} />;
   };
-  const form = dossier.dgii?.form ?? (dossier.document_type === "venta" ? "607" : "606");
   return (
     <DossierCard title={t("business.dossier.card.report", { form })} testId="receipt-facts-choices">
-      {failed ? <p role="alert" className="py-3 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.dgii.load_failed", "We couldn't load the tax fields.")}<button type="button" className={`${quietButtonClass} ml-2`} onClick={onReload}>{t("common.retry", "Retry")}</button></p> : <DossierRows>
-        {row("category", t("business.dossier.placeholder.expense_type", "Expense type"))}
-        {row("payment_method", t("business.dossier.placeholder.payment_form", "Payment method"))}
-      </DossierRows>}
+      {failed ? <p role="alert" className="py-3 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.dgii.load_failed", "We couldn't load the tax fields.")}<button type="button" className={`${quietButtonClass} ml-2`} onClick={onReload}>{t("common.retry", "Retry")}</button></p> : <DossierRows>{answers.map(row)}</DossierRows>}
     </DossierCard>
   );
 }

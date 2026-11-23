@@ -8694,7 +8694,11 @@ discriminates on), and null while `approval_available` is false.
 The dossier exposes `facts_editable` for review writes. Open drafts require
 `prepare`. Accepted records require the owner. `document_type_editable` follows
 the same permission. `declaration_editable` also requires a purchase eligible
-for the 606. `payment_split_editable` requires a sale. An incompatible fiscal
+for the 606. `payment_split_editable` requires a sale. `sale_payment` is null
+on anything but a sale; on a sale it holds `form`, the one bucket of the 607
+payment split that holds the sale's whole total (null with no split, one across
+several, or one bucket that is not the total, so any pick is a new one), and
+`options`, the forms `sale_payment_form` takes. An incompatible fiscal
 form returns 422 `fiscal_direction_unsupported`.
 `declaration_suggestions` holds one suggestion for each 606 answer a person
 gives one by one, under the declaration's field name: `category` (tipo de
@@ -8900,7 +8904,17 @@ clears a bucket, and a sale with no declaration starts one holding only
 the split. The server fills no bucket and does not check the sum when it writes;
 the export holds a split that does not equal the total with
 `fiscal_payment_total_conflict`. `payment_split` on anything but a `venta` is
-422 `fiscal_direction_unsupported`. `purchase` sits beside `facts`, not inside
+422 `fiscal_direction_unsupported`. The body's `sale_payment_form` is the one
+way a sale was paid: one of the split's bucket names (`cash`, `bank`, `card`,
+`credit`, `gift`, `barter`, `other_payment`) and no amount. The server puts the
+record's whole total in that bucket and clears the other six, in the same
+revision as any `facts` the body carries, and keeps the rest of the 607 as it
+was. It is 422 `fiscal_direction_unsupported` on anything but a `venta`, 422
+`fact_required` (`field`: `amount`) while the total is unknown, and 422
+`fiscal_amount_precision_or_limit` for a total no bucket holds exactly. After
+that, a write that changes the total and sends no declaration moves the
+bucket with it: the one bucket that held the old total holds the new one. A
+split across buckets, or one that was not the total, is never moved. `purchase` sits beside `facts`, not inside
 it: `BusinessFactPatch` is the patch the interpreter fills, and a tax field is
 never the model's to fill. The
 identifiers in `dgii.fiscal` (`rnc`, `ncf`) and `modified_ncf` are normalized on
@@ -8912,7 +8926,7 @@ beside a letter (`ab-123`) and a letter that upper-cases to two (`ß`) are still
 a 422 `validation_error`.
 
 On an accepted record the owner can send `facts`, `document_type`, `montos`,
-`dgii`, `purchase`, `payment_split` or `due_on` through this route. A prepare
+`dgii`, `purchase`, `payment_split`, `sale_payment_form` or `due_on` through this route. A prepare
 grant alone returns 403 `business_permission_denied`. Total, currency and the
 transaction date must have values. Clearing one returns 422 `fact_required`.
 ITBIS and subtotal may be empty or zero. A money-changing edit to a linked
@@ -9198,6 +9212,15 @@ Human review also accepts top-level `montos`, with optional `net_amount` and
 names. These inputs do not enter the interpreter's fact patch. Changing a
 main amount or its fiscal inheritance follows the review permissions and
 version checks above.
+
+`legal_tip` is source-owned (`amount_inheritance.SOURCE_OWNED`): Montos is its
+one editor, so the declaration's `legal_tip` always follows `facts.legal_tip`.
+The server drops a `legal_tip` named in `override_inherited` and a
+declaration `legal_tip` that differs from the fact. An override an older save
+recorded is ignored on an open draft and removed by the record's next save;
+an approved record exports its saved declaration unchanged until that save.
+A record saved before Montos carried the tip (`facts.legal_tip` unknown with
+no origin) has no source: its declaration keeps and takes its `legal_tip`.
 
 The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
 Each entry holds `{field, value, inherited, paired_with}`; `value` is the

@@ -13,7 +13,7 @@ import { CircleAlert, Loader2, RotateCcw, StickyNote } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, readReviewNote, type BusinessDossier, type ListoGap } from "@/lib/business-dossier";
 import { documentFamily } from "@/lib/counterparty-term";
-import type { DgiiFields, SuggestedField } from "@/lib/business-dgii";
+import type { DgiiFields } from "@/lib/business-dgii";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
 import DossierConfirm from "./dossier/DossierConfirm";
 import DossierDetails from "./dossier/DossierDetails";
@@ -21,6 +21,7 @@ import DossierDocument from "./dossier/DossierDocument";
 import { useReadLanding } from "./dossier/DossierReadFields";
 import { DossierStatus } from "./dossier/DossierHeader";
 import { DossierBare, type RowEdit } from "./dossier/DossierParts";
+import { recordForm } from "./dossier/fiscal-rows";
 import { useJumpRows } from "./dossier/jump-rows";
 import { approvalRefusalGaps, businessTypedNotesAvailable, duplicateRecordId, type BusinessApprovalOptions, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
@@ -34,7 +35,7 @@ import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts, { type RowFlash } from "./ReceiptRecordFacts";
 import { useAmountsPreview } from "./useAmountsPreview";
 import ReceiptFactEditor from "./ReceiptFactEditor";
-import ReceiptOwnerChoices, { shownSuggestions, type ChoicePick, type ChoicesView } from "./ReceiptOwnerChoices";
+import ReceiptOwnerChoices, { shownSuggestions, type ChoicePick, type ChoicesView, type ReportChoice } from "./ReceiptOwnerChoices";
 import ReceiptRowSave from "./ReceiptRowSave";
 import ReceiptReviewDone from "./ReceiptReviewDone";
 import { READ_FACT_ROWS, type ReviewRow } from "./receipt-fact-rows";
@@ -182,7 +183,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const [highlight, setHighlight] = useState<string[]>([]);
   const [approvalCheck, setApprovalCheck] = useState<ApprovalCheck | null>(null);
   const [leaving, setLeaving] = useState<{ proceed: () => void } | null>(null);
-  const [retyping, setRetyping] = useState(false);
+  const [retyping, setRetyping] = useState<{ answer: (go: boolean) => void } | null>(null);
   const releaseGuard = useRef<(() => void) | null>(null);
   const inFlight = useRef(false);
   // Reuse the key only when the approval request is the same.
@@ -433,9 +434,11 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     if (problem.row) setFlash((current) => ({ row: problem.row as ReviewRow, n: (current?.n ?? 0) + 1 }));
   };
 
-  // Approval needs no 606 data, so a recorded purchase keeps these choices.
-  const showsChoices = !dossier.sin_comprobante && (dossier.declaration_editable === true || dossier.dgii?.form === "606");
-  const choicesView: ChoicesView | null = showsChoices ? { dossier, fields, failed: fieldsFailed, readOnly: dossier.declaration_editable !== true } : null;
+  // A sale answers its 607 here. Approval needs no 606 data, so a recorded purchase keeps these choices.
+  const sale = recordForm(dossier) === "607";
+  const answersEditable = sale ? dossier.payment_split_editable === true : dossier.declaration_editable === true;
+  const showsChoices = sale || (!dossier.sin_comprobante && (answersEditable || dossier.dgii?.form === "606"));
+  const choicesView: ChoicesView | null = showsChoices ? { dossier, fields, failed: fieldsFailed, readOnly: !answersEditable } : null;
   const approve = ({ next, acceptGaps }: ApprovalRequest) => {
     const request = { next, acceptGaps, suggestions: choicesView ? shownSuggestions(choicesView) : undefined };
     if (next) void approveAndNext(request);
@@ -479,10 +482,12 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     fiscal_number: { name: "ncf", value: fiscalFacts?.ecf.value ?? fiscalFacts?.ncf.value ?? "" },
     itbis: { name: "itbis", value: fiscalFacts?.itbis.value ?? "" },
   };
-  // The server drops the whole declaration on a new type.
-  const retypeClears = Boolean(dossier.dgii?.category || dossier.dgii?.payment_method);
+  // The server drops the whole declaration on a new type: answers it would clear are named first.
+  const retypeClears = sale ? Boolean(dossier.dgii?.income_type || dossier.sale_payment?.form) : Boolean(dossier.dgii?.category || dossier.dgii?.payment_method);
+  const confirmRetype = () => retypeClears ? new Promise<boolean>((answer) => setRetyping({ answer })) : Promise.resolve(true);
+  const answerRetype = (go: boolean) => { retyping?.answer(go); setRetyping(null); };
   const mayEdit = (row: ReviewRow) => {
-    if (row === "category" || row === "payment_method") return dossier.declaration_editable === true;
+    if (row === "category" || row === "payment_method" || row === "income_type" || row === "sale_payment") return answersEditable;
     return dossier.editable_fields?.includes(row) === true && (row !== "document_type" || dossier.document_type_editable === true)
       && ((row !== "net_amount" && row !== "legal_tip") || Boolean(source.reviewMontos));
   };
@@ -501,11 +506,11 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       locked: save?.state === "failed" && save.unknown,
       onOpen: mayEdit(row) && mutable ? () => rows.open(row) : undefined,
       disabled: !mayEdit(row) || !mutable,
-      onSave: () => { if (!mayEdit(row) || !mutable) return; if (edit?.change.write === "type" && retypeClears && !saving && changesRecord(dossier, edit.change)) setRetyping(true); else rows.save(row); },
+      onSave: () => { if (!mayEdit(row) || !mutable) return; if (edit?.change.write === "type" && !saving && changesRecord(dossier, edit.change)) void confirmRetype().then((go) => { if (go) rows.save(row); }); else rows.save(row); },
       onCancel: () => rows.cancel(row),
       editor: editor ?? (
         <ReceiptFactEditor
-          fiscalForm={!dossier.sin_comprobante ? dossier.dgii?.form ?? (dossier.document_type === "venta" ? "607" : "606") : undefined}
+          fiscalForm={!dossier.sin_comprobante ? dossier.dgii?.form ?? recordForm(dossier) : undefined}
           field={row}
           tried={open?.tried === true}
           facts={dossier.facts}
@@ -525,15 +530,15 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     };
   };
   // A pick saves at once, so its row never opens: a failed save keeps its own way back.
-  const choicePick = (choice: SuggestedField): ChoicePick => ({
-    onPick: (value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } }),
+  const choicePick = (choice: ReportChoice): ChoicePick => ({
+    onPick: (value) => void autosave.save(choice, choice === "income_type" ? { write: "income_type", incomeType: value } : choice === "sale_payment" ? { write: "sale_payment", form: value } : { write: "purchase", purchase: { [choice]: value } }),
     saving: autosave.saves[choice]?.state === "saving",
     saved: autosave.saves[choice]?.state === "saved",
     disabled: !mayEdit(choice) || !mutable,
   });
   const failedSave = (row: ReviewRow) => { const save = autosave.saves[row]; return save?.state === "failed" ? save : undefined; };
   const rowNote = (row: ReviewRow) => <ReceiptRowSave save={failedSave(row)} onRetry={() => rows.retry(row)} />;
-  const choiceNote = (choice: SuggestedField) => <ReceiptRowSave save={failedSave(choice)} onRetry={() => void autosave.retry(choice)} onCancel={() => autosave.clear(choice)} />;
+  const choiceNote = (choice: ReportChoice) => <ReceiptRowSave save={failedSave(choice)} onRetry={() => void autosave.retry(choice)} onCancel={() => autosave.clear(choice)} />;
   // Where it came from: the receipt's own row when there is one, else the record's first source.
   const cameFrom = receipt
     ? { channel: receipt.channel, sentBy: receipt.sent_by ? sentByName(t, receipt.sent_by) : null, receivedAt: receipt.received_at, filename: receipt.filename, sizeBytes: receipt.size_bytes }
@@ -660,7 +665,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           : null}
         more={<ReceiptMoreMenu groups={[
             businessTypedNotesAvailable(records.workspace) && reviewing && canPrepare && mutable && !noteDirty && !Object.keys(rows.rows).length ? <MenuItem key="note" icon={StickyNote} label={t("business.capture.add_note", "Add note")} onSelect={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }} /> : null,
-            <ReceiptMarksCard key="marks" dossier={dossier} onBusyChange={setMarkBusy} busy={busy || holdsEdits || fiscalBusy} onChanged={setDossier} bare />,
+            <ReceiptMarksCard key="marks" dossier={dossier} onBusyChange={setMarkBusy} busy={busy || holdsEdits || fiscalBusy} onChanged={setDossier} bare retype={mayEdit("document_type") ? { confirm: confirmRetype } : undefined} />,
             canDelete ? <DeleteDocumentMenuItem key="delete" disabled={busy || holdsEdits || fiscalBusy || deletion.busy} onClick={deletion.ask} /> : null,
           ]} />}
         actions={<>
@@ -688,11 +693,11 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       isOpen
       tone="primary"
       title={t("business.dossier.type_label", "Type")}
-      description={t("business.dossier.type_clears_choices", "Changing the type clears the expense type and payment form.")}
+      description={sale ? t("business.dossier.placeholder.type_clears_sale_choices") : t("business.dossier.type_clears_choices", "Changing the type clears the expense type and payment form.")}
       confirmLabel={t("common.save", "Save")}
       cancelLabel={t("common.cancel", "Cancel")}
-      onCancel={() => setRetyping(false)}
-      onConfirm={() => { setRetyping(false); rows.save("document_type"); }}
+      onCancel={() => answerRetype(false)}
+      onConfirm={() => answerRetype(true)}
     /> : null}
     {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
   </></ContentFade>
