@@ -8,7 +8,7 @@ registerReceiptReviewPage();
 type Write = { kind: string; version: number; body: unknown };
 
 /** A review page whose type changes and payment picks are kept in order, with the toasts on screen. */
-async function venta(change: (dossier: Dossier) => void = () => undefined, start: "recibo" | "venta" = "recibo", seed?: (server: BusinessDataSource, dossier: Dossier) => Promise<unknown>) {
+async function venta(change: (dossier: Dossier) => void = () => undefined, start: "recibo" | "venta" = "recibo", seed?: (server: BusinessDataSource, dossier: Dossier) => Promise<unknown>, dgiiNames = false) {
   const writes: Write[] = [];
   let seeded = !seed;
   const page = await setup("fiscal", change, (fixture): Partial<BusinessDataSource> => ({
@@ -18,7 +18,7 @@ async function venta(change: (dossier: Dossier) => void = () => undefined, start
     },
     setDocumentType: async (id, version, type, key) => { writes.push({ kind: "type", version, body: type }); const next = await fixture.setDocumentType(id, version, type, key); change(next); return next; },
     reviewSalePayment: async (id, version, form, key) => { writes.push({ kind: "sale_payment", version, body: form }); const next = await fixture.reviewSalePayment(id, version, form, key); change(next); return next; },
-  }));
+  }), dgiiNames);
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
   const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
@@ -168,6 +168,16 @@ describe("a sale's General", () => {
       assert.deepEqual(income.map((item) => item.textContent), ["Ingresos por operaciones (no financieros)", "Ingresos financieros", "Ingresos extraordinarios", "Ingresos por arrendamientos", "Ingresos por venta de activo depreciable", "Otros ingresos"]);
       const forms = await openList(page, "sale_payment");
       assert.deepEqual(forms.map((item) => item.textContent), ["Efectivo", "Cheque, transferencia o depósito", "Tarjeta de débito o crédito", "Venta a crédito", "Bonos o certificados de regalo", "Permuta", "Otras formas de venta"]);
+    } finally { await page.close(); }
+  });
+
+  test("through the app's DGII label owner, Tipo de ingreso reads as the 606 lists do, code first", async () => {
+    const page = await venta(undefined, "venta", undefined, true);
+    try {
+      const income = await openList(page, "income_type");
+      assert.deepEqual(income.map((item) => item.textContent), ["01 · Ingresos por operaciones (no financieros)", "02 · Ingresos financieros", "03 · Ingresos extraordinarios", "04 · Ingresos por arrendamientos", "05 · Ingresos por venta de activo depreciable", "06 · Otros ingresos"]);
+      await pick(page, "income_type", "4");
+      await page.wait(() => page.row("income_type").querySelector("[data-row-value]")?.textContent === "04 · Ingresos por arrendamientos");
     } finally { await page.close(); }
   });
 
