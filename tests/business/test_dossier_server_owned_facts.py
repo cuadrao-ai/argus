@@ -242,17 +242,17 @@ def test_a_cent_of_rounding_still_adds_up():
 
 def test_a_typed_subtotal_taken_back_is_the_calculated_one_again():
     read = receipt("1180.00", "180.00")
-    assert net_amount(read) == NetAmount(amount="1000.00", source="calculated")
+    assert net_amount(read) == NetAmount(amount="1000.00", source="calculated", calculated="1000.00")
 
     typed = reviewed_amount_facts(
         read, MontosReview(net_amount={"state": "known", "value": "900"}), (uuid4(),),
         origin="member_set",
     )
-    assert net_amount(typed).source == "edited"
+    assert net_amount(typed) == NetAmount(amount="900", source="edited", calculated="1000.00")
     assert amounts_check(typed) == AmountsCheck(state="difference", difference="100.00")
 
     restored = reviewed_amount_facts(
         typed, MontosReview(net_amount={"state": "unknown"}), (uuid4(),), origin="member_set"
     )
-    assert net_amount(restored) == NetAmount(amount="1000.00", source="calculated")
+    assert net_amount(restored) == NetAmount(amount="1000.00", source="calculated", calculated="1000.00")
     assert amounts_check(restored).state == "adds_up"

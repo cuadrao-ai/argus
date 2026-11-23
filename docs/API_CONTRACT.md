@@ -8801,6 +8801,14 @@ back as it was before the approval: the one a person saved, or none. If that
 undo cannot run, the next approval writes from that earlier declaration
 instead of keeping the failed approval's.
 
+A revision that writes a draft's first declaration records as `before_dgii`
+the declaration the review showed, so its history entry holds only what the
+write changed: a person's answers on a first fiscal save, and on an approval
+the suggestions it saved as answers, or nothing. With a declaration already
+stored, `before_dgii` is that one. `before_dgii` is therefore not the stored
+declaration. The undo of a failed approval reads the stored one from
+`after_dgii` of the revision before the approval's.
+
 `POST /business/drafts/{draft_id}/duplicate-resolution` takes
 `{version, other_draft_id, other_version, decision}` and `Idempotency-Key`.
 `decision` is `different_purchase` or `same_purchase`. Both versions are
@@ -9179,11 +9187,14 @@ or hyphens and NCF letter case normalize for identity without changing sources.
 
 Montos uses `purchase_review.net_amount` for the dossier, fiscal defaults,
 Registros, month close and exports. `BusinessFacts.amount` remains the gross
-amount paid. The dossier adds `net_amount: {amount, source}`. `amount` is an
-exact decimal string or null. `source` is `read`, `calculated`, `edited`, or
-null when the total is unknown. A known `facts.net_amount` retains the read
-subtotal or a person's edit. Otherwise the function subtracts the components
-in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes. The read's `service`
+amount paid. The dossier adds `net_amount: {amount, source, calculated}`.
+`amount` is an exact decimal string or null. `source` is `read`, `calculated`,
+`edited`, or null when the total is unknown. A known `facts.net_amount` retains
+the read subtotal or a person's edit. Otherwise the function subtracts the
+components in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes.
+`calculated` is the result of that subtraction whatever `source` is, or null
+when the total is unknown. It is the Subtotal that a read or edited one goes
+back to, and it equals `amount` while `source` is `calculated`. The read's `service`
 is the legal tip; `tip` is used only when `service` is absent. Both values live
 in existing fact JSON and revision history. No database migration is required.
 
@@ -9197,7 +9208,9 @@ same selected Business, human actor, permission and current version as amount
 review. A prepare holder can preview an open draft. The owner can also
 preview an accepted record. The response contains `net_amount`, `mismatch`
 (the existing `amounts_mismatch` review flag, or null) and `inheritance`: the
-map the dossier shows once that draft is saved, with the same entries. It uses the review's fact mutations,
+map the dossier shows once that draft is saved, with the same entries. It also
+contains `dgii_calculated`, the same two amounts the dossier shows once that
+draft is saved, from `purchase_calculated`, or null as on the dossier. It uses the review's fact mutations,
 inheritance, net owner and shared parts check without saving facts, sources,
 revisions or action receipts. Responses are `no-store`.
 The web discards a preview when its draft, version or typed values change.

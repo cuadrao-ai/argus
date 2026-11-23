@@ -89,6 +89,29 @@ def test_preview_refuses_a_link_change_on_a_field_that_follows_nothing():
     assert refused.value.result.code == "business_amount_inheritance_invalid"
 
 
+@pytest.mark.parametrize(("typed", "calculated"), [
+    ({"itbis": {"state": "known", "value": "200"}}, ("980.00", "200.00")),
+    ({"net_amount": {"state": "known", "value": "900"}}, ("900.00", "180.00")),
+    ({"declaration": {"itbis_cost": "30.00"}}, ("1000.00", "150.00")),
+], ids=["itbis typed", "subtotal typed", "llevado al costo typed"])
+def test_preview_states_the_calculated_606_amounts_of_the_draft(typed, calculated):
+    facts = links.read()
+    linked = _linked(facts)
+    shown = written_from(facts, None, None, None, linked)
+    declaration = typed.pop("declaration", None)
+    result = preview_amounts(
+        BusinessResolution(facts=facts, dgii=shown, fiscal_overrides=(), amount_derived=True),
+        AmountsPreviewRequest(version=1, declaration=shown.model_copy(update=declaration) if declaration else None, **typed),
+        linked,
+    )
+    assert (result.dgii_calculated.billed_amount, result.dgii_calculated.itbis_advance) == calculated
+
+
+def test_preview_of_a_record_with_no_606_states_no_calculated_amounts():
+    result = preview_amounts(BusinessResolution(facts=receipt("1180", "180")), AmountsPreviewRequest(version=1, amount={"state": "known", "value": "1200"}))
+    assert result.dgii_calculated is None
+
+
 def test_preview_of_amounts_alone_shows_the_links_follow_the_typed_amount():
     facts = links.read()
     linked = _linked(facts)

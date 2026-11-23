@@ -4015,6 +4015,13 @@ actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
 
+`after_dgii` is the declaration stored once the revision is written, or null
+with none. `before_dgii` is the declaration the history compares against. It
+is the stored one when one exists. On a revision that writes the first
+declaration, a person's fiscal save or an approval, it is the declaration the
+review showed. To read the declaration stored before a revision, read
+`after_dgii` of the revision before it.
+
 Montos adds `facts.net_amount` and `facts.legal_tip` to the existing resolution
 and immutable revision JSON. These are provenance-bearing facts: read subtotal
 or human net edit, and read service charge with tip as an absence-only fallback.

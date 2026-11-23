@@ -90,6 +90,9 @@ class Contract(BaseModel):
 class NetAmount(Contract):
     amount: str | None
     source: Literal["read", "calculated", "edited"] | None
+    #: The amount the server calculates from the total and its parts, whatever
+    #: ``source`` is: what a read or edited Subtotal goes back to.
+    calculated: str | None = None
 
 
 class InheritedValue(Contract):
