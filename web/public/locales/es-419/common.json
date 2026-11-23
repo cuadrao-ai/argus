@@ -2926,6 +2926,7 @@
         "limit_one": "Hasta {{count}} archivo. Quita uno para agregar otro.",
         "limit_other": "Hasta {{count}} archivos. Quita uno para agregar otro.",
         "limit_reached": "Quita un archivo para agregar otro.",
+        "purge_in_one": "Se borra en {{count}} día",
         "purge_in_other": "Se borra en {{count}} días",
         "purge_today": "Se borra hoy",
         "purge_tomorrow": "Se borra mañana",

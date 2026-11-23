@@ -2926,6 +2926,7 @@
         "limit_one": "Up to {{count}} file. Remove one to add another.",
         "limit_other": "Up to {{count}} files. Remove one to add another.",
         "limit_reached": "Remove a file to add another.",
+        "purge_in_one": "Deletes in {{count}} day",
         "purge_in_other": "Deletes in {{count}} days",
         "purge_today": "Deletes today",
         "purge_tomorrow": "Deletes tomorrow",
