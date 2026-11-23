@@ -7,10 +7,10 @@ const codes = new Set(["business_date_before_minimum", "business_date_after_toda
 const fields: Record<string, string> = {
   due_on: "business.invoicing_preview.due_date",
   issued_on: "business.invoicing_preview.issue_date",
-  settled_on: "business.dgii.field.paid_on",
+  settled_on: "business.dossier.fiscal.field.paid_on",
   covered_through: "business.dossier.field.occurred_on",
   occurred_on: "business.dossier.field.occurred_on",
-  paid_on: "business.dgii.field.paid_on",
+  paid_on: "business.dossier.fiscal.field.paid_on",
   withheld_on: "business.dgii.field.withheld_on",
 };
 const object = (value: unknown): Record<string, unknown> => typeof value === "object" && value !== null ? value as Record<string, unknown> : {};

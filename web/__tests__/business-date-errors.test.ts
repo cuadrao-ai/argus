@@ -25,6 +25,15 @@ for (const language of ["en", "es-419"] as const) {
         expect(businessDateMessage({ cause: { code, context } }, t, language, "Date")).toBe(expected);
       });
     }
+    test("a refused Fecha de pago is named as Datos fiscales names it", async () => {
+      const t = await translate();
+      const { fiscalFieldLabel } = await import("@/components/business-app/dossier/fiscal-field-label");
+      const name = fiscalFieldLabel(t, "606", "paid_on");
+      expect(name).toBe(language === "en" ? "Payment date" : "Fecha de pago");
+      for (const field of ["paid_on", "settled_on"]) {
+        expect(businessDateMessage({ code: "business_date_after_today", context: { field } }, t, language)).toBe(language === "en" ? `${name} can't be after today.` : `${name} no puede ser después de hoy.`);
+      }
+    });
     test("a missing server minimum never invents a local floor", async () => {
       expect(businessDateMessage({ code: "business_date_before_minimum" }, await translate(), language, "Date")).toBeNull();
     });
