@@ -38,7 +38,7 @@ async function render(dossier: BusinessDossier, lng: "es-419" | "en" = "es-419",
   const typeRow = dossier.document_type ? <ReceiptDocumentType dossier={dossier} edit={review ? edit("document_type") : undefined} /> : undefined;
   const html = renderToStaticMarkup(
     <I18nextProvider i18n={instance}>
-      <ReceiptRecordFacts dossier={dossier} accounts={[]} problems={problems} typeRow={typeRow} review={review ? { noReceipt: { busy: false, note: null }, onEdit: confirmable ? (key) => { confirmed.push(key); } : undefined, edit, note: () => null } : undefined} />
+      <ReceiptRecordFacts dossier={dossier} accounts={[]} problems={problems} typeRow={typeRow} review={review ? { noReceipt: { busy: false, saved: false, note: null }, onEdit: confirmable ? (key) => { confirmed.push(key); } : undefined, edit, note: () => null } : undefined} />
     </I18nextProvider>,
   );
   const page = new Window().document;
@@ -205,8 +205,9 @@ describe("the record facts on the review page", () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, fiscal: { rnc: { ...known("qr_decoded"), value: "131999888" }, ncf: known("extracted"), ecf: unknown, itbis: known("extracted") } }, fiscal_value: "ncf", blockers: [], questions: [] } as unknown as BusinessDossier;
     const { html, facts } = await render(dossier, "es-419", true, [], true);
-    assert.deepEqual(facts(), ["rnc", "counterparty", "fiscal_number", "occurred_on", "document_type", "currency", "net_amount", "itbis", "amount"]);
-    for (const row of ["Emisor", "Fecha", "Subtotal", "Total", "RNC", "NCF", "ITBIS", "Tipo"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
+    assert.deepEqual(facts(), ["rnc", "counterparty", "fiscal_number", "occurred_on", "currency", "net_amount", "itbis", "amount"]);
+    for (const row of ["Emisor", "Fecha", "Subtotal", "Total", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
+    assert.ok(!html.includes("Editar detalles · Tipo"), "a clean purchase has no Compra/Venta row");
   });
 
   test("an open draft brings a row back only while the server waits on it; 'Parte del negocio' stays off even then", async () => {

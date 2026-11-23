@@ -1,7 +1,7 @@
 "use client";
 
-import { BadgeCheck, Check, CircleX, History, Link2, Loader2, Pencil, ReceiptText, SquareSparkles, TriangleAlert, X, type LucideIcon } from "lucide-react";
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { BadgeCheck, Check, ChevronDown, CircleX, History, Link2, Loader2, Pencil, ReceiptText, SquareSparkles, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useRecordTray } from "../record-tray";
@@ -25,6 +25,38 @@ export function StatusIcon({ status, testId }: { status: RowStatus; testId?: str
   );
 }
 
+/** Closes a popover on a press outside it and on Escape, which it claims so the tray stays open. */
+export function usePopover(host: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
+  const onClose = useRef(close);
+  useEffect(() => { onClose.current = close; });
+  useEffect(() => {
+    if (!open) return undefined;
+    const outside = (event: PointerEvent) => { if (!host.current?.contains(event.target as Node)) onClose.current(); };
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClose.current();
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape, true);
+    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape, true); };
+  }, [host, open]);
+}
+
+const SAVED_SHOWN_MS = 2400;
+
+/** "Guardado", said once where the row's action sits. It leaves by itself and moves nothing; `children` is what the slot holds after it. */
+export function SavedMark({ children = null }: { children?: ReactNode }) {
+  const { t } = useTranslation();
+  const [shown, setShown] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(false), SAVED_SHOWN_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  if (!shown) return <>{children}</>;
+  return <span role="status" data-testid="row-saved" className={styles.saved}><Check size={14} aria-hidden="true" />{t("business.settings.profile_saved", "Saved")}</span>;
+}
+
 /** One group of rows on the tint: its heading, what sits beside it, and its rows. */
 export function DossierCard({ title, aside, children, testId, label }: { title: string; aside?: ReactNode; children?: ReactNode; testId?: string; label?: string }) {
   return (
@@ -46,6 +78,8 @@ export function DossierRows({ children }: { children: ReactNode }) {
 export type RowEdit = {
   open: boolean;
   saving: boolean;
+  /** The row's last save landed: the action slot says so once. */
+  saved?: boolean;
   disabled?: boolean;
   /** An edit whose outcome is unknown cannot be dropped. */
   locked: boolean;
@@ -70,7 +104,9 @@ export type DossierRowProps = {
   /** The value wraps: it holds more than one line. */
   wrap?: boolean;
   edit?: RowEdit;
-  /** Under the value: the row's save state, or an action the value offers. */
+  /** A save landed that the row's own edit does not carry. */
+  saved?: boolean;
+  /** Under the value: a save that failed, or an action the value offers. */
   below?: ReactNode;
   /** A problem jumped here: `n` restarts the wash on every jump. */
   flash?: number;
@@ -86,7 +122,7 @@ export type DossierRowProps = {
  * value opens its own field in the same box. The pencil shows on hover and on
  * focus, and always on touch. The check or Enter saves; the X or Escape cancels.
  */
-export function DossierRow({ row, label, value, status, statusAction, look = "text", total, wrap, edit, below, flash, attention, match, testId, data }: DossierRowProps) {
+export function DossierRow({ row, label, value, status, statusAction, look = "text", total, wrap, edit, saved, below, flash, attention, match, testId, data }: DossierRowProps) {
   const { t } = useTranslation();
   const item = useRef<HTMLLIElement>(null);
   const editing = edit?.open === true;
@@ -115,6 +151,7 @@ export function DossierRow({ row, label, value, status, statusAction, look = "te
   };
   const save = t("common.save", "Save");
   const cancel = t("common.cancel", "Cancel");
+  const pencil = edit?.onOpen ? <button type="button" aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`} className={styles.pen} onClick={edit.onOpen}><Pencil size={15} aria-hidden="true" /></button> : null;
   return (
     <li ref={item} {...data} data-testid={testId} data-fact={row} data-attention={attention ? "true" : undefined} data-flash={flash ? (flash % 2 ? "a" : "b") : undefined} data-match={match} className={`${styles.row} ${total ? styles.total : ""}`}>
       <span className={styles.label}>{label}</span>
@@ -132,11 +169,102 @@ export function DossierRow({ row, label, value, status, statusAction, look = "te
           <Tooltip content={cancel} side="top">
             <button type="button" aria-label={`${cancel} · ${label}`} disabled={edit.saving || edit.locked} className={styles.act} onClick={edit.onCancel}><X size={16} aria-hidden="true" /></button>
           </Tooltip>
-        </> : edit?.onOpen ? <button type="button" aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`} className={styles.pen} onClick={edit.onOpen}><Pencil size={15} aria-hidden="true" /></button> : null}
+        </> : saved || edit?.saved ? <SavedMark>{pencil}</SavedMark> : pencil}
       </span>
       {below ? <div className={styles.below}>{below}</div> : null}
     </li>
   );
+}
+
+/** One choice of a pick row: its stored value, its words, and the mark a suggested one carries. */
+export type PickOption = { value: string; label: string; status?: RowStatus | null };
+/** How a row picks from a list. A pick saves at once: the row has no field, no check and no X. */
+export type RowPick = {
+  /** The stored value the row shows; empty when it shows none. */
+  value: string;
+  options: readonly PickOption[];
+  onPick: (value: string) => void;
+  saving: boolean;
+  saved: boolean;
+  disabled: boolean;
+};
+
+// The list's size in dossier.module.css: what it needs decides whether it opens above the row or below it.
+const LIST_MAX = 300;
+const OPTION_HEIGHT = 40;
+
+/**
+ * One fact picked from a list, in the row grid: label, status slot, then the
+ * value and its chevron as one button over the value and action slots. The
+ * list opens over the form, above the row when there is room, and moves nothing.
+ */
+export function DossierPickRow({ row, label, value, status, pick, below, data }: Pick<DossierRowProps, "row" | "label" | "status" | "below" | "data"> & { value: string; pick: RowPick }) {
+  const { t } = useTranslation();
+  const item = useRef<HTMLLIElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const [side, setSide] = useState<"up" | "down" | null>(null);
+  const open = side !== null;
+  usePopover(item, open, () => setSide(null));
+  useEffect(() => {
+    if (!open) return;
+    (list.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? list.current?.querySelector<HTMLElement>('[role="option"]'))?.focus();
+  }, [open]);
+  const toggle = () => {
+    if (open) { setSide(null); return; }
+    const box = trigger.current?.getBoundingClientRect();
+    const panel = trigger.current?.closest('[role="tabpanel"]')?.getBoundingClientRect();
+    const need = Math.min(LIST_MAX, pick.options.length * OPTION_HEIGHT + 14);
+    const roomAbove = box && panel ? box.top - panel.top : 0;
+    const roomBelow = box && panel ? panel.bottom - box.bottom : 0;
+    setSide(roomAbove >= need || (roomBelow < need && roomAbove > roomBelow) ? "up" : "down");
+  };
+  const walk = (event: KeyboardEvent<HTMLUListElement>) => {
+    const options = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]')];
+    const at = options.indexOf(document.activeElement as HTMLElement);
+    const moves: Record<string, number | undefined> = { ArrowDown: Math.min(options.length - 1, at + 1), ArrowUp: Math.max(0, at - 1), Home: 0, End: options.length - 1 };
+    const next = moves[event.key];
+    if (next !== undefined) { event.preventDefault(); options[next]?.focus(); }
+    // Escape and Tab close the list; Escape hands the focus back to the row.
+    else if (event.key === "Escape") trigger.current?.focus();
+    else if (event.key === "Tab") setSide(null);
+  };
+  const choose = (next: string) => {
+    setSide(null);
+    trigger.current?.focus();
+    if (next !== pick.value) pick.onPick(next);
+  };
+  const chevron = <ChevronDown size={16} aria-hidden="true" />;
+  return (
+    <li ref={item} {...data} data-fact={row} className={styles.row}>
+      <span className={styles.label}>{label}</span>
+      <span className={styles.slot}>{status ? <StatusIcon status={status} testId={`row-status-${row}`} /> : null}</span>
+      <button ref={trigger} type="button" className={styles.pick} aria-label={`${label}: ${value || t("business.dossier.row.no_data")}`} aria-haspopup="listbox" aria-expanded={open} aria-busy={pick.saving || undefined} disabled={pick.disabled} onClick={pick.saving ? undefined : toggle}>
+        <span data-row-value="" data-empty={!value || undefined} className={styles.pickText}>{value || t("business.dossier.row.no_data")}</span>
+        <span className={styles.pickAction}>
+          {pick.saving ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : pick.saved ? <SavedMark>{chevron}</SavedMark> : chevron}
+        </span>
+      </button>
+      {open ? <ul ref={list} role="listbox" aria-label={label} data-side={side} className={styles.list} onKeyDown={walk}>
+        {pick.options.map((option) => (
+          <li key={option.value} role="presentation">
+            <button type="button" role="option" aria-selected={option.value === pick.value} data-value={option.value} className={styles.option} onClick={() => choose(option.value)}>
+              <span className={styles.optionCheck}>{option.value === pick.value ? <Check size={16} aria-hidden="true" /> : null}</span>
+              <span className="min-w-0">{option.label}</span>
+              {option.status ? <OptionMark status={option.status} /> : null}
+            </button>
+          </li>
+        ))}
+      </ul> : null}
+      {below ? <div className={styles.below}>{below}</div> : null}
+    </li>
+  );
+}
+
+/** The mark of a suggested option: the status slot's icon, named, with no tooltip of its own inside the option. */
+function OptionMark({ status }: { status: RowStatus }) {
+  const Icon = status.kind === "calculated" ? null : STATUS_ICON[status.kind];
+  return <span role="img" aria-label={status.text} data-status={status.kind} className={styles.icon}>{Icon ? <Icon size={16} aria-hidden="true" /> : null}</span>;
 }
 
 /** A state with no frame of its own (loading, a load error, the end of a run): the dossier drawer pads nothing, so this keeps it off the edges. */

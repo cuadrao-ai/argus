@@ -316,6 +316,7 @@ jobs:
             e2e/business-edit-row-placement.spec.ts \
             e2e/business-manual-capture.spec.ts \
             e2e/business-period-picker-layout.spec.ts \
+            e2e/dossier-general-board.spec.ts \
             e2e/font-offline.spec.ts \
             e2e/menu-settings-auth-regression.spec.ts \
             e2e/receipt-navigation-scope.spec.ts \
