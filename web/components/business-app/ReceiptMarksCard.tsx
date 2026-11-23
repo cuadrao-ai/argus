@@ -27,6 +27,9 @@ export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, 
   useEffect(() => {
     if (busy && undoToast !== null) dismissToast(undoToast);
   }, [busy, undoToast]);
+  useEffect(() => () => {
+    if (undoToast !== null) dismissToast(undoToast);
+  }, [dossier.draft_id, undoToast]);
   const [working, setLocalWorking] = useState(false);
   const setWorking = (value: boolean) => { setLocalWorking(value); onBusyChange?.(value); };
   const [problem, setProblem] = useState<string | null>(null);

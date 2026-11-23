@@ -217,6 +217,18 @@ describe("the receipt page's marks card", () => {
     } finally { await page.act(async () => page.root.unmount()); }
   });
 
+  test("leaving the dossier retires its Personal Undo", async () => {
+    const page = await mountCard(dossier({}, false, true), "owner");
+    const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
+    try {
+      await page.act(async () => page.toggle().click());
+      await page.settle();
+      assert.match(page.host.textContent ?? "", /Deshacer/);
+      await page.act(async () => page.root.render(<page.I18nextProvider i18n={page.i18n}><ToastViewport /></page.I18nextProvider>));
+      assert.doesNotMatch(page.host.textContent ?? "", /Deshacer/);
+    } finally { await page.act(async () => page.root.unmount()); }
+  });
+
   test("a saved Personal change offers Deshacer, which puts it back; a refused one rolls the switch back and says so in the card with Reintentar", async () => {
     const page = await mountCard(dossier({}, false, true), "owner");
     await page.act(async () => { page.toggle().click(); });
