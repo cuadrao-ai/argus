@@ -9242,6 +9242,19 @@ payment form with no suggestion, the form of the account that paid, whether
 or not a declaration is saved. Each linked field follows from those answers.
 An approval saves that `dgii`, with each suggestion saved as its answer.
 
+The dossier of a purchase with a 606 declaration adds
+`dgii_calculated: {billed_amount, itbis_advance}`, the two amounts the 606
+calculates and no person enters. `dgii_validation.purchase_calculated` owns
+both; the 606 line and the dossier read it, so the values match the line.
+`billed_amount` is Servicios plus Bienes and `itbis_advance` is the declared
+ITBIS minus ITBIS llevado al costo, each an exact two-decimal string. A blank
+Servicios, Bienes or llevado al costo counts as zero, as on the line, so
+`billed_amount` is never null and reads `0.00` with no amount. `itbis_advance`
+can be negative. It is null only while the purchase has no ITBIS: the export
+holds that record and writes no line. `dgii_calculated` is null for a sale and
+for a record with no 606 declaration: Monto Facturado on the 607 is an answer
+linked to the net amount, and the 607 line calculates nothing.
+
 `paid_on` follows the payment form. For `01`, `02`, `03` and `07` it is
 `occurred_on`. For any other code, or none, it is null for a person to give.
 `modified_ncf` inherits only on a credit note (type 04 or 34) whose

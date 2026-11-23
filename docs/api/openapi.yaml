@@ -18158,6 +18158,10 @@ components:
                 '606': '#/components/schemas/PurchaseDeclaration'
                 '607': '#/components/schemas/SalesDeclaration'
           - type: 'null'
+        dgii_calculated:
+          anyOf:
+          - $ref: '#/components/schemas/PurchaseCalculated'
+          - type: 'null'
         draft_id:
           type: string
           format: uuid
@@ -21462,6 +21466,10 @@ components:
               mapping:
                 '606': '#/components/schemas/PurchaseDeclaration'
                 '607': '#/components/schemas/SalesDeclaration'
+          - type: 'null'
+        dgii_calculated:
+          anyOf:
+          - $ref: '#/components/schemas/PurchaseCalculated'
           - type: 'null'
         draft_id:
           type: string
@@ -29380,6 +29388,24 @@ components:
       - expense_type
       - payment_form
       description: The two 606 answers a purchase carries. A null answer is still missing.
+    PurchaseCalculated:
+      properties:
+        billed_amount:
+          type: string
+        itbis_advance:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - billed_amount
+      - itbis_advance
+      description: 'The two amounts the 606 calculates and no person enters, as its line
+
+        writes them. ``itbis_advance`` is null while the purchase has no ITBIS:
+
+        the export writes no line for it.'
     PurchaseDeclaration:
       properties:
         id_type:
