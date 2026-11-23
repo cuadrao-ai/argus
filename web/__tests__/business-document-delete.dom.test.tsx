@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, mock, setSystemTime, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessCapture, ReceiptDetail, ReceiptActivityCounts } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
@@ -433,22 +433,29 @@ test("the reading notice keeps its place on Eliminados, so the list under it doe
 });
 
 test("Eliminados counts down on the server's calendar day and shows the date after it passes", async () => {
-  setSystemTime(new Date(2026, 10, 26, 12));
+  const { formatTimestamp } = await import("@/components/business-app/business-format");
+  function deadlineIn(days: number) {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    date.setHours(14, 5, 0, 0);
+    return date.toISOString();
+  }
+  const expired = deadlineIn(-1);
   const entries = [
-    { id: "expired", day: 25, label: /^Borrado definitivo el 25 Nov 2026, 2:05/, restore: false, lastDay: false },
-    { id: "due-today", day: 26, label: /^Borrado definitivo hoy$/, restore: true, lastDay: true },
-    { id: "future", day: 28, label: /^Borrado definitivo en 2 días$/, restore: true, lastDay: false },
-  ].map(entry => ({ ...entry, purgeAt: new Date(2026, 10, entry.day, 14, 5).toISOString() }));
+    { id: "expired", purgeAt: expired, label: `Borrado definitivo el ${formatTimestamp(expired, "es-419")}`, restore: false, lastDay: false },
+    { id: "due-today", purgeAt: deadlineIn(0), label: "Borrado definitivo hoy", restore: true, lastDay: true },
+    { id: "future", purgeAt: deadlineIn(2), label: "Borrado definitivo en 2 días", restore: true, lastDay: false },
+  ];
   const page = await mount("owner", false, 0, false, ({ blurry }) => entries.map(({ id, purgeAt, restore }) => ({
     ...blurry, id, merchant: id, status: "dismissed", delete_available: false, restore_available: restore,
-    deleted: { actor: { actor_id: "ana", display_name: "Ana Peña", shown_as: "name" }, at: "2026-11-12T10:00:00Z", purge_at: purgeAt, key: id, previous_state: { state: "open", group: "attention" } },
-    bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null },
+    deleted: { actor: { actor_id: "ana", display_name: "Ana Peña", shown_as: "name" }, at: "2026-10-25T10:00:00Z", purge_at: purgeAt, key: id, previous_state: { state: "open", group: "attention" } },
+    bandeja_group: { group: "eliminados", reason: null, label: null, draft_id: null, version: null },
   })));
   await page.click(document.getElementById("reception-tab-eliminados"));
   for (const { purgeAt, label, restore, lastDay } of entries) {
     const time = document.querySelector(`time[datetime="${purgeAt}"]`);
     assert.ok(time);
-    assert.match(time.textContent ?? "", label);
+    assert.equal(time.textContent, label);
     assert.equal(time.getAttribute("data-last-day"), String(lastDay));
     assert.equal(!!page.button("Restaurar", time.closest("li")!), restore);
   }
