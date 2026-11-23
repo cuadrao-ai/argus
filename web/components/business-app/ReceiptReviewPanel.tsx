@@ -43,6 +43,7 @@ function readingNow(receipt: ReceiptDetail | null): boolean {
 }
 
 type ReadView = { detail: ReceiptDetail | null; readLanded: boolean };
+type RecoveryAction = { key: string; label: string; run: () => void | Promise<void>; testId?: string; icon?: typeof RotateCcw };
 
 function showReceipt(previous: ReadView, detail: ReceiptDetail): ReadView {
   const sameReceipt = previous.detail?.id === detail.id;
@@ -160,21 +161,31 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const position = receiptPlace(receiptId, receiptIds);
   const moves = busy ? {} : receiptNavigationActions(receiptId, receiptIds, openReceipt);
   const place = position ? { ...position, previous: moves.previous, next: moves.next } : null;
-  const held = detail.status === "needs_attention" && detail.attention === "read_budget_day";
-  const failed = detail.status === "needs_attention" && detail.bandeja_group?.label === "cant_read" && detail.attention;
+  const needsAttention = detail.status === "needs_attention";
+  const reason = detail.attention;
+  const replaceUnreadable = reason === "unreadable" || reason === "not_a_receipt";
+  const held = needsAttention && reason === "read_budget_day";
+  const cannotRead = detail.bandeja_group?.label === "cant_read";
+  const failed = needsAttention && (cannotRead || replaceUnreadable || reason === "read_deadline_passed") ? reason : null;
   const readBoard = waitingForAi || held || Boolean(failed);
   const footer = (primary?: ReactNode) => {
     if (deletion.confirmBar) return deletion.confirmBar;
+    const disabled = busy !== null || deletion.busy;
+    const documentAction = canDelete
+      ? readBoard
+        ? <ReadStateDelete onClick={deletion.ask} disabled={disabled} />
+        : <ReceiptMoreMenu groups={[<DeleteDocumentMenuItem key="delete" disabled={disabled} onClick={deletion.ask} />]} />
+      : detail.restore_available
+        ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} />
+        : null;
     if (readBoard) {
-      if (!canDelete && !primary) return null;
+      if (!documentAction && !primary) return null;
       return <div className="flex flex-wrap items-center gap-2">
-        {canDelete ? <ReadStateDelete onClick={deletion.ask} disabled={busy !== null || deletion.busy} /> : null}
+        {documentAction}
         {primary ? <div className="ml-auto">{primary}</div> : null}
       </div>;
     }
-    if (canDelete) return <ReceiptReviewFooter actions={<ReceiptMoreMenu groups={[<DeleteDocumentMenuItem key="delete" disabled={busy !== null || deletion.busy} onClick={deletion.ask} />]} />} />;
-    if (detail.restore_available) return <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} />;
-    return null;
+    return canDelete || primary ? <ReceiptReviewFooter actions={<>{documentAction}{primary}</>} /> : documentAction;
   };
   const frame = (children: ReactNode, primary?: ReactNode) => (
     <ContentFade><ReceiptReviewFrame
@@ -258,6 +269,34 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     }
   };
 
+  const canRebind = needsAttention && detail.error_code === "business_record_not_found" && canApprove;
+  const canRetry = needsAttention && detail.preparable && canPrepare;
+  const duplicateId = needsAttention ? detail.duplicate_of : null;
+  const recovery: RecoveryAction[] = [];
+  if (canRebind) recovery.push({ key: "rebind", label: t("business.review.rebind"), run: rebind, testId: "receipt-rebind" });
+  if (canRetry) recovery.push({ key: "retry", label: t("business.review.retry"), run: prepare, icon: RotateCcw });
+  if (duplicateId) recovery.push({
+    key: "original", label: t("business.review.see_original"), testId: "receipt-duplicate-original",
+    run: () => openPanel({ kind: "receipt", receiptId: duplicateId }),
+  });
+  if (needsAttention && uploadAnother && (replaceUnreadable || (cannotRead && !detail.preparable))) {
+    recovery.push({ key: "upload", label: t("business.file_read.upload_another"), run: uploadAnother.run });
+  }
+  const recoveryButton = ({ key, label, run, testId, icon: Icon }: RecoveryAction, className: string) => (
+    <button key={key} type="button" data-testid={testId} disabled={busy !== null} className={className} onClick={() => void run()}>
+      {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}{label}
+    </button>
+  );
+  const [firstRecovery, ...otherRecovery] = recovery;
+  const primary = firstRecovery ? recoveryButton(firstRecovery, primaryButtonClass) : null;
+  const recoveryDetails = <>
+    {canRebind ? <p className="mt-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.rebind_note")}</p> : null}
+    {!failed && (canRetry || canRebind) ? <p className="mt-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent")}</p> : null}
+    {otherRecovery.length ? <div className={`mt-3 flex flex-wrap gap-2${failed ? " justify-center" : ""}`}>{otherRecovery.map((action) => recoveryButton(action, secondaryButtonClass))}</div> : null}
+  </>;
+  const bridgeNotice = incompleteBridge ? <div className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p><button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button></div> : null;
+  const recoveryProblem = problem ? <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p> : null;
+
   if (held) {
     return <>
       <ReceiptShortcutRegistration actions={moves} />
@@ -265,8 +304,11 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
         <p role="status" className="flex items-center gap-3 rounded-item bg-[var(--d-hair)] px-4 py-3.5 text-[14px] leading-5 text-[var(--d-soft)]">
           <Clock3 size={18} className="shrink-0" aria-hidden="true" />{t("business.file_read.held_day")}
         </p>
+        {bridgeNotice}
+        {recoveryDetails}
+        {recoveryProblem}
         <DossierReadFields reading={false} />
-      </>)}
+      </>, primary)}
     </>;
   }
   if (waitingForAi) {
@@ -286,18 +328,13 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     </>;
   }
   if (failed) {
-    const retryable = detail.preparable && failed !== "not_a_receipt";
-    const retryRead = retryable && canPrepare;
-    const action = retryable ? (retryRead ? prepare : null) : uploadAnother?.run;
     return <>
       <ReceiptShortcutRegistration actions={moves} />
       {frame(
-        <DossierReadFailure reason={failed} retry={retryRead} problem={problem} />,
-        action ? <button type="button" disabled={busy !== null} className={primaryButtonClass} onClick={() => void action()}>
-          {retryable ? t("business.review.retry") : t("business.file_read.upload_another")}
-        </button> : null,
+        <>{bridgeNotice}<DossierReadFailure reason={failed} retry={canRetry || canRebind} problem={problem}>{recoveryDetails}</DossierReadFailure></>,
+        primary,
       )}
-      <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready"} />
+      <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </>;
   }
   return (
@@ -306,43 +343,18 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       {frame(
         <>
           {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}
-          {incompleteBridge ? <div className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p><button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button></div> : null}
-          {detail.status === "needs_attention" ? (
+          {bridgeNotice}
+          {needsAttention ? (
             <div role="alert" data-testid="receipt-attention" className={`${SURFACE_CARD} text-[14px] text-black/75 dark:text-white/75`}>
               <p className="flex gap-2.5">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
                 <span>{t(`business.attention_short.${detail.attention}`)}</span>
               </p>
-              {detail.duplicate_of ? (
-                <button type="button" data-testid="receipt-duplicate-original" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
-                  {t("business.review.see_original", "See the receipt already saved")}
-                </button>
-              ) : null}
-              {detail.error_code === "business_record_not_found" && canApprove ? (
-                <>
-                  <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">{t("business.review.rebind_note", "The access that prepared this receipt is no longer valid. Bind it to your current access, then prepare it again.")}</p>
-                  <button type="button" data-testid="receipt-rebind" disabled={busy !== null} onClick={() => void rebind()} className={`${secondaryButtonClass} mt-3`}>
-                    {t("business.review.rebind", "Bind to my current access")}
-                  </button>
-                </>
-              ) : null}
-              {detail.preparable && canPrepare ? (
-                <>
-                  <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">
-                    {t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}
-                  </p>
-                  <button type="button" disabled={busy !== null} onClick={() => void prepare()} className={`${secondaryButtonClass} mt-3`}>
-                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                    {t("business.review.retry", "Read again")}
-                  </button>
-                </>
-              ) : null}
+              {recoveryDetails}
             </div>
           ) : null}
           <ReceiptReadNotice receipt={detail} preparable={detail.preparable && canPrepare} />
-          {problem ? (
-            <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p>
-          ) : null}
+          {recoveryProblem}
 
           {confirmed ? (
             <div className={`${SURFACE_CARD} flex flex-wrap items-center justify-between gap-3`}>
@@ -355,6 +367,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
             </div>
           ) : canPrepare ? null : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
         </>,
+        primary,
       )}
       <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </>

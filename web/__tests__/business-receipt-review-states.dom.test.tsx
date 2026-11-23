@@ -330,12 +330,29 @@ test("a grant without approval can retry an interrupted read and cannot link it 
   } finally { await page.close(); }
 });
 
+test("a refused link explains the failure without starting a new read", async () => {
+  const links: string[] = [];
+  const { page, id, notice, readRequests } = await openFailed(interruptedBinding, owner, {
+    rebindReceipt: async (id) => { links.push(id); throw new Error("binding is still live"); },
+  });
+  try {
+    const rebind = page.button("Vincular a mi acceso actual");
+    assert.ok(rebind);
+    await page.act(async () => rebind.click());
+    await page.settle();
+    assert.deepEqual(links, [id]);
+    assert.deepEqual(readRequests, []);
+    assert.match(notice().textContent ?? "", /No pudimos vincular este recibo\. Inténtalo de nuevo\./);
+    assert.equal(rebind.disabled, false);
+  } finally { await page.close(); }
+});
+
 test("an owner can still retry directly when a stopped read also offers linking", async () => {
   const { page, id, readRequests } = await openFailed(interruptedBinding);
   try {
-    const retry = page.host.querySelector<HTMLButtonElement>('[data-tab-panel="general"] button');
-    assert.equal(retry?.textContent, "Leer de nuevo");
-    await page.act(async () => retry!.click());
+    const retry = page.button("Leer de nuevo");
+    assert.ok(retry && retry.closest('[data-tab-panel="general"]'));
+    await page.act(async () => retry.click());
     await page.settle();
     assert.deepEqual(readRequests, [`prepare:${id}`]);
   } finally { await page.close(); }
@@ -345,12 +362,10 @@ test("a cannot-read record still opens the original when the server names it", a
   const originalId = "receipt-already-saved";
   const { page, labels } = await openFailed({ ...interruptedBinding, duplicate_of: originalId });
   try {
+    const original = page.button("Ver el recibo ya guardado");
+    assert.ok(original);
     assert.deepEqual(labels(), ["Vincular a mi acceso actual"]);
-    await page.act(async () => {
-      const original = page.button("Ver el recibo ya guardado");
-      assert.ok(original);
-      original.click();
-    });
+    await page.act(async () => original.click());
     assert.deepEqual(page.opened, [{ kind: "receipt", receiptId: originalId }]);
   } finally { await page.close(); }
 });
@@ -470,8 +485,8 @@ for (const [reason, title, body, preparable] of [
 }
 
 const dailyHold = {
-    attention: "read_budget_day", error_code: "business_read_budget_day", preparable: true, read_pending: false,
-    bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null },
+  attention: "read_budget_day", error_code: "business_read_budget_day", preparable: true, read_pending: false,
+  bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null },
 } satisfies Partial<ReceiptDetail>;
 
 test("a daily hold uses still rows and offers the server-authorized retry", async () => {

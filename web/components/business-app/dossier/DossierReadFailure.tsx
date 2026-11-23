@@ -1,6 +1,7 @@
 "use client";
 
 import { FileX2, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptAttention } from "@/lib/business-api";
 import { dangerButtonClass } from "../business-ui";
@@ -14,7 +15,7 @@ const explanations: Partial<Record<ReceiptAttention, string>> = {
   unreadable: "business.file_read.unreadable_body",
 };
 
-export default function DossierReadFailure({ reason, retry, problem }: { reason: ReceiptAttention; retry: boolean; problem: string | null }) {
+export default function DossierReadFailure({ reason, retry, problem, children }: { reason: ReceiptAttention; retry: boolean; problem: string | null; children?: ReactNode }) {
   const { t } = useTranslation();
   const title = reason === "not_a_receipt" || reason === "unreadable" ? `business.file_read.${reason}_title` : `business.attention_short.${reason}`;
   const body = explanations[reason];
@@ -23,6 +24,7 @@ export default function DossierReadFailure({ reason, retry, problem }: { reason:
     <h3>{t(title)}</h3>
     {body ? <p>{t(body)}</p> : null}
     {retry ? <p className={styles.retryConsent}>{t("business.review.retry_consent")}</p> : null}
+    {children}
     {problem ? <p>{problem}</p> : null}
   </section>;
 }
