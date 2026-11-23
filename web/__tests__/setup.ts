@@ -166,8 +166,9 @@ function loadedExports(specifier: string): Resettable | null {
 // Module-level state with a test seam. The overlay stack holds open layers and
 // a `listening` flag, and the history module holds unspent entries and pending
 // traversals. A finished sign-out leaves its flag set, and the chosen Business
-// grant stays selected. A file that sets one without clearing it leaves it for
-// the next file.
+// grant stays selected. A Business appearance load that failed stays failed, and
+// the next sample Business with that id shows the failure in place of its mark.
+// A file that sets one without clearing it leaves it for the next file.
 afterEach(() => {
   pinTestClock();
   const reset = (specifier: string, name: string) => {
@@ -177,6 +178,7 @@ afterEach(() => {
   reset("../components/layout/overlayStack", "resetOverlayStack");
   reset("../lib/overlay-history", "resetOverlayEntries");
   reset("../lib/logout-flow", "resetLeavingSession");
+  reset("../lib/business-profile-api", "resetBusinessAppearances");
   const clearGrant = loadedExports("../lib/business-grant")?.setChosenGrant;
   if (typeof clearGrant === "function") clearGrant(null);
 });
