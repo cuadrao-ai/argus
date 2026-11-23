@@ -8,6 +8,6 @@ import { setSystemTime } from "bun:test";
  */
 export const TEST_NOW = new Date("2026-10-31T12:00:00Z");
 
-export function pinTestClock(): void {
-  setSystemTime(TEST_NOW);
+export function pinTestClock(now = TEST_NOW): void {
+  setSystemTime(now);
 }

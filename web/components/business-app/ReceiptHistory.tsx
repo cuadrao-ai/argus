@@ -11,7 +11,6 @@ import { formatDay, formatTimestamp } from "./business-format";
 import { dossierRowLabel } from "./dossier-attention";
 import { DossierCard } from "./dossier/DossierParts";
 import { hasNoteChange } from "./dossier/annotation-history";
-import annotation from "./dossier/annotations.module.css";
 import styles from "./dossier/dossier.module.css";
 import { FOCUS_RING } from "./foundation/presentation";
 import { useCategoryLabel } from "./business-ui";
@@ -22,7 +21,7 @@ import { resolveLanguage } from "@/lib/language-features";
 type FiscalChange = { name: string; field: string; before: string | null; after: string };
 
 /** One thing that happened to the record, as the rail shows it. Only an approval changes the status, so only it gets a status dot. */
-type HistoryEvent = { id: string; at: string; kind?: keyof typeof EVENT_ICON; line: string | null; heading?: string; sub?: string; who: string | null; note?: string; approved?: boolean; testId?: string; diff?: { before: string | null; after: string }; changes?: FiscalChange[]; unlinked?: BusinessSupportingFile };
+type HistoryEvent = { id: string; at: string; kind?: keyof typeof EVENT_ICON; line: string | null; heading?: string; sub?: string; who: string | null; note?: string; approved?: boolean; testId?: string; diff?: { before: string | null; after: string }; changes?: FiscalChange[] };
 
 const EVENT_ICON = { received: ArrowDownToLine, read: ScanText, edit: Pencil, approved: BadgeCheck, duplicate: Copy, supporting: Paperclip, unlinked: Unlink } satisfies Record<string, LucideIcon>;
 
@@ -49,7 +48,7 @@ function localDay(date: Date): string {
  * acceptance from the recorded approval: the one place an accepted record says
  * so. Notes and supporting file changes come from saved revisions.
  */
-export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null, supportingFiles = [], onRestore, busy }: {
+export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null, supportingFiles = [] }: {
   history: BusinessDraftRevision[];
   documentType?: BusinessDossier["document_type"];
   accounts: BusinessAccount[];
@@ -58,8 +57,6 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   /** The DGII field dictionary that names and orders a fiscal save's changes; until it loads a save shows no field list. */
   dgiiFields?: DgiiFields | null;
   supportingFiles?: readonly BusinessSupportingFile[];
-  onRestore?: (sourceId: string) => Promise<void>;
-  busy?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -109,16 +106,11 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   };
 
   const events: HistoryEvent[] = [];
-  const lastFileChange = new Map<string, number>();
-  for (const revision of history) {
-    const sourceId = revision.source_ids[0];
-    if (!revision.supporting_change || !sourceId) continue;
-    if (revision.version > (lastFileChange.get(sourceId) ?? 0)) lastFileChange.set(sourceId, revision.version);
-  }
+  const changedFiles = new Set(history.filter((revision) => revision.supporting_change).map((revision) => revision.source_ids[0]));
   const filesBySource = new Map(supportingFiles.map((file) => [file.source_id, file]));
   // What arrived is a file or a WhatsApp message; a chat proposal or a web action is not a receipt coming in.
   const first = sources
-    .filter((item) => (item.kind === "attachment" && !lastFileChange.has(item.id) && !filesBySource.has(item.id)) || (item.kind === "message" && item.channel === "whatsapp"))
+    .filter((item) => (item.kind === "attachment" && !changedFiles.has(item.id) && !filesBySource.has(item.id)) || (item.kind === "message" && item.channel === "whatsapp"))
     .sort((a, b) => Date.parse(a.received_at) - Date.parse(b.received_at))[0];
   if (first) {
     const channel = first.channel === "whatsapp" ? "WhatsApp" : first.channel === "email" ? t("business.history.channel_email", "Email") : t("business.history.channel_web", "Uploaded");
@@ -173,11 +165,10 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       const sourceId = revision.source_ids[0];
       const file = filesBySource.get(sourceId);
       const unlinked = revision.supporting_change === "unlinked";
-      const currentUnlink = unlinked && file?.state === "unlinked" && lastFileChange.get(sourceId) === revision.version ? file : undefined;
       events.push({
         id: `${revision.version}-supporting`, at, line: t(`business.history.supporting.${revision.supporting_change}`),
-        sub: revision.supporting_filename ?? file?.filename ?? undefined,
-        who, kind: unlinked ? "unlinked" : "supporting", testId: "history-supporting", unlinked: currentUnlink,
+        sub: unlinked ? undefined : revision.supporting_filename ?? file?.filename ?? undefined,
+        who, kind: unlinked ? "unlinked" : "supporting", testId: "history-supporting",
       });
     } else if (revision.before && same(revision.before, revision.after)) {
       // Earlier links did not record an explicit supporting change.
@@ -238,7 +229,6 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
                     <ins className={ADDED}>{event.diff.after}</ins>
                   </div> : null}
                   {event.changes?.length ? <div className={styles.eventMore}><FiscalChanges changes={event.changes} /></div> : null}
-                  {event.unlinked ? <RestoreFile file={event.unlinked} onRestore={onRestore} busy={busy} /> : null}
                   {event.note ? <p data-testid="history-note" className={styles.eventSub}>{event.note}</p> : null}
                 </li>
               );
@@ -246,25 +236,6 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
           </ol>
         </DossierCard>
       ))}
-    </div>
-  );
-}
-
-function RestoreFile({ file, onRestore, busy }: { file: BusinessSupportingFile; onRestore?: (sourceId: string) => Promise<void>; busy?: boolean }) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
-  const [state, setState] = useState<"ready" | "restoring" | "failed">("ready");
-  const restore = async () => {
-    if (!onRestore || busy || state === "restoring") return;
-    setState("restoring");
-    try { await onRestore(file.source_id); setState("ready"); }
-    catch { setState("failed"); }
-  };
-  return (
-    <div className={`${styles.eventSub} ${annotation.restoreRow}`}>
-      {file.purge_at ? <time dateTime={file.purge_at}>{t("business.history.supporting.purge", { date: formatTimestamp(file.purge_at, locale) })}</time> : null}
-      {file.restore_available && onRestore ? <button type="button" className={styles.link} disabled={busy || state === "restoring"} aria-busy={state === "restoring"} onClick={() => void restore()}>{t("business.history.supporting.restore")}</button> : null}
-      {state === "failed" ? <p role="alert" className={annotation.error}>{t("business.dossier.supporting.restore_error")}</p> : null}
     </div>
   );
 }

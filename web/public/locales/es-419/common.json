@@ -2926,8 +2926,13 @@
         "limit_one": "Hasta {{count}} archivo. Quita uno para agregar otro.",
         "limit_other": "Hasta {{count}} archivos. Quita uno para agregar otro.",
         "limit_reached": "Quita un archivo para agregar otro.",
+        "purge_in_other": "Se borra en {{count}} días",
+        "purge_today": "Se borra hoy",
+        "purge_tomorrow": "Se borra mañana",
         "receipt_label": "Comprobante",
+        "restore": "Restaurar",
         "restore_error": "No pudimos restaurar el archivo. Inténtalo de nuevo.",
+        "restore_named": "Restaurar {{name}}",
         "title": "Archivos de respaldo",
         "undo": "Deshacer",
         "unlink": "Quitar archivo",
@@ -3374,8 +3379,6 @@
       "set": "{{field}}: {{after}}",
       "supporting": {
         "appended": "Archivo agregado",
-        "purge": "Se borra el {{date}}",
-        "restore": "Restaurar",
         "restored": "Archivo restaurado",
         "unlinked": "Archivo quitado"
       },

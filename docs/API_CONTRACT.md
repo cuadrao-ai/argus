@@ -11379,11 +11379,11 @@ accept path recorded.
   That one is a receipt in every list, and the erase of the supporting file
   leaves it and its bytes in place.
 
-  An unlinked file leaves the dossier `sources`, report rows, search and
-  Eliminados at once. Restore works until `purge_at`. After that the documents
-  worker erases the upload and its bytes, unless another record or source still
-  holds the same upload. The history revision keeps who, when and the file
-  name. Refusals: 404 `supporting_file_not_found` (the id is not a supporting
+  An unlinked file leaves the dossier `sources`, report rows and search.
+  Supporting files never enter Eliminados. Restore works until `purge_at`.
+  After that the documents worker erases the upload and its bytes, unless
+  another record or source still holds the same upload. The history revision
+  keeps who, when and the file name. Refusals: 404 `supporting_file_not_found` (the id is not a supporting
   file of this record), 422 `supporting_file_not_linked` (unlink of a file
   already off the record), 422 `supporting_file_already_linked` (restore of a
   file on this or another record), 422 `supporting_file_restore_expired`
@@ -11401,6 +11401,11 @@ accept path recorded.
   once another record holds the file's bytes. Each of these is true only
   when its command would go through now. A history revision made by an append,
   an unlink or a restore carries `supporting_change` and `supporting_filename`.
+
+  In Detalles, Archivos de respaldo keeps an unlinked row while the server
+  offers restore. Its footer counts the calendar days until `purge_at`. The
+  broken-link button sends the restore command for that source. Unlinking it
+  again gives the row a new deadline. Historial records “Archivo quitado”.
 
 - GET `/api/v1/business/search?q&limit&kind&cursor` returns
   `{expenses: ExpenseHit[], ventas: ExpenseHit[], receipts: ReceiptHit[],

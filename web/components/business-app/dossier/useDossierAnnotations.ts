@@ -12,7 +12,7 @@ import { useShownRecord } from "../useShownRecord";
 
 type Edit = { kind: "note"; note: string } | { kind: "append"; file: File } | { kind: "unlink" | "restore"; sourceId: string };
 
-/** Mutations return the full dossier, including the next version and the offers for Undo and Historial. */
+/** Mutations return the full dossier, including the next version and the server's restore offers. */
 export function useDossierAnnotations(dossier: BusinessDossier | null, blocked: boolean, onChanged: (next: BusinessDossier) => void, onReadFailure: (error: unknown) => void, onUndoFailure: (error: unknown) => void) {
   const { chosen, userId, source, reload } = useBusiness();
   const { t } = useTranslation();

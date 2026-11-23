@@ -3,13 +3,15 @@
 import { Check, Eye, File, Loader2, Pencil, Unlink, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { Tooltip } from "@/components/ui/Tooltip";
 import type { ReceiptLimits } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
+import { dueDistance } from "@/lib/business-month-close";
 import { reportFailure } from "@/lib/business-reporting-wire";
 import { personName } from "@/lib/person-name";
 import { resolveLanguage } from "@/lib/language-features";
 import type { DossierDetailsCard } from "../BusinessWorkspace";
-import { formatDate } from "../business-format";
+import { formatDate, todayIso } from "../business-format";
 import { NOTE_LIMIT, noteLength, withinNoteLimit } from "../NoteCount";
 import { receiptFileAccept, receiptFileWithType } from "../receipt-file";
 import { latestNoteChange } from "./annotation-history";
@@ -30,6 +32,7 @@ export type DossierAnnotationsProps = {
   onAppend?: (file: File) => Promise<void>;
   onViewFile?: (sourceId: string) => void;
   onUnlink?: (sourceId: string) => Promise<void>;
+  onRestore?: (sourceId: string) => Promise<void>;
 };
 
 export function dossierFileSize(bytes: number, locale: string): string {
@@ -145,9 +148,9 @@ export function DossierNoteCard({ busy, dossier, detailsCard, entryVisit = 0, on
   );
 }
 
-type SupportFailure = { kind: "append_error"; retry?: File } | { kind: "unlink_error" };
+type SupportFailure = { kind: "append_error"; retry?: File } | { kind: "unlink_error" | "restore_error" };
 
-export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit = 0, receiptLimits, selectedSupportingSourceId, onAppend, onViewFile, onUnlink }: Omit<DossierAnnotationsProps, "onSaveNote" | "onNoteDirty">) {
+export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit = 0, receiptLimits, selectedSupportingSourceId, onAppend, onViewFile, onUnlink, onRestore }: Omit<DossierAnnotationsProps, "onSaveNote" | "onNoteDirty">) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const add = useRef<HTMLButtonElement>(null);
@@ -155,9 +158,30 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<SupportFailure | null>(null);
   const [added, setAdded] = useState(0);
+  const [clockTick, setClockTick] = useState(0);
   const fromEntry = detailsCard === "support";
   const landing = useCardLanding(fromEntry, entryVisit);
-  const files = dossier?.supporting_files?.filter((file) => file.state === "linked") ?? [];
+  const now = new Date();
+  const today = todayIso(now);
+  const files = dossier?.supporting_files?.flatMap((file) => {
+    const purge = file.state === "unlinked" && file.purge_at ? new Date(file.purge_at) : null;
+    return file.state === "linked" || (file.restore_available && purge && purge.getTime() > now.getTime()) ? [{ file, purge }] : [];
+  }) ?? [];
+  const nextPurge = files.reduce((next, { purge }) => purge ? Math.min(next, purge.getTime()) : next, Infinity);
+  useEffect(() => {
+    if (!Number.isFinite(nextPurge)) return;
+    const refresh = () => setClockTick((tick) => tick + 1);
+    const current = new Date();
+    const midnight = new Date(current).setHours(24, 0, 0, 0);
+    const timer = window.setTimeout(refresh, Math.max(0, Math.min(nextPurge, midnight) - current.getTime()));
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [clockTick, nextPurge]);
   const full = dossier?.supporting_limit_reached === true;
   const canAdd = dossier?.supporting_append_available === true && !full && !!onAppend;
   useEffect(() => {
@@ -165,16 +189,16 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
   }, [fromEntry, canAdd, entryVisit]);
   const label = t("business.dossier.supporting.add");
   const limit = dossier?.supporting_file_limit;
-  const mutate = async (command: () => Promise<void>, file?: File) => {
+  const mutate = async (command: () => Promise<void>, action: "append" | "unlink" | "restore", file?: File) => {
     if (pending || busy) return;
     setPending(true);
     setFailure(null);
     try {
       await command();
-      if (file) setAdded((count) => count + 1);
+      if (action === "append") setAdded((count) => count + 1);
     } catch (error) {
       const kind = reportFailure(error, true).kind;
-      setFailure(file ? { kind: "append_error", retry: kind === "uncertain" || kind === "version" ? file : undefined } : { kind: "unlink_error" });
+      setFailure(action === "append" ? { kind: "append_error", retry: kind === "uncertain" || kind === "version" ? file : undefined } : { kind: `${action}_error` });
     }
     finally { setPending(false); }
   };
@@ -184,7 +208,7 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
     input.value = "";
     if (file && canAdd && onAppend) {
       const selected = receiptLimits ? receiptFileWithType(file, receiptLimits) : file;
-      void mutate(() => onAppend(selected), selected);
+      void mutate(() => onAppend(selected), "append", selected);
     }
   };
   return (
@@ -193,18 +217,33 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
     }>
       <div ref={landing} className={`rounded-item ${annotation.supportBody}`} data-landing={added ? (added % 2 ? "a" : "b") : fromEntry || undefined}>
         {canAdd ? <input ref={picker} type="file" hidden accept={receiptLimits ? receiptFileAccept(receiptLimits) : undefined} disabled={pending || busy} onChange={pickFile} /> : null}
-        {files.length ? <ul className={styles.rows}>{files.map((file) => {
+        {files.length ? <ul className={styles.rows}>{files.map(({ file, purge }) => {
           const name = file.filename ?? t("business.dossier.row.no_data");
-          const selected = selectedSupportingSourceId === file.source_id;
+          const selected = !purge && selectedSupportingSourceId === file.source_id;
+          const action = purge ? "restore" : "unlink";
+          const linkChange = purge ? onRestore : file.unlink_available ? onUnlink : undefined;
+          const days = purge ? dueDistance(todayIso(purge), today)?.days : undefined;
+          const deadline = days === 0 ? t("business.dossier.supporting.purge_today")
+            : days === 1 ? t("business.dossier.supporting.purge_tomorrow")
+            : days !== undefined ? t("business.dossier.supporting.purge_in", { count: days }) : null;
           return (
-            <li key={file.source_id} className={`group rounded-item ${annotation.supportFile}`} data-selected={selected || undefined}>
+            <li key={file.source_id} className={`group rounded-item ${annotation.supportFile}`} data-selected={selected || undefined} data-pending-purge={Boolean(purge) || undefined}>
               <File size={16} className={styles.icon} aria-hidden="true" />
               <span className={annotation.filename} title={name}>{name}</span>
               {file.size_bytes != null ? <span className={annotation.status}>{dossierFileSize(file.size_bytes, locale)}</span> : null}
-              <span className={`${annotation.fileActions} ${pointer.rowActions}`}>
-                {onViewFile ? <button type="button" className={styles.pen} title={t("business.dossier.supporting.view")} aria-label={t("business.dossier.supporting.view_named", { name })} aria-pressed={selected} onClick={() => onViewFile(file.source_id)}><Eye size={16} aria-hidden="true" /></button> : null}
-                {file.unlink_available && onUnlink ? <button type="button" className={styles.pen} title={t("business.dossier.supporting.unlink")} aria-label={t("business.dossier.supporting.unlink_named", { name })} disabled={pending || busy} onClick={() => void mutate(() => onUnlink(file.source_id))}><Unlink size={16} aria-hidden="true" /></button> : null}
+              <span className={purge ? annotation.fileActions : `${annotation.fileActions} ${pointer.rowActions}`}>
+                {!purge && onViewFile ? <button type="button" className={styles.pen} title={t("business.dossier.supporting.view")} aria-label={t("business.dossier.supporting.view_named", { name })} aria-pressed={selected} onClick={() => onViewFile(file.source_id)}><Eye size={16} aria-hidden="true" /></button> : null}
+                {linkChange ? <Tooltip content={t(`business.dossier.supporting.${action}`)} side="top">
+                  <button type="button" className={styles.pen} aria-label={t(`business.dossier.supporting.${action}_named`, { name })} aria-disabled={pending || busy} onClick={() => {
+                    if (purge && purge.getTime() <= Date.now()) {
+                      setClockTick((tick) => tick + 1);
+                      return;
+                    }
+                    void mutate(() => linkChange(file.source_id), action);
+                  }}><Unlink size={16} aria-hidden="true" /></button>
+                </Tooltip> : null}
               </span>
+              {deadline ? <time className={`${annotation.status} ${annotation.purgeCountdown}`} dateTime={file.purge_at ?? undefined}>{deadline}</time> : null}
             </li>
           );
         })}</ul> : <p className={annotation.empty}>{t("business.dossier.supporting.empty")}</p>}
@@ -214,7 +253,7 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
           {failure.kind === "append_error" && failure.retry && canAdd && onAppend ? (
             <button type="button" className={styles.link} disabled={busy} onClick={() => {
               const file = failure.retry;
-              if (file) void mutate(() => onAppend(file), file);
+              if (file) void mutate(() => onAppend(file), "append", file);
             }}>{t("common.retry")}</button>
           ) : null}
         </div> : null}

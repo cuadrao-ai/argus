@@ -4,7 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ComponentProps, ReactNode } from "react";
 import type { BusinessDossier, BusinessDraftRevision, BusinessSupportingFile } from "@/lib/business-dossier";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
-import { TEST_NOW } from "./test-clock";
+import { pinTestClock, TEST_NOW } from "./test-clock";
 
 type DetailsProps = ComponentProps<typeof import("@/components/business-app/dossier/DossierDetails").default>;
 
@@ -48,7 +48,7 @@ async function mount() {
   return {
     act, host,
     details: (props: Omit<DetailsProps, "origin">) => render(<Details origin={{}} {...props} />),
-    history: (dossier: BusinessDossier, onRestore?: (sourceId: string) => Promise<void>) => render(<History history={dossier.history} sources={dossier.sources} accounts={[]} supportingFiles={dossier.supporting_files} onRestore={onRestore} />),
+    history: (dossier: BusinessDossier) => render(<History history={dossier.history} sources={dossier.sources} accounts={[]} supportingFiles={dossier.supporting_files} />),
     button: (label: string, area: ParentNode = host) => [...area.querySelectorAll("button")].find((button) => (button.getAttribute("aria-label") ?? button.textContent?.trim()) === label),
     click: async (node?: HTMLButtonElement) => {
       assert.ok(node, "the action is available");
@@ -137,7 +137,7 @@ test("A stale note save shows the new server note alongside the user's draft", a
   } finally { await page.close(); }
 });
 
-test("Detalles follows server note, add and remove permissions and only lists linked files", async () => {
+test("Detalles follows server note, add, remove and restore permissions", async () => {
   const a = supporting("a", { unlink_available: true });
   const b = supporting("b");
   const dossier = await sample({ current_note: null, note_edit_available: false, supporting_files: [a, b, supporting("quitado", { state: "unlinked" })] });
@@ -157,6 +157,79 @@ test("Detalles follows server note, add and remove permissions and only lists li
     await page.details({ dossier, onUnlink: async () => {} });
     assert.equal(page.button("Ver b.pdf"), undefined);
   } finally { await page.close(); }
+});
+
+test("Archivos de respaldo shows the server's current restore offer and deadline", async () => {
+  const later = (days: number) => {
+    const date = new Date(TEST_NOW);
+    date.setDate(date.getDate() + days);
+    date.setHours(15, 30, 0, 0);
+    return date.toISOString();
+  };
+  const file = supporting("evidencia", { state: "unlinked", purge_at: later(3), restore_available: true });
+  const dossier = await sample({ supporting_file_limit: 1, supporting_limit_reached: false, supporting_append_available: true });
+  const page = await mount();
+  const restored: string[] = [];
+  const showFiles = (supporting_files: BusinessSupportingFile[]) => page.details({
+    dossier: { ...dossier, supporting_files }, onRestore: async (id: string) => { restored.push(id); },
+    onAppend: async () => {}, onViewFile: () => {}, onUnlink: async () => {},
+  });
+  const card = () => page.host.querySelector('[data-testid="dossier-supporting"]');
+  const time = () => card()?.querySelector("time");
+  const browserWindow = window;
+  const { setTimeout, clearTimeout } = browserWindow;
+  let scheduled: { run: () => void; delay: number } | undefined;
+  browserWindow.setTimeout = ((run: () => void, delay: number) => { scheduled = { run, delay }; return 1; }) as typeof window.setTimeout;
+  browserWindow.clearTimeout = (() => { scheduled = undefined; }) as typeof window.clearTimeout;
+  const runTimerAt = async (date: Date) => {
+    const timer = scheduled;
+    assert.ok(timer);
+    assert.equal(timer.delay, date.getTime() - Date.now());
+    await page.act(async () => { pinTestClock(date); timer.run(); });
+  };
+  try {
+    await showFiles([file]);
+    assert.match(card()?.textContent ?? "", /evidencia\.pdf/);
+    assert.equal(time()?.textContent, "Se borra en 3 días");
+    assert.equal(time()?.getAttribute("datetime"), file.purge_at);
+    assert.ok(page.button("Agregar archivo"), "a removed file does not fill the linked-file cap");
+    assert.equal(page.button("Ver evidencia.pdf"), undefined);
+    assert.equal(page.button("Quitar evidencia.pdf"), undefined);
+    assert.equal(card()?.querySelector("a[download]"), null);
+    const restore = page.button("Restaurar evidencia.pdf");
+    assert.ok(restore?.querySelector("svg.lucide-unlink"));
+    await page.act(async () => restore.focus());
+    await page.click(restore);
+    assert.deepEqual(restored, [file.source_id]);
+    await showFiles([supporting("evidencia", { unlink_available: true })]);
+    assert.equal(time(), null);
+    assert.ok(page.button("Ver evidencia.pdf"));
+    assert.ok(document.activeElement === page.button("Quitar evidencia.pdf"), "keyboard focus stays on the file action");
+    await showFiles([{ ...file, purge_at: later(5) }]);
+    assert.equal(time()?.getAttribute("datetime"), later(5));
+    assert.equal(time()?.textContent, "Se borra en 5 días");
+    await page.act(async () => {
+      pinTestClock(new Date(later(4)));
+      window.dispatchEvent(new Event("focus"));
+    });
+    assert.equal(time()?.textContent, "Se borra mañana");
+    const midnight = new Date(later(4));
+    midnight.setHours(24, 0, 0, 0);
+    await runTimerAt(midnight);
+    assert.equal(time()?.textContent, "Se borra hoy");
+    await runTimerAt(new Date(later(5)));
+    assert.doesNotMatch(card()?.textContent ?? "", /evidencia\.pdf/);
+    await showFiles([{ ...file, purge_at: later(6), restore_available: false }]);
+    assert.doesNotMatch(card()?.textContent ?? "", /evidencia\.pdf/);
+    assert.equal(page.button("Restaurar evidencia.pdf"), undefined);
+    await showFiles([{ ...file, purge_at: later(6) }]);
+    await showFiles([]);
+    assert.doesNotMatch(card()?.textContent ?? "", /evidencia\.pdf/);
+    assert.equal(time(), null);
+  } finally {
+    pinTestClock();
+    try { await page.close(); } finally { Object.assign(browserWindow, { setTimeout, clearTimeout }); }
+  }
 });
 
 test("Agregar archivo passes the selected file and the server's cap hides the chooser", async () => {
@@ -207,7 +280,7 @@ test("Retry after an uncertain append uses the same selected File", async () => 
   } finally { await page.close(); }
 });
 
-test("Historial shows saved note diffs and one restore action for the most recent unlink", async () => {
+test("Historial shows the saved note diff and supporting-file events", async () => {
   const file = supporting("evidencia", { state: "unlinked", purge_at: "2026-11-07T12:00:00Z", restore_available: true });
   const dossier = await sample({ supporting_files: [file] });
   const supportChange = (version: number, supporting_change: BusinessDraftRevision["supporting_change"]) =>
@@ -217,9 +290,8 @@ test("Historial shows saved note diffs and one restore action for the most recen
     revision(dossier, 7, { before_current_note: "Primera", after_current_note: "Segunda" }),
   ];
   const page = await mount();
-  const restored: string[] = [];
   try {
-    await page.history({ ...dossier, history }, async (id) => { restored.push(id); });
+    await page.history({ ...dossier, history });
     const note = page.host.querySelector('[data-testid="history-current-note"]');
     assert.equal(note?.querySelector("del")?.textContent, "Primera");
     assert.equal(note?.querySelector("ins")?.textContent, "Segunda");
@@ -227,11 +299,5 @@ test("Historial shows saved note diffs and one restore action for the most recen
     assert.match(text, /Archivo agregado/);
     assert.match(text, /Archivo restaurado/);
     assert.equal(text.match(/Archivo quitado/g)?.length, 2);
-    assert.equal(page.host.querySelectorAll(`time[datetime="${file.purge_at}"]`).length, 1);
-    await page.click(page.button("Restaurar"));
-    assert.deepEqual(restored, [file.source_id]);
-    await page.history({ ...dossier, history, supporting_files: [{ ...file, restore_available: false }] }, async () => {});
-    assert.equal(page.button("Restaurar"), undefined);
-    assert.match(page.host.querySelector(`time[datetime="${file.purge_at}"]`)?.textContent ?? "", /^Se borra el /);
   } finally { await page.close(); }
 });

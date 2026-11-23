@@ -2926,8 +2926,13 @@
         "limit_one": "Up to {{count}} file. Remove one to add another.",
         "limit_other": "Up to {{count}} files. Remove one to add another.",
         "limit_reached": "Remove a file to add another.",
+        "purge_in_other": "Deletes in {{count}} days",
+        "purge_today": "Deletes today",
+        "purge_tomorrow": "Deletes tomorrow",
         "receipt_label": "Original receipt",
+        "restore": "Restore",
         "restore_error": "We couldn't restore the file. Try again.",
+        "restore_named": "Restore {{name}}",
         "title": "Supporting files",
         "undo": "Undo",
         "unlink": "Remove file",
@@ -3340,8 +3345,6 @@
       "set": "{{field}}: {{after}}",
       "supporting": {
         "appended": "File added",
-        "purge": "Deleted on {{date}}",
-        "restore": "Restore",
         "restored": "File restored",
         "unlinked": "File removed"
       },
