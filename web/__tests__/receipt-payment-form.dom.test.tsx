@@ -39,7 +39,7 @@ async function recordScreen(dossier: BusinessDossier) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  const choices = <OwnerChoices dossier={dossier} fields={null} failed={false} disabled readOnly saves={{}} onChoose={() => {}} onRetry={() => {}} onCancel={() => {}} onReload={() => {}} />;
+  const choices = <OwnerChoices dossier={dossier} fields={null} failed={false} readOnly edit={() => assert.fail("A read-only purchase cannot edit a report choice")} note={() => null} onReload={() => {}} />;
   await act(async () => root.render(<I18nextProvider i18n={i18n}><Facts dossier={dossier} accounts={accounts} choices={choices} /></I18nextProvider>));
   const text = host.textContent ?? "";
   const screen = {

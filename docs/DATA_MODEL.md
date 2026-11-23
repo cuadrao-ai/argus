@@ -2922,24 +2922,16 @@ and revisions backfill as groups with identical IDs. Refund provenance contains
 stable purchase group and reviewed revision. Purchase category edits with linked
 refunds fail explicitly, so copied historical category cannot silently drift.
 
-`financial_activity_groups.reversed_at` (nullable, migration
-`20261103003000_business_record_reversal.sql`) names the instant a Business
-reopen or accepted-document deletion took the row out of current money reads.
-The three ledger loaders (`canonical_groups.load`, `loop_postgres.hydrate`,
-`owner_funds_postgres.load`) leave a reversed group and its legs out, so totals,
-the month close, the 606 and 607, Registros and account balances all exclude it.
-After reopen, the group, records, revisions, memberships, and money receipts
-stay as history, along with any related settlement, export line, or bank outcome.
-The `reopen_draft` row in `business_action_receipts` names the actor, time,
-draft version and activity. The reopened
-draft returns to `open` with `activity_id` null (the state check requires it)
-and keeps a `reopened` list in its resolution (`activity_id`, `version`,
-`actor_id`, `key`, `at`); the approval's recovery keys (`approval_receipt`,
-`accepted`, `accepted_request`, `pending_request`) leave it.
-Both reopen and accepted-document deletion take the Business owner's lock.
-Restoring a deleted accepted document clears `reversed_at` on its original
-group. The same migration admits `reopen_draft` as a turn-less human command on
-`business_action_receipts`.
+Deleting an accepted Business document sets `financial_activity_groups.reversed_at`
+under the owner's lock. The ledger loaders exclude the group and its legs from
+balances, period totals, the 606 and 607, and Registros. Restoring the document
+clears that timestamp on the same group. Correcting the document in place
+preserves the approval and writes a draft revision.
+
+Historical reversals from the retired reopen command also keep their timestamp.
+Migration `20261103003000_business_record_reversal.sql` preserves these groups
+and their `reopen_draft` action receipts, including the actor, time, reviewed
+version and activity.
 
 financial_activity_receipts binds owner/key, request hash, accepted group/revision and
 affected account IDs. Every canonical AND legacy activity writer takes one owner

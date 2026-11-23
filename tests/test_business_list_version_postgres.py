@@ -9,7 +9,6 @@ from uuid import uuid4
 import pytest
 from argus.api.business_list_version import etag, stored_version
 from argus.api.routers.business import list_receipts
-from argus.domain.business.contracts.actions import ReopenDraft
 from argus.domain.business.list_version import (
     LIST_VERSION_TABLES,
     WINDOW_SECONDS,
@@ -61,19 +60,13 @@ def test_upload_and_a_finished_read_each_move_the_version(actions):
     moves.after("a read that finished")
 
 
-def test_approve_reopen_delete_restore_and_purge_each_move_the_version(actions):
+def test_approve_delete_restore_and_purge_each_move_the_version(actions):
     service, context, _ = actions
     moves = _Moves(service, context)
     draft_id = deleting._captured_purchase(service, context)
     moves.after("a typed note")
-    approved = deleting._captured_purchase(service, context, approve=True)
+    deleting._captured_purchase(service, context, approve=True)
     moves.after("approve")
-    version = service.dossier(context, approved).version
-    reopened = service.reopen(
-        context, approved, ReopenDraft(version=version), str(uuid4())
-    )
-    assert reopened.outcome == "applied", reopened
-    moves.after("reopen")
     client = deleting._client(service, context)
     for action in ("delete", "restore", "delete", "purge"):
         assert deleting._act(client, draft_id, action).status_code == 200

@@ -436,7 +436,14 @@ describe("a fiscal save in Historial", () => {
     </>);
     const [entry] = entries(page.host);
     const [[, , history]] = changes(entry);
-    assert.equal(history, editorShows(page.host, shown.name));
+    const valueButton = page.host.querySelector<HTMLButtonElement>(`[data-field="${shown.name}"] button[data-row-value]`);
+    assert.ok(valueButton);
+    if (shown.kind === "date") {
+      assert.equal(history, valueButton.textContent);
+    } else {
+      await page.act(async () => valueButton.click());
+      assert.equal(history, editorShows(page.host, shown.name));
+    }
     await page.close();
   });
 });

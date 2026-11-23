@@ -73,6 +73,7 @@ def test_accepted_delete_restore_updates_reports_and_action_counts(
     if kind == "expense":
         assert both["inicio"] == [{"currency": "DOP", "amount": "2360.00", "count": 2}]
     delete_key = str(uuid4())
+    purge_at = None
     for action, expected, eliminated in (("delete", control, 1), ("restore", both, 0)):
         headers = {
             **world.alice.headers,
@@ -83,6 +84,13 @@ def test_accepted_delete_restore_updates_reports_and_action_counts(
             answer = world.client.post(url, headers=headers)
             assert answer.status_code == 200, answer.text
             assert answer.json()["registros_count"] == expected["matching_count"]
+            if action == "delete":
+                deadline = answer.json()["purge_at"]
+                if purge_at is None:
+                    purge_at = _get(world, f"/business/drafts/{draft}/dossier").json()["deleted"]["purge_at"]
+                assert deadline == purge_at
+            else:
+                assert "purge_at" not in answer.json()
             counts = _get(world, "/business/receipt-activity").json()
             assert answer.json()["inbox_counts"] == counts
             assert counts["bandeja_eliminados_count"] == eliminated
@@ -93,6 +101,7 @@ def test_accepted_delete_restore_updates_reports_and_action_counts(
     )
     assert old_delete.status_code == 200
     assert old_delete.json()["registros_count"] == both["matching_count"]
+    assert old_delete.json()["purge_at"] == purge_at
     assert old_delete.json()["inbox_counts"]["bandeja_eliminados_count"] == 0
 
 

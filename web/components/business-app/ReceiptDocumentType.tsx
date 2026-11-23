@@ -8,7 +8,7 @@ import { DOCUMENT_TYPE_LABELS } from "./receipt-fact-rows";
 
 /**
  * Compra or Venta on one record, as a row of the form. `edit` is the shared
- * row edit on a draft whose type can still change; after approval it is fixed.
+ * row edit on a record whose type can change.
  * While the record is open, a sale read from the business's RNC asks for the
  * client's RNC.
  */

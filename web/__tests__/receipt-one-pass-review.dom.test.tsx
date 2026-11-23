@@ -125,7 +125,7 @@ describe("a receipt with no currency", () => {
   });
 
   test("someone who cannot edit can still read why, and no field opens", async () => {
-    const page = await noCurrency(undefined, (dossier) => { dossier.capabilities = ["read"]; });
+    const page = await noCurrency(undefined, (dossier) => { dossier.capabilities = ["read"]; dossier.facts_editable = false; dossier.editable_fields = []; });
     try {
       await pressReason(page, "Falta la moneda");
       assert.equal(page.host.querySelector("[data-row-open]"), null);
@@ -200,6 +200,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.equal(page.row("occurred_on").firstElementChild?.textContent, "Fecha");
       const spanish = (await import("@/public/locales/es-419/common.json")).default;
       for (const field of ["category", "payment_method"] as const) {
+        await page.act(async () => page.row(field).querySelector<HTMLButtonElement>("button[data-row-value]")!.click());
         const options = [...page.row(field).querySelectorAll("option")].filter((option) => option.value);
         const expected = spanish.business.dgii.option[field];
         assert.equal(options.length, Object.keys(expected).length);
@@ -218,6 +219,7 @@ describe("the receipt dossier on an open draft", () => {
       const spanish = (await import("@/public/locales/es-419/common.json")).default;
       const fields = await page.source.dgiiFields();
       for (const field of ["category", "payment_method"] as const) {
+        await page.act(async () => page.row(field).querySelector<HTMLButtonElement>("button[data-row-value]")!.click());
         const options = [...page.row(field).querySelectorAll("option")].filter((option) => option.value);
         assert.deepEqual(options.map((option) => option.value), fields["606"].find((item) => item.name === field)!.options);
         const expected = english.business.dgii.option[field];
@@ -288,9 +290,11 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("the two choices offer the server's labels, save on their own, and never hold approval", async () => {
+  test("the two choices offer the server's labels and save with their own checks", async () => {
     const page = await setup();
     try {
+      await page.openRow("category");
+      await page.openRow("payment_method");
       const options = (name: string) => [...page.row(name).querySelectorAll("option")].map((option) => option.textContent);
       assert.equal(options("category").length, 12, "Elegir and José's 11");
       assert.equal(options("category")[2], "Gastos por trabajos, suministros y servicios");
@@ -298,9 +302,11 @@ describe("the receipt dossier on an open draft", () => {
       assert.equal(options("payment_method")[3], "Tarjeta crédito/débito");
       assert.equal(button(page.host, "Aceptar").disabled, false, "suggested choices do not block");
       await fill(page, '[data-fact="category"] select', "05", HTMLSelectElement);
+      await page.check("category");
       await page.wait(() => Boolean(page.row("category").querySelector('[data-testid="row-saved"]')));
       assert.deepEqual(page.writes.map(({ kind, body }) => [kind, body]), [["purchase", { category: "05" }]]);
       await fill(page, '[data-fact="payment_method"] select', "01", HTMLSelectElement);
+      await page.check("payment_method");
       await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
       assert.deepEqual(page.writes[1].body, { payment_method: "01" });
       assert.equal(page.writes[1].version, page.writes[0].version + 1, "each save stands on the last one");
@@ -314,7 +320,9 @@ describe("the receipt dossier on an open draft", () => {
     try {
       for (const [choice, code] of [["category", "02"], ["payment_method", "03"]] as const) {
         const row = page.row(choice);
+        await page.openRow(choice);
         assert.equal(row.querySelector("select")?.value, code, choice);
+        await page.dismiss(choice);
         const icon = sourceIcon(row);
         assert.equal(icon?.getAttribute("aria-label"), "Última elección para este RNC");
         assert.equal(icon?.getAttribute("data-status"), "last_choice");
@@ -345,34 +353,39 @@ describe("the receipt dossier on an open draft", () => {
   test("a value chosen by hand has no icon", async () => {
     const page = await setup();
     try {
+      await page.openRow("payment_method");
       await fill(page, '[data-fact="payment_method"] select', "01", HTMLSelectElement);
+      await page.check("payment_method");
       await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
-      assert.equal(page.row("payment_method").querySelector("select")?.value, "01");
+      assert.match(page.row("payment_method").querySelector("[data-row-value]")?.textContent ?? "", /Efectivo/);
       assert.equal(sourceIcon(page.row("payment_method")), null);
       assert.ok(sourceIcon(page.row("category")), "the other suggestion keeps its icon");
     } finally { await page.close(); }
   });
 
-  test("with no suggestion each choice reads Elegir, with no icon", async () => {
+  test("with no suggestion each choice reads Sin dato, with no icon", async () => {
     const page = await setup("fiscal", (dossier) => { dossier.declaration_suggestions = { category: null, payment_method: null }; });
     try {
       for (const choice of ["category", "payment_method"]) {
+        assert.equal(page.row(choice).querySelector("[data-row-value]")?.textContent, "Sin dato");
+        await page.openRow(choice);
         const select = page.row(choice).querySelector("select")!;
         assert.equal(select.value, "");
         assert.equal(select.selectedOptions[0]?.textContent, "Elegir");
+        await page.dismiss(choice);
         assert.equal(sourceIcon(page.row(choice)), null);
       }
       assert.equal(button(page.host, "Aceptar").disabled, false);
     } finally { await page.close(); }
   });
 
-  test("an old unconfirmed tipo de gasto reads Elegir, with no icon", async () => {
+  test("an old unconfirmed tipo de gasto reads Sin dato, with no icon", async () => {
     const page = await setup("fiscal", (dossier) => {
       dossier.dgii = { form: "606", category: "09", category_suggested: true, payment_method: null };
       dossier.declaration_suggestions = { category: null, payment_method: null };
     });
     try {
-      assert.equal(page.row("category").querySelector("select")?.value, "");
+      assert.equal(page.row("category").querySelector("[data-row-value]")?.textContent, "Sin dato");
       assert.equal(sourceIcon(page.row("category")), null);
     } finally { await page.close(); }
   });
@@ -383,41 +396,9 @@ describe("the receipt dossier on an open draft", () => {
       dossier.declaration_suggestions = { category: null, payment_method: null };
     });
     try {
-      assert.equal(page.row("category").querySelector("select")?.value, "02");
+      assert.match(page.row("category").querySelector("[data-row-value]")?.textContent ?? "", /Gastos por trabajos/);
       assert.equal(sourceIcon(page.row("category"))?.getAttribute("aria-label"), "Última elección para este RNC");
       assert.equal(sourceIcon(page.row("payment_method")), null);
-    } finally { await page.close(); }
-  });
-
-  test("approving sends the suggestions shown, and the approved record keeps their icons", async () => {
-    const sent: unknown[] = [];
-    const page = await setup("fiscal", () => undefined, (fixture) => ({
-      approveDraft: async (id, version, key, action, options) => { sent.push(options?.suggestions); return fixture.approveDraft(id, version, key, action, options); },
-    }));
-    try {
-      await page.act(async () => button(page.host, "Aceptar").click());
-      await page.wait(() => sent.length === 1 && !page.host.querySelector('[data-testid="receipt-facts-choices"] [aria-busy="true"]'));
-      assert.deepEqual(sent, [{ category: { value: "02", source: "last_choice" }, payment_method: { value: "03", source: "last_choice" } }]);
-      await page.wait(() => Boolean(page.host.textContent?.includes("Aceptado") && page.row("category")?.querySelector("select")));
-      assert.equal(page.row("category").querySelector("select")?.value, "02");
-      assert.equal(sourceIcon(page.row("category"))?.getAttribute("aria-label"), "Última elección para este RNC");
-      assert.equal(sourceIcon(page.row("payment_method"))?.getAttribute("aria-label"), "Última elección para este RNC");
-    } finally { await page.close(); }
-  });
-
-  test("a refusal for a stale suggestion reloads the record instead of saving it", async () => {
-    let calls = 0;
-    const page = await setup("fiscal", () => undefined, () => ({
-      approveDraft: async () => { calls += 1; throw Object.assign(new Error("suggestion_stale"), { status: 422, code: "suggestion_stale", requestId: "sample-suggestion_stale" }); },
-    }));
-    try {
-      await page.act(async () => button(page.host, "Aceptar").click());
-      await page.wait(() => Boolean(page.host.querySelector('[data-testid="receipt-load-error"]')));
-      assert.equal(calls, 1);
-      assert.match(page.host.querySelector('[data-testid="receipt-load-error"]')?.textContent ?? "", /cambió/);
-      await page.act(async () => button(page.host.querySelector('[data-testid="receipt-load-error"]')!, "Reintentar").click());
-      await page.wait(() => Boolean(page.host.querySelector('[data-fact="category"] select')));
-      assert.equal(page.row("category").querySelector("select")?.value, "02", "the current record is shown again");
     } finally { await page.close(); }
   });
 
@@ -491,10 +472,12 @@ describe("the receipt dossier on an open draft", () => {
       assert.equal(page.host.querySelector('[data-testid="row-save-failed"]'), null);
       assert.equal(button(page.host, "Aceptar").disabled, false);
       assert.ok(page.row("itbis").textContent?.includes("526.27"));
+      await page.openRow("category");
       await fill(page, '[data-fact="category"] select', "05", HTMLSelectElement);
+      await page.check("category");
       await page.wait(() => Boolean(page.row("category").querySelector('[data-testid="row-save-failed"]')));
       assert.equal(button(page.host, "Aceptar").disabled, true);
-      await page.act(async () => button(page.row("category"), "Cancelar").click());
+      await page.dismiss("category");
       assert.equal(button(page.host, "Aceptar").disabled, false, "a refused choice has a way out, so it never holds approval");
     } finally { await page.close(); }
   });
@@ -568,7 +551,9 @@ describe("the receipt dossier on an open draft", () => {
       await page.openRow("counterparty");
       await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
       await page.press('[data-testid="edit-counterparty"] input', "Enter");
+      await page.openRow("category");
       await fill(page, '[data-fact="category"] select', "05", HTMLSelectElement);
+      await page.check("category");
       assert.deepEqual(sent, ["facts"], "the expense type waits for the first row");
       const readsBeforeRetirement = reads;
 
@@ -749,18 +734,20 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("a save that failed with no row open says why Aceptar is off, beside the button", async () => {
+  test("a refused choice leaves the row open and says why Aceptar is off", async () => {
     const page = await setup("saveRefused");
     const reason = () => page.host.querySelector('[data-testid="approve-reason"]');
     try {
+      await page.openRow("category");
       await fill(page, '[data-fact="category"] select', "05", HTMLSelectElement);
+      await page.check("category");
       await page.wait(() => Boolean(page.row("category").querySelector('[data-testid="row-save-failed"]')));
       assert.equal(button(page.host, "Aceptar").disabled, true);
-      assert.equal(reason()?.textContent, "Un cambio no se guardó. Guárdalo de nuevo para aceptar.");
+      assert.equal(reason()?.textContent, "Guarda o cancela Tipo de gasto para aceptar.");
       assert.equal(button(page.host, "Aceptar").getAttribute("aria-describedby"), reason()?.id, "the button names its reason");
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
-      assert.equal(reason()?.textContent, "A change didn't save. Save it again to accept.");
-      await page.act(async () => button(page.row("category"), "Cancel").click());
+      assert.equal(reason()?.textContent, "Save or cancel Expense type to accept.");
+      await page.act(async () => page.row("category").querySelector<HTMLButtonElement>('button[aria-label^="Cancel · "]')!.click());
       assert.equal(reason(), null);
       assert.equal(button(page.host, "Accept expense").disabled, false);
     } finally { await page.close(); }
@@ -811,14 +798,14 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.act(async () => page.root.unmount()); }
   });
 
-  test("a refused Tipo says the record is fixed, with its reference, and keeps the shown type", async () => {
+  test("a refused Tipo shows its reference and keeps the server type", async () => {
     const page = await setup("fiscal", () => undefined, () => ({ setDocumentType: async () => { throw Object.assign(new Error("locked"), { status: 422, code: "document_type_locked", requestId: "req-type-locked" }); } }));
     try {
       await page.openRow("document_type");
       await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);
       await page.check("document_type");
       await page.wait(() => Boolean(page.row("document_type").querySelector('[data-testid="row-save-failed"]')));
-      assert.match(page.row("document_type").textContent ?? "", /ya está aceptado/);
+      assert.match(page.row("document_type").textContent ?? "", /Revisa el valor/);
       assert.match(page.row("document_type").textContent ?? "", /Ref\./);
       assert.equal(page.row("document_type").getAttribute("data-type"), "recibo");
       await page.dismiss("document_type");
@@ -946,7 +933,7 @@ describe("the receipt dossier on an open draft", () => {
     try {
       // The value opens its row; the pencil beside it is the same row's second stop.
       const stops = [...page.host.querySelectorAll<HTMLElement>('[data-testid="receipt-facts-comprobante"] button, [data-testid="receipt-facts-montos"] button')].filter((item) => item.closest("[data-fact]") && item.tabIndex === 0).map((item) => item.closest<HTMLElement>("[data-fact]")!.dataset.fact);
-      assert.deepEqual(stops.filter((fact, index) => fact !== "document_type" && fact !== stops[index - 1]), ["rnc", "counterparty", "fiscal_number", "occurred_on", "currency", "itbis", "amount"]);
+      assert.deepEqual(stops.filter((fact, index) => fact !== "document_type" && fact !== stops[index - 1]), ["rnc", "counterparty", "fiscal_number", "occurred_on", "currency", "net_amount", "itbis", "amount"]);
       await page.openRow("counterparty");
       await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
       await page.press('[data-testid="edit-counterparty"] input', "Enter");
@@ -982,7 +969,7 @@ describe("the receipt dossier on an open draft", () => {
 
   test("prepare-only access has the locked line and no approval; read-only has no edit control", async () => {
     for (const capabilities of [["read", "prepare"], ["read"]] as const) {
-      const page = await setup("fiscal", (dossier) => { dossier.capabilities = [...capabilities]; dossier.declaration_editable = capabilities.length === 2; });
+      const page = await setup("fiscal", (dossier) => { dossier.capabilities = [...capabilities]; dossier.declaration_editable = capabilities.length === 2; if (!dossier.declaration_editable) { dossier.facts_editable = false; dossier.editable_fields = []; } });
       try {
         assert.equal(page.host.textContent?.includes("Puedes revisar y preparar este recibo. El dueño lo acepta."), capabilities.length === 2);
         // The footer keeps Más; it offers no approval.

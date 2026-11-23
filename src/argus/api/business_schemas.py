@@ -332,6 +332,11 @@ class ReceiptActivityCounts(_Wire):
 # when the answer is made, so a replayed key answers with the counts of then.
 class DocumentActionCounted(DocumentActionResult):
     inbox_counts: ReceiptActivityCounts
+    purge_at: datetime | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description="Expiration of the restore window for a soft-deleted document.",
+    )
     registros_count: int | None = Field(
         default=None,
         ge=0,

@@ -37,7 +37,6 @@ from argus.domain.business.contracts.actions import (
     PrepareAttachmentCommand,
     ReadContext,
     RebindAttachmentCommand,
-    ReopenDraft,
     ResolveDuplicate,
     ReviewCommand,
     ReviewDraft,
@@ -473,17 +472,6 @@ class BusinessActions:
                 return plans.finish_receipt(tx, key, result)
         except ActionError as error:
             return error.result
-
-    def reopen(
-        self,
-        context: ActionContext,
-        draft_id: UUID,
-        request: ReopenDraft,
-        key: str,
-    ) -> ActionOutcome:
-        from argus.domain.business.actions.reopen import reopen
-
-        return reopen(self, context, draft_id, request, key)
 
     def mark_personal(
         self,
