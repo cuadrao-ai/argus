@@ -146,13 +146,16 @@ describe("the receipt page's marks card", () => {
     } as unknown as BusinessContextValue;
     const changed: BusinessDossier[] = [];
     // The receipt page keeps the dossier the server returns and renders the card from it.
+    let setBusy!: (value: boolean) => void;
     function Page() {
+      const [busy, changeBusy] = React.useState(false);
+      setBusy = changeBusy;
       const [shown, setShown] = React.useState(d);
-      return <ReceiptMarksCard dossier={shown} bare={bare} onChanged={(next) => { changed.push(next); current = next; setShown(next); }} />;
+      return <ReceiptMarksCard dossier={shown} busy={busy} bare={bare} onChanged={(next) => { changed.push(next); current = next; setShown(next); }} />;
     }
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><Page /><ToastViewport /></BusinessContext.Provider></env.I18nextProvider>); });
     const toggle = () => env.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
-    return { ...env, calls, changed, toggle };
+    return { ...env, calls, changed, toggle, setBusy };
   }
 
   for (const answer of [null, true, false]) {
@@ -200,6 +203,30 @@ describe("the receipt page's marks card", () => {
     assert.deepEqual(page.calls, ["mark:false:3"]);
     assert.equal(page.changed.length, 1);
     await page.act(async () => page.root.unmount());
+  });
+
+  test("a pending dossier command retires the earlier Personal Undo", async () => {
+    const page = await mountCard(dossier({}, false, true), "owner");
+    try {
+      await page.act(async () => page.toggle().click());
+      await page.settle();
+      const toast = page.host.querySelector('[data-testid="toast-viewport"]')!;
+      assert.match(toast.textContent ?? "", /Deshacer/);
+      await page.act(async () => page.setBusy(true));
+      assert.doesNotMatch(toast.textContent ?? "", /Deshacer/);
+    } finally { await page.act(async () => page.root.unmount()); }
+  });
+
+  test("leaving the dossier retires its Personal Undo", async () => {
+    const page = await mountCard(dossier({}, false, true), "owner");
+    const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
+    try {
+      await page.act(async () => page.toggle().click());
+      await page.settle();
+      assert.match(page.host.textContent ?? "", /Deshacer/);
+      await page.act(async () => page.root.render(<page.I18nextProvider i18n={page.i18n}><ToastViewport /></page.I18nextProvider>));
+      assert.doesNotMatch(page.host.textContent ?? "", /Deshacer/);
+    } finally { await page.act(async () => page.root.unmount()); }
   });
 
   test("a saved Personal change offers Deshacer, which puts it back; a refused one rolls the switch back and says so in the card with Reintentar", async () => {

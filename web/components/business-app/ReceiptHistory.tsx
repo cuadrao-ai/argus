@@ -1,15 +1,16 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ArrowDownToLine, BadgeCheck, ChevronDown, Copy, Paperclip, Pencil, ScanText, type LucideIcon } from "lucide-react";
+import { ArrowDownToLine, BadgeCheck, ChevronDown, Copy, Paperclip, Pencil, ScanText, Unlink, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
-import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFacts, type BusinessFiscalField } from "@/lib/business-dossier";
+import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFacts, type BusinessFiscalField, type BusinessSupportingFile } from "@/lib/business-dossier";
 import { formatDay, formatTimestamp } from "./business-format";
 import { dossierRowLabel } from "./dossier-attention";
 import { DossierCard } from "./dossier/DossierParts";
+import { hasNoteChange } from "./dossier/annotation-history";
 import styles from "./dossier/dossier.module.css";
 import { FOCUS_RING } from "./foundation/presentation";
 import { useCategoryLabel } from "./business-ui";
@@ -20,9 +21,9 @@ import { resolveLanguage } from "@/lib/language-features";
 type FiscalChange = { name: string; field: string; before: string | null; after: string };
 
 /** One thing that happened to the record, as the rail shows it. Only an approval changes the status, so only it gets a status dot. */
-type HistoryEvent = { id: string; at: string; kind?: keyof typeof EVENT_ICON; line: string | null; sub?: string; who: string | null; note?: string; approved?: boolean; testId?: string; diff?: { before: string; after: string }; changes?: FiscalChange[] };
+type HistoryEvent = { id: string; at: string; kind?: keyof typeof EVENT_ICON; line: string | null; heading?: string; sub?: string; who: string | null; note?: string; approved?: boolean; testId?: string; diff?: { before: string | null; after: string }; changes?: FiscalChange[] };
 
-const EVENT_ICON = { received: ArrowDownToLine, read: ScanText, edit: Pencil, approved: BadgeCheck, duplicate: Copy, supporting: Paperclip } satisfies Record<string, LucideIcon>;
+const EVENT_ICON = { received: ArrowDownToLine, read: ScanText, edit: Pencil, approved: BadgeCheck, duplicate: Copy, supporting: Paperclip, unlinked: Unlink } satisfies Record<string, LucideIcon>;
 
 const STRUCK = "rounded-mark bg-[#f6dfe0] px-1.5 text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]";
 const ADDED = "rounded-mark bg-[#e3ebe1] px-1.5 text-[#2f5a49] no-underline dark:bg-[#293b32] dark:text-[#8fcbb0]";
@@ -45,10 +46,9 @@ function localDay(date: Date): string {
  * source, Leído from the reading's revision, one correction per changed field
  * from a person's revision with its struck-to-green diff, and the dated
  * acceptance from the recorded approval: the one place an accepted record says
- * so. A suggestion nobody saved is not an event, and no event says how long a
- * read took. Nothing here can be edited.
+ * so. Notes and supporting file changes come from saved revisions.
  */
-export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null }: {
+export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null, supportingFiles = [] }: {
   history: BusinessDraftRevision[];
   documentType?: BusinessDossier["document_type"];
   accounts: BusinessAccount[];
@@ -56,6 +56,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   approval?: BusinessDossier["approval_result"];
   /** The DGII field dictionary that names and orders a fiscal save's changes; until it loads a save shows no field list. */
   dgiiFields?: DgiiFields | null;
+  supportingFiles?: readonly BusinessSupportingFile[];
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -105,9 +106,11 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   };
 
   const events: HistoryEvent[] = [];
+  const changedFiles = new Set(history.filter((revision) => revision.supporting_change).map((revision) => revision.source_ids[0]));
+  const filesBySource = new Map(supportingFiles.map((file) => [file.source_id, file]));
   // What arrived is a file or a WhatsApp message; a chat proposal or a web action is not a receipt coming in.
   const first = sources
-    .filter((item) => item.kind === "attachment" || (item.kind === "message" && item.channel === "whatsapp"))
+    .filter((item) => (item.kind === "attachment" && !changedFiles.has(item.id) && !filesBySource.has(item.id)) || (item.kind === "message" && item.channel === "whatsapp"))
     .sort((a, b) => Date.parse(a.received_at) - Date.parse(b.received_at))[0];
   if (first) {
     const channel = first.channel === "whatsapp" ? "WhatsApp" : first.channel === "email" ? t("business.history.channel_email", "Email") : t("business.history.channel_web", "Uploaded");
@@ -151,15 +154,29 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       const verified = key === "rnc" && line === null && after?.state === "known" && after.verified && !before?.verified;
       events.push({ id: `${revision.version}-${key}`, at, line: verified ? t("business.history.rnc_verified", "RNC verified") : line, who, diff: verified ? undefined : diffOf(show(revision.before), show(revision.after)) });
     }
-    if (revision.after_current_note !== undefined && revision.after_current_note !== null && revision.before_current_note !== revision.after_current_note) {
-      const field = t("business.transactions.columns.notas");
+    if (hasNoteChange(revision)) {
+      const field = t("business.dossier.note.title");
       const after = revision.after_current_note || t("business.dossier.not_recorded", "Not recorded");
-      const line = revision.before_current_note ? t("business.history.changed", { field, before: revision.before_current_note, after }) : t("business.history.set", { field, after });
-      events.push({ id: `${revision.version}-current-note`, at, line, who, testId: "history-current-note", diff: diffOf(revision.before_current_note ?? "", revision.after_current_note) });
+      const before = revision.before_current_note || null;
+      const line = before ? t("business.history.changed_female", { field, before, after }) : t("business.history.set", { field, after });
+      events.push({ id: `${revision.version}-current-note`, at, line, heading: field, who, testId: "history-current-note", diff: { before, after } });
     }
-    const attachments = revision.source_ids.map((id) => sources.find((source) => source.id === id)).filter((source) => source?.kind === "attachment");
-    if (revision.before && attachments.length && same(revision.before, revision.after)) {
-      events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.map((source) => source?.kind === "attachment" ? source.filename ?? t("business.transactions.layout.annotations.received_document") : "").join(", ")}`, who, kind: "supporting", testId: "history-supporting" });
+    if (revision.supporting_change) {
+      const sourceId = revision.source_ids[0];
+      const file = filesBySource.get(sourceId);
+      const unlinked = revision.supporting_change === "unlinked";
+      events.push({
+        id: `${revision.version}-supporting`, at, line: t(`business.history.supporting.${revision.supporting_change}`),
+        sub: unlinked ? undefined : revision.supporting_filename ?? file?.filename ?? undefined,
+        who, kind: unlinked ? "unlinked" : "supporting", testId: "history-supporting",
+      });
+    } else if (revision.before && same(revision.before, revision.after)) {
+      // Earlier links did not record an explicit supporting change.
+      const attachments = revision.source_ids.flatMap((id) => {
+        const source = sources.find((source) => source.id === id);
+        return source?.kind === "attachment" ? [source.filename ?? t("business.transactions.layout.annotations.received_document")] : [];
+      });
+      if (attachments.length) events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.join(", ")}`, who, kind: "supporting", testId: "history-supporting" });
     }
     if (revision.after_dgii) {
       const changes = fiscalChanges(revision.before_dgii, revision.after_dgii, revision.after);
@@ -203,13 +220,12 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
               return (
                 <li key={event.id} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className={styles.event}>
                   <span className={styles.eventIcon} data-approved={event.approved || undefined} data-testid="history-dot"><Icon size={15} aria-hidden="true" /></span>
-                  <p className={styles.eventTitle}>{event.line}</p>
+                  <p className={styles.eventTitle}>{event.heading ? <><span aria-hidden="true">{event.heading}</span><span className="sr-only">{event.line}</span></> : event.line}</p>
                   <div className={styles.eventWho} data-testid="history-who">{event.who ? <span>{event.who}</span> : null}<time dateTime={event.at}>{formatTimestamp(event.at, locale)}</time></div>
                   {event.sub ? <p className={styles.eventSub} data-testid="history-sub">{event.sub}</p> : null}
                   {/* The sentence says it for every reader; the diff shows it at a glance. */}
                   {event.diff ? <div aria-hidden="true" data-testid="history-diff" className={`${styles.eventMore} flex flex-wrap items-center gap-1.5 text-[13.5px] leading-5 tabular-nums`}>
-                    <del className={STRUCK}>{event.diff.before}</del>
-                    <span className={ARROW}>→</span>
+                    {event.diff.before ? <><del className={STRUCK}>{event.diff.before}</del><span className={ARROW}>→</span></> : null}
                     <ins className={ADDED}>{event.diff.after}</ins>
                   </div> : null}
                   {event.changes?.length ? <div className={styles.eventMore}><FiscalChanges changes={event.changes} /></div> : null}

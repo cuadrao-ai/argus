@@ -68,12 +68,11 @@ async function mount(preferences: RecordsViewPreferences) {
   const i18n = (await import("i18next")).default.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } }, interpolation: { escapeValue: false } });
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-  const { RecordsAnnotationsPreview } = await import("@/components/business-app/transacciones/RecordsAnnotationsPreview");
   const { RecordsTable } = await import("@/components/business-app/transacciones/TransaccionesRecords");
   const value = { chosen: { space_id: "fixture-space", capabilities: ["read"] }, records: { workspace: { receipt_limits: { max_bytes: 100, media_types: ["application/pdf"] } } }, panel: { kind: "transactions" }, openPanel: () => {} } as unknown as BusinessContextValue;
   const records = [row("known", "Ferretería Ozama", "101001577"), row("person", "Ana Pérez", "00100000001"), row("none", "Colmado Sin RNC", null)];
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
-  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><RecordsAnnotationsPreview><RecordsTable records={records} preferences={preferences} density="normal" rowRef={() => {}} /></RecordsAnnotationsPreview></BusinessContext.Provider></I18nextProvider>));
+  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><RecordsTable records={records} preferences={preferences} density="normal" rowRef={() => {}} /></BusinessContext.Provider></I18nextProvider>));
   cleanup = async () => { await act(async () => root.unmount()); };
   return { act, host };
 }

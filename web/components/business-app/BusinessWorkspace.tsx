@@ -87,6 +87,8 @@ import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, pu
 
 type ReceiptReviewList = Readonly<{ scope: "batch" | "inbox"; receiptIds: readonly string[] }>;
 
+export type DossierDetailsCard = "note" | "support";
+
 export type BusinessPanelState =
   | { kind: "overview" }
   | { kind: "inbox"; view?: "eliminados" }
@@ -96,12 +98,12 @@ export type BusinessPanelState =
   // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
   // `focus` opens Registros on one list, as a count elsewhere counted it.
   | { kind: "transactions"; expenseId?: string; focus?: RecordsFocus }
-  | { kind: "expense"; expenseId: string }
+  | { kind: "expense"; expenseId: string; detailsCard?: DossierDetailsCard }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
   // `list` is the screen behind the dossier and the screen it closes to.
-  | { kind: "receipt"; receiptId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean }
-  | { kind: "draft"; draftId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean }
+  | { kind: "receipt"; receiptId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean; detailsCard?: DossierDetailsCard }
+  | { kind: "draft"; draftId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean; detailsCard?: DossierDetailsCard }
   // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
   | { kind: "email"; emailId: string };
 

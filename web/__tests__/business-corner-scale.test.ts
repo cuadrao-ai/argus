@@ -173,14 +173,6 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
     ".exclusions p | border-radius | 12px",
     ".metric | border-radius | 20px"
   ],
-  "components/business-app/transacciones/records-annotations-preview.module.css": [
-    ".icon | border-radius | 999px",
-    ".dialog | border-radius | 16px",
-    ".textarea | border-radius | 8px",
-    ".footer > button | border-radius | var(--radius-item)",
-    ".image | border-radius | 8px",
-    ".fileLink | border-radius | 999px"
-  ],
   "components/business-app/transacciones/records-page.module.css": [
     ".pages button | border-radius | 999px",
     ".option | border-radius | 8px",

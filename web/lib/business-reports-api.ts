@@ -2,6 +2,7 @@ import { z } from "zod";
 import i18n from "i18next";
 import { CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
+import { readBusinessDossier } from "./business-dossier";
 import { getChosenGrant, subscribeChosenGrant } from "./business-grant";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 
@@ -234,20 +235,29 @@ export async function mutateBusinessReportView(scope: ReportScope, command: Repo
 
 const annotationDossierSchema = z.object({
   draft_id: z.string().uuid(), version: count, current_note: z.string().nullable(), note_edit_available: z.boolean(), supporting_append_available: z.boolean(), annotation_unavailable_reason: z.string().nullable(),
-}).passthrough();
+}).passthrough().transform(readBusinessDossier);
 const noteResultSchema = z.object({ draft_id: z.string().uuid(), version: count, note: z.string() });
 const noteMutationSchema = z.object({ result: noteResultSchema, dossier: annotationDossierSchema });
 const supportingMutationSchema = z.object({
   result: z.object({ draft_id: z.string().uuid(), version: count, outcome: z.enum(["appended", "duplicate"]), source_id: z.string().uuid(), receipt_id: z.string().uuid(), sha256: z.string().regex(/^[0-9a-f]{64}$/) }), dossier: annotationDossierSchema,
 });
+const supportingLinkMutationSchema = z.object({
+  result: z.object({
+    draft_id: z.string().uuid(),
+    version: count,
+    outcome: z.enum(["unlinked", "restored"]),
+    source_id: z.string().uuid(),
+    purge_at: z.string().nullable(),
+  }),
+  dossier: annotationDossierSchema,
+});
 export type NoteMutationAnswer = z.infer<typeof noteMutationSchema>;
 export type SupportingMutationAnswer = z.infer<typeof supportingMutationSchema>;
+export type SupportingLinkMutationAnswer = z.infer<typeof supportingLinkMutationSchema>;
 export type CurrentNoteCommand = { draftId: string; expectedVersion: number; note: string; key: string };
 export type SupportingFileCommand = { draftId: string; expectedVersion: number; file: File; key: string };
+export type SupportingFileLinkCommand = Omit<SupportingFileCommand, "file"> & { sourceId: string };
 const annotationKey = z.string().min(1).max(80);
-export function getBusinessReportAnnotationDossier(scope: ReportScope, draftId: string, signal?: AbortSignal) {
-  return json(scope, `/business/drafts/${encodeURIComponent(z.string().uuid().parse(draftId))}/dossier`, annotationDossierSchema, { signal });
-}
 export function downloadBusinessReportAttachment(scope: ReportScope, receiptId: string, signal?: AbortSignal): Promise<Blob> {
   return request(scope, `/business/receipts/${encodeURIComponent(z.string().uuid().parse(receiptId))}/source`, { signal }, (response) => response.blob());
 }
@@ -260,5 +270,25 @@ export async function appendBusinessReportSupportingFile(scope: ReportScope, com
   const id = z.string().uuid().parse(command.draftId);
   return json(scope, `/business/drafts/${encodeURIComponent(id)}/supporting-files`, supportingMutationSchema, {
     method: "POST", headers: { "Idempotency-Key": annotationKey.parse(command.key), "X-Draft-Version": String(count.parse(command.expectedVersion)), "X-Document-Filename": encodeURIComponent(command.file.name), "Content-Type": command.file.type }, body: command.file, signal,
+  });
+}
+
+export async function setBusinessReportSupportingFileLink(
+  scope: ReportScope,
+  command: SupportingFileLinkCommand,
+  action: "unlink" | "restore",
+  signal?: AbortSignal,
+): Promise<SupportingLinkMutationAnswer> {
+  const draftId = encodeURIComponent(z.string().uuid().parse(command.draftId));
+  const sourceId = encodeURIComponent(z.string().uuid().parse(command.sourceId));
+  const restoring = action === "restore";
+  const path = `/business/drafts/${draftId}/supporting-files/${sourceId}${restoring ? "/restore" : ""}`;
+  return json(scope, path, supportingLinkMutationSchema, {
+    method: restoring ? "POST" : "DELETE",
+    headers: {
+      "Idempotency-Key": annotationKey.parse(command.key),
+      "X-Draft-Version": String(count.min(1).parse(command.expectedVersion)),
+    },
+    signal,
   });
 }

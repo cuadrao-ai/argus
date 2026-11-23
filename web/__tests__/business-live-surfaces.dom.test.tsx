@@ -213,7 +213,7 @@ describe("an Actividad row opens what it is about", () => {
   });
 });
 
-for (const [action, words] of [["purge_document", "borró definitivamente un documento."], ["expire_document", "borró definitivamente un documento después de 7 días en Eliminados."]] as const) {
+for (const [action, words] of [["purge_document", "borró definitivamente un documento."], ["expire_document", "borró definitivamente un documento de Eliminados."]] as const) {
   test(`Actividad shows ${action} with no name and no link`, async () => {
     const actor = action === "expire_document" ? { display_name: null, shown_as: null, kind: "extractor" } : { display_name: "Lucía Peña", shown_as: "name", kind: "member" };
     feed = async () => ({ items: [{ ...item("purge-event", "Lucía Peña", action, 5), actor, object: null }], next_cursor: null });

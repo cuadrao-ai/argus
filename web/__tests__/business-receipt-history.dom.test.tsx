@@ -60,6 +60,30 @@ const at = (day: number, hour: number, minute: number) => new Date(2026, 9, day,
 const eventLines = (item: Element) => [...[...item.querySelectorAll("p")].map((line) => line.textContent), item.querySelector('[data-testid="history-who"] span')?.textContent ?? null];
 const accepted = "Aceptado";
 
+test("Historial records unlinks as Archivo quitado with their normal actor and time", async () => {
+  const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+  const file = { source_id: "s1", receipt_id: "r1", filename: "respaldo.pdf", media_type: "application/pdf", size_bytes: 42, state: "unlinked" as const, purge_at: at(22, 14, 5), unlink_available: false, restore_available: true };
+  const documentFacts = facts("1200.00");
+  const history = ([["unlinked", 1], ["restored", 2], ["unlinked", 3]] as const).map(([supporting_change, version]) => ({
+    ...revision(version, at(10 + version, 9, 0), actor("Ana Peña"), documentFacts, documentFacts),
+    source_ids: [file.source_id], supporting_change, supporting_filename: file.filename,
+  }));
+  for (const supportingFiles of [[file], [{ ...file, restore_available: false }], []]) {
+    const page = await render(<ReceiptHistory history={history} accounts={[]} supportingFiles={supportingFiles} />);
+    try {
+      const events = [...page.host.querySelectorAll('[data-testid="history-supporting"]')];
+      assert.equal(events.length, 3, "earlier history survives a restore or expiry");
+      assert.equal(page.host.querySelectorAll(`time[datetime="${file.purge_at}"]`).length, 0);
+      assert.equal(page.host.querySelectorAll("button").length, 0);
+      assert.deepEqual(events.map(eventLines), [
+        ["Archivo quitado", "Ana Peña"],
+        ["Archivo restaurado", file.filename, "Ana Peña"],
+        ["Archivo quitado", "Ana Peña"],
+      ]);
+    } finally { await page.close(); }
+  }
+});
+
 describe("Historial", () => {
   test("reads what happened, newest first, with who and when in one gray line, and colours only the approval", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");

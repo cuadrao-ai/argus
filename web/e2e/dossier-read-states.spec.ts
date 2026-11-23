@@ -1,6 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import type { ReceiptDetail } from "../lib/business-api";
+import type { BusinessDossier, BusinessSupportingFile } from "../lib/business-dossier";
 import { installReceiptBusiness } from "./support/business-receipt-fixture";
 
 const file = "lectura-de-prueba.svg";
@@ -97,4 +98,107 @@ test("an owner can recover an interrupted read with an expired preparation grant
   await rebind.click();
   await expect(page.locator('[data-fact="amount"]')).toBeVisible();
   expect(writes).toEqual(["rebind", "prepare"]);
+});
+
+test("Detalles edits a record note and opens its supporting file in the document pane", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const source = createFixtureBusinessDataSource();
+  const receipt = await source.receipt("rcpt-ferreteria");
+  const base = await source.dossier(receipt.draft_id!);
+  const id = "00000000-0000-4000-8000-000000000197";
+  const support = { source_id: "00000000-0000-4000-8000-000000000198", receipt_id: "00000000-0000-4000-8000-000000000199", filename: "orden-de-compra.svg", media_type: "image/svg+xml", size_bytes: 8251, state: "linked" as const, unlink_available: true, restore_available: false, purge_at: null };
+  let dossier = { ...base, draft_id: id, space_id: "fixture-space", current_note: "Revisar la orden.", note_edit_available: true, supporting_append_available: true, supporting_files: [support], annotation_unavailable_reason: null };
+  await installReceiptBusiness(page, ([resource, target, action], route) => {
+    if (resource === "drafts" && target === id) {
+      if (action === "dossier") return Promise.resolve(dossier);
+      if (action === "current-note") {
+        const { note, expected_version } = route.request().postDataJSON();
+        expect(expected_version).toBe(dossier.version);
+        const version = dossier.version + 1;
+        dossier = { ...dossier, version, current_note: note };
+        return Promise.resolve({ result: { draft_id: id, version, note }, dossier });
+      }
+    }
+    if (resource === "receipts" && target === support.receipt_id && action === "source") {
+      return route.fulfill({ contentType: "image/svg+xml", body: svg }).then(() => null);
+    }
+  });
+  await page.goto(`/biz?draft=${id}`);
+  await page.getByRole("tab", { name: "Detalles", exact: true }).click();
+  const details = page.getByRole("tabpanel", { name: "Detalles" });
+  await details.getByRole("button", { name: "Editar nota" }).click();
+  const note = details.getByRole("textbox", { name: "Nota" });
+  await note.fill("Orden verificada.");
+  await note.press("Control+Enter");
+  await expect(details.getByText("Orden verificada.", { exact: true })).toBeVisible();
+  await details.getByRole("button", { name: /^Ver\b/ }).click();
+  const foot = page.getByTestId("dossier-document-foot");
+  await expect(foot.getByRole("link")).toHaveAttribute("download", support.filename);
+  await page.screenshot({ path: testInfo.outputPath("dossier-note-and-backing-file.png"), animations: "disabled" });
+});
+
+test("Detalles keeps a removed file until the server withdraws its link-back offer", async ({ page }, testInfo) => {
+  const source = createFixtureBusinessDataSource();
+  const receipt = await source.receipt("rcpt-ferreteria");
+  const base = await source.dossier(receipt.draft_id!);
+  const sourceId = "00000000-0000-4000-8000-000000000198";
+  const linked: BusinessSupportingFile = {
+    source_id: sourceId, receipt_id: "00000000-0000-4000-8000-000000000199", filename: "respaldo.pdf",
+    media_type: "application/pdf", size_bytes: 512, state: "linked", purge_at: null,
+    unlink_available: true, restore_available: false,
+  };
+  let dossier: BusinessDossier = { ...base, space_id: "fixture-space", current_note: null, note_edit_available: true,
+    supporting_append_available: true, annotation_unavailable_reason: null, supporting_files: [linked] };
+  let now = "2026-11-15T16:00:00Z";
+  let purgeAt = "2026-11-22T16:00:00Z";
+  await page.clock.setFixedTime(new Date(now));
+  await installReceiptBusiness(page, ([resource, target, action, fileId, command], route) => {
+    if (resource !== "drafts" || target !== dossier.draft_id) return;
+    if (action === "dossier") return Promise.resolve(dossier);
+    if (action !== "supporting-files" || fileId !== sourceId) return;
+    const restoring = command === "restore";
+    expect(route.request().method()).toBe(restoring ? "POST" : "DELETE");
+    expect(route.request().headers()["x-draft-version"]).toBe(String(dossier.version));
+    const outcome = restoring ? "restored" : "unlinked";
+    const version = dossier.version + 1;
+    const file: BusinessSupportingFile = restoring ? linked : {
+      ...linked, state: "unlinked", purge_at: purgeAt, restore_available: true, unlink_available: false,
+    };
+    dossier = { ...dossier, version, supporting_files: [file], history: [...dossier.history, {
+      ...base.history[0], version, created_at: now, supporting_change: outcome,
+      source_ids: [sourceId], supporting_filename: linked.filename,
+    }] };
+    return Promise.resolve({ result: { draft_id: target, version, outcome, source_id: sourceId, purge_at: file.purge_at }, dossier });
+  });
+  const details = page.getByRole("tab", { name: "Detalles", exact: true });
+  const row = page.getByTestId("dossier-supporting").getByRole("listitem").filter({ hasText: "respaldo.pdf" });
+  const unlink = row.getByRole("button", { name: /^Quitar/ });
+  await page.goto(`/biz?draft=${dossier.draft_id}`);
+  await details.click();
+  await unlink.click();
+  await expect(row).toContainText("Se borra en 7 días");
+  now = "2026-11-21T16:00:00Z";
+  await page.clock.setFixedTime(new Date(now));
+  await page.reload();
+  await details.click();
+  await expect(row).toContainText("Se borra mañana");
+  await expect(row.getByRole("button")).toHaveCount(1);
+  await page.screenshot({ path: testInfo.outputPath("dossier-supporting-file-link-back.png"), animations: "disabled" });
+
+  await row.getByRole("button", { name: "Restaurar respaldo.pdf", exact: true }).click();
+  await expect(unlink).toBeVisible();
+  await expect(row).not.toContainText("Se borra");
+  purgeAt = "2026-11-28T16:00:00Z";
+  await unlink.click();
+  await expect(row).toContainText("Se borra en 7 días");
+
+  dossier = { ...dossier, supporting_files: dossier.supporting_files!.map(file => ({ ...file, restore_available: false })) };
+  await page.reload();
+  await details.click();
+  await expect(row).toHaveCount(0);
+  await page.getByRole("tab", { name: "Historial", exact: true }).click();
+  const removals = page.getByTestId("history-supporting").filter({ hasText: "Archivo quitado" });
+  await expect(removals).toHaveCount(2);
+  await expect(removals.getByRole("button")).toHaveCount(0);
+  await expect(removals.getByText(/Se borra|respaldo.pdf/)).toHaveCount(0);
 });

@@ -4,7 +4,7 @@ import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createBusinessReportHttpFixture } from "./fixtures/business-report-http-fixture";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
-import { appendBusinessReportSupportingFile, downloadRecordsExport, listBusinessReportViews, mutateBusinessReportView, previewRecordsExport, queryBusinessReport, reportFiscalTotalSchema, reportRecordSchema, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, type ReportScope } from "@/lib/business-reports-api";
+import { appendBusinessReportSupportingFile, downloadBusinessReportAttachment, downloadRecordsExport, listBusinessReportViews, mutateBusinessReportView, previewRecordsExport, queryBusinessReport, reportFiscalTotalSchema, reportRecordSchema, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, setBusinessReportSupportingFileLink, type ReportScope } from "@/lib/business-reports-api";
 
 const scope: ReportScope = { userId: "synthetic-person", businessId: "synthetic-business", grantId: "00000000-0000-4000-8000-000000000001" };
 const answer = () => ({ ...recordedReportAnswer, items: [], matching_count: 102, page: 1, page_size: 25, page_count: 5, totals: [{ currency: "DOP", kind: "expense", basis: "recorded_activity_amount", matching_count: 102, known_amount_minor: 123456789, unknown_count: 1, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "1234567.89", amount: null }], fingerprint: "a".repeat(64), captured_at: "2026-10-26T00:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
@@ -151,12 +151,13 @@ describe("Business report transport", () => {
   });
   test("current-note commands use code point limits and preserve durable replay version separately from the current dossier", async () => {
     const draftId = "00000000-0000-4000-8000-000000000003";
-    const dossier = { draft_id: draftId, version: 5, current_note: "Actual", note_edit_available: true, supporting_append_available: true, annotation_unavailable_reason: null };
+    const dossier = { draft_id: draftId, version: 5, current_note: "Actual", review_note: "  Remitente sin verificar.  ", note_edit_available: true, supporting_append_available: true, annotation_unavailable_reason: null };
     const note = "🟢".repeat(500);
     const calls = respond({ result: { draft_id: draftId, version: 3, note }, dossier });
     const result = await setBusinessReportCurrentNote(scope, { draftId, expectedVersion: 2, key: "note-command", note });
     expect(result.result.version).toBe(3);
     expect(result.dossier.version).toBe(5);
+    expect(result.dossier.review_note).toBe("Remitente sin verificar.");
     expect(calls[0].options.method).toBe("PUT");
     expect(JSON.parse(String(calls[0].options.body))).toEqual({ expected_version: 2, note });
     expect(new Headers(calls[0].options.headers).get("Idempotency-Key")).toBe("note-command");
@@ -177,6 +178,68 @@ describe("Business report transport", () => {
     expect(headers.get("X-Draft-Version")).toBe("5");
     expect(decodeURIComponent(headers.get("X-Document-Filename")!)).toBe(file.name);
     expect(headers.get("Idempotency-Key")).toBe("supporting-command");
+  });
+
+  test.each([
+    { action: "unlink", method: "DELETE", suffix: "", outcome: "unlinked", state: "unlinked", purgeAt: "2026-11-29T00:00:00Z" },
+    { action: "restore", method: "POST", suffix: "/restore", outcome: "restored", state: "linked", purgeAt: null },
+  ] as const)("$action sends a bodyless versioned command and returns the current dossier", async ({ action, method, suffix, outcome, state, purgeAt }) => {
+    const draftId = "00000000-0000-4000-8000-000000000003";
+    const sourceId = "00000000-0000-4000-8000-000000000004";
+    const receiptId = "00000000-0000-4000-8000-000000000005";
+    const file = {
+      source_id: sourceId, receipt_id: receiptId, filename: "Comprobante de pago.pdf", media_type: "application/pdf", size_bytes: 123,
+      state, purge_at: purgeAt, unlink_available: state === "linked", restore_available: state === "unlinked",
+    };
+    const revision = { version: 6, supporting_change: outcome, supporting_filename: file.filename, source_ids: [sourceId] };
+    const dossier = {
+      draft_id: draftId, version: 8, current_note: "Actual", note_edit_available: true, supporting_append_available: true,
+      annotation_unavailable_reason: null, supporting_files: [file], supporting_file_limit: 3, supporting_limit_reached: false, history: [revision],
+    };
+    const result = { draft_id: draftId, version: 6, outcome, source_id: sourceId, purge_at: purgeAt };
+    const calls = respond({ result, dossier });
+    const command = { draftId, expectedVersion: 5, sourceId, key: "same-command" };
+
+    const response = await setBusinessReportSupportingFileLink(scope, command, action);
+
+    expect(response.result).toEqual(result);
+    expect(response.dossier.version).toBe(8);
+    expect(response.dossier.supporting_files).toEqual([file]);
+    expect(response.dossier.supporting_file_limit).toBe(3);
+    expect(response.dossier.supporting_limit_reached).toBe(false);
+    expect(response.dossier.history).toMatchObject([revision]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].path).toEndWith(`/business/drafts/${draftId}/supporting-files/${sourceId}${suffix}`);
+    expect(calls[0].options.method).toBe(method);
+    expect(calls[0].options.body).toBeUndefined();
+    expect(calls[0].options.cache).toBe("no-store");
+    const headers = new Headers(calls[0].options.headers);
+    expect(headers.get("X-Business-Grant")).toBe(scope.grantId);
+    expect(headers.get("X-Draft-Version")).toBe("5");
+    expect(headers.get("Idempotency-Key")).toBe("same-command");
+  });
+
+  test("a refused supporting-file command preserves its problem and reference", async () => {
+    const draftId = "00000000-0000-4000-8000-000000000003";
+    const sourceId = "00000000-0000-4000-8000-000000000004";
+    const calls = respond({ detail: { code: "stale_version" } }, 409);
+    const command = { draftId, expectedVersion: 5, sourceId, key: "same-command" };
+    await expect(setBusinessReportSupportingFileLink(scope, command, "unlink")).rejects.toMatchObject({
+      code: "stale_version", status: 409, requestId: "synthetic-request",
+    });
+    await expect(setBusinessReportSupportingFileLink(scope, { ...command, expectedVersion: 0 }, "unlink")).rejects.toThrow();
+    expect(calls).toHaveLength(1);
+  });
+
+  test("supporting-file bytes use the scoped receipt-source route", async () => {
+    const receiptId = "00000000-0000-4000-8000-000000000005";
+    const calls = respond("synthetic PDF", 200, "application/pdf");
+    const file = await downloadBusinessReportAttachment(scope, receiptId);
+    expect(file.type).toBe("application/pdf");
+    expect(await file.text()).toBe("synthetic PDF");
+    expect(calls[0].path).toEndWith(`/business/receipts/${receiptId}/source`);
+    expect(new Headers(calls[0].options.headers).get("X-Business-Grant")).toBe(scope.grantId);
+    expect(calls[0].options.cache).toBe("no-store");
   });
 });
 

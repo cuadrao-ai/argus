@@ -91,6 +91,8 @@ export type BusinessReviewQuestion = {
 export type BusinessDraftRevision = {
   before_current_note?: string | null;
   after_current_note?: string | null;
+  supporting_change?: "appended" | "unlinked" | "restored" | null;
+  supporting_filename?: string | null;
   before_dgii?: DgiiDeclaration | null;
   after_dgii?: DgiiDeclaration | null;
   draft_id: string;
@@ -164,6 +166,18 @@ export type ListoGap = (typeof LISTO_GAPS)[number] | ReceiptAttention;
 export const RNC_REGISTRY_STATUSES = ["verificado", "suspendido", "dado_de_baja", "cese_temporal", "anulado", "rechazado", "desconocido", "not_found"] as const;
 export type RncRegistryStatus = (typeof RNC_REGISTRY_STATUSES)[number];
 
+export type BusinessSupportingFile = {
+  source_id: string;
+  receipt_id: string;
+  filename: string | null;
+  media_type: string | null;
+  size_bytes: number | null;
+  state: "linked" | "unlinked";
+  purge_at: string | null;
+  unlink_available: boolean;
+  restore_available: boolean;
+};
+
 export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   /** Where the record stands in the Bandeja, by the rule the receipt list reads. An accepted record has the label `accepted`; a deleted one has none. */
   bandeja_group?: Pick<BandejaGroup, "group" | "reason" | "label"> | null;
@@ -178,6 +192,9 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   current_note?: string | null;
   note_edit_available?: boolean;
   supporting_append_available?: boolean;
+  supporting_files?: BusinessSupportingFile[];
+  supporting_file_limit?: number;
+  supporting_limit_reached?: boolean;
   annotation_unavailable_reason?: string | null;
   dgii?: DgiiDeclaration | null;
   /** The caller may write the 606 declaration now: it holds prepare, the record takes a 606, and no downloaded TXT carries it. */

@@ -465,16 +465,16 @@ describe("the gate", () => {
     for (const cell of page.host.querySelectorAll('td[data-col="attachment"]')) assert.ok(cell.querySelector('[data-testid="record-proof"]') || (cell.textContent ?? "").trim() !== "", "a cell holds the receipt icon or a dash");
   });
 
-  test("a saved record with a receipt shows the receipt icon and opens in the record tray beside the list", async () => {
+  test("a saved record opens beside the list and its receipt icon opens supporting files", async () => {
     const page = await mount({ enabled: false });
     await page.settle(() => page.records().length > 0, "the saved records");
-    const withReceipt = page.records().find((node) => node.querySelector('[data-testid="record-proof"]'));
-    assert.ok(withReceipt, "a gasto with its receipt shows the icon");
-    await page.click(withReceipt!);
-    const opened = page.api().panel;
-    assert.ok(opened.kind === "receipt" || opened.kind === "draft", `opened ${opened.kind}`);
-    assert.equal((opened as { list?: string }).list, "transactions");
+    const row = page.records().find(node => node.querySelector('[data-testid="record-proof"]'));
+    assert.ok(row, "a gasto with its receipt shows the icon");
+    await page.click(row);
+    assert.deepEqual(page.api().panel, { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" });
     await page.settle(() => document.querySelector('[data-testid="transacciones-records"]') !== null && document.querySelector('[data-testid="business-record-review"]') !== null, "the record beside the list");
+    await page.click(row.querySelector('button[data-record-attachment]')!);
+    assert.deepEqual(page.api().panel, { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions", detailsCard: "support" });
   });
 
   test("an old Gastos link lands on Transacciones", async () => {

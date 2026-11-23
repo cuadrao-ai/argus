@@ -48,6 +48,7 @@ async function mountReview(typedNotes: boolean, onCapture: (body: string) => voi
     reload: () => undefined,
     records: { inbox: [], notes: [], notesError: false, notesTruncated: false, error: false, workspace: { typed_notes_available: typedNotesAvailable } },
     openPanel: () => undefined,
+    guardPanel: () => () => undefined,
     panel: { kind: "draft", draftId: dossier.draft_id },
     revision: 0,
   }) as unknown as BusinessContextValue;

@@ -2173,7 +2173,7 @@
         "document_read": "read a document",
         "document_read_failed": "could not read a document",
         "edit_current_note": "edited a note",
-        "expire_document": "deleted a document for good after 7 days in Deleted.",
+        "expire_document": "deleted a document for good from Deleted.",
         "grant_access": "gave access",
         "invite_access": "sent an invitation",
         "invoice_draft_created": "created an invoice draft",
@@ -2789,7 +2789,7 @@
       "delete": "Delete",
       "deleted_state": "Deleted",
       "description": "It leaves the Inbox and its counts. You can restore it from Deleted.",
-      "empty_body": "Documents you delete stay here for 7 days. After that, they are deleted for good.",
+      "empty_body": "Documents you delete appear here until they are deleted for good.",
       "empty_title": "No deleted documents",
       "failed": "The document could not be deleted. Try again.",
       "fields": {
@@ -2799,7 +2799,7 @@
         "total": "Total"
       },
       "label": "Delete {{name}}",
-      "list_help": "They do not count in any total. They are deleted for good after 7 days.",
+      "list_help": "They do not count in any total. Each document shows when it is deleted for good.",
       "menu": "Delete document",
       "open": "Open",
       "previous": {
@@ -2807,6 +2807,7 @@
         "listo": "Ready"
       },
       "purge": "Delete for good",
+      "purge_at": "on {{date}}",
       "purge_description": "This cannot be undone. The file and its data are erased from Cuadrao.",
       "purge_failed": "The document could not be deleted for good. Try again.",
       "purge_in_one": "in {{count}} day",
@@ -2880,6 +2881,17 @@
         "previous": "Previous",
         "unopened": "Unopened"
       },
+      "note": {
+        "changed": "The note changed. This is the current saved note.",
+        "edit": "Edit note",
+        "edited_date": "Edited on {{date}}",
+        "edited_date_by": "Edited on {{date}} · {{name}}",
+        "edited_today": "Edited today",
+        "edited_today_by": "Edited today · {{name}}",
+        "empty": "No note.",
+        "save_error": "We couldn't save the note. Try again.",
+        "title": "Note"
+      },
       "problems": {
         "count_one": "{{count}} to resolve",
         "count_other": "{{count}} to resolve",
@@ -2904,6 +2916,33 @@
       "size": {
         "narrow": "Narrow",
         "wide": "Widen"
+      },
+      "supporting": {
+        "add": "Add file",
+        "append_error": "We couldn't add the file.",
+        "document_label": "Supporting file",
+        "document_selector": "File to view",
+        "empty": "No supporting files.",
+        "limit_one": "Up to {{count}} file. Remove one to add another.",
+        "limit_other": "Up to {{count}} files. Remove one to add another.",
+        "limit_reached": "Remove a file to add another.",
+        "purge_in_one": "Deletes in {{count}} day",
+        "purge_in_other": "Deletes in {{count}} days",
+        "purge_today": "Deletes today",
+        "purge_tomorrow": "Deletes tomorrow",
+        "receipt_label": "Original receipt",
+        "restore": "Restore",
+        "restore_error": "We couldn't restore the file. Try again.",
+        "restore_named": "Restore {{name}}",
+        "title": "Supporting files",
+        "undo": "Undo",
+        "unlink": "Remove file",
+        "unlink_error": "We couldn't remove the file. Try again.",
+        "unlink_named": "Remove {{name}}",
+        "unlinked_toast": "File removed.",
+        "view": "View",
+        "view_error": "We couldn't open the file. Try again.",
+        "view_named": "View {{name}}"
       },
       "tab": {
         "general": "General",
@@ -3305,6 +3344,11 @@
       "received": "Received",
       "rnc_verified": "RNC verified",
       "set": "{{field}}: {{after}}",
+      "supporting": {
+        "appended": "File added",
+        "restored": "File restored",
+        "unlinked": "File removed"
+      },
       "title": "History",
       "today": "Today",
       "via_cuadrao": "{{name}} via Cuadrao",

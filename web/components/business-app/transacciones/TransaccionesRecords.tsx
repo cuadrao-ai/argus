@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useContext, useEffect, useState, type KeyboardEvent } from "react";
-import { ArrowDown, ArrowUp, ChevronRight, FileText } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight } from "lucide-react";
 import { currencySymbol } from "@/lib/money-entry";
 import { personName } from "@/lib/person-name";
 import { businessWorkspaceCurrency } from "@/lib/business-api";
@@ -21,7 +21,7 @@ import { formatRecordActivityDate, previewAmountColumnSize, recordRowKey } from 
 import RecordMissingReason from "./RecordMissingReason";
 import RecordWorkflowBadge from "./RecordWorkflowBadge";
 import RecordDgiiCell from "./RecordDgiiCell";
-import { RecordAnnotationActions, RecordAttachmentPreview, RecordNotePreview } from "./RecordsAnnotationsPreview";
+import { RecordDetailsLinks, RecordNoteLink, RecordSupportLink } from "./RecordDetailsLinks";
 import type { RecordsSort } from "./records-pagination";
 import { CELL, COLUMNS, PIN_CLASS, RECORDS_FRAME, RECORDS_TITLE } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -35,23 +35,7 @@ function useReportRows(records: readonly RecordRow[]) {
 const PINNED = { left: `${PIN_CLASS.left} group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`, right: PIN_CLASS.right } as const;
 export { recordRowKey } from "./records-row-preview";
 
-/** The proof column for a saved record: the receipt icon when a file backs it, a dash that says "no receipt" when none does, a dash that says "no data" when no read says. An empty cell is a question. */
-function Proof({ row }: { row: RecordRow }) {
-  const { t } = useTransaccionesWords();
-  if (row.hasProof === null) return <Unknown />;
-  if (!row.hasProof) return <Unknown meaning={t("business.expenses.no_receipt")} />;
-  return (
-    <span data-testid="record-proof" role="img" aria-label={t("business.transactions.records.proof")} className="inline-flex h-8 w-8 items-center justify-center text-[#56635e] dark:text-white/65">
-      <FileText className="h-4 w-4" aria-hidden="true" />
-    </span>
-  );
-}
-
-/**
- * The period's saved gastos and ventas in the ledger's columns, with no
- * igualar state. A row opens its record in the record tray; a venta has no
- * record screen yet, so its row is plain.
- */
+/** The period's saved gastos and ventas. A row opens its record in the record tray. */
 export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange, preferences, sort, onSortChange, amountSortAvailable = false, sortNoticeId, serverSorted = false }: { serverSorted?: boolean; sort?: RecordsSort; onSortChange?: (sort: RecordsSort) => void; amountSortAvailable?: boolean; sortNoticeId?: string; preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
   useReportRows(records);
   const { t, locale } = useTransaccionesWords();
@@ -132,7 +116,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
               fiscal_number: (<td {...at("fiscal_number", "text-left")}>{row.report?.fiscal_number ? <Truncated text={row.report.fiscal_number} /> : <Unknown />}</td>),
               net_amount: (<td {...at("net_amount", "text-right font-normal tabular-nums")}>{row.report?.net_amount == null || row.report.currency === null ? <Unknown /> : <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report.net_amount, row.report.currency, locale)}</span>}</td>),
               itbis_amount: (<td {...at("itbis_amount", "text-right font-normal tabular-nums")}>{row.report?.itbis_amount == null || row.report.currency === null ? <Unknown /> : <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report.itbis_amount, row.report.currency, locale)}</span>}</td>),
-              note: (<td {...at("note", "text-left")}><RecordNotePreview row={row} /></td>),
+              note: (<td {...at("note", "text-left")}><RecordNoteLink row={row} /></td>),
               detail: (<td {...at("detail", "text-left text-[#56635e] dark:text-white/65")}>
                   {row.report?.family === null ? <Unknown /> : preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: personName(t, row.marks.markedBy) }) : null].filter(Boolean).join(" · ")}>
                     <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
@@ -145,7 +129,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
               // The ledger's own columns, for the records table bank matching mounts beside its movements.
               category: (<td {...at("category", "text-left")}>{row.categoryId ? <Truncated text={t(`business.category.${row.categoryId}`, { defaultValue: row.categoryId })} /> : <Unknown />}</td>),
               funding: (<td {...at("funding", "text-left")}><AccountLabel account={row.account} /></td>),
-              attachment: (<td {...at("attachment", "text-right")}>{preferences ? <RecordAttachmentPreview row={row} /> : <Proof row={row} />}</td>),
+              attachment: (<td {...at("attachment", "text-right")}><RecordSupportLink row={row} legacy={!preferences} /></td>),
             };
             return (
               <tr
@@ -189,12 +173,11 @@ export function RecordsList({ records, rowRef }: { records: readonly RecordRow[]
               <RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} className="mt-1" />
             </span>
             <span className="shrink-0 text-right text-[15px] font-medium text-[#172b26] dark:text-white"><SignedAmount money={row.money} header={header} /></span>
-            {row.hasProof ? <Proof row={row} /> : null}
           </>
         );
         const rowClass = "flex min-h-16 w-full min-w-0 items-center gap-3 py-2.5 pl-4 pr-3 text-left";
         return (
-          <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className="border-b border-[#DCE0DA] last:border-b-0 aria-[current=true]:bg-[#eef3ec] dark:border-white/10 dark:aria-[current=true]:bg-[#24302b]">
+          <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className="flex items-center border-b border-[#DCE0DA] last:border-b-0 aria-[current=true]:bg-[#eef3ec] dark:border-white/10 dark:aria-[current=true]:bg-[#24302b]">
             {opens ? (
               <button ref={(node) => rowRef(recordRowKey(row), node)} type="button" onClick={() => openPanel(opens)} className={`${rowClass} rounded-item focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)]`}>
                 {body}
@@ -203,6 +186,7 @@ export function RecordsList({ records, rowRef }: { records: readonly RecordRow[]
             ) : (
               <div className={rowClass}>{body}<span className="w-4 shrink-0" aria-hidden="true" /></div>
             )}
+            <RecordDetailsLinks row={row} />
           </li>
         );
       })}
@@ -225,7 +209,7 @@ export function RecordsNarrowList({ records, rowRef }: { records: readonly Recor
         <span className={pageStyles.meta}><span className={pageStyles.marks}>{row.report?.family === null ? <Unknown /> : t(`business.transactions.records.detail.${row.kind}`)}<RecordWorkflowBadge row={row} /></span><span className={pageStyles.date}>{formatRecordActivityDate(row.occurredOn, locale)}</span></span></>;
       return <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} data-arrived={arrived.has(recordRowKey(row))} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className={pageStyles.narrowRecord}>
         {opens ? <button type="button" ref={(node) => rowRef(recordRowKey(row), node)} className={pageStyles.row} onClick={() => { if (openGlance) openGlance(row); else openPanel(opens); }}>{body}</button> : <div className={pageStyles.row}>{body}</div>}
-        <RecordAnnotationActions row={row} />
+        <RecordDetailsLinks row={row} />
       </li>;
     })}
   </ul>;

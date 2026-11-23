@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ReceiptText, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
@@ -8,7 +8,7 @@ import type { BusinessDossier } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
 import { primaryButtonClass, quietButtonClass, RecordMarks, recordFiscalMark, secondaryButtonClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
-import { showToast } from "./foundation/toasts";
+import { dismissToast, showToast } from "./foundation/toasts";
 import { MenuCheckItem } from "./ReceiptReviewFooter";
 import { Switch } from "@/components/ui/Switch";
 
@@ -20,10 +20,18 @@ import { Switch } from "@/components/ui/Switch";
  * answers whether a personal receipt with a fiscal number goes into the 606,
  * when the server says the caller may. The owner reads that answer; the app never gives it.
  */
-export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bare = false }: { dossier: BusinessDossier; busy?: boolean; onChanged: (next: BusinessDossier) => void; /** As rows of the footer's Más menu: a switch per decision, the 606 only under Personal, no chips and no words for an open answer. */ bare?: boolean }) {
+export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, onChanged, bare = false }: { dossier: BusinessDossier; busy?: boolean; onBusyChange?: (busy: boolean) => void; onChanged: (next: BusinessDossier) => void; /** As rows of the footer's Más menu: a switch per decision, the 606 only under Personal, no chips and no words for an open answer. */ bare?: boolean }) {
   const { t } = useTranslation();
   const { source, chosen, reload } = useBusiness();
-  const [working, setWorking] = useState(false);
+  const [undoToast, setUndoToast] = useState<number | null>(null);
+  useEffect(() => {
+    if (busy && undoToast !== null) dismissToast(undoToast);
+  }, [busy, undoToast]);
+  useEffect(() => () => {
+    if (undoToast !== null) dismissToast(undoToast);
+  }, [dossier.draft_id, undoToast]);
+  const [working, setLocalWorking] = useState(false);
+  const setWorking = (value: boolean) => { setLocalWorking(value); onBusyChange?.(value); };
   const [problem, setProblem] = useState<string | null>(null);
   const [retry, setRetry] = useState<(() => void) | null>(null);
   const canPrepare = dossier.capabilities.includes("prepare");
@@ -59,11 +67,11 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bar
       const marked = await source.markPersonal(dossier.draft_id, dossier.version, next, crypto.randomUUID());
       onChanged(marked);
       reload();
-      showToast({
+      setUndoToast(showToast({
         kind: "success",
         text: next ? t("business.marks.marked_personal", "Marked as personal. It does not count in the Business totals.") : t("business.marks.unmarked_personal", "No longer personal. It counts in the totals again."),
         action: { label: t("business.marks.undo", "Undo"), run: () => void run(() => source.markPersonal(dossier.draft_id, marked.version, !next, crypto.randomUUID()), t("business.marks.mark_failed", "We could not save the change. Try again.")) },
-      });
+      }));
     } catch (error) {
       fail(t("business.marks.mark_failed", "We could not save the change. Try again."), () => void markPersonal(next).catch(() => undefined));
       throw error;

@@ -2173,7 +2173,7 @@
         "document_read": "leyó un documento",
         "document_read_failed": "no pudo leer un documento",
         "edit_current_note": "editó una nota",
-        "expire_document": "borró definitivamente un documento después de 7 días en Eliminados.",
+        "expire_document": "borró definitivamente un documento de Eliminados.",
         "grant_access": "dio acceso",
         "invite_access": "envió una invitación",
         "invoice_draft_created": "creó un borrador de factura",
@@ -2789,7 +2789,7 @@
       "delete": "Eliminar",
       "deleted_state": "Eliminado",
       "description": "Sale de la Bandeja y de los conteos. Puedes restaurarlo desde Eliminados.",
-      "empty_body": "Los documentos que elimines quedan aquí 7 días. Después se borran definitivamente.",
+      "empty_body": "Los documentos que elimines aparecerán aquí hasta que se borren definitivamente.",
       "empty_title": "No hay documentos eliminados",
       "failed": "No se pudo eliminar el documento. Intenta de nuevo.",
       "fields": {
@@ -2799,7 +2799,7 @@
         "total": "Total"
       },
       "label": "Eliminar {{name}}",
-      "list_help": "No cuentan en ningún total. Se borran definitivamente 7 días después.",
+      "list_help": "No cuentan en ningún total. Cada documento indica cuándo se borra definitivamente.",
       "menu": "Eliminar documento",
       "open": "Abrir",
       "previous": {
@@ -2807,6 +2807,7 @@
         "listo": "Listos"
       },
       "purge": "Borrar definitivamente",
+      "purge_at": "el {{date}}",
       "purge_description": "No se puede deshacer. El archivo y sus datos se borran de Cuadrao.",
       "purge_failed": "No se pudo borrar definitivamente el documento. Intenta de nuevo.",
       "purge_in_one": "en {{count}} día",
@@ -2880,6 +2881,17 @@
         "previous": "Anterior",
         "unopened": "Sin abrir"
       },
+      "note": {
+        "changed": "La nota cambió. Esta es la nota guardada ahora.",
+        "edit": "Editar nota",
+        "edited_date": "Editada el {{date}}",
+        "edited_date_by": "Editada el {{date}} · {{name}}",
+        "edited_today": "Editada hoy",
+        "edited_today_by": "Editada hoy · {{name}}",
+        "empty": "Sin nota.",
+        "save_error": "No pudimos guardar la nota. Inténtalo de nuevo.",
+        "title": "Nota"
+      },
       "problems": {
         "count_one": "{{count}} por resolver",
         "count_other": "{{count}} por resolver",
@@ -2904,6 +2916,33 @@
       "size": {
         "narrow": "Reducir",
         "wide": "Ampliar"
+      },
+      "supporting": {
+        "add": "Agregar archivo",
+        "append_error": "No pudimos agregar el archivo.",
+        "document_label": "Archivo de respaldo",
+        "document_selector": "Archivo a ver",
+        "empty": "Sin archivos de respaldo.",
+        "limit_one": "Hasta {{count}} archivo. Quita uno para agregar otro.",
+        "limit_other": "Hasta {{count}} archivos. Quita uno para agregar otro.",
+        "limit_reached": "Quita un archivo para agregar otro.",
+        "purge_in_one": "Se borra en {{count}} día",
+        "purge_in_other": "Se borra en {{count}} días",
+        "purge_today": "Se borra hoy",
+        "purge_tomorrow": "Se borra mañana",
+        "receipt_label": "Comprobante",
+        "restore": "Restaurar",
+        "restore_error": "No pudimos restaurar el archivo. Inténtalo de nuevo.",
+        "restore_named": "Restaurar {{name}}",
+        "title": "Archivos de respaldo",
+        "undo": "Deshacer",
+        "unlink": "Quitar archivo",
+        "unlink_error": "No pudimos quitar el archivo. Inténtalo de nuevo.",
+        "unlink_named": "Quitar {{name}}",
+        "unlinked_toast": "Archivo quitado.",
+        "view": "Ver",
+        "view_error": "No pudimos abrir el archivo. Inténtalo de nuevo.",
+        "view_named": "Ver {{name}}"
       },
       "tab": {
         "general": "General",
@@ -3339,6 +3378,11 @@
       "received": "Recibido",
       "rnc_verified": "RNC verificado",
       "set": "{{field}}: {{after}}",
+      "supporting": {
+        "appended": "Archivo agregado",
+        "restored": "Archivo restaurado",
+        "unlinked": "Archivo quitado"
+      },
       "title": "Historial",
       "today": "Hoy",
       "via_cuadrao": "{{name}} vía Cuadrao",
