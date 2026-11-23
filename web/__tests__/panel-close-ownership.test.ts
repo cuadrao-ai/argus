@@ -18,7 +18,6 @@ const SCREENS: { screen: string; file: string; draws: "panel" | "record tray" }[
   { screen: "Recepción original", file: "components/business-app/recepcion/ReceptionOriginal.tsx", draws: "panel" },
   { screen: "Correo de recibos history", file: "components/business-app/BusinessEmailDeliveries.tsx", draws: "panel" },
   { screen: "Conciliación movement tray", file: "components/business-app/transacciones/TransaccionesTray.tsx", draws: "panel" },
-  { screen: "Registros notes and attachments", file: "components/business-app/transacciones/RecordsAnnotationsPreview.tsx", draws: "panel" },
   { screen: "Facturación invoice dossier", file: "components/business-app/invoicing/InvoiceDossier.tsx", draws: "panel" },
   { screen: "Facturación invoice editor", file: "components/business-app/invoicing/InvoiceEditor.tsx", draws: "panel" },
   { screen: "Facturación customer dossier", file: "components/business-app/invoicing/CustomerDossier.tsx", draws: "panel" },

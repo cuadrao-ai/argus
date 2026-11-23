@@ -6,12 +6,11 @@ import { useTranslation } from "react-i18next";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import type { BusinessExpenseDetail } from "@/lib/business-api";
 import { recordGone, referenceCode } from "@/lib/failure-screen";
-import { useBusiness } from "./BusinessWorkspace";
+import { useBusiness, type DossierDetailsCard } from "./BusinessWorkspace";
 import type { RecordRow } from "./transacciones/transacciones-model";
 import RecordWorkflowBadge from "./transacciones/RecordWorkflowBadge";
 import { OpenRecordMissingReasons } from "./transacciones/RecordMissingReason";
 import RecordDgiiCell, { DgiiAnswer } from "./transacciones/RecordDgiiCell";
-import { RecordAttachmentPreview, RecordNotePreview } from "./transacciones/RecordsAnnotationsPreview";
 import { formatRecordActivityDate } from "./transacciones/records-row-preview";
 import { AccountLabel, PlainAmount } from "./transacciones/transacciones-parts";
 import { expensePanel } from "./business-expense-target";
@@ -33,8 +32,8 @@ import { resolveLanguage } from "@/lib/language-features";
  * The panel takes focus when it opens. Inside the desktop tray the list
  * stays beside it, so there is no way back and the tray owns focus.
  */
-export default function ExpenseDetailPanel({ expenseId, preview }: { expenseId: string; preview?: RecordRow }) {
-  return <><OpenRecordMissingReasons />{preview ? <LoadedRecordGlance row={preview} /> : <ExpenseDetailLoader expenseId={expenseId} />}</>;
+export default function ExpenseDetailPanel({ expenseId, preview, detailsCard }: { expenseId: string; preview?: RecordRow; detailsCard?: DossierDetailsCard }) {
+  return <><OpenRecordMissingReasons />{preview ? <LoadedRecordGlance row={preview} /> : <ExpenseDetailLoader expenseId={expenseId} detailsCard={detailsCard} />}</>;
 }
 
 /** A local preview of facts already loaded in the selected row, with no detail request. */
@@ -52,14 +51,12 @@ function LoadedRecordGlance({ row }: { row: RecordRow }) {
       <dt>{t("business.dossier.placeholder.expense_type")}</dt><dd className="min-w-0"><RecordDgiiCell row={row} field="expense_type" /></dd>
       <dt>{t("business.transactions.columns.cuenta")}</dt><dd><AccountLabel account={row.account} /></dd>
       <dt>{t("business.transactions.layout.column_state")}</dt><dd><RecordWorkflowBadge row={row} /></dd>
-      <dt>{t("business.transactions.columns.notas")}</dt><dd className="min-w-0"><RecordNotePreview row={row} /></dd>
-      <dt>{t("business.transactions.layout.column_attachment")}</dt><dd><RecordAttachmentPreview row={row} /></dd>
     </dl><RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} className="mt-4" />
     </div>
   </section>;
 }
 
-function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
+function ExpenseDetailLoader({ expenseId, detailsCard }: { expenseId: string; detailsCard?: DossierDetailsCard }) {
   const { t, i18n } = useTranslation();
   const { source, records, openPanel } = useBusiness();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -93,7 +90,7 @@ function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
         if (!active) return;
         const target = expensePanel(expense);
         if (target.kind === "expense") setState({ status: "ready", expense });
-        else open.current(target);
+        else open.current(detailsCard ? { ...target, detailsCard } : target);
       },
       (error: unknown) => {
         if (active) onLoadFailed(error);
@@ -102,7 +99,7 @@ function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
     return () => {
       active = false;
     };
-  }, [expenseId, source, attempt]);
+  }, [expenseId, source, attempt, detailsCard]);
   const accounts = new Map((records.workspace?.accounts ?? []).map((account) => [account.id, account]));
   const title = state.status === "ready" ? (state.expense.merchant ?? t("business.expenses.no_merchant", "Expense")) : t("business.expenses.detail_title", "Saved expense");
   return (

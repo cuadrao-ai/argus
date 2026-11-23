@@ -1,16 +1,34 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createBusinessReportHttpFixture } from "../__tests__/fixtures/business-report-http-fixture";
+import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import { installReceiptBusiness } from "./support/business-receipt-fixture";
 
 // A list is as tall as its rows, its footer sits under the last row, and the footer shows only controls that change something.
 
-async function openRegistros(page: Page, count: number, hold?: Promise<void>) {
+const CURRENT_NOTE = "Nota de prueba del registro";
+
+async function openRegistros(page: Page, count: number, { hold, dossier = false }: { hold?: Promise<void>; dossier?: boolean } = {}) {
   const reports = createBusinessReportHttpFixture();
   const purchases = reports.records.filter((row) => row.family === "purchase" && row.report_date === "2026-10-20").slice(0, count);
   expect(purchases).toHaveLength(count);
   reports.records.splice(0, reports.records.length, ...purchases);
+  if (dossier) {
+    const selected = purchases[0];
+    selected.draft_id = dossierFixtureIds.ready;
+    selected.row_id = `draft:${selected.draft_id}`;
+    selected.note = CURRENT_NOTE;
+    reports.controls.presentation = {
+      ...reports.controls.presentation,
+      hidden: reports.controls.presentation.hidden.filter((column) => column !== "note" && column !== "attachment"),
+    };
+  }
   await page.clock.setFixedTime(new Date("2026-10-20T15:00:00Z"));
-  await installReceiptBusiness(page, (parts, route) => {
+  const source = await installReceiptBusiness(page, (parts, route, fixture) => {
+    if (dossier && parts.join("/") === `drafts/${dossierFixtureIds.ready}/dossier`) {
+      return fixture.dossier(dossierFixtureIds.ready).then((record) => ({
+        ...record, current_note: CURRENT_NOTE, note_edit_available: true, supporting_append_available: true,
+      }));
+    }
     if (parts[0] !== "reports" && parts[0] !== "report-views") return undefined;
     const request = route.request();
     return Promise.resolve(parts[0] === "reports" ? hold : undefined)
@@ -18,6 +36,7 @@ async function openRegistros(page: Page, count: number, hold?: Promise<void>) {
       .then(async (response) => route.fulfill({ status: response.status, headers: Object.fromEntries(response.headers), body: Buffer.from(await response.arrayBuffer()) }))
       .then(() => null);
   });
+  if (dossier) await source.approveDraft(dossierFixtureIds.ready, 2, "registros-details", "record_expense");
   await page.goto("/biz?view=transactions");
 }
 
@@ -39,6 +58,23 @@ function footer(page: Page) {
 
 for (const width of [1440, 390]) test.describe(`at ${width}px`, () => {
   test.beforeEach(async ({ page }) => { await page.setViewportSize({ width, height: 1000 }); });
+
+  for (const [column, heading] of [["note", "Nota"], ["attachment", "Archivos de respaldo"]] as const) {
+    test(`Registros opens Detalles at the ${column} card`, async ({ page }) => {
+      await openRegistros(page, 1, { dossier: true });
+      await page.locator(`button[data-record-${column}]`).click();
+      const details = page.getByRole("tabpanel", { name: "Detalles", exact: true });
+      await expect(page.getByRole("tab", { name: "Detalles", exact: true })).toHaveAttribute("aria-selected", "true");
+      await expect(details.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+      if (column === "note") {
+        const note = details.getByRole("textbox", { name: "Nota", exact: true });
+        await expect(note).toBeFocused();
+        await expect(note).toHaveValue(CURRENT_NOTE);
+      } else {
+        await expect(details.getByRole("button", { name: "Agregar archivo", exact: true })).toBeFocused();
+      }
+    });
+  }
 
   for (const { count, label, picker, arrows } of [
     { count: 1, label: "1–1 de 1 registro", picker: false, arrows: false },
@@ -62,7 +98,7 @@ for (const width of [1440, 390]) test.describe(`at ${width}px`, () => {
 test("the Registros skeleton holds its height while the first page loads", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   let release = () => {};
-  await openRegistros(page, 1, new Promise<void>((resolve) => { release = resolve; }));
+  await openRegistros(page, 1, { hold: new Promise<void>((resolve) => { release = resolve; }) });
   const skeleton = page.getByTestId("transacciones-loading").locator("table").first();
   await expect(skeleton).toBeAttached();
   expect((await skeleton.boundingBox())!.height).toBeGreaterThanOrEqual(44 + 8 * 40);

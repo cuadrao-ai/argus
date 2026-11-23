@@ -9,7 +9,6 @@ import { reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportR
 import { restoreReportLocation } from "@/lib/business-reporting-wire";
 import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-report-http-fixture";
 import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
-import spanish from "@/public/locales/es-419/common.json";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 import { mountAnnotatedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
 
@@ -171,30 +170,6 @@ test("an address from another Business opens Registros without a notice", async 
   assert.doesNotMatch(document.body.textContent ?? "", /Los registros cambiaron/);
 });
 
-test("supporting files freeze the uncertain file before advancing and download by returned receipt identity", async () => {
-  const page = await mount(); page.fixture.controls.fileUncertainAt = 1;
-  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
-  const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
-  const files = [new File(["first new bytes"], "primero.pdf", { type: "application/pdf" }), new File(["second new bytes"], "segundo.pdf", { type: "application/pdf" })];
-  await act(async () => { Object.defineProperty(input, "files", { configurable: true, value: files }); input.dispatchEvent(new Event("change", { bubbles: true })); });
-  await page.settle(() => document.querySelectorAll("[data-local-files] li").length === 2);
-  await page.click(page.button("Guardar"));
-  await page.settle(() => document.querySelector('[role="alert"]')?.textContent?.includes("confirmar") ?? false);
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/supporting-files")).length, 1);
-  await page.click(page.button("Reintentar"));
-  await page.settle(() => !document.querySelector('[role="dialog"]'));
-  const writes = page.fixture.calls.filter((call) => call.path.endsWith("/supporting-files"));
-  assert.equal(writes.length, 3); assert.equal(writes[0].headers.get("Idempotency-Key"), writes[1].headers.get("Idempotency-Key"));
-  assert.equal(writes[0].headers.get("X-Draft-Version"), "3"); assert.equal(writes[1].headers.get("X-Draft-Version"), "3"); assert.equal(writes[2].headers.get("X-Draft-Version"), "4");
-  assert.equal(page.fixture.records[0].attachment_sources!.length, 3); assert.equal(page.fixture.records[0].gross_amount, "100.00");
-  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
-  await page.click(page.button("primero.pdf"));
-  await page.settle(() => page.downloads.length > 0);
-  const read = page.fixture.calls.find((call) => call.path.endsWith(`/receipts/${fixtureId(8001)}/source`));
-  assert.ok(read); assert.equal(await page.downloads[0].text(), "first new bytes");
-  assert.notEqual(page.fixture.records[0].attachment_sources![1].source_id, fixtureId(8001));
-});
-
 test("canonical filters normalize legacy all families and keep one currency", () => {
   const filters = reportRequestSchema.parse({ filters: { currencies: ["USD"], record_families: ["sale", "purchase"] } }).filters;
   const draft = reportFiltersForUi(filters);
@@ -245,16 +220,6 @@ test("a member with export and no Agregar keeps Exportar in the toolbar, and it 
   assert.ok(document.querySelector('[data-testid="records-export"]'), "the button is still there after the download");
 });
 
-test("viewer metadata never grants append or source bytes, and unavailable originals stay linked", async () => {
-  const page = await mount({ readOnly: true });
-  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
-  assert.equal((page.button("Original sintético.pdf") as HTMLButtonElement).disabled, true);
-  assert.equal(document.querySelector('input[type="file"]'), null);
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/source")).length, 0);
-  assert.match(document.querySelector('[role="dialog"]')!.textContent!, /Original sintético/);
-});
-
-
 test("authoritative decimal text above the safe integer limit renders exactly beside unknown money in the selected currency", async () => {
   await mount({ large: true });
   const rows = [...document.querySelectorAll("tbody tr")];
@@ -263,19 +228,6 @@ test("authoritative decimal text above the safe integer limit renders exactly be
   assert.match(rows[2].querySelector('[data-col="gross_amount"]')!.textContent!, /-/);
   assert.equal(rows[3].querySelector('[data-col="gross_amount"]')!.textContent, "20.00");
   assert.equal(rows[4].querySelector('[data-col="gross_amount"]')!.textContent, "-20.00");
-});
-
-test("an unavailable original keeps its filename and linked evidence distinct from a missing attachment", async () => {
-  const page = await mount();
-  page.fixture.storage.delete(fixtureId(700));
-  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
-  await page.click(page.button("Original sintético.pdf"));
-  await page.settle(() => document.querySelector('[role="alert"]') !== null);
-  assert.match(document.querySelector('[role="dialog"]')!.textContent!, /Original sintético.pdf/);
-  assert.equal(page.downloads.length, 0);
-  assert.equal(page.fixture.records[0].has_document, true);
-  assert.equal(page.fixture.records[0].attachment_sources![0].receipt_id, fixtureId(700));
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith(`/receipts/${fixtureId(500)}/source`)).length, 0);
 });
 
 test("older v1 servers keep query usable and leave unsupported overview unavailable", async () => {
@@ -308,41 +260,12 @@ test("view conflicts keep the unsaved name and require current version readback 
 });
 
 
-test("phone rows and their attachment editor preserve an authoritative negative decimal", async () => {
-  const page = await mount({ large: true, width: 390 });
+test("a phone row preserves the authoritative negative decimal next to the attachment control", async () => {
+  await mount({ large: true, width: 390 });
   const row = document.querySelector(`[data-record-key="draft:${fixtureId(5)}"]`)!;
   assert.match(row.textContent!, /-RD\$ 20\.00/);
-  await page.click(row.querySelector(`[data-record-attachment="draft:${fixtureId(5)}"]`));
-  await page.settle(() => document.querySelector('[role="dialog"]') !== null);
-  assert.match(document.querySelector('[role="dialog"]')!.textContent!, /-RD\$ 20\.00/);
+  assert.ok(row.querySelector(`button[data-record-attachment="draft:${fixtureId(5)}"]`));
 });
-
-for (const denied of ['note', 'supporting', 'dossier', 'source'] as const) test(`${denied} access refusal clears the cached report and closes the editor`, async () => {
-  const page = await mount();
-  await page.click(document.querySelector(`[data-record-${denied === 'source' || denied === 'supporting' ? 'attachment' : 'note'}="draft:${fixtureId(1)}"]`));
-  page.fixture.controls.reportForbidden = true;
-  if (denied === 'dossier') {
-    page.fixture.records[0].revision++;
-    await page.click(page.button('Guardar'));
-    await page.settle(() => page.button('Recargar') !== undefined);
-    const request = globalThis.fetch;
-    globalThis.fetch = (async (input, init) => String(input).endsWith('/dossier') ? Response.json({ code: 'permission_denied' }, { status: 403 }) : request(input, init)) as typeof fetch;
-    await page.click(page.button('Recargar'));
-  } else {
-    if (denied === 'supporting') {
-      const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
-      await act(async () => { Object.defineProperty(input, 'files', { configurable: true, value: [new File(['synthetic'], 'apoyo.pdf', { type: 'application/pdf' })] }); input.dispatchEvent(new Event('change', { bubbles: true })); });
-      await page.settle(() => document.querySelector('[data-local-files] li') !== null);
-    }
-    page.fixture.controls.readOnly = true;
-    await page.click(page.button(denied === 'source' ? 'Original sintético.pdf' : 'Guardar'));
-  }
-  await page.settle(() => document.querySelector('[data-testid="records-count"]') === null && document.querySelector('[role="dialog"]') === null);
-  assert.equal(document.querySelectorAll('[data-record-key]').length, 0);
-  assert.equal(document.body.textContent?.includes('Proveedor 1'), false);
-  assert.equal(document.body.textContent?.includes(spanish.business.transactions.reporting.access_unavailable), true);
-});
-
 
 const sentFilters = (page: Awaited<ReturnType<typeof mount>>) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).map((call) => (call.body as ReportRequest).filters);
 const addressFilters = () => restoreReportLocation(new URL(window.location.href).searchParams).request.filters;

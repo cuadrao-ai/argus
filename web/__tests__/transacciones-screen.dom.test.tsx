@@ -477,6 +477,15 @@ describe("the gate", () => {
     await page.settle(() => document.querySelector('[data-testid="transacciones-records"]') !== null && document.querySelector('[data-testid="business-record-review"]') !== null, "the record beside the list");
   });
 
+  test("the receipt icon opens a fixture receipt in the dossier's supporting files", async () => {
+    const page = await mount({ enabled: false });
+    await page.settle(() => page.records().length > 0, "the saved records");
+    const withReceipt = page.records().find((node) => node.querySelector('[data-testid="record-proof"]'));
+    assert.ok(withReceipt);
+    await page.click(withReceipt.querySelector('button[data-record-attachment]')!);
+    assert.deepEqual(page.api().panel, { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions", detailsCard: "support" });
+  });
+
   test("an old Gastos link lands on Transacciones", async () => {
     const page = await mount({ enabled: false, view: "expenses" });
     assert.equal(page.api().panel.kind, "transactions");

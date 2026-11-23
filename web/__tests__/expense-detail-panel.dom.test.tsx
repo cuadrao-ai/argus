@@ -75,7 +75,7 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
     return (
       <I18nextProvider i18n={i18n}>
         <BusinessContext.Provider value={value}>
-          {panel.kind === "expense" ? <ExpenseDetailPanel expenseId={panel.expenseId} /> : <TransaccionesSourceOverride source={saved}><TransaccionesPanel /></TransaccionesSourceOverride>}
+          {panel.kind === "expense" ? <ExpenseDetailPanel expenseId={panel.expenseId} detailsCard={panel.detailsCard} /> : <TransaccionesSourceOverride source={saved}><TransaccionesPanel /></TransaccionesSourceOverride>}
         </BusinessContext.Provider>
       </I18nextProvider>
     );
@@ -98,6 +98,20 @@ describe("the expense detail panel", () => {
     assert.equal(document.activeElement, section);
     assert.ok(page.host.textContent?.includes("Sin recibo adjunto"));
     assert.deepEqual(page.opened, []);
+    await page.act(async () => page.root.unmount());
+  });
+
+  for (const [link, target] of [
+    [{ receipt_id: "linked-receipt" }, { kind: "receipt", receiptId: "linked-receipt" }],
+    [{ draft_id: "linked-draft" }, { kind: "draft", draftId: "linked-draft" }],
+  ] as const) test(`an expense link keeps the supporting files destination when resolved to its ${target.kind}`, async () => {
+    let pass = false;
+    const page = await mountWorkspace({ detail: async () => expense(pass ? link : {}) });
+    pass = true;
+    await page.setPanel({ kind: "transactions" });
+    await page.setPanel({ kind: "expense", expenseId: "exp-gas", detailsCard: "support" });
+    await page.settle();
+    assert.deepEqual(page.opened, [{ ...target, list: "transactions", detailsCard: "support" }]);
     await page.act(async () => page.root.unmount());
   });
 

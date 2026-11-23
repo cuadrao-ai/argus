@@ -18,7 +18,7 @@ import { formatShortDay, formatMonthYear } from "../business-format";
 import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "../business-ui";
 import { EmptyState } from "../foundation/EmptyState";
 import { DENSITIES, DENSITY_ROW_PX, setTableDensity, useTableDensity, type Density, type DensityState } from "./table-density";
-import { headerCurrency, inHeaderOrder, perCurrency, SEGMENTS, suggestionRun, tableCounts, type CurrencyTotals, type IgualarView, type Money, type OtherCurrency, type RecordsTotals } from "./transacciones-model";
+import { headerCurrency, inHeaderOrder, perCurrency, SEGMENTS, suggestionRun, tableCounts, type CurrencyTotals, type IgualarView, type Money, type OtherCurrency, type RecordsTotals, type RecordRow } from "./transacciones-model";
 import { useIgualarEnabled } from "./transacciones-gate";
 import { KeyHint, MoneyList, Unknown } from "./transacciones-parts";
 import { recordRowKey, RecordsList, RecordsTable } from "./TransaccionesRecords";
@@ -30,8 +30,8 @@ import { sampleRecordsColumns, sampleRecordsPreferences } from "./sample-records
 import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
 import { activeFilterGroups, emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment, type PreviewFilters } from "./records-filter-preview-model";
-import { useRecordPreviewSearch } from "./RecordsAnnotationsPreview";
-import { matchesPreviewReady, matchesPreviewExpenseType, matchesPreviewPeriod } from "./records-results-preview";
+import { matchesRecordSearch } from "./records-search-preview";
+import { matchesPreviewReady, matchesPreviewExpenseType, matchesPreviewPeriod, previewRecordMetadata } from "./records-results-preview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { useFiscalStageToggle } from "./useFiscalStageToggle";
 import { sampleRecordsOverview } from "./records-overview-sample";
@@ -111,7 +111,6 @@ function LegacyTransaccionesPanel() {
   const localPaging = viewPreferences !== undefined && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.ready, previewFilters.attachment, previewFilters.expense_type]);
   const query = filter.query.trim().toLocaleLowerCase(locale);
-  const matchesPreviewSearch = useRecordPreviewSearch();
   const periodRecords = localPaging ? saved?.filter((row) => matchesPreviewPeriod(row, previewPeriod)) ?? null : saved;
   const selectionRecords = periodRecords?.filter((row) =>
     row.kind === filter.kind && (!localPaging || row.money.currency === previewFilters.amount.currency));
@@ -120,8 +119,22 @@ function LegacyTransaccionesPanel() {
     && matchesPreviewAmount(row.money, previewFilters.amount)
     && matchesPreviewReady(row, chosen?.space_id ?? null, previewFilters.ready)
     && matchesPreviewExpenseType(row, chosen?.space_id ?? null, previewFilters.expense_type)) : selectionRecords;
+  const matchesPreviewSearch = (row: RecordRow) => {
+    if (!query) return true;
+    if (!chosen?.capabilities.includes("read")) return false;
+    const receiptId = row.opens?.kind === "receipt" ? row.opens.receiptId : null;
+    const linked = records.inbox?.filter((receipt) => receipt.id === receiptId || receipt.expense_id === row.id) ?? [];
+    return matchesRecordSearch(query, {
+      name: row.counterparty,
+      note: row.report?.note ?? "",
+      documents: [
+        ...(previewRecordMetadata(row, chosen.space_id)?.documentNumbers ?? []),
+        ...linked.flatMap((receipt) => receipt.filename ? [receipt.filename] : []),
+      ],
+    });
+  };
   const visibleRecords = filteredRecords?.filter((row) =>
-    localPaging ? matchesPreviewSearch(row, query) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) ?? null;
+    localPaging ? matchesPreviewSearch(row) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) ?? null;
   const sampleOverview = localPaging && visibleRecords ? sampleRecordsOverview({ sourceMode: source.mode, businessId: chosen?.space_id ?? null, rows: visibleRecords, kind: filter.kind }) : undefined;
   const [exporting, setExporting] = useState<Pick<RecordsExportProps, "scope" | "request" | "periodLabel" | "filterCount"> | null>(null);
   const [reviewing, setReviewing] = useState<Pick<RecordsExportProps, "scope" | "request"> | null>(null);
