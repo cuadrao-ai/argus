@@ -105,6 +105,7 @@ def plan(
     *,
     legacy: bool = False,
     actor_id: str | None = None,
+    document_correction: bool = False,
 ) -> MoneyPlan:
     by_id = {s.account.id: s for s in accounts}
     old = activity(accounts, activity_id) if activity_id else None
@@ -118,7 +119,9 @@ def plan(
         )
     if request.expected_revision != (old["revision"] if old else None):
         raise StaleVersion()
-    if old and old["kind"] != request.kind:
+    if old and old["kind"] != request.kind and not (
+        document_correction and {old["kind"], request.kind} == {"expense", "income"}
+    ):
         problem(
             "kind_immutable",
             "Correct the existing activity type without changing its kind.",
@@ -351,7 +354,12 @@ def plan(
                 payment.reference,
                 payment.reference_revision,
             )
-            revision = replace(revision, entered_on=entered_on)
+            original = current.current if current and document_correction else None
+            original_day = (
+                original.entered_on or original.recorded_at.astimezone(ZoneInfo(original.time_zone)).date()
+                if original else entered_on
+            )
+            revision = replace(revision, entered_on=original_day)
             links = []
             for anchor in observations(stored.opening, stored.checks):
                 skip = coverage_skip(revision, anchor)

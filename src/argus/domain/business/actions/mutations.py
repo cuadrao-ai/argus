@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from loguru import logger
@@ -75,7 +76,6 @@ from argus.domain.business.purchase_review import (
     amount_is_derived,
     apply_payment_split,
     apply_purchase,
-    changes_recorded_refund,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -88,6 +88,9 @@ from argus.domain.ingestion.documents.models import (
     ReceiptDetails,
 )
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
+
+if TYPE_CHECKING:
+    from argus.domain.recording.service import FinancialAccountService
 
 
 def event_at(
@@ -149,10 +152,12 @@ def save_revision(
     document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
     reason: RevisionReason | None = None,
+    accepted_accounts: FinancialAccountService | None = None,
 ) -> Applied:
     if before is None and isinstance(after.legal_tip, Unknown) and after.legal_tip.origin is None:
         after = after.model_copy(update={"legal_tip": Unknown(origin="matched", source_ids=source_ids)})
-    validate_facts(tx, after)
+    if accepted_accounts is None:
+        validate_facts(tx, after)
     resolution = dict(event.resolution)
     previous = resolution.get("business") or {}
     if read_purchases is None:
@@ -214,6 +219,17 @@ def save_revision(
         document_type_detected=document_type_detected,
         due_on=after_due_on,
     ).model_dump(mode="json")
+    activity_id = None
+    if accepted_accounts is not None:
+        from argus.domain.business.actions.accepted_edit import revise_activity
+
+        assert before is not None
+        adjusted, activity_id = revise_activity(
+            tx, event, before, after, document_type, declaration, accepted_accounts
+        )
+        if adjusted is not None:
+            resolution["accepted"] = adjusted
+        resolution["accepted_edit_version"] = event.version
     day = after.occurred_on.value
     if reader_date_reason(day) is not None:
         logger.info("business_post_read_rule draft_id={} rule=read_date_review", event.id)
@@ -224,8 +240,8 @@ def save_revision(
     tx.rows(
         "insert into public.business_draft_revisions"
         " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,"
-        "before_dgii,after_dgii,before_due_on,after_due_on,reason)"
-        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "before_dgii,after_dgii,before_due_on,after_due_on,reason,before_document_type,after_document_type)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -242,9 +258,11 @@ def save_revision(
             before_due_on,
             after_due_on,
             reason,
+            previous.get("document_type", "recibo") if before is not None else None,
+            document_type,
         ),
     )
-    return Applied(outcome="applied", draft_id=event.id, version=event.version)
+    return Applied(outcome="applied", draft_id=event.id, version=event.version, activity_id=activity_id)
 
 
 def revise(
@@ -264,6 +282,7 @@ def revise(
     due_on: DueOnInput | None = None,
     montos: MontosReview | None = None,
     reason: RevisionReason | None = None,
+    web_accounts: FinancialAccountService | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     named_type = document_type is not None
@@ -274,23 +293,23 @@ def revise(
         if stated_type is None or document_type not in (None, stated_type):
             raise ActionError("invalid_input", "activity_kind_unsupported")
     now = datetime.now(timezone.utc)
-    declaration_only = (
-        (purchase is not None or payment_split is not None or montos is not None)
-        and (montos is None or montos.net_amount is None and montos.legal_tip is None)
-        and patch is None
-        and fiscal_review is None
-        and document_type is None
-        and due_on is None
-        and answer_id is None
-    )
     if ref is None:
         event = new_candidate(tx.context.owner_id, now)
         before = None
     else:
         event = (
-            _open_for_type(tx, ref) if named_type else event_at(tx, ref, declaration_only)
+            _open_for_type(tx, ref)
+            if named_type and web_accounts is None
+            else event_at(tx, ref, web_accounts is not None)
         )
+        if event.state == "accepted":
+            tx.authorization.require("approve")
         before = facts_of(event)
+        if event.state == "accepted" and patch is not None and any(
+            requested is not None and requested.value != held.value
+            for requested, held in ((patch.funding, before.funding), (patch.category_id, before.category_id))
+        ):
+            raise ActionError("invalid_input", "recorded_correction_unsupported")
         event = replace(event, version=event.version + 1, updated_at=now)
     origin = {
         "member": "member_set",
@@ -329,6 +348,8 @@ def revise(
         if not set((*montos.override_inherited, *montos.restore_inherited)) <= INHERITANCE.keys():
             raise ActionError("invalid_input", "business_amount_inheritance_invalid")
         after = reviewed_amount_facts(after, montos, source_ids, origin=origin)
+    if event.state == "accepted" and retyped and current_type == "venta" and after.category_id.value is not None:
+        after = after.model_copy(update={"category_id": Unknown(origin=origin, source_ids=source_ids)})
     if document_type is not None or not kind_disagrees(previous_type, after):
         # A kind saved before the type owned it stays blocked until a person
         # states the kind or the type; an edit that states neither leaves it.
@@ -368,16 +389,6 @@ def revise(
                 raise ActionError("invalid_input", "fiscal_direction_unsupported")
             previous = current if isinstance(current, PurchaseDeclaration) else None
             written = apply_purchase(previous, purchase)
-            if (
-                event.state == "accepted"
-                and changes_recorded_refund(previous, written)
-                and (
-                    isinstance(after.kind, Known)
-                    and after.kind.value == "refund"
-                    or written.actual_refund
-                )
-            ):
-                raise ActionError("invalid_input", "recorded_correction_unsupported")
         if payment_split is not None:
             current = written or stored
             if not takes_payment_split(current_type):
@@ -417,6 +428,7 @@ def revise(
         document_type_detected=document_type_detected,
         due_on=due_on,
         reason=reason,
+        accepted_accounts=web_accounts if event.state == "accepted" else None,
     )
 
 

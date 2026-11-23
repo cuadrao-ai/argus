@@ -1,8 +1,8 @@
 """Over HTTP on the real app, Auth and Postgres: the read sets a Bandeja
 upload's type when the person named none (a Venta when the issuer RNC is the
 Business's own, in any printed format), a named type wins, the owner changes
-it while the draft is open, the change is a revision, it is locked once
-approved, and the 606 and 607 follow the type. A local stub stands in for the
+it before and after approval, each correction is a revision, and the 606 and
+607 follow the type. A local stub stands in for the
 provider."""
 
 from __future__ import annotations
@@ -431,17 +431,10 @@ def test_the_owner_retypes_open_drafts_and_the_606_and_607_follow_the_type(
         assert reviewed.json()["approval_available"] is True, reviewed.json()["blockers"]
         _approve(web, draft, f"record_{kind}")
 
-    for draft, other in ((sold, "recibo"), (bought, "venta")):
-        assert _typed(_dossier(web, draft)) == (
-            {"recibo": "venta", "venta": "recibo"}[other],
-            False,
-            False,
-        )
-        locked = _review(web, draft, {"document_type": other})
-        assert locked.status_code == 422, locked.text
-        assert locked.json()["code"] == "document_type_locked"
+    assert _typed(_dossier(web, sold)) == ("venta", False, True)
+    assert _typed(_dossier(web, bought)) == ("recibo", False, True)
     listed = _receipt(web, view["sources"][0]["connection_id"])
-    assert _typed(listed) == ("venta", False, False)
+    assert _typed(listed) == ("venta", False, True)
 
     exported = web.client.get(
         f"{API}/business/exports",
@@ -458,6 +451,19 @@ def test_the_owner_retypes_open_drafts_and_the_606_and_607_follow_the_type(
     assert placed == {bought: ("expense", "606"), sold: ("income", "607")}
     assert dgii["forms"]["606"]["record_count"] == 1
     assert dgii["forms"]["607"]["record_count"] == 1
+
+    for draft, document_type, kind in (
+        (sold, "recibo", "expense"),
+        (bought, "venta", "income"),
+    ):
+        before = _dossier(web, draft)
+        corrected = _review(web, draft, {"document_type": document_type})
+        assert corrected.status_code == 200, corrected.text
+        after = corrected.json()
+        assert after["review_state"] == "accepted"
+        assert after["approval_result"] == before["approval_result"]
+        assert _typed(after) == (document_type, False, True)
+        assert after["facts"]["kind"]["value"] == kind
 
 
 def _capture(world, body: dict):  # noqa: ANN001, ANN202
@@ -510,13 +516,11 @@ def test_a_capture_is_retyped_while_open_and_lands_in_the_607(web) -> None:  # n
     )
     assert reviewed.status_code == 200, reviewed.text
     _approve(web, draft, "record_income")
-    locked = _review(web, draft, {"document_type": "recibo"})
-    assert (locked.status_code, locked.json()["code"]) == (422, "document_type_locked")
     added = _capture(
         web,
         {
             "text": "Otra nota",
-            "draft": {"draft_id": draft, "version": 1},
+            "draft": {"draft_id": draft, "version": _dossier(web, draft)["version"]},
             "document_type": "recibo",
         },
     )
@@ -779,7 +783,7 @@ def test_with_no_business_rnc_a_receipt_is_the_reads_choice_and_approves(
     assert _typed(reviewed.json()) == ("recibo", True, True)
     assert reviewed.json()["approval_available"] is True, reviewed.json()["blockers"]
     _approve(web, draft, "record_expense")
-    assert _typed(_dossier(web, draft)) == ("recibo", True, False)
+    assert _typed(_dossier(web, draft)) == ("recibo", True, True)
 
 
 def _as_saved(dossier: dict) -> tuple:

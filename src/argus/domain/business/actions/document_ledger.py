@@ -21,7 +21,7 @@ def original_activity(event: ImportEvent) -> UUID:
     return UUID(value)
 
 
-def _sale_credit_link(tx: ActionTransaction, event: ImportEvent) -> bool:
+def sale_credit_link(tx: ActionTransaction, event: ImportEvent) -> bool:
     business = event.resolution["business"]
     identity = comprobante_identity(business["facts"])
     if not identity or identity[0] != "sale":
@@ -90,7 +90,7 @@ def linked(tx: ActionTransaction, event: ImportEvent, activity: UUID) -> bool:
                 owner,
             ),
         )
-        or _sale_credit_link(tx, event)
+        or sale_credit_link(tx, event)
     )
 
 

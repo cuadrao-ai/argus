@@ -37,7 +37,7 @@ def activity(
 ) -> dict[str, Any]:
     for row in getattr(accounts, "no_account", ()):
         if row.activity_id == activity_id:
-            if revision not in (None, 1):
+            if revision not in (None, row.revision):
                 raise AccountNotFound()
             return row.response()
     canonical = getattr(accounts, "canonical", None)

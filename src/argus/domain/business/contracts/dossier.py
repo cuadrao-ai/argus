@@ -132,6 +132,8 @@ class DraftRevision(Contract):
     after_current_note: str | None = None
     before_due_on: date | None = None
     after_due_on: date | None = None
+    before_document_type: DocumentType | None = None
+    after_document_type: DocumentType | None = None
     reason: RevisionReason | None = None
     duplicate: DuplicateRevision | None = None
     #: What the revision did to the one supporting file in ``source_ids``, and
@@ -357,13 +359,12 @@ class BusinessDossier(RecordContext):
     include_606_by: PersonName | None = None
     sin_comprobante: bool = False
     #: The document type: a receipt (recibo) or an invoice the business issued
-    #: (venta). Detected when no person named it. Editable while the draft is
-    #: open and the caller may prepare.
+    #: (venta). Detected when no person named it.
     document_type: DocumentType = "recibo"
     document_type_detected: bool = False
     document_type_editable: bool = False
-    #: The caller may write the 606 declaration now: open or approved, and the
-    #: caller holds prepare. A download changes nothing here.
+    facts_editable: bool = False
+    #: Prepare holders can edit an open draft. Only the owner can edit an accepted one.
     declaration_editable: bool = False
     #: What the server offers for each 606 answer this open expense lacks, with
     #: where it came from. The approval saves it, so only an approval takes one.
@@ -376,7 +377,7 @@ class BusinessDossier(RecordContext):
     #: record. The reopen route refuses on the same rule.
     reopen_available: bool = False
     #: The due date a person set in review; null while unknown. Never read
-    #: from the document or defaulted. Locked with the other facts once approved.
+    #: from the document or defaulted.
     due_on: date | None = None
     #: The caller may answer "¿Incluir en 606?" now: the same gate the
     #: fiscal-inclusion action enforces (a prepare-holder other than the
@@ -431,6 +432,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "supporting_limit_reached": True,
     "annotation_unavailable_reason": True,
     "due_on": True,
+    "facts_editable": True,
     "declaration_editable": True,
     "reopen_available": True,
     "declaration_suggestions": True,
@@ -450,6 +452,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
         "__all__": {
             "before_due_on": True,
             "after_due_on": True,
+            "before_document_type": True,
+            "after_document_type": True,
             "before_current_note": True,
             "after_current_note": True,
             "supporting_change": True,

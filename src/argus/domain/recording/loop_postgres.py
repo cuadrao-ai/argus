@@ -74,7 +74,7 @@ def hydrate(
                     reason,
                     str(by) if by else None,
                     at,
-                    kind=kind,
+                    kind=details.get("kind", kind),
                     role=details.get("role", "single"),
                     active=details.get("active", True),
                     activity_id=details.get("activity_id"),

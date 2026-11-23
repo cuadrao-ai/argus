@@ -3,8 +3,8 @@
 A purchase or a sale the owner states has no comprobante fiscal counts in the
 month's income and expense, stays out of the 606 and the 607, and never holds
 the month open. A record with a comprobante whose number is missing still
-holds it open. The mark is a fact on the draft: editable while the draft is
-open, kept in its history, and locked once the draft is approved.
+holds it open. The owner can edit the mark before or after approval, and
+the draft history keeps each change.
 """
 
 from __future__ import annotations
@@ -30,7 +30,6 @@ from tests.test_business_multi_purchase_postgres import _account as cash_account
 from tests.test_business_receipt_views_postgres import _web as receipt_web
 from tests.test_business_scope_switch_routes_postgres import (  # noqa: F401
     API,
-    _code,
     web,
 )
 from tests.test_business_scope_switch_routes_postgres import (
@@ -306,20 +305,27 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
     detail = _get(web, f"/business/expenses/{cash_purchase}").json()
     assert detail["sin_comprobante"] is True
 
-    # Locked after approval, like every other fact.
-    locked = web.client.patch(
-        f"{API}/business/drafts/{draft}/review",
-        json={
+    after = _send(
+        web,
+        "PATCH",
+        f"/business/drafts/{draft}/review",
+        {
             "version": _get(web, f"/business/drafts/{draft}/dossier").json()["version"],
             "facts": {"receipt_state": {"state": "known", "value": "fiscal_receipt"}},
         },
-        headers={**web.alice.headers, "Idempotency-Key": str(uuid4())},
+        web.alice.headers,
     )
-    assert _code(locked) == (422, "recorded_correction_unsupported"), locked.text
-    assert (
-        _get(web, f"/business/drafts/{draft}/dossier").json()["sin_comprobante"] is True
-    )
-    assert _close(web, "2026-09") == september
+    assert after["review_state"] == "accepted"
+    assert after["approval_result"]["activity_id"] == cash_purchase
+    assert after["sin_comprobante"] is False
+    assert after["history"][-1]["after"]["receipt_state"]["value"] == "fiscal_receipt"
+    assert "sin_comprobante" not in _get(web, f"/business/expenses/{cash_purchase}").json()
+
+    reopened_month = _close(web, "2026-09")
+    assert reopened_month["closed"] is False
+    assert [item["activity_id"] for item in reopened_month["missing_ncf"]] == [
+        cash_purchase
+    ]
 
 
 def test_a_record_with_a_comprobante_and_no_number_still_holds_the_month_open(

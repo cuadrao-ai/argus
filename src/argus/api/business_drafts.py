@@ -464,8 +464,11 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         return summary
     row = drafts[0]
     summary = {**summary, "deleted": deletion(row["state"], row["resolution"])}
+    type_editable = row["state"] in ("open", "accepted")
     resolution = BusinessResolution.model_validate(row["resolution"]["business"])
     if legacy == str(row["id"]):
+        if "document_type_editable" in summary:
+            summary["document_type_editable"] = type_editable
         return (
             {**summary, "due_on": resolution.due_on} if "due_on" in summary else summary
         )
@@ -496,7 +499,7 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         **row["marks"],
         "document_type": resolution.document_type,
         "document_type_detected": resolution.document_type_detected,
-        "document_type_editable": row["state"] == "open",
+        "document_type_editable": type_editable,
         "delete_available": summary.get("delete_available", True)
         and row["state"] == "open",
     }
@@ -570,13 +573,13 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
         context.record_context.capabilities if context.record_context else ()
     )
     # The overlay names "personal" only for a receipt one draft owns: nothing else to mark.
-    # The same people set its document type while that draft is open.
+    # Accepted drafts can only be corrected by their owner.
     return [
         {
             **view,
             **({"personal_editable": editable} if "personal" in view else {}),
             **(
-                {"document_type_editable": editable}
+                {"document_type_editable": editable and (view["status"] != "confirmed" or can_delete)}
                 if view.get("document_type_editable")
                 else {}
             ),
