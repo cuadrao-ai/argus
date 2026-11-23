@@ -72,3 +72,27 @@ for (const state of ["reading", "held", "failed"] as const) {
     });
   }
 }
+
+test("an owner can recover an interrupted read with an expired preparation grant", async ({ page }, testInfo) => {
+  const base = await createFixtureBusinessDataSource().receipt("rcpt-blurry");
+  const receipt: ReceiptDetail = {
+    ...base, draft_id: null, preparable: true, read_pending: false,
+    attention: "interrupted", error_code: "business_record_not_found",
+    bandeja_group: { group: "attention", reason: "interrupted", label: "cant_read", draft_id: null, version: null },
+  };
+  const writes: string[] = [];
+  await installReceiptBusiness(page, ([resource, id, action], route) => {
+    if (resource !== "receipts" || id !== receipt.id) return;
+    if (!action) return Promise.resolve(receipt);
+    if (route.request().method() === "POST" && (action === "rebind" || action === "prepare")) {
+      writes.push(action);
+      return Promise.resolve(receipt);
+    }
+  });
+  await page.goto(`/biz?receipt=${receipt.id}`);
+  const rebind = page.getByRole("button", { name: "Vincular a mi acceso actual", exact: true });
+  await expect(rebind).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("dossier-interrupted-grant.png"), animations: "disabled" });
+  await rebind.click();
+  await expect.poll(() => writes).toEqual(["rebind", "prepare"]);
+});

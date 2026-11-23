@@ -273,20 +273,57 @@ async function openFailed(state: Partial<ReceiptDetail>, chosen: GrantedSpace = 
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
   const base = await createFixtureBusinessDataSource().receipt("rcpt-blurry");
-  const detail = { ...base, ...notReceipt(), ...failedRead, delete_available: true, ...state } as ReceiptDetail;
+  assert.ok(base.record_context);
+  const detail = { ...base, ...notReceipt(), ...failedRead, delete_available: true, record_context: { ...base.record_context, capabilities: chosen.capabilities }, ...state } as ReceiptDetail;
   const deleted: string[] = [];
+  const readRequests: string[] = [];
   let reloads = 0;
   const source = {
     ...liveBusinessDataSource,
     receipt: async () => detail,
     receiptSource: async () => new Blob([], { type: "image/jpeg" }),
-    prepareReceipt: async () => undefined,
+    rebindReceipt: async (id: string) => { readRequests.push(`rebind:${id}`); return { ...detail, error_code: null }; },
+    prepareReceipt: async (id: string) => { readRequests.push(`prepare:${id}`); },
     deleteDocument: async (id: string) => { deleted.push(id); return { document_id: id, deleted: true }; },
   };
   const page = await render(() => <BusinessConsentTestProvider accepted><ReceiptReviewPanel target={{ kind: "receipt", id: detail.id }} /></BusinessConsentTestProvider>, { source, chosen, reload: () => { reloads += 1; } } as Partial<BusinessContextValue>);
   const notice = () => page.host.querySelector('[data-testid="receipt-attention"]')!;
-  return { page, deleted, id: detail.id, notice, labels: () => [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button:not([aria-label])')].map((button) => button.textContent), reloads: () => reloads };
+  return { page, deleted, readRequests, id: detail.id, notice, labels: () => [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button:not([aria-label])')].map((button) => button.textContent), reloads: () => reloads };
 }
+
+const interruptedBinding = {
+  attention: "interrupted",
+  error_code: "business_record_not_found",
+  preparable: true,
+  bandeja_group: { group: "attention", reason: "interrupted", label: "cant_read", draft_id: null, version: null },
+} satisfies Partial<ReceiptDetail>;
+
+test("an owner can link an interrupted read to their current access and prepare the same receipt", async () => {
+  const { page, id, notice, labels, readRequests } = await openFailed(interruptedBinding);
+  try {
+    const rebindLabel = "Vincular a mi acceso actual";
+    assert.deepEqual(labels(), [rebindLabel], "linking is the primary recovery action");
+    assert.match(notice().textContent ?? "", /El acceso que preparó este recibo ya no es válido/);
+    assert.match(notice().textContent ?? "", /Si reintentas, el recibo se envía/);
+    const rebind = page.button(rebindLabel);
+    assert.ok(rebind);
+    await page.act(async () => rebind.click());
+    await page.settle();
+    assert.deepEqual(readRequests, [`rebind:${id}`, `prepare:${id}`]);
+  } finally { await page.close(); }
+});
+
+test("a grant without approval can retry an interrupted read and cannot link it to current access", async () => {
+  const { page, id, notice, labels, readRequests } = await openFailed(interruptedBinding, client);
+  try {
+    assert.equal(page.button("Vincular a mi acceso actual"), undefined);
+    assert.doesNotMatch(notice().textContent ?? "", /El acceso que preparó este recibo ya no es válido/);
+    assert.deepEqual(labels(), ["Leer de nuevo"]);
+    await page.act(async () => page.button("Leer de nuevo")!.click());
+    await page.settle();
+    assert.deepEqual(readRequests, [`prepare:${id}`]);
+  } finally { await page.close(); }
+});
 
 for (const errorCode of ["unreadable_document", "encrypted_document"]) {
   test(`an unreadable read (${errorCode}) asks for a clearer copy and offers Eliminar documento`, async () => {
