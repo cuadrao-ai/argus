@@ -10,6 +10,7 @@ import { useModalSurface } from "@/components/layout/useModalSurface";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { loadReceiptPdf, type ReceiptPdf } from "./receipt-pdf-renderer";
 import { DelayedSourceWell } from "./business-skeletons";
+import motion from "./receipt-reading.module.css";
 
 type Size = { width: number; height: number };
 type Point = { x: number; y: number };
@@ -52,13 +53,13 @@ function ViewerControl({ label, keys, children, onClick, disabled = false }: { l
   return <Tooltip content={`${label}${keys ? ` (${keys})` : ""}`} side="top"><button type="button" className={CONTROL_CLASS} aria-label={label} data-viewer-focus={label} disabled={disabled} onClick={onClick}>{children}</button></Tooltip>;
 }
 
-type ViewerProps = { src: string; blob: Blob; sourceId: string; alt: string; pdf?: boolean };
+type ViewerProps = { src: string; blob: Blob; sourceId: string; alt: string; pdf?: boolean; reading?: boolean };
 
 export default function ReceiptImageZoom(props: ViewerProps) {
   return <ReceiptViewer key={props.sourceId} {...props} />;
 }
 
-function ReceiptViewer({ src, blob, sourceId, alt, pdf = false }: ViewerProps) {
+function ReceiptViewer({ src, blob, sourceId, alt, pdf = false, reading = false }: ViewerProps) {
   const { t } = useTranslation();
   const label = (key: string) => t(`business.dossier.viewer.${key}`);
   const [zoom, setZoom] = useState<Zoom>({ kind: "fit-page" });
@@ -244,11 +245,20 @@ function ReceiptViewer({ src, blob, sourceId, alt, pdf = false }: ViewerProps) {
     pointers.current.clear();
     setDragging(false);
   };
+  const paperStyle = { left: "50%", top: "50%", width: image.width * scale, height: image.height * scale, maxWidth: "none", transform: `translate(-50%, -50%) rotate(${turns * 90}deg)` };
+  const paperClass = "absolute select-none transition-transform duration-150 motion-reduce:transition-none";
   const content = (
     <div ref={surfaceRef} role={overlay ? "dialog" : undefined} aria-modal={overlay ? true : undefined} aria-label={alt} tabIndex={-1} onKeyDown={shortcut} className={overlay ? "fixed inset-0 z-[9000] bg-black/90 p-3" : "relative w-full"} data-testid={overlay ? "receipt-viewer-overlay" : "receipt-viewer"}>
       <div ref={wellRef} data-viewer-focus="well" data-testid="receipt-image-zoom" data-zoom={scale} data-rotation={((turns % 4) + 4) % 4 * 90} data-fit={zoom.kind} tabIndex={0} aria-label={alt} className={`${overlay ? "h-[calc(100dvh-84px)]" : "h-[300px] desktop:h-[520px]"} w-full overflow-auto overscroll-contain rounded-item focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]`} style={{ touchAction: "none", cursor: oversize ? dragging ? "grabbing" : "grab" : "default" }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={cancelGesture} onLostPointerCapture={pointerEnd} onDoubleClick={(event) => changeZoom(scale >= 5 ? { kind: "fit-page" } : { kind: "manual", scale: Math.min(5, scale * 2) }, { x: event.clientX, y: event.clientY })}>
         <div style={{ width: Math.max(width, viewport.width), height: Math.max(height, viewport.height), position: "relative" }}>
-          {pdf ? <canvas ref={canvasRef} role="img" aria-label={t("business.transactions.pagination.page", { page })} data-page={drawnPage} className="absolute select-none transition-transform duration-150 motion-reduce:transition-none" style={{ visibility: drawnPage === page && !pdfError ? "visible" : "hidden", left: "50%", top: "50%", width: image.width * scale, height: image.height * scale, maxWidth: "none", transform: `translate(-50%, -50%) rotate(${turns * 90}deg)` }} /> : <Image unoptimized draggable={false} src={src} width={image.width} height={image.height} alt={alt} onLoad={(event) => { const loaded = event.currentTarget; setImage({ width: loaded.naturalWidth, height: loaded.naturalHeight }); }} className="absolute select-none transition-transform duration-150 motion-reduce:transition-none" style={{ left: "50%", top: "50%", width: image.width * scale, height: image.height * scale, maxWidth: "none", transform: `translate(-50%, -50%) rotate(${turns * 90}deg)` }} />}
+          {pdf
+            ? <canvas ref={canvasRef} role="img" aria-label={t("business.transactions.pagination.page", { page })} data-page={drawnPage} className={paperClass} style={{ ...paperStyle, visibility: drawnPage === page && !pdfError ? "visible" : "hidden" }} />
+            : <Image unoptimized draggable={false} src={src} width={image.width} height={image.height} alt={alt} onLoad={(event) => { const loaded = event.currentTarget; setImage({ width: loaded.naturalWidth, height: loaded.naturalHeight }); }} className={paperClass} style={paperStyle} />}
+          {reading && (!pdf || drawnPage === page && !pdfError) ? (
+            <div aria-hidden="true" className={`${paperClass} pointer-events-none overflow-hidden`} style={paperStyle}>
+              <span className={motion.scan} data-testid="receipt-reading-band" />
+            </div>
+          ) : null}
         </div>
       </div>
       {pdf && (pdfError || drawnPage !== page) ? <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[calc(100%-64px)] items-center justify-center p-5 text-center">

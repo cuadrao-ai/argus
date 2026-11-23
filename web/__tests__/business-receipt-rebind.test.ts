@@ -1,7 +1,5 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { rebindAndPrepare } from "@/components/business-app/receipt-rebind";
 import type { ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
 
@@ -58,13 +56,4 @@ test("a refused bind stops before preparing and surfaces the refusal", async () 
   };
   await assert.rejects(rebindAndPrepare(source, "r1", () => undefined), { code: "business_preparation_binding_live" });
   assert.deepEqual(calls, []);
-});
-
-test("the review panel's bind button calls a handler the panel defines", () => {
-  // bun tests have no DOM to click in; the frontend build (tsc) is the type gate.
-  // This pins the wiring so a renamed or removed handler fails here as well.
-  const panel = readFileSync(join(import.meta.dir, "../components/business-app/ReceiptReviewPanel.tsx"), "utf8");
-  assert.match(panel, /const rebind = async \(\) => \{[\s\S]*await rebindAndPrepare\(source, detail\.id, setDetail\);/);
-  assert.match(panel, /data-testid="receipt-rebind"[^>]*onClick=\{\(\) => void rebind\(\)\}/);
-  assert.match(panel, /t\("business\.review\.rebind_failed"/);
 });

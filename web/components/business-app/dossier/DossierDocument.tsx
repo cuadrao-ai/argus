@@ -8,7 +8,7 @@ import { useBusiness } from "../BusinessWorkspace";
 import { DelayedSourceWell } from "../business-skeletons";
 import { quietButtonClass, secondaryButtonClass, useChannelLabel } from "../business-ui";
 import { CHANNEL_ICON } from "../foundation/channel-icons";
-import { ReadingSheen } from "../ReceiptReadingState";
+import motion from "../receipt-reading.module.css";
 import { useReceiptSource } from "../ReceiptSourcePreview";
 import styles from "./dossier.module.css";
 
@@ -21,20 +21,18 @@ function FileStage({ file, reading }: { file: DossierFile; reading: boolean }) {
   const { source } = useBusiness();
   const { current, reload } = useReceiptSource(file.id);
   const viewable = file.media_type === "application/pdf" || file.media_type.startsWith("image/") || source.mode === "fixture";
-  const stage = (
-    <div className={styles.docFill} data-testid="receipt-original-source">
+  return <>
+    <div className={`${styles.docFill} ${motion.stage}`} data-testid="receipt-original-source">
+      {reading ? <span className={motion.ripple} aria-hidden="true" data-testid="receipt-reading-ripple" /> : null}
       {current.kind === "failed" ? (
         <div className="p-5 text-center">
           <p role="alert" className={styles.note}>{t("business.review.source_error", "We couldn't open the original receipt with your current access.")}</p>
           <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={reload}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.retry_source", "Try opening again")}</button>
         </div>
       ) : current.kind === "loading" ? <DelayedSourceWell />
-        : viewable ? <Suspense fallback={<DelayedSourceWell />}><ReceiptImageZoom src={current.url} blob={current.blob} sourceId={current.sourceId} pdf={file.media_type === "application/pdf" && source.mode === "live"} alt={t("business.review.source", "Original receipt")} /></Suspense>
+        : viewable ? <Suspense fallback={<DelayedSourceWell />}><ReceiptImageZoom reading={reading} src={current.url} blob={current.blob} sourceId={current.sourceId} pdf={file.media_type === "application/pdf" && source.mode === "live"} alt={t("business.review.source", "Original receipt")} /></Suspense>
         : <p className={styles.note}>{t("business.dossier.download_source", "Download the original to read this file.")}</p>}
     </div>
-  );
-  return <>
-    {reading ? <ReadingSheen>{stage}</ReadingSheen> : stage}
     <DocumentFoot file={file} url={current.kind === "ready" ? current.url : null} />
   </>;
 }

@@ -152,3 +152,14 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 .confirmList { margin:0 0 10px; padding-left:18px; font-size:14px; line-height:20px; color:var(--d-soft); }
 .confirmList li { margin:0 0 6px; }
 .confirmList strong { color:var(--d-ink); font-weight:600; }
+
+.split[data-stacked-document] { overflow-y:auto; }
+.split[data-stacked-document] > .info { flex:none; }
+.split[data-stacked-document] > :last-child { min-height:340px; flex:1; }
+
+.stack:has(> .failedRead) { min-height:100%; }
+.failedRead { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 28px; border:1px solid var(--d-line); background:var(--d-card); text-align:center; }
+.failedIcon { display:grid; place-items:center; width:44px; height:44px; margin-bottom:14px; background:var(--d-bad-bg); color:var(--d-bad-ink); }
+.failedRead h3 { margin-bottom:6px; font-family:var(--font-display, inherit); font-size:18px; font-weight:600; }
+.failedRead p { max-width:460px; color:var(--d-soft); font-size:14px; line-height:21px; }
+.failedRead .retryConsent { margin-top:10px; color:var(--d-muted); font-size:13px; }
