@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useId, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { resolveBusinessDuplicate } from "@/lib/business-api";
 import { BUSINESS_COMPARED_FIELDS, type BusinessComparedDocument, type BusinessComparedField, type BusinessDossier, type BusinessDuplicateCandidate, type BusinessDuplicateDecision } from "@/lib/business-dossier";
 import { counterpartyTerm, documentFamily } from "@/lib/counterparty-term";
@@ -146,7 +147,6 @@ export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBa
   const [problem, setProblem] = useState<string | null>(null);
   const inFlight = useRef(false);
   const request = useRef<{ draftId: string; version: number; otherId: string; otherVersion: number; decision: BusinessDuplicateDecision; key: string } | null>(null);
-  const groupName = useId();
   const [side, setSide] = useState<"document" | "other">("document");
   const [tab, setTab] = useState<DossierTab>("general");
   const title = useRef<HTMLElement>(null);
@@ -224,12 +224,9 @@ export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBa
     </div>
   </section>;
   const document = <div className={styles.document}>
-    <fieldset className={`rounded-full ${styles.switch}`}><legend className="sr-only">{t(`${KEYS}.select_document`)}</legend>
-      {(["document", "other"] as const).map(value => <label key={value}>
-        <input type="radio" name={groupName} value={value} checked={value === side} onChange={() => setSide(value)} />
-        <span className="rounded-full">{t(`${KEYS}.column.${value === "document" ? "this" : "saved_before"}`)}</span>
-      </label>)}
-    </fieldset>
+    <div className={`rounded-full ${styles.sides}`}>
+      <SegmentedControl label={t(`${KEYS}.select_document`)} value={side} onChange={setSide} segments={[{ key: "document" as const, label: t(`${KEYS}.column.this`) }, { key: "other" as const, label: t(`${KEYS}.column.saved_before`) }]} />
+    </div>
     <DossierDocument file={selected ? { id: selected.connection_id, ...selected } : null}>
       {selected ? null : <p className={styles.meta}>{t(`${KEYS}.no_file`)}</p>}
     </DossierDocument>
