@@ -20,7 +20,7 @@ import type { BusinessDataSource } from "./business-data";
 import { DossierRow, type RowEdit, type RowStatus } from "./dossier/DossierParts";
 import ReceiptRowSave from "./ReceiptRowSave";
 import type { RowSave } from "./receipt-review-save";
-import { fiscalFieldGroups, foldOf, inCreditNoteFlow, isReadOnlyRow, type FiscalGroup } from "./dossier/fiscal-rows";
+import { fiscalFieldGroups, fiscalNote, foldOf, isReadOnlyRow, type FiscalGroup } from "./dossier/fiscal-rows";
 import { dgiiOptionLabel } from "./receipt-fact-presentation";
 import { usePreview } from "./useAmountsPreview";
 
@@ -34,8 +34,9 @@ type Links = NonNullable<BusinessDossier["inheritance"]>;
  * The Datos fiscales tab: the declaration's fields in grouped cards, each a row
  * of the dossier's grid. A field that follows a source says so in its status
  * slot, and holding it apart offers the way back there. On a purchase,
- * Retenciones and Otros impuestos stay folded until someone adds a row, and
- * the credit note rows show on a credit note alone. Each row saves its own change.
+ * Retenciones and Otros impuestos stay folded until someone adds a row. NCF
+ * modificado shows on a credit or debit note, and the refund question on a
+ * credit note alone. Each row saves its own change.
  */
 export default function FiscalDeclarationEditor({ dossier, fields, disabled, reviewFiscal, previewLinks, onChanged, onBusy, onDirty, savedRow = null }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; savedRow?: string | null; /** The server's preview of the unsaved form: what each linked field shows. */ previewLinks?: BusinessDataSource["previewAmounts"]; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier, row: string) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
@@ -65,7 +66,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
   // The purchase the server refused for this refund: the choice stays, and the person picks another.
   const [refused, setRefused] = useState<string | null>(null);
   const candidates = dossier.refund_candidates ?? [];
-  const creditNote = inCreditNoteFlow(dossier);
+  const noteKind = fiscalNote(dossier);
   const [pending, setPending] = useState<{ key: string; version: number; input: DgiiReview } | null>(null);
   useEffect(() => () => { onDirty(false); onBusy(false); }, [onBusy, onDirty]);
   const editable = dossier.facts_editable === true && !disabled && !saving;
@@ -204,7 +205,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
       <DossierRow row="form" label={formLabel} value={form} edit={edit("form", formControl)} below={note("form")} />
     </ul></section>}
     <div className={`${styles.stack} ${OFF_FIELD_CLASS}`}>
-      {fiscalFieldGroups(form, fields?.[form] ?? [], creditNote).map(({ group, fields: grouped }) => {
+      {fiscalFieldGroups(form, fields?.[form] ?? [], noteKind !== null).map(({ group, fields: grouped }) => {
         const fold = foldOf(form, group, grouped, values, broken);
         const fieldsId = `${EDITOR_ID}-${group}-fields`;
         const open = unfolded.has(group);
@@ -219,7 +220,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
         </section>;
       })}
     </div>
-    {form === "606" && creditNote ? <section className={styles.card}><ul className={styles.rows}>
+    {form === "606" && noteKind === "credit" ? <section className={styles.card}><ul className={styles.rows}>
       <DossierRow row="actual_refund" label={refundLabel} value={t(actualRefund ? "business.marks.yes" : "business.marks.no")} edit={edit("actual_refund", refundControl)} below={<>
         {originalPurchase && editing !== "actual_refund" ? <RefundCandidates candidates={[originalPurchase]} chosen={originalPurchase.id} refused={null} disabled locale={locale} /> : null}
         {note("actual_refund")}

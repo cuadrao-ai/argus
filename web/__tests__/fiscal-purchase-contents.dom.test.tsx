@@ -145,6 +145,48 @@ test("a credit note keeps NCF modificado and the refund question", async () => {
   } finally { await saved.dispose(); }
 });
 
+/** The record's comprobante: its number decides whether it is a note. */
+const numbered = (number: string, dgii: Record<string, string | boolean | null> = {}) => (dossier: BusinessDossier): BusinessDossier => {
+  const next = purchase(dgii)(dossier);
+  const fiscal = next.facts.fiscal!;
+  const known = { ...fiscal.ncf, state: "known", value: number } as typeof fiscal.ncf;
+  const none = { ...fiscal.ecf, state: "unknown", value: null } as typeof fiscal.ecf;
+  return { ...next, listo_gaps: [], facts: { ...next.facts, fiscal: { ...fiscal, ncf: number.startsWith("E") ? none : known, ecf: number.startsWith("E") ? known : none } } };
+};
+
+for (const number of ["B0300000011", "E330000000011"]) test(`a debit note ${number} with no reference yet shows NCF modificado and saves it, with no refund question`, async () => {
+  const view = await mountEditor({ fields: await serverFields(), dossier: numbered(number) });
+  try {
+    assert.deepEqual(cards(view.host)[0].rows, ["Tipo de ID", "Fecha de pago", "NCF modificado"]);
+    assert.equal(view.host.querySelector('[data-fact="actual_refund"]'), null, "a debit note returns no money");
+    await view.open("modified_ncf");
+    await view.input("modified_ncf", "B0100000001");
+    await view.save("modified_ncf");
+    const { declaration } = view.writes[0].input.dgii;
+    assert.deepEqual([declaration.modified_ncf, declaration.actual_refund, declaration.purchase_activity_id], ["B0100000001", false, null]);
+    assert.equal(view.row("modified_ncf").querySelector("[data-row-value]")?.textContent, "B0100000001");
+    assert.equal(view.host.querySelector('[data-fact="actual_refund"]'), null, "a saved reference does not make it a credit note");
+  } finally { await view.dispose(); }
+});
+
+for (const number of ["B0400000011", "E340000000011"]) test(`a credit note ${number} shows NCF modificado and the refund question by its number alone`, async () => {
+  const view = await mountEditor({ fields: await serverFields(), dossier: numbered(number) });
+  try {
+    assert.deepEqual(cards(view.host)[0].rows, ["Tipo de ID", "Fecha de pago", "NCF modificado"]);
+    assert.ok(view.host.querySelector('[data-fact="actual_refund"]'));
+  } finally { await view.dispose(); }
+});
+
+test("a regular purchase hides NCF modificado and the refund question whatever its number says of its series", async () => {
+  for (const number of ["B0100000011", "E310000000011", "B1100000011"]) {
+    const view = await mountEditor({ fields: await serverFields(), dossier: numbered(number) });
+    try {
+      assert.equal(view.host.querySelector('[data-field="modified_ncf"]'), null, number);
+      assert.equal(view.host.querySelector('[data-fact="actual_refund"]'), null, number);
+    } finally { await view.dispose(); }
+  }
+});
+
 test("a sale shows every field of its form, with nothing folded", async () => {
   const fields = await serverFields();
   const view = await mountEditor({ fields, dossier: sale });

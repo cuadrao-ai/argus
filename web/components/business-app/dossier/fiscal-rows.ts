@@ -1,5 +1,6 @@
 import type { DgiiField } from "@/lib/business-dgii";
 import type { BusinessDossier } from "@/lib/business-dossier";
+import { electronicNcf, paperNcf } from "@/lib/business-month-close";
 
 export type FiscalForm = "606" | "607";
 export type FiscalGroup = "identity" | "amounts" | "itbis" | "retentions" | "other";
@@ -50,8 +51,11 @@ const LEFT_OUT: Readonly<Record<FiscalForm, ReadonlySet<string>>> = {
   "606": new Set([...GENERAL_ROWS, "legal_tip", "itbis_perceived", "income_perceived"]),
   "607": new Set(GENERAL_ROWS),
 };
-/** A purchase's NCF modificado belongs to a credit note alone. */
-const CREDIT_NOTE_ROWS: ReadonlySet<string> = new Set(["modified_ncf"]);
+/** A purchase's NCF modificado belongs to a note: a regular purchase modifies no comprobante. */
+const NOTE_ROWS: ReadonlySet<string> = new Set(["modified_ncf"]);
+export type FiscalNote = "credit" | "debit";
+/** The comprobante types that modify another one, by the two digits after the series letter. The server requires the reference of each on a 606. */
+const NOTE_OF_TYPE: Readonly<Record<string, FiscalNote>> = { "03": "debit", "33": "debit", "04": "credit", "34": "credit" };
 /** A purchase's Tipo de ID comes from the number in General. */
 const READ_ONLY: Readonly<Record<FiscalForm, ReadonlySet<string>>> = { "606": new Set(["id_type"]), "607": new Set() };
 /** What a folded card says, and how it offers its first row, as locale keys. */
@@ -66,11 +70,17 @@ const FOLDS: Readonly<Record<FiscalForm, Partial<Record<FiscalGroup, FoldCopy>>>
 };
 
 /**
- * Whether the record is a credit note or a refund, by what the server says of
- * it: the gap it names on an open one, or the reference a saved one holds.
+ * The note a purchase is, or null for a regular one. Its comprobante number
+ * says so first, as the server reads it: the e-CF, else the NCF. A record with
+ * no note number is a credit note by what the server says of it: the gap it
+ * names on an open one, or the refund or reference a saved one holds.
  */
-export function inCreditNoteFlow(dossier: Pick<BusinessDossier, "listo_gaps" | "dgii" | "inheritance">): boolean {
-  return Boolean(dossier.listo_gaps?.includes("credit_note") || dossier.dgii?.actual_refund === true || dossier.dgii?.modified_ncf || dossier.inheritance?.modified_ncf);
+export function fiscalNote(dossier: Pick<BusinessDossier, "facts" | "listo_gaps" | "dgii" | "inheritance">): FiscalNote | null {
+  const { ecf, ncf } = dossier.facts.fiscal ?? {};
+  const number = electronicNcf(ecf?.value?.trim().toUpperCase()) ?? paperNcf(ncf?.value?.trim().toUpperCase());
+  const named = number ? NOTE_OF_TYPE[number.slice(1, 3)] : undefined;
+  if (named) return named;
+  return dossier.listo_gaps?.includes("credit_note") || dossier.dgii?.actual_refund === true || dossier.dgii?.modified_ncf || dossier.inheritance?.modified_ncf ? "credit" : null;
 }
 
 export function isReadOnlyRow(form: FiscalForm, name: string): boolean {
@@ -85,9 +95,9 @@ export function foldOf(form: FiscalForm, group: FiscalGroup, fields: readonly Dg
 const rank = (name: string) => { const at = ROW_ORDER.indexOf(name); return at < 0 ? ROW_ORDER.length : at; };
 
 /** The fields this tab shows, by card; a card with nothing to show is left out. */
-export function fiscalFieldGroups(form: FiscalForm, fields: readonly DgiiField[], creditNote: boolean): { group: FiscalGroup; fields: DgiiField[] }[] {
+export function fiscalFieldGroups(form: FiscalForm, fields: readonly DgiiField[], note: boolean): { group: FiscalGroup; fields: DgiiField[] }[] {
   const shown = fields
-    .filter((field) => !LEFT_OUT[form].has(field.name) && (form !== "606" || creditNote || !CREDIT_NOTE_ROWS.has(field.name)))
+    .filter((field) => !LEFT_OUT[form].has(field.name) && (form !== "606" || note || !NOTE_ROWS.has(field.name)))
     .sort((left, right) => rank(left.name) - rank(right.name));
   return ORDER
     .map((group) => ({ group, fields: shown.filter((field) => (GROUP_OF[field.name] ?? "other") === group) }))
