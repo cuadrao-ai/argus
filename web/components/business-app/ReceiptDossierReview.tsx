@@ -622,6 +622,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           >
             <ReceiptRecordFacts dossier={dossier} accounts={accounts} problems={problems} flash={flash} choices={choicesView ? <ReceiptOwnerChoices {...choicesView} pick={choicePick} note={choiceNote} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} edit={rowEdit("document_type")} note={rowNote("document_type")} /> : undefined} review={{
               amountsPreview,
+              restoreSubtotal: mayEdit("net_amount") && mutable ? () => void autosave.save("net_amount", { write: "montos", montos: { net_amount: { state: "unknown", value: null } } }) : undefined,
               edit: rowEdit,
               note: rowNote,
               noReceipt: {

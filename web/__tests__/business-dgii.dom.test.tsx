@@ -318,7 +318,7 @@ test("the 607 editor names its rows as the board does, in both languages, and le
   ];
   const view = await mountEditor({
     fields: { "606": [], "607": sale607 },
-    dossier: (dossier) => ({ ...dossier, document_type: "venta", dgii: { form: "607" }, sale_payment: { form: null, options: ["bank", "gift"] } }),
+    dossier: (dossier) => ({ ...dossier, document_type: "venta", dgii: { form: "607" }, source_owned_fields: [], sale_payment: { form: null, options: ["bank", "gift"] } }),
   });
   try {
     const labels = () => [...view.host.querySelectorAll("[data-field]")].map((row) => row.firstElementChild?.textContent);
@@ -351,7 +351,7 @@ for (const form of ["606", "607"] as const) {
     const view = await mountEditor({
       productionI18n: true,
       fields: { "606": [], "607": [], [form]: formFields },
-      dossier: (dossier) => ({ ...dossier, dgii: { form } }),
+      dossier: (dossier) => ({ ...dossier, dgii: { form }, source_owned_fields: form === "606" ? ["id_type"] : [] }),
     });
     const showWithholding = async () => {
       const fold = foldOf(view.host);

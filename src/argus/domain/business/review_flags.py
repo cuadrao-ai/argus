@@ -14,7 +14,7 @@ from decimal import Decimal
 from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
 )
-from argus.domain.business.contracts.dossier import ReviewFlag
+from argus.domain.business.contracts.dossier import AmountsCheck, ReviewFlag
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_606_rules import itbis_limit
 from argus.domain.business.fiscal_identity import (
@@ -74,13 +74,30 @@ def review_flags(
         and itbis_too_high(Decimal(total), Decimal(itbis), _known(facts.occurred_on))
     ):
         flags.append(ReviewFlag(code="itbis_high", field="itbis", confirm=False))
-    net = net_amount(facts, declaration)
-    if total is not None and net.amount is not None:
-        difference = Decimal(total) - Decimal(net.amount) - sum(amount_parts(facts, declaration))
-        # An unknown ITBIS counts as zero and can only close a gap the Total leaves.
-        if difference < Decimal("-0.01") or (itbis is not None and difference > Decimal("0.01")):
-            flags.append(ReviewFlag(
-                code="amounts_mismatch", field="amount", confirm=False,
-                difference=exact_amount_text(difference),
-            ))
+    amounts = amounts_check(facts, declaration)
+    if amounts.state == "difference":
+        flags.append(ReviewFlag(
+            code="amounts_mismatch", field="amount", confirm=False,
+            difference=amounts.difference,
+        ))
     return tuple(flags)
+
+
+def amounts_check(
+    facts: BusinessFacts, declaration: DgiiDeclaration | None = None
+) -> AmountsCheck:
+    """Whether the Total is the Subtotal plus its taxes and tip: the one owner
+    of the ``amounts_mismatch`` flag and of the dossier's Montos check. It
+    answers ``unchecked`` for a record with no fiscal facts, without a Total
+    or a Subtotal, and while an unknown ITBIS leaves a gap it could close."""
+
+    total = _known(facts.amount)
+    net = net_amount(facts, declaration)
+    if facts.fiscal is None or total is None or net.amount is None:
+        return AmountsCheck(state="unchecked")
+    itbis = _known(facts.fiscal.itbis)
+    difference = Decimal(total) - Decimal(net.amount) - sum(amount_parts(facts, declaration))
+    # An unknown ITBIS counts as zero and can only close a gap the Total leaves.
+    if difference < Decimal("-0.01") or (itbis is not None and difference > Decimal("0.01")):
+        return AmountsCheck(state="difference", difference=exact_amount_text(difference))
+    return AmountsCheck(state="adds_up" if itbis is not None else "unchecked")

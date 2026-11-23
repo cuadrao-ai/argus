@@ -68,6 +68,12 @@ function sampleStanding(draft: BusinessDossier, seeded: readonly SampleGap[] = [
     : { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [] };
 }
 
+/**
+ * What the server states for a regular purchase whose amounts it has not
+ * checked: no note, and Tipo de ID follows the RNC. Each sample record states
+ * these fields as the server would for it. No write here works one out.
+ */
+const STATED_PURCHASE: Required<Pick<BusinessDossier, "amounts_check" | "note_kind" | "source_owned_fields">> = { amounts_check: { state: "unchecked" }, note_kind: null, source_owned_fields: ["id_type"] };
 const SERVICE_EXPENSE_TYPES = new Set(["02", "03", "07", "11"]);
 /** Forma de pago codes that pay at the purchase: Fecha de pago is the receipt's date. */
 const PAID_AT_PURCHASE = new Set(["01", "02", "03", "07"]);
@@ -281,6 +287,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       blockers: ready ? name === "unknownKind" ? [{ code: "missing_fields", field: "kind" }] : name === "income" ? [{ code: "unsupported_kind", field: "kind" }] : [] : [{ code: "unknown_funding", field: "funding" }, ...(name === "unknownAmount" ? [{ code: "missing_fields", field: "amount" as const }] : [])],
       approval_available: ready && name !== "readOnly" && name !== "income" && name !== "unknownKind",
       approval_result: null,
+      ...STATED_PURCHASE,
     });
   }
   const fiscalDossier = dossiers.get(dossierFixtureIds.fiscal)!;
@@ -300,7 +307,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     { name: "qr_matches_read", state: "verified", code: null, detail: {}, read_vs_qr: { rnc: { read: "131999888", qr: "131999888" }, ecf: { read: "E310000000777", qr: "E310000000777" } } },
   ] };
   const fiscalQr: BusinessDossier["dgii_qr"] = { url: "https://ecf.dgii.gov.do/ecf/consultatimbre?RncEmisor=131999888&ENCF=E310000000777&MontoTotal=3450.00&CodigoSeguridad=AbC123", host: "ecf.dgii.gov.do", rnc_emisor: "131999888", encf: "E310000000777", monto_total: "3450.00", codigo_seguridad: "AbC123", fecha_emision: "2026-10-09", fecha_firma: null, rnc_comprador: null };
-  dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, declaration_suggestions: { category: { value: "02", source: "last_choice" }, payment_method: { value: "03", source: "last_choice" } }, fiscal_value: "ncf", ecf_checks: fiscalChecks, ecf_checks_panel_available: true, dgii_qr: fiscalQr, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo vía Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
+  dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, net_amount: { amount: "2923.73", source: "calculated" }, amounts_check: { state: "adds_up" }, declaration_suggestions: { category: { value: "02", source: "last_choice" }, payment_method: { value: "03", source: "last_choice" } }, fiscal_value: "ncf", ecf_checks: fiscalChecks, ecf_checks_panel_available: true, dgii_qr: fiscalQr, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo vía Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
   const fiscalSample = dossiers.get(fiscalDossier.draft_id)!;
   dossiers.set(dossierFixtureIds.saveRefused, { ...fiscalSample, draft_id: dossierFixtureIds.saveRefused });
   dossiers.set(dossierFixtureIds.fiscalBlocked, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalBlocked, facts: { ...fiscalAfter, occurred_on: unknown() }, blockers: [{ code: "fact_required", field: "occurred_on" }], approval_available: false });
@@ -535,7 +542,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
      * the 606 answers the server offers beside the blank ones, and `paidOn`
      * is a Fecha de pago a person then saved apart from the receipt's date.
      */
-    createReceiptDraft: (receipt: ReceiptDetail, { fiscal, confirmable, by = "read", suggestions, paidOn }: { fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }; confirmable?: boolean; by?: "read" | "person"; suggestions?: BusinessDossier["declaration_suggestions"]; paidOn?: string } = {}) => {
+    createReceiptDraft: (receipt: ReceiptDetail, { fiscal, confirmable, by = "read", amountsCheck, suggestions, paidOn }: { fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }; confirmable?: boolean; by?: "read" | "person"; /** The Montos check the server states for this receipt. */ amountsCheck?: BusinessDossier["amounts_check"]; suggestions?: BusinessDossier["declaration_suggestions"]; paidOn?: string } = {}) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
       const read = by === "read";
       const stated = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
@@ -569,6 +576,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         history,
         blockers: [], approval_available: true, approval_result: null,
         sin_comprobante: receipt.sin_comprobante, personal: receipt.personal, personal_marked_by: receipt.personal_marked_by,
+        ...STATED_PURCHASE, ...(amountsCheck ? { amounts_check: amountsCheck } : {}),
         ...(suggestions ? { declaration_suggestions: suggestions } : {}),
       });
       receiptDrafts.add(id);

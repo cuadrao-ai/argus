@@ -20,7 +20,7 @@ import type { BusinessDataSource } from "./business-data";
 import { DossierRow, type RowEdit, type RowStatus } from "./dossier/DossierParts";
 import ReceiptRowSave from "./ReceiptRowSave";
 import type { RowSave } from "./receipt-review-save";
-import { fiscalFieldGroups, fiscalNote, foldOf, isReadOnlyRow, recordForm, type FiscalForm, type FiscalGroup } from "./dossier/fiscal-rows";
+import { fiscalFieldGroups, foldOf, recordForm, type FiscalForm, type FiscalGroup } from "./dossier/fiscal-rows";
 import { dgiiOptionLabel } from "./receipt-fact-presentation";
 import { usePreview } from "./useAmountsPreview";
 
@@ -66,7 +66,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
   // The purchase the server refused for this refund: the choice stays, and the person picks another.
   const [refused, setRefused] = useState<string | null>(null);
   const candidates = dossier.refund_candidates ?? [];
-  const noteKind = fiscalNote(dossier);
+  const noteKind = dossier.note_kind ?? null;
   const [pending, setPending] = useState<{ key: string; version: number; input: DgiiReview } | null>(null);
   useEffect(() => () => { onDirty(false); onBusy(false); }, [onBusy, onDirty]);
   const editable = dossier.facts_editable === true && !disabled && !saving;
@@ -175,7 +175,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
     const restoreLabel = t("business.dossier.placeholder.restore_inherited", { value: sourceValue });
     // The status slot: the link a field follows, or the way back to it once a person held the field apart.
     const status: RowStatus | null = linked && value !== "" ? { kind: "link", text: inheritedLabel } : null;
-    const readOnly = isReadOnlyRow(form, field.name);
+    const readOnly = dossier.source_owned_fields?.includes(field.name) === true;
     const restoreAction = inherited && !linked && !readOnly && canChange(field.name)
       ? <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-inherited={field.name} className={styles.pen} style={{ opacity: 1, width: 24, height: 24 }} onClick={() => restore(field.name)}><RotateCcw size={14} aria-hidden="true" /></button></Tooltip>
       : null;

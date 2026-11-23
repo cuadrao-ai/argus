@@ -4024,8 +4024,8 @@ records which fields no longer inherit from their source; null denotes older rec
 whose override state must be interpreted from their saved declaration. The
 names are the keys of `amount_inheritance.INHERITANCE`, which now include
 `id_type` and `modified_ncf`. A name in `amount_inheritance.SOURCE_OWNED`
-(`legal_tip`) is never recorded once the record carries that fact: a save
-removes one an older save kept. No table,
+is never recorded: `legal_tip` once the record carries that fact, and
+`id_type` on any purchase. A save removes one an older save kept. No table,
 column, migration, or backfill is added. The review action receipt records every
 edit and restore under the existing version, grant and idempotency checks.
 

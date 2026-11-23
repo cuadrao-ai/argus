@@ -23,6 +23,7 @@ from argus.domain.business.amount_inheritance import (
     inheritance_state,
     links_of,
     original_ncf,
+    source_owned,
     written_from,
 )
 from argus.domain.business.annotations import (
@@ -77,9 +78,9 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.dgii_validation import purchase_calculated
-from argus.domain.business.document_type import DocumentType, kind_disagrees
+from argus.domain.business.document_type import DocumentType, direction, kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
-from argus.domain.business.fact_blockers import blockers
+from argus.domain.business.fact_blockers import blockers, record_note
 from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
 from argus.domain.business.purchase_review import (
@@ -91,7 +92,7 @@ from argus.domain.business.purchase_review import (
     takes_purchase_declaration,
 )
 from argus.domain.business.receipts import draft_row
-from argus.domain.business.review_flags import review_flags
+from argus.domain.business.review_flags import amounts_check, review_flags
 from argus.domain.business.rnc_registry import (
     DgiiRncRegistry,
     RncRegistrySnapshot,
@@ -739,6 +740,11 @@ def dossier(
         history=revisions,
         blockers=tuple(blocked),
         review_flags=flags,
+        amounts_check=amounts_check(facts, resolution.dgii),
+        note_kind=record_note(facts, declaration),
+        source_owned_fields=tuple(
+            sorted(source_owned(facts, direction(resolution.document_type).form))
+        ),
         approval_available=approvable,
         duplicate_candidates=duplicate_candidates(
             tx,

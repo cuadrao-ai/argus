@@ -55,7 +55,7 @@ test("amount edit and cancel keep the number box and the two action slots", asyn
 
 test("the difference follows the current server preview while typing and drops cancelled replies", async () => {
   const requests: { input: unknown; resolve: (value: import("@/lib/business-api").BusinessAmountsPreview) => void }[] = [];
-  const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }]; }, () => ({
+  const page = await setup("fiscal", (dossier) => { dossier.amounts_check = { state: "difference", difference: "20.00" }; }, () => ({
     previewAmounts: async (_, __, input) => new Promise((resolve) => { requests.push({ input, resolve }); }),
   }));
   try {
@@ -103,7 +103,7 @@ test("a tax preview updates the closed calculated net using the server result", 
 
 test("a failed amount preview retains the last warning instead of claiming a balanced receipt", async () => {
   let called = false;
-  const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }]; }, () => ({
+  const page = await setup("fiscal", (dossier) => { dossier.amounts_check = { state: "difference", difference: "20.00" }; }, () => ({
     previewAmounts: async () => { called = true; throw new Error("preview offline"); },
   }));
   try {
@@ -118,7 +118,7 @@ test("a failed amount preview retains the last warning instead of claiming a bal
 
 test("a preview shows only for the amounts it was computed from, and a failed one says the sum is checked on save", async () => {
   const requests: { resolve: (value: import("@/lib/business-api").BusinessAmountsPreview) => void; reject: (error: Error) => void }[] = [];
-  const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }]; }, () => ({
+  const page = await setup("fiscal", (dossier) => { dossier.amounts_check = { state: "difference", difference: "20.00" }; }, () => ({
     previewAmounts: async () => new Promise((resolve, reject) => { requests.push({ resolve, reject }); }),
   }));
   try {

@@ -154,20 +154,22 @@ def test_saving_the_pane_as_shown_overrides_nothing(actions):  # noqa: ANN001
     )
 
 
-def test_an_overridden_tipo_id_holds_until_it_is_restored(actions):  # noqa: ANN001
+def test_a_typed_tipo_id_is_dropped_for_the_one_the_rnc_states(actions):  # noqa: ANN001
     service, context = actions
-    draft, _ = _fresh(service, context)
+    draft, fresh = _fresh(service, context)
+    assert "id_type" in fresh.source_owned_fields
+    assert fresh.note_kind is None
 
     _review(service, context, draft, purchase=PurchaseReview(id_type="2"))
-    overridden = service.dossier(context, draft)
-    assert overridden.dgii.id_type == "2"
-    assert overridden.inheritance["id_type"].inherited is False
-    assert overridden.inheritance["id_type"].value == "1"
+    typed = service.dossier(context, draft)
+    assert typed.dgii.id_type == "1"
+    assert typed.inheritance["id_type"].inherited is True
 
-    _review(service, context, draft, montos=MontosReview(restore_inherited=("id_type",)))
-    restored = service.dossier(context, draft)
-    assert restored.dgii.id_type == "1"
-    assert restored.inheritance["id_type"].inherited is True
+    _review(service, context, draft, montos=MontosReview(override_inherited=("id_type",)))
+    held = service.dossier(context, draft)
+    assert held.dgii.id_type == "1"
+    assert held.inheritance["id_type"].inherited is True
+    assert "id_type" in held.source_owned_fields
 
 
 def test_fecha_pago_follows_the_chosen_forma_de_pago(actions):  # noqa: ANN001

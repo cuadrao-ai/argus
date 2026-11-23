@@ -75,8 +75,8 @@ def _overridden(document_type: str, tip: str | None = TIP):  # noqa: ANN202
 def test_every_source_owned_field_is_a_linked_one():
     assert SOURCE_OWNED <= INHERITANCE.keys()
     assert "legal_tip" in SOURCE_OWNED
-    assert source_owned(_facts("recibo")) == SOURCE_OWNED
-    assert source_owned(_facts("recibo", None)) == frozenset()
+    assert source_owned(_facts("recibo"), "606") == SOURCE_OWNED
+    assert source_owned(_facts("recibo", None), "606") == {"id_type"}
 
 
 @pytest.mark.parametrize("document_type", FORMS)

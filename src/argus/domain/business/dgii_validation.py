@@ -27,6 +27,7 @@ from argus.domain.business.document_type import (
 from argus.domain.business.fiscal_identity import (
     COUNTERPARTY_ID_LENGTH,
     credit_note,
+    debit_note,
     ncf_type,
     normalized_ncf,
     normalized_taxpayer_id,
@@ -120,6 +121,10 @@ def purchase_calculated(
 
 def is_credit(record: FiscalRecord) -> bool:
     return credit_note(fact_value(record, "ecf") or fact_value(record, "ncf"))
+
+
+def is_debit(record: FiscalRecord) -> bool:
+    return debit_note(fact_value(record, "ecf") or fact_value(record, "ncf"))
 
 
 def record_issues(
@@ -327,7 +332,7 @@ def record_issues(
                 issue("fiscal_credit_original_unsupported", "modified_ncf")
             if declaration.payment_method != "06":
                 issue("fiscal_credit_payment_code_required", "payment_method")
-        elif kind in {"03", "33"}:
+        elif is_debit(record):
             if normalized_ncf(declaration.modified_ncf) is None:
                 issue("fiscal_credit_reference_conflict", "modified_ncf")
             if declaration.actual_refund or declaration.purchase_activity_id:
