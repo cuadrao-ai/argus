@@ -76,6 +76,7 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
 )
+from argus.domain.business.dgii_validation import purchase_calculated
 from argus.domain.business.document_type import DocumentType, kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers
@@ -760,6 +761,7 @@ def dossier(
         ecf_checks_panel_available=ecf_checks_panel_enabled(),
         bill_mark=shown_bill_mark(resolution),
         dgii=declaration.model_dump(mode="json") if declaration else None,
+        dgii_calculated=purchase_calculated(facts, declaration, resolution.fiscal_overrides),
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,
         document_type_editable=(
