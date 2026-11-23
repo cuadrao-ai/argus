@@ -75,7 +75,7 @@ async function mount({ width = 1280 }: { width?: number } = {}) {
     throw new Error(`timed out waiting for ${what}: ${document.body.textContent?.slice(0, 300)}`);
   };
   const tray = () => document.querySelector<HTMLElement>('[data-testid="side-drawer"]');
-  const recordTitle = () => tray()?.querySelector("#receipt-review-title, #expense-detail-title")?.textContent ?? null;
+  const recordTitle = () => tray()?.querySelector("#receipt-review-title")?.textContent ?? null;
   const row = (text: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="panel"] li')].find((item) => item.textContent?.includes(text)) ?? null;
   const action = (text: string) => row(text)?.querySelector<HTMLElement>('button[class~="rowAction"]') ?? null;
   const click = async (element: HTMLElement | null | undefined) => {
@@ -249,6 +249,8 @@ describe("a record in the desktop tray", () => {
     await page.settle(() => saved("Estación Ruta 3") !== null, "the saved records");
     await page.click(saved("Estación Ruta 3"));
     await page.settle(() => page.recordTitle() === "Estación Ruta 3", "Estación Ruta 3 in the tray");
+    assert.equal(page.tray()!.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "tray", "a record with no draft opens the one dossier");
+    assert.equal(page.tray()!.querySelector('[data-testid="receipt-review-footer"]'), null, "with nothing to act on");
     assert.ok(page.host.querySelector('[data-record-id="exp-gas"]'), "the list is still on the page");
     assert.equal(saved("Estación Ruta 3")?.getAttribute("aria-selected"), "true");
     assert.equal([...page.tray()!.querySelectorAll("button")].find((button) => button.textContent === "Transacciones"), undefined, "no way back inside the tray");
@@ -391,4 +393,20 @@ describe("a record below the desktop stop", () => {
     assert.equal(page.host.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "page");
     assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent === "Bandeja"), "the way back is on the page");
   });
+
+  for (const [kind, merchant] of [["a record with no draft", "Estación Ruta 3"], ["a receipt", "Nube Hosting"]] as const) {
+    test(`on a phone, the way back from ${kind} puts focus on the Registros row that opened it`, async () => {
+      const page = await mount({ width: 390 });
+      await page.open({ kind: "transactions" });
+      const opener = () => [...page.host.querySelectorAll<HTMLElement>("[data-record-id]")].find((item) => item.textContent?.includes(merchant))?.querySelector("button") ?? null;
+      await page.settle(() => opener() !== null, "the saved records");
+      await page.click(opener());
+      await page.settle(() => page.host.querySelector("#receipt-review-title")?.textContent === merchant, "the record page");
+      assert.equal(page.host.querySelector("[data-record-id]"), null, "the record replaces the list");
+      await page.click([...page.host.querySelectorAll("button")].find((button) => button.textContent === "Registros"));
+      await page.settle(() => opener() !== null, "Registros again");
+      assert.equal(page.panel().kind, "transactions");
+      assert.ok(document.activeElement === opener(), "focus is back on the row");
+    });
+  }
 });

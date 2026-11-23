@@ -389,16 +389,15 @@ describe("the gate", () => {
     const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
     Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
     try {
-      let detailReads = 0;
-      const page = await mount({ enabled: false, width: 390, expenseRead: async () => { detailReads += 1; throw new Error("detail-unavailable"); } });
+      const page = await mount({ enabled: false, width: 390, expenseRead: async (id) => ({ id, merchant: "Estación Ruta 3", amount: "2100.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-09", receipt_id: null, draft_id: null, recorded_at: null, revision: null }) });
       await page.settle(() => page.records().length > 0, "saved records");
       const row = page.records().find((item) => item.dataset.kind === "gasto")!;
       const key = row.dataset.recordKey;
       await page.click(row.matches("tr") ? row : row.querySelector("button"));
       await page.settle(() => Boolean(document.querySelector('[role="dialog"]')), "record sheet");
       assert.ok(document.querySelector('[data-testid="records-page-preview"]'));
-      assert.deepEqual([...document.querySelectorAll('[data-testid="loaded-record-glance"] dt')].map((term) => term.textContent).filter((term) => term === "Tipo de gasto" || term === "Categoría"), ["Tipo de gasto"]);
-      assert.equal(detailReads, 0, "explicit loaded-row preview makes no detail request");
+      await page.settle(() => Boolean(document.querySelector('[role="dialog"] [data-testid="business-record-review"]')), "the dossier in the sheet");
+      assert.equal(document.querySelector('[data-testid="loaded-record-glance"]'), null, "the sheet holds the dossier, not a row glance");
       assert.ok(page.records().some((item) => item.dataset.recordKey === key));
       await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]'));
       await page.settle(() => !document.querySelector('[role="dialog"]'), "sheet closed");

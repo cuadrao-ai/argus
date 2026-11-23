@@ -156,7 +156,7 @@ export function useBusinessSearch({
             id: note.source_id,
             icon: FileText,
             title: note.text,
-            detail: line(t("business.capture.saved_note", "Saved original note"), formatDay(note.received_at, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.revision }), t(`business.dossier.state.${note.review_state}`, note.review_state)),
+            detail: line(t("business.capture.saved_note", "Saved original note"), formatDay(note.received_at, locale), t(`business.dossier.state.${note.review_state}`, note.review_state)),
             amount: null,
             badge: t("business.search.badge_note", "Note"),
             preview: preview({ kind: "note", note }),
