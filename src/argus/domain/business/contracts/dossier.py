@@ -20,7 +20,7 @@ from argus.domain.business.space_name import GivenName
 from .actions import SUPPORTING_FILE_LIMIT, ApprovalAction, DuplicateDecision
 from .authority import ActorView, Capability, PersonName
 from .checks import DgiiQr, EcfVerification
-from .dgii import DeclarationSuggestions, DgiiDeclaration
+from .dgii import DeclarationSuggestions, DgiiDeclaration, PurchaseCalculated
 from .facts import (
     HUMAN_AMOUNT_FIELDS,
     BusinessFacts,
@@ -324,6 +324,9 @@ class BusinessDossier(RecordContext):
     supporting_limit_reached: bool = False
     annotation_unavailable_reason: str | None = None
     dgii: DgiiDeclaration | None = None
+    #: What the 606 calculates from ``dgii`` for a purchase, as its line
+    #: writes it; null for a sale and for a record with no 606 declaration.
+    dgii_calculated: PurchaseCalculated | None = None
     draft_id: UUID
     version: int = Field(ge=1)
     review_state: Literal["open", "accepting", "accepted", "dismissed"]
@@ -432,6 +435,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "inheritance": True,
     "facts": set(HUMAN_AMOUNT_FIELDS),
     "dgii": {"itbis", "suggestion_sources"},
+    "dgii_calculated": True,
     "deleted": True,
     "delete_available": True,
     "restore_available": True,
