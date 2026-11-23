@@ -41,7 +41,7 @@ async function render(node: ReactNode, { dgiiNames = false, lng = "es-419" } = {
   return { host, act, close: () => act(async () => { root.unmount(); host.remove(); }) };
 }
 
-const actor = (name: string, kind: "member" | "extractor" = "member") => ({ actor_id: name, actor_kind: kind, display_name: name, shown_as: "name", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" });
+const actor = (name: string, kind: "member" | "extractor" | "owner_via_agent" = "member") => ({ actor_id: name, actor_kind: kind, display_name: name, shown_as: "name", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño", issuer_shown_as: "name" });
 const known = <T,>(value: T) => ({ state: "known" as const, value, origin: "member_set" as const, verified: false, source_ids: [] });
 const unknown = { state: "unknown" as const, value: null, origin: null, verified: false as const, source_ids: [] };
 
@@ -56,8 +56,13 @@ function revision(version: number, at: string, who: ReturnType<typeof actor>, be
 /** Local times, so the "DD/MM, h:mm a.m." line is the same in every time zone. */
 const at = (day: number, hour: number, minute: number) => new Date(2026, 9, day, hour, minute).toISOString();
 
-/** What one event says: its lines, then who did it (null when nobody is named). */
-const eventLines = (item: Element) => [...[...item.querySelectorAll("p")].map((line) => line.textContent), item.querySelector('[data-testid="history-who"] span')?.textContent ?? null];
+/** A line as a person sees it: a correction shows its field's name, and says the whole sentence to a screen reader. */
+const seen = (line: Element) => line.querySelector('[aria-hidden="true"]')?.textContent ?? line.textContent;
+const said = (line: Element) => line.querySelector(".sr-only")?.textContent ?? line.textContent;
+/** What one event shows: its lines, then who did it (null when nobody is named). */
+const eventLines = (item: Element) => [...[...item.querySelectorAll("p")].map(seen), item.querySelector('[data-testid="history-who"] span')?.textContent ?? null];
+/** The struck and the green value of each correction, in order. */
+const diffs = (host: Element) => [...host.querySelectorAll('[data-testid="history-diff"]')].map((diff) => [diff.querySelector("del")?.textContent ?? null, diff.querySelector("ins")?.textContent ?? null]);
 const accepted = "Aceptado";
 
 test("Historial records unlinks as Archivo quitado with their normal actor and time", async () => {
@@ -100,12 +105,14 @@ describe("Historial", () => {
     assert.deepEqual([...section.querySelectorAll('[data-testid="history-day"] h3')].map((title) => title.textContent), ["11 Oct 2026", "10 Oct 2026"]);
     assert.equal(section.querySelector("button"), null, "nothing folds: the tab is the Historial");
     assert.deepEqual([...section.querySelectorAll("li")].map(eventLines), [
-      ["Moneda cambiada de DOP a USD", "Ana Peña"],
+      ["Moneda", "Ana Peña"],
       [accepted, "Pasó a Registros", "Lucía Mateo"],
-      ["Total cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña"],
+      ["Total", "Ana Peña"],
       ["Leído", "Cuadrao"],
       ["Llegó por WhatsApp", "a.jpg", null],
     ]);
+    assert.deepEqual(diffs(section), [["DOP", "USD"], ["RD$ 1,200.00", "RD$ 1,250.00"]], "a correction is its field, then the old value struck and the new one green");
+    assert.deepEqual([...section.querySelectorAll("li .sr-only")].map((line) => line.textContent), ["Moneda cambiada de DOP a USD", "Total cambiado de RD$ 1,200.00 a RD$ 1,250.00"], "a screen reader hears the whole sentence");
     const times = [...section.querySelectorAll("time")];
     assert.deepEqual(times.map((time) => time.getAttribute("datetime")), [at(11, 8, 0), at(11, 0, 5), at(10, 13, 5), at(10, 9, 25), at(10, 9, 20)]);
     for (const time of times) assert.match(time.textContent ?? "", /\d{1,2} \w+\.? 2026, \d{1,2}:\d{2}/, "the full date and time");
@@ -162,7 +169,8 @@ describe("Historial", () => {
   test("events of one revision keep their field order", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), facts("100.00"), facts("200.00", "USD"))]} accounts={[]} />);
-    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Total cambiado de RD$ 100.00 a US$ 200.00", "Moneda cambiada de DOP a USD"]);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map(said), ["Total cambiado de RD$ 100.00 a US$ 200.00", "Moneda cambiada de DOP a USD"]);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map(seen), ["Total", "Moneda"]);
     await page.close();
   });
 
@@ -170,7 +178,8 @@ describe("Historial", () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const renamed = { ...facts("100.00"), counterparty: known("Colmado Duarte") } as unknown as BusinessFacts;
     const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), facts("100.00"), renamed)]} accounts={[]} documentType={documentType} />);
-    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), [`${name} cambiado de Ferretería La Esquina a Colmado Duarte`]);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map(said), [`${name} cambiado de Ferretería La Esquina a Colmado Duarte`]);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map(seen), [name]);
     await page.close();
   });
 
@@ -183,12 +192,44 @@ describe("Historial", () => {
     await page.close();
   });
 
-  test("a revision that creates the record lists only fields with a value", async () => {
+  /** What a read leaves behind, as the server writes it: read values, and the answers no read gives left open. */
+  const arrived = { ...facts("500.00"), business_share: known({ kind: "all" }), receipt_state: known("no_receipt"), category_id: known("other") } as unknown as BusinessFacts;
+
+  for (const kind of ["extractor", "owner_via_agent"] as const) test(`the revision that creates the record is one Leído by Cuadrao, never a list of its values (${kind})`, async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
-    const created = { ...facts("500.00"), kind: unknown, occurred_on: unknown, counterparty: unknown } as unknown as BusinessFacts;
-    const page = await render(<ReceiptHistory history={[revision(1, at(10, 9, 0), actor("Ana Peña"), null, created)]} accounts={[]} />);
-    const text = [...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent);
-    assert.deepEqual(text.sort(), ["Moneda: DOP", "Total: RD$ 500.00"]);
+    const sources = [{ id: "s1", kind: "attachment", channel: "email", received_at: at(10, 8, 58), connection_id: "c", filename: "factura.pdf", media_type: "application/pdf" }] as BusinessDossier["sources"];
+    const page = await render(<ReceiptHistory history={[revision(1, at(10, 9, 0), actor("Ana Peña", kind), null, arrived)]} accounts={[]} sources={sources} />);
+    assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Leído", "Cuadrao"], ["Llegó por Correo", "factura.pdf", null]]);
+    assert.equal(page.host.querySelector('[data-testid="history-diff"]'), null);
+    assert.doesNotMatch(page.host.textContent ?? "", /Actividad|Parte del negocio|Categoría|Comprobante|Total|Moneda|Fecha|Emisor|Ana Peña/);
+    await page.close();
+  });
+
+  test("a record a person started has one line by that person, never a list of its values", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const page = await render(<ReceiptHistory history={[revision(1, at(10, 9, 0), actor("Ana Peña"), null, arrived)]} accounts={[]} />);
+    assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Se revisó esta versión.", "Ana Peña"]]);
+    assert.doesNotMatch(page.host.textContent ?? "", /Leído|Cuadrao|Actividad|Parte del negocio|Categoría|Total/);
+    await page.close();
+  });
+
+  test("a type change is one Tipo line: the activity that follows it is not a second change", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const sale = { ...facts("1200.00"), kind: known("income") } as unknown as BusinessFacts;
+    const retyped = { ...revision(2, at(11, 8, 0), actor("Ana Peña"), facts("1200.00"), sale), before_document_type: "recibo" as const, after_document_type: "venta" as const };
+    const page = await render(<ReceiptHistory history={[retyped]} accounts={[]} documentType="venta" />);
+    assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Tipo", "Ana Peña"]]);
+    assert.deepEqual(diffs(page.host), [["Compra", "Venta"]]);
+    assert.doesNotMatch(page.host.textContent ?? "", /Actividad|Gasto|Ingreso/);
+    await page.close();
+  });
+
+  test("a value a person fills in for the first time has nothing to strike", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const blank = { ...facts("500.00"), counterparty: unknown } as unknown as BusinessFacts;
+    const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), blank, facts("500.00"))]} accounts={[]} documentType="recibo" />);
+    assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Emisor", "Ana Peña"]]);
+    assert.deepEqual(diffs(page.host), [[null, "Ferretería La Esquina"]]);
     await page.close();
   });
 });
@@ -262,7 +303,7 @@ test("a draft the first Business RNC moved reads as a change through Cuadrao wit
   const page = await render(<ReceiptHistory history={history} accounts={[]} documentType="venta" />);
   const lines = [...page.host.querySelectorAll("li")].map(eventLines);
   assert.deepEqual(lines, [
-    ["Actividad cambiada de Gasto a Ingreso", "Lo emitió tu negocio", "Ana Peña vía Cuadrao"],
+    ["Actividad", "Lo emitió tu negocio", "Ana Peña vía Cuadrao"],
     ["Leído", "Cuadrao"],
   ]);
   const chips = page.host.querySelector('[data-testid="history-diff"]')!;
