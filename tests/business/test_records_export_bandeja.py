@@ -9,14 +9,11 @@ from uuid import uuid4
 
 import pytest
 from argus.api import business_receipt_activity, business_reports
-from argus.api.business import (
-    require_business,
-    require_business_person,
-    require_business_surface,
-)
+from argus.api.business import require_business_person, require_business_surface
 from argus.api.business_drafts import require_drafts
 from argus.api.business_receipt_activity import unreviewed_days
 from argus.domain.business import reporting_file
+from argus.domain.business.authority import ActionError
 from argus.domain.business.month_close import (
     month_period,
     unreviewed_in_month,
@@ -101,35 +98,80 @@ def test_the_preview_count_is_the_month_closes_documents_in_bandeja(faker):
     assert preview.bandeja_count == closing == 3
 
 
-def test_the_preview_route_counts_the_working_business_bandeja(faker, monkeypatch):
+@pytest.fixture
+def route(faker, monkeypatch):
+    """The preview route over the dependencies it had before it counted the
+    Bandeja, with the Bandeja reader recorded."""
+
     business = SimpleNamespace(scope=SimpleNamespace(currency="DOP"))
-    asked = []
+    actor = SimpleNamespace(actor=SimpleNamespace(space_id=uuid4(), actor_id=uuid4()))
+    actions = SimpleNamespace(authority=None)
+    read = []
 
-    def days(context):
-        asked.append(context)
-        return BANDEJA
+    def reader(request, service, context):
+        read.append((service, context))
+        return business
 
-    monkeypatch.setattr(business_receipt_activity, "bandeja_days", days)
+    monkeypatch.setattr(business_reports, "grant_reader", reader)
+    monkeypatch.setattr(
+        business_receipt_activity,
+        "bandeja_days",
+        lambda context: BANDEJA if context is business else [],
+    )
     monkeypatch.setattr(
         reporting_file, "read_export_source", lambda *args: source(row(faker))
     )
-    actor = SimpleNamespace(actor=SimpleNamespace(space_id=uuid4(), actor_id=uuid4()))
     app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "synthetic-bandeja"
+        return await call_next(request)
+
     app.include_router(business_reports.router)
     app.dependency_overrides[require_business_surface] = lambda: None
-    app.dependency_overrides[require_business] = lambda: business
     app.dependency_overrides[require_drafts] = lambda: SimpleNamespace(
-        service=SimpleNamespace(authority=None),
-        for_space=lambda request, spaces: actor,
+        service=actions, for_space=lambda request, spaces: actor
     )
     app.dependency_overrides[require_business_person] = lambda: SimpleNamespace(
         person_id=str(actor.actor.actor_id),
         spaces=SimpleNamespace(get=lambda space_id: None),
     )
-    answer = TestClient(app).post(
-        "/reports/export/preview",
-        json={"report": report().model_dump(mode="json")},
-    )
+
+    def post():
+        return TestClient(app).post(
+            "/reports/export/preview",
+            json={"report": report().model_dump(mode="json")},
+        )
+
+    return post, read, (actions, actor)
+
+
+def test_the_preview_route_counts_the_bandeja_as_the_grant_it_resolved(route):
+    post, read, resolved = route
+    answer = post()
     assert answer.status_code == 200, answer.text
     assert answer.json()["bandeja_count"] == 3
-    assert asked == [business]
+    assert read == [resolved]
+
+
+@pytest.mark.parametrize(
+    ("outcome", "code", "status"),
+    [
+        ("permission_denied", "business_permission_denied", 403),
+        ("not_found", "business_record_not_found", 404),
+    ],
+)
+def test_a_reader_the_export_refuses_never_reaches_the_bandeja(
+    route, monkeypatch, outcome, code, status
+):
+    post, read, _ = route
+
+    def refuse(*args):
+        raise ActionError(outcome, code)
+
+    monkeypatch.setattr(reporting_file, "read_export_source", refuse)
+    answer = post()
+    assert answer.status_code == status
+    assert answer.json()["detail"]["code"] == code
+    assert read == []

@@ -11,7 +11,7 @@ import io
 import json
 import unicodedata
 from calendar import monthrange
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -664,14 +664,17 @@ def preview_export(
     *,
     business_name: str | None = None,
     locale: FileLocale = "es-419",
-    bandeja: Iterable[tuple[date, str | None]] = (),
+    bandeja: Callable[[], Iterable[tuple[date, str | None]]] = tuple,
 ) -> ExportPreview:
+    """``bandeja`` is read only once the grant has proven it exports."""
+
+    source = read_export_source(authority, context)
     return summarize_export(
-        read_export_source(authority, context),
+        source,
         request,
         business_name=business_name,
         locale=locale,
-        bandeja=bandeja,
+        bandeja=bandeja(),
     )
 
 

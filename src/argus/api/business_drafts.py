@@ -321,20 +321,30 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         ) from None
     except ActionError as error:
         raise action_problem(request, error.result) from None
-    scoped_documents, imports = bind_to_grant(
+    return _granted(
         documents,
         hub,
         actions,
         context,
         capability,
+        record,
+        scope,
         legacy_action(request),
         request_key(request),
+    )
+
+
+def _granted(  # noqa: ANN202
+    documents, hub, actions, context, capability, record, scope=None, action=None, key=None  # noqa: ANN001
+):
+    scoped_documents, imports = bind_to_grant(
+        documents, hub, actions, context, capability, action, key
     )
     return BusinessContext(
         BusinessScope(
             context.owner_id,
             context.scope,
-            actor_id=user_id,
+            actor_id=str(context.actor.actor_id),
             grant_id=str(context.grant_id),
             role="owner" if context.is_current_owner else "accountant",
             business_role=context.business_role,
@@ -342,6 +352,24 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         ),
         BusinessService(scoped_documents, imports, _captured),
         record,
+    )
+
+
+def grant_reader(
+    request: Request, actions: BusinessActions, context: ActionContext
+) -> BusinessContext:
+    """The saved receipts of the Business a route already resolved, read as
+    that same grant. It adds no check of its own: the route's own rule decides
+    who may call it."""
+
+    from argus.api.documents import documents_service
+    from argus.api.ingestion import ingestion_hub
+
+    documents, hub = documents_service(), ingestion_hub()
+    if documents is None or hub is None or documents.hub is not hub:
+        raise unavailable_problem(request)
+    return _granted(
+        documents, hub, actions, context, "read", actions.record_context(context)
     )
 
 
