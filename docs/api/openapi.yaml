@@ -16287,6 +16287,25 @@ components:
       - goals
       - pools
       - replayed
+    AmountsCheck:
+      properties:
+        state:
+          type: string
+          enum:
+          - adds_up
+          - difference
+          - unchecked
+        difference:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - state
+      description: 'Whether the Total is the Subtotal plus its taxes and tip. ``difference``
+
+        is what the Total leaves over, and is set on ``difference`` alone.'
     AmountsPreview:
       properties:
         net_amount:
@@ -16299,6 +16318,10 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/InheritedValue'
           type: object
+        dgii_calculated:
+          anyOf:
+          - $ref: '#/components/schemas/PurchaseCalculated'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -18213,6 +18236,22 @@ components:
         review_flags:
           items:
             $ref: '#/components/schemas/ReviewFlag'
+          type: array
+          default: []
+        amounts_check:
+          $ref: '#/components/schemas/AmountsCheck'
+          default:
+            state: unchecked
+        note_kind:
+          anyOf:
+          - type: string
+            enum:
+            - credit
+            - debit
+          - type: 'null'
+        source_owned_fields:
+          items:
+            type: string
           type: array
           default: []
         approval_available:
@@ -21526,6 +21565,22 @@ components:
         review_flags:
           items:
             $ref: '#/components/schemas/ReviewFlag'
+          type: array
+          default: []
+        amounts_check:
+          $ref: '#/components/schemas/AmountsCheck'
+          default:
+            state: unchecked
+        note_kind:
+          anyOf:
+          - type: string
+            enum:
+            - credit
+            - debit
+          - type: 'null'
+        source_owned_fields:
+          items:
+            type: string
           type: array
           default: []
         approval_available:
@@ -28131,6 +28186,10 @@ components:
             - read
             - calculated
             - edited
+          - type: 'null'
+        calculated:
+          anyOf:
+          - type: string
           - type: 'null'
       additionalProperties: false
       type: object

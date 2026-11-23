@@ -38,6 +38,9 @@ export async function flaggedReceipt(codes: readonly ReviewFlagCode[], accounts:
   dossier.declaration_suggestions = { category: null, payment_method: null };
   dossier.dgii_qr = null;
   dossier.review_flags = codes.map((code) => REVIEW_FLAGS[code]);
+  // The Montos check and the Subtotal as the server states them for these amounts.
+  dossier.amounts_check = codes.includes("amounts_mismatch") ? { state: "difference", difference: REVIEW_FLAGS.amounts_mismatch.difference } : { state: "adds_up" };
+  dossier.net_amount = { amount: "1000.00", source: "calculated" };
   return dossier;
 }
 

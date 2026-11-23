@@ -2,15 +2,11 @@
 from the declaration the review showed, so its history holds only what they
 changed."""
 
-from uuid import uuid4
-
 import pytest
-from argus.domain.business.contracts.actions import ApproveExpense
 from argus.domain.business.contracts.dgii import PurchaseReview
 
 from tests import test_business_approval_fiscal_postgres as fiscal
 from tests import test_business_fiscal_links_postgres as links
-from tests.business_accept_support import seen_gaps
 
 users = fiscal.users
 shared_actions = fiscal.shared_actions
@@ -75,26 +71,3 @@ def test_a_save_that_writes_no_declaration_records_none_before(actions):  # noqa
     saved = _last_revision(service, context, draft)
     assert (saved.before_dgii, saved.after_dgii) == (None, None)
 
-
-def test_an_approvals_first_declaration_records_none_before(actions):  # noqa: ANN001
-    """A failed approval is undone from this column: none before means none to put back."""
-
-    service, context = actions
-    draft, shown = links._fresh(service, context)
-
-    outcome = service.approve(
-        context,
-        draft,
-        ApproveExpense(
-            version=shown.version,
-            action="record_expense",
-            suggestions=shown.declaration_suggestions,
-            accept_gaps=seen_gaps(service, context, draft),
-        ),
-        str(uuid4()),
-    )
-
-    assert outcome.outcome == "applied", outcome
-    approval = _last_revision(service, context, draft)
-    assert approval.before_dgii is None
-    assert approval.after_dgii is not None

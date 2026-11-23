@@ -2051,7 +2051,6 @@
         "other_taxes": "Other taxes/fees",
         "withheld_on": "Withholding date"
       },
-      "form": "Format",
       "legal_name": {
         "copy_review": "pending_lucas",
         "confirm_on_save_cedula": "When you save, you confirm that this cédula belongs to {{business}}.",
@@ -2128,8 +2127,6 @@
       "refund_candidate_refused": "That purchase can't be used for this refund. Pick another one.",
       "refund_candidates_none": "There are no accepted purchases to pick.",
       "save": "Save",
-      "approve_income": "Accept income",
-      "approve_refund": "Accept refund",
       "recorded_income": "Income was recorded after revision {{version}} was accepted.",
       "recorded_refund": "A refund was recorded after revision {{version}} was accepted.",
       "error": {
@@ -3120,6 +3117,10 @@
       },
       "placeholder": {
         "expense_type": "Expense type",
+        "fiscal_billed_total": "Total billed",
+        "fiscal_billed_total_hint": "Services + Goods",
+        "fiscal_itbis_advance": "ITBIS to advance",
+        "fiscal_itbis_advance_hint": "ITBIS billed − carried to cost",
         "income_type": "Income type",
         "type_clears_sale_choices": "Changing the type clears the income type and payment form.",
         "gap": {

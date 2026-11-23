@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
-import { button, fill, registerReceiptReviewPage, setup } from "./fixtures/receipt-review-page";
+import { button, fill, registerReceiptReviewPage, setup, landed } from "./fixtures/receipt-review-page";
 
 registerReceiptReviewPage();
 
@@ -49,7 +49,7 @@ test("an unsaved fiscal edit holds Aceptar until Guardar saves it", async () => 
     await page.edit();
     assert.equal(page.approve().disabled, true);
     await page.check("itbis_cost");
-    await page.wait(() => Boolean(page.pane().querySelector('[data-testid="row-saved"]')));
+    await page.wait(() => page.writes.length === 1 && landed(page.row("itbis_cost")));
     assert.deepEqual(page.writes.map(({ kind }) => kind), ["fiscal"]);
     assert.equal(page.approve().disabled, false);
     assert.equal(page.reason(), null);

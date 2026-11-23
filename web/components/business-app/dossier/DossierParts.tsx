@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheck, Check, ChevronDown, CircleX, History, Link2, Loader2, Pencil, ReceiptText, SquareSparkles, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Check, ChevronDown, CircleX, History, Link2, Loader2, Pencil, ReceiptText, RotateCcw, SquareSparkles, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -25,6 +25,17 @@ export function StatusIcon({ status, testId }: { status: RowStatus; testId?: str
   );
 }
 
+/**
+ * The dossier's one way back to a value the server gives: a field held apart
+ * from its source, or a Subtotal typed over the calculated one. It sits in the
+ * status slot and names the value it puts back, as the server states it.
+ */
+export function RestoreButton({ field, value, onRestore }: { field: string; value: string; onRestore: () => void }) {
+  const { t } = useTranslation();
+  const label = t("business.dossier.placeholder.restore_inherited", { value });
+  return <Tooltip content={label} side="top"><button type="button" aria-label={label} data-restore-inherited={field} className={styles.pen} style={{ opacity: 1, width: 24, height: 24 }} onClick={onRestore}><RotateCcw size={14} aria-hidden="true" /></button></Tooltip>;
+}
+
 /** Closes a popover on a press outside it and on Escape, which it claims so the tray stays open. */
 export function usePopover(host: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
   const onClose = useRef(close);
@@ -41,20 +52,6 @@ export function usePopover(host: RefObject<HTMLElement | null>, open: boolean, c
     document.addEventListener("keydown", escape, true);
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape, true); };
   }, [host, open]);
-}
-
-const SAVED_SHOWN_MS = 2400;
-
-/** "Guardado", said once where the row's action sits. It leaves by itself and moves nothing; `children` is what the slot holds after it. */
-export function SavedMark({ children = null }: { children?: ReactNode }) {
-  const { t } = useTranslation();
-  const [shown, setShown] = useState(true);
-  useEffect(() => {
-    const timer = setTimeout(() => setShown(false), SAVED_SHOWN_MS);
-    return () => clearTimeout(timer);
-  }, []);
-  if (!shown) return <>{children}</>;
-  return <span role="status" data-testid="row-saved" className={styles.saved}><Check size={14} aria-hidden="true" />{t("business.settings.profile_saved", "Saved")}</span>;
 }
 
 /** One group of rows on the tint: its heading, what sits beside it, and its rows. */
@@ -78,8 +75,6 @@ export function DossierRows({ children }: { children: ReactNode }) {
 export type RowEdit = {
   open: boolean;
   saving: boolean;
-  /** The row's last save landed: the action slot says so once. */
-  saved?: boolean;
   disabled?: boolean;
   /** An edit whose outcome is unknown cannot be dropped. */
   locked: boolean;
@@ -104,8 +99,6 @@ export type DossierRowProps = {
   /** The value wraps: it holds more than one line. */
   wrap?: boolean;
   edit?: RowEdit;
-  /** A save landed that the row's own edit does not carry. */
-  saved?: boolean;
   /** Under the value: a save that failed, or an action the value offers. */
   below?: ReactNode;
   /** A problem jumped here: `n` restarts the wash on every jump. */
@@ -121,8 +114,9 @@ export type DossierRowProps = {
  * One fact as a row of the grid: label, status slot, value, action slot. The
  * value opens its own field in the same box. The pencil shows on hover and on
  * focus, and always on touch. The check or Enter saves; the X or Escape cancels.
+ * A save that lands closes the field on the new value and says nothing more.
  */
-export function DossierRow({ row, label, value, status, statusAction, look = "text", total, wrap, edit, saved, below, flash, attention, match, testId, data }: DossierRowProps) {
+export function DossierRow({ row, label, value, status, statusAction, look = "text", total, wrap, edit, below, flash, attention, match, testId, data }: DossierRowProps) {
   const { t } = useTranslation();
   const item = useRef<HTMLLIElement>(null);
   const editing = edit?.open === true;
@@ -169,7 +163,7 @@ export function DossierRow({ row, label, value, status, statusAction, look = "te
           <Tooltip content={cancel} side="top">
             <button type="button" aria-label={`${cancel} · ${label}`} disabled={edit.saving || edit.locked} className={styles.act} onClick={edit.onCancel}><X size={16} aria-hidden="true" /></button>
           </Tooltip>
-        </> : saved || edit?.saved ? <SavedMark>{pencil}</SavedMark> : pencil}
+        </> : pencil}
       </span>
       {below ? <div className={styles.below}>{below}</div> : null}
     </li>
@@ -185,7 +179,6 @@ export type RowPick = {
   options: readonly PickOption[];
   onPick: (value: string) => void;
   saving: boolean;
-  saved: boolean;
   disabled: boolean;
 };
 
@@ -242,7 +235,7 @@ export function DossierPickRow({ row, label, value, status, pick, below, data }:
       <button ref={trigger} type="button" className={styles.pick} aria-label={`${label}: ${value || t("business.dossier.row.no_data")}`} aria-haspopup="listbox" aria-expanded={open} aria-busy={pick.saving || undefined} disabled={pick.disabled} onClick={pick.saving ? undefined : toggle}>
         <span data-row-value="" data-empty={!value || undefined} className={styles.pickText}>{value || t("business.dossier.row.no_data")}</span>
         <span className={styles.pickAction}>
-          {pick.saving ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : pick.saved ? <SavedMark>{chevron}</SavedMark> : chevron}
+          {pick.saving ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : chevron}
         </span>
       </button>
       {open ? <ul ref={list} role="listbox" aria-label={label} data-side={side} className={styles.list} onKeyDown={walk}>

@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from argus.domain.business.accepted_dates import reader_date_reason
+from argus.domain.business.contracts.dgii import DgiiDeclaration
 from argus.domain.business.contracts.dossier import AccountChoice, Blocker
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
@@ -12,6 +13,7 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.dgii_validation import credit_note
+from argus.domain.business.fiscal_identity import NoteKind, note_kind
 from argus.domain.recording.money_schemas import ELIGIBILITY
 
 
@@ -29,6 +31,21 @@ def refund_shaped(facts: BusinessFacts) -> bool:
 
     kind = facts.kind.value if isinstance(facts.kind, Known) else None
     return kind == "refund" or credit_note(fiscal_number(facts))
+
+
+def record_note(facts: BusinessFacts, declaration: DgiiDeclaration | None) -> NoteKind | None:
+    """The note a record is, or None for a regular one: the one owner of the
+    dossier's ``note_kind``. Its comprobante number says so first, the e-CF,
+    else the NCF. A record with no note number is a credit note when it is a
+    refund, or when its declaration holds a refund or a comprobante it modifies."""
+
+    named = note_kind(fiscal_number(facts))
+    if named is not None:
+        return named
+    held = declaration is not None and (
+        getattr(declaration, "actual_refund", False) or declaration.modified_ncf is not None
+    )
+    return "credit" if held or refund_shaped(facts) else None
 
 
 def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[Blocker]:

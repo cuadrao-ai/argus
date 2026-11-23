@@ -18,7 +18,7 @@ const LINKS: NonNullable<BusinessDossier["inheritance"]> = {
   legal_tip: { field: "legal_tip", value: "292.37", inherited: true, paired_with: [] },
 };
 const purchase = (dgii: Record<string, string | boolean | null> = {}) => (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, inheritance: LINKS, dgii: { form: "606", id_type: "1", paid_on: "2026-10-09", goods_amount: "2923.73", itbis: "526.27", legal_tip: "292.37", ...dgii } });
-const sale = (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, document_type: "venta", inheritance: {}, dgii: { form: "607" }, facts: { ...dossier.facts, kind: { ...dossier.facts.kind, state: "known", value: "income" } as never } });
+const sale = (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, document_type: "venta", inheritance: {}, dgii: { form: "607" }, source_owned_fields: [], facts: { ...dossier.facts, kind: { ...dossier.facts.kind, state: "known", value: "income" } as never } });
 
 const cards = (host: Element) => [...host.querySelectorAll<HTMLElement>("[data-group]")].map((card) => ({
   title: card.querySelector("h3")?.textContent,
@@ -78,11 +78,11 @@ test("Otros impuestos cannot fold while it holds a value", async () => {
   } finally { await typed.dispose(); }
 });
 
-test("Tipo de ID reads from the number and nobody edits it here", async () => {
+test("Tipo de ID reads from the number, and nobody edits it while the server names it source-owned", async () => {
   const view = await mountEditor({ fields: await serverFields(), dossier: purchase() });
   try {
     const row = view.row("id_type");
-    assert.equal(row.querySelector("[data-row-value]")?.textContent, "01 - RNC");
+    assert.equal(row.querySelector("[data-row-value]")?.textContent, "01 · RNC");
     assert.equal(row.querySelector("button"), null, "no pencil and no value to click");
     assert.equal(status(view.host, "id_type")?.getAttribute("data-status"), "link");
     assert.equal(status(view.host, "id_type")?.getAttribute("aria-label"), "Sale del número");
@@ -90,8 +90,21 @@ test("Tipo de ID reads from the number and nobody edits it here", async () => {
   const apart = await mountEditor({ fields: await serverFields(), dossier: (dossier) => { const next = purchase({ id_type: "2" })(dossier); return { ...next, inheritance: { ...next.inheritance, id_type: { field: "rnc", value: "1", inherited: false, paired_with: [] } } }; } });
   try {
     assert.equal(apart.row("id_type").querySelector("button"), null, "a saved type that differs still offers no edit here");
+    assert.equal(apart.host.querySelector('[data-restore-inherited="id_type"]'), null, "and no way back the server would drop");
     assert.equal(status(apart.host, "id_type"), null, "and the server's word decides the link");
   } finally { await apart.dispose(); }
+});
+
+test("Tipo de ID is read-only by the server's list alone: a record it leaves out edits it, and any field it names does not", async () => {
+  const open = await mountEditor({ fields: await serverFields(), dossier: (dossier) => ({ ...purchase()(dossier), source_owned_fields: [] }) });
+  try {
+    assert.ok(open.row("id_type").querySelector("button"), "a purchase the server lists nothing for offers the edit");
+  } finally { await open.dispose(); }
+  const named = await mountEditor({ fields: await serverFields(), dossier: (dossier) => ({ ...purchase()(dossier), source_owned_fields: ["paid_on"] }) });
+  try {
+    assert.equal(named.row("paid_on").querySelector("button"), null, "the field the server names has no pencil");
+    assert.ok(named.row("id_type").querySelector("button"));
+  } finally { await named.dispose(); }
 });
 
 test("each linked row names its source, and an edit to ITBIS facturado holds it apart until Restaurar", async () => {
@@ -133,29 +146,29 @@ test("a save sends every field the tab leaves out exactly as the record holds it
   } finally { await view.dispose(); }
 });
 
-test("a credit note keeps NCF modificado and the refund question", async () => {
-  const view = await mountEditor({ fields: await serverFields(), dossier: (dossier) => ({ ...purchase()(dossier), listo_gaps: ["credit_note"] }) });
-  try {
-    assert.deepEqual(cards(view.host)[0].rows, ["Tipo de ID", "Fecha de pago", "NCF modificado"]);
-    assert.ok(view.host.querySelector('[data-fact="actual_refund"]'));
-  } finally { await view.dispose(); }
-  const saved = await mountEditor({ fields: await serverFields(), dossier: purchase({ modified_ncf: "B0100000001" }) });
-  try {
-    assert.equal(saved.row("modified_ncf").querySelector("[data-row-value]")?.textContent, "B0100000001", "a saved reference always shows");
-  } finally { await saved.dispose(); }
-});
-
-/** The record's comprobante: its number decides whether it is a note. */
-const numbered = (number: string, dgii: Record<string, string | boolean | null> = {}) => (dossier: BusinessDossier): BusinessDossier => {
+/** The record as the server states its note. `number` is its comprobante, which the page never reads to tell a note. */
+const noted = (kind: BusinessDossier["note_kind"], number = "B0100000011", dgii: Record<string, string | boolean | null> = {}) => (dossier: BusinessDossier): BusinessDossier => {
   const next = purchase(dgii)(dossier);
   const fiscal = next.facts.fiscal!;
   const known = { ...fiscal.ncf, state: "known", value: number } as typeof fiscal.ncf;
   const none = { ...fiscal.ecf, state: "unknown", value: null } as typeof fiscal.ecf;
-  return { ...next, listo_gaps: [], facts: { ...next.facts, fiscal: { ...fiscal, ncf: number.startsWith("E") ? none : known, ecf: number.startsWith("E") ? known : none } } };
+  return { ...next, note_kind: kind, listo_gaps: [], facts: { ...next.facts, fiscal: { ...fiscal, ncf: number.startsWith("E") ? none : known, ecf: number.startsWith("E") ? known : none } } };
 };
 
-for (const number of ["B0300000011", "E330000000011"]) test(`a debit note ${number} with no reference yet shows NCF modificado and saves it, with no refund question`, async () => {
-  const view = await mountEditor({ fields: await serverFields(), dossier: numbered(number) });
+test("a credit note keeps NCF modificado and the refund question", async () => {
+  const view = await mountEditor({ fields: await serverFields(), dossier: noted("credit", "B0400000011") });
+  try {
+    assert.deepEqual(cards(view.host)[0].rows, ["Tipo de ID", "Fecha de pago", "NCF modificado"]);
+    assert.ok(view.host.querySelector('[data-fact="actual_refund"]'));
+  } finally { await view.dispose(); }
+  const saved = await mountEditor({ fields: await serverFields(), dossier: noted("credit", "B0100000011", { modified_ncf: "B0100000001" }) });
+  try {
+    assert.equal(saved.row("modified_ncf").querySelector("[data-row-value]")?.textContent, "B0100000001", "a reference the server calls a note's shows");
+  } finally { await saved.dispose(); }
+});
+
+test("a debit note with no reference yet shows NCF modificado and saves it, with no refund question", async () => {
+  const view = await mountEditor({ fields: await serverFields(), dossier: noted("debit", "B0300000011") });
   try {
     assert.deepEqual(cards(view.host)[0].rows, ["Tipo de ID", "Fecha de pago", "NCF modificado"]);
     assert.equal(view.host.querySelector('[data-fact="actual_refund"]'), null, "a debit note returns no money");
@@ -169,22 +182,32 @@ for (const number of ["B0300000011", "E330000000011"]) test(`a debit note ${numb
   } finally { await view.dispose(); }
 });
 
-for (const number of ["B0400000011", "E340000000011"]) test(`a credit note ${number} shows NCF modificado and the refund question by its number alone`, async () => {
-  const view = await mountEditor({ fields: await serverFields(), dossier: numbered(number) });
+test("a regular purchase hides NCF modificado and the refund question", async () => {
+  const view = await mountEditor({ fields: await serverFields(), dossier: noted(null) });
   try {
-    assert.deepEqual(cards(view.host)[0].rows, ["Tipo de ID", "Fecha de pago", "NCF modificado"]);
-    assert.ok(view.host.querySelector('[data-fact="actual_refund"]'));
+    assert.equal(view.host.querySelector('[data-field="modified_ncf"]'), null);
+    assert.equal(view.host.querySelector('[data-fact="actual_refund"]'), null);
   } finally { await view.dispose(); }
 });
 
-test("a regular purchase hides NCF modificado and the refund question whatever its number says of its series", async () => {
-  for (const number of ["B0100000011", "E310000000011", "B1100000011"]) {
-    const view = await mountEditor({ fields: await serverFields(), dossier: numbered(number) });
+test("the note is the server's word alone: the page reads no comprobante number, gap or saved reference to tell one", async () => {
+  for (const number of ["B0400000011", "E340000000011", "B0300000011", "E330000000011"]) {
+    const view = await mountEditor({ fields: await serverFields(), dossier: (dossier) => ({ ...noted(null, number, { modified_ncf: "B0100000001", actual_refund: true })(dossier), listo_gaps: ["credit_note"] }) });
     try {
       assert.equal(view.host.querySelector('[data-field="modified_ncf"]'), null, number);
       assert.equal(view.host.querySelector('[data-fact="actual_refund"]'), null, number);
     } finally { await view.dispose(); }
   }
+  const debit = await mountEditor({ fields: await serverFields(), dossier: noted("debit", "B0400000011") });
+  try {
+    assert.ok(debit.host.querySelector('[data-field="modified_ncf"]'), "a credit number the server calls a debit note is a debit note here");
+    assert.equal(debit.host.querySelector('[data-fact="actual_refund"]'), null);
+  } finally { await debit.dispose(); }
+  const credit = await mountEditor({ fields: await serverFields(), dossier: noted("credit", "B0100000011") });
+  try {
+    assert.ok(credit.host.querySelector('[data-field="modified_ncf"]'));
+    assert.ok(credit.host.querySelector('[data-fact="actual_refund"]'));
+  } finally { await credit.dispose(); }
 });
 
 test("a sale shows its own agreed rows, folds like a purchase, and leaves the payment buckets to General's pick", async () => {
@@ -200,4 +223,48 @@ test("a sale shows its own agreed rows, folds like a purchase, and leaves the pa
     ]);
     assert.equal(view.host.querySelector('[data-fact="actual_refund"]'), null);
   } finally { await view.dispose(); }
+});
+
+const calculated = (host: Element, row: string) => {
+  const item = host.querySelector<HTMLElement>(`[data-fact="${row}"]`);
+  return item && { card: item.closest("[data-group]")?.getAttribute("data-group"), label: item.firstElementChild?.textContent, value: item.querySelector("[data-row-value]")?.textContent, status: status(host, row)?.getAttribute("data-status"), tip: status(host, row)?.getAttribute("aria-label"), last: item.nextElementSibling === null, edits: item.querySelectorAll("button").length };
+};
+
+test("Total facturado and ITBIS por adelantar show the server's calculated amounts with ƒ, last in their cards, and nobody edits them", async () => {
+  // Amounts no sum of the form gives: the rows read the server's word and add nothing.
+  const view = await mountEditor({ fields: await serverFields(), dossier: (dossier) => ({ ...purchase()(dossier), dgii_calculated: { billed_amount: "9001.25", itbis_advance: "77.10" } }) });
+  try {
+    assert.deepEqual(calculated(view.host, "billed_total"), { card: "amounts", label: "Total facturado", value: "9,001.25", status: "calculated", tip: "Servicios + Bienes", last: true, edits: 0 });
+    assert.deepEqual(calculated(view.host, "itbis_advance"), { card: "itbis", label: "ITBIS por adelantar", value: "77.10", status: "calculated", tip: "ITBIS facturado − llevado al costo", last: true, edits: 0 });
+    await view.open("itbis_cost");
+    await view.input("itbis_cost", "500.00");
+    assert.equal(calculated(view.host, "itbis_advance")?.value, "77.10", "a typed value moves no calculated amount: the server's next answer does");
+  } finally { await view.dispose(); }
+});
+
+test("a record the server calculates nothing for shows neither row, and an ITBIS it leaves blank shows only the total", async () => {
+  for (const [name, dossier] of [["a sale", sale], ["a purchase with no 606", (dossier: BusinessDossier) => ({ ...purchase()(dossier), dgii_calculated: null })]] as const) {
+    const view = await mountEditor({ fields: await serverFields(), dossier });
+    try {
+      assert.deepEqual([calculated(view.host, "billed_total"), calculated(view.host, "itbis_advance")], [null, null], name);
+    } finally { await view.dispose(); }
+  }
+  const blank = await mountEditor({ fields: await serverFields(), dossier: (dossier) => ({ ...purchase()(dossier), dgii_calculated: { billed_amount: "0.00", itbis_advance: null } }) });
+  try {
+    assert.equal(calculated(blank.host, "billed_total")?.value, "0.00");
+    assert.equal(calculated(blank.host, "itbis_advance"), null);
+  } finally { await blank.dispose(); }
+});
+
+test("the tab never offers a 606 or 607 picker: the form is the declaration's, or the record's type", async () => {
+  const unknownKind = (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, document_type: undefined, dgii: null, facts: { ...dossier.facts, kind: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } } });
+  const otherForm = (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, document_type: undefined, dgii: { form: "607" } });
+  for (const [name, dossier, title] of [["no kind yet", unknownKind, "Reporte 606"], ["a declaration of the other form", otherForm, "Reporte 607"]] as const) {
+    const view = await mountEditor({ fields: await serverFields(), dossier });
+    try {
+      assert.equal(view.host.querySelector('[data-fact="form"]'), null, name);
+      assert.equal(view.host.querySelector('select, [aria-label="Formato"]'), null, name);
+      assert.equal(cards(view.host)[0].title, title, name);
+    } finally { await view.dispose(); }
+  }
 });

@@ -94,9 +94,6 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 .total .field input { font-size:16px; font-weight:600; }
 .field :is(input, select):disabled { opacity:.6; }
 .field [aria-invalid="true"], .field div:has(> [aria-invalid="true"]) { border-color:var(--d-bad-ink); }
-.saved { display:inline-flex; align-items:center; justify-content:flex-end; gap:3px; min-height:32px; font-size:12px; font-weight:500; line-height:16px; white-space:nowrap; color:var(--d-green); animation:dossierSaved 2.4s ease-out both; }
-@keyframes dossierSaved { from, 75% { opacity:1; } to { opacity:0; } }
-@media (prefers-reduced-motion:reduce) { .saved { animation:none; } }
 /* A row that picks from a list: the value and its chevron are one button over the value and action slots. */
 .pickText { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pick { grid-column:3 / 5; display:grid; grid-template-columns:minmax(0,1fr) 72px; align-items:center; column-gap:6px; box-sizing:border-box; width:100%; min-height:40px; margin:0; padding:0 8px 0 10px; border:1px solid transparent; border-radius:var(--radius-item); background:transparent; font:inherit; font-size:14.5px; font-weight:500; line-height:20px; color:var(--d-ink); text-align:left; cursor:pointer; }

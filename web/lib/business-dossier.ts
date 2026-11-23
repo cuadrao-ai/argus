@@ -184,6 +184,8 @@ export type BusinessSupportingFile = {
   restore_available: boolean;
 };
 
+export type AmountsCheck = { state: "adds_up" | "unchecked"; difference?: null } | { state: "difference"; difference: string };
+
 export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   /** Where the record stands in the Bandeja, by the rule the receipt list reads. An accepted record has the label `accepted`; a deleted one has none. */
   bandeja_group?: Pick<BandejaGroup, "group" | "reason" | "label"> | null;
@@ -193,7 +195,14 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   confirmable?: readonly ListoGap[];
   /** Null when the record has no RNC or no register is loaded. */
   rnc_registry_status?: RncRegistryStatus | null;
+  /** The Subtotal and who gave it: `calculated` while the server derives it, `edited` once a person typed one. */
   net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
+  /** Whether the Total is the Subtotal plus its taxes and tip, by the server's rule. `difference` comes with the amount left over. */
+  amounts_check?: AmountsCheck;
+  /** The note this record is, by the server's reading; null for a regular purchase or sale. */
+  note_kind?: "credit" | "debit" | null;
+  /** The declaration fields that always follow their source: the server drops a write to one, so its row is read-only. */
+  source_owned_fields?: readonly string[];
   inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on" | "rnc" | "original_ncf"; value: string | null; inherited: boolean; paired_with: readonly string[] }>;
   current_note?: string | null;
   note_edit_available?: boolean;

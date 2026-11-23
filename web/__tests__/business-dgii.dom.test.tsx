@@ -140,7 +140,7 @@ test("a date reaches the server as a day, and text that is not a date holds the 
   } finally { await view.dispose(); }
 });
 
-test("Formato shows only when the record does not say the form", async () => {
+test("Formato never shows: the form is the declaration's, or the record's type", async () => {
   const formato = (host: Element) => Boolean(host.querySelector('[data-fact="form"]'));
   const known = await mountEditor({ fields: fullForm });
   assert.equal(formato(known.host), false, "an expense is a 606");
@@ -150,10 +150,12 @@ test("Formato shows only when the record does not say the form", async () => {
   assert.ok(income.host.querySelector('[data-field="withheld_on"]'), "and it shows the 607's fields");
   await income.dispose();
   const open = await mountEditor({ fields: fullForm, dossier: (dossier) => ({ ...dossier, document_type: undefined, facts: { ...dossier.facts, kind: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } as never } }) });
-  assert.equal(formato(open.host), true, "an unknown kind leaves the choice");
+  assert.equal(formato(open.host), false, "an unknown kind declares as a purchase until the server says otherwise");
+  assert.ok(open.host.querySelector('[data-field="paid_on"]'), "and shows the 606's fields");
   await open.dispose();
   const saved = await mountEditor({ fields: fullForm, dossier: (dossier) => ({ ...dossier, document_type: undefined, dgii: { form: "607" } }) });
-  assert.equal(formato(saved.host), true, "a saved declaration that disagrees stays changeable");
+  assert.equal(formato(saved.host), false, "a saved declaration decides the form");
+  assert.ok(saved.host.querySelector('[data-field="withheld_on"]'), "and shows its fields");
   await saved.dispose();
 });
 
@@ -318,7 +320,7 @@ test("the 607 editor names its rows as the board does, in both languages, and le
   ];
   const view = await mountEditor({
     fields: { "606": [], "607": sale607 },
-    dossier: (dossier) => ({ ...dossier, document_type: "venta", dgii: { form: "607" }, sale_payment: { form: null, options: ["bank", "gift"] } }),
+    dossier: (dossier) => ({ ...dossier, document_type: "venta", dgii: { form: "607" }, source_owned_fields: [], sale_payment: { form: null, options: ["bank", "gift"] } }),
   });
   try {
     const labels = () => [...view.host.querySelectorAll("[data-field]")].map((row) => row.firstElementChild?.textContent);
@@ -326,7 +328,7 @@ test("the 607 editor names its rows as the board does, in both languages, and le
     await act(async () => { await view.i18n.changeLanguage("en"); });
     assert.deepEqual(labels(), ["ID type", "Billed amount", "ITBIS billed", "ITBIS withheld by third parties", "Income tax withheld by third parties", "Withholding date", "Other taxes/fees"]);
     await view.open("id_type");
-    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "01 - RNC"], ["2", "02 - Cédula"], ["3", "03 - Passport or tax ID"]]);
+    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "01 · RNC"], ["2", "02 · Cédula"], ["3", "03 · Passport or tax ID"]]);
   } finally { await view.dispose(); }
 });
 
@@ -351,7 +353,7 @@ for (const form of ["606", "607"] as const) {
     const view = await mountEditor({
       productionI18n: true,
       fields: { "606": [], "607": [], [form]: formFields },
-      dossier: (dossier) => ({ ...dossier, dgii: { form } }),
+      dossier: (dossier) => ({ ...dossier, dgii: { form }, source_owned_fields: form === "606" ? ["id_type"] : [] }),
     });
     const showWithholding = async () => {
       const fold = foldOf(view.host);
@@ -371,11 +373,11 @@ for (const form of ["606", "607"] as const) {
         await act(async () => { await view.i18n.changeLanguage(language); });
         assert.equal(view.i18n.t(`business.dgii.option.${name}.99`, { defaultValue: "99" }), "", "the real missing-key handler overrides defaultValue");
         const names = catalog.business.dgii.option[name] as Record<string, string>;
-        assert.deepEqual(await options(name), codes.map((code) => [code, `${code.padStart(2, "0")} - ${names[code]}`]));
+        assert.deepEqual(await options(name), codes.map((code) => [code, `${code.padStart(2, "0")} · ${names[code]}`]));
       }
       await act(async () => { await view.i18n.changeLanguage("es-419"); });
-      assert.deepEqual((await options(name))[1], form === "606" ? ["02", "02 - Honorarios por servicios"] : ["2", "02 - Cédula"]);
-      if (form === "607") assert.deepEqual((await options(name))[2], ["3", "03 - Pasaporte o ID tributaria"]);
+      assert.deepEqual((await options(name))[1], form === "606" ? ["02", "02 · Honorarios por servicios"] : ["2", "02 · Cédula"]);
+      if (form === "607") assert.deepEqual((await options(name))[2], ["3", "03 · Pasaporte o ID tributaria"]);
       const choose = async (id: string, value: string) => {
         await showWithholding();
         await view.open(id);

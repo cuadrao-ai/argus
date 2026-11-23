@@ -274,21 +274,29 @@ def net_amount(
     itbis: str | None = None,
     legal_tip: str | None = None,
 ) -> NetAmount:
-    """The document's net amount. Raw components support legacy minor-unit callers."""
+    """The document's net amount, beside the one the server calculates from
+    the total and its parts. Raw components support legacy minor-unit callers."""
+    stated = None
     if facts is not None:
         stated = facts.net_amount
-        if isinstance(stated, Known):
-            return NetAmount(
-                amount=stated.value,
-                source="read" if stated.origin in {"extracted", "qr_decoded"} else "edited",
-            )
         known_total, known_itbis = total_and_itbis(facts)
         total = known_total if known_total is not None else total
         itbis = known_itbis if known_itbis is not None else itbis
-    if total is None:
-        return NetAmount(amount=None, source=None)
-    value = Decimal(total) - sum(amount_parts(facts, declaration, itbis=itbis, legal_tip=legal_tip))
-    return NetAmount(amount=exact_amount_text(value), source="calculated")
+    calculated = None
+    if total is not None:
+        parts = amount_parts(facts, declaration, itbis=itbis, legal_tip=legal_tip)
+        calculated = exact_amount_text(Decimal(total) - sum(parts))
+    if isinstance(stated, Known):
+        return NetAmount(
+            amount=stated.value,
+            source="read" if stated.origin in {"extracted", "qr_decoded"} else "edited",
+            calculated=calculated,
+        )
+    return NetAmount(
+        amount=calculated,
+        source="calculated" if calculated is not None else None,
+        calculated=calculated,
+    )
 
 
 def derived_amount(

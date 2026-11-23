@@ -8801,6 +8801,14 @@ back as it was before the approval: the one a person saved, or none. If that
 undo cannot run, the next approval writes from that earlier declaration
 instead of keeping the failed approval's.
 
+A revision that writes a draft's first declaration records as `before_dgii`
+the declaration the review showed, so its history entry holds only what the
+write changed: a person's answers on a first fiscal save, and on an approval
+the suggestions it saved as answers, or nothing. With a declaration already
+stored, `before_dgii` is that one. `before_dgii` is therefore not the stored
+declaration. The undo of a failed approval reads the stored one from
+`after_dgii` of the revision before the approval's.
+
 `POST /business/drafts/{draft_id}/duplicate-resolution` takes
 `{version, other_draft_id, other_version, decision}` and `Idempotency-Key`.
 `decision` is `different_purchase` or `same_purchase`. Both versions are
@@ -9179,11 +9187,14 @@ or hyphens and NCF letter case normalize for identity without changing sources.
 
 Montos uses `purchase_review.net_amount` for the dossier, fiscal defaults,
 Registros, month close and exports. `BusinessFacts.amount` remains the gross
-amount paid. The dossier adds `net_amount: {amount, source}`. `amount` is an
-exact decimal string or null. `source` is `read`, `calculated`, `edited`, or
-null when the total is unknown. A known `facts.net_amount` retains the read
-subtotal or a person's edit. Otherwise the function subtracts the components
-in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes. The read's `service`
+amount paid. The dossier adds `net_amount: {amount, source, calculated}`.
+`amount` is an exact decimal string or null. `source` is `read`, `calculated`,
+`edited`, or null when the total is unknown. A known `facts.net_amount` retains
+the read subtotal or a person's edit. Otherwise the function subtracts the
+components in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes.
+`calculated` is the result of that subtraction whatever `source` is, or null
+when the total is unknown. It is the Subtotal that a read or edited one goes
+back to, and it equals `amount` while `source` is `calculated`. The read's `service`
 is the legal tip; `tip` is used only when `service` is absent. Both values live
 in existing fact JSON and revision history. No database migration is required.
 
@@ -9197,7 +9208,9 @@ same selected Business, human actor, permission and current version as amount
 review. A prepare holder can preview an open draft. The owner can also
 preview an accepted record. The response contains `net_amount`, `mismatch`
 (the existing `amounts_mismatch` review flag, or null) and `inheritance`: the
-map the dossier shows once that draft is saved, with the same entries. It uses the review's fact mutations,
+map the dossier shows once that draft is saved, with the same entries. It also
+contains `dgii_calculated`, the same two amounts the dossier shows once that
+draft is saved, from `purchase_calculated`, or null as on the dossier. It uses the review's fact mutations,
 inheritance, net owner and shared parts check without saving facts, sources,
 revisions or action receipts. Responses are `no-store`.
 The web discards a preview when its draft, version or typed values change.
@@ -9221,6 +9234,20 @@ recorded is ignored on an open draft and removed by the record's next save;
 an approved record exports its saved declaration unchanged until that save.
 A record saved before Montos carried the tip (`facts.legal_tip` unknown with
 no origin) has no source: its declaration keeps and takes its `legal_tip`.
+
+A purchase's `id_type` is source-owned in the same set: the supplier's RNC in
+General is its one editor, so the 606 `id_type` always follows the length of
+`facts.fiscal.rnc`. The server drops an `id_type` named in
+`override_inherited` and a declaration `id_type` that differs from the RNC's.
+An override an older save recorded is ignored on an open draft and removed by
+the record's next save. An approved record keeps its saved `id_type` until a
+save corrects the RNC. A sale's `id_type` follows no source, and a person
+gives it.
+
+The dossier lists these fields in `source_owned_fields`, for the record's own
+form: `id_type` on every purchase, and `legal_tip` once the record carries the
+tip fact. `amount_inheritance.source_owned` owns the list. A review shows each
+of them read-only, with no restore.
 
 The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
 Each entry holds `{field, value, inherited, paired_with}`; `value` is the
@@ -9306,6 +9333,30 @@ zero, and it appears only when the difference is below -0.01: ITBIS is never
 negative, so it cannot close that gap. It is recomputed for every read and revision. The
 existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
 overrides are excluded from the model-facing dossier and source text.
+
+The dossier states the same check as `amounts_check: {state, difference}`.
+`review_flags.amounts_check` owns both: `difference`, with the signed
+`difference` of the flag, exactly when the flag is present; `adds_up` when the
+Total, a Subtotal and the ITBIS are known and no flag is present; `unchecked`
+for a record with no fiscal facts, without a Total or a Subtotal, and while
+the ITBIS is unknown, because an unknown ITBIS lets a gap pass. `difference` is null on the other two states.
+A review shows the Total check on `adds_up` alone.
+
+`net_amount.source` says who gave the Subtotal: `read`, `calculated` while the
+server derives it, or `edited` once a person typed one. The Subtotal stays in
+`editable_fields` in every state. A `montos.net_amount` of
+`{state: "unknown"}` takes the person's Subtotal away, and the server derives
+it again.
+
+The dossier carries `note_kind`: `credit`, `debit` or null.
+`fact_blockers.record_note` owns it. The comprobante number says it first,
+the e-CF, else the NCF: types 04 and 34 are a credit note and types 03 and 33
+a debit note, from `fiscal_identity.NOTE_KINDS`, the table the 606 and 607
+checks read through `dgii_validation.is_credit` and `is_debit`. A record with
+no note number is `credit` when its kind is `refund`, or when its declaration
+holds `actual_refund` or a `modified_ncf`. Any other record is null. A review
+shows NCF modificado on a note and the refund question on a purchase's credit
+note.
 
 The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
 objects, with `difference` on `amounts_mismatch`

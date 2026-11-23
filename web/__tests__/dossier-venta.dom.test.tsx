@@ -262,7 +262,7 @@ describe("a sale's Datos fiscales", () => {
   });
 
   test("a sale that is a note shows NCF modificado", async () => {
-    const note = (dossier: Dossier) => { if (dossier.facts.fiscal) dossier.facts.fiscal.ncf = { state: "known", value: "B0400000012", origin: "extracted", verified: false, source_ids: [] }; };
+    const note = (dossier: Dossier) => { dossier.note_kind = "credit"; };
     const page = await venta(note, "venta");
     try {
       assert.deepEqual(cards(page)[0], { title: "Reporte 607", rows: ["Tipo de ID", "NCF modificado"], folded: null, add: null });

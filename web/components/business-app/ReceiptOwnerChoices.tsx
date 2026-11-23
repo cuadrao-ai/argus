@@ -48,7 +48,7 @@ export function shownSuggestions(view: ChoicesView): ShownSuggestions | undefine
 }
 
 /** How one choice saves: absent for someone who cannot write the report's answers now. */
-export type ChoicePick = { onPick: (value: string) => void; saving: boolean; saved: boolean; disabled: boolean };
+export type ChoicePick = { onPick: (value: string) => void; saving: boolean; disabled: boolean };
 /** A row of the report card: one of the 606's two answers, or one of the 607's. */
 export type ReportChoice = Choice | SaleChoice;
 type Answer = { row: ReportChoice; label: string; value: string; codes: readonly string[] | null; name: (code: string) => string; source?: SuggestionSource | null; suggested?: DeclarationSuggestion | null };

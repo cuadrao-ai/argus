@@ -27,12 +27,14 @@ export type RowFlash = { row: ReviewRow; n: number };
 /** How the form edits: what each row opens, and what the page says under it. Absent for a record nobody can edit now. */
 export type FactsReview = {
   amountsPreview?: { net_amount: NonNullable<BusinessDossier["net_amount"]>; mismatch: { difference?: string | null } | null; status: "ready" | "pending" | "error" };
+  /** Puts the Subtotal back to the one the server calculates. Absent for someone who cannot change it now. */
+  restoreSubtotal?: () => void;
   /** How the row edits in place. */
   edit: (row: ReviewRow) => RowEdit;
   /** What a row's failed save says, and its way back. */
   note: (row: ReviewRow) => ReactNode;
   /** Marking a record that has no fiscal number as Sin recibo. `onMark` is absent for someone who cannot edit it now. */
-  noReceipt: { onMark?: (marked: boolean) => void; busy: boolean; saved: boolean; note: ReactNode };
+  noReceipt: { onMark?: (marked: boolean) => void; busy: boolean; note: ReactNode };
 };
 
 /**
@@ -128,7 +130,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
     value={fiscal?.[fiscalKey].value ?? (noFiscal ? dossier.sin_comprobante && state.state === "known" ? t(`business.dossier.receipt.${state.value}`, state.value) : t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "")}
     status={statusOf("fiscal_number", ["ncf", "ecf", "fiscal_number"], fiscal?.[fiscalKey])}
     edit={edit("fiscal_number")}
-    saved={noFiscal && review?.noReceipt.saved}
     below={<>
       {noFiscal && onMark ? <button type="button" data-testid="mark-no-receipt" disabled={review.noReceipt.busy} className={quietButtonClass} onClick={() => onMark(!marked)}>{marked ? t("business.marks.undo", "Undo") : t("business.dossier.placeholder.mark_no_receipt", "Mark as no receipt")}</button> : null}
       {review?.note("fiscal_number")}

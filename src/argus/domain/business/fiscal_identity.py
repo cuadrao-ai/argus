@@ -1,5 +1,6 @@
 import re
 import unicodedata
+from typing import Literal
 
 FILER_TAX_ID_LENGTH = {"rnc": 9, "cedula": 11}
 COUNTERPARTY_ID_LENGTH = {
@@ -169,5 +170,20 @@ def ncf_type(value: str) -> str | None:
     return normalized[1:3] if normalized else None
 
 
+NoteKind = Literal["credit", "debit"]
+#: The comprobante types that modify another one, by what they do to it.
+NOTE_KINDS: dict[str, NoteKind] = {"03": "debit", "33": "debit", "04": "credit", "34": "credit"}
+
+
+def note_kind(value: str | None) -> NoteKind | None:
+    """The note a comprobante number names, or None for any other number."""
+
+    return NOTE_KINDS.get(ncf_type(value or "") or "")
+
+
 def credit_note(value: str | None) -> bool:
-    return ncf_type(value or "") in {"04", "34"}
+    return note_kind(value) == "credit"
+
+
+def debit_note(value: str | None) -> bool:
+    return note_kind(value) == "debit"

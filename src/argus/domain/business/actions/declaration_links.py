@@ -105,5 +105,5 @@ def saved_declaration_links(
                 if state.field in changed and not state.inherited
             }
             overrides = tuple(sorted(set(overrides) | manual))
-    overrides = held_apart(after, overrides)
+    overrides = held_apart(after, getattr(declaration, "form", None), overrides)
     return inherit_amounts(after, declaration, overrides, linked), overrides

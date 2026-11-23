@@ -32,9 +32,10 @@ INHERITANCE = {
     "paid_on": ("606", "occurred_on"),
     "services_amount": ("606", "net_amount"),
 }
-#: The linked fields a person never holds apart: Datos fiscales has no row
-#: for them, so nothing there could restore one. Montos owns Propina legal.
-SOURCE_OWNED = frozenset({"legal_tip"})
+#: The linked fields a person never holds apart: nothing in Datos fiscales
+#: could restore one. Montos owns Propina legal, and the supplier's RNC in
+#: General owns a purchase's Tipo Id.
+SOURCE_OWNED = frozenset({"id_type", "legal_tip"})
 _MONEY_SOURCES = frozenset({"net_amount", "itbis", "legal_tip"})
 #: Forma de pago codes that pay at the purchase: Fecha pago is the receipt's date.
 PAID_AT_PURCHASE = frozenset({"01", "02", "03", "07"})
@@ -119,22 +120,26 @@ def inherits(
     return current is None or _equal(target, current, expected)
 
 
-def source_owned(facts: BusinessFacts) -> frozenset[str]:
-    """The fields of this record a person never holds apart from their
-    source. Propina legal is one once Montos states it; a record saved before
-    Montos carried the tip keeps the one its declaration holds."""
+def source_owned(facts: BusinessFacts, form: str | None) -> frozenset[str]:
+    """The fields of this record, on ``form``, that a person never holds
+    apart from their source. Propina legal is one once Montos states it; a
+    record saved before Montos carried the tip keeps the one its declaration
+    holds. Tipo Id is one on every purchase."""
 
-    return SOURCE_OWNED if stated_tip(facts) is not None else frozenset()
+    owned = {name for name in SOURCE_OWNED if INHERITANCE[name][0] in (None, form)}
+    if stated_tip(facts) is None:
+        owned.discard("legal_tip")
+    return frozenset(owned)
 
 
 def held_apart(
-    facts: BusinessFacts, overrides: tuple[str, ...] | None
+    facts: BusinessFacts, form: str | None, overrides: tuple[str, ...] | None
 ) -> tuple[str, ...] | None:
     """``overrides`` without the source-owned fields an older save left in it."""
 
     if overrides is None:
         return None
-    return tuple(sorted(set(overrides) - source_owned(facts)))
+    return tuple(sorted(set(overrides) - source_owned(facts, form)))
 
 
 def inheritance_state(
@@ -166,7 +171,7 @@ def inheritance_state(
         "original_ncf": linked.original_ncf,
     }
     split = derived_amount(answered, facts) if answered is not None else None
-    overrides = held_apart(facts, overrides)
+    overrides = held_apart(facts, declaration.form, overrides)
     result = {}
     for target, (form, source) in INHERITANCE.items():
         if form is not None and declaration.form != form:
@@ -337,4 +342,5 @@ def inheritance_overrides(
     if set(restore).intersection(AMOUNT_SIDES):
         overrides.difference_update(AMOUNT_SIDES)
     overrides.difference_update(restore)
-    return held_apart(facts, tuple(overrides))
+    form = getattr(declared or stored, "form", None)
+    return held_apart(facts, form, tuple(overrides))

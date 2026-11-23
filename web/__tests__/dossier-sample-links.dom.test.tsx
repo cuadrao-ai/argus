@@ -18,6 +18,8 @@ test("the sample's Datos fiscales shows a purchase's linked rows filled, and Mon
   assert.match(fiscal.querySelector('[data-field="services_amount"]')?.textContent ?? "", /4,000\.00/);
   assert.match(page.host.querySelector('[data-fact="amount"]')?.textContent ?? "", /4,720\.00/);
   assert.ok(page.host.querySelector('[data-fact="amount"] [data-status="ok"]'), "the Total check");
+  assert.match(fiscal.querySelector('[data-fact="billed_total"]')?.textContent ?? "", /Total facturado.*4,000\.00/, "the calculated total the sample states");
+  assert.match(fiscal.querySelector('[data-fact="itbis_advance"]')?.textContent ?? "", /ITBIS por adelantar.*720\.00/);
   await page.act(async () => page.root.unmount());
 });
 

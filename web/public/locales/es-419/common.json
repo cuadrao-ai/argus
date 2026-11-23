@@ -2051,7 +2051,6 @@
         "other_taxes": "Otros Impuestos/Tasas",
         "withheld_on": "Fecha de Retención"
       },
-      "form": "Formato",
       "legal_name": {
         "copy_review": "approved",
         "confirm_on_save_cedula": "Al guardar, confirmas que esta cédula corresponde a {{business}}.",
@@ -2128,8 +2127,6 @@
       "refund_candidate_refused": "Esa compra no se puede usar para este reembolso. Elige otra.",
       "refund_candidates_none": "No hay compras aceptadas para elegir.",
       "save": "Guardar",
-      "approve_income": "Aceptar ingreso",
-      "approve_refund": "Aceptar reembolso",
       "recorded_income": "Se registró un ingreso después de aceptar la revisión {{version}}.",
       "recorded_refund": "Se registró un reembolso después de aceptar la revisión {{version}}.",
       "error": {
@@ -3120,6 +3117,10 @@
       },
       "placeholder": {
         "expense_type": "Tipo de gasto",
+        "fiscal_billed_total": "Total facturado",
+        "fiscal_billed_total_hint": "Servicios + Bienes",
+        "fiscal_itbis_advance": "ITBIS por adelantar",
+        "fiscal_itbis_advance_hint": "ITBIS facturado − llevado al costo",
         "income_type": "Tipo de ingreso",
         "type_clears_sale_choices": "Cambiar el tipo borra el tipo de ingreso y la forma de pago.",
         "gap": {

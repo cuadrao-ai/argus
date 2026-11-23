@@ -612,7 +612,7 @@ def test_an_expense_approval_writes_its_606_over_a_stray_607():
         }
     )
     event = _holding("recibo", "expense", STRAY_607)
-    written = approval._approval_declaration(
+    written, _ = approval._approval_declaration(
         _tx(OWN), event, facts, None, DeclarationSuggestions()
     )
     assert written is not None and written.form == "606"

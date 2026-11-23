@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, spyOn, test } from "bun:test";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
-import { button, fill, kindAsked, mount, openList, pick, registerReceiptReviewPage, setup, type Dossier } from "./fixtures/receipt-review-page";
+import { button, fill, kindAsked, mount, openList, pick, registerReceiptReviewPage, setup, type Dossier, landed } from "./fixtures/receipt-review-page";
 
 registerReceiptReviewPage();
 const keys: [string, number][] = [];
@@ -60,7 +60,7 @@ describe("a receipt with no currency", () => {
       await page.openRow("currency");
       await fill(page, '[data-testid="edit-currency"] select', "DOP", HTMLSelectElement);
       await page.check("currency");
-      await page.wait(() => Boolean(page.host.querySelector('[data-testid="receipt-facts-montos"] [data-testid="row-saved"]')));
+      await page.wait(() => page.writes.length === 1 && page.row("currency") === null);
       assert.deepEqual(page.writes.map(({ body }) => body), [{ currency: { state: "known", value: "DOP" } }]);
       assert.equal(page.picker().textContent, "DOP");
       assert.equal(page.picker().getAttribute("aria-label"), "Moneda: DOP");
@@ -145,7 +145,7 @@ describe("a receipt with no currency", () => {
       await page.openRow("amount");
       await fill(page, '[data-testid="dossier-review-amount"]', "950");
       await page.check("amount");
-      await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("amount")));
       assert.deepEqual(page.writes.map(({ body }) => body), [{ amount: { state: "known", value: "950" } }]);
       assert.equal(page.picker().getAttribute("aria-label"), "Moneda: Falta la moneda");
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
@@ -248,7 +248,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.ok(page.row("occurred_on").querySelector('[role="alert"]')?.textContent?.includes("dd/mm/aaaa"), "and the row says why it stayed open");
       await fill(page, '[placeholder="dd/mm/aaaa"]', "16/10/2026");
       await page.check("occurred_on");
-      await page.wait(() => page.writes.length === 1 && Boolean(page.row("occurred_on").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => page.writes.length === 1 && landed(page.row("occurred_on")));
       assert.deepEqual(page.writes[0].body, { occurred_on: { state: "known", value: "2026-10-16" } });
       assert.equal(button(page.host, "Aceptar").disabled, false);
       assert.equal(page.approvals(), 0, "saving never approves");
@@ -262,7 +262,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.equal(document.activeElement, page.host.querySelector('[data-testid="dossier-review-itbis"]'));
       await fill(page, '[data-testid="dossier-review-itbis"]', "500.00");
       await page.check("itbis");
-      await page.wait(() => Boolean(page.row("itbis").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("itbis")));
       assert.deepEqual(page.writes.map(({ kind, version }) => [kind, version]), [["fiscal", 2]]);
       const { fiscal, declaration } = page.writes[0].body as { fiscal: unknown; declaration: Record<string, unknown> };
       assert.deepEqual(fiscal, { rnc: "131999888", ncf: "B0100000099", itbis: "500.00" });
@@ -284,7 +284,7 @@ describe("the receipt dossier on an open draft", () => {
       await fill(page, '[data-testid="dossier-review-amount"]', "3600");
       assert.equal(page.row("amount").querySelector("select"), null);
       await page.check("amount");
-      await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("amount")));
       assert.deepEqual(page.writes.map(({ body }) => body), [{ amount: { state: "known", value: "3600" } }]);
       assert.ok(page.row("amount").textContent?.includes("3,600.00"));
     } finally { await page.close(); }
@@ -306,10 +306,10 @@ describe("the receipt dossier on an open draft", () => {
       assert.equal(button(page.host, "Aceptar").disabled, false, "suggested choices do not block");
       await pick(page, "category", "05");
       assert.equal(page.row("category").querySelector('[role="listbox"], button[aria-label^="Guardar"], button[aria-label^="Cancelar"]'), null, "the list closes and there is no check or X");
-      await page.wait(() => Boolean(page.row("category").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("category")));
       assert.deepEqual(page.writes.map(({ kind, body }) => [kind, body]), [["purchase", { category: "05" }]]);
       await pick(page, "payment_method", "01");
-      await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("payment_method")));
       assert.deepEqual(page.writes[1].body, { payment_method: "01" });
       assert.equal(page.writes[1].version, page.writes[0].version + 1, "each save stands on the last one");
       await pick(page, "payment_method", "01");
@@ -359,7 +359,7 @@ describe("the receipt dossier on an open draft", () => {
     const page = await setup();
     try {
       await pick(page, "payment_method", "01");
-      await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("payment_method")));
       assert.match(page.row("payment_method").querySelector("[data-row-value]")?.textContent ?? "", /Efectivo/);
       assert.equal(sourceIcon(page.row("payment_method")), null);
       assert.ok(sourceIcon(page.row("category")), "the other suggestion keeps its icon");
@@ -503,7 +503,7 @@ describe("the receipt dossier on an open draft", () => {
       await page.press('[data-testid="edit-counterparty"] input', "Escape");
       assert.ok(page.host.querySelector('[data-testid="edit-counterparty"]'), "Escape drops nothing either");
       await page.act(async () => button(failure, "Reintentar").click());
-      await page.wait(() => Boolean(page.row("counterparty").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("counterparty")));
       assert.deepEqual(keys[1], keys[0], "the server answers one save once");
       assert.equal(button(page.host, "Aceptar").disabled, false);
       assert.ok(page.row("counterparty").textContent?.includes("Ferretería Norte"));
@@ -526,7 +526,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.ok(page.row("counterparty").textContent?.includes("Corrección de otra persona"), "the other person's change is on screen");
       assert.equal(page.host.querySelector<HTMLInputElement>('[data-testid="dossier-review-amount"]')?.value, "950.00");
       await page.act(async () => button(page.row("amount"), "Reintentar").click());
-      await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("amount")));
       assert.ok(page.row("amount").textContent?.includes("950.00"));
     } finally { await page.close(); }
   });
@@ -578,7 +578,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.equal(page.writes.length, 0);
       assert.ok(page.host.querySelector('[data-testid="edit-counterparty"]'), "the row stays open");
       await page.press('[data-testid="edit-counterparty"] input', "Enter");
-      await page.wait(() => Boolean(page.row("counterparty").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("counterparty")));
       assert.equal(page.writes.length, 1);
       assert.equal(page.host.querySelector('[data-row-open]'), null);
       assert.ok(page.row("counterparty").textContent?.includes("Ferretería Norte"));
@@ -669,8 +669,8 @@ describe("the receipt dossier on an open draft", () => {
       await page.check("document_type");
       await page.wait(() => /Venta/.test(page.row("document_type").textContent ?? ""));
       assert.deepEqual(typed.map(({ version, documentType }) => [version, documentType]), [[2, "venta"]]);
-      assert.ok(page.row("document_type").querySelector('[data-testid="row-saved"]'));
-      assert.equal(page.row("document_type").querySelector('[data-testid="row-saved"]')?.parentElement, page.row("document_type").querySelector(":scope > span:last-of-type"), "Guardado sits in the action slot and adds no line");
+      assert.ok(landed(page.row("document_type")), "the row is back in read mode, and says nothing more");
+      assert.ok(!page.row("document_type").textContent?.includes("Guardado"));
       assert.equal(page.row("document_type").getAttribute("data-type"), "venta");
       assert.equal(page.row("counterparty").firstElementChild?.textContent, "Cliente");
     } finally { await page.close(); }
@@ -831,7 +831,7 @@ describe("the receipt dossier on an open draft", () => {
       await page.wait(() => /Sin recibo/.test(page.row("fiscal_number").textContent ?? ""));
       assert.deepEqual(page.writes.map(({ kind, version, body }) => [kind, version, body]), [["facts", 2, { receipt_state: { state: "known", value: "no_receipt" } }]]);
       assert.doesNotMatch(page.row("fiscal_number").textContent ?? "", /del revisor/);
-      assert.ok(page.row("fiscal_number").querySelector('[data-testid="row-saved"]'));
+      assert.ok(!page.row("fiscal_number").textContent?.includes("Guardado"), "the mark says nothing more than its value");
       assert.equal(mark().textContent, "Deshacer");
 
       await page.act(async () => mark().click());
@@ -915,7 +915,7 @@ describe("the receipt dossier on an open draft", () => {
       await page.openRow("counterparty");
       await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
       await page.check("counterparty");
-      await page.wait(() => Boolean(page.row("counterparty").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("counterparty")));
       const shown = page.host.querySelector('[data-testid="business-record-review"]')!;
       for (const gone of ["Revisiones en la web", "Acción enviada originalmente"]) assert.ok(!shown.textContent?.includes(gone), gone);
       assert.ok(page.host.querySelector('[data-testid="receipt-history"]')?.textContent?.includes("Ferretería Norte"));
@@ -935,10 +935,10 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("the total warning follows the server amount flag and carries only its difference", async () => {
-    const quiet = await setup("totalsOff");
+  test("the total warning follows the server's Montos check and carries only its difference", async () => {
+    const quiet = await setup("totalsOff", (dossier) => { dossier.amounts_check = { state: "unchecked" }; });
     try { assert.equal(quiet.host.querySelector('[data-testid="row-status-amount"]'), null); } finally { await quiet.close(); }
-    const page = await setup("totalsOff", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "1.00" }]; });
+    const page = await setup("totalsOff", (dossier) => { dossier.amounts_check = { state: "difference", difference: "1.00" }; });
     try {
       const status = page.row("amount").querySelector('[data-testid="row-status-amount"]');
       assert.equal(status?.getAttribute("data-status"), "warn");

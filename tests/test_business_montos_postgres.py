@@ -43,7 +43,8 @@ def test_amount_edits_and_split_restore_survive_reloading(actions):
     assert not split.inheritance["goods_amount"].inherited
     assert not split.inheritance["services_amount"].inherited
     changed = review(montos=MontosReview(net_amount={"state": "known", "value": "160"}))
-    assert changed.net_amount.source == "edited"
+    assert (changed.net_amount.amount, changed.net_amount.source) == ("160", "edited")
+    assert changed.net_amount.calculated == initial.net_amount.amount
     assert changed.dgii.goods_amount == "100"
     assert next(flag for flag in changed.review_flags if flag.code == "amounts_mismatch").difference == "10.42"
     restored = review(montos=MontosReview(restore_inherited=("goods_amount",)))
