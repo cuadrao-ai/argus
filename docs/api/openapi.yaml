@@ -18355,6 +18355,10 @@ components:
         payment_split_editable:
           type: boolean
           default: false
+        sale_payment:
+          anyOf:
+          - $ref: '#/components/schemas/SalePayment'
+          - type: 'null'
         due_on:
           anyOf:
           - type: string
@@ -21664,6 +21668,10 @@ components:
         payment_split_editable:
           type: boolean
           default: false
+        sale_payment:
+          anyOf:
+          - $ref: '#/components/schemas/SalePayment'
+          - type: 'null'
         due_on:
           anyOf:
           - type: string
@@ -32336,6 +32344,18 @@ components:
           anyOf:
           - $ref: '#/components/schemas/SalePaymentSplit'
           - type: 'null'
+        sale_payment_form:
+          anyOf:
+          - type: string
+            enum:
+            - cash
+            - bank
+            - card
+            - credit
+            - gift
+            - barter
+            - other_payment
+          - type: 'null'
         document_type:
           anyOf:
           - type: string
@@ -32488,6 +32508,42 @@ components:
       - estado
       - status
       - record_count
+    SalePayment:
+      properties:
+        form:
+          anyOf:
+          - type: string
+            enum:
+            - cash
+            - bank
+            - card
+            - credit
+            - gift
+            - barter
+            - other_payment
+          - type: 'null'
+        options:
+          items:
+            type: string
+            enum:
+            - cash
+            - bank
+            - card
+            - credit
+            - gift
+            - barter
+            - other_payment
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - form
+      - options
+      description: 'How a sale was paid, as one pick: the one bucket of its split that
+
+        holds an amount, null with no split or one across several, and the forms a
+
+        person may pick.'
     SalePaymentSplit:
       properties:
         cash:

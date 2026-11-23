@@ -86,6 +86,7 @@ from argus.domain.business.purchase_review import (
     blank_answer,
     declaration_from_facts,
     net_amount,
+    sale_payment,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -775,6 +776,7 @@ def dossier(
         else DeclarationSuggestions(),
         payment_split_editable=facts_editable
         and takes_payment_split(resolution.document_type),
+        sale_payment=sale_payment(resolution.document_type, declaration),
         due_on=resolution.due_on,
         upload_year=uploaded,
         year_to_check=year_to_check(facts, uploaded),

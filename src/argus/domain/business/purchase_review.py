@@ -10,6 +10,8 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     PurchaseDeclaration,
     PurchaseReview,
+    SalePayment,
+    SalePaymentForm,
     SalePaymentSplit,
     SalesDeclaration,
     SuggestedField,
@@ -54,6 +56,64 @@ def apply_payment_split(
     )
     data.update({name: getattr(split, name) for name in split.model_fields_set})
     return SalesDeclaration.model_validate(data)
+
+
+def whole_payment(
+    current: DgiiDeclaration | None, form: SalePaymentForm, total: str
+) -> SalesDeclaration | None:
+    """The 607 of a sale paid one way: the whole ``total`` in ``form``'s
+    bucket and nothing in the others. None when no bucket holds ``total``
+    exactly."""
+
+    amount = Decimal(total)
+    held = money_text(amount)
+    if not 0 <= amount < MONEY_LIMIT or Decimal(held) != amount:
+        return None
+    split = {name: held if name == form else None for name in get_args(SalePaymentForm)}
+    return apply_payment_split(
+        current if isinstance(current, SalesDeclaration) else None,
+        SalePaymentSplit(**split),
+    )
+
+
+def _paid_forms(declaration: DgiiDeclaration | None) -> list[str]:
+    if not isinstance(declaration, SalesDeclaration):
+        return []
+    return [
+        name
+        for name in get_args(SalePaymentForm)
+        if amount_or_zero(getattr(declaration, name)) > 0
+    ]
+
+
+def sale_payment(
+    document_type: DocumentType, declaration: DgiiDeclaration | None
+) -> SalePayment | None:
+    """How a sale was paid, as the one pick a review offers. None for a
+    record that takes no payment split."""
+
+    if not takes_payment_split(document_type):
+        return None
+    paid = _paid_forms(declaration)
+    return SalePayment(
+        form=paid[0] if len(paid) == 1 else None, options=get_args(SalePaymentForm)
+    )
+
+
+def payment_following_total(
+    declaration: DgiiDeclaration | None, before: BusinessFacts, after: BusinessFacts
+) -> DgiiDeclaration | None:
+    """``declaration`` with a sale's one payment form still holding its whole
+    total: the bucket that held the old total holds the new one. A split
+    across forms, or one that was not the total, stays as a person wrote it."""
+
+    paid = _paid_forms(declaration)
+    old, new = before.amount.value, after.amount.value
+    if len(paid) != 1 or old is None or new is None or Decimal(old) == Decimal(new):
+        return declaration
+    if Decimal(getattr(declaration, paid[0])) != Decimal(old):
+        return declaration
+    return whole_payment(declaration, paid[0], new) or declaration
 
 
 def apply_purchase(

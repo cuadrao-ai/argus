@@ -26,6 +26,7 @@ from .dgii import (
     FiscalReview,
     Money,
     PurchaseReview,
+    SalePaymentForm,
     SalePaymentSplit,
 )
 from .facts import (
@@ -159,6 +160,9 @@ class ReviewDraft(Contract):
     purchase: PurchaseReview | None = None
     #: The 607 payment split a person writes on a sale; absent buckets stay.
     payment_split: SalePaymentSplit | None = None
+    #: The one way a sale was paid. The server puts the whole total in that
+    #: bucket of the 607 payment split and clears the others.
+    sale_payment_form: SalePaymentForm | None = None
     #: Sets the uploaded document's type.
     document_type: DocumentType | None = None
     #: Sets the due date or takes it back to unknown.
@@ -172,13 +176,14 @@ class ReviewDraft(Contract):
             and self.dgii is None
             and self.purchase is None
             and self.payment_split is None
+            and self.sale_payment_form is None
             and self.document_type is None
             and self.due_on is None
             and self.montos is None
         ):
             raise ValueError(
                 "supply review facts, a fiscal declaration, 606 fields, a 607"
-                " payment split, a document type or a due date"
+                " payment split or form, a document type or a due date"
             )
         return self
 

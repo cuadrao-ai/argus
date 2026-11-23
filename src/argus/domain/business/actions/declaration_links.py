@@ -19,6 +19,7 @@ from argus.domain.business.purchase_review import (
     apply_payment_split,
     id_type_of,
     kept_sources,
+    payment_following_total,
 )
 
 
@@ -78,6 +79,8 @@ def saved_declaration_links(
 
     if declaration is None and venta:
         declaration = apply_payment_split(None, SalePaymentSplit())
+    if not written:
+        declaration = payment_following_total(declaration, before, after)
     linked = sources(after, declaration)
     if not written:
         declaration = written_from(before, declaration, previous, bill_mark, linked)
