@@ -71,6 +71,10 @@ export function clearBusinessAppearance(id:string){
   appearanceAssets.delete(target);savedAppearances.delete(target);appearanceStates.delete(target);appearanceRevisions.delete(target);
   for(const listener of listeners)listener();
 }
+/** Test seam: forget every Business appearance, so one test's load is not the next test's mark. */
+export function resetBusinessAppearances(){
+  for(const store of [savedAppearances,appearanceAssets,imageSources,appearanceStates,appearanceRevisions])store.clear();
+}
 export function profileIdentity(profile: BusinessProfile): IdentityAppearance {
   if (profile.appearance.kind !== "image") return profile.appearance;
   const bytes=profile.image?imageSources.get(`${browserAuthGeneration()}:${profile.image.asset_id}`):null;
