@@ -21,7 +21,6 @@ from argus.domain.business.authority import (
     BusinessAuthority,
     authorize,
 )
-from argus.domain.business.contracts.actions import SUPPORTING_FILE_LIMIT
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.dgii_snapshot import fiscal_snapshot
 from argus.domain.business.dgii_validation import FiscalRecord
@@ -317,6 +316,7 @@ def projected_records(
         personal_mark_admits,
     )
     from argus.domain.business.reporting_projection import DraftState, project, value
+    from argus.domain.business.supporting_files import supporting_files_full
 
     snapshot = _recorded(authority, context, connection)
     context = snapshot.context
@@ -419,8 +419,7 @@ def projected_records(
                 update={
                     "can_edit_note": can_annotate,
                     "can_append_supporting": can_annotate
-                    and sum(source.supporting_only for source in draft.sources)
-                    < SUPPORTING_FILE_LIMIT,
+                    and not supporting_files_full(source.supporting_only for source in draft.sources),
                     "annotation_unavailable_reason": None
                     if can_annotate
                     else "business_annotation_unavailable"

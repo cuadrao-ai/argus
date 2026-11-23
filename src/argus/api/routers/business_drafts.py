@@ -41,6 +41,7 @@ from argus.domain.business.contracts.amounts import AmountsPreview, AmountsPrevi
 from argus.domain.business.contracts.deletion import DocumentCommand
 from argus.domain.business.contracts.dossier import BusinessDossier, RecordedApproval
 from argus.domain.business.contracts.listos import ApproveListos
+from argus.domain.ingestion.email_intake import sender_policy
 
 router = APIRouter(
     prefix="/business/drafts",
@@ -87,7 +88,7 @@ def _email_store_unavailable(request: Request):
     )
 
 
-def _email_sender_blocks_approval(request, context, draft_id) -> bool:
+def _require_email_sender(request: Request, context: DraftContext, draft_id: UUID) -> None:
     from argus.api.email_intake import email_intake
     from argus.domain.ingestion.email_intake.store import PostgresEmailStore
 
@@ -96,13 +97,14 @@ def _email_sender_blocks_approval(request, context, draft_id) -> bool:
     if store is None:
         pool = getattr(getattr(context.service, "authority", None), "pool", None)
         if pool is None:
-            return False
+            return
         store = PostgresEmailStore(pool)
     try:
         standing = store.email_document_standing(str(context.space_id), str(draft_id))
     except Exception:
         raise _email_store_unavailable(request) from None
-    return standing is not None and standing != "authorized"
+    if refusal := sender_policy.sender_refusal(standing):
+        raise ActionError("permission_denied", refusal)
 
 
 def _run(request, response, context, draft_id, command=None, key=None):
@@ -110,8 +112,7 @@ def _run(request, response, context, draft_id, command=None, key=None):
     is_approval = isinstance(command, (ApproveExpense, ApproveIncome, ApproveRefund))
     try:
         if is_approval:
-            if _email_sender_blocks_approval(request, context, draft_id):
-                raise ActionError("permission_denied", "email_sender_unauthorized")
+            _require_email_sender(request, context, draft_id)
         actor = context.for_draft(draft_id)
         if command is not None:
             if isinstance(command, ReviewDraft):

@@ -211,7 +211,10 @@ class DocumentsService:
     def get(
         self, *, user_id: str, connection_id: str, scope: OwnerScope
     ) -> DocumentDraft:
-        connection = self._connection(user_id, connection_id, scope=scope)
+        return self._stored_draft(self._connection(user_id, connection_id, scope=scope))
+
+    def _stored_draft(self, connection: SourceConnection) -> DocumentDraft:
+        user_id, connection_id = connection.user_id, connection.id
         draft = self.store.draft(user_id=user_id, connection_id=connection_id)
         if draft is None:
             if self.store.get(user_id=user_id, connection_id=connection_id) is None:
@@ -497,29 +500,24 @@ class DocumentsService:
         row = self.hub.connections.get_any_scope(
             user_id=user_id, connection_id=connection_id
         )
-        business = space_id(row.scope)
-        if business is None:
+        if space_id(row.scope) is None:
             return True
-        if self.business_receipt_consent is None:
-            return False
         draft = self.store.draft(user_id=user_id, connection_id=connection_id)
         return bool(
-            draft
-            and draft.business_reading_consent_id
-            and self.business_receipt_consent.enabled(
-                business, user_id, draft.business_reading_consent_id
-            )
+            draft and draft.reading_allowed(self._business_permission(row.scope, user_id))
         )
 
-    def read_pending(
-        self, user_id: str, connection_id: str, draft: DocumentDraft
-    ) -> bool:
-        """A read will happen: one is in flight, or the document is queued with
-        consent and the owner's reading is allowed right now. A queued document
-        whose owner switched reading off waits for a person, not for a read."""
-
-        return draft.read_pending(
-            draft.status == "queued" and self._reading_allowed(user_id, connection_id)
+    def get_with_read_pending(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> tuple[DocumentDraft, bool]:
+        connection = self._connection(user_id, connection_id, scope=scope)
+        draft = self._stored_draft(connection)
+        return draft, draft.read_pending(
+            business_permission=self._business_permission(scope, user_id)
+            if draft.status == "queued" and space_id(scope) is not None
+            else None,
+            lease_until=connection.lease_until,
+            now=self.hub.clock(),
         )
 
     def queue(

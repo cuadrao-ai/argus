@@ -9,6 +9,7 @@ from dataclasses import replace
 from typing import Any
 from uuid import UUID
 
+from argus.domain.business.actions.document_deletion import reading_uploads
 from argus.domain.business.actions.dossier import (
     record_context,
     review_questions,
@@ -24,6 +25,7 @@ from argus.domain.business.bandeja_group import (
     listo_reason,
     upload_year,
 )
+from argus.domain.business.contracts.dossier import Blocker, ReviewFlag
 from argus.domain.business.contracts.facts import BusinessResolution, fiscal_value
 from argus.domain.business.receipts import read_attention
 from argus.domain.business.review_flags import review_flags
@@ -32,14 +34,17 @@ from argus.domain.ingestion.email_intake.store import email_draft_standing
 from argus.domain.ingestion.reconcile.model import ImportEvent
 
 
-def _attachments(
-    tx: ActionTransaction, draft_ids: Sequence[UUID]
-) -> dict[UUID, list[dict[str, Any]]]:
-    """Each draft's attachments, with the status of their read and whether
-    another draft shares them."""
+def attachment_reads(
+    tx: ActionTransaction,
+    draft_ids: Sequence[UUID],
+    *,
+    live_siblings: bool = False,
+) -> dict[UUID, ReadState]:
+    """A listed draft waits for every original receipt. The worker stamping
+    the completed read still holds its lease and needs the settled standing."""
 
     rows = tx.rows(
-        "select l.draft_id,d.draft->>'status' as status,"
+        "select l.draft_id,s.connection_id,d.draft->>'status' as status,"
         " exists (select 1 from public.business_draft_sources o"
         "   where o.space_id=l.space_id and o.source_id=l.source_id"
         "   and o.draft_id<>l.draft_id) as shared"
@@ -53,7 +58,31 @@ def _attachments(
     found: dict[UUID, list[dict[str, Any]]] = {}
     for row in rows:
         found.setdefault(row["draft_id"], []).append(row)
-    return found
+    reads = {draft_id: _read_state(rows) for draft_id, rows in found.items()}
+    if not live_siblings:
+        return reads
+    siblings = {
+        draft_id: {row["connection_id"] for row in rows}
+        for draft_id, rows in found.items()
+        if len(rows) > 1
+    }
+    if not siblings:
+        return reads
+    uploads = tx.rows(
+        "select c.id as connection_id,c.lease_until,d.draft"
+        " from public.financial_source_connections c"
+        " join public.financial_document_extractions d on d.connection_id=c.id and d.user_id=c.user_id"
+        " where c.owner_space_id=%s and c.user_id=%s and c.id=any(%s)",
+        (
+            tx.context.actor.space_id, tx.context.owner_id,
+            list(set.union(*siblings.values())),
+        ),
+    )
+    pending = reading_uploads(tx, uploads)
+    for draft_id, ids in siblings.items():
+        if ids & pending:
+            reads[draft_id] = "reading"
+    return reads
 
 
 def _upload_years(
@@ -93,8 +122,55 @@ def _ecf_failed(resolution: BusinessResolution) -> bool:
     )
 
 
+def draft_standing(
+    tx: ActionTransaction,
+    event: ImportEvent,
+    resolution: BusinessResolution,
+    *,
+    blocked: Sequence[Blocker],
+    flags: tuple[ReviewFlag, ...],
+    read: ReadState,
+    repeated: bool,
+    uploaded: int | None,
+    every_gap: bool,
+) -> DraftStanding:
+    standing = DraftStanding(
+        draft_id=event.id,
+        version=event.version,
+        facts=resolution.facts,
+        read=read,
+        read_attention=read_attention(event).get("attention"),
+        credit_note=refund_shaped(resolution.facts),
+        ecf_failed=_ecf_failed(resolution),
+        repeated=repeated,
+        # RULE already reports these missing facts individually.
+        blockers=tuple(
+            blocker.code
+            for blocker in blocked
+            if not (
+                blocker.code == "fact_required"
+                and blocker.field in {"occurred_on", "amount", "currency"}
+            )
+        ),
+        flags=flags,
+        upload_year=uploaded,
+    )
+    if every_gap or listo_reason(standing) is None:
+        standing = replace(
+            standing,
+            sender=email_draft_standing(
+                tx.connection, str(tx.context.actor.space_id), event.id
+            ),
+        )
+    return standing
+
+
 def draft_standings(
-    tx: ActionTransaction, events: Iterable[ImportEvent], *, every_gap: bool = False
+    tx: ActionTransaction,
+    events: Iterable[ImportEvent],
+    *,
+    every_gap: bool = False,
+    live_siblings: bool = False,
 ) -> dict[str, DraftStanding]:
     """The standing of each open Business draft, by id. The sender costs the
     most, so it is read last and only for a draft nothing else keeps out: that
@@ -106,7 +182,7 @@ def draft_standings(
         return {}
     ids = list(drafts)
     questions = review_questions(tx, ids)
-    attachments = _attachments(tx, ids)
+    reads = attachment_reads(tx, ids, live_siblings=live_siblings)
     uploaded = _upload_years(tx, ids)
     repeated = repeated_comprobantes(tx, drafts.values())
     accounts = record_context(tx).accounts
@@ -118,35 +194,15 @@ def draft_standings(
         blocked, _ = workflow_blockers(
             tx, event, facts, accounts, questions.get(event.id, ())
         )
-        standing = DraftStanding(
-            draft_id=event.id,
-            version=event.version,
-            facts=facts,
-            read=_read_state(attachments.get(draft_id, [])),
-            read_attention=read_attention(event).get("attention"),
-            credit_note=refund_shaped(facts),
-            ecf_failed=_ecf_failed(resolution),
-            repeated=draft_id in repeated,
-            # RULE already reports these missing facts individually.
-            blockers=tuple(
-                blocker.code
-                for blocker in blocked
-                if not (
-                    blocker.code == "fact_required"
-                    and blocker.field in {"occurred_on", "amount", "currency"}
-                )
-            ),
+        found[event.id] = draft_standing(
+            tx, event, resolution,
+            blocked=blocked,
             flags=review_flags(facts, registry, declaration=resolution.dgii),
-            upload_year=uploaded.get(draft_id),
+            read=reads.get(draft_id, "none"),
+            repeated=draft_id in repeated,
+            uploaded=uploaded.get(draft_id),
+            every_gap=every_gap,
         )
-        if every_gap or listo_reason(standing) is None:
-            standing = replace(
-                standing,
-                sender=email_draft_standing(
-                    tx.connection, str(tx.context.actor.space_id), event.id
-                ),
-            )
-        found[event.id] = standing
     return found
 
 
@@ -164,5 +220,7 @@ def linked_standings(
     if not wanted:
         return {}
     return draft_standings(
-        tx, (event for event in tx.imports.events(("open",)) if event.id in wanted)
+        tx,
+        (event for event in tx.imports.events(("open",)) if event.id in wanted),
+        live_siblings=True,
     )

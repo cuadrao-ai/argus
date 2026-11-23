@@ -14,8 +14,8 @@ from argus.domain.business.bandeja_group import (
 )
 from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.document_type import DocumentType
+from argus.domain.business.rnc_registry import RncRegistryStatus
 from argus.domain.business.space_name import GivenName
-from argus.domain.business.supplier_fast_path import RncRegistryStatus
 
 from .actions import SUPPORTING_FILE_LIMIT, ApprovalAction, DuplicateDecision
 from .authority import ActorView, Capability, PersonName

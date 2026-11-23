@@ -207,7 +207,7 @@ class BusinessService:
         whatsapp: frozenset[str],
     ) -> Receipt:
         person = scope.person_id
-        draft = self.documents.get(
+        draft, read_pending = self.documents.get_with_read_pending(
             user_id=person, connection_id=receipt_id, scope=scope.owner
         )
         return compose(
@@ -215,7 +215,7 @@ class BusinessService:
             self.documents.store.get(user_id=person, connection_id=receipt_id),
             events,
             "whatsapp" if receipt_id in whatsapp else "web",
-            read_pending=self.documents.read_pending(person, receipt_id, draft),
+            read_pending=read_pending,
         )
 
     async def upload(

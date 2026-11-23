@@ -151,7 +151,7 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
 ) -> None:  # noqa: ANN001
     service, context, _, _, _, _ = two_purchases
     bridge.bind(two_purchases)
-    first = bridge.finish(two_purchases)
+    first = bridge.finish(two_purchases, keep_lease=True)
     assert first.outcome == "applied", first
     view = service.dossier(context, first.draft_id)
     codes = [(b.code, b.field) for b in view.blockers]

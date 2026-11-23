@@ -115,7 +115,6 @@ def failure_attention(code: str) -> Attention | None:
 
 # Another read of the same bytes fails the same way, or cannot be made.
 _NO_RETRY: frozenset[Attention] = frozenset({"unreadable", "source_unavailable"})
-_BUSY = ("queued", "preparing")
 _UPDATE_KINDS: Mapping[str, str] = {
     "review_ready": "receipt_ready",
     "needs_attention": "receipt_needs_attention",
@@ -128,6 +127,7 @@ class Receipt:
     draft: DocumentDraft
     review: ReceiptReview
     channel: Channel
+    read_pending: bool
     entered_by_owner: bool = False
     # Deliveries this document arrived in; set at the API boundary from the email queue.
     email_delivery_ids: tuple[str, ...] = ()
@@ -136,9 +136,6 @@ class Receipt:
     email_original: bool = False
     # The upload that produced this view found the same bytes already saved.
     replayed: bool = False
-    # A read will happen (in flight, or queued and allowed now); None reads it
-    # from the draft's status alone, for callers without a documents service.
-    read_pending: bool | None = None
     deleted: DeletedDocument | None = None
     # Why the hand-off refuses the saved read. Another read replays that read.
     refusal: str | None = None
@@ -146,14 +143,6 @@ class Receipt:
     @property
     def id(self) -> str:
         return self.draft.connection_id
-
-    @property
-    def busy(self) -> bool:
-        """Something is reading, or will read, this receipt."""
-
-        if self.read_pending is not None:
-            return self.read_pending
-        return self.draft.status in _BUSY
 
     @property
     def status(self) -> ReceiptStatus:
@@ -164,7 +153,7 @@ class Receipt:
             return "needs_attention"
         # Queued, yet nothing will read it (the owner's reading is off): it is
         # saved and waits for a person, and the view says so.
-        if self.review.status == "queued" and not self.busy:
+        if self.review.status == "queued" and not self.read_pending:
             return "saved"
         return self.review.status
 
@@ -190,7 +179,7 @@ class Receipt:
             and not self.email_original
             and self.review.blocker is not None
             and self.review.blocker != "possible_duplicate"
-            and not self.busy
+            and not self.read_pending
             and all(
                 read.state in ("open", "dismissed") for read in self.review.read_purchases
             )
@@ -206,7 +195,7 @@ class Receipt:
             and not self.email_original
             and self.review.blocker == "not_prepared"
             and self.draft.source_available
-            and not self.busy
+            and not self.read_pending
             and self.refusal is None
             and _UNREAD_ATTENTION.get(self.draft.error_code or "") not in _NO_RETRY
         )
@@ -268,7 +257,7 @@ class Receipt:
             "attention": self.attention,
             "duplicate_of": self.review.duplicate_of,
             "replayed": self.replayed,
-            "read_pending": self.busy,
+            "read_pending": self.read_pending,
             "preparable": self.preparable,
             "enterable": self.enterable,
             "document_type": self.draft.document_type or "recibo",
@@ -372,7 +361,8 @@ def compose(
     batch: ExtractionBatch | None,
     events: Iterable[Mapping[str, Any]],
     channel: Channel,
-    read_pending: bool | None = None,
+    *,
+    read_pending: bool,
 ) -> Receipt:
     # Lazy: the action package imports this module.
     from argus.domain.business.actions.mutations import read_refusal
@@ -390,8 +380,8 @@ def compose(
         draft,
         review,
         channel,
-        entered,
         read_pending=read_pending,
+        entered_by_owner=entered,
         deleted=marker,
         refusal=read_refusal(batch) if waiting else None,
     )
