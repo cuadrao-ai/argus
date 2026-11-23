@@ -16,7 +16,7 @@ import { fiscalFieldLabel } from "./dossier/fiscal-field-label";
 import styles from "./dossier/dossier.module.css";
 import { FOCUS_RING } from "./foundation/presentation";
 import { useCategoryLabel } from "./business-ui";
-import { presentBusinessFact, presentDgiiValue, presentFiscalFact } from "./receipt-fact-presentation";
+import { dgiiOptionLabel, presentBusinessFact, presentDgiiValue, presentFiscalFact } from "./receipt-fact-presentation";
 import { resolveLanguage } from "@/lib/language-features";
 
 /** One DGII field a fiscal save changed: `before` is null when the field had no value to strike. */
@@ -32,6 +32,8 @@ const ADDED = "rounded-mark bg-[#e3ebe1] px-1.5 text-[#2f5a49] no-underline dark
 const ARROW = "text-[#56635e] dark:text-white/60";
 /** A fiscal save shows this many changes before the rest wait behind a button. */
 const CHANGES_SHOWN = 2;
+
+const NO_FORMS: readonly string[] = [];
 
 /** Spanish agrees the participle with the field's name. */
 const FEMININE = new Set<string>(["occurred_on", "currency", "category_id", "kind", "business_share"]);
@@ -52,7 +54,7 @@ function localDay(date: Date): string {
  * from the recorded approval: the one place an accepted record says so. Notes
  * and supporting file changes come from saved revisions.
  */
-export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null, supportingFiles = [] }: {
+export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null, salePaymentForms = NO_FORMS, supportingFiles = [] }: {
   history: BusinessDraftRevision[];
   documentType?: BusinessDossier["document_type"];
   accounts: BusinessAccount[];
@@ -60,6 +62,8 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   approval?: BusinessDossier["approval_result"];
   /** The DGII field dictionary that names and orders a fiscal save's changes; until it loads a save shows no field list. */
   dgiiFields?: DgiiFields | null;
+  /** The 607 fields that are a sale's ways to pay, as the server lists them. A save names the ways, never their amounts. */
+  salePaymentForms?: readonly string[];
   supportingFiles?: readonly BusinessSupportingFile[];
 }) {
   const { t, i18n } = useTranslation();
@@ -103,18 +107,27 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     const diff = diffOf(before, after);
     return { line: changed(key, before, after), heading: diff ? fieldName(key) : undefined, diff };
   };
-  /** The dictionary's fields a save changed, in its order, named and worded as Datos fiscales shows them; a field the earlier declaration lacked has nothing to strike. */
+  /** The dictionary's fields a save changed, in its order, named and worded as Datos fiscales shows them; a field the earlier declaration lacked has nothing to strike. A sale's ways to pay are one line, where the first of them sorts, named as General names them. */
   const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration, facts: BusinessFacts): FiscalChange[] | null => {
     if (!dgiiFields) return null;
     const shown = (field: DgiiField, value: DgiiDeclaration[string] | undefined) => presentDgiiValue(field, value, facts, locale, t, t("business.dossier.unknown", "Unknown"));
-    return dgiiFields[after.form]
-      .filter((field) => (before?.[field.name] ?? null) !== (after[field.name] ?? null))
-      .map((field) => ({
+    const forms = after.form === "607" ? salePaymentForms : NO_FORMS;
+    const paidBy = (declaration: DgiiDeclaration | null | undefined) => forms.filter((name) => Number(declaration?.[name]) > 0).map((name) => dgiiOptionLabel(t, "sale_payment_form", name)).join(", ");
+    const payment = { before: paidBy(before), after: paidBy(after) };
+    const firstForm = dgiiFields[after.form].find((field) => forms.includes(field.name))?.name;
+    return dgiiFields[after.form].flatMap((field): FiscalChange[] => {
+      if (forms.includes(field.name)) {
+        if (field.name !== firstForm || payment.before === payment.after) return [];
+        return [{ name: "sale_payment", field: dossierRowLabel(t, "sale_payment", { document_type: documentType }), before: payment.before || null, after: payment.after || t("business.dossier.row.no_data") }];
+      }
+      if ((before?.[field.name] ?? null) === (after[field.name] ?? null)) return [];
+      return [{
         name: field.name,
         field: fiscalFieldLabel(t, after.form, field.name),
         before: before && field.name in before ? shown(field, before[field.name]) : null,
         after: shown(field, after[field.name]),
-      }));
+      }];
+    });
   };
 
   const events: HistoryEvent[] = [];
@@ -125,7 +138,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     .filter((item) => (item.kind === "attachment" && !changedFiles.has(item.id) && !filesBySource.has(item.id)) || (item.kind === "message" && item.channel === "whatsapp"))
     .sort((a, b) => Date.parse(a.received_at) - Date.parse(b.received_at))[0];
   if (first) {
-    const channel = first.channel === "whatsapp" ? "WhatsApp" : first.channel === "email" ? t("business.history.channel_email", "Email") : t("business.history.channel_web", "Uploaded");
+    const channel = first.channel === "whatsapp" ? "WhatsApp" : first.channel === "email" ? t("business.history.channel_email", "Email") : t("business.history.channel_web", "Web");
     events.push({ id: `source-${first.id}`, at: first.received_at, kind: "received", line: t("business.history.arrived", { channel }), sub: first.kind === "attachment" ? first.filename ?? undefined : undefined, who: null });
   }
   for (const revision of history) {
