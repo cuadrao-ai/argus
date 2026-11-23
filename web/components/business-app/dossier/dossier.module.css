@@ -3,14 +3,14 @@
   --d-ink:#172b26; --d-soft:#3d4a45; --d-muted:#56635e; --d-line:#E4E2DA; --d-hair:#ECEAE3; --d-card:#FFFEFA; --d-field:#FFFFFF; --d-field-line:#C9CFC9;
   --d-hover:#F0EEE7; --d-green:#2f5a49; --d-on-green:#FFFFFF; --d-warn:#8a6410; --d-warn-ink:#735c14; --d-warn-bg:#f2e8c9; --d-warn-hover:#f7efd6; --d-bad:#a3243a; --d-bad-ink:#9e2f39; --d-bad-bg:#f6dfe0;
   --d-ok-bg:#e3ebe1; --d-tint:rgba(214,209,194,.22); --d-pop:#FFFFFF; --d-pop-line:#D9D6CC; --d-chip:#F4F2EC; --d-doc:rgba(255,255,255,.35); --d-dot:rgba(47,90,73,.16); --d-on:#EEF1EC;
-  --d-shadow:0 16px 40px rgba(23,43,38,.2); --d-flash:rgba(47,90,73,.12);
+  --d-shadow:0 16px 40px rgba(23,43,38,.2); --d-flash:rgba(47,90,73,.12); --d-ring:rgba(47,90,73,.16);
   color:var(--d-ink);
 }
 :global(.dark) .scope {
   --d-ink:#ffffff; --d-soft:rgba(255,255,255,.7); --d-muted:rgba(255,255,255,.7); --d-line:rgba(255,255,255,.10); --d-hair:rgba(255,255,255,.07); --d-card:#1f2225; --d-field:#1f2225; --d-field-line:rgba(255,255,255,.18);
   --d-hover:rgba(255,255,255,.06); --d-green:#8fcbb0; --d-on-green:#172b26; --d-warn:#f6e7c1; --d-warn-ink:#f6e7c1; --d-warn-bg:#49412a; --d-warn-hover:#49412a; --d-bad:#ec9aa0; --d-bad-ink:#ec9aa0; --d-bad-bg:#4a2a2f;
   --d-ok-bg:#293b32; --d-tint:transparent; --d-pop:#1f2225; --d-pop-line:rgba(255,255,255,.10); --d-chip:rgba(255,255,255,.04); --d-doc:rgba(0,0,0,.22); --d-dot:rgba(143,203,176,.16); --d-on:rgba(143,203,176,.10);
-  --d-shadow:0 16px 40px rgba(0,0,0,.5); --d-flash:rgba(143,203,176,.12);
+  --d-shadow:0 16px 40px rgba(0,0,0,.5); --d-flash:rgba(143,203,176,.12); --d-ring:rgba(143,203,176,.16);
 }
 .focus:focus-visible, .scope button:focus-visible, .scope [tabindex]:focus-visible { outline:2px solid var(--d-green); outline-offset:2px; }
 
@@ -80,9 +80,38 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 .mono { font-family:var(--font-mono, ui-monospace, monospace); font-size:13.5px; }
 .total .label, .total .value { font-weight:600; color:var(--d-ink); }
 .total .value { font-size:16px; }
+/* An open row's field is the value's own box: the same height, inset and type, so opening a row moves nothing. */
 .field { grid-column:3 / 4; min-width:0; padding:1px 0; }
 .wide { grid-column:3 / 5; min-width:0; padding:1px 8px 1px 0; }
 .actions { display:flex; align-items:center; justify-content:flex-end; gap:4px; width:72px; }
+.field label > input, .field select, .field div:has(> input) { box-sizing:border-box; height:40px; min-height:40px; border:1px solid var(--d-green); border-radius:var(--radius-item); background:var(--d-field); box-shadow:0 0 0 3px var(--d-ring); outline:none; }
+.field label > input, .field select { padding:0 10px; }
+.field div:has(> input) { padding:0 10px; }
+.field div:has(> input):has(> button) { padding:0 3px 0 10px; }
+.field div:has(> input) > input { min-height:0; padding:0; outline:none; }
+.field div:has(> input) > button { width:32px; height:32px; min-height:0; }
+.field :is(input, select) { font-size:14.5px; font-weight:500; line-height:20px; color:var(--d-ink); }
+.total .field input { font-size:16px; font-weight:600; }
+.field :is(input, select):disabled { opacity:.6; }
+.field [aria-invalid="true"], .field div:has(> [aria-invalid="true"]) { border-color:var(--d-bad-ink); }
+.saved { display:inline-flex; align-items:center; justify-content:flex-end; gap:3px; min-height:32px; font-size:12px; font-weight:500; line-height:16px; white-space:nowrap; color:var(--d-green); animation:dossierSaved 2.4s ease-out both; }
+@keyframes dossierSaved { from, 75% { opacity:1; } to { opacity:0; } }
+@media (prefers-reduced-motion:reduce) { .saved { animation:none; } }
+/* A row that picks from a list: the value and its chevron are one button over the value and action slots. */
+.pickText { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pick { grid-column:3 / 5; display:grid; grid-template-columns:minmax(0,1fr) 72px; align-items:center; column-gap:6px; box-sizing:border-box; width:100%; min-height:40px; margin:0; padding:0 8px 0 10px; border:1px solid transparent; border-radius:var(--radius-item); background:transparent; font:inherit; font-size:14.5px; font-weight:500; line-height:20px; color:var(--d-ink); text-align:left; cursor:pointer; }
+.pick:hover:not(:disabled), .pick[aria-expanded="true"] { border-color:var(--d-field-line); background:var(--d-field); }
+.pick[aria-expanded="true"] { border-color:var(--d-green); }
+.pick:disabled { cursor:default; }
+.pickText[data-empty="true"] { color:var(--d-muted); font-weight:400; }
+.pickAction { display:flex; align-items:center; justify-content:flex-end; min-height:32px; color:var(--d-soft); }
+.list { position:absolute; grid-column:3 / 5; left:0; right:0; z-index:5; box-sizing:border-box; list-style:none; margin:0; padding:6px; max-height:300px; overflow:auto; background:var(--d-pop); border:1px solid var(--d-pop-line); border-radius:var(--radius-surface); box-shadow:var(--d-shadow); }
+.list[data-side="up"] { bottom:calc(100% - 4px); }
+.list[data-side="down"] { top:calc(100% - 4px); }
+.option { display:grid; grid-template-columns:20px minmax(0,1fr) auto; align-items:center; gap:8px; width:100%; min-height:40px; padding:0 10px; border:0; border-radius:var(--radius-item); background:transparent; font:inherit; font-size:14px; font-weight:400; color:var(--d-ink); text-align:left; cursor:pointer; }
+.option:hover, .option:focus-visible { background:var(--d-chip); }
+.option[aria-selected="true"] { font-weight:600; }
+.optionCheck { display:inline-flex; color:var(--d-green); }
 .pen { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border:0; border-radius:var(--radius-item); background:transparent; color:var(--d-muted); cursor:pointer; opacity:0; }
 .pen:hover { background:var(--d-hover); color:var(--d-ink); }
 .row:hover .pen, .row:has(:focus-visible) .pen { opacity:1; }
@@ -115,6 +144,11 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
   .act, .pen { width:44px; height:44px; }
   .field { padding:0; }
   .pen { opacity:1; }
+  .field label > input, .field select, .field div:has(> input) { height:44px; min-height:44px; }
+  .field :is(input, select) { font-size:16px; }
+  .field div:has(> input) > button { width:44px; height:44px; }
+  .pick { grid-template-columns:minmax(0,1fr) 92px; min-height:44px; }
+  .option { min-height:44px; }
 }
 /* On a phone the label takes its own line, so the value keeps the row's width. */
 @media (max-width:519px) {
@@ -122,7 +156,7 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
   .row { grid-template-columns:24px minmax(0,1fr) 92px; padding-top:6px; }
   .label { grid-column:1 / -1; }
   .field { grid-column:2 / 3; }
-  .wide, .below { grid-column:2 / 4; }
+  .wide, .below, .pick, .list { grid-column:2 / 4; }
 }
 .emptyLine { margin:0; padding:14px 0; font-size:13.5px; color:var(--d-muted); }
 .note { margin:0; font-size:13px; line-height:18px; color:var(--d-muted); }

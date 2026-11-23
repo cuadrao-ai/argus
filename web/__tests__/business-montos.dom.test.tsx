@@ -37,7 +37,7 @@ const montos = (host: Element) => host.querySelector('[data-testid="receipt-fact
 for (const documentType of ["recibo", "venta"] as const) {
   test(`${documentType} has one Montos card, the last of General, with subtotal, ITBIS, tip, and total`, async () => {
     const base = await dossier(); base.document_type = documentType;
-    const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} review={{ edit: () => closed, note: () => null, noReceipt: { busy: false, note: null } }} />);
+    const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} review={{ edit: () => closed, note: () => null, noReceipt: { busy: false, saved: false, note: null } }} />);
     assert.deepEqual([...host.querySelectorAll("section")].map((section) => section.dataset.testid), ["receipt-facts-comprobante", "receipt-facts-montos"]);
     const amounts = montos(host);
     assert.deepEqual([...amounts.querySelectorAll("li[data-fact]")].map((row) => row.getAttribute("data-fact")), ["net_amount", "itbis", "legal_tip", "amount"]);
@@ -67,6 +67,32 @@ for (const language of ["es-419", "en"]) test(`${language} puts the warning on T
   assert.equal(warnings[0].getAttribute("aria-label"), `${language === "es-419" ? "Diferencia" : "Difference"} 1.23`);
   assert.ok(warnings[0].querySelector(".lucide-triangle-alert"));
   assert.equal(warnings[0].closest("[data-fact]")?.firstElementChild?.textContent, "Total");
+});
+test("Total carries the check when the server found the saved amounts add up, in the reader's language", async () => {
+  const base = await dossier(); base.review_flags = [];
+  let host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />);
+  const check = host.querySelector('[data-testid="row-status-amount"]')!;
+  assert.equal(check.getAttribute("data-status"), "ok");
+  assert.equal(check.getAttribute("aria-label"), "Subtotal + ITBIS + propina = total");
+  await cleanup();
+  base.facts.legal_tip = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
+  host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />, "en");
+  assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("aria-label"), "Subtotal + ITBIS = total");
+});
+test("Total has no check the server did not make: no flags sent, no subtotal, no total, or an edit still in preview", async () => {
+  const base = await dossier(); base.review_flags = [];
+  const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } as const;
+  const preview = { edit: () => closed, note: () => null, noReceipt: { busy: false, saved: false, note: null }, amountsPreview: { net_amount: base.net_amount!, mismatch: null, status: "ready" as const } };
+  for (const [why, record, review] of [
+    ["an older server sends no flags", { ...base, review_flags: undefined }, undefined],
+    ["no subtotal", { ...base, net_amount: { amount: null, source: null } }, undefined],
+    ["no total", { ...base, facts: { ...base.facts, amount: unknown } }, undefined],
+    ["a preview speaks of an unsaved edit", base, preview],
+  ] as const) {
+    const host = await mount(<ReceiptRecordFacts dossier={record as BusinessDossier} accounts={[]} review={review} />);
+    assert.equal(host.querySelector('[data-testid="row-status-amount"]'), null, why);
+    await cleanup();
+  }
 });
 const fields: DgiiFields = { "606": [
   { name: "goods_amount", label: "", kind: "money", options: [] },

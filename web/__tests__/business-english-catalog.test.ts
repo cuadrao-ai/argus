@@ -18,6 +18,8 @@ const SHARED_CONTEXTS = new Map([
   ["business.notifications.times.recent", "5 min"],
   ["business.dossier.section.fiscal", "Fiscal"],
   ["business.dossier.tab_original", "Original"],
+  // A formula of names both languages share.
+  ["business.terms.total_adds_up", "Subtotal + ITBIS = total"],
   // A review marker, not copy: both languages wait on, or passed, the same review.
   ["business.guide_cards.actividad_intro.copy_review", "approved"],
   ["business.home_setup.copy_review", "pending_lucas"],

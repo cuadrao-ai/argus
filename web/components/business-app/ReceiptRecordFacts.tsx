@@ -29,10 +29,10 @@ export type FactsReview = {
   amountsPreview?: { net_amount: NonNullable<BusinessDossier["net_amount"]>; mismatch: { difference?: string | null } | null; status: "ready" | "pending" | "error" };
   /** How the row edits in place. */
   edit: (row: ReviewRow) => RowEdit;
-  /** The row's save state. */
+  /** What a row's failed save says, and its way back. */
   note: (row: ReviewRow) => ReactNode;
   /** Marking a record that has no fiscal number as Sin recibo. `onMark` is absent for someone who cannot edit it now. */
-  noReceipt: { onMark?: (marked: boolean) => void; busy: boolean; note: ReactNode };
+  noReceipt: { onMark?: (marked: boolean) => void; busy: boolean; saved: boolean; note: ReactNode };
 };
 
 /**
@@ -51,7 +51,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
   /** Why the record is not Listos; each row a problem points at says it in its status slot. */
   problems?: readonly DossierProblem[];
   flash?: RowFlash | null;
-  /** Compra or Venta, which says the kind: the kind row then shows only while it needs a person. */
+  /** Compra or Venta. A purchase shows it only while its kind needs a person; a sale always does. */
   typeRow?: ReactNode;
   review?: FactsReview;
   /** The owner's choices, as a card. */
@@ -128,6 +128,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
     value={fiscal?.[fiscalKey].value ?? (noFiscal ? dossier.sin_comprobante && state.state === "known" ? t(`business.dossier.receipt.${state.value}`, state.value) : t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "")}
     status={statusOf("fiscal_number", ["ncf", "ecf", "fiscal_number"], fiscal?.[fiscalKey])}
     edit={edit("fiscal_number")}
+    saved={noFiscal && review?.noReceipt.saved}
     below={<>
       {noFiscal && onMark ? <button type="button" data-testid="mark-no-receipt" disabled={review.noReceipt.busy} className={quietButtonClass} onClick={() => onMark(!marked)}>{marked ? t("business.marks.undo", "Undo") : t("business.dossier.placeholder.mark_no_receipt", "Mark as no receipt")}</button> : null}
       {review?.note("fiscal_number")}
@@ -140,8 +141,10 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
 
   const kind = dossier.facts.kind;
   const waits = (key: BusinessFactField) => Boolean(rows.get(key)?.blocked || rows.get(key)?.asked);
-  // A Compra/Venta control already says the kind; the kind row returns while it needs a person.
-  const kindShown = !typeRow || kind.state !== "known" || waits("kind");
+  // A clean purchase says its kind nowhere: the kind row and Compra/Venta show only while the kind needs a person.
+  const kindWaits = kind.state !== "known" || waits("kind");
+  const kindShown = !typeRow || kindWaits;
+  const typeShown = sale || kindWaits;
   const showsFiscal = Boolean(fiscal) || noFiscal || Boolean(edit("rnc")?.onOpen);
   // One payment fact on screen: forma de pago lives in the report card, and funding shows only while the server waits on it.
   const payment = PAYMENT_FIELDS.filter(waits);
@@ -153,7 +156,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
           {recordRow("counterparty")}
           {showsFiscal ? numberRow : null}
           {recordRow("occurred_on")}
-          {typeRow}
+          {typeShown ? typeRow : null}
           {kindShown ? recordRow("kind") : null}
           {payment.map(recordRow)}
         </DossierRows>

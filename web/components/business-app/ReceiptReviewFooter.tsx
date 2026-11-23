@@ -59,7 +59,8 @@ function walkRows(event: KeyboardEvent<HTMLDivElement>) {
  * it (a Personal mark, a note) keeps its state. Escape and a click outside close it.
  * On a phone the trigger is an icon, so the footer's actions fit one row when their
  * labels are short and wrap when they are not, and the panel spans the footer instead
- * of hanging off the trigger past the screen's edge.
+ * of hanging off the trigger past the screen's edge. Más sits at the footer's left, so
+ * its panel opens from the trigger's left edge.
  */
 export function ReceiptMoreMenu({ groups }: { groups: ReactNode[] }) {
   const { t } = useTranslation();
@@ -80,7 +81,7 @@ export function ReceiptMoreMenu({ groups }: { groups: ReactNode[] }) {
   return (
     <div
       ref={host}
-      className="tablet:relative"
+      className="mr-auto tablet:relative"
       data-testid="receipt-more"
       onKeyDown={(event) => {
         if (event.key !== "Escape" || !open) return;
@@ -95,7 +96,7 @@ export function ReceiptMoreMenu({ groups }: { groups: ReactNode[] }) {
         <Ellipsis className="h-5 w-5 tablet:hidden" aria-hidden="true" />
         <ChevronDown className={`h-4 w-4 transition-transform motion-reduce:transition-none max-tablet:hidden ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
-      <div ref={panel} id="receipt-more-panel" role="menu" aria-label={t("common.more", "More")} hidden={!open} onKeyDown={walkRows} className="absolute inset-x-0 bottom-full z-20 mb-2 tablet:left-auto tablet:w-[22rem] rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-1.5 shadow-[0_8px_28px_rgba(23,43,38,0.14)] dark:border-white/10 dark:bg-[#1f2225]">
+      <div ref={panel} id="receipt-more-panel" role="menu" aria-label={t("common.more", "More")} hidden={!open} onKeyDown={walkRows} className="absolute inset-x-0 bottom-full z-20 mb-2 tablet:right-auto tablet:w-[22rem] rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-1.5 shadow-[0_8px_28px_rgba(23,43,38,0.14)] dark:border-white/10 dark:bg-[#1f2225]">
         {shown.map((group, index) => <Fragment key={index}>{index ? <div role="separator" className="my-1.5 h-px bg-[#DCE0DA] dark:bg-white/10" /> : null}{group}</Fragment>)}
       </div>
     </div>
@@ -122,13 +123,18 @@ function DossierReviewNote({ note }: { note: string }) {
   return <p data-testid="dossier-review-note" className="flex min-w-0 basis-full items-start gap-1.5 break-words text-[12px] leading-4 text-[#56635e] dark:text-white/70"><Info size={14} className="mt-px shrink-0" aria-hidden="true" />{note}</p>;
 }
 
-/** The footer's one shape: what is left in plain words on the left, the actions on the right. */
-export default function ReceiptReviewFooter({ status, actions, reviewNote }: { status?: ReactNode; actions: ReactNode; reviewNote?: string | null }) {
+/**
+ * The footer's one shape: Más on the left, the record's actions on the right, and between
+ * them what is left to do in plain words. A footer whose caller puts Más among its actions
+ * still shows it on the left: Más takes the free space after itself.
+ */
+export default function ReceiptReviewFooter({ status, more, actions, reviewNote }: { status?: ReactNode; more?: ReactNode; actions: ReactNode; reviewNote?: string | null }) {
   return (
-    <div className="relative flex flex-wrap items-center justify-end gap-x-4 gap-y-2 tablet:static">
+    <div className="relative flex flex-wrap items-center justify-between gap-x-3 gap-y-2 tablet:static">
       {reviewNote ? <DossierReviewNote note={reviewNote} /> : null}
-      <div className="min-w-0 flex-1 basis-56 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{status}</div>
-      <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
+      {more}
+      {status ? <div className="min-w-0 flex-1 basis-56 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{status}</div> : null}
+      <div data-footer-actions="" className={`flex flex-wrap items-center justify-end gap-2.5 ${more ? "" : "flex-1"}`}>{actions}</div>
     </div>
   );
 }

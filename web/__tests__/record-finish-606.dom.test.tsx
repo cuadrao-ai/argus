@@ -132,25 +132,23 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", readin
   const section = () => document.querySelector<HTMLElement>('[data-testid="receipt-facts-choices"]');
   type Choice = "category" | "payment_method";
   const choiceRow = (name: Choice) => section()?.querySelector<HTMLElement>(`[data-fact="${name}"]`);
-  const choice = (name: Choice) => choiceRow(name)?.querySelector<HTMLSelectElement>("select");
-  const openChoice = (name: Choice) => act(async () => choiceRow(name)!.querySelector<HTMLButtonElement>("button[data-row-value]")!.click());
-  const choiceAction = (name: Choice, action: "Guardar" | "Cancelar") => act(async () => choiceRow(name)!.querySelector<HTMLButtonElement>(`button[aria-label^="${action} · "]`)!.click());
+  const listButton = (name: Choice) => choiceRow(name)?.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]');
+  const options = (name: Choice) => [...choiceRow(name)!.querySelectorAll<HTMLButtonElement>('[role="option"]')];
+  const toggleChoice = async (name: Choice) => {
+    await wait(() => Boolean(listButton(name)), `the ${name} list`);
+    await act(async () => listButton(name)!.click());
+  };
   const valueOf = (name: Choice) => choiceRow(name)?.querySelector("[data-row-value]")?.textContent;
   const reason = () => document.querySelector(`[data-record-key="${row.row_id}"] [data-record-missing]`)?.textContent ?? null;
   const chip = () => document.querySelector(`[data-record-key="${row.row_id}"] [data-record-workflow]`)?.textContent ?? null;
-  const pick = async (name: "category" | "payment_method", value: string) => {
-    await openChoice(name);
-    const select = choice(name);
-    assert.ok(select, `${name} offers its control`);
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(select, value);
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    await choiceAction(name, "Guardar");
+  const pick = async (name: Choice, value: string) => {
+    await toggleChoice(name);
+    const option = options(name).find((item) => item.dataset.value === value);
+    assert.ok(option, `${name} offers ${value}`);
+    await act(async () => option.click());
   };
   const queries = () => report.calls.filter((call) => call.path.endsWith("/reports/query")).length;
   await act(async () => api!.openPanel({ kind: "transactions" }));
-  const fieldsLoaded = () => !section() || Boolean(section()!.querySelector("option")) || !section()!.querySelector("select");
   const openRecord = async () => {
     await wait(() => chip() !== null, "the recorded row");
     await act(async () => {
@@ -158,18 +156,16 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", readin
       (selected.matches("tr") ? selected : selected.querySelector<HTMLButtonElement>("button")!).click();
     });
     await wait(() => target === "expense" ? document.querySelector('[data-testid="business-expense-detail"]') !== null : facts() !== null, "the record's detail");
-    if (target === "draft") await wait(fieldsLoaded, "the tax fields");
   };
   const openDirectly = async () => {
     await act(async () => api!.openPanel({ kind: "draft", draftId, list: "transactions" }));
     await wait(() => target === "expense" ? document.querySelector('[data-testid="business-expense-detail"]') !== null : facts() !== null, "the record's detail");
-    if (target === "draft") await wait(fieldsLoaded, "the tax fields");
   };
   const openOtherExpense = async () => {
     await act(async () => api!.openPanel({ kind: "expense", expenseId: "00000000-0000-4000-8000-000000009999" }));
     await wait(() => document.querySelector("#expense-detail-title")?.textContent === "Registro 00000000-0000-4000-8000-000000009999", "the other expense");
   };
-  return { act, wait, writes, chip, reason, choice, openChoice, choiceAction, valueOf, pick, facts, queries, section, openRecord, openDirectly, openOtherExpense };
+  return { act, wait, writes, chip, reason, listButton, options, toggleChoice, valueOf, pick, facts, queries, section, openRecord, openDirectly, openOtherExpense };
 }
 
 describe("opened records show only their server readiness list", () => {
@@ -208,11 +204,11 @@ describe("a recorded purchase with 606 data still missing", () => {
     await page.openRecord();
 
     assert.equal(page.section()?.querySelector("h3")?.textContent, "Reporte 606");
-    for (const [name, options] of [["category", 12], ["payment_method", 8]] as const) {
-      await page.openChoice(name);
-      assert.equal(page.choice(name)?.disabled, false);
-      assert.equal(page.choice(name)?.options.length, options);
-      await page.choiceAction(name, "Cancelar");
+    for (const [name, options] of [["category", 11], ["payment_method", 7]] as const) {
+      await page.toggleChoice(name);
+      assert.equal(page.listButton(name)?.disabled, false);
+      assert.equal(page.options(name).length, options);
+      await page.toggleChoice(name);
     }
     assert.ok(page.facts()?.querySelector('[data-fact="amount"] button[data-row-value]'), "the server enables the accepted Total");
     assert.equal(page.facts()?.querySelector('[data-fact="category_id"]'), null, "tipo de gasto is the only classification a Business record shows");

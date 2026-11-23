@@ -9,25 +9,8 @@ import type { DossierProblem } from "../dossier-attention";
 import { StatusPill } from "../foundation/StatusChip";
 import { useRecordTray } from "../record-tray";
 import { BANDEJA_LABEL_TONE } from "../recepcion/ReceptionStatus";
+import { usePopover } from "./DossierParts";
 import styles from "./dossier.module.css";
-
-/** Closes a popover on a press outside it and on Escape, which it claims so the tray stays open. */
-function usePopover(host: React.RefObject<HTMLElement | null>, open: boolean, close: () => void) {
-  const onClose = useRef(close);
-  useEffect(() => { onClose.current = close; });
-  useEffect(() => {
-    if (!open) return undefined;
-    const outside = (event: PointerEvent) => { if (!host.current?.contains(event.target as Node)) onClose.current(); };
-    const escape = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onClose.current();
-    };
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", escape, true);
-    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape, true); };
-  }, [host, open]);
-}
 
 /** The Bandeja label as the list draws it. */
 export function BandejaLabelPill({ label, small = false }: { label: BandejaLabel; small?: boolean }) {

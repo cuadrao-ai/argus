@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { BusinessDossier, DeclarationSuggestion, ShownSuggestions } from "@/lib/business-dossier";
 import type { DgiiField, DgiiFields, PurchaseChoice, SuggestedField, SuggestionSource } from "@/lib/business-dgii";
 import { quietButtonClass } from "./business-ui";
-import { DossierCard, DossierRow, DossierRows, type RowEdit, type RowStatus } from "./dossier/DossierParts";
+import { DossierCard, DossierPickRow, DossierRow, DossierRows, type RowStatus } from "./dossier/DossierParts";
 
 type Choice = keyof PurchaseChoice;
 const CHOICES: readonly SuggestedField[] = ["category", "payment_method"];
@@ -45,13 +45,17 @@ export function shownSuggestions(view: ChoicesView): ShownSuggestions | undefine
   return shown.length ? Object.fromEntries(shown) : undefined;
 }
 
+/** How one choice saves: absent for someone who cannot write the 606 answers now. */
+export type ChoicePick = { onPick: (value: string) => void; saving: boolean; saved: boolean; disabled: boolean };
+
 /**
  * The report card of General: tipo de gasto and forma de pago, from the server's codes and
- * the locale's text. Neither blocks approval. A suggestion shows filled, with an icon for its
- * source in the status slot, and the approval saves it; a value the person chose has no icon.
+ * the locale's text. Neither blocks approval. Each is a row that opens its list and saves the
+ * pick at once. A suggestion shows filled, with an icon for its source in the status slot,
+ * and the approval saves it; a value the person chose has no icon.
  */
-export default function ReceiptOwnerChoices({ dossier, fields, failed, readOnly = false, edit, note, onReload }: ChoicesView & {
-  edit: (choice: Choice, label: string, value: string, source: SuggestionSource | null, options: ReactNode) => RowEdit;
+export default function ReceiptOwnerChoices({ dossier, fields, failed, readOnly = false, pick, note, onReload }: ChoicesView & {
+  pick: (choice: Choice) => ChoicePick;
   note: (choice: Choice) => ReactNode;
   onReload: () => void;
 }) {
@@ -60,9 +64,13 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, readOnly 
     const field = catalogField(fields, choice);
     const { value, source } = shownChoice({ dossier, fields, failed, readOnly }, choice);
     const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code }) || code;
-    const status: RowStatus | null = source ? { kind: source, text: t(`business.dossier.placeholder.suggestion_source.${source}`) } : null;
-    const options = field?.options.map((code) => <option key={code} value={code}>{name(code)}</option>);
-    return <DossierRow key={choice} row={choice} label={label} status={status} value={value ? name(value) : ""} edit={field && !readOnly ? edit(choice, label, value, source, options) : undefined} below={note(choice)} data={{ "data-suggestion-source": source ?? undefined }} />;
+    const sourceStatus = (from: SuggestionSource): RowStatus => ({ kind: from, text: t(`business.dossier.placeholder.suggestion_source.${from}`) });
+    const status = source ? sourceStatus(source) : null;
+    const data = { "data-suggestion-source": source ?? undefined };
+    if (!field || readOnly) return <DossierRow key={choice} row={choice} label={label} status={status} value={value ? name(value) : ""} below={note(choice)} data={data} />;
+    const suggested = dossier.declaration_suggestions?.[choice];
+    const options = field.options.map((code) => ({ value: code, label: name(code), status: suggested?.value === code ? sourceStatus(suggested.source) : null }));
+    return <DossierPickRow key={choice} row={choice} label={label} status={status} value={value ? name(value) : ""} pick={{ value, options, ...pick(choice) }} below={note(choice)} data={data} />;
   };
   const form = dossier.dgii?.form ?? (dossier.document_type === "venta" ? "607" : "606");
   return (
