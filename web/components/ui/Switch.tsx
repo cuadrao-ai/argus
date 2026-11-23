@@ -49,12 +49,13 @@ export function useOptimisticToggle(checked: boolean, onChange: (next: boolean) 
 
 /**
  * The small switch drawn inside a row that is itself the control, such as a
- * menu's checkbox row: the same colours and spinner as `Switch`, no words, and
- * hidden from assistive tech because the row announces its state.
+ * menu's checkbox row: the same green and spinner as `Switch`, no words, and
+ * hidden from assistive tech because the row announces its state. Its off track
+ * is the segment border colour, which a white menu and a dark one both show.
  */
 export function SwitchIndicator({ on, pending }: { on: boolean; pending: boolean }) {
   return (
-    <span aria-hidden="true" data-switch-indicator={on ? "on" : "off"} className={`relative block h-5 w-9 shrink-0 rounded-full transition-colors duration-[250ms] ease-out motion-reduce:transition-none ${on ? "bg-[#2f5a49] dark:bg-[#8fcbb0]" : "bg-[#c9cec9] dark:bg-white/20"}`}>
+    <span aria-hidden="true" data-switch-indicator={on ? "on" : "off"} className={`relative block h-5 w-9 shrink-0 rounded-full transition-colors duration-[250ms] ease-out motion-reduce:transition-none ${on ? "bg-[#2f5a49] dark:bg-[#8fcbb0]" : "bg-[var(--segment-thumb-border)]"}`}>
       <span className={`absolute left-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-[0_1px_2px_rgba(23,43,38,0.2)] transition-transform duration-[250ms] ease-out motion-reduce:transition-none ${on ? "translate-x-4" : ""}`}>
         {pending ? <Loader2 className="h-3 w-3 animate-spin text-[#2f5a49] motion-reduce:animate-none" aria-hidden="true" /> : null}
       </span>

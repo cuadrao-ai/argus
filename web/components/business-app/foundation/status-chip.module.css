@@ -7,7 +7,7 @@
 .caution { --workflow-ink:#735c14; background:#f2e8c9; }
 .toAccept { --workflow-ink:#2f4f73; background:#dfe8f1; }
 .approved { --workflow-ink:#2f5a49; background:#e3ebe1; }
-.neutral { --workflow-ink:var(--muted); background:color-mix(in srgb,var(--fg) 7%,transparent); }
+.neutral { --workflow-ink:color-mix(in srgb,var(--fg) 66%,transparent); background:color-mix(in srgb,var(--fg) 7%,transparent); }
 :global(.dark) .attention { --workflow-ink:#ec9aa0; background:#4a2a2f; }
 :global(.dark) .caution { --workflow-ink:#f6e7c1; background:#49412a; }
 :global(.dark) .toAccept { --workflow-ink:#a3c4e6; background:#27364a; }
