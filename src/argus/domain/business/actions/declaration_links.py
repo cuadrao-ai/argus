@@ -8,6 +8,7 @@ from typing import NamedTuple
 from argus.domain.business.actions.fiscal import validate_changed_dates
 from argus.domain.business.amount_inheritance import (
     LinkedSources,
+    held_apart,
     inherit_amounts,
     inheritance_overrides,
     inheritance_state,
@@ -104,4 +105,5 @@ def saved_declaration_links(
                 if state.field in changed and not state.inherited
             }
             overrides = tuple(sorted(set(overrides) | manual))
+    overrides = held_apart(after, overrides)
     return inherit_amounts(after, declaration, overrides, linked), overrides

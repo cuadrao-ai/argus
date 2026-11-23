@@ -776,7 +776,7 @@ def dossier(
         else DeclarationSuggestions(),
         payment_split_editable=facts_editable
         and takes_payment_split(resolution.document_type),
-        sale_payment=sale_payment(resolution.document_type, declaration),
+        sale_payment=sale_payment(resolution.document_type, declaration, facts.amount.value),
         due_on=resolution.due_on,
         upload_year=uploaded,
         year_to_check=year_to_check(facts, uploaded),

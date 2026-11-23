@@ -8696,8 +8696,9 @@ The dossier exposes `facts_editable` for review writes. Open drafts require
 the same permission. `declaration_editable` also requires a purchase eligible
 for the 606. `payment_split_editable` requires a sale. `sale_payment` is null
 on anything but a sale; on a sale it holds `form`, the one bucket of the 607
-payment split that holds an amount (null with no split or one across
-several), and `options`, the forms `sale_payment_form` takes. An incompatible fiscal
+payment split that holds the sale's whole total (null with no split, one across
+several, or one bucket that is not the total, so any pick is a new one), and
+`options`, the forms `sale_payment_form` takes. An incompatible fiscal
 form returns 422 `fiscal_direction_unsupported`.
 `declaration_suggestions` holds one suggestion for each 606 answer a person
 gives one by one, under the declaration's field name: `category` (tipo de
@@ -9211,6 +9212,15 @@ Human review also accepts top-level `montos`, with optional `net_amount` and
 names. These inputs do not enter the interpreter's fact patch. Changing a
 main amount or its fiscal inheritance follows the review permissions and
 version checks above.
+
+`legal_tip` is source-owned (`amount_inheritance.SOURCE_OWNED`): Montos is its
+one editor, so the declaration's `legal_tip` always follows `facts.legal_tip`.
+The server drops a `legal_tip` named in `override_inherited` and a
+declaration `legal_tip` that differs from the fact. An override an older save
+recorded is ignored on an open draft and removed by the record's next save;
+an approved record exports its saved declaration unchanged until that save.
+A record saved before Montos carried the tip (`facts.legal_tip` unknown with
+no origin) has no source: its declaration keeps and takes its `legal_tip`.
 
 The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
 Each entry holds `{field, value, inherited, paired_with}`; `value` is the

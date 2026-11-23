@@ -2,7 +2,11 @@ from dataclasses import replace
 from uuid import UUID
 
 import pytest
-from argus.domain.business.amount_inheritance import INHERITANCE, inherit_amounts
+from argus.domain.business.amount_inheritance import (
+    INHERITANCE,
+    SOURCE_OWNED,
+    inherit_amounts,
+)
 from argus.domain.business.contracts.facts import Known
 from argus.domain.business.dgii_columns import COLUMNS
 from argus.domain.business.dgii_export import line_values
@@ -73,7 +77,18 @@ def test_an_inherited_fiscal_amount_reaches_the_line(form, name, inherited, held
     assert cell(record, name) == inherited
 
 
-@pytest.mark.parametrize(("form", "name", "inherited", "held"), CASES)
+@pytest.mark.parametrize(
+    ("form", "name", "inherited", "held"), [case for case in CASES if case[1] in SOURCE_OWNED]
+)
+def test_a_source_owned_amount_cannot_be_cleared(form, name, inherited, held):
+    record = snapshot(form, cleared=name)
+    assert record_issues(record, {}, filer_identity=FILER) == []
+    assert cell(record, name) == inherited
+
+
+@pytest.mark.parametrize(
+    ("form", "name", "inherited", "held"), [case for case in CASES if case[1] not in SOURCE_OWNED]
+)
 def test_a_cleared_fiscal_amount_stays_cleared(form, name, inherited, held):
     record = snapshot(form, cleared=name)
     assert getattr(record.declaration, name) is None

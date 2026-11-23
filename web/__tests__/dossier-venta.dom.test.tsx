@@ -8,9 +8,14 @@ registerReceiptReviewPage();
 type Write = { kind: string; version: number; body: unknown };
 
 /** A review page whose type changes and payment picks are kept in order, with the toasts on screen. */
-async function venta(change: (dossier: Dossier) => void = () => undefined, start: "recibo" | "venta" = "recibo") {
+async function venta(change: (dossier: Dossier) => void = () => undefined, start: "recibo" | "venta" = "recibo", seed?: (server: BusinessDataSource, dossier: Dossier) => Promise<unknown>) {
   const writes: Write[] = [];
+  let seeded = !seed;
   const page = await setup("fiscal", change, (fixture): Partial<BusinessDataSource> => ({
+    dossier: async (draft) => {
+      if (!seeded) { seeded = true; await seed!(fixture, await fixture.dossier(draft)); }
+      const dossier = await fixture.dossier(draft); change(dossier); return dossier;
+    },
     setDocumentType: async (id, version, type, key) => { writes.push({ kind: "type", version, body: type }); const next = await fixture.setDocumentType(id, version, type, key); change(next); return next; },
     reviewSalePayment: async (id, version, form, key) => { writes.push({ kind: "sale_payment", version, body: form }); const next = await fixture.reviewSalePayment(id, version, form, key); change(next); return next; },
   }));
@@ -173,6 +178,24 @@ describe("a sale's General", () => {
       await page.wait(() => page.row("sale_payment").querySelector("[data-row-value]")?.textContent === "Cheque, transferencia o depósito");
       assert.deepEqual(page.writes, [{ kind: "sale_payment", version: 3, body: "bank" }]);
       assert.doesNotMatch(JSON.stringify(page.writes), /\d+\.\d\d/, "no amount leaves the web");
+    } finally { await page.close(); }
+  });
+
+  test("a bucket short of the total is no pick: the row is empty, and picking that same form sends the command", async () => {
+    const shortCash = async (server: BusinessDataSource, dossier: Dossier) => {
+      const sale = await server.setDocumentType(dossier.draft_id, dossier.version, "venta", "seed-type");
+      const fiscal = sale.facts.fiscal;
+      await server.reviewFiscal(sale.draft_id, sale.version, { fiscal: { rnc: fiscal?.rnc.value ?? null, ncf: fiscal?.ncf.value ?? null, itbis: fiscal?.itbis.value ?? null }, declaration: { ...sale.dgii, form: "607", cash: "1.00" } }, "seed-cash");
+    };
+    const page = await venta(undefined, "recibo", shortCash);
+    try {
+      assert.equal(page.toggle()?.getAttribute("aria-checked"), "true", "the record is a sale");
+      const value = () => page.row("sale_payment").querySelector("[data-row-value]")?.textContent;
+      assert.notEqual(value(), "Efectivo", "no form holds the whole total");
+      assert.ok((await openList(page, "sale_payment")).every((item) => item.getAttribute("aria-selected") === "false"), "no form is chosen");
+      await pick(page, "sale_payment", "cash");
+      await page.wait(() => value() === "Efectivo");
+      assert.deepEqual(page.writes.map(({ kind, body }) => ({ kind, body })), [{ kind: "sale_payment", body: "cash" }]);
     } finally { await page.close(); }
   });
 

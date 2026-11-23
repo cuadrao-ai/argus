@@ -45,10 +45,10 @@ const ROW_ORDER: readonly string[] = [
 
 /**
  * The server's fields this tab leaves out. General shows the RNC, the number
- * and the report's answers as its own rows, Montos owns the tip, and the
- * server refuses any perceived amount. A sale's payment buckets are General's
- * one pick, named by the dossier. A hidden field keeps its saved value: every
- * save sends it back as it came.
+ * and the report's answers as its own rows, Montos owns the tip (the server
+ * keeps the declaration's on it, whatever a save sends), and the server
+ * refuses any perceived amount. A sale's payment buckets are General's one
+ * pick, named by the dossier. Every save sends a hidden field back as it came.
  */
 const LEFT_OUT: ReadonlySet<string> = new Set(["rnc", "ncf", "category", "payment_method", "income_type", "legal_tip", "itbis_perceived", "income_perceived"]);
 /** NCF modificado belongs to a note: a regular purchase or sale modifies no comprobante. */

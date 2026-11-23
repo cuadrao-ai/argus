@@ -235,8 +235,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates" | "declaration_editable" | "declaration_suggestions" | "payment_split_editable" | "sale_payment"> => ({
     declaration_editable: declarationEditable(draft) && !isSale(draft),
     payment_split_editable: factsEditable(draft) && isSale(draft),
-    // The one form a sale was paid in: the only bucket of its split that holds an amount.
-    sale_payment: isSale(draft) ? { form: paidForms(draft).length === 1 ? paidForms(draft)[0] : null, options: [...SALE_PAYMENT_FORMS] } : null,
+    // The one form a sale was paid in: the only bucket of its split, when it holds the whole total.
+    sale_payment: isSale(draft) ? { form: paidForms(draft).length === 1 && draft.facts.amount.state === "known" && Number(draft.dgii?.[paidForms(draft)[0]]) === Number(draft.facts.amount.value) ? paidForms(draft)[0] : null, options: [...SALE_PAYMENT_FORMS] } : null,
     // The server offers a suggestion only for an answer the record lacks.
     // Only on an open expense, whose approval saves it, and only for an answer the record lacks.
     declaration_suggestions: Object.fromEntries(SUGGESTED.map((field) => [field, declarationEditable(draft) && draft.review_state === "open" && draft.facts.kind.value === "expense" && blankAnswer(draft.dgii, field) ? draft.declaration_suggestions?.[field] ?? null : null])),

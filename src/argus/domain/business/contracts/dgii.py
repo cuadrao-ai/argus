@@ -180,8 +180,8 @@ SalePaymentForm = Literal[tuple(SalePaymentSplit.model_fields)]  # type: ignore[
 
 class SalePayment(BaseModel):
     """How a sale was paid, as one pick: the one bucket of its split that
-    holds an amount, null with no split or one across several, and the forms a
-    person may pick."""
+    holds the sale's whole total, null with no split, one across several or
+    one bucket that is not the total, and the forms a person may pick."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

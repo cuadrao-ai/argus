@@ -142,23 +142,34 @@ def _declared(**split: str) -> SalesDeclaration:
 
 
 @pytest.mark.parametrize(
-    "split,form",
+    "split,total,form",
     [
-        ({}, None),
-        ({"gift": "1180.00"}, "gift"),
-        ({"gift": "1180.00", "cash": "0.00"}, "gift"),
-        ({"cash": "500.00", "bank": "680.00"}, None),
+        ({}, "1180.00", None),
+        ({"gift": "1180.00"}, "1180.00", "gift"),
+        ({"gift": "1180.00", "cash": "0.00"}, "1180", "gift"),
+        ({"cash": "500.00", "bank": "680.00"}, "1180.00", None),
+        ({"cash": "1000.00"}, "1180.00", None),
+        ({"cash": "1000.00"}, None, None),
     ],
+    ids=["none", "whole", "whole_beside_a_zero", "several", "not_the_total", "no_total"],
 )
-def test_the_dossier_says_the_one_form_and_the_forms_to_pick(split, form):
-    assert sale_payment("venta", _declared(**split)) == SalePayment(
+def test_the_dossier_says_the_form_that_holds_the_whole_total(split, total, form):
+    assert sale_payment("venta", _declared(**split), total) == SalePayment(
         form=form, options=FORMS
     )
 
 
 def test_only_a_sale_has_a_payment_form():
-    assert sale_payment("recibo", None) is None
-    assert sale_payment("venta", None) == SalePayment(form=None, options=FORMS)
+    assert sale_payment("recibo", None, "1180.00") is None
+    assert sale_payment("venta", None, "1180.00") == SalePayment(form=None, options=FORMS)
+
+
+def test_picking_the_form_of_a_bucket_short_of_the_total_fills_it(monkeypatch):
+    event = _sale(cash="1000.00")
+    saved = _review(monkeypatch, event, None, sale_payment_form="cash")
+    assert _buckets(saved["dgii"]) == {"cash": "1180.00"}
+    declared = SalesDeclaration.model_validate(saved["dgii"])
+    assert sale_payment("venta", declared, "1180.00").form == "cash"
 
 
 def test_the_whole_payment_is_exact():

@@ -87,17 +87,22 @@ def _paid_forms(declaration: DgiiDeclaration | None) -> list[str]:
 
 
 def sale_payment(
-    document_type: DocumentType, declaration: DgiiDeclaration | None
+    document_type: DocumentType, declaration: DgiiDeclaration | None, total: str | None
 ) -> SalePayment | None:
-    """How a sale was paid, as the one pick a review offers. None for a
-    record that takes no payment split."""
+    """How a sale was paid, as the one pick a review offers: the form whose
+    bucket holds the whole ``total``. A split across forms, or one bucket that
+    is not the total, is no pick, so any form a person picks is a new one.
+    None for a record that takes no payment split."""
 
     if not takes_payment_split(document_type):
         return None
     paid = _paid_forms(declaration)
-    return SalePayment(
-        form=paid[0] if len(paid) == 1 else None, options=get_args(SalePaymentForm)
+    whole = (
+        len(paid) == 1
+        and total is not None
+        and Decimal(getattr(declaration, paid[0])) == Decimal(total)
     )
+    return SalePayment(form=paid[0] if whole else None, options=get_args(SalePaymentForm))
 
 
 def payment_following_total(
@@ -230,6 +235,16 @@ def exact_amount_text(value: Decimal) -> str:
 AMOUNT_PARTS = ("itbis", "legal_tip", "selective_tax", "other_taxes")
 
 
+def stated_tip(facts: BusinessFacts) -> str | None:
+    """The legal tip Montos states: its amount, or zero once a read or a
+    person left it unknown. None on a record saved before Montos carried the
+    tip, whose declaration alone holds it."""
+
+    if isinstance(facts.legal_tip, Known):
+        return facts.legal_tip.value
+    return "0" if facts.legal_tip.origin is not None else None
+
+
 def amount_parts(
     facts: BusinessFacts | None = None,
     declaration: DgiiDeclaration | None = None,
@@ -240,10 +255,8 @@ def amount_parts(
     if facts is not None:
         _, known_itbis = total_and_itbis(facts)
         itbis = known_itbis if known_itbis is not None else itbis
-        if isinstance(facts.legal_tip, Known):
-            legal_tip = facts.legal_tip.value
-        elif facts.legal_tip.origin is not None:
-            legal_tip = "0"
+        stated = stated_tip(facts)
+        legal_tip = stated if stated is not None else legal_tip
     values = {
         "itbis": itbis,
         "legal_tip": legal_tip if legal_tip is not None else getattr(declaration, "legal_tip", None),
