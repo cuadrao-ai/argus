@@ -13,7 +13,7 @@ import { CircleAlert, Loader2, RotateCcw, StickyNote } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, readReviewNote, type BusinessDossier, type ListoGap } from "@/lib/business-dossier";
 import { documentFamily } from "@/lib/counterparty-term";
-import type { DgiiFields, SuggestedField, SuggestionSource } from "@/lib/business-dgii";
+import type { DgiiFields, SuggestedField } from "@/lib/business-dgii";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
 import DossierConfirm from "./dossier/DossierConfirm";
 import DossierDetails from "./dossier/DossierDetails";
@@ -34,8 +34,7 @@ import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts, { type RowFlash } from "./ReceiptRecordFacts";
 import { useAmountsPreview } from "./useAmountsPreview";
 import ReceiptFactEditor from "./ReceiptFactEditor";
-import { ReviewSelect } from "./ReceiptFieldControls";
-import ReceiptOwnerChoices, { shownSuggestions, type ChoicesView } from "./ReceiptOwnerChoices";
+import ReceiptOwnerChoices, { shownSuggestions, type ChoicePick, type ChoicesView } from "./ReceiptOwnerChoices";
 import ReceiptRowSave from "./ReceiptRowSave";
 import ReceiptReviewDone from "./ReceiptReviewDone";
 import { READ_FACT_ROWS, type ReviewRow } from "./receipt-fact-rows";
@@ -498,6 +497,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     return {
       open: Boolean(open),
       saving,
+      saved: save?.state === "saved",
       locked: save?.state === "failed" && save.unknown,
       onOpen: mayEdit(row) && mutable ? () => rows.open(row) : undefined,
       disabled: !mayEdit(row) || !mutable,
@@ -524,17 +524,16 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       ),
     };
   };
-  const choiceEdit = (choice: SuggestedField, label: string, value: string, source: SuggestionSource | null, options: ReactNode) => {
-    const change = rows.rows[choice]?.edit?.change;
-    const edited = change?.write === "purchase" ? change.purchase[choice] ?? "" : value;
-    return rowEdit(choice, <label className="block"><span className="sr-only">{label}</span>
-      <ReviewSelect value={edited} disabled={!mutable || autosave.saves[choice]?.state === "saving"} data-suggestion-source={source ?? undefined} onChange={(event) => rows.hold(choice, { change: { write: "purchase", purchase: { [choice]: event.target.value || null } }, invalid: false })}>
-        <option value="">{t("business.review.choose", "Choose")}</option>
-        {options}
-      </ReviewSelect>
-    </label>);
-  };
-  const rowNote = (row: ReviewRow) => <ReceiptRowSave save={autosave.saves[row]?.state === "saving" ? undefined : autosave.saves[row]} onRetry={() => rows.retry(row)} />;
+  // A pick saves at once, so its row never opens: a failed save keeps its own way back.
+  const choicePick = (choice: SuggestedField): ChoicePick => ({
+    onPick: (value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } }),
+    saving: autosave.saves[choice]?.state === "saving",
+    saved: autosave.saves[choice]?.state === "saved",
+    disabled: !mayEdit(choice) || !mutable,
+  });
+  const failedSave = (row: ReviewRow) => { const save = autosave.saves[row]; return save?.state === "failed" ? save : undefined; };
+  const rowNote = (row: ReviewRow) => <ReceiptRowSave save={failedSave(row)} onRetry={() => rows.retry(row)} />;
+  const choiceNote = (choice: SuggestedField) => <ReceiptRowSave save={failedSave(choice)} onRetry={() => void autosave.retry(choice)} onCancel={() => autosave.clear(choice)} />;
   // Where it came from: the receipt's own row when there is one, else the record's first source.
   const cameFrom = receipt
     ? { channel: receipt.channel, sentBy: receipt.sent_by ? sentByName(t, receipt.sent_by) : null, receivedAt: receipt.received_at, filename: receipt.filename, sizeBytes: receipt.size_bytes }
@@ -616,14 +615,15 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
             onMouseLeave={() => setHighlight([])}
             onBlur={() => setHighlight([])}
           >
-            <ReceiptRecordFacts dossier={dossier} accounts={accounts} problems={problems} flash={flash} choices={choicesView ? <ReceiptOwnerChoices {...choicesView} edit={choiceEdit} note={rowNote} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} edit={rowEdit("document_type")} note={rowNote("document_type")} /> : undefined} review={{
+            <ReceiptRecordFacts dossier={dossier} accounts={accounts} problems={problems} flash={flash} choices={choicesView ? <ReceiptOwnerChoices {...choicesView} pick={choicePick} note={choiceNote} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} edit={rowEdit("document_type")} note={rowNote("document_type")} /> : undefined} review={{
               amountsPreview,
               edit: rowEdit,
               note: rowNote,
               noReceipt: {
                 onMark: mayEdit("receipt_state") && mutable ? (marked) => void autosave.save("receipt_state", { write: "facts", facts: { receipt_state: marked ? { state: "known", value: "no_receipt" } : { state: "unknown", value: null } } }) : undefined,
                 busy: autosave.busy,
-                note: <ReceiptRowSave save={autosave.saves.receipt_state} onRetry={() => void autosave.retry("receipt_state")} onCancel={() => autosave.clear("receipt_state")} />,
+                saved: autosave.saves.receipt_state?.state === "saved",
+                note: <ReceiptRowSave save={failedSave("receipt_state")} onRetry={() => void autosave.retry("receipt_state")} onCancel={() => autosave.clear("receipt_state")} />,
               },
             }} />
           </div>
@@ -658,12 +658,12 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           : !canApprove ? line ? <p>{t("business.dossier.prepare_only", "Your permission allows preparing this record. A person with approval permission must approve it.")}</p> : null
           : reason ? <p id={reasonId} data-testid="approve-reason">{reason}</p>
           : null}
-        actions={<>
-          <ReceiptMoreMenu groups={[
+        more={<ReceiptMoreMenu groups={[
             businessTypedNotesAvailable(records.workspace) && reviewing && canPrepare && mutable && !noteDirty && !Object.keys(rows.rows).length ? <MenuItem key="note" icon={StickyNote} label={t("business.capture.add_note", "Add note")} onSelect={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }} /> : null,
             <ReceiptMarksCard key="marks" dossier={dossier} onBusyChange={setMarkBusy} busy={busy || holdsEdits || fiscalBusy} onChanged={setDossier} bare />,
             canDelete ? <DeleteDocumentMenuItem key="delete" disabled={busy || holdsEdits || fiscalBusy || deletion.busy} onClick={deletion.ask} /> : null,
-          ]} />
+          ]} />}
+        actions={<>
           {dossier.restore_available ? <RestoreDocumentButton id={draftId} onRestored={() => void refresh()} target={receipt ? { kind: "receipt", receiptId: receipt.id, list: "inbox" } : { kind: "draft", draftId, list: "inbox" }} /> : null}
           {!recorded && canApprove ? receipt && !lastInList ? <>
             <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${secondaryButtonClass} whitespace-nowrap`} aria-describedby={acceptAria} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? accepting : approvalLabel}</button>
