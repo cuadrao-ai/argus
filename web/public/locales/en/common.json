@@ -2863,9 +2863,26 @@
       "fiscal": {
         "add_retention": "Add withholding",
         "add_tax": "Add tax",
+        "field": {
+          "goods_amount": "Goods",
+          "id_type": "ID type",
+          "itbis": "ITBIS billed",
+          "itbis_cost": "ITBIS taken to cost",
+          "itbis_proportionality": "ITBIS subject to proportionality",
+          "modified_ncf": "Modified NCF",
+          "other_taxes": "Other taxes/fees",
+          "paid_on": "Payment date",
+          "services_amount": "Services"
+        },
         "no_other_taxes": "No other taxes.",
         "no_retentions": "No withholdings.",
-        "remove": "Remove"
+        "remove": "Remove",
+        "source": {
+          "itbis": "Comes from Amounts",
+          "net_amount": "Comes from the subtotal",
+          "occurred_on": "Inherited from the date",
+          "rnc": "Comes from the number"
+        }
       },
       "gap": {
         "missing_amount": {

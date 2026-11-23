@@ -20,23 +20,23 @@ import type { BusinessDataSource } from "./business-data";
 import { DossierRow, type RowEdit, type RowStatus } from "./dossier/DossierParts";
 import ReceiptRowSave from "./ReceiptRowSave";
 import type { RowSave } from "./receipt-review-save";
-import { fiscalFieldGroups, foldsBehindRow, type FiscalGroup } from "./fiscal-field-groups";
+import { fiscalFieldGroups, fiscalNote, foldOf, isReadOnlyRow, type FiscalGroup } from "./dossier/fiscal-rows";
 import { dgiiOptionLabel } from "./receipt-fact-presentation";
 import { usePreview } from "./useAmountsPreview";
 
 const EDITOR_ID = "fiscal-declaration";
 const FIELD_NOTE_CLASS = "text-[#9e2f39] dark:text-[#ec9aa0]";
-const MONEY_NOTE_CLASS = "[&_p[aria-live]]:mt-1 [&_p[aria-live]]:min-h-5 [&_p[aria-live]]:text-[13px] [&_p[aria-live]]:leading-5";
 // A switched-off amount or date dims like a switched-off select or text field.
 const OFF_FIELD_CLASS = "[&_.rounded-item:has(>input:disabled)]:bg-[#eceeea] [&_input:disabled]:text-[#56635e] [&_input:disabled]:opacity-100 dark:[&_.rounded-item:has(>input:disabled)]:bg-[#263b35] dark:[&_input:disabled]:text-white/70";
-const OWN_ROWS: ReadonlySet<string> = new Set(["rnc", "ncf", "category", "payment_method"]);
 type Links = NonNullable<BusinessDossier["inheritance"]>;
 
 /**
  * The Datos fiscales tab: the declaration's fields in grouped cards, each a row
  * of the dossier's grid. A field that follows a source says so in its status
- * slot, and holding it apart offers the way back there. Retenciones stays
- * folded on a purchase until someone adds one. Each row saves its own change.
+ * slot, and holding it apart offers the way back there. On a purchase,
+ * Retenciones and Otros impuestos stay folded until someone adds a row. NCF
+ * modificado shows on a credit or debit note, and the refund question on a
+ * credit note alone. Each row saves its own change.
  */
 export default function FiscalDeclarationEditor({ dossier, fields, disabled, reviewFiscal, previewLinks, onChanged, onBusy, onDirty, savedRow = null }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; savedRow?: string | null; /** The server's preview of the unsaved form: what each linked field shows. */ previewLinks?: BusinessDataSource["previewAmounts"]; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier, row: string) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
@@ -62,10 +62,11 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [problem, setProblem] = useState<Extract<RowSave, { state: "failed" }> | null>(null);
-  const [unfolded, setUnfolded] = useState(false);
+  const [unfolded, setUnfolded] = useState<ReadonlySet<FiscalGroup>>(new Set());
   // The purchase the server refused for this refund: the choice stays, and the person picks another.
   const [refused, setRefused] = useState<string | null>(null);
   const candidates = dossier.refund_candidates ?? [];
+  const noteKind = fiscalNote(dossier);
   const [pending, setPending] = useState<{ key: string; version: number; input: DgiiReview } | null>(null);
   useEffect(() => () => { onDirty(false); onBusy(false); }, [onBusy, onDirty]);
   const editable = dossier.facts_editable === true && !disabled && !saving;
@@ -166,26 +167,27 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
       setValues((current) => ({ ...current, ...Object.fromEntries(held.filter((side) => follows(side, known)).map((side) => [side, known[side]?.value ?? ""])), [field.name]: next }));
       setBroken((current) => { const kept = new Set(current); if (invalid) kept.add(field.name); else kept.delete(field.name); return kept; });
     };
-    const label = t([`business.dgii.field_${form}.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name });
+    const label = t([form === "606" ? `business.dossier.fiscal.field.${field.name}` : `business.dgii.field_607.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name });
     // A source that is not money says its own name and shows its value as the field does.
     const sourceLabel = inherited?.field === "occurred_on" ? t("business.dossier.field.occurred_on") : inherited?.field === "rnc" || inherited?.field === "original_ncf" ? t(`business.dossier.placeholder.inherited_${inherited.field}`) : t(`business.terms.${inherited?.field}`);
     const sourceValue = inherited?.value == null ? UNKNOWN_VALUE : inherited.field === "occurred_on" ? formatDay(inherited.value, locale) : inherited.field === "rnc" ? dgiiOptionLabel(t, field.name, inherited.value) : inherited.field === "original_ncf" ? inherited.value : formatMoney(inherited.value, currency, locale) || UNKNOWN_VALUE;
-    const inheritedLabel = t("business.terms.inherited_from", { field: sourceLabel });
+    const inheritedLabel = t(`business.dossier.fiscal.source.${inherited?.field}`, { defaultValue: t("business.terms.inherited_from", { field: sourceLabel }) });
     const restoreLabel = t("business.dossier.placeholder.restore_inherited", { value: sourceValue });
     // The status slot: the link a field follows, or the way back to it once a person held the field apart.
     const status: RowStatus | null = linked && value !== "" ? { kind: "link", text: inheritedLabel } : null;
-    const restoreAction = inherited && !linked && canChange(field.name)
+    const readOnly = isReadOnlyRow(form, field.name);
+    const restoreAction = inherited && !linked && !readOnly && canChange(field.name)
       ? <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-inherited={field.name} className={styles.pen} style={{ opacity: 1, width: 24, height: 24 }} onClick={() => restore(field.name)}><RotateCcw size={14} aria-hidden="true" /></button></Tooltip>
       : null;
     const dateProblem = checked && broken.has(field.name);
     const control = field.kind === "date" ? <DatePicker key={fieldResets[field.name]} id={id} label={label} value={value} disabled={locked} invalid={dateProblem} onChange={(iso, invalid) => setValue(iso ?? "", invalid)} />
-      : field.kind === "money" ? <div className={MONEY_NOTE_CLASS}><MoneyInput key={fieldResets[field.name]} flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} /></div>
+      : field.kind === "money" ? <MoneyInput key={fieldResets[field.name]} flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} />
       : field.kind === "select" ? <ReviewSelect id={id} name={field.name} aria-label={label} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{dgiiOptionLabel(t, field.name, option)}</option>)}</ReviewSelect>
       : <input id={id} name={field.name} className={REVIEW_INPUT_CLASS} autoComplete="off" aria-label={label} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)} />;
     const shown = !value ? "" : field.kind === "date" ? formatDay(value, locale)
       : field.kind === "money" ? formatAmount(value, currency || "DOP", locale)
       : field.kind === "select" ? dgiiOptionLabel(t, field.name, value) : value;
-    return <DossierRow key={field.name} row={field.name} data={{ "data-field": field.name, "data-inherited": status ? field.name : undefined }} label={label} value={shown} look={field.kind === "money" ? "number" : "text"} status={status} statusAction={restoreAction} edit={edit(field.name, control)} below={<>
+    return <DossierRow key={field.name} row={field.name} data={{ "data-field": field.name, "data-inherited": status ? field.name : undefined }} label={label} value={shown} look={field.kind === "money" ? "number" : "text"} status={status} statusAction={restoreAction} edit={readOnly ? undefined : edit(field.name, control)} below={<>
       {dateProblem ? <div role="alert" className={FIELD_NOTE_CLASS}>{t("business.date_range.invalid_date", { format: t("business.date_picker.placeholder", "dd/mm/aaaa"), defaultValue: "Enter a valid date as {{format}}." })}</div> : null}
       {note(field.name)}
     </>} />;
@@ -203,21 +205,22 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
       <DossierRow row="form" label={formLabel} value={form} edit={edit("form", formControl)} below={note("form")} />
     </ul></section>}
     <div className={`${styles.stack} ${OFF_FIELD_CLASS}`}>
-      {fiscalFieldGroups(fields?.[form].filter((field) => !OWN_ROWS.has(field.name)) ?? []).map(({ group, fields: grouped }) => {
-        const folds = foldsBehindRow(form, group, grouped, values, broken);
+      {fiscalFieldGroups(form, fields?.[form] ?? [], noteKind !== null).map(({ group, fields: grouped }) => {
+        const fold = foldOf(form, group, grouped, values, broken);
         const fieldsId = `${EDITOR_ID}-${group}-fields`;
-        const folded = folds && !unfolded && !grouped.some((field) => field.name === editing);
+        const open = unfolded.has(group);
+        const folded = fold !== null && !open && !grouped.some((field) => field.name === editing);
         return <section key={group} className={styles.card} aria-label={groupTitle[group]} data-group={group}>
           <div className={styles.cardHead}>
             <h3 className={styles.cardTitle}>{groupTitle[group]}</h3>
-            {folds && dossier.facts_editable ? <button type="button" aria-expanded={unfolded} aria-controls={fieldsId} className={styles.link} disabled={Boolean(editing)} data-danger={unfolded || undefined} onClick={() => setUnfolded((current) => !current)}>{unfolded ? t("business.dossier.fiscal.remove") : t("business.dossier.fiscal.add_retention")}</button> : null}
+            {fold && dossier.facts_editable ? <button type="button" aria-expanded={open} aria-controls={fieldsId} className={styles.link} disabled={Boolean(editing)} data-danger={open || undefined} onClick={() => setUnfolded((current) => { const next = new Set(current); if (!next.delete(group)) next.add(group); return next; })}>{open ? t("business.dossier.fiscal.remove") : t(fold.add)}</button> : null}
           </div>
-          {folded ? <p className={styles.emptyLine}>{t("business.dossier.fiscal.no_retentions")}</p> : null}
+          {fold && folded ? <p className={styles.emptyLine}>{t(fold.empty)}</p> : null}
           <ul id={fieldsId} hidden={folded} className={styles.rows}>{grouped.map(fieldControl)}</ul>
         </section>;
       })}
     </div>
-    {form === "606" ? <section className={styles.card}><ul className={styles.rows}>
+    {form === "606" && noteKind === "credit" ? <section className={styles.card}><ul className={styles.rows}>
       <DossierRow row="actual_refund" label={refundLabel} value={t(actualRefund ? "business.marks.yes" : "business.marks.no")} edit={edit("actual_refund", refundControl)} below={<>
         {originalPurchase && editing !== "actual_refund" ? <RefundCandidates candidates={[originalPurchase]} chosen={originalPurchase.id} refused={null} disabled locale={locale} /> : null}
         {note("actual_refund")}

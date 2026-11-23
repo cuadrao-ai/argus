@@ -477,9 +477,10 @@ describe("a fiscal save in Historial", () => {
     </>);
     const [entry] = entries(page.host);
     const [[, , history]] = changes(entry);
-    const valueButton = page.host.querySelector<HTMLButtonElement>(`[data-field="${shown.name}"] button[data-row-value]`);
+    const valueButton = page.host.querySelector<HTMLElement>(`[data-field="${shown.name}"] [data-row-value]`);
     assert.ok(valueButton);
-    if (shown.kind === "date") {
+    // A date reads the same open or closed, and Tipo de ID never opens.
+    if (shown.kind === "date" || !(valueButton instanceof HTMLButtonElement)) {
       assert.equal(history, valueButton.textContent);
     } else {
       await page.act(async () => valueButton.click());

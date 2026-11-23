@@ -116,7 +116,7 @@ describe("the purchases read on a receipt", () => {
 describe("the original purchase picker in the tax details", () => {
   const candidate = { id: "act-1", merchant: "Ferretería", amount: "1234.50", currency: "USD", occurred_on: "2026-10-01" };
   async function mountEditor(candidates: BusinessDossier["refund_candidates"], answer: (body: Record<string, unknown>) => Response = () => Response.json({})) {
-    const dossier = { ...structuredClone(await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "caja" }]).dossier(dossierFixtureIds.ready)), refund_candidates: candidates };
+    const dossier = { ...structuredClone(await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "caja" }]).dossier(dossierFixtureIds.ready)), refund_candidates: candidates, listo_gaps: ["credit_note" as const] };
     const asked: string[] = [];
     const sent: Record<string, unknown>[] = [];
     globalThis.fetch = async (url, init) => {
