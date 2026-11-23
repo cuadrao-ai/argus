@@ -38,7 +38,7 @@ async function render(dossier: BusinessDossier, lng: "es-419" | "en" = "es-419",
   const typeRow = dossier.document_type ? <ReceiptDocumentType dossier={dossier} edit={review ? edit("document_type") : undefined} /> : undefined;
   const html = renderToStaticMarkup(
     <I18nextProvider i18n={instance}>
-      <ReceiptRecordFacts dossier={dossier} accounts={[]} problems={problems} typeRow={typeRow} review={review ? { noReceipt: { busy: false, saved: false, note: null }, onEdit: confirmable ? (key) => { confirmed.push(key); } : undefined, edit, note: () => null } : undefined} />
+      <ReceiptRecordFacts dossier={dossier} accounts={[]} problems={problems} typeRow={typeRow} review={review ? { noReceipt: { busy: false, note: null }, onEdit: confirmable ? (key) => { confirmed.push(key); } : undefined, edit, note: () => null } : undefined} />
     </I18nextProvider>,
   );
   const page = new Window().document;

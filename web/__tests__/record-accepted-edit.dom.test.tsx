@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
-import { fill, kindAsked, pick, registerReceiptReviewPage, setup } from "./fixtures/receipt-review-page";
+import { fill, kindAsked, pick, registerReceiptReviewPage, setup, landed } from "./fixtures/receipt-review-page";
 
 registerReceiptReviewPage();
 
@@ -67,7 +67,7 @@ test("accepted ITBIS and Subtotal can each be saved as zero and then cleared", a
         await fill(page, `[data-testid="${selector}"]`, value);
         await page.check(row);
         await page.wait(() => page.row(row).querySelector("[data-row-value]")?.textContent === shown);
-        assert.ok(page.row(row).querySelector('[data-testid="row-saved"]'), `${row} saved`);
+        assert.ok(landed(page.row(row)), `${row} saved`);
       }
     }
     assert.equal(page.host.querySelector("[data-review-primary]"), null);
@@ -90,7 +90,7 @@ test("accepted Datos fiscales uses the shared row check and cancel", async () =>
     await page.openRow("itbis_cost");
     await fill(page, '[data-testid="fiscal-declaration-itbis_cost"]', "25.35");
     await page.check("itbis_cost");
-    await page.wait(() => Boolean(page.row("itbis_cost").querySelector('[data-testid="row-saved"]')));
+    await page.wait(() => landed(page.row("itbis_cost")));
     assert.equal(page.row("itbis_cost").querySelector("[data-row-value]")?.textContent, "25.35");
     await page.openRow("itbis_cost");
     await fill(page, '[data-testid="fiscal-declaration-itbis_cost"]', "36.25");
@@ -122,7 +122,7 @@ test("accepted 606 choices save on the pick and show the returned fiscal diff", 
   try {
     for (const value of ["01", "03"]) {
       await pick(page, "payment_method", value);
-      await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
+      await page.wait(() => landed(page.row("payment_method")));
     }
     assert.deepEqual(page.writes.map(({ body }) => body), [{ payment_method: "01" }, { payment_method: "03" }]);
     assert.ok(diff(await history(page), /Datos del 606 guardados/, /Efectivo/, /Tarjeta crédito/));

@@ -23,10 +23,9 @@ export type ReviewChange =
   | { write: "sale_payment"; form: string }
   | { write: "type"; documentType: DocumentType };
 
-/** Where a row's last save stands. `unknown` is a save whose outcome never came back, so its edit cannot be dropped. */
+/** Where a row's save stands; a row whose save landed holds none. `unknown` is a save whose outcome never came back, so its edit cannot be dropped. */
 export type RowSave =
   | { state: "saving" }
-  | { state: "saved" }
   | { state: "failed"; message: string; reference: string; retry: boolean; unknown: boolean };
 
 /** What a person has typed into an open row. */
@@ -109,7 +108,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
   useEffect(() => { latest.current = dossier; }, [dossier]);
 
   const mark = useCallback((row: SaveRow, save: RowSave | null) => setSaves((current) => {
-    const others = Object.entries(current).filter(([name, other]) => name !== row && (save?.state !== "saved" || other.state !== "saved"));
+    const others = Object.entries(current).filter(([name]) => name !== row);
     return Object.fromEntries(save ? [...others, [row, save]] : others);
   }), []);
 
@@ -142,7 +141,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
         latest.current = next;
         delete attempts.current[row];
         onSaved(next);
-        mark(row, { state: "saved" });
+        mark(row, null);
         return true;
       } catch (error) {
         const failed = await failure(row, attempt, base, key, error);

@@ -82,7 +82,7 @@ test("Tipo de ID reads from the number, and nobody edits it while the server nam
   const view = await mountEditor({ fields: await serverFields(), dossier: purchase() });
   try {
     const row = view.row("id_type");
-    assert.equal(row.querySelector("[data-row-value]")?.textContent, "01 - RNC");
+    assert.equal(row.querySelector("[data-row-value]")?.textContent, "01 · RNC");
     assert.equal(row.querySelector("button"), null, "no pencil and no value to click");
     assert.equal(status(view.host, "id_type")?.getAttribute("data-status"), "link");
     assert.equal(status(view.host, "id_type")?.getAttribute("aria-label"), "Sale del número");
@@ -223,4 +223,48 @@ test("a sale shows its own agreed rows, folds like a purchase, and leaves the pa
     ]);
     assert.equal(view.host.querySelector('[data-fact="actual_refund"]'), null);
   } finally { await view.dispose(); }
+});
+
+const calculated = (host: Element, row: string) => {
+  const item = host.querySelector<HTMLElement>(`[data-fact="${row}"]`);
+  return item && { card: item.closest("[data-group]")?.getAttribute("data-group"), label: item.firstElementChild?.textContent, value: item.querySelector("[data-row-value]")?.textContent, status: status(host, row)?.getAttribute("data-status"), tip: status(host, row)?.getAttribute("aria-label"), last: item.nextElementSibling === null, edits: item.querySelectorAll("button").length };
+};
+
+test("Total facturado and ITBIS por adelantar show the server's calculated amounts with ƒ, last in their cards, and nobody edits them", async () => {
+  // Amounts no sum of the form gives: the rows read the server's word and add nothing.
+  const view = await mountEditor({ fields: await serverFields(), dossier: (dossier) => ({ ...purchase()(dossier), dgii_calculated: { billed_amount: "9001.25", itbis_advance: "77.10" } }) });
+  try {
+    assert.deepEqual(calculated(view.host, "billed_total"), { card: "amounts", label: "Total facturado", value: "9,001.25", status: "calculated", tip: "Servicios + Bienes", last: true, edits: 0 });
+    assert.deepEqual(calculated(view.host, "itbis_advance"), { card: "itbis", label: "ITBIS por adelantar", value: "77.10", status: "calculated", tip: "ITBIS facturado − llevado al costo", last: true, edits: 0 });
+    await view.open("itbis_cost");
+    await view.input("itbis_cost", "500.00");
+    assert.equal(calculated(view.host, "itbis_advance")?.value, "77.10", "a typed value moves no calculated amount: the server's next answer does");
+  } finally { await view.dispose(); }
+});
+
+test("a record the server calculates nothing for shows neither row, and an ITBIS it leaves blank shows only the total", async () => {
+  for (const [name, dossier] of [["a sale", sale], ["a purchase with no 606", (dossier: BusinessDossier) => ({ ...purchase()(dossier), dgii_calculated: null })]] as const) {
+    const view = await mountEditor({ fields: await serverFields(), dossier });
+    try {
+      assert.deepEqual([calculated(view.host, "billed_total"), calculated(view.host, "itbis_advance")], [null, null], name);
+    } finally { await view.dispose(); }
+  }
+  const blank = await mountEditor({ fields: await serverFields(), dossier: (dossier) => ({ ...purchase()(dossier), dgii_calculated: { billed_amount: "0.00", itbis_advance: null } }) });
+  try {
+    assert.equal(calculated(blank.host, "billed_total")?.value, "0.00");
+    assert.equal(calculated(blank.host, "itbis_advance"), null);
+  } finally { await blank.dispose(); }
+});
+
+test("the tab never offers a 606 or 607 picker: the form is the declaration's, or the record's type", async () => {
+  const unknownKind = (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, document_type: undefined, dgii: null, facts: { ...dossier.facts, kind: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } } });
+  const otherForm = (dossier: BusinessDossier): BusinessDossier => ({ ...dossier, document_type: undefined, dgii: { form: "607" } });
+  for (const [name, dossier, title] of [["no kind yet", unknownKind, "Reporte 606"], ["a declaration of the other form", otherForm, "Reporte 607"]] as const) {
+    const view = await mountEditor({ fields: await serverFields(), dossier });
+    try {
+      assert.equal(view.host.querySelector('[data-fact="form"]'), null, name);
+      assert.equal(view.host.querySelector('select, [aria-label="Formato"]'), null, name);
+      assert.equal(cards(view.host)[0].title, title, name);
+    } finally { await view.dispose(); }
+  }
 });

@@ -9,7 +9,7 @@ type Source = NonNullable<Dossier["net_amount"]>["source"];
 type Page = Awaited<ReturnType<typeof setup>>;
 const subtotal = (source: Source) => ({ amount: "2923.73", source });
 const mark = (page: Page) => page.row("net_amount").querySelector('[data-testid="row-status-net_amount"]');
-const restore = (page: Page) => page.row("net_amount").querySelector<HTMLButtonElement>('[data-restore-calculated="net_amount"]');
+const restore = (page: Page) => page.row("net_amount").querySelector<HTMLButtonElement>('[data-restore-inherited="net_amount"]');
 const pencil = (page: Page) => page.row("net_amount").querySelector('button[aria-label^="Editar detalles · "]');
 
 test("the Subtotal says who gave it by the server's source alone, and stays editable in each", async () => {
@@ -34,7 +34,9 @@ test("putting a typed Subtotal back asks the server for its own, and the server'
     },
   }));
   try {
-    assert.equal(restore(page)?.getAttribute("aria-label"), "Volver al subtotal calculado");
+    // The one restore control and wording of a linked field. The server states no calculated amount beside a typed one, so none is named.
+    assert.equal(restore(page)?.getAttribute("aria-label"), "Restaurar: -");
+    assert.ok(restore(page)?.querySelector("svg.lucide-rotate-ccw"));
     await page.act(async () => restore(page)!.click());
     await page.wait(() => sent.length === 1 && !restore(page));
     assert.deepEqual(sent, [{ net_amount: { state: "unknown", value: null } }]);

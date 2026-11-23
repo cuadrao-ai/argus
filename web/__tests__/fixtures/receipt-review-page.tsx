@@ -90,6 +90,9 @@ export async function mount(overrides: (fixture: BusinessDataSource) => Partial<
   return { act, root, host, wait, open, frame, source, i18n, api: () => api!, runShortcut };
 }
 
+/** A row whose save landed: back in read mode, with nothing working. A row says nothing more about a save. */
+export const landed = (row: Element) => !row.querySelector('[data-row-open], [aria-busy="true"], [data-testid="row-saving"]');
+
 export function button(host: Element, text: string) {
   const found = [...host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === text);
   assert.ok(found, `missing button ${text}`);

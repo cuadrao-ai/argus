@@ -75,9 +75,10 @@ test.describe("the Venta switch and the sale's dossier against the locked boards
       await expect(list).toHaveCSS("background-color", theme === "dark" ? "rgb(31, 34, 37)" : "rgb(255, 255, 255)");
       expect(await box(report(page)), "the open list moves no card").toEqual(before);
       await list.getByRole("option", { name: "Tarjeta de débito o crédito" }).click();
-      await expect(row.getByTestId("row-saved")).toHaveText("Guardado");
       await expect(row.locator("[data-row-value]")).toHaveText("Tarjeta de débito o crédito");
-      expect(await box(report(page)), "Guardado adds no line").toEqual(before);
+      await expect(row.locator('[aria-busy="true"]')).toHaveCount(0);
+      await expect(row, "a saved pick says nothing more than its value").not.toContainText("Guardado");
+      expect(await box(report(page)), "the save adds no line").toEqual(before);
     });
 
     test(`Datos fiscales of a sale shows its own cards and rows (${theme})`, async ({ page }) => {

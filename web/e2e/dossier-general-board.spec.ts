@@ -94,29 +94,26 @@ test.describe("the General tab against the locked board", () => {
       }
       await fact(page, "category").getByRole("button", { expanded: false }).click();
       await fact(page, "category").getByRole("option", { name: /Gastos de representación/ }).click();
-      await expect(fact(page, "category").getByTestId("row-saved")).toHaveText("Guardado");
       await expect(fact(page, "category").locator("[data-row-value]")).toContainText("Gastos de representación");
-      expect({ report: await box(report), montos: await box(card(page, "montos")) }, "Guardado adds no line").toEqual(before);
-      await expect(fact(page, "category").getByTestId("row-saved")).toHaveCount(0, { timeout: 4000 });
-      expect({ report: await box(report), montos: await box(card(page, "montos")) }, "and takes none away when it leaves").toEqual(before);
+      await expect(fact(page, "category").locator('[aria-busy="true"]')).toHaveCount(0);
+      await expect(fact(page, "category"), "a saved pick says nothing more than its value").not.toContainText("Guardado");
+      expect({ report: await box(report), montos: await box(card(page, "montos")) }, "the save adds no line").toEqual(before);
     });
   }
 
-  test("a saved row says Guardado in its action slot and keeps its height", async ({ page }) => {
+  test("a saved row returns to read mode with its new value, keeps its height and never says Guardado", async ({ page }) => {
     await openFiscalRecord(page);
     const row = fact(page, "counterparty");
     const before = await box(row);
     await row.locator("[data-row-value]").click();
     await row.locator("[data-row-open] input").fill("Ferretería Nueva");
     await page.keyboard.press("Enter");
-    const saved = row.getByTestId("row-saved");
-    await expect(saved).toHaveText("Guardado");
-    const mark = await box(saved);
-    const after = await box(row);
-    expect(after.height).toBe(before.height);
-    expect(right(after) - right(mark), "Guardado ends where the pencil does").toBeLessThanOrEqual(1);
-    expect(mark.y).toBeGreaterThanOrEqual(after.y);
-    expect(bottom(mark)).toBeLessThanOrEqual(bottom(after));
+    await expect(row.locator("button[data-row-value]")).toHaveText("Ferretería Nueva");
+    await expect(row.locator("[data-row-open]")).toHaveCount(0);
+    await expect(row.getByRole("button", { name: /^Editar detalles/ })).toHaveCount(1);
+    await expect(page.getByTestId("row-saved")).toHaveCount(0);
+    await expect(page.getByTestId("receipt-review-fields")).not.toContainText("Guardado");
+    expect((await box(row)).height).toBe(before.height);
   });
 
   test("Montos aligns every amount to the value column's right edge", async ({ page }) => {

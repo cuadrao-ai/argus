@@ -652,16 +652,34 @@ A fiscal row has no pencil when `source_owned_fields` names it. NCF modificado
 shows when `note_kind` is set, and the refund question when it is `credit` on
 a purchase. The Total shows its check on `amounts_check.state` `adds_up`, and
 the difference on `difference`. The Subtotal shows ƒ while `net_amount.source`
-is `calculated`, and the way back to it once the source is `edited`.
+is `calculated`, and the way back to it once the source is `edited`. A
+purchase's Datos fiscales shows Total facturado and ITBIS por adelantar from
+`dgii_calculated`, each with ƒ and no pencil. A sale, whose `dgii_calculated`
+is null, shows neither.
+
+**A sale is the same dossier.** `document_type` `venta` makes the record a
+sale, and the record then declares on the 607. General shows Cliente and the
+Reporte 607 card: Tipo de ingreso, which is `dgii.income_type`, and Forma de
+pago, which is `sale_payment.form` picked from `sale_payment.options`. The
+server writes the pick as the sale's whole payment split, so the web shows one
+form and never an amount for each. The Venta switch in Más shows when
+`document_type_editable` is true, and it sends `document_type` through the
+same review request as every other write. Datos fiscales has no form
+picker: the form is `dgii.form`, or the form of the record's type when no
+declaration is saved.
 
 The web does hold layout. `dossier/fiscal-rows.ts` decides which card a fiscal
-field sits in, the row order, and the fields the Datos fiscales tab leaves
-out. A field that the server lists and that file does not name still shows.
+field sits in, the row order, the card each calculated amount closes, and the
+fields the Datos fiscales tab leaves out. A field that the server lists and
+that file does not name still shows. `dossier/fiscal-field-label.ts` gives a
+fiscal field its one name, which Datos fiscales and Historial both read.
 
-One known gap remains between this rule and the code:
-
-- The web does not read `dgii_calculated` yet, so the dossier does not show
-  Total facturado or ITBIS por adelantar.
+**The sample states values.** The web's sample data
+(`dossier-fixtures.ts`, `fixture-data.ts`) writes each record's `net_amount`,
+`amounts_check`, `dgii`, `inheritance`, `dgii_calculated`, `bandeja_group`,
+`listo_gaps` and `confirmable` as literal values. It does not copy the server's
+rules for them. A sample write keeps what was sent and moves no linked,
+calculated or standing value. A test that needs one sets the field.
 
 ---
 # 7. Communication Protocols
