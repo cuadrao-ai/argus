@@ -1,5 +1,6 @@
 """On real local Postgres: the preview of a Más datos fiscales draft shows the
-links the dossier shows once that same draft is saved."""
+links and the calculated 606 amounts the dossier shows once that same draft is
+saved."""
 
 from datetime import date
 
@@ -71,7 +72,7 @@ def test_the_preview_shows_the_links_the_saved_draft_shows(actions, drafts):  # 
                 override_inherited=held,
                 restore_inherited=put_back,
             ),
-        ).inheritance
+        )
         assert service.dossier(context, draft).version == shown.version
 
         fiscal = shown.facts.fiscal
@@ -92,7 +93,8 @@ def test_the_preview_shows_the_links_the_saved_draft_shows(actions, drafts):  # 
             ),
         )
         shown = service.dossier(context, draft)
-        assert previewed == shown.inheritance
+        assert previewed.inheritance == shown.inheritance
+        assert previewed.dgii_calculated == shown.dgii_calculated
 
 
 def test_the_previewed_links_are_the_owners_own(actions):  # noqa: ANN001

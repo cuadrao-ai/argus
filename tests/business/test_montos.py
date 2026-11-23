@@ -65,6 +65,22 @@ def test_receipt_amounts(total, tax, subtotal, tip, expected, source, difference
 
 
 @pytest.mark.parametrize(
+    ("facts", "source", "calculated"),
+    [
+        (receipt("1280", "180", "1000", "100"), "read", "1000.00"),
+        (receipt("1200", "180", "1000"), "read", "1020.00"),
+        (receipt("1280", "180", tip="100"), "calculated", "1000.00"),
+        (BusinessFacts(net_amount=known("1000")), "read", None),
+        (BusinessFacts(), None, None),
+    ],
+    ids=["read and equal", "read and apart", "derived", "no total beside a subtotal", "no total"],
+)
+def test_the_net_amount_states_the_subtotal_the_server_calculates(facts, source, calculated):
+    result = net_amount(facts)
+    assert (result.source, result.calculated) == (source, calculated)
+
+
+@pytest.mark.parametrize(
     ("total", "subtotal", "tip", "selective_tax", "other_taxes", "difference"),
     [
         ("145.60", "224.00", None, None, None, "-78.40"),
