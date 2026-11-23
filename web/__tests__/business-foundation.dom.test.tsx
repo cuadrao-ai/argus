@@ -120,7 +120,7 @@ describe("toasts", () => {
     assert.equal(toast.getAttribute("data-kind"), "success");
     assert.equal(toast.getAttribute("role"), "status");
     assert.ok(toast.querySelector("svg"), "an icon, not colour alone");
-    assert.ok(toast.style.borderLeftColor, "a left border colour per kind");
+    assert.match(toast.className, /(^|\s)border-l-4(\s|$)/, "a left border per kind");
     const close = toast.querySelector('button[aria-label="Cerrar"]') as HTMLButtonElement;
     assert.ok(close);
     await page.act(async () => { close.click(); });
