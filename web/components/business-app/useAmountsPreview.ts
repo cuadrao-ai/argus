@@ -26,11 +26,11 @@ export function useAmountsPreview(dossier: BusinessDossier | null, rows: ReturnT
   if (!active) return undefined;
   // Until the server answers this draft, the saved record's own check stands.
   const saved = dossier?.amounts_check;
-  const value: Pick<BusinessAmountsPreview, "net_amount" | "mismatch"> = preview.current ?? {
+  const value: Pick<BusinessAmountsPreview, "net_amount" | "mismatch" | "dgii_calculated"> = preview.current ?? {
     net_amount: dossier?.net_amount ?? { amount: null, source: null },
     mismatch: saved?.state === "difference" ? { code: "amounts_mismatch", difference: saved.difference } : null,
   };
-  return { ...value, status: preview.status };
+  return { net_amount: value.net_amount, mismatch: value.mismatch, dgii_calculated: value.dgii_calculated, status: preview.status };
 }
 
 export const PREVIEW_DELAY_MS = 120;

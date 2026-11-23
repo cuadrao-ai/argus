@@ -133,3 +133,27 @@ test("a failed preview on balanced amounts says the sum is checked on save", asy
     assert.equal(page.writes.length, 0);
   } finally { await page.close(); }
 });
+
+test("Total facturado and ITBIS por adelantar follow the server's preview while an amount is open, and go back when it closes", async () => {
+  const stated = { billed_amount: "2923.73", itbis_advance: "526.27" };
+  const page = await setup("fiscal", (dossier) => { dossier.dgii_calculated = stated; }, () => ({
+    previewAmounts: async (_, __, input) => ({ net_amount: { amount: "980.00", source: "calculated", calculated: "980.00" }, mismatch: null, inheritance: {}, dgii_calculated: input.declaration ? { billed_amount: "1500.00", itbis_advance: "270.00" } : { billed_amount: "980.00", itbis_advance: "200.00" } }),
+  }));
+  const fiscal = page.host.querySelector<HTMLElement>('[data-testid="fiscal-declaration"]')!;
+  const shown = () => ["billed_total", "itbis_advance"].map((row) => fiscal.querySelector(`[data-fact="${row}"] [data-row-value]`)?.textContent);
+  try {
+    assert.deepEqual(shown(), ["2,923.73", "526.27"]);
+    await page.openRow("itbis");
+    await fill(page, '[data-testid="dossier-review-itbis"]', "200");
+    await page.wait(() => shown()[0] === "980.00");
+    assert.deepEqual(shown(), ["980.00", "200.00"], "a Montos row of General");
+    await page.dismiss("itbis");
+    assert.deepEqual(shown(), ["2,923.73", "526.27"]);
+
+    await page.act(async () => fiscal.querySelector<HTMLButtonElement>('[data-field="services_amount"] button[data-row-value]')!.click());
+    await fill(page, '[data-testid="fiscal-declaration-services_amount"]', "1500");
+    await page.wait(() => shown()[0] === "1,500.00");
+    assert.deepEqual(shown(), ["1,500.00", "270.00"], "a row of Datos fiscales");
+    assert.equal(page.writes.length, 0);
+  } finally { await page.close(); }
+});

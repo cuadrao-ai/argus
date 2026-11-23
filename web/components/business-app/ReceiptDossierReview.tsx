@@ -636,7 +636,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
         </> },
-        { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen || markBusy || settling || deletion.busy} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} onBusy={setFiscalBusy} onDirty={trackFiscalEdits} onChanged={(value) => { setDossier(value); reload(); }} /> },
+        { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen || markBusy || settling || deletion.busy} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} montosCalculated={amountsPreview?.dgii_calculated} onBusy={setFiscalBusy} onDirty={trackFiscalEdits} onChanged={(value) => { setDossier(value); reload(); }} /> },
         { key: "detalles", content: <DossierDetails entryVisit={entry.visit} origin={cameFrom} dossier={dossier} detailsCard={detailsCard} selectedSupportingSourceId={viewed?.source_id} receiptLimits={records.workspace?.receipt_limits} busy={annotations.busy || annotationBlocked}
           onSaveNote={annotations.onSaveNote} onNoteDirty={setNoteDirty} onAppend={annotations.onAppend} onUnlink={removeFile} onRestore={annotations.onRestore}
           onViewFile={canViewFile ? sourceId => { pickFile(sourceId); if (!tray || tray.narrow) setTab("documento"); } : undefined} /> },
