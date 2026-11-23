@@ -30,7 +30,7 @@ export function useAmountsPreview(dossier: BusinessDossier | null, rows: ReturnT
     net_amount: dossier?.net_amount ?? { amount: null, source: null },
     mismatch: saved?.state === "difference" ? { code: "amounts_mismatch", difference: saved.difference } : null,
   };
-  return { net_amount: value.net_amount, mismatch: value.mismatch, dgii_calculated: value.dgii_calculated, status: preview.status };
+  return { ...value, status: preview.status };
 }
 
 export const PREVIEW_DELAY_MS = 120;
