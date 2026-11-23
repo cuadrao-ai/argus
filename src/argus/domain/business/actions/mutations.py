@@ -148,6 +148,7 @@ def save_revision(
     bill_mark: str | None = None,
     dgii: DgiiDeclaration | None = None,
     clear_dgii: bool = False,
+    shown_dgii: DgiiDeclaration | None = None,
     amount_derived: bool | None = None,
     fiscal_overrides: tuple[str, ...] | None = None,
     document_type: DocumentType | None = None,
@@ -232,6 +233,11 @@ def save_revision(
         if adjusted is not None:
             resolution["accepted"] = adjusted
         resolution["accepted_edit_version"] = event.version
+    # A person's first declaration is read against the one the review showed
+    # (``shown_dgii``), so the revision holds only what they changed.
+    before_dgii = previous.get("dgii") or (
+        shown_dgii.model_dump(mode="json") if dgii is not None and shown_dgii is not None else None
+    )
     day = after.occurred_on.value
     if reader_date_reason(day) is not None:
         logger.info("business_post_read_rule draft_id={} rule=read_date_review", event.id)
@@ -253,7 +259,7 @@ def save_revision(
             Jsonb(after.model_dump(mode="json")),
             list(source_ids),
             turn_key,
-            Jsonb(previous.get("dgii")) if previous.get("dgii") else None,
+            Jsonb(before_dgii) if before_dgii else None,
             Jsonb(resolution["business"].get("dgii"))
             if resolution["business"].get("dgii")
             else None,
@@ -430,6 +436,7 @@ def revise(
         actor,
         turn_key,
         dgii=declared,
+        shown_dgii=stored,
         fiscal_overrides=fiscal_overrides,
         # A declaration filled under the other type no longer applies.
         clear_dgii=retyped and declared is None,
