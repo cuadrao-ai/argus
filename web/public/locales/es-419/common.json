@@ -2880,6 +2880,17 @@
         "previous": "Anterior",
         "unopened": "Sin abrir"
       },
+      "note": {
+        "changed": "La nota cambió. Esta es la nota guardada ahora.",
+        "edit": "Editar nota",
+        "edited_date": "Editada el {{date}}",
+        "edited_date_by": "Editada el {{date}} · {{name}}",
+        "edited_today": "Editada hoy",
+        "edited_today_by": "Editada hoy · {{name}}",
+        "empty": "Sin nota.",
+        "save_error": "No pudimos guardar la nota. Inténtalo de nuevo.",
+        "title": "Nota"
+      },
       "problems": {
         "count_one": "{{count}} por resolver",
         "count_other": "{{count}} por resolver",
@@ -2904,6 +2915,27 @@
       "size": {
         "narrow": "Reducir",
         "wide": "Ampliar"
+      },
+      "supporting": {
+        "add": "Agregar archivo",
+        "append_error": "No pudimos agregar el archivo.",
+        "document_label": "Archivo de respaldo",
+        "document_selector": "Archivo a ver",
+        "empty": "Sin archivos de respaldo.",
+        "limit_one": "Hasta {{count}} archivo. Quita uno para agregar otro.",
+        "limit_other": "Hasta {{count}} archivos. Quita uno para agregar otro.",
+        "limit_reached": "Quita un archivo para agregar otro.",
+        "receipt_label": "Comprobante",
+        "restore_error": "No pudimos restaurar el archivo. Inténtalo de nuevo.",
+        "title": "Archivos de respaldo",
+        "undo": "Deshacer",
+        "unlink": "Quitar archivo",
+        "unlink_error": "No pudimos quitar el archivo. Inténtalo de nuevo.",
+        "unlink_named": "Quitar {{name}}",
+        "unlinked_toast": "Archivo quitado.",
+        "view": "Ver",
+        "view_error": "No pudimos abrir el archivo. Inténtalo de nuevo.",
+        "view_named": "Ver {{name}}"
       },
       "tab": {
         "general": "General",
@@ -3339,6 +3371,13 @@
       "received": "Recibido",
       "rnc_verified": "RNC verificado",
       "set": "{{field}}: {{after}}",
+      "supporting": {
+        "appended": "Archivo agregado",
+        "purge": "Se borra en 7 días",
+        "restore": "Restaurar",
+        "restored": "Archivo restaurado",
+        "unlinked": "Archivo quitado"
+      },
       "title": "Historial",
       "today": "Hoy",
       "via_cuadrao": "{{name}} vía Cuadrao",

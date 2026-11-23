@@ -2880,6 +2880,17 @@
         "previous": "Previous",
         "unopened": "Unopened"
       },
+      "note": {
+        "changed": "The note changed. This is the current saved note.",
+        "edit": "Edit note",
+        "edited_date": "Edited on {{date}}",
+        "edited_date_by": "Edited on {{date}} · {{name}}",
+        "edited_today": "Edited today",
+        "edited_today_by": "Edited today · {{name}}",
+        "empty": "No note.",
+        "save_error": "We couldn't save the note. Try again.",
+        "title": "Note"
+      },
       "problems": {
         "count_one": "{{count}} to resolve",
         "count_other": "{{count}} to resolve",
@@ -2904,6 +2915,27 @@
       "size": {
         "narrow": "Narrow",
         "wide": "Widen"
+      },
+      "supporting": {
+        "add": "Add file",
+        "append_error": "We couldn't add the file.",
+        "document_label": "Supporting file",
+        "document_selector": "File to view",
+        "empty": "No supporting files.",
+        "limit_one": "Up to {{count}} file. Remove one to add another.",
+        "limit_other": "Up to {{count}} files. Remove one to add another.",
+        "limit_reached": "Remove a file to add another.",
+        "receipt_label": "Original receipt",
+        "restore_error": "We couldn't restore the file. Try again.",
+        "title": "Supporting files",
+        "undo": "Undo",
+        "unlink": "Remove file",
+        "unlink_error": "We couldn't remove the file. Try again.",
+        "unlink_named": "Remove {{name}}",
+        "unlinked_toast": "File removed.",
+        "view": "View",
+        "view_error": "We couldn't open the file. Try again.",
+        "view_named": "View {{name}}"
       },
       "tab": {
         "general": "General",
@@ -3305,6 +3337,13 @@
       "received": "Received",
       "rnc_verified": "RNC verified",
       "set": "{{field}}: {{after}}",
+      "supporting": {
+        "appended": "File added",
+        "purge": "Deleted in 7 days",
+        "restore": "Restore",
+        "restored": "File restored",
+        "unlinked": "File removed"
+      },
       "title": "History",
       "today": "Today",
       "via_cuadrao": "{{name}} via Cuadrao",

@@ -1,0 +1,34 @@
+.noteBody, .supportBody { padding:8px 0 12px; border-radius:var(--radius-item); }
+.noteBody[data-landing], .supportBody[data-landing="true"], .supportBody[data-landing="a"] { animation:annotationWash 2.4s ease-out; }
+.supportBody[data-landing="b"] { animation:annotationWashAgain 2.4s ease-out; }
+@keyframes annotationWash { from, 70% { background-color:var(--d-flash); } }
+@keyframes annotationWashAgain { from, 70% { background-color:var(--d-flash); } }
+@media (prefers-reduced-motion:reduce) {
+  .noteBody[data-landing], .supportBody[data-landing] { animation:none; background-color:var(--d-flash); }
+}
+.noteRead { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.noteText, .empty { margin:0; padding:8px 0; font-size:14.5px; line-height:21px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.empty { color:var(--d-muted); }
+.noteEditor { display:grid; gap:6px; }
+.noteInput { display:block; width:100%; padding:9px 10px; resize:vertical; border:1px solid var(--d-field-line); border-radius:var(--radius-item); background:var(--d-field); color:var(--d-ink); font:inherit; font-size:14.5px; line-height:21px; }
+.noteActions, .fileActions { display:flex; align-items:center; justify-content:flex-end; gap:4px; }
+.noteActions .status { margin-right:4px; }
+.status, .error { margin:0; font-size:13px; line-height:18px; color:var(--d-muted); font-variant-numeric:tabular-nums; }
+.error { color:var(--d-bad-ink); }
+.supportFile { display:grid; grid-template-columns:24px minmax(0,1fr) auto auto; align-items:center; column-gap:8px; min-height:48px; padding:0 4px; border-radius:var(--radius-item); }
+.supportFile[data-selected] { background-color:var(--d-on); }
+.filename { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14.5px; }
+.fileActions { grid-column:4; }
+.noteRead button { flex:none; }
+.noteRead button:disabled, .fileActions button:disabled { cursor:default; }
+@media (hover:hover) and (pointer:fine) {
+  .noteRead button, .fileActions button { opacity:0; }
+  .noteRead:hover button, .noteRead:focus-within button,
+  .supportFile:hover .fileActions button, .supportFile:focus-within .fileActions button { opacity:1; }
+}
+@media (hover:none), (pointer:coarse) {
+  .noteRead button, .fileActions button { opacity:1; }
+}
+.link:disabled, .link:disabled:hover { background:none; color:var(--d-muted); cursor:default; opacity:.65; }
+.restoreRow { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; }
+.restoreRow .error { flex-basis:100%; }
