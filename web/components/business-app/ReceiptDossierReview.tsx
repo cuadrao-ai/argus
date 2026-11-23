@@ -164,6 +164,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const [capturePending, setCapturePending] = useState(false);
   const [settling, setSettling] = useState(false);
   const [reopening, setReopening] = useState<"asking" | "sending" | null>(null);
+  const [markBusy, setMarkBusy] = useState(false);
   const [duplicateBusy, setDuplicateBusy] = useState(false);
   const duplicateCompare = useDuplicateCompare(dossier);
   const [advancing, setAdvancing] = useState(false);
@@ -237,7 +238,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const amountsPreview = useAmountsPreview(dossier, rows.rows, source.previewAmounts);
   const dirty = rows.unsaved.length > 0;
 
-  const annotationBlocked = dirty || fiscalDirty || fiscalBusy || autosave.busy || autosave.failed || duplicateBusy || checking || capturePending || captureOpen || settling || reopening !== null || deletion.busy || operation.kind !== "idle";
+  const annotationBlocked = markBusy || dirty || fiscalDirty || fiscalBusy || autosave.busy || autosave.failed || duplicateBusy || checking || capturePending || captureOpen || settling || reopening !== null || deletion.busy || operation.kind !== "idle";
   const annotations = useDossierAnnotations(dossier, annotationBlocked, setDossier, loadFailed,
     error => setProblem({ text: t("business.dossier.supporting.restore_error"), reference: referenceCode(error) }));
   const jumpList = useJumpRows(receiptIds);
@@ -601,7 +602,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
             onMouseLeave={() => setHighlight([])}
             onBlur={() => setHighlight([])}
           >
-            <ReceiptRecordFacts dossier={dossier} accounts={accounts} problems={problems} flash={flash} choices={choicesView ? <ReceiptOwnerChoices {...choicesView} disabled={!dossier.declaration_editable || (reviewing && !mutable)} saves={autosave.saves} onChoose={(choice, value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } })} onRetry={(choice) => void autosave.retry(choice)} onCancel={autosave.clear} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} edit={reviewing ? rowEdit("document_type") : undefined} note={reviewing ? rowNote("document_type") : undefined} /> : undefined} review={reviewing ? {
+            <ReceiptRecordFacts dossier={dossier} accounts={accounts} problems={problems} flash={flash} choices={choicesView ? <ReceiptOwnerChoices {...choicesView} disabled={annotations.busy || !dossier.declaration_editable || (reviewing && !mutable)} saves={autosave.saves} onChoose={(choice, value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } })} onRetry={(choice) => void autosave.retry(choice)} onCancel={autosave.clear} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} edit={reviewing ? rowEdit("document_type") : undefined} note={reviewing ? rowNote("document_type") : undefined} /> : undefined} review={reviewing ? {
               amountsPreview,
               onEdit: canPrepare && mutable ? rows.open : undefined,
               edit: rowEdit,
@@ -647,7 +648,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
         actions={<>
           <ReceiptMoreMenu groups={[
             businessTypedNotesAvailable(records.workspace) && canPrepare && mutable && !Object.keys(rows.rows).length ? <MenuItem key="note" icon={StickyNote} label={t("business.capture.add_note", "Add note")} onSelect={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }} /> : null,
-            <ReceiptMarksCard key="marks" dossier={dossier} busy={busy || fiscalBusy || fiscalDirty} onChanged={setDossier} bare />,
+            <ReceiptMarksCard key="marks" dossier={dossier} onBusyChange={setMarkBusy} busy={busy || fiscalBusy || fiscalDirty} onChanged={setDossier} bare />,
             canDelete ? <DeleteDocumentMenuItem key="delete" disabled={busy || dirty || fiscalBusy || fiscalDirty || deletion.busy} onClick={deletion.ask} /> : null,
           ]} />
           {dossier.restore_available ? <RestoreDocumentButton id={draftId} onRestored={() => void refresh()} target={receipt ? { kind: "receipt", receiptId: receipt.id, list: "inbox" } : { kind: "draft", draftId, list: "inbox" }} /> : null}

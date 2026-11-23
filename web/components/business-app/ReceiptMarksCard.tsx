@@ -20,10 +20,11 @@ import { Switch } from "@/components/ui/Switch";
  * answers whether a personal receipt with a fiscal number goes into the 606,
  * when the server says the caller may. The owner reads that answer; the app never gives it.
  */
-export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bare = false }: { dossier: BusinessDossier; busy?: boolean; onChanged: (next: BusinessDossier) => void; /** As rows of the footer's Más menu: a switch per decision, the 606 only under Personal, no chips and no words for an open answer. */ bare?: boolean }) {
+export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, onChanged, bare = false }: { dossier: BusinessDossier; busy?: boolean; onBusyChange?: (busy: boolean) => void; onChanged: (next: BusinessDossier) => void; /** As rows of the footer's Más menu: a switch per decision, the 606 only under Personal, no chips and no words for an open answer. */ bare?: boolean }) {
   const { t } = useTranslation();
   const { source, chosen, reload } = useBusiness();
-  const [working, setWorking] = useState(false);
+  const [working, setLocalWorking] = useState(false);
+  const setWorking = (value: boolean) => { setLocalWorking(value); onBusyChange?.(value); };
   const [problem, setProblem] = useState<string | null>(null);
   const [retry, setRetry] = useState<(() => void) | null>(null);
   const canPrepare = dossier.capabilities.includes("prepare");
