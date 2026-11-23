@@ -157,17 +157,17 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", readin
       const selected = document.querySelector<HTMLElement>(`[data-record-key="${row.row_id}"]`)!;
       (selected.matches("tr") ? selected : selected.querySelector<HTMLButtonElement>("button")!).click();
     });
-    await wait(() => target === "expense" ? document.querySelector('[data-testid="business-expense-detail"]') !== null : facts() !== null, "the record's detail");
+    await wait(() => target === "expense" ? document.querySelector('[data-testid="record-facts-comprobante"]') !== null : facts() !== null, "the record's detail");
     if (target === "draft") await wait(fieldsLoaded, "the tax fields");
   };
   const openDirectly = async () => {
     await act(async () => api!.openPanel({ kind: "draft", draftId, list: "transactions" }));
-    await wait(() => target === "expense" ? document.querySelector('[data-testid="business-expense-detail"]') !== null : facts() !== null, "the record's detail");
+    await wait(() => target === "expense" ? document.querySelector('[data-testid="record-facts-comprobante"]') !== null : facts() !== null, "the record's detail");
     if (target === "draft") await wait(fieldsLoaded, "the tax fields");
   };
   const openOtherExpense = async () => {
     await act(async () => api!.openPanel({ kind: "expense", expenseId: "00000000-0000-4000-8000-000000009999" }));
-    await wait(() => document.querySelector("#expense-detail-title")?.textContent === "Registro 00000000-0000-4000-8000-000000009999", "the other expense");
+    await wait(() => document.querySelector("#receipt-review-title")?.textContent === "Registro 00000000-0000-4000-8000-000000009999", "the other expense");
   };
   return { act, wait, writes, chip, reason, choice, openChoice, choiceAction, valueOf, pick, facts, queries, section, openRecord, openDirectly, openOtherExpense };
 }

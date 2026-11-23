@@ -19,7 +19,7 @@ import type { DossierTab } from "./dossier-attention";
 import DossierDetails from "./dossier/DossierDetails";
 import DossierDocument from "./dossier/DossierDocument";
 import { DossierStatus } from "./dossier/DossierHeader";
-import { DossierBare } from "./dossier/DossierParts";
+import { DossierBare, DossierCard, DossierRow, DossierRows } from "./dossier/DossierParts";
 import { useJumpRows } from "./dossier/jump-rows";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { DeleteDocumentMenuItem, RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
@@ -29,12 +29,15 @@ import { showToast } from "./foundation/toasts";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import { useShownRecord } from "./useShownRecord";
-import type { ReceiptDetail } from "@/lib/business-api";
+import type { BusinessExpenseDetail, ReceiptDetail } from "@/lib/business-api";
 import { useBusiness, type DossierDetailsCard } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { formatMoney, UNKNOWN_VALUE } from "./business-format";
+import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
 import { sentByName } from "@/lib/sent-by";
-import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
+import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass, RecordMarks, recordFiscalMark } from "./business-ui";
+import { expensePanel } from "./business-expense-target";
+import { DgiiAnswer } from "./transacciones/RecordDgiiCell";
+import { OpenRecordMissingReasons } from "./transacciones/RecordMissingReason";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -51,6 +54,23 @@ function showReceipt(previous: ReadView, detail: ReceiptDetail): ReadView {
     readingNow(previous.detail) || (previous.readLanded && previous.detail?.draft_id === detail.draft_id)
   ));
   return { detail, readLanded };
+}
+
+/** A record that did not load: the shared retry line and its reference. */
+function LoadFailure({ reference, onRetry }: { reference: string; onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <DossierBare><section className={SURFACE_CARD} data-testid="receipt-load-error">
+      <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
+        <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+        {t("common.refresh_failed", "We couldn't update.")}
+      </p>
+      <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={reference} /></div>
+      <button type="button" className={`${secondaryButtonClass} mt-4`} onClick={onRetry}>
+        {t("common.retry", "Retry")}
+      </button>
+    </section></DossierBare>
+  );
 }
 
 function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCard?: DossierDetailsCard }) {
@@ -132,18 +152,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
   const openDraft = unprepared ? null : detail?.draft_id ?? null;
   // An open dossier stays mounted through a failed refetch: its rows hold what the person typed.
   if (failure !== null && !openDraft) {
-    return (
-      <DossierBare><section className={SURFACE_CARD} data-testid="receipt-load-error">
-        <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
-          <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-          {t("common.refresh_failed", "We couldn't update.")}
-        </p>
-        <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={failure} /></div>
-        <button type="button" className={`${secondaryButtonClass} mt-4`} onClick={retry}>
-          {t("common.retry", "Retry")}
-        </button>
-      </section></DossierBare>
-    );
+    return <LoadFailure reference={failure} onRetry={retry} />;
   }
   if (!detail) return <DossierBare><Settle pending layout="detail" /></DossierBare>;
   const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
@@ -379,6 +388,91 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
   );
 }
 
-export default function ReceiptReviewPanel({ target, detailsCard }: { detailsCard?: DossierDetailsCard; target: { kind: "receipt" | "draft"; id: string } }) {
-  return target.kind === "draft" ? <ReceiptDossierReview detailsCard={detailsCard} draftId={target.id} /> : <ReceiptEntry key={target.id} detailsCard={detailsCard} receiptId={target.id} />;
+type ExpenseView = { status: "loading" } | { status: "failed"; reference: string } | { status: "ready"; expense: BusinessExpenseDetail };
+
+/**
+ * A saved record opened by its own id (a Registros row, a month's document, an `?expense=` link). One that names a
+ * receipt or a draft opens that record. One with neither has no dossier on the server, so the same frame shows what
+ * the money read says about it, read only: no status, no action, no document.
+ */
+function ExpenseEntry({ expenseId, detailsCard }: { expenseId: string; detailsCard?: DossierDetailsCard }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
+  const { source, records, openPanel } = useBusiness();
+  const [state, setState] = useState<ExpenseView>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const [tab, setTab] = useState<DossierTab>("general");
+  const onLoaded = useEffectEvent((expense: BusinessExpenseDetail) => {
+    const target = expensePanel(expense);
+    if (target.kind === "expense") setState({ status: "ready", expense });
+    else openPanel(detailsCard ? { ...target, detailsCard } : target);
+  });
+  // A record that is gone closes onto Registros, so a dead link never leaves a panel whose Reintentar cannot work.
+  const onLoadFailed = useEffectEvent((error: unknown) => {
+    if (!recordGone(error)) {
+      setState({ status: "failed", reference: referenceCode(error) });
+      return;
+    }
+    openPanel({ kind: "transactions" });
+    showToast({ kind: "info", text: t("business.expenses.gone") });
+  });
+  // The read keys on the record, not on the workspace's revision or its navigation callback.
+  useEffect(() => {
+    let active = true;
+    source.expense(expenseId).then(
+      (expense) => { if (active) onLoaded(expense); },
+      (error: unknown) => { if (active) onLoadFailed(error); },
+    );
+    return () => {
+      active = false;
+    };
+  }, [expenseId, source, attempt]);
+  if (state.status === "failed") return <LoadFailure reference={state.reference} onRetry={() => { setState({ status: "loading" }); setAttempt((value) => value + 1); }} />;
+  if (state.status === "loading") return <DossierBare><Settle pending layout="detail" /></DossierBare>;
+  const { expense } = state;
+  const account = expense.funding === "owner_funds"
+    ? t("business.dossier.owner_funds", "Owner's money")
+    : (records.workspace?.accounts ?? []).find((item) => item.id === expense.account_id)?.nickname ?? null;
+  const said606 = expense.include_606 === true ? t("business.marks.included_606", "Included in the 606") : expense.include_606 === false ? t("business.marks.excluded_606", "Not included in the 606") : t("business.marks.pending_606", "Waiting for the accountant");
+  return (
+    <ContentFade><ReceiptReviewFrame
+      recordId={expenseId}
+      back="transactions"
+      title={expense.merchant ?? t("business.expenses.no_merchant", "Expense")}
+      tab={tab}
+      onTab={setTab}
+      tabs={[
+        { key: "general", content: <>
+          <OpenRecordMissingReasons />
+          <DossierCard title={t("business.dossier.card.comprobante")} testId="record-facts-comprobante">
+            <DossierRows>
+              <DossierRow row="occurred_on" label={t("business.dossier.row.date")} value={formatDay(expense.occurred_on, locale)} />
+              <DossierRow row="expense_type" label={t("business.dossier.placeholder.expense_type")} value={<DgiiAnswer purchase={expense.dgii_606} field="expense_type" />} />
+              <DossierRow row="account" label={t("business.review.account", "Paid from")} value={account} />
+            </DossierRows>
+            <RecordMarks personal={expense.personal} fiscal={recordFiscalMark(expense)} markedBy={expense.personal_marked_by} className="mt-3" />
+            {expense.personal && expense.fiscal_value ? <p className="mt-2 text-[13px] text-[var(--d-soft)]" data-testid="record-606-state">{said606}</p> : null}
+          </DossierCard>
+          <DossierCard title={t("business.terms.montos_title")} testId="record-facts-montos">
+            <DossierRows>
+              <DossierRow row="amount" label={t("business.terms.total")} look="number" total value={formatMoney(expense.amount, expense.currency, locale)} />
+            </DossierRows>
+          </DossierCard>
+        </> },
+        { key: "detalles", content: <DossierCard title={t("business.dossier.details.file")}>
+          <p className="text-[14px] leading-5 text-[var(--d-soft)]">{t("business.expenses.no_receipt", "No receipt attached")}</p>
+        </DossierCard> },
+        ...(expense.recorded_at ? [{ key: "historial" as const, content: <DossierCard title={t("business.dossier.tab.historial")}>
+          <p className="text-[14px] leading-5 text-[var(--d-soft)]">{t("business.expenses.recorded_on", "Recorded on {{when}}", { when: formatTimestamp(expense.recorded_at, locale) })}</p>
+        </DossierCard> }] : []),
+      ]}
+    /></ContentFade>
+  );
+}
+
+/** The one dossier, whatever a record was opened by: its receipt, its draft, or its own id. */
+export default function ReceiptReviewPanel({ target, detailsCard }: { detailsCard?: DossierDetailsCard; target: { kind: "receipt" | "draft" | "expense"; id: string } }) {
+  if (target.kind === "draft") return <ReceiptDossierReview detailsCard={detailsCard} draftId={target.id} />;
+  if (target.kind === "expense") return <ExpenseEntry key={target.id} detailsCard={detailsCard} expenseId={target.id} />;
+  return <ReceiptEntry key={target.id} detailsCard={detailsCard} receiptId={target.id} />;
 }

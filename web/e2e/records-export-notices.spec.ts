@@ -280,7 +280,7 @@ test("readiness opened expense shows the complete missing list", async ({ page }
   await page.setViewportSize({ width: 1440, height: 900 });
   await openReadinessRecords(page, "es-419", "light", true);
   await page.getByTestId("transacciones-records").locator("tbody tr").first().click();
-  const detail = page.getByTestId("business-expense-detail");
+  const detail = page.getByTestId("business-record-review");
   await expect(detail).toBeVisible();
   await expect(page.locator("[data-record-missing-list] li")).toHaveText([
     "Falta el tipo de gasto",

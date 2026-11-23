@@ -3280,11 +3280,9 @@
     "expenses": {
       "no_merchant": "Gasto",
       "title": "Gastos",
-      "detail_title": "Gasto guardado",
       "gone": "Ese gasto ya no está",
       "no_receipt": "Sin recibo adjunto",
-      "recorded_on": "Registrado el {{when}}",
-      "account_unknown": "Desconocida"
+      "recorded_on": "Registrado el {{when}}"
     },
     "guide_cards": {
       "actividad_intro": {

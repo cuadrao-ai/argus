@@ -3246,11 +3246,9 @@
     "expenses": {
       "title": "Expenses",
       "no_merchant": "Expense",
-      "detail_title": "Saved expense",
       "gone": "That expense is no longer here",
       "no_receipt": "No receipt attached",
-      "recorded_on": "Recorded on {{when}}",
-      "account_unknown": "Unknown"
+      "recorded_on": "Recorded on {{when}}"
     },
     "guide_cards": {
       "actividad_intro": {
