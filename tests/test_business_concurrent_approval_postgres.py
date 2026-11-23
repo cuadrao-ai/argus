@@ -89,34 +89,28 @@ def test_same_key_loser_reports_unsettled_until_winner_records(
 
 
 @pytest.mark.parametrize("kind", KINDS)
-@pytest.mark.parametrize("reapprove", [False, True], ids=["open", "approved-again"])
-def test_historical_approval_replay_cannot_report_another_dossier_state(
+def test_historical_approval_replay_follows_the_original_record_through_delete_and_restore(
     world,  # noqa: F811
     kind: str,
-    reapprove: bool,
 ) -> None:  # noqa: ANN001
     draft, dossier = _reviewed(world, kind, "B0100000072")
     version, key = dossier["version"], str(uuid4())
     first = _approve(world, draft, version, kind, key)
     assert first.status_code == 200, first.text
     activity = first.json()["approval_result"]["activity_id"]
-    reopened = world.client.post(
-        f"{API}/business/drafts/{draft}/reopen",
-        json={"version": first.json()["version"]},
-        headers={**world.alice.headers, "Idempotency-Key": str(uuid4())},
-    )
-    assert reopened.status_code == 200, reopened.text
-    current = reopened.json()
-    assert current["review_state"] == "open"
+
+    def change(action: str):
+        return world.client.post(
+            f"{API}/business/drafts/{draft}/{action}",
+            headers={**world.alice.headers, "Idempotency-Key": str(uuid4())},
+        )
+
+    deleted = change("delete")
+    assert deleted.status_code == 200, deleted.text
+    path = f"/business/drafts/{draft}/dossier"
+    current = _get(world, path).json()
+    assert current["review_state"] == "dismissed"
     assert current["approval_result"] is None
-    assert _counts(world) == (1, 0, 0)
-    if reapprove:
-        second = _approve(world, draft, current["version"], kind)
-        assert second.status_code == 200, second.text
-        current = second.json()
-        del current["inbox_counts"]
-        assert current["approval_result"]["activity_id"] != activity
-        assert _counts(world) == (2, 0, 0)
 
     before = _counts(world)
     replay = _approve(world, draft, version, kind, key)
@@ -124,4 +118,11 @@ def test_historical_approval_replay_cannot_report_another_dossier_state(
     assert replay.json()["code"] == "stale_version"
     assert replay.headers["cache-control"] == "no-store"
     assert _counts(world) == before
-    assert _get(world, f"/business/drafts/{draft}/dossier").json() == current
+    assert _get(world, path).json() == current
+
+    restored = change("restore")
+    assert restored.status_code == 200, restored.text
+    replay = _approve(world, draft, version, kind, key)
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["approval_result"]["activity_id"] == activity
+    assert _counts(world) == before == (1, 0, 0)

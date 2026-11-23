@@ -179,8 +179,8 @@ TYPED_LEDGER_ACTIONS = (
     | _action_names(SupportingLinkCommand)
     | _action_names(LegacyAction)
 )
-#: In the ledger's allow-list (20261014100000) with no Python command type.
-UNTYPED_LEDGER_ACTIONS = frozenset({"email_ai_consent_declined"})
+#: Stored ledger commands with no current Python write type.
+UNTYPED_LEDGER_ACTIONS = frozenset({"email_ai_consent_declined", "reopen_draft"})
 
 
 def test_every_typed_ledger_action_has_a_catalog_decision():
@@ -199,6 +199,7 @@ def test_every_typed_ledger_action_has_a_catalog_decision():
             ("draft", DRAFT),
         ),
         ({"action": "settle_remainder", "draft_id": str(DRAFT)}, None, ("draft", DRAFT)),
+        ({"action": "reopen_draft", "draft_id": str(DRAFT)}, None, ("draft", DRAFT)),
         (
             {
                 "action": "business_propose_activity",
@@ -253,6 +254,7 @@ def test_every_typed_ledger_action_has_a_catalog_decision():
     ids=[
         "outcome-draft-wins",
         "command-draft",
+        "historical-draft-reopen",
         "planned-draft",
         "planned-draft-not-made",
         "planned-ask",

@@ -88,6 +88,7 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         ),
         # A purged document names nothing: no label and no link.
         "purge_document": ActionSpec("documents", "files"),
+        # Historical receipts remain readable after the command was retired.
         "reopen_draft": ActionSpec("records", "approvals", object=_DRAFT),
         "capture_note": ActionSpec("records", "edits", object=_DRAFT),
         "prepare_attachment": ActionSpec("documents", "reading", object=_DRAFT),

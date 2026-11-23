@@ -147,7 +147,9 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
     key = str(uuid4())
     deleted = _act(client, target, "delete", key)
     assert deleted.status_code == 200, deleted.text
-    assert deleted.json() == {
+    answer = deleted.json()
+    purge_at = answer.pop("purge_at")
+    assert answer == {
         "document_id": str(target),
         "deleted": True,
         "inbox_counts": NO_ROWS,
@@ -156,6 +158,7 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
     rows = receipt_summaries(web, "all")
     [view] = [row for row in rows if row["id"] == cid]
     marker = DeletedDocument.model_validate(view["deleted"])
+    assert purge_at == marker.model_dump(mode="json")["purge_at"]
     assert marker.actor.actor_id == context.actor.actor_id
     assert marker.previous_state.group == before["bandeja_group"]["group"]
     assert view["status"] == "dismissed"
@@ -180,6 +183,7 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
     restore_key = str(uuid4())
     restored = _act(client, target, "restore", restore_key)
     assert restored.status_code == 200, restored.text
+    assert "purge_at" not in restored.json()
     assert _act(client, target, "restore", restore_key).json() == restored.json()
     after = receipt_detail(web, web.service.receipt(web.scope, cid))
     assert after["deleted"] is None

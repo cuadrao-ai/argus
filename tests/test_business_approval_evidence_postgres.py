@@ -18,7 +18,6 @@ from argus.domain.business.contracts.actions import (
     ApproveIncome,
     CaptureNote,
     ExistingDraft,
-    ReopenDraft,
     ReviewDraft,
     TypedPurchase,
 )
@@ -345,23 +344,6 @@ def test_approval_after_a_note_edit_ships_the_606_line(actions) -> None:  # noqa
         str(uuid4()),
     )
     outcome = approve(service, context, draft, noted.version)
-    assert outcome.outcome == "applied", outcome
-    shipped(service, context, draft)
-
-
-def test_reopen_then_approval_with_no_edits_ships_the_606_line(actions) -> None:  # noqa: ANN001, F811
-    service, context = actions
-    draft, version = receipt_draft(service, context, colmado(), "DOP")
-    version = reviewed(service, context, draft, version, dgii=partial_declaration())
-    assert approve(service, context, draft, version).outcome == "applied"
-    reopened = service.reopen(
-        context,
-        draft,
-        ReopenDraft(version=service.dossier(context, draft).version),
-        str(uuid4()),
-    )
-    assert reopened.outcome == "applied", reopened
-    outcome = approve(service, context, draft, reopened.version)
     assert outcome.outcome == "applied", outcome
     shipped(service, context, draft)
 

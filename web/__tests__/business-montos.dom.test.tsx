@@ -20,9 +20,9 @@ let cleanup = async () => {};
 afterEach(async () => { await cleanup(); document.body.innerHTML = ""; });
 afterAll(() => GlobalRegistrator.unregister());
 const known = (value: string): BusinessFact<string> => ({ state: "known", value, origin: "extracted", verified: false, source_ids: [] });
-async function dossier() {
+async function dossier(): Promise<BusinessDossier & { inheritance: Links }> {
   const base = await flaggedReceipt([], [{ id: "cash", nickname: "Caja", currency: "DOP", type: "cash" }]);
-  return { ...base, net_amount: { amount: "1000.00", source: "calculated" }, facts: { ...base.facts, legal_tip: known("100.00") }, inheritance: { goods_amount: { field: "net_amount", value: "1000.00", inherited: true, paired_with: ["services_amount"] }, paid_on: { field: "occurred_on", value: "2026-11-12", inherited: true, paired_with: [] }, itbis: { field: "itbis", value: "181.00", inherited: true, paired_with: [] } } } satisfies BusinessDossier;
+  return { ...base, net_amount: { amount: "1000.00", source: "calculated" }, facts: { ...base.facts, legal_tip: known("100.00") }, inheritance: { goods_amount: { field: "net_amount", value: "1000.00", inherited: true, paired_with: ["services_amount"] }, paid_on: { field: "occurred_on", value: "2026-11-12", inherited: true, paired_with: [] }, itbis: { field: "itbis", value: "181.00", inherited: true, paired_with: [] } } };
 }
 async function mount(content: ReactNode, language = "es-419") {
   const { createRoot } = await import("react-dom/client");
@@ -75,6 +75,23 @@ const fields: DgiiFields = { "606": [
   { name: "modified_ncf", label: "", kind: "text", options: [] },
 ], "607": [] };
 const noop = () => {};
+const row = (host: Element, name: string) => {
+  const field = host.querySelector(`[data-fact="${name}"]`);
+  assert.ok(field, name);
+  return field;
+};
+const control = (host: Element, name: string, selector: string) => {
+  const button = row(host, name).querySelector<HTMLButtonElement>(selector);
+  assert.ok(button, `${name}: ${selector}`);
+  return button;
+};
+const click = (host: Element, name: string, selector: string) => act(async () => control(host, name, selector).click());
+const open = (host: Element, name: string) => click(host, name, "button[data-row-value]");
+const save = (host: Element, name: string) => click(host, name, 'button[aria-label^="Guardar ·"]');
+const cancel = (host: Element, name: string) => click(host, name, 'button[aria-label^="Cancelar ·"]');
+const read = (host: Element, name: string) => row(host, name).querySelector("[data-row-value]")?.textContent;
+const sourceLabel = (host: Element, name: string) => host.querySelector(`[data-inherited="${name}"] [data-testid="row-status-${name}"]`)?.getAttribute("aria-label");
+
 test("a record nobody can edit shows the same cards, and Montos follows Comprobante", async () => {
   const host = await mount(<ReceiptRecordFacts dossier={await dossier()} accounts={[]} />);
   const comprobante = host.querySelector('[data-testid="receipt-facts-comprobante"]')!;
@@ -85,16 +102,16 @@ test("a record nobody can edit shows the same cards, and Montos follows Comproba
 for (const amount of ["181.00", "200.00"]) test(`Fiscal explicitly overriding ITBIS with ${amount} breaks inheritance and saves only in declaration`, async () => {
   const base = await dossier(); const writes: DgiiReview[] = [];
   const host = await mount(<FiscalDeclarationEditor dossier={base} fields={fields} disabled={false} reviewFiscal={async (_, __, input) => { writes.push(input); return base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
-  assert.equal(host.querySelector('[data-inherited="goods_amount"]')?.getAttribute("aria-label"), "Viene de Monto sin ITBIS");
+  assert.equal(sourceLabel(host, "goods_amount"), "Viene de Monto sin ITBIS");
   assert.ok(host.querySelector('[data-inherited="paid_on"]'));
   assert.equal(host.querySelector('[data-inherited="modified_ncf"]'), null);
+  await open(host, "itbis");
   const input = host.querySelector<HTMLInputElement>('input[data-testid="fiscal-declaration-itbis"]')!;
   assert.ok(input);
   await act(async () => { input.setSelectionRange(0, input.value.length); input.dispatchEvent(new InputEvent("beforeinput", { inputType: "insertText", data: amount, bubbles: true, cancelable: true })); });
   assert.equal(host.querySelector('[data-inherited="itbis"]'), null);
   assert.ok(host.querySelector('[data-restore-inherited="itbis"]'));
-  const save = [...host.querySelectorAll("button")].find((button) => button.textContent === es.business.dgii.save)!;
-  await act(async () => save.click());
+  await save(host, "itbis");
   assert.equal(writes.length, 1);
   assert.equal(writes[0].fiscal.itbis, "181.00");
   assert.equal(writes[0].declaration.itbis, amount);
@@ -118,12 +135,12 @@ type LinksDraft = Parameters<typeof previewBusinessAmounts>[2];
 /** A stand-in for the server's preview: the dossier's links with the draft's holds and restores, and any linked value the case names. */
 function server(base: BusinessDossier, values: Record<string, string | null> = {}) {
   const drafts: LinksDraft[] = [];
-  const preview = async (_: string, __: number, draft: LinksDraft) => {
+  const preview: typeof previewBusinessAmounts = async (_, __, draft) => {
     drafts.push(draft);
-    const inheritance: Links = Object.fromEntries(Object.entries(base.inheritance ?? {}).map(([name, link]) => {
+    const inheritance = Object.fromEntries(Object.entries(base.inheritance ?? {}).map(([name, link]) => {
       const group = [name, ...link.paired_with];
       const inherited = group.some((side) => draft.restore_inherited?.includes(side)) ? true : group.some((side) => draft.override_inherited?.includes(side)) ? false : link.inherited;
-      return [name, { ...link, inherited, value: name in values ? values[name] : link.value }];
+      return [name, { ...link, inherited, paired_with: [...link.paired_with], value: name in values ? values[name] : link.value }];
     }));
     return { net_amount: { amount: null, source: null }, mismatch: null, inheritance };
   };
@@ -134,17 +151,32 @@ async function editing(base: BusinessDossier, options: { values?: Record<string,
   const writes: DgiiReview[] = [];
   const { drafts, preview } = server(base, options.values);
   const host = await mount(<FiscalDeclarationEditor dossier={base} fields={options.fields ?? fields} disabled={false} reviewFiscal={async (_, __, input) => { writes.push(input); return options.fiscal?.() ?? base; }} previewLinks={preview} onChanged={noop} onBusy={noop} onDirty={noop} />);
-  const ncf = host.querySelector<HTMLInputElement>('[name="modified_ncf"]')!;
-  const amount = (name: string) => host.querySelector<HTMLInputElement>(`input[data-testid="fiscal-declaration-${name}"]`)!;
-  const enter = async (name: string, text: string) => act(async () => { const input = amount(name); input.setSelectionRange(0, input.value.length); input.dispatchEvent(new InputEvent("beforeinput", { inputType: "insertText", data: text, bubbles: true, cancelable: true })); });
-  const save = async () => act(async () => [...host.querySelectorAll("button")].find((button) => button.textContent === es.business.dgii.save)!.click());
-  const restore = (field: string) => host.querySelector<HTMLButtonElement>(`[data-restore-inherited="${field}"]`);
-  return { host, get date() { return host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!; }, ncf, amount, enter, writes, drafts, save, restore, linked: (field: string) => host.querySelector(`[data-inherited="${field}"]`) };
+  const amount = (name: string) => {
+    const input = row(host, name).querySelector<HTMLInputElement>(`input[data-testid="fiscal-declaration-${name}"]`);
+    assert.ok(input, name);
+    return input;
+  };
+  const enter = async (name: string, text: string) => act(async () => {
+    const input = amount(name);
+    input.setSelectionRange(0, input.value.length);
+    input.dispatchEvent(new InputEvent("beforeinput", { inputType: "insertText", data: text, bubbles: true, cancelable: true }));
+  });
+  const restore = (field: string) => row(host, field).querySelector<HTMLButtonElement>(`[data-restore-inherited="${field}"]`);
+  return {
+    host, get date() { return host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!; },
+    amount, enter, writes, drafts, restore,
+    open: (name: string) => open(host, name),
+    save: (name: string) => save(host, name),
+    read: (name: string) => read(host, name),
+    linked: (field: string) => host.querySelector(`[data-inherited="${field}"]`),
+  };
 }
 
-test("Restaurar on an unsaved edit shows the server's linked value, saves nothing and keeps the other edits", async () => {
-  const view = await editing(await dossier(), { values: { paid_on: "2026-11-15" } });
-  await type(view.ncf, "E310000000099");
+test("Restaurar on an unsaved edit shows the server's linked value and preserves the other saved fields", async () => {
+  const base = await dossier();
+  base.dgii = { ...base.dgii!, modified_ncf: "E310000000099" };
+  const view = await editing(base, { values: { paid_on: "2026-11-15" } });
+  await view.open("paid_on");
   await type(view.date, "18/11/2026");
   const button = view.restore("paid_on")!;
   assert.equal(button.disabled, false);
@@ -156,11 +188,11 @@ test("Restaurar on an unsaved edit shows the server's linked value, saves nothin
   assert.equal(view.date.value, "15 Nov 2026");
   assert.ok(view.linked("paid_on"));
   assert.equal(view.restore("paid_on"), null);
-  assert.equal(view.ncf.value, "E310000000099");
-  assert.deepEqual(view.writes, [], "Restaurar saves nothing");
+  assert.equal(view.read("modified_ncf"), "E310000000099");
+  assert.equal(view.writes.length, 0, "Restaurar saves nothing");
   await settle();
   assert.deepEqual(view.drafts.at(-1)!.restore_inherited, ["paid_on"]);
-  await view.save();
+  await view.save("paid_on");
   assert.equal(view.writes.length, 1);
   assert.equal(view.writes[0].declaration.modified_ncf, "E310000000099");
   assert.deepEqual(view.writes[0].montos, { restore_inherited: ["paid_on"] });
@@ -176,21 +208,24 @@ test("Restaurar on a saved override saves nothing, and Guardar sends the restore
   await act(async () => button.click());
   await settle();
   assert.ok(view.linked("goods_amount"));
-  assert.deepEqual(view.writes, [], "Restaurar saves nothing");
-  await view.save();
+  assert.equal(view.writes.length, 0, "Restaurar saves nothing");
+  await view.save("goods_amount");
   assert.deepEqual(view.writes[0].montos, { restore_inherited: ["goods_amount", "services_amount"] });
 });
 
-test("Restaurar is disabled only while a save is in flight", async () => {
+test("the edited row can restore until its save is in flight", async () => {
   const base = await dossier(); base.inheritance.goods_amount.inherited = false;
   let release = () => {};
   const view = await editing(base, { fiscal: () => new Promise<BusinessDossier>((resolve) => { release = () => resolve(base); }) });
+  assert.equal(view.restore("goods_amount")!.disabled, false, "a closed row offers restore");
+  await view.open("paid_on");
   await type(view.date, "18/11/2026");
-  assert.equal(view.restore("paid_on")!.disabled, false, "an unsaved edit does not disable it");
-  assert.equal(view.restore("goods_amount")!.disabled, false, "nor does a preview on the way");
-  await view.save();
-  assert.equal(view.restore("paid_on")!.disabled, true, "disabled while the save is in flight");
-  assert.equal(view.restore("goods_amount")!.disabled, true);
+  assert.equal(view.restore("paid_on")!.disabled, false, "an unsaved edit and its preview do not disable its restore");
+  assert.equal(view.restore("goods_amount"), null, "restore cannot switch away from the open row");
+  await view.save("paid_on");
+  assert.equal(view.restore("paid_on"), null, "restore is unavailable while the save is in flight");
+  assert.equal(view.date.disabled, true);
+  assert.equal(control(view.host, "paid_on", 'button[aria-label^="Cancelar ·"]').disabled, true);
   await act(async () => release());
 });
 
@@ -206,25 +241,27 @@ async function split(inherited: boolean, values?: Record<string, string | null>)
 test("Restaurar on one side puts back every field the server pairs with it, at the server's values", async () => {
   const view = await split(false, { goods_amount: "700.00", services_amount: "300.00" });
   await act(async () => view.restore("goods_amount")!.click());
-  assert.deepEqual([view.amount("goods_amount").value, view.amount("services_amount").value], ["1,000.00", ""], "the last values the server gave");
+  assert.deepEqual([view.amount("goods_amount").value, view.read("services_amount")], ["1,000.00", "Sin dato"], "the last values the server gave");
   await settle();
   assert.deepEqual(view.drafts.at(-1)!.restore_inherited?.toSorted(), ["goods_amount", "services_amount"]);
-  assert.deepEqual([view.amount("goods_amount").value, view.amount("services_amount").value], ["700.00", "300.00"], "the server's linked values for this draft");
+  assert.deepEqual([view.amount("goods_amount").value, view.read("services_amount")], ["700.00", "300.00"], "the server's linked values for this draft");
   assert.ok(view.linked("goods_amount") && view.linked("services_amount"));
-  assert.deepEqual(view.writes, []);
-  await view.save();
+  assert.equal(view.writes.length, 0);
+  await view.save("goods_amount");
   assert.deepEqual(view.writes[0].montos?.restore_inherited?.toSorted(), ["goods_amount", "services_amount"]);
   assert.equal(view.writes[0].montos?.override_inherited, undefined);
 });
 
 test("typing one side holds apart every field the server pairs with it, also after a restore", async () => {
   const view = await split(false);
-  await act(async () => view.restore("goods_amount")!.click());
+  await act(async () => view.restore("services_amount")!.click());
   await settle();
+  assert.ok(view.linked("goods_amount"));
   await view.enter("services_amount", "600");
-  assert.ok(view.restore("goods_amount"), "goods is held apart with services");
-  assert.equal(view.amount("goods_amount").value, "1,000.00", "and keeps the value it showed");
-  await view.save();
+  assert.ok(view.restore("services_amount"));
+  assert.equal(view.linked("goods_amount"), null, "goods is held apart with services");
+  assert.equal(view.read("goods_amount"), "1,000.00", "and keeps the value it showed");
+  await view.save("services_amount");
   assert.deepEqual(view.writes[0].montos?.override_inherited?.toSorted(), ["goods_amount", "services_amount"]);
   assert.equal(view.writes[0].montos?.restore_inherited, undefined);
   assert.deepEqual([view.writes[0].declaration.goods_amount, view.writes[0].declaration.services_amount], ["1000.00", "600"]);
@@ -238,24 +275,37 @@ test("the fiscal form names no goods or services field: the pairing is the serve
 test("Restaurar to an empty date source clears invalid typed text and leaves no hidden error", async () => {
   const base = await dossier(); base.inheritance.paid_on = { field: "occurred_on", value: null, inherited: true, paired_with: [] };
   const view = await editing(base);
+  await view.open("paid_on");
   await type(view.date, "99/99/2026");
   assert.equal(view.date.value, "99/99/2026");
   await act(async () => view.restore("paid_on")!.click());
   assert.equal(view.date.value, "");
   assert.equal(view.date.getAttribute("aria-invalid"), "false");
-  await view.save();
+  await view.save("paid_on");
   assert.equal(view.host.querySelector('[role="alert"]'), null);
   assert.equal(view.writes[0].declaration.paid_on, null);
   assert.deepEqual(view.writes[0].montos, { restore_inherited: ["paid_on"] });
 });
 
-test("switching the form clears typed text that never became a value", async () => {
-  const base = await dossier(); base.inheritance = {}; base.dgii = { ...base.dgii!, form: "606" }; base.facts.kind = { ...base.facts.kind, state: "unknown" };
+test("switching the form after cancelling a row clears text that never became a value", async () => {
+  const base = await dossier();
+  base.inheritance = {};
+  delete base.document_type;
+  base.dgii = { ...base.dgii, form: "606" };
+  base.facts.kind = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
   const both: DgiiFields = { "606": [{ name: "paid_on", label: "", kind: "date", options: [] }], "607": [{ name: "paid_on", label: "", kind: "date", options: [] }] };
   const host = await mount(<FiscalDeclarationEditor dossier={base} fields={both} disabled={false} reviewFiscal={async () => base} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  await open(host, "paid_on");
   await type(host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!, "99/99/2026");
-  const select = [...host.querySelectorAll("select")].find((element) => [...element.options].some((option) => option.value === "607"))!;
+  assert.equal(row(host, "form").querySelector("button[data-row-value]"), null);
+  await cancel(host, "paid_on");
+  await open(host, "form");
+  const select = row(host, "form").querySelector("select");
+  assert.ok(select);
   await act(async () => { select.value = "607"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+  await save(host, "form");
+  assert.equal(read(host, "form"), "607");
+  await open(host, "paid_on");
   assert.equal(host.querySelector<HTMLInputElement>("#fiscal-declaration-paid_on")!.value, "");
 });
 
@@ -292,9 +342,12 @@ test("a field that follows a code, a text or a date names its source and restore
   const state = (inherited: boolean): BusinessDossier => ({ ...base, inheritance: { ...base.inheritance, ...Object.fromEntries(Object.entries(links).map(([name, link]) => [name, { ...link, inherited }])) } });
   const editor = (value: BusinessDossier) => <FiscalDeclarationEditor dossier={value} fields={linkedFields} disabled={false} reviewFiscal={async () => value} onChanged={noop} onBusy={noop} onDirty={noop} />;
   const linked = await mount(editor(state(true)));
-  const from = (field: string) => linked.querySelector(`[data-inherited="${field}"]`)?.getAttribute("aria-label");
+  const from = (field: string) => sourceLabel(linked, field);
   assert.deepEqual([from("id_type"), from("modified_ncf"), from("paid_on")], ["Viene de RNC", "Viene de NCF de la compra original", "Viene de Fecha del comprobante"]);
+  await open(linked, "id_type");
   assert.equal(linked.querySelector<HTMLSelectElement>('[name="id_type"]')?.value, "1");
+  await cancel(linked, "id_type");
+  await open(linked, "modified_ncf");
   assert.equal(linked.querySelector<HTMLInputElement>('[name="modified_ncf"]')?.value, "E310000000007");
   await cleanup();
   const overridden = await mount(editor(state(false)));
@@ -312,7 +365,7 @@ test("a linked field shows its link icon only while it holds a value", async () 
   const host = await mount(<FiscalDeclarationEditor dossier={linked} fields={montos} disabled={false} reviewFiscal={async () => linked} onChanged={noop} onBusy={noop} onDirty={noop} />);
   assert.ok(host.querySelector('[data-inherited="goods_amount"]'));
   for (const field of ["services_amount", "legal_tip"]) {
-    assert.ok(host.querySelector(`[name="${field}"], [data-testid="fiscal-declaration-${field}"]`));
+    assert.ok(row(host, field));
     assert.equal(host.querySelector(`[data-inherited="${field}"]`), null);
     assert.equal(host.querySelector(`[data-restore-inherited="${field}"]`), null);
   }

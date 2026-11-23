@@ -1,8 +1,9 @@
-"""The ledger side of deleting an accepted Business document."""
+"""Ledger links and reversals for accepted Business documents."""
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from argus.domain.business.actions.fiscal import comprobante_identity
@@ -50,12 +51,20 @@ def sale_credit_link(tx: ActionTransaction, event: ImportEvent) -> bool:
     )
 
 
-def linked(tx: ActionTransaction, event: ImportEvent, activity: UUID) -> bool:
-    """An active match, settlement, or a fiscal or ledger link in either direction."""
+LinkReason = Literal["sale_credit", "posting_link"]
+
+
+def linked_reason(
+    tx: ActionTransaction, event: ImportEvent, activity: UUID
+) -> LinkReason | None:
+    """A sale-credit link protects fiscal identity as well as the money posting."""
+
+    if sale_credit_link(tx, event):
+        return "sale_credit"
 
     space, owner = tx.context.actor.space_id, tx.context.owner_id
     declaration = event.resolution["business"].get("dgii") or {}
-    return bool(
+    if (
         # A legacy import can point at a money row it never recorded itself.
         event.accept_key is None
         or declaration.get("purchase_activity_id")
@@ -90,8 +99,9 @@ def linked(tx: ActionTransaction, event: ImportEvent, activity: UUID) -> bool:
                 owner,
             ),
         )
-        or sale_credit_link(tx, event)
-    )
+    ):
+        return "posting_link"
+    return None
 
 
 def set_reversed(tx: ActionTransaction, activity: UUID, at: datetime | None) -> None:

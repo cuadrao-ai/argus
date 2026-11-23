@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import MoneyInput from "@/components/money/MoneyInput";
 import type { BusinessAccount } from "@/lib/business-api";
@@ -32,11 +32,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
   onDocumentTypeChange?: (value: DocumentType) => void;
 }) {
   const { t } = useTranslation();
-  const controls = useRef<HTMLDivElement>(null);
   const dateId = useId();
-  useEffect(() => {
-    controls.current?.querySelector<HTMLInputElement | HTMLSelectElement>("input, select")?.focus();
-  }, []);
   const set = <K extends BusinessFactField>(key: K, value: BusinessFactInput<NonNullable<NonNullable<BusinessFacts[K]>["value"]>>, invalid = false) => {
     onChange({ [key]: value } as BusinessFactPatch, invalid);
   };
@@ -50,7 +46,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
   const choose = t("business.review.choose", "Choose");
 
   return (
-    <div ref={controls} className="space-y-3" data-testid={`edit-${field}`}>
+    <div className="space-y-3" data-testid={`edit-${field}`}>
       {field === "document_type" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{t("business.dossier.type_label", "Type")}</span><ReviewSelect value={documentType} disabled={disabled} onChange={(event) => onDocumentTypeChange?.(event.target.value as DocumentType)}>{(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((type) => <option key={type} value={type}>{t(DOCUMENT_TYPE_LABELS[type])}</option>)}</ReviewSelect></label> : null}
       {field === "kind" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("kind")}</span><ReviewSelect value={kind.value ?? ""} disabled={disabled} onChange={(event) => {
         if (event.target.value === "expense" || event.target.value === "income" || event.target.value === "refund") set("kind", { state: "known", value: event.target.value });

@@ -8,6 +8,7 @@ import type { BusinessAccount } from "@/lib/business-api";
 import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
 import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFacts, type BusinessFiscalField, type BusinessSupportingFile } from "@/lib/business-dossier";
 import { formatDay, formatTimestamp } from "./business-format";
+import { DOCUMENT_TYPE_LABELS } from "./receipt-fact-rows";
 import { dossierRowLabel } from "./dossier-attention";
 import { DossierCard } from "./dossier/DossierParts";
 import { hasNoteChange } from "./dossier/annotation-history";
@@ -89,8 +90,10 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     return t(FEMININE.has(key) ? "business.history.changed_female" : "business.history.changed", "{{field}} changed from {{before}} to {{after}}", { field, before, after });
   };
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-  /** A correction that replaced one value with another shows both, old struck through; a first value or a cleared one is the sentence alone. */
-  const diffOf = (before: string, after: string) => before && after && before !== after ? { before, after } : undefined;
+  /** The two values come from the saved revision; an empty side says so. */
+  const diffOf = (before: string, after: string) => before !== after
+    ? { before: before || null, after: after || t("business.dossier.row.no_data") }
+    : undefined;
   /** The dictionary's fields a save changed, in its order, worded as the fiscal editor shows them; a field the earlier declaration lacked has nothing to strike. */
   const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration, facts: BusinessFacts): FiscalChange[] | null => {
     if (!dgiiFields) return null;
@@ -153,6 +156,11 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       const line = changed(key, show(revision.before), show(revision.after));
       const verified = key === "rnc" && line === null && after?.state === "known" && after.verified && !before?.verified;
       events.push({ id: `${revision.version}-${key}`, at, line: verified ? t("business.history.rnc_verified", "RNC verified") : line, who, diff: verified ? undefined : diffOf(show(revision.before), show(revision.after)) });
+    }
+    if (revision.before_document_type && revision.after_document_type && revision.before_document_type !== revision.after_document_type) {
+      const before = t(DOCUMENT_TYPE_LABELS[revision.before_document_type]);
+      const after = t(DOCUMENT_TYPE_LABELS[revision.after_document_type]);
+      events.push({ id: `${revision.version}-document-type`, at, line: changed("document_type", before, after), who, diff: diffOf(before, after) });
     }
     if (hasNoteChange(revision)) {
       const field = t("business.dossier.note.title");

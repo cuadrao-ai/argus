@@ -96,7 +96,7 @@ export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; l
 export type BandejaLabel = "reading" | "cant_read" | "needs_attention" | "ready" | "accepted";
 export type BandejaGroup = { group: "listo" | "attention" | "reading" | "eliminados" | null; reason: string | null; label: BandejaLabel | null; draft_id: string | null; version: number | null };
 /** `purge_at` is when the server purges the document for good. */
-export type DocumentDeletion = { actor: PersonName & { actor_id: string }; at: string; purge_at: string; key: string; previous_state: { state: string; group: "attention" | "listo" } };
+export type DocumentDeletion = { actor: PersonName & { actor_id: string }; at: string; purge_at: string; key: string; previous_state: { state: string; group: "attention" | "listo" | null } };
 export type DocumentDeleteAccess = { deleted?: DocumentDeletion | null; delete_available?: boolean; restore_available?: boolean };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
@@ -314,16 +314,12 @@ export async function settleBusinessRemainder(draftId: string, version: number, 
   });
 }
 
-/** The owner returns an approved record to the Bandeja to correct it; the server reverses the money row it recorded. */
-export async function reopenBusinessDraft(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
-  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/reopen`, {
-    method: "POST",
-    headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify({ version }),
-  });
-}
-
-export type DocumentActionAnswer = { document_id: string; deleted: boolean } & CountedAnswer;
+export type DocumentActionAnswer = CountedAnswer & {
+  document_id: string;
+  deleted: boolean;
+  purge_at?: string | null;
+  registros_count?: number | null;
+};
 
 export function deleteBusinessDocument(id: string, key: string): Promise<DocumentActionAnswer> {
   return apiFetch(`/business/drafts/${encodeURIComponent(id)}/delete`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });

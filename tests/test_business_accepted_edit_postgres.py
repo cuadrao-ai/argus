@@ -112,6 +112,10 @@ def test_accepted_review_updates_one_activity_history_and_feed(world, purchase, 
     after = _get(world, f"/business/drafts/{draft}/dossier").json()
     assert after["review_state"] == "accepted"
     assert after["facts_editable"] and after["document_type_editable"]
+    assert {"amount", "currency", "document_type", "occurred_on", "counterparty"} <= set(
+        after["editable_fields"]
+    )
+    assert "reopen_available" not in after
     assert after["approval_result"] == before["approval_result"]
     assert after["version"] == before["version"] + 1
     changes_money = field in {"amount", "occurred_on", "document_type", "counterparty"}
@@ -204,6 +208,11 @@ def test_linked_record_refuses_money_changes(world, purchase):
     activity = before["approval_result"]["activity_id"]
     _settle(world, activity, "pagado", "efectivo")
     before = _get(world, f"/business/drafts/{draft}/dossier").json()
+    fields = set(before["editable_fields"])
+    assert fields.isdisjoint({"amount", "currency", "occurred_on", "counterparty", "document_type"})
+    assert {"rnc", "fiscal_number", "itbis"} <= fields
+    assert not before["document_type_editable"]
+    assert before["declaration_editable"]
     revision = current_revision(activity)
     saved = review(
         world,
@@ -225,6 +234,7 @@ def test_prepare_grant_cannot_edit_accepted_record(world, purchase):
     guest = world.client.get(path, headers=headers).json()
     assert not guest["facts_editable"] and not guest["document_type_editable"]
     assert not guest["declaration_editable"]
+    assert guest["editable_fields"] == []
     result = review(
         world, draft, before, {"purchase": {"category": "09"}}, headers=headers
     )
@@ -295,6 +305,8 @@ def test_money_history_preserves_previous_posting(actions, users, funded):
     draft, version = records.captured(service, owner, NCF, funding)
     before = records.approved(service, owner, draft, version)
     activity = str(before.approval_result.activity_id)
+    assert "amount" in before.editable_fields
+    assert ("currency" in before.editable_fields) is not funded
     field, value = ("amount", "1280.00") if funded else ("currency", "USD")
     with service.authority.pool.connection() as db:
         db.execute(

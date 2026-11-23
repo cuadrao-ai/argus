@@ -186,9 +186,13 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     return () => window.removeEventListener("popstate", restore);
   }, [controller, scopeKey, clearFiscal, singleCurrency]);
   useEffect(() => { controller.rememberAnchor(restored.anchor); }, [controller, restored.anchor]);
+  const deletedDraftId = panel.kind === "transactions" ? panel.deletedDraftId : undefined;
+  const clearedByDelete = deletedDraftId !== undefined && state.anchor !== null
+    && [answer, scopeData?.answer].some((report) => report?.items.some((row) => row.draft_id === deletedDraftId && row.row_id === state.anchor));
   useEffect(() => {
+    if (clearedByDelete) controller.rememberAnchor(null);
     if (previousRevision.current !== revision) { previousRevision.current = revision; void controller.refresh(); }
-  }, [revision, controller]);
+  }, [revision, controller, clearedByDelete]);
   // The Business's one change check says when something changed; the table reads itself again without leaving the screen.
   const arrivals = useListArrivals(screen, "data-record-key");
   const { hold, arrived } = arrivals;
@@ -213,10 +217,10 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   }, [controller, upgrading, state.request]);
   // A record that left the current view says so once, in a toast; nothing above the table moves.
   useEffect(() => {
-    if (state.load.kind !== "ready" || !state.missingAnchor) return;
+    if (state.load.kind !== "ready" || !state.missingAnchor || clearedByDelete) return;
     showToast({ kind: "info", text: t("business.search.record_unavailable") });
     controller.rememberAnchor(null);
-  }, [controller, state.load.kind, state.missingAnchor, t]);
+  }, [controller, state.load.kind, state.missingAnchor, clearedByDelete, t]);
   const recipe = (patch: Partial<ReportRequest>, push = true) => {
     if (patch.filters && patch.filters.ready !== state.request.filters.ready) clearFiscal();
     load(singleCurrency(reportRequestSchema.parse({ ...state.request, ...patch, page: 1 })), push);

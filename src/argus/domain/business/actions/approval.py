@@ -206,8 +206,8 @@ def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict
 def _clear_approval_declaration(
     service: BusinessActions, context: ActionContext, draft_id: UUID
 ) -> None:
-    """Undo, on the reopened draft, the revision a failed approval wrote: the
-    declaration goes back to the one the person had saved, or to none.
+    """After a failed approval returns the draft to open, restore the declaration
+    the person had saved, if any.
 
     A failure here leaves it for the next approval to undo and never stops
     the refusal from being stored.

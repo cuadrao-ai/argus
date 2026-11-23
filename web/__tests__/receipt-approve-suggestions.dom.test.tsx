@@ -48,7 +48,7 @@ describe("approving sends only the suggestions on screen", () => {
     } finally { await page.close(); }
   });
 
-  test("a suggested code the list does not offer shows Elegir, so the approval does not save it", async () => {
+  test("a suggested code the list does not offer shows Sin dato, so the approval does not save it", async () => {
     const page = await approveWith((fixture) => async () => {
       const fields = await fixture.dgiiFields();
       const category = fields["606"].find((field) => field.name === "category")!;
@@ -56,8 +56,8 @@ describe("approving sends only the suggestions on screen", () => {
       return fields;
     });
     try {
-      await page.wait(() => Boolean(page.host.querySelector('[data-fact="category"] option')));
-      assert.equal(page.host.querySelector<HTMLSelectElement>('[data-fact="category"] select')?.value, "");
+      const row = page.host.querySelector('[data-fact="category"]');
+      assert.equal(row?.querySelector("[data-row-value]")?.textContent, "Sin dato");
       await page.approve();
       assert.deepEqual(page.sent, [{ payment_method: { value: "03", source: "last_choice" } }]);
     } finally { await page.close(); }
@@ -69,7 +69,9 @@ describe("approving sends only the suggestions on screen", () => {
       approveDraft: async (id, version, key, action, options) => { sent.push(options?.suggestions); return fixture.approveDraft(id, version, key, action, options); },
     }));
     try {
+      await page.openRow("payment_method");
       await fill(page, '[data-fact="payment_method"] select', "01", HTMLSelectElement);
+      await page.check("payment_method");
       await page.wait(() => Boolean(page.row("payment_method").querySelector('[data-testid="row-saved"]')));
       await page.act(async () => button(page.host, "Aceptar").click());
       await page.wait(() => sent.length === 1);

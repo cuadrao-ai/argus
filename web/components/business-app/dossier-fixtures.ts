@@ -1,5 +1,5 @@
 import type { BusinessAccount, BusinessApprovalOptions, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
-import { LISTO_GAPS, factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type ListoGap, type RefundCandidate } from "@/lib/business-dossier";
+import { LISTO_GAPS, factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type BusinessMontosReview, type EditableDossierField, type ListoGap, type RefundCandidate } from "@/lib/business-dossier";
 import type { DgiiDeclaration, DgiiField, DgiiFields, DgiiReview, PurchaseChoice, SuggestedField, SuggestionSources } from "@/lib/business-dgii";
 import { noteGroup } from "./fixture-server-rules";
 
@@ -199,7 +199,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const elena: BusinessActor = { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" };
   const personalSourceId = "20000000-0000-4000-8000-000000000016";
   const personalFacts: BusinessFacts = { ...marked.facts, business_share: { state: "known", value: { kind: "none" }, origin: "member_set", verified: true, source_ids: [personalSourceId] } };
-  dossiers.set(marked.draft_id, { ...marked, version: 4, review_state: "accepted", approval_available: false, reopen_available: true, personal: true, personal_marked_by: { display_name: elena.display_name, email: null, shown_as: "name" }, facts: personalFacts, sources: [...marked.sources, { id: personalSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T15:05:00Z", text: JSON.stringify({ version: 3, personal: true }) }], history: [...marked.history, { draft_id: marked.draft_id, version: 4, actor: elena, before: marked.facts, after: personalFacts, source_ids: [personalSourceId], turn_key: null, created_at: "2026-10-10T15:05:00Z" }], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000002", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor } });
+  dossiers.set(marked.draft_id, { ...marked, version: 4, review_state: "accepted", approval_available: false, personal: true, personal_marked_by: { display_name: elena.display_name, email: null, shown_as: "name" }, facts: personalFacts, sources: [...marked.sources, { id: personalSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T15:05:00Z", text: JSON.stringify({ version: 3, personal: true }) }], history: [...marked.history, { draft_id: marked.draft_id, version: 4, actor: elena, before: marked.facts, after: personalFacts, source_ids: [personalSourceId], turn_key: null, created_at: "2026-10-10T15:05:00Z" }], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000002", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor } });
   // The three gates the server serves on a dossier, by the rules its actions enforce. The sample's
   // owner holds approve, so a prepare-holder without it stands in for the accountant.
   const approvalActions: Record<string, BusinessApprovalAction> = { expense: "record_expense", income: "record_income", refund: "record_refund" };
@@ -218,7 +218,15 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       .slice(0, 20)
       .map((other) => ({ id: other.approval_result?.status === "recorded" ? other.approval_result.activity_id : other.draft_id, merchant: other.facts.counterparty.value, occurred_on: other.facts.occurred_on.value ?? "", amount: other.facts.amount.value ?? "", currency: money.value }));
   };
-  const declarationEditable = (draft: BusinessDossier) => draft.capabilities.includes("prepare") && (draft.review_state === "open" || draft.review_state === "accepted") && draft.facts.kind.value !== "income";
+  const factsEditable = (draft: BusinessDossier) => !draft.deleted && draft.capabilities.includes("prepare") && (draft.review_state === "open" || (draft.review_state === "accepted" && draft.capabilities.includes("approve")));
+  const declarationEditable = (draft: BusinessDossier) => factsEditable(draft) && draft.facts.kind.value !== "income";
+  const editableFields = (draft: BusinessDossier): EditableDossierField[] => {
+    if (!factsEditable(draft)) return [];
+    const fields: EditableDossierField[] = ["kind", "amount", "occurred_on", "counterparty", "funding", "business_share", "receipt_state", "category_id", "rnc", "fiscal_number", "itbis", "net_amount", "legal_tip", "document_type", "due_on", "modified_ncf"];
+    if (draft.review_state === "open" || (draft.facts.kind.value === "expense" && draft.dgii?.actual_refund === true)) fields.push("actual_refund");
+    if (draft.review_state === "open" || draft.facts.funding.value?.kind !== "business_account") fields.push("currency");
+    return fields;
+  };
   const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates" | "declaration_editable" | "declaration_suggestions"> => ({
     declaration_editable: declarationEditable(draft),
     // The server offers a suggestion only for an answer the record lacks.
@@ -233,9 +241,9 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const get = (id: string) => {
     const found = dossiers.get(id);
     if (!found) return fail(404, "draft_not_found");
-    // The sample reads a type the way the server does: open and preparable means it can still change.
     const stated = found.facts.receipt_state.state === "known" && (found.facts.receipt_state.value === "no_receipt" || found.facts.receipt_state.value === "informal_receipt");
-    return structuredClone({ document_type: "recibo" as const, ...found, ...sampleStanding(found, seededGaps.get(id)), sin_comprobante: stated && !found.fiscal_value, document_type_editable: found.review_state === "open" && found.capabilities.includes("prepare"), ...served(found) });
+    const editable = editableFields(found);
+    return structuredClone({ document_type: "recibo" as const, ...found, ...sampleStanding(found, seededGaps.get(id)), sin_comprobante: stated && !found.fiscal_value, facts_editable: factsEditable(found), editable_fields: editable, document_type_editable: editable.includes("document_type"), ...served(found) });
   };
   let receiptDraftCount = 0;
   let captureCount = 0;
@@ -247,7 +255,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     const prior = reviewReceipts.get(key);
     if (prior) return prior.input === input ? structuredClone(prior.result) : fail(409, "idempotency_conflict");
     const current = get(id);
-    if (!current.capabilities.includes("prepare")) fail(403, "permission_denied");
+    if (!current.facts_editable) fail(403, "permission_denied");
     if (current.version !== version) fail(409, "stale_version");
     if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
     const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
@@ -258,6 +266,39 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     const next: BusinessDossier = { ...current, version: current.version + 1, facts: nextFacts, fiscal_value: fiscalValue, dgii, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, body }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: nextFacts, before_dgii: current.dgii ?? null, after_dgii: dgii, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
     dossiers.set(id, next);
     reviewReceipts.set(key, { input, result: get(id) });
+    return get(id);
+  };
+  const reviewFacts = (id: string, version: number, patch: BusinessFactPatch, key: string) => {
+    if (!key) fail(422, "idempotency_key_required");
+    const input = JSON.stringify({ id, version, facts: patch });
+    const prior = reviewReceipts.get(key);
+    if (prior) return prior.input === input ? structuredClone(prior.result) : fail(409, "idempotency_conflict");
+    const current = get(id);
+    if (!current.facts_editable) fail(403, "permission_denied");
+    if (current.version !== version) fail(409, "stale_version");
+    const required = (["amount", "currency", "occurred_on"] as const).find((field) => patch[field]?.state === "unknown");
+    if (current.review_state === "accepted" && required) fail(422, "fact_required", { field: required });
+    if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
+    if (id === dossierFixtureIds.saveConcurrent && version === 2) {
+      const otherSourceId = "20000000-0000-4000-8000-000000000014";
+      const otherFacts: BusinessFacts = { ...current.facts, counterparty: { state: "known", value: "Corrección de otra persona", origin: "member_set", verified: false, source_ids: [otherSourceId] } };
+      dossiers.set(id, { ...current, version: 3, facts: otherFacts, sources: [...current.sources, { id: otherSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T14:31:00Z", text: JSON.stringify({ version, facts: { counterparty: { state: "known", value: "Corrección de otra persona" } } }) }], history: [...current.history, { draft_id: id, version: 3, actor: { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" }, before: current.facts, after: otherFacts, source_ids: [otherSourceId], turn_key: null, created_at: "2026-10-10T14:31:00Z" }] });
+      throw new TypeError("Synthetic request interrupted before write; another human advanced the draft");
+    }
+    const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
+    const updated = Object.fromEntries(Object.entries(patch).filter(([, fact]) => fact !== undefined).map(([key, fact]) => [key, { ...fact, origin: "member_set", verified: false, source_ids: [actionSourceId] }])) as Partial<BusinessFacts>;
+    const next: BusinessDossier = { ...current, version: current.version + 1, facts: { ...current.facts, ...updated }, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, facts: patch }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: { ...current.facts, ...updated }, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
+    if (next.facts.funding.state === "known") {
+      next.questions = next.questions.map((question) => question.field === "funding" ? { ...question, state: "answered", answer_source_id: actionSourceId } : question);
+      next.blockers = next.blockers.filter((blocker) => blocker.field !== "funding");
+    }
+    if (next.facts.kind.state === "known" && next.facts.kind.value === "expense") next.blockers = next.blockers.filter((blocker) => blocker.field !== "kind");
+    next.blockers = next.blockers.filter((blocker) => !(blocker.code === "fact_required" && blocker.field && next.facts[blocker.field]?.state === "known"));
+    if (patch.net_amount) next.net_amount = { amount: next.facts.net_amount?.value ?? null, source: next.facts.net_amount?.value == null ? null : "edited" };
+    next.approval_available = next.review_state === "open" && next.blockers.length === 0 && next.capabilities.includes("approve") && next.facts.kind.state === "known" && next.facts.kind.value === "expense";
+    dossiers.set(id, next);
+    reviewReceipts.set(key, { input, result: get(id) });
+    if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
     return get(id);
   };
   return {
@@ -357,42 +398,14 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       return id;
     },
     dossier: async (id: string) => id === dossierFixtureIds.unprepared ? fail(409, "draft_not_prepared") : get(id),
-    reviewDraft: async (id: string, version: number, patch: BusinessFactPatch, key: string) => {
-      if (!key) fail(422, "idempotency_key_required");
-      const input = JSON.stringify({ id, version, facts: patch });
-      const prior = reviewReceipts.get(key);
-      if (prior) return prior.input === input ? structuredClone(prior.result) : fail(409, "idempotency_conflict");
-      const current = get(id);
-      if (!current.capabilities.includes("prepare")) fail(403, "permission_denied");
-      if (current.version !== version) fail(409, "stale_version");
-      if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
-      if (id === dossierFixtureIds.saveConcurrent && version === 2) {
-        const otherSourceId = "20000000-0000-4000-8000-000000000014";
-        const otherFacts: BusinessFacts = { ...current.facts, counterparty: { state: "known", value: "Corrección de otra persona", origin: "member_set", verified: false, source_ids: [otherSourceId] } };
-        dossiers.set(id, { ...current, version: 3, facts: otherFacts, sources: [...current.sources, { id: otherSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T14:31:00Z", text: JSON.stringify({ version, facts: { counterparty: { state: "known", value: "Corrección de otra persona" } } }) }], history: [...current.history, { draft_id: id, version: 3, actor: { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" }, before: current.facts, after: otherFacts, source_ids: [otherSourceId], turn_key: null, created_at: "2026-10-10T14:31:00Z" }] });
-        throw new TypeError("Synthetic request interrupted before write; another human advanced the draft");
-      }
-      const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
-      const updated = Object.fromEntries(Object.entries(patch).map(([key, fact]) => [key, { ...fact, origin: "member_set", verified: false, source_ids: [actionSourceId] }])) as Partial<BusinessFacts>;
-      const next: BusinessDossier = { ...current, version: current.version + 1, facts: { ...current.facts, ...updated }, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, facts: patch }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: { ...current.facts, ...updated }, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
-      if (next.facts.funding.state === "known") {
-        next.questions = next.questions.map((question) => question.field === "funding" ? { ...question, state: "answered", answer_source_id: actionSourceId } : question);
-        next.blockers = next.blockers.filter((blocker) => blocker.field !== "funding");
-      }
-      if (next.facts.kind.state === "known" && next.facts.kind.value === "expense") next.blockers = next.blockers.filter((blocker) => blocker.field !== "kind");
-      next.blockers = next.blockers.filter((blocker) => !(blocker.code === "fact_required" && blocker.field && next.facts[blocker.field]?.state === "known"));
-      next.approval_available = next.blockers.length === 0 && next.capabilities.includes("approve") && next.facts.kind.state === "known" && next.facts.kind.value === "expense";
-      dossiers.set(id, next);
-      reviewReceipts.set(key, { input, result: get(id) });
-      if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
-      return get(id);
-    },
+    reviewMontos: async (id: string, version: number, montos: BusinessMontosReview, key: string) => reviewFacts(id, version, { net_amount: montos.net_amount, legal_tip: montos.legal_tip }, key),
+    reviewDraft: async (id: string, version: number, patch: BusinessFactPatch, key: string) => reviewFacts(id, version, patch, key),
     setDocumentType: async (id: string, version: number, documentType: "recibo" | "venta") => {
       const current = get(id);
       if (current.version !== version) fail(409, "stale_version");
       if (!current.document_type_editable) fail(422, "document_type_locked");
       if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
-      dossiers.set(id, { ...current, version: current.version + 1, document_type: documentType, document_type_detected: undefined });
+      dossiers.set(id, { ...current, version: current.version + 1, document_type: documentType, document_type_detected: undefined, history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: current.facts, before_document_type: current.document_type, after_document_type: documentType, source_ids: [], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] });
       return get(id);
     },
     settleRemainder: async (id: string, version: number) => {
@@ -402,15 +415,6 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       if (current.review_state !== "accepted") fail(422, "business_draft_not_recorded");
       if (!current.unrecorded_purchases) fail(422, "business_remainder_none");
       dossiers.set(id, { ...current, version: current.version + 1, unrecorded_purchases: 0 });
-      return get(id);
-    },
-    reopenDraft: async (id: string, version: number) => {
-      const current = get(id);
-      if (!current.capabilities.includes("approve")) fail(403, "business_permission_denied");
-      if (current.version !== version) fail(409, "stale_version");
-      if (current.review_state !== "accepted") fail(422, "business_draft_not_recorded");
-      if (!current.reopen_available) fail(422, "business_record_matched");
-      dossiers.set(id, { ...current, version: current.version + 1, review_state: "open", approval_available: true, approval_result: null, reopen_available: false });
       return get(id);
     },
     approveDraft: async (id: string, version: number, action: BusinessApprovalAction = "record_expense", { acceptGaps = [], suggestions }: BusinessApprovalOptions = {}) => {
@@ -439,7 +443,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const taken = SUGGESTED.flatMap((field) => suggestions?.[field] ? [[field, suggestions[field]!] as const] : []);
       if (taken.some(([field]) => !blankAnswer(current.dgii, field))) fail(422, "suggestion_stale");
       const saved: DgiiDeclaration | null | undefined = taken.length ? { ...(current.dgii ?? { form: "606" }), ...Object.fromEntries(taken.map(([field, { value }]) => [field, value])), ...(taken.some(([field]) => field === "category") ? { category_suggested: false } : {}), suggestion_sources: { ...current.dgii?.suggestion_sources, ...Object.fromEntries(taken.map(([field, { source }]) => [field, source])) } } : current.dgii;
-      const next: BusinessDossier = { ...current, dgii: saved, version: current.version + 1, review_state: "accepted", approval_available: false, reopen_available: current.capabilities.includes("approve"), approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: version, approved_revision: factsRevision(current), approved_at: "2026-10-10T14:40:00Z", actor } };
+      const next: BusinessDossier = { ...current, dgii: saved, version: current.version + 1, review_state: "accepted", approval_available: false, approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: version, approved_revision: factsRevision(current), approved_at: "2026-10-10T14:40:00Z", actor } };
       dossiers.set(id, next);
       return get(id);
     },
