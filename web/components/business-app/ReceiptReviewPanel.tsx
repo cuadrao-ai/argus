@@ -22,8 +22,7 @@ import { DossierStatus } from "./dossier/DossierHeader";
 import { DossierBare, DossierCard, DossierRow, DossierRows } from "./dossier/DossierParts";
 import { useJumpRows } from "./dossier/jump-rows";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
-import { DeleteDocumentMenuItem, RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
-import ReceiptReviewFooter, { ReceiptMoreMenu } from "./ReceiptReviewFooter";
+import { RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { showToast } from "./foundation/toasts";
 import { handTitleFocus } from "./bandeja-order";
@@ -185,21 +184,17 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
   const footer = (primary?: ReactNode) => {
     if (deletion.confirmBar) return deletion.confirmBar;
     const disabled = busy !== null || deletion.busy;
+    // With no draft the only document action is its deletion, so the footer names it; a menu would hold one row.
     const documentAction = canDelete
-      ? readBoard || failed
-        ? <ReadStateDelete onClick={deletion.ask} disabled={disabled} />
-        : <ReceiptMoreMenu groups={[<DeleteDocumentMenuItem key="delete" disabled={disabled} onClick={deletion.ask} />]} />
+      ? <ReadStateDelete onClick={deletion.ask} disabled={disabled} />
       : detail.restore_available
         ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} />
         : null;
-    if (readBoard || failed) {
-      if (!documentAction && !primary) return null;
-      return <div className="flex flex-wrap items-center gap-2">
-        {documentAction}
-        {primary ? <div className="ml-auto">{primary}</div> : null}
-      </div>;
-    }
-    return canDelete || primary ? <ReceiptReviewFooter actions={<>{documentAction}{primary}</>} /> : documentAction;
+    if (!documentAction && !primary) return null;
+    return <div className="flex flex-wrap items-center gap-2">
+      {documentAction}
+      {primary ? <div className="ml-auto">{primary}</div> : null}
+    </div>;
   };
   const frame = (children: ReactNode, primary?: ReactNode) => (
     <ContentFade><ReceiptReviewFrame
