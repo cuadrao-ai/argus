@@ -84,3 +84,82 @@ test("the links follow the sample's writes: a held field stays apart until it is
   assert.deepEqual([edited.dgii?.services_amount, edited.dgii_calculated?.billed_amount], ["3900.00", "3900.00"]);
   assert.deepEqual(edited.review_flags, [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "100.00" }], "Total no longer equals its parts");
 });
+
+/** The server's rule after any write: a linked field that follows its source holds that source's value, and the calculated total is the two sides it declares. */
+function assertInStep(dossier: BusinessDossier, step: string) {
+  const cents = (value: unknown) => Math.round(Number(value ?? 0) * 100);
+  for (const [name, state] of Object.entries(dossier.inheritance ?? {})) {
+    if (!state.inherited) continue;
+    const held = dossier.dgii?.[name] ?? null;
+    const money = ["net_amount", "itbis", "legal_tip"].includes(state.field);
+    assert.ok(held === null || state.value === null ? held === state.value : money ? cents(held) === cents(state.value) : held === state.value, `${step}: ${name} is ${held}, its source says ${state.value}`);
+  }
+  assert.equal(cents(dossier.dgii_calculated?.billed_amount), cents(dossier.dgii?.services_amount) + cents(dossier.dgii?.goods_amount), `${step}: Total facturado`);
+}
+
+async function approved(receiptId: string, before?: (opened: Awaited<ReturnType<typeof sample>>) => Promise<BusinessDossier>) {
+  const opened = await sample(receiptId);
+  const reviewed = before ? await before(opened) : opened.dossier;
+  const taken = Object.fromEntries(Object.entries(reviewed.declaration_suggestions ?? {}).filter(([, suggestion]) => suggestion));
+  const dossier = await opened.source.approveDraft!(reviewed.draft_id, reviewed.version, `approve-${receiptId}`, "record_expense", { suggestions: taken });
+  assert.equal(dossier.review_state, "accepted");
+  assertInStep(dossier, "approved");
+  return { ...opened, dossier };
+}
+const fiscalOf = (dossier: BusinessDossier) => ({ rnc: dossier.facts.fiscal!.rnc.value, ncf: dossier.facts.fiscal!.ncf.value, itbis: dossier.facts.fiscal!.itbis.value });
+
+test("an approved record's linked amount follows a later Subtotal, and the save is kept", async () => {
+  const { source, dossier } = await approved("rcpt-listo-imprenta");
+  assert.deepEqual([dossier.dgii?.services_amount, dossier.dgii_calculated?.billed_amount], ["4000.00", "4000.00"]);
+  const edited = await source.reviewMontos!(dossier.draft_id, dossier.version, { net_amount: { state: "known", value: "3900.00" } }, "approved-subtotal");
+  assertInStep(edited, "Subtotal edited");
+  assert.deepEqual([edited.dgii?.services_amount, edited.dgii_calculated?.billed_amount, edited.inheritance?.services_amount], ["3900.00", "3900.00", link("net_amount", "3900.00", true, ["goods_amount"])]);
+  const reread = await source.dossier!(dossier.draft_id) as BusinessDossier;
+  assert.deepEqual([reread.dgii, reread.dgii_calculated], [edited.dgii, edited.dgii_calculated]);
+});
+
+test("an approved record keeps an amount a person holds apart, while its other links follow", async () => {
+  const { source, dossier } = await approved("rcpt-listo-imprenta", ({ source, dossier }) => source.reviewFiscal!(dossier.draft_id, dossier.version, { fiscal: fiscalOf(dossier), declaration: { ...dossier.dgii!, services_amount: "3500.00" }, montos: { override_inherited: ["services_amount"] } }, "hold-services"));
+  const subtotal = await source.reviewMontos!(dossier.draft_id, dossier.version, { net_amount: { state: "known", value: "3900.00" } }, "held-subtotal");
+  assertInStep(subtotal, "Subtotal edited");
+  assert.deepEqual([subtotal.dgii?.services_amount, subtotal.dgii?.goods_amount, subtotal.inheritance?.services_amount?.inherited, subtotal.dgii_calculated?.billed_amount], ["3500.00", null, false, "3500.00"]);
+  const taxed = await source.reviewFiscal!(subtotal.draft_id, subtotal.version, { fiscal: { ...fiscalOf(subtotal), itbis: "702.00" }, declaration: subtotal.dgii! }, "held-itbis");
+  assertInStep(taxed, "ITBIS edited");
+  assert.deepEqual([taxed.dgii?.itbis, taxed.dgii?.services_amount, taxed.dgii_calculated], ["702.00", "3500.00", { billed_amount: "3500.00", itbis_advance: "702.00" }]);
+});
+
+test("an approved record's amount changes side with its Tipo de gasto", async () => {
+  const { source, dossier } = await approved("rcpt-listo-imprenta");
+  const goods = await source.reviewPurchase!(dossier.draft_id, dossier.version, { category: "09" }, "approved-goods");
+  assertInStep(goods, "Tipo de gasto changed");
+  assert.deepEqual([goods.dgii?.services_amount, goods.dgii?.goods_amount, goods.dgii_calculated?.billed_amount], [null, "4000.00", "4000.00"]);
+});
+
+test("an approved record's Fecha de pago follows a corrected date unless a person holds it apart", async () => {
+  const corrected = "2026-10-02";
+  const followed = await approved("rcpt-listo-imprenta");
+  assert.equal(followed.dossier.dgii?.paid_on, followed.receipt.occurred_on);
+  const moved = await followed.source.reviewDraft!(followed.dossier.draft_id, followed.dossier.version, { occurred_on: { state: "known", value: corrected } }, "approved-date");
+  assert.equal(moved.dgii?.paid_on, corrected);
+  const held = await approved("rcpt-listo-limpieza");
+  const kept = await held.source.reviewDraft!(held.dossier.draft_id, held.dossier.version, { occurred_on: { state: "known", value: corrected } }, "held-date");
+  assert.equal(kept.dgii?.paid_on, held.dossier.dgii?.paid_on);
+  assert.notEqual(kept.dgii?.paid_on, corrected);
+  const later = "2026-12-01";
+  const stated = await followed.source.reviewFiscal!(moved.draft_id, moved.version, { fiscal: fiscalOf(moved), declaration: { ...moved.dgii!, paid_on: later } }, "approved-paid-on");
+  const again = await followed.source.reviewDraft!(stated.draft_id, stated.version, { occurred_on: { state: "known", value: "2026-10-03" } }, "approved-date-again");
+  assert.equal(again.dgii?.paid_on, later, "a Fecha de pago a person gave after approval is theirs");
+});
+
+test("every write to an open sample leaves its links in step", async () => {
+  const { source, dossier } = await sample("rcpt-listo-gasolinera");
+  const subtotal = await source.reviewMontos!(dossier.draft_id, dossier.version, { net_amount: { state: "known", value: "1700.00" } }, "open-subtotal");
+  assertInStep(subtotal, "Subtotal edited");
+  assert.equal(subtotal.dgii?.goods_amount, "1700.00");
+  const services = await source.reviewPurchase!(subtotal.draft_id, subtotal.version, { category: "02" }, "open-services");
+  assertInStep(services, "Tipo de gasto changed");
+  assert.deepEqual([services.dgii?.services_amount, services.dgii?.goods_amount], ["1700.00", null]);
+  const taxed = await source.reviewFiscal!(services.draft_id, services.version, { fiscal: { ...fiscalOf(services), itbis: "306.00" }, declaration: services.dgii! }, "open-itbis");
+  assertInStep(taxed, "ITBIS edited");
+  assert.equal(taxed.dgii?.itbis, "306.00");
+});

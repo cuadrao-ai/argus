@@ -71,6 +71,7 @@ const cents = (value: string | null | undefined) => Math.round(Number(value ?? 0
 const money = (value: number) => (value / 100).toFixed(2);
 const text = (value: DgiiDeclaration[string] | undefined) => typeof value === "string" ? value : null;
 const heldValue = <T>(fact: BusinessFact<T> | null | undefined) => fact?.state === "known" ? fact.value : null;
+const idTypeOf = (facts: BusinessFacts) => { const digits = heldValue(facts.fiscal?.rnc)?.replace(/\D/g, "").length; return digits === 9 ? "1" : digits === 11 ? "2" : null; };
 const sameLinked = (source: LinkSource, a: string | null, b: string | null) => a === null || b === null ? a === b : MONEY_SOURCES.has(source) ? cents(a) === cents(b) : a === b;
 
 type SampleDeclared = Required<Pick<BusinessDossier, "net_amount" | "inheritance" | "dgii_calculated" | "review_flags">> & Pick<BusinessDossier, "dgii">;
@@ -84,9 +85,11 @@ type SampleDeclared = Required<Pick<BusinessDossier, "net_amount" | "inheritance
  * person holds `apart` and the answers the server suggests, so a write moves
  * every field that follows it. `apart` is undefined for a declaration saved
  * before any link was recorded: a field then follows its source while it is
- * blank or equal to it.
+ * blank or equal to it. `corrected` is given when a revision is saved
+ * (`saved_declaration_links`): the sources besides the amounts that it moved,
+ * which an approved record follows in that save alone.
  */
-function sampleDeclared(draft: BusinessDossier, { sinComprobante, apart, suggestions }: { sinComprobante: boolean; apart: readonly string[] | undefined; suggestions: BusinessDossier["declaration_suggestions"] }): SampleDeclared {
+function sampleDeclared(draft: BusinessDossier, { sinComprobante = false, apart, suggestions, corrected }: { sinComprobante?: boolean; apart: readonly string[] | undefined; suggestions?: BusinessDossier["declaration_suggestions"]; corrected?: ReadonlySet<LinkSource> }): SampleDeclared {
   const { facts } = draft;
   const saved = draft.dgii?.form === "606" ? draft.dgii : null;
   const itbis = heldValue(facts.fiscal?.itbis);
@@ -104,8 +107,7 @@ function sampleDeclared(draft: BusinessDossier, { sinComprobante, apart, suggest
 
   const rnc = heldValue(facts.fiscal?.rnc);
   const number = heldValue(facts.fiscal?.ecf) ?? heldValue(facts.fiscal?.ncf);
-  const digits = rnc?.replace(/\D/g, "").length;
-  const idType = digits === 9 ? "1" : digits === 11 ? "2" : null;
+  const idType = idTypeOf(facts);
   const approved = draft.review_state !== "open" && draft.review_state !== "accepting";
   const reviewing = draft.review_state === "open" && facts.kind.value === "expense" && draft.document_type !== "venta" && !sinComprobante;
   const funding = heldValue(facts.funding);
@@ -131,13 +133,13 @@ function sampleDeclared(draft: BusinessDossier, { sinComprobante, apart, suggest
   };
   const inheritance: SampleDeclared["inheritance"] = {};
   for (const [target, source] of PURCHASE_LINKS) {
-    // Tipo de ID and Fecha de pago follow their source only while an open draft is reviewed.
-    if (approved && !MONEY_SOURCES.has(source)) continue;
+    // Tipo de ID and Fecha de pago follow their source while an open draft is reviewed, and in the save that corrects that source.
+    if (approved && !MONEY_SOURCES.has(source) && !corrected?.has(source)) continue;
     const current = text(shown[target]);
     const inherited = apart ? !apart.includes(target) : current === null || sameLinked(source, current, expected[target]);
     inheritance[target] = { field: source, value: expected[target], inherited, paired_with: AMOUNT_SIDES.includes(target) ? AMOUNT_SIDES.filter((side) => side !== target) : [] };
-    // An approved record shows what its approval saved; one saved before links were recorded keeps its blank amounts filled.
-    if (!inherited || (approved && apart)) continue;
+    // An approved record shows what its last revision saved; one saved before links were recorded keeps its blank amounts filled.
+    if (!inherited || (approved && apart && !corrected)) continue;
     const value = expected[target];
     shown[target] = value !== null && MONEY_SOURCES.has(source) ? cents(value) >= 0 ? money(cents(value)) : null : value;
   }
@@ -354,6 +356,17 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   let captureCount = 0;
   const captures: BusinessCapture[] = [];
   const captureReceipts = new Map<string, { input: string; draftId: string }>();
+  /**
+   * `saved_declaration_links` in short: the 606 a revision of a sample receipt
+   * saves, each linked field a person does not hold apart at the value it
+   * follows after the write. An open draft is worked out on every read, so
+   * only an approved record stores it.
+   */
+  const savedDeclaration = (before: BusinessFacts, next: BusinessDossier): BusinessDossier["dgii"] => {
+    if (!receiptDrafts.has(next.draft_id) || next.review_state === "open" || next.review_state === "accepting") return next.dgii;
+    const corrected = new Set<LinkSource>([...(heldValue(before.occurred_on) === heldValue(next.facts.occurred_on) ? [] : ["occurred_on" as const]), ...(idTypeOf(before) === idTypeOf(next.facts) ? [] : ["rnc" as const])]);
+    return sampleDeclared(next, { apart: heldApart.get(next.draft_id), corrected }).dgii;
+  };
   const writeDeclaration = (id: string, version: number, key: string, body: unknown, change: (current: BusinessDossier, stated: <T>(value: T | null) => BusinessFact<T>) => { facts?: BusinessFacts; dgii: DgiiDeclaration }, links: Pick<BusinessMontosReview, "override_inherited" | "restore_inherited"> = {}) => {
     if (!key) fail(422, "idempotency_key_required");
     const input = JSON.stringify({ id, version, body });
@@ -366,15 +379,15 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
     const stated = <T>(value: T | null): BusinessFact<T> => value === null ? { state: "unknown", value: null, origin: "member_set", verified: false, source_ids: [actionSourceId] } : { state: "known", value, origin: "member_set", verified: false, source_ids: [actionSourceId] };
     const { facts: nextFacts = current.facts, dgii: written } = change(current, stated);
-    const dgii = keptSources(current.dgii, written);
     // `inheritance_overrides` in short: a linked field a person changed or named is held apart, the two amount sides together, until it is restored.
     const apart = new Set(heldApart.get(id));
-    for (const [name, link] of Object.entries(current.inheritance ?? {})) if (!sameLinked(link.field, text(written[name]), text(current.dgii?.[name]))) apart.add(name);
+    if (current.dgii?.form === "606") for (const [name, source] of PURCHASE_LINKS) if (!sameLinked(source, text(written[name]), text(current.dgii[name]))) apart.add(name);
     for (const name of links.override_inherited ?? []) apart.add(name);
     const restored = new Set(links.restore_inherited);
     for (const side of AMOUNT_SIDES) if (AMOUNT_SIDES.some((other) => restored.has(other))) apart.delete(side); else if (AMOUNT_SIDES.some((other) => apart.has(other))) apart.add(side);
     for (const name of restored) apart.delete(name);
     heldApart.set(id, [...apart].sort());
+    const dgii = savedDeclaration(current.facts, { ...current, facts: nextFacts, dgii: keptSources(current.dgii, written) });
     const fiscalValue = nextFacts.fiscal?.ecf.state === "known" ? "ecf" : nextFacts.fiscal?.ncf.state === "known" ? "ncf" : null;
     const next: BusinessDossier = { ...current, version: current.version + 1, facts: nextFacts, fiscal_value: fiscalValue, dgii, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, body }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: nextFacts, before_dgii: current.dgii ?? null, after_dgii: dgii, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
     dossiers.set(id, next);
@@ -409,6 +422,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     next.blockers = next.blockers.filter((blocker) => !(blocker.code === "fact_required" && blocker.field && next.facts[blocker.field]?.state === "known"));
     if (patch.net_amount) next.net_amount = { amount: next.facts.net_amount?.value ?? null, source: next.facts.net_amount?.value == null ? null : "edited" };
     next.approval_available = next.review_state === "open" && next.blockers.length === 0 && next.capabilities.includes("approve") && next.facts.kind.state === "known" && next.facts.kind.value === "expense";
+    next.dgii = savedDeclaration(current.facts, next);
     dossiers.set(id, next);
     reviewReceipts.set(key, { input, result: get(id) });
     if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
