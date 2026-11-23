@@ -1,6 +1,6 @@
 from pydantic import Field, model_validator
 
-from argus.domain.business.contracts.dgii import DgiiDeclaration
+from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseCalculated
 from argus.domain.business.contracts.dossier import ReviewFlag
 from argus.domain.business.contracts.facts import (
     Amount,
@@ -33,5 +33,7 @@ class AmountsPreviewRequest(Contract):
 class AmountsPreview(Contract):
     net_amount: NetAmount
     mismatch: ReviewFlag | None = None
-    #: The links the dossier shows once this draft is saved.
+    #: The links and the calculated 606 amounts the dossier shows once this
+    #: draft is saved.
     inheritance: dict[str, InheritedValue]
+    dgii_calculated: PurchaseCalculated | None = None

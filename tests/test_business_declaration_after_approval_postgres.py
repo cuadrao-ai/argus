@@ -303,7 +303,7 @@ def test_a_record_the_old_approval_left_blank_takes_the_whole_606(actions):  # n
     cash = account_funding(cash_account(service, context))
     with patch(
         "argus.domain.business.actions.approval._approval_declaration",
-        return_value=None,
+        return_value=(None, None),
     ):
         draft_id, version = captured(service, context, "B0100000041", cash)
         view = approved(service, context, draft_id, version)

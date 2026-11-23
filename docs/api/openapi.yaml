@@ -16318,6 +16318,10 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/InheritedValue'
           type: object
+        dgii_calculated:
+          anyOf:
+          - $ref: '#/components/schemas/PurchaseCalculated'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -28177,6 +28181,10 @@ components:
             - read
             - calculated
             - edited
+          - type: 'null'
+        calculated:
+          anyOf:
+          - type: string
           - type: 'null'
       additionalProperties: false
       type: object

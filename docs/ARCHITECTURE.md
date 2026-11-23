@@ -606,7 +606,7 @@ The payload fields that the dossier screen reads:
 
 | Field | What it says | Owner |
 | --- | --- | --- |
-| `facts`, `net_amount` | The record's values. `net_amount.source` is `read`, `calculated` or `edited`. | `facts_of`; `net_amount` in `purchase_review.py` |
+| `facts`, `net_amount` | The record's values. `net_amount.source` is `read`, `calculated` or `edited`. `net_amount.calculated` is the Subtotal the server calculates, whatever the source. | `facts_of`; `net_amount` in `purchase_review.py` |
 | `dgii` | The 606 or 607 declaration. On an open expense with none saved, it is the declaration that an approval would write. | `written_from` in `amount_inheritance.py` |
 | `inheritance` | The linked state of each fiscal field: `{field, value, inherited, paired_with}`. `field` names the source fact, `value` is the source value to restore, and `inherited` is false after a person overrides the field. | `inheritance_state` and the `INHERITANCE` map in `amount_inheritance.py` |
 | `dgii_calculated` | `{billed_amount, itbis_advance}`: the two amounts the 606 calculates and no person enters. Null for a sale and for a record with no 606 declaration. | `purchase_calculated` in `dgii_validation.py`, which the 606 line also reads |
@@ -644,6 +644,7 @@ the link icon when its `inheritance` entry has `inherited` true, and it shows
 the restore button when that entry has `inherited` false. While the fiscal form
 holds an unsaved change, the web asks
 `POST /business/drafts/{id}/amounts-preview` what each linked field would show.
+The same answer carries `dgii_calculated` for that unsaved draft.
 It does not work the value out. The web adds no amounts, compares no years and
 decides no status.
 
