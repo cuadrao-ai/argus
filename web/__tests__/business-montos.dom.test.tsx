@@ -79,7 +79,18 @@ test("Total carries the check when the server found the saved amounts add up, in
   host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />, "en");
   assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("aria-label"), "Subtotal + ITBIS = total");
 });
-test("Total has no check the server did not make: no flags sent, no subtotal, no total, or an edit still in preview", async () => {
+test("a read subtotal, ITBIS and total the server let through carry the check; a real mismatch carries its difference", async () => {
+  const base = await dossier(); base.review_flags = [];
+  const read = { ...base, net_amount: { amount: "1000.00", source: "read" as const }, facts: { ...base.facts, amount: known("1180.00"), legal_tip: undefined, fiscal: { ...base.facts.fiscal!, itbis: known("180.00") } } };
+  let host = await mount(<ReceiptRecordFacts dossier={read} accounts={[]} />);
+  assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("data-status"), "ok");
+  assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("aria-label"), "Subtotal + ITBIS = total");
+  await cleanup();
+  host = await mount(<ReceiptRecordFacts dossier={{ ...read, review_flags: [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }] }} accounts={[]} />);
+  assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("data-status"), "warn");
+  assert.equal(host.querySelector('[data-testid="row-status-amount"]')?.getAttribute("aria-label"), "Diferencia 20.00");
+});
+test("Total has no check the server did not make: no flags sent, no subtotal, no total, no ITBIS, or an edit still in preview", async () => {
   const base = await dossier(); base.review_flags = [];
   const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } as const;
   const preview = { edit: () => closed, note: () => null, noReceipt: { busy: false, saved: false, note: null }, amountsPreview: { net_amount: base.net_amount!, mismatch: null, status: "ready" as const } };
@@ -87,6 +98,9 @@ test("Total has no check the server did not make: no flags sent, no subtotal, no
     ["an older server sends no flags", { ...base, review_flags: undefined }, undefined],
     ["no subtotal", { ...base, net_amount: { amount: null, source: null } }, undefined],
     ["no total", { ...base, facts: { ...base.facts, amount: unknown } }, undefined],
+    ["an unread ITBIS could fill the gap, so the server flags nothing", { ...base, net_amount: { amount: "1000.00", source: "read" }, facts: { ...base.facts, amount: known("1180.00"), fiscal: { ...base.facts.fiscal!, itbis: unknown } } }, undefined],
+    ["an unread ITBIS, even when subtotal and total match", { ...base, net_amount: { amount: "1181.00", source: "read" }, facts: { ...base.facts, fiscal: { ...base.facts.fiscal!, itbis: unknown } } }, undefined],
+    ["no fiscal facts", { ...base, facts: { ...base.facts, fiscal: null } }, undefined],
     ["a preview speaks of an unsaved edit", base, preview],
   ] as const) {
     const host = await mount(<ReceiptRecordFacts dossier={record as BusinessDossier} accounts={[]} review={review} />);

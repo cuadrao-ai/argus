@@ -30,8 +30,9 @@ export default function ReceiptAmounts({ dossier, review, problems = [], flash =
   const net = review?.amountsPreview?.net_amount ?? dossier.net_amount;
   const mismatch = review?.amountsPreview !== undefined ? review.amountsPreview?.mismatch : dossier.review_flags?.find((flag) => flag.code === "amounts_mismatch");
   const doubtful = doubtfulFields(dossier);
-  // The server checks the saved sum whenever the record has fiscal facts, a total and a subtotal: no mismatch from it means they add up.
-  const addsUp = review?.amountsPreview === undefined && dossier.review_flags !== undefined && !mismatch && Boolean(dossier.facts.fiscal) && dossier.facts.amount.state === "known" && net?.amount != null;
+  // The server answers both ways only when it knows the total, a subtotal and the ITBIS: with ITBIS unread it lets a gap pass, so silence then proves nothing.
+  const serverChecked = review?.amountsPreview === undefined && dossier.review_flags !== undefined && dossier.facts.amount.state === "known" && net?.amount != null && dossier.facts.fiscal?.itbis.state === "known";
+  const addsUp = serverChecked && !mismatch;
   const money = (amount: string | null | undefined) => amount == null ? "" : formatAmount(amount, currency ?? "DOP", locale);
   const picker = useRef<HTMLButtonElement>(null);
   const currencyFlash = flash?.row === "currency" ? flash.n : 0;
