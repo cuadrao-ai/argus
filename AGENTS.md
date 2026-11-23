@@ -28,7 +28,9 @@ Services: `docs/ARCHITECTURE.md`. Endpoints: `docs/API_CONTRACT.md` and
 `docs/CORE_FLOWS.md` retains dated walk evidence. Business web design lives in
 `.agent/designs/cuadrao-business-app/DESIGN.md`. Bandeja (Inbox) behavior lives in
 that DESIGN.md § Bandeja, and how Bandeja is built lives in `docs/ARCHITECTURE.md`
-§ Bandeja. Marketing design lives in `.agent/designs/cuadrao-business/DESIGN.md`.
+§ Bandeja. Record dossier behavior lives in that DESIGN.md § Receipt detail, and how
+the dossier is built lives in `docs/ARCHITECTURE.md` § The record dossier.
+Marketing design lives in `.agent/designs/cuadrao-business/DESIGN.md`.
 The execution history is in
 `docs/specs/argus-execution-board.md`; its older mobile assignments are historical.
 A spec, roadmap or green test does not assign work. Your brief does.

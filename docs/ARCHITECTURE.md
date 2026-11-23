@@ -588,6 +588,78 @@ Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
   breaker.
   Every provider call, a retry included, is charged to the Business read budget.
 
+### The record dossier
+
+The dossier is the one view of a record, opened from the Bandeja or from
+Registros. What the person sees lives in
+[the Business web app design](../.agent/designs/cuadrao-business-app/DESIGN.md#receipt-detail).
+Request and response shapes are in `docs/API_CONTRACT.md`.
+
+**The server owns every value, every editable field and every link.**
+`dossier` in `src/argus/domain/business/actions/dossier.py` builds the whole
+payload, `BusinessDossier` in `src/argus/domain/business/contracts/dossier.py`,
+and `GET /business/drafts/{draft_id}/dossier` returns it. The web keeps no copy
+of a rule. After each save the server answers with the new dossier, and the web
+replaces the one it held.
+
+The payload fields that the dossier screen reads:
+
+| Field | What it says | Owner |
+| --- | --- | --- |
+| `facts`, `net_amount` | The record's values. `net_amount.source` is `read`, `calculated` or `edited`. | `facts_of`; `net_amount` in `purchase_review.py` |
+| `dgii` | The 606 or 607 declaration. On an open expense with none saved, it is the declaration that an approval would write. | `written_from` in `amount_inheritance.py` |
+| `inheritance` | The linked state of each fiscal field: `{field, value, inherited, paired_with}`. `field` names the source fact, `value` is the source value to restore, and `inherited` is false after a person overrides the field. | `inheritance_state` and the `INHERITANCE` map in `amount_inheritance.py` |
+| `dgii_calculated` | `{billed_amount, itbis_advance}`: the two amounts the 606 calculates and no person enters. Null for a sale and for a record with no 606 declaration. | `purchase_calculated` in `dgii_validation.py`, which the 606 line also reads |
+| `facts_editable` | Whether the caller may write to this record now: `prepare` on an open draft, `prepare` and `approve` on an accepted record. | `dossier` |
+| `editable_fields` | The fields the caller may change through review in the current state. Empty for a caller that is not a person. | `_editable_fields` in `actions/dossier.py` |
+| `declaration_editable`, `document_type_editable`, `payment_split_editable` | Whether the caller may write the 606 answers, the Compra or Venta type, and the 607 payment split. | `takes_purchase_declaration` and `takes_payment_split` in `purchase_review.py` |
+| `declaration_suggestions` | One suggestion, with its source, for each 606 answer the person has not given. | `review_sources` in `actions/dossier.py` |
+| `bandeja_group`, `listo_gaps`, `confirmable` | The Bandeja label, every reason the record is not in Listos in rule order, and the reasons a person may accept over. | `bandeja_group.py` |
+| `review_flags`, `rnc_registry_status` | The checks on the amounts and numbers, and what the DGII register says of the RNC. | `review_flags.py`; `supplier_registry_read` in `actions/dossier.py` |
+| `history` | Every saved revision with its before and after. | `business_draft_revisions` |
+| `approval_available`, `approval_action`, `delete_available`, `restore_available` | The actions the caller may take now. | `dossier` |
+
+**One owner per fact.** The list row and the dossier read the same owner for a
+shared fact. The pill is `bandeja_group.label`, from the same `group_of` rule
+that labels the Bandeja row. The reasons are `listo_gaps`, and the approve
+route reads that same rule again inside its transaction. A linked value comes
+from `inheritance_state`, and the 606 and 607 export the saved declaration
+without recomputing a link. `dgii_calculated` and the 606 line both call
+`purchase_calculated`, so the two amounts match the line.
+
+**The server enforces what it offers.** `editable_fields` and the `*_editable`
+flags describe what a write will accept. They are not the guard. Every write
+goes through `PATCH /business/drafts/{draft_id}/review`, or the approve route,
+with the draft `version`. The server checks the permission, the version and the
+review rules again, and refuses a stale version with `stale_version`. An
+override or a restore of a linked field travels as `montos.override_inherited`
+or `montos.restore_inherited` in that same review request.
+
+**The web renders only.** `ReceiptDossierReview.tsx` loads the dossier and
+passes it down. A row has a pencil when `editable_fields` names it. A row shows
+the link icon when its `inheritance` entry has `inherited` true, and it shows
+the restore button when that entry has `inherited` false. While the fiscal form
+holds an unsaved change, the web asks
+`POST /business/drafts/{id}/amounts-preview` what each linked field would show.
+It does not work the value out. The web adds no amounts, compares no years and
+decides no status.
+
+The web does hold layout. `dossier/fiscal-rows.ts` decides which card a fiscal
+field sits in, the row order, the fields the Datos fiscales tab leaves out, and
+that Tipo de ID has no pencil on a purchase. A field that the server lists and
+that file does not name still shows.
+
+Three known gaps remain between this rule and the code:
+
+- The web does not read `dgii_calculated` yet, so the dossier does not show
+  Total facturado or ITBIS por adelantar.
+- `fiscalNote` in `dossier/fiscal-rows.ts` reads the comprobante type from the
+  number to tell a credit note from a debit note. `dgii_validation.py` owns
+  that rule on the server, and the dossier does not carry its answer.
+- `ReceiptAmounts.tsx` shows the amounts check as passed when the dossier has
+  a total, a subtotal and an ITBIS and carries no `amounts_mismatch` flag. The
+  dossier carries no explicit "adds up" state.
+
 ---
 # 7. Communication Protocols
 
