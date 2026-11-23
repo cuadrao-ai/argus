@@ -276,15 +276,26 @@ for (const width of [1440, 390]) {
 }
 
 
-test("readiness opened expense shows the complete missing list", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await openReadinessRecords(page, "es-419", "light", true);
-  await page.getByTestId("transacciones-records").locator("tbody tr").first().click();
-  const detail = page.getByTestId("business-record-review");
-  await expect(detail).toBeVisible();
-  await expect(page.locator("[data-record-missing-list] li")).toHaveText([
-    "Falta el tipo de gasto",
-    "Falta la forma de pago",
-    "Falta el RNC",
-  ]);
-});
+for (const theme of ["light", "dark"] as const) {
+  test(`a record with no draft opens the one dossier read only, with its complete missing list (${theme})`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openReadinessRecords(page, "es-419", theme, true);
+    await page.getByTestId("transacciones-records").locator("tbody tr").first().click();
+    const tray = page.getByTestId("side-drawer");
+    await expect(tray.getByTestId("business-record-review")).toHaveAttribute("data-presentation", "tray");
+    await expect(tray.locator("#receipt-review-title")).toHaveText("Registro sintético");
+    await expect(page.locator("[data-record-missing-list] li")).toHaveText([
+      "Falta el tipo de gasto",
+      "Falta la forma de pago",
+      "Falta el RNC",
+    ]);
+    await expect(tray.getByTestId("receipt-review-footer")).toHaveCount(0);
+    await expect(tray.getByTestId("dossier-status")).toHaveCount(0);
+    await expect(tray.locator("[data-tab-panel] :is(button, input, select)")).toHaveCount(0);
+    await expect(tray.getByText(/Revisi[oó]n\s+\d/i)).toHaveCount(0);
+    if (process.env.EVIDENCE_DIR) {
+      await mkdir(process.env.EVIDENCE_DIR, { recursive: true });
+      await page.screenshot({ path: join(process.env.EVIDENCE_DIR, `registro-sin-borrador-${theme}-es-419.png`), animations: "disabled" });
+    }
+  });
+}
