@@ -37,7 +37,7 @@ const montos = (host: Element) => host.querySelector('[data-testid="receipt-fact
 for (const documentType of ["recibo", "venta"] as const) {
   test(`${documentType} has one Montos card, the last of General, with subtotal, ITBIS, tip, and total`, async () => {
     const base = await dossier(); base.document_type = documentType;
-    const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} review={{ edit: () => closed, note: () => null, noReceipt: { busy: false, note: null } }} />);
+    const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} review={{ edit: () => closed, note: () => null, noReceipt: { busy: false, note: null }, currency: { note: null } }} />);
     assert.deepEqual([...host.querySelectorAll("section")].map((section) => section.dataset.testid), ["receipt-facts-comprobante", "receipt-facts-montos"]);
     const amounts = montos(host);
     assert.deepEqual([...amounts.querySelectorAll("li[data-fact]")].map((row) => row.getAttribute("data-fact")), ["net_amount", "itbis", "legal_tip", "amount"]);
@@ -92,7 +92,7 @@ test("a read subtotal, ITBIS and total the server let through carry the check; a
 });
 test("Total has no check the server did not make: unchecked, no state sent, or an edit still in preview", async () => {
   const base = await dossier(); base.review_flags = [];
-  const preview = { edit: () => closed, note: () => null, noReceipt: { busy: false, note: null }, amountsPreview: { net_amount: base.net_amount!, mismatch: null, status: "ready" as const } };
+  const preview = { edit: () => closed, note: () => null, noReceipt: { busy: false, note: null }, currency: { note: null }, amountsPreview: { net_amount: base.net_amount!, mismatch: null, status: "ready" as const } };
   for (const [why, record, review] of [
     ["the server did not check amounts that would add up", { ...base, amounts_check: { state: "unchecked" } }, undefined],
     ["an older server sends no state", { ...base, amounts_check: undefined }, undefined],

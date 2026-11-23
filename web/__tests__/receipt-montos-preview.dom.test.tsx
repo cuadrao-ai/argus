@@ -10,30 +10,6 @@ const totalWarning = (page: { row: (name: string) => HTMLElement }) => {
   return status ? status.getAttribute("aria-label") : null;
 };
 
-for (const form of ["606", "607"] as const) test(`header currency warns before saving a non-DOP ${form}`, async () => {
-  const page = await setup("fiscal", (dossier) => { dossier.dgii = { ...dossier.dgii, form }; });
-  const currencyRow = () => page.host.querySelector<HTMLElement>('li[data-fact="currency"]');
-  try {
-    const heading = page.host.querySelector<HTMLButtonElement>('[data-testid="montos-currency"]')!;
-    assert.equal(heading.textContent, "DOP");
-    assert.equal(currencyRow(), null, "the currency row opens from the heading");
-    await page.act(async () => heading.click());
-    const selector = 'li[data-fact="currency"] [data-testid="edit-currency"] select';
-    const select = page.host.querySelector<HTMLSelectElement>(selector)!;
-    assert.deepEqual([...select.options].map((option) => option.value), ["", "DOP", "USD", "EUR"]);
-    for (const currency of ["USD", "EUR"]) {
-      await fill(page, selector, currency, HTMLSelectElement);
-      assert.equal(currencyRow()!.querySelector('[role="status"]')?.textContent, `En ${currency} este documento no entra al ${form} (la DGII pide pesos).`);
-      assert.equal(page.writes.length, 0);
-    }
-    await fill(page, selector, "DOP", HTMLSelectElement);
-    assert.equal(currencyRow()!.querySelector('[role="status"]'), null);
-    await page.act(async () => currencyRow()!.querySelector<HTMLButtonElement>('button[aria-label="Cancelar · Moneda"]')!.click());
-    assert.equal(currencyRow(), null);
-    assert.equal(page.writes.length, 0);
-  } finally { await page.close(); }
-});
-
 test("amount edit and cancel keep the number box and the two action slots", async () => {
   const page = await setup();
   try {

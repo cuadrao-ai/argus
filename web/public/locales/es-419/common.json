@@ -2358,7 +2358,6 @@
       "counterparty_purchase": "Emisor",
       "counterparty_sale": "Cliente",
       "currency_choose": "Elegir",
-      "currency_fiscal_warning": "En {{currency}} este documento no entra al {{form}} (la DGII pide pesos).",
       "currency_missing": "Falta la moneda",
       "difference": "Diferencia {{amount}}",
       "difference_unavailable": "Se revisa al guardar.",
