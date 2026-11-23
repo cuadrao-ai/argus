@@ -102,7 +102,7 @@ test("a record nobody can edit shows the same cards, and Montos follows Comproba
 for (const amount of ["181.00", "200.00"]) test(`Fiscal explicitly overriding ITBIS with ${amount} breaks inheritance and saves only in declaration`, async () => {
   const base = await dossier(); const writes: DgiiReview[] = [];
   const host = await mount(<FiscalDeclarationEditor dossier={base} fields={fields} disabled={false} reviewFiscal={async (_, __, input) => { writes.push(input); return base; }} onChanged={noop} onBusy={noop} onDirty={noop} />);
-  assert.equal(sourceLabel(host, "goods_amount"), "Viene de Monto sin ITBIS");
+  assert.equal(sourceLabel(host, "goods_amount"), "Sale del subtotal");
   assert.ok(host.querySelector('[data-inherited="paid_on"]'));
   assert.equal(host.querySelector('[data-inherited="modified_ncf"]'), null);
   await open(host, "itbis");
@@ -343,16 +343,14 @@ test("a field that follows a code, a text or a date names its source and restore
   const editor = (value: BusinessDossier) => <FiscalDeclarationEditor dossier={value} fields={linkedFields} disabled={false} reviewFiscal={async () => value} onChanged={noop} onBusy={noop} onDirty={noop} />;
   const linked = await mount(editor(state(true)));
   const from = (field: string) => sourceLabel(linked, field);
-  assert.deepEqual([from("id_type"), from("modified_ncf"), from("paid_on")], ["Viene de RNC", "Viene de NCF de la compra original", "Viene de Fecha del comprobante"]);
-  await open(linked, "id_type");
-  assert.equal(linked.querySelector<HTMLSelectElement>('[name="id_type"]')?.value, "1");
-  await cancel(linked, "id_type");
+  assert.deepEqual([from("id_type"), from("modified_ncf"), from("paid_on")], ["Sale del número", "Viene de NCF de la compra original", "Heredado de la fecha"]);
+  assert.equal(read(linked, "id_type"), es.business.dgii.option.id_type["1"]);
   await open(linked, "modified_ncf");
   assert.equal(linked.querySelector<HTMLInputElement>('[name="modified_ncf"]')?.value, "E310000000007");
   await cleanup();
   const overridden = await mount(editor(state(false)));
   const restore = (field: string) => overridden.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label");
-  assert.equal(restore("id_type"), `Restaurar: ${es.business.dgii.option.id_type["1"]}`);
+  assert.equal(restore("id_type"), undefined, "Tipo de ID is read here, never edited");
   assert.equal(restore("modified_ncf"), "Restaurar: E310000000007");
   assert.equal(restore("paid_on"), "Restaurar: 12 Nov 2026");
 });
@@ -364,11 +362,10 @@ test("a linked field shows its link icon only while it holds a value", async () 
   const montos: DgiiFields = { "606": [...fields["606"], ...(["services_amount", "legal_tip"] as const).map((name) => ({ name, label: "", kind: "money" as const, options: [] }))], "607": [] };
   const host = await mount(<FiscalDeclarationEditor dossier={linked} fields={montos} disabled={false} reviewFiscal={async () => linked} onChanged={noop} onBusy={noop} onDirty={noop} />);
   assert.ok(host.querySelector('[data-inherited="goods_amount"]'));
-  for (const field of ["services_amount", "legal_tip"]) {
-    assert.ok(row(host, field));
-    assert.equal(host.querySelector(`[data-inherited="${field}"]`), null);
-    assert.equal(host.querySelector(`[data-restore-inherited="${field}"]`), null);
-  }
+  assert.ok(row(host, "services_amount"));
+  assert.equal(host.querySelector('[data-inherited="services_amount"]'), null);
+  assert.equal(host.querySelector('[data-restore-inherited="services_amount"]'), null);
+  assert.equal(host.querySelector('[data-fact="legal_tip"]'), null, "Montos owns a purchase's tip");
 });
 
 for (const currency of ["DOP", "USD", "EUR", null]) test(`Montos names ${currency ?? "missing currency"} once and rows contain only numbers`, async () => {

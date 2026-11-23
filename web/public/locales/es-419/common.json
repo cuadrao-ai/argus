@@ -2861,9 +2861,26 @@
       "fiscal": {
         "add_retention": "Agregar retención",
         "add_tax": "Agregar impuesto",
+        "field": {
+          "goods_amount": "Bienes",
+          "id_type": "Tipo de ID",
+          "itbis": "ITBIS facturado",
+          "itbis_cost": "ITBIS llevado al costo",
+          "itbis_proportionality": "ITBIS sujeto a proporcionalidad",
+          "modified_ncf": "NCF modificado",
+          "other_taxes": "Otros Impuestos/Tasas",
+          "paid_on": "Fecha de pago",
+          "services_amount": "Servicios"
+        },
         "no_other_taxes": "Sin otros impuestos.",
         "no_retentions": "Sin retenciones.",
-        "remove": "Quitar"
+        "remove": "Quitar",
+        "source": {
+          "itbis": "Sale de Montos",
+          "net_amount": "Sale del subtotal",
+          "occurred_on": "Heredado de la fecha",
+          "rnc": "Sale del número"
+        }
       },
       "gap": {
         "missing_amount": {

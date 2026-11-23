@@ -4,7 +4,7 @@ import { registerReceiptReviewPage, setup } from "./fixtures/receipt-review-page
 
 registerReceiptReviewPage();
 
-test("the fiscal form names ITBIS Facturado under ITBIS while the main card keeps ITBIS", async () => {
+test("the fiscal form names ITBIS facturado under ITBIS while the main card keeps ITBIS", async () => {
   const page = await setup("fiscal");
   try {
     const pane = page.host.querySelector('[data-testid="fiscal-declaration"]')!;
@@ -16,7 +16,7 @@ test("the fiscal form names ITBIS Facturado under ITBIS while the main card keep
     assert.equal(heading.textContent, "ITBIS");
     assert.equal(page.row("itbis").firstElementChild?.textContent, "ITBIS");
     assert.ok(heading.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING);
-    assert.equal(field.closest("li[data-field]")?.firstElementChild?.textContent, "ITBIS Facturado");
-    assert.equal(field.getAttribute("aria-label"), "ITBIS Facturado en DOP (RD$)");
+    assert.equal(field.closest("li[data-field]")?.firstElementChild?.textContent, "ITBIS facturado");
+    assert.equal(field.getAttribute("aria-label"), "ITBIS facturado en DOP (RD$)");
   } finally { await page.close(); }
 });
