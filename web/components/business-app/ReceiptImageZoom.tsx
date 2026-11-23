@@ -10,6 +10,7 @@ import { useModalSurface } from "@/components/layout/useModalSurface";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { loadReceiptPdf, type ReceiptPdf } from "./receipt-pdf-renderer";
 import { DelayedSourceWell } from "./business-skeletons";
+import { FOCUS_RING } from "./foundation/presentation";
 import motion from "./receipt-reading.module.css";
 
 type Size = { width: number; height: number };
@@ -17,7 +18,7 @@ type Point = { x: number; y: number };
 type Zoom = { kind: "fit-page" | "fit-width" } | { kind: "manual"; scale: number };
 type RotationEntry = { id: string; turns: number };
 const ROTATIONS_KEY = "cuadrao:receipt_rotations:v1";
-const CONTROL_CLASS = "flex h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-[#172b26] hover:bg-black/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] disabled:opacity-40 dark:text-white dark:hover:bg-white/[0.06]";
+const CONTROL_CLASS = `flex h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-[#172b26] hover:bg-black/[0.04] ${FOCUS_RING} disabled:opacity-40 dark:text-white dark:hover:bg-white/[0.06]`;
 
 export function readReceiptRotations(): RotationEntry[] {
   try {
@@ -249,7 +250,7 @@ function ReceiptViewer({ src, blob, sourceId, alt, pdf = false, reading = false 
   const paperClass = "absolute select-none transition-transform duration-150 motion-reduce:transition-none";
   const content = (
     <div ref={surfaceRef} role={overlay ? "dialog" : undefined} aria-modal={overlay ? true : undefined} aria-label={alt} tabIndex={-1} onKeyDown={shortcut} className={overlay ? "fixed inset-0 z-[9000] bg-black/90 p-3" : "relative w-full"} data-testid={overlay ? "receipt-viewer-overlay" : "receipt-viewer"}>
-      <div ref={wellRef} data-viewer-focus="well" data-testid="receipt-image-zoom" data-zoom={scale} data-rotation={((turns % 4) + 4) % 4 * 90} data-fit={zoom.kind} tabIndex={0} aria-label={alt} className={`${overlay ? "h-[calc(100dvh-84px)]" : "h-[300px] desktop:h-[520px]"} w-full overflow-auto overscroll-contain rounded-item focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]`} style={{ touchAction: "none", cursor: oversize ? dragging ? "grabbing" : "grab" : "default" }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={cancelGesture} onLostPointerCapture={pointerEnd} onDoubleClick={(event) => changeZoom(scale >= 5 ? { kind: "fit-page" } : { kind: "manual", scale: Math.min(5, scale * 2) }, { x: event.clientX, y: event.clientY })}>
+      <div ref={wellRef} data-viewer-focus="well" data-testid="receipt-image-zoom" data-zoom={scale} data-rotation={((turns % 4) + 4) % 4 * 90} data-fit={zoom.kind} tabIndex={0} aria-label={alt} className={`${overlay ? "h-[calc(100dvh-84px)]" : "h-[300px] desktop:h-[520px]"} w-full overflow-auto overscroll-contain rounded-item ${FOCUS_RING}`} style={{ touchAction: "none", cursor: oversize ? dragging ? "grabbing" : "grab" : "default" }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={cancelGesture} onLostPointerCapture={pointerEnd} onDoubleClick={(event) => changeZoom(scale >= 5 ? { kind: "fit-page" } : { kind: "manual", scale: Math.min(5, scale * 2) }, { x: event.clientX, y: event.clientY })}>
         <div style={{ width: Math.max(width, viewport.width), height: Math.max(height, viewport.height), position: "relative" }}>
           {pdf
             ? <canvas ref={canvasRef} role="img" aria-label={t("business.transactions.pagination.page", { page })} data-page={drawnPage} className={paperClass} style={{ ...paperStyle, visibility: drawnPage === page && !pdfError ? "visible" : "hidden" }} />
