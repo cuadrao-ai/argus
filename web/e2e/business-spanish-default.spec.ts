@@ -144,7 +144,8 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   for (const word of [spanishGreeting, "Inicio", "Bandeja", "Agregar"]) expect(painted!.texts, `${word} painted`).toContain(word);
   const firstScreenEnglish = [`business.overview.greetings.${PINNED_PERIOD}`, "business.overview.greeting_unnamed", "business.nav.overview", "business.nav.inbox", "business.nav.transactions", "business.actions.add", "business.month_close.action_review"].map((key) => en(key));
   expect(painted!.texts.filter((text) => firstScreenEnglish.includes(text)), "no English word painted before Spanish").toEqual([]);
-  await expect(page.getByRole("heading", { name: es("business.inicio.attention.title") })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pendientes", exact: true })).toBeVisible();
+  await expect(page.getByTestId("home-attention").getByTestId("status-pill")).toHaveText("Necesita atención");
   await expect(page.getByTestId("amounts-toggle")).toHaveAccessibleName("Ocultar montos");
   for (const english of ["Upload receipts", "My business", "Record expense", "Open inbox", "Add", "Overview", "Inbox", "Hide amounts"]) {
     await expect(page.getByText(english, { exact: true })).toHaveCount(0);
@@ -180,7 +181,8 @@ test("an English account opens Business in English", async ({ page }) => {
   await page.goto("/biz");
   await expect(page.locator("#business-overview-title")).toHaveText(englishGreeting);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("heading", { name: en("business.inicio.attention.title") })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pending", exact: true })).toBeVisible();
+  await expect(page.getByTestId("home-attention").getByTestId("status-pill")).toHaveText("Needs attention");
   await expect(page.getByTestId("business-sidebar-nav")).toContainText(en("business.nav.overview"));
   await expect(page.getByTestId("business-sidebar-nav")).toContainText(en("business.nav.inbox"));
   await expect(page.getByTestId("business-primary-upload")).toHaveText(en("business.actions.add"));

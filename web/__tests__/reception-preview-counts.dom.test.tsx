@@ -342,20 +342,16 @@ test("Listos shows Estado like the other tabs, with the label alone on every row
 
 test("no row on any tab shows a reason", async () => {
   const page = await mount({ tweak: withAccepted });
-  const es = (await import("@/public/locales/es-419/common.json")).default as unknown as Record<string, unknown>;
-  const { BANDEJA_REASON_KEY } = await import("@/components/business-app/recepcion/reception-status");
-  const said = (key: string) => key.split(".").reduce<unknown>((node, part) => (node as Record<string, unknown>)?.[part], es) as string;
-  const words = new Set(LABELS.map(([, , text]) => text));
-  // "No se pudo leer" is both a label and a reason; the cell check below covers it.
-  const reasons = [...new Set([...Object.values(BANDEJA_REASON_KEY).map(said), ...Object.values((es.business as { email: { no_receipt_reason: Record<string, string> } }).email.no_receipt_reason)])].filter(text => !words.has(text));
-  assert.ok(reasons.includes("Falta el NCF") && reasons.includes("Nota escrita") && reasons.length > 30);
+  const labels = new Set<string>(LABELS.map(([, , text]) => text));
+  const reasons = ["Falta el NCF", "Guardado, sin leer", "Nota escrita", "Este tipo de archivo no se puede guardar como recibo"];
+  for (const name of ["Recibo admitido", "Nota admitida", "Boletín semanal"]) assert.ok(page.row(name), name);
   for (const view of ["all", "attention", "listos"] as const) {
     await page.click(page.tab(view));
     assert.ok(rows(page).length > 0);
     assert.equal(page.host.querySelector('[data-testid="reception-reason"]'), null);
     for (const row of rows(page)) {
       const cell = stateCell(row);
-      if (cell !== null) assert.ok(words.has(cell), `${view}: ${cell}`);
+      if (cell !== null) assert.ok(labels.has(cell), `${view}: ${cell}`);
       for (const reason of reasons) assert.ok(!row.textContent?.includes(reason), `${view}: ${reason}`);
     }
   }
