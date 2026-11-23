@@ -8,6 +8,7 @@ import type { BusinessDossier } from "@/lib/business-dossier";
 import { reportFailure } from "@/lib/business-reporting-wire";
 import { personName } from "@/lib/person-name";
 import { resolveLanguage } from "@/lib/language-features";
+import type { DossierDetailsCard } from "../BusinessWorkspace";
 import { formatDate } from "../business-format";
 import { NOTE_LIMIT, noteLength, withinNoteLimit } from "../NoteCount";
 import { receiptFileAccept, receiptFileWithType } from "../receipt-file";
@@ -19,7 +20,7 @@ import annotation from "./annotations.module.css";
 export type DossierAnnotationsProps = {
   busy?: boolean;
   dossier?: BusinessDossier;
-  detailsCard?: "note" | "support";
+  detailsCard?: DossierDetailsCard;
   receiptLimits?: ReceiptLimits | null;
   selectedSupportingSourceId?: string | null;
   onSaveNote?: (note: string) => Promise<void>;
@@ -110,10 +111,10 @@ export function DossierNoteCard({ busy, dossier, detailsCard, onSaveNote }: Pick
   );
   return (
     <DossierCard title={title} aside={meta} testId="dossier-note">
-      <div ref={landing} className={annotation.noteBody} data-landing={fromEntry || undefined}>
+      <div ref={landing} className={`rounded-item ${annotation.noteBody}`} data-landing={fromEntry || undefined}>
         {editing ? (
           <div className={annotation.noteEditor} onKeyDown={onKeyDown}>
-            <textarea ref={field} className={`${styles.focus} ${annotation.noteInput}`} rows={4} aria-label={title} aria-describedby={count} value={editing.text} readOnly={saving} onChange={(event) => setEditor({ text: withinNoteLimit(event.target.value), state: editing.state === "stale" ? "stale" : "ready" })} />
+            <textarea ref={field} className={`rounded-item ${styles.focus} ${annotation.noteInput}`} rows={4} aria-label={title} aria-describedby={count} value={editing.text} readOnly={saving} onChange={(event) => setEditor({ text: withinNoteLimit(event.target.value), state: editing.state === "stale" ? "stale" : "ready" })} />
             <div className={annotation.noteActions}>
               <span id={count} className={annotation.status}>{noteLength(editing.text)} / {NOTE_LIMIT}</span>
               <button type="button" className={styles.act} aria-label={t("common.cancel")} disabled={saving} onClick={close}><X size={16} aria-hidden="true" /></button>
@@ -184,13 +185,13 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, receiptLimit
     <DossierCard title={t("business.dossier.supporting.title")} testId="dossier-supporting" aside={
       canAdd ? <button ref={add} type="button" className={`${styles.link} ${annotation.link}`} disabled={pending || busy} aria-busy={pending} onClick={() => picker.current?.click()}>{label}</button> : null
     }>
-      <div ref={landing} className={annotation.supportBody} data-landing={added ? (added % 2 ? "a" : "b") : fromEntry || undefined}>
+      <div ref={landing} className={`rounded-item ${annotation.supportBody}`} data-landing={added ? (added % 2 ? "a" : "b") : fromEntry || undefined}>
         {canAdd ? <input ref={picker} type="file" hidden accept={receiptLimits ? receiptFileAccept(receiptLimits) : undefined} disabled={pending || busy} onChange={pickFile} /> : null}
         {files.length ? <ul className={styles.rows}>{files.map((file) => {
           const name = file.filename ?? t("business.dossier.row.no_data");
           const selected = selectedSupportingSourceId === file.source_id;
           return (
-            <li key={file.source_id} className={annotation.supportFile} data-selected={selected || undefined}>
+            <li key={file.source_id} className={`rounded-item ${annotation.supportFile}`} data-selected={selected || undefined}>
               <File size={16} className={styles.icon} aria-hidden="true" />
               <span className={annotation.filename} title={name}>{name}</span>
               {file.size_bytes != null ? <span className={annotation.status}>{dossierFileSize(file.size_bytes, locale)}</span> : null}

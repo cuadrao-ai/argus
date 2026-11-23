@@ -98,3 +98,40 @@ test("an owner can recover an interrupted read with an expired preparation grant
   await expect(page.locator('[data-fact="amount"]')).toBeVisible();
   expect(writes).toEqual(["rebind", "prepare"]);
 });
+
+test("Detalles edits a record note and opens its supporting file in the document pane", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const source = createFixtureBusinessDataSource();
+  const receipt = await source.receipt("rcpt-ferreteria");
+  const base = await source.dossier(receipt.draft_id!);
+  const id = "00000000-0000-4000-8000-000000000197";
+  const support = { source_id: "00000000-0000-4000-8000-000000000198", receipt_id: "00000000-0000-4000-8000-000000000199", filename: "orden-de-compra.svg", media_type: "image/svg+xml", size_bytes: 8251, state: "linked" as const, unlink_available: true, restore_available: false, purge_at: null };
+  let dossier = { ...base, draft_id: id, space_id: "fixture-space", current_note: "Revisar la orden.", note_edit_available: true, supporting_append_available: true, supporting_files: [support], annotation_unavailable_reason: null };
+  await installReceiptBusiness(page, ([resource, target, action], route) => {
+    if (resource === "drafts" && target === id) {
+      if (action === "dossier") return Promise.resolve(dossier);
+      if (action === "current-note") {
+        const { note, expected_version } = route.request().postDataJSON();
+        expect(expected_version).toBe(dossier.version);
+        const version = dossier.version + 1;
+        dossier = { ...dossier, version, current_note: note };
+        return Promise.resolve({ result: { draft_id: id, version, note }, dossier });
+      }
+    }
+    if (resource === "receipts" && target === support.receipt_id && action === "source") {
+      return route.fulfill({ contentType: "image/svg+xml", body: svg }).then(() => null);
+    }
+  });
+  await page.goto(`/biz?draft=${id}`);
+  await page.getByRole("tab", { name: "Detalles", exact: true }).click();
+  const details = page.getByRole("tabpanel", { name: "Detalles" });
+  await details.getByRole("button", { name: "Editar nota" }).click();
+  const note = details.getByRole("textbox", { name: "Nota" });
+  await note.fill("Orden verificada.");
+  await note.press("Control+Enter");
+  await expect(details.getByText("Orden verificada.", { exact: true })).toBeVisible();
+  await details.getByRole("button", { name: /^Ver\b/ }).click();
+  const foot = page.getByTestId("dossier-document-foot");
+  await expect(foot.getByRole("link")).toHaveAttribute("download", support.filename);
+  await page.screenshot({ path: testInfo.outputPath("dossier-note-and-backing-file.png"), animations: "disabled" });
+});

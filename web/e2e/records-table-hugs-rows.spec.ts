@@ -26,7 +26,7 @@ async function openRegistros(page: Page, count: number, { hold, dossier = false 
   const source = await installReceiptBusiness(page, (parts, route, fixture) => {
     if (dossier && parts.join("/") === `drafts/${dossierFixtureIds.ready}/dossier`) {
       return fixture.dossier(dossierFixtureIds.ready).then((record) => ({
-        ...record, current_note: CURRENT_NOTE, note_edit_available: true, supporting_append_available: true,
+        ...record, space_id: "fixture-space", current_note: CURRENT_NOTE, note_edit_available: true, supporting_append_available: true,
       }));
     }
     if (parts[0] !== "reports" && parts[0] !== "report-views") return undefined;
@@ -66,6 +66,7 @@ for (const width of [1440, 390]) test.describe(`at ${width}px`, () => {
       const details = page.getByRole("tabpanel", { name: "Detalles", exact: true });
       await expect(page.getByRole("tab", { name: "Detalles", exact: true })).toHaveAttribute("aria-selected", "true");
       await expect(details.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+      await expect(details.locator(`[data-testid="dossier-${column === "note" ? "note" : "supporting"}"] [data-landing]`)).toBeVisible();
       if (column === "note") {
         const note = details.getByRole("textbox", { name: "Nota", exact: true });
         await expect(note).toBeFocused();

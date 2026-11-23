@@ -163,3 +163,8 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 .failedRead h3 { margin-bottom:6px; font-family:var(--font-display, inherit); font-size:18px; font-weight:600; }
 .failedRead p { max-width:460px; color:var(--d-soft); font-size:14px; line-height:21px; }
 .failedRead .retryConsent { margin-top:10px; color:var(--d-muted); font-size:13px; }
+
+.docStrip { display:flex; align-items:center; gap:4px; flex:none; max-width:100%; overflow-x:auto; padding:6px 12px; background:var(--d-card); border-bottom:1px solid var(--d-line); }
+.docStrip button { flex:0 1 auto; min-width:52px; max-width:190px; min-height:36px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:4px 10px; color:var(--d-muted); font-size:13px; }
+.docStrip button:hover { background:var(--d-hover); }
+.docStrip button[aria-pressed="true"] { background:var(--d-on); color:var(--d-green); font-weight:600; }

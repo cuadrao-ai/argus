@@ -11,11 +11,12 @@ import { createDossierFixtures, dossierFixtureIds } from "@/components/business-
 const accounts: BusinessAccount[] = [{ id: "acct-ops", nickname: "Caja", currency: "DOP", type: "cash" }];
 
 type Sent = { acceptGaps: readonly ListoGap[] | undefined };
-type Mount = { dossier: BusinessDossier; receipt?: ReceiptDetail; readReceipt?: () => ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[]; refuse?: Partial<Record<"approveDraft" | "reopenDraft", unknown>> };
+type Mount = { fetchFile?: typeof fetch; detailsCard?: "support" | "note"; dossier: BusinessDossier; receipt?: ReceiptDetail; readReceipt?: () => ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[]; refuse?: Partial<Record<"approveDraft" | "reopenDraft", unknown>> };
 
 /** The dossier as a person opens it: from a draft alone, or from a receipt row, on a full page or in the tray at one of its two sizes. */
-async function mount({ dossier, receipt, readReceipt, size = "page", panel, list = [], refuse = {} }: Mount) {
+async function mount({ fetchFile, detailsCard, dossier, receipt, readReceipt, size = "page", panel, list = [], refuse = {} }: Mount) {
   GlobalRegistrator.register({ url: "http://localhost" });
+  if (fetchFile) globalThis.fetch = fetchFile;
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   const { act, useState } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -45,7 +46,8 @@ async function mount({ dossier, receipt, readReceipt, size = "page", panel, list
     openPanel: (next: BusinessPanelState) => { opened.push(next); },
     guardPanel: () => () => undefined,
     panel: panel ?? (receipt ? { kind: "receipt", receiptId: receipt.id, list: "inbox" } : { kind: "draft", draftId: dossier.draft_id, list: "transactions" }),
-    chosen: { capabilities: ["read", "prepare", "approve"] },
+    userId: "synthetic-member",
+    chosen: { space_id: dossier.space_id, role: "owner", permissions: ["read", "download"], capabilities: ["read", "prepare", "approve"] },
     actions: { create: [] },
     revision: 0,
   } as unknown as BusinessContextValue;
@@ -59,7 +61,8 @@ async function mount({ dossier, receipt, readReceipt, size = "page", panel, list
     return <RecordTrayContext.Provider value={{ ...slots, setTitle: () => undefined, settleList: () => undefined, narrow, toggleNarrow: () => { resizes.push(!narrow); setNarrow(!narrow); } }}>{children}</RecordTrayContext.Provider>;
   }
   const target = receipt ? { kind: "receipt" as const, id: receipt.id } : { kind: "draft" as const, id: dossier.draft_id };
-  const tree = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Panel target={target} /></BusinessContext.Provider></I18nextProvider>;
+  const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
+  const tree = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Panel target={target} detailsCard={detailsCard} /><ToastViewport /></BusinessContext.Provider></I18nextProvider>;
   const root = createRoot(host);
   await act(async () => root.render(size === "page" ? tree : <Tray>{tree}</Tray>));
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
@@ -89,6 +92,95 @@ const copy = (spanish as unknown as { business: { dossier: { confirm: { accept_a
 const acceptedWord = (spanish as unknown as { business: { history: { approved: string } } }).business.history.approved;
 
 describe("the v2 dossier frame", () => {
+  const support = {
+    source_id: "00000000-0000-4000-8000-000000000021", receipt_id: "00000000-0000-4000-8000-000000000022",
+    filename: "respaldo.png", size_bytes: 1400, media_type: "image/png", state: "linked" as const,
+    unlink_available: true, restore_available: false, purge_at: null,
+  };
+
+  for (const size of ["regular", "narrow"] as const) test(`Ver opens the backing file, then the strip returns to the receipt in ${size}`, async () => {
+    const dossier = await fiscalDossier({ supporting_files: [support], sources: [{
+      kind: "attachment", id: "original", channel: "web", connection_id: "receipt-original", filename: "comprobante.jpg",
+      media_type: "image/jpeg", received_at: "2026-10-10T10:00:00Z",
+    }] });
+    const previousFetch = globalThis.fetch;
+    const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+    process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+    const requested: string[] = [];
+    const fetchFile = (async url => {
+      requested.push(String(url));
+      return new Response("backing file", { headers: { "Content-Type": support.media_type } });
+    }) as typeof fetch;
+    const page = await mount({ dossier, receipt: receiptOf(dossier), size, detailsCard: "support", fetchFile });
+    try {
+      assert.equal(page.tab("Detalles")?.getAttribute("aria-selected"), "true");
+      if (size === "regular") await page.click(page.button("Comprobante"));
+      const view = page.all<HTMLButtonElement>('[data-tab-panel="detalles"] button').find(button => button.getAttribute("aria-label")?.startsWith("Ver"));
+      await page.click(view);
+      if (size === "narrow") assert.equal(page.tab("Documento")?.getAttribute("aria-selected"), "true");
+      else assert.equal(page.tab("Detalles")?.getAttribute("aria-selected"), "true");
+      const download = () => page.all<HTMLAnchorElement>('[data-testid="dossier-document-foot"] a[download]')[0];
+      const waitForDownload = async (name: string) => {
+        const deadline = Date.now() + 1000;
+        while (download()?.download !== name && Date.now() < deadline) {
+          await page.act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+        }
+        assert.equal(download()?.download, name);
+      };
+      await waitForDownload(support.filename);
+      assert.ok(requested.some(url => url.endsWith(`/receipts/${support.receipt_id}/source`)));
+      await page.click(page.button("Comprobante"));
+      await waitForDownload("comprobante.jpg");
+    } finally {
+      await page.close();
+      globalThis.fetch = previousFetch;
+      if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+      else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock;
+    }
+  });
+
+  for (const refuseUndo of [false, true]) test(`unlink blocks concurrent approval and Undo uses the new version (restore refused: ${refuseUndo})`, async () => {
+    const dossier = await fiscalDossier({ draft_id: "00000000-0000-4000-8000-000000000020", version: 7, supporting_files: [support] });
+    const page = await mount({ dossier, size: "regular" });
+    await page.click(page.tab("Detalles"));
+    const previousFetch = globalThis.fetch;
+    const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+    process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+    const writes: [string, string | null][] = [];
+    let finishUnlink!: () => void;
+    const held = new Promise<void>(resolve => { finishUnlink = resolve; });
+    globalThis.fetch = (async (input, init) => {
+      const restore = String(input).endsWith("/restore");
+      const purge = "2099-10-10T12:00:00Z";
+      writes.push([String(init?.method), new Headers(init?.headers).get("X-Draft-Version")]);
+      if (!restore) await held;
+      if (restore && refuseUndo) return Response.json({ detail: { code: "supporting_file_restore_expired" } }, { status: 422 });
+      const version = restore ? 9 : 8;
+      const file = restore ? support : { ...support, state: "unlinked", unlink_available: false, restore_available: true, purge_at: purge };
+      return Response.json({ result: { draft_id: dossier.draft_id, version, outcome: restore ? "restored" : "unlinked", source_id: support.source_id, purge_at: restore ? null : purge },
+        dossier: { ...dossier, current_note: null, note_edit_available: true, supporting_append_available: true, annotation_unavailable_reason: null, version, supporting_files: [file] } });
+    }) as typeof fetch;
+    try {
+      const remove = page.all<HTMLButtonElement>('[data-tab-panel="detalles"] button').find(button => button.getAttribute("aria-label")?.startsWith("Quitar"));
+      await page.click(remove);
+      assert.equal(page.all<HTMLButtonElement>("[data-review-primary]")[0]?.disabled, true, "approval waits for the file command");
+      await page.act(async () => { finishUnlink(); await held; });
+      assert.ok(page.text().includes("Archivo quitado."));
+      await page.click(page.button("Deshacer"));
+      assert.deepEqual(writes, [["DELETE", "7"], ["POST", "8"]]);
+      if (refuseUndo) {
+        assert.ok(page.text().includes("No pudimos restaurar el archivo."));
+        assert.equal(page.tab("Detalles")?.getAttribute("aria-selected"), "true");
+      } else assert.ok(page.panelOf("detalles")?.textContent?.includes(support.filename));
+    } finally {
+      finishUnlink();
+      globalThis.fetch = previousFetch;
+      if (mockAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+      else process.env.NEXT_PUBLIC_MOCK_AUTH = mockAuth;
+      await page.close();
+    }
+  });
+
   for (const reduced of [false, true]) test(`the server settles the read and its rows land once, reduced motion ${reduced}`, async () => {
     const dossier = await fiscalDossier({ ...attention(["missing_rnc"]) });
     const completed = receiptOf(dossier);
@@ -181,7 +273,7 @@ describe("the v2 dossier frame", () => {
       assert.equal(page.panelOf("fiscal")?.hidden, false);
       await page.click(page.tab("Detalles"));
       const details = page.panelOf("detalles");
-      assert.deepEqual([...(details?.querySelectorAll("h3") ?? [])].map((title) => title.textContent), ["Origen", "Archivo"]);
+      assert.deepEqual([...(details?.querySelectorAll("h3") ?? [])].map((title) => title.textContent), ["Origen", "Nota", "Archivos de respaldo", "Archivo"]);
       assert.deepEqual([...(details?.querySelectorAll("li[data-fact] > span:first-child") ?? [])].map((label) => label.textContent), ["Canal", "Enviado por", "Llegada", "Nombre", "Tamaño"]);
       assert.equal(details?.querySelector('[data-fact="channel"] > span:nth-child(3)')?.textContent, "WhatsApp");
       assert.equal(details?.querySelector('[data-fact="filename"] > span:nth-child(3)')?.textContent, "foto-0412.jpg");

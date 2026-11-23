@@ -258,9 +258,6 @@ export type CurrentNoteCommand = { draftId: string; expectedVersion: number; not
 export type SupportingFileCommand = { draftId: string; expectedVersion: number; file: File; key: string };
 export type SupportingFileLinkCommand = Omit<SupportingFileCommand, "file"> & { sourceId: string };
 const annotationKey = z.string().min(1).max(80);
-export function getBusinessReportAnnotationDossier(scope: ReportScope, draftId: string, signal?: AbortSignal) {
-  return json(scope, `/business/drafts/${encodeURIComponent(z.string().uuid().parse(draftId))}/dossier`, annotationDossierSchema, { signal });
-}
 export function downloadBusinessReportAttachment(scope: ReportScope, receiptId: string, signal?: AbortSignal): Promise<Blob> {
   return request(scope, `/business/receipts/${encodeURIComponent(z.string().uuid().parse(receiptId))}/source`, { signal }, (response) => response.blob());
 }

@@ -17,13 +17,15 @@ const ReceiptImageZoom = lazy(() => import("./ReceiptImageZoom"));
 export type ReceiptSourceState = { kind: "loading" } | { kind: "ready"; url: string; blob: Blob; sourceId: string } | { kind: "failed" };
 
 /** The original file of one receipt, loaded with the person's access. A file of an earlier receipt never shows on the current one. */
-export function useReceiptSource(id: string): { current: ReceiptSourceState; reload: () => void } {
+export function useReceiptSource(id: string, read?: (id: string, signal: AbortSignal) => Promise<Blob>): { current: ReceiptSourceState; reload: () => void } {
   const { source } = useBusiness();
   const [state, setState] = useState<ReceiptSourceState>({ kind: "loading" });
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    source.receiptSource(id)
+    const abort = new AbortController();
+    const bytes = read ? read(id, abort.signal) : source.receiptSource(id);
+    bytes
       .then((blob) => new Promise<{ url: string; blob: Blob }>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve({ url: String(reader.result), blob });
@@ -32,8 +34,8 @@ export function useReceiptSource(id: string): { current: ReceiptSourceState; rel
       }))
       .then(({ url, blob }) => { if (!cancelled) setState({ kind: "ready", url, blob, sourceId: id }); })
       .catch(() => { if (!cancelled) setState({ kind: "failed" }); });
-    return () => { cancelled = true; };
-  }, [id, source, retry]);
+    return () => { cancelled = true; abort.abort(); };
+  }, [id, source, retry, read]);
   return {
     current: state.kind === "ready" && state.sourceId !== id ? { kind: "loading" } : state,
     reload: () => { setState({ kind: "loading" }); setRetry((value) => value + 1); },

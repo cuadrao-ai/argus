@@ -25,7 +25,9 @@ import { useJumpRows } from "./dossier/jump-rows";
 import { approvalRefusalGaps, businessTypedNotesAvailable, duplicateRecordId, type BusinessApprovalOptions, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
-import { useBusiness } from "./BusinessWorkspace";
+import { useRecordTray } from "./record-tray";
+import { useDossierAnnotations } from "./dossier/useDossierAnnotations";
+import { useBusiness, type DossierDetailsCard } from "./BusinessWorkspace";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import { ReceiptDuplicateCompare, useDuplicateCompare } from "./ReceiptDuplicateCompare";
 import ReceiptMessages from "./ReceiptMessages";
@@ -114,7 +116,7 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
   );
 }
 
-export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, notice, readLanded }: { draftId: string; readLanded?: boolean; onUnprepared?: () => void; receipt?: ReceiptDetail; notice?: ReactNode }) {
+export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepared, receipt, notice, readLanded }: { detailsCard?: DossierDetailsCard; draftId: string; readLanded?: boolean; onUnprepared?: () => void; receipt?: ReceiptDetail; notice?: ReactNode }) {
   const { t } = useTranslation();
   const primaryKeys = usePrimaryKeys();
   const { source, reload, records, openPanel, guardPanel, panel, chosen } = useBusiness();
@@ -142,7 +144,17 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const [fields, setFields] = useState<DgiiFields | null>(null);
   const [fieldsFailed, setFieldsFailed] = useState(false);
   const [fieldsAttempt, setFieldsAttempt] = useState(0);
-  const [tab, setTab] = useState<DossierTab>("general");
+  const [tab, setTab] = useState<DossierTab>(detailsCard ? "detalles" : "general");
+  const tray = useRecordTray();
+  const [pickedFile, pickFile] = useState<string | null | undefined>(detailsCard === "support" ? undefined : null);
+  const [entry, setEntry] = useState({ panel, visit: 0 });
+  if (entry.panel !== panel) {
+    setEntry({ panel, visit: entry.visit + 1 });
+    if (detailsCard) {
+      setTab("detalles");
+      if (detailsCard === "support") pickFile(undefined);
+    }
+  }
   const [flash, setFlash] = useState<RowFlash | null>(null);
   const [checking, setChecking] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -225,22 +237,26 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const amountsPreview = useAmountsPreview(dossier, rows.rows, source.previewAmounts);
   const dirty = rows.unsaved.length > 0;
 
+  const annotationBlocked = dirty || fiscalDirty || fiscalBusy || autosave.busy || autosave.failed || duplicateBusy || checking || capturePending || captureOpen || settling || reopening !== null || deletion.busy || operation.kind !== "idle";
+  const annotations = useDossierAnnotations(dossier, annotationBlocked, setDossier, loadFailed,
+    error => setProblem({ text: t("business.dossier.supporting.restore_error"), reference: referenceCode(error) }));
   const jumpList = useJumpRows(receiptIds);
 
   const holdsEdits = dirty || fiscalDirty;
   const receiptId = receipt?.id;
   useEffect(() => {
-    if (!holdsEdits) return;
+    if (!holdsEdits && !annotations.busy) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     const release = guardPanel((next, proceed) => {
       const same = next.kind === "draft" ? next.draftId === draftId : next.kind === "receipt" && next.receiptId === receiptId;
+      if (annotations.busy) return;
       if (same) proceed();
       else setLeaving({ proceed });
     });
     releaseGuard.current = release;
     return () => { window.removeEventListener("beforeunload", warn); release(); };
-  }, [draftId, guardPanel, holdsEdits, receiptId]);
+  }, [annotations.busy, draftId, guardPanel, holdsEdits, receiptId]);
 
   const settle = async () => {
     if (!dossier || settling || inFlight.current) return;
@@ -296,7 +312,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
 
   const approveRecord = async (request: ApprovalSend): Promise<BusinessDossier | null> => {
     const approval = dossier?.approval_action;
-    if (!dossier || !approval || inFlight.current || duplicateBusy || fiscalBusy || fiscalDirty || dirty || autosave.busy || autosave.failed || operation.kind !== "idle") return null;
+    if (!dossier || !approval || annotations.busy || inFlight.current || duplicateBusy || fiscalBusy || fiscalDirty || dirty || autosave.busy || autosave.failed || operation.kind !== "idle") return null;
     inFlight.current = true;
     setOperation({ kind: "approving" });
     setProblem(null);
@@ -392,15 +408,20 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const recorded = approval !== null;
   // The server names the approve action; without one there is nothing this screen may approve.
   const supportedKind = Boolean(dossier.approval_action);
-  const settled = !duplicateBusy && !capturePending && !captureOpen && !fiscalBusy && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
+  const settled = !annotations.busy && !duplicateBusy && !capturePending && !captureOpen && !fiscalBusy && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
   const mutable = settled && !fiscalDirty;
   const canPrepare = dossier.capabilities.includes("prepare");
   const canApprove = dossier.capabilities.includes("approve");
   const line = approvalLine(canApprove, canPrepare);
-  const attachments = dossier.sources.filter((item) => item.kind === "attachment");
+  const files = dossier.supporting_files ?? [];
+  const primarySources = dossier.sources.filter(item => !files.some(file => file.source_id === item.id));
+  const canViewFile = !!annotations.readFile;
+  const viewableFiles = canViewFile ? files.filter(file => file.state === "linked") : [];
+  const viewed = pickedFile === undefined ? viewableFiles[0] : viewableFiles.find(file => file.source_id === pickedFile);
+  const attachments = primarySources.filter(item => item.kind === "attachment");
   // Line one is who issued it; a record nobody named yet goes by its file.
   const title = dossier.facts.counterparty.state === "known" ? dossier.facts.counterparty.value : receipt?.filename ?? attachments[0]?.filename ?? t("business.dossier.title", "Review record");
-  const busy = duplicateBusy || autosave.busy || operation.kind === "approving";
+  const busy = annotations.busy || duplicateBusy || autosave.busy || operation.kind === "approving";
   const saveHolds = autosave.busy || autosave.failed || dirty;
   const approvable = mutable && dossier.approval_available && !saveHolds && !checking;
   const reviewing = dossier.review_state === "open" && !recorded;
@@ -452,7 +473,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const position = receipt ? receiptPlace(receipt.id, receiptIds) : null;
   // The last document of a run has one verb. A receipt opened with no list still offers the next one waiting in the Bandeja.
   const lastInList = position ? position.index >= position.total : !receipt;
-  const firstSource = dossier.sources[0];
+  const firstSource = primarySources[0];
   const fiscalFacts = dossier.facts.fiscal;
   const fiscalEdit: Record<"rnc" | "fiscal_number" | "itbis", { name: "rnc" | "ncf" | "itbis"; value: string }> = {
     rnc: { name: "rnc", value: fiscalFacts?.rnc.value ?? "" },
@@ -540,6 +561,11 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   </> : null;
   const noSource = !attachments.length && !dossier.sources.some((item) => item.kind === "message" || item.kind === "agent_proposal");
   const [original, ...supporting] = attachments;
+  const { onUnlink } = annotations;
+  const removeFile = onUnlink && (async (sourceId: string) => {
+    await onUnlink(sourceId);
+    pickFile(current => (current === undefined ? viewed?.source_id : current) === sourceId ? null : current);
+  });
   const acceptAria = reason ? reasonId : undefined;
   const accepting = <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</>;
   return (<><ContentFade><>
@@ -591,11 +617,17 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
         </> },
         { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} onBusy={setFiscalBusy} onDirty={trackFiscalEdits} saved={fiscalSaved === dossier} onChanged={(value) => { setFiscalSaved(value); setDossier(value); reload(); }} /> },
-        { key: "detalles", content: <DossierDetails origin={cameFrom} /> },
-        { key: "historial", content: <ReceiptHistory documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} dgiiFields={fields} /> },
+        { key: "detalles", content: <DossierDetails key={entry.visit} origin={cameFrom} dossier={dossier} detailsCard={detailsCard} selectedSupportingSourceId={viewed?.source_id} receiptLimits={records.workspace?.receipt_limits} busy={annotations.busy || annotationBlocked}
+          onSaveNote={annotations.onSaveNote} onAppend={annotations.onAppend} onUnlink={removeFile}
+          onViewFile={canViewFile ? sourceId => { pickFile(sourceId); if (!tray || tray.narrow) setTab("documento"); } : undefined} /> },
+        { key: "historial", content: <ReceiptHistory supportingFiles={files} busy={annotations.busy || annotationBlocked} onRestore={annotations.onRestore} documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} dgiiFields={fields} /> },
       ]}
       document={
         <DossierDocument
+          readSupport={annotations.readFile}
+          supporting={viewableFiles}
+          selected={viewed}
+          onPick={pickFile}
           file={original ? { id: original.connection_id, filename: original.filename, media_type: original.media_type, channel: original.channel, email_delivery_ids: original.email_delivery_ids } : null}
           extra={supporting.length || !noSource && !original || dossier.sources.some((item) => item.kind !== "attachment") ? <>
             {supporting.map((attachment) => <ReceiptSourcePreview key={attachment.id} initialExpanded detail={{ id: attachment.connection_id, filename: attachment.filename, media_type: attachment.media_type, received_at: attachment.received_at, channel: attachment.channel, email_delivery_ids: attachment.email_delivery_ids }} />)}

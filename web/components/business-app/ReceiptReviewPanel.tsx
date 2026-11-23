@@ -30,7 +30,7 @@ import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import { useShownRecord } from "./useShownRecord";
 import type { ReceiptDetail } from "@/lib/business-api";
-import { useBusiness } from "./BusinessWorkspace";
+import { useBusiness, type DossierDetailsCard } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
 import { formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { sentByName } from "@/lib/sent-by";
@@ -53,7 +53,7 @@ function showReceipt(previous: ReadView, detail: ReceiptDetail): ReadView {
   return { detail, readLanded };
 }
 
-function ReceiptEntry({ receiptId }: { receiptId: string }) {
+function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCard?: DossierDetailsCard }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
@@ -69,7 +69,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const [busy, setBusy] = useState<"prepare" | "rebind" | "refresh" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
-  const [tab, setTab] = useState<DossierTab>("general");
+  const [tab, setTab] = useState<DossierTab>(detailsCard ? "detalles" : "general");
+  const [entry, setEntry] = useState(panel);
+  if (entry !== panel) {
+    setEntry(panel);
+    if (detailsCard) setTab("detalles");
+  }
   const jumpList = useJumpRows(receiptIds);
   const canDelete = detail?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
   const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, detail.bandeja_group?.label ? t(`business.bandeja.label.${detail.bandeja_group.label}`) : t("business.document_delete.deleted_state"), t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
@@ -152,7 +157,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
         </div>
       </div>
     );
-    return <ReceiptDossierReview readLanded={readLanded} draftId={openDraft} onUnprepared={retainReceipt} receipt={detail} notice={notice} />;
+    return <ReceiptDossierReview detailsCard={detailsCard} readLanded={readLanded} draftId={openDraft} onUnprepared={retainReceipt} receipt={detail} notice={notice} />;
   }
   const openReceipt = (id: string) => {
     handTitleFocus(id);
@@ -200,7 +205,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       onTab={setTab}
       tabs={[
         { key: "general", content: children },
-        { key: "detalles", content: <DossierDetails origin={{ channel: detail.channel, sentBy: detail.sent_by ? sentByName(t, detail.sent_by) : null, receivedAt: detail.received_at, filename: detail.filename, sizeBytes: detail.size_bytes }} /> },
+        { key: "detalles", content: <DossierDetails detailsCard={detailsCard} origin={{ channel: detail.channel, sentBy: detail.sent_by ? sentByName(t, detail.sent_by) : null, receivedAt: detail.received_at, filename: detail.filename, sizeBytes: detail.size_bytes }} /> },
         ...(readBoard ? [{ key: "historial" as const, content: <ReceiptHistory history={[]} accounts={[]} sources={[{
           kind: "attachment", id: detail.id, connection_id: detail.id, channel: detail.channel,
           received_at: detail.received_at, filename: detail.filename, media_type: detail.media_type,
@@ -374,6 +379,6 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   );
 }
 
-export default function ReceiptReviewPanel({ target }: { target: { kind: "receipt" | "draft"; id: string } }) {
-  return target.kind === "draft" ? <ReceiptDossierReview draftId={target.id} /> : <ReceiptEntry key={target.id} receiptId={target.id} />;
+export default function ReceiptReviewPanel({ target, detailsCard }: { detailsCard?: DossierDetailsCard; target: { kind: "receipt" | "draft"; id: string } }) {
+  return target.kind === "draft" ? <ReceiptDossierReview detailsCard={detailsCard} draftId={target.id} /> : <ReceiptEntry key={target.id} detailsCard={detailsCard} receiptId={target.id} />;
 }
