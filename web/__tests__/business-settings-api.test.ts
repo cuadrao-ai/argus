@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { acceptBusinessInvitation, changeBusinessRole, getBusinessDirectory, inviteBusinessMembers, revokeBusinessAccessGrant } from "@/lib/business-api";
 import { setChosenGrant } from "@/lib/business-grant";
-import { businessAppearanceState,checkBusinessDetails,createBusinessCommand, getBusinessProfile,publishBusinessAppearance,saveBusinessProfile } from "@/lib/business-profile-api";
+import { businessAppearanceState,checkBusinessDetails,failBusinessAppearance,createBusinessCommand, getBusinessProfile,publishBusinessAppearance,saveBusinessProfile } from "@/lib/business-profile-api";
 
 const originalFetch = globalThis.fetch;
 const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
@@ -130,4 +130,10 @@ test("profile transport does not start asset reads without a mounted owner",asyn
 test("a saved image without readable bytes stays failed rather than becoming a default avatar",async()=>{
  await publishBusinessAppearance({...profile,space_id:"unreadable-image",appearance:{kind:"image",asset_id:"missing-render",crop:{mode:"fit",zoom:1,x:0,y:0}},image:null});
  expect(businessAppearanceState("unreadable-image")).toBe("failed");
+});
+// Runs twice so that, in either order, one run is the test after a saved state.
+test.each(["one","another"])("%s test starts with no saved Business appearance state",()=>{
+ expect(businessAppearanceState("carried-over")).toBeNull();
+ failBusinessAppearance("carried-over");
+ expect(businessAppearanceState("carried-over")).toBe("failed");
 });
