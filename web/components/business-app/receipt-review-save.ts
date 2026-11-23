@@ -9,8 +9,8 @@ import { randomId } from "@/lib/random-id";
 import type { BusinessDataSource } from "./business-data";
 import type { DocumentType, ReviewRow } from "./receipt-fact-rows";
 
-/** A row on the open draft that saves on its own: a fact, or one of the owner's two 606 choices. */
-export type SaveRow = ReviewRow | keyof PurchaseChoice;
+/** A dossier row that saves on its own: a fact, or one of the owner's two 606 choices. */
+export type SaveRow = ReviewRow;
 
 /** One edit, by the write that owns its fact. */
 export type ReviewChange =
@@ -106,7 +106,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
     return Object.fromEntries(save ? [...others, [row, save]] : others);
   }), []);
 
-  const refused = (row: SaveRow, code?: string) => code === "document_type_locked" ? t("business.dossier.type_locked", "This record is approved. Its type no longer changes.") : t(`business.dgii.error.${code}`, "") || t(`business.dossier.blocker.${code}`, "") || t("business.dossier.placeholder.save_refused", { field: label(row), defaultValue: "{{field}} wasn't saved. Check the value." });
+  const refused = (row: SaveRow, code?: string) => code === "fact_required" ? t("business.dossier.field_required", { field: label(row) }) : t(`business.dgii.error.${code}`, "") || t(`business.dossier.blocker.${code}`, "") || t("business.dossier.placeholder.save_refused", { field: label(row), defaultValue: "{{field}} wasn't saved. Check the value." });
 
   const failure = async (row: SaveRow, attempt: Attempt, base: BusinessDossier, key: string, error: unknown): Promise<Failure | null> => {
     const { code, status } = error as { code?: string; status?: number };
@@ -121,7 +121,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
     if (status === 401 || status === 403 || status === 404 || code === "permission_denied") { onLost(reference); return null; }
     if (status && status >= 400 && status < 500) return { message: businessDateMessage(error, t, locale, label(row)) ?? refused(row, code), reference, retry: false, unknown: false };
     attempts.current[row] = { change: attempt.change, base, key };
-    return { message: t("business.dossier.placeholder.save_lost", { field: label(row), defaultValue: "We couldn't confirm that {{field}} was saved. Approval is paused." }), reference, retry: true, unknown: true };
+    return { message: t(dossier?.review_state === "accepted" ? "business.dossier.save_unconfirmed" : "business.dossier.placeholder.save_lost", { field: label(row) }), reference, retry: true, unknown: true };
   };
 
   const run = (row: SaveRow, attempt: Attempt): Promise<boolean> => {

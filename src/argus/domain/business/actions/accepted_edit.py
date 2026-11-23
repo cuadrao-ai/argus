@@ -18,8 +18,10 @@ from argus.domain.business.actions.fiscal import (
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
+from argus.domain.business.contracts.dossier import EditableField
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
+    FactField,
     Known,
 )
 from argus.domain.business.document_type import DocumentType
@@ -42,7 +44,7 @@ from argus.domain.recording.money_schemas import MoneyCoverage, MoneyRequest
 from argus.domain.recording.records import DEFAULT_TIME_ZONE
 from argus.domain.recording.service import FinancialAccountService
 
-_MONEY_FACTS = (
+_MONEY_FACTS: tuple[FactField, ...] = (
     "amount",
     "currency",
     "occurred_on",
@@ -87,6 +89,40 @@ class Posting:
         )
 
 
+def _own_posting_id(event: ImportEvent) -> UUID | None:
+    metadata = event.resolution.get("accepted") or {}
+    if (
+        event.accept_key
+        and event.activity_id
+        and metadata.get("activity_id") == event.activity_id
+    ):
+        return UUID(event.activity_id)
+    return None
+
+
+def editable_posting_fields(
+    tx: ActionTransaction,
+    event: ImportEvent,
+    link: document_ledger.LinkReason | None,
+) -> tuple[EditableField, ...]:
+    """The in-place corrections the original money posting can support."""
+    if link is not None:
+        return ()
+    activity_id = _own_posting_id(event)
+    if activity_id is None:
+        return ()
+    rows = _posting_rows(tx, activity_id)
+    if len(rows) != 1:
+        return ()
+    [posting] = rows
+    fields: tuple[EditableField, ...] = ("amount", "occurred_on", "counterparty")
+    if posting["account_id"] is None:
+        fields += ("currency",)
+    if posting["funding"] is None:
+        fields += ("kind", "document_type")
+    return fields
+
+
 def revise_activity(
     tx: ActionTransaction,
     event: ImportEvent,
@@ -129,16 +165,13 @@ def revise_activity(
     ):
         return metadata, UUID(event.activity_id) if event.activity_id else None
 
-    if (
-        event.accept_key is None
-        or (metadata or {}).get("activity_id") != event.activity_id
-    ):
+    activity_id = _own_posting_id(event)
+    if activity_id is None:
         raise ActionError("invalid_input", "business_document_linked")
-    activity_id = document_ledger.original_activity(event)
     # The import lock already serializes bank matches, settlements and exports.
     for owner in owner_closure(tx.connection, {tx.context.owner_id}):
         owner_lock(tx.connection, owner)
-    linked = document_ledger.linked(tx, event, activity_id)
+    linked = document_ledger.linked_reason(tx, event, activity_id) is not None
     old = _current(tx, activity_id, linked=linked)
 
     try:
@@ -184,8 +217,8 @@ def _keep_refund(
         raise ActionError("invalid_input", "recorded_correction_unsupported")
 
 
-def _current(tx: ActionTransaction, activity_id: UUID, *, linked: bool) -> Posting:
-    rows = tx.rows(
+def _posting_rows(tx: ActionTransaction, activity_id: UUID) -> list[dict[str, Any]]:
+    return tx.rows(
         "select r.id as record_id, r.current_revision as record_revision,"
         " g.current_revision as activity_revision, r.account_id, r.funding,"
         " coalesce(r.currency,a.currency) as currency, g.kind, abs(v.amount_minor) as amount_minor,"
@@ -202,6 +235,10 @@ def _current(tx: ActionTransaction, activity_id: UUID, *, linked: bool) -> Posti
         " and r.user_id=g.user_id and coalesce(r.owner_space_id,a.owner_space_id)=%s",
         (activity_id, tx.context.owner_id, tx.context.actor.space_id),
     )
+
+
+def _current(tx: ActionTransaction, activity_id: UUID, *, linked: bool) -> Posting:
+    rows = _posting_rows(tx, activity_id)
     if len(rows) != 1:
         code = "business_document_linked" if linked else "business_record_not_found"
         raise ActionError("invalid_input", code)

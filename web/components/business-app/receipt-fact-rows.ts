@@ -1,3 +1,4 @@
+import type { SuggestedField } from "@/lib/business-dgii";
 import type { BusinessDossier, BusinessFact, BusinessFactField, BusinessFacts, BusinessFiscalField, ReviewFlagCode } from "@/lib/business-dossier";
 
 /**
@@ -69,7 +70,7 @@ export function factRows<K extends BusinessFactField | BusinessFiscalField>(
     .map(({ key, standing, blocked: isBlocked, asked: isAsked }) => ({ key, standing, blocked: isBlocked, asked: isAsked }));
 }
 
-/** The RNC row's standing is its status block's alone; the row's pencil, or Reabrir, is its one action. */
+/** The RNC row's standing is its status block's alone; the row's pencil is its one action. */
 const RNC_STATUS_ROW = "rnc";
 const FLAG_SHOWN_AS: Record<ReviewFlagCode, "own_line" | "doubt_mark"> = { rnc_check_digit: "own_line", ncf_malformed: "doubt_mark", itbis_high: "own_line", amounts_mismatch: "own_line" };
 
@@ -94,8 +95,8 @@ export const KIND_FIELDS: readonly BusinessFactField[] = ["occurred_on", "amount
 export const PAYMENT_FIELDS: readonly BusinessFactField[] = ["funding"];
 /** The fiscal rows of an open draft: the NCF and the e-CF are one number there. */
 export type FiscalRow = "rnc" | "fiscal_number" | "itbis";
-/** The rows a person edits in place on an open draft. `amount` holds the total and its currency. */
-export type ReviewRow = BusinessFactField | FiscalRow | "document_type";
+/** The rows a person edits in place. `amount` holds the total and its currency. */
+export type ReviewRow = BusinessFactField | FiscalRow | "document_type" | SuggestedField;
 export type DocumentType = NonNullable<BusinessDossier["document_type"]>;
 /** Compra then Venta, each by its intake word. */
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = { recibo: "business.intake.type_recibo", venta: "business.intake.type_venta" };

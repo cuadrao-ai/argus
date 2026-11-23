@@ -63,7 +63,6 @@ export type BusinessDataSource = Readonly<{
   approveDraft: typeof api.approveBusinessDraft;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner returns an approved record to the Bandeja; the server reverses its money row. */
-  reopenDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   deleteDocument?: typeof api.deleteBusinessDocument;
   restoreDocument?: typeof api.restoreBusinessDocument;
   purgeDocument?: typeof api.purgeBusinessDocument;
@@ -137,7 +136,6 @@ export const liveBusinessDataSource: BusinessDataSource = {
   setDocumentType: api.setBusinessDraftDocumentType,
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
-  reopenDraft: api.reopenBusinessDraft,
   deleteDocument: api.deleteBusinessDocument,
   restoreDocument: api.restoreBusinessDocument,
   purgeDocument: api.purgeBusinessDocument,
@@ -261,7 +259,6 @@ export function withBusinessSpace(
     setDocumentType: source.setDocumentType,
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,
-    reopenDraft: source.reopenDraft,
     deleteDocument: source.deleteDocument,
     restoreDocument: source.restoreDocument,
     purgeDocument: source.purgeDocument,

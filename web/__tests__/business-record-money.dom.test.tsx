@@ -125,15 +125,17 @@ describe("the original purchase picker in the tax details", () => {
       sent.push(body);
       return answer(body);
     };
-    const view = await render(<FiscalDeclarationEditor dossier={dossier} fields={{ "606": [], "607": [] }} reviewFiscal={reviewDgii} disabled={false} onChanged={() => undefined} onBusy={() => undefined} onDirty={() => undefined} />);
-    const refund = view.host.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const view = await render(<FiscalDeclarationEditor dossier={{ ...dossier, facts_editable: true, editable_fields: ["actual_refund"] }} fields={{ "606": [], "607": [] }} reviewFiscal={reviewDgii} disabled={false} onChanged={() => undefined} onBusy={() => undefined} onDirty={() => undefined} />);
+    const row = view.host.querySelector('[data-fact="actual_refund"]')!;
+    await act(async () => row.querySelector<HTMLButtonElement>("button[data-row-value]")!.click());
+    const refund = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
     assert.ok(refund);
     await act(async () => refund.click());
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
     const rows = () => [...view.host.querySelectorAll<HTMLElement>('[data-testid="refund-candidate"]')];
     const pick = (index: number) => act(async () => rows()[index].querySelector<HTMLInputElement>('input[type="radio"]')!.click());
     const save = async () => {
-      const button = [...view.host.querySelectorAll("button")].find((node) => node.textContent === "Guardar");
+      const button = row.querySelector<HTMLButtonElement>('button[aria-label^="Guardar · "]');
       assert.ok(button);
       await act(async () => button.click());
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });

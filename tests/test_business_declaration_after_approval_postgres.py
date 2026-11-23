@@ -556,9 +556,11 @@ def test_a_wrong_refund_flag_on_an_approved_expense_can_be_cleared(actions):  # 
     assert manifest["forms"]["606"]["status"] == "needs_review"
     assert line is None
 
+    assert "actual_refund" in view.editable_fields
     cleared = declared(service, context, draft_id, view.version, actual_refund=False)
     assert cleared.outcome == "applied", cleared
     view = service.dossier(context, draft_id)
+    assert "actual_refund" not in view.editable_fields
     refused = declared(service, context, draft_id, view.version, actual_refund=True)
     assert (refused.outcome, refused.code) == (
         "invalid_input",

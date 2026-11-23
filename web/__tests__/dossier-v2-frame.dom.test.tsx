@@ -11,7 +11,7 @@ import { createDossierFixtures, dossierFixtureIds } from "@/components/business-
 const accounts: BusinessAccount[] = [{ id: "acct-ops", nickname: "Caja", currency: "DOP", type: "cash" }];
 
 type Sent = { acceptGaps: readonly ListoGap[] | undefined };
-type Mount = { fetchFile?: typeof fetch; detailsCard?: "support" | "note"; dossier: BusinessDossier; receipt?: ReceiptDetail; readReceipt?: () => ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[]; refuse?: Partial<Record<"approveDraft" | "reopenDraft", unknown>> };
+type Mount = { fetchFile?: typeof fetch; detailsCard?: "support" | "note"; dossier: BusinessDossier; receipt?: ReceiptDetail; readReceipt?: () => ReceiptDetail; size?: "regular" | "narrow" | "page"; panel?: BusinessPanelState; list?: readonly ReceiptDetail[]; refuse?: Partial<Record<"approveDraft", unknown>> };
 
 /** The dossier as a person opens it: from a draft alone, or from a receipt row, on a full page or in the tray at one of its two sizes. */
 async function mount({ fetchFile, detailsCard, dossier, receipt, readReceipt, size = "page", panel, list = [], refuse = {} }: Mount) {
@@ -39,7 +39,6 @@ async function mount({ fetchFile, detailsCard, dossier, receipt, readReceipt, si
       receiptSource: async () => new Blob(["x"], { type: "image/png" }),
       dgiiFields: async () => ({ "606": [], "607": [] }),
       approveDraft: async (_id: string, _version: number, _key: string, _action: unknown, options?: BusinessApprovalOptions) => { sent.push({ acceptGaps: options?.acceptGaps }); if (refuse.approveDraft) throw refuse.approveDraft; return dossier; },
-      reopenDraft: async () => { if (refuse.reopenDraft) throw refuse.reopenDraft; return dossier; },
     },
     reload: () => undefined,
     records: { inbox: [], workspace: null },
@@ -88,7 +87,7 @@ function receiptOf(dossier: BusinessDossier, over: Partial<ReceiptDetail> = {}):
 }
 
 /** Words another lane owns: read from the locale, so this suite follows them. */
-const copy = (spanish as unknown as { business: { dossier: { confirm: { accept_anyway: string }; duplicate_recorded: string; outcome_unknown: string; refresh: string; refused: string; reopen: string; reopen_failed: string } } }).business.dossier;
+const copy = (spanish as unknown as { business: { dossier: { confirm: { accept_anyway: string }; duplicate_recorded: string; outcome_unknown: string; refresh: string; refused: string } } }).business.dossier;
 const acceptedWord = (spanish as unknown as { business: { history: { approved: string } } }).business.history.approved;
 
 describe("the v2 dossier frame", () => {
@@ -450,17 +449,7 @@ describe("what an action answered shows on every tab", () => {
       } finally { await page.close(); }
     });
 
-    test(`from ${tab}, a reopen that failed says so`, async () => {
-      const dossier = await fiscalDossier({ reopen_available: true, review_state: "accepted", bandeja_group: { group: null, reason: null, label: "accepted" }, approval_available: false, approval_action: null, approval_result: { status: "recorded", activity_id: "a1", reviewed_version: 2, approved_revision: 2, approved_at: "2026-11-20T15:02:00Z", actor: { actor_kind: "owner", display_name: "Rosa Díaz" } as never } });
-      const page = await mount({ dossier, size: "narrow", refuse: { reopenDraft: { code: "unexpected", status: 500 } } });
-      try {
-        await page.click(page.tab(tab));
-        await page.click(page.all<HTMLButtonElement>('[data-testid="reopen-record"]')[0]);
-        await page.click(page.all<HTMLButtonElement>('[role="alertdialog"] button, [role="dialog"] button').find((item) => item.textContent?.trim() === copy.reopen));
-        shown(notices(page), tab);
-        assert.equal(notices(page).querySelector('[role="alert"] p')?.textContent, copy.reopen_failed);
-      } finally { await page.close(); }
-    });
+
   }
 
   test("with nothing to say the frame holds no notice region", async () => {

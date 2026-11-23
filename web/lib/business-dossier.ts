@@ -88,7 +88,13 @@ export type BusinessReviewQuestion = {
   created_at: string;
 };
 
+export type EditableDossierField = BusinessFactField | "rnc" | "fiscal_number" | "itbis" | "document_type" | "due_on" | "modified_ncf" | "actual_refund";
+
 export type BusinessDraftRevision = {
+  before_document_type?: NonNullable<BusinessDossier["document_type"]> | null;
+  after_document_type?: NonNullable<BusinessDossier["document_type"]> | null;
+  before_due_on?: string | null;
+  after_due_on?: string | null;
   before_current_note?: string | null;
   after_current_note?: string | null;
   supporting_change?: "appended" | "unlinked" | "restored" | null;
@@ -197,13 +203,15 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   supporting_limit_reached?: boolean;
   annotation_unavailable_reason?: string | null;
   dgii?: DgiiDeclaration | null;
-  /** The caller may write the 606 declaration now: it holds prepare, the record takes a 606, and no downloaded TXT carries it. */
+  /** The server authorizes writing this dossier's facts and fiscal details. */
+  facts_editable?: boolean;
+  /** The fields the caller can correct at this revision. */
+  editable_fields?: readonly EditableDossierField[];
+  /** The caller may write the general 606 choices for this record. */
   declaration_editable?: boolean;
   /** The Business year in which the first source arrived, and whether the issue date is a read whose year is not that year. The server decides both; the date field offers the upload year exactly when `year_to_check` is true. */
   upload_year?: number | null;
   year_to_check?: boolean;
-  /** The caller may return this approved record to the Bandeja now: it holds approve and no bank match, credit note or refund is linked to it. */
-  reopen_available?: boolean;
   /** What the server offers for each 606 answer this open expense lacks, under the declaration's field name. The approval saves the ones the person saw. */
   declaration_suggestions?: Partial<Record<SuggestedField, DeclarationSuggestion | null>>;
   /** What the e-CF XML proved by itself; null for any other source. */
@@ -234,7 +242,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   document_type?: "recibo" | "venta";
   /** The type was read from the document, not picked; absent when false. */
   document_type_detected?: boolean;
-  /** True while the draft is open and the caller can prepare. The server refuses a change after approval. */
+  /** The server permits changing this document type at the current revision. */
   document_type_editable?: boolean;
   draft_id: string;
   version: number;
@@ -256,6 +264,6 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   fiscal_inclusion_available?: boolean;
   /** Purchases this draft may refund, newest first; empty unless it is a refund or a credit note. */
   refund_candidates?: RefundCandidate[];
-  /** A recorded approval names the facts revision the person approved and when; later marks add history revisions without changing either. */
+  /** A recorded approval names the facts revision the person approved and when; later changes add history revisions without changing either. */
   approval_result: { status: "recorded"; activity_id: string; reviewed_version: number; approved_revision: number; approved_at: string; actor: BusinessActor } | { status: "outcome_unknown" | "failed"; code: string; reviewed_version: number } | null;
 };

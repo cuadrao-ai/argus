@@ -60,8 +60,8 @@ export default function ReceiptAmounts({ dossier, review, problems = [], flash =
       match={amount != null ? JSON.stringify([amount, money(amount)]) : undefined}
     />
   );
-  const choose = review?.onEdit ? () => review.onEdit?.("currency") : undefined;
   const currencyEdit = review?.edit("currency");
+  const choose = currencyEdit?.onOpen;
   const heading = (
     <button ref={picker} type="button" data-fact="currency" data-testid="montos-currency" data-missing={currency ? undefined : true} className={styles.currency} disabled={!choose} aria-label={`${t("business.dossier.field.currency")}: ${currency ?? t("business.terms.currency_missing")}`} onClick={choose}>
       {currency ?? t("business.terms.currency_choose")}

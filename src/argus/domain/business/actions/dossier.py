@@ -8,6 +8,7 @@ from loguru import logger
 from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
+from argus.domain.business.actions import accepted_edit, document_ledger
 from argus.domain.business.actions.duplicate_comparison import (
     compare,
     duplicate_revisions,
@@ -16,7 +17,6 @@ from argus.domain.business.actions.facts import facts_of
 from argus.domain.business.actions.fiscal import last_choice, repeated_comprobantes
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
-from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.amount_inheritance import (
     APPROVED,
     LinkedSources,
@@ -63,6 +63,7 @@ from argus.domain.business.contracts.dossier import (
     BusinessDossier,
     DraftRevision,
     DuplicateCandidate,
+    EditableField,
     RecordContext,
     RecordedApproval,
     ReviewQuestion,
@@ -514,6 +515,32 @@ def log_changed_suggestions(
             logger.info("business_suggestion_changed field={} source={}", field, source)
 
 
+def _editable_fields(
+    tx: ActionTransaction,
+    event: ImportEvent,
+    link: document_ledger.LinkReason | None,
+    resolution: BusinessResolution,
+    facts: BusinessFacts,
+) -> tuple[EditableField, ...]:
+    fields: tuple[EditableField, ...] = (
+        "business_share", "receipt_state", "rnc", "itbis", "net_amount", "legal_tip", "due_on"
+    )
+    if event.state == "open" or (
+        isinstance(resolution.dgii, PurchaseDeclaration)
+        and resolution.dgii.actual_refund
+        and facts.kind.value == "expense"
+    ):
+        fields += ("actual_refund",)
+    if link != "sale_credit":
+        fields += ("fiscal_number", "modified_ncf")
+    if event.state == "open":
+        return fields + (
+            "kind", "amount", "currency", "occurred_on", "counterparty", "funding",
+            "category_id", "document_type",
+        )
+    return fields + accepted_edit.editable_posting_fields(tx, event, link)
+
+
 def dossier(
     tx: ActionTransaction,
     draft_id: UUID,
@@ -621,12 +648,6 @@ def dossier(
     declaration_editable = facts_editable and takes_purchase_declaration(
         resolution.document_type, facts
     )
-    reopen_available = (
-        event.state == "accepted"
-        and "approve" in tx.authorization.capabilities
-        and linked_reason(tx, event.activity_id) is None
-    )
-    from argus.domain.business.actions import document_ledger
     from argus.domain.business.actions.document_deletion import reading_uploads
     from argus.domain.business.supporting_files import supporting_state
 
@@ -634,6 +655,16 @@ def dossier(
     deleted = named_deletion(
         marker,
         people(tx.connection, tx.authorization, [marker and marker.actor.actor_id]),
+    )
+    link = (
+        document_ledger.linked_reason(tx, event, UUID(event.activity_id))
+        if event.state == "accepted" and "approve" in tx.authorization.capabilities
+        else None
+    )
+    editable_fields = (
+        _editable_fields(tx, event, link, resolution, facts)
+        if facts_editable and tx.context.actor.actor_kind == "member"
+        else ()
     )
     in_flight = event.state in ("open", "accepted") and bool(reading_uploads(tx, source_rows))
     reading = event.state == "open" and in_flight
@@ -645,7 +676,7 @@ def dossier(
             event.state == "open"
             or (
                 event.state == "accepted"
-                and not document_ledger.linked(tx, event, UUID(event.activity_id))
+                and link is None
             )
         )
     )
@@ -731,15 +762,17 @@ def dossier(
         dgii=declaration.model_dump(mode="json") if declaration else None,
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,
-        document_type_editable=facts_editable,
+        document_type_editable=(
+            facts_editable if event.state == "open" else "document_type" in editable_fields
+        ),
         facts_editable=facts_editable,
+        editable_fields=editable_fields,
         declaration_editable=declaration_editable,
         declaration_suggestions=linked.suggestions
         if declaration_editable
         else DeclarationSuggestions(),
         payment_split_editable=facts_editable
         and takes_payment_split(resolution.document_type),
-        reopen_available=reopen_available,
         due_on=resolution.due_on,
         upload_year=uploaded,
         year_to_check=year_to_check(facts, uploaded),

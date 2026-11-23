@@ -13,6 +13,7 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 
 from argus.domain.business.accepted_dates import PastBusinessDate
 from argus.domain.business.bandeja_group import BandejaReason
@@ -235,19 +236,6 @@ class SettleRemainderCommand(Contract):
     request: SettleRemainder
 
 
-class ReopenDraft(Contract):
-    """The owner returns an approved record to the Bandeja to correct it. The
-    money row it recorded stops counting; a later approval records it again."""
-
-    version: int = Field(ge=1, strict=True)
-
-
-class ReopenCommand(Contract):
-    action: Literal["reopen_draft"] = "reopen_draft"
-    draft_id: UUID
-    request: ReopenDraft
-
-
 class MarkPersonal(Contract):
     """The owner or a prepare-holder marks a receipt as personal (no part of
     it is the Business's) or takes the mark back. Reversible, a new revision
@@ -454,7 +442,6 @@ Command = (
     | RebindAttachmentCommand
     | MarkPersonalCommand
     | DecideFiscalInclusionCommand
-    | ReopenCommand
     | DocumentCommand
 )
 
@@ -465,6 +452,9 @@ class Applied(Contract):
     version: int | None = Field(default=None, ge=1)
     question_id: UUID | None = None
     activity_id: UUID | None = None
+    purge_at: SkipJsonSchema[AwareDatetime | None] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class Refused(Contract):

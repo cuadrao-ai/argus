@@ -32,7 +32,6 @@ from argus.domain.business.contracts.actions import (
     MarkPersonal,
     OutcomeUnknown,
     Refused,
-    ReopenDraft,
     ResolveDuplicate,
     ReviewDraft,
     SettleRemainder,
@@ -121,8 +120,6 @@ def _run(request, response, context, draft_id, command=None, key=None):
                 method = context.service.resolve_duplicate
             elif isinstance(command, SettleRemainder):
                 method = context.service.settle_remainder
-            elif isinstance(command, ReopenDraft):
-                method = context.service.reopen
             elif isinstance(command, MarkPersonal):
                 method = context.service.mark_personal
             elif isinstance(command, DecideFiscalInclusion):
@@ -351,40 +348,6 @@ def settle_remainder(
     )
 
 
-@router.post(
-    "/{draft_id}/reopen",
-    response_model=BusinessDossier,
-    responses={
-        403: {
-            "description": "`business_permission_denied` without approve permission;"
-            " `business_human_command_required` for a non-person actor."
-        },
-        409: _ACTION_CONFLICT,
-        422: {
-            "description": "`business_draft_not_recorded` on a draft that is not approved;"
-            " `business_record_matched` while a bank line is matched to the record;"
-            " `business_refund_linked` while a credit note or refund names it."
-        },
-    },
-)
-def reopen_draft(
-    request: Request,
-    response: Response,
-    draft_id: UUID,
-    body: ReopenDraft,
-    context: Annotated[DraftContext, Depends(require_drafts)],
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-):
-    """The owner returns an approved record to the Bandeja to correct it. The
-    draft is open again at a new version with everything it holds; the money
-    row it recorded stops counting everywhere and stays as history. Replaying
-    the key answers the same; a second reopen of the open draft is refused."""
-
-    return _run(
-        request, response, context, draft_id, body, _key(request, idempotency_key)
-    )
-
-
 def _document_action(
     request: Request,
     response: Response,
@@ -431,6 +394,7 @@ def _document_action(
         deleted=action != "restore_document",
         inbox_counts=counts(),
         registros_count=record_count,
+        purge_at=result.purge_at,
     )
 
 

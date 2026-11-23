@@ -27,8 +27,6 @@ export type RowFlash = { row: ReviewRow; n: number };
 /** How the form edits: what each row opens, and what the page says under it. Absent for a record nobody can edit now. */
 export type FactsReview = {
   amountsPreview?: { net_amount: NonNullable<BusinessDossier["net_amount"]>; mismatch: { difference?: string | null } | null; status: "ready" | "pending" | "error" };
-  /** Absent for someone who cannot edit the record now. */
-  onEdit?: (row: ReviewRow) => void;
   /** How the row edits in place. */
   edit: (row: ReviewRow) => RowEdit;
   /** The row's save state. */
@@ -144,7 +142,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
   const waits = (key: BusinessFactField) => Boolean(rows.get(key)?.blocked || rows.get(key)?.asked);
   // A Compra/Venta control already says the kind; the kind row returns while it needs a person.
   const kindShown = !typeRow || kind.state !== "known" || waits("kind");
-  const showsFiscal = Boolean(fiscal) || noFiscal || Boolean(review);
+  const showsFiscal = Boolean(fiscal) || noFiscal || Boolean(edit("rnc")?.onOpen);
   // One payment fact on screen: forma de pago lives in the report card, and funding shows only while the server waits on it.
   const payment = PAYMENT_FIELDS.filter(waits);
   return (

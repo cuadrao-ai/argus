@@ -130,16 +130,23 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", readin
   };
   const facts = () => document.querySelector<HTMLElement>('[data-testid="receipt-current-facts"]');
   const section = () => document.querySelector<HTMLElement>('[data-testid="receipt-facts-choices"]');
-  const choice = (name: "category" | "payment_method") => document.querySelector<HTMLSelectElement>(`[data-fact="${name}"] select`);
+  type Choice = "category" | "payment_method";
+  const choiceRow = (name: Choice) => section()?.querySelector<HTMLElement>(`[data-fact="${name}"]`);
+  const choice = (name: Choice) => choiceRow(name)?.querySelector<HTMLSelectElement>("select");
+  const openChoice = (name: Choice) => act(async () => choiceRow(name)!.querySelector<HTMLButtonElement>("button[data-row-value]")!.click());
+  const choiceAction = (name: Choice, action: "Guardar" | "Cancelar") => act(async () => choiceRow(name)!.querySelector<HTMLButtonElement>(`button[aria-label^="${action} · "]`)!.click());
+  const valueOf = (name: Choice) => choiceRow(name)?.querySelector("[data-row-value]")?.textContent;
   const reason = () => document.querySelector(`[data-record-key="${row.row_id}"] [data-record-missing]`)?.textContent ?? null;
   const chip = () => document.querySelector(`[data-record-key="${row.row_id}"] [data-record-workflow]`)?.textContent ?? null;
   const pick = async (name: "category" | "payment_method", value: string) => {
+    await openChoice(name);
     const select = choice(name);
     assert.ok(select, `${name} offers its control`);
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(select, value);
       select.dispatchEvent(new Event("change", { bubbles: true }));
     });
+    await choiceAction(name, "Guardar");
   };
   const queries = () => report.calls.filter((call) => call.path.endsWith("/reports/query")).length;
   await act(async () => api!.openPanel({ kind: "transactions" }));
@@ -162,7 +169,7 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", readin
     await act(async () => api!.openPanel({ kind: "expense", expenseId: "00000000-0000-4000-8000-000000009999" }));
     await wait(() => document.querySelector("#expense-detail-title")?.textContent === "Registro 00000000-0000-4000-8000-000000009999", "the other expense");
   };
-  return { act, wait, writes, chip, reason, choice, pick, facts, queries, section, openRecord, openDirectly, openOtherExpense };
+  return { act, wait, writes, chip, reason, choice, openChoice, choiceAction, valueOf, pick, facts, queries, section, openRecord, openDirectly, openOtherExpense };
 }
 
 describe("opened records show only their server readiness list", () => {
@@ -201,11 +208,13 @@ describe("a recorded purchase with 606 data still missing", () => {
     await page.openRecord();
 
     assert.equal(page.section()?.querySelector("h3")?.textContent, "Reporte 606");
-    assert.equal(page.choice("category")?.disabled, false);
-    assert.equal(page.choice("payment_method")?.disabled, false);
-    assert.equal(page.choice("category")?.querySelectorAll("option").length, 12, "the same 11 types and Elegir as before approval");
-    assert.equal(page.choice("payment_method")?.querySelectorAll("option").length, 8, "the same 7 forms and Elegir as before approval");
-    assert.equal(page.facts()?.querySelector('[data-fact="amount"] button'), null, "the recorded facts stay locked");
+    for (const [name, options] of [["category", 12], ["payment_method", 8]] as const) {
+      await page.openChoice(name);
+      assert.equal(page.choice(name)?.disabled, false);
+      assert.equal(page.choice(name)?.options.length, options);
+      await page.choiceAction(name, "Cancelar");
+    }
+    assert.ok(page.facts()?.querySelector('[data-fact="amount"] button[data-row-value]'), "the server enables the accepted Total");
     assert.equal(page.facts()?.querySelector('[data-fact="category_id"]'), null, "tipo de gasto is the only classification a Business record shows");
     assert.equal(page.facts()?.textContent?.includes("Categoría"), false);
 
@@ -217,7 +226,7 @@ describe("a recorded purchase with 606 data still missing", () => {
     assert.equal(page.chip(), "Faltan datos", "the reason never enters the chip");
     assert.deepEqual([...document.querySelectorAll("[data-record-missing-list] li")].map((item) => item.textContent), ["Falta la forma de pago"], "the open record follows the refreshed server missing list");
     assert.ok(page.queries() > asked, "Registros asked the server again");
-    await page.wait(() => page.choice("category")?.value === "02", "the saved Tipo de gasto");
+    await page.wait(() => page.valueOf("category")?.includes("Gastos por trabajos") === true, "the saved Tipo de gasto");
     await page.pick("payment_method", "03");
     await page.wait(() => page.chip() === "Listo", "the chip after the last missing fact");
     assert.equal(document.querySelector("[data-record-missing-list]"), null, "the ready response clears the open record reasons");
@@ -237,11 +246,11 @@ describe("a recorded purchase with 606 data still missing", () => {
     const dossier = page.facts();
     const asked = page.queries();
     await page.pick("category", "02");
-    await page.wait(() => page.choice("category")?.value === "02", "the phone's saved Tipo de gasto");
+    await page.wait(() => page.valueOf("category")?.includes("Gastos por trabajos") === true, "the phone's saved Tipo de gasto");
     await page.wait(() => reasons().join("|") === "Falta la forma de pago", "the phone's refreshed server missing list");
     assert.ok(page.queries() > asked, "the unmounted report's readiness is fetched from the server");
     await page.pick("payment_method", "03");
-    await page.wait(() => page.choice("payment_method")?.value === "03", "the phone's saved Forma de pago");
+    await page.wait(() => page.valueOf("payment_method") === "Tarjeta crédito/débito", "the phone's saved Forma de pago");
     await page.wait(() => document.querySelector("[data-record-missing-list]") === null, "the phone's ready response clears the reasons");
     assert.equal(page.facts(), dossier, "the phone record stays open across both saves");
     assert.deepEqual(page.writes.map(({ purchase }) => purchase), [{ category: "02" }, { payment_method: "03" }]);

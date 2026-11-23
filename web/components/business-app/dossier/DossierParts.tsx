@@ -46,6 +46,7 @@ export function DossierRows({ children }: { children: ReactNode }) {
 export type RowEdit = {
   open: boolean;
   saving: boolean;
+  disabled?: boolean;
   /** An edit whose outcome is unknown cannot be dropped. */
   locked: boolean;
   /** Absent for someone who cannot edit the record now. */
@@ -63,6 +64,7 @@ export type DossierRowProps = {
   /** Text, or text with a second line. An empty value reads "Sin dato". */
   value: ReactNode;
   status?: RowStatus | null;
+  statusAction?: ReactNode;
   look?: "text" | "number" | "mono";
   total?: boolean;
   /** The value wraps: it holds more than one line. */
@@ -84,9 +86,13 @@ export type DossierRowProps = {
  * value opens its own field in the same box. The pencil shows on hover and on
  * focus, and always on touch. The check or Enter saves; the X or Escape cancels.
  */
-export function DossierRow({ row, label, value, status, look = "text", total, wrap, edit, below, flash, attention, match, testId, data }: DossierRowProps) {
+export function DossierRow({ row, label, value, status, statusAction, look = "text", total, wrap, edit, below, flash, attention, match, testId, data }: DossierRowProps) {
   const { t } = useTranslation();
   const item = useRef<HTMLLIElement>(null);
+  const editing = edit?.open === true;
+  useEffect(() => {
+    if (editing) item.current?.querySelector<HTMLElement>("[data-row-open] :is(input, select)")?.focus();
+  }, [editing]);
   useEffect(() => {
     if (!flash) return;
     item.current?.scrollIntoView?.({ block: "center" });
@@ -96,16 +102,15 @@ export function DossierRow({ row, label, value, status, look = "text", total, wr
   // An amount carries the mark Ocultar montos blurs.
   const shape = `${styles.value} ${look === "number" ? `${styles.num} cuadrao-amount` : look === "mono" ? styles.mono : ""}`;
   const shown = empty ? t("business.dossier.row.no_data") : value;
-  const editing = edit?.open === true;
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     // The calendar owns its keys, and the portal of a phone's sheet bubbles here too.
     if (!edit || (event.target as Element).closest('[data-testid="date-picker-month"]')) return;
     if (event.key === "Escape") {
       event.stopPropagation();
-      if (!edit.locked) edit.onCancel();
+      if (!edit.locked && !edit.saving) edit.onCancel();
     } else if (event.key === "Enter" && (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement)) {
       event.preventDefault();
-      edit.onSave();
+      if (!edit.disabled && !edit.saving) edit.onSave();
     }
   };
   const save = t("common.save", "Save");
@@ -113,14 +118,14 @@ export function DossierRow({ row, label, value, status, look = "text", total, wr
   return (
     <li ref={item} {...data} data-testid={testId} data-fact={row} data-attention={attention ? "true" : undefined} data-flash={flash ? (flash % 2 ? "a" : "b") : undefined} data-match={match} className={`${styles.row} ${total ? styles.total : ""}`}>
       <span className={styles.label}>{label}</span>
-      <span className={styles.slot}>{status ? <StatusIcon status={status} testId={`row-status-${row}`} /> : null}</span>
+      <span className={styles.slot}>{status ? <StatusIcon status={status} testId={`row-status-${row}`} /> : statusAction}</span>
       {editing ? <div data-row-open="" className={styles.field} onKeyDown={onKeyDown}>{edit.editor}</div>
         : edit?.onOpen ? <button type="button" data-row-value="" data-empty={empty || undefined} data-wrap={wrap || undefined} className={shape} onClick={edit.onOpen}>{shown}</button>
         : <span data-row-value="" data-empty={empty || undefined} data-wrap={wrap || undefined} className={shape}>{shown}</span>}
       <span className={styles.actions}>
         {editing ? <>
           <Tooltip content={save} side="top">
-            <button type="button" aria-label={`${save} · ${label}`} aria-busy={edit.saving} disabled={edit.saving} className={`${styles.act} ${styles.actSave}`} onClick={edit.onSave}>
+            <button type="button" aria-label={`${save} · ${label}`} aria-busy={edit.saving} disabled={edit.saving || edit.disabled} className={`${styles.act} ${styles.actSave}`} onClick={edit.onSave}>
               {edit.saving ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
             </button>
           </Tooltip>
@@ -129,18 +134,6 @@ export function DossierRow({ row, label, value, status, look = "text", total, wr
           </Tooltip>
         </> : edit?.onOpen ? <button type="button" aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`} className={styles.pen} onClick={edit.onOpen}><Pencil size={15} aria-hidden="true" /></button> : null}
       </span>
-      {below ? <div className={styles.below}>{below}</div> : null}
-    </li>
-  );
-}
-
-/** A row whose control is always in place (a select, a switch): it spans the value and the action slot. */
-export function DossierControlRow({ row, label, status, children, below }: { row: string; label: string; status?: RowStatus | null; children: ReactNode; below?: ReactNode }) {
-  return (
-    <li data-fact={row} className={styles.row}>
-      <span className={styles.label}>{label}</span>
-      <span className={styles.slot}>{status ? <StatusIcon status={status} testId={`row-status-${row}`} /> : null}</span>
-      <div className={styles.wide}>{children}</div>
       {below ? <div className={styles.below}>{below}</div> : null}
     </li>
   );

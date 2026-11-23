@@ -1,13 +1,11 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier, DeclarationSuggestion, ShownSuggestions } from "@/lib/business-dossier";
 import type { DgiiField, DgiiFields, PurchaseChoice, SuggestedField, SuggestionSource } from "@/lib/business-dgii";
 import { quietButtonClass } from "./business-ui";
-import { ReviewSelect } from "./ReceiptFieldControls";
-import { DossierCard, DossierControlRow, DossierRow, DossierRows, type RowStatus } from "./dossier/DossierParts";
-import ReceiptRowSave from "./ReceiptRowSave";
-import type { RowSave, SaveRow } from "./receipt-review-save";
+import { DossierCard, DossierRow, DossierRows, type RowEdit, type RowStatus } from "./dossier/DossierParts";
 
 type Choice = keyof PurchaseChoice;
 const CHOICES: readonly SuggestedField[] = ["category", "payment_method"];
@@ -52,12 +50,9 @@ export function shownSuggestions(view: ChoicesView): ShownSuggestions | undefine
  * the locale's text. Neither blocks approval. A suggestion shows filled, with an icon for its
  * source in the status slot, and the approval saves it; a value the person chose has no icon.
  */
-export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled, readOnly = false, saves, onChoose, onRetry, onCancel, onReload }: ChoicesView & {
-  disabled: boolean;
-  saves: Partial<Record<SaveRow, RowSave>>;
-  onChoose: (choice: Choice, value: string | null) => void;
-  onRetry: (choice: Choice) => void;
-  onCancel: (choice: Choice) => void;
+export default function ReceiptOwnerChoices({ dossier, fields, failed, readOnly = false, edit, note, onReload }: ChoicesView & {
+  edit: (choice: Choice, label: string, value: string, source: SuggestionSource | null, options: ReactNode) => RowEdit;
+  note: (choice: Choice) => ReactNode;
   onReload: () => void;
 }) {
   const { t } = useTranslation();
@@ -65,19 +60,9 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
     const field = catalogField(fields, choice);
     const { value, source } = shownChoice({ dossier, fields, failed, readOnly }, choice);
     const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code }) || code;
-    // Where a suggestion came from, in the status slot; a value the person chose has no icon.
     const status: RowStatus | null = source ? { kind: source, text: t(`business.dossier.placeholder.suggestion_source.${source}`) } : null;
-    if (readOnly) return <DossierRow key={choice} row={choice} label={label} status={status} value={value ? name(value) : ""} data={{ "data-suggestion-source": source ?? undefined }} />;
-    return (
-      <DossierControlRow key={choice} row={choice} label={label} status={status} below={<ReceiptRowSave save={saves[choice]} onRetry={() => onRetry(choice)} onCancel={() => onCancel(choice)} />}>
-        {field ? <label className="block"><span className="sr-only">{label}</span>
-          <ReviewSelect value={value} disabled={disabled} data-suggestion-source={source ?? undefined} onChange={(event) => onChoose(choice, event.target.value || null)}>
-            <option value="">{t("business.review.choose", "Choose")}</option>
-            {field.options.map((code) => <option key={code} value={code}>{name(code)}</option>)}
-          </ReviewSelect>
-        </label> : null}
-      </DossierControlRow>
-    );
+    const options = field?.options.map((code) => <option key={code} value={code}>{name(code)}</option>);
+    return <DossierRow key={choice} row={choice} label={label} status={status} value={value ? name(value) : ""} edit={field && !readOnly ? edit(choice, label, value, source, options) : undefined} below={note(choice)} data={{ "data-suggestion-source": source ?? undefined }} />;
   };
   const form = dossier.dgii?.form ?? (dossier.document_type === "venta" ? "607" : "606");
   return (

@@ -35,6 +35,14 @@ def test_generated_and_checked_artifacts_are_structurally_compatible(
     assert failures == [], "\n".join(failures)
 
 
+def test_draft_reopen_is_absent_from_the_published_api(generated: dict, checked: dict) -> None:
+    for document in (generated, checked):
+        assert "/api/v1/business/drafts/{draft_id}/reopen" not in document["paths"]
+        schemas = document["components"]["schemas"]
+        assert "ReopenDraft" not in schemas
+        assert "reopen_available" not in schemas["BusinessDossier"]["properties"]
+
+
 def test_business_guide_openapi_is_person_scoped_with_the_shared_outage(
     generated: dict,
 ) -> None:

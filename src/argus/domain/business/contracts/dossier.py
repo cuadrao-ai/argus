@@ -293,6 +293,19 @@ class BandejaStanding(Contract):
     label: BandejaLabel | None
 
 
+EditableField = FactField | Literal[
+    "actual_refund",
+    "document_type",
+    "due_on",
+    "rnc",
+    "fiscal_number",
+    "itbis",
+    "net_amount",
+    "legal_tip",
+    "modified_ncf",
+]
+
+
 class BusinessDossier(RecordContext):
     deleted: DeletedDocument | None = None
     delete_available: bool = False
@@ -364,6 +377,8 @@ class BusinessDossier(RecordContext):
     document_type_detected: bool = False
     document_type_editable: bool = False
     facts_editable: bool = False
+    #: Fields a person can correct through review, subject to validation of the new value.
+    editable_fields: tuple[EditableField, ...] = ()
     #: Prepare holders can edit an open draft. Only the owner can edit an accepted one.
     declaration_editable: bool = False
     #: What the server offers for each 606 answer this open expense lacks, with
@@ -372,10 +387,6 @@ class BusinessDossier(RecordContext):
     #: The caller may write the 607 payment split now, on the same terms as
     #: declaration_editable, on a sale.
     payment_split_editable: bool = False
-    #: The caller may return this approved record to the Bandeja now: it holds
-    #: approve, and no bank match, credit note or refund is linked to the
-    #: record. The reopen route refuses on the same rule.
-    reopen_available: bool = False
     #: The due date a person set in review; null while unknown. Never read
     #: from the document or defaulted.
     due_on: date | None = None
@@ -433,8 +444,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "annotation_unavailable_reason": True,
     "due_on": True,
     "facts_editable": True,
+    "editable_fields": True,
     "declaration_editable": True,
-    "reopen_available": True,
     "declaration_suggestions": True,
     "payment_split_editable": True,
     "approval_action": True,

@@ -10,6 +10,8 @@ test("the fiscal form names ITBIS Facturado under ITBIS while the main card keep
     const pane = page.host.querySelector('[data-testid="fiscal-declaration"]')!;
     const group = pane.querySelector('section[data-group="itbis"]')!;
     const heading = group.querySelector("h3")!;
+    const open = group.querySelector<HTMLButtonElement>('[data-field="itbis"] button[data-row-value]')!;
+    await page.act(async () => open.click());
     const field = group.querySelector<HTMLInputElement>('[data-testid="fiscal-declaration-itbis"]')!;
     assert.equal(heading.textContent, "ITBIS");
     assert.equal(page.row("itbis").firstElementChild?.textContent, "ITBIS");

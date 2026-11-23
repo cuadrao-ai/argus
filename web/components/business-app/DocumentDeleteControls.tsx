@@ -8,11 +8,13 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { referenceCode } from "@/lib/failure-screen";
+import { getChosenGrant } from "@/lib/business-grant";
+import { dueDistance } from "@/lib/business-month-close";
 import { randomId } from "@/lib/random-id";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { counterpartyTerm, documentFamily, type RecordFamily } from "@/lib/counterparty-term";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
-import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
+import { formatDay, formatMoney, todayIso, UNKNOWN_VALUE } from "./business-format";
 import { resolveLanguage } from "@/lib/language-features";
 import { secondaryButtonClass, quietButtonClass } from "./business-ui";
 import { CONFIRM_ACTION, FOCUS_RING } from "./foundation/presentation";
@@ -30,11 +32,19 @@ export type DeleteDocumentTarget = {
   currency: string | null;
   filename: string | null;
   state: string;
+  accepted?: boolean;
   receipt?: ReceiptSummary;
 };
 
 export function receiptDeleteTarget(receipt: ReceiptSummary, state: string, unnamed: string): DeleteDocumentTarget {
-  return { id: receipt.id, name: receipt.merchant || receipt.filename || unnamed, merchant: receipt.merchant, family: documentFamily(receipt.document_type), date: receipt.occurred_on, amount: receipt.amount, currency: receipt.currency, filename: receipt.filename, state, receipt };
+  return { id: receipt.id, name: receipt.merchant || receipt.filename || unnamed, merchant: receipt.merchant, family: documentFamily(receipt.document_type), date: receipt.occurred_on, amount: receipt.amount, currency: receipt.currency, filename: receipt.filename, state, accepted: receipt.bandeja_group?.label === "accepted", receipt };
+}
+
+export function documentPurgeDistance(purgeAt: string | null | undefined) {
+  if (!purgeAt) return null;
+  const deadline = new Date(purgeAt);
+  if (!Number.isFinite(deadline.getTime())) return null;
+  return dueDistance(todayIso(deadline), todayIso());
 }
 
 function DocumentThumbnail({ receipt }: { receipt?: ReceiptSummary }) {
@@ -86,20 +96,46 @@ export function useDocumentDelete(target: DeleteDocumentTarget | null, { initial
   const request = useRef<{ id: string; key: string } | null>(null);
   const inFlight = useRef(false);
   const close = () => { if (!inFlight.current) { setMode(null); setFailure(null); onClose?.(); } };
+  const accepted = target?.accepted === true;
+  const description = t(accepted ? "business.document_delete.description_record" : "business.document_delete.description");
+  const confirmRecordDelete = (id: string, purgeAt: string | null | undefined, grant: string | null) => {
+    const distance = documentPurgeDistance(purgeAt);
+    const text = distance?.direction === "future"
+      ? t("business.document_delete.record_deleted_in", { count: distance.days })
+      : t(distance?.direction === "today" ? "business.document_delete.record_deleted_today" : "business.document_delete.record_deleted");
+    const restore = source.restoreDocument;
+    const undo = async () => {
+      if (!restore || getChosenGrant() !== grant) return;
+      try {
+        await restore(id, randomId());
+        if (getChosenGrant() !== grant) return;
+        reload();
+        showToast({ kind: "success", text: t("business.document_delete.restored_in_records") });
+      } catch {
+        if (getChosenGrant() !== grant) return;
+        reload();
+        openPanel({ kind: "inbox", view: "eliminados" });
+      }
+    };
+    showToast({ kind: "success", text, action: restore ? { label: t("business.transactions.undo"), run: () => void undo() } : undefined });
+  };
   const confirm = async () => {
     if (!target || !source.deleteDocument || inFlight.current) return;
     const command = request.current?.id === target.id ? request.current : { id: target.id, key: randomId() };
     request.current = command;
+    const grant = getChosenGrant();
     inFlight.current = true;
     setBusy(true);
     setFailure(null);
     try {
-      await source.deleteDocument(command.id, command.key);
+      const answer = await source.deleteDocument(command.id, command.key);
+      if (getChosenGrant() !== grant) return;
       request.current = null;
       setMode(null);
       onClose?.();
       reload();
-      openPanel({ kind: "inbox" });
+      openPanel(accepted ? { kind: "transactions", deletedDraftId: command.id } : { kind: "inbox" });
+      if (accepted) confirmRecordDelete(command.id, answer.purge_at, grant);
     } catch (error) {
       setFailure(referenceCode(error));
     } finally {
@@ -109,9 +145,9 @@ export function useDocumentDelete(target: DeleteDocumentTarget | null, { initial
   };
   const error = failure ? <>{t("business.document_delete.failed")} <ReferenceCode reference={failure} /></> : null;
   const button = <button type="button" onClick={() => void confirm()} disabled={busy} style={{ backgroundColor: CONFIRM_ACTION }} className={`min-h-11 rounded-full px-4 text-[16px] font-medium text-white disabled:opacity-50 ${FOCUS_RING}`}>{t("business.document_delete.delete")}</button>;
-  const dialog = target && mode === "dialog" ? <ConfirmDialog isOpen title={t("business.document_delete.title")} description={t("business.document_delete.description")} confirmLabel={t("business.document_delete.delete")} cancelLabel={t("common.cancel")} isBusy={busy} onCancel={close} onConfirm={() => void confirm()} error={error} leadingAction={onView ? <button type="button" className={quietButtonClass} disabled={busy} onClick={() => { setMode(null); onView(); }}>{t("business.document_delete.view_document")}</button> : null}><DeleteFacts target={target} /></ConfirmDialog> : null;
+  const dialog = target && mode === "dialog" ? <ConfirmDialog isOpen title={t("business.document_delete.title")} description={description} confirmLabel={t("business.document_delete.delete")} cancelLabel={t("common.cancel")} isBusy={busy} onCancel={close} onConfirm={() => void confirm()} error={error} leadingAction={onView ? <button type="button" className={quietButtonClass} disabled={busy} onClick={() => { setMode(null); onView(); }}>{t("business.document_delete.view_document")}</button> : null}><DeleteFacts target={target} /></ConfirmDialog> : null;
   const confirmBar = target && mode === "preview" ? <div data-testid="document-delete-bar" className="flex flex-wrap items-center gap-3">
-    <div className="min-w-0 flex-1 text-[14px]"><p className="font-medium">{t("business.document_delete.title")}</p><p className="text-[#56635e] dark:text-white/70">{t("business.document_delete.description")}</p>{error ? <p role="alert" className="text-[#9e2f39] dark:text-[#ec9aa0]">{error}</p> : null}</div>
+    <div className="min-w-0 flex-1 text-[14px]"><p className="font-medium">{t("business.document_delete.title")}</p><p className="text-[#56635e] dark:text-white/70">{description}</p>{error ? <p role="alert" className="text-[#9e2f39] dark:text-[#ec9aa0]">{error}</p> : null}</div>
     <button type="button" className={secondaryButtonClass} disabled={busy} onClick={close}>{t("common.cancel")}</button>{button}
   </div> : null;
   return { busy, ask: () => { setFailure(null); setMode("dialog"); }, dialog, confirmBar };
@@ -141,11 +177,19 @@ export function RestoreDocumentButton({ id, target, onRestored, className = seco
     setBusy(true);
     setFailure(null);
     try {
-      await source.restoreDocument(id, key.current);
+      const answer = await source.restoreDocument(id, key.current);
       key.current = null;
       reload();
       onRestored?.();
-      showToast({ kind: "success", text: t("business.document_delete.restored"), action: { label: t("business.document_delete.view"), run: () => openPanel(target) } });
+      const accepted = answer.registros_count != null;
+      const restoredTarget: BusinessPanelState = accepted && (target.kind === "receipt" || target.kind === "draft")
+        ? { ...target, list: "transactions" }
+        : target;
+      showToast({
+        kind: "success",
+        text: t(accepted ? "business.document_delete.restored_in_records" : "business.document_delete.restored"),
+        action: { label: t("business.document_delete.view"), run: () => openPanel(restoredTarget) },
+      });
     } catch (error) {
       if (purgedBefore(error)) {
         key.current = null;

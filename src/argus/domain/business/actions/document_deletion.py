@@ -215,7 +215,7 @@ def _change(
         group = "attention"
         if accepted:
             activity = document_ledger.original_activity(event)
-            if document_ledger.linked(tx, event, activity):
+            if document_ledger.linked_reason(tx, event, activity) is not None:
                 raise ActionError("invalid_input", "business_document_linked")
             document_ledger.set_reversed(tx, activity, now)
             group = None
@@ -252,7 +252,10 @@ def _change(
         if event is not None and marker.previous_state.state == "accepted":
             activity = document_ledger.original_activity(event)
         return Applied(
-            outcome="applied", draft_id=event.id if event else None, activity_id=activity
+            outcome="applied",
+            draft_id=event.id if event else None,
+            activity_id=activity,
+            purge_at=marker.purge_at,
         )
     if event is not None:
         tx.imports.put_event(
@@ -272,6 +275,7 @@ def _change(
             draft_id=event.id,
             version=tx.imports.event(event.id).version,
             activity_id=activity,
+            purge_at=marker.purge_at if deleting else None,
         )
     for candidate in candidates:
         candidate_state = (
@@ -299,7 +303,7 @@ def _change(
     )
     if not deleting:
         _recheck_duplicates(tx, tuple(candidate.id for candidate in candidates))
-    return Applied(outcome="applied")
+    return Applied(outcome="applied", purge_at=marker.purge_at if deleting else None)
 
 
 def _recheck_duplicates(tx: ActionTransaction, event_ids: tuple[str, ...]) -> None:

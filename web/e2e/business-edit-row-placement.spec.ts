@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
-const fact = (page: Page, key: string) => page.locator(`[data-fact="${key}"]`);
+const fact = (page: Page, key: string) => page.getByTestId("receipt-review-fields").locator(`[data-fact="${key}"]`);
 
 async function openFiscalRecord(page: Page, width: number) {
   await page.setViewportSize({ width, height: 900 });
