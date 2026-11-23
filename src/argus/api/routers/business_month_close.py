@@ -108,15 +108,14 @@ def _bandeja(business: BusinessContext, month: str) -> dict[str, int]:
     names no currency yet (a note nobody reviewed, a read in flight) counts in
     the Business's own currency."""
 
-    from argus.api.business_drafts import receipt_read_dates, receipt_summaries
-    from argus.api.business_receipt_activity import unreviewed_days
+    from argus.api.business_receipt_activity import bandeja_days
 
     start, end = month_period(month)
-    views = receipt_summaries(business, "all")
-    days = unreviewed_days(business, views, receipt_read_dates(business))
     own = business.scope.currency
     return unreviewed_in_month(
-        ((day, currency or own) for day, currency in days), start, end
+        ((day, currency or own) for day, currency in bandeja_days(business)),
+        start,
+        end,
     )
 
 

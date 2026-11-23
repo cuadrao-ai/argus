@@ -9,6 +9,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { joinCurrencyList } from "@/lib/business-month-close";
 import { reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
+import { consumeOverlayEntriesForNavigation } from "@/lib/overlay-history";
 import type { ExportPreview, RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
 import { saveBlobDownload } from "@/lib/save-blob-download";
 import { canSaveAs, chooseSavePlace, saveToPlace, type SaveAsPlace } from "@/lib/save-file-as";
@@ -28,9 +29,12 @@ const LIMIT_CODES = new Set(["business_report_too_large"]);
 const SAVE_TIP = "business.guide_cards.exportar_guardar.";
 const noticeLinkClass = "inline min-h-0! min-w-0! cursor-pointer whitespace-nowrap rounded-mark text-[14px] leading-[inherit] text-[var(--cuadrao-green)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]";
 
-function InlineNoticeAction({ sentence, children }: { sentence: string; children: ReactNode }) {
-  const lastSpace = sentence.lastIndexOf(" ");
-  return <><span>{sentence.slice(0, lastSpace + 1)}</span><span className="whitespace-nowrap"><span>{sentence.slice(lastSpace + 1)}</span>{"\u00a0"}{children}</span></>;
+const noticeClass = "flex items-start gap-2";
+const noticeMark = <CircleMinus className="mt-0.5 h-4 w-4 shrink-0 text-[#7d8a84] dark:text-white/50" aria-hidden="true" />;
+
+/** A notice's action in its own right-hand column, so the sentence wraps beside it. */
+function NoticeAction({ children }: { children: ReactNode }) {
+  return <span data-testid="records-export-notice-action" className="ml-4 min-w-[112px] shrink-0 text-right">{children}</span>;
 }
 
 export type RecordsExportProps = {
@@ -44,6 +48,8 @@ export type RecordsExportProps = {
   transport: Pick<ReportingTransport, "exportPreview" | "exportFile">;
   /** Shows pending fiscal records for the tab, period and form currency, clearing other filters. */
   onReviewFiscal: (currency: string) => void;
+  /** Opens the Bandeja. Absent for a person who cannot work there: the count shows with no link. */
+  onOpenBandeja?: () => void;
   onClose: () => void;
 };
 
@@ -51,7 +57,7 @@ export type RecordsExportProps = {
  * Exportar in Registros: the table as the person sees it, or the month's 606/607
  * lines, as one Excel or CSV file. Every count and notice is the server's.
  */
-export default function RecordsExportPanel({ scope, request, periodLabel, filterCount, transport, onReviewFiscal, onClose }: RecordsExportProps) {
+export default function RecordsExportPanel({ scope, request, periodLabel, filterCount, transport, onReviewFiscal, onOpenBandeja, onClose }: RecordsExportProps) {
   const { t } = useTransaccionesWords();
   const { isBelowDesktop } = useResponsiveLayout();
   const sale = request.filters.record_families[0] === "sale";
@@ -147,26 +153,30 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   </li>);
   const pendingFiscalSentence = preview?.dgii.pending_fiscal_count ? t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count }) : null;
   const reviewFiscal = preview ? <button type="button" className={sale ? quietButtonClass : noticeLinkClass} onClick={() => { onClose(); onReviewFiscal(preview.dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button> : null;
-  const pendingFiscal = pendingFiscalSentence ? sale ? <>{pendingFiscalSentence} {reviewFiscal}</> : <InlineNoticeAction sentence={pendingFiscalSentence}>{reviewFiscal}</InlineNoticeAction> : null;
+  const pendingFiscal = pendingFiscalSentence ? <>{pendingFiscalSentence} {reviewFiscal}</> : null;
   const pendingRate = preview?.dgii.pending_rate_count ? t(sale ? "business.transactions.reporting.export.pending_rate_sales" : "business.transactions.reporting.export.pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) }) : null;
-  const notices606 = preview && !sale && mode === "dgii" && (preview.dgii.rnc_warning_count > 0 || pendingFiscal || pendingRate) ? (
-    <ul data-testid="records-export-notices" className="space-y-1 pb-3 pl-10 pr-3 text-[14px] text-[#56635e] dark:text-white/70">
-      {preview.dgii.rnc_warning_count > 0 ? <li data-testid="records-export-rnc-notice" className="flex items-start gap-2">
-        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-        <div className="min-w-0 flex-1">
-          <p>
-            <InlineNoticeAction sentence={t("business.transactions.reporting.export.rnc_notice_title", { count: preview.dgii.rnc_supplier_count })}>
-              <button type="button" data-testid="records-export-rnc-toggle" className={noticeLinkClass} aria-expanded={suppliersExpanded} aria-controls={suppliersId} onClick={() => setSuppliersExpanded((expanded) => !expanded)}>{t(suppliersExpanded ? "business.transactions.reporting.export.rnc_hide_suppliers" : "business.transactions.reporting.export.rnc_view_suppliers")}</button>
-            </InlineNoticeAction>
-          </p>
-          <p>{t("business.transactions.reporting.export.rnc_notice_body")}</p>
-          <ul id={suppliersId} data-testid="records-export-rnc-suppliers" hidden={!suppliersExpanded} tabIndex={0} aria-label={t("business.transactions.reporting.export.rnc_view_suppliers")} className="mt-2 max-h-[132px] space-y-2 overflow-y-auto rounded-mark border border-black/15 p-2 dark:border-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]">{supplierLines}</ul>
-        </div>
-      </li> : null}
-      {pendingFiscal ? <li className="flex items-start gap-2"><CircleMinus className="mt-0.5 h-4 w-4 shrink-0 text-[#7d8a84] dark:text-white/50" aria-hidden="true" /><p className="min-w-0 flex-1">{pendingFiscal}</p></li> : null}
-      {pendingRate ? <li className="flex items-start gap-2"><CircleMinus className="mt-0.5 h-4 w-4 shrink-0 text-[#7d8a84] dark:text-white/50" aria-hidden="true" /><p className="min-w-0 flex-1">{pendingRate}</p></li> : null}
-    </ul>
-  ) : null;
+  // The 606 notices, then the Bandeja's count for the period in either mode, inside the chosen option.
+  // Leaving for the Bandeja claims the dialog's history entry first, or its close would step back to Registros' address.
+  const formNotices = preview && !sale && mode === "dgii";
+  const noticeItems = preview ? [
+    formNotices && preview.dgii.rnc_warning_count > 0 ? <li key="rnc" data-testid="records-export-rnc-notice" className={noticeClass}>
+      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p>{t("business.transactions.reporting.export.rnc_notice_title", { count: preview.dgii.rnc_supplier_count })}</p>
+        <p>{t("business.transactions.reporting.export.rnc_notice_body")}</p>
+        <ul id={suppliersId} data-testid="records-export-rnc-suppliers" hidden={!suppliersExpanded} tabIndex={0} aria-label={t("business.transactions.reporting.export.rnc_view_suppliers")} className="mt-2 max-h-[132px] space-y-2 overflow-y-auto rounded-mark border border-black/15 p-2 dark:border-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]">{supplierLines}</ul>
+      </div>
+      <NoticeAction><button type="button" data-testid="records-export-rnc-toggle" className={noticeLinkClass} aria-expanded={suppliersExpanded} aria-controls={suppliersId} onClick={() => setSuppliersExpanded((expanded) => !expanded)}>{t(suppliersExpanded ? "business.transactions.reporting.export.rnc_hide_suppliers" : "business.transactions.reporting.export.rnc_view_suppliers")}</button></NoticeAction>
+    </li> : null,
+    formNotices && pendingFiscalSentence ? <li key="fiscal" className={noticeClass}>{noticeMark}<p className="min-w-0 flex-1">{pendingFiscalSentence}</p><NoticeAction>{reviewFiscal}</NoticeAction></li> : null,
+    formNotices && pendingRate ? <li key="rate" className={noticeClass}>{noticeMark}<p className="min-w-0 flex-1">{pendingRate}</p></li> : null,
+    preview.bandeja_count > 0 ? <li key="bandeja" data-testid="records-export-bandeja-notice" className={noticeClass}>
+      {noticeMark}
+      <p className="min-w-0 flex-1">{t("business.transactions.reporting.export.bandeja_notice", { count: preview.bandeja_count })}</p>
+      {onOpenBandeja ? <NoticeAction><button type="button" className={noticeLinkClass} onClick={() => { consumeOverlayEntriesForNavigation(); onClose(); onOpenBandeja(); }}>{t("business.transactions.reporting.export.bandeja_open")}</button></NoticeAction> : null}
+    </li> : null,
+  ].filter(Boolean) : [];
+  const notices = noticeItems.length ? <ul data-testid="records-export-notices" className="flex flex-col gap-[10px] pb-3 pl-10 pr-3 text-[14px] text-[#56635e] dark:text-white/70">{noticeItems}</ul> : null;
 
   const footer = editing ? (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -214,7 +224,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
                 <span className="block text-black/60 dark:text-white/60">{t(key === "table" ? "business.transactions.reporting.export.table_body" : "business.transactions.reporting.export.dgii_body")}</span>
               </span>
             </label>
-            {key === "dgii" ? notices606 : null}
+            {key === mode ? notices : null}
           </div>)}
         </div>
         {preview && mode === "table" ? <>

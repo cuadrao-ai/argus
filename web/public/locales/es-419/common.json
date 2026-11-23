@@ -2643,6 +2643,9 @@
         "export": {
           "action_one": "Exportar {{count}} registro",
           "action_other": "Exportar {{count}} registros",
+          "bandeja_notice_one": "{{count}} comprobante de este período sigue en la Bandeja.",
+          "bandeja_notice_other": "{{count}} comprobantes de este período siguen en la Bandeja.",
+          "bandeja_open": "Ver en Bandeja",
           "columns_custom_one": "Columnas personalizadas ({{count}})",
           "columns_custom_other": "Columnas personalizadas ({{count}})",
           "columns_done": "Listo",

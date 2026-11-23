@@ -192,6 +192,8 @@ export const exportPreviewSchema = z.object({
     all: currencySelectionSchema.nullable(),
   }),
   dgii: z.object({ form: z.enum(["606", "607"]), currency: z.string(), record_count: count, pending_count: count, pending_fiscal_count: count, pending_rate_count: count, pending_rate_currencies: z.array(z.string()), rnc_warning_count: count, rnc_supplier_count: count, rnc_suppliers: z.array(z.object({ name: z.string(), rnc: z.string(), estado: z.string(), status: z.enum(["rnc_inactive", "rnc_unverified"]), record_count: count })), filenames: exportFileNamesSchema }),
+  /** Documents the Bandeja still holds in the export's period, either tab. */
+  bandeja_count: count,
 });
 export type ExportPreview = z.infer<typeof exportPreviewSchema>;
 export type RecordsExportChoice =
