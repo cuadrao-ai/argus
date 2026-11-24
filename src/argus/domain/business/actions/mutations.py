@@ -422,13 +422,15 @@ def revise(
                 raise ActionError("invalid_input", "fiscal_amount_precision_or_limit")
         return written
 
+    # Only a saved 606 holds purchase answers; a 607's write is refused in declare.
+    saved_purchase = stored if isinstance(stored, PurchaseDeclaration) else None
     stored, declared, fiscal_overrides = written_declaration(
         before or after, stored, declare,
         previous_resolution.get("fiscal_overrides"), previous_resolution.get("bill_mark"), linked,
         retyped=retyped,
         written=tuple(
             name for name in (purchase.model_fields_set if purchase else ())
-            if stored is None or getattr(purchase, name) != getattr(stored, name)
+            if saved_purchase is None or getattr(purchase, name) != getattr(saved_purchase, name)
         ) + (montos.override_inherited if montos else ()),
         restore=montos.restore_inherited if montos else (),
         amount_derived=amount_derived,
