@@ -595,10 +595,10 @@ def test_csv_has_a_bom_and_keeps_accents(fake):
         ),
         (
             {"kind": "custom", "from_date": "2026-01-01", "to_date": "2026-12-31"},
-            "sale",
+            "purchase",
             "dgii",
             "csv",
-            "Mi negocio - Ventas 2026-01 a 2026-12 - DGII - 2026-10-18 1100.csv",
+            "Mi negocio - Compras 2026-01 a 2026-12 - DGII - 2026-10-18 1100.csv",
         ),
         (
             {"kind": "custom", "from_date": "2026-11-03", "to_date": "2026-11-09"},
@@ -757,7 +757,7 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
             }
         ),
     )
-    assert (sales.dgii.form, sales.dgii.record_count) == ("607", len(lines["607"]))
+    assert sales.dgii is None
 
 
 def test_an_exported_line_that_is_now_incomplete_counts_as_pending_like_the_card():
