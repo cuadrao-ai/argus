@@ -142,6 +142,19 @@ test("with reading off Detectar is not offered and the batch goes as Compras", a
   expect(attempts[0].documentType).toBe("recibo");
 });
 
+test("with reading off the type control opens no second panel", async ({ page }) => {
+  const { dialog } = await openIntake(page);
+  await expect(dialog.getByTestId("receipt-reading-control")).toContainText("Permiso sintético para leer documentos.");
+  await dialog.locator('[data-segment="venta"]').click();
+  await expect(dialog.locator('[data-segment="venta"]')).toHaveAttribute("aria-checked", "true");
+  await dialog.locator('[data-segment="recibo"]').click();
+  // A disabled segment refuses a normal click, so the pointer lands on it directly.
+  await dialog.locator('[data-segment="auto"]').click({ force: true });
+  await expect(dialog.locator('[data-segment="recibo"]')).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByTestId("receipt-reading-sheet")).toHaveCount(0);
+});
+
 test("a picked Compra names its type, which turns detection off", async ({ page }) => {
   const { dialog, attempts, state } = await openIntake(page);
   state.status = 201;

@@ -153,33 +153,32 @@ function ReadingSheet({ reading, failed, change, onClose }: { reading: ReceiptRe
 }
 
 /**
- * The same setting as one row of Agregar's options. Turning it off is one tap. Turning it on opens Lectura de
- * documentos, because reading starts only beside the words the owner agrees to. Nothing shows while it is unknown.
+ * The same setting as one row of Agregar's options: one tap either way, and it opens nothing. While reading is
+ * off and the owner can turn it on, the row shows the words the owner agrees to. Nothing shows while it is unknown.
  */
 export function ReceiptReadingOption({ state }: { state: ReadingState }) {
   const { t } = useTranslation();
-  const { reading, failed, change, sheetOpen: open, setSheetOpen: setOpen } = state;
+  const { reading, failed, change } = state;
   if (!reading) return null;
   const help = reading.enabled
     ? t("business.intake.reading_help_on")
     : !reading.can_change
       ? t("business.activity.owner_only")
-      : reading.available ? t("business.intake.reading_help_off") : t("business.activity.unavailable");
+      : reading.available ? reading.disclosure : t("business.activity.unavailable");
   return (
     <div data-testid="receipt-reading-control" data-enabled={reading.enabled ? "true" : "false"} className="flex min-h-16 items-center justify-between gap-4 border-b border-[#ECEAE3] py-2.5 dark:border-white/[0.07]">
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-[14px] font-medium text-[#172b26] dark:text-white">{t("business.activity.switch_label")}</span>
         <span className="text-[12.5px] leading-[17px] text-[#56635e] dark:text-white/70">{help}</span>
-        {failed && !open ? <span role="alert" className="text-[12.5px] leading-[17px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.activity.error")}</span> : null}
+        {failed ? <span role="alert" className="text-[12.5px] leading-[17px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.activity.error")}</span> : null}
       </span>
       <Switch
         testId="receipt-reading-option"
         label={t("business.activity.switch_label")}
         checked={reading.enabled}
         disabled={!reading.can_change || !state.canSet || (!reading.enabled && !reading.available)}
-        onChange={(next) => (next ? setOpen(true) : change(false))}
+        onChange={change}
       />
-      {open ? <ReadingSheet reading={reading} failed={failed} change={change} onClose={() => setOpen(false)} /> : null}
     </div>
   );
 }

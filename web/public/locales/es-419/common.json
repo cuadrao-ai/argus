@@ -3744,7 +3744,6 @@
       "formats_each": "{{formats}} · hasta {{size}} MB cada uno",
       "options_label": "Al subir",
       "reading_help_on": "Tú siempre revisas y aceptas.",
-      "reading_help_off": "Se guardan sin leer.",
       "kind_label": "Compra o venta",
       "kind_auto": "Detectar",
       "kind_recibo": "Compras",

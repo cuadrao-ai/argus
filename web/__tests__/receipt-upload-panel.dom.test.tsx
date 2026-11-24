@@ -257,7 +257,7 @@ test("Detectar is offered only while reading is on; without reading the batch is
   const off = await mount({ read: reading({ enabled: false }) });
   assert.deepEqual(off.kind(), [{ label: "Detectar", checked: false, disabled: true }, { label: "Compras", checked: true, disabled: false }, { label: "Ventas", checked: false, disabled: false }]);
   assert.equal(off.kindHelp(), "Sin lectura, eliges tú.");
-  assert.match(off.text(), /Se guardan sin leer\./);
+  assert.match(off.text(), /Permiso del negocio para leer sus documentos\./);
   const compras = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="intake-document-type"] [role="radio"]')][1];
   await act(async () => { compras.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })); });
   assert.equal(off.kind().find((segment) => segment.checked)?.label, "Ventas", "the arrow keys pass over Detectar");
@@ -272,20 +272,42 @@ test("an unknown reading setting shows no switch and never claims reading is off
   assert.equal(page.kind()[0].checked, true);
 });
 
-test("the owner turns reading off in one tap and turns it on only beside the words agreed to; anyone else cannot change it", async () => {
+test("with reading off the type control only picks the type and the switch turns reading on in place, beside the words agreed to", async () => {
+  const page = await mount({ read: reading({ enabled: false }) });
+  const toggle = () => document.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-option"]')!;
+  const dialogs = () => document.querySelectorAll('[role="dialog"]').length;
+  const segments = () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="intake-document-type"] [role="radio"]')];
+  assert.equal(dialogs(), 1);
+  for (const label of ["Ventas", "Compras", "Detectar"]) {
+    await page.click(segments().find((node) => node.textContent === label));
+    assert.equal(dialogs(), 1, `${label} opens nothing`);
+    assert.equal(document.querySelector('[data-testid="receipt-reading-sheet"]'), null);
+  }
+  assert.equal(page.kind().find((segment) => segment.checked)?.label, "Compras", "a disabled Detectar is never chosen");
+  assert.equal(page.kindHelp(), "Sin lectura, eliges tú.");
+  assert.deepEqual(page.changes, [], "the type control never touches the reading setting");
+  assert.match(document.querySelector('[data-testid="receipt-reading-control"]')?.textContent ?? "", /Permiso del negocio para leer sus documentos\./);
+  await page.click(toggle());
+  await page.turn();
+  assert.deepEqual(page.changes, [true]);
+  assert.equal(dialogs(), 1, "the switch opens nothing");
+  assert.equal(toggle().getAttribute("aria-checked"), "true");
+  assert.equal(page.kind()[0].disabled, false);
+});
+
+test("the owner turns reading off in one tap and back on in one tap; anyone else cannot change it", async () => {
   const owner = await mount({ read: reading({ enabled: true }) });
   const toggle = () => document.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-option"]')!;
+  const control = () => document.querySelector('[data-testid="receipt-reading-control"]')?.textContent ?? "";
   assert.equal(toggle().getAttribute("aria-checked"), "true");
+  assert.doesNotMatch(control(), /Permiso del negocio/, "reading on shows the short line only");
   await owner.click(toggle());
   await owner.turn();
   assert.deepEqual(owner.changes, [false]);
   assert.equal(toggle().getAttribute("aria-checked"), "false");
   assert.equal(owner.kind()[0].disabled, true, "Detectar goes with reading");
+  assert.match(control(), /Permiso del negocio para leer sus documentos\./, "the words agreed to sit beside the switch that turns it on");
   await owner.click(toggle());
-  assert.deepEqual(owner.changes, [false], "turning it on asks first");
-  const sheet = document.querySelector<HTMLElement>('[data-testid="receipt-reading-sheet"]')!;
-  assert.match(sheet.textContent ?? "", /Permiso del negocio para leer sus documentos\./);
-  await owner.click(sheet.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-switch"]'));
   await owner.turn();
   assert.deepEqual(owner.changes, [false, true]);
   assert.equal(document.querySelector('[data-testid="receipt-reading-sheet"]'), null);

@@ -4597,7 +4597,6 @@
       "formats_each": "{{formats}} · up to {{size}} MB each",
       "options_label": "On upload",
       "reading_help_on": "You always review and accept.",
-      "reading_help_off": "They are saved unread.",
       "kind_label": "Purchase or sale",
       "kind_auto": "Detect",
       "kind_recibo": "Purchases",
