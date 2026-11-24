@@ -12,7 +12,7 @@ import { randomId } from "@/lib/random-id";
 import { dangerButtonClass, dangerConfirmButtonClass, secondaryButtonClass, useChannelLabel } from "./business-ui";
 import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
-import DossierDocument from "./dossier/DossierDocument";
+import { DossierCompareDocument, type CompareSide } from "./dossier/DossierDocument";
 import { DossierCard } from "./dossier/DossierParts";
 import { sentByName, type SentBy } from "@/lib/sent-by";
 import { useBusiness } from "./BusinessWorkspace";
@@ -147,13 +147,14 @@ export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBa
   const [problem, setProblem] = useState<string | null>(null);
   const inFlight = useRef(false);
   const request = useRef<{ draftId: string; version: number; otherId: string; otherVersion: number; decision: BusinessDuplicateDecision; key: string } | null>(null);
-  const [side, setSide] = useState<"document" | "other">("document");
+  const [side, setSide] = useState<CompareSide>("document");
   const [tab, setTab] = useState<DossierTab>("general");
   const title = useRef<HTMLElement>(null);
   useEffect(() => { title.current?.focus(); }, []);
   const channelLabel = useChannelLabel();
   const { comparison } = candidate;
-  const selected = comparison[side].file;
+  const firstFile = comparison.document.file;
+  const secondFile = comparison.other.file;
   const recommended = comparison.recommendation;
   const decisions = (["different_purchase", "same_purchase"] as const).filter(item => candidate.decisions.includes(item));
   const locked = busy || working !== null;
@@ -227,9 +228,9 @@ export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBa
     <div className={`rounded-full ${styles.sides}`}>
       <SegmentedControl label={t(`${KEYS}.select_document`)} value={side} onChange={setSide} segments={[{ key: "document" as const, label: t(`${KEYS}.column.this`) }, { key: "other" as const, label: t(`${KEYS}.column.saved_before`) }]} />
     </div>
-    <DossierDocument file={selected ? { id: selected.connection_id, ...selected } : null}>
-      {selected ? null : <p className={styles.meta}>{t(`${KEYS}.no_file`)}</p>}
-    </DossierDocument>
+    <DossierCompareDocument key={JSON.stringify([firstFile?.connection_id, secondFile?.connection_id])} side={side}
+      files={{ document: firstFile && { id: firstFile.connection_id, ...firstFile }, other: secondFile && { id: secondFile.connection_id, ...secondFile } }}
+      noFile={<p className={styles.meta}>{t(`${KEYS}.no_file`)}</p>} />
   </div>;
 
   const footer = <div className="flex flex-wrap items-center justify-between gap-2">
