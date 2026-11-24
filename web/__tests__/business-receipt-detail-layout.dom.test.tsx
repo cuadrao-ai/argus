@@ -83,6 +83,8 @@ const noDate: Change = (dossier) => {
   dossier.listo_gaps = ["missing_date"];
   dossier.reasons = { missing_date: { field: "occurred_on", words: "business.transactions.layout.workflow.missing.missing_date" } };
   dossier.approval_available = false;
+  dossier.approval_action = null;
+  dossier.confirmable = [];
 };
 
 describe("the receipt detail's header", () => {
@@ -161,15 +163,21 @@ describe("the footer", () => {
     await page.close();
   });
 
-  test("a missing date disables Aceptar, and the header reason alone says why", async () => {
+  test("a missing date opens the blocked list from Aceptar", async () => {
     const page = await mount({ change: noDate });
-    assert.equal(page.button("Aceptar")?.disabled, true);
-    assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]'), null, "the footer repeats nothing");
-    assert.equal(page.host.querySelector('[data-testid="dossier-reason"]')?.textContent, "Falta la fecha");
-    const row = page.host.querySelector('[data-fact="occurred_on"]')!;
-    assert.equal(row.querySelector('[data-testid="row-status-occurred_on"]')?.getAttribute("data-status"), "warn", "the row marks where");
-    assert.equal(row.textContent?.includes("Agrega la fecha para aceptar"), false, "and adds no sentence of its own");
-    await page.close();
+    try {
+      const accept = page.button("Aceptar");
+      assert.ok(accept && !accept.disabled);
+      assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]'), null, "the footer repeats nothing");
+      assert.equal(page.host.querySelector('[data-testid="dossier-reason"]')?.textContent, "Falta la fecha");
+      const row = page.host.querySelector('[data-fact="occurred_on"]')!;
+      assert.equal(row.querySelector('[data-testid="row-status-occurred_on"]')?.getAttribute("data-status"), "warn");
+      await page.act(async () => accept.click());
+      const list = page.host.querySelector('[data-testid="dossier-problem-list"]');
+      assert.equal(list?.querySelector("h2")?.textContent, "Corrige 1 dato antes de aceptar");
+      assert.equal(list?.querySelector('[role="option"]')?.getAttribute("data-reason"), "missing_date");
+      assert.equal(list?.querySelector("button:not([role=option])"), null);
+    } finally { await page.close(); }
   });
 
   test("approving shows a spinner on Aceptar and a second press sends nothing", async () => {
