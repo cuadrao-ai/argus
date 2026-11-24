@@ -6,6 +6,7 @@ attempt on its row and never reads it. Every worker pulls under the same
 ``drain_seconds``. Its sweep loop also purges, at most once an hour, the
 documents that spent their days in Eliminados, and starts again, at most once
 every ten minutes, the reads a spent Business read budget left waiting.
+The same sweep sends grouped WhatsApp intake failures and expires reply state.
 """
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ from argus.domain.business.actions.document_purge import DocumentExpiry
 from argus.domain.connection_budget import worker_pool_max
 from argus.domain.ingestion.documents.config import load_document_job_settings
 from argus.domain.ingestion.documents.worker import DocumentWorker
+from argus.domain.ingestion.whatsapp.document_step import FailureReplyUpkeep
+from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
 from argus.llm.openrouter_key_policy import validate_hosted_openrouter_configuration
 from argus.log_sink import configure_logging
 from loguru import logger
@@ -64,7 +67,10 @@ async def serve() -> None:
         expiry = DocumentExpiry(
             pool, objects, every=timedelta(seconds=settings.purge_every_seconds)
         )
-        upkeep = in_turn(expiry.tick, ReadResume(service).tick)
+        replies = FailureReplyUpkeep(PostgresReplyGroups(pool), clock=service.hub.clock)
+        upkeep = in_turn(
+            expiry.tick, ReadResume(service).tick, replies.cleanup, replies.send_due
+        )
         await DocumentWorker(service, settings, upkeep).run(stop)
 
 

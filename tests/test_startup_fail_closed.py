@@ -50,10 +50,8 @@ def startup(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[FastAPI, Mock, li
     ):
         for prefix in ("start", "stop"):
             monkeypatch.setattr(f"argus.api.{module}.{prefix}_{stem}", Mock())
-    for module, stem in (("email_intake", "email_intake"), ("whatsapp_worker", "worker")):
-        monkeypatch.setattr(f"argus.api.{module}.start_{stem}", Mock())
-        monkeypatch.setattr(f"argus.api.{module}.stop_{stem}", AsyncMock())
-    monkeypatch.setattr("argus.api.whatsapp.drain_whatsapp", AsyncMock())
+    monkeypatch.setattr("argus.api.email_intake.start_email_intake", Mock())
+    monkeypatch.setattr("argus.api.email_intake.stop_email_intake", AsyncMock())
     records: list[str] = []
     sink = logger.add(lambda message: records.append(message.record["message"]))
     try:

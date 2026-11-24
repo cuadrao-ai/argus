@@ -3,13 +3,28 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import yaml
+from argus.domain.ingestion.whatsapp.config import WhatsAppSettings
+
+from scripts.ops.staging_env import (
+    ManifestError,
+    Rule,
+    compute_plan,
+    load_manifest,
+    rule_for,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
 RENDER_PATH = ROOT / "render.yaml"
+
+WORKER_SWITCHES = (
+    "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+    "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+)
 
 _LAUNCH_DAY_ONE = (
     "Staging keeps in-development features on. Production day one is staging's "
@@ -161,7 +176,9 @@ def prod_values_other_than_false(
         render_values = [
             item.get("value")
             for service in render_config.get("services", [])
-            if service.get("name") not in ("cuadrao-api-staging", "cuadrao-app-staging")
+            if service.get("name") not in (
+                "cuadrao-api-staging", "cuadrao-app-staging", "cuadrao-documents-worker-staging"
+            )
             for item in service.get("envVars", [])
             if item.get("key") == name
         ]
@@ -170,6 +187,80 @@ def prod_values_other_than_false(
         if any(value != "false" for value in render_values):
             bad.append(name)
     return sorted(set(bad))
+
+
+@pytest.mark.parametrize("environment", ["production", "staging"])
+def test_document_worker_whatsapp_switches_default_off(environment: str) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    worker = manifest["services"]["documents_worker"]
+    service_name = (
+        worker["production"]["service_name"]
+        if environment == "production"
+        else worker["service_name"]
+    )
+    services = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))["services"]
+    service = next(s for s in services if s["name"] == service_name)
+    declarations = {item["key"]: item for item in service["envVars"]}
+    for name in WORKER_SWITCHES:
+        expected = {"value": "false"} if environment == "production" else {"sync": False}
+        assert declarations[name] == {"key": name, **expected}
+    defaults = {
+        name: item["value"] for name, item in declarations.items() if "value" in item
+    }
+
+    if environment == "production":
+        worker_entries = {entry["name"]: entry for entry in worker["entries"]}
+        fixed_values = production_values(manifest)["services"]
+        for name in WORKER_SWITCHES:
+            rule = rule_for(worker_entries[name], environment, worker)
+            assert rule == Rule("value", "false")
+            assert fixed_values["documents_worker"]["env"][name] == defaults[name]
+
+    with patch.dict("os.environ", defaults, clear=True):
+        settings = WhatsAppSettings()
+    assert settings.intake_enabled is False
+    assert settings.outbound_enabled is False
+
+
+@pytest.mark.parametrize("api_values", [None, ("true", "false"), ("false", "true"), ("false", "false")])
+def test_staging_worker_inherits_declared_api_switches(
+    tmp_path: Path, api_values: tuple[str, str] | None
+) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    api = {entry["name"]: entry for entry in manifest["services"]["api"]["entries"]}
+    if api_values is not None:
+        for name, value in zip(WORKER_SWITCHES, api_values, strict=True):
+            api[name]["value"] = value
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest))
+    worker = load_manifest(path)["services"]["documents_worker"]
+    expected = {name: api[name]["value"] for name in WORKER_SWITCHES}
+    stale = {name: "false" if value == "true" else "true" for name, value in expected.items()}
+    for live in ({}, stale, expected):
+        plan = compute_plan(worker, live, {})
+        assert {name: plan.final.get(name) for name in WORKER_SWITCHES} == expected
+        with patch.dict("os.environ", plan.final, clear=True):
+            settings = WhatsAppSettings()
+        assert (settings.intake_enabled, settings.outbound_enabled) == tuple(
+            value == "true" for value in expected.values()
+        )
+
+
+@pytest.mark.parametrize(
+    ("source_service", "source_name"),
+    [("unknown", WORKER_SWITCHES[0]), ("api", "UNKNOWN"), ("api", "CUADRAO_WHATSAPP_ACCESS_TOKEN")],
+)
+def test_staging_worker_rejects_missing_or_secret_copy_source(
+    tmp_path: Path, source_service: str, source_name: str
+) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    entries = manifest["services"]["documents_worker"]["entries"]
+    switch = next(entry for entry in entries if entry["name"] == WORKER_SWITCHES[0])
+    switch.update(service=source_service, copy_from=source_name)
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ManifestError, match=WORKER_SWITCHES[0]):
+        load_manifest(path)
 
 
 def test_override_true_in_prod_fails() -> None:

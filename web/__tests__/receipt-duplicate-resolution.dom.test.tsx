@@ -17,6 +17,7 @@ type Options = {
   documentType?: BusinessDossier["document_type"];
   closed?: boolean;
   senderUnavailable?: boolean;
+  imageSources?: boolean;
   noCandidates?: boolean;
   decisions?: BusinessDuplicateDecision[];
   recommendation?: BusinessDuplicateDecision | null;
@@ -46,8 +47,8 @@ function candidate(options: Options): BusinessDuplicateCandidate {
     basis: options.basis ?? "read_facts",
     decisions: options.decisions ?? ["different_purchase", "same_purchase"],
     comparison: {
-      document: { draft_id: "draft-new", counterparty: "Ferretería Ochoa", occurred_on: "2026-11-03", amount: "1180.00", currency: "DOP", fiscal_number: recommendation === "same_purchase" ? "B0100000123" : "B0100000456", file: { connection_id: "file-new", filename: "factura-nueva.pdf", media_type: "application/pdf", channel: "web", received_at: "2026-11-04T12:00:00Z" }, received_at: "2026-11-04T12:00:00Z", approved_at: null, state: "open" },
-      other: { draft_id: "draft-original", counterparty: "Ferretería Ochoa", occurred_on: "2026-11-03", amount: "1180.00", currency: "DOP", fiscal_number: recommendation === null ? null : "B0100000123", file: { connection_id: "file-original", filename: "factura.pdf", media_type: "application/pdf", channel: "whatsapp", received_at: "2026-11-03T12:00:00Z" }, received_at: "2026-11-03T12:00:00Z", approved_at: options.approved ? "2026-11-03T15:00:00Z" : null, state: options.approved ? "accepted" : "open" },
+      document: { draft_id: "draft-new", counterparty: "Ferretería Ochoa", occurred_on: "2026-11-03", amount: "1180.00", currency: "DOP", fiscal_number: recommendation === "same_purchase" ? "B0100000123" : "B0100000456", file: { connection_id: "file-new", filename: "factura-nueva.pdf", media_type: options.imageSources ? "image/svg+xml" : "application/pdf", channel: "web", received_at: "2026-11-04T12:00:00Z" }, received_at: "2026-11-04T12:00:00Z", approved_at: null, state: "open" },
+      other: { draft_id: "draft-original", counterparty: "Ferretería Ochoa", occurred_on: "2026-11-03", amount: "1180.00", currency: "DOP", fiscal_number: recommendation === null ? null : "B0100000123", file: { connection_id: "file-original", filename: "factura.pdf", media_type: options.imageSources ? "image/svg+xml" : "application/pdf", channel: "whatsapp", received_at: "2026-11-03T12:00:00Z" }, received_at: "2026-11-03T12:00:00Z", approved_at: options.approved ? "2026-11-03T15:00:00Z" : null, state: options.approved ? "accepted" : "open" },
       differences: options.differences ?? (recommendation === "same_purchase" ? ["file"] : ["fiscal_number", "file"]),
       recommendation,
     },
@@ -99,7 +100,10 @@ async function mount(mode: Mode = "success", options: Options = {}) {
     source: { mode: "live", restoreDocument: async (id: string) => { restored.push(id); }, receipt: async (id: string) => {
       if (options.senderUnavailable && id === "file-original") throw new Error("Offline");
       return { sent_by: { id, kind: "email", address: id === "file-new" ? "nueva@example.test" : "anterior@example.test" } };
-    }, receiptSource: async (id: string) => { fetchedSources.push(id); return new Blob(["%PDF-1.4"], { type: "application/pdf" }); } },
+    }, receiptSource: async (id: string) => {
+      fetchedSources.push(id);
+      return options.imageSources ? new Blob([id], { type: "image/svg+xml" }) : new Blob(["%PDF-1.4"], { type: "application/pdf" });
+    } },
     openPanel: () => undefined,
     reload: () => undefined,
   } as unknown as BusinessContextValue;
@@ -234,6 +238,34 @@ test("Comparar opens General, shows only General and Detalles, and switches the 
     assert.deepEqual(ui.fetchedSources, ["file-new", "file-original"]);
     assert.equal(ui.requests.length, 0);
   } finally { await ui.cleanup(); }
+});
+
+test("Comparar keeps the painted image until the replacement image reports load", async () => {
+  const ui = await mount("success", { imageSources: true });
+  const createUrl = URL.createObjectURL;
+  URL.createObjectURL = () => "blob:test-receipt";
+  try {
+    await ui.compare();
+    const images = () => Array.from(ui.host.querySelectorAll<HTMLImageElement>('[data-testid="receipt-review-source"] img'));
+    const load = async (image: HTMLImageElement) => {
+      Object.defineProperty(image, "naturalWidth", { configurable: true, value: 160 });
+      Object.defineProperty(image, "naturalHeight", { configurable: true, value: 200 });
+      await ui.act(async () => { image.dispatchEvent(new Event("load")); });
+    };
+    const [original] = images();
+    assert.ok(original, "the original image is mounted");
+    await load(original);
+    await ui.act(async () => { ui.button("Guardado antes")!.click(); });
+    await ui.flush();
+    const incoming = images().find(image => image.src !== original.src);
+    assert.ok(incoming, "the new image has its own load event");
+    assert.ok(original.isConnected, "the original stays mounted while the new image loads");
+    await load(incoming);
+    assert.ok(incoming.isConnected);
+  } finally {
+    await ui.cleanup();
+    URL.createObjectURL = createUrl;
+  }
 });
 
 test("the diff shows both documents' values and marks each row as the server's differences say", async () => {

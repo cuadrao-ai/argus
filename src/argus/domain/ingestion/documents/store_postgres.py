@@ -265,11 +265,12 @@ class PostgresDocumentStore:
                 self.objects.put(row[0], content, draft.media_type)
             if on_capture is not None:
                 on_capture(connection, connection_id)
-            connection.execute(
-                "update public.financial_document_extractions set draft=draft || "
-                "jsonb_build_object('source_available',true) where connection_id=%s",
-                (connection_id,),
-            )
+            if draft.source_available:
+                connection.execute(
+                    "update public.financial_document_extractions set draft=draft || "
+                    "jsonb_build_object('source_available',true) where connection_id=%s",
+                    (connection_id,),
+                )
         return True
 
     def update(

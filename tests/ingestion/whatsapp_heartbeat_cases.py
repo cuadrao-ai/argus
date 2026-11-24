@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import threading
+from dataclasses import replace
 from datetime import timedelta
 
 import pytest
@@ -14,14 +15,22 @@ from argus.api.whatsapp import DocumentsDestination
 from argus.domain.ingestion.whatsapp.intake import (
     CLAIM_SECONDS,
     PROCESSING_SECONDS,
-    WhatsAppIntake,
+    DeliveryInFlight,
+    _Held,
     _Lease,
     _stop,
 )
+from argus.domain.ingestion.whatsapp.payload import parse_delivery
 from argus.domain.ingestion.whatsapp.store import Settlement
 
 from tests.ingestion.whatsapp_cases import World, image
-from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
+from tests.ingestion.whatsapp_support import (
+    ALICE_PHONE,
+    PHONE_NUMBER_ID,
+    RECEIPT_PNG,
+    Media,
+    encode,
+)
 
 
 class HeldCapture:
@@ -46,33 +55,26 @@ class HeldCapture:
         self.store.capture = self.inner
 
 
-def _second_worker(world: World) -> WhatsAppIntake:
+def _second_worker(world: World) -> World:
     """Another process: same database, its own documents capture slot."""
 
     documents = copy.copy(world.documents)
     documents._capture_slot = asyncio.Semaphore(1)
     second = copy.copy(world.intake)
     second.destination = DocumentsDestination(documents, world.spaces)
-    second.background = None
     second.processing_seconds = PROCESSING_SECONDS
-    return second
+    return replace(world, intake=second)
 
 
 async def _start(world: World, media_id: str, message_id: str) -> asyncio.Task:
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
-    started: list = []
-    world.intake.background = started.append
-    world.intake._last_nudge = world.clock()
     world.intake.processing_seconds = 0.05
-    await world.deliver(image(media_id, message_id))
-    [work] = started
-    return asyncio.create_task(work)
+    return asyncio.create_task(world.deliver(image(media_id, message_id)))
 
 
 async def _entered(held: HeldCapture) -> None:
-    while not held.entered.is_set():
-        await asyncio.sleep(0.005)
+    assert await asyncio.to_thread(held.entered.wait, 5)
 
 
 async def _renewed(world: World, message_id: str) -> None:
@@ -82,6 +84,7 @@ async def _renewed(world: World, message_id: str) -> None:
         if world.record(message_id).claim_until > world.clock.now:
             return
         await asyncio.sleep(0.005)
+    raise AssertionError("claim was not renewed")
 
 
 def _fetches(world: World, media_id: str) -> int:
@@ -103,11 +106,21 @@ async def a_heartbeat_holds_the_claim_through_a_cancelled_capture(world: World) 
         world.clock.now += timedelta(seconds=CLAIM_SECONDS + 1)
         await _renewed(world, "wamid.BEAT-HOLD")
 
-        assert await _second_worker(world).recover() == 0
+        with pytest.raises(DeliveryInFlight):
+            await _second_worker(world).deliver(
+                image("700000000000501", "wamid.BEAT-HOLD")
+            )
     finally:
         held.restore()
-    await original
+    with pytest.raises(asyncio.TimeoutError):
+        await original
 
+    row = world.record("wamid.BEAT-HOLD")
+    assert (row.status, row.error_code, row.claim_until) == (
+        "failed",
+        "whatsapp_processing_timeout",
+        None,
+    )
     assert held.calls == 1
     assert _fetches(world, "700000000000501") == 1
     assert len(world.captures(world.alice)) == 1
@@ -122,13 +135,14 @@ async def a_worker_that_lost_its_claim_sends_nothing(world: World) -> None:
         await asyncio.sleep(0.1)
         world.clock.now += timedelta(seconds=CLAIM_SECONDS + 1)
 
-        assert await _second_worker(world).recover() == 1
+        await _second_worker(world).deliver(image("700000000000502", "wamid.BEAT-LOST"))
         assert world.record("wamid.BEAT-LOST").status == "captured"
         replies = world.transport.bodies()
         assert replies
     finally:
         held.restore()
-    await original
+    with pytest.raises(DeliveryInFlight):
+        await original
 
     assert world.transport.bodies() == replies
     assert world.record("wamid.BEAT-LOST").status == "captured"
@@ -146,6 +160,7 @@ async def a_cancelled_worker_keeps_its_claim_until_the_capture_ends(world: World
     world.intake.renew_seconds = 0.01
     held = HeldCapture(world)
     second = _second_worker(world)
+    body = image("700000000000503", "wamid.BEAT-CANCEL")
     try:
         original = await _start(world, "700000000000503", "wamid.BEAT-CANCEL")
         await _entered(held)
@@ -155,8 +170,8 @@ async def a_cancelled_worker_keeps_its_claim_until_the_capture_ends(world: World
         for _ in range(3):
             world.clock.now += timedelta(seconds=CLAIM_SECONDS + 1)
             await _renewed(world, "wamid.BEAT-CANCEL")
-            # Other rows in a shared database may lapse; this one must not.
-            await second.recover()
+            with pytest.raises(DeliveryInFlight):
+                await second.deliver(body)
             assert world.record("wamid.BEAT-CANCEL").status == "received"
         assert held.calls == 1
         assert _fetches(world, "700000000000503") == 1
@@ -168,10 +183,9 @@ async def a_cancelled_worker_keeps_its_claim_until_the_capture_ends(world: World
     assert len(world.captures(world.alice)) == 1
     assert world.record("wamid.BEAT-CANCEL").status == "received"
     assert _failures(world) == []
-    # The cancelled worker never settled; its claim lapses and recovery
-    # finishes the same receipt, once.
+    # The cancelled worker never settled; redelivery can finish once the claim lapses.
     world.clock.now += timedelta(seconds=CLAIM_SECONDS + 1)
-    await second.recover()
+    await second.deliver(body)
     assert world.record("wamid.BEAT-CANCEL").status == "captured"
     assert len(world.captures(world.alice)) == 1
     assert _failures(world) == []
@@ -197,29 +211,29 @@ class HeldRenewal:
         self.store.renew = self.inner
 
 
-async def _queued(world: World, media_id: str, message_id: str):  # noqa: ANN202
+async def _claim_photo(world: World, media_id: str, message_id: str) -> _Held:
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
-    started: list = []
-    world.intake.background = started.append
-    world.intake._last_nudge = world.clock()
-    await world.deliver(image(media_id, message_id))
-    [work] = started
-    return work
+    delivery = parse_delivery(
+        encode(image(media_id, message_id), world.clock()),
+        phone_number_id=PHONE_NUMBER_ID,
+    )
+    [message] = delivery.messages
+    item = await world.intake._claim(message)
+    assert isinstance(item, _Held)
+    return item
 
 
 async def a_cancelled_shutdown_keeps_the_renewed_token(world: World) -> None:
-    work = await _queued(world, "700000000000504", "wamid.BEAT-STOP")
-    work.close()
-    key = world.keys.message("wamid.BEAT-STOP")
-    lease = _Lease(world.record("wamid.BEAT-STOP").claim_until)
+    item = await _claim_photo(world, "700000000000504", "wamid.BEAT-STOP")
+    key = item.key
+    lease = _Lease(item.held)
     world.intake.renew_seconds = 0.01
     world.clock.now += timedelta(seconds=10)  # each renewal moves the token
     renewal = HeldRenewal(world)
     try:
         beat = asyncio.create_task(world.intake._heartbeat(key, lease))
-        while not renewal.entered.is_set():
-            await asyncio.sleep(0.005)
+        assert await asyncio.to_thread(renewal.entered.wait, 5)
         stopping = asyncio.create_task(_stop(lease, beat))
         for _ in range(4):
             await asyncio.sleep(0.01)
@@ -240,10 +254,10 @@ async def a_cancelled_shutdown_keeps_the_renewed_token(world: World) -> None:
     assert settled is not None
 
 
-async def a_renewal_error_after_recovery_sends_nothing(world: World) -> None:
-    work = await _queued(world, "700000000000505", "wamid.BEAT-ERROR")
+async def a_renewal_error_after_redelivery_sends_nothing(world: World) -> None:
+    item = await _claim_photo(world, "700000000000505", "wamid.BEAT-ERROR")
     world.clock.now += timedelta(seconds=CLAIM_SECONDS + 1)
-    assert await _second_worker(world).recover() == 1
+    await _second_worker(world).deliver(image("700000000000505", "wamid.BEAT-ERROR"))
     assert world.record("wamid.BEAT-ERROR").status == "captured"
     replies = world.transport.bodies()
     store = world.intake.store
@@ -254,7 +268,7 @@ async def a_renewal_error_after_recovery_sends_nothing(world: World) -> None:
 
     store.renew = broken
     try:
-        await work
+        assert not await world.intake._process(item)
     finally:
         store.renew = inner
 
@@ -269,5 +283,5 @@ HEARTBEAT_CASES = (
     a_worker_that_lost_its_claim_sends_nothing,
     a_cancelled_worker_keeps_its_claim_until_the_capture_ends,
     a_cancelled_shutdown_keeps_the_renewed_token,
-    a_renewal_error_after_recovery_sends_nothing,
+    a_renewal_error_after_redelivery_sends_nothing,
 )
