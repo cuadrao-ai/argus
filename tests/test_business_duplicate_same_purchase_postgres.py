@@ -222,6 +222,23 @@ def test_the_comparison_recommends_by_the_fiscal_number(
 
 
 @pytest.mark.owner_acts
+@pytest.mark.parametrize("name", ["SYNTHETIC SHOP", " synthetic shop "])
+def test_dossier_comparison_ignores_merchant_case_and_surrounding_spaces(actions, name):
+    service, context, _ = actions
+    first, second = _pair(actions)
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_import_events set resolution ="
+            " jsonb_set(resolution, '{business,facts,counterparty,value}', %s) where id=%s",
+            (Jsonb(name), str(second)),
+        )
+    [candidate] = service.dossier(context, second).duplicate_candidates
+    assert candidate.draft_id == first
+    assert candidate.comparison.document.counterparty == name
+    assert "counterparty" not in candidate.comparison.differences
+
+
+@pytest.mark.owner_acts
 def test_the_comparison_says_where_when_and_in_what_state_each_document_is(actions):
     from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
 

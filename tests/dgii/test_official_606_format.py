@@ -12,7 +12,7 @@ from uuid import UUID
 import pytest
 from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts, Known
-from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
+from argus.domain.business.dgii_codes import TOOL_LABELS
 from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_validation import FiscalRecord
 from faker import Faker
@@ -317,7 +317,7 @@ def test_unsupported_perceptions_are_refused_instead_of_silently_omitted(
     ("table", "source_labels"),
     (
         (
-            EXPENSE_TYPES,
+            TOOL_LABELS["category"],
             (
                 "GASTOS DE PERSONAL",
                 "GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS",
@@ -333,7 +333,7 @@ def test_unsupported_perceptions_are_refused_instead_of_silently_omitted(
             ),
         ),
         (
-            PAYMENT_FORMS,
+            TOOL_LABELS["payment_method"],
             (
                 "EFECTIVO",
                 "CHEQUES/TRANSFERENCIAS/DEPÓSITO",
@@ -355,6 +355,6 @@ def test_code_lists_match_the_workbook_ranges(table, source_labels):
         ).strip()
 
     assert tuple(table) == tuple(f"{n:02}" for n in range(1, len(source_labels) + 1))
-    assert [normalized(label) for label in table.values()] == [
+    assert [normalized(label.split(" - ", 1)[1]) for label in table.values()] == [
         normalized(label) for label in source_labels
     ]

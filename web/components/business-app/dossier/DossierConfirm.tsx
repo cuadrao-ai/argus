@@ -30,7 +30,7 @@ function DossierConfirmSurface({ problems, onFix, onAcceptAnyway, onClose }: {
     <div ref={panelRef} role="alertdialog" aria-modal="true" data-testid="dossier-confirm" aria-labelledby={`${ids}-title`} aria-describedby={`${ids}-list`} className="relative max-h-[calc(100dvh-2rem)] w-full max-w-[420px] overflow-y-auto rounded-surface border border-black/10 bg-[#FFFEFA] p-6 dark:border-white/10 dark:bg-[#1f2225]">
       <h2 id={`${ids}-title`} className="mb-2 font-display text-[18px] font-semibold text-[#172b26] dark:text-white">{problems.length === 1 ? problems[0].title : t("business.dossier.problems.count", { count: problems.length })}</h2>
       <ul id={`${ids}-list`} className={styles.confirmList}>
-        {problems.map((problem) => <li key={problem.key} data-problem={problem.key}><strong>{problem.title}{problem.text ? "." : ""}</strong>{problem.text ? ` ${problem.text}` : null}</li>)}
+        {problems.map((problem) => <li key={problem.key} data-problem={problem.key}>{problems.length > 1 ? <strong>{problem.title}{problem.text ? "." : ""}</strong> : null}{problem.text ? `${problems.length > 1 ? " " : ""}${problem.text}` : null}</li>)}
       </ul>
       <div className="mt-4 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
         {onAcceptAnyway ? <button type="button" className={secondaryButtonClass} onClick={onAcceptAnyway}>{t("business.dossier.confirm.accept_anyway")}</button> : null}

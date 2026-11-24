@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { SwitchIndicator, useOptimisticToggle } from "@/components/ui/Switch";
 import { secondaryButtonClass } from "./business-ui";
 import { FOCUS_RING } from "./foundation/presentation";
+import { usePopover } from "./dossier/DossierParts";
 
 const MENU_ROW = `flex min-h-11 w-full items-center gap-3 rounded-item px-3 py-2 text-left text-[14px] leading-5 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`;
 const MENU_ROW_NEUTRAL = "text-[#172b26] hover:bg-black/5 dark:text-white dark:hover:bg-white/5";
@@ -72,28 +73,18 @@ export function ReceiptMoreMenu({ groups }: { groups: ReactNode[] }) {
   const host = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const close = () => { setOpen(false); trigger.current?.focus(); };
+  usePopover(host, open, close);
   useEffect(() => {
     if (!open) return undefined;
     panel.current?.querySelector<HTMLElement>('[role^="menuitem"]:not(:disabled)')?.focus();
-    const outside = (event: PointerEvent) => {
-      if (!host.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
   const shown = groups.filter(Boolean);
-  const close = () => { setOpen(false); trigger.current?.focus(); };
   return (
     <CloseMenu.Provider value={close}><div
       ref={host}
       className="mr-auto tablet:relative"
       data-testid="receipt-more"
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || !open) return;
-        // The menu closes first; the dossier's own Escape waits for the next press.
-        event.preventDefault();
-        close();
-      }}
     >
       <button ref={trigger} type="button" aria-haspopup="menu" aria-expanded={open} aria-controls="receipt-more-panel" onClick={() => setOpen((value) => !value)} className={`${secondaryButtonClass} whitespace-nowrap max-tablet:px-3`}>
         <span className="max-tablet:sr-only">{t("common.more", "More")}</span>

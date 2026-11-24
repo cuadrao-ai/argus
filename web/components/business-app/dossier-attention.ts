@@ -3,6 +3,7 @@ import type { BusinessDossier, BusinessDuplicateCandidate, ListoGap, ReviewFlagC
 import { documentFamily, factLabel } from "@/lib/counterparty-term";
 import type { ReviewRow } from "./receipt-fact-rows";
 import type { SaveRow } from "./receipt-review-save";
+import { formatMoney } from "./business-format";
 
 /** The words of the "Parece repetido" flow: the problem and the compare view. */
 export const DUPLICATE_KEYS = "business.receipts.duplicate_resolution";
@@ -80,6 +81,8 @@ export function dossierRowLabel(t: TFunction, row: SaveRow | "ncf" | "ecf", doss
  * confirm read this one list. Nothing here decides a reason.
  */
 export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem[] {
+  const locale = t("business.terms.difference", { returnDetails: true }).usedLng;
+  const currency = dossier.facts.currency.state === "known" ? dossier.facts.currency.value : null;
   const flags = dossier.review_flags ?? [];
   const candidate = dossier.duplicate_candidates?.[0];
   const general = t("business.dossier.tab.general");
@@ -100,7 +103,7 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
     const blockedField = reason === "blocked" ? dossier.blockers?.find((blocker) => blocker.field)?.field ?? null : null;
     const row = flag ? FLAGGED_ROW[flag.code] : reason === "check_details" && dossier.year_to_check ? "occurred_on" : blockedField ?? GAP_ROW[reason] ?? null;
     const text = reason === "invalid_rnc" && !flags.some((item) => item.code === "rnc_check_digit") ? t("business.dgii.rnc_check.invalid_length.reason")
-      : flag?.code === "amounts_mismatch" ? flag.difference != null ? t("business.terms.difference", { amount: flag.difference }) : words(reason, "text")
+      : flag?.code === "amounts_mismatch" ? flag.difference != null && currency ? t("business.terms.difference", { amount: formatMoney(flag.difference, currency, locale) }) : words(reason, "text")
       : flag ? t(`business.dossier.review_flag.${flag.code}.text`)
       : words(reason, "text");
     return { key, reason, title: words(reason, "title"), text, tab: "general", row, where: row ? `${general} · ${dossierRowLabel(t, row, dossier)}` : general };

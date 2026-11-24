@@ -23,7 +23,7 @@ def test_expense_types_are_the_dgii_list_in_order():
         "01": "Gastos de personal",
         "02": "Gastos por trabajos, suministros y servicios",
         "03": "Arrendamientos",
-        "04": "Gastos de activos fijo",
+        "04": "Gastos de Activos Fijos",
         "05": "Gastos de representación",
         "06": "Otras deducciones admitidas",
         "07": "Gastos financieros",

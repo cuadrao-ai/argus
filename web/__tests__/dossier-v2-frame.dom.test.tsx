@@ -367,6 +367,32 @@ describe("the dossier's status is the server's", () => {
 });
 
 describe("accepting a record that is not Listos", () => {
+  test("a source receipt is displayed even when there are no separate supporting files", async () => {
+    const dossier = await fiscalDossier({ supporting_files: [] });
+    const page = await mount({ dossier, receipt: receiptOf(dossier) });
+    try {
+      await page.click(page.tab("Documento"));
+      assert.match(page.text(), /foto-0412.jpg/);
+      await page.click(page.tab("Detalles"));
+      assert.equal(page.all('[data-testid="dossier-supporting"] ul').length, 0);
+      assert.match(page.all('[data-testid="dossier-supporting"]')[0]?.textContent ?? "", /Sin archivos de respaldo\./);
+    } finally { await page.close(); }
+  });
+
+  test("one amounts problem says its title once and formats the server difference with currency", async () => {
+    const dossier = await fiscalDossier({ ...attention(["review_flag"]), review_flags: [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "30.00" }] });
+    dossier.facts.currency = { state: "known", value: "USD" };
+    const page = await mount({ dossier });
+    try {
+      await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+      const dialog = page.all('[data-testid="dossier-confirm"]')[0];
+      assert.ok(dialog);
+      assert.equal(dialog.querySelector("h2")?.textContent, "Tiene datos por revisar");
+      assert.equal(dialog.querySelector("ul")?.textContent, "Diferencia US$ 30.00");
+      assert.deepEqual(page.sent, []);
+    } finally { await page.close(); }
+  });
+
   test("Aceptar opens one confirm that lists every problem; Corregir jumps to the first", async () => {
     const gaps = ["missing_rnc", "invalid_ncf"] satisfies ListoGap[];
     const page = await mount({ dossier: await fiscalDossier(attention(gaps, gaps)), size: "regular" });
