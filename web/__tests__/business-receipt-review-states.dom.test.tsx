@@ -124,9 +124,11 @@ test("a duplicate refusal without an id still says so, with no dead button", asy
   }
 });
 
-test("a disabled Aceptar has its reason beside the pill, and the reason points at the row the server blocks on", async () => {
+test("a server-blocked action keeps the reason beside the pill and opens its field from the list", async () => {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.ready);
   dossier.approval_available = false;
+  dossier.approval_action = null;
+  dossier.confirmable = [];
   dossier.blockers = [{ code: "fact_required", field: "funding" }, { code: "fact_required", field: "business_share" }];
   // The server's rule says a blocked draft is not Listos.
   dossier.bandeja_group = { group: "attention", reason: "blocked", label: "needs_attention" };
@@ -137,11 +139,16 @@ test("a disabled Aceptar has its reason beside the pill, and the reason points a
   try {
     const approve = page.button("Aceptar");
     assert.ok(approve);
-    assert.equal(approve.disabled, true);
+    assert.equal(approve.disabled, false);
     assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null, "the footer holds the action; the header says why");
     const reason = page.host.querySelector<HTMLButtonElement>('[data-testid="dossier-reason"]');
     assert.equal(reason?.textContent, "Tiene algo pendiente");
-    await page.act(async () => reason!.click());
+    await page.act(async () => approve.click());
+    const list = page.host.querySelector('[data-testid="dossier-problem-list"]');
+    assert.equal(list?.querySelector("h2")?.textContent, "Corrige 1 dato antes de aceptar");
+    const field = list?.querySelector<HTMLButtonElement>('[data-reason="blocked"]');
+    assert.ok(field);
+    await page.act(async () => field.click());
     assert.ok(page.host.querySelector('[data-fact="funding"]')?.getAttribute("data-flash"), "the jump lands on the row the first blocker names");
   } finally {
     await page.close();
