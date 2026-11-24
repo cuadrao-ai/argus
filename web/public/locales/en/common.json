@@ -2639,6 +2639,9 @@
         "export": {
           "action_one": "Export {{count}} record",
           "action_other": "Export {{count}} records",
+          "bandeja_notice_one": "{{count}} document from this period is still in the Inbox.",
+          "bandeja_notice_other": "{{count}} documents from this period are still in the Inbox.",
+          "bandeja_open": "View in Inbox",
           "columns_custom_one": "Custom columns ({{count}})",
           "columns_custom_other": "Custom columns ({{count}})",
           "columns_done": "Done",

@@ -22842,11 +22842,16 @@ components:
           $ref: '#/components/schemas/TableExport'
         dgii:
           $ref: '#/components/schemas/DgiiExport'
+        bandeja_count:
+          type: integer
+          description: Documents the Bandeja still holds in the export's resolved
+            period, purchases and sales together.
       additionalProperties: false
       type: object
       required:
       - table
       - dgii
+      - bandeja_count
     ExportPreviewRequest:
       properties:
         report:

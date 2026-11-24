@@ -11,7 +11,7 @@ import io
 import json
 import unicodedata
 from calendar import monthrange
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -37,6 +37,7 @@ from argus.domain.business.dgii_validation import (
 )
 from argus.domain.business.export import spreadsheet_cell
 from argus.domain.business.fiscal_identity import identity_digits
+from argus.domain.business.month_close import unreviewed_in_month
 from argus.domain.business.reporting_columns import (
     CURRENCY_LABEL,
     SPECS,
@@ -171,6 +172,8 @@ class DgiiExport(Contract):
 class ExportPreview(Contract):
     table: TableExport
     dgii: DgiiExport
+    #: Documents the Bandeja still holds in the export's period, either tab.
+    bandeja_count: int
 
 
 @dataclass(frozen=True)
@@ -349,7 +352,11 @@ def summarize_export(
     *,
     business_name: str | None = None,
     locale: FileLocale = "es-419",
+    bandeja: Iterable[tuple[date, str | None]] = (),
 ) -> ExportPreview:
+    """``bandeja`` is the close day and currency of each draft the Bandeja
+    still lists, as ``unreviewed_days`` answers them."""
+
     def filenames(
         mode: Literal["table", "dgii"], dates: Sequence[date]
     ) -> ExportFileNames:
@@ -371,7 +378,14 @@ def summarize_export(
 
     every = _with_currencies(request, "all")
     dgii = _dgii_selection(source, request)
+    period = resolve_period(request.filters.period, source.records, source.observed_at)
+    waiting = unreviewed_in_month(
+        ((day, "") for day, _ in bandeja),
+        period.from_date or date.min,
+        period.to_date or date.max,
+    )
     return ExportPreview(
+        bandeja_count=sum(waiting.values()),
         table=TableExport(
             current=selection(request, False),
             all=None if every is None else selection(every, True),
@@ -650,12 +664,17 @@ def preview_export(
     *,
     business_name: str | None = None,
     locale: FileLocale = "es-419",
+    bandeja: Callable[[], Iterable[tuple[date, str | None]]] = tuple,
 ) -> ExportPreview:
+    """``bandeja`` is read only once the grant has proven it exports."""
+
+    source = read_export_source(authority, context)
     return summarize_export(
-        read_export_source(authority, context),
+        source,
         request,
         business_name=business_name,
         locale=locale,
+        bandeja=bandeja(),
     )
 
 

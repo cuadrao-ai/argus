@@ -11233,6 +11233,12 @@ accept path recorded.
   snapshot and line review as fiscal selection. Pending and excluded rows do
   not count. Sales return zero counts and an empty list. The notice does not
   block download.
+  `bandeja_count` counts the documents the Bandeja still holds in the export's
+  resolved period, purchases and sales together, whatever the tab and the other
+  filters say. A period with no bounds counts every one. It is the month close's
+  own count (`unreviewed_days`, dated by receipt date and otherwise by arrival),
+  so one month's value equals the sum of that month's `documents_in_bandeja`.
+  The dialog shows it as one notice in either mode and never blocks download.
   `table.current`, `table.all` and `dgii` each carry `filenames`, `{xlsx, csv}`:
   the name the export below gives that choice's file in each format, from the
   same `records_filename` with the same Business name, period, dates and

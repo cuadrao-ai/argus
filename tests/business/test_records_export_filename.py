@@ -10,7 +10,7 @@ from urllib.parse import unquote
 from uuid import uuid4
 
 import pytest
-from argus.api import business_reports
+from argus.api import business_receipt_activity, business_reports
 from argus.api.business import require_business_person, require_business_surface
 from argus.api.business_drafts import require_drafts
 from argus.domain.business import reporting_file
@@ -53,6 +53,8 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     app = FastAPI()
     app.include_router(business_reports.router)
     app.dependency_overrides[require_business_surface] = lambda: None
+    monkeypatch.setattr(business_reports, "grant_reader", lambda *args: None)
+    monkeypatch.setattr(business_receipt_activity, "bandeja_days", lambda context: [])
     app.dependency_overrides[require_drafts] = lambda: SimpleNamespace(
         service=SimpleNamespace(authority=None),
         for_space=lambda request, spaces: actor,

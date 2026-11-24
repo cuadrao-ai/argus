@@ -5,6 +5,8 @@ from urllib.parse import unquote
 from uuid import uuid4
 
 import pytest
+from argus.api import documents as documents_api
+from argus.api import ingestion
 from argus.api.business import (
     BusinessPerson,
     require_business_person,
@@ -13,12 +15,19 @@ from argus.api.business import (
 from argus.api.business_drafts import DraftContext, require_drafts
 from argus.api.business_reports import router
 from argus.domain.business.spaces import PostgresSpaceStore
+from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
+from argus.domain.ingestion.hub import IngestionHub
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tests import test_business_actions_postgres as shared
+from tests import test_business_single_candidate_postgres as single
 from tests.business.test_records_export_filename import one_stem
 from tests.business_accept_support import seen_gaps
+from tests.document_sources_support import source_objects
+from tests.ingestion.whatsapp_support import RefusingExtractor
 from tests.test_business_dgii_postgres import cash_account
 from tests.test_business_reporting_postgres import record_expense, viewer_context
 
@@ -28,7 +37,7 @@ pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
 
 
 @pytest.fixture
-def client(actions):
+def client(actions, monkeypatch):
     service, context, _ = actions
     app = FastAPI()
 
@@ -50,6 +59,19 @@ def client(actions):
         str(selected[0].actor.actor_id), spaces
     )
     app.dependency_overrides[require_business_surface] = lambda: None
+    hub = IngestionHub(
+        PostgresConnectionRepository(service.authority.pool),
+        box=None,
+        sink=service.imports,
+        clock=service.imports.clock,
+    )
+    documents = DocumentsService(
+        hub,
+        PostgresDocumentStore(service.authority.pool, source_objects()),
+        RefusingExtractor(),
+    )
+    monkeypatch.setattr(ingestion, "_hub", hub)
+    monkeypatch.setattr(documents_api, "_service", documents)
     with TestClient(app) as http:
         yield http, selected
 
@@ -225,6 +247,14 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     official[22] = "01 - EFECTIVO"
     official[5:7] = [official[5][:6], official[5][6:], official[6][:6], official[6][6:]]
     assert written[1:] == [official]
+
+
+def test_preview_counts_a_receipt_waiting_in_the_bandeja(client, actions):
+    http, _ = client
+    every = {**PURCHASES, "period": {"kind": "all"}}
+    assert preview(http, every)["bandeja_count"] == 0
+    single._saved(actions, "expense")
+    assert preview(http, every)["bandeja_count"] == 1
 
 
 def test_viewer_can_read_but_not_export_and_revocation_stops_reads(
