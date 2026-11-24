@@ -14,7 +14,7 @@ from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
 
 from tests import test_whatsapp_intake_postgres as shared
 from tests.ingestion import whatsapp_cases as cases
-from tests.ingestion.whatsapp_support import PHONE_NUMBER_ID, SENDER_KEY
+from tests.ingestion.whatsapp_support import PHONE_NUMBER_ID, SENDER_KEY, Media
 from workflows.document_worker import in_turn
 
 pool = shared.pool
@@ -22,17 +22,10 @@ users = shared.users
 pytestmark = shared.pytestmark
 
 
-@pytest.mark.asyncio
-async def test_document_upkeep_sends_a_due_group_without_webhook_credentials(
-    monkeypatch, pool, users
-):
-    suffix = uuid4()
-    monkeypatch.setattr(cases, "uuid4", lambda: suffix)
-    world = await shared._linked(pool, users)
-    world.clock.now = world.clock.now.replace(hour=12, minute=0, second=0, microsecond=0)
+def _configure_replies(monkeypatch, suffix):
     for key, value in {
         "CUADRAO_WHATSAPP_INTAKE_ENABLED": "true",
-        "CUADRAO_WHATSAPP_OUTBOUND_ENABLED": "false",
+        "CUADRAO_WHATSAPP_OUTBOUND_ENABLED": "true",
         "CUADRAO_WHATSAPP_ACCESS_TOKEN": "test-access-token",
         "CUADRAO_WHATSAPP_SENDER_KEY": f"{SENDER_KEY}-{suffix}",
         "CUADRAO_WHATSAPP_NUMBER_ID": PHONE_NUMBER_ID,
@@ -60,6 +53,19 @@ async def test_document_upkeep_sends_a_due_group_without_webhook_credentials(
             AsyncClient=lambda: httpx.AsyncClient(transport=httpx.MockTransport(send))
         ),
     )
+    return sent
+
+
+@pytest.mark.asyncio
+async def test_document_upkeep_sends_a_due_group_without_webhook_credentials(
+    monkeypatch, pool, users
+):
+    suffix = uuid4()
+    monkeypatch.setattr(cases, "uuid4", lambda: suffix)
+    world = await shared._linked(pool, users)
+    world.clock.now = world.clock.now.replace(hour=12, minute=0, second=0, microsecond=0)
+    sent = _configure_replies(monkeypatch, suffix)
+    monkeypatch.setenv("CUADRAO_WHATSAPP_OUTBOUND_ENABLED", "false")
     for index in range(2):
         await shared._failed(world, index)
 
@@ -92,3 +98,50 @@ async def test_document_upkeep_sends_a_due_group_without_webhook_credentials(
     await asyncio.to_thread(in_turn(restarted.cleanup, restarted.send_due))
     assert len(sent) == 1
     assert shared._counts(pool, world) == [(1, 0)]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("first_group", ["daily_limit", "revoked", "window"])
+async def test_due_pass_continues_after_dropping_a_group(
+    monkeypatch, pool, users, first_group
+):
+    suffix = uuid4()
+    monkeypatch.setattr(cases, "uuid4", lambda: suffix)
+    world = await shared._linked(pool, users)
+    await world.link(world.bob, cases.BOB_PHONE)
+    world.clock.now = world.clock.now.replace(hour=12, minute=0, second=0, microsecond=0)
+    sent = _configure_replies(monkeypatch, suffix)
+
+    await shared._failed(world, 0)
+    if first_group == "daily_limit":
+        world.clock.now += timedelta(seconds=120)
+        assert await shared._worker(world).run_once()
+        monkeypatch.setenv("CUADRAO_WHATSAPP_REPLY_DAILY_LIMIT", "1")
+        await shared._failed(world, 1)
+    elif first_group == "revoked":
+        world.store.revoke(destination_owner_id=world.alice, now=world.clock.now)
+    else:
+        world.clock.now += timedelta(hours=24)
+
+    # The suppressed group has the earlier send_after, so the worker must
+    # consume it before it can reach the valid group.
+    world.clock.now += timedelta(seconds=1)
+    media_id = "700000000000901"
+    world.graph.media[media_id] = Media(b"not an image", "image/png")
+    await world.deliver(cases.image(media_id, "wamid.GROUP-BOB", cases.BOB_PHONE))
+    world.clock.now += timedelta(seconds=120)
+
+    grouped = document_step.FailureReplyUpkeep(
+        world.store.reply_groups, clock=world.clock
+    )
+    await asyncio.to_thread(grouped.send_due)
+
+    assert [message["to"] for message in sent] == [cases.BOB_PHONE]
+    with pool.connection() as connection:
+        assert (
+            connection.execute(
+                "select sender_hash from public.whatsapp_reply_groups where owner_id in (%s, %s)",
+                (world.alice, world.bob),
+            ).fetchall()
+            == []
+        )

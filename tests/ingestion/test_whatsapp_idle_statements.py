@@ -7,7 +7,7 @@ from collections import Counter
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
@@ -180,8 +180,10 @@ async def test_api_boot_issues_no_idle_whatsapp_sql(monkeypatch, idle, intake, o
         monkeypatch.setattr(
             whatsapp, "httpx", SimpleNamespace(AsyncClient=lambda: client)
         )
-        async with app_setup.lifespan(app):
-            five_minutes, hour = await idle_counts(clock, pool)
+        with patch.object(clock.loop, "create_task", wraps=clock.loop.create_task) as started:
+            async with app_setup.lifespan(app):
+                five_minutes, hour = await idle_counts(clock, pool)
+            started.assert_not_called()
     logger.info(
         "API intake={} outbound={} five_minutes={} hour={}",
         intake,

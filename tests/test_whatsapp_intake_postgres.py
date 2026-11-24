@@ -356,7 +356,9 @@ async def test_expired_or_revoked_group_never_sends(pool, users, ending):
     )
     if ending == "revoked":
         world.store.revoke(destination_owner_id=world.alice, now=world.clock.now)
-    assert not await _worker(world).run_once()
+    worker = _worker(world)
+    assert await worker.run_once()
+    assert not await worker.run_once()
     assert world.transport.sent == []
     assert _counts(pool, world) == []
 
