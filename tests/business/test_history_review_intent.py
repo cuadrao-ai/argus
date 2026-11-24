@@ -1,4 +1,5 @@
 """History names the person's request, not incidental linked-field movement."""
+import json
 from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -6,7 +7,7 @@ from uuid import uuid4
 import pytest
 from argus.domain.business.actions import mutations
 from argus.domain.business.amount_inheritance import written_from
-from argus.domain.business.contracts.dossier import BusinessDossier
+from argus.domain.business.contracts.dossier import BusinessDossier, web_action_text
 from argus.domain.business.contracts.facts import BusinessResolution
 from argus.domain.business.purchase_review import declaration_from_facts
 
@@ -100,3 +101,30 @@ def test_subtotal_restore_through_review_keeps_the_calculated_history_value(revi
     assert entry.after.net_amount.state == "unknown"
     assert entry.before_net_amount.amount == "900"
     assert entry.after_net_amount.amount == "1000.00"
+
+
+def test_clearing_saved_purchase_answers_names_each_cleared_field(review_command):  # noqa: F811
+    review, tx, event, resolution = review_command
+    assert (resolution.dgii.category, resolution.dgii.payment_method) == ("02", "01")
+    assert review({"purchase": {"category": None, "payment_method": None}}).outcome == "applied"
+    view = projected(tx, event)
+    assert view.history[0].reviewed_declaration_fields == ("category", "payment_method")
+    [source] = view.model_facing()["sources"]
+    assert json.loads(source["text"])["request"]["purchase"] == {"actual_refund": False, "category_suggested": False}, "models read the evidence as before"
+
+
+def _older_evidence(tx):
+    """The saved command as evidence held it before cleared answers were kept: every null dropped."""
+    [source] = tx.evidence
+    data = json.loads(source.text)
+    data.pop("cleared_kept", None)
+    data["request"]["purchase"] = {name: value for name, value in data["request"]["purchase"].items() if value is not None}
+    tx.evidence[0] = source.model_copy(update={"text": web_action_text(data)})
+
+
+@pytest.mark.parametrize(("purchase", "named"), [({"category": None}, None), ({"category": "09"}, ("category",))])
+def test_older_evidence_falls_back_only_when_a_cleared_answer_may_be_lost(review_command, purchase, named):  # noqa: F811
+    review, tx, event, _ = review_command
+    assert review({"purchase": purchase}).outcome == "applied"
+    _older_evidence(tx)
+    assert projected(tx, event).history[0].reviewed_declaration_fields == named

@@ -52,3 +52,13 @@ def test_a_suggested_payment_date_is_not_a_persons_edit_on_postgres(actions):
     after = service.dossier(context, draft)
     assert after.dgii.paid_on == before.dgii.paid_on
     assert after.history[-1].reviewed_declaration_fields == ("category",)
+
+
+def test_clearing_saved_purchase_answers_is_named_in_history_on_postgres(actions):
+    service, context = actions
+    draft, _ = links._fresh(service, context)
+    links._review(service, context, draft, purchase=PurchaseReview(payment_method="01", category="02"))
+    links._review(service, context, draft, purchase=PurchaseReview(category=None, payment_method=None))
+    after = service.dossier(context, draft)
+    assert (after.dgii.category, after.dgii.payment_method) == (None, None)
+    assert after.history[-1].reviewed_declaration_fields == ("category", "payment_method")
