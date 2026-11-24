@@ -1241,11 +1241,11 @@
         {
           "name": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
           "kind": "plain",
-          "keep_current": true,
+          "copy_from": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+          "service": "api",
           "production": {
             "value": "false"
-          },
-          "optional": true
+          }
         },
         {
           "name": "CUADRAO_WHATSAPP_NUMBER_ID",
@@ -1260,11 +1260,11 @@
         {
           "name": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
           "kind": "plain",
-          "keep_current": true,
+          "copy_from": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+          "service": "api",
           "production": {
             "value": "false"
-          },
-          "optional": true
+          }
         },
         {
           "name": "CUADRAO_WHATSAPP_SENDER_KEY",

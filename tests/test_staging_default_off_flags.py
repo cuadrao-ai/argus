@@ -9,7 +9,13 @@ import pytest
 import yaml
 from argus.domain.ingestion.whatsapp.config import WhatsAppSettings
 
-from scripts.ops.staging_env import Rule, compute_plan, rule_for
+from scripts.ops.staging_env import (
+    ManifestError,
+    Rule,
+    compute_plan,
+    load_manifest,
+    rule_for,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
@@ -209,14 +215,52 @@ def test_document_worker_whatsapp_switches_default_off(environment: str) -> None
             rule = rule_for(worker_entries[name], environment, worker)
             assert rule == Rule("value", "false")
             assert fixed_values["documents_worker"]["env"][name] == defaults[name]
-    else:
-        # A fresh staging worker starts with the blueprint and no manual overrides.
-        defaults = compute_plan(worker, live=defaults, file_secrets={}).final
 
     with patch.dict("os.environ", defaults, clear=True):
         settings = WhatsAppSettings()
     assert settings.intake_enabled is False
     assert settings.outbound_enabled is False
+
+
+@pytest.mark.parametrize("api_values", [None, ("true", "false"), ("false", "true"), ("false", "false")])
+def test_staging_worker_inherits_declared_api_switches(
+    tmp_path: Path, api_values: tuple[str, str] | None
+) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    api = {entry["name"]: entry for entry in manifest["services"]["api"]["entries"]}
+    if api_values is not None:
+        for name, value in zip(WORKER_SWITCHES, api_values, strict=True):
+            api[name]["value"] = value
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest))
+    worker = load_manifest(path)["services"]["documents_worker"]
+    expected = {name: api[name]["value"] for name in WORKER_SWITCHES}
+    stale = {name: "false" if value == "true" else "true" for name, value in expected.items()}
+    for live in ({}, stale, expected):
+        plan = compute_plan(worker, live, {})
+        assert {name: plan.final.get(name) for name in WORKER_SWITCHES} == expected
+        with patch.dict("os.environ", plan.final, clear=True):
+            settings = WhatsAppSettings()
+        assert (settings.intake_enabled, settings.outbound_enabled) == tuple(
+            value == "true" for value in expected.values()
+        )
+
+
+@pytest.mark.parametrize(
+    ("source_service", "source_name"),
+    [("unknown", WORKER_SWITCHES[0]), ("api", "UNKNOWN"), ("api", "CUADRAO_WHATSAPP_ACCESS_TOKEN")],
+)
+def test_staging_worker_rejects_missing_or_secret_copy_source(
+    tmp_path: Path, source_service: str, source_name: str
+) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    entries = manifest["services"]["documents_worker"]["entries"]
+    switch = next(entry for entry in entries if entry["name"] == WORKER_SWITCHES[0])
+    switch.update(service=source_service, copy_from=source_name)
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ManifestError, match=WORKER_SWITCHES[0]):
+        load_manifest(path)
 
 
 def test_override_true_in_prod_fails() -> None:

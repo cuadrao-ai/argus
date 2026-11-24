@@ -42,7 +42,7 @@ VERIFY_TOKEN_NAME = "CUADRAO_WHATSAPP_VERIFY_TOKEN"
 KINDS = ("plain", "secret", "generated")
 ENVIRONMENTS = ("local", "staging", "production")
 PRODUCTION_MODES = ("value", "copy_from", "enter", "not_set")
-STAGING_FIELDS = {"value", "keep_current", "copy_from", "optional", "requires", "b64_bytes"}
+STAGING_FIELDS = {"value", "keep_current", "copy_from", "service", "optional", "requires", "b64_bytes"}
 API_URL_NAMES = ("NEXT_PUBLIC_CUADRAO_API_URL", "NEXT_PUBLIC_ARGUS_API_URL")
 API_URL_SHAPE = re.compile(r"https://[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*(:\d+)?/api/v1")
 SECRETISH_NAME = re.compile(
@@ -121,8 +121,7 @@ def load_manifest(path: Path = MANIFEST_PATH) -> dict[str, Any]:
         manifest = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
         raise ManifestError(f"cannot load the settings manifest: {type(exc).__name__}") from None
-    validate_manifest(manifest)
-    return manifest
+    return validate_manifest(manifest)
 
 
 def staging_services(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -149,17 +148,55 @@ def entries_for(service: dict[str, Any], environment: str) -> list[dict[str, Any
     return staging_entries(service)
 
 
-def validate_manifest(manifest: dict[str, Any]) -> None:
+def _resolve_staging_entry(
+    entry: dict[str, Any], services: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """A qualified staging copy follows its source declaration on every plan."""
+    if "service" not in entry:
+        return entry
+    name = entry["name"]
+    if (
+        entry["kind"] != "plain"
+        or "copy_from" not in entry
+        or "value" in entry
+        or "keep_current" in entry
+    ):
+        raise ManifestError(f"{name}: a staging service only qualifies a plain copy_from")
+    source = entry["service"]
+    if not isinstance(source, str) or source not in services:
+        raise ManifestError(f"{name}: unknown staging source service")
+    for declaration in staging_entries(services[source]):
+        if (
+            declaration["name"] == entry["copy_from"]
+            and declaration["kind"] == "plain"
+            and isinstance(declaration.get("value"), str)
+        ):
+            resolved = dict(entry)
+            del resolved["copy_from"], resolved["service"]
+            resolved["value"] = declaration["value"]
+            return resolved
+    raise ManifestError(f"{name}: {source} must declare a plain value for {entry['copy_from']}")
+
+
+def validate_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Return the effective settings for all consumers, keeping the declarations intact."""
     if not isinstance(manifest, dict) or not isinstance(manifest.get("services"), dict):
         raise ManifestError("manifest has no services")
-    if set(staging_services(manifest)) != set(STAGING_IDS):
+    staging = staging_services(manifest)
+    if set(staging) != set(STAGING_IDS):
         raise ManifestError(
             "manifest must describe exactly these staging services: " + ", ".join(STAGING_IDS)
         )
     for label, service in manifest["services"].items():
         _validate_production(label, service)
     _validate_local(manifest)
-    for label, service in staging_services(manifest).items():
+    services = dict(manifest["services"])
+    for label, service in staging.items():
+        service = {
+            **service,
+            "entries": [_resolve_staging_entry(entry, staging) for entry in service["entries"]],
+        }
+        services[label] = service
         if service["service_id"] != STAGING_IDS[label]:
             raise ManifestError(f"{label}: service id is not the pinned staging service")
         entries = {e["name"]: e for e in staging_entries(service)}
@@ -213,6 +250,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         for pair in service.get("distinct", []):
             if any(name not in entries for name in pair):
                 raise ManifestError(f"{label}: distinct pair names an unknown entry")
+    return {**manifest, "services": services}
 
 
 def _validate_production(label: str, service: dict[str, Any]) -> None:
