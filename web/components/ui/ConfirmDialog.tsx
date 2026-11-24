@@ -174,7 +174,7 @@ function ConfirmDialogSurface({
             type="button"
             onClick={onCancel}
             disabled={isBusy}
-            className={`min-h-11 rounded-full border border-black/10 px-4 text-[16px] font-medium text-black hover:bg-black/5 disabled:opacity-50 ${FOCUS_RING} dark:border-white/10 dark:text-white dark:hover:bg-white/5`}
+            className={`min-h-11 rounded-full border border-black/10 px-4 text-[16px] font-medium text-black hover:bg-black/5 disabled:opacity-50 ${FOCUS_RING} dark:border-[var(--segment-thumb-border)] dark:text-white dark:hover:bg-white/5`}
           >
             <span className="inline-flex items-center gap-2">
               {cancelLabel}
@@ -190,8 +190,9 @@ function ConfirmDialogSurface({
             onClick={confirmOnce}
             disabled={isBusy}
             data-testid="confirm-dialog-confirm"
-            style={{ backgroundColor: tone === "danger" ? CONFIRM_ACTION : "#2f5a49" }}
-            className={`min-h-11 rounded-full px-4 text-[16px] font-medium text-white hover:opacity-90 disabled:opacity-50 ${FOCUS_RING}`}
+            aria-busy={isBusy || undefined}
+            style={tone === "danger" ? { backgroundColor: CONFIRM_ACTION } : undefined}
+            className={`min-h-11 rounded-full px-4 text-[16px] font-medium ${tone === "danger" ? "text-white" : "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]"} hover:opacity-90 disabled:opacity-50 ${FOCUS_RING}`}
           >
             <span className="inline-flex items-center gap-2">
               {confirmLabel}
