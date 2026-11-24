@@ -142,3 +142,25 @@ def test_review_evidence_keeps_a_cleared_payment_bucket():
     evidence = review_evidence(ReviewCommand(draft_id=uuid4(), request=request))
     assert evidence["request"]["payment_split"] == {"bank": None, "card": "1180.00"}
     assert legacy_evidence(evidence)["request"]["payment_split"] == {"card": "1180.00"}
+
+
+@pytest.mark.parametrize(("body", "named"), [
+    pytest.param({"document_type": "venta"}, (), id="type-alone"),
+    pytest.param({"document_type": "venta", "facts": {"amount": {"state": "known", "value": "1300.00"}}}, ("amount",), id="named-type-and-total"),
+    pytest.param({"facts": {"kind": {"state": "known", "value": "income"}, "amount": {"state": "known", "value": "1300.00"}}}, ("amount", "kind"), id="stated-kind-and-total"),
+])
+def test_a_retype_names_the_facts_the_person_also_set(review_command, body, named):  # noqa: F811
+    review, tx, event, _ = review_command
+    assert review(body).outcome == "applied"
+    view = projected(tx, event)
+    [entry] = view.history
+    assert entry.after.kind.value == "income"
+    assert entry.reviewed_fact_fields == named
+    assert "reviewed_fact_fields" not in view.model_facing()["history"][0]
+
+
+def test_missing_evidence_names_no_facts(review_command):  # noqa: F811
+    review, tx, event, _ = review_command
+    review({"document_type": "venta", "facts": {"amount": {"state": "known", "value": "1300.00"}}})
+    tx.evidence.clear()
+    assert projected(tx, event).history[0].reviewed_fact_fields is None

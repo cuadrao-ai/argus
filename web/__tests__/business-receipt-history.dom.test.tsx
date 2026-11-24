@@ -566,6 +566,47 @@ for (const saved of [false, true]) test(`a type change suppresses incidental dec
   finally { await page.close(); }
 });
 
+describe("a type change with what the person also set", () => {
+  const before = { ...facts("1180.00"), category_id: known("cat-1"), fiscal: { rnc: known("101000001"), ncf: unknown, ecf: unknown, itbis: unknown, include_606: unknown } } as unknown as BusinessFacts;
+  const sale = (amount: string) => ({ ...before, amount: known(amount), kind: known("income"), category_id: unknown, fiscal: { ...before.fiscal, rnc: unknown } }) as unknown as BusinessFacts;
+  const fields: DgiiFields = { "606": [], "607": [{ name: "id_type", label: "Tipo de ID", kind: "select", options: ["1", "2"] }] };
+  const retype = (after: BusinessFacts, reviewed: { facts: string[]; declaration: string[] }) => ({
+    ...revision(3, at(11, 8, 0), actor("Ana Peña"), before, after),
+    before_document_type: "recibo" as const, after_document_type: "venta" as const,
+    before_dgii: { form: "606" as const, id_type: "1", category: "02" }, after_dgii: { form: "607" as const, id_type: null },
+    reviewed_fact_fields: reviewed.facts, reviewed_declaration_fields: reviewed.declaration,
+  });
+
+  for (const stated of [[], ["kind"]]) test(`a total corrected in the same save keeps its line beside Tipo, kind named ${stated.length > 0}`, async () => {
+    const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+    const page = await render(<ReceiptHistory history={[retype(sale("1300.00"), { facts: ["amount", ...stated], declaration: [] })]} accounts={[]} documentType="venta" dgiiFields={fields} />);
+    try {
+      assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Tipo", "Ana Peña"], ["Total", "Ana Peña"]]);
+      assert.deepEqual(diffs(page.host), [["Compra", "Venta"], ["RD$ 1,180.00", "RD$ 1,300.00"]]);
+      assert.doesNotMatch(page.host.textContent ?? "", /Actividad|Categoría|RNC|Tipo de ID/);
+    } finally { await page.close(); }
+  });
+
+  test("a type change alone is still one Tipo line", async () => {
+    const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+    const page = await render(<ReceiptHistory history={[retype(sale("1180.00"), { facts: [], declaration: [] })]} accounts={[]} documentType="venta" dgiiFields={fields} />);
+    try {
+      assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Tipo", "Ana Peña"]]);
+      assert.deepEqual(diffs(page.host), [["Compra", "Venta"]]);
+    } finally { await page.close(); }
+  });
+
+  test("a declaration field set in the same save keeps its line", async () => {
+    const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+    const entry = { ...retype(sale("1180.00"), { facts: [], declaration: ["id_type"] }), after_dgii: { form: "607" as const, id_type: "2" } };
+    const page = await render(<ReceiptHistory history={[entry]} accounts={[]} documentType="venta" dgiiFields={fields} />);
+    try {
+      assert.equal(page.host.querySelectorAll('[data-testid="history-change"]').length, 1);
+      assert.match(page.host.textContent ?? "", /Tipo de ID/);
+    } finally { await page.close(); }
+  });
+});
+
 test("restored subtotal history displays the historical amount supplied by the server", async () => {
   const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
   const before = { ...facts("1180.00"), net_amount: known("900.00") };
