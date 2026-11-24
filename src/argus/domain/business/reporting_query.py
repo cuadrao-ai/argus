@@ -92,6 +92,7 @@ class ReportRecord(Contract):
     family: Family | None = None
     ready: bool = False
     missing: tuple[str, ...] = ()
+    missing_fields: tuple[TableColumn, ...] = ()
     stage: Stage | None = None
     #: Current 606/607 verdict, independent of downloaded export history.
     fiscal_data: FiscalData | None = None

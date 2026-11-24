@@ -3,27 +3,30 @@
 A delivery moves ``received -> linked | rejected | captured | failed``. Linked,
 rejected and captured are final. A failed delivery, or a received one whose
 claim lapsed (the process died mid-way), is claimed again when Meta redelivers
-it, so recovery reuses the original record. A live claim makes a concurrent
-redelivery a no-op, so one message never produces two captures or two replies.
+it. A concurrent redelivery with a live claim can retry after the claim ends.
 """
 
 from __future__ import annotations
 
 import hashlib
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date, datetime
+from time import monotonic
 from typing import TYPE_CHECKING, Literal, Protocol
 from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
+    from psycopg import Connection
+
     from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
 
 ReplyLanguage = Literal["en", "es-419"]
 InboundStatus = Literal["received", "linked", "rejected", "captured", "failed"]
 SettledStatus = Literal["linked", "rejected", "captured", "failed"]
 RETRYABLE: frozenset[InboundStatus] = frozenset({"received", "failed"})
-# Unlinked numbers hear back at most once per Dominican calendar day.
+# Code attempts get at most one reply per sender per Dominican calendar day.
 REPLY_DAY = ZoneInfo("America/Santo_Domingo")
 UNLINKED_REPLY_RESERVED = "whatsapp_unlinked_reply_reserved"
 
@@ -56,9 +59,6 @@ class InboundRecord:
     claim_until: datetime | None
     received_at: datetime
     updated_at: datetime
-    # The sealed message while its claim is unsettled; cleared on settling.
-    claim_envelope: bytes | None = None
-    recovery_attempts: int = 0
 
 
 @dataclass(frozen=True)
@@ -74,11 +74,25 @@ class Settlement:
     connection_id: str | None = None
     error_code: str | None = None
     # Not stored; they choose the reply. ``duplicate``: the destination already
-    # held these bytes. ``reading``: an inline read follows the acknowledgement.
+    # held these bytes. ``reading``: the receipt was queued for reading.
     # ``reply_language``: the sender link's, if any.
     duplicate: bool = False
     reading: bool = False
     reply_language: str | None = None
+
+
+PrepareCapture = Callable[["Connection | None", Settlement], bool]
+
+
+def settlement_time(now: datetime | Callable[[], datetime]) -> datetime:
+    return now() if callable(now) else now
+
+
+def settlement_seconds(
+    claim_until: datetime, now: datetime, deadline: float | None
+) -> float:
+    seconds = (claim_until - now).total_seconds()
+    return seconds if deadline is None else min(seconds, deadline - monotonic())
 
 
 def revoked(settlement: Settlement) -> Settlement:
@@ -108,24 +122,7 @@ class WhatsAppStore(Protocol):
         sender_hash: bytes,
         now: datetime,
         claim_until: datetime,
-        claim_envelope: bytes | None = None,
     ) -> Claim: ...
-
-    def lapsed_claims(self, *, now: datetime, limit: int) -> list[InboundRecord]:
-        """Unsettled messages whose claim ran out: the worker holding it died."""
-        ...
-
-    def retake(
-        self,
-        *,
-        provider_message_key: bytes,
-        held: datetime,
-        now: datetime,
-        claim_until: datetime,
-    ) -> datetime | None:
-        """Take a lapsed claim only if it is still the one ``held``, counting
-        the attempt; None when another worker got there first."""
-        ...
 
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
         """The row for one message, or None when it was never claimed."""
@@ -149,14 +146,18 @@ class WhatsAppStore(Protocol):
         provider_message_key: bytes,
         claim_until: datetime | None,
         settlement: Settlement,
-        now: datetime,
+        now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
+        prepare: PrepareCapture | None = None,
+        deadline: float | None = None,
     ) -> Settlement | None:
-        """Settle only while the caller's claim is the one held; None when it is not.
+        """Settle only while the caller holds a live claim; None when it does not.
 
         A capture settles only while its owner's sender link is active, checked
         in the same transaction. Otherwise the message settles ``rejected`` with
-        ``SENDER_LINK_REVOKED`` and no connection. Returns what was stored.
+        ``SENDER_LINK_REVOKED`` and no connection. The optional prepare hook
+        publishes the captured document and reports whether reading was queued.
+        It shares the settlement transaction in Postgres.
         """
         ...
 
@@ -191,7 +192,7 @@ class WhatsAppStore(Protocol):
     def reserve_unlinked_reply(
         self, *, sender_hash: bytes, provider_message_key: bytes, now: datetime
     ) -> bool:
-        """Take this number's one unlinked reply for the Dominican day this
+        """Take this number's one code reply for the Dominican day this
         message arrived; ``False`` when the day's reply is already taken."""
         ...
 
@@ -229,7 +230,6 @@ class InMemoryWhatsAppStore:
         sender_hash: bytes,
         now: datetime,
         claim_until: datetime,
-        claim_envelope: bytes | None = None,
     ) -> Claim:
         with self._lock:
             current = self._inbound.get(provider_message_key)
@@ -244,7 +244,6 @@ class InMemoryWhatsAppStore:
                     claim_until,
                     now,
                     now,
-                    claim_envelope,
                 )
                 self._inbound[provider_message_key] = record
                 return Claim(record, True)
@@ -255,7 +254,6 @@ class InMemoryWhatsAppStore:
                     current,
                     claim_until=claim_until,
                     updated_at=now,
-                    claim_envelope=claim_envelope or current.claim_envelope,
                 )
                 self._inbound[provider_message_key] = record
                 return Claim(record, True)
@@ -267,12 +265,21 @@ class InMemoryWhatsAppStore:
         provider_message_key: bytes,
         claim_until: datetime | None,
         settlement: Settlement,
-        now: datetime,
+        now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
+        prepare: PrepareCapture | None = None,
+        deadline: float | None = None,
     ) -> Settlement | None:
         with self._lock:
-            current = self._inbound[provider_message_key]
-            if current.status not in RETRYABLE or current.claim_until != claim_until:
+            current = self._inbound.get(provider_message_key)
+            settled_at = settlement_time(now)
+            if (
+                current is None
+                or claim_until is None
+                or settlement_seconds(claim_until, settled_at, deadline) <= 0
+                or current.status not in RETRYABLE
+                or current.claim_until != claim_until
+            ):
                 return None
             if settlement.connection_id is not None and not any(
                 link.active
@@ -281,6 +288,8 @@ class InMemoryWhatsAppStore:
                 for link in self._links
             ):
                 settlement = revoked(settlement)
+            if prepare is not None and settlement.status == "captured":
+                settlement = replace(settlement, reading=prepare(None, settlement))
             self._inbound[provider_message_key] = replace(
                 current,
                 status=settlement.status,
@@ -288,43 +297,11 @@ class InMemoryWhatsAppStore:
                 connection_id=settlement.connection_id,
                 error_code=settlement.error_code,
                 claim_until=None,
-                updated_at=now,
-                claim_envelope=None,
+                updated_at=settled_at,
             )
             if reply_failure is not None:
                 self.reply_failures.append(reply_failure)
             return settlement
-
-    def lapsed_claims(self, *, now: datetime, limit: int) -> list[InboundRecord]:
-        with self._lock:
-            lapsed = [
-                record
-                for record in self._inbound.values()
-                if record.status in RETRYABLE
-                and record.claim_until is not None
-                and record.claim_until <= now
-            ]
-        return sorted(lapsed, key=lambda record: record.claim_until)[:limit]  # type: ignore[arg-type, return-value]
-
-    def retake(
-        self,
-        *,
-        provider_message_key: bytes,
-        held: datetime,
-        now: datetime,
-        claim_until: datetime,
-    ) -> datetime | None:
-        with self._lock:
-            current = self._inbound[provider_message_key]
-            if current.status not in RETRYABLE or current.claim_until != held:
-                return None
-            self._inbound[provider_message_key] = replace(
-                current,
-                claim_until=claim_until,
-                updated_at=now,
-                recovery_attempts=current.recovery_attempts + 1,
-            )
-            return claim_until
 
     def renew(
         self,

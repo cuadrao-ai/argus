@@ -9,7 +9,11 @@ from argus.domain.ingestion.connections import InMemoryConnectionRepository
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store import InMemoryDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
-from argus.domain.ingestion.whatsapp.identity import code_candidates, signature_matches
+from argus.domain.ingestion.whatsapp.identity import (
+    code_candidates,
+    ref,
+    signature_matches,
+)
 from argus.domain.ingestion.whatsapp.media import trusted_download_url
 from argus.domain.ingestion.whatsapp.payload import (
     MediaMessage,
@@ -24,12 +28,15 @@ from argus.domain.ingestion.whatsapp.replies import (
     reply_key,
     reply_payload,
 )
-from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
+from argus.domain.ingestion.whatsapp.store import (
+    InMemoryWhatsAppStore,
+    dominican_day,
+    unlinked_reply_key,
+)
+from loguru import logger
 
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion import whatsapp_heartbeat_cases as heartbeat
-from tests.ingestion import whatsapp_lease_cases as lease
-from tests.ingestion import whatsapp_recovery_cases as recovery
 from tests.ingestion.whatsapp_support import (
     FIXTURES,
     PHONE_NUMBER_ID,
@@ -59,7 +66,7 @@ def _world() -> cases.World:
 
 
 @pytest.mark.asyncio
-async def test_an_unlinked_photo_gets_the_unlinked_line_and_nothing_is_fetched() -> None:
+async def test_an_unlinked_photo_is_silent_and_nothing_is_fetched() -> None:
     world = _world()
     await world.deliver(
         cases.image("700000000000991", "wamid.UNKNOWN", cases.STRANGER_PHONE)
@@ -71,16 +78,51 @@ async def test_an_unlinked_photo_gets_the_unlinked_line_and_nothing_is_fetched()
         None,
     )
     assert world.graph.requests == []
-    assert world.transport.bodies() == [cases.UNLINKED]
+    assert world.transport.bodies() == []
+    sender = world.keys.sender(cases.STRANGER_PHONE)
+    key = unlinked_reply_key(sender, dominican_day(world.clock.now))
+    assert world.store.inbound(key) is None
 
 
 @pytest.mark.asyncio
-async def test_a_repeated_unlinked_delivery_is_not_answered_twice() -> None:
+async def test_unlinked_text_replay_never_reserves_a_reply() -> None:
     world = _world()
-    message = fixture("text_message.json", id="wamid.U1", text="hola")
+    message = fixture(
+        "text_message.json", id="wamid.U1", text="hola", sender=cases.STRANGER_PHONE
+    )
     await world.deliver(message)
     await world.deliver(message)
-    assert world.transport.bodies() == [cases.UNLINKED]
+    assert world.transport.bodies() == []
+    sender = world.keys.sender(cases.STRANGER_PHONE)
+    key = unlinked_reply_key(sender, dominican_day(world.clock.now))
+    assert world.store.inbound(key) is None
+
+
+@pytest.mark.asyncio
+async def test_acknowledgement_event_has_only_the_reply_key_and_hashed_refs() -> None:
+    world = _world()
+    await world.link(world.alice, cases.ALICE_PHONE)
+    message_id = "wamid.LOG-ACK"
+    delivery = fixture("text_message.json", id=message_id, text="hola")
+    events = []
+    sink = logger.add(
+        lambda message: events.append(message.record["extra"]),
+        filter=lambda record: record["extra"].get("event") == "whatsapp_reply",
+    )
+    try:
+        await world.deliver(delivery)
+        await world.deliver(delivery)
+    finally:
+        logger.remove(sink)
+
+    assert events == [
+        {
+            "event": "whatsapp_reply",
+            "reply_key": "whatsapp_receipt_missing",
+            "message_ref": ref(world.keys.message(message_id)),
+            "sender_ref": ref(world.keys.sender(cases.ALICE_PHONE)),
+        }
+    ]
 
 
 def test_the_unlinked_line_is_the_approved_text() -> None:
@@ -213,10 +255,10 @@ async def test_intake_case(case) -> None:  # noqa: ANN001
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "case",
-    recovery.RECOVERY_CASES + lease.LEASE_CASES + heartbeat.HEARTBEAT_CASES,
+    heartbeat.HEARTBEAT_CASES,
     ids=lambda case: case.__name__,
 )
-async def test_recovery_case(case) -> None:  # noqa: ANN001
+async def test_claim_heartbeat_case(case) -> None:  # noqa: ANN001
     await case(_world())
 
 

@@ -20,9 +20,10 @@ const shownKeys = (value: RecordsViewPreferences) => visibleRecordsColumns(value
 const forFamily = (family: "purchase" | "sale"): RecordsViewPreferences => ({ ...sampleRecordsPreferences(), columns: sampleRecordsColumns(family) });
 
 test("the server's default table starts with RNC o Cédula on Compras and on Ventas", () => {
-  assert.deepEqual(shownKeys(forFamily("purchase")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
-  assert.deepEqual(shownKeys(forFamily("sale")), ["counterparty_id", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
-  assert.deepEqual(recordsColumnSettings(forFamily("purchase")).filter((column) => !column.shown).map(({ key }) => key), ["counterparty", "fiscal_number", "note", "attachment", "payment_form", "funding"]);
+  assert.deepEqual(shownKeys(forFamily("purchase")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.deepEqual(shownKeys(forFamily("sale")), ["counterparty_id", "date", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.deepEqual(recordsColumnSettings(forFamily("purchase")).filter((column) => !column.shown).map(({ key }) => key), ["counterparty", "fiscal_number", "note", "attachment", "payment_form"]);
+  assert.deepEqual(recordsColumnSettings(forFamily("sale")).filter((column) => !column.shown).map(({ key }) => key), ["counterparty", "fiscal_number", "note", "attachment"]);
 });
 
 test("the person can hide any column, but the last one shown stays", () => {
@@ -34,7 +35,7 @@ test("the person can hide any column, but the last one shown stays", () => {
   }
   assert.deepEqual(shownKeys(value), shown.slice(-1));
   assert.equal(toggleRecordsColumn(value, shown.at(-1)!), value);
-  assert.deepEqual(shownKeys(toggleRecordsColumn(value, "note")), ["missing", "note"]);
+  assert.deepEqual(shownKeys(toggleRecordsColumn(value, "note")), ["stage", "note"]);
 });
 
 test("any column moves, to the first place too, and the first shown column is the frozen one", () => {
@@ -78,12 +79,12 @@ async function mount(preferences: RecordsViewPreferences) {
 }
 const cell = (host: HTMLElement, id: string, column: string) => host.querySelector<HTMLElement>(`tr[data-record-id="${id}"] td[data-col="${column}"]`)!;
 
-test("every column title is bold in one style, and the table names the new column", async () => {
+test("every column title is bold in one style", async () => {
   const { host } = await mount(forFamily("purchase"));
   const titles = [...host.querySelectorAll<HTMLElement>("thead th")];
   assert.equal(titles[0].textContent, "RNC o Cédula");
-  assert.equal(titles.length, 8);
-  assert.equal(titles.at(-1)?.textContent, "Motivo");
+  assert.equal(titles.length, 7);
+  assert.equal(titles.at(-1)?.textContent, "Estado");
   for (const title of titles) {
     assert.match(title.className, /\bfont-semibold\b/, title.textContent ?? "");
     assert.doesNotMatch(title.className, /\bfont-normal\b/);

@@ -15219,14 +15219,9 @@ paths:
       tags:
       - financial-accounts
       - whatsapp
-      description: 'Signature checked over the raw bytes before any parsing.
-
-
-        200 means every message in the delivery has a committed record. A failure
-
-        after that answers 503 so Meta redelivers; the redelivery resumes the
-
-        same record instead of starting a second capture.'
+      description: The webhook verifies the signature, saves linked media and queues eligible
+        reads before acknowledging the delivery. A settled replay returns 200. An unfinished
+        delivery can be retried after its claim expires.
       responses:
         '200':
           description: Successful Response
@@ -22836,12 +22831,10 @@ components:
           - itbis_amount
           - gross_amount
           - stage
-          - missing
           - fiscal_number
           - note
           - attachment
           - payment_form
-          - funding
           - currency
         label_key:
           type: string
@@ -29334,12 +29327,10 @@ components:
             - itbis_amount
             - gross_amount
             - stage
-            - missing
             - fiscal_number
             - note
             - attachment
             - payment_form
-            - funding
           type: array
         hidden:
           items:
@@ -29353,12 +29344,10 @@ components:
             - itbis_amount
             - gross_amount
             - stage
-            - missing
             - fiscal_number
             - note
             - attachment
             - payment_form
-            - funding
           type: array
         density:
           type: integer
@@ -31156,12 +31145,10 @@ components:
             - itbis_amount
             - gross_amount
             - stage
-            - missing
             - fiscal_number
             - note
             - attachment
             - payment_form
-            - funding
             - currency
           type: array
           default: []
@@ -31516,12 +31503,10 @@ components:
           - itbis_amount
           - gross_amount
           - stage
-          - missing
           - fiscal_number
           - note
           - attachment
           - payment_form
-          - funding
         label_key:
           type: string
         shown:
@@ -31984,6 +31969,24 @@ components:
         missing:
           items:
             type: string
+          type: array
+          default: []
+        missing_fields:
+          items:
+            type: string
+            enum:
+            - counterparty_id
+            - counterparty
+            - date
+            - expense_type
+            - net_amount
+            - itbis_amount
+            - gross_amount
+            - stage
+            - fiscal_number
+            - note
+            - attachment
+            - payment_form
           type: array
           default: []
         stage:

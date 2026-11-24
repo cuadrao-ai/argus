@@ -19,6 +19,24 @@
 .verdict[data-same="true"] { color:var(--d-bad-ink); background:var(--d-bad-bg); }
 .fiscal { margin:10px 8px 14px 0; color:var(--d-bad-ink); font-size:13.5px; }
 .document { display:flex; flex-direction:column; position:relative; min-width:0; min-height:0; }
+.preview {
+  display:grid; grid-template-rows:minmax(0,1fr) 48px; grid-template-columns:minmax(0,1fr);
+  flex:1 1 380px; min-height:0; isolation:isolate;
+  --compare-fade:200ms;
+}
+@media (min-width:1024px) { .preview { flex-basis:600px; } }
+.preview .layer {
+  grid-area:1 / 1; min-width:0; min-height:0; margin:0;
+  background-color:var(--d-card);
+  background-image:radial-gradient(var(--d-dot) 1px, transparent 1.2px), linear-gradient(var(--d-doc), var(--d-doc));
+  background-position:8px 8px, 0 0; background-size:16px 16px, 100% 100%;
+  /* The lower layer stays opaque until the incoming layer covers it. */
+  opacity:0; transition:opacity 0s var(--compare-fade);
+}
+.preview .layer[data-visible="true"] { z-index:1; opacity:1; transition:opacity var(--compare-fade) ease-out; }
+@media (prefers-reduced-motion:reduce) {
+  .preview .layer, .preview .layer[data-visible="true"] { transition:none; }
+}
 /* Where the segmented control floats over the original; the backing keeps its track solid over a page. */
 .sides { position:absolute; top:14px; left:50%; transform:translateX(-50%); z-index:2; display:flex; max-width:calc(100% - 28px); background:var(--d-card); box-shadow:0 4px 14px #172b261a; }
 @media (max-width:519px) {

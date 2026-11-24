@@ -20,7 +20,6 @@ from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp import intake as intake_module
-from argus.domain.ingestion.whatsapp.business_envelope import ClaimCodec
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
 from argus.domain.ingestion.whatsapp.intake import (
     CLAIM_SECONDS,
@@ -54,16 +53,6 @@ from tests.ingestion.whatsapp_support import (
 MAX_BYTES = 10 * 1024 * 1024
 ORIGIN = "https://app.test"
 _ids = count(1)
-
-
-UNLINKED = (
-    "Este número aún no está vinculado a un negocio en Cuadrao. "
-    "Pídele al administrador el código para vincularlo."
-)
-UNLINKED_EN = (
-    "This number isn't linked to a business in Cuadrao yet. "
-    "Ask the administrator for the code to link it."
-)
 
 
 class Clock:
@@ -159,7 +148,6 @@ def build_world(
         app_origin=ORIGIN,
         max_bytes=MAX_BYTES,
         reply_codec=ReplyGroupCodec(SecretBox(b"w" * 32), keys),
-        claim_codec=ClaimCodec(SecretBox(b"w" * 32), keys),
     )
     return World(
         intake, documents, store, graph, transport, clock, alice, bob, keys, spaces
@@ -251,7 +239,7 @@ async def unknown_sender_is_rejected_without_capture(world: World) -> None:
             None,
         )
     assert world.graph.requests == []
-    assert world.transport.bodies() == [UNLINKED]
+    assert world.transport.bodies() == []
 
 
 async def expired_and_reused_codes_are_refused(world: World) -> None:
@@ -506,6 +494,34 @@ async def redelivery_during_a_live_claim_asks_for_retry(world: World) -> None:
     assert world.record("wamid.CASE-INFLIGHT").connection_id == connection_id
 
 
+async def an_expired_capture_claim_cannot_settle_or_prepare(world: World) -> None:
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000155"] = Media(RECEIPT_PNG, "image/png")
+    world.intake.renew_seconds = 3600
+    destination = world.intake.destination
+    original = destination.capture
+    prepared = []
+
+    async def capture_then_expire(**kwargs):  # noqa: ANN003, ANN202
+        captured = await original(**kwargs)
+        world.clock.now += timedelta(seconds=CLAIM_SECONDS)
+        return captured
+
+    def prepare(connection, settlement):  # noqa: ANN001, ANN202
+        prepared.append(settlement)
+        return True
+
+    body = image("700000000000155", "wamid.CASE-EXPIRED-CAPTURE")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(destination, "capture", capture_then_expire)
+        patch.setattr(destination, "prepare", prepare, raising=False)
+        with pytest.raises(DeliveryInFlight):
+            await world.deliver(body)
+    assert world.record("wamid.CASE-EXPIRED-CAPTURE").status == "received"
+    assert prepared == []
+    assert len(world.transport.sent) == 1
+
+
 async def slow_processing_times_out_as_failed_and_recovers(world: World) -> None:
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media["700000000000113"] = Media(RECEIPT_PNG, "image/png")
@@ -737,16 +753,16 @@ async def a_link_revoked_before_settling_keeps_no_capture(world: World) -> None:
     await _revoke_while_capturing(
         world, "es-419", "700000000000140", "wamid.CASE-REVOKED-IN-FLIGHT"
     )
-    assert world.transport.bodies()[1:] == [UNLINKED]
+    assert world.transport.bodies()[1:] == []
 
 
-async def a_link_revoked_before_settling_answers_in_the_links_language(
+async def a_link_revoked_before_settling_stays_silent_in_english(
     world: World,
 ) -> None:
     await _revoke_while_capturing(
         world, "en", "700000000000141", "wamid.CASE-REVOKED-IN-FLIGHT-EN"
     )
-    assert world.transport.bodies()[1:] == [UNLINKED_EN]
+    assert world.transport.bodies()[1:] == []
 
 
 async def a_number_linked_after_the_revoke_keeps_no_capture(world: World) -> None:
@@ -908,7 +924,7 @@ async def voice_audio_and_stickers_get_one_unsupported_reply(world: World) -> No
     assert world.record("wamid.CASE-KIND-STRANGER").error_code == (
         "whatsapp_sender_not_linked"
     )
-    assert world.transport.bodies()[before:] == [UNLINKED]
+    assert world.transport.bodies()[before:] == []
 
 
 CASES = (
@@ -923,6 +939,7 @@ CASES = (
     revoke_and_relink,
     a_live_claim_blocks_a_concurrent_redelivery,
     redelivery_during_a_live_claim_asks_for_retry,
+    an_expired_capture_claim_cannot_settle_or_prepare,
     slow_processing_times_out_as_failed_and_recovers,
     revoking_also_ends_unused_codes,
     no_reply_outside_the_service_window,
@@ -931,7 +948,7 @@ CASES = (
     voice_audio_and_stickers_get_one_unsupported_reply,
     a_caption_is_kept_verbatim_as_source_text,
     a_link_revoked_before_settling_keeps_no_capture,
-    a_link_revoked_before_settling_answers_in_the_links_language,
+    a_link_revoked_before_settling_stays_silent_in_english,
     a_number_linked_after_the_revoke_keeps_no_capture,
     a_linked_sender_text_is_never_a_link_attempt,
     an_unlinked_sender_links_with_a_code_anywhere_in_the_text,
