@@ -8797,8 +8797,16 @@ payment-split answer the person cleared counts: its review command text keeps
 that null and carries `"cleared_kept": true`. Null preserves legacy history when
 command evidence is unavailable, or when older evidence without that marker
 cannot tell an omitted answer from a cleared one; an empty array means no
-explicit declaration changes. A document type switch displays one type change.
-These three display fields are excluded from the model-facing dossier.
+explicit declaration changes.
+
+`reviewed_fact_fields` names, from the same saved command, the changed facts the
+person submitted: patched facts, typed subtotal or legal tip, and the fiscal
+facts of a fiscal review. It is null when the revision has no command
+evidence. A document type switch displays one type change, plus only the fact
+and declaration fields these lists name; the activity kind the type sets is not
+a second change. A null list there adds nothing, so without command evidence
+the switch displays the type change alone. These four display fields are
+excluded from the model-facing dossier.
 
 A revision that writes a draft's first declaration records as `before_dgii`
 the declaration the review showed, so its history entry holds only what the

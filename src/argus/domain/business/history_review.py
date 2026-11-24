@@ -1,4 +1,4 @@
-"""Recover a human review's explicit declaration edits from its saved command.
+"""Recover a human review's explicit fact and declaration edits from its saved command.
 
 Audit snapshots stay untouched. Missing or older unrecognized evidence keeps
 its existing history, rather than guessing what a person intended.
@@ -10,11 +10,13 @@ from uuid import UUID
 from pydantic import ValidationError
 
 from argus.domain.business.amount_inheritance import INHERITANCE
-from argus.domain.business.contracts.actions import ReviewCommand
+from argus.domain.business.contracts.actions import ReviewCommand, ReviewDraft
 from argus.domain.business.contracts.dgii import SalePaymentForm
+from argus.domain.business.contracts.facts import FiscalFacts
 
 if TYPE_CHECKING:
     from argus.domain.business.contracts.dossier import DraftRevision, WebActionSource
+    from argus.domain.business.contracts.facts import BusinessFacts
 
 
 #: Marks review evidence that keeps a person's cleared answers as nulls. Older
@@ -65,26 +67,47 @@ def _saved_command(text: str) -> tuple[ReviewCommand, bool]:
         return ReviewCommand.model_validate(data), kept
 
 
-def reviewed_declaration_fields(
-    revision: "DraftRevision", sources: dict[UUID, "WebActionSource"]
-) -> tuple[str, ...] | None:
-    if revision.actor.actor_kind != "member" or revision.reason is not None:
-        return None
+def human_review(revision: "DraftRevision", sources: dict[UUID, "WebActionSource"]) -> "DraftRevision":
+    """The revision with the fields its person's saved command names. Both stay
+    null without that one command."""
     commands = []
-    for source_id in revision.source_ids:
-        source = sources.get(source_id)
-        if source is None:
-            continue
-        try:
-            command, kept = _saved_command(source.text)
-        except (ValidationError, ValueError, TypeError):
-            continue
-        if command.draft_id == revision.draft_id and command.request.version == revision.version - 1:
-            commands.append((command, kept))
+    if revision.actor.actor_kind == "member" and revision.reason is None:
+        for source_id in revision.source_ids:
+            source = sources.get(source_id)
+            if source is None:
+                continue
+            try:
+                command, kept = _saved_command(source.text)
+            except (ValidationError, ValueError, TypeError):
+                continue
+            if command.draft_id == revision.draft_id and command.request.version == revision.version - 1:
+                commands.append((command, kept))
     if len(commands) != 1:
-        return None
+        return revision
     [(command, kept)] = commands
-    request = command.request
+    return revision.model_copy(update={
+        "reviewed_fact_fields": _reviewed_facts(revision, command.request),
+        "reviewed_declaration_fields": _reviewed_declaration(revision, command.request, kept),
+    })
+
+
+def _reviewed_facts(revision: "DraftRevision", request: ReviewDraft) -> tuple[str, ...]:
+    """The facts the request names that changed. A fiscal review carries every
+    fiscal fact, so only a changed one counts."""
+    names = set(request.facts.model_fields_set) if request.facts is not None else set()
+    if request.montos is not None:
+        names.update(name for name in ("net_amount", "legal_tip") if getattr(request.montos, name) is not None)
+    fiscal = {name for name in FiscalFacts.model_fields if name != "include_606"} if request.dgii is not None else set()
+
+    def fact(facts: "BusinessFacts | None", name: str) -> object:
+        if facts is None:
+            return None
+        return getattr(facts.fiscal, name, None) if name in fiscal else getattr(facts, name)
+
+    return tuple(sorted(name for name in names | fiscal if fact(revision.before, name) != fact(revision.after, name)))
+
+
+def _reviewed_declaration(revision: "DraftRevision", request: ReviewDraft, kept: bool) -> tuple[str, ...] | None:
     names = set()
     for answers in (request.purchase, request.payment_split):
         if answers is None:

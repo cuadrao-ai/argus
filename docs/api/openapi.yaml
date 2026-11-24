@@ -22002,6 +22002,12 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        reviewed_fact_fields:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
         reviewed_declaration_fields:
           anyOf:
           - items:

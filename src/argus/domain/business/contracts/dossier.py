@@ -146,6 +146,7 @@ class DraftRevision(Contract):
     #: the file's name then. The name stays after the file's bytes are erased.
     supporting_change: SupportingChange | None = None
     supporting_filename: str | None = None
+    reviewed_fact_fields: tuple[str, ...] | None = None
     reviewed_declaration_fields: tuple[str, ...] | None = None
     before_net_amount: NetAmount | None = None
     after_net_amount: NetAmount | None = None
@@ -490,10 +491,10 @@ class BusinessDossier(RecordContext, DetailReadiness):
 
     @model_validator(mode="after")
     def human_history(self) -> BusinessDossier:
-        from argus.domain.business.history_review import reviewed_declaration_fields
+        from argus.domain.business.history_review import human_review
 
         sources = {source.id: source for source in self.sources if isinstance(source, WebActionSource)}
-        history = tuple(revision.model_copy(update={"reviewed_declaration_fields": reviewed_declaration_fields(revision, sources)}) for revision in self.history)
+        history = tuple(human_review(revision, sources) for revision in self.history)
         object.__setattr__(self, "history", history)
         return self
 
@@ -547,6 +548,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "rnc_registry_status": True,
     "history": {
         "__all__": {
+            "reviewed_fact_fields": True,
             "reviewed_declaration_fields": True,
             "before_net_amount": True,
             "after_net_amount": True,

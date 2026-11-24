@@ -169,11 +169,11 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     }
     const { before_document_type: typeBefore, after_document_type: typeAfter } = revision;
     const retyped = typeBefore && typeAfter && typeBefore !== typeAfter ? { before: t(DOCUMENT_TYPE_LABELS[typeBefore]), after: t(DOCUMENT_TYPE_LABELS[typeAfter]) } : null;
-    if (retyped) {
-      events.push({ id: `${revision.version}-document-type`, at, ...correction("document_type", retyped.before, retyped.after), who, ...(revision.reason ? { note: t(`business.history.reason.${revision.reason}`) } : {}) });
-      continue;
-    }
-    const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal") as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
+    if (retyped) events.push({ id: `${revision.version}-document-type`, at, ...correction("document_type", retyped.before, retyped.after), who });
+    // A type change moves the activity and other answers with it; beside its one Tipo line, only what the server says the person also set counts.
+    const reviewed = retyped ? { facts: revision.reviewed_fact_fields ?? [], declaration: revision.reviewed_declaration_fields ?? [] } : null;
+    const shown = (key: string) => !reviewed || (key !== "kind" && reviewed.facts.includes(key));
+    const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal" && shown(key)) as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
     for (const key of facts) {
       const show = (side: BusinessDraftRevision["before"]) => side ? presentBusinessFact(key, side, accounts, locale, labels) : "";
       const subtotal = (side: "before" | "after") => {
@@ -183,6 +183,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       events.push({ id: `${revision.version}-${key}`, at, ...correction(key, key === "net_amount" ? subtotal("before") : show(revision.before), key === "net_amount" ? subtotal("after") : show(revision.after)), who });
     }
     for (const key of BUSINESS_FISCAL_FIELDS) {
+      if (!shown(key)) continue;
       if (key === "include_606") {
         if (documentType === "venta") continue;
         const before = answer606(revision.before);
@@ -224,9 +225,10 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       if (attachments.length) events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.join(", ")}`, who, kind: "supporting", testId: "history-supporting" });
     }
     if (revision.after_dgii) {
-      const changes = fiscalChanges(revision.before_dgii, revision.after_dgii, revision.after, revision.reviewed_declaration_fields);
+      const named = reviewed ? reviewed.declaration : revision.reviewed_declaration_fields;
+      const changes = fiscalChanges(revision.before_dgii, revision.after_dgii, revision.after, named);
       // Until the dictionary loads, any difference is a save; then only a field it names counts.
-      if (changes ? changes.length : revision.reviewed_declaration_fields?.length === 0 ? false : !same(revision.before_dgii, revision.after_dgii)) {
+      if (changes ? changes.length : named?.length === 0 ? false : !same(revision.before_dgii, revision.after_dgii)) {
         events.push({ id: `${revision.version}-dgii`, at, line: t("business.history.fiscal_saved", { form: revision.after_dgii.form }), who, changes: changes ?? undefined });
       }
     }

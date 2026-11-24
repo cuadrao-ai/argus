@@ -99,6 +99,7 @@ export type BusinessDraftRevision = {
   after_current_note?: string | null;
   supporting_change?: "appended" | "unlinked" | "restored" | null;
   supporting_filename?: string | null;
+  reviewed_fact_fields?: readonly string[] | null;
   reviewed_declaration_fields?: readonly string[] | null;
   before_net_amount?: BusinessDossier["net_amount"];
   after_net_amount?: BusinessDossier["net_amount"];
