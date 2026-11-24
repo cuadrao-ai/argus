@@ -22,7 +22,7 @@ function failure(status: number, code: string) {
   return Object.assign(new Error(code), { status, code, requestId: `req-${status}` });
 }
 
-async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dossier">>, kind: "receipt" | "note" = "receipt", served: Partial<ReceiptSummary> = {}, noteGroup?: BusinessCapture["bandeja_group"]) {
+async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dossier">>, kind: "receipt" | "note" = "receipt", served: Partial<ReceiptSummary> = {}, noteGroup?: BusinessCapture["bandeja_group"], noteDeleted?: BusinessCapture["deleted"]) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -36,7 +36,7 @@ async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dos
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
   const hit = (await fixture.receipts("all")).find((item) => item.id === "rcpt-ferreteria")!;
-  const note = { draft_id: dossierFixtureIds.ready, version: 1, revision: 1, source_id: "note-1", text: "Compra de cemento", received_at: "2026-11-10T14:00:00Z", review_state: "open", bandeja_group: noteGroup } as BusinessCapture;
+  const note = { draft_id: dossierFixtureIds.ready, version: 1, revision: 1, source_id: "note-1", text: "Compra de cemento", received_at: "2026-11-10T14:00:00Z", review_state: "open", bandeja_group: noteGroup, deleted: noteDeleted } as BusinessCapture;
   let asked = 0;
   const custom = { ...fixture, ...override };
   const source: BusinessDataSource = { ...custom, receipt: (id, signal) => { asked += 1; return custom.receipt(id, signal); }, dossier: (id) => { asked += 1; return custom.dossier(id); } };
@@ -127,6 +127,12 @@ describe("a search hit's note status", () => {
       assert.doesNotMatch(page.text(), /Pendiente de revisión|\bopen\b/);
     });
   }
+  test("a deleted note with no label says Eliminado, as a deleted receipt does", async () => {
+    const page = await mount({}, "note", {}, { group: null, reason: null, label: null, draft_id: null, version: null }, { deleted_at: "2026-11-20T10:00:00Z" } as unknown as BusinessCapture["deleted"]);
+    await page.settle(() => !page.host.querySelector('[aria-busy="true"]') && page.asked() === 1, "the record loads");
+    assert.equal(page.host.querySelector('[data-testid="status-pill"]'), null);
+    assert.match(page.text(), /Eliminado/);
+  });
 });
 
 describe("a search hit's note preview", () => {
