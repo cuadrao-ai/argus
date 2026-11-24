@@ -8,7 +8,7 @@ import { getChosenGrant } from "@/lib/business-grant";
 import { normalizeEnabledLanguage, resolveLanguage } from "@/lib/language-features";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { quietButtonClass, secondaryButtonClass } from "./business-ui";
+import { quietButtonClass } from "./business-ui";
 import { FOCUS_RING } from "./foundation/presentation";
 import { showToast } from "./foundation/toasts";
 
@@ -127,7 +127,7 @@ function TurnOnFollowUp({ state, turn }: { state: ReadingState; turn: NonNullabl
       {state.consentOpen ? (
         <div data-testid="receipt-reading-consent" className="flex flex-col items-start gap-3 pb-3">
           <p className="text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{turn.reading.disclosure}</p>
-          <button type="button" disabled={turn.saving} onClick={() => void turn.save()} className={secondaryButtonClass}>{t("common.confirm")}</button>
+          <button type="button" disabled={turn.saving} onClick={() => void turn.save()} className={noticeButtonClass}>{t("common.confirm")}</button>
         </div>
       ) : null}
       {state.failed ? (
@@ -183,7 +183,7 @@ function ReceiptReadingNotice({ state, pending }: { state: ReadingState; pending
   if (!turn) return null;
   return (
     <div data-testid="receipt-reading-notice" data-surface-block="reading" data-enabled="false" aria-hidden={pending || undefined} style={pending ? { visibility: "hidden" } : undefined} className="mb-4 max-w-[640px] rounded-item border border-[#E4E2DA] bg-[#FFFEFA] px-4 dark:border-white/[0.07] dark:bg-white/[0.03]">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className={titleClass}>{t("business.activity.off_notice")}</span>
           <span className={helpClass}>{turn.help}</span>
