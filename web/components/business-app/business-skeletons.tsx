@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { cardClass } from "./business-ui";
-import { SURFACE_CARD } from "./foundation/surfaces";
 import styles from "./business-skeletons.module.css";
 
 export const SKELETON_DELAY_MS = 300;
@@ -10,7 +9,7 @@ export const CONTENT_FADE_MS = 150;
 /** The screen-reader label is this word, and it is never visible. */
 export const SCREEN_READER_LOADING_LABEL = "Cargando";
 
-export type SkeletonLayout = "overview" | "inbox" | "access" | "detail" | "rows" | "form";
+export type SkeletonLayout = "overview" | "inbox" | "access" | "rows" | "form";
 
 export function placeholderPhase(elapsedMs: number, delayMs = SKELETON_DELAY_MS): "blank" | "skeleton" {
   return elapsedMs < delayMs ? "blank" : "skeleton";
@@ -69,7 +68,7 @@ function AccessRow() {
   );
 }
 
-type ListLayout = Exclude<SkeletonLayout, "overview" | "detail" | "form">;
+type ListLayout = Exclude<SkeletonLayout, "overview" | "form">;
 
 const LIST_ROWS: Record<ListLayout, () => ReactNode> = {
   inbox: InboxRow,
@@ -101,37 +100,6 @@ function OverviewSkeleton() {
   );
 }
 
-/** The receipt detail as it will stand: the top block, then field cards beside the source. */
-function DetailSkeleton() {
-  return (
-    <>
-      <div className="mb-4 flex min-h-11 items-center">
-        <Bar className="h-4 w-24" />
-      </div>
-      <div className="mb-6" data-testid="business-skeleton-top">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Bar className="h-7 w-2/5 max-w-full" />
-          <Bar className="h-6 w-24 shrink-0 rounded-mark" />
-        </div>
-        <Bar className="mt-2 h-[34px] w-48 max-w-full" />
-      </div>
-      <div className="grid items-start gap-4 desktop:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] desktop:gap-6">
-        <div className={`${SURFACE_CARD} space-y-4 desktop:col-start-2 desktop:row-start-1`} data-testid="business-skeleton-fields">
-          {Array.from({ length: 3 }, (_, index) => (
-            <span key={index} className="block space-y-2">
-              <Bar className="h-[13px] w-1/4" />
-              <Bar className="h-11 w-full rounded-item" />
-            </span>
-          ))}
-        </div>
-        <div className={`${SURFACE_CARD} desktop:col-start-1 desktop:row-start-1`}>
-          <div data-testid="business-skeleton-preview" className={`${styles.shimmer} ${styles.block} hidden min-h-[200px] overflow-hidden rounded-item desktop:flex desktop:min-h-[280px]`} />
-        </div>
-      </div>
-    </>
-  );
-}
-
 /** Labelled fields, drawn inside the card that holds the real form. */
 function FormSkeleton() {
   return (
@@ -158,7 +126,7 @@ export function BusinessSkeleton({ layout, rows = 3 }: { layout: SkeletonLayout;
     <div role="status" aria-live="polite" data-testid="business-loading" data-layout={layout}>
       <span className="sr-only">{SCREEN_READER_LOADING_LABEL}</span>
       <div aria-hidden="true">
-        {layout === "overview" ? <OverviewSkeleton /> : layout === "detail" ? <DetailSkeleton /> : layout === "form" ? <FormSkeleton /> : <Rows count={count} layout={layout} />}
+        {layout === "overview" ? <OverviewSkeleton /> : layout === "form" ? <FormSkeleton /> : <Rows count={count} layout={layout} />}
       </div>
     </div>
   );
