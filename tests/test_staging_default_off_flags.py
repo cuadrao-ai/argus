@@ -3,13 +3,23 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import yaml
+from argus.domain.ingestion.whatsapp.config import WhatsAppSettings
+
+from scripts.ops.staging_env import Rule, compute_plan, rule_for
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
 RENDER_PATH = ROOT / "render.yaml"
+
+WORKER_SWITCHES = (
+    "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+    "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+)
+DOCUMENT_WORKERS = ("cuadrao-documents-worker", "cuadrao-documents-worker-staging")
 
 _LAUNCH_DAY_ONE = (
     "Staging keeps in-development features on. Production day one is staging's "
@@ -164,12 +174,55 @@ def prod_values_other_than_false(
             if service.get("name") not in ("cuadrao-api-staging", "cuadrao-app-staging")
             for item in service.get("envVars", [])
             if item.get("key") == name
+            # These two worker declarations get their values from the manifest
+            # and runtime defaults, exercised below for both environments.
+            if not (
+                service.get("name") in DOCUMENT_WORKERS
+                and name in WORKER_SWITCHES
+                and item == {"key": name, "sync": False}
+            )
         ]
         if any(value != "false" for value in profile_values):
             bad.append(name)
         if any(value != "false" for value in render_values):
             bad.append(name)
     return sorted(set(bad))
+
+
+@pytest.mark.parametrize("environment", ["production", "staging"])
+def test_document_worker_whatsapp_switches_default_off(environment: str) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    worker = manifest["services"]["documents_worker"]
+    service_name = (
+        worker["production"]["service_name"]
+        if environment == "production"
+        else worker["service_name"]
+    )
+    services = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))["services"]
+    service = next(s for s in services if s["name"] == service_name)
+    declarations = {item["key"]: item for item in service["envVars"]}
+    for name in WORKER_SWITCHES:
+        assert declarations[name] == {"key": name, "sync": False}
+    defaults = {
+        name: item["value"] for name, item in declarations.items() if "value" in item
+    }
+
+    if environment == "production":
+        worker_entries = {entry["name"]: entry for entry in worker["entries"]}
+        fixed_values = production_values(manifest)["services"]
+        for name in WORKER_SWITCHES:
+            rule = rule_for(worker_entries[name], environment, worker)
+            assert rule == Rule("copy_from", name, source="api")
+            defaults[name] = fixed_values[rule.source]["env"][rule.text]
+            assert defaults[name] == "false"
+    else:
+        # A fresh staging worker starts with the blueprint and no manual overrides.
+        defaults = compute_plan(worker, live=defaults, file_secrets={}).final
+
+    with patch.dict("os.environ", defaults, clear=True):
+        settings = WhatsAppSettings()
+    assert settings.intake_enabled is False
+    assert settings.outbound_enabled is False
 
 
 def test_override_true_in_prod_fails() -> None:
