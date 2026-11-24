@@ -160,6 +160,9 @@ def main(argv: list[str] | None = None) -> int:
     report = {
         "configuration": "configured" if configured else "blocked",
         "outbound_enabled": settings.outbound_enabled,
+        "number_id_reference": (
+            settings.phone_number_id[-4:] if settings.phone_number_id else None
+        ),
         "credential": credential,
         "delivery": delivery,
         "receipt_and_extraction": "unverified",
