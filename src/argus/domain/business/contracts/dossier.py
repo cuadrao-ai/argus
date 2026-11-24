@@ -175,6 +175,8 @@ class ReviewFlag(Contract):
     field: Literal["rnc", "ncf", "itbis", "amount"]
     confirm: bool
     difference: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    computed_sum: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    includes_extra_charges: bool | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class AmountsCheck(Contract):

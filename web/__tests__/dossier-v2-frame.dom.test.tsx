@@ -346,7 +346,7 @@ describe("the dossier's status is the server's", () => {
       await page.click(open);
       const items = page.all<HTMLButtonElement>('[data-testid="dossier-problem-list"] [role="option"]');
       assert.deepEqual(items.map((item) => item.getAttribute("data-reason")), gaps);
-      assert.deepEqual(items.map((item) => item.textContent), ["Falta el RNCGeneral · RNC", "Revisa el NCFGeneral · NCF", "Falta el ITBISGeneral · ITBIS"]);
+      assert.deepEqual(items.map((item) => item.textContent), ["Falta el RNCComprobante · RNC", "Revisa el NCFComprobante · NCF", "Falta el ITBISMontos · ITBIS"]);
       await page.click(items[2]);
       assert.equal(page.all('[data-testid="dossier-problem-list"]').length, 0);
       assert.ok(page.panelOf("general")?.querySelector('[data-fact="itbis"]')?.getAttribute("data-flash"));
@@ -389,35 +389,50 @@ describe("accepting a record that is not Listos", () => {
     } finally { await page.close(); }
   });
 
-  test("one amounts problem says its title once and formats the server difference with currency", async () => {
-    const dossier = await fiscalDossier({ ...attention(["review_flag"]), review_flags: [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "30.00" }] });
-    dossier.facts.currency = { state: "known", value: "USD" };
-    const page = await mount({ dossier });
-    try {
-      await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-      const dialog = page.all('[data-testid="dossier-confirm"]')[0];
-      assert.ok(dialog);
-      assert.equal(dialog.querySelector("h2")?.textContent, "Tiene datos por revisar");
-      assert.equal(dialog.querySelector("ul")?.textContent, "Diferencia US$ 30.00");
-      assert.deepEqual(page.sent, []);
-    } finally { await page.close(); }
-  });
+  for (const [extras, label] of [[false, "Subtotal + ITBIS"], [true, "Total calculado"]] as const) {
+    test(`the amounts row renders the server's ${label} and signed difference in the receipt currency`, async () => {
+      const dossier = await fiscalDossier({ ...attention(["review_flag"]), review_flags: [
+        { code: "amounts_mismatch", field: "amount", confirm: false, difference: "-3.00", computed_sum: "128.00", includes_extra_charges: extras },
+      ] });
+      dossier.facts.currency = { state: "known", value: "USD", origin: "member_set", verified: true, source_ids: [] };
+      dossier.facts.amount = { state: "known", value: "125", origin: "member_set", verified: true, source_ids: [] };
+      const page = await mount({ dossier });
+      try {
+        document.documentElement.classList.add("dark");
+        await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+        const dialog = page.all('[data-testid="dossier-confirm"]')[0];
+        assert.equal(dialog.querySelector("h2")?.textContent, "¿Aceptar con 1 dato por revisar?");
+        assert.match(dialog.textContent ?? "", /Puedes corregirlo ahora o aceptarlo así\./);
+        assert.ok(dialog.textContent?.includes(`Total US$ 125.00 · ${label} US$ 128.00 · Diferencia -US$ 3.00`));
+        assert.ok(dialog.closest(".dark"));
+        assert.equal(document.activeElement, page.button("Corregir"));
+        assert.equal(page.button(copy.confirm.accept_anyway), undefined);
+        assert.deepEqual(page.sent, []);
+      } finally { await page.close(); }
+    });
+  }
 
-  test("Aceptar opens one confirm that lists every problem; Corregir jumps to the first", async () => {
-    const gaps = ["missing_rnc", "invalid_ncf"] satisfies ListoGap[];
-    const page = await mount({ dossier: await fiscalDossier(attention(gaps, gaps)), size: "regular" });
+  test("two warnings under one confirmable server gap each have their own field jump", async () => {
+    const page = await mount({ dossier: await fiscalDossier({ ...attention(["review_flag"], ["review_flag"]), review_flags: [
+      { code: "itbis_high", field: "itbis", confirm: false },
+      { code: "amounts_mismatch", field: "amount", confirm: false, difference: "-3.00", computed_sum: "128.00", includes_extra_charges: true },
+    ] }), size: "regular" });
     try {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
       const dialog = page.all('[data-testid="dossier-confirm"]')[0];
-      assert.ok(dialog);
-      assert.equal(dialog.querySelector("h2")?.textContent, "2 por resolver");
-      assert.deepEqual([...dialog.querySelectorAll("li")].map((item) => item.textContent), ["Falta el RNC. Escríbelo como aparece en el documento.", "Revisa el NCF. El NCF no tiene el formato de la serie B o E."]);
-      assert.deepEqual([...dialog.querySelectorAll("button")].map((item) => item.textContent), [copy.confirm.accept_anyway, "Corregir"]);
+      assert.equal(dialog.querySelector("h2")?.textContent, "¿Aceptar con 2 datos por revisar?");
+      assert.match(dialog.textContent ?? "", /Puedes corregirlos ahora o aceptarlo así\./);
+      const items = dialog.querySelectorAll("li");
+      assert.equal(items.length, 2);
+      assert.match(items[0].textContent ?? "", /ITBIS parece alto/);
+      assert.match(items[1].textContent ?? "", /Montos · Total/);
+      assert.ok(page.button(copy.confirm.accept_anyway));
       assert.doesNotMatch(dialog.textContent ?? "", /606/);
-      assert.deepEqual(page.sent, [], "nothing is sent before the person chooses");
-      await page.click(page.button("Corregir"));
+      const jump = items[1].querySelector("button");
+      assert.equal(jump?.textContent, "Ir");
+      await page.click(jump);
       assert.equal(page.all('[data-testid="dossier-confirm"]').length, 0);
-      assert.equal(page.panelOf("general")?.querySelector('[data-fact="rnc"]')?.getAttribute("data-flash"), "a");
+      assert.ok(page.panelOf("general")?.querySelector('[data-fact="amount"]')?.getAttribute("data-flash"));
       assert.deepEqual(page.sent, []);
     } finally { await page.close(); }
   });
@@ -426,7 +441,7 @@ describe("accepting a record that is not Listos", () => {
     const page = await mount({ dossier: await fiscalDossier(attention(["invalid_ncf"], ["invalid_ncf"])) });
     try {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-      assert.equal(page.all('[data-testid="dossier-confirm"] h2')[0]?.textContent, "Revisa el NCF");
+      assert.equal(page.all('[data-testid="dossier-confirm"] h2')[0]?.textContent, "¿Aceptar con 1 dato por revisar?");
       await page.click(page.button(copy.confirm.accept_anyway));
       assert.deepEqual(page.sent, [{ acceptGaps: ["invalid_ncf"] }]);
     } finally { await page.close(); }

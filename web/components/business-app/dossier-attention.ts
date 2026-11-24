@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { BusinessDossier, BusinessDuplicateCandidate, ListoGap, ReviewFlagCode } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessDuplicateCandidate, ListoGap, ReviewFlag, ReviewFlagCode } from "@/lib/business-dossier";
 import { documentFamily, factLabel } from "@/lib/counterparty-term";
 import { READ_FACT_ROWS, RECORD_FIELDS, type ReviewRow } from "./receipt-fact-rows";
 import type { SaveRow } from "./receipt-review-save";
@@ -28,6 +28,7 @@ export type DossierProblem = {
   where: string;
   /** Only on the "Parece repetido" problem: the first document this one may repeat. */
   compare?: string;
+  amountComparison?: string;
 };
 
 type Standing = Pick<BusinessDossier, "listo_gaps" | "reasons" | "review_flags" | "duplicate_candidates" | "document_type" | "facts" | "year_to_check"> & Partial<Pick<BusinessDossier, "blockers">>;
@@ -64,8 +65,25 @@ export function dossierRowLabel(t: TFunction, row: SaveRow | "ncf" | "ecf", doss
   }
 }
 
+function amountComparison(flag: ReviewFlag, dossier: Standing, t: TFunction, currency: string, locale: string): string | undefined {
+  if (flag.computed_sum == null || flag.includes_extra_charges == null || flag.difference == null || dossier.facts.amount.value == null) return;
+  const money = (value: string) => formatMoney(value, currency, locale);
+  const label = flag.includes_extra_charges ? "calculated_total" : "subtotal_itbis";
+  return [
+    `${t("business.terms.total")} ${money(dossier.facts.amount.value)}`,
+    `${t(`business.dossier.confirm.placeholder.${label}`)} ${money(flag.computed_sum)}`,
+    t("business.terms.difference", { amount: money(flag.difference) }),
+  ].join(" · ");
+}
+
+function rowSection(row: ReviewRow, t: TFunction, general: string): string {
+  if (["amount", "net_amount", "itbis", "legal_tip", "currency"].includes(row)) return t("business.terms.montos_title");
+  if (["rnc", "fiscal_number", "counterparty", "occurred_on", "kind", "funding", "document_type"].includes(row)) return t("business.dossier.card.comprobante");
+  return general;
+}
+
 /**
- * Why the record is not Listos: `listo_gaps` item for item, in the server's
+ * Why the record is not Listos: the gaps and their flags, in the server's
  * order. The pill's reason, the problem list, the row status slots and the
  * confirm read this one list. Nothing here decides a reason.
  */
@@ -80,14 +98,19 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
     `${PLACEHOLDER_GAP}.${reason}.${part}`,
     ...(part === "title" ? [`business.attention_short.${reason}`] : []),
   ], { defaultValue: "" });
-  return (dossier.listo_gaps ?? []).map((reason, index): DossierProblem => {
+  const otherFlags = flags.filter(item => !OWN_GAP[item.code]);
+  const issues = (dossier.listo_gaps ?? []).flatMap<{ reason: ListoGap; key: string; flag?: ReviewFlag }>((reason, index) => {
     const key = `${index}-${reason}`;
+    if (reason === "review_flag" && otherFlags.length) {
+      return otherFlags.map(flag => ({ reason, key: `${key}-${flag.code}`, flag }));
+    }
+    return [{ reason, key }];
+  });
+  return issues.map(({ reason, key, flag }): DossierProblem => {
     if (reason === "duplicate") {
       const basis = candidate ? duplicateBasisKey(candidate.basis, dossier.document_type) : null;
       return { key, reason, title: t(`${DUPLICATE_KEYS}.title`), text: basis ? t(basis) : words(reason, "text"), tab: "general", row: null, where: `${general} · ${t(`${DUPLICATE_KEYS}.compare`)}`, compare: candidate?.draft_id };
     }
-    // A flag with its own gap is already said there: `review_flag` speaks for the others, or in its own words.
-    const flag = reason === "review_flag" ? flags.find((item) => !OWN_GAP[item.code]) : undefined;
     // `blocked` is the server's blockers: the first field one names is where the fix is.
     const blockedField = reason === "blocked" ? dossier.blockers?.find((blocker) => blocker.field)?.field ?? null : null;
     const row = reason === "check_details" && dossier.year_to_check ? "occurred_on"
@@ -96,7 +119,11 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
       : flag?.code === "amounts_mismatch" ? flag.difference != null && currency ? t("business.terms.difference", { amount: formatMoney(flag.difference, currency, locale) }) : words(reason, "text")
       : flag ? t(`business.dossier.review_flag.${flag.code}.text`)
       : words(reason, "text");
-    return { key, reason, title: words(reason, "title"), text, tab: "general", row, where: row ? `${general} · ${dossierRowLabel(t, row, dossier)}` : general };
+    return {
+      key, reason, title: words(reason, "title"), text, tab: "general", row,
+      where: row ? `${rowSection(row, t, general)} · ${dossierRowLabel(t, row, dossier)}` : general,
+      amountComparison: flag?.code === "amounts_mismatch" && currency ? amountComparison(flag, dossier, t, currency, locale) : undefined,
+    };
   });
 }
 

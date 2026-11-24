@@ -3040,7 +3040,16 @@
       "read_only": "Tu permiso permite ver este registro.",
       "confirm": {
         "accept_anyway": "Aceptar de todos modos",
-        "fix": "Corregir"
+        "fix": "Corregir",
+        "placeholder": {
+          "calculated_total": "Total calculado",
+          "go": "Ir",
+          "subtotal_itbis": "Subtotal + ITBIS",
+          "subtitle_one": "Puedes corregirlo ahora o aceptarlo así.",
+          "subtitle_other": "Puedes corregirlos ahora o aceptarlo así.",
+          "title_one": "¿Aceptar con {{count}} dato por revisar?",
+          "title_other": "¿Aceptar con {{count}} datos por revisar?"
+        }
       },
       "refresh": "Consultar registro actual",
       "stale": "Este registro cambió. Abre la revisión actual y revísala antes de realizar otra acción.",

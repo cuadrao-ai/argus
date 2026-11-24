@@ -9345,8 +9345,10 @@ on the record starts from it and saves it. A saved 606 declaration whose
 `id_type` is null reads the Tipo Id its RNC states.
 
 `amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
-false` and `difference`. The signed exact decimal difference is gross minus
-net minus the same `AMOUNT_PARTS` components. With ITBIS known it appears when
+false`, `computed_sum`, `difference` and `includes_extra_charges`. The exact
+decimal sum adds the net amount and the same `AMOUNT_PARTS` components.
+The signed difference is gross minus that sum. The boolean is true when a
+nonzero tip, selective tax or other tax contributes to the sum. With ITBIS known it appears when
 the absolute difference exceeds 0.01. With ITBIS unknown that part counts as
 zero, and it appears only when the difference is below -0.01: ITBIS is never
 negative, so it cannot close that gap. It is recomputed for every read and revision. The
@@ -9354,7 +9356,7 @@ existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
 overrides are excluded from the model-facing dossier and source text.
 
 The dossier states the same check as `amounts_check: {state, difference}`.
-`review_flags.amounts_check` owns both: `difference`, with the signed
+Both views use the same server comparison: `difference`, with the signed
 `difference` of the flag, exactly when the flag is present; `adds_up` when the
 Total, a Subtotal and the ITBIS are known and no flag is present; `unchecked`
 for a record with no fiscal facts, without a Total or a Subtotal, and while
@@ -9378,7 +9380,7 @@ shows NCF modificado on a note and the refund question on a purchase's credit
 note.
 
 The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
-objects, with `difference` on `amounts_mismatch`
+objects, with the comparison fields above on `amounts_mismatch`,
 computed on every read from the stored facts; nothing is written. `rnc_check_digit`
 (field `rnc`) is a 9-digit RNC or 11-digit cédula whose check digit does not
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is

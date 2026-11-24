@@ -44,6 +44,29 @@ def test_small_purchase_derives_net_once_and_places_it_in_goods():
 
 
 @pytest.mark.parametrize(
+    ("tip", "other_tax", "computed", "difference", "extras"),
+    [(None, None, "118.00", "7.00", False), ("10", None, "128.00", "-3.00", True),
+     ("0", "0", "118.00", "7.00", False), (None, "4", "122.00", "3.00", True)],
+)
+def test_mismatch_flag_reports_the_compared_sum(tip, other_tax, computed, difference, extras):
+    facts = receipt("125", "18", "100", tip)
+    declaration = apply_purchase(None, PurchaseReview(category="09", other_taxes=other_tax))
+    flag, = review_flags(facts, declaration=declaration)
+    assert flag.model_dump() == {
+        "code": "amounts_mismatch", "field": "amount", "confirm": False,
+        "computed_sum": computed, "includes_extra_charges": extras, "difference": difference,
+    }
+
+
+def test_mismatch_keeps_unit_charges_on_a_long_exact_subtotal():
+    total = "1" + "0" * 28
+    facts = receipt(total, None, str(int(total) + 1), "1")
+    flag, = review_flags(facts)
+    assert flag.computed_sum == f"{int(total) + 2}.00"
+    assert flag.difference == "-2.00"
+
+
+@pytest.mark.parametrize(
     ("total", "tax", "subtotal", "tip", "expected", "source", "difference"),
     [
         ("1442.00", "152.54", "1289.46", None, "1289.46", "read", None),

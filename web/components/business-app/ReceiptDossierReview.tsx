@@ -685,6 +685,12 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     {deletion.dialog}
     {currentCheck && confirmProblems.length ? <DossierConfirm
       problems={confirmProblems}
+      onProblem={async (problem) => {
+        const current = await closeApprovalCheck();
+        const target = current && dossierProblems(current, t).find(item =>
+          item.reason === problem.reason && (!problem.row || item.row === problem.row));
+        goProblem(target || problem);
+      }}
       onClose={closeApprovalCheck}
       onFix={async () => {
         const current = await closeApprovalCheck();

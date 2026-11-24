@@ -188,9 +188,12 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 .docFile { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .docLink { display:inline-flex; align-items:center; gap:6px; min-height:44px; flex:none; color:var(--d-green); font-size:14px; font-weight:500; text-decoration:none; }
 
-.confirmList { margin:0 0 10px; padding-left:18px; font-size:14px; line-height:20px; color:var(--d-soft); }
-.confirmList li { margin:0 0 6px; }
+.confirmList { margin:16px 0 0; padding:0; list-style:none; font-size:14px; line-height:20px; }
+.confirmList li { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--d-hair); }
+.confirmList li:first-child { border-top:1px solid var(--d-hair); }
 .confirmList strong { color:var(--d-ink); font-weight:600; }
+.confirmList p { margin-top:3px; color:var(--d-soft); font-variant-numeric:tabular-nums; }
+.confirmList button { flex:none; min-width:44px; min-height:44px; }
 
 .split[data-stacked-document] { overflow-y:auto; }
 .split[data-stacked-document] > .info { flex:none; }
