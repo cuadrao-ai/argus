@@ -279,6 +279,8 @@ test("the owner turns reading on in the panel, beside the server's words the fir
   const consent = () => document.querySelector<HTMLElement>('[data-testid="receipt-reading-consent"]');
   const first = await mount({ read: reading({ enabled: false, consented_at: null }) });
   assert.equal(first.kind()[0].disabled, true, "Detectar goes with reading");
+  assert.equal(toggle()?.getAttribute("aria-label"), "Leer mis documentos automáticamente");
+  assert.equal(document.querySelector('[data-testid="receipt-reading-turn-on"]'), null, "the panel keeps the switch, not the notice button");
   await first.click(toggle());
   assert.deepEqual(first.changes, [], "the first turn-on asks first");
   assert.match(consent()?.textContent ?? "", /Permiso del negocio para leer sus documentos\./);

@@ -2147,6 +2147,7 @@
     "activity": {
       "all_channels": "Document reading is managed for your Business across email, WhatsApp and uploads.",
       "error": "Document reading could not be updated. Try again.",
+      "off_notice": "Automatic reading is off.",
       "open_settings": "Open document reading settings",
       "owner_only": "Your documents are saved unread. The Business owner can turn reading on.",
       "state_unknown": "Not available",

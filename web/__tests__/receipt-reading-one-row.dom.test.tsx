@@ -49,83 +49,87 @@ async function mount(read: Partial<ReceiptReading> | null, variant: "notice" | "
     </BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>,
   ));
   cleanups.push(async () => { await act(async () => root.unmount()); host.remove(); });
-  const row = () => host.querySelector<HTMLElement>('[data-testid="receipt-reading-control"]');
+  const notice = () => host.querySelector<HTMLElement>('[data-testid="receipt-reading-notice"]');
   const click = (button: HTMLElement | null | undefined) => act(async () => { assert.ok(button); button.click(); for (let i = 0; i < 6; i += 1) await Promise.resolve(); });
   return {
-    host, sent, row, click,
+    host, sent, notice, click,
+    turnOn: () => host.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-turn-on"]'),
     toggle: () => host.querySelector<HTMLButtonElement>('[role="switch"]'),
     consent: () => host.querySelector<HTMLElement>('[data-testid="receipt-reading-consent"]'),
   };
 }
 
-test("reading off is one row: the title, the short line and the switch, with no paragraph and no button to another panel", async () => {
+test("reading off is a compact notice: it says reading is off, the short line, and one button beside the text, never a switch", async () => {
   const page = await mount({ enabled: false });
-  const row = page.row()!;
-  assert.deepEqual([...row.querySelectorAll("span > span")].map((line) => line.textContent).slice(0, 2), ["Leer mis documentos automáticamente", "Tú siempre revisas y aceptas."]);
-  assert.equal(page.toggle()?.getAttribute("aria-checked"), "false");
-  assert.equal(page.toggle()?.getAttribute("aria-label"), "Leer mis documentos automáticamente");
-  assert.equal(row.textContent?.includes(WORDS), false);
-  assert.deepEqual([...row.querySelectorAll("button")], [page.toggle()], "the switch is the row's only control");
+  const notice = page.notice()!;
+  assert.deepEqual([...notice.querySelectorAll("span > span")].map((line) => line.textContent), ["La lectura automática está apagada.", "Tú siempre revisas y aceptas."]);
+  assert.equal(page.turnOn()?.textContent, "Activar lectura de documentos");
+  assert.equal(page.turnOn()?.previousElementSibling, notice.querySelector("span"), "the button sits right beside the text");
+  assert.equal(page.toggle(), null, "no switch");
+  assert.equal(page.host.querySelector('[data-testid="receipt-reading-control"]'), null, "the switch row belongs to the upload panel");
+  assert.equal(notice.textContent?.includes(WORDS), false);
+  assert.deepEqual([...notice.querySelectorAll("button")], [page.turnOn()], "the button is the notice's only control");
 });
 
-test("reading on, or a setting the server did not answer, shows no row", async () => {
+test("reading on, or a setting the server did not answer, shows no notice", async () => {
   for (const read of [{ enabled: true }, null]) {
     const page = await mount(read);
-    assert.equal(page.row(), null);
+    assert.equal(page.notice(), null);
+    assert.equal(page.turnOn(), null);
     assert.equal(page.toggle(), null);
     await cleanups.pop()!();
   }
 });
 
-test("the first turn-on shows the server's paragraph once, under the row, and one confirm turns reading on", async () => {
+test("the first turn-on shows the server's paragraph once, in the notice, and one confirm turns reading on", async () => {
   const page = await mount({ enabled: false, consented_at: null, disclosure_token: "f".repeat(64), scope_version: 3 });
-  await page.click(page.toggle());
+  await page.click(page.turnOn());
   assert.deepEqual(page.sent, [], "nothing is sent before the words are confirmed");
-  assert.equal(page.toggle()?.getAttribute("aria-checked"), "false", "reading is still off");
+  assert.ok(page.notice(), "reading is still off");
   const consent = page.consent()!;
   assert.equal(consent.querySelector("p")?.textContent, WORDS);
-  assert.ok(page.row()!.contains(consent), "the paragraph sits in place, under the row");
+  assert.ok(page.notice()!.contains(consent), "the paragraph sits in place, in the notice");
   assert.deepEqual([...consent.querySelectorAll("button")].map((button) => button.textContent), ["Confirmar"]);
   await page.click(consent.querySelector("button"));
   assert.deepEqual(page.sent, [{ enabled: true, token: "f".repeat(64), version: 3 }], "the confirm sends the token of the words shown");
-  assert.equal(page.row(), null, "the row leaves once reading is on");
+  assert.equal(page.notice(), null, "the notice leaves once reading is on");
   assert.equal(page.host.textContent?.includes(WORDS), false, "the paragraph is gone with it");
 });
 
-test("flipping the switch again before confirming puts the paragraph away and sends nothing", async () => {
+test("pressing the button again before confirming puts the paragraph away and sends nothing", async () => {
   const page = await mount({ enabled: false });
-  await page.click(page.toggle());
+  await page.click(page.turnOn());
   assert.ok(page.consent());
-  await page.click(page.toggle());
+  await page.click(page.turnOn());
   assert.equal(page.consent(), null);
   assert.deepEqual(page.sent, []);
 });
 
 test("a Business that accepted before turns reading on in place, with no paragraph", async () => {
   const page = await mount({ enabled: false, consented_at: "2026-11-01T12:00:00Z", revoked_at: "2026-11-10T12:00:00Z", disclosure_token: "e".repeat(64), scope_version: 3 });
-  await page.click(page.toggle());
+  await page.click(page.turnOn());
   assert.deepEqual(page.sent, [{ enabled: true, token: "e".repeat(64), version: 3 }], "the same server call and token as the first time");
   assert.equal(page.host.textContent?.includes(WORDS), false);
-  assert.equal(page.row(), null);
+  assert.equal(page.notice(), null);
 });
 
-test("a turn-on the server refuses keeps the row, off, with the error and a retry", async () => {
+test("a turn-on the server refuses keeps the notice, off, with the error and a retry", async () => {
   let refuse = true;
   const page = await mount({ enabled: false, consented_at: "2026-11-01T12:00:00Z" }, "notice", async () => { if (refuse) throw new Error("refused"); });
-  await page.click(page.toggle());
-  assert.equal(page.toggle()?.getAttribute("aria-checked"), "false");
-  const alert = page.row()!.querySelector('[role="alert"]')!;
+  await page.click(page.turnOn());
+  assert.equal(page.turnOn()?.disabled, false, "the button is ready again");
+  const alert = page.notice()!.querySelector('[role="alert"]')!;
   assert.match(alert.textContent ?? "", /No se pudo actualizar la lectura de documentos\./);
   refuse = false;
   await page.click(alert.querySelector("button"));
   assert.deepEqual(page.sent.map((call) => call.enabled), [true, true]);
-  assert.equal(page.row(), null);
+  assert.equal(page.notice(), null);
 });
 
-test("someone who cannot change the setting sees the row say who can, with the switch locked", async () => {
+test("someone who cannot change the setting sees the notice say who can, with the button locked", async () => {
   const page = await mount({ enabled: false, can_change: false });
-  assert.equal(page.toggle()?.disabled, true);
-  assert.match(page.row()!.textContent ?? "", /El dueño del negocio puede activar la lectura\./);
+  assert.equal(page.turnOn()?.disabled, true);
+  assert.match(page.notice()!.textContent ?? "", /El dueño del negocio puede activar la lectura\./);
 });
 
 test("Ajustes keeps the switch beside the full paragraph, and it is where reading turns off", async () => {
