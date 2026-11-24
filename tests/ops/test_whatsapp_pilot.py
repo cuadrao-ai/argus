@@ -314,3 +314,24 @@ def test_default_cli_makes_no_request_and_preserves_unknown_delivery(
     assert report["delivery"]["status"] == "unverified"
     assert report["end_to_end"] == "unverified"
     assert TOKEN not in json.dumps(report)
+
+
+@pytest.mark.parametrize("number,reference", [(NUMBER, "0001"), (None, None)])
+def test_offline_report_identifies_only_the_number_suffix(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    number: str | None,
+    reference: str | None,
+) -> None:
+    settings = WhatsAppSettings(phone_number_id=number, access_token=TOKEN)
+    monkeypatch.setattr(pilot, "load_whatsapp_settings", lambda: settings)
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("Offline report made a request")
+
+    monkeypatch.setattr(pilot.httpx, "Client", forbidden)
+    assert pilot.main([]) == 2
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["number_id_reference"] == reference
+    assert NUMBER not in captured.out + captured.err
+    assert TOKEN not in captured.out + captured.err
