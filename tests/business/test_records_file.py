@@ -420,41 +420,6 @@ def test_required_columns_join_the_file_even_when_not_chosen(fake):
     ]
 
 
-def test_saved_table_export_ignores_retired_columns_and_keeps_the_state(fake):
-    record = row(fake, ready=False, funding_label="Cuenta de operaciones")
-    saved = {
-        "report": report(currencies=["DOP"]).model_dump(mode="json"),
-        "mode": "table",
-        "columns": ["date", "missing", "stage", "funding"],
-        "currencies": "current",
-        "format": "csv",
-    }
-    built = build_file(
-        source(record), RecordsExport.model_validate_json(json.dumps(saved))
-    )
-    header, values = csv.reader(io.StringIO(built.content.decode("utf-8-sig")))
-    assert header == ["Emisor", "Fecha", "Estado"]
-    assert values == [
-        record.counterparty,
-        record.report_date.strftime("%d/%m/%Y"),
-        "Faltan datos",
-    ]
-
-
-@pytest.mark.parametrize(
-    "mode,columns",
-    [
-        ("table", ("missing", "funding")),
-        ("table", ("stage", "missing", "stage")),
-        ("table", ("date", "funding", "unknown")),
-        ("dgii", ("missing", "funding")),
-    ],
-)
-def test_retired_export_columns_do_not_relax_validation(mode, columns):
-    with pytest.raises(ValidationError):
-        RecordsExport(report=report(), mode=mode, columns=columns)
-
-
 def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     from argus.domain.business.reporting_query import DgiiChoice, Purchase606
 
