@@ -118,22 +118,22 @@ for (const enabled of [false, true]) test(`reading ${enabled ? "on" : "off"}: th
   } finally { releaseList(); releaseReading(); await page.close(); }
 });
 
-test("a turned-on reading stays off the first screen, and a turned-off reading still explains how to turn it on", async () => {
+test("the Bandeja shows the reading row only while reading is off", async () => {
   const on = await mountInbox(withReceiptReading(reading(true)));
   try {
     await on.settle(() => on.host.querySelector('[data-testid="reception-row"]') !== null);
     assert.equal(on.host.querySelector('[data-testid="receipt-reading-control"]'), null);
-    assert.equal(on.host.textContent?.includes("La lectura de documentos está activada."), false);
+    assert.equal(on.host.querySelector('[role="switch"]'), null);
   } finally { await on.close(); }
 
   const off = await mountInbox(withReceiptReading(reading(false)));
   try {
     await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null);
-    assert.equal(off.host.querySelector('[data-testid="receipt-reading-control"]')?.textContent?.includes("Activar lectura de documentos"), true);
+    assert.ok(off.host.querySelector('[data-testid="receipt-reading-control"] [role="switch"]'));
   } finally { await off.close(); }
 });
 
-test("reading off is one line under the title with an outlined action; the words agreed to and the switch live in Lectura de documentos", async () => {
+test("reading off is one slim row under the views: its switch turns reading on in place, after the server's words the first time", async () => {
   const turnedOn: boolean[] = [];
   const server = withReceiptReading(reading(false));
   const off = await mountInbox({
@@ -141,24 +141,22 @@ test("reading off is one line under the title with an outlined action; the words
     setReceiptReading: async (current, enabled) => { turnedOn.push(enabled); return server.setReceiptReading!(current, enabled, "es-419"); },
   });
   try {
-    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null);
+    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null && !off.host.querySelector('[data-testid="reception-pending"]'));
     const notice = off.host.querySelector('[data-testid="receipt-reading-control"]')!;
     const tabs = off.host.querySelector('[role="tablist"]')!;
-    assert.ok(tabs.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING, "the notice sits under the views");
-    assert.deepEqual([...notice.querySelectorAll("p")].map((line) => line.textContent), ["Tus documentos están guardados sin leer. Activa la lectura para prepararlos para revisión."]);
-    assert.equal(off.host.textContent?.includes("Permiso de prueba"), false, "the consent words are not repeated on the page");
-    const action = notice.querySelector("button")!;
-    assert.equal(action.textContent, "Activar lectura de documentos");
-    assert.ok(action.className.includes("border") && !action.className.includes("bg-[var(--cuadrao-green)]"), "secondary, not the page's primary");
-    await off.act(async () => action.click());
-    const sheet = document.querySelector('[data-testid="receipt-reading-sheet"]')!;
-    assert.ok(sheet.textContent?.includes("Permiso de prueba"));
-    const toggle = sheet.querySelector<HTMLButtonElement>('[role="switch"]')!;
-    assert.equal(toggle.getAttribute("aria-checked"), "false");
-    await off.act(async () => { toggle.click(); await Promise.resolve(); });
+    assert.ok(tabs.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING, "the row sits under the views");
+    assert.deepEqual([...notice.querySelectorAll("span > span")].slice(0, 2).map((line) => line.textContent), ["Leer mis documentos automáticamente", "Tú siempre revisas y aceptas."]);
+    assert.equal(off.host.textContent?.includes("Permiso de prueba"), false, "no consent paragraph stays on the page");
+    const toggle = notice.querySelector<HTMLButtonElement>('[role="switch"]')!;
+    assert.deepEqual([...notice.querySelectorAll("button")], [toggle], "no button opens another panel");
+    await off.act(async () => toggle.click());
+    const consent = notice.querySelector('[data-testid="receipt-reading-consent"]')!;
+    assert.equal(consent.querySelector("p")?.textContent, "Permiso de prueba");
+    assert.deepEqual(turnedOn, []);
+    await off.act(async () => { consent.querySelector("button")!.click(); await Promise.resolve(); });
     await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') === null);
     assert.deepEqual(turnedOn, [true]);
-    assert.equal(document.querySelector('[data-testid="receipt-reading-sheet"]'), null);
+    assert.equal(off.host.textContent?.includes("Permiso de prueba"), false);
   } finally { await off.close(); }
 });
 
@@ -183,8 +181,8 @@ test("a workspace refresh that lands while the switch is saving cannot undo the 
   try {
     const ready = () => notice()?.querySelector("button") != null && !page.host.querySelector('[data-testid="reception-pending"]');
     await page.settle(ready);
-    await page.act(async () => notice()!.querySelector("button")!.click());
-    await page.act(async () => { document.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-switch"]')!.click(); await Promise.resolve(); });
+    await page.act(async () => notice()!.querySelector<HTMLButtonElement>('[role="switch"]')!.click());
+    await page.act(async () => { notice()!.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-consent"] button')!.click(); await Promise.resolve(); });
     const answered = workspaceAnswers;
     await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="workspace-refresh"]')!.click());
     await page.settle(() => workspaceAnswers > answered && ready());

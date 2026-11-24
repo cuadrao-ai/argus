@@ -244,7 +244,8 @@ test("Detectar is offered only while reading is on; without reading the batch is
   const on = await mount({ read: reading({ enabled: true }) });
   assert.deepEqual(on.kind(), [{ label: "Detectar", checked: true, disabled: false }, { label: "Compras", checked: false, disabled: false }, { label: "Ventas", checked: false, disabled: false }]);
   assert.equal(on.kindHelp(), "Se detecta al leer.");
-  assert.match(on.text(), /Tú siempre revisas y aceptas\./);
+  assert.deepEqual([...document.querySelectorAll('[data-testid="intake-options"] > *')].map((row) => row.querySelector("span > span")?.textContent), ["Compra o venta"], "with reading on the options are only Compra o venta");
+  assert.equal(document.querySelector('[data-testid="intake-options"] [role="switch"]'), null, "the panel has no switch while reading is on");
   await on.choose(photo("detectado.jpg"));
   await on.click(on.button("Ventas", document.querySelector<HTMLElement>('[data-testid="intake-document-type"]')!));
   assert.equal(on.kindHelp(), "Para todo lo que subas.");
@@ -257,7 +258,8 @@ test("Detectar is offered only while reading is on; without reading the batch is
   const off = await mount({ read: reading({ enabled: false }) });
   assert.deepEqual(off.kind(), [{ label: "Detectar", checked: false, disabled: true }, { label: "Compras", checked: true, disabled: false }, { label: "Ventas", checked: false, disabled: false }]);
   assert.equal(off.kindHelp(), "Sin lectura, eliges tú.");
-  assert.match(off.text(), /Se guardan sin leer\./);
+  assert.match(off.text(), /Leer mis documentos automáticamente/);
+  assert.match(off.text(), /Tú siempre revisas y aceptas\./);
   const compras = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="intake-document-type"] [role="radio"]')][1];
   await act(async () => { compras.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })); });
   assert.equal(off.kind().find((segment) => segment.checked)?.label, "Ventas", "the arrow keys pass over Detectar");
@@ -272,29 +274,34 @@ test("an unknown reading setting shows no switch and never claims reading is off
   assert.equal(page.kind()[0].checked, true);
 });
 
-test("the owner turns reading off in one tap and turns it on only beside the words agreed to; anyone else cannot change it", async () => {
-  const owner = await mount({ read: reading({ enabled: true }) });
-  const toggle = () => document.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-option"]')!;
-  assert.equal(toggle().getAttribute("aria-checked"), "true");
-  await owner.click(toggle());
-  await owner.turn();
-  assert.deepEqual(owner.changes, [false]);
-  assert.equal(toggle().getAttribute("aria-checked"), "false");
-  assert.equal(owner.kind()[0].disabled, true, "Detectar goes with reading");
-  await owner.click(toggle());
-  assert.deepEqual(owner.changes, [false], "turning it on asks first");
-  const sheet = document.querySelector<HTMLElement>('[data-testid="receipt-reading-sheet"]')!;
-  assert.match(sheet.textContent ?? "", /Permiso del negocio para leer sus documentos\./);
-  await owner.click(sheet.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-switch"]'));
-  await owner.turn();
-  assert.deepEqual(owner.changes, [false, true]);
-  assert.equal(document.querySelector('[data-testid="receipt-reading-sheet"]'), null);
-  assert.equal(owner.kind()[0].disabled, false);
+test("the owner turns reading on in the panel, beside the server's words the first time and with one flip after that; anyone else cannot", async () => {
+  const toggle = () => document.querySelector<HTMLButtonElement>('[data-testid="intake-options"] [role="switch"]');
+  const consent = () => document.querySelector<HTMLElement>('[data-testid="receipt-reading-consent"]');
+  const first = await mount({ read: reading({ enabled: false, consented_at: null }) });
+  assert.equal(first.kind()[0].disabled, true, "Detectar goes with reading");
+  await first.click(toggle());
+  assert.deepEqual(first.changes, [], "the first turn-on asks first");
+  assert.match(consent()?.textContent ?? "", /Permiso del negocio para leer sus documentos\./);
+  await first.click(consent()!.querySelector("button"));
+  await first.turn();
+  assert.deepEqual(first.changes, [true]);
+  assert.equal(toggle(), null, "the row leaves once reading is on");
+  assert.equal(consent(), null);
+  assert.equal(first.kind()[0].disabled, false);
+  await cleanups.pop()!();
+  document.body.innerHTML = "";
+
+  const again = await mount({ read: reading({ enabled: false, consented_at: "2026-11-01T12:00:00Z" }) });
+  await again.click(toggle());
+  await again.turn();
+  assert.deepEqual(again.changes, [true], "a Business that agreed before flips in place");
+  assert.equal(document.body.textContent?.includes("Permiso del negocio para leer sus documentos."), false);
+  assert.equal(toggle(), null);
   await cleanups.pop()!();
   document.body.innerHTML = "";
 
   await mount({ read: reading({ enabled: false, can_change: false }) });
-  assert.equal(toggle().disabled, true);
+  assert.equal(toggle()?.disabled, true);
   assert.match(document.body.textContent ?? "", /El dueño del negocio puede activar la lectura\./);
 });
 
