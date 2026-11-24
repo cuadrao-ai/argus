@@ -21,6 +21,7 @@ from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStor
 from argus.domain.ingestion.hub import IngestionHub
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_single_candidate_postgres as single
@@ -195,7 +196,15 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     pending, version = captured(service, context, "B0100000032", funding)
     approved(service, context, pending, version)
     month = {**PURCHASES, "period": SEPTEMBER}
-    card = query(http, filters=month)["overview"]["needs_fiscal_data"]
+    answer = query(http, filters=month)
+    assert {
+        item["draft_id"]: (item["ready"], item["missing_fields"])
+        for item in answer["items"]
+    } == {
+        str(complete): (True, []),
+        str(pending): (False, ["expense_type"]),
+    }
+    card = answer["overview"]["needs_fiscal_data"]
     unrelated = {**month, "q": "nothing matches this", "has_document": True}
     summary = preview(http, unrelated)["dgii"]
     assert (
@@ -348,6 +357,49 @@ def test_view_recipe_reopens_current_page_one(client, actions):
     result = query(http, **saved["recipe"])
     assert result["page"] == 1
     assert result["matching_count"] == 1
+
+
+def test_posted_layout_and_saved_v2_view_keep_the_same_remaining_columns(client, actions):
+    http, _ = client
+    service, context, _ = actions
+    layout = query(http, schema_version=2)["presentation"]
+    expected = {
+        "order": [
+            "stage",
+            *(
+                key
+                for key in layout["order"]
+                if key not in {"stage", "missing", "funding"}
+            ),
+        ],
+        "hidden": ["note", "fiscal_number"],
+        "density": 56,
+    }
+    recipe = {
+        "schema_version": 2,
+        "presentation": {
+            "order": ["missing", *expected["order"], "funding"],
+            "hidden": ["note", "funding", "fiscal_number", "missing"],
+            "density": 56,
+        },
+    }
+    assert query(http, **recipe)["presentation"] == expected
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into argus_private.business_saved_report_views"
+            " (space_id,actor_id,name,recipe) values (%s,%s,%s,%s)",
+            (
+                context.actor.space_id,
+                context.actor.actor_id,
+                "Legacy layout",
+                Jsonb(recipe),
+            ),
+        )
+    response = http.get("/business/report-views")
+    assert response.status_code == 200, response.text
+    [saved] = response.json()
+    assert saved["recipe"]["presentation"] == expected
+    assert query(http, **saved["recipe"])["presentation"] == expected
 
 
 def test_validation_and_authorization_errors_are_never_cached(client, actions, users):

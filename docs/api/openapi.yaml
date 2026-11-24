@@ -22809,12 +22809,10 @@ components:
           - itbis_amount
           - gross_amount
           - stage
-          - missing
           - fiscal_number
           - note
           - attachment
           - payment_form
-          - funding
           - currency
         label_key:
           type: string
@@ -29307,12 +29305,10 @@ components:
             - itbis_amount
             - gross_amount
             - stage
-            - missing
             - fiscal_number
             - note
             - attachment
             - payment_form
-            - funding
           type: array
         hidden:
           items:
@@ -29326,12 +29322,10 @@ components:
             - itbis_amount
             - gross_amount
             - stage
-            - missing
             - fiscal_number
             - note
             - attachment
             - payment_form
-            - funding
           type: array
         density:
           type: integer
@@ -31116,12 +31110,10 @@ components:
             - itbis_amount
             - gross_amount
             - stage
-            - missing
             - fiscal_number
             - note
             - attachment
             - payment_form
-            - funding
             - currency
           type: array
           default: []
@@ -31476,12 +31468,10 @@ components:
           - itbis_amount
           - gross_amount
           - stage
-          - missing
           - fiscal_number
           - note
           - attachment
           - payment_form
-          - funding
         label_key:
           type: string
         shown:
@@ -31944,6 +31934,24 @@ components:
         missing:
           items:
             type: string
+          type: array
+          default: []
+        missing_fields:
+          items:
+            type: string
+            enum:
+            - counterparty_id
+            - counterparty
+            - date
+            - expense_type
+            - net_amount
+            - itbis_amount
+            - gross_amount
+            - stage
+            - fiscal_number
+            - note
+            - attachment
+            - payment_form
           type: array
           default: []
         stage:

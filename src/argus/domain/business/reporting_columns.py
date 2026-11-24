@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Literal, get_args
 
 from argus.domain.business.country import COUNTRIES, business_country
+from argus.domain.business.missing_reasons import REASONS
 
 Family = Literal["sale", "purchase"]
 TableColumn = Literal[
@@ -24,13 +25,13 @@ TableColumn = Literal[
     "itbis_amount",
     "gross_amount",
     "stage",
-    "missing",
     "fiscal_number",
     "note",
     "attachment",
     "payment_form",
-    "funding",
 ]
+#: Keys still accepted in saved table layouts and table exports.
+RETIRED_COLUMNS = ("missing", "funding")
 #: What the "Lo que ves" file does with a column. `as_shown` offers it checked
 #: when the table shows it. `default` offers it checked even while the table
 #: hides it, and then it goes last. `always` holds it whatever the person picks.
@@ -57,28 +58,40 @@ class ColumnSpec:
     #: The record families whose table offers it.
     families: frozenset[Family] = _EVERY_FAMILY
     file: FileRule = "as_shown"
+    #: The field named by a readiness reason, if it has a cell in this column.
+    reason_field: str | None = None
 
 
 #: In the default order. The person can hide or move any of them.
 COLUMNS: tuple[ColumnSpec, ...] = (
-    ColumnSpec("counterparty_id", "business.transactions.columns.rnc_cedula"),
+    ColumnSpec(
+        "counterparty_id", "business.transactions.columns.rnc_cedula", reason_field="rnc"
+    ),
     ColumnSpec(
         "counterparty",
         "business.terms.counterparty",
         named_by_family=True,
         hidden=True,
         file="always",
+        reason_field="counterparty",
     ),
-    ColumnSpec("date", "business.transactions.columns.fecha"),
+    ColumnSpec("date", "business.transactions.columns.fecha", reason_field="occurred_on"),
     ColumnSpec(
-        "expense_type", "business.dossier.placeholder.expense_type", families=_PURCHASE
+        "expense_type",
+        "business.dossier.placeholder.expense_type",
+        families=_PURCHASE,
+        reason_field="category",
     ),
-    ColumnSpec("net_amount", "business.terms.net_amount"),
-    ColumnSpec("itbis_amount", "business.terms.itbis"),
-    ColumnSpec("gross_amount", "business.terms.total"),
+    ColumnSpec("net_amount", "business.terms.net_amount", reason_field="billed_amount"),
+    ColumnSpec("itbis_amount", "business.terms.itbis", reason_field="itbis"),
+    ColumnSpec("gross_amount", "business.terms.total", reason_field="amount"),
     ColumnSpec("stage", "business.transactions.layout.column_state"),
-    ColumnSpec("missing", "business.transactions.layout.column_reason"),
-    ColumnSpec("fiscal_number", "business.transactions.columns.ncf", hidden=True),
+    ColumnSpec(
+        "fiscal_number",
+        "business.transactions.columns.ncf",
+        hidden=True,
+        reason_field="ncf",
+    ),
     ColumnSpec("note", "business.transactions.columns.notas", hidden=True),
     ColumnSpec(
         "attachment", "business.transactions.layout.column_attachment", hidden=True
@@ -89,12 +102,25 @@ COLUMNS: tuple[ColumnSpec, ...] = (
         hidden=True,
         families=_PURCHASE,
         file="default",
+        reason_field="payment_method",
     ),
-    ColumnSpec("funding", "business.transactions.columns.cuenta", hidden=True),
 )
 SPECS: dict[TableColumn, ColumnSpec] = {spec.key: spec for spec in COLUMNS}
 TABLE_COLUMNS: tuple[TableColumn, ...] = tuple(SPECS)
 HIDDEN_COLUMNS = tuple(spec.key for spec in COLUMNS if spec.hidden)
+
+
+def missing_columns(
+    reasons: Iterable[str], family: Family | None
+) -> tuple[TableColumn, ...]:
+    """Columns with a field named by the row's readiness reasons, in registry order."""
+
+    fields = {field for code in reasons if (field := REASONS[code].field) is not None}
+    return tuple(
+        spec.key
+        for spec in COLUMNS
+        if family in spec.families and spec.reason_field in fields
+    )
 
 
 def column_label(key: TableColumn, families: Iterable[Family]) -> str:

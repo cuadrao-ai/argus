@@ -300,9 +300,7 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
         ("fiscal_number", False, False),
         ("itbis_amount", False, False),
         ("stage", False, True),
-        ("missing", False, True),
         ("attachment", False, True),
-        ("funding", False, False),
         ("counterparty_id", False, False),
     ]
     every = [
@@ -333,20 +331,20 @@ def test_a_country_omission_leaves_the_preview_and_the_file(fake, monkeypatch):
     monkeypatch.setitem(
         country.COUNTRIES,
         "DO",
-        country.BusinessCountry("DO", "DOP", frozenset({"funding"})),
+        country.BusinessCountry("DO", "DOP", frozenset({"note"})),
     )
     request = report(currencies=["DOP"])
     dominican = replace(source(row(fake)), country="DO")
     preview = summarize_export(dominican, request)
-    assert "funding" not in [column.key for column in preview.table.current.columns]
-    assert "funding" in [
+    assert "note" not in [column.key for column in preview.table.current.columns]
+    assert "note" in [
         column.key
         for column in summarize_export(
             replace(dominican, country="US"), request
         ).table.current.columns
     ]
     with pytest.raises(ActionError) as refused:
-        build_file(dominican, table(request, ("funding",), currencies="current"))
+        build_file(dominican, table(request, ("note",), currencies="current"))
     assert refused.value.result.code == "business_export_column_unavailable"
 
 
@@ -370,11 +368,9 @@ def test_the_default_file_keeps_the_name_and_ends_with_forma_de_pago(fake):
         ("itbis_amount", False, True),
         ("gross_amount", False, True),
         ("stage", False, True),
-        ("missing", False, True),
         ("fiscal_number", False, False),
         ("note", False, False),
         ("attachment", False, False),
-        ("funding", False, False),
         ("payment_form", False, True),
     ]
     checked = tuple(key for key, _, shown in columns if shown)
@@ -391,7 +387,6 @@ def test_the_default_file_keeps_the_name_and_ends_with_forma_de_pago(fake):
         "ITBIS",
         "Total",
         "Estado",
-        "Motivo",
         "Forma de pago",
     ]
     assert values[:2] == ["101001577", "Ferretería Ozama"]
@@ -404,7 +399,7 @@ def test_forma_de_pago_keeps_its_table_place_once_the_table_shows_it(fake):
         presentation=presentation,
     )
     keys = [key for key, _, _ in _file_columns(summarize_export(source(), request))]
-    assert keys[-2:] == ["payment_form", "funding"]
+    assert keys[-1] == "payment_form"
 
 
 def test_a_sales_file_keeps_the_name_and_has_no_forma_de_pago(fake):
@@ -425,6 +420,41 @@ def test_required_columns_join_the_file_even_when_not_chosen(fake):
     ]
 
 
+def test_saved_table_export_ignores_retired_columns_and_keeps_the_state(fake):
+    record = row(fake, ready=False, funding_label="Cuenta de operaciones")
+    saved = {
+        "report": report(currencies=["DOP"]).model_dump(mode="json"),
+        "mode": "table",
+        "columns": ["date", "missing", "stage", "funding"],
+        "currencies": "current",
+        "format": "csv",
+    }
+    built = build_file(
+        source(record), RecordsExport.model_validate_json(json.dumps(saved))
+    )
+    header, values = csv.reader(io.StringIO(built.content.decode("utf-8-sig")))
+    assert header == ["Emisor", "Fecha", "Estado"]
+    assert values == [
+        record.counterparty,
+        record.report_date.strftime("%d/%m/%Y"),
+        "Faltan datos",
+    ]
+
+
+@pytest.mark.parametrize(
+    "mode,columns",
+    [
+        ("table", ("missing", "funding")),
+        ("table", ("stage", "missing", "stage")),
+        ("table", ("date", "funding", "unknown")),
+        ("dgii", ("missing", "funding")),
+    ],
+)
+def test_retired_export_columns_do_not_relax_validation(mode, columns):
+    with pytest.raises(ValidationError):
+        RecordsExport(report=report(), mode=mode, columns=columns)
+
+
 def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     from argus.domain.business.reporting_query import DgiiChoice, Purchase606
 
@@ -434,7 +464,6 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         export_missing="missing_ncf",
         itbis_amount="18.00",
         has_document=True,
-        funding_label="Cuenta de operaciones",
         dgii_606=Purchase606(
             expense_type=DgiiChoice(code="02", label="Old category label"),
             payment_form=DgiiChoice(code="03", label="Old payment label"),
@@ -448,7 +477,6 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         "attachment",
         "expense_type",
         "payment_form",
-        "funding",
     )
     cells = xlsx(
         build_file(
@@ -464,18 +492,17 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         "Total",
         "Estado",
         "Adjunto",
-        "Cuenta",
         "Forma de pago",
     ]
     kinds = [(kind, code) for kind, _, code in cells[1]]
     assert kinds[1] == ("n", "dd/mm/yyyy")
     assert kinds[3:5] == [("n", "#,##0.00"), ("n", "#,##0.00")]
-    assert [value for _, value, _ in cells[1]][2::3] == [
+    assert [cells[1][index][1] for index in (2, 5, 7)] == [
         "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS",
         "Faltan datos",
         "03 - TARJETA CRÉDITO/DÉBITO",
     ]
-    assert [value for _, value, _ in cells[1][6:8]] == ["Sí", "Cuenta de operaciones"]
+    assert cells[1][6][1] == "Sí"
     csv_line = list(
         csv.reader(
             io.StringIO(

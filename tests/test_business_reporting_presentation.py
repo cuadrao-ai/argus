@@ -36,7 +36,6 @@ def test_default_presentation_has_net_tax_and_gross_visible():
             "note",
             "attachment",
             "payment_form",
-            "funding",
         )
     )
 
@@ -53,10 +52,8 @@ def test_legacy_category_order_upgrades_in_place():
         "expense_type",
         "payment_form",
         "stage",
-        "missing",
         "note",
         "attachment",
-        "funding",
         "counterparty_id",
         "itbis_amount",
         "fiscal_number",
@@ -93,7 +90,6 @@ def test_legacy_order_with_no_hidden_key_hides_forma_de_pago_once():
         "note",
         "attachment",
         "payment_form",
-        "funding",
         "counterparty_id",
         "itbis_amount",
     )
@@ -127,7 +123,6 @@ def test_query_returns_backend_default_presentation(version):
         "itbis_amount",
         "gross_amount",
         "stage",
-        "missing",
     ]
     assert answer.presentation.hidden == (
         "counterparty",
@@ -135,7 +130,6 @@ def test_query_returns_backend_default_presentation(version):
         "note",
         "attachment",
         "payment_form",
-        "funding",
     )
 
 
@@ -205,9 +199,8 @@ def test_saved_order_appends_fiscal_columns_hidden_without_moving_existing_colum
     presentation = Presentation.model_validate(
         {"order": order, "hidden": ["date"], "density": 56}
     )
-    expected = [key for key in order if key not in {"currency", "family"}]
+    expected = [key for key in order if key not in {"currency", "family", "funding"}]
     expected.insert(expected.index("gross_amount"), "net_amount")
-    expected.insert(expected.index("stage") + 1, "missing")
     added = ("counterparty_id", "itbis_amount", "fiscal_number")
     assert presentation.order == (*expected, *added)
     assert presentation.hidden == ("date", *added)
