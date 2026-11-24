@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { personName, type PersonName } from "@/lib/person-name";
 import { BusinessContext } from "./BusinessWorkspace";
 import { FOCUS_RING } from "./foundation/presentation";
-export { StatusPill } from "./foundation/StatusPill";
 
 export const cardClass =
   "rounded-surface border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
-import type { BusinessCapture } from "@/lib/business-api";
+import type { BandejaLabel, BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 
 // A search hit's receipt or note preview loads the saved record beside the results. A record the server no longer
@@ -22,7 +22,7 @@ function failure(status: number, code: string) {
   return Object.assign(new Error(code), { status, code, requestId: `req-${status}` });
 }
 
-async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dossier">>, kind: "receipt" | "note" = "receipt") {
+async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dossier">>, kind: "receipt" | "note" = "receipt", served: Partial<ReceiptSummary> = {}, noteGroup?: BusinessCapture["bandeja_group"], noteDeleted?: BusinessCapture["deleted"]) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -36,7 +36,7 @@ async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dos
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
   const hit = (await fixture.receipts("all")).find((item) => item.id === "rcpt-ferreteria")!;
-  const note = { draft_id: dossierFixtureIds.ready, version: 1, revision: 1, source_id: "note-1", text: "Compra de cemento", received_at: "2026-11-10T14:00:00Z", review_state: "open" } as BusinessCapture;
+  const note = { draft_id: dossierFixtureIds.ready, version: 1, revision: 1, source_id: "note-1", text: "Compra de cemento", received_at: "2026-11-10T14:00:00Z", review_state: "open", bandeja_group: noteGroup, deleted: noteDeleted } as BusinessCapture;
   let asked = 0;
   const custom = { ...fixture, ...override };
   const source: BusinessDataSource = { ...custom, receipt: (id, signal) => { asked += 1; return custom.receipt(id, signal); }, dossier: (id) => { asked += 1; return custom.dossier(id); } };
@@ -47,7 +47,7 @@ async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dos
     root.render(
       <I18nextProvider i18n={i18n}>
         <BusinessContext.Provider value={{ source, openPanel: () => undefined } as unknown as BusinessContextValue}>
-          <BusinessSearchDossier record={kind === "note" ? { kind: "note", note } : { kind: "receipt", receipt: { ...hit, dgii_606: null } }} source={source} accounts={[]} />
+          <BusinessSearchDossier record={kind === "note" ? { kind: "note", note } : { kind: "receipt", receipt: { ...hit, ...served, dgii_606: null } }} source={source} accounts={[]} />
         </BusinessContext.Provider>
       </I18nextProvider>,
     );
@@ -88,6 +88,50 @@ describe("a search hit's receipt preview", () => {
     await page.settle(() => page.text().includes("Recibo original"), "the receipt loads");
     assert.equal(page.asked(), 2);
     assert.equal(page.host.querySelector('[role="alert"]'), null);
+  });
+});
+
+const labels: [BandejaLabel, string, string][] = [["reading", "Leyendo…", "neutral"], ["cant_read", "No se pudo leer", "attention"], ["needs_attention", "Necesita atención", "caution"], ["ready", "Listo para aceptar", "toAccept"], ["accepted", "Aceptado", "approved"]];
+
+describe("a search hit's receipt status", () => {
+  // The hit's status and group are set against the label: the preview reads the label alone.
+  for (const [label, word, tone] of labels) {
+    test(`the preview draws the server's Bandeja label as the list does: ${label}`, async () => {
+      const page = await mount({}, "receipt", { status: "needs_attention", bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: null, version: null } });
+      const pills = [...page.host.querySelectorAll('[data-testid="status-pill"]')];
+      assert.deepEqual(pills.map((pill) => [pill.textContent, pill.getAttribute("data-label"), pill.className]), [[word, label, `workflow ${tone}`]]);
+    });
+  }
+
+  test("a hit the server gave no label shows no status", async () => {
+    const page = await mount({}, "receipt", { status: "review_ready", bandeja_group: { group: null, reason: null, label: null, draft_id: null, version: null } });
+    assert.equal(page.host.querySelector('[data-testid="status-pill"]'), null);
+  });
+});
+
+describe("a search hit's note status", () => {
+  // The note's review state (open) is set against the label: the preview reads the label alone.
+  for (const [label, word, tone] of labels) {
+    test(`the preview draws the server's Bandeja label as the list does: ${label}`, async () => {
+      const page = await mount({}, "note", {}, { group: "attention", reason: "missing_ncf", label, draft_id: null, version: null });
+      const pills = [...page.host.querySelectorAll('[data-testid="status-pill"]')];
+      assert.deepEqual(pills.map((pill) => [pill.textContent, pill.getAttribute("data-label"), pill.className]), [[word, label, `workflow ${tone}`]]);
+    });
+  }
+
+  for (const [name, group] of [["no label", { group: null, reason: null, label: null, draft_id: null, version: null }], ["no group", undefined]] as const) {
+    test(`a note the server gave ${name} shows no status`, async () => {
+      const page = await mount({}, "note", {}, group);
+      await page.settle(() => !page.host.querySelector('[aria-busy="true"]') && page.asked() === 1, "the record loads");
+      assert.equal(page.host.querySelector('[data-testid="status-pill"]'), null);
+      assert.doesNotMatch(page.text(), /Pendiente de revisión|\bopen\b/);
+    });
+  }
+  test("a deleted note with no label says Eliminado, as a deleted receipt does", async () => {
+    const page = await mount({}, "note", {}, { group: null, reason: null, label: null, draft_id: null, version: null }, { deleted_at: "2026-11-20T10:00:00Z" } as unknown as BusinessCapture["deleted"]);
+    await page.settle(() => !page.host.querySelector('[aria-busy="true"]') && page.asked() === 1, "the record loads");
+    assert.equal(page.host.querySelector('[data-testid="status-pill"]'), null);
+    assert.match(page.text(), /Eliminado/);
   });
 });
 

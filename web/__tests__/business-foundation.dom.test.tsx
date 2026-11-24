@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { useState } from "react";
-import { BUSINESS_STATUS, CANVAS, CONFIRM_ACTION, LOADING_TRACK, MUTED_TEXT, contrastRatio } from "@/components/business-app/foundation/presentation";
+import { CANVAS, CONFIRM_ACTION, LOADING_TRACK, MUTED_TEXT, contrastRatio } from "@/components/business-app/foundation/presentation";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
@@ -34,35 +34,8 @@ async function render(node: import("react").ReactNode) {
   };
 }
 
-describe("status is an icon, a word, and a color", () => {
-  test("each receipt status shows its icon and Spanish name on its locked colors", async () => {
-    const { StatusPill } = await import("@/components/business-app/foundation/StatusPill");
-    const page = await render(
-      <>
-        <StatusPill tag="approved" />
-        <StatusPill tag="attention" />
-        <StatusPill tag="listo" />
-      </>,
-    );
-    const pills = [...page.host.querySelectorAll<HTMLElement>('[data-testid="status-pill"]')];
-    assert.deepEqual(pills.map((pill) => pill.textContent), ["Aceptado", "Necesita atención", "Pendiente"]);
-    assert.deepEqual(pills.map((pill) => pill.getAttribute("data-status")), ["approved", "needs_attention", "pending"]);
-    const icons = pills.map((pill) => pill.querySelector("svg"));
-    assert.deepEqual(icons.map((icon) => [...(icon?.classList ?? [])].find((name) => /^lucide-(circle-check|clock|circle-alert)$/.test(name))), ["lucide-circle-check", "lucide-circle-alert", "lucide-clock"]);
-    assert.ok(icons.every((icon) => icon?.getAttribute("aria-hidden") === "true" && icon.getAttribute("width") === "14" && icon.getAttribute("height") === "14"));
-    for (const [index, name] of (["approved", "needs_attention", "pending"] as const).entries()) {
-      assert.match(pills[index].getAttribute("style") ?? "", new RegExp(BUSINESS_STATUS[name].ink, "i"));
-      assert.match(pills[index].getAttribute("style") ?? "", new RegExp(BUSINESS_STATUS[name].surface, "i"));
-    }
-    assert.ok(pills.every((pill) => /(^|\s)h-6(\s|$)/.test(pill.className) && /rounded-mark/.test(pill.className) && /px-2/.test(pill.className) && /text-\[12px\]/.test(pill.className) && /leading-4/.test(pill.className) && /font-medium/.test(pill.className)));
-    assert.equal(page.host.querySelector('[data-testid="status-dot"]'), null);
-    await page.close();
-  });
-
-  test("pill ink, muted text, and the loading track clear their contrast floors", () => {
-    for (const tone of Object.values(BUSINESS_STATUS)) {
-      assert.ok(contrastRatio(tone.ink, tone.surface) >= 4.5, `${tone.label} ${contrastRatio(tone.ink, tone.surface)}`);
-    }
+describe("foundation colors", () => {
+  test("muted text, the confirm action and the loading track clear their contrast floors", () => {
     assert.ok(contrastRatio(LOADING_TRACK, "#ffffff") >= 3);
     assert.ok(contrastRatio(LOADING_TRACK, CANVAS) >= 3);
     assert.ok(contrastRatio("#ffffff", CONFIRM_ACTION) >= 4.5);
