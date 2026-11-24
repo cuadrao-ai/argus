@@ -22,7 +22,7 @@ function trackPreview(frame: Locator) {
       heights.add(element.getBoundingClientRect().height);
       for (const animation of element.getAnimations({ subtree: true })) {
         const effect = animation.effect as KeyframeEffect;
-        if (effect.getKeyframes().some(frame => frame.opacity !== undefined)) {
+        if (effect.target?.querySelector("img") && effect.getKeyframes().some(frame => frame.opacity !== undefined)) {
           fades.add(Number(effect.getTiming().duration));
         }
       }
@@ -36,9 +36,9 @@ function trackPreview(frame: Locator) {
   });
 }
 
-for (const motion of ["no-preference", "reduce"] as const) {
-  test(`Comparar keeps the current image until the saved image loads with ${motion} motion`, async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 1440, height: 1000 });
+for (const width of [390, 1440]) for (const motion of ["no-preference", "reduce"] as const) {
+  test(`Comparar keeps the current image until the saved image loads at ${width}px with ${motion} motion`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
     await page.emulateMedia({ reducedMotion: motion });
     const current = receipt("actual");
     const saved = receipt("anterior");
@@ -64,6 +64,7 @@ for (const motion of ["no-preference", "reduce"] as const) {
     const source = page.getByTestId("receipt-review-source");
     const image = source.locator("img").first();
     await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(320);
+    await page.getByRole("radio", { name: "Guardado antes" }).scrollIntoViewIfNeeded();
     const original = await image.getAttribute("src");
     const frame = await source.boundingBox();
     expect(frame!.height).toBeGreaterThan(0);
@@ -72,17 +73,23 @@ for (const motion of ["no-preference", "reduce"] as const) {
     await page.getByRole("radio", { name: "Guardado antes" }).click();
     await requested;
     try {
+      await expect(source.getByRole("status")).toHaveText(/.+/);
+      await expect(source.locator("a[download]")).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath("compare-waiting.png") });
       expect(await page.locator("img").evaluateAll((images, src) => images.some(img =>
         img.getAttribute("src") === src && img.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })), original)).toBe(true);
     } finally { release(); }
     const next = source.locator("img").filter({ visible: true }).last();
     await expect.poll(() => next.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(440);
-    await expect.poll(() => page.evaluate(() =>
-      document.getAnimations().filter(animation => (animation.effect as KeyframeEffect)?.getKeyframes().some(frame => frame.opacity !== undefined)).length)).toBe(0);
+    const visibleWidths = () => source.locator("img").evaluateAll(images => images
+      .filter(img => img.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }))
+      .map(img => img.naturalWidth));
+    await expect.poll(visibleWidths).toEqual([440]);
+    await page.getByRole("radio", { name: "Este", exact: true }).click();
+    await expect.poll(visibleWidths).toEqual([320]);
     const { heights, fades } = await sample.evaluate(finish => finish());
     expect(heights).toEqual([frame!.height]);
-    expect(await source.boundingBox()).toEqual(frame);
+    expect(await source.boundingBox()).toMatchObject({ width: frame!.width, height: frame!.height });
     if (motion === "reduce") expect(fades).toEqual([]);
     else expect(fades).toContain(200);
   });
