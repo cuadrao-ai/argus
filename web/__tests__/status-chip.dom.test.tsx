@@ -31,23 +31,21 @@ async function render(node: ReactNode) {
 }
 
 const badge = async (ready: boolean) => {
-  const RecordWorkflowBadge = (await import("@/components/business-app/transacciones/RecordWorkflowBadge")).default;
-  return render(<RecordWorkflowBadge row={{ id: "r", report: { ready, missing: [], stage: "needs_review" } } as unknown as RecordRow} />);
+  const RecordStatusCell = (await import("@/components/business-app/transacciones/RecordStatusCell")).default;
+  return render(<RecordStatusCell row={{ id: "r", report: { ready, missing: ["missing_rnc"], stage: "needs_review" } } as unknown as RecordRow} />);
 };
 
 test("Registros' Estado chip renders the classes and width it had before the chip was shared", async () => {
   // The class names and width #2197 rendered: the pill, the fixed-width chip and the palette tone.
-  for (const [ready, tone, label] of [[true, "export", "Listo"], [false, "fiscal", "Faltan datos"]] as const) {
-    const chip = await badge(ready);
-    assert.equal(chip.textContent, label);
-    assert.equal(chip.className, `workflow stage ${tone}`);
-    assert.equal(chip.getAttribute("style"), "width: 120px;");
-  }
+  const chip = await badge(false);
+  assert.equal(chip.textContent, "Falta el RNC");
+  assert.equal(chip.className, "workflow stage fiscal");
+  assert.equal(chip.getAttribute("style"), "width: 120px;");
 });
 
 test("the shared chip draws Estado exactly as the badge does, tone for tone", async () => {
   const { StatusChip } = await import("@/components/business-app/foundation/StatusChip");
-  for (const [ready, tone] of [[true, "ready"], [false, "warning"]] as const) {
+  for (const [ready, tone] of [[false, "warning"]] as const) {
     const fromBadge = await badge(ready);
     const [className, style] = [fromBadge.className, fromBadge.getAttribute("style")];
     const shared = await render(<StatusChip tone={tone}>x</StatusChip>);

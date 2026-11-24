@@ -152,7 +152,7 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", missin
     await act(async () => listButton(name)!.click());
   };
   const valueOf = (name: Choice) => choiceRow(name)?.querySelector("[data-row-value]")?.textContent;
-  const chip = () => document.querySelector(`[data-record-key="${row.row_id}"] [data-record-workflow]`)?.textContent ?? null;
+  const chip = () => document.querySelector(`[data-record-key="${row.row_id}"] [data-record-status]`)?.textContent ?? null;
   const pick = async (name: Choice, value: string) => {
     await toggleChoice(name);
     const option = options(name).find((item) => item.dataset.value === value);
@@ -235,7 +235,7 @@ describe("a recorded purchase with 606 data still missing", () => {
   test("opens from live Registros with both choices, and the chip follows each save with nothing else reloading", async () => {
     const page = await mount();
     await page.wait(() => document.querySelector("[data-report-connected]") !== null && page.chip() !== null, "live Registros");
-    assert.equal(page.chip(), "Faltan datos");
+    assert.equal(page.chip(), "Faltan 2 datos");
     await page.openRecord();
 
     assert.equal(page.section()?.querySelector("h3")?.textContent, "Reporte 606");
@@ -255,11 +255,11 @@ describe("a recorded purchase with 606 data still missing", () => {
     await page.pick("category", "02");
     const reasons = () => [...document.querySelectorAll("[data-record-missing-list] li")].map((item) => item.textContent);
     await page.wait(() => reasons().length === 1 && page.queries() > asked, "the reason and refreshed Registros after Tipo de gasto");
-    assert.equal(page.chip(), "Faltan datos", "the reason never enters the chip");
+    assert.equal(page.chip(), "Falta la forma de pago", "the status names the remaining server reason");
     assert.deepEqual(reasons(), ["Falta la forma de pago"], "the open record follows the refreshed server missing list");
     await page.wait(() => page.valueOf("category")?.includes("Gastos por trabajos") === true, "the saved Tipo de gasto");
     await page.pick("payment_method", "03");
-    await page.wait(() => page.chip() === "Listo", "the chip after the last missing fact");
+    await page.wait(() => page.chip() === null, "the empty status after the last missing fact");
     assert.equal(document.querySelector("[data-record-missing-list]"), null, "the ready response clears the open record reasons");
 
     assert.deepEqual(page.writes.map(({ purchase }) => purchase), [{ category: "02" }, { payment_method: "03" }], "only the 606 choices go out");
