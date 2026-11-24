@@ -115,8 +115,10 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     const paidBy = (declaration: DgiiDeclaration | null | undefined) => forms.filter((name) => Number(declaration?.[name]) > 0).map((name) => dgiiOptionLabel(t, "sale_payment_form", name)).join(", ");
     const payment = { before: paidBy(before), after: paidBy(after) };
     const firstForm = dgiiFields[after.form].find((field) => forms.includes(field.name))?.name;
+    // The ways to pay are one line, so a person's edit to any of them names the whole group.
+    const named = (name: string) => !reviewed || (forms.includes(name) ? forms : [name]).some((each) => reviewed.includes(each));
     return dgiiFields[after.form].flatMap((field): FiscalChange[] => {
-      if (reviewed && !reviewed.includes(field.name)) return [];
+      if (!named(field.name)) return [];
       if (forms.includes(field.name)) {
         if (field.name !== firstForm || payment.before === payment.after) return [];
         return [{ name: "sale_payment", field: dossierRowLabel(t, "sale_payment", { document_type: documentType }), before: payment.before || null, after: payment.after || t("business.dossier.row.no_data") }];
