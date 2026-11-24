@@ -45,7 +45,7 @@ import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
 import ReceiptHistory from "./ReceiptHistory";
 import ReceiptDocumentType from "./ReceiptDocumentType";
 import ReceiptMarksCard from "./ReceiptMarksCard";
-import ReceiptReviewFrame from "./ReceiptReviewFrame";
+import ReceiptReviewFrame, { DossierLoading } from "./ReceiptReviewFrame";
 import { DeleteDocumentMenuItem, RestoreDocumentButton, useDocumentDelete } from "./DocumentDeleteControls";
 import ReceiptReviewFooter, { KEY_HINT_CLASS, MenuItem, ReceiptMoreMenu, usePrimaryKeys } from "./ReceiptReviewFooter";
 import { formatMoney, UNKNOWN_VALUE } from "./business-format";
@@ -55,7 +55,7 @@ import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { showToast } from "./foundation/toasts";
 import { useShownRecord } from "./useShownRecord";
-import { ContentFade, Settle } from "./business-skeletons";
+import { ContentFade } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 import { OpenRecordMissingReasons } from "./transacciones/RecordMissingReason";
 
@@ -399,7 +399,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       <button type="button" disabled={checking !== null} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}>{t("common.retry", "Retry")}</button>
     </section></DossierBare>{captureDialog}{leavingDialog}</>
   );
-  if (!dossier) return <><DossierBare>{captureRecovery}<Settle pending layout="detail" /></DossierBare>{captureDialog}{leavingDialog}</>;
+  if (!dossier) return <><DossierLoading recordId={draftId} back={origin?.list ?? "inbox"}>{captureRecovery}</DossierLoading>{captureDialog}{leavingDialog}</>;
   if (finished) return <DossierBare><ReceiptReviewDone onBack={() => openPanel({ kind: "inbox" })} /></DossierBare>;
 
   const accounts = dossier.accounts;

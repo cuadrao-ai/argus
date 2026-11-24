@@ -57,7 +57,7 @@ export function useCategoryLabel() {
       : t("business.category.none", "No category");
 }
 
-export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layout?: "rows" | "overview" | "detail" }) {
+export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layout?: "rows" | "overview" }) {
   const { t } = useTranslation();
   const line = "rounded-mark bg-black/[0.06] dark:bg-white/[0.08]";
   const pulse = "animate-pulse motion-reduce:animate-none";
@@ -74,13 +74,7 @@ export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layo
   return (
     <div role="status" aria-label={t("common.loading", "Loading")} data-testid="business-loading" data-layout={layout}>
       <div aria-hidden="true" className={pulse}>
-        {layout === "detail" ? <>
-          <div className="mb-5 space-y-4 py-3"><div className={`${line} h-4 w-20`} /><div className={`${line} h-7 w-48 max-w-full`} /></div>
-          <div className="grid items-start gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className={`${cardClass} h-28 desktop:h-80`} />
-            <div className={`${cardClass} divide-y divide-black/[0.05] dark:divide-white/[0.05]`}>{fields}</div>
-          </div>
-        </> : <div className={layout === "overview" ? "grid gap-3 tablet:grid-cols-2" : `${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>{fields}</div>}
+        <div className={layout === "overview" ? "grid gap-3 tablet:grid-cols-2" : `${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>{fields}</div>
       </div>
     </div>
   );

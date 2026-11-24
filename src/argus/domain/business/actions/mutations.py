@@ -381,9 +381,6 @@ def revise(
     stored = _stored_declaration(event, retyped, current_form)
     previous_resolution = event.resolution.get("business") or {}
     linked = links_of(event.state)
-    # With none saved, the amounts an open review starts from are the server's.
-    unsaved = stored is None and linked is not APPROVED
-    amount_derived = unsaved or bool(previous_resolution.get("amount_derived"))
     if any(
         change is not None
         for change in (fiscal_review, purchase, payment_split, sale_payment_form, montos)
@@ -392,6 +389,10 @@ def revise(
         linked = dossier.review_sources(
             tx, event.id, event.state, before or after, stored, current_type
         )
+    # With none saved, the amounts a review starts from are the server's: an
+    # open one, and an approved one whose line its facts state.
+    unsaved = stored is None and linked is not APPROVED
+    amount_derived = unsaved or bool(previous_resolution.get("amount_derived"))
 
     def declare(stored: DgiiDeclaration | None) -> DgiiDeclaration | None:
         written = reviewed
