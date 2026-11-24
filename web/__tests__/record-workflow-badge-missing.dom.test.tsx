@@ -70,6 +70,15 @@ test("two gaps expose every reason in server order through the existing tooltip"
   assert.equal(document.querySelector('[role="tooltip"]')?.textContent, "Falta el NCF · Falta el RNC");
 });
 
+test("one gap also exposes its full reason through the tooltip, since the chip clips long words", async () => {
+  const host = await status({ ready: false, missing: ["missing_rnc"] });
+  const trigger = host.querySelector<HTMLElement>('[tabindex="0"]');
+  assert.ok(trigger);
+  const { act } = await import("react");
+  await act(async () => { trigger.focus(); await new Promise(resolve => setTimeout(resolve, 350)); });
+  assert.equal(document.querySelector('[role="tooltip"]')?.textContent, "Falta el RNC");
+});
+
 test("unknown readiness keeps the Unknown mark", async () => {
   const host = await status({ ready: undefined, missing: ["missing_rnc"] });
   assert.equal(host.querySelector(".sr-only")?.textContent, "Estado no disponible");

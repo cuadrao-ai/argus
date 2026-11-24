@@ -18,5 +18,5 @@ export default function RecordStatusCell({ row }: { row: RecordRow }) {
   if (record?.ready === undefined) return <Unknown meaning={t("business.transactions.layout.workflow.unknown")} />;
   if (record.ready || !words.length) return null;
   const chip = <StatusChip data-record-status="missing" tone="warning">{words.length === 1 ? words[0] : t("business.transactions.layout.workflow.missing_count_placeholder", { count: words.length })}</StatusChip>;
-  return words.length === 1 ? chip : <Tooltip content={words.join(" · ")} side="top"><span tabIndex={0} className="rounded-mark">{chip}</span></Tooltip>;
+  return <Tooltip content={words.join(" · ")} side="top"><span tabIndex={0} className="rounded-mark">{chip}</span></Tooltip>;
 }

@@ -32,7 +32,8 @@ async function render(node: ReactNode) {
 
 const badge = async (ready: boolean) => {
   const RecordStatusCell = (await import("@/components/business-app/transacciones/RecordStatusCell")).default;
-  return render(<RecordStatusCell row={{ id: "r", report: { ready, missing: ["missing_rnc"], stage: "needs_review" } } as unknown as RecordRow} />);
+  const cell = await render(<RecordStatusCell row={{ id: "r", report: { ready, missing: ["missing_rnc"], stage: "needs_review" } } as unknown as RecordRow} />);
+  return cell.querySelector<HTMLElement>("[data-record-status]") ?? cell;
 };
 
 test("Registros' Estado chip renders the classes and width it had before the chip was shared", async () => {
