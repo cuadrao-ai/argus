@@ -86,7 +86,7 @@ export function receptionDocumentTitle(row: ReceptionRow, labels: { untitled: st
 }
 
 /** What the delete and purge dialogs show of a receipt or a note row. */
-export function rowDeleteTarget(row: Exclude<ReceptionRow, { kind: "email" }>, state: string, unnamed: string): DeleteDocumentTarget {
+export function rowDeleteTarget(row: Exclude<ReceptionRow, { kind: "email" }>, state: string | null, unnamed: string): DeleteDocumentTarget {
   return row.kind === "receipt"
     ? receiptDeleteTarget(row.receipt, state, unnamed)
     : { id: row.id, name: row.note.text, merchant: null, family: null, date: null, amount: null, currency: null, filename: null, state };

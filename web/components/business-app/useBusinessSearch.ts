@@ -15,7 +15,6 @@ import { copyText } from "./foundation/CopyButton";
 import { activitySearchGroup } from "./actividad/activity-search";
 import { SEARCHABLE_LISTS, type SearchableList } from "./foundation/list-search";
 import { showToast } from "./foundation/toasts";
-import { useReceiptStateWord } from "./receipt-state-word";
 import { useSourceForwardAddress } from "./useForwardAddress";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -58,7 +57,6 @@ export function useBusinessSearch({
   emailAvailable?: boolean;
 }): WorkspaceSearch {
   const { t, i18n } = useTranslation();
-  const stateWord = useReceiptStateWord();
   const forwardAddress = useSourceForwardAddress(canAdd && emailAvailable ? source : null);
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
 
@@ -147,7 +145,7 @@ export function useBusinessSearch({
         const searchActivity = listScope?.list === "activity" ? source.searchActivity : undefined;
         const [records, captures, activity] = await Promise.allSettled([source.search(query), source.captures(query), searchActivity?.(query)]);
         if (records.status === "rejected") throw records.reason;
-        const kinds = searchKindGroups({ t, locale, source, accounts, openPanel, stateWord }, query, records.value);
+        const kinds = searchKindGroups({ t, locale, source, accounts, openPanel }, query, records.value);
         const notes: WorkspaceSearchGroup = {
           id: "captures",
           label: t("business.capture.notes", "Original notes"),
@@ -169,5 +167,5 @@ export function useBusinessSearch({
         ];
       },
     };
-  }, [emailAvailable, accounts, actions.create, adaptive, canExport, forwardAddress, listScope, locale, openExport, openPanel, canAdd, recentsServer, scope, source, stateWord, t]);
+  }, [emailAvailable, accounts, actions.create, adaptive, canExport, forwardAddress, listScope, locale, openExport, openPanel, canAdd, recentsServer, scope, source, t]);
 }

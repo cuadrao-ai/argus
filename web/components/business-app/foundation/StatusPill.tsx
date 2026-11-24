@@ -4,12 +4,11 @@ import { useTranslation } from "react-i18next";
 import type { ReceptionTag } from "../recepcion/reception-status";
 import { BUSINESS_STATUS, statusNameForTag } from "./presentation";
 
-/** `label` names a finer state in the tag's colour and mark, as a search preview names what its row says. */
-export function StatusPill({ tag, label: stateLabel }: { tag: ReceptionTag["tag"]; label?: string }) {
+export function StatusPill({ tag }: { tag: ReceptionTag["tag"] }) {
   const { t } = useTranslation();
   const name = statusNameForTag(tag);
   const tone = BUSINESS_STATUS[name];
-  const label = stateLabel || t(tone.labelKey, tone.label);
+  const label = t(tone.labelKey, tone.label);
   const Icon = tone.icon;
   return (
     <span

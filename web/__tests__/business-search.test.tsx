@@ -208,8 +208,8 @@ describe("Business hits open the panel that holds them", () => {
       media_type: "image/jpeg",
       size_bytes: 1,
       received_at: "2026-10-07T14:00:00Z",
-      status: "review_ready" as const,
-      bandeja_group: { group: "listo" as const, reason: null, draft_id: null, version: null },
+      status: "needs_attention" as const,
+      bandeja_group: { group: "listo" as const, reason: null, label: "ready" as const, draft_id: null, version: null },
       error_code: null,
       expense_id: null,
       merchant: null,
@@ -226,7 +226,9 @@ describe("Business hits open the panel that holds them", () => {
       ["IMG_2214.jpg", ImageIcon, "-"],
       ["factura.pdf", FileText, "-"],
     ]);
-    expect(receipts.hits[0].detail).toContain("Ready to review");
+    // The hit's status is set against its Bandeja label: the line says the label.
+    const spanish = await businessSearch({ expenses: [], receipts: [receipt], accounts: [] }, [], "es-419");
+    expect(spanish.groups.find((group) => group.id === "receipts")!.hits[0].detail).toStartWith("Listo para aceptar · ");
     expect(receipts.hits[0].badge).toBe("Receipt");
     receipts.hits[0].open?.();
     expect(opened).toEqual([{ kind: "receipt", receiptId: "rcpt-2", list: "inbox" }]);
