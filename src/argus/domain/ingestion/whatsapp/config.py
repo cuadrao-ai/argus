@@ -1,8 +1,7 @@
 """WhatsApp settings, read from ``CUADRAO_WHATSAPP_*``.
 
-Each setting also reads its older ``ARGUS_WHATSAPP_*`` name, and the Cuadrao
-name wins when both are set. The app origin reads ``CUADRAO_APP_ORIGIN`` then
-``ARGUS_APP_ORIGIN``.
+Each WhatsApp setting reads exactly one name for the current environment.
+The app origin reads ``CUADRAO_APP_ORIGIN`` then ``ARGUS_APP_ORIGIN``.
 
 Intake is off unless ``CUADRAO_WHATSAPP_INTAKE_ENABLED`` is a true value and
 every credential it needs is present. Outbound replies are a second switch,
@@ -37,8 +36,8 @@ Optional = Annotated[str | None, BeforeValidator(_blank_to_none)]
 Secret = Annotated[SecretStr | None, BeforeValidator(_blank_to_none)]
 
 
-def _names(name: str) -> AliasChoices:
-    return AliasChoices(f"CUADRAO_WHATSAPP_{name}", f"ARGUS_WHATSAPP_{name}")
+def _names(name: str) -> str:
+    return f"CUADRAO_WHATSAPP_{name}"
 
 
 class WhatsAppSettings(BaseSettings):
@@ -57,11 +56,7 @@ class WhatsAppSettings(BaseSettings):
     sender_key: Secret = Field(default=None, validation_alias=_names("SENDER_KEY"))
     phone_number_id: Optional = Field(
         default=None,
-        validation_alias=AliasChoices(
-            "CUADRAO_WHATSAPP_NUMBER_ID",
-            "CUADRAO_WHATSAPP_PHONE_NUMBER_ID",
-            "ARGUS_WHATSAPP_PHONE_NUMBER_ID",
-        ),
+        validation_alias=_names("NUMBER_ID"),
     )
     display_phone_number: Optional = Field(
         default=None, validation_alias=_names("DISPLAY_PHONE_NUMBER")

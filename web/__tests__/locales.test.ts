@@ -310,3 +310,7 @@ describe("daily question limit copy", () => {
     expect(catalog.chat).not.toHaveProperty("rate_limit_error");
   });
 });
+test("Spanish period words carry their accent throughout the locale", () => {
+  const text = JSON.stringify(es419);
+  expect(text.match(/periodo/gi) ?? []).toEqual([]);
+});

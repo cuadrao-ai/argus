@@ -309,7 +309,7 @@ describe("chat recovery display", () => {
       "What date window should I use for AAPL?",
     );
     expect(recoveryDisplayText(display, tFromCatalog(esCatalog))).toBe(
-      "¿Qué periodo quieres usar para AAPL?",
+      "¿Qué período quieres usar para AAPL?",
     );
   });
 
