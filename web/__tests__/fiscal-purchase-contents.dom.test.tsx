@@ -129,7 +129,8 @@ test("each linked row names its source, and an edit to ITBIS facturado holds it 
     assert.equal(status(held.host, "itbis"), null);
     await act(async () => held.row("itbis").querySelector<HTMLButtonElement>('[data-restore-inherited="itbis"]')!.click());
     assert.equal(status(held.host, "itbis")?.getAttribute("aria-label"), "Sale de Montos", "Restaurar shows the link again");
-    await held.save("itbis");
+    assert.equal(held.writes.length, 1, "Restore saves once without a second check press");
+    assert.equal(held.row("itbis").querySelector('button[aria-label^="Guardar ·"]'), null);
     assert.deepEqual((held.writes[0].input as unknown as { montos?: unknown }).montos, { restore_inherited: ["itbis"] });
   } finally { await held.dispose(); }
 });

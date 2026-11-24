@@ -146,6 +146,17 @@ class DraftRevision(Contract):
     #: the file's name then. The name stays after the file's bytes are erased.
     supporting_change: SupportingChange | None = None
     supporting_filename: str | None = None
+    reviewed_declaration_fields: tuple[str, ...] | None = None
+    before_net_amount: NetAmount | None = None
+    after_net_amount: NetAmount | None = None
+
+    @model_validator(mode="after")
+    def historical_subtotals(self) -> DraftRevision:
+        from argus.domain.business.purchase_review import net_amount
+
+        object.__setattr__(self, "before_net_amount", net_amount(self.before, self.before_dgii) if self.before is not None else None)
+        object.__setattr__(self, "after_net_amount", net_amount(self.after, self.after_dgii))
+        return self
 
 
 class Blocker(Contract):
@@ -477,6 +488,15 @@ class BusinessDossier(RecordContext, DetailReadiness):
     #: has no RNC or no register is loaded.
     rnc_registry_status: RncRegistryStatus | None = None
 
+    @model_validator(mode="after")
+    def human_history(self) -> BusinessDossier:
+        from argus.domain.business.history_review import reviewed_declaration_fields
+
+        sources = {source.id: source for source in self.sources if isinstance(source, WebActionSource)}
+        history = tuple(revision.model_copy(update={"reviewed_declaration_fields": reviewed_declaration_fields(revision, sources)}) for revision in self.history)
+        object.__setattr__(self, "history", history)
+        return self
+
     def model_facing(self) -> dict[str, Any]:
         """The dossier as every model reads it: the JSON dump without the
         facts no scorecard has measured yet."""
@@ -527,6 +547,9 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "rnc_registry_status": True,
     "history": {
         "__all__": {
+            "reviewed_declaration_fields": True,
+            "before_net_amount": True,
+            "after_net_amount": True,
             "before_due_on": True,
             "after_due_on": True,
             "before_document_type": True,

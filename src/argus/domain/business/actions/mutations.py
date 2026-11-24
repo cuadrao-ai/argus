@@ -156,6 +156,7 @@ def save_revision(
     due_on: DueOnInput | None = None,
     reason: RevisionReason | None = None,
     accepted_accounts: FinancialAccountService | None = None,
+    unchanged_version: int | None = None,
 ) -> Applied:
     if before is None and isinstance(after.legal_tip, Unknown) and after.legal_tip.origin is None:
         after = after.model_copy(update={"legal_tip": Unknown(origin="matched", source_ids=source_ids)})
@@ -222,6 +223,9 @@ def save_revision(
         document_type_detected=document_type_detected,
         due_on=after_due_on,
     ).model_dump(mode="json")
+    # Normalize older omitted defaults; repeated human answers write no revision.
+    if unchanged_version is not None and resolution["business"] == BusinessResolution.model_validate(previous).model_dump(mode="json"):
+        return Applied(outcome="applied", draft_id=event.id, version=unchanged_version)
     activity_id = None
     if accepted_accounts is not None:
         from argus.domain.business.actions.accepted_edit import revise_activity
@@ -422,7 +426,10 @@ def revise(
         before or after, stored, declare,
         previous_resolution.get("fiscal_overrides"), previous_resolution.get("bill_mark"), linked,
         retyped=retyped,
-        written=tuple(purchase.model_fields_set if purchase is not None else ()) + (montos.override_inherited if montos else ()),
+        written=tuple(
+            name for name in (purchase.model_fields_set if purchase else ())
+            if stored is None or getattr(purchase, name) != getattr(stored, name)
+        ) + (montos.override_inherited if montos else ()),
         restore=montos.restore_inherited if montos else (),
         amount_derived=amount_derived,
         unsaved=unsaved,
@@ -452,6 +459,7 @@ def revise(
         due_on=due_on,
         reason=reason,
         accepted_accounts=web_accounts if event.state == "accepted" else None,
+        unchanged_version=ref.version if ref is not None and web_accounts is not None else None,
     )
 
 

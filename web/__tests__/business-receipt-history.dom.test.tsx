@@ -541,3 +541,37 @@ describe("a fiscal save in Historial", () => {
     await page.close();
   });
 });
+
+for (const saved of [false, true]) test(`a type change suppresses incidental declaration changes, saved declaration ${saved}`, async () => {
+  const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+  const before = facts("1180.00");
+  const history = [{ ...revision(3, at(11, 8, 0), actor("Ana Peña"), before, { ...before, kind: known("income") }),
+    before_document_type: "recibo" as const, after_document_type: "venta" as const,
+    before_dgii: saved ? { form: "606" as const, id_type: "1", category: "02" } : null,
+    after_dgii: { form: "607" as const, id_type: null },
+  }];
+  const fields: DgiiFields = { "606": [], "607": [{ name: "id_type", label: "Tipo de ID", kind: "select", options: ["1"] }] };
+  const page = await render(<ReceiptHistory history={history} accounts={[]} documentType="venta" dgiiFields={fields} />);
+  try { assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Tipo", "Ana Peña"]]); assert.deepEqual(diffs(page.host), [["Compra", "Venta"]]); }
+  finally { await page.close(); }
+});
+
+test("restored subtotal history displays the historical amount supplied by the server", async () => {
+  const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+  const before = { ...facts("1180.00"), net_amount: known("900.00") };
+  const entry = { ...revision(3, at(11, 8, 0), actor("Ana Peña"), before, { ...before, net_amount: unknown }),
+    before_net_amount: { amount: "900.00", source: "edited" as const }, after_net_amount: { amount: "1000.00", source: "calculated" as const } };
+  const page = await render(<ReceiptHistory history={[entry]} accounts={[]} />);
+  try { assert.deepEqual(diffs(page.host), [["RD$ 900.00", "RD$ 1,000.00"]]); } finally { await page.close(); }
+});
+
+for (const name of ["category", "itbis"]) test(`history shows only the server's explicit ${name} edit`, async () => {
+  const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+  const before = facts("1180.00");
+  const entry = { ...revision(3, at(11, 8, 0), actor("Ana Peña"), before, before),
+    before_dgii: { form: "606" as const, category: "02", itbis: "150.00", paid_on: "2026-10-09", goods_amount: "1000.00" },
+    after_dgii: { form: "606" as const, category: "09", itbis: "180.00", paid_on: null, goods_amount: "970.00" }, reviewed_declaration_fields: [name] };
+  const fields: DgiiFields = { "606": ["category", "itbis", "paid_on", "goods_amount"].map(name => ({ name, label: name, kind: name === "paid_on" ? "date" as const : "money" as const, options: [] })), "607": [] };
+  const page = await render(<ReceiptHistory history={[entry]} accounts={[]} dgiiFields={fields} />);
+  try { assert.equal(page.host.querySelectorAll('[data-testid="history-change"]').length, 1); assert.doesNotMatch(page.host.textContent ?? "", /Fecha de pago|Desconocido/); } finally { await page.close(); }
+});

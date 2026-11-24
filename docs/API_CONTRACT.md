@@ -8786,6 +8786,18 @@ back as it was before the approval: the one a person saved, or none. If that
 undo cannot run, the next approval writes from that earlier declaration
 instead of keeping the failed approval's.
 
+Human review commands that repeat the saved answers leave the draft version and
+history unchanged. Historical revisions publish `before_net_amount` and
+`after_net_amount`, calculated by the server from each immutable snapshot, so a
+restored subtotal displays its resulting amount. Raw audit facts remain intact.
+
+`reviewed_declaration_fields` names the changed declaration fields explicitly
+submitted by the person, recovered from the revision's saved web command. Linked
+fields that moved only because their source changed are excluded. Null preserves
+legacy history when command evidence is unavailable; an empty array means no
+explicit declaration changes. A document type switch displays one type change.
+These three display fields are excluded from the model-facing dossier.
+
 A revision that writes a draft's first declaration records as `before_dgii`
 the declaration the review showed, so its history entry holds only what the
 write changed: a person's answers on a first fiscal save, and on an approval

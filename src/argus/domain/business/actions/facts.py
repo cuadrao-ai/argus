@@ -37,6 +37,9 @@ def patched_facts(
     for name, value in patch.model_dump(mode="json").items():
         if name == "purchase":
             continue
+        held = facts[name]
+        if origin == "member_set" and held["state"] == value["state"] and held.get("value") == value.get("value"):
+            continue
         facts[name] = {
             **value,
             "origin": origin,
@@ -69,6 +72,7 @@ def reviewed_amount_facts(before: BusinessFacts, review: MontosReview, source_id
     changes = {}
     for name in ("net_amount", "legal_tip"):
         value = getattr(review, name)
-        if value is not None:
+        held = getattr(before, name)
+        if value is not None and (value.state, value.value) != (held.state, held.value):
             changes[name] = {**value.model_dump(), "origin": origin, "verified": False, "source_ids": source_ids}
     return BusinessFacts.model_validate(before.model_dump() | changes)
