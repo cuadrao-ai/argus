@@ -1126,7 +1126,7 @@ def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> d
         return incoming if read_fills(prior) else prior
     if currency and incoming.get("origin") == "default":
         return prior
-    if read_fills(prior):
+    if currency and read_fills(prior):
         return incoming
     if prior["state"] == "known" and prior["value"] == incoming["value"]:
         return prior

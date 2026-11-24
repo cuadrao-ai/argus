@@ -441,7 +441,11 @@ def read_fills(fact: Mapping[str, Any]) -> bool:
 
     if fact["state"] == "unknown":
         return fact.get("origin") not in {"owner_stated", "member_set", "matched"}
-    return fact.get("origin") == "default"
+    return (
+        fact.get("origin") == "default"
+        and fact.get("value") == "DOP"
+        and not fact.get("source_ids")
+    )
 
 
 def is_personal(facts: BusinessFacts) -> bool:
