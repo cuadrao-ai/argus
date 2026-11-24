@@ -2566,6 +2566,8 @@
         },
         "workflow": {
           "exported": "Exportado",
+          "missing_count_placeholder_one": "Falta {{count}} dato",
+          "missing_count_placeholder_other": "Faltan {{count}} datos",
           "not_ready": "Faltan datos",
           "ready": "Listo",
           "review": "Por revisar",
