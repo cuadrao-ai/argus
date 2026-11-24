@@ -26,8 +26,8 @@ def test_table_file_state_uses_only_ready(fake, ready, expected):
     assert _table_cell(record, "stage", "es-419") == expected
 
 
-@pytest.mark.parametrize("ready,expected", [(None, 2), (False, 2), (True, 0)])
-def test_overview_count_matches_the_current_report_filters(fake, ready, expected):
+@pytest.mark.parametrize("ready,matching", [(None, 3), (False, 2), (True, 3)])
+def test_overview_count_matches_the_current_report_filters(fake, ready, matching):
     dataset = (
         row(fake, ready=False, counterparty="selected"),
         row(fake, ready=False, counterparty="selected", stage="exported"),
@@ -43,7 +43,8 @@ def test_overview_count_matches_the_current_report_filters(fake, ready, expected
         report(q="selected", currencies=["DOP"], ready=ready),
         NOW,
     )
-    assert answer.overview.not_ready == expected
+    assert answer.matching_count == matching
+    assert answer.overview.not_ready == 2
 
 
 def test_inicio_groups_current_month_report_readiness_by_family_and_currency(fake):

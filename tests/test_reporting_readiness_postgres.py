@@ -110,11 +110,11 @@ def test_store_row_filter_and_count_share_current_readiness(readiness_records, r
     result = read_report(
         service.authority, context, ReportRequest(filters={"ready": ready})
     )
-    expected = [row for row in all_rows if ready is None or row.ready == ready]
+    expected = [row for row in all_rows if ready is not False or not row.ready]
     assert {row.row_id for row in result.items} == {row.row_id for row in expected}
     assert result.matching_count == len(expected)
     assert result.overview.not_ready == sum(not row.ready for row in expected)
-    assert result.overview.not_ready == (0 if ready else 2)
+    assert result.overview.not_ready == 2
 
 
 def test_usd_readiness_does_not_change_the_export_dialog_or_file(readiness_records):
