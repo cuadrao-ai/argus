@@ -55,7 +55,7 @@ async function mount(read: Partial<ReceiptReading> | null, variant: "notice" | "
     host, sent, notice, click,
     turnOn: () => host.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-turn-on"]'),
     toggle: () => host.querySelector<HTMLButtonElement>('[role="switch"]'),
-    consent: () => host.querySelector<HTMLElement>('[data-testid="receipt-reading-consent"]'),
+    dialog: () => document.querySelector<HTMLElement>('[role="alertdialog"]'),
   };
 }
 
@@ -65,6 +65,8 @@ test("reading off is a compact notice: it says reading is off, the short line, a
   assert.deepEqual([...notice.querySelectorAll("span > span")].map((line) => line.textContent), ["La lectura automática está apagada.", "Tú siempre revisas y aceptas."]);
   assert.equal(page.turnOn()?.textContent, "Activar lectura de documentos");
   assert.equal(page.turnOn()?.previousElementSibling, notice.querySelector("span"), "the button sits right beside the text");
+  assert.doesNotMatch(page.turnOn()!.parentElement!.className, /justify-between/);
+  assert.ok(page.turnOn()!.parentElement!.classList.contains("gap-x-4"));
   assert.equal(page.toggle(), null, "no switch");
   assert.equal(page.host.querySelector('[data-testid="receipt-reading-control"]'), null, "the switch row belongs to the upload panel");
   assert.equal(notice.textContent?.includes(WORDS), false);
@@ -81,28 +83,69 @@ test("reading on, or a setting the server did not answer, shows no notice", asyn
   }
 });
 
-test("the first turn-on shows the server's paragraph once, in the notice, and one confirm turns reading on", async () => {
-  const page = await mount({ enabled: false, consented_at: null, disclosure_token: "f".repeat(64), scope_version: 3 });
+test("the first turn-on confirms the server disclosure in a modal and waits for the save", async () => {
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => { finish = resolve; });
+  const page = await mount({ enabled: false, consented_at: null, disclosure_token: "f".repeat(64), scope_version: 3 }, "notice", () => pending);
+  const notice = page.notice()!;
+  const atRest = notice.innerHTML;
   await page.click(page.turnOn());
-  assert.deepEqual(page.sent, [], "nothing is sent before the words are confirmed");
-  assert.ok(page.notice(), "reading is still off");
-  const consent = page.consent()!;
-  assert.equal(consent.querySelector("p")?.textContent, WORDS);
-  assert.ok(page.notice()!.contains(consent), "the paragraph sits in place, in the notice");
-  assert.deepEqual([...consent.querySelectorAll("button")].map((button) => button.textContent), ["Confirmar"]);
-  await page.click(consent.querySelector("button"));
-  assert.deepEqual(page.sent, [{ enabled: true, token: "f".repeat(64), version: 3 }], "the confirm sends the token of the words shown");
-  assert.equal(page.notice(), null, "the notice leaves once reading is on");
-  assert.equal(page.host.textContent?.includes(WORDS), false, "the paragraph is gone with it");
+  assert.deepEqual(page.sent, []);
+  assert.equal(notice.innerHTML, atRest);
+  const dialog = page.dialog()!;
+  assert.equal(dialog.getAttribute("aria-modal"), "true");
+  assert.equal(dialog.querySelector("h2")?.textContent, "Leer mis documentos automáticamente");
+  assert.equal(dialog.querySelector("p")?.textContent, WORDS);
+  const [cancel, confirm] = dialog.querySelectorAll("button");
+  assert.deepEqual([cancel.textContent, confirm.textContent], ["Cancelar", "Confirmar"]);
+  assert.equal(document.activeElement, cancel);
+  await page.click(confirm);
+  assert.ok(confirm.disabled && cancel.disabled);
+  assert.equal(confirm.getAttribute("aria-busy"), "true");
+  assert.deepEqual(page.sent, [{ enabled: true, token: "f".repeat(64), version: 3 }]);
+  await act(async () => finish());
+  assert.equal(page.notice(), null);
+  assert.equal(page.dialog(), null);
 });
 
-test("pressing the button again before confirming puts the paragraph away and sends nothing", async () => {
+test("cancel, Escape and the scrim close first-time consent and restore focus without saving", async () => {
   const page = await mount({ enabled: false });
-  await page.click(page.turnOn());
-  assert.ok(page.consent());
-  await page.click(page.turnOn());
-  assert.equal(page.consent(), null);
-  assert.deepEqual(page.sent, []);
+  const opener = page.turnOn()!;
+  for (const action of ["cancel", "escape", "scrim"]) {
+    await page.click(opener);
+    const dialog = page.dialog()!;
+    if (action === "escape") {
+      await act(async () => { document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    } else {
+      await page.click(action === "cancel" ? dialog.querySelector("button") : dialog.parentElement!.querySelector("button[tabindex='-1']"));
+    }
+    assert.equal(page.dialog(), null, action);
+    assert.equal(document.activeElement, opener, action);
+    assert.deepEqual(page.sent, []);
+  }
+});
+
+test("a failed first consent offers retry inside the dark dialog", async () => {
+  document.documentElement.classList.add("dark");
+  try {
+    let refuse = true;
+    const page = await mount({ enabled: false }, "notice", async () => { if (refuse) throw new Error("refused"); });
+    await page.click(page.turnOn());
+    const dialog = page.dialog()!;
+    assert.match(dialog.className, /dark:bg-|var\(--/);
+    assert.match(dialog.querySelector("p")!.className, /dark:text-|var\(--/);
+    assert.match(dialog.querySelector("button")!.className, /dark:text-|var\(--/);
+    const confirm = dialog.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!;
+    await page.click(confirm);
+    assert.match(dialog.querySelector('[role="alert"]')?.textContent ?? "", /No se pudo actualizar/);
+    assert.equal(page.notice()?.querySelector('[role="alert"]'), null);
+    assert.equal(confirm.textContent, "Reintentar");
+    refuse = false;
+    await page.click(confirm);
+    assert.deepEqual(page.sent.map((call) => call.enabled), [true, true]);
+    assert.equal(page.dialog(), null);
+    assert.equal(page.notice(), null);
+  } finally { document.documentElement.classList.remove("dark"); }
 });
 
 test("a Business that accepted before turns reading on in place, with no paragraph", async () => {
@@ -110,6 +153,7 @@ test("a Business that accepted before turns reading on in place, with no paragra
   await page.click(page.turnOn());
   assert.deepEqual(page.sent, [{ enabled: true, token: "e".repeat(64), version: 3 }], "the same server call and token as the first time");
   assert.equal(page.host.textContent?.includes(WORDS), false);
+  assert.equal(page.dialog(), null);
   assert.equal(page.notice(), null);
 });
 
@@ -117,6 +161,7 @@ test("a turn-on the server refuses keeps the notice, off, with the error and a r
   let refuse = true;
   const page = await mount({ enabled: false, consented_at: "2026-11-01T12:00:00Z" }, "notice", async () => { if (refuse) throw new Error("refused"); });
   await page.click(page.turnOn());
+  assert.equal(page.dialog(), null);
   assert.equal(page.turnOn()?.disabled, false, "the button is ready again");
   const alert = page.notice()!.querySelector('[role="alert"]')!;
   assert.match(alert.textContent ?? "", /No se pudo actualizar la lectura de documentos\./);

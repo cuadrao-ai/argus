@@ -154,10 +154,10 @@ test("reading off is one compact notice under the views: its button turns readin
     assert.equal(toggle.previousElementSibling, notice.querySelector("span"), "the button sits right beside the text");
     assert.deepEqual([...notice.querySelectorAll("button")], [toggle], "the button is the notice's only control");
     await off.act(async () => toggle.click());
-    const consent = notice.querySelector('[data-testid="receipt-reading-consent"]')!;
+    const consent = document.querySelector('[role="alertdialog"]')!;
     assert.equal(consent.querySelector("p")?.textContent, "Permiso de prueba");
     assert.deepEqual(turnedOn, []);
-    await off.act(async () => { consent.querySelector("button")!.click(); await Promise.resolve(); });
+    await off.act(async () => { consent.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!.click(); await Promise.resolve(); });
     await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-notice"]') === null);
     assert.deepEqual(turnedOn, [true]);
     assert.equal(off.host.textContent?.includes("Permiso de prueba"), false);
@@ -186,7 +186,7 @@ test("a workspace refresh that lands while the turn-on is saving cannot undo the
     const ready = () => notice()?.querySelector("button") != null && !page.host.querySelector('[data-testid="reception-pending"]');
     await page.settle(ready);
     await page.act(async () => notice()!.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-turn-on"]')!.click());
-    await page.act(async () => { notice()!.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-consent"] button')!.click(); await Promise.resolve(); });
+    await page.act(async () => { document.querySelector<HTMLButtonElement>('[role="alertdialog"] [data-testid="confirm-dialog-confirm"]')!.click(); await Promise.resolve(); });
     const answered = workspaceAnswers;
     await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="workspace-refresh"]')!.click());
     await page.settle(() => workspaceAnswers > answered && ready());

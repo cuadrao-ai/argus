@@ -2,13 +2,14 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Switch } from "@/components/ui/Switch";
 import type { BusinessWorkspaceInfo, ReceiptReading } from "@/lib/business-api";
 import { getChosenGrant } from "@/lib/business-grant";
 import { normalizeEnabledLanguage, resolveLanguage } from "@/lib/language-features";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { quietButtonClass } from "./business-ui";
+import { primaryButtonClass, quietButtonClass } from "./business-ui";
 import { FOCUS_RING } from "./foundation/presentation";
 import { showToast } from "./foundation/toasts";
 
@@ -21,7 +22,7 @@ type ReadingState = {
   reading: ReceiptReading | null;
   failed: boolean;
   canSet: boolean;
-  /** The words to agree to are open under the row. They close with a saved change, and when the Business or language changes under them. */
+  /** The server disclosure is open for confirmation. They close with a saved change, and when the Business or language changes under them. */
   consentOpen: boolean;
   setConsentOpen: (open: boolean) => void;
   change: (enabled: boolean) => Promise<void>;
@@ -76,7 +77,11 @@ export function useReceiptReading(onChanged?: (next: ReceiptReading) => void): R
       if (mutation.current === controller) mutation.current = null;
     }
   };
-  return { reading, failed, canSet: Boolean(source.setReceiptReading), consentOpen, setConsentOpen, change };
+  const showConsent = (open: boolean) => {
+    setFailed(false);
+    setConsentOpen(open);
+  };
+  return { reading, failed, canSet: Boolean(source.setReceiptReading), consentOpen, setConsentOpen: showConsent, change };
 }
 
 /**
@@ -101,10 +106,9 @@ function useTurnOn({ reading, change, canSet, consentOpen, setConsentOpen }: Rea
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   if (!reading || reading.enabled) return null;
-  const turnOn = () => change(true);
   const save = async () => {
     setSaving(true);
-    try { await turnOn(); } catch { /* The surface says it failed and offers the retry. */ } finally { setSaving(false); }
+    try { await change(true); } catch { /* The surface says it failed and offers the retry. */ } finally { setSaving(false); }
   };
   return {
     reading,
@@ -113,35 +117,24 @@ function useTurnOn({ reading, change, canSet, consentOpen, setConsentOpen }: Rea
       : reading.available ? t("business.intake.reading_help_on") : t("business.activity.unavailable"),
     disabled: !reading.can_change || !canSet || !reading.available || saving,
     saving,
-    turnOn,
     save,
-    openWords: () => setConsentOpen(!consentOpen),
+    start: () => reading.consented_at ? save() : setConsentOpen(!consentOpen),
   };
 }
 
-/** What follows a turn-on in place: the server's words the first time, and the retry when the save failed. */
-function TurnOnFollowUp({ state, turn }: { state: ReadingState; turn: NonNullable<ReturnType<typeof useTurnOn>> }) {
+/** On a surface that saves in place, keep the retry beside the control. */
+function TurnOnError({ retry, disabled }: { retry: () => Promise<void>; disabled: boolean }) {
   const { t } = useTranslation();
   return (
-    <>
-      {state.consentOpen ? (
-        <div data-testid="receipt-reading-consent" className="flex flex-col items-start gap-3 pb-3">
-          <p className="text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{turn.reading.disclosure}</p>
-          <button type="button" disabled={turn.saving} onClick={() => void turn.save()} className={noticeButtonClass}>{t("common.confirm")}</button>
-        </div>
-      ) : null}
-      {state.failed ? (
-        <div role="alert" className="flex flex-wrap items-center gap-x-3 pb-2.5 text-[12.5px] leading-[17px] text-[#9e2f39] dark:text-[#ec9aa0]">
-          <p>{t("business.activity.error")}</p>
-          <button type="button" onClick={() => void turn.save()} className={quietButtonClass}>{t("common.retry")}</button>
-        </div>
-      ) : null}
-    </>
+    <div role="alert" className="flex flex-wrap items-center gap-x-3 pb-2.5 text-[12.5px] leading-[17px] text-[#9e2f39] dark:text-[#ec9aa0]">
+      <p>{t("business.activity.error")}</p>
+      <button type="button" disabled={disabled} onClick={() => void retry()} className={quietButtonClass}>{t("common.retry")}</button>
+    </div>
   );
 }
 
-const helpClass = "text-[12.5px] leading-[17px] text-[#56635e] dark:text-white/70";
-const titleClass = "text-[14px] font-medium text-[#172b26] dark:text-white";
+const helpClass = "text-[12.5px] leading-[17px] text-[var(--segment-text)]";
+const titleClass = "text-[14px] font-medium text-[var(--segment-text-strong)]";
 const noticeButtonClass = `inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-[#172b26]/25 bg-white px-4 text-[14px] font-medium text-[#172b26] transition-colors hover:bg-[#F7F5EE] active:bg-[#EFEDE6] ${FOCUS_RING} disabled:opacity-40 dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/[0.06] dark:active:bg-white/10`;
 
 /**
@@ -164,10 +157,16 @@ export function ReceiptReadingOption({ state, className = "" }: { state: Reading
           label={t("business.activity.switch_label")}
           checked={false}
           disabled={turn.disabled}
-          onChange={() => (turn.reading.consented_at ? turn.turnOn() : turn.openWords())}
+          onChange={turn.start}
         />
       </div>
-      <TurnOnFollowUp state={state} turn={turn} />
+      {state.consentOpen ? (
+        <div data-testid="receipt-reading-consent" className="flex flex-col items-start gap-3 pb-3">
+          <p className="text-[14px] leading-relaxed text-[var(--segment-text)]">{turn.reading.disclosure}</p>
+          <button type="button" disabled={turn.disabled} onClick={() => void turn.save()} className={primaryButtonClass}>{t("common.confirm")}</button>
+        </div>
+      ) : null}
+      {state.failed ? <TurnOnError retry={turn.save} disabled={turn.disabled} /> : null}
     </div>
   );
 }
@@ -183,7 +182,7 @@ function ReceiptReadingNotice({ state, pending }: { state: ReadingState; pending
   if (!turn) return null;
   return (
     <div data-testid="receipt-reading-notice" data-surface-block="reading" data-enabled="false" aria-hidden={pending || undefined} style={pending ? { visibility: "hidden" } : undefined} className="mb-4 max-w-[640px] rounded-item border border-[#E4E2DA] bg-[#FFFEFA] px-4 dark:border-white/[0.07] dark:bg-white/[0.03]">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className={titleClass}>{t("business.activity.off_notice")}</span>
           <span className={helpClass}>{turn.help}</span>
@@ -192,13 +191,30 @@ function ReceiptReadingNotice({ state, pending }: { state: ReadingState; pending
           type="button"
           data-testid="receipt-reading-turn-on"
           disabled={turn.disabled}
-          onClick={() => (turn.reading.consented_at ? void turn.save() : turn.openWords())}
+          onClick={(event) => {
+            // Pointer activation on Safari can leave focus on the page behind the dialog.
+            if (!turn.reading.consented_at) event.currentTarget.focus();
+            void turn.start();
+          }}
           className={noticeButtonClass}
         >
           {t("business.home_setup.steps.receipt_reading.title")}
         </button>
       </div>
-      <TurnOnFollowUp state={state} turn={turn} />
+      {state.consentOpen ? (
+        <ConfirmDialog
+          isOpen
+          tone="primary"
+          title={t("business.activity.switch_label")}
+          description={turn.reading.disclosure}
+          cancelLabel={t("common.cancel")}
+          confirmLabel={t(state.failed ? "common.retry" : "common.confirm")}
+          isBusy={turn.saving}
+          error={state.failed ? t("business.activity.error") : undefined}
+          onConfirm={() => void turn.save()}
+          onCancel={() => { if (!turn.saving) state.setConsentOpen(false); }}
+        />
+      ) : state.failed && turn.reading.consented_at ? <TurnOnError retry={turn.save} disabled={turn.disabled} /> : null}
     </div>
   );
 }

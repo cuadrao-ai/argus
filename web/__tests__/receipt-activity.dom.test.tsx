@@ -493,10 +493,10 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   const workspaces = new Map([[sourceA, await sourceA.workspace()], [sourceB, await sourceB.workspace()]]);
   const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={{ ...context(source, () => { reloads++; }), records: { ...context(source, () => {}).records, workspace: workspaces.get(source)! } }}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
   const toggle = () => page.element.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-turn-on"]');
-  const confirm = () => page.element.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-consent"] button');
+  const confirm = () => document.querySelector<HTMLButtonElement>('[role="alertdialog"] [data-testid="confirm-dialog-confirm"]');
   await act(async () => page.root.render(render(sourceA)));
   await act(async () => toggle()?.click());
-  assert.ok(document.body.textContent?.includes("Business A disclosure"), "the words agreed to sit in the notice");
+  assert.ok(document.body.textContent?.includes("Business A disclosure"), "the words agreed to appear in the dialog");
   await act(async () => confirm()?.click());
   await act(async () => page.root.render(render(sourceB)));
   assert.equal(signal?.aborted, true);

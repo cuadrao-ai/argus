@@ -21,9 +21,9 @@ test("the dossier of a document saved unread shows the reading notice and its bu
     const turnOn = row(off.host)!.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-turn-on"]')!;
     assert.deepEqual([...row(off.host)!.querySelectorAll("button")], [turnOn], "the button is the notice's only control");
     await off.act(async () => turnOn.click());
-    const consent = row(off.host)!.querySelector('[data-testid="receipt-reading-consent"]')!;
+    const consent = document.querySelector('[role="alertdialog"]')!;
     assert.equal(consent.querySelector("p")?.textContent, "Permiso de prueba");
-    await off.act(async () => { consent.querySelector("button")!.click(); await Promise.resolve(); });
+    await off.act(async () => { consent.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!.click(); await Promise.resolve(); });
     await off.wait(() => row(off.host) === null);
     assert.equal(off.host.textContent?.includes("Permiso de prueba"), false);
   } finally { await off.act(async () => off.root.unmount()); }
