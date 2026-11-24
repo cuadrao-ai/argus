@@ -573,7 +573,7 @@ def test_a_recorded_expense_without_an_ncf_needs_fiscal_data(actions):
     [row] = result.items
     assert (row.stage, row.export_missing, row.export_line) == (
         "needs_fiscal_data",
-        "ncf_missing",
+        "missing_ncf",
         False,
     )
     assert (result.overview.ready_for_export, result.overview.export_lines) == (0, 0)

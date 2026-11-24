@@ -102,7 +102,7 @@ test("Total stays static without requests, filters or navigation", async () => {
 });
 
 test("six cards show report scope and the readiness card applies ready false", async () => {
-  const page = await mount({ edit: (rows) => rows.slice(3, 63).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["ncf_missing"]; }) });
+  const page = await mount({ edit: (rows) => rows.slice(3, 63).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["missing_ncf"]; }) });
   assert.deepEqual(overviewCards().map((card) => card.getAttribute("data-overview-filter")), ["fiscal"]);
   assert.equal(document.querySelectorAll("[data-overview-card]").length, 6);
   assert.match(document.querySelector('[data-overview-card="quantity"]')!.textContent!, /63/);
@@ -313,8 +313,8 @@ test("a period the person chose stays chosen when Registros opens again", async 
 test("Estado reads ready and Motivo shows server reasons independently of legacy stage", async () => {
   await mount({ edit: (records) => {
     Object.assign(records[0], { stage: "ready_for_export", ready: false, missing: ["payment_method_missing"] });
-    Object.assign(records[1], { family: "purchase", ready: false, missing: ["ncf_missing", "rnc_missing"] });
-    Object.assign(records[2], { ready: true, missing: ["ncf_missing"] });
+    Object.assign(records[1], { family: "purchase", ready: false, missing: ["missing_ncf", "missing_rnc"] });
+    Object.assign(records[2], { ready: true, missing: ["missing_ncf"] });
   } });
   const cell = (id: number, column: string) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="${column}"]`)?.textContent;
   assert.equal(cell(1, "stage"), "Faltan datos");
@@ -658,7 +658,7 @@ test("closing the phone Filtros sheet without a choice sends no query", async ()
 
 const fiscalCard = () => document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!;
 const fiscalCount = () => fiscalCard().querySelector(".font-display")?.textContent;
-const fiscalRecords = (rows: ReportRecord[]) => rows.forEach((row, index) => { row.stage = index < 60 ? "needs_fiscal_data" : "ready_for_export"; row.fiscal_data = index < 60 ? "missing" : "complete"; row.ready = index >= 60; row.missing = index < 60 ? ["ncf_missing"] : []; });
+const fiscalRecords = (rows: ReportRecord[]) => rows.forEach((row, index) => { row.stage = index < 60 ? "needs_fiscal_data" : "ready_for_export"; row.fiscal_data = index < 60 ? "missing" : "complete"; row.ready = index >= 60; row.missing = index < 60 ? ["missing_ncf"] : []; });
 
 test("Faltan datos narrows all pages then restores Todos while preserving search edits", async () => {
   const prior = null;
@@ -965,7 +965,7 @@ for (const width of [1440, 390]) test(`type tabs share filters and clearing on V
 });
 
 for (const choice of [true, false, null] as const) test(`choosing ${choice} replaces legacy stages loaded from a view`, async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["exported"] } }), edit: (rows) => rows.forEach((row, index) => { row.stage = "exported"; row.fiscal_data = index < 60 ? "missing" : "complete"; row.ready = index >= 60; row.missing = index < 60 ? ["ncf_missing"] : []; }) });
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["exported"] } }), edit: (rows) => rows.forEach((row, index) => { row.stage = "exported"; row.fiscal_data = index < 60 ? "missing" : "complete"; row.ready = index >= 60; row.missing = index < 60 ? ["missing_ncf"] : []; }) });
   assert.equal(document.querySelector('button[aria-label="Quitar filtro Revisión"]'), null);
   await page.click(page.button("Filtros"));
   await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="radio"]')].find((box) => box.parentElement?.textContent === (choice === null ? "Todos" : choice === true ? "Listo" : "Faltan datos")));
@@ -1043,7 +1043,7 @@ test("a sheet still open when the test ends spends its history step before the n
 
 
 test("the card renders not_ready even when legacy counts and the visible rows disagree", async () => {
-  const page = await mount({ edit: (rows) => { rows[0].ready = false; rows[0].missing = ["ncf_missing"]; }, queryAnswer: (_, answer) => ({ ...answer, overview: { ...answer.overview!, not_ready: 7, needs_fiscal_data: 99 } }) });
+  const page = await mount({ edit: (rows) => { rows[0].ready = false; rows[0].missing = ["missing_ncf"]; }, queryAnswer: (_, answer) => ({ ...answer, overview: { ...answer.overview!, not_ready: 7, needs_fiscal_data: 99 } }) });
   assert.equal(fiscalCount(), "7");
   assert.match(fiscalCard().textContent!, /Faltan datos/);
   await page.click(fiscalCard());

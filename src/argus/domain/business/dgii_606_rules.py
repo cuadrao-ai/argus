@@ -144,7 +144,7 @@ RULES: tuple[Rule, ...] = (
         field="ncf",
         applies_when=_well_formed("ncf"),
         check=_sequence_starts_at_one("ncf"),
-        message_key="ncf_invalid",
+        message_key="invalid_ncf",
         dgii_text="Detalle:Linea: <n>:NCF: Secuencia (0) No Valida !",
     ),
     Rule(

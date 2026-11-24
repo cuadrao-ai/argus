@@ -3,7 +3,8 @@ from datetime import date
 
 from argus.domain.business.contracts.facts import Unknown
 from argus.domain.business.dgii_export import fiscal_manifest, line_assessments
-from argus.domain.business.dgii_line import first_missing, missing_items, reason
+from argus.domain.business.dgii_line import missing_items, reason
+from argus.domain.business.missing_reasons import words
 from argus.domain.business.reporting_projection import with_export_verdicts
 from argus.domain.business.reporting_query import ReportFilters
 
@@ -118,10 +119,10 @@ class TestRegistrosReadyMatchesTheExport:
         assert [(row.stage, row.export_missing, row.export_line) for row in judged] == [
             ("ready_for_export", None, True),
             ("needs_fiscal_data", "expense_type_missing", False),
-            ("needs_fiscal_data", "rnc_missing", False),
-            ("needs_fiscal_data", "rnc_invalid", False),
-            ("needs_fiscal_data", "ncf_invalid", False),
-            ("needs_fiscal_data", "date_missing", False),
+            ("needs_fiscal_data", "missing_rnc", False),
+            ("needs_fiscal_data", "invalid_rnc", False),
+            ("needs_fiscal_data", "invalid_ncf", False),
+            ("needs_fiscal_data", "missing_date", False),
             ("needs_fiscal_data", "detail_missing", False),
         ]
 
@@ -154,14 +155,14 @@ class TestRegistrosReadyMatchesTheExport:
 
     def test_missing_items_read_in_spanish(self):
         assert [
-            reason(code)
+            words(code, "es-419")
             for code in (
                 "expense_type_missing",
-                "rnc_missing",
-                "rnc_invalid",
-                "ncf_invalid",
-                "date_missing",
-                "ncf_missing",
+                "missing_rnc",
+                "invalid_rnc",
+                "invalid_ncf",
+                "missing_date",
+                "missing_ncf",
                 "payment_method_missing",
                 "detail_missing",
             )
@@ -175,10 +176,14 @@ class TestRegistrosReadyMatchesTheExport:
             "Falta la forma de pago",
             "Falta un dato",
         ]
-        assert [reason(c, "en") for c in ("ncf_missing", "detail_missing")] == [
+        assert [words(c, "en") for c in ("missing_ncf", "detail_missing")] == [
             "NCF is missing",
             "A detail is missing",
         ]
+
+
+def first_missing(subject, issues):
+    return missing_items(subject, issues)[0]
 
 
 def required(field):
@@ -189,7 +194,7 @@ class TestFirstMissingNamesNcfAndPayment:
     subject = supplier(purchase(), VALID)
 
     def test_only_ncf_missing(self):
-        assert first_missing(self.subject, [required("ncf")]) == "ncf_missing"
+        assert first_missing(self.subject, [required("ncf")]) == "missing_ncf"
 
     def test_only_payment_method_missing(self):
         assert (
@@ -199,12 +204,12 @@ class TestFirstMissingNamesNcfAndPayment:
 
     def test_both_missing_names_ncf_first(self):
         issues = [required("payment_method"), required("ncf")]
-        assert first_missing(self.subject, issues) == "ncf_missing"
+        assert first_missing(self.subject, issues) == "missing_ncf"
 
     def test_unmapped_code_reads_as_a_missing_detail(self):
         issues = [{"code": "fiscal_unheard_of", "activity_id": "a", "field": "x"}]
         assert first_missing(self.subject, issues) == "detail_missing"
-        assert reason(first_missing(self.subject, issues)) == "Falta un dato"
+        assert words(first_missing(self.subject, issues), "es-419") == "Falta un dato"
 
 
 def revised_date():
@@ -219,13 +224,13 @@ class TestFixOrder:
     def test_missing_date_and_ncf_names_the_date_first(self):
         subject = supplier(purchase(), VALID)
         issues = [required("ncf"), revised_date()]
-        assert missing_items(subject, issues) == ("date_missing", "ncf_missing")
-        assert first_missing(subject, issues) == "date_missing"
+        assert missing_items(subject, issues) == ("missing_date", "missing_ncf")
+        assert first_missing(subject, issues) == "missing_date"
 
     def test_a_b01_without_rnc_reads_as_rnc_missing(self):
         subject = supplier(purchase(), VALID)
         issue = {"code": "fiscal_b01_rnc_required", "activity_id": "a", "field": "rnc"}
-        assert first_missing(subject, [issue]) == "rnc_missing"
+        assert first_missing(subject, [issue]) == "missing_rnc"
 
     def test_a_bad_rnc_with_no_rnc_digits_reads_as_rnc_missing(self):
         subject = fiscal(supplier(purchase(), VALID), rnc=None)
@@ -234,13 +239,13 @@ class TestFixOrder:
             "activity_id": "a",
             "field": "rnc",
         }
-        assert first_missing(subject, [issue]) == "rnc_missing"
+        assert first_missing(subject, [issue]) == "missing_rnc"
         present = supplier(purchase(), VALID)
-        assert first_missing(present, [issue]) == "rnc_invalid"
+        assert first_missing(present, [issue]) == "invalid_rnc"
 
     def test_one_missing_item_is_not_several(self):
         subject = supplier(purchase(), VALID)
-        assert missing_items(subject, [required("ncf")]) == ("ncf_missing",)
+        assert missing_items(subject, [required("ncf")]) == ("missing_ncf",)
         assert reason("fiscal_details_missing", "en") == "Fiscal details missing"
 
     def test_a_row_missing_two_things_says_several(self):
@@ -253,5 +258,5 @@ class TestFixOrder:
         judged = with_export_verdicts(rows(records), verdicts(records), frozenset())
         assert [(r.export_missing, r.export_missing_several) for r in judged] == [
             ("expense_type_missing", True),
-            ("ncf_missing", False),
+            ("missing_ncf", False),
         ]

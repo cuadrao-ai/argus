@@ -34,22 +34,22 @@ def test_reason_is_visible_after_state_in_new_and_existing_layouts():
 
 @pytest.mark.parametrize("ready,expected", [(True, "Listo"), (False, "Faltan datos")])
 def test_table_file_state_uses_only_ready(fake, ready, expected):
-    record = row(fake, ready=ready, stage="exported", missing=("ncf_missing",))
+    record = row(fake, ready=ready, stage="exported", missing=("missing_ncf",))
     assert _table_cell(record, "stage", "es-419") == expected
 
 
 @pytest.mark.parametrize(
     "ready,missing,expected",
     [
-        (True, ("ncf_missing",), ""),
-        (False, ("ncf_missing",), "Falta el NCF"),
-        (False, ("ncf_missing", "rnc_missing", "date_missing"), "Falta el NCF +2"),
+        (True, ("missing_ncf",), ""),
+        (False, ("missing_ncf",), "Falta el NCF"),
+        (False, ("missing_ncf", "missing_rnc", "missing_date"), "Falta el NCF +2"),
         (False, ("future_reason",), "Falta un dato"),
         (False, (), ""),
     ],
 )
 def test_table_file_reason_uses_ordered_missing(fake, ready, missing, expected):
-    record = row(fake, ready=ready, missing=missing, export_missing="rnc_missing")
+    record = row(fake, ready=ready, missing=missing, export_missing="missing_rnc")
     assert _table_cell(record, "missing", "es-419") == expected
 
 
