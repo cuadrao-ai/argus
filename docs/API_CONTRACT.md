@@ -9311,7 +9311,7 @@ stored bill mark is `Factura pagada`.
 An accepted expense saved with no declaration is the one exception. The
 dossier and the 606 read the declaration its facts state, the one an open
 review builds: `id_type` from the RNC, the payment form of the stated Business
-account, each linked field at the value it follows, and every answer a person
+account (archived or not), each linked field at the value it follows, and every answer a person
 never gave blank. The dossier carries the `inheritance` entries of an open
 draft for it. It is built on each read and never stored; the first 606 write
 on the record starts from it and saves it. A saved 606 declaration whose

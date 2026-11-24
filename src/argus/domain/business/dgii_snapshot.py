@@ -23,17 +23,16 @@ from argus.domain.business.purchase_review import (
 from argus.domain.recording.owner_funds import no_account
 
 
-def listed_accounts(connection, context) -> list[dict]:
-    """The accounts a Business lists, oldest first: the ones a record's
-    funding can name."""
+def account_types(connection, context) -> dict[str, str]:
+    """The type of every account of the Business by id, archived ones too: an
+    account a record's facts name keeps its type after it is archived."""
 
     with connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute(
-            "select id,nickname,type,currency from public.financial_accounts"
-            " where owner_space_id=%s and user_id=%s and not archived order by created_at,id",
+            "select id,type from public.financial_accounts where owner_space_id=%s and user_id=%s",
             (context.actor.space_id, context.owner_id),
         )
-        return cursor.fetchall()
+        return {str(row["id"]): row["type"] for row in cursor.fetchall()}
 
 
 def fiscal_snapshot(cursor, context, activities, *, only_these=False):
@@ -74,7 +73,7 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
             *([[item["activity_id"] for item in activities]] if only_these else []),
         ),
     )
-    account_types: dict[str, str] | None = None
+    types: dict[str, str] | None = None
     approved = {}
     for row in cursor.fetchall():
         identifier = str(row["activity_id"])
@@ -97,12 +96,9 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
         declaration = TypeAdapter(DgiiDeclaration).validate_python(row["after_dgii"]) if row and row["after_dgii"] else None
         built = None
         if resolution and declaration is None and states_declaration(resolution.document_type, facts):
-            if account_types is None:
-                account_types = {
-                    str(item["id"]): item["type"]
-                    for item in listed_accounts(cursor.connection, context)
-                }
-            built = declaration_from_facts(facts, paying_account_type(facts, account_types))
+            if types is None:
+                types = account_types(cursor.connection, context)
+            built = declaration_from_facts(facts, paying_account_type(facts, types))
         declaration = saved_declaration(
             facts,
             declaration,

@@ -8,6 +8,7 @@ from datetime import date
 
 import pytest
 from argus.domain.business.fiscal_profile import set_profile
+from argus.domain.recording.schemas import EditFinancialAccountRequest
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_declaration_after_approval_postgres as after_approval
@@ -33,11 +34,24 @@ def stored(service, draft_id) -> str:  # noqa: ANN001
         return db.execute(STORED, {"draft": draft_id}).fetchone()[0]
 
 
-def approved_with_no_line(service, context, ncf, overrides):  # noqa: ANN001, ANN201
+def archived(service, context, account) -> None:  # noqa: ANN001
+    """Archive a Business account the way its owner does."""
+
+    accounts = service.imports.money.accounts
+    current = accounts.get(user_id=context.owner_id, account_id=str(account), scope=context.scope)
+    accounts.edit(
+        user_id=context.owner_id,
+        account_id=str(account),
+        request=EditFinancialAccountRequest(expected_version=current.account.version, archived=True),
+        scope=context.scope,
+    )
+
+
+def approved_with_no_line(service, context, ncf, overrides, account=None):  # noqa: ANN001, ANN201
     """An accepted purchase as the approvals before the 606 line left it: no
     declaration on the draft and none on any revision."""
 
-    cash = after_approval.account_funding(cash_account(service, context))
+    cash = after_approval.account_funding(account or cash_account(service, context))
     draft_id, version = after_approval.captured(service, context, ncf, cash)
     after_approval.approved(service, context, draft_id, version)
     with service.authority.pool.connection() as db, db.transaction():
@@ -98,3 +112,43 @@ def test_an_expense_approved_with_no_saved_line_reads_the_one_its_facts_state(ac
         "1", "02", "01", "180.00",
     )
     assert (row["services_amount"], row["paid_on"]) == ("1000.00", "20260903")
+
+
+def test_archiving_the_paying_account_keeps_the_forma_de_pago_its_facts_state(actions):  # noqa: ANN001
+    service, context, _ = actions
+    set_profile(service.authority, context, filer_change(after_approval.FILER), "rnc")
+    cash = cash_account(service, context)
+    draft_id = approved_with_no_line(service, context, "B0100000052", "{}", cash)
+    archived(service, context, cash)
+    before = stored(service, draft_id)
+
+    view = service.dossier(context, draft_id)
+    manifest, row = after_approval.row_606(service, context)
+
+    assert stored(service, draft_id) == before
+    assert str(cash) not in {str(account.id) for account in service.record_context(context).accounts}
+    assert (view.dgii.payment_method, view.dgii.paid_on) == ("01", DAY)
+    assert view.inheritance["paid_on"].inherited
+    assert {(item["code"], item["field"]) for item in manifest["issues"]} == {
+        ("fiscal_fact_required", "category")
+    }
+
+    edited = after_approval.declared(service, context, draft_id, view.version, category="02")
+    assert edited.outcome == "applied", edited
+    assert service.dossier(context, draft_id).history[-1].after_dgii.payment_method == "01"
+    manifest, row = after_approval.row_606(service, context)
+    assert (row["payment_method"], row["paid_on"]) == ("01", "20260903"), manifest["issues"]
+
+
+def test_an_open_expense_whose_paying_account_was_archived_shows_its_forma_de_pago(actions):  # noqa: ANN001
+    service, context, _ = actions
+    cash = cash_account(service, context)
+    draft_id, _ = after_approval.captured(
+        service, context, "B0100000053", after_approval.account_funding(cash)
+    )
+    archived(service, context, cash)
+
+    view = service.dossier(context, draft_id)
+
+    assert view.review_state == "open"
+    assert view.dgii.payment_method == "01"

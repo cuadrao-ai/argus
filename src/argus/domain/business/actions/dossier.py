@@ -78,7 +78,7 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
 )
-from argus.domain.business.dgii_snapshot import listed_accounts
+from argus.domain.business.dgii_snapshot import account_types
 from argus.domain.business.dgii_validation import purchase_calculated
 from argus.domain.business.document_type import DocumentType, direction, kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
@@ -110,7 +110,11 @@ SOURCE = TypeAdapter(SourceEvidence)
 
 
 def record_context(tx: ActionTransaction) -> RecordContext:
-    rows = listed_accounts(tx.connection, tx.context)
+    rows = tx.rows(
+        "select id,nickname,type,currency from public.financial_accounts"
+        " where owner_space_id=%s and user_id=%s and not archived order by created_at,id",
+        (tx.context.actor.space_id, tx.context.owner_id),
+    )
     return RecordContext(
         space_id=tx.context.actor.space_id,
         space_name=tx.context.space_name,
@@ -338,15 +342,12 @@ def _approved_facts(tx: ActionTransaction) -> Callable[[str], BusinessFacts | No
     return read
 
 
-def _paying_account_type(
-    tx: ActionTransaction, facts: BusinessFacts, accounts: Sequence[AccountChoice] | None
-) -> str | None:
+def _paying_account_type(tx: ActionTransaction, facts: BusinessFacts) -> str | None:
     """The type of the Business account a person stated paid the record."""
 
     if not isinstance(facts.funding, Known) or not isinstance(facts.funding.value, BusinessAccountFunding):
         return None
-    listed = record_context(tx).accounts if accounts is None else accounts
-    return paying_account_type(facts, {str(account.id): account.type for account in listed})
+    return paying_account_type(facts, account_types(tx.connection, tx.context))
 
 
 def linked_original(
@@ -371,7 +372,6 @@ def review_sources(
     facts: BusinessFacts,
     stored: DgiiDeclaration | None,
     document_type: DocumentType,
-    accounts: Sequence[AccountChoice] | None = None,
     shown: DeclarationSuggestions | None = None,
 ) -> LinkedSources:
     """What ``written_from`` reads beyond the draft to show its declaration:
@@ -391,7 +391,7 @@ def review_sources(
     reviewing = state == "open" and stated
     unsaved = state == "accepted" and stored is None and stated
     built = (
-        declaration_from_facts(facts, _paying_account_type(tx, facts, accounts))
+        declaration_from_facts(facts, _paying_account_type(tx, facts))
         if reviewing or unsaved
         else None
     )
@@ -639,7 +639,7 @@ def dossier(
     resolution = BusinessResolution.model_validate(event.resolution["business"])
     registry, registry_status = supplier_registry_read(tx, facts)
     linked = review_sources(
-        tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type, context.accounts
+        tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type
     )
     declaration = written_from(
         facts, resolution.dgii, resolution.fiscal_overrides, resolution.bill_mark, linked
