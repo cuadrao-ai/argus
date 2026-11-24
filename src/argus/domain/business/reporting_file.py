@@ -166,15 +166,15 @@ class RncSupplier(Contract):
 
 
 class DgiiExport(Contract):
-    form: Literal["606", "607"]
+    form: Literal["606"]
     #: The one currency the form states; Revisar shows its pending records.
     currency: str = DECLARABLE_CURRENCY
     record_count: int
-    #: Every record the 606/607 holds back, for either reason below.
+    #: Every record the 606 holds back, for either reason below.
     pending_count: int
-    #: Pesos records the 606/607 holds for missing fiscal data.
+    #: Pesos records the 606 holds for missing fiscal data.
     pending_fiscal_count: int
-    #: Foreign-currency records the 606/607 holds until they have a rate.
+    #: Foreign-currency records the 606 holds until they have a rate.
     pending_rate_count: int
     pending_rate_currencies: tuple[str, ...]
     rnc_warning_count: int
@@ -185,7 +185,7 @@ class DgiiExport(Contract):
 
 class ExportPreview(Contract):
     table: TableExport
-    dgii: DgiiExport
+    dgii: DgiiExport | None
     #: Documents the Bandeja still holds in the export's period, either tab.
     bandeja_count: int
 
@@ -391,7 +391,7 @@ def summarize_export(
         )
 
     every = _with_currencies(request, "all")
-    dgii = _dgii_selection(source, request)
+    dgii = _dgii_selection(source, request) if _family(request) == "purchase" else None
     period = resolve_period(request.filters.period, source.records, source.observed_at)
     waiting = unreviewed_in_month(
         ((day, "") for day, _ in bandeja),
@@ -405,7 +405,7 @@ def summarize_export(
             all=None if every is None else selection(every, True),
         ),
         dgii=DgiiExport(
-            form="607" if _family(request) == "sale" else "606",
+            form="606",
             record_count=len(dgii.lines),
             pending_count=len(dgii.pending_fiscal) + len(dgii.pending_rate),
             pending_fiscal_count=len(dgii.pending_fiscal),
@@ -419,7 +419,9 @@ def summarize_export(
             filenames=filenames(
                 "dgii", [record.occurred_on for record in _dgii_records(source, dgii)]
             ),
-        ),
+        )
+        if dgii is not None
+        else None,
     )
 
 
@@ -608,11 +610,10 @@ def build_file(
     request = choice.report
     family = _family(request)
     if choice.mode == "dgii":
-        form = "607" if family == "sale" else "606"
-        columns = COLUMNS[form]
-        headers = (
-            _PURCHASE_HEADERS if form == "606" else tuple(label for _, label in columns)
-        )
+        if family == "sale":
+            raise ActionError("invalid_input", "business_export_dgii_sales_unavailable")
+        columns = COLUMNS["606"]
+        headers = _PURCHASE_HEADERS
         records = _dgii_records(source, _dgii_selection(source, request))
         rows = [
             [
@@ -620,14 +621,14 @@ def build_file(
                 for (name, _), value in zip(columns, line_values(record), strict=True)
                 for cell in (
                     (value[:6] or None, value[6:] or None)
-                    if form == "606" and name in _SPLIT_DATES
+                    if name in _SPLIT_DATES
                     else (_dgii_cell(name, value),)
                 )
             ]
             for record in records
         ]
         dates = [record.occurred_on for record in records]
-        sheet = form
+        sheet = "606"
     else:
         selected = _with_currencies(request, choice.currencies)
         if selected is None:

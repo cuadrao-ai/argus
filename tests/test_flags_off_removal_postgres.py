@@ -50,7 +50,7 @@ ON = {
     "ARGUS_BUSINESS_CHAT_ENABLED": "false",
     # Intake is on with the project's local test credentials; nothing is sent.
     **WHATSAPP_TEST_ENV,
-    "ARGUS_WHATSAPP_OUTBOUND_ENABLED": "false",
+    "CUADRAO_WHATSAPP_OUTBOUND_ENABLED": "false",
 }
 
 
@@ -199,7 +199,7 @@ def test_a_saved_document_is_read_and_deleted_with_intake_off(
 @pytest.mark.parametrize(
     "off",
     [
-        {"ARGUS_WHATSAPP_INTAKE_ENABLED": "false"},
+        {"CUADRAO_WHATSAPP_INTAKE_ENABLED": "false"},
         {"ARGUS_INGESTION_ENABLED": "false"},
     ],
     ids=["intake-off", "ingestion-off"],

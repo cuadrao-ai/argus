@@ -492,11 +492,11 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   const page = await host();
   const workspaces = new Map([[sourceA, await sourceA.workspace()], [sourceB, await sourceB.workspace()]]);
   const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={{ ...context(source, () => { reloads++; }), records: { ...context(source, () => {}).records, workspace: workspaces.get(source)! } }}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
-  const toggle = () => page.element.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-switch"]');
-  const confirm = () => page.element.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-consent"] button');
+  const toggle = () => page.element.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-turn-on"]');
+  const confirm = () => document.querySelector<HTMLButtonElement>('[role="alertdialog"] [data-testid="confirm-dialog-confirm"]');
   await act(async () => page.root.render(render(sourceA)));
   await act(async () => toggle()?.click());
-  assert.ok(document.body.textContent?.includes("Business A disclosure"), "the words agreed to sit under the row");
+  assert.ok(document.body.textContent?.includes("Business A disclosure"), "the words agreed to appear in the dialog");
   await act(async () => confirm()?.click());
   await act(async () => page.root.render(render(sourceB)));
   assert.equal(signal?.aborted, true);
@@ -507,7 +507,7 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   await act(async () => toggle()?.click());
   assert.ok(document.body.textContent?.includes("Business B disclosure"));
   assert.ok(!document.body.textContent?.includes("Business A disclosure"));
-  assert.equal(toggle()?.getAttribute("aria-checked"), "false");
+  assert.ok(page.element.querySelector('[data-testid="receipt-reading-notice"]'), "reading is still off");
   await act(async () => page.root.unmount());
 });
 
@@ -516,7 +516,7 @@ test("a workspace answered for another Business claims nothing about its reading
   const page = await host();
   const records = { ...context(source, () => {}).records, workspace: await source.workspace(), workspaceGrant: "grant-of-another-business" };
   await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={{ ...context(source, () => {}), records }}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>));
-  assert.equal(page.element.querySelector('[data-testid="receipt-reading-control"]')?.textContent ?? null, null);
+  assert.equal(page.element.querySelector('[data-testid="receipt-reading-notice"]')?.textContent ?? null, null);
   await act(async () => page.root.unmount());
 });
 

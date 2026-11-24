@@ -13,7 +13,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 let cleanup = async () => {};
 afterEach(async () => { await cleanup(); document.body.innerHTML = ""; });
 
-async function status(report: Partial<ReportRecord>, surface: "cell" | "table" | "phone" = "cell", lng = "es-419") {
+async function status(report: Partial<ReportRecord>, surface: "cell" | "table" | "phone" = "cell", lng = "es-419", actionable = true) {
   await cleanup();
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -26,6 +26,7 @@ async function status(report: Partial<ReportRecord>, surface: "cell" | "table" |
   const { sampleRecordsPreferences } = await import("@/components/business-app/transacciones/sample-records-preferences");
   const { businessReportRow } = await import("@/lib/business-reporting-wire");
   const row = businessReportRow({ ...createBusinessReportHttpFixture().records[0], ready: false, missing: [], ...report });
+  if (!actionable) row.opens = null;
   const value = { chosen: { space_id: "s", capabilities: ["read"] }, panel: { kind: "transactions" }, records: { workspace: null }, openPanel: () => {} } as unknown as BusinessContextValue;
   const preferences = sampleRecordsPreferences();
   const stored = { ...preferences, order: ["missing", ...preferences.order], hidden: [] };
@@ -38,7 +39,7 @@ async function status(report: Partial<ReportRecord>, surface: "cell" | "table" |
 
 const cases = [
   { name: "clean", report: { ready: true, missing: ["missing_ncf"], stage: "needs_review" }, expected: "" },
-  { name: "one gap", report: { ready: false, missing: ["missing_rnc"], stage: "exported" }, expected: "Falta el RNC" },
+  { name: "one gap", report: { ready: false, missing: ["missing_rnc"], stage: "exported" }, expected: "Falta 1 dato" },
   { name: "two gaps", report: { ready: false, missing: ["missing_ncf", "missing_rnc"] }, expected: "Faltan 2 datos" },
 ] as const;
 
@@ -70,8 +71,9 @@ test("two gaps expose every reason in server order through the existing tooltip"
   assert.equal(document.querySelector('[role="tooltip"]')?.textContent, "Falta el NCF · Falta el RNC");
 });
 
-test("one gap also exposes its full reason through the tooltip, since the chip clips long words", async () => {
+test("one gap shows its count and exposes its reason only through the tooltip", async () => {
   const host = await status({ ready: false, missing: ["missing_rnc"] });
+  assert.equal(host.textContent, "Falta 1 dato");
   const trigger = host.querySelector<HTMLElement>('[tabindex="0"]');
   assert.ok(trigger);
   const { act } = await import("react");
@@ -86,5 +88,57 @@ test("unknown readiness keeps the Unknown mark", async () => {
 });
 
 test("unknown reason codes retain the existing registry-word fallback", async () => {
-  assert.equal((await status({ ready: false, missing: ["unheard_of"] }, "cell", "en")).textContent, "A detail is missing");
+  const host = await status({ ready: false, missing: ["unheard_of"] }, "cell", "en");
+  assert.equal(host.textContent, "[placeholder] 1 detail missing");
+  const trigger = host.querySelector<HTMLElement>('[tabindex="0"]')!;
+  const { act } = await import("react");
+  await act(async () => { trigger.focus(); await new Promise(resolve => setTimeout(resolve, 350)); });
+  assert.equal(document.querySelector('[role="tooltip"]')?.textContent, "A detail is missing");
 });
+
+for (const surface of ["phone", "table"] as const) {
+  for (const missing of [["credit_note_payment_form"], ["missing_ncf", "missing_rnc"]]) {
+    const description = missing.length === 1 ? "Una nota de crédito usa forma de pago 06" : "Falta el NCF · Falta el RNC";
+    test(`${surface}: an actionable row owns focus and the full ${missing.length}-reason description`, async () => {
+      const host = await status({ ready: false, missing }, surface);
+      const control = host.querySelector<HTMLElement>(surface === "phone" ? 'li[data-record-id] > button' : 'tr[data-record-id]');
+      assert.ok(control);
+      assert.equal(control.tabIndex, 0);
+      const chip = control.querySelector<HTMLElement>('[data-record-status]');
+      assert.ok(chip);
+      assert.equal(chip.textContent, missing.length === 1 ? "Falta 1 dato" : "Faltan 2 datos");
+      const cell = surface === "table" ? control.querySelector('[data-col="stage"]')! : control;
+      assert.ok(!cell.querySelector('button, a[href], input, select, textarea, [tabindex]'), "the status must not add a focusable element inside the row control");
+      assert.equal(control.getAttribute("aria-description"), description);
+      const { act } = await import("react");
+      await act(async () => { control.focus(); });
+      assert.ok(document.activeElement === control);
+      assert.equal(control.getAttribute("aria-description"), description);
+      await act(async () => { chip.parentElement!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); await new Promise(resolve => setTimeout(resolve, 350)); });
+      assert.equal(document.querySelector('[role="tooltip"]')?.textContent, description);
+    });
+    test(`${surface}: ${surface === "table" ? "a grid row without a dossier action owns status focus" : "a plain row keeps its keyboard tooltip"}, ${missing.length} reasons`, async () => {
+      const host = await status({ ready: false, missing }, surface, "es-419", false);
+      const chip = host.querySelector<HTMLElement>('[data-record-status]');
+      assert.equal(chip?.textContent, missing.length === 1 ? "Falta 1 dato" : "Faltan 2 datos");
+      if (surface === "table") {
+        const control = chip!.closest<HTMLElement>("tr")!;
+        assert.equal(control.tabIndex, 0);
+        assert.equal(control.getAttribute("aria-description"), description);
+        assert.ok(!control.querySelector('[data-col="stage"] [tabindex]'));
+        const { act } = await import("react");
+        await act(async () => { control.focus(); });
+        assert.ok(document.activeElement === control);
+        return;
+      }
+      const trigger = chip?.closest<HTMLElement>('[tabindex="0"]');
+      assert.ok(trigger);
+      assert.notEqual(trigger.tagName, "TR");
+      assert.equal(trigger.closest("button, a[href], [role=button]"), null);
+      const { act } = await import("react");
+      await act(async () => { trigger.focus(); await new Promise(resolve => setTimeout(resolve, 350)); });
+      assert.ok(document.activeElement === trigger);
+      assert.equal(document.querySelector('[role="tooltip"]')?.textContent, description);
+    });
+  }
+}

@@ -14,7 +14,7 @@ from tests.test_business_approve_unpaid_postgres import (
     _month,
     _recorded,
 )
-from tests.test_business_fiscal_routes_postgres import dgii_file
+from tests.test_business_fiscal_routes_postgres import dgii_file, table_file
 from tests.test_business_scope_switch_routes_postgres import API
 from tests.test_business_scope_switch_routes_postgres import pytestmark as _local_supabase
 
@@ -39,6 +39,10 @@ def _record(world, kind, ncf):
     return draft
 
 
+#: The one Registros file each tab offers: the 606 for purchases, Lo que ves for sales.
+FILE = {"purchase": dgii_file, "sale": table_file}
+
+
 def _reads(world, family):
     report = world.client.post(
         f"{API}/business/reports/query", json={}, headers=world.alice.headers
@@ -53,7 +57,7 @@ def _reads(world, family):
         "inicio": overview["totals"],
         "period": _month(world)["currencies"],
         "export": sorted(_export(world)[1], key=lambda row: row["NCF"]),
-        "dgii": sorted(dgii_file(world, family), key=str),
+        "file": sorted(FILE[family](world, family), key=str),
     }
 
 
@@ -69,7 +73,7 @@ def test_accepted_delete_restore_updates_reports_and_action_counts(
     draft = _record(world, kind, "B0100000012")
     both = _reads(world, family)
     assert (control["matching_count"], both["matching_count"]) == (1, 2)
-    assert (len(control["dgii"]), len(both["dgii"])) == (1, 2)
+    assert (len(control["file"]), len(both["file"])) == (1, 2)
     if kind == "expense":
         assert both["inicio"] == [{"currency": "DOP", "amount": "2360.00", "count": 2}]
     delete_key = str(uuid4())

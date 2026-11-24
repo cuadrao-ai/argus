@@ -39,7 +39,7 @@ const badge = async (ready: boolean) => {
 test("Registros' Estado chip renders the classes and width it had before the chip was shared", async () => {
   // The class names and width #2197 rendered: the pill, the fixed-width chip and the palette tone.
   const chip = await badge(false);
-  assert.equal(chip.textContent, "Falta el RNC");
+  assert.equal(chip.textContent, "Falta 1 dato");
   assert.equal(chip.className, "workflow stage fiscal");
   assert.equal(chip.getAttribute("style"), "width: 120px;");
 });

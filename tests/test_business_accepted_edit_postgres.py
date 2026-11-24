@@ -19,7 +19,7 @@ from tests.test_business_approve_unpaid_postgres import (
     _report,
     _settle,
 )
-from tests.test_business_fiscal_routes_postgres import dgii_file
+from tests.test_business_fiscal_routes_postgres import dgii_file, table_file
 from tests.test_business_scope_switch_routes_postgres import API, GRANT
 from tests.test_business_scope_switch_routes_postgres import pytestmark as local_supabase
 from tests.test_financial_accounts_postgres import DSN
@@ -145,8 +145,8 @@ def test_accepted_review_updates_one_activity_history_and_feed(world, purchase, 
         assert after["document_type"] == "venta"
         assert row["money_kind"] == "income"
         assert dgii_file(world, "purchase") == []
-        [sale] = dgii_file(world, "sale")
-        assert sale["Número Comprobante Fiscal"] == NCF
+        [sale] = table_file(world, "sale")
+        assert sale["NCF"] == NCF
     else:
         assert manifest["dgii"]["issues"] == []
         [line] = dgii_file(world, "purchase")

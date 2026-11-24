@@ -317,7 +317,7 @@ test("Estado still reads server readiness independently of legacy stage and miss
     Object.assign(records[2], { ready: true, missing: ["missing_ncf"] });
   } });
   const cell = (id: number, column: string) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="${column}"]`)?.textContent;
-  assert.equal(cell(1, "stage"), "Falta la forma de pago");
+  assert.equal(cell(1, "stage"), "Falta 1 dato");
   assert.equal(cell(2, "stage"), "Faltan 2 datos");
   assert.equal(cell(3, "stage"), "");
   assert.equal(document.querySelector('[data-col="missing"], [data-col="funding"]'), null);

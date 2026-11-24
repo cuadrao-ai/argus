@@ -509,8 +509,9 @@ def test_an_unpaid_sale_reads_everywhere_and_is_collected(world) -> None:  # noq
     assert [item["Pago"] for item in rows] == ["pendiente"]
     assert manifest["records"][0]["funding"] == "unknown"
     assert forms["607"] == "prepared_candidate"
-    [line] = routes.dgii_file(world, "sale")
-    assert line["Número Comprobante Fiscal"] == "B0100000031"
+    [line] = routes.table_file(world, "sale")
+    assert (line["NCF"], line["Total"], line["Estado"]) == ("B0100000031", "1180", "Listo")
+    routes.assert_sales_dgii_refused(world)
 
     settled = _settle(world, activity, "cobrado", "transferencia")
     assert (settled["document_kind"], settled["status"]) == ("invoice", "cobrado")

@@ -255,7 +255,7 @@ describe("a recorded purchase with 606 data still missing", () => {
     await page.pick("category", "02");
     const reasons = () => [...document.querySelectorAll("[data-record-missing-list] li")].map((item) => item.textContent);
     await page.wait(() => reasons().length === 1 && page.queries() > asked, "the reason and refreshed Registros after Tipo de gasto");
-    assert.equal(page.chip(), "Falta la forma de pago", "the status names the remaining server reason");
+    assert.equal(page.chip(), "Falta 1 dato", "the status counts the remaining server reason");
     assert.deepEqual(reasons(), ["Falta la forma de pago"], "the open record follows the refreshed server missing list");
     await page.wait(() => page.valueOf("category")?.includes("Gastos por trabajos") === true, "the saved Tipo de gasto");
     await page.pick("payment_method", "03");

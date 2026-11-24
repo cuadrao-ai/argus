@@ -123,21 +123,44 @@ def _review(world, draft: str, body: dict, headers: dict):  # noqa: ANN001, ANN2
     )
 
 
-def dgii_file(world, family: str) -> list[dict[str, str]]:  # noqa: ANN001
-    """The Registros "Formato DGII" CSV of one tab, one dict per line."""
-
-    answer = world.client.post(
+def registros_export(world, family: str, mode: str, columns: list[str]):  # noqa: ANN001, ANN201
+    return world.client.post(
         f"{API}/business/reports/export",
         json={
             "report": {"schema_version": 2, "filters": {"record_families": [family]}},
-            "mode": "dgii",
-            "columns": [],
+            "mode": mode,
+            "columns": columns,
             "format": "csv",
         },
         headers=world.alice.headers,
     )
+
+
+def _lines(answer) -> list[dict[str, str]]:  # noqa: ANN001
     assert answer.status_code == 200, answer.text
     return list(csv.DictReader(io.StringIO(answer.content.decode("utf-8-sig"))))
+
+
+def dgii_file(world, family: str) -> list[dict[str, str]]:  # noqa: ANN001
+    """The Registros "Formato DGII" CSV of one tab, one dict per line."""
+
+    return _lines(registros_export(world, family, "dgii", []))
+
+
+def table_file(world, family: str) -> list[dict[str, str]]:  # noqa: ANN001
+    """The Registros "Lo que ves" CSV of one tab, one dict per line."""
+
+    return _lines(
+        registros_export(
+            world, family, "table", ["date", "fiscal_number", "gross_amount", "stage"]
+        )
+    )
+
+
+def assert_sales_dgii_refused(world) -> None:  # noqa: ANN001
+    answer = registros_export(world, "sale", "dgii", [])
+    assert answer.status_code == 422, answer.text
+    assert answer.json()["code"] == "business_export_dgii_sales_unavailable"
 
 
 def _known(values: dict) -> dict:

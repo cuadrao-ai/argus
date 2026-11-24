@@ -11,6 +11,7 @@ from typing import get_args
 
 import pytest
 from argus.domain.business import country
+from argus.domain.business.authority import ActionError
 from argus.domain.business.reporting import ReportIdentity
 from argus.domain.business.reporting_columns import (
     COLUMN_LABELS,
@@ -155,6 +156,10 @@ def test_the_name_column_is_emisor_on_compras_and_cliente_on_ventas(
         return next(csv.reader(io.StringIO(built.content.decode("utf-8-sig"))))
 
     assert header("table", language)[0] == name
+    if family == "sale":
+        with pytest.raises(ActionError, match="business_export_dgii_sales_unavailable"):
+            header("dgii", language)
+        return
     assert header("dgii", language) == header("dgii", "es-419")
     assert name not in header("dgii", language)
 

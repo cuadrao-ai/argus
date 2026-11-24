@@ -143,7 +143,7 @@ test("without a consent provider, model actions stay blocked and manual recordin
   const labels = [...host.querySelectorAll("button")].map((button) => button.textContent);
   assert.equal(labels.includes("Add"), true);
   assert.equal(labels.includes("What did I spend this month?"), false);
-  assert.equal(host.querySelector('[data-testid="receipt-reading-control"]'), null);
+  assert.equal(host.querySelector('[data-testid="receipt-reading-notice"]'), null);
   assert.equal(calls.enable, 0);
   assert.equal(host.textContent?.includes("Ferretería"), true);
 
@@ -167,7 +167,7 @@ test("without a consent provider, model actions stay blocked and manual recordin
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   const openLabels = [...host.querySelectorAll("button")].map((button) => button.textContent);
   assert.equal(openLabels.includes("What did I spend this month?"), true);
-  assert.ok(host.querySelector('[data-testid="receipt-reading-control"] [role="switch"]'));
+  assert.ok(host.querySelector('[data-testid="receipt-reading-notice"] [data-testid="receipt-reading-turn-on"]'));
   await act(async () => { root.render(open(<ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-1" }} />)); });
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   const openPrepare = [...host.querySelectorAll("button")].find((button) => button.textContent?.includes("Read again")) as HTMLButtonElement;
