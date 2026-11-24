@@ -431,7 +431,7 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     record = row(
         fake,
         stage="needs_fiscal_data",
-        export_missing="ncf_missing",
+        export_missing="missing_ncf",
         itbis_amount="18.00",
         has_document=True,
         funding_label="Cuenta de operaciones",

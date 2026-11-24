@@ -192,17 +192,17 @@ async function openReadinessRecords(page: Page, language: Language = "es-419", t
   const fixture = createBusinessReportHttpFixture();
   const purchases = fixture.records.filter((row) => row.family === "purchase");
   purchases[0].ready = false;
-  purchases[0].missing = ["expense_type_missing", "payment_method_missing", "rnc_missing"];
+  purchases[0].missing = ["expense_type_missing", "payment_method_missing", "missing_rnc"];
   purchases[0].stage = "ready_for_export";
   purchases[1].ready = true;
   purchases[1].technical_state = null;
   purchases[1].report_date = "2026-10-20";
   purchases[1].currency = "DOP";
   purchases[1].gross_amount = "100.00";
-  purchases[1].missing = ["ncf_missing"];
+  purchases[1].missing = ["missing_ncf"];
   purchases[1].stage = "needs_fiscal_data";
   purchases[2].ready = false;
-  purchases[2].missing = ["ncf_missing"];
+  purchases[2].missing = ["missing_ncf"];
   if (targetExpense) {
     purchases[0].draft_id = null;
     purchases[0].row_id = `expense:${purchases[0].linked_activity_ids[0]}`;
