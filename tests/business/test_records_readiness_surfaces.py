@@ -5,9 +5,7 @@ from datetime import date
 import pytest
 from argus.domain.business import month_close_store
 from argus.domain.business.reporting import ReportIdentity
-from argus.domain.business.reporting_columns import SPECS
 from argus.domain.business.reporting_file import _table_cell
-from argus.domain.business.reporting_preferences import Presentation
 from argus.domain.business.reporting_query import run_query
 from faker import Faker
 
@@ -22,35 +20,10 @@ def fake():
     return result
 
 
-def test_reason_is_visible_after_state_in_new_and_existing_layouts():
-    assert SPECS["missing"].label == "business.transactions.layout.column_reason"
-    assert not SPECS["missing"].hidden
-    before = Presentation().model_dump(mode="json")
-    before["order"] = [key for key in before["order"] if key != "missing"]
-    upgraded = Presentation.model_validate(before)
-    assert upgraded.order[upgraded.order.index("stage") + 1] == "missing"
-    assert "missing" not in upgraded.hidden
-
-
 @pytest.mark.parametrize("ready,expected", [(True, "Listo"), (False, "Faltan datos")])
 def test_table_file_state_uses_only_ready(fake, ready, expected):
     record = row(fake, ready=ready, stage="exported", missing=("missing_ncf",))
     assert _table_cell(record, "stage", "es-419") == expected
-
-
-@pytest.mark.parametrize(
-    "ready,missing,expected",
-    [
-        (True, ("missing_ncf",), ""),
-        (False, ("missing_ncf",), "Falta el NCF"),
-        (False, ("missing_ncf", "missing_rnc", "missing_date"), "Falta el NCF +2"),
-        (False, ("future_reason",), "Falta un dato"),
-        (False, (), ""),
-    ],
-)
-def test_table_file_reason_uses_ordered_missing(fake, ready, missing, expected):
-    record = row(fake, ready=ready, missing=missing, export_missing="missing_rnc")
-    assert _table_cell(record, "missing", "es-419") == expected
 
 
 @pytest.mark.parametrize("ready,expected", [(None, 2), (False, 2), (True, 0)])

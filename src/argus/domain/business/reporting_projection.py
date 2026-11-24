@@ -34,6 +34,7 @@ from argus.domain.business.document_type import SALE, direction
 from argus.domain.business.fiscal_identity import normalized_ncf, normalized_taxpayer_id
 from argus.domain.business.missing_reasons import DETAIL_MISSING, registered
 from argus.domain.business.purchase_review import net_amount
+from argus.domain.business.reporting_columns import missing_columns
 from argus.domain.business.reporting_query import DgiiChoice, Purchase606, ReportRecord
 from argus.domain.business.review_flags import review_flags
 from argus.domain.ingestion.reconcile.model import ImportEvent
@@ -380,7 +381,13 @@ def with_export_verdicts(
         identifier = row.linked_activity_ids[0]
         assessment = verdicts.get(identifier)
         ready, missing = readiness(row, assessment)
-        row = row.model_copy(update={"ready": ready, "missing": missing})
+        row = row.model_copy(
+            update={
+                "ready": ready,
+                "missing": missing,
+                "missing_fields": missing_columns(missing, row.family),
+            }
+        )
         if row.stage != "ready_for_export":
             return row
         if assessment is not None:

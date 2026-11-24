@@ -16,12 +16,13 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import xlsxwriter
 from pydantic import model_validator
+from typing_extensions import assert_never
 
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
 from argus.domain.business.contracts.dgii import printed_date
@@ -40,6 +41,7 @@ from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.month_close import unreviewed_in_month
 from argus.domain.business.reporting_columns import (
     CURRENCY_LABEL,
+    RETIRED_COLUMNS,
     SPECS,
     FileColumn,
 )
@@ -102,6 +104,18 @@ class RecordsExport(Contract):
     columns: tuple[FileColumn, ...] = ()
     currencies: Literal["all", "current"] = "all"
     format: Literal["xlsx", "csv"] = "xlsx"
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_retired_table_columns(cls, value: Any) -> Any:
+        if isinstance(value, dict) and value.get("mode") == "table":
+            columns = value.get("columns")
+            if isinstance(columns, (list, tuple)):
+                return {
+                    **value,
+                    "columns": [key for key in columns if key not in RETIRED_COLUMNS],
+                }
+        return value
 
     @model_validator(mode="after")
     def mode_choices(self) -> RecordsExport:
@@ -409,14 +423,6 @@ def summarize_export(
     )
 
 
-def _missing_word(row: ReportRecord, locale: FileLocale) -> str:
-    if row.ready or not row.missing:
-        return ""
-    words = _WORDS[locale]["business.transactions.layout.workflow.missing"]
-    first = words.get(row.missing[0], words["detail_missing"])
-    return f"{first} +{len(row.missing) - 1}" if len(row.missing) > 1 else first
-
-
 def _dgii_word(
     row: ReportRecord, field: Literal["expense_type", "payment_form"], locale: FileLocale
 ) -> str:
@@ -455,15 +461,13 @@ def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
     if key == "stage":
         state = "ready" if row.ready else "not_ready"
         return _WORDS[locale][f"business.transactions.layout.workflow.{state}"]
-    if key == "missing":
-        return _missing_word(row, locale)
     if key == "note":
         return row.note
     if key == "attachment":
         return _WORDS[locale]["common.yes" if row.has_document else "common.no"]
     if key in ("expense_type", "payment_form"):
         return _dgii_word(row, key, locale)
-    return row.funding_label
+    assert_never(key)
 
 
 def _period_name(start: date | None, end: date | None, separator: str) -> str:
