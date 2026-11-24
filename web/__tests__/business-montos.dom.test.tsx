@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act, type ReactNode } from "react";
+import { act, useState, type ReactNode } from "react";
 import { I18nextProvider } from "react-i18next";
 import i18next from "i18next";
 import ReceiptRecordFacts from "@/components/business-app/ReceiptRecordFacts";
@@ -199,7 +199,22 @@ const settle = () => act(async () => { await new Promise((resolve) => setTimeout
 async function editing(base: BusinessDossier, options: { values?: Record<string, string | null>; fields?: DgiiFields; fiscal?: () => Promise<BusinessDossier> } = {}) {
   const writes: DgiiReview[] = [];
   const { drafts, preview } = server(base, options.values);
-  const host = await mount(<FiscalDeclarationEditor dossier={base} fields={options.fields ?? fields} disabled={false} reviewFiscal={async (_, __, input) => { writes.push(input); return options.fiscal?.() ?? base; }} previewLinks={preview} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  function Editor() {
+    const [current, setCurrent] = useState(base);
+    return <FiscalDeclarationEditor key={current.version} dossier={current} fields={options.fields ?? fields} disabled={false} reviewFiscal={async (_, __, input) => {
+      writes.push(input);
+      if (options.fiscal) return options.fiscal();
+      const restored = input.montos?.restore_inherited ?? [];
+      const inheritance = Object.fromEntries(Object.entries(current.inheritance ?? {}).map(([name, link]) => [name, {
+        ...link, inherited: restored.includes(name) || (input.montos?.override_inherited?.includes(name) ? false : link.inherited),
+        value: name in (options.values ?? {}) ? options.values![name] : link.value,
+      }]));
+      const declaration = { ...input.declaration };
+      for (const name of restored) declaration[name] = inheritance[name]?.value ?? null;
+      return { ...current, version: current.version + 1, dgii: declaration, inheritance };
+    }} previewLinks={preview} onChanged={setCurrent} onBusy={noop} onDirty={noop} />;
+  }
+  const host = await mount(<Editor />);
   const amount = (name: string) => {
     const input = row(host, name).querySelector<HTMLInputElement>(`input[data-testid="fiscal-declaration-${name}"]`);
     assert.ok(input, name);
@@ -235,20 +250,17 @@ test("Restaurar on an unsaved edit shows the server's linked value and preserves
   assert.equal(await tooltip(view.restore("paid_on")!), "Restaurar: 15 Nov 2026", "the server's linked value for this draft");
   assert.deepEqual(view.drafts.at(-1)!.override_inherited, ["paid_on"]);
   await act(async () => view.restore("paid_on")!.click());
-  assert.equal(view.date.value, "15 Nov 2026");
+  assert.equal(view.read("paid_on"), "15 Nov 2026");
   assert.ok(view.linked("paid_on"));
   assert.equal(view.restore("paid_on"), null);
   assert.equal(view.read("modified_ncf"), "E310000000099");
-  assert.equal(view.writes.length, 0, "Restaurar saves nothing");
-  await settle();
-  assert.deepEqual(view.drafts.at(-1)!.restore_inherited, ["paid_on"]);
-  await view.save("paid_on");
+
   assert.equal(view.writes.length, 1);
   assert.equal(view.writes[0].declaration.modified_ncf, "E310000000099");
   assert.deepEqual(view.writes[0].montos, { restore_inherited: ["paid_on"] });
 });
 
-test("Restaurar on a saved override saves nothing, and Guardar sends the restore", async () => {
+test("Restaurar on a saved override saves the paired restore once", async () => {
   const base = await dossier(); base.inheritance.goods_amount.inherited = false;
   const view = await editing(base);
   const button = view.restore("goods_amount")!;
@@ -258,8 +270,7 @@ test("Restaurar on a saved override saves nothing, and Guardar sends the restore
   await act(async () => button.click());
   await settle();
   assert.ok(view.linked("goods_amount"));
-  assert.equal(view.writes.length, 0, "Restaurar saves nothing");
-  await view.save("goods_amount");
+  assert.equal(view.writes.length, 1);
   assert.deepEqual(view.writes[0].montos, { restore_inherited: ["goods_amount", "services_amount"] });
 });
 
@@ -291,13 +302,9 @@ async function split(inherited: boolean, values?: Record<string, string | null>)
 test("Restaurar on one side puts back every field the server pairs with it, at the server's values", async () => {
   const view = await split(false, { goods_amount: "700.00", services_amount: "300.00" });
   await act(async () => view.restore("goods_amount")!.click());
-  assert.deepEqual([view.amount("goods_amount").value, view.read("services_amount")], ["1,000.00", "Sin dato"], "the last values the server gave");
-  await settle();
-  assert.deepEqual(view.drafts.at(-1)!.restore_inherited?.toSorted(), ["goods_amount", "services_amount"]);
-  assert.deepEqual([view.amount("goods_amount").value, view.read("services_amount")], ["700.00", "300.00"], "the server's linked values for this draft");
+  assert.deepEqual([view.read("goods_amount"), view.read("services_amount")], ["700.00", "300.00"], "the saved server response owns the restored values");
   assert.ok(view.linked("goods_amount") && view.linked("services_amount"));
-  assert.equal(view.writes.length, 0);
-  await view.save("goods_amount");
+  assert.equal(view.writes.length, 1);
   assert.deepEqual(view.writes[0].montos?.restore_inherited?.toSorted(), ["goods_amount", "services_amount"]);
   assert.equal(view.writes[0].montos?.override_inherited, undefined);
 });
@@ -307,14 +314,15 @@ test("typing one side holds apart every field the server pairs with it, also aft
   await act(async () => view.restore("services_amount")!.click());
   await settle();
   assert.ok(view.linked("goods_amount"));
+  await view.open("services_amount");
   await view.enter("services_amount", "600");
   assert.ok(view.restore("services_amount"));
   assert.equal(view.linked("goods_amount"), null, "goods is held apart with services");
   assert.equal(view.read("goods_amount"), "1,000.00", "and keeps the value it showed");
   await view.save("services_amount");
-  assert.deepEqual(view.writes[0].montos?.override_inherited?.toSorted(), ["goods_amount", "services_amount"]);
-  assert.equal(view.writes[0].montos?.restore_inherited, undefined);
-  assert.deepEqual([view.writes[0].declaration.goods_amount, view.writes[0].declaration.services_amount], ["1000.00", "600"]);
+  assert.deepEqual(view.writes[1].montos?.override_inherited?.toSorted(), ["goods_amount", "services_amount"]);
+  assert.equal(view.writes[1].montos?.restore_inherited, undefined);
+  assert.deepEqual([view.writes[1].declaration.goods_amount, view.writes[1].declaration.services_amount], ["1000.00", "600"]);
 });
 
 test("the fiscal form names no goods or services field: the pairing is the server's", async () => {
@@ -329,9 +337,8 @@ test("Restaurar to an empty date source clears invalid typed text and leaves no 
   await type(view.date, "99/99/2026");
   assert.equal(view.date.value, "99/99/2026");
   await act(async () => view.restore("paid_on")!.click());
-  assert.equal(view.date.value, "");
-  assert.equal(view.date.getAttribute("aria-invalid"), "false");
-  await view.save("paid_on");
+  assert.equal(view.date, null);
+  assert.equal(view.writes.length, 1);
   assert.equal(view.host.querySelector('[role="alert"]'), null);
   assert.equal(view.writes[0].declaration.paid_on, null);
   assert.deepEqual(view.writes[0].montos, { restore_inherited: ["paid_on"] });

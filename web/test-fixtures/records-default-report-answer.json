@@ -148,7 +148,7 @@
   "page_count": 0,
   "totals": [],
   "fiscal_totals": [],
-  "fingerprint": "d3fa5da11896dba455a57ac5eccd8274e7cb0664a386fdf5af685340f05db61d",
+  "fingerprint": "9814232eb8bca7d8d45bf2efeb0185fabdbf4b753fcb5ec4b8ab431a58b7ed80",
   "captured_at": "2026-11-06T00:00:00Z",
   "resolved_period": {
     "from_date": null,
@@ -162,8 +162,52 @@
   },
   "counterparties": [],
   "categories": [],
-  "expense_types": [],
-  "funding_sources": [],
+  "expense_types": [
+    {
+      "code": "01",
+      "label": "Gastos de personal"
+    },
+    {
+      "code": "02",
+      "label": "Gastos por trabajos, suministros y servicios"
+    },
+    {
+      "code": "03",
+      "label": "Arrendamientos"
+    },
+    {
+      "code": "04",
+      "label": "Gastos de activos fijo"
+    },
+    {
+      "code": "05",
+      "label": "Gastos de representación"
+    },
+    {
+      "code": "06",
+      "label": "Otras deducciones admitidas"
+    },
+    {
+      "code": "07",
+      "label": "Gastos financieros"
+    },
+    {
+      "code": "08",
+      "label": "Gastos extraordinarios"
+    },
+    {
+      "code": "09",
+      "label": "Compras y gastos que formarán parte del costo de venta"
+    },
+    {
+      "code": "10",
+      "label": "Adquisiciones de activos"
+    },
+    {
+      "code": "11",
+      "label": "Gastos de seguros"
+    }
+  ],
   "coverage_notes": [
     "records_only_evidence_separate",
     "legal_cancellation_coverage_unavailable",

@@ -443,9 +443,9 @@ describe("a fiscal save in Historial", () => {
   describe("a 607 save", () => {
     const forms = ["cash", "bank", "card", "credit", "gift", "barter", "other_payment"];
     const sale: DgiiFields = { "606": [], "607": [field("income_type", "select", ["1", "2"]), field("billed_amount"), ...forms.map((name) => field(name))] };
-    const shown = async (before: DgiiDeclaration | null, after: DgiiDeclaration) => {
+    const shown = async (before: DgiiDeclaration | null, after: DgiiDeclaration, reviewed?: string[]) => {
       const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
-      const page = await render(<ReceiptHistory documentType="venta" history={[save(3, before, after)]} accounts={[]} dgiiFields={sale} salePaymentForms={forms} />, { dgiiNames: true });
+      const page = await render(<ReceiptHistory documentType="venta" history={[{ ...save(3, before, after), reviewed_declaration_fields: reviewed }]} accounts={[]} dgiiFields={sale} salePaymentForms={forms} />, { dgiiNames: true });
       const [entry] = entries(page.host);
       const lines = entry ? changes(entry) : null;
       const text = entry?.textContent ?? "";
@@ -473,6 +473,16 @@ describe("a fiscal save in Historial", () => {
     test("a split names each form it holds", async () => {
       const { lines } = await shown(declared("607", { cash: "1000.00" }), declared("607", { cash: "400.00", other_payment: "600.00" }));
       assert.deepEqual(lines, [["Forma de pago", "Efectivo", "Efectivo, Otras formas de venta"]]);
+    });
+
+    test("a person's move between two forms that are not the first is one Forma de pago line", async () => {
+      const { lines } = await shown(declared("607", { cash: null, bank: "1000.00", card: null }), declared("607", { cash: null, bank: null, card: "1000.00" }), ["bank", "card"]);
+      assert.deepEqual(lines, [["Forma de pago", "Cheque, transferencia o depósito", "Tarjeta de débito o crédito"]]);
+    });
+
+    test("a reviewed save that names no form hides an incidental Forma de pago change", async () => {
+      const { lines } = await shown(declared("607", { income_type: "1", bank: "1000.00" }), declared("607", { income_type: "2", card: "1000.00" }), ["income_type"]);
+      assert.deepEqual(lines, [["Tipo de ingreso", "01 · Ingresos por operaciones (no financieros)", "02 · Ingresos financieros"]]);
     });
 
     test("an amount that moved inside the same form is not a change of Forma de pago", async () => {
@@ -540,4 +550,89 @@ describe("a fiscal save in Historial", () => {
     }
     await page.close();
   });
+});
+
+for (const saved of [false, true]) test(`a type change suppresses incidental declaration changes, saved declaration ${saved}`, async () => {
+  const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+  const before = facts("1180.00");
+  const history = [{ ...revision(3, at(11, 8, 0), actor("Ana Peña"), before, { ...before, kind: known("income") }),
+    before_document_type: "recibo" as const, after_document_type: "venta" as const,
+    before_dgii: saved ? { form: "606" as const, id_type: "1", category: "02" } : null,
+    after_dgii: { form: "607" as const, id_type: null },
+  }];
+  const fields: DgiiFields = { "606": [], "607": [{ name: "id_type", label: "Tipo de ID", kind: "select", options: ["1"] }] };
+  const page = await render(<ReceiptHistory history={history} accounts={[]} documentType="venta" dgiiFields={fields} />);
+  try { assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Tipo", "Ana Peña"]]); assert.deepEqual(diffs(page.host), [["Compra", "Venta"]]); }
+  finally { await page.close(); }
+});
+
+describe("a type change with what the person also set", () => {
+  const before = { ...facts("1180.00"), category_id: known("cat-1"), fiscal: { rnc: known("101000001"), ncf: unknown, ecf: unknown, itbis: unknown, include_606: unknown } } as unknown as BusinessFacts;
+  const sale = (amount: string) => ({ ...before, amount: known(amount), kind: known("income"), category_id: unknown, fiscal: { ...before.fiscal, rnc: unknown } }) as unknown as BusinessFacts;
+  const fields: DgiiFields = { "606": [], "607": [{ name: "id_type", label: "Tipo de ID", kind: "select", options: ["1", "2"] }] };
+  const retype = (after: BusinessFacts, reviewed: { facts: string[]; declaration: string[] }) => ({
+    ...revision(3, at(11, 8, 0), actor("Ana Peña"), before, after),
+    before_document_type: "recibo" as const, after_document_type: "venta" as const,
+    before_dgii: { form: "606" as const, id_type: "1", category: "02" }, after_dgii: { form: "607" as const, id_type: null },
+    reviewed_fact_fields: reviewed.facts, reviewed_declaration_fields: reviewed.declaration,
+  });
+
+  for (const stated of [[], ["kind"]]) test(`a total corrected in the same save keeps its line beside Tipo, kind named ${stated.length > 0}`, async () => {
+    const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+    const page = await render(<ReceiptHistory history={[retype(sale("1300.00"), { facts: ["amount", ...stated], declaration: [] })]} accounts={[]} documentType="venta" dgiiFields={fields} />);
+    try {
+      assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Tipo", "Ana Peña"], ["Total", "Ana Peña"]]);
+      assert.deepEqual(diffs(page.host), [["Compra", "Venta"], ["RD$ 1,180.00", "RD$ 1,300.00"]]);
+      assert.doesNotMatch(page.host.textContent ?? "", /Actividad|Categoría|RNC|Tipo de ID/);
+    } finally { await page.close(); }
+  });
+
+  test("a type change alone is still one Tipo line", async () => {
+    const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+    const page = await render(<ReceiptHistory history={[retype(sale("1180.00"), { facts: [], declaration: [] })]} accounts={[]} documentType="venta" dgiiFields={fields} />);
+    try {
+      assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Tipo", "Ana Peña"]]);
+      assert.deepEqual(diffs(page.host), [["Compra", "Venta"]]);
+    } finally { await page.close(); }
+  });
+
+  test("a type change the server cannot attribute keeps every other changed fact", async () => {
+    const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+    const entry = { ...retype({ ...before, amount: known("1300.00"), kind: known("income") } as unknown as BusinessFacts, { facts: [], declaration: [] }), reviewed_fact_fields: null, reviewed_declaration_fields: null };
+    const page = await render(<ReceiptHistory history={[entry]} accounts={[]} documentType="venta" dgiiFields={fields} />);
+    try {
+      assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Tipo", "Ana Peña"], ["Total", "Ana Peña"]]);
+      assert.deepEqual(diffs(page.host), [["Compra", "Venta"], ["RD$ 1,180.00", "RD$ 1,300.00"]]);
+    } finally { await page.close(); }
+  });
+
+  test("a declaration field set in the same save keeps its line", async () => {
+    const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+    const entry = { ...retype(sale("1180.00"), { facts: [], declaration: ["id_type"] }), after_dgii: { form: "607" as const, id_type: "2" } };
+    const page = await render(<ReceiptHistory history={[entry]} accounts={[]} documentType="venta" dgiiFields={fields} />);
+    try {
+      assert.equal(page.host.querySelectorAll('[data-testid="history-change"]').length, 1);
+      assert.match(page.host.textContent ?? "", /Tipo de ID/);
+    } finally { await page.close(); }
+  });
+});
+
+test("restored subtotal history displays the historical amount supplied by the server", async () => {
+  const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+  const before = { ...facts("1180.00"), net_amount: known("900.00") };
+  const entry = { ...revision(3, at(11, 8, 0), actor("Ana Peña"), before, { ...before, net_amount: unknown }),
+    before_net_amount: { amount: "900.00", source: "edited" as const }, after_net_amount: { amount: "1000.00", source: "calculated" as const } };
+  const page = await render(<ReceiptHistory history={[entry]} accounts={[]} />);
+  try { assert.deepEqual(diffs(page.host), [["RD$ 900.00", "RD$ 1,000.00"]]); } finally { await page.close(); }
+});
+
+for (const name of ["category", "itbis"]) test(`history shows only the server's explicit ${name} edit`, async () => {
+  const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+  const before = facts("1180.00");
+  const entry = { ...revision(3, at(11, 8, 0), actor("Ana Peña"), before, before),
+    before_dgii: { form: "606" as const, category: "02", itbis: "150.00", paid_on: "2026-10-09", goods_amount: "1000.00" },
+    after_dgii: { form: "606" as const, category: "09", itbis: "180.00", paid_on: null, goods_amount: "970.00" }, reviewed_declaration_fields: [name] };
+  const fields: DgiiFields = { "606": ["category", "itbis", "paid_on", "goods_amount"].map(name => ({ name, label: name, kind: name === "paid_on" ? "date" as const : "money" as const, options: [] })), "607": [] };
+  const page = await render(<ReceiptHistory history={[entry]} accounts={[]} dgiiFields={fields} />);
+  try { assert.equal(page.host.querySelectorAll('[data-testid="history-change"]').length, 1); assert.doesNotMatch(page.host.textContent ?? "", /Fecha de pago|Desconocido/); } finally { await page.close(); }
 });

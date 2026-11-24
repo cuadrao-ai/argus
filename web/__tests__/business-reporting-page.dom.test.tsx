@@ -101,7 +101,7 @@ test("a same-grant notification keeps the current report while an actual switch 
   const grantId = "00000000-0000-4000-8000-000000000001";
   setChosenGrant(grantId);
   const transport: ReportingTransport = {
-    query: async (_scope, request) => ({ ...recordedReportAnswer, items: [], matching_count: 0, page: request.page, page_size: request.page_size, page_count: 0, totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: [] }),
+    query: async (_scope, request) => ({ ...recordedReportAnswer, items: [], matching_count: 0, page: request.page, page_size: request.page_size, page_count: 0, totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], coverage_notes: [] }),
     export: async () => new Blob(), listViews: async () => [], mutateView: async () => null,
   };
   function Probe() {
@@ -119,7 +119,7 @@ test("a same-grant notification keeps the current report while an actual switch 
 
 test("a connected last page uses full server count and original row order, with unknown values and a link to the read-only note", async () => {
   const items = [row("zeta", null), row("alfa", "1234567890123.45")];
-  const answer: ReportAnswer = { ...recordedReportAnswer, items, matching_count: 102, page: 5, page_size: 25, page_count: 5, totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] };
+  const answer: ReportAnswer = { ...recordedReportAnswer, items, matching_count: 102, page: 5, page_size: 25, page_count: 5, totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] };
   const pages: number[] = [];
   const sizes: number[] = [];
   const opened: BusinessContextValue["panel"][] = [];

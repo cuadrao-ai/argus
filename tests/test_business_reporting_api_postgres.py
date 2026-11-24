@@ -671,3 +671,50 @@ def test_export_source_carries_rnc_registry_after_its_database_transaction(actio
     finally:
         with service.authority.pool.connection() as db:
             db.execute("delete from public.dgii_rnc where rnc=%s", (SUPPLIER,))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("funding_sources", ["synthetic-private"]),
+        ("document_kinds", ["unknown"]),
+        ("fiscal_classifications", ["B01"]),
+        ("ready", True),
+    ],
+)
+def test_old_posted_and_stored_filters_drop_only_retired_field(
+    client, actions, field, value
+):
+    from loguru import logger
+
+    http, _ = client
+    service, context, _ = actions
+    recipe = {"schema_version": 2, "filters": {"currencies": ["DOP"], field: value}}
+    messages = []
+    sink = logger.add(lambda event: messages.append(event.record["message"]))
+    try:
+        query(http, **recipe)
+        assert f"Dropped retired report filter {field}" in messages
+        messages.clear()
+        with service.authority.pool.connection() as db:
+            db.execute(
+                "insert into argus_private.business_saved_report_views"
+                " (space_id,actor_id,name,recipe) values (%s,%s,%s,%s)",
+                (
+                    context.actor.space_id,
+                    context.actor.actor_id,
+                    "Legacy filters",
+                    Jsonb(recipe),
+                ),
+            )
+        response = http.get("/business/report-views")
+        assert response.status_code == 200, response.text
+        [saved] = response.json()
+        filters = saved["recipe"]["filters"]
+        assert filters["currencies"] == ["DOP"]
+        assert filters["ready"] is None
+        if field != "ready":
+            assert field not in filters
+        assert f"Dropped retired report filter {field}" in messages
+    finally:
+        logger.remove(sink)

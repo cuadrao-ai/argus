@@ -795,8 +795,10 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
         ),
         payment_form=cash,
     )
-    assert answer.expense_types == (
-        DgiiChoice(code="02", label="Gastos por trabajos, suministros y servicios"),
+    from argus.domain.business.dgii_codes import EXPENSE_TYPES
+
+    assert [(choice.code, choice.label) for choice in answer.expense_types] == sorted(
+        EXPENSE_TYPES.items()
     )
     missing = read_report(
         service.authority,
@@ -964,7 +966,7 @@ def test_606_answers_never_reach_another_business_of_the_same_owner(actions):
         assert events == []
 
 
-def test_each_offered_document_kind_filter_matches_a_record_of_that_kind(actions):
+def test_legacy_document_kind_filter_keeps_records_of_every_kind(actions):
     from argus.domain.business.reporting_query import ReportRequest
     from argus.domain.business.reporting_store import read_report
 
@@ -978,15 +980,16 @@ def test_each_offered_document_kind_filter_matches_a_record_of_that_kind(actions
     assert refund.outcome == "applied", refund
     credit = refund.draft_id
     rows = read_report(service.authority, context, ReportRequest()).items
-    # The projection names only these two kinds; Registros offers exactly them.
+    # The projection retains each document kind for the report totals.
     assert {row.document_kind for row in rows} == {"credit_note", "unknown"}
-    for kind, drafts in (
-        ("credit_note", {str(credit)}),
-        ("unknown", {str(plain), str(purchase.draft_id)}),
-    ):
+    for kind in ("credit_note", "unknown"):
         answer = read_report(
             service.authority,
             context,
             ReportRequest(filters={"document_kinds": [kind]}),
         )
-        assert {row.draft_id for row in answer.items} == drafts, kind
+        assert {row.draft_id for row in answer.items} == {
+            str(credit),
+            str(plain),
+            str(purchase.draft_id),
+        }
