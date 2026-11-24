@@ -45,7 +45,7 @@ The tables preserve the confirmed engineering map's keys. Registros column keys 
 Tipo de gasto: 01–11 · Forma de pago: 01–07
 
 **ES UI / the pilot export / DGII** (official Spanish):
-01 Gastos de personal · 02 Gastos por trabajos, suministros y servicios · 03 Arrendamientos · 04 Gastos de Activos Fijos · 05 Gastos de representación · 06 Otras deducciones admitidas · 07 Gastos financieros · 08 Gastos extraordinarios · 09 Compras y gastos que formarán parte del costo de venta · 10 Adquisiciones de activos · 11 Gastos de seguros
+01 Gastos de personal · 02 Gastos por trabajos, suministros y servicios · 03 Arrendamientos · 04 Gastos de activos fijo · 05 Gastos de representación · 06 Otras deducciones admitidas · 07 Gastos financieros · 08 Gastos extraordinarios · 09 Compras y gastos que formarán parte del costo de venta · 10 Adquisiciones de activos · 11 Gastos de seguros
 
 01 Efectivo · 02 Cheques/transferencias/depósito · 03 Tarjeta crédito/débito · 04 Compra a crédito · 05 Permuta · 06 Nota de crédito · 07 Mixto
 

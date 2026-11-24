@@ -19,7 +19,7 @@ _CHOICES = {
             "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS",
         ),
         "03": _Choice("Arrendamientos", "03 - ARRENDAMIENTOS"),
-        "04": _Choice("Gastos de Activos Fijos", "04 - GASTOS DE ACTIVOS FIJO"),
+        "04": _Choice("Gastos de activos fijo", "04 - GASTOS DE ACTIVOS FIJO"),
         "05": _Choice("Gastos de representación", "05 - GASTOS DE REPRESENTACIÓN"),
         "06": _Choice("Otras deducciones admitidas", "06 - OTRAS DEDUCCIONES ADMITIDAS"),
         "07": _Choice("Gastos financieros", "07 - GASTOS FINANCIEROS"),
