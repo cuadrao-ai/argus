@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { BusinessDossier, BusinessDuplicateCandidate, ListoGap, ReviewFlagCode } from "@/lib/business-dossier";
 import { documentFamily, factLabel } from "@/lib/counterparty-term";
-import type { ReviewRow } from "./receipt-fact-rows";
+import { READ_FACT_ROWS, RECORD_FIELDS, type ReviewRow } from "./receipt-fact-rows";
 import type { SaveRow } from "./receipt-review-save";
 
 /** The words of the "Parece repetido" flow: the problem and the compare view. */
@@ -13,8 +13,6 @@ export function duplicateBasisKey(basis: BusinessDuplicateCandidate["basis"], ty
 
 /** The dossier's tabs. Documento joins them only in the narrow size. */
 export type DossierTab = "general" | "documento" | "fiscal" | "detalles" | "historial";
-
-const FLAGGED_ROW: Record<ReviewFlagCode, ReviewRow> = { rnc_check_digit: "rnc", ncf_malformed: "fiscal_number", itbis_high: "itbis", amounts_mismatch: "amount" };
 
 /** One reason the record is not Listos, as the panel says it: the server's gap, its words, and the row that fixes it. */
 export type DossierProblem = {
@@ -31,24 +29,15 @@ export type DossierProblem = {
   compare?: string;
 };
 
-type Standing = Pick<BusinessDossier, "listo_gaps" | "review_flags" | "duplicate_candidates" | "document_type" | "facts" | "year_to_check"> & Partial<Pick<BusinessDossier, "blockers">>;
+type Standing = Pick<BusinessDossier, "listo_gaps" | "reasons" | "review_flags" | "duplicate_candidates" | "document_type" | "facts" | "year_to_check"> & Partial<Pick<BusinessDossier, "blockers">>;
 
 const GAP = "business.dossier.gap";
 /** Copy the locked design does not hold yet waits here for its owner. */
 const PLACEHOLDER_GAP = "business.dossier.placeholder.gap";
-const GAP_ROW: Partial<Record<ListoGap, ReviewRow>> = {
-  missing_merchant: "counterparty",
-  missing_date: "occurred_on",
-  missing_amount: "amount",
-  missing_currency: "currency",
-  sin_comprobante: "fiscal_number",
-  missing_rnc: "rnc",
-  invalid_rnc: "rnc",
-  missing_ncf: "fiscal_number",
-  invalid_ncf: "fiscal_number",
-  ecf_check_failed: "fiscal_number",
-  missing_itbis: "itbis",
-};
+function problemRow(field: string | null | undefined): ReviewRow | null {
+  if (field === "ncf") return "fiscal_number";
+  return READ_FACT_ROWS.find(row => row === field) ?? RECORD_FIELDS.find(row => row === field) ?? null;
+}
 /** The gaps whose words the flag copy already owns. */
 const OWN_WORDS: Partial<Record<ListoGap, string>> = { invalid_rnc: "business.dossier.review_flag.rnc_check_digit", invalid_ncf: "business.dossier.review_flag.ncf_malformed" };
 /** A flag whose own gap already names it: `review_flag` says the others. */
@@ -98,7 +87,8 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
     const flag = reason === "review_flag" ? flags.find((item) => !OWN_GAP[item.code]) : undefined;
     // `blocked` is the server's blockers: the first field one names is where the fix is.
     const blockedField = reason === "blocked" ? dossier.blockers?.find((blocker) => blocker.field)?.field ?? null : null;
-    const row = flag ? FLAGGED_ROW[flag.code] : reason === "check_details" && dossier.year_to_check ? "occurred_on" : blockedField ?? GAP_ROW[reason] ?? null;
+    const row = reason === "check_details" && dossier.year_to_check ? "occurred_on"
+      : blockedField ?? problemRow(flag?.field ?? dossier.reasons?.[reason]?.field);
     const text = reason === "invalid_rnc" && !flags.some((item) => item.code === "rnc_check_digit") ? t("business.dgii.rnc_check.invalid_length.reason")
       : flag?.code === "amounts_mismatch" ? flag.difference != null ? t("business.terms.difference", { amount: flag.difference }) : words(reason, "text")
       : flag ? t(`business.dossier.review_flag.${flag.code}.text`)

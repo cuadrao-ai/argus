@@ -63,6 +63,7 @@ from argus.domain.business.contracts.dossier import (
     BandejaStanding,
     Blocker,
     BusinessDossier,
+    DetailReadiness,
     DraftRevision,
     DuplicateCandidate,
     EditableField,
@@ -719,7 +720,15 @@ def dossier(
         standing,
         accepting=event.state == "accepting",
     )
+    from argus.domain.business.reporting_store import read_record_detail
+
+    row = (
+        read_record_detail(tx, event.activity_id)
+        if event.state == "accepted" and event.activity_id
+        else None
+    )
     return BusinessDossier(
+        **DetailReadiness.from_codes(row.missing if row else (), gaps).model_dump(),
         deleted=deleted,
         delete_available=delete_available,
         restore_available=deleted is not None
