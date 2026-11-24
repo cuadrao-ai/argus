@@ -31,12 +31,13 @@ export type DeleteDocumentTarget = {
   amount: string | null;
   currency: string | null;
   filename: string | null;
-  state: string;
+  /** The server's Bandeja label in words; null when the server gave the document none. */
+  state: string | null;
   accepted?: boolean;
   receipt?: ReceiptSummary;
 };
 
-export function receiptDeleteTarget(receipt: ReceiptSummary, state: string, unnamed: string): DeleteDocumentTarget {
+export function receiptDeleteTarget(receipt: ReceiptSummary, state: string | null, unnamed: string): DeleteDocumentTarget {
   return { id: receipt.id, name: receipt.merchant || receipt.filename || unnamed, merchant: receipt.merchant, family: documentFamily(receipt.document_type), date: receipt.occurred_on, amount: receipt.amount, currency: receipt.currency, filename: receipt.filename, state, accepted: receipt.bandeja_group?.label === "accepted", receipt };
 }
 
@@ -77,7 +78,7 @@ function DeleteFacts({ target, withState = true }: { target: DeleteDocumentTarge
     date: target.date ? formatDay(target.date, locale) : UNKNOWN_VALUE,
     total: formatMoney(target.amount, target.currency, locale) || UNKNOWN_VALUE,
     file: target.filename || UNKNOWN_VALUE,
-    ...(withState ? { state: target.state } : {}),
+    ...(withState && target.state ? { state: target.state } : {}),
   };
   return <div className="mt-4 flex items-start gap-3" data-testid="document-delete-facts">
     <DocumentThumbnail receipt={target.receipt} />

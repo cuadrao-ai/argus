@@ -22,7 +22,7 @@ import {
 import { useReceivingChannels } from "./business-context";
 import { quietButtonClass } from "./business-ui";
 import { RowAction, RowTextAction } from "./foundation/RowAction";
-import { BUSINESS_STATUS, FOCUS_RING } from "./foundation/presentation";
+import { ATTENTION_INK, FOCUS_RING } from "./foundation/presentation";
 
 const copy = (key: string) => `business.reception.senders.${key}`;
 
@@ -35,7 +35,7 @@ function UnverifiedNote() {
   return (
     <Tooltip content={t(copy("tag_unverified_tip"))} side="top">
       <button type="button" data-testid="email-sender-unverified" className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-mark ${fieldHintClass} ${FOCUS_RING}`}>
-        <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: BUSINESS_STATUS.needs_attention.ink }} />
+        <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: ATTENTION_INK }} />
         {t(copy("tag_unverified"))}
       </button>
     </Tooltip>

@@ -96,7 +96,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
   }
   const jumpList = useJumpRows(receiptIds);
   const canDelete = detail?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
-  const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, detail.bandeja_group?.label ? t(`business.bandeja.label.${detail.bandeja_group.label}`) : t("business.document_delete.deleted_state"), t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
+  const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, detail.bandeja_group?.label ? t(`business.bandeja.label.${detail.bandeja_group.label}`) : null, t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
   const retainReceipt = useCallback(() => setUnprepared(true), []);
   const shown = useShownRecord(receiptId);
   // A receipt that is gone closes onto its list, so a dead link never leaves a panel whose Reintentar cannot work.

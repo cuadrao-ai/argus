@@ -30,13 +30,12 @@ import ReceptionFilters, { ReceptionFilterChips } from "./ReceptionFilters";
 import { emptyReceptionFilters, receptionFilterMatches, receptionArrivedInPeriod, type SenderOption, type ReceptionFiltersValue } from "./reception-filters";
 import ReceptionEmptyState from "./ReceptionEmptyState";
 import { canAddRecords, quietButtonClass } from "../business-ui";
-import { listoItem, receptionDocumentTitle, receptionMatches, receptionRows, receptionSearchText, receptionSentBy, receptionTarget, rowDeleteTarget, type ReceptionRow, type ReceptionView } from "./reception-model";
+import { listoItem, receptionDocumentTitle, receptionMatches, receptionRows, receptionSearchText, receptionSentBy, receptionTarget, rowDeleteTarget, rowLabel, type ReceptionRow, type ReceptionView } from "./reception-model";
 import { bandejaAttentionCount, bandejaListoCount } from "../inbox-count";
 import ReceptionArrivalRow, { ReceptionPendingRow } from "./ReceptionArrivalRow";
 import ReceptionDeletedRow, { DeletedColumns } from "./ReceptionDeletedRow";
 import { useDeletedNotes } from "./useDeletedNotes";
 import { useDocumentDelete } from "../DocumentDeleteControls";
-import { useReceiptStateWord } from "../receipt-state-word";
 import { useDelayedPending } from "../business-skeletons";
 import { ReceptionSearch, ReceptionSettings } from "./ReceptionControls";
 import ReceptionColumnsHeading from "./ReceptionColumnsHeading";
@@ -98,10 +97,10 @@ function ReceptionWorkspace() {
   const [attempt, setAttempt] = useState(0);
   const view = useSyncExternalStore<ReceptionView>(subscribeView, readView, () => "all");
   useEffect(() => { if (panel.kind === "inbox" && panel.view === "eliminados") writeView("eliminados"); }, [panel]);
-  const stateWord = useReceiptStateWord();
   const [deleting, setDeleting] = useState<ReceptionRow | null>(null);
   const deletedNotes = useDeletedNotes(view === "eliminados");
-  const deletion = useDocumentDelete(deleting && deleting.kind !== "email" ? rowDeleteTarget(deleting, deleting.kind === "receipt" ? stateWord(deleting.receipt) : t("business.document_delete.previous.attention"), t("business.document_delete.unnamed")) : null, {
+  const deletingLabel = deleting ? rowLabel(deleting) : null;
+  const deletion = useDocumentDelete(deleting && deleting.kind !== "email" ? rowDeleteTarget(deleting, deletingLabel ? t(`business.bandeja.label.${deletingLabel}`) : null, t("business.document_delete.unnamed")) : null, {
     onClose: () => setDeleting(null),
     onView: () => { if (deleting) { const target = receptionTarget(deleting); if (target.kind === "receipt" || target.kind === "draft") navigateFrom({ ...target, confirmDelete: true }); } setDeleting(null); },
   });
