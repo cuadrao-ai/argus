@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-11-23-dossier-pass",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "19bdddf1132dc6b8105b76ede24f90eccc355eeb",
+  "versions_sha256": "7e0193c217d377d1b5a86badd0b9483cd6d70c34d20ad9a278285e676154c52d",
+  "issued_at": "2026-11-24T03:52:22Z",
+  "expires_at": "2026-11-25T03:52:22Z",
+  "approved_by": "Lucas",
+  "approval_reference": "Lucas approved on 2026-11-23 (\"Deploy once, after the reading-control fix merges\") the staging deploy of the merged dossier pass; the reading-control fix (PR 2431) merged at 19bdddf1132dc6b8105b76ede24f90eccc355eeb. Applies 20261122135103 (PR 2380) and 20261123003924 (PR 2391) to staging skedzwocnmrhfigiwyzi before that deploy. Standing rule 2026-10-21: staging only, committed record, dry run first. Does not authorize production."
+}
