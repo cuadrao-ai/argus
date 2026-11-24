@@ -9,7 +9,7 @@ from argus.domain.business.actions import mutations, plans, sources
 from argus.domain.business.actions import service as actions
 from argus.domain.business.amount_inheritance import inherit_amounts
 from argus.domain.business.contracts.actions import ReviewDraft
-from argus.domain.business.contracts.dgii import PurchaseReview
+from argus.domain.business.contracts.dgii import PurchaseReview, SalesDeclaration
 from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution
 from argus.domain.business.purchase_review import apply_purchase
 from faker import Faker
@@ -111,4 +111,15 @@ def test_no_change_still_requires_review_authority(review_command):
     tx.authorization.require.side_effect = ActionError("permission_denied", "business_human_command_required")
     result = review({"facts": {"counterparty": {"state": "known", "value": resolution.facts.counterparty.value}}})
     assert result.outcome == "permission_denied"
+    tx.imports.put_event.assert_not_called()
+
+
+@pytest.mark.parametrize("purchase", [{"category": "02"}, {"category": "02", "payment_method": "01"}])
+def test_a_purchase_answer_on_a_saved_607_is_refused_not_compared(review_command, purchase):
+    review, tx, event, resolution = review_command
+    sale = {**dict.fromkeys(SalesDeclaration.model_fields), "form": "607", "cash": "1180.00"}
+    facts = resolution.facts.model_copy(update={"kind": resolution.facts.kind.model_copy(update={"value": "income"})})
+    event.resolution["business"] = {**resolution.model_dump(mode="json"), "document_type": "venta", "facts": facts.model_dump(mode="json"), "dgii": sale}
+    result = review({"purchase": purchase})
+    assert (result.outcome, result.code) == ("invalid_input", "fiscal_direction_unsupported")
     tx.imports.put_event.assert_not_called()
