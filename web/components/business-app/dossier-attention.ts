@@ -28,7 +28,7 @@ export type DossierProblem = {
   where: string;
   /** Only on the "Parece repetido" problem: the first document this one may repeat. */
   compare?: string;
-  amountComparison?: string;
+  amountComparison?: { totals?: string; difference: string };
 };
 
 type Standing = Pick<BusinessDossier, "listo_gaps" | "reasons" | "review_flags" | "duplicate_candidates" | "document_type" | "facts" | "year_to_check"> & Partial<Pick<BusinessDossier, "blockers">>;
@@ -65,15 +65,17 @@ export function dossierRowLabel(t: TFunction, row: SaveRow | "ncf" | "ecf", doss
   }
 }
 
-function amountComparison(flag: ReviewFlag, dossier: Standing, t: TFunction, currency: string, locale: string): string | undefined {
-  if (flag.computed_sum == null || flag.includes_extra_charges == null || flag.difference == null || dossier.facts.amount.value == null) return;
+function amountComparison(flag: ReviewFlag, dossier: Standing, t: TFunction, currency: string, locale: string): DossierProblem["amountComparison"] {
+  if (flag.difference == null) return;
   const money = (value: string) => formatMoney(value, currency, locale);
+  const difference = t("business.terms.difference", { amount: money(flag.difference) });
+  if (flag.computed_sum == null || flag.includes_extra_charges == null || dossier.facts.amount.value == null) return { difference };
   const label = flag.includes_extra_charges ? "calculated_total" : "subtotal_itbis";
-  return [
+  const totals = [
     `${t("business.terms.total")} ${money(dossier.facts.amount.value)}`,
     `${t(`business.dossier.confirm.placeholder.${label}`)} ${money(flag.computed_sum)}`,
-    t("business.terms.difference", { amount: money(flag.difference) }),
   ].join(" · ");
+  return { totals, difference };
 }
 
 function rowSection(row: ReviewRow, t: TFunction, general: string): string {
@@ -115,14 +117,15 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
     const blockedField = reason === "blocked" ? dossier.blockers?.find((blocker) => blocker.field)?.field ?? null : null;
     const row = reason === "check_details" && dossier.year_to_check ? "occurred_on"
       : blockedField ?? problemRow(flag?.field ?? dossier.reasons?.[reason]?.field);
+    const comparison = flag?.code === "amounts_mismatch" && currency ? amountComparison(flag, dossier, t, currency, locale) : undefined;
     const text = reason === "invalid_rnc" && !flags.some((item) => item.code === "rnc_check_digit") ? t("business.dgii.rnc_check.invalid_length.reason")
-      : flag?.code === "amounts_mismatch" ? flag.difference != null && currency ? t("business.terms.difference", { amount: formatMoney(flag.difference, currency, locale) }) : words(reason, "text")
+      : flag?.code === "amounts_mismatch" ? comparison?.difference ?? words(reason, "text")
       : flag ? t(`business.dossier.review_flag.${flag.code}.text`)
       : words(reason, "text");
     return {
       key, reason, title: words(reason, "title"), text, tab: "general", row,
       where: row ? `${rowSection(row, t, general)} · ${dossierRowLabel(t, row, dossier)}` : general,
-      amountComparison: flag?.code === "amounts_mismatch" && currency ? amountComparison(flag, dossier, t, currency, locale) : undefined,
+      amountComparison: comparison,
     };
   });
 }

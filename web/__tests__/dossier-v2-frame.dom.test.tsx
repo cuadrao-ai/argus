@@ -412,6 +412,19 @@ describe("accepting a record that is not Listos", () => {
     });
   }
 
+  test("the negative difference stays together when the comparison wraps", async () => {
+    const dossier = await fiscalDossier({
+      ...attention(["review_flag"]),
+      review_flags: [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "-3.00", computed_sum: "128.00", includes_extra_charges: true }],
+    });
+    const page = await mount({ dossier, size: "narrow" });
+    try {
+      await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
+      const difference = page.all('[data-testid="dossier-confirm"] li p .whitespace-nowrap');
+      assert.deepEqual(difference.map(part => part.textContent), ["Diferencia -RD$ 3.00"]);
+    } finally { await page.close(); }
+  });
+
   test("two warnings under one confirmable server gap each have their own field jump", async () => {
     const page = await mount({ dossier: await fiscalDossier({ ...attention(["review_flag"], ["review_flag"]), review_flags: [
       { code: "itbis_high", field: "itbis", confirm: false },

@@ -30,7 +30,10 @@ export default function DossierConfirm({ problems, onFix, onProblem, onAcceptAny
       {problems.map(problem => <li key={problem.key} data-problem={problem.key}>
         <div>
           <strong>{problem.where}</strong>
-          <p>{problem.amountComparison ?? (problem.reason === "review_flag" ? problem.text : [problem.title, problem.text].filter(Boolean).join(". "))}</p>
+          <p>{problem.amountComparison ? <>
+            {problem.amountComparison.totals && `${problem.amountComparison.totals} · `}
+            <span className="whitespace-nowrap">{problem.amountComparison.difference}</span>
+          </> : problem.reason === "review_flag" ? problem.text : [problem.title, problem.text].filter(Boolean).join(". ")}</p>
         </div>
         <button type="button" className={styles.link} onClick={() => onProblem(problem)} aria-label={`${t(`${words}.go`)} · ${problem.where}`}>{t(`${words}.go`)}</button>
       </li>)}
