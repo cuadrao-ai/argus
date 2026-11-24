@@ -1,6 +1,7 @@
 .placeholderRow { grid-template-columns: minmax(34px, 148px) 24px minmax(0, 1fr) minmax(8px, 72px); }
 .bar { display: block; max-width: 100%; height: 10px; background: var(--d-hair); }
 .placeholderValue { grid-column: 3; justify-self: end; height: 12px; max-width: calc(100% - 10px); margin-right: 10px; }
+.titleBar { display: inline-block; width: 180px; height: 14px; vertical-align: middle; }
 
 .ripple, .scan { display: none; pointer-events: none; }
 .stage { position: relative; isolation: isolate; }
@@ -12,7 +13,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  [data-reading="true"] .bar {
+  .shimmer {
     background-image: linear-gradient(90deg, var(--d-hair), var(--d-card), var(--d-hair));
     background-size: 200% 100%;
     animation: shimmer 1.4s ease-in-out infinite;

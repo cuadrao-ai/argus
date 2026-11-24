@@ -21,7 +21,7 @@ import DossierDocument from "./dossier/DossierDocument";
 import { DossierStatus } from "./dossier/DossierHeader";
 import { DossierBare, DossierCard, DossierRow, DossierRows } from "./dossier/DossierParts";
 import { useJumpRows } from "./dossier/jump-rows";
-import ReceiptReviewFrame from "./ReceiptReviewFrame";
+import ReceiptReviewFrame, { DossierLoading } from "./ReceiptReviewFrame";
 import { RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { showToast } from "./foundation/toasts";
@@ -37,7 +37,7 @@ import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonCla
 import { expensePanel } from "./business-expense-target";
 import { DgiiAnswer } from "./transacciones/RecordDgiiCell";
 import { OpenRecordMissingReasons } from "./transacciones/RecordMissingReason";
-import { ContentFade, Settle } from "./business-skeletons";
+import { ContentFade } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
 function readingNow(receipt: ReceiptDetail | null): boolean {
@@ -153,7 +153,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
   if (failure !== null && !openDraft) {
     return <LoadFailure reference={failure} onRetry={retry} />;
   }
-  if (!detail) return <DossierBare><Settle pending layout="detail" /></DossierBare>;
+  if (!detail) return <DossierLoading recordId={receiptId} back={origin?.list ?? "inbox"} />;
   const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (openDraft) {
     const notice = failure === null ? null : (
@@ -316,7 +316,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
         {bridgeNotice}
         {recoveryDetails}
         {recoveryProblem}
-        <DossierReadFields reading={false} />
+        <DossierReadFields wait="held" />
       </>, primary)}
     </>;
   }
@@ -324,7 +324,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
     return <>
       <ReceiptShortcutRegistration actions={moves} />
       {frame(
-        <DossierReadFields reading>
+        <DossierReadFields wait="reading">
           {readStalled ? (
             <div role="status" data-testid="receipt-read-stalled" className="text-[15px] leading-[22px] text-[#56635e] dark:text-white/70">
               <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
@@ -423,7 +423,7 @@ function ExpenseEntry({ expenseId, detailsCard }: { expenseId: string; detailsCa
     };
   }, [expenseId, source, attempt]);
   if (state.status === "failed") return <LoadFailure reference={state.reference} onRetry={() => { setState({ status: "loading" }); setAttempt((value) => value + 1); }} />;
-  if (state.status === "loading") return <DossierBare><Settle pending layout="detail" /></DossierBare>;
+  if (state.status === "loading") return <DossierLoading recordId={expenseId} back="transactions" />;
   const { expense } = state;
   const account = expense.funding === "owner_funds"
     ? t("business.dossier.owner_funds", "Owner's money")

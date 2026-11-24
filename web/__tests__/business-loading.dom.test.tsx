@@ -90,7 +90,7 @@ describe("Business loading presentation", () => {
     await personal.close();
   });
 
-  for (const layout of ["rows", "overview", "detail"] as const) {
+  for (const layout of ["rows", "overview"] as const) {
     test(`${layout} skeleton has one localized status and decorative reduced-motion placeholders`, async () => {
       const view = await mount(<LoadingRows rows={4} layout={layout} />);
       expect(view.host.querySelector('[role="status"]')?.getAttribute("aria-label")).toBe(es.common.loading);

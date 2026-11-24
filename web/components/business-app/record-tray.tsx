@@ -54,8 +54,8 @@ export type RecordTrayValue = Readonly<{
   summary: HTMLElement | null;
   /** Beside the drawer's close control: a receipt's place in its list. */
   headerActions: HTMLElement | null;
-  /** A receipt names the drawer after itself; null gives the drawer back its own title. */
-  setTitle: (title: string | null) => void;
+  /** A receipt names the drawer after itself (a bar while it loads); null gives the drawer back its own title. */
+  setTitle: (title: ReactNode) => void;
   /** A record opened without a list (a link, a reload) names the list it belongs beside once it has loaded. */
   settleList: (list: RecordList) => void;
   /** The dossier's size: 640px when narrow, 1040px when not. Absent for a record that keeps the drawer's own width. */
