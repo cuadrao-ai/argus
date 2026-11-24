@@ -443,9 +443,9 @@ describe("a fiscal save in Historial", () => {
   describe("a 607 save", () => {
     const forms = ["cash", "bank", "card", "credit", "gift", "barter", "other_payment"];
     const sale: DgiiFields = { "606": [], "607": [field("income_type", "select", ["1", "2"]), field("billed_amount"), ...forms.map((name) => field(name))] };
-    const shown = async (before: DgiiDeclaration | null, after: DgiiDeclaration) => {
+    const shown = async (before: DgiiDeclaration | null, after: DgiiDeclaration, reviewed?: string[]) => {
       const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
-      const page = await render(<ReceiptHistory documentType="venta" history={[save(3, before, after)]} accounts={[]} dgiiFields={sale} salePaymentForms={forms} />, { dgiiNames: true });
+      const page = await render(<ReceiptHistory documentType="venta" history={[{ ...save(3, before, after), reviewed_declaration_fields: reviewed }]} accounts={[]} dgiiFields={sale} salePaymentForms={forms} />, { dgiiNames: true });
       const [entry] = entries(page.host);
       const lines = entry ? changes(entry) : null;
       const text = entry?.textContent ?? "";
@@ -473,6 +473,16 @@ describe("a fiscal save in Historial", () => {
     test("a split names each form it holds", async () => {
       const { lines } = await shown(declared("607", { cash: "1000.00" }), declared("607", { cash: "400.00", other_payment: "600.00" }));
       assert.deepEqual(lines, [["Forma de pago", "Efectivo", "Efectivo, Otras formas de venta"]]);
+    });
+
+    test("a person's move between two forms that are not the first is one Forma de pago line", async () => {
+      const { lines } = await shown(declared("607", { cash: null, bank: "1000.00", card: null }), declared("607", { cash: null, bank: null, card: "1000.00" }), ["bank", "card"]);
+      assert.deepEqual(lines, [["Forma de pago", "Cheque, transferencia o depósito", "Tarjeta de débito o crédito"]]);
+    });
+
+    test("a reviewed save that names no form hides an incidental Forma de pago change", async () => {
+      const { lines } = await shown(declared("607", { income_type: "1", bank: "1000.00" }), declared("607", { income_type: "2", card: "1000.00" }), ["income_type"]);
+      assert.deepEqual(lines, [["Tipo de ingreso", "01 · Ingresos por operaciones (no financieros)", "02 · Ingresos financieros"]]);
     });
 
     test("an amount that moved inside the same form is not a change of Forma de pago", async () => {
