@@ -71,8 +71,7 @@ describe("synthetic Business fallback", () => {
       excluded_personal: { income: 0, expense: 0 },
       counterparties: [],
       categories: [],
-      expense_types: [],
-      funding_sources: [],
+      expense_types: recordedAnswer.expense_types,
       coverage_notes: [
         "records_only_evidence_separate",
         "legal_cancellation_coverage_unavailable",

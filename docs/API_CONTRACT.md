@@ -10983,8 +10983,9 @@ accept path recorded.
   defaulting to `["purchase"]`, and normalizes old empty or both-type selections
   to that screen default. Its selected type scopes the table, all six cards,
   expanded Total and export. Malformed or unknown values are rejected.
-  The nullable `ready` filter accepts true (ready), false (missing data), or null
-  (all). It reads each row's `ready` verdict from `readiness` in
+  The nullable `ready` filter accepts false (missing data) or null (all).
+  Old requests, stored tabs and saved views with `ready: true` read as null.
+  It reads each row's `ready` verdict from `readiness` in
   `reporting_projection.py`; `overview.not_ready` counts false verdicts over
   the same filtered rows before pagination. Search, period, family, currency
   and every other filter apply to that count too.
@@ -10995,15 +10996,14 @@ accept path recorded.
   unresolved rows and technical failures have null and match only all. Existing
   admission rules remain unchanged. The fiscal card and this filter use the same
   missing predicate, including when a downloaded line has since been edited.
-  The screen offers one fiscal choice and keeps old `review_stages` saved views
-  readable with a clearable legacy chip. The remaining multiselects are
+  The filter menu offers attachment, amount, counterparty and, on purchases,
+  tipo de gasto. The Faltan datos card controls readiness. The request multiselects are
   `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
   `exported`),
-  `currencies`, `counterparties`, `categories`, `expense_types`, `funding_sources`,
-  `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`; the projection
-  names only `credit_note` and `unknown` on a row, so Registros offers those two) and
-  `fiscal_classifications`. `expense_types` takes 606 tipo de gasto codes (`01` to
-  `11`) and `missing`, a purchase that still needs one. `has_document` is a live linked attachment, separate
+  `currencies`, `counterparties`, `categories` and `expense_types`.
+  The server drops `funding_sources`, `document_kinds` and `fiscal_classifications`
+  on read and logs each retired field name. `expense_types` takes 606 tipo de
+  gasto codes (`01` to `11`) and `missing`, a purchase that still needs one. `has_document` is a live linked attachment, separate
   from download availability and fiscal number. Each row carries `personal`, the
   owner's Personal mark, and `include_606`, the accountant's 606 answer (`null`
   while no answer applies), both read from the draft as it stands now, after
@@ -11020,13 +11020,13 @@ accept path recorded.
   never lists: a sale, a Personal record the accountant did not admit, or a
   purchase the owner said has no comprobante. An answer written in Bandeja or on
   the recorded record shows in the next read. The answer's `expense_types` lists
-  the tipos de gasto the records carry, `{code, label}` by code; `missing` is
-  always a valid filter value and is never listed. The screen offers tipo de gasto
+  every DGII tipo de gasto as `{code, label}` in code order, even on an empty
+  Business. `missing` is always a valid filter value and is never listed. The screen offers tipo de gasto
   only on Compras and clears it when changing to Ventas or opening a saved sales
   recipe; forma de pago is an optional purchase column, not a filter.
   Categories use activity IDs plus
-  `uncategorized`; funding uses `account:<id>` or `owner_funds` and returns the
-  source account type/name, never a balance. Counterparty keys are exact normalized
+  `uncategorized`. Each row retains its funding key (`account:<id>` or
+  `owner_funds`), source account type and name. Counterparty keys are exact normalized
   tax identities within this Business. Aliases share a key; equal names never
   merge identities. Counterparty options follow the selected family across all dates.
   Each option retains the `labels` array with exactly one name, chosen from the

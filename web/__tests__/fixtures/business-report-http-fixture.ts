@@ -75,7 +75,6 @@ export function createBusinessReportHttpFixture() {
     if (report.filters.review_stages.length) matching = matching.filter((row) => row.stage && report.filters.review_stages.includes(row.stage));
     if (report.filters.currencies.length) matching = matching.filter((row) => row.currency && report.filters.currencies.includes(row.currency));
     if (report.filters.expense_types.length) matching = matching.filter((row) => row.dgii_606 && report.filters.expense_types.includes(row.dgii_606.expense_type?.code ?? "missing"));
-    if (report.filters.document_kinds.length) matching = matching.filter((row) => report.filters.document_kinds.includes(row.document_kind));
     return matching;
   };
   const request = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
@@ -98,7 +97,7 @@ export function createBusinessReportHttpFixture() {
       return Response.json(reportAnswerSchema.parse({ presentation, columns: serverColumns(presentation, report.filters.record_families[0] === "sale"), items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
         totals: documentFamilyTotals(matching),
         fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: report.filters.period.kind === "latest_month" ? latestMonth(records) : { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
-        counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: [{ code: "02", label: "Gastos por trabajos, suministros y servicios" }], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
+        counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: recordedReportAnswer.expense_types, coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
         ...controls.legacy ? {} : { overview: { ...controls.overview, ...("not_ready" in controls.overview ? { not_ready: matching.filter((row) => !row.ready).length } : {}), ...("needs_fiscal_data" in controls.overview ? { needs_fiscal_data: matching.filter((row) => row.fiscal_data === "missing").length } : {}) }, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
     }
     if (path.endsWith("/reports/export/preview")) {

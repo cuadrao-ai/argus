@@ -21,9 +21,6 @@ from tests.business.test_business_reporting_query import (
         ({"currencies": ["DOP"], "amount_min": "50.00"}, {"gross_amount": "10.00"}),
         ({"currencies": ["DOP"], "amount_max": "150.00"}, {"gross_amount": "200.00"}),
         ({"categories": ["supplies"]}, {"category_key": "other"}),
-        ({"funding_sources": ["cash"]}, {"funding_key": "bank"}),
-        ({"document_kinds": ["invoice"]}, {"document_kind": "receipt"}),
-        ({"fiscal_classifications": ["B01"]}, {"fiscal_classification": "B02"}),
         ({"expense_types": ["missing"]}, {"dgii_606": None}),
         (
             {

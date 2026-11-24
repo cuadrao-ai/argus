@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { activeFilterGroups, emptyPreviewFilters, validPreviewAmount, type PreviewFilters } from "@/components/business-app/transacciones/records-filter-preview-model";
+import recordedAnswer from "@/test-fixtures/records-default-report-answer.json";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 
 await keepOwnListSearch();
@@ -47,23 +48,23 @@ async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initial
 test("filter draft is discarded on Escape, committed by Apply, and removable by group", async () => {
   const page = await mount("filters");
   await page.click(page.button("Filtros"));
-  await page.click(page.button("Estado"));
-  await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")?.querySelector("input"));
+  const without = () => [...document.querySelectorAll("label")].find((label) => label.textContent === "Sin documento")!.querySelector<HTMLInputElement>("input")!;
+  await page.click(without());
   await page.escape();
   assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
   await page.click(page.button("Filtros"));
-  await page.click(page.button("Estado"));
-  assert.equal([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")!.querySelector<HTMLInputElement>("input")!.checked, false);
-  await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")?.querySelector("input"));
+  assert.equal(without().checked, false);
+  await page.click(page.button("Emisor"));
+  await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Nube Hosting"));
   await page.click(page.button("Adjunto"));
   await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Sin documento"));
   await page.click(page.button("Aplicar"));
   const chips = document.querySelector('[data-testid="records-preview-filter-chips"]')!;
-  assert.match(chips.textContent ?? "", /Faltan datos/);
+  assert.match(chips.textContent ?? "", /Emisor/);
   assert.match(chips.textContent ?? "", /Sin documento/);
   assert.equal(page.host.querySelector('button[aria-haspopup="dialog"]')?.textContent, "Filtros2");
-  await page.click(document.querySelector('button[aria-label="Quitar filtro Estado"]'));
-  assert.doesNotMatch(chips.textContent ?? "", /Faltan datos/);
+  await page.click(document.querySelector('button[aria-label="Quitar filtro Emisor"]'));
+  assert.doesNotMatch(chips.textContent ?? "", /Emisor/);
   await page.click(page.button("Limpiar filtros"));
   assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
 });
@@ -184,11 +185,11 @@ test("phone uses the full viewport, vertical months, one Hoy in the list and saf
 
 test("checkbox parents derive mixed/all/none from label clicks and bulk changes", async () => {
   const page = await mount("filters"); await page.click(page.button("Filtros"));
-  await page.click([...document.querySelectorAll('[role="tab"]')].find((node) => node.textContent?.startsWith("Cuenta")));
+  await page.click([...document.querySelectorAll('[role="tab"]')].find((node) => node.textContent?.startsWith("Emisor")));
   const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
   const parent = () => label("Seleccionar todo").querySelector<HTMLInputElement>("input")!;
   assert.equal(parent().checked, false); assert.equal(parent().indeterminate, false);
-  await page.click(label("Cuenta corriente"));
+  await page.click(label("Nube Hosting"));
   assert.equal(parent().indeterminate, true); assert.equal(parent().getAttribute("aria-checked"), "mixed");
   await page.click(label("Seleccionar todo"));
   assert.equal(parent().checked, true); assert.equal(parent().indeterminate, false);
@@ -288,23 +289,23 @@ test("phone filters keep one draft across group navigation and discard it on clo
   const trigger = page.button("Filtros")!;
   await page.click(trigger);
   assert.equal(document.querySelector('[role="tablist"]'), null);
-  await page.click(page.button("Cuenta"));
+  await page.click(page.button("Emisor"));
   assert.equal(document.activeElement, page.button("Todos los filtros"));
   const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
-  await page.click(label("Cuenta corriente"));
+  await page.click(label("Nube Hosting"));
   assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.indeterminate, true);
   await page.click(page.button("Todos los filtros"));
-  assert.equal(document.activeElement?.getAttribute("data-group"), "account");
+  assert.equal(document.activeElement?.getAttribute("data-group"), "counterparty");
   await page.click(page.button("Adjunto")); await page.click(label("Sin documento"));
-  await page.click(page.button("Todos los filtros")); await page.click(document.querySelector('[data-group="account"]'));
-  assert.equal(label("Cuenta corriente").querySelector<HTMLInputElement>("input")!.checked, true);
+  await page.click(page.button("Todos los filtros")); await page.click(document.querySelector('[data-group="counterparty"]'));
+  assert.equal(label("Nube Hosting").querySelector<HTMLInputElement>("input")!.checked, true);
   await page.click(page.button("Aplicar"));
   assert.equal(document.activeElement, trigger);
   assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
-  await page.click(trigger); await page.click(document.querySelector('[data-group="account"]'));
+  await page.click(trigger); await page.click(document.querySelector('[data-group="counterparty"]'));
   await page.click(label("Seleccionar todo"));
   assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.checked, true);
-  await page.escape(); await page.click(trigger); await page.click(document.querySelector('[data-group="account"]'));
+  await page.escape(); await page.click(trigger); await page.click(document.querySelector('[data-group="counterparty"]'));
   assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.indeterminate, true);
   await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Limpiar filtros")); await page.click(page.button("Aplicar"));
   assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
@@ -341,16 +342,12 @@ test("the desktop filter trigger toggles and Escape restores focus", async () =>
   assert.equal(document.activeElement, trigger);
 });
 
-for (const width of [1440, 390]) test(`Estado offers only server readiness at ${width}px`, async () => {
+for (const width of [1440, 390]) test(`purchases offer four groups and the complete expense catalogue at ${width}px`, async () => {
   const page = await mount("filters", width);
   await page.click(page.button("Filtros"));
-  await page.click(page.button("Estado"));
-  const choices = [...document.querySelectorAll('input[type="radio"]')];
-  assert.deepEqual(choices.map((input) => input.closest("label")?.textContent), ["Todos", "Listo", "Faltan datos"]);
-  await page.click(choices[1]);
-  await page.click(page.button("Aplicar"));
-  const applied = JSON.parse(document.querySelector('[data-testid="applied-filters"]')!.textContent!);
-  assert.equal(applied.ready, true);
-  assert.equal("review" in applied, false);
-  assert.equal(applied.fiscal_data, null);
+  assert.deepEqual([...document.querySelectorAll("[data-group]")].map((node) => node.textContent), ["Adjunto", "Monto", "Emisor", "Tipo de gasto"]);
+  await page.click(page.button("Tipo de gasto"));
+  const labels = [...document.querySelectorAll("label")].map((label) => label.textContent);
+  assert.equal(recordedAnswer.expense_types.length, 11);
+  assert.deepEqual(labels, ["Seleccionar todo", ...recordedAnswer.expense_types.map((choice) => choice.label), "Falta"]);
 });

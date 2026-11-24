@@ -2,23 +2,20 @@ import { currencyDigits, MONEY_MAX_INTEGER_DIGITS } from "@/lib/money-entry";
 import type { RecordsCurrency, ReportFilters } from "@/lib/business-reports-api";
 import type { Money } from "./transacciones-model";
 
-export const FILTER_GROUPS = ["ready", "attachment", "amount", "counterparty", "expense_type", "account", "document", "fiscal"] as const;
+export const FILTER_GROUPS = ["attachment", "amount", "counterparty", "expense_type"] as const;
 export type FilterGroup = typeof FILTER_GROUPS[number];
-export type ActiveFilterGroup = FilterGroup | "fiscal_data";
+export type ActiveFilterGroup = FilterGroup | "ready" | "fiscal_data";
 export type PreviewFilters = {
-  ready: boolean | null;
+  ready: false | null;
   fiscal_data: ReportFilters["fiscal_data"];
   attachment: "any" | "with" | "without";
   amount: { currency: RecordsCurrency; min: string; max: string };
   counterparty: string[];
   /** 606 tipo de gasto codes, or `missing` for a purchase that still needs one. */
   expense_type: string[];
-  account: string[];
-  document: string[];
-  fiscal: string[];
 };
-export const emptyPreviewFilters = (currency: RecordsCurrency): PreviewFilters => ({ ready: null, fiscal_data: null, attachment: "any", amount: { currency, min: "", max: "" }, counterparty: [], expense_type: [], account: [], document: [], fiscal: [] });
-export const activeFilterGroups = (filters: PreviewFilters): ActiveFilterGroup[] => [...FILTER_GROUPS.filter((group) => group === "ready" ? filters.ready !== null : group === "attachment" ? filters.attachment !== "any" : group === "amount" ? Boolean(filters.amount.min || filters.amount.max) : filters[group].length > 0), ...(filters.fiscal_data !== null ? ["fiscal_data" as const] : [])];
+export const emptyPreviewFilters = (currency: RecordsCurrency): PreviewFilters => ({ ready: null, fiscal_data: null, attachment: "any", amount: { currency, min: "", max: "" }, counterparty: [], expense_type: [] });
+export const activeFilterGroups = (filters: PreviewFilters): ActiveFilterGroup[] => [...(filters.ready === false ? ["ready" as const] : []), ...FILTER_GROUPS.filter((group) => group === "attachment" ? filters.attachment !== "any" : group === "amount" ? Boolean(filters.amount.min || filters.amount.max) : filters[group].length > 0), ...(filters.fiscal_data !== null ? ["fiscal_data" as const] : [])];
 export const validPreviewAmount = ({ min, max, currency }: PreviewFilters["amount"]): boolean => {
   const digits = currencyDigits(currency);
   const valid = (value: string) => !value || /^\d+(?:\.\d+)?$/.test(value) && (value.split(".")[1]?.length ?? 0) <= digits && value.split(".")[0].replace(/^0+/, "").length <= MONEY_MAX_INTEGER_DIGITS;
