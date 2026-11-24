@@ -10,8 +10,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 CHECKER = ROOT / "scripts/ci/check_no_evidence_media.py"
 REJECTION = (
-    "do not commit evidence media. Attach it on the pull request, "
-    "or upload it with actions/upload-artifact."
+    "do not commit evidence media. Keep it local under temp/<lane>/ "
+    "and report its paths."
 )
 
 
