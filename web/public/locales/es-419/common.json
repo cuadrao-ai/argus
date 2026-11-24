@@ -2147,6 +2147,7 @@
     "activity": {
       "all_channels": "La lectura de documentos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
       "error": "No se pudo actualizar la lectura de documentos. Inténtalo de nuevo.",
+      "off_notice": "La lectura automática está apagada.",
       "open_settings": "Abrir configuración de lectura",
       "owner_only": "Tus documentos se guardan sin leer. El dueño del negocio puede activar la lectura.",
       "state_unknown": "No disponible",

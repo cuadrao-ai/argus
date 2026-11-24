@@ -53,8 +53,9 @@ class LinkedSources:
     #: Only the amounts follow the receipt: a record that is not an open draft.
     amounts_only: bool = False
     corrected_sources: frozenset[str] = frozenset()
-    #: The 606 declaration the facts of an open expense state on their own,
-    #: its Forma de pago the one of the account a person said paid it.
+    #: The 606 declaration the facts of an expense state on their own, its
+    #: Forma de pago the one of the account a person said paid it: for an open
+    #: expense, and for an approved one with no saved declaration.
     built: PurchaseDeclaration | None = None
 
 
@@ -178,7 +179,13 @@ def inheritance_state(
             continue
         if source == "original_ncf" and linked.original_ncf is None:
             continue
-        if linked.amounts_only and source not in _MONEY_SOURCES | linked.corrected_sources:
+        # An approved record with no saved line shows the built one, which
+        # follows every source as an open draft's does.
+        if (
+            linked.amounts_only
+            and linked.built is None
+            and source not in _MONEY_SOURCES | linked.corrected_sources
+        ):
             continue
         expected = getattr(split, target) if target in AMOUNT_SIDES else sources[source]
         current = getattr(declaration, target)
@@ -221,13 +228,24 @@ def saved_declaration(
     declaration: DgiiDeclaration | None,
     overrides: tuple[str, ...] | None,
     bill_mark: str | None,
+    built: PurchaseDeclaration | None = None,
 ) -> DgiiDeclaration | None:
     """The declaration an approved record reports: the saved one, as saved.
     One saved before overrides were recorded keeps the fill its export has
     always had: each blank amount from the approved facts, and the Fecha pago
-    of a bill read as paid from its date."""
+    of a bill read as paid from its date.
 
-    if declaration is None or overrides is not None:
+    A purchase saved with no Tipo Id takes the one its RNC states: no person
+    can give it. A record approved with none saved reports ``built``, the one
+    its facts state, each linked field at the value it follows."""
+
+    if declaration is None:
+        return inherit_amounts(facts, built, overrides)
+    if isinstance(declaration, PurchaseDeclaration) and declaration.id_type is None:
+        kind = id_type_of(facts)
+        if kind is not None:
+            declaration = declaration.model_copy(update={"id_type": kind})
+    if overrides is not None:
         return declaration
     filled = inherit_amounts(facts, declaration, None, APPROVED)
     day = facts.occurred_on.value if isinstance(facts.occurred_on, Known) else None
@@ -259,7 +277,7 @@ def written_from(
     pago from that Forma de pago."""
 
     if linked.amounts_only:
-        return saved_declaration(facts, declaration, overrides, bill_mark)
+        return saved_declaration(facts, declaration, overrides, bill_mark, linked.built)
     return inherit_amounts(facts, _answered(declaration, linked), overrides, linked)
 
 
