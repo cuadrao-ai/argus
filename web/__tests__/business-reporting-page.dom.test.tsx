@@ -141,7 +141,7 @@ test("a connected last page uses full server count and original row order, with 
   assert.equal(note.getAttribute("aria-label"), spanish.business.transactions.layout.annotations.current_note);
   await act(async () => note.click());
   assert.deepEqual(opened, [{ kind: "draft", draftId: "zeta", list: "transactions", detailsCard: "note" }]);
-  assert.equal(document.querySelector('[data-record-workflow="ready"]'), null);
+  assert.deepEqual(rows.map(item => item.querySelector('[data-col="stage"]')?.textContent), ["Falta 1 dato", "Falta 1 dato"]);
   await act(async () => (document.querySelector('th[data-col="date"] button') as HTMLElement).click());
   await act(async () => (document.querySelector('button[aria-label="Primera página"]') as HTMLElement).click());
   assert.deepEqual(pages, [1]);
