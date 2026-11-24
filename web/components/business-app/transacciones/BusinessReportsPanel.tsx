@@ -141,7 +141,7 @@ export default function BusinessReportsPanel() {
 export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency, firstLoadShown, onFirstLoad }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest; firstLoadShown?: boolean; onFirstLoad?: () => void }) {
   const openSelectedRow = useContext(RecordGlanceContext);
   const { t } = useTransaccionesWords();
-  const { panel, openPanel, revision, records } = useBusiness();
+  const { chosen, panel, openPanel, revision, records } = useBusiness();
   const { isBelowDesktop } = useResponsiveLayout();
   const { userId, businessId, grantId } = scope;
   const scopeKey = `${userId}:${businessId}`;
@@ -398,6 +398,6 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
         <RecordsPagePreview records={rows} preferences={table.preferences} onSortChange={() => undefined} density={table.preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: table.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
       </RecordGlanceContext.Provider></RecordArrivalsContext.Provider>}
     </section>
-    {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={reviewDgiiPending} onClose={() => setExporting(null)} /> : null}
+    {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={reviewDgiiPending} onOpenBandeja={chosen?.capabilities.includes("prepare") ? () => openPanel({ kind: "inbox" }) : undefined} onClose={() => setExporting(null)} /> : null}
   </PullToRefresh>;
 }

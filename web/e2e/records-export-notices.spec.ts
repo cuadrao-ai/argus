@@ -5,8 +5,9 @@ import { createBusinessReportHttpFixture } from "../__tests__/fixtures/business-
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture, type Language, type Theme } from "./support/breakpoint-fixture";
 import { fulfillSyntheticBusinessFallback } from "./support/synthetic-business-fallback";
 
-async function open606(page: Page) {
+async function open606(page: Page, theme: Theme = "light") {
   const fixture = createBusinessReportHttpFixture();
+  fixture.controls.bandejaCount = 3;
   const purchases = fixture.records.filter((row) => row.family === "purchase");
   purchases.forEach((row) => { row.currency = "DOP"; row.fiscal_data = "complete"; row.stage = "ready_for_export"; });
   purchases[0].fiscal_data = "missing";
@@ -21,7 +22,7 @@ async function open606(page: Page) {
     status: index % 2 ? "rnc_unverified" : "rnc_inactive",
     record_count: 1,
   }));
-  await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
+  await installBreakpointFixture(page, { language: "es-419", theme, emptyChat: true });
   await page.route("**/api/v1/business/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -36,40 +37,45 @@ async function open606(page: Page) {
   await page.getByTestId("records-export").click();
   const download = page.getByTestId("records-export-download");
   await expect(download).toBeEnabled();
+  const bandeja = page.getByTestId("records-export-bandeja-notice");
+  await expect(page.getByTestId("records-export-mode-table").getByTestId("records-export-notices").locator(":scope > li")).toHaveText(["3 comprobantes de este período siguen en la Bandeja.Ver en Bandeja"]);
   await page.getByTestId("records-export-mode-dgii").getByRole("radio").check();
   await expect(page.getByTestId("records-export-rnc-notice")).toBeVisible();
-  return { download, fixture };
+  await expect(page.getByTestId("records-export-mode-dgii")).toContainText("3 comprobantes de este período siguen en la Bandeja.");
+  await expect(page.getByTestId("records-export-mode-table").getByTestId("records-export-notices")).toHaveCount(0);
+  return { download, fixture, bandeja };
 }
 
-async function inlineAction(link: Locator) {
+/** The action sits in its own right-hand column of the notice, level with the sentence's first line. */
+async function columnAction(link: Locator) {
   const geometry = await link.evaluate((button) => {
-    const paragraph = button.closest("p")!;
-    const before = document.createRange();
-    before.setStart(paragraph, 0);
-    before.setEndBefore(button);
-    const sentence = Array.from(before.getClientRects()).at(-1)!;
-    const action = button.getBoundingClientRect();
+    const column = button.parentElement!;
+    const notice = column.parentElement!;
+    const sentence = notice.querySelector("p")!;
     const style = getComputedStyle(button);
     return {
-      parent: paragraph.tagName,
-      paragraphDisplay: getComputedStyle(paragraph).display,
-      display: style.display,
+      notice: notice.tagName,
+      inSentence: sentence.contains(button),
       fontSize: style.fontSize,
-      paragraphFontSize: getComputedStyle(paragraph).fontSize,
       padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
-      height: action.height,
+      height: button.getBoundingClientRect().height,
       lineHeight: Number.parseFloat(style.lineHeight),
-      sentenceTop: sentence.top,
-      actionTop: action.top,
+      columnWidth: column.getBoundingClientRect().width,
+      gap: column.getBoundingClientRect().left - sentence.getBoundingClientRect().right,
+      actionRight: button.getBoundingClientRect().right,
+      noticeRight: notice.getBoundingClientRect().right,
+      sentenceTop: sentence.getBoundingClientRect().top,
+      actionTop: button.getBoundingClientRect().top,
     };
   });
-  expect(geometry.parent).toBe("P");
-  expect(geometry.paragraphDisplay).toBe("block");
-  expect(["inline", "inline-block"]).toContain(geometry.display);
+  expect(geometry.notice).toBe("LI");
+  expect(geometry.inSentence).toBe(false);
   expect(geometry.fontSize).toBe("14px");
-  expect(geometry.paragraphFontSize).toBe("14px");
   expect(geometry.padding).toEqual(["0px", "0px", "0px", "0px"]);
   expect(geometry.height).toBeLessThanOrEqual(geometry.lineHeight + 1);
+  expect(geometry.columnWidth).toBeGreaterThanOrEqual(112);
+  expect(geometry.gap).toBeGreaterThanOrEqual(16);
+  expect(Math.abs(geometry.actionRight - geometry.noticeRight)).toBeLessThanOrEqual(1);
   expect(Math.abs(geometry.sentenceTop - geometry.actionTop)).toBeLessThanOrEqual(3);
 }
 
@@ -88,25 +94,28 @@ async function fullyVisible(download: Locator, page: Page) {
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
   test(`606 keeps 12 suppliers in a bordered scroll box with export visible at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    const { download, fixture } = await open606(page);
+    const { download, fixture, bandeja } = await open606(page);
     const notice = page.getByTestId("records-export-rnc-notice");
     const toggle = page.getByTestId("records-export-rnc-toggle");
     const review = page.getByTestId("records-export-notices").getByRole("button", { name: "Revisar", exact: true });
-    await inlineAction(toggle);
-    await inlineAction(review);
+    const openBandeja = bandeja.getByRole("button", { name: "Ver en Bandeja", exact: true });
+    for (const action of [toggle, review, openBandeja]) await columnAction(action);
     const rows = await page.getByTestId("records-export-notices").locator(":scope > li").evaluateAll((notices) => notices.map((row) => {
       const icon = row.querySelector("svg")!.getBoundingClientRect();
       const paragraph = row.querySelector("p")!.getBoundingClientRect();
       return { iconTop: icon.top, paragraphTop: paragraph.top };
     }));
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(4);
     for (const row of rows) expect(Math.abs(row.iconTop - row.paragraphTop)).toBeLessThanOrEqual(3);
+    await expect(page.getByTestId("records-export-notices").locator(":scope > li").last()).toHaveAttribute("data-testid", "records-export-bandeja-notice");
+    const between = await page.getByTestId("records-export-notices").locator(":scope > li").evaluateAll((notices) => notices.slice(1).map((row, index) => row.getBoundingClientRect().top - notices[index].getBoundingClientRect().bottom));
+    expect(between).toEqual([10, 10, 10]);
     const subtextGap = await notice.locator("p").evaluateAll(([title, body]) => body.getBoundingClientRect().top - title.getBoundingClientRect().bottom);
     expect(Math.abs(subtextGap)).toBeLessThanOrEqual(1);
     await fullyVisible(download, page);
     await toggle.click();
     await expect(toggle).toHaveText("Ocultar");
-    await inlineAction(toggle);
+    await columnAction(toggle);
     const list = page.getByTestId("records-export-rnc-suppliers");
     await expect(list).toBeVisible();
     await expect(list).toHaveAttribute("tabindex", "0");
@@ -153,6 +162,29 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     await expect(list).toBeHidden();
     await expect(toggle).toHaveText("Ver proveedores");
     await fullyVisible(download, page);
+  });
+}
+
+for (const theme of ["light", "dark"] as const) {
+  test(`the Bandeja line uses the notice colors and Ver en Bandeja opens the Bandeja (${theme})`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const { download, bandeja } = await open606(page, theme);
+    const dark = theme === "dark";
+    const pending = page.getByTestId("records-export-notices").locator(":scope > li").nth(1);
+    for (const part of ["svg", "p", "button"]) {
+      const color = await bandeja.locator(part).evaluate((element) => getComputedStyle(element).color);
+      expect(color).toBe(await pending.locator(part).evaluate((element) => getComputedStyle(element).color));
+    }
+    if (!dark) await expect(bandeja.locator("svg")).toHaveCSS("color", "rgb(125, 138, 132)");
+    await expect(download).toBeEnabled();
+    if (process.env.EVIDENCE_DIR) {
+      await mkdir(process.env.EVIDENCE_DIR, { recursive: true });
+      await page.getByTestId("records-export-dialog").screenshot({ path: join(process.env.EVIDENCE_DIR, `exportar-bandeja-606-${theme}.png`), animations: "disabled" });
+    }
+    await bandeja.getByRole("button", { name: "Ver en Bandeja", exact: true }).click();
+    await expect(page.getByTestId("records-export-panel")).toHaveCount(0);
+    await expect(page.getByTestId("transacciones-records")).toHaveCount(0);
+    await expect(page.locator("h1")).toHaveText("Bandeja");
   });
 }
 

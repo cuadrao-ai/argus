@@ -63,7 +63,7 @@ export function createBusinessReportHttpFixture() {
   let createdViews = 0;
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
-  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", rncSuppliers: [] as ExportPreview["dgii"]["rnc_suppliers"], noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { not_ready: 0, needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
+  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", rncSuppliers: [] as ExportPreview["dgii"]["rnc_suppliers"], bandejaCount: 0, noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { not_ready: 0, needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
   const dossier = (row: ReportRecord) => ({ draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
   const problem = (status: number, code: string) => Response.json({ code, detail: code }, { status });
   const matchingRecords = (report: ReportRequest) => {
@@ -120,6 +120,7 @@ export function createBusinessReportHttpFixture() {
       return Response.json({
         table: { current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } }), true) },
         dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort(), rnc_suppliers: controls.rncSuppliers, rnc_supplier_count: controls.rncSuppliers.length, rnc_warning_count: controls.rncSuppliers.reduce((sum, supplier) => sum + supplier.record_count, 0), filenames: names(sale ? "607" : "606") },
+        bandeja_count: controls.bandejaCount,
       });
     }
     if (path.endsWith("/reports/export")) {

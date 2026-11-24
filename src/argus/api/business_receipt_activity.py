@@ -215,6 +215,17 @@ def unreviewed_days(
     return days
 
 
+def bandeja_days(context) -> list[tuple[date, str | None]]:  # noqa: ANN001
+    """``unreviewed_days`` over every receipt of the working Business, for the
+    month close and the export preview alike."""
+
+    from argus.api.business_drafts import receipt_read_dates, receipt_summaries
+
+    return unreviewed_days(
+        context, receipt_summaries(context, "all"), receipt_read_dates(context)
+    )
+
+
 def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
     """One answer for the sidebar badge, the Bandeja and the Resumen, over
     every receipt of the Business, whichever view the caller reads."""
