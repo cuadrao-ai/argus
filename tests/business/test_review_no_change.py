@@ -1,5 +1,6 @@
 """Human review commands that repeat saved answers write no revision (#2317)."""
 from contextlib import nullcontext
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
@@ -8,10 +9,19 @@ import pytest
 from argus.domain.business.actions import mutations, plans, sources
 from argus.domain.business.actions import service as actions
 from argus.domain.business.amount_inheritance import inherit_amounts
+from argus.domain.business.bandeja_group import year_to_check
 from argus.domain.business.contracts.actions import ReviewDraft
 from argus.domain.business.contracts.dgii import PurchaseReview, SalesDeclaration
-from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution
-from argus.domain.business.purchase_review import apply_purchase
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    BusinessResolution,
+    BusinessShare,
+    Known,
+    Unknown,
+    WholeBusinessShare,
+    is_personal,
+)
+from argus.domain.business.purchase_review import apply_purchase, stated_tip
 from faker import Faker
 
 from tests.business.test_document_type_direction import _event, _tx
@@ -133,3 +143,74 @@ def test_a_purchase_answer_on_a_saved_607_is_refused_not_compared(review_command
     result = review({"purchase": purchase})
     assert (result.outcome, result.code) == ("invalid_input", "fiscal_direction_unsupported")
     tx.imports.put_event.assert_not_called()
+
+
+def _holding(event, resolution, **facts):
+    held = resolution.facts.model_copy(update=facts)
+    event.resolution["business"] = {**resolution.model_dump(mode="json"), "facts": held.model_dump(mode="json")}
+    return held
+
+
+def _saved(tx) -> BusinessFacts:
+    return BusinessResolution.model_validate(tx.imports.put_event.call_args.args[0].resolution["business"]).facts
+
+
+@pytest.mark.parametrize("origin", ["extracted", "matched"])
+def test_confirming_a_read_personal_share_makes_the_record_personal(review_command, origin):
+    review, tx, event, resolution = review_command
+    share = Known[BusinessShare](value=WholeBusinessShare(kind="none"), origin=origin, source_ids=(uuid4(),))
+    assert not is_personal(_holding(event, resolution, business_share=share))
+    result = review({"facts": {"business_share": {"state": "known", "value": {"kind": "none"}}}})
+    assert (result.outcome, result.version) == ("applied", event.version + 1)
+    assert is_personal(_saved(tx))
+
+
+def test_repeating_a_persons_personal_share_writes_nothing(review_command):
+    review, tx, event, resolution = review_command
+    share = Known[BusinessShare](value=WholeBusinessShare(kind="none"), origin="member_set", source_ids=(uuid4(),))
+    assert is_personal(_holding(event, resolution, business_share=share))
+    result = review({"facts": {"business_share": {"state": "known", "value": {"kind": "none"}}}})
+    assert (result.outcome, result.version) == ("applied", event.version)
+    tx.imports.put_event.assert_not_called()
+
+
+@pytest.mark.parametrize(("years_later", "written"), [(1, True), (0, False)], ids=["year-checked", "upload-year"])
+def test_confirming_a_read_date_counts_only_when_its_year_is_checked(review_command, years_later, written):
+    review, tx, event, resolution = review_command
+    day = resolution.facts.occurred_on.value
+    uploaded = day.year + years_later
+    answer = tx.rows.side_effect
+    arrived = datetime(uploaded, 1, 10, 15, tzinfo=timezone.utc)
+    tx.rows.side_effect = lambda sql, *args: [{"draft_id": event.id, "received_at": arrived}] if "business_draft_sources" in sql else answer(sql, *args)
+    assert year_to_check(resolution.facts, uploaded) is written
+    result = review({"facts": {"occurred_on": {"state": "known", "value": day.isoformat()}}})
+    assert (result.outcome, result.version) == ("applied", event.version + written)
+    if written:
+        assert not year_to_check(_saved(tx), uploaded)
+    else:
+        tx.imports.put_event.assert_not_called()
+
+
+def test_stating_unknown_where_the_read_left_one_keeps_a_later_read_out(review_command):
+    review, tx, event, resolution = review_command
+    _holding(event, resolution, counterparty=Unknown(origin="extracted", source_ids=(uuid4(),)))
+    result = review({"facts": {"counterparty": {"state": "unknown", "value": None}}})
+    assert (result.outcome, result.version) == ("applied", event.version + 1)
+    assert _saved(tx).counterparty.origin == "member_set"
+
+
+def test_restating_a_defaulted_currency_makes_it_the_persons(review_command):
+    review, tx, event, resolution = review_command
+    _holding(event, resolution, currency=Known(value="DOP", origin="default", source_ids=()))
+    result = review({"facts": {"currency": {"state": "known", "value": "DOP"}}})
+    assert (result.outcome, result.version) == ("applied", event.version + 1)
+    assert _saved(tx).currency.origin == "member_set"
+
+
+def test_stating_no_tip_on_a_record_saved_before_montos_held_it(review_command):
+    review, tx, event, resolution = review_command
+    held = _holding(event, resolution, legal_tip=Unknown())
+    assert stated_tip(held) is None
+    result = review({"montos": {"legal_tip": {"state": "unknown", "value": None}}})
+    assert (result.outcome, result.version) == ("applied", event.version + 1)
+    assert stated_tip(_saved(tx)) == "0"
