@@ -162,9 +162,11 @@ try {
             await expect(problems).toHaveCount(0);
             await expect(page.getByText(/Parece repetido/)).toHaveCount(0);
             await expect(page.getByText("Marcado como compras distintas.", { exact: true })).toBeVisible();
-            // Funding still blocks Aceptar, so focus goes to the one reason the header still gives.
-            await expect(status.getByTestId("dossier-reason")).toBeFocused();
-            await expect(footer.locator("[data-review-primary]")).toBeDisabled();
+            // Funding still blocks recording. The main action can explain it and receives focus again.
+            await expect(status.getByTestId("dossier-reason")).toBeVisible();
+            const accept = footer.locator("[data-review-primary]");
+            await expect(accept).toBeEnabled();
+            await expect(accept).toBeFocused();
             await expect(page.getByText("Cómo se pagó", { exact: true }).first()).toBeVisible();
           }
         }
