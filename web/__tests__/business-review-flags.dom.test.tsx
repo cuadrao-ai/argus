@@ -325,7 +325,8 @@ for (const origin of ["dossier", "refusal"] as const) {
       await page.act(async () => document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
       await page.settle();
       await page.approve();
-      assert.deepEqual(page.problems(), [`${flagCopy.ncf_malformed.title}. ${flagCopy.ncf_malformed.text}`]);
+      assert.equal(page.step()?.querySelector("h2")?.textContent, flagCopy.ncf_malformed.title);
+      assert.deepEqual(page.problems(), [flagCopy.ncf_malformed.text]);
       await page.approveAnyway();
       assert.deepEqual(approvals.at(-1)?.body, { version: dossier.version, action: dossier.approval_action, accept_gaps: ["invalid_ncf"] });
       assert.ok(page.recorded());
@@ -344,7 +345,7 @@ test("a read that restarted is listed and offers only Corregir", async () => {
     const step = page.step();
     assert.ok(step);
     assert.equal(step.querySelector("h2")?.textContent, "Lectura en curso");
-    assert.deepEqual(page.problems(), ["Lectura en curso. Espera a que termine la lectura."]);
+    assert.deepEqual(page.problems(), ["Espera a que termine la lectura."]);
     assert.deepEqual([...step.querySelectorAll("button")].map((button) => button.textContent), [copy.confirm.fix]);
     assert.equal(approvals.length, 1);
     await page.tap(copy.confirm.fix, step);
@@ -411,7 +412,7 @@ test("a high ITBIS shows on the ITBIS row, and as the server's reason it asks be
     assert.equal(page.status("itbis")?.getAttribute("aria-label"), flagCopy.itbis_high.text);
     await page.approve();
     assert.equal(page.step()?.querySelector("h2")?.textContent, copy.placeholder.gap.review_flag.title);
-    assert.deepEqual(page.problems(), [`${copy.placeholder.gap.review_flag.title}. ${flagCopy.itbis_high.text}`]);
+    assert.deepEqual(page.problems(), [flagCopy.itbis_high.text]);
     assert.equal(approvals.length, 0);
     await page.approveAnyway();
     assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, accept_gaps: dossier.listo_gaps }]);

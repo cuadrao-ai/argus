@@ -1,17 +1,39 @@
 # Keep the staging WhatsApp pilot usable
 
-Use the existing Cuadrao number, app, webhook, and approved Business owner.
-Use synthetic receipt data for acceptance. The owner selects the Business and
-sender that retain the pilot connection.
+Staging uses its own WhatsApp app and test number. Production keeps its separate
+app and the real Cuadrao number. Each app's callback points to its own environment.
+Use synthetic receipt data and an approved test Business owner for staging
+acceptance. The owner selects the Business and sender that retain the pilot
+connection. Never use the production number for staging acceptance.
+
+Each environment sets its own distinct `CUADRAO_WHATSAPP_SENDER_KEY`. The API and
+document worker within that environment share its sender key, access token and
+`CUADRAO_WHATSAPP_NUMBER_ID`. Every WhatsApp setting reads only its declared
+`CUADRAO_WHATSAPP_*` name. `CUADRAO_WHATSAPP_NUMBER_ID` owns the accepted receiving
+number; deliveries for a different number are dropped. Production intake and
+outbound stay disabled in the service declarations.
+
 Keep the approved staging connection after acceptance. The release owner handles
 credentials, dashboard actions, publication, staging configuration, and release.
 
 The authoritative runtime secret is `CUADRAO_WHATSAPP_ACCESS_TOKEN` in the
-`cuadrao-api-staging` service's Environment panel. The owner uses
-`/Users/garces/.cuadrao/staging-secrets.env` for secure handoff. That file is not
-the runtime authority. Never source, copy, or read it into a developer worktree.
+`cuadrao-api-staging` service's Environment panel. Production uses its own
+service's configuration. Never copy runtime secrets into a developer worktree.
 Confirm the receiving-number binding in the owner dashboard. A configured display
 number alone does not prove that binding.
+
+## Environment record after deploy
+
+Lucas fills this record after verifying each app's callback and running the offline
+check in that environment. Record only `number_id_reference`, the last four digits
+of the configured number ID, never the full ID or a secret. A null reference means
+no number ID is configured. The reference identifies configuration; callback
+verification and the synthetic staging receipt are separate acceptance steps.
+
+| Environment | Verified callback URL | Accepted number ID reference | Verified at / revision |
+| --- | --- | --- | --- |
+| Staging test app | Pending | Pending | Pending |
+| Production app | Pending | Pending | Pending |
 
 ## Check the connection once
 
@@ -120,7 +142,7 @@ number alone does not prove that binding.
    an unverified display setting for that proof.
 2. Confirm the approved sender is linked to the intended owner's open Business.
    Record the current shared receipt-reading state and the bounded read allowance.
-3. Have that sender send one fresh synthetic receipt to the existing Cuadrao number.
+3. Have that sender send one fresh synthetic receipt to the staging test number.
 4. Prove the signed callback, authenticated media read, matching source checksum,
    intended Business, one reviewable draft, and its visible Inbox row at the recorded
    staging revisions. Keep capture, extraction, and outbound delivery evidence separate.

@@ -8091,8 +8091,7 @@ uncertain fields, and more than 18 digits leaves the amount unresolved.
 
 ### WhatsApp receipt intake (default-off)
 
-Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` (or the older `ARGUS_WHATSAPP_INTAKE_ENABLED`; the
-Cuadrao name wins when both are set; every WhatsApp setting follows this rule) is true, its credentials are set and
+Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` is true, its credentials are set and
 the document surface above is on. While off, every route below except
 `DELETE /api/v1/whatsapp/link` and `DELETE /api/v1/whatsapp/ai-consent` answers
 404 `whatsapp_unavailable`. Selected client Businesses are also unavailable for
