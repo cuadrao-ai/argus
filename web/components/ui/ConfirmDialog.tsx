@@ -20,10 +20,6 @@ type ConfirmDialogProps = {
   /** The confirm failed: says so inside the alert, and the confirm button tries again. */
   error?: ReactNode;
   children?: ReactNode;
-  details?: ReactNode;
-  testId?: string;
-  /** An alternate decision is independent of dismissal. Focus starts on the primary action. */
-  secondaryAction?: { label: string; onClick: () => void } | null;
   leadingAction?: ReactNode;
   onCancel: () => void;
   onConfirm: () => void;
@@ -65,16 +61,13 @@ function ConfirmDialogSurface({
   tone = "danger",
   error = null,
   children,
-  details,
-  testId,
-  secondaryAction,
   leadingAction,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
   const overlayId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
-  const initialFocusRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmLock = useRef(false);
   const sawBusy = useRef(false);
   useEffect(() => {
@@ -126,7 +119,7 @@ function ConfirmDialogSurface({
     isOpen,
     overlayId,
     containerRef: panelRef,
-    initialFocusRef,
+    initialFocusRef: cancelRef,
     onDismiss: onCancel,
     // `onCancel` refuses while the delete is in flight, and refusing inside the
     // dismissal is too late: the entry is claimed by then, so the dialog stayed
@@ -138,7 +131,6 @@ function ConfirmDialogSurface({
   });
 
   if (!isOpen) return null;
-  const secondary = secondaryAction === undefined ? { label: cancelLabel, onClick: onCancel } : secondaryAction;
 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
@@ -152,11 +144,10 @@ function ConfirmDialogSurface({
       <div
         ref={panelRef}
         role="alertdialog"
-        data-testid={testId}
         aria-modal="true"
         aria-labelledby="argus-confirm-title"
         aria-describedby="argus-confirm-description"
-        className={`relative w-full rounded-surface border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-[#1f2225] ${details ? "max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto" : "max-w-sm"}`}
+        className="relative w-full max-w-sm rounded-surface border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-[#1f2225]"
       >
         <h2
           id="argus-confirm-title"
@@ -171,7 +162,6 @@ function ConfirmDialogSurface({
         >
           {description}
         </p>
-        {details}
         {error ? (
           <p role="alert" data-testid="confirm-dialog-error" className="mt-3 text-[13px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
             {error}
@@ -179,24 +169,23 @@ function ConfirmDialogSurface({
         ) : null}
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           {leadingAction ? <div className="mr-auto">{leadingAction}</div> : null}
-          {secondary && <button
-            ref={secondaryAction === undefined ? initialFocusRef : undefined}
+          <button
+            ref={cancelRef}
             type="button"
-            onClick={secondary.onClick}
+            onClick={onCancel}
             disabled={isBusy}
             className={`min-h-11 rounded-full border border-black/10 px-4 text-[16px] font-medium text-black hover:bg-black/5 disabled:opacity-50 ${FOCUS_RING} dark:border-[var(--segment-thumb-border)] dark:text-white dark:hover:bg-white/5`}
           >
             <span className="inline-flex items-center gap-2">
-              {secondary.label}
+              {cancelLabel}
               {showKeyboardHints && (
                 <KeyboardShortcutKeycap className="!h-6 !min-w-0 !rounded-mark !px-2">
                   Esc
                 </KeyboardShortcutKeycap>
               )}
             </span>
-          </button>}
+          </button>
           <button
-            ref={secondaryAction !== undefined ? initialFocusRef : undefined}
             type="button"
             onClick={confirmOnce}
             disabled={isBusy}

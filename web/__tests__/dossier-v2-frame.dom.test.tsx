@@ -345,6 +345,7 @@ describe("the dossier's status is the server's", () => {
       assert.equal(open.textContent, "3 por resolver");
       await page.click(open);
       const items = page.all<HTMLButtonElement>('[data-testid="dossier-problem-list"] [role="option"]');
+      assert.equal(page.button(copy.confirm.accept_anyway), undefined);
       assert.deepEqual(items.map((item) => item.getAttribute("data-reason")), gaps);
       assert.deepEqual(items.map((item) => item.textContent), ["Falta el RNCComprobante · RNC", "Revisa el NCFComprobante · NCF", "Falta el ITBISMontos · ITBIS"]);
       await page.click(items[2]);
@@ -400,12 +401,13 @@ describe("accepting a record that is not Listos", () => {
       try {
         document.documentElement.classList.add("dark");
         await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-        const dialog = page.all('[data-testid="dossier-confirm"]')[0];
-        assert.equal(dialog.querySelector("h2")?.textContent, "¿Aceptar con 1 dato por revisar?");
-        assert.match(dialog.textContent ?? "", /Puedes corregirlo ahora o aceptarlo así\./);
-        assert.ok(dialog.textContent?.includes(`Total US$ 125.00 · ${label} US$ 128.00 · Diferencia -US$ 3.00`));
-        assert.ok(dialog.closest(".dark"));
-        assert.equal(document.activeElement, page.button("Corregir"));
+        const list = page.all('[data-testid="dossier-problem-list"]')[0];
+        assert.equal(list.querySelector("h2")?.textContent, "Corrige 1 dato antes de aceptar");
+        assert.equal(list.querySelectorAll('[role="option"]').length, 1);
+        assert.ok(list.textContent?.includes(`Total US$ 125.00 · ${label} US$ 128.00 · Diferencia -US$ 3.00`));
+        assert.equal(page.all('[data-testid="dossier-reason"]')[0]?.textContent, "Los montos no cuadran");
+        assert.ok(list.closest(".dark"));
+        assert.equal(document.activeElement, list.querySelector('[role="option"]'));
         assert.equal(page.button(copy.confirm.accept_anyway), undefined);
         assert.deepEqual(page.sent, []);
       } finally { await page.close(); }
@@ -420,7 +422,7 @@ describe("accepting a record that is not Listos", () => {
     const page = await mount({ dossier, size: "narrow" });
     try {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-      const difference = page.all('[data-testid="dossier-confirm"] li p .whitespace-nowrap');
+      const difference = page.all('[data-testid="dossier-problem-list"] [role="option"] .whitespace-nowrap');
       assert.deepEqual(difference.map(part => part.textContent), ["Diferencia -RD$ 3.00"]);
     } finally { await page.close(); }
   });
@@ -432,29 +434,41 @@ describe("accepting a record that is not Listos", () => {
     ] }), size: "regular" });
     try {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-      const dialog = page.all('[data-testid="dossier-confirm"]')[0];
-      assert.equal(dialog.querySelector("h2")?.textContent, "¿Aceptar con 2 datos por revisar?");
-      assert.match(dialog.textContent ?? "", /Puedes corregirlos ahora o aceptarlo así\./);
-      const items = dialog.querySelectorAll("li");
+      const list = page.all('[data-testid="dossier-problem-list"]')[0];
+      assert.equal(list.querySelector("h2")?.textContent, "2 por resolver");
+      const items = list.querySelectorAll<HTMLButtonElement>('[role="option"]');
       assert.equal(items.length, 2);
-      assert.match(items[0].textContent ?? "", /ITBIS parece alto/);
+      assert.match(items[0].textContent ?? "", /Montos · ITBIS/);
       assert.match(items[1].textContent ?? "", /Montos · Total/);
       assert.ok(page.button(copy.confirm.accept_anyway));
-      assert.doesNotMatch(dialog.textContent ?? "", /606/);
-      const jump = items[1].querySelector("button");
-      assert.equal(jump?.textContent, "Ir");
-      await page.click(jump);
-      assert.equal(page.all('[data-testid="dossier-confirm"]').length, 0);
+      assert.doesNotMatch(list.textContent ?? "", /606/);
+      await page.click(items[1]);
+      assert.equal(page.all('[data-testid="dossier-problem-list"]').length, 0);
       assert.ok(page.panelOf("general")?.querySelector('[data-fact="amount"]')?.getAttribute("data-flash"));
       assert.deepEqual(page.sent, []);
     } finally { await page.close(); }
   });
 
+  for (const gap of ["missing_date", "missing_amount", "missing_currency"] as const) {
+    test(`Aceptar explains ${gap} even when the server withholds the approval action`, async () => {
+      const page = await mount({ dossier: await fiscalDossier({ ...attention([gap]), approval_action: null, approval_available: false }) });
+      try {
+        assert.ok(page.all('[data-testid="dossier-reason"]')[0]?.textContent);
+        await page.click(page.button("Aceptar"));
+        const list = page.all('[data-testid="dossier-problem-list"]')[0];
+        assert.equal(list.querySelector("h2")?.textContent, "Corrige 1 dato antes de aceptar");
+        assert.equal(list.querySelector('[role="option"]')?.getAttribute("data-reason"), gap);
+        assert.equal(page.button(copy.confirm.accept_anyway), undefined);
+        assert.deepEqual(page.sent, []);
+      } finally { await page.close(); }
+    });
+  }
+
   test("accepting anyway sends the approve request the person confirmed", async () => {
     const page = await mount({ dossier: await fiscalDossier(attention(["invalid_ncf"], ["invalid_ncf"])) });
     try {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-      assert.equal(page.all('[data-testid="dossier-confirm"] h2')[0]?.textContent, "¿Aceptar con 1 dato por revisar?");
+      assert.equal(page.all('[data-testid="dossier-problem-list"] h2')[0]?.textContent, "1 por resolver");
       await page.click(page.button(copy.confirm.accept_anyway));
       assert.deepEqual(page.sent, [{ acceptGaps: ["invalid_ncf"] }]);
     } finally { await page.close(); }
@@ -464,7 +478,7 @@ describe("accepting a record that is not Listos", () => {
     const page = await mount({ dossier: await fiscalDossier() });
     try {
       await page.click(page.all<HTMLButtonElement>("[data-review-primary]")[0]);
-      assert.equal(page.all('[data-testid="dossier-confirm"]').length, 0);
+      assert.equal(page.all('[data-testid="dossier-problem-list"]').length, 0);
       assert.deepEqual(page.sent, [{ acceptGaps: undefined }]);
     } finally { await page.close(); }
   });

@@ -98,12 +98,15 @@ async function render(dossier: BusinessDossier, language: Language = "es-419") {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId={dossier.draft_id} /></BusinessContext.Provider></I18nextProvider>); });
+  const show = (value: BusinessContextValue) => act(async () => {
+    root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><Review draftId={dossier.draft_id} /></BusinessContext.Provider></I18nextProvider>);
+  });
+  await show(context);
   const settle = async () => { for (let turn = 0; turn < 5; turn += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); }); };
   await settle();
   const copy = locales[language].business.dossier;
   const button = (label: string, within: ParentNode = document) => [...within.querySelectorAll("button")].find((item) => item.textContent === label);
-  const step = () => document.querySelector<HTMLElement>('[data-testid="dossier-confirm"]');
+  const step = () => document.querySelector<HTMLElement>('[data-testid="dossier-problem-list"]');
   const tap = async (label: string, within?: ParentNode) => {
     const target = button(label, within);
     assert.ok(target, `${label} is offered`);
@@ -112,11 +115,18 @@ async function render(dossier: BusinessDossier, language: Language = "es-419") {
   };
   return {
     act, host, opened, settle, button, step, tap,
+    reloadDossier: async () => { await show({ ...context, source: { ...context.source } }); await settle(); },
     approve: () => tap(copy.approve_action),
     approveAnyway: () => tap(copy.confirm.accept_anyway, step() ?? undefined),
     // A recorded receipt offers no Aceptar and has no Bandeja pill.
     recorded: () => host.querySelector('[data-testid="receipt-review-footer"]') !== null && host.querySelector("[data-review-primary]") === null && host.querySelector('[data-testid="status-pill"]') === null,
-    problems: () => [...(document.querySelector('[data-testid="dossier-confirm"]')?.querySelectorAll("li p") ?? [])].map((item) => item.textContent),
+    problems: () => [...(step()?.querySelectorAll('[role="option"]') ?? [])].map(item => item.getAttribute("data-reason")),
+    pickFirst: async () => {
+      const row = step()?.querySelector<HTMLButtonElement>('[role="option"]');
+      assert.ok(row);
+      await act(async () => row.click());
+      await settle();
+    },
     status: (row: string) => host.querySelector<HTMLElement>(`[data-testid="row-status-${row}"]`),
     close: async () => { await act(async () => root.unmount()); host.remove(); },
   };
@@ -125,7 +135,7 @@ async function render(dossier: BusinessDossier, language: Language = "es-419") {
 const copy = es.business.dossier;
 const flagCopy = copy.review_flag;
 
-test("an RNC with a wrong check digit opens a step before approval, with Corregir as the primary way out", async () => {
+test("an RNC with a wrong check digit opens a step before approval, with focus on the first row", async () => {
   const dossier = await flagged(["rnc_check_digit"], ["invalid_rnc", "review_flag"]);
   const approvals = serve(dossier);
   const page = await render(dossier);
@@ -135,29 +145,26 @@ test("an RNC with a wrong check digit opens a step before approval, with Corregi
     await page.approve();
     const step = page.step();
     assert.ok(step, "approval stops at the step");
-    assert.equal(step.getAttribute("role"), "alertdialog");
-    assert.equal(step.querySelector("h2")?.textContent, "¿Aceptar con 2 datos por revisar?");
-    assert.deepEqual(page.problems(), [`${flagCopy.rnc_check_digit.title}. ${flagCopy.rnc_check_digit.text}`, copy.placeholder.gap.review_flag.text]);
+    assert.ok(step.closest('[data-testid="dossier-status"]'));
+    assert.equal(step.querySelector("h2")?.textContent, "2 por resolver");
+    assert.deepEqual(page.problems(), ["invalid_rnc", "review_flag"]);
     assert.doesNotMatch(step.textContent ?? "", /606/);
-    const fix = page.button(copy.confirm.fix, step);
-    const anyway = page.button(copy.confirm.accept_anyway, step);
-    assert.match(fix?.className ?? "", /min-h-11.*cuadrao-green/);
-    assert.match(anyway?.className ?? "", /min-h-11.*border/);
-    assert.equal(document.activeElement, fix, "the cursor starts on Corregir");
+    assert.ok(page.button(copy.confirm.accept_anyway, step));
+    assert.equal(document.activeElement, step.querySelector('[role="option"]'));
     assert.equal(approvals.length, 0, "nothing is sent while the step is open");
   } finally {
     await page.close();
   }
 });
 
-test("Corregir closes the step, approves nothing and points at the RNC row", async () => {
+test("Picking the first row closes the list, approves nothing and points at the RNC row", async () => {
   const dossier = await flagged(["rnc_check_digit"], ["invalid_rnc", "review_flag"]);
   const approvals = serve(dossier);
   const page = await render(dossier);
   try {
     assert.equal(page.host.querySelector('[data-fact="rnc"]')?.getAttribute("data-flash"), null);
     await page.approve();
-    await page.tap(copy.confirm.fix, page.step()!);
+    await page.pickFirst();
     assert.equal(page.step(), null);
     assert.equal(approvals.length, 0);
     assert.ok(page.host.querySelector('[data-fact="rnc"]')?.getAttribute("data-flash"), "the RNC's own row flashes");
@@ -212,7 +219,7 @@ test("the date the XML disputes says revisar on its row", async () => {
   }
 });
 
-test("Escape and the backdrop close the step without approving", async () => {
+test("Escape and an outside press close the step without approving", async () => {
   const dossier = await flagged(["rnc_check_digit"], ["invalid_rnc", "review_flag"]);
   const approvals = serve(dossier);
   const page = await render(dossier);
@@ -221,13 +228,34 @@ test("Escape and the backdrop close the step without approving", async () => {
     await page.act(async () => document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     await page.settle();
     assert.equal(page.step(), null);
+    assert.equal(document.activeElement, page.button(copy.approve_action));
+    await page.tap("2 por resolver");
+    assert.equal(page.button(copy.confirm.accept_anyway), undefined);
+    await page.tap("2 por resolver");
     await page.approve();
-    const backdrop = page.step()?.parentElement?.querySelector<HTMLButtonElement>(`button[aria-label="${es.common.cancel}"]`);
-    assert.ok(backdrop);
-    await page.act(async () => backdrop.click());
+    await page.act(async () => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
     await page.settle();
     assert.equal(page.step(), null);
     assert.equal(approvals.length, 0);
+  } finally {
+    await page.close();
+  }
+});
+
+test("fixing a gap dismisses acceptance even when the server returns the same draft version", async () => {
+  const dossier = await flagged(["ncf_malformed"], ["invalid_ncf", "missing_rnc", "missing_itbis"]);
+  const approvals = serve(dossier);
+  const page = await render(dossier);
+  try {
+    await page.approve();
+    assert.ok(page.button(copy.confirm.accept_anyway));
+    Object.assign(dossier, await flagged(["ncf_malformed"], ["invalid_ncf", "missing_itbis"]));
+    await page.reloadDossier();
+    assert.equal(page.step(), null);
+    await page.tap("2 por resolver");
+    assert.deepEqual(page.problems(), dossier.listo_gaps);
+    assert.equal(page.button(copy.confirm.accept_anyway), undefined);
+    assert.deepEqual(approvals, []);
   } finally {
     await page.close();
   }
@@ -251,7 +279,7 @@ test("Aceptar de todos modos sends every confirmed gap and the suggestion shown 
   }
 });
 
-test("a refusal updates the dialog and the next approval names the new gaps with a new key", async () => {
+test("a refusal updates the list and the next approval names the new gaps with a new key", async () => {
   const dossier = await flagged(["ncf_malformed"], ["invalid_ncf"]);
   const updated = ["invalid_ncf", "missing_itbis"] satisfies ListoGap[];
   const approvals = serve(dossier, refusal("not_listo", { gaps: updated, confirmable: updated }));
@@ -261,10 +289,7 @@ test("a refusal updates the dialog and the next approval names the new gaps with
     await page.approveAnyway();
     const step = page.step();
     assert.ok(step, "the refusal opens a new confirmation");
-    assert.deepEqual(page.problems(), [
-      `${flagCopy.ncf_malformed.title}. ${flagCopy.ncf_malformed.text}`,
-      `${copy.placeholder.gap.missing_itbis.title}. ${copy.placeholder.gap.missing_itbis.text}`,
-    ]);
+    assert.deepEqual(page.problems(), updated);
     assert.equal(approvals.length, 1, "the new gaps need their own confirmation");
     await page.approveAnyway();
     assert.deepEqual(approvals.map((item) => item.body), [
@@ -279,7 +304,7 @@ test("a refusal updates the dialog and the next approval names the new gaps with
   }
 });
 
-test("Corregir after a refusal points at its first gap even when the dossier showed Listo", async () => {
+test("Selecting the date after a refusal points at its first gap even when the dossier showed Listo", async () => {
   const dossier = await flagged([], []);
   const current = await flagged(["ncf_malformed"], ["missing_date", "invalid_ncf"], ["invalid_ncf"]);
   const approvals = serve(dossier, refusal("not_listo", { gaps: ["missing_date", "invalid_ncf"], confirmable: ["invalid_ncf"] }));
@@ -289,18 +314,18 @@ test("Corregir after a refusal points at its first gap even when the dossier sho
     await page.approve();
     const step = page.step();
     assert.ok(step);
-    assert.deepEqual([...step.querySelectorAll("button")].filter(button => !button.closest("li")).map((button) => button.textContent), [copy.confirm.fix]);
+    assert.equal(page.button(copy.confirm.accept_anyway), undefined);
     assert.equal(label(), "ready");
-    assert.equal(page.host.querySelector('[data-testid="dossier-problems"]'), null, "the refusal only updates the dialog");
+    assert.equal(step.querySelector("h2")?.textContent, "Corrige 2 datos antes de aceptar");
     Object.assign(dossier, current);
-    await page.tap(copy.confirm.fix, step);
+    await page.pickFirst();
     assert.equal(page.step(), null);
     assert.ok(page.host.querySelector('[data-fact="occurred_on"]')?.getAttribute("data-flash"), "the date row flashes");
     assert.equal(document.activeElement, page.host.querySelector('[data-fact="occurred_on"] button[data-row-value]'));
     assert.equal(label(), "needs_attention");
     await page.approve();
-    assert.ok(page.step(), "the latest gaps remain after closing the dialog");
-    assert.deepEqual([...page.step()!.querySelectorAll("button")].filter(button => !button.closest("li")).map((button) => button.textContent), [copy.confirm.fix]);
+    assert.ok(page.step(), "the latest gaps remain after closing the list");
+    assert.equal(page.button(copy.confirm.accept_anyway), undefined);
     assert.equal(approvals.length, 1);
     assert.deepEqual(approvals[0].body, { version: dossier.version, action: dossier.approval_action });
   } finally {
@@ -324,8 +349,8 @@ for (const origin of ["dossier", "refusal"] as const) {
       await page.act(async () => document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
       await page.settle();
       await page.approve();
-      assert.equal(page.step()?.querySelector("h2")?.textContent, "¿Aceptar con 1 dato por revisar?");
-      assert.deepEqual(page.problems(), [`${flagCopy.ncf_malformed.title}. ${flagCopy.ncf_malformed.text}`]);
+      assert.equal(page.step()?.querySelector("h2")?.textContent, "1 por resolver");
+      assert.deepEqual(page.problems(), ["invalid_ncf"]);
       await page.approveAnyway();
       assert.deepEqual(approvals.at(-1)?.body, { version: dossier.version, action: dossier.approval_action, accept_gaps: ["invalid_ncf"] });
       assert.ok(page.recorded());
@@ -335,7 +360,7 @@ for (const origin of ["dossier", "refusal"] as const) {
   });
 }
 
-test("a read that restarted is listed and offers only Corregir", async () => {
+test("a read that restarted is listed and offers no acceptance", async () => {
   const dossier = await flagged([], []);
   const approvals = serve(dossier, refusal("not_listo", { gaps: ["reading"], confirmable: [] }));
   const page = await render(dossier);
@@ -343,11 +368,11 @@ test("a read that restarted is listed and offers only Corregir", async () => {
     await page.approve();
     const step = page.step();
     assert.ok(step);
-    assert.equal(step.querySelector("h2")?.textContent, "¿Aceptar con 1 dato por revisar?");
-    assert.deepEqual(page.problems(), ["Lectura en curso. Espera a que termine la lectura."]);
-    assert.deepEqual([...step.querySelectorAll("button")].filter(button => !button.closest("li")).map((button) => button.textContent), [copy.confirm.fix]);
+    assert.equal(step.querySelector("h2")?.textContent, "Corrige 1 dato antes de aceptar");
+    assert.deepEqual(page.problems(), ["reading"]);
+    assert.equal(page.button(copy.confirm.accept_anyway), undefined);
     assert.equal(approvals.length, 1);
-    await page.tap(copy.confirm.fix, step);
+    await page.pickFirst();
     await page.approve();
     assert.equal(approvals.length, 2, "the owner can try again after the read finishes");
     assert.deepEqual(approvals[1].body, approvals[0].body);
@@ -358,7 +383,7 @@ test("a read that restarted is listed and offers only Corregir", async () => {
   }
 });
 
-test("mixed gaps list every issue and offer only Corregir", async () => {
+test("mixed gaps list every issue and offer no acceptance", async () => {
   const dossier = await flagged(["ncf_malformed"], ["invalid_ncf", "unverified_sender"], ["invalid_ncf"]);
   const approvals = serve(dossier);
   const page = await render(dossier);
@@ -366,11 +391,8 @@ test("mixed gaps list every issue and offer only Corregir", async () => {
     await page.approve();
     const step = page.step();
     assert.ok(step);
-    assert.deepEqual(page.problems(), [
-      `${flagCopy.ncf_malformed.title}. ${flagCopy.ncf_malformed.text}`,
-      `${copy.placeholder.gap.unverified_sender.title}. ${copy.placeholder.gap.unverified_sender.text}`,
-    ]);
-    assert.deepEqual([...step.querySelectorAll("button")].filter(button => !button.closest("li")).map((button) => button.textContent), [copy.confirm.fix]);
+    assert.deepEqual(page.problems(), ["invalid_ncf", "unverified_sender"]);
+    assert.equal(page.button(copy.confirm.accept_anyway), undefined);
     assert.deepEqual(approvals, []);
   } finally {
     await page.close();
@@ -387,13 +409,9 @@ test("an RNC of the wrong length and the flags share one step before anything is
     await page.approve();
     const step = page.step();
     assert.ok(step, "one step");
-    assert.equal(document.querySelectorAll('[role="alertdialog"]').length, 1, "with no second RNC dialog");
-    assert.equal(step.querySelector("h2")?.textContent, "¿Aceptar con 3 datos por revisar?");
-    assert.deepEqual(page.problems(), [
-      `${flagCopy.rnc_check_digit.title}. ${es.business.dgii.rnc_check.invalid_length.reason}`,
-      `${flagCopy.ncf_malformed.title}. ${flagCopy.ncf_malformed.text}`,
-      copy.placeholder.gap.review_flag.text,
-    ]);
+    assert.equal(document.querySelectorAll('[role="alertdialog"]').length, 0, "approval uses the header list");
+    assert.equal(step.querySelector("h2")?.textContent, "3 por resolver");
+    assert.deepEqual(page.problems(), ["invalid_rnc", "invalid_ncf", "review_flag"]);
     assert.equal(approvals.length, 0, "nothing is sent while the step is open");
     await page.approveAnyway();
     assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, accept_gaps: dossier.listo_gaps }]);
@@ -410,8 +428,8 @@ test("a high ITBIS shows on the ITBIS row, and as the server's reason it asks be
   try {
     assert.equal(page.status("itbis")?.getAttribute("aria-label"), flagCopy.itbis_high.text);
     await page.approve();
-    assert.equal(page.step()?.querySelector("h2")?.textContent, "¿Aceptar con 1 dato por revisar?");
-    assert.deepEqual(page.problems(), [flagCopy.itbis_high.text]);
+    assert.equal(page.step()?.querySelector("h2")?.textContent, "1 por resolver");
+    assert.deepEqual(page.problems(), ["review_flag"]);
     assert.equal(approvals.length, 0);
     await page.approveAnyway();
     assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, accept_gaps: dossier.listo_gaps }]);
@@ -461,12 +479,11 @@ test("in English, one step lists every gap", async () => {
   const approvals = serve(dossier);
   const page = await render(dossier, "en");
   try {
-    const copy = en.business.dossier.review_flag;
     await page.approve();
     const step = page.step();
     assert.ok(step);
-    assert.equal(step.querySelector("h2")?.textContent, "Accept with 3 items to review?");
-    assert.deepEqual([...step.querySelectorAll("li p")].map((item) => item.textContent), [`${copy.rnc_check_digit.title}. ${copy.rnc_check_digit.text}`, `${copy.ncf_malformed.title}. ${copy.ncf_malformed.text}`, copy.itbis_high.text]);
+    assert.equal(step.querySelector("h2")?.textContent, "3 to resolve");
+    assert.deepEqual(page.problems(), dossier.listo_gaps);
     assert.doesNotMatch(step.textContent ?? "", /606/);
     await page.approveAnyway();
     assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, accept_gaps: dossier.listo_gaps }]);

@@ -87,7 +87,7 @@ function rowSection(row: ReviewRow, t: TFunction, general: string): string {
 /**
  * Why the record is not Listos: the gaps and their flags, in the server's
  * order. The pill's reason, the problem list, the row status slots and the
- * confirm read this one list. Nothing here decides a reason.
+ * approval action read this one list. Nothing here decides a reason.
  */
 export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem[] {
   const locale = t("business.terms.difference", { returnDetails: true }).usedLng;
@@ -123,7 +123,7 @@ export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem
       : flag ? t(`business.dossier.review_flag.${flag.code}.text`)
       : words(reason, "text");
     return {
-      key, reason, title: words(reason, "title"), text, tab: "general", row,
+      key, reason, title: flag?.code === "amounts_mismatch" ? t("business.dossier.confirm.placeholder.amounts_mismatch") : words(reason, "title"), text, tab: "general", row,
       where: row ? `${rowSection(row, t, general)} · ${dossierRowLabel(t, row, dossier)}` : general,
       amountComparison: comparison,
     };

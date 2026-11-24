@@ -3040,15 +3040,12 @@
       "read_only": "Your permission allows viewing this record.",
       "confirm": {
         "accept_anyway": "Accept anyway",
-        "fix": "Fix",
         "placeholder": {
+          "amounts_mismatch": "The amounts do not add up",
+          "blocked_one": "Fix {{count}} item before accepting",
+          "blocked_other": "Fix {{count}} items before accepting",
           "calculated_total": "Calculated total",
-          "go": "Go",
-          "subtotal_itbis": "Subtotal plus ITBIS",
-          "subtitle_one": "You can fix it now or accept the record as it is.",
-          "subtitle_other": "You can fix them now or accept the record as it is.",
-          "title_one": "Accept with {{count}} item to review?",
-          "title_other": "Accept with {{count}} items to review?"
+          "subtotal_itbis": "Subtotal plus ITBIS"
         }
       },
       "refresh": "Check current record",

@@ -15,15 +15,15 @@ const cases = [
   },
   {
     name: "mixed-gaps",
-    gaps: ["missing_ncf", "unverified_sender"],
+    gaps: ["missing_ncf", "missing_date"],
     confirmable: ["missing_ncf"],
-    labels: ["Falta el NCF", "Remitente sin verificar"],
+    labels: ["Falta el NCF", "Falta la fecha"],
     canAccept: false,
   },
 ] satisfies { name: string; gaps: [ListoGap, ...ListoGap[]]; confirmable: ListoGap[]; labels: string[]; canAccept: boolean }[];
 
 for (const { name, gaps, confirmable, labels, canAccept } of cases) {
-  test(`receipt confirmation with ${name}`, async ({ page, baseURL }, testInfo) => {
+  test(`receipt confirmation with ${name}`, async ({ page, baseURL }) => {
     if (!baseURL || !["127.0.0.1", "localhost"].includes(new URL(baseURL).hostname)) {
       throw new Error("Dossier confirmation evidence requires a loopback app");
     }
@@ -41,15 +41,13 @@ for (const { name, gaps, confirmable, labels, canAccept } of cases) {
       }
     });
     await page.goto(`/biz?draft=${id}`);
-    await page.getByTestId("receipt-review-footer").getByRole("button", { name: /^Aceptar\b/ }).click();
+    await page.locator("button[data-review-primary]").click();
 
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog.getByRole("listitem")).toContainText(labels);
-    await expect(dialog.getByRole("button", { name: "Corregir", exact: true })).toBeEnabled();
-    const acceptAnyway = dialog.getByRole("button", { name: "Aceptar de todos modos", exact: true });
+    const list = page.getByTestId("dossier-problem-list");
+    await expect(list.getByRole("option")).toContainText(labels);
+    await expect(list.getByRole("option").first()).toBeFocused();
+    const acceptAnyway = list.getByRole("button", { name: "Aceptar de todos modos", exact: true });
     if (canAccept) await expect(acceptAnyway).toBeEnabled();
     else await expect(acceptAnyway).toHaveCount(0);
-
-    await page.screenshot({ path: testInfo.outputPath(`dossier-confirm-${name}.png`), animations: "disabled" });
   });
 }

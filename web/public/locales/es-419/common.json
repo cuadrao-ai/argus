@@ -3040,15 +3040,12 @@
       "read_only": "Tu permiso permite ver este registro.",
       "confirm": {
         "accept_anyway": "Aceptar de todos modos",
-        "fix": "Corregir",
         "placeholder": {
+          "amounts_mismatch": "Los montos no cuadran",
+          "blocked_one": "Corrige {{count}} dato antes de aceptar",
+          "blocked_other": "Corrige {{count}} datos antes de aceptar",
           "calculated_total": "Total calculado",
-          "go": "Ir",
-          "subtotal_itbis": "Subtotal + ITBIS",
-          "subtitle_one": "Puedes corregirlo ahora o aceptarlo así.",
-          "subtitle_other": "Puedes corregirlos ahora o aceptarlo así.",
-          "title_one": "¿Aceptar con {{count}} dato por revisar?",
-          "title_other": "¿Aceptar con {{count}} datos por revisar?"
+          "subtotal_itbis": "Subtotal + ITBIS"
         }
       },
       "refresh": "Consultar registro actual",
