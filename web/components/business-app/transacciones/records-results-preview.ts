@@ -17,7 +17,7 @@ const COST_OF_SALES = expenseType("09");
 const CARD = paymentForm("03");
 const TRANSFER = paymentForm("02");
 const FIXTURE_METADATA: Readonly<Record<string, PreviewRecordMetadata>> = {
-  "gasto:exp-gas": { ready: false, financialEligibility: "confirmed", dgii606: { expense_type: null, payment_form: TRANSFER }, missing: ["expense_type_missing", "ncf_missing"] },
+  "gasto:exp-gas": { ready: false, financialEligibility: "confirmed", dgii606: { expense_type: null, payment_form: TRANSFER }, missing: ["expense_type_missing", "missing_ncf"] },
   "gasto:exp-hosting": { ready: true, missing: [], financialEligibility: "confirmed", documentNumbers: ["B0100000042"], dgii606: { expense_type: SERVICES, payment_form: CARD } },
   "gasto:exp-imprenta": { ready: false, financialEligibility: "confirmed", dgii606: { expense_type: COST_OF_SALES, payment_form: null }, missing: ["payment_method_missing"] },
   "gasto:exp-lunch": { ready: true, missing: [], financialEligibility: "personal", dgii606: null },

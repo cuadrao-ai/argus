@@ -16,6 +16,12 @@ from argus.domain.business.fiscal_identity import (
     normalized_ncf,
     rnc_check_digit_ok,
 )
+from argus.domain.business.missing_reasons import (
+    DETAIL_MISSING,
+    REASONS,
+    registered,
+    words,
+)
 from argus.domain.business.rnc_registry import RncRecord, RncRegistry
 
 # Missing values in these 606 fields are valid and export as zero.
@@ -46,23 +52,9 @@ COPY = {
         "es": "Un comprobante B01 necesita el RNC del suplidor.",
         "en": "A B01 needs the supplier RNC.",
     },
-    "expense_type_missing": {
-        "es": "Falta el tipo de gasto",
-        "en": "Expense type is missing",
-    },
-    "rnc_missing": {"es": "Falta el RNC", "en": "RNC is missing"},
-    "rnc_invalid": {"es": "RNC con error", "en": "RNC has an error"},
-    "ncf_invalid": {"es": "NCF con error", "en": "NCF has an error"},
-    "date_missing": {"es": "Falta la fecha", "en": "Date is missing"},
-    "ncf_missing": {"es": "Falta el NCF", "en": "NCF is missing"},
-    "detail_missing": {"es": "Falta un dato", "en": "A detail is missing"},
     "fiscal_details_missing": {
         "es": "Faltan datos fiscales",
         "en": "Fiscal details missing",
-    },
-    "payment_method_missing": {
-        "es": "Falta la forma de pago",
-        "en": "Payment method is missing",
     },
     "rnc_unverified": {
         "es": "Todavía no lo hemos verificado con la DGII.",
@@ -91,50 +83,21 @@ COPY = {
 }
 
 
-# What a person fixes first for a record the 606/607 cannot carry yet: a
-# missing value, then a wrong one. Copy for the first seven approved by Iris.
-# Codes outside this table read as DETAIL_MISSING.
-MISSING_ORDER = tuple(
-    dict.fromkeys(
-        (
-            "expense_type_missing",
-            "rnc_missing",
-            "rnc_invalid",
-            "ncf_invalid",
-            "date_missing",
-            "ncf_missing",
-            "payment_method_missing",
-            "payment_date_missing",
-            "duplicate_document",
-            "own_rnc_required",
-            "billed_amount_zero",
-            "itbis_cost_over_itbis",
-            "payment_after_month",
-            "credit_note_reference",
-            "credit_note_too_late",
-            "credit_note_payment_form",
-            "modified_ncf_not_allowed",
-            *(rule.message_key for rule in RULES),
-        )
-    )
-)
-# Shown when an export issue code has no named fix yet. Never a raw code.
-DETAIL_MISSING = "detail_missing"
-#: The word for each issue raised outside the 606 rule table. A rule in the
-#: table carries its own.
-_MISSING = {
+#: The reason for each issue raised outside the 606 rule table. A rule in the
+#: table carries its own. An issue outside both reads as DETAIL_MISSING.
+ISSUE_REASON = {
     ("fiscal_declaration_missing", "declaration"): "expense_type_missing",
     ("fiscal_fact_required", "category"): "expense_type_missing",
-    ("fiscal_identity_required", "rnc"): "rnc_invalid",
-    ("fiscal_identity_length", "rnc"): "rnc_invalid",
-    ("fiscal_b01_rnc_required", "rnc"): "rnc_missing",
-    ("fiscal_identity_check_digit", "rnc"): "rnc_invalid",
-    ("fiscal_identity_type_mismatch", "id_type"): "rnc_invalid",
-    ("fiscal_ncf_malformed", "ncf"): "ncf_invalid",
-    ("fiscal_ncf_unsupported", "ncf"): "ncf_invalid",
+    ("fiscal_identity_required", "rnc"): "invalid_rnc",
+    ("fiscal_identity_length", "rnc"): "invalid_rnc",
+    ("fiscal_b01_rnc_required", "rnc"): "missing_rnc",
+    ("fiscal_identity_check_digit", "rnc"): "invalid_rnc",
+    ("fiscal_identity_type_mismatch", "id_type"): "invalid_rnc",
+    ("fiscal_ncf_malformed", "ncf"): "invalid_ncf",
+    ("fiscal_ncf_unsupported", "ncf"): "invalid_ncf",
     ("fiscal_ncf_unsupported", "modified_ncf"): "modified_ncf_invalid",
-    ("fiscal_activity_revision_changed", "occurred_on"): "date_missing",
-    ("fiscal_fact_required", "ncf"): "ncf_missing",
+    ("fiscal_activity_revision_changed", "occurred_on"): "missing_date",
+    ("fiscal_fact_required", "ncf"): "missing_ncf",
     ("fiscal_fact_required", "payment_method"): "payment_method_missing",
     ("fiscal_payment_date_required", "paid_on"): "payment_date_missing",
     ("fiscal_withholding_payment_date_required", "paid_on"): "payment_date_missing",
@@ -155,6 +118,7 @@ _MISSING = {
         "purchase_activity_id",
     ): "modified_ncf_not_allowed",
 }
+registered((*ISSUE_REASON.values(), *(rule.message_key for rule in RULES)))
 
 
 #: The issues that hold a purchase's 606 line with no Forma de Pago: the field
@@ -168,25 +132,29 @@ PAYMENT_FORM_ISSUES = frozenset(
 
 
 def missing_items(record: FiscalRecord, issues: list[dict]) -> tuple[str, ...]:
-    """Every named fix the record needs, in MISSING_ORDER, or DETAIL_MISSING."""
+    """Every named fix the record needs, in the registry's order, or DETAIL_MISSING."""
     absent = identity_digits(fact_value(record, "rnc")) is None
     found = [
-        issue.get("message_key") or _MISSING.get((issue["code"], issue["field"]))
+        issue.get("message_key") or ISSUE_REASON.get((issue["code"], issue["field"]))
         for issue in issues
     ]
     found = [
-        "rnc_missing" if code == "rnc_invalid" and absent else code for code in found
+        "missing_rnc" if code == "invalid_rnc" and absent else code for code in found
     ]
-    known = tuple(code for code in MISSING_ORDER if code in found)
+    known = tuple(code for code in REASONS if code in found)
     return known or (DETAIL_MISSING,)
-
-
-def first_missing(record: FiscalRecord, issues: list[dict]) -> str:
-    return missing_items(record, issues)[0]
 
 
 def reason(code: str, locale: str = "es") -> str:
     return COPY[code][locale]
+
+
+def _said(code: str) -> dict:
+    return {"reason": reason(code, "es"), "reason_en": reason(code, "en")}
+
+
+def _missing_said(code: str) -> dict:
+    return {"reason": words(code, "es-419"), "reason_en": words(code, "en")}
 
 
 def _dated(record: RncRecord, locale: str) -> str:
@@ -223,8 +191,7 @@ def _reject(record: FiscalRecord, code: str, field: str) -> dict:
         "code": code,
         "activity_id": record.activity_id,
         "field": field,
-        "reason": reason(code, "es"),
-        "reason_en": reason(code, "en"),
+        **_said(code),
     }
 
 
@@ -265,14 +232,8 @@ def hard_rejects(record: FiscalRecord, registry: RncRegistry) -> list[dict]:
     return issues
 
 
-def _warning(record: FiscalRecord, code: str, **extra) -> dict:
-    return {
-        "code": code,
-        "line": record.activity_id,
-        "reason": reason(code, "es") if code in COPY else extra.get("reason", ""),
-        "reason_en": reason(code, "en") if code in COPY else extra.get("reason_en", ""),
-        **extra,
-    }
+def _warning(record: FiscalRecord, code: str, **said) -> dict:
+    return {"code": code, "line": record.activity_id, **said}
 
 
 def line_review(record: FiscalRecord, registry: RncRegistry) -> tuple[dict, list[dict]]:
@@ -311,7 +272,7 @@ def line_review(record: FiscalRecord, registry: RncRegistry) -> tuple[dict, list
     }
     warnings = []
     if status == "sin_verificar" and digits:
-        warnings.append(_warning(record, "rnc_unverified"))
+        warnings.append(_warning(record, "rnc_unverified", **_said("rnc_unverified")))
     elif status == "no_activo" and found is not None:
         text = _dated(found, "es")
         english = _dated(found, "en")
@@ -327,8 +288,10 @@ def line_review(record: FiscalRecord, registry: RncRegistry) -> tuple[dict, list
                 name=found.name,
             )
         )
-    if declaration.category is None:
-        warnings.append(_warning(record, "expense_type_missing"))
-    if declaration.payment_method is None:
-        warnings.append(_warning(record, "payment_method_missing"))
+    for code, answer in (
+        ("expense_type_missing", declaration.category),
+        ("payment_method_missing", declaration.payment_method),
+    ):
+        if answer is None:
+            warnings.append(_warning(record, code, **_missing_said(code)))
     return check, warnings

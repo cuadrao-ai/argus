@@ -169,7 +169,7 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", readin
 }
 
 describe("opened records show only their server readiness list", () => {
-  const missing = ["expense_type_missing", "payment_method_missing", "rnc_missing"];
+  const missing = ["expense_type_missing", "payment_method_missing", "missing_rnc"];
   const words = ["Falta el tipo de gasto", "Falta la forma de pago", "Falta el RNC"];
   const shown = () => [...document.querySelectorAll("[data-record-missing-list] li")].map((item) => item.textContent);
 

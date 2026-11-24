@@ -45,8 +45,8 @@ async function open(page: Page) {
 function fiscalBooks(rows: ReportRecord[]) {
   const purchases = rows.filter((row) => row.family === "purchase");
   purchases.slice(0, 4).forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.ready = true; row.missing = []; });
-  purchases.slice(4, 7).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["ncf_missing"]; });
-  purchases.slice(7, 9).forEach((row, index) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["ncf_missing"]; row.currency = index ? "EUR" : "USD"; });
+  purchases.slice(4, 7).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["missing_ncf"]; });
+  purchases.slice(7, 9).forEach((row, index) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["missing_ncf"]; row.currency = index ? "EUR" : "USD"; });
 }
 
 test("Lo que ves exports the table's request, its columns and every currency, with the server's count", async () => {
@@ -439,7 +439,7 @@ test("zero RNC warnings hide the notice in DGII mode", async () => {
 
 test("607 keeps pending notices below the options", async () => {
   const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"], currencies: ["DOP"] } });
-  const page = await mount({ initial, edit: (rows) => rows.filter((row) => row.family === "sale").slice(0, 1).forEach((row) => { row.fiscal_data = "missing"; row.ready = false; row.missing = ["ncf_missing"]; row.stage = "needs_fiscal_data"; }) });
+  const page = await mount({ initial, edit: (rows) => rows.filter((row) => row.family === "sale").slice(0, 1).forEach((row) => { row.fiscal_data = "missing"; row.ready = false; row.missing = ["missing_ncf"]; row.stage = "needs_fiscal_data"; }) });
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   assert.match(dialogText(), /Formato DGII 607/);
