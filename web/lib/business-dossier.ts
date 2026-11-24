@@ -158,7 +158,7 @@ export function readBusinessDossier(value: unknown): BusinessDossier {
 export const REVIEW_FLAG_CODES = ["rnc_check_digit", "ncf_malformed", "itbis_high", "amounts_mismatch"] as const;
 export type ReviewFlagCode = (typeof REVIEW_FLAG_CODES)[number];
 /** A read value to check again. The Listo rule decides whether the owner may accept over it. */
-export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis" | "amount"; confirm: boolean; difference?: string | null };
+export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis" | "amount"; confirm: boolean; difference?: string | null; computed_sum?: string | null; includes_extra_charges?: boolean | null };
 
 export type BusinessApprovalAction = "record_expense" | "record_income" | "record_refund";
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */

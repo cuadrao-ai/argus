@@ -3018,7 +3018,13 @@
       "read_only": "Your permission allows viewing this record.",
       "confirm": {
         "accept_anyway": "Accept anyway",
-        "fix": "Fix"
+        "placeholder": {
+          "amounts_mismatch": "The amounts do not add up",
+          "blocked_one": "Fix {{count}} item before accepting",
+          "blocked_other": "Fix {{count}} items before accepting",
+          "calculated_total": "Calculated total",
+          "subtotal_itbis": "Subtotal plus ITBIS"
+        }
       },
       "refresh": "Check current record",
       "stale": "This record changed. Open the current revision and review it before taking another action.",

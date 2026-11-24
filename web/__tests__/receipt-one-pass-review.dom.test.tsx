@@ -218,7 +218,7 @@ describe("the receipt dossier on an open draft", () => {
       const status = page.row("occurred_on").querySelector('[data-testid="row-status-occurred_on"]');
       assert.equal(status?.getAttribute("data-status"), "warn", "the row keeps its mark");
       assert.equal(page.row("occurred_on").getAttribute("data-attention"), "true");
-      assert.equal(button(page.host, "Aceptar").disabled, true);
+      assert.equal(button(page.host, "Aceptar").disabled, false, "the owner can inspect the missing date");
       await page.openRow("occurred_on");
       await fill(page, '[placeholder="dd/mm/aaaa"]', "31/02/2026");
       await page.check("occurred_on");
@@ -924,15 +924,15 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("Corregir on a flagged value washes that value's row and puts focus on it, without opening it", async () => {
+  test("Selecting the flagged value in the header list washes that value's row and puts focus on it, without opening it", async () => {
     const page = await setup("fiscal", (dossier) => standing(dossier, ["invalid_ncf"], { invalid_ncf: { field: "ncf", words: "business.transactions.layout.workflow.missing.invalid_ncf" } }, ["invalid_ncf"]));
     try {
       await page.act(async () => button(page.host, "Aceptar").click());
-      const dialog = document.querySelector('[role="alertdialog"]');
-      assert.ok(dialog);
-      await page.act(async () => button(dialog, "Corregir").click());
+      const issue = page.host.querySelector<HTMLButtonElement>('[data-testid="dossier-problem-list"] [data-reason="invalid_ncf"]');
+      assert.ok(issue);
+      await page.act(async () => issue.click());
       await page.wait(() => Boolean(page.row("fiscal_number").getAttribute("data-flash")));
-      assert.equal(document.querySelector('[role="alertdialog"]'), null);
+      assert.equal(page.host.querySelector('[data-testid="dossier-problem-list"]'), null);
       assert.equal(document.activeElement, page.row("fiscal_number").querySelector("button[data-row-value]"));
       assert.equal(page.host.querySelector('[data-testid="edit-fiscal_number"]'), null);
       assert.equal(page.approvals(), 0);

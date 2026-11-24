@@ -32449,6 +32449,14 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        computed_sum:
+          anyOf:
+          - type: string
+          - type: 'null'
+        includes_extra_charges:
+          anyOf:
+          - type: boolean
+          - type: 'null'
       additionalProperties: false
       type: object
       required:

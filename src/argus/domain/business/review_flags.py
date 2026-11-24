@@ -9,7 +9,8 @@ still refuses the ``confirm`` ones.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, localcontext
+from typing import Literal
 
 from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
@@ -24,6 +25,7 @@ from argus.domain.business.fiscal_identity import (
     rnc_check_digit_ok,
 )
 from argus.domain.business.purchase_review import (
+    AMOUNT_PARTS,
     amount_parts,
     exact_amount_text,
     net_amount,
@@ -74,30 +76,48 @@ def review_flags(
         and itbis_too_high(Decimal(total), Decimal(itbis), _known(facts.occurred_on))
     ):
         flags.append(ReviewFlag(code="itbis_high", field="itbis", confirm=False))
-    amounts = amounts_check(facts, declaration)
-    if amounts.state == "difference":
-        flags.append(ReviewFlag(
-            code="amounts_mismatch", field="amount", confirm=False,
-            difference=amounts.difference,
-        ))
+    amounts = _amounts_result(facts, declaration)
+    if isinstance(amounts, ReviewFlag):
+        flags.append(amounts)
     return tuple(flags)
 
 
 def amounts_check(
     facts: BusinessFacts, declaration: DgiiDeclaration | None = None
 ) -> AmountsCheck:
+    result = _amounts_result(facts, declaration)
+    if isinstance(result, ReviewFlag):
+        return AmountsCheck(state="difference", difference=result.difference)
+    return AmountsCheck(state=result)
+
+
+def _amounts_result(
+    facts: BusinessFacts, declaration: DgiiDeclaration | None
+) -> Literal["unchecked", "adds_up"] | ReviewFlag:
     """Whether the Total is the Subtotal plus its taxes and tip: the one owner
     of the ``amounts_mismatch`` flag and of the dossier's Montos check. It
     answers ``unchecked`` for a record with no fiscal facts, without a Total
     or a Subtotal, and while an unknown ITBIS leaves a gap it could close."""
 
     total = _known(facts.amount)
-    net = net_amount(facts, declaration)
-    if facts.fiscal is None or total is None or net.amount is None:
-        return AmountsCheck(state="unchecked")
+    if facts.fiscal is None or total is None:
+        return "unchecked"
     itbis = _known(facts.fiscal.itbis)
-    difference = Decimal(total) - Decimal(net.amount) - sum(amount_parts(facts, declaration))
+    with localcontext() as context:
+        # The 40-character Amount permits both large integers and tiny fractions
+        # in one receipt. Keep all places plus a carry when combining them.
+        context.prec = max(context.prec, 82)
+        net = net_amount(facts, declaration)
+        if net.amount is None:
+            return "unchecked"
+        parts = amount_parts(facts, declaration)
+        computed = Decimal(net.amount) + sum(parts)
+        difference = Decimal(total) - computed
     # An unknown ITBIS counts as zero and can only close a gap the Total leaves.
     if difference < Decimal("-0.01") or (itbis is not None and difference > Decimal("0.01")):
-        return AmountsCheck(state="difference", difference=exact_amount_text(difference))
-    return AmountsCheck(state="adds_up" if itbis is not None else "unchecked")
+        return ReviewFlag(
+            code="amounts_mismatch", field="amount", confirm=False,
+            computed_sum=exact_amount_text(computed), difference=exact_amount_text(difference),
+            includes_extra_charges=any(value for name, value in zip(AMOUNT_PARTS, parts, strict=True) if name != "itbis"),
+        )
+    return "adds_up" if itbis is not None else "unchecked"

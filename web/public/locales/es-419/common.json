@@ -3018,7 +3018,13 @@
       "read_only": "Tu permiso permite ver este registro.",
       "confirm": {
         "accept_anyway": "Aceptar de todos modos",
-        "fix": "Corregir"
+        "placeholder": {
+          "amounts_mismatch": "Los montos no cuadran",
+          "blocked_one": "Corrige {{count}} dato antes de aceptar",
+          "blocked_other": "Corrige {{count}} datos antes de aceptar",
+          "calculated_total": "Total calculado",
+          "subtotal_itbis": "Subtotal + ITBIS"
+        }
       },
       "refresh": "Consultar registro actual",
       "stale": "Este registro cambió. Abre la revisión actual y revísala antes de realizar otra acción.",

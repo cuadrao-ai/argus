@@ -80,10 +80,10 @@ describe("why a record is not Listos", () => {
     assert.equal(at("missing_rnc", { reasons: { missing_rnc: { ...reasons.missing_rnc, field: "occurred_on" } } }).row, "occurred_on", "the payload names the row");
     assert.equal(at("missing_ncf").row, "fiscal_number");
     assert.equal(at("missing_rnc").row, "rnc");
-    assert.equal(at("missing_rnc").where, "General · RNC");
+    assert.equal(at("missing_rnc").where, "Comprobante · RNC");
     assert.equal(at("missing_ncf").title, "Falta el NCF");
     assert.equal(at("missing_ncf").text, "Escríbelo como aparece en el documento.");
-    assert.equal(at("missing_amount").where, "General · Total");
+    assert.equal(at("missing_amount").where, "Montos · Total");
     assert.equal(at("invalid_ncf").title, "Revisa el NCF");
     assert.equal(at("invalid_ncf").text, "El NCF no tiene el formato de la serie B o E.");
     assert.equal(at("invalid_rnc", { review_flags: [{ code: "rnc_check_digit", field: "rnc", confirm: true }] }).text, "El dígito verificador de este RNC no coincide. Puede tener un número mal escrito.");

@@ -37,16 +37,16 @@ export function RestoreButton({ field, value, onRestore }: { field: string; valu
 }
 
 /** Closes a popover on a press outside it and on Escape, which it claims so the tray stays open. */
-export function usePopover(host: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
+export function usePopover(host: RefObject<HTMLElement | null>, open: boolean, close: (escape: boolean) => void) {
   const onClose = useRef(close);
   useEffect(() => { onClose.current = close; });
   useEffect(() => {
     if (!open) return undefined;
-    const outside = (event: PointerEvent) => { if (!host.current?.contains(event.target as Node)) onClose.current(); };
+    const outside = (event: PointerEvent) => { if (!host.current?.contains(event.target as Node)) onClose.current(false); };
     const escape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      onClose.current();
+      onClose.current(true);
     };
     document.addEventListener("pointerdown", outside);
     document.addEventListener("keydown", escape, true);

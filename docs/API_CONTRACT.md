@@ -8464,7 +8464,7 @@ The dossier's `missing` lists the accepted record's Registros reason codes in th
 
 A Venta, a receipt marked Personal and one in a foreign currency are `listo` when nothing above fails, and a list approval records a Venta with its own approval (`record_income`). Every other open receipt is `attention`, except one in `reading`, which is in neither tab until its read settles. A group decides nothing by itself: no read, worker, model or schedule approves.
 
-A single accept (`POST /business/drafts/{draft_id}/approve`, every action) follows the same rule, read again in the transaction that claims the draft. A `listo` record is accepted as it is. A record in `attention` is accepted only when a person may accept over every gap in `listo_gaps` and the request names each one in `accept_gaps`. Every other accept is refused with 422 `not_listo`, and `context` carries `gaps` (every gap, in the rule's order; the group's `reason` alone for a record that is not in `attention`) and `confirmable` (the ones a person may accept over). The dossier dialog shows every gap and offers acceptance only when all are confirmable. The approval names those gaps in `accept_gaps`. After a `not_listo` refusal the dialog shows the gaps and confirmable subset from the response. A new approval uses a new idempotency key. A name whose gap is gone is ignored. The stored approve command keeps `accept_gaps`, so the decision is in the action receipt. A refusal that has its own code keeps it and comes first: a blocker's code (such as `fact_required`, `possible_duplicate` or `business_questions_unresolved`), `duplicate_comprobante`, and 403 `email_sender_unauthorized`. `approve-listos` takes no `accept_gaps`, so a list never takes a record with a gap.
+A single accept (`POST /business/drafts/{draft_id}/approve`, every action) follows the same rule, read again in the transaction that claims the draft. A `listo` record is accepted as it is. A record in `attention` is accepted only when a person may accept over every gap in `listo_gaps` and the request names each one in `accept_gaps`. Every other accept is refused with 422 `not_listo`, and `context` carries `gaps` (every gap, in the rule's order; the group's `reason` alone for a record that is not in `attention`) and `confirmable` (the ones a person may accept over). Aceptar opens the dossier header’s problem list. It offers acceptance only when every gap is confirmable and the dossier supplies an available approval action. Otherwise it explains which problems need attention. Opening the list from the header shows the same rows without an approval action. The approval names those gaps in `accept_gaps`. After a `not_listo` refusal the list shows the gaps and confirmable subset from the response. A new approval uses a new idempotency key. A name whose gap is gone is ignored. The stored approve command keeps `accept_gaps`, so the decision is in the action receipt. A refusal that has its own code keeps it and comes first: a blocker's code (such as `fact_required`, `possible_duplicate` or `business_questions_unresolved`), `duplicate_comprobante`, and 403 `email_sender_unauthorized`. `approve-listos` takes no `accept_gaps`, so a list never takes a record with a gap.
 
 `bandeja_group.RULE` owns which gaps a person may accept over (`bandeja_group.CONFIRMABLE`), and `bandeja_group.refusing` owns the decision:
 
@@ -9345,8 +9345,10 @@ on the record starts from it and saves it. A saved 606 declaration whose
 `id_type` is null reads the Tipo Id its RNC states.
 
 `amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
-false` and `difference`. The signed exact decimal difference is gross minus
-net minus the same `AMOUNT_PARTS` components. With ITBIS known it appears when
+false`, `computed_sum`, `difference` and `includes_extra_charges`. The exact
+decimal sum adds the net amount and the same `AMOUNT_PARTS` components.
+The signed difference is gross minus that sum. The boolean is true when a
+nonzero tip, selective tax or other tax contributes to the sum. With ITBIS known it appears when
 the absolute difference exceeds 0.01. With ITBIS unknown that part counts as
 zero, and it appears only when the difference is below -0.01: ITBIS is never
 negative, so it cannot close that gap. It is recomputed for every read and revision. The
@@ -9354,7 +9356,7 @@ existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
 overrides are excluded from the model-facing dossier and source text.
 
 The dossier states the same check as `amounts_check: {state, difference}`.
-`review_flags.amounts_check` owns both: `difference`, with the signed
+Both views use the same server comparison: `difference`, with the signed
 `difference` of the flag, exactly when the flag is present; `adds_up` when the
 Total, a Subtotal and the ITBIS are known and no flag is present; `unchecked`
 for a record with no fiscal facts, without a Total or a Subtotal, and while
@@ -9378,7 +9380,7 @@ shows NCF modificado on a note and the refund question on a purchase's credit
 note.
 
 The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
-objects, with `difference` on `amounts_mismatch`
+objects, with the comparison fields above on `amounts_mismatch`,
 computed on every read from the stored facts; nothing is written. `rnc_check_digit`
 (field `rnc`) is a 9-digit RNC or 11-digit cédula whose check digit does not
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is

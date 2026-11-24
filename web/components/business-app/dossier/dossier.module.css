@@ -19,7 +19,13 @@
 .why:hover, .why[aria-expanded="true"] { background:var(--d-warn-hover); }
 .deleted { font-size:13px; line-height:18px; color:var(--d-muted); }
 .pop { position:absolute; z-index:30; padding:6px; background:var(--d-pop); border:1px solid var(--d-pop-line); border-radius:var(--radius-surface); box-shadow:var(--d-shadow); }
-.issues { left:0; top:calc(100% + 6px); width:min(380px, calc(100vw - 32px)); }
+.issues { left:0; top:calc(100% + 6px); width:min(380px, calc(100vw - 32px)); max-height:min(65dvh, 32rem); overflow-y:auto; }
+.issueHeading { margin:0; padding:7px 10px; color:var(--d-ink); font-size:13px; font-weight:600; }
+.issueHeading[data-blocked] { color:var(--d-warn-ink); }
+.issueAmounts { display:block; margin-top:4px; color:var(--d-soft); font-size:12.5px; line-height:18px; font-variant-numeric:tabular-nums; }
+.issueFooter { display:flex; justify-content:flex-end; padding:8px 4px 2px; border-top:1px solid var(--d-hair); }
+.issueFooter button { min-height:44px; padding:0 14px; border:1px solid var(--d-pop-line); background:var(--d-pop); color:var(--d-ink); font:inherit; font-size:14px; cursor:pointer; }
+.issueFooter button:hover { background:var(--d-hover); }
 .issue { display:grid; grid-template-columns:20px minmax(0,1fr); column-gap:10px; align-items:start; width:100%; min-height:52px; padding:8px 10px; border:0; border-radius:var(--radius-item); background:transparent; text-align:left; font-family:inherit; cursor:pointer; }
 .issue:hover { background:var(--d-hover); }
 .issueIcon { display:inline-flex; padding-top:2px; color:var(--d-warn); }
@@ -187,10 +193,6 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 .docName { display:flex; align-items:center; gap:6px; min-width:0; }
 .docFile { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .docLink { display:inline-flex; align-items:center; gap:6px; min-height:44px; flex:none; color:var(--d-green); font-size:14px; font-weight:500; text-decoration:none; }
-
-.confirmList { margin:0 0 10px; padding-left:18px; font-size:14px; line-height:20px; color:var(--d-soft); }
-.confirmList li { margin:0 0 6px; }
-.confirmList strong { color:var(--d-ink); font-weight:600; }
 
 .split[data-stacked-document] { overflow-y:auto; }
 .split[data-stacked-document] > .info { flex:none; }

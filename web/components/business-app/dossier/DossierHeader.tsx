@@ -24,39 +24,59 @@ export function BandejaLabelPill({ label, small = false }: { label: BandejaLabel
  * the list of problems. An accepted record has no pill: "Aceptado" lives in
  * Historial. A deleted record has no label, so the line says only that.
  */
-export function DossierStatus({ label, deleted = false, problems = [], onProblem, children }: {
+export function DossierStatus({ label, deleted = false, problems = [], onProblem, approval, children }: {
   label: BandejaLabel | null | undefined;
   deleted?: boolean;
   problems?: readonly DossierProblem[];
   onProblem?: (problem: DossierProblem) => void;
+  approval?: { close: (escape: boolean) => void; accept?: () => void };
   children?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const host = useRef<HTMLDivElement>(null);
-  usePopover(host, open, () => setOpen(false));
+  const firstRow = useRef<HTMLButtonElement>(null);
+  const accepting = Boolean(approval);
+  const open = browsing || accepting;
+  const close = (escape: boolean) => { setBrowsing(false); approval?.close(escape); };
+  usePopover(host, open, close);
+  useEffect(() => { if (accepting) firstRow.current?.focus(); }, [accepting]);
   const pill = label && label !== "accepted" ? <BandejaLabelPill label={label} /> : null;
-  if (!pill && !deleted && !children) return null;
-  const pick = (problem: DossierProblem) => { setOpen(false); onProblem?.(problem); };
+  if (!pill && !deleted && !children && !approval) return null;
+  const pick = (problem: DossierProblem) => { setBrowsing(false); onProblem?.(problem); };
+  const heading = t(approval && !approval.accept ? "business.dossier.confirm.placeholder.blocked" : "business.dossier.problems.count", { count: problems.length });
   return (
     <div ref={host} className={`${styles.scope} ${styles.status}`} data-testid="dossier-status">
       {pill}
       {deleted && !pill ? <span className={styles.deleted} data-testid="dossier-deleted">{t("business.document_delete.deleted_state")}</span> : null}
       {pill && problems.length === 1 ? <button type="button" className={styles.why} data-testid="dossier-reason" data-compare={problems[0].compare} onClick={() => pick(problems[0])}>{problems[0].title}</button> : null}
-      {pill && problems.length > 1 ? <>
-        <button type="button" className={styles.why} data-testid="dossier-problems" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      {pill && problems.length > 1 ? (
+        <button type="button" className={styles.why} data-testid="dossier-problems" aria-haspopup="listbox" aria-expanded={open} onClick={() => open ? close(false) : setBrowsing(true)}>
           {t("business.dossier.problems.count", { count: problems.length })}
           <ChevronDown size={14} aria-hidden="true" />
         </button>
-        {open ? <div role="listbox" aria-label={t("business.dossier.problems.list")} className={`${styles.pop} ${styles.issues}`} data-testid="dossier-problem-list">
-          {problems.map((problem) => (
-            <button key={problem.key} type="button" role="option" aria-selected={false} data-reason={problem.reason} data-compare={problem.compare} className={styles.issue} onClick={() => pick(problem)}>
+      ) : null}
+      {open && problems.length > 0 ? <div className={`${styles.pop} ${styles.issues}`} data-testid="dossier-problem-list">
+        <h2 className={styles.issueHeading} data-blocked={approval && !approval.accept || undefined}>{heading}</h2>
+        <div role="listbox" aria-label={heading}>
+          {problems.map((problem, index) => (
+            <button key={problem.key} ref={index === 0 ? firstRow : undefined} type="button" role="option" aria-selected={false} data-reason={problem.reason} data-compare={problem.compare} className={styles.issue} onClick={() => pick(problem)}>
               <span className={styles.issueIcon}><TriangleAlert size={16} aria-hidden="true" /></span>
-              <span><span className={styles.issueTitle}>{problem.title}</span><span className={styles.issueWhere}>{problem.where}</span></span>
+              <span>
+                <span className={styles.issueTitle}>{problem.title}</span>
+                <span className={styles.issueWhere}>{problem.where}</span>
+                {problem.amountComparison ? <span className={styles.issueAmounts}>
+                  {problem.amountComparison.totals && `${problem.amountComparison.totals} · `}
+                  <span className="whitespace-nowrap">{problem.amountComparison.difference}</span>
+                </span> : null}
+              </span>
             </button>
           ))}
+        </div>
+        {approval?.accept ? <div className={styles.issueFooter}>
+          <button type="button" className="rounded-full" onClick={approval.accept}>{t("business.dossier.confirm.accept_anyway")}</button>
         </div> : null}
-      </> : null}
+      </div> : null}
       {children}
     </div>
   );

@@ -15,7 +15,6 @@ import { factsRevision, readReviewNote, type BusinessDossier, type ListoGap } fr
 import { documentFamily } from "@/lib/counterparty-term";
 import type { DgiiFields } from "@/lib/business-dgii";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
-import DossierConfirm from "./dossier/DossierConfirm";
 import DossierDetails from "./dossier/DossierDetails";
 import DossierDocument from "./dossier/DossierDocument";
 import { useReadLanding } from "./dossier/DossierReadFields";
@@ -71,8 +70,7 @@ type ApprovalRequest = { next: boolean; acceptGaps?: readonly ListoGap[] };
 type ApprovalSend = { next: boolean } & BusinessApprovalOptions;
 /** The gap list the owner is reviewing for this draft revision. */
 type ApprovalCheck = {
-  draftId: string;
-  version: number;
+  dossier: BusinessDossier;
   origin: "dossier" | "refusal";
   next: boolean;
   gaps: readonly ListoGap[];
@@ -181,6 +179,14 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const [duplicate, setDuplicate] = useState<{ recordId: string | null } | null>(null);
   const [highlight, setHighlight] = useState<string[]>([]);
   const [approvalCheck, setApprovalCheck] = useState<ApprovalCheck | null>(null);
+  const acceptButton = useRef<HTMLButtonElement>(null);
+  const restoreAcceptFocus = useRef(false);
+  useEffect(() => {
+    if (!approvalCheck && !checking && restoreAcceptFocus.current) {
+      restoreAcceptFocus.current = false;
+      acceptButton.current?.focus();
+    }
+  }, [approvalCheck, checking]);
   const [leaving, setLeaving] = useState<{ proceed: () => void } | null>(null);
   const [retyping, setRetyping] = useState<{ answer: (go: boolean) => void } | null>(null);
   const releaseGuard = useRef<(() => void) | null>(null);
@@ -333,7 +339,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       } else if (refusedGaps) {
         approvalKey.current = null;
         setOperation({ kind: "idle" });
-        setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, origin: "refusal", next: request.next, ...refusedGaps });
+        setApprovalCheck({ dossier, origin: "refusal", next: request.next, ...refusedGaps });
       } else if (status && status >= 400 && status < 500) {
         setOperation({ kind: "idle" });
         setProblem({ text: t(`business.dgii.error.${code}`, "") || t(`business.dossier.blocker.${code}`, "") || t("business.dossier.refused", "This action could not be completed. Check the current record before trying again."), reference });
@@ -424,7 +430,9 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const busy = annotations.busy || duplicateBusy || autosave.busy || refreshing || operation.kind === "approving";
   const saveHolds = autosave.busy || autosave.failed || holdsEdits;
   const reviewing = dossier.review_state === "open" && !dossier.deleted;
-  const approvable = reviewing && mutable && dossier.approval_available && !saveHolds && checking === null;
+  const canReviewApproval = reviewing && mutable && !saveHolds && checking === null;
+  const approvable = supportedKind && dossier.approval_available;
+  const canRequestApproval = canReviewApproval && (approvable || Boolean(dossier.listo_gaps?.length));
   const problems = dossierProblems(dossier, t);
   /** A problem's way to its fix: Parece repetido opens Comparar; any other switches to its tab and washes its row. */
   const goProblem = (problem: Pick<DossierProblem, "tab" | "row" | "compare">) => {
@@ -445,18 +453,19 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     else void approveRecord(request);
   };
   const requestApproval = (next = false) => {
-    if (!canApprove || !supportedKind || !approvable) return;
+    if (!canApprove || !canRequestApproval) return;
     const gaps = dossier.listo_gaps ?? [];
-    if (gaps.length) setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, origin: "dossier", next, gaps, confirmable: dossier.confirmable ?? [] });
+    if (gaps.length) setApprovalCheck({ dossier, origin: "dossier", next, gaps, confirmable: dossier.confirmable ?? [] });
     else approve({ next });
   };
-  const currentCheck = approvalCheck?.draftId === dossier.draft_id && approvalCheck.version === dossier.version ? approvalCheck : null;
+  const currentCheck = approvalCheck?.dossier === dossier && canApprove && canReviewApproval ? approvalCheck : null;
   const everyGapConfirmable = currentCheck?.gaps.every((gap) => currentCheck.confirmable.includes(gap));
-  const canAcceptGaps = canApprove && supportedKind && approvable && everyGapConfirmable;
-  const closeApprovalCheck = () => {
+  const canAcceptGaps = approvable && everyGapConfirmable;
+  const closeApprovalCheck = (restoreFocus = false) => {
+    restoreAcceptFocus.current = restoreFocus;
     setApprovalCheck(null);
     // The standing can change without a new draft version, such as when a sender is verified.
-    if (currentCheck && (currentCheck.origin === "refusal" || !everyGapConfirmable)) return refresh({ keepEdits: true });
+    if (currentCheck && (currentCheck.origin === "refusal" || !canAcceptGaps)) return refresh({ keepEdits: true });
     return dossier;
   };
   const confirmApproval = (check: ApprovalCheck) => {
@@ -547,9 +556,24 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     back: recorded ? "transactions" as const : "inbox" as const,
     title,
     // The server's Bandeja label and its reasons: the list and its dossier say the same thing. An accepted record has no pill.
-    status: <DossierStatus label={recorded ? null : dossier.bandeja_group?.label} deleted={Boolean(dossier.deleted)} problems={problems} onProblem={goProblem}>{dossier.bill_mark ? <span data-testid="bill-mark" className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{dossier.bill_mark}</span> : null}</DossierStatus>,
+    status: <DossierStatus
+      key={currentCheck ? "accept" : "review"}
+      label={recorded ? null : dossier.bandeja_group?.label}
+      deleted={Boolean(dossier.deleted)}
+      problems={currentCheck?.origin === "refusal" ? dossierProblems({ ...dossier, listo_gaps: currentCheck.gaps }, t) : problems}
+      approval={currentCheck ? {
+        close: closeApprovalCheck,
+        accept: canAcceptGaps ? () => confirmApproval(currentCheck) : undefined,
+      } : undefined}
+      onProblem={async problem => {
+        if (!currentCheck) return goProblem(problem);
+        const latest = await closeApprovalCheck();
+        const target = latest && dossierProblems(latest, t).find(item =>
+          item.reason === problem.reason && (!problem.row || item.row === problem.row));
+        goProblem(target ?? problem);
+      }}
+    >{dossier.bill_mark ? <span data-testid="bill-mark" className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{dossier.bill_mark}</span> : null}</DossierStatus>,
   };
-  const confirmProblems = currentCheck ? dossierProblems({ ...dossier, listo_gaps: currentCheck.gaps }, t) : [];
   if (!recorded && duplicateCompare.candidate) return (<><ContentFade>
     {captureRecovery}
     <ReceiptDuplicateCompare
@@ -587,7 +611,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const accepting = <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</>;
   return (<><ContentFade><>
     <ReceiptShortcutRegistration actions={{
-      ...(canApprove && supportedKind && approvable && !Object.keys(rows.rows).length ? { approve: () => requestApproval(), approve_next: () => requestApproval(leavesRun) } : {}),
+      ...(canApprove && canRequestApproval && !Object.keys(rows.rows).length ? { approve: () => requestApproval(), approve_next: () => requestApproval(leavesRun) } : {}),
       ...moves,
       ...(mutable && READ_FACT_ROWS.some(mayEdit) ? { edit: () => {
         const focused = document.activeElement?.closest<HTMLElement>("[data-fact]")?.dataset.fact;
@@ -674,25 +698,15 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
         actions={<>
           {dossier.restore_available ? <RestoreDocumentButton id={draftId} onRestored={() => void refresh()} target={receipt ? { kind: "receipt", receiptId: receipt.id, list: "inbox" } : { kind: "draft", draftId, list: "inbox" }} /> : null}
           {!recorded && canApprove ? hasNext ? <>
-            <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${secondaryButtonClass} whitespace-nowrap`} aria-describedby={acceptAria} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? accepting : approvalLabel}</button>
-            <button type="button" data-review-primary="" aria-busy={operation.kind === "approving" && advancing} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={acceptAria} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? accepting : t("business.dossier.approve_next", "Approve and next")}</button>
+            <button type="button" ref={acceptButton} aria-busy={operation.kind === "approving" && !advancing} className={`${secondaryButtonClass} whitespace-nowrap`} aria-describedby={acceptAria} disabled={!canRequestApproval} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? accepting : approvalLabel}</button>
+            <button type="button" data-review-primary="" aria-busy={operation.kind === "approving" && advancing} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={acceptAria} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!canRequestApproval} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? accepting : t("business.dossier.approve_next", "Approve and next")}</button>
           </> : (
-            <button type="button" data-review-primary="" aria-busy={operation.kind === "approving"} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={acceptAria} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(leavesRun)}>{operation.kind === "approving" ? accepting : approvalLabel}</button>
+            <button type="button" ref={acceptButton} data-review-primary="" aria-busy={operation.kind === "approving"} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={acceptAria} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!canRequestApproval} onClick={() => requestApproval(leavesRun)}>{operation.kind === "approving" ? accepting : approvalLabel}</button>
           ) : null}
         </>}
       />}
     />
     {deletion.dialog}
-    {currentCheck && confirmProblems.length ? <DossierConfirm
-      problems={confirmProblems}
-      onClose={closeApprovalCheck}
-      onFix={async () => {
-        const current = await closeApprovalCheck();
-        const first = current && dossierProblems(current, t)[0];
-        if (first) goProblem(first);
-      }}
-      onAcceptAnyway={canAcceptGaps ? () => confirmApproval(currentCheck) : undefined}
-    /> : null}
     {retyping ? <ConfirmDialog
       isOpen
       tone="primary"

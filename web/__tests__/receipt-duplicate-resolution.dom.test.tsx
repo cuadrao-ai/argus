@@ -607,10 +607,12 @@ for (const outcome of ["settled", "failed"] as const) {
       capabilities: ["read", "prepare", "approve"],
       blockers: [],
       ...standing(["duplicate"]),
+      confirmable: ["duplicate"],
+      approval_action: null,
       approval_available: false,
       duplicate_candidates: [candidate({})],
     };
-    const settled: BusinessDossier = { ...dossier, version: 8, blockers: [], ...standing([]), approval_available: true, duplicate_candidates: [] };
+    const settled: BusinessDossier = { ...dossier, version: 8, blockers: [], ...standing([]), confirmable: [], approval_action: "record_expense", approval_available: true, duplicate_candidates: [] };
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
     const decisions: RequestInit[] = [];
@@ -644,8 +646,11 @@ for (const outcome of ["settled", "failed"] as const) {
     try {
       await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId="draft-new" /><Toasts /></BusinessContext.Provider></I18nextProvider>); });
       await settle();
-      assert.ok(button("Aceptar")?.disabled, "the duplicate blocks Aceptar before the decision");
-      const reason = host.querySelector<HTMLElement>('[data-testid="dossier-reason"]');
+      await act(async () => button("Aceptar")?.click());
+      const list = host.querySelector('[data-testid="dossier-problem-list"]');
+      assert.equal(list?.querySelector("h2")?.textContent, "Corrige 1 dato antes de aceptar");
+      assert.equal(button("Aceptar de todos modos"), undefined);
+      const reason = list?.querySelector<HTMLElement>('[role="option"]');
       assert.equal(reason?.dataset.compare, "draft-original");
       await act(async () => { reason?.click(); });
       await settle();
