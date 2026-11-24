@@ -42,6 +42,14 @@ function recorded(dossier: BusinessDossier): BusinessDossier {
 async function flagged(codes: readonly ReviewFlagCode[], gaps: readonly ListoGap[], confirmable = gaps): Promise<BusinessDossier> {
   const dossier = await flaggedReceipt(codes, accounts);
   dossier.listo_gaps = gaps;
+  const reasons = {
+    invalid_rnc: { field: "rnc", words: "business.transactions.layout.workflow.missing.invalid_rnc" },
+    invalid_ncf: { field: "ncf", words: "business.transactions.layout.workflow.missing.invalid_ncf" },
+    missing_date: { field: "occurred_on", words: "business.transactions.layout.workflow.missing.missing_date" },
+    review_flag: { field: null, words: "business.dossier.placeholder.gap.review_flag.title" },
+    unverified_sender: { field: null, words: "business.dossier.placeholder.gap.unverified_sender.title" },
+  };
+  dossier.reasons = Object.fromEntries(Object.entries(reasons).filter(([code]) => gaps.some(gap => gap === code)));
   dossier.confirmable = confirmable;
   dossier.bandeja_group = gaps.length ? { group: "attention", reason: gaps[0], label: "needs_attention" } : { group: "listo", reason: null, label: "ready" };
   return dossier;

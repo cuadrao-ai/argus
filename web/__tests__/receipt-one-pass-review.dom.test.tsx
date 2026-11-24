@@ -9,8 +9,9 @@ const keys: [string, number][] = [];
 const stillAsked = (dossier: Dossier) => { kindAsked(dossier); return dossier; };
 
 /** The server's standing for a sample changed after it was read: its reasons and its Bandeja label. */
-function standing(dossier: Dossier, gaps: NonNullable<Dossier["listo_gaps"]>, confirmable: typeof gaps = []) {
+function standing(dossier: Dossier, gaps: NonNullable<Dossier["listo_gaps"]>, reasons: Dossier["reasons"], confirmable: typeof gaps = []) {
   dossier.listo_gaps = gaps;
+  dossier.reasons = reasons;
   dossier.confirmable = confirmable;
   dossier.bandeja_group = gaps.length ? { group: "attention", reason: gaps[0], label: "needs_attention" } : { group: "listo", reason: null, label: "ready" };
 }
@@ -90,7 +91,10 @@ describe("a receipt with no currency", () => {
     const page = await noCurrency(undefined, (dossier) => {
       dossier.facts.amount = unknownFact;
       dossier.blockers = [{ code: "fact_required", field: "amount" }, { code: "fact_required", field: "currency" }];
-      standing(dossier, ["missing_amount", "missing_currency"]);
+      standing(dossier, ["missing_amount", "missing_currency"], {
+        missing_amount: { field: "amount", words: "business.dossier.gap.missing_amount.title" },
+        missing_currency: { field: "currency", words: "business.dossier.placeholder.gap.missing_currency.title" },
+      });
     });
     try {
       await pressReason(page, "Falta el total");
@@ -138,7 +142,7 @@ describe("a receipt with no currency", () => {
     const unpaid = await setup("fiscalBlocked", (dossier) => {
       dossier.facts.funding = unknownFact;
       dossier.blockers = [{ code: "unknown_funding", field: "funding" }];
-      standing(dossier, ["blocked"]);
+      standing(dossier, ["blocked"], { blocked: { field: null, words: "business.dossier.placeholder.gap.blocked.title" } });
     });
     try {
       await pressReason(unpaid, "Tiene algo pendiente");
@@ -921,7 +925,7 @@ describe("the receipt dossier on an open draft", () => {
   });
 
   test("Corregir on a flagged value washes that value's row and puts focus on it, without opening it", async () => {
-    const page = await setup("fiscal", (dossier) => standing(dossier, ["invalid_ncf"], ["invalid_ncf"]));
+    const page = await setup("fiscal", (dossier) => standing(dossier, ["invalid_ncf"], { invalid_ncf: { field: "ncf", words: "business.transactions.layout.workflow.missing.invalid_ncf" } }, ["invalid_ncf"]));
     try {
       await page.act(async () => button(page.host, "Aceptar").click());
       const dialog = document.querySelector('[role="alertdialog"]');

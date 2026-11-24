@@ -8115,16 +8115,15 @@ Intake is on only while the Business pilot (below) is on too. A receipt lands
 in the owner's Business space, read through `resolve_business_scope`; it never
 appears in Personal documents or imports. Link codes and link status answer
 404 `business_space_missing` until the person starts their space. A capture whose
-sender link ended before it settled is recorded `rejected` with
-`sender_link_revoked`, keeps no connection, and gets the not-linked reply.
+sender link ended before settlement is recorded as `rejected` with
+`sender_link_revoked`. The claim has no document connection, and the sender gets no reply.
 
-Linking is decided by the sender's link state, not by a word. A sender with an
-active link is never treated as linking: its text, whatever it says, is not
-looked up as a code, and the link changes only through `DELETE /api/v1/whatsapp/link`.
-A sender with no active link can only link: each token in its text shaped like
-a code (eight characters from the code alphabet) is looked up by digest, up to
-four. A failed lookup answers the expired-code reply; text with no such token
-answers the not-linked reply.
+Text from a linked sender without a file gets the `whatsapp_receipt_missing`
+reply, even when the text looks like a link code. The owner can unlink through
+`DELETE /api/v1/whatsapp/link`. For an unlinked sender, the webhook looks up
+at most four code-shaped tokens (eight characters from the code alphabet) by
+digest. A code can receive a linked or expired-code reply, at most once per
+Santo Domingo day. Other unlinked text is silent.
 
 - GET `/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`
   answers 200 `text/plain` with the challenge when the verify token matches,
@@ -8133,22 +8132,21 @@ answers the not-linked reply.
   must be `sha256=` HMAC-SHA256 of the raw body under the app secret, checked
   in constant time before parsing: else 401 `whatsapp_webhook_rejected`. A body
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
-  a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
-  `{received: true}` means every image, document and text message in it has a
-  committed delivery record with a live claim. A voice note, audio, sticker or
-  video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
-  and gets one short reply saying it is not supported yet; from an unlinked
-  sender it gets the not-linked reply. Other message types and statuses are
-  ignored. The media download, saving and reply run after the answer, in
-  order, and settle the record. A work failure behind the answer settles the
-  record `failed` and the sender gets the "send it again" reply. Shutdown waits
-  up to 20 seconds for this work; a process killed sooner leaves the record
-  unsettled until its claim expires, and the sender must send the file again.
-  A failure to commit a claim, or a redelivery while another worker still holds
-  an unsettled message, answers 503
-  `whatsapp_webhook_retry`, and Meta's redelivery resumes that record. A
-  replayed message never captures twice or replies twice. The webhook query
-  string is redacted from uvicorn access logs.
+  a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. With
+  intake off, the route answers 404 `whatsapp_unavailable` before a claim.
+  The request claims each message, checks its sender link and saves accepted
+  media in the owner's default Business. When the sender is still linked and
+  Business reading is on, the read job and captured claim commit together.
+  The webhook then acknowledges the sender. With reading off, the file waits
+  saved and unread. Media and ordinary text from an unlinked sender settle
+  silently. Code-shaped text can receive one link-flow reply per
+  Santo Domingo day. The API answers 200 `{received: true}` after processing.
+  A settled replay returns 200 without repeating work. A live claim or an
+  interrupted request returns 503 `whatsapp_webhook_retry` when a response
+  is possible. Redelivery can reclaim a lapsed lease.
+  The document worker reads queued files and sends due grouped failure replies.
+  Post-read replies are off until W11. The webhook query string is redacted
+  from access logs.
 - POST `/api/v1/whatsapp/link-codes` (registered-only) takes an optional
   `{language}`, the web app's current language (`es-419` or `en`, default
   `es-419`; anything else is 422), and returns 201
@@ -8167,12 +8165,9 @@ answers the not-linked reply.
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
-The Business agent over WhatsApp has its own switch,
-`CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
-default. Off: text from a linked owner never reaches the agent and gets the
-ordinary reply, and the worker does nothing. The receipt reading permission
-(`/api/v1/whatsapp/ai-consent`, below) does not depend on this switch, and
-`DELETE` stays reachable so an owner can always revoke.
+The webhook handles linked text directly, including when the legacy Business
+agent switch is enabled. The receipt-reading permission can always be revoked
+through `DELETE /api/v1/whatsapp/ai-consent`.
 
 Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender
@@ -8198,24 +8193,12 @@ shown in that language is the one stored and hashed, and the token binds it.
 Changing the words an owner was shown asks for consent again. With the
 Business receipt-reading setting off, a received receipt is saved unread, and
 `POST /api/v1/business/receipts/{id}/prepare` returns 422
-`business_receipt_reading_off` instead of queueing it. With it on, the receipt is
-read after the acknowledgement. When the receipt is queued for reading right
-after the acknowledgement, the acknowledgement says it is being read ("Recibido.
-Lo estoy leyendo.", "Received. I'm reading it.") and carries no link. The
-delivery then waits for a puller to settle that read, at most as long as one
-read can take (210 s at the defaults), and the one follow-up carries the review
-link. If that read does not settle in that time or the
-follow-up cannot be sent, the sender gets the standard acknowledgement with
-the review link instead, under the same 24 hour window and outbound rules.
-Every other acknowledgement keeps the review
-link: reading off. The setting is checked again just before the
-provider call, whoever asks for the read; the only window left is the commit and
-the request start. One
-follow-up message tells the sender what was read, only inside the 24 hour
-window. It names the merchant, amount and currency only when the read found one
-clear purchase with nothing marked uncertain and a merchant of letters, digits,
-spaces and & ' - . only (no domain-like text); otherwise it says only that the
-receipt is read.
+`business_receipt_reading_off`. When the webhook queues a new receipt for
+reading, its acknowledgement says the receipt is being read and carries no
+link. The webhook then returns. The document worker checks the owner's
+reading setting again before the provider call. The read outcome is available
+in the Business inbox. Completing the read sends no follow-up, review link or
+summary to WhatsApp.
 
 #### Linked-number Business AI permission
 
@@ -8475,6 +8458,8 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 The upload year is the year, on the Business calendar (America/Santo_Domingo), of the `received_at` of the draft's first source. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
 
 `BusinessDossier` carries the same standing for its one record. `bandeja_group: {group, reason, label}` holds the three values the rule above gives the row of a receipt linked to this draft alone; the dossier's own `draft_id` and `version` name the record. An `accepted` record has a null `group` and `reason` and the `label` `accepted`. A record being approved is `listo` with `ready`, a deleted record is `eliminados` with a null `label`, and a record whose receipt is being read is `reading`. `listo_gaps` lists each distinct reason once, in the rule's order, when `group` is `attention`, and is empty for every other record. `confirmable` lists the subset the person may accept over, in that same order, as defined by `bandeja_group.RULE`. For a record in attention, `reason` is always one of its gaps: it is the first gap, except that a possible repeat no person settled shows `duplicate` before an earlier gap, as the list does. `bandeja_group.group_of` and `bandeja_group.listo_gaps` own both values, and the web renders them without a rule of its own. The dossier's `blockers` still decide `approval_available`; they are not the Listos gaps.
+
+The dossier's `missing` lists the accepted record's Registros reason codes in the order returned by `readiness()`. A draft or a complete record has an empty list. For each code in `missing` or `listo_gaps`, `reasons[code]` gives the registry's `field` (null when there is no single field to fix) and `words` (the locale key).
 
 `BusinessDossier.rnc_registry_status` is what the DGII register says of the supplier RNC or cédula the record holds. The dossier uses one answer from `DgiiRncRegistry.read` for both the status and the check-digit flag. A listed number clears the flag. SQL verification gives an active number the status `verificado`. For other listed numbers, `RncRecord.mapped` returns `suspendido`, `dado_de_baja`, `cese_temporal`, `anulado`, `rechazado`, or `desconocido` when the publisher text has no matching status. `not_found` is a number the loaded register does not list; it is never `desconocido`. The field is null when the record holds no RNC or no register is loaded, so the web then shows no register status. The read is not behind `CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED`. The three fields are excluded from the model-facing dossier.
 
@@ -10933,7 +10918,9 @@ accept path recorded.
   read only, with that no receipt is attached and when it was recorded. It
   carries `dgii_606`, the same value as its Registros row (below), read for
   this one record without reading every activity; null when Registros does not
-  list it yet.
+  list it yet. Its `missing` codes match the Registros row in order, and
+  `reasons` gives each code’s field and locale key, including for a manual
+  expense with no receipt or draft.
 - POST `/api/v1/business/expenses` (`Idempotency-Key` required) takes
   `{account_id, amount, occurred_on, merchant, category_id}` and records one
   expense through `MoneyService`, in the account's currency. A retry with the
@@ -11091,7 +11078,10 @@ accept path recorded.
   (`missing_rnc`, `invalid_rnc`, `missing_ncf`, `invalid_ncf`, `missing_date`,
   `duplicate`). Fiscal reasons come from `missing_items` in `dgii_line.py`,
   reading the original issues preserved by `dgii_export.py`, in the registry's
-  order. Distinct blocker reasons
+  order. Every record also carries `missing_fields`, the distinct table columns
+  for those reason fields, in registry order and limited to the record's family.
+  It includes hidden columns. A clean record has an empty list. A reason without
+  a matching column stays in `missing`. Distinct blocker reasons
   follow in the projection's blocker-table order; repeated reasons appear once.
   The `possible_duplicate` blocker (a repeated read) yields its own word,
   `duplicate`; `duplicate_document` stays the fiscal number already
@@ -11266,14 +11256,16 @@ accept path recorded.
   chosen `columns` in the preview's order with its `required` columns always in,
   and `currencies` `current` (the screen's currency) or `all` (the same request in
   every currency, with a Moneda column after Monto; refused with
-  `business_export_currency_required` while an amount range is set). A column
+  `business_export_currency_required` while an amount range is set). A saved
+  table export drops the retired `missing` and `funding` selections before
+  validating the list. At least one current selection must remain. A column
   the preview for that choice does not list is refused with
   `business_export_column_unavailable`.
   Table headers and values use the web locales through
   `records_file_words.generated.json`, generated by
   `scripts/generate_records_file_words.py`. Expense type and payment method
   use `NN - NAME` with the uppercase name from the selected locale. The table
-  also shows stage, `Falta` or `No aplica`, attachment, and account. Amounts
+  also shows stage, `Falta` or `No aplica`, and attachment. Amounts
   are exact numbers shown with two decimals, or the currency's own precision
   when it has more. An amount past Excel's 15 significant digits stays exact
   text. Dates are real dates (`dd/mm/yyyy` in CSV).
@@ -11335,20 +11327,18 @@ accept path recorded.
   layout, including when the original request omitted it. Explicit saved layouts
   keep their order, hidden columns and density. A column a saved or linked
   layout does not name joins it at the end, hidden. The
-  net amount instead joins just before the total, shown; `missing` (Motivo)
-  joins just after `stage`, shown.
+  net amount joins just before the total, shown. The upgrade preserves the
+  position of `stage` among the remaining columns. If retiring a visible column
+  would leave a family's table empty, the upgrade shows `stage` in place.
 
   `presentation.order` contains each supported table key once, in any order.
   The default visible order is `counterparty_id` (RNC o Cédula), date, expense
-  type, net amount, ITBIS, total, stage, missing. `stage` renders the fixed-width
-  Listo/Faltan datos chip from `ready`. `missing` renders the first ordered
-  reason and +N for remaining reasons, blank when ready; the full list is
-  available on hover and in the open record. The table export renders the
-  same two columns using locale-owned words. The name, fiscal number, note,
-  attachment, payment form and account are hidden by default.
+  type, net amount, ITBIS, total and stage. `stage` shows Listo/Faltan datos
+  from `ready`. The table export uses the same localized status. The name,
+  fiscal number, note, attachment and payment form are hidden by default.
   Expense type and payment form are offered and rendered only on Compras.
-  `family` and `currency` are removed from table order and hidden keys when reading
-  old saved presentations. `hidden` can name any column, but every table keeps
+  Stored and posted layouts drop `family`, `currency`, `missing` and `funding`
+  from the order and hidden keys. `hidden` can name any column, but every table keeps
   one column shown: a layout is a 422 when it leaves a family's table, in any
   country, with no shown column. Hiding every column does that, and so does
   showing only expense type or payment form, which Ventas does not offer. The

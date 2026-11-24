@@ -43,13 +43,11 @@ async def test_lifespan_starts_pool_before_memory_and_shares_with_invites_and_de
         ("ingestion", "ingestion"),
         ("bank_matching", "bank_matching"),
         ("email_intake", "email_intake"),
-        ("whatsapp_worker", "worker"),
     ):
         module = import_module(f"argus.api.{module_name}")
         monkeypatch.setattr(module, f"start_{suffix}", Mock())
-        stop = AsyncMock() if suffix in {"fiscal", "email_intake", "worker"} else Mock()
+        stop = AsyncMock() if suffix in {"fiscal", "email_intake"} else Mock()
         monkeypatch.setattr(module, f"stop_{suffix}", stop)
-    monkeypatch.setattr("argus.api.whatsapp.drain_whatsapp", AsyncMock())
     monkeypatch.setattr(apple_sign_in, "capture_enabled", lambda: True)
     monkeypatch.setattr(apple_sign_in.AppleSignInConfig, "from_env", Mock())
     monkeypatch.setattr(apple_sign_in.SecretBox, "from_env", Mock())

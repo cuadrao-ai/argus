@@ -223,12 +223,7 @@ async def receive_whatsapp_webhook(
     request: Request,
     runtime: WhatsAppRuntime = Depends(require_whatsapp_surface),  # noqa: B008
 ) -> WebhookAck:
-    """Signature checked over the raw bytes before any parsing.
-
-    200 means every message in the delivery has a committed record. A failure
-    after that answers 503 so Meta redelivers; the redelivery resumes the
-    same record instead of starting a second capture.
-    """
+    """The webhook verifies the signature, saves linked media and queues eligible reads before acknowledging the delivery. A settled replay returns 200. An unfinished delivery can be retried after its claim expires."""
 
     body = bytearray()
     async for chunk in request.stream():
@@ -270,7 +265,7 @@ async def receive_whatsapp_webhook(
         await runtime.intake.handle(delivery)
     except Exception as error:
         logger.warning(
-            "WhatsApp delivery not finished; Meta will redeliver",
+            "WhatsApp delivery unfinished, awaiting redelivery",
             failure_mode=type(error).__name__,
         )
         raise problem(

@@ -320,34 +320,39 @@ async def dispatch_preparation(
     Every channel queues the draft, then calls this. A read it refuses or
     cannot record is released (``release_unstarted``)."""
 
-    from uuid import UUID
-
-    from argus.domain.business.transactions import GrantImportStore
-    from argus.domain.owner_scope import space_id
-
     try:
-        if space_id(scope) is not None and (
-            service.business_actions is not None or service.business_preparation_required
-        ):
-            imports = getattr(service.hub.sink, "store", None)
-            if service.business_actions is None or not isinstance(
-                imports, GrantImportStore
-            ):
-                raise DocumentServiceError("business_preparation_unavailable")
-            await asyncio.to_thread(
-                service.business_actions.capture_attachment_preparation,
-                imports.context,
-                UUID(connection_id),
-                target=None,
-            )
-        # Recorded before the response, so a closed client cannot lose the intake.
         await asyncio.to_thread(
-            PreparationJobs(service).start, user_id=user_id, connection_id=connection_id
+            record_dispatch_preparation, service, user_id, connection_id, scope=scope
         )
     except Exception as error:
         await asyncio.to_thread(
             release_unstarted, service, user_id, connection_id, scope=scope, error=error
         )
+
+
+def record_dispatch_preparation(
+    service: DocumentsService,
+    user_id: str,
+    connection_id: str,
+    *,
+    scope: OwnerScope,
+) -> None:
+    """Record the owner binding and attempt using the service's database scope."""
+    from uuid import UUID
+
+    from argus.domain.business.transactions import GrantImportStore
+    from argus.domain.owner_scope import space_id
+
+    if space_id(scope) is not None and (
+        service.business_actions is not None or service.business_preparation_required
+    ):
+        imports = getattr(service.hub.sink, "store", None)
+        if service.business_actions is None or not isinstance(imports, GrantImportStore):
+            raise DocumentServiceError("business_preparation_unavailable")
+        service.business_actions.capture_attachment_preparation(
+            imports.context, UUID(connection_id), target=None
+        )
+    PreparationJobs(service).start(user_id=user_id, connection_id=connection_id)
 
 
 def release_unstarted(

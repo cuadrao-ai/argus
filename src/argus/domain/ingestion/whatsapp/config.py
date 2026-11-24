@@ -91,6 +91,15 @@ class WhatsAppSettings(BaseSettings):
         )
 
     @property
+    def replies_ready(self) -> bool:
+        has_credentials = None not in (
+            self.access_token,
+            self.sender_key,
+            self.phone_number_id,
+        )
+        return self.intake_enabled and self.outbound_enabled and has_credentials
+
+    @property
     def wa_me_number(self) -> str | None:
         digits = "".join(ch for ch in self.display_phone_number or "" if ch.isdigit())
         return digits or None

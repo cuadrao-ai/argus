@@ -26,11 +26,11 @@ export function documentFamilyTotals(rows: readonly ReportRecord[]): ReportTotal
 /** The server's upgrade of a stored or linked layout, as `_current_columns` does it. */
 function serverLayout(presentation: ReportPresentation): ReportPresentation {
   const rename = (key: string) => key === "category" ? "expense_type" : key;
-  const order = presentation.order.filter((key) => key !== "family" && key !== "currency").map(rename);
-  const hidden = presentation.hidden.filter((key) => key !== "family" && key !== "currency").map(rename);
+  const dropped = ["family", "currency", "missing", "funding"];
+  const order = presentation.order.filter((key) => !dropped.includes(key)).map(rename);
+  const hidden = presentation.hidden.filter((key) => !dropped.includes(key)).map(rename);
   if (!order.includes("payment_form") && order.includes("expense_type")) { order.splice(order.indexOf("expense_type") + 1, 0, "payment_form"); hidden.push("payment_form"); }
   if (!order.includes("net_amount")) order.splice(order.includes("gross_amount") ? order.indexOf("gross_amount") : order.length, 0, "net_amount");
-  if (!order.includes("missing")) order.splice(order.includes("stage") ? order.indexOf("stage") + 1 : order.length, 0, "missing");
   for (const { key } of recordedReportAnswer.columns) if (!order.includes(key)) { order.push(key); if (!hidden.includes(key)) hidden.push(key); }
   return { ...presentation, order, hidden };
 }

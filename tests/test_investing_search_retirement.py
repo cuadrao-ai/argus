@@ -33,7 +33,7 @@ def test_production_entry_points_do_not_reach_investing_search() -> None:
         "argus.api.main",
         "workflows.document_worker",
         "argus.api.routers.whatsapp",
-        "argus.api.whatsapp_worker",
+        "argus.domain.ingestion.whatsapp.business_worker",
         "argus.agent_runtime.business.runner",
     ):
         assert entry in graph

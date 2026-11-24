@@ -438,7 +438,7 @@ function ExpenseEntry({ expenseId, detailsCard }: { expenseId: string; detailsCa
       onTab={setTab}
       tabs={[
         { key: "general", content: <>
-          <OpenRecordMissingReasons />
+          <OpenRecordMissingReasons missing={expense.missing} reasons={expense.reasons} />
           <DossierCard title={t("business.dossier.card.comprobante")} testId="record-facts-comprobante">
             <DossierRows>
               <DossierRow row="occurred_on" label={t("business.dossier.row.date")} value={formatDay(expense.occurred_on, locale)} />

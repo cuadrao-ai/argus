@@ -7,7 +7,7 @@ import { apiFetch, apiFetchIfChanged, CUADRAO_API_BASE_URL, argusApiRequestHeade
 import type { ArgusLanguage } from "./language-features";
 import type { PersonName } from "./person-name";
 import type { SentBy } from "./sent-by";
-import { LISTO_GAPS, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessDuplicateDecision, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ListoGap, type ShownSuggestions } from "./business-dossier";
+import { LISTO_GAPS, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessDuplicateDecision, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ListoGap, type RecordReadiness, type ShownSuggestions } from "./business-dossier";
 import type { DgiiDeclaration } from "./business-dgii";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
@@ -446,7 +446,7 @@ export type BusinessExpense = {
 };
 
 /** One saved expense with when it was recorded and its revision; both null when the money read does not say. `dgii_606` is its Registros row's 606 answers, null for a record the 606 never lists; absent from an older backend. */
-export type BusinessExpenseDetail = BusinessExpense & { recorded_at: string | null; revision: number | null; dgii_606?: Purchase606 | null };
+export type BusinessExpenseDetail = BusinessExpense & RecordReadiness & { recorded_at: string | null; revision: number | null; dgii_606?: Purchase606 | null };
 
 export type BusinessOverview = {
   from: string;

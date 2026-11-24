@@ -14,14 +14,13 @@ from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStor
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.whatsapp.reply_worker import FailureReplyWorker
 from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
+from psycopg.errors import QueryCanceled
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
 from tests.document_sources_support import source_objects
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion import whatsapp_heartbeat_cases as heartbeat
-from tests.ingestion import whatsapp_lease_cases as lease
-from tests.ingestion import whatsapp_recovery_cases as recovery
 from tests.ingestion.whatsapp_support import (
     RECEIPT_PNG,
     Media,
@@ -93,10 +92,10 @@ def test_concurrent_unlinked_reservations_for_one_day_take_one_reply(pool, users
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "case",
-    recovery.RECOVERY_CASES + lease.LEASE_CASES + heartbeat.HEARTBEAT_CASES,
+    heartbeat.HEARTBEAT_CASES,
     ids=lambda case: case.__name__,
 )
-async def test_recovery_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
+async def test_heartbeat_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
     await case(_world(pool, users))
 
 
@@ -358,7 +357,9 @@ async def test_expired_or_revoked_group_never_sends(pool, users, ending):
     )
     if ending == "revoked":
         world.store.revoke(destination_owner_id=world.alice, now=world.clock.now)
-    assert not await _worker(world).run_once()
+    worker = _worker(world)
+    assert await worker.run_once()
+    assert not await worker.run_once()
     assert world.transport.sent == []
     assert _counts(pool, world) == []
 
@@ -530,7 +531,7 @@ async def test_group_storage_encrypts_transport_identity_and_purges_expired_data
     sink = logger.add(lambda message: records.append(message.record["extra"]))
     try:
         world.clock.now += timedelta(days=8)
-        await _worker(world).run_once()
+        world.store.reply_groups.recover(now=world.clock.now)
     finally:
         logger.remove(sink)
     assert _counts(pool, world) == []
@@ -605,3 +606,42 @@ async def test_owner_erasure_cascades_pending_attempt_and_daily_counter(pool, us
 @pytest.mark.parametrize("case", UNLINKED_CASES, ids=lambda case: case.__name__)
 async def test_unlinked_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
     await case(_world(pool, users))
+
+
+@pytest.mark.asyncio
+async def test_final_settlement_cannot_wait_on_a_lock_past_the_processing_budget(
+    pool, users, monkeypatch
+) -> None:
+    world = _world(pool, users)
+    await world.link(world.alice, cases.ALICE_PHONE)
+    media_id, message_id = "700000000000156", "wamid.CASE-SETTLEMENT-LOCK"
+    world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
+    world.intake.processing_seconds = 1.5
+    destination = world.intake.destination
+    capture = destination.capture
+    locked = asyncio.Event()
+
+    with pool.connection() as blocker, blocker.transaction():
+
+        async def capture_then_lock(**kwargs):
+            result = await capture(**kwargs)
+            blocker.execute(
+                "select 1 from public.whatsapp_inbound_messages "
+                "where provider_message_key = %s for update",
+                (world.keys.message(message_id),),
+            ).fetchone()
+            locked.set()
+            return result
+
+        monkeypatch.setattr(destination, "capture", capture_then_lock)
+        delivery = asyncio.create_task(world.deliver(cases.image(media_id, message_id)))
+        await asyncio.wait_for(locked.wait(), timeout=3)
+        done, _ = await asyncio.wait({delivery}, timeout=3)
+
+    if not done:
+        await delivery
+        pytest.fail("settlement outlasted its budget while waiting to lock the claim")
+    with pytest.raises(QueryCanceled):
+        await delivery
+    assert world.record(message_id).status == "received"
+    assert len(world.transport.sent) == 1

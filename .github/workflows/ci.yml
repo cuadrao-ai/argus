@@ -308,11 +308,13 @@ jobs:
           PLAYWRIGHT_PORT=3101 bunx playwright test \
             e2e/business-receipt-upload-recovery.spec.ts \
             e2e/amounts-hidden-css.spec.ts \
+            e2e/auth-sign-in-motion.spec.ts \
             e2e/business-cambiar-imagen.spec.ts \
             e2e/business-ecf-checks.spec.ts \
             e2e/business-edit-row-placement.spec.ts \
             e2e/business-manual-capture.spec.ts \
             e2e/business-period-picker-layout.spec.ts \
+            e2e/dossier-compare-motion.spec.ts \
             e2e/dossier-dark-contrast.spec.ts \
             e2e/dossier-general-board.spec.ts \
             e2e/dossier-venta.spec.ts \
@@ -345,6 +347,7 @@ jobs:
         with:
           name: receipt-upload-browser-evidence
           path: |
+            web/temp/playwright-results/**/compare-waiting.png
             web/temp/playwright-results/**/receipt-upload-*.png
             web/temp/consent-results/**/channels-*.png
           if-no-files-found: warn
