@@ -1,5 +1,6 @@
 """An approved record exports what was saved. Each line and file row below is
-the one the export gave before the 606 line was shown at upload (#2307)."""
+the one the export gave before the 606 line was shown at upload (#2307), but
+for a saved Tipo Id left blank: it takes the one the supplier's RNC states."""
 
 from dataclasses import replace
 from datetime import date
@@ -99,8 +100,8 @@ CASES = [
     ),
     pytest.param(
         PURCHASE, {**SAVED, "payment_method": "04", "id_type": None}, (), None,
-        "199990021||09|B0100000001||20260903|||1000.00|1000.00|180.00|0.00|||180.00|||0.00|||||04",
-        f"199990021,,{COSTO},B0100000001,,202609,03,,,,1000.00,1000.00,180.00,0.00,,,180.00,,,0.00,,,,,{CREDITO}",
+        "199990021|1|09|B0100000001||20260903|||1000.00|1000.00|180.00|0.00|||180.00|||0.00|||||04",
+        f"199990021,1,{COSTO},B0100000001,,202609,03,,,,1000.00,1000.00,180.00,0.00,,,180.00,,,0.00,,,,,{CREDITO}",
         id="tipo id blank",
     ),
     pytest.param(
@@ -124,8 +125,8 @@ CASES = [
         {"payment_method": "04", "paid_on": None, "id_type": None},
         None,
         None,
-        "199990021||09|B0100000001||20260903|||1000.00|1000.00|180.00|0.00|||180.00|||0.00|||||04",
-        f"199990021,,{COSTO},B0100000001,,202609,03,,,,1000.00,1000.00,180.00,0.00,,,180.00,,,0.00,,,,,{CREDITO}",
+        "199990021|1|09|B0100000001||20260903|||1000.00|1000.00|180.00|0.00|||180.00|||0.00|||||04",
+        f"199990021,1,{COSTO},B0100000001,,202609,03,,,,1000.00,1000.00,180.00,0.00,,,180.00,,,0.00,,,,,{CREDITO}",
         id="old save with a blank tipo id",
     ),
     pytest.param(
