@@ -1,13 +1,12 @@
 "use client";
 
-import { useContext } from "react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useBusiness } from "../BusinessWorkspace";
 import type { RecordRow } from "./transacciones-model";
 import { previewRecordMetadata } from "./records-results-preview";
 import styles from "./transacciones-cells.module.css";
-import { RecordReadinessContext } from "./RecordGlanceContext";
+import type { RecordReadiness } from "@/lib/business-dossier";
 
 /** Locale words follow the server's ordered list; an unknown code uses the existing fallback. */
 export function useMissingWords(missing: readonly string[]) {
@@ -18,10 +17,9 @@ export function useMissingWords(missing: readonly string[]) {
   });
 }
 
-export function OpenRecordMissingReasons() {
-  const record = useContext(RecordReadinessContext);
+export function OpenRecordMissingReasons({ missing = [], reasons }: RecordReadiness) {
   const { t } = useTranslation();
-  const words = useMissingWords(record?.ready === false ? record.missing : []);
+  const words = missing.map(code => t(reasons?.[code]?.words ?? "business.transactions.layout.workflow.missing.detail_missing"));
   if (!words.length) return null;
   return <section className="mb-4 text-[13px]" aria-label={t("business.transactions.layout.column_reason")}>
     <p className="mb-1 font-medium">{t("business.transactions.layout.column_reason")}</p>

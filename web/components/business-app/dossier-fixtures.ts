@@ -22,16 +22,26 @@ function keptSources(before: DgiiDeclaration | null | undefined, after: DgiiDecl
  * a sample's as they were, and only an approval, which the sample answers
  * itself, states the accepted one.
  */
-type Standing = Required<Pick<BusinessDossier, "bandeja_group" | "listo_gaps" | "confirmable">>;
-const LISTO: Standing = { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [] };
-const ACCEPTED: Standing = { bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [], confirmable: [] };
-const attention = (gaps: readonly ListoGap[], confirmable: readonly ListoGap[] = []): Standing => ({ bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: [...gaps], confirmable: [...confirmable] });
+type Standing = Required<Pick<BusinessDossier, "bandeja_group" | "listo_gaps" | "confirmable" | "missing" | "reasons">>;
+const LISTO: Standing = { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [], missing: [], reasons: {} };
+const ACCEPTED: Standing = { bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [], confirmable: [], missing: [], reasons: {} };
+const blocked = { field: null, words: "business.dossier.placeholder.gap.blocked.title" };
+const missingAmount = { field: "amount", words: "business.dossier.gap.missing_amount.title" };
+const sinComprobante = { sin_comprobante: { field: "ncf", words: "business.dossier.placeholder.gap.sin_comprobante.title" } };
+const receiptReasons: Readonly<Record<string, Standing["reasons"]>> = {
+  "rcpt-ferreteria": sinComprobante,
+  "rcpt-papeleria": sinComprobante,
+  "rcpt-falta-rnc": { missing_rnc: { field: "rnc", words: "business.transactions.layout.workflow.missing.missing_rnc" } },
+  "rcpt-falta-ncf": { missing_ncf: { field: "ncf", words: "business.transactions.layout.workflow.missing.missing_ncf" } },
+  "rcpt-remitente": { unverified_sender: { field: null, words: "business.dossier.placeholder.gap.unverified_sender.title" } },
+};
+const attention = (gaps: readonly ListoGap[], reasons: Standing["reasons"], confirmable: readonly ListoGap[] = []): Standing => ({ missing: [], reasons, bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: [...gaps], confirmable: [...confirmable] });
 /** The stand-in records that are not in Listos, each with the reasons the server would state for it. */
 const STAND_IN_STANDING: Partial<Record<string, Standing>> = {
-  unknown: attention(["blocked"]),
-  unknownAmount: attention(["missing_amount", "blocked"]),
-  income: attention(["blocked"]),
-  unknownKind: attention(["blocked"]),
+  unknown: attention(["blocked"], { blocked }),
+  unknownAmount: attention(["missing_amount", "blocked"], { missing_amount: missingAmount, blocked }),
+  income: attention(["blocked"], { blocked }),
+  unknownKind: attention(["blocked"], { blocked }),
 };
 
 /**
@@ -176,8 +186,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, net_amount: { amount: "2923.73", source: "calculated" }, amounts_check: { state: "adds_up" }, declaration_suggestions: { category: { value: "02", source: "last_choice" }, payment_method: { value: "03", source: "last_choice" } }, fiscal_value: "ncf", ecf_checks: fiscalChecks, ecf_checks_panel_available: true, dgii_qr: fiscalQr, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo vía Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
   const fiscalSample = dossiers.get(fiscalDossier.draft_id)!;
   dossiers.set(dossierFixtureIds.saveRefused, { ...fiscalSample, draft_id: dossierFixtureIds.saveRefused });
-  dossiers.set(dossierFixtureIds.fiscalBlocked, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalBlocked, facts: { ...fiscalAfter, occurred_on: unknown() }, blockers: [{ code: "fact_required", field: "occurred_on" }], approval_available: false, ...attention(["missing_date"]) });
-  dossiers.set(dossierFixtureIds.noCurrency, { ...fiscalSample, draft_id: dossierFixtureIds.noCurrency, facts: { ...fiscalAfter, currency: unknown() }, blockers: [{ code: "fact_required", field: "currency" }], approval_available: false, ...attention(["missing_currency"]) });
+  dossiers.set(dossierFixtureIds.fiscalBlocked, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalBlocked, facts: { ...fiscalAfter, occurred_on: unknown() }, blockers: [{ code: "fact_required", field: "occurred_on" }], approval_available: false, ...attention(["missing_date"], { missing_date: { field: "occurred_on", words: "business.transactions.layout.workflow.missing.missing_date" } }) });
+  dossiers.set(dossierFixtureIds.noCurrency, { ...fiscalSample, draft_id: dossierFixtureIds.noCurrency, facts: { ...fiscalAfter, currency: unknown() }, blockers: [{ code: "fact_required", field: "currency" }], approval_available: false, ...attention(["missing_currency"], { missing_currency: { field: "currency", words: "business.dossier.placeholder.gap.missing_currency.title" } }) });
   dossiers.set(dossierFixtureIds.fiscalAttached, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalAttached, sources: [{ id: sourceId, kind: "attachment", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", connection_id: "rcpt-ferreteria", filename: "recibo-ferreteria.jpg", media_type: "image/jpeg" }] });
   dossiers.set(dossierFixtureIds.totalsOff, { ...fiscalSample, draft_id: dossierFixtureIds.totalsOff, ecf_checks: { ...fiscalChecks, checks: fiscalChecks.checks.map((check) => check.name === "totals_arithmetic" ? { ...check, state: "failed" as const, code: "totals_mismatch", detail: { monto_total: "3450.00", sum_of_parts: "3449.00" } } : check) } });
   const declaredSourceId = "20000000-0000-4000-8000-000000000020";
@@ -355,7 +365,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         history: [...(previous?.history ?? []), { draft_id: id, version, actor, before: previous?.facts ?? null, after: current, source_ids: [noteSourceId], turn_key: null, created_at: receivedAt }],
         blockers: previous?.blockers ?? [{ code: "missing_fields", field: "kind" }, { code: "missing_fields", field: "amount" }, { code: "unknown_funding", field: "funding" }],
         approval_available: previous?.approval_available ?? false, approval_result: null,
-        ...(previous ? {} : attention(["missing_amount", "blocked"])),
+        ...(previous ? {} : attention(["missing_amount", "blocked"], { missing_amount: missingAmount, blocked })),
       };
       dossiers.set(id, next);
       captures.push({ draft_id: id, version, revision: version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open", sent_by: { id: `member:${actor.actor_id}`, kind: "member", person: { display_name: actor.display_name, email: null, shown_as: actor.shown_as } } });
@@ -408,7 +418,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       // The draft stands where its row does: the row's reason, and whether a person may accept over it, as the earlier draft of this receipt said.
       const reason = LISTO_GAPS.find((gap) => gap === receipt.bandeja_group?.reason);
       const earlier = receipt.draft_id ? dossiers.get(receipt.draft_id)?.confirmable ?? [] : [];
-      const standing = reason ? attention([reason], confirmable ?? earlier.includes(reason) ? [reason] : []) : LISTO;
+      const standing = reason ? attention([reason], receiptReasons[receipt.id] ?? {}, confirmable ?? earlier.includes(reason) ? [reason] : []) : LISTO;
       const marked = read && receipt.sin_comprobante;
       const current: BusinessFacts = marked ? { ...first, receipt_state: stated("no_receipt") } : first;
       // The read ends a moment after the file arrives, and a person marks it after that: seconds, so no sample time runs ahead of the clock for long.

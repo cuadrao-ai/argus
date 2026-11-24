@@ -798,8 +798,20 @@ def expense_detail(context: BusinessContext, expense_id: str) -> dict:
     draft that recorded it, or neither for an expense entered by hand, and the
     606 answers its Registros row shows."""
 
+    from argus.domain.business.contracts.dossier import DetailReadiness
+    from argus.domain.business.reporting_store import read_record_detail
+
     [item] = _with_records(context, [context.service.expense(context.scope, expense_id)])
-    return {**item, "dgii_606": answers_606(context, [expense_id]).get(expense_id)}
+    store = context.service.imports.store
+    row = None
+    if isinstance(store, GrantImportStore):
+        with transaction(store.authority, store.context) as tx:
+            row = read_record_detail(tx, expense_id)
+    return {
+        **item,
+        "dgii_606": row.dgii_606.model_dump(mode="json") if row and row.dgii_606 else None,
+        **DetailReadiness.from_codes(row.missing if row else ()).model_dump(mode="json"),
+    }
 
 
 def search_with_drafts(

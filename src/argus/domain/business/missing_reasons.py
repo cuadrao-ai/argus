@@ -75,6 +75,9 @@ REASONS: dict[str, MissingReason] = {
         # Gaps only a document in the Bandeja has. The dossier holds their words.
         _bandeja("reading", None, _DOSSIER_PLACEHOLDER_WORDS),
         _bandeja("not_read", None, _DOSSIER_PLACEHOLDER_WORDS),
+        _bandeja("check_details", None, _DOSSIER_PLACEHOLDER_WORDS),
+        _bandeja("no_purchase_found", None, _DOSSIER_PLACEHOLDER_WORDS),
+        _bandeja("several_purchases", None, _DOSSIER_PLACEHOLDER_WORDS),
         _bandeja("credit_note", None, _DOSSIER_PLACEHOLDER_WORDS),
         _bandeja("missing_merchant", "counterparty", _DOSSIER_PLACEHOLDER_WORDS),
         _bandeja("missing_amount", "amount", _DOSSIER_WORDS),
