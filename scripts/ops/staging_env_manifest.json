@@ -1194,6 +1194,16 @@
           }
         },
         {
+          "name": "CUADRAO_INGESTION_SECRET_KEY",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "enter": "the same ingestion key as the API when replies are enabled",
+            "optional": true
+          },
+          "optional": true
+        },
+        {
           "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
           "kind": "secret",
           "production_only": true,
@@ -1217,6 +1227,54 @@
             "copy_from": "CUADRAO_VISION_MODEL",
             "service": "api"
           }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_ACCESS_TOKEN",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "enter": "the reply access token when replies are enabled",
+            "optional": true
+          },
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+          "kind": "plain",
+          "copy_from": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+          "service": "api",
+          "production": {
+            "value": "false"
+          }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_NUMBER_ID",
+          "kind": "plain",
+          "keep_current": true,
+          "production": {
+            "enter": "the sender number ID when replies are enabled",
+            "optional": true
+          },
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+          "kind": "plain",
+          "copy_from": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+          "service": "api",
+          "production": {
+            "value": "false"
+          }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_SENDER_KEY",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "enter": "the same sender key as the API when replies are enabled",
+            "optional": true
+          },
+          "optional": true
         },
         {
           "name": "DATABASE_URL",

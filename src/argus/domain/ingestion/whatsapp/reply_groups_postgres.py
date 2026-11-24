@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from loguru import logger
@@ -16,6 +17,9 @@ from argus.domain.ingestion.whatsapp.reply_groups import (
     earliest,
     suppressed,
 )
+
+if TYPE_CHECKING:
+    from argus.domain.ingestion.whatsapp.reply_worker import ReplyClaim
 
 _GROUP_COLUMNS = (
     "sender_hash,owner_id::text,link_id::text,failed_count,samples,"
@@ -87,7 +91,7 @@ class PostgresReplyGroups:
             ),
         )
 
-    def claim(self, *, now: datetime, limit: int) -> ReplyAttempt | None:
+    def claim(self, *, now: datetime, limit: int) -> ReplyClaim:
         with self.pool.connection() as connection, connection.transaction():
             row = connection.execute(
                 f"select {_GROUP_COLUMNS} from public.whatsapp_reply_groups g"
@@ -112,7 +116,7 @@ class PostgresReplyGroups:
             if reason:
                 self._drop(connection, group.sender_hash)
                 suppressed(reason, group.sender_hash)
-                return None
+                return True
             day = now.astimezone(timezone.utc).date()
             count = connection.execute(
                 "insert into public.whatsapp_reply_days as d"
@@ -125,7 +129,7 @@ class PostgresReplyGroups:
             if count is None:
                 self._drop(connection, group.sender_hash)
                 suppressed("daily_limit", group.sender_hash)
-                return None
+                return True
             token = str(uuid4())
             connection.execute(
                 "insert into public.whatsapp_reply_attempts"
