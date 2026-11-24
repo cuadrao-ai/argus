@@ -8115,16 +8115,15 @@ Intake is on only while the Business pilot (below) is on too. A receipt lands
 in the owner's Business space, read through `resolve_business_scope`; it never
 appears in Personal documents or imports. Link codes and link status answer
 404 `business_space_missing` until the person starts their space. A capture whose
-sender link ended before it settled is recorded `rejected` with
-`sender_link_revoked`, keeps no connection, and gets the not-linked reply.
+sender link ended before settlement is recorded as `rejected` with
+`sender_link_revoked`. The claim has no document connection, and the sender gets no reply.
 
-Linking is decided by the sender's link state, not by a word. A sender with an
-active link is never treated as linking: its text, whatever it says, is not
-looked up as a code, and the link changes only through `DELETE /api/v1/whatsapp/link`.
-A sender with no active link can only link: each token in its text shaped like
-a code (eight characters from the code alphabet) is looked up by digest, up to
-four. A failed lookup answers the expired-code reply; text with no such token
-answers the not-linked reply.
+Text from a linked sender without a file gets the `whatsapp_receipt_missing`
+reply, even when the text looks like a link code. The owner can unlink through
+`DELETE /api/v1/whatsapp/link`. For an unlinked sender, the webhook looks up
+at most four code-shaped tokens (eight characters from the code alphabet) by
+digest. A code can receive a linked or expired-code reply, at most once per
+Santo Domingo day. Other unlinked text is silent.
 
 - GET `/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`
   answers 200 `text/plain` with the challenge when the verify token matches,
@@ -8139,8 +8138,8 @@ answers the not-linked reply.
   media in the owner's default Business. When the sender is still linked and
   Business reading is on, the read job and captured claim commit together.
   The webhook then acknowledges the sender. With reading off, the file waits
-  saved and unread. Unlinked media and ordinary
-  text settle silently. Code-shaped text can receive one link-flow reply per
+  saved and unread. Media and ordinary text from an unlinked sender settle
+  silently. Code-shaped text can receive one link-flow reply per
   Santo Domingo day. The API answers 200 `{received: true}` after processing.
   A settled replay returns 200 without repeating work. A live claim or an
   interrupted request returns 503 `whatsapp_webhook_retry` when a response
@@ -8166,12 +8165,9 @@ answers the not-linked reply.
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
-The Business agent over WhatsApp has its own switch,
-`CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
-default. Off: text from a linked owner never reaches the agent and gets the
-ordinary reply, and the worker does nothing. The receipt reading permission
-(`/api/v1/whatsapp/ai-consent`, below) does not depend on this switch, and
-`DELETE` stays reachable so an owner can always revoke.
+The webhook handles linked text directly, including when the legacy Business
+agent switch is enabled. The receipt-reading permission can always be revoked
+through `DELETE /api/v1/whatsapp/ai-consent`.
 
 Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender
@@ -8197,24 +8193,12 @@ shown in that language is the one stored and hashed, and the token binds it.
 Changing the words an owner was shown asks for consent again. With the
 Business receipt-reading setting off, a received receipt is saved unread, and
 `POST /api/v1/business/receipts/{id}/prepare` returns 422
-`business_receipt_reading_off` instead of queueing it. With it on, the receipt is
-read after the acknowledgement. When the receipt is queued for reading right
-after the acknowledgement, the acknowledgement says it is being read ("Recibido.
-Lo estoy leyendo.", "Received. I'm reading it.") and carries no link. The
-delivery then waits for a puller to settle that read, at most as long as one
-read can take (210 s at the defaults), and the one follow-up carries the review
-link. If that read does not settle in that time or the
-follow-up cannot be sent, the sender gets the standard acknowledgement with
-the review link instead, under the same 24 hour window and outbound rules.
-Every other acknowledgement keeps the review
-link: reading off. The setting is checked again just before the
-provider call, whoever asks for the read; the only window left is the commit and
-the request start. One
-follow-up message tells the sender what was read, only inside the 24 hour
-window. It names the merchant, amount and currency only when the read found one
-clear purchase with nothing marked uncertain and a merchant of letters, digits,
-spaces and & ' - . only (no domain-like text); otherwise it says only that the
-receipt is read.
+`business_receipt_reading_off`. When the webhook queues a new receipt for
+reading, its acknowledgement says the receipt is being read and carries no
+link. The webhook then returns. The document worker checks the owner's
+reading setting again before the provider call. The read outcome is available
+in the Business inbox. Completing the read sends no follow-up, review link or
+summary to WhatsApp.
 
 #### Linked-number Business AI permission
 

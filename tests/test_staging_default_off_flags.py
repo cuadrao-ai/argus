@@ -19,7 +19,6 @@ WORKER_SWITCHES = (
     "CUADRAO_WHATSAPP_INTAKE_ENABLED",
     "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
 )
-DOCUMENT_WORKERS = ("cuadrao-documents-worker", "cuadrao-documents-worker-staging")
 
 _LAUNCH_DAY_ONE = (
     "Staging keeps in-development features on. Production day one is staging's "
@@ -171,16 +170,11 @@ def prod_values_other_than_false(
         render_values = [
             item.get("value")
             for service in render_config.get("services", [])
-            if service.get("name") not in ("cuadrao-api-staging", "cuadrao-app-staging")
+            if service.get("name") not in (
+                "cuadrao-api-staging", "cuadrao-app-staging", "cuadrao-documents-worker-staging"
+            )
             for item in service.get("envVars", [])
             if item.get("key") == name
-            # These two worker declarations get their values from the manifest
-            # and runtime defaults, exercised below for both environments.
-            if not (
-                service.get("name") in DOCUMENT_WORKERS
-                and name in WORKER_SWITCHES
-                and item == {"key": name, "sync": False}
-            )
         ]
         if any(value != "false" for value in profile_values):
             bad.append(name)
@@ -202,7 +196,8 @@ def test_document_worker_whatsapp_switches_default_off(environment: str) -> None
     service = next(s for s in services if s["name"] == service_name)
     declarations = {item["key"]: item for item in service["envVars"]}
     for name in WORKER_SWITCHES:
-        assert declarations[name] == {"key": name, "sync": False}
+        expected = {"value": "false"} if environment == "production" else {"sync": False}
+        assert declarations[name] == {"key": name, **expected}
     defaults = {
         name: item["value"] for name, item in declarations.items() if "value" in item
     }
@@ -212,9 +207,8 @@ def test_document_worker_whatsapp_switches_default_off(environment: str) -> None
         fixed_values = production_values(manifest)["services"]
         for name in WORKER_SWITCHES:
             rule = rule_for(worker_entries[name], environment, worker)
-            assert rule == Rule("copy_from", name, source="api")
-            defaults[name] = fixed_values[rule.source]["env"][rule.text]
-            assert defaults[name] == "false"
+            assert rule == Rule("value", "false")
+            assert fixed_values["documents_worker"]["env"][name] == defaults[name]
     else:
         # A fresh staging worker starts with the blueprint and no manual overrides.
         defaults = compute_plan(worker, live=defaults, file_secrets={}).final

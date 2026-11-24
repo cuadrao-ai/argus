@@ -1243,8 +1243,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "copy_from": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
-            "service": "api"
+            "value": "false"
           },
           "optional": true
         },
@@ -1263,8 +1262,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "copy_from": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
-            "service": "api"
+            "value": "false"
           },
           "optional": true
         },

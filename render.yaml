@@ -249,11 +249,11 @@ services:
       - key: CUADRAO_WHATSAPP_ACCESS_TOKEN
         sync: false
       - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
-        sync: false
+        value: "false"
       - key: CUADRAO_WHATSAPP_NUMBER_ID
         sync: false
       - key: CUADRAO_WHATSAPP_OUTBOUND_ENABLED
-        sync: false
+        value: "false"
       - key: CUADRAO_WHATSAPP_SENDER_KEY
         sync: false
       - key: DATABASE_URL
