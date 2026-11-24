@@ -186,7 +186,12 @@ export type BusinessSupportingFile = {
 
 export type AmountsCheck = { state: "adds_up" | "unchecked"; difference?: null } | { state: "difference"; difference: string };
 
-export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
+export type RecordReadiness = {
+  missing?: readonly string[];
+  reasons?: Readonly<Record<string, { field: string | null; words: string }>>;
+};
+
+export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & RecordReadiness & {
   /** Where the record stands in the Bandeja, by the rule the receipt list reads. An accepted record has the label `accepted`; a deleted one has none. */
   bandeja_group?: Pick<BandejaGroup, "group" | "reason" | "label"> | null;
   /** Every reason a record that needs attention is not Listos, in the rule's order; empty for any other record. */

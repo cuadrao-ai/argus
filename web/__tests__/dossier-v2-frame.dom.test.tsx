@@ -80,7 +80,17 @@ async function fiscalDossier(over: Partial<BusinessDossier> = {}): Promise<Busin
   return { ...dossier, review_flags: [], duplicate_candidates: [], blockers: [], approval_available: true, approval_action: "record_expense", bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [], ...over };
 }
 
-const attention = (gaps: readonly ListoGap[], confirmable: readonly ListoGap[] = []): Partial<BusinessDossier> => ({ bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: gaps, confirmable });
+const attention = (gaps: readonly ListoGap[], confirmable: readonly ListoGap[] = []): Partial<BusinessDossier> => {
+  const reasons = {
+    missing_rnc: { field: "rnc", words: "business.transactions.layout.workflow.missing.missing_rnc" },
+    invalid_ncf: { field: "ncf", words: "business.transactions.layout.workflow.missing.invalid_ncf" },
+    missing_itbis: { field: "itbis", words: "business.dossier.placeholder.gap.missing_itbis.title" },
+  };
+  return {
+    bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: gaps, confirmable,
+    reasons: Object.fromEntries(Object.entries(reasons).filter(([code]) => gaps.some(gap => gap === code))),
+  };
+};
 
 function receiptOf(dossier: BusinessDossier, over: Partial<ReceiptDetail> = {}): ReceiptDetail {
   return { id: `receipt-${dossier.draft_id}`, draft_id: dossier.draft_id, version: dossier.version, merchant: dossier.facts.counterparty.value, filename: "foto-0412.jpg", media_type: "image/jpeg", channel: "whatsapp", received_at: "2026-11-19T13:41:00Z", size_bytes: 1_258_291, status: "review_ready", enterable: true, preparable: false, attention: null, activity: { state: "ready", unread: false }, bandeja: { por_revisar: true, con_problema: false, leyendo: false }, bandeja_group: { ...dossier.bandeja_group, draft_id: dossier.draft_id, version: dossier.version }, sent_by: { id: "s1", kind: "whatsapp", phone_last4: "0142" }, amount: "4720.00", currency: "DOP", occurred_on: "2026-11-18", ...over } as unknown as ReceiptDetail;

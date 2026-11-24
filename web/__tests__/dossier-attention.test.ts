@@ -71,7 +71,14 @@ describe("why a record is not Listos", () => {
   test("each problem points at the row that fixes it", async () => {
     const { fixtures, problems } = await setup();
     const dossier = await fixtures.dossier(dossierFixtureIds.fiscal);
-    const at = (reason: ListoGap, more: Partial<BusinessDossier> = {}) => problems({ ...dossier, review_flags: [], ...more, listo_gaps: [reason] })[0];
+    const reasons = {
+      missing_rnc: { field: "rnc", words: "business.transactions.layout.workflow.missing.missing_rnc" },
+      missing_ncf: { field: "ncf", words: "business.transactions.layout.workflow.missing.missing_ncf" },
+      missing_amount: { field: "amount", words: "business.dossier.gap.missing_amount.title" },
+    };
+    const at = (reason: ListoGap, more: Partial<BusinessDossier> = {}) => problems({ ...dossier, reasons, review_flags: [], ...more, listo_gaps: [reason] })[0];
+    assert.equal(at("missing_rnc", { reasons: { missing_rnc: { ...reasons.missing_rnc, field: "occurred_on" } } }).row, "occurred_on", "the payload names the row");
+    assert.equal(at("missing_ncf").row, "fiscal_number");
     assert.equal(at("missing_rnc").row, "rnc");
     assert.equal(at("missing_rnc").where, "General · RNC");
     assert.equal(at("missing_ncf").title, "Falta el NCF");

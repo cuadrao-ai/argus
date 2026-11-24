@@ -81,6 +81,7 @@ const noDate: Change = (dossier) => {
   dossier.blockers = [{ code: "fact_required", field: "occurred_on" }];
   dossier.bandeja_group = { group: "attention", reason: "missing_date", label: "needs_attention" };
   dossier.listo_gaps = ["missing_date"];
+  dossier.reasons = { missing_date: { field: "occurred_on", words: "business.transactions.layout.workflow.missing.missing_date" } };
   dossier.approval_available = false;
 };
 

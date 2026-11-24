@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
@@ -14,9 +14,6 @@ import BusinessInboxPanel from "./BusinessInboxPanel";
 import TransaccionesPanel from "./transacciones/TransaccionesPanel";
 import InvoiceWorkspaceEntry from "./invoicing/InvoiceWorkspaceEntry";
 import ActivityDraft from "./actividad/ActivityDraft";
-import { RecordGlanceContext, RecordReadinessContext, RecordRowsContext, type OpenRecordGlance, type RefreshRecordRow } from "./transacciones/RecordGlanceContext";
-import { previewRecordMetadata } from "./transacciones/records-results-preview";
-import type { RecordRow } from "./transacciones/transacciones-model";
 import BusinessSettingsPanel from "./BusinessSettingsPanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
 import { EmailRecord } from "./BusinessEmailDeliveries";
@@ -57,10 +54,6 @@ function recordKey(panel: RecordPanel): string {
     case "expense": return `expense:${panel.expenseId}`;
     case "email": return `email:${panel.emailId}`;
   }
-}
-
-function rowTarget(row: RecordRow): string | null {
-  return row.opens ? recordKey(row.opens) : null;
 }
 
 /** Every record opens the one dossier, whichever id it was opened by. An email is a delivery, not a record. */
@@ -129,36 +122,8 @@ const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as co
 const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", inbox: "canvas", transactions: "canvas", invoicing: "canvas", activity: "canvas", receipt: "canvas", draft: "canvas", business: "canvas", expense: "canvas" };
 
 export default function BusinessPanel() {
-  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus, directoryReference, inboxReady, invoicing, revision } = useBusiness();
-  const previewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-  const scope = JSON.stringify([userId, chosen?.space_id ?? "own", chosen?.grant_id ?? null]);
-  const [glance, setGlance] = useState<{ scope: string; row: RecordRow; revision: number; refresh?: RefreshRecordRow } | null>(null);
-  const openGlance: OpenRecordGlance = (row, options) => {
-    if (!row.opens) return;
-    setGlance({ scope, row, revision, refresh: options?.refresh });
-    openPanel(options?.detailsCard ? { ...row.opens, detailsCard: options.detailsCard } : row.opens);
-  };
-  const refreshSelectedRow = useCallback((rows: readonly RecordRow[]) => {
-    setGlance((selected) => {
-      if (!selected || selected.scope !== scope) return selected;
-      const next = rows.find((row) => rowTarget(row) === rowTarget(selected.row));
-      if (!next) return null;
-      return next.report === selected.row.report ? selected : { ...selected, row: next };
-    });
-  }, [scope]);
+  const { panel, lostAccess, records, reload, chosen, userId, directoryStatus, directoryReference, inboxReady, invoicing } = useBusiness();
   const { isBelowDesktop } = useResponsiveLayout();
-  // A phone unmounts Registros while the record is open. Ask the same report for its new answer after a save.
-  useEffect(() => {
-    if (!isBelowDesktop || previewEnabled || !glance?.refresh || glance.scope !== scope || glance.revision === revision) return;
-    const selected = glance;
-    const abort = new AbortController();
-    void glance.refresh(abort.signal).then((row) => {
-      if (!abort.signal.aborted) setGlance((current) => current === selected ? row ? { ...selected, row, revision } : null : current);
-    }, () => {
-      if (!abort.signal.aborted) setGlance((current) => current === selected ? null : current);
-    });
-    return () => abort.abort();
-  }, [glance, isBelowDesktop, previewEnabled, revision, scope]);
   const listRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   if (records.closed) {
@@ -181,15 +146,10 @@ export default function BusinessPanel() {
   const inTray = recordInTray(panel, isBelowDesktop);
   const tray = inTray ? recordList(panel) : null;
   const shown = shownScreen(panel, isBelowDesktop);
-  const selectedRow = record && glance?.scope === scope && rowTarget(glance.row) === recordKey(record) ? glance.row : null;
-  const readiness = selectedRow ? selectedRow.report ?? (previewEnabled ? previewRecordMetadata(selectedRow, chosen?.space_id ?? null) : null) : null;
   // Negocio bounds its own columns through SettingsLayout, so every tab shares one left edge and width.
   const column = SCREEN_COLUMN[shown] ?? "reading";
   return (
-    <RecordGlanceContext.Provider value={openGlance}>
-      <RecordRowsContext.Provider value={refreshSelectedRow}>
-      <RecordReadinessContext.Provider value={readiness}>
-        <div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !inTray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
+    <div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !inTray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />
       {/* A dossier tray lies over the list, so what it covers leaves the Tab order and the accessibility tree. */}
       <div inert={tray === "inbox" ? true : undefined}>
@@ -205,9 +165,6 @@ export default function BusinessPanel() {
       </PanelErrorBoundary>
       </div>
       {record && inTray ? <RecordTray panel={record} list={tray} listRef={listRef} returnFocusRef={returnFocusRef} /> : null}
-        </div>
-      </RecordReadinessContext.Provider>
-      </RecordRowsContext.Provider>
-    </RecordGlanceContext.Provider>
+    </div>
   );
 }
