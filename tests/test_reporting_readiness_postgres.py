@@ -93,14 +93,13 @@ def readiness_records(actions):
 
 @pytest.mark.parametrize("ready", [None, True, False])
 def test_store_row_filter_and_count_share_current_readiness(readiness_records, ready):
-    service, context, blocked, exported, dollars = readiness_records
+    service, context, sale, exported, dollars = readiness_records
     all_rows = read_report(service.authority, context, ReportRequest()).items
     indexed = {row.draft_id: row for row in all_rows}
-    assert (indexed[blocked].ready, indexed[blocked].missing, indexed[blocked].stage) == (
-        False,
-        ("detail_missing",),
-        "needs_review",
-    )
+    # A sale is a log: its date, B01 NCF and client RNC make it ready, and a
+    # workflow hold does not.
+    assert indexed[sale].workflow_blockers == ("business_record_not_found",)
+    assert (indexed[sale].ready, indexed[sale].missing) == (True, ())
     assert (
         indexed[exported].ready,
         indexed[exported].missing,
@@ -114,7 +113,7 @@ def test_store_row_filter_and_count_share_current_readiness(readiness_records, r
     assert {row.row_id for row in result.items} == {row.row_id for row in expected}
     assert result.matching_count == len(expected)
     assert result.overview.not_ready == sum(not row.ready for row in expected)
-    assert result.overview.not_ready == (0 if ready else 2)
+    assert result.overview.not_ready == (0 if ready else 1)
 
 
 def test_usd_readiness_does_not_change_the_export_dialog_or_file(readiness_records):
