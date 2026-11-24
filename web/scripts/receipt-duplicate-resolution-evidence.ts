@@ -100,6 +100,7 @@ try {
       const status = page.getByTestId("dossier-status");
       const problems = status.getByTestId("dossier-problems");
       const list = status.getByTestId("dossier-problem-list");
+      const accept = page.getByTestId("receipt-review-footer").locator("[data-review-primary]");
       const entry = list.locator('[data-reason="duplicate"]');
       await expect(problems).toHaveText("2 por resolver");
       await page.addStyleTag({ content: FREEZE_CSS });
@@ -164,19 +165,7 @@ try {
             await expect(page.getByText("Marcado como compras distintas.", { exact: true })).toBeVisible();
             // Funding still blocks recording. The main action can explain it and receives focus again.
             await expect(status.getByTestId("dossier-reason")).toBeVisible();
-            const accept = footer.locator("[data-review-primary]");
             await expect(accept).toBeEnabled();
-            await expect(accept).toBeFocused();
-            await accept.click();
-            await expect(list.getByRole("heading")).toHaveText("Corrige 1 dato antes de aceptar");
-            const funding = list.getByRole("option");
-            await expect(funding).toHaveCount(1);
-            await expect(funding).toHaveAttribute("data-reason", "blocked");
-            await expect(funding).toContainText("Cómo se pagó");
-            await expect(funding).toBeFocused();
-            await expect(list.getByRole("button", { name: "Aceptar de todos modos", exact: true })).toHaveCount(0);
-            await page.keyboard.press("Escape");
-            await expect(list).toHaveCount(0);
             await expect(accept).toBeFocused();
             await expect(page.getByText("Cómo se pagó", { exact: true }).first()).toBeVisible();
           }
@@ -188,11 +177,27 @@ try {
           await expect(page.getByRole("button", { name: "Deshacer", exact: true })).toBeVisible();
         }
       }
-      expect(writes.length).toBe(["problems", "compare", "origin", "same", "readonly"].includes(state) ? 0 : 1);
-      expect(unexpected).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       const file = `${state}-${width}.png`;
       await page.screenshot({ path: resolve(output, file), fullPage: true });
+      if (state === "success") {
+        // Moving off the success toast lets it dismiss before clicking the footer on a phone.
+        await page.mouse.move(0, 0);
+        await expect(page.getByTestId("toast")).toBeHidden({ timeout: 10_000 });
+        await accept.click();
+        await expect(list.getByRole("heading")).toHaveText("Corrige 1 dato antes de aceptar");
+        const funding = list.getByRole("option");
+        await expect(funding).toHaveCount(1);
+        await expect(funding).toHaveAttribute("data-reason", "blocked");
+        await expect(funding).toContainText("Cómo se pagó");
+        await expect(funding).toBeFocused();
+        await expect(list.getByRole("button", { name: "Aceptar de todos modos", exact: true })).toHaveCount(0);
+        await page.keyboard.press("Escape");
+        await expect(list).toHaveCount(0);
+        await expect(accept).toBeFocused();
+      }
+      expect(writes.length).toBe(["problems", "compare", "origin", "same", "readonly"].includes(state) ? 0 : 1);
+      expect(unexpected).toEqual([]);
       screenshots.push({ state, width, file, writes: writes.length, sha256: createHash("sha256").update(readFileSync(resolve(output, file))).digest("hex") });
     } finally { release(); await page.close(); }
   }
