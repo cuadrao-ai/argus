@@ -158,6 +158,6 @@ test("no reading sheet, no button that opens one and no second title is left in 
     for (const key of ["sheet_title", "turn_on", "change", "saved_prompt", "state_on", "state_off", "turned_off"]) assert.equal(key in activity, false, `${language} business.activity.${key}`);
     assert.equal("reading_title" in (words.business.reception as Record<string, unknown>), false, `${language} business.reception.reading_title`);
     assert.equal("reading_help_off" in (words.business.intake as Record<string, unknown>), false, `${language} business.intake.reading_help_off`);
-    assert.match(words.business.review.placeholder.reading_off, /^(Activa Leer mis documentos automáticamente y|Turn on Read my documents automatically,)/, "the error points to the row, not the old panel");
+    assert.match(words.business.review.reading_off, /^(Activa la lectura y vuelve a intentarlo\.|Turn on reading and try again\.)$/, "the error says only to turn reading on; the row is already on screen");
   }
 });

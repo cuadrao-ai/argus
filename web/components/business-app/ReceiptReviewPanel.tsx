@@ -237,7 +237,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
     } catch (error) {
       setProblem(
         (error as { code?: string }).code === "whatsapp_receipt_reading_off"
-          ? t("business.review.placeholder.reading_off")
+          ? t("business.review.reading_off")
           : t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again."),
       );
     } finally {
