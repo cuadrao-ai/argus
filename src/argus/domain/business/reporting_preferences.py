@@ -17,6 +17,7 @@ from pydantic import (
 from argus.domain.business.contracts.dgii import ExpenseType
 from argus.domain.business.reporting_columns import (
     HIDDEN_COLUMNS,
+    RETIRED_COLUMNS,
     TABLE_COLUMNS,
     Family,
     TableColumn,
@@ -149,17 +150,28 @@ def _current_columns(value: Any) -> Any:
     layout does not name joins it at the end, hidden.
     Tipo de gasto, Forma de pago and the net amount keep their shipped places."""
 
-    if not isinstance(value, dict) or not isinstance(value.get("order"), list):
+    if not isinstance(value, dict):
         return value
+    old_order = value.get("order", TABLE_COLUMNS)
+    old_hidden = value.get("hidden", HIDDEN_COLUMNS)
+    if not isinstance(old_order, (list, tuple)) or not isinstance(
+        old_hidden, (list, tuple)
+    ):
+        return value
+    if not isinstance(old_order, list) and not any(
+        key in old_order or key in old_hidden for key in RETIRED_COLUMNS
+    ):
+        return value
+    dropped = ("family", "currency", *RETIRED_COLUMNS)
     order = [
         "expense_type" if key == "category" else key
-        for key in value["order"]
-        if key not in ("family", "currency")
+        for key in old_order
+        if key not in dropped
     ]
     hidden = [
         "expense_type" if key == "category" else key
-        for key in value.get("hidden", list(HIDDEN_COLUMNS))
-        if key not in ("family", "currency")
+        for key in old_hidden
+        if key not in dropped
     ]
     if "payment_form" not in order and "expense_type" in order:
         order.insert(order.index("expense_type") + 1, "payment_form")
@@ -168,14 +180,22 @@ def _current_columns(value: Any) -> Any:
     if "net_amount" not in order:
         index = order.index("gross_amount") if "gross_amount" in order else len(order)
         order.insert(index, "net_amount")
-    if "missing" not in order:
-        index = order.index("stage") + 1 if "stage" in order else len(order)
-        order.insert(index, "missing")
     for key in TABLE_COLUMNS:
         if key not in order:
             order.append(key)
             if key not in hidden:
                 hidden.append(key)
+    # A legacy layout can lose the column that kept every table visible.
+    retired_was_shown = any(
+        (key in old_order or "order" not in value) and key not in old_hidden
+        for key in RETIRED_COLUMNS
+    )
+    if (
+        retired_was_shown
+        and hidden.count("stage") == 1
+        and not every_table_shows_one(key for key in TABLE_COLUMNS if key not in hidden)
+    ):
+        hidden.remove("stage")
     return {**value, "order": order, "hidden": hidden}
 
 

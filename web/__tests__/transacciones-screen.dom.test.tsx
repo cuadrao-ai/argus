@@ -254,8 +254,8 @@ describe("the gate", () => {
       await page.click(category);
       assert.equal(document.querySelector('th[data-col="expense_type"]'), null);
       assert.equal(page.records()[0].querySelector('[data-col="expense_type"]'), null);
-      assert.equal(document.querySelectorAll('colgroup col').length, 7);
-      await page.click(category); assert.equal(document.querySelectorAll('colgroup col').length, 8);
+      assert.equal(document.querySelectorAll('colgroup col').length, 6);
+      await page.click(category); assert.equal(document.querySelectorAll('colgroup col').length, 7);
       for (const setting of document.querySelectorAll("[data-column-setting]")) assert.ok(setting.querySelector<HTMLInputElement>('input[type="checkbox"]')?.disabled === false && setting.querySelector("button[draggable]") && !/Siempre visible/.test(setting.textContent ?? ""), "no column is locked by name");
       const categoryGrip = document.querySelector('[data-column-setting="expense_type"] button[draggable]')!;
       assert.equal(categoryGrip.closest("label"), null, "reorder grip is separate from the checkbox label");
@@ -271,9 +271,9 @@ describe("the gate", () => {
       };
       const settingOrder = () => [...document.querySelectorAll("[data-column-setting]")].map((node) => node.getAttribute("data-column-setting"));
       const amountIndex = settingOrder().indexOf("gross_amount");
-      await drag("funding", "Notas");
+      await drag("payment_form", "Notas");
       assert.equal(settingOrder().indexOf("gross_amount"), amountIndex, "dragging notes leaves amount in place");
-      assert.ok(settingOrder().indexOf("note") > settingOrder().indexOf("funding"));
+      assert.ok(settingOrder().indexOf("note") > settingOrder().indexOf("payment_form"));
       assert.deepEqual([...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col")), settingOrder().filter((key) => !sampleRecordsPreferences().hidden.some((hidden) => hidden === key)));
       await drag("attachment", "Notas");
       await page.click(document.querySelector('[data-column-setting="attachment"] label'));
@@ -281,7 +281,7 @@ describe("the gate", () => {
       assert.equal(document.querySelectorAll('thead th')[1].getAttribute("data-col"), "attachment");
       assert.equal(document.querySelector('th[data-col="attachment"]')?.getAttribute("data-pinned"), "top");
       assert.equal(page.records()[0].querySelector('[data-col="attachment"]')?.getAttribute("data-pinned"), null);
-      await drag("funding");
+      await drag("payment_form");
       assert.equal(document.querySelector('th[data-col="attachment"]')?.getAttribute("data-pinned"), "top right");
       const grip = document.querySelector<HTMLButtonElement>('button[aria-label="Mover Total"]')!;
       await page.act(async () => { grip.dispatchEvent(new Event("pointerdown", { bubbles: true })); });
@@ -353,10 +353,7 @@ describe("the gate", () => {
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
       await page.settle(() => page.records().length === 2, "purchase scope summary");
       assert.equal(summary(), null, "Total has no subcard");
-      assert.equal(document.querySelectorAll('thead th').length, 8);
-      assert.equal(document.querySelector('th[data-col="missing"]')?.textContent, "Motivo");
-      assert.equal(document.querySelector('th[data-col="funding"]'), null);
-      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
+      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
       const amount = page.records().find((row) => row.dataset.kind === "gasto")!.querySelector('[data-col="gross_amount"]')!;
       assert.equal(amount.textContent, "2,100.00");
       assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]'), null);

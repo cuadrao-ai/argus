@@ -11,12 +11,12 @@ import en from "@/public/locales/en/common.json";
 const record = (id: string, kind: RecordRow["kind"], amount: string, currency: string): RecordRow => ({ id, kind, occurredOn: "2026-10-25", counterparty: "Sample", money: { amount, currency }, categoryId: null, account: null, hasProof: null, marks: { personal: false, markedBy: null, fiscal: null }, opens: null });
 const rows = [record("exp-gas", "gasto", "-2100.00", "DOP"), record("exp-hosting", "gasto", "-24.00", "USD"), record("exp-lunch", "gasto", "-1250.00", "DOP"), record("exp-gas", "venta", "2100.00", "DOP"), record("exp-hosting", "venta", "24.00", "USD"), record("exp-lunch", "venta", "1250.00", "DOP")];
 
-test("preview defaults are the server's: RNC first, with the name, notes and account fields offered hidden", () => {
+test("preview defaults are the server's: RNC first, with the name and notes offered hidden", () => {
   const prefs = sampleRecordsPreferences();
   assert.equal(prefs.order.length, recordedReportAnswer.presentation.order.length);
-  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
-  assert.deepEqual(prefs.hidden, ["counterparty", "fiscal_number", "note", "attachment", "payment_form", "funding"]);
-  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "funding")).length, 9);
+  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.deepEqual(prefs.hidden, ["counterparty", "fiscal_number", "note", "attachment", "payment_form"]);
+  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "note")).at(-1)?.key, "note");
   assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(prefs, "counterparty")).map(({ key }) => key).slice(0, 2), ["counterparty_id", "counterparty"], "the name shows beside the RNC once chosen");
   assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "stage")).some(({ key }) => key === "stage"), false);
 });

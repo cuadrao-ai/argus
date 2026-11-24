@@ -9,20 +9,17 @@
       "itbis_amount",
       "gross_amount",
       "stage",
-      "missing",
       "fiscal_number",
       "note",
       "attachment",
-      "payment_form",
-      "funding"
+      "payment_form"
     ],
     "hidden": [
       "counterparty",
       "fiscal_number",
       "note",
       "attachment",
-      "payment_form",
-      "funding"
+      "payment_form"
     ],
     "density": 48
   },
@@ -99,15 +96,6 @@
       ]
     },
     {
-      "key": "missing",
-      "label_key": "business.transactions.layout.column_reason",
-      "shown": true,
-      "families": [
-        "sale",
-        "purchase"
-      ]
-    },
-    {
       "key": "fiscal_number",
       "label_key": "business.transactions.columns.ncf",
       "shown": false,
@@ -139,15 +127,6 @@
       "label_key": "business.dossier.placeholder.payment_form",
       "shown": false,
       "families": [
-        "purchase"
-      ]
-    },
-    {
-      "key": "funding",
-      "label_key": "business.transactions.columns.cuenta",
-      "shown": false,
-      "families": [
-        "sale",
         "purchase"
       ]
     }
