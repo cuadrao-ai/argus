@@ -7,8 +7,11 @@ from uuid import uuid4
 import pytest
 from argus.domain.business.actions import mutations
 from argus.domain.business.amount_inheritance import written_from
+from argus.domain.business.contracts.actions import ReviewCommand, ReviewDraft
+from argus.domain.business.contracts.dgii import SalePaymentSplit
 from argus.domain.business.contracts.dossier import BusinessDossier, web_action_text
 from argus.domain.business.contracts.facts import BusinessResolution
+from argus.domain.business.history_review import legacy_evidence, review_evidence
 from argus.domain.business.purchase_review import declaration_from_facts
 
 from tests.business.test_fiscal_links import DAY, suggested
@@ -122,9 +125,20 @@ def _older_evidence(tx):
     tx.evidence[0] = source.model_copy(update={"text": web_action_text(data)})
 
 
-@pytest.mark.parametrize(("purchase", "named"), [({"category": None}, None), ({"category": "09"}, ("category",))])
+@pytest.mark.parametrize(("purchase", "named"), [
+    pytest.param({"category": None}, None, id="cleared-category"),
+    pytest.param({"category": "09"}, None, id="services-amount-moved-to-null"),
+    pytest.param({"payment_method": "02"}, ("payment_method",), id="nothing-unnamed-cleared"),
+])
 def test_older_evidence_falls_back_only_when_a_cleared_answer_may_be_lost(review_command, purchase, named):  # noqa: F811
     review, tx, event, _ = review_command
     assert review({"purchase": purchase}).outcome == "applied"
     _older_evidence(tx)
     assert projected(tx, event).history[0].reviewed_declaration_fields == named
+
+
+def test_review_evidence_keeps_a_cleared_payment_bucket():
+    request = ReviewDraft(version=2, payment_split=SalePaymentSplit(bank=None, card="1180.00"))
+    evidence = review_evidence(ReviewCommand(draft_id=uuid4(), request=request))
+    assert evidence["request"]["payment_split"] == {"bank": None, "card": "1180.00"}
+    assert legacy_evidence(evidence)["request"]["payment_split"] == {"card": "1180.00"}

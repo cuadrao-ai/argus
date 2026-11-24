@@ -571,11 +571,13 @@ _UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split", "sale_payment_form", "mon
 
 
 def _unmeasured_removed(source: dict[str, Any]) -> dict[str, Any]:
+    from argus.domain.business.history_review import CLEARED_KEPT, legacy_evidence
+
     if source["kind"] != "web_action" or not any(
-        f'"{name}"' in source["text"] for name in (*_UNMEASURED_REVIEW_INPUT, "itbis")
+        f'"{name}"' in source["text"] for name in (*_UNMEASURED_REVIEW_INPUT, "itbis", CLEARED_KEPT)
     ):
         return source
-    command = json.loads(source["text"])
+    command = legacy_evidence(json.loads(source["text"]))
     for name in _UNMEASURED_REVIEW_INPUT:
         command.get("request", {}).pop(name, None)
     request = command.get("request", {})

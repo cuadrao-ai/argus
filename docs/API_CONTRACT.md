@@ -8792,8 +8792,11 @@ restored subtotal displays its resulting amount. Raw audit facts remain intact.
 
 `reviewed_declaration_fields` names the changed declaration fields explicitly
 submitted by the person, recovered from the revision's saved web command. Linked
-fields that moved only because their source changed are excluded. Null preserves
-legacy history when command evidence is unavailable; an empty array means no
+fields that moved only because their source changed are excluded. A purchase or
+payment-split answer the person cleared counts: its review command text keeps
+that null and carries `"cleared_kept": true`. Null preserves legacy history when
+command evidence is unavailable, or when older evidence without that marker
+cannot tell an omitted answer from a cleared one; an empty array means no
 explicit declaration changes. A document type switch displays one type change.
 These three display fields are excluded from the model-facing dossier.
 
