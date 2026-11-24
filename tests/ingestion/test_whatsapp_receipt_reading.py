@@ -86,11 +86,18 @@ def _world(*, on: bool) -> tuple[cases.World, Extractor, Callable[[bool], None]]
     return world, extractor, turn
 
 
-async def _send(world: cases.World, message_id: str) -> str:
+async def _deliver(world: cases.World, message_id: str) -> str:
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(cases.image("700000000000201", message_id))
     [connection_id] = world.captures(world.alice)
+    return connection_id
+
+
+async def _send(world: cases.World, message_id: str) -> str:
+    """Deliver a receipt, then let the document worker take its attempt."""
+    connection_id = await _deliver(world, message_id)
+    await read_receipt(world.documents, world.alice, connection_id)
     return connection_id
 
 
@@ -105,7 +112,7 @@ def _status(world: cases.World, connection_id: str) -> str:
 @pytest.mark.asyncio
 async def test_worker_read_does_not_send_a_second_reply() -> None:
     world, extractor, _ = _world(on=True)
-    connection_id = await _send(world, "wamid.READ-ON")
+    connection_id = await _deliver(world, "wamid.READ-ON")
     assert _status(world, connection_id) == "queued"
     assert extractor.calls == 0
     replies = world.transport.bodies()
@@ -120,7 +127,7 @@ async def test_worker_read_does_not_send_a_second_reply() -> None:
 @pytest.mark.asyncio
 async def test_with_the_switch_off_the_receipt_waits_unread_and_no_follow_up() -> None:
     world, extractor, _ = _world(on=False)
-    connection_id = await _send(world, "wamid.READ-OFF")
+    connection_id = await _deliver(world, "wamid.READ-OFF")
     assert _status(world, connection_id) == "saved"
     assert extractor.calls == 0
     assert len(world.transport.sent) == 2
@@ -132,7 +139,7 @@ async def test_with_the_switch_off_the_receipt_waits_unread_and_no_follow_up() -
 @pytest.mark.asyncio
 async def test_same_bytes_resent_in_a_new_message_keep_one_receipt_and_one_read() -> None:
     world, extractor, _ = _world(on=True)
-    connection_id = await _send(world, "wamid.READ-FIRST")
+    connection_id = await _deliver(world, "wamid.READ-FIRST")
     await world.deliver(cases.image("700000000000201", "wamid.READ-RESENT"))
     await world.deliver(cases.image("700000000000201", "wamid.READ-RESENT"))
     assert extractor.calls == 0
@@ -162,7 +169,7 @@ async def test_with_outbound_off_the_receipt_is_read_and_nothing_is_sent() -> No
 @pytest.mark.asyncio
 async def test_prepare_from_the_web_with_the_switch_off_is_refused_not_queued() -> None:
     world, extractor, _ = _world(on=False)
-    connection_id = await _send(world, "wamid.READ-WEB")
+    connection_id = await _deliver(world, "wamid.READ-WEB")
     scope = world.business(world.alice)
     with pytest.raises(DocumentServiceError) as refused:
         world.documents.queue(
@@ -187,7 +194,6 @@ async def test_a_switch_turned_off_while_the_source_is_read_stops_before_the_pro
 
     store.source = revoke_while_reading
     connection_id = await _send(world, "wamid.READ-LATE")
-    await read_receipt(world.documents, world.alice, connection_id)
     assert extractor.calls == 0
     assert _status(world, connection_id) == "saved"
     assert len(world.transport.bodies()) == 2

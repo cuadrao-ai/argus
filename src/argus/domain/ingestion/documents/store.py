@@ -240,7 +240,8 @@ class InMemoryDocumentStore:
             raw = self._drafts.get(key)
             if not self._live(*key) or raw is None:
                 return None
-            if not DocumentDraft.model_validate_json(raw).source_available:
+            draft = DocumentDraft.model_validate_json(raw)
+            if draft.status == "saved" and not draft.source_available:
                 return None
             path = self._sources.get(key)
             return self.objects.get(path) if path is not None else None
