@@ -240,9 +240,21 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS
         value: "3600"
+      - key: CUADRAO_INGESTION_SECRET_KEY
+        sync: false
       - key: CUADRAO_OPENROUTER_API_KEY_PROD
         sync: false
       - key: CUADRAO_VISION_MODEL
+        sync: false
+      - key: CUADRAO_WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
+        sync: false
+      - key: CUADRAO_WHATSAPP_NUMBER_ID
+        sync: false
+      - key: CUADRAO_WHATSAPP_OUTBOUND_ENABLED
+        sync: false
+      - key: CUADRAO_WHATSAPP_SENDER_KEY
         sync: false
       - key: DATABASE_URL
         sync: false
@@ -477,9 +489,21 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS
         value: "3600"
+      - key: CUADRAO_INGESTION_SECRET_KEY
+        sync: false
       - key: CUADRAO_OPENROUTER_API_KEY_STG
         sync: false
       - key: CUADRAO_VISION_MODEL
+        sync: false
+      - key: CUADRAO_WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
+        sync: false
+      - key: CUADRAO_WHATSAPP_NUMBER_ID
+        sync: false
+      - key: CUADRAO_WHATSAPP_OUTBOUND_ENABLED
+        sync: false
+      - key: CUADRAO_WHATSAPP_SENDER_KEY
         sync: false
       - key: DATABASE_URL
         sync: false

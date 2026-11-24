@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -56,7 +56,10 @@ async def test_a_read_refused_before_dispatch_waits_saved(monkeypatch):  # noqa:
     owner, connection = str(uuid4()), str(uuid4())
     scope = SimpleNamespace(space_id=uuid4())
     documents = Mock()
-    documents.get = Mock(return_value=SimpleNamespace(status="queued"))
+    documents.upload = AsyncMock(return_value=SimpleNamespace(
+        status="queued", replayed=False, connection_id=connection
+    ))
+    documents.get.return_value = SimpleNamespace(status="saved")
     destination = module.DocumentsDestination(documents, Mock())
     monkeypatch.setattr(
         module,
@@ -68,8 +71,10 @@ async def test_a_read_refused_before_dispatch_waits_saved(monkeypatch):  # noqa:
         raise CaptureFailed("business_permission_denied")
 
     monkeypatch.setattr(module, "_as_owner", refused)
-    with pytest.raises(CaptureFailed, match="business_permission_denied"):
-        await destination.read(owner_id=owner, connection_id=connection)
+    captured = await destination.capture(
+        owner_id=owner, content=b"receipt", filename="receipt.png", media_type="image/png"
+    )
+    assert captured.connection_id == connection and not captured.reading
     documents.release_queued.assert_called_once_with(
         user_id=owner,
         connection_id=connection,

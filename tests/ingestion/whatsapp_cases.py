@@ -20,7 +20,6 @@ from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp import intake as intake_module
-from argus.domain.ingestion.whatsapp.business_envelope import ClaimCodec
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
 from argus.domain.ingestion.whatsapp.intake import (
     CLAIM_SECONDS,
@@ -54,16 +53,6 @@ from tests.ingestion.whatsapp_support import (
 MAX_BYTES = 10 * 1024 * 1024
 ORIGIN = "https://app.test"
 _ids = count(1)
-
-
-UNLINKED = (
-    "Este número aún no está vinculado a un negocio en Cuadrao. "
-    "Pídele al administrador el código para vincularlo."
-)
-UNLINKED_EN = (
-    "This number isn't linked to a business in Cuadrao yet. "
-    "Ask the administrator for the code to link it."
-)
 
 
 class Clock:
@@ -159,7 +148,6 @@ def build_world(
         app_origin=ORIGIN,
         max_bytes=MAX_BYTES,
         reply_codec=ReplyGroupCodec(SecretBox(b"w" * 32), keys),
-        claim_codec=ClaimCodec(SecretBox(b"w" * 32), keys),
     )
     return World(
         intake, documents, store, graph, transport, clock, alice, bob, keys, spaces
@@ -251,7 +239,7 @@ async def unknown_sender_is_rejected_without_capture(world: World) -> None:
             None,
         )
     assert world.graph.requests == []
-    assert world.transport.bodies() == [UNLINKED]
+    assert world.transport.bodies() == []
 
 
 async def expired_and_reused_codes_are_refused(world: World) -> None:
@@ -737,16 +725,16 @@ async def a_link_revoked_before_settling_keeps_no_capture(world: World) -> None:
     await _revoke_while_capturing(
         world, "es-419", "700000000000140", "wamid.CASE-REVOKED-IN-FLIGHT"
     )
-    assert world.transport.bodies()[1:] == [UNLINKED]
+    assert world.transport.bodies()[1:] == []
 
 
-async def a_link_revoked_before_settling_answers_in_the_links_language(
+async def a_link_revoked_before_settling_stays_silent_in_english(
     world: World,
 ) -> None:
     await _revoke_while_capturing(
         world, "en", "700000000000141", "wamid.CASE-REVOKED-IN-FLIGHT-EN"
     )
-    assert world.transport.bodies()[1:] == [UNLINKED_EN]
+    assert world.transport.bodies()[1:] == []
 
 
 async def a_number_linked_after_the_revoke_keeps_no_capture(world: World) -> None:
@@ -908,7 +896,7 @@ async def voice_audio_and_stickers_get_one_unsupported_reply(world: World) -> No
     assert world.record("wamid.CASE-KIND-STRANGER").error_code == (
         "whatsapp_sender_not_linked"
     )
-    assert world.transport.bodies()[before:] == [UNLINKED]
+    assert world.transport.bodies()[before:] == []
 
 
 CASES = (
@@ -931,7 +919,7 @@ CASES = (
     voice_audio_and_stickers_get_one_unsupported_reply,
     a_caption_is_kept_verbatim_as_source_text,
     a_link_revoked_before_settling_keeps_no_capture,
-    a_link_revoked_before_settling_answers_in_the_links_language,
+    a_link_revoked_before_settling_stays_silent_in_english,
     a_number_linked_after_the_revoke_keeps_no_capture,
     a_linked_sender_text_is_never_a_link_attempt,
     an_unlinked_sender_links_with_a_code_anywhere_in_the_text,

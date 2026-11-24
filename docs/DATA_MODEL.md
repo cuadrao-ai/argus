@@ -3451,30 +3451,12 @@ boundary proposal is approved.
   `connection_id` (the captured document's statement connection), `error_code`,
   `claim_until`, `received_at` and `updated_at`. Linked, rejected and captured
   are final. A received row whose claim lapsed, or a failed row, is reclaimed by
-  a redelivery of the same message. Settling requires the claim the worker
-  took, so a worker whose claim lapsed cannot overwrite a newer one. A captured row's draft is owned by
-  `financial_document_extractions`.
-- Loss recovery (migration `20261031010000_whatsapp_claim_envelope.sql`):
-  `claim_envelope` holds the message (media id, type, caption, sender number)
-  sealed with the ingestion secret box, written with the claim, so a claim that
-  lapsed because the process died after the 200 can be run again.
-  `recovery_attempts` counts sweep retakes. A sweep (every 60 seconds in the
-  API process, and at most once a minute on webhook traffic, independent of
-  the document read sweep) retakes a lapsed claim by compare-and-set on
-  `claim_until` and runs the original processing path. After three retakes the
-  row settles `failed` with `whatsapp_recovery_exhausted` and the linked sender
-  gets one `whatsapp_photo_lost` reply. A lapsed row with no envelope settles
-  `failed` with `whatsapp_claim_envelope_missing`. Every settlement clears
-  `claim_envelope`: the trigger `whatsapp_inbound_clear_settled_envelope`
-  nulls it on any write that leaves `received`/`failed` or ends the claim, so
-  code from before this migration (a rollout or a code-only rollback) still
-  settles sealed rows and still drops their bytes. The check
-  `whatsapp_inbound_claim_envelope_shape` then holds by construction: an
-  envelope only on `received` and `failed`, version byte 1. Each item renews
-  its own lease (compare-and-set, fresh clock) right before its work, so no
-  photo is fetched under a lapsed lease. A photo is acknowledged only once its
-  envelope is sealed; with no codec, or when sealing fails, the webhook answers
-  503 and commits nothing, so the provider redelivers. Text stays best effort.
+  a redelivery of the same message. The webhook renews its lease during the
+  bounded save. Only the holder of the current lease can settle the claim.
+  The captured row points to the draft in `financial_document_extractions`.
+  The legacy `claim_envelope` and `recovery_attempts` columns remain in the
+  schema. New claims use neither column. The platform retries an unfinished
+  delivery after its lease expires.
 
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.

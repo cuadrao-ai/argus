@@ -21,12 +21,12 @@ from argus.domain.ingestion.documents.models import ExtractionResult
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
-from argus.domain.ingestion.whatsapp.intake import CaptureFailed
 from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
 
 from tests import test_business_actions_postgres as shared
 from tests.business_reading_support import ROUTE, reading_setting, turn_reading
 from tests.document_extractor_support import StubPreparation, start_request
+from tests.document_reads_support import read_receipt
 from tests.document_sources_support import source_objects
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
@@ -36,6 +36,9 @@ users = shared.users
 pytestmark = shared.pytestmark
 
 
+@pytest.fixture
+def reads_finish_inside_the_request() -> None:
+    """Each test takes the queued attempt after capture."""
 
 
 class Extractor(StubPreparation):
@@ -132,11 +135,7 @@ def _rig(actions):  # noqa: ANN001, ANN202
     documents.business_receipt_consent = reading_setting(pool)
     owner, space = str(context.owner_id), str(context.actor.space_id)
     turn_reading(documents.business_receipt_consent, space, owner)
-    destination = DocumentsDestination(
-        documents,
-        PostgresSpaceStore(pool),
-        lambda reader: documents.business_receipt_consent.enabled(space, reader),
-    )
+    destination = DocumentsDestination(documents, PostgresSpaceStore(pool))
     return destination, documents, extractor, owner
 
 
@@ -161,20 +160,17 @@ def _draft(destination, owner, connection_id):  # noqa: ANN001, ANN202
 async def test_a_whatsapp_receipt_is_read_through_the_owners_grant(actions):  # noqa: ANN001
     destination, _, extractor, owner = _rig(actions)
     connection_id = await _capture(destination, owner)
-    result = await destination.read(owner_id=owner, connection_id=connection_id)
-    assert result is not None and result[0] == "review_ready"
+    assert _draft(destination, owner, connection_id).status == "queued"
+    await read_receipt(destination.documents, owner, connection_id)
+    assert _draft(destination, owner, connection_id).status == "review_ready"
     assert extractor.calls == 1
 
 
 @pytest.mark.asyncio
-async def test_the_acknowledgement_promises_the_read_and_the_follow_up_links(  # noqa: ANN201
+async def test_the_acknowledgement_is_the_only_reply_for_a_completed_read(  # noqa: ANN201
     actions,
     users,  # noqa: ANN001
 ):
-    """The whole intake on Postgres: the settled message carries ``reading``
-    through the store, so the acknowledgement has no link and the one
-    follow-up has it."""
-
     destination, documents, extractor, owner = _rig(actions)
     pool = documents.business_actions.authority.pool
     world = cases.build_world(
@@ -190,13 +186,13 @@ async def test_the_acknowledgement_promises_the_read_and_the_follow_up_links(  #
     world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(cases.image("700000000000201", "wamid.READ-PG"))
     [connection_id] = world.captures(owner)
+    replies = world.transport.bodies()
+    assert len(replies) == 2
+    assert replies[-1] == "Recibido. Lo estoy leyendo."
+    await read_receipt(documents, owner, connection_id)
     assert extractor.calls == 1
     assert _draft(destination, owner, connection_id).status == "review_ready"
-    assert world.transport.bodies()[-2:] == [
-        "Recibido. Lo estoy leyendo.",
-        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: "
-        f"{cases.ORIGIN}/biz?receipt={connection_id}",
-    ]
+    assert world.transport.bodies() == replies
 
 
 @pytest.mark.asyncio
@@ -206,7 +202,7 @@ async def test_a_switch_turned_off_after_capture_stops_the_read(actions):  # noq
     turn_reading(
         documents.business_receipt_consent, str(actions[1].actor.space_id), owner, False
     )
-    await destination.read(owner_id=owner, connection_id=connection_id)
+    await read_receipt(documents, owner, connection_id)
     assert extractor.calls == 0
     assert _draft(destination, owner, connection_id).status == "saved"
 
@@ -218,7 +214,7 @@ async def test_only_the_receiving_owner_can_be_the_actor(actions):  # noqa: ANN0
     accountant = str(actions[1].actor.actor_id)
     assert accountant != owner
     assert (
-        await destination.read(owner_id=accountant, connection_id=connection_id) is None
+        await read_receipt(destination.documents, accountant, connection_id) is None
     )
     assert extractor.calls == 0
 
@@ -229,14 +225,12 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
     monkeypatch,  # noqa: ANN001
 ):
     destination, documents, extractor, owner = _rig(actions)
-    connection_id = await _capture(destination, owner)
 
     def refused(*_: Any, **__: Any) -> None:
         raise ActionError("permission_denied", "business_permission_denied")
 
     monkeypatch.setattr(documents.business_actions, "resolve_actor", refused)
-    with pytest.raises(ActionError):
-        await destination.read(owner_id=owner, connection_id=connection_id)
+    connection_id = await _capture(destination, owner)
     draft = _draft(destination, owner, connection_id)
     assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
     assert extractor.calls == 0
@@ -244,33 +238,34 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
 
 @pytest.mark.asyncio
 async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(
-    actions, users
+    actions, users, monkeypatch
 ):  # noqa: ANN001
     """No fake: the owner's grant loses prepare in the table the authority
-    reads, so the read cannot start for a permission reason (the WhatsApp
-    path refuses with ``CaptureFailed``), and the draft records exactly
+    reads, so the read cannot start, and the saved draft records
     ``business_permission_denied``."""
 
     destination, documents, extractor, owner = _rig(actions)
-    connection_id = await _capture(destination, owner)
     _, context, _ = actions
-    with documents.business_actions.authority.pool.connection() as db:
-        db.execute(
-            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
-            (context.actor.space_id, users["other"], context.owner_id),
-        )
-        changed = db.execute(
-            "update public.business_client_grants set business_role='viewer'"
-            " where space_id=%s and grantee_id=%s and revoked_at is null",
-            (context.actor.space_id, context.owner_id),
-        ).rowcount
-    # Exactly the owner's one live grant lost prepare; the refusal below is its doing.
-    assert changed == 1
-    # The read path refuses before dispatch with the WhatsApp capture error,
-    # carrying the same literal code; the draft records it on release.
-    with pytest.raises(CaptureFailed) as refused:
-        await destination.read(owner_id=owner, connection_id=connection_id)
-    assert refused.value.code == "business_permission_denied"
+    upload = documents.upload
+
+    async def revoke_after_save(**kwargs):
+        outcome = await upload(**kwargs)
+        with documents.business_actions.authority.pool.connection() as db:
+            db.execute(
+                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+                (context.actor.space_id, users["other"], context.owner_id),
+            )
+            changed = db.execute(
+                "update public.business_client_grants set business_role='viewer'"
+                " where space_id=%s and grantee_id=%s and revoked_at is null",
+                (context.actor.space_id, context.owner_id),
+            ).rowcount
+        # Exactly the owner's one live grant lost prepare; the refusal below is its doing.
+        assert changed == 1
+        return outcome
+
+    monkeypatch.setattr(documents, "upload", revoke_after_save)
+    connection_id = await _capture(destination, owner)
     draft = _draft(destination, owner, connection_id)
     assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
     assert extractor.calls == 0

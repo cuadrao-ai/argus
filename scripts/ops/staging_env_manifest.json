@@ -1194,6 +1194,14 @@
           }
         },
         {
+          "name": "CUADRAO_INGESTION_SECRET_KEY",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "not_set": true
+          }
+        },
+        {
           "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
           "kind": "secret",
           "production_only": true,
@@ -1216,6 +1224,46 @@
           "production": {
             "copy_from": "CUADRAO_VISION_MODEL",
             "service": "api"
+          }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_ACCESS_TOKEN",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "not_set": true
+          }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+          "kind": "plain",
+          "keep_current": true,
+          "production": {
+            "value": "false"
+          }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_NUMBER_ID",
+          "kind": "plain",
+          "keep_current": true,
+          "production": {
+            "not_set": true
+          }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+          "kind": "plain",
+          "keep_current": true,
+          "production": {
+            "value": "false"
+          }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_SENDER_KEY",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "not_set": true
           }
         },
         {

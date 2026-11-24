@@ -5,8 +5,6 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Literal, Protocol
 
-from loguru import logger
-
 from argus.domain.ingestion.whatsapp.replies import ReplyFailed, ReplyTransport
 from argus.domain.ingestion.whatsapp.reply_groups import (
     SEND_TIMEOUT,
@@ -45,7 +43,6 @@ class FailureReplyWorker:
         self.clock, self.enabled, self.limit = clock, enabled, limit
 
     async def run_once(self) -> bool:
-        await asyncio.to_thread(self.store.recover, now=self.clock())
         if not self.enabled():
             return False
         attempt = await asyncio.to_thread(
@@ -88,15 +85,3 @@ class FailureReplyWorker:
             self.store.finish, attempt, now=self.clock(), outcome=outcome
         )
         return True
-
-    async def run(self) -> None:
-        while True:
-            try:
-                worked = await self.run_once()
-            except Exception as error:
-                logger.warning(
-                    "WhatsApp failure reply worker interrupted",
-                    failure_mode=type(error).__name__,
-                )
-                worked = False
-            await asyncio.sleep(0 if worked else 1)

@@ -8133,22 +8133,20 @@ answers the not-linked reply.
   must be `sha256=` HMAC-SHA256 of the raw body under the app secret, checked
   in constant time before parsing: else 401 `whatsapp_webhook_rejected`. A body
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
-  a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
-  `{received: true}` means every image, document and text message in it has a
-  committed delivery record with a live claim. A voice note, audio, sticker or
-  video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
-  and gets one short reply saying it is not supported yet; from an unlinked
-  sender it gets the not-linked reply. Other message types and statuses are
-  ignored. The media download, saving and reply run after the answer, in
-  order, and settle the record. A work failure behind the answer settles the
-  record `failed` and the sender gets the "send it again" reply. Shutdown waits
-  up to 20 seconds for this work; a process killed sooner leaves the record
-  unsettled until its claim expires, and the sender must send the file again.
-  A failure to commit a claim, or a redelivery while another worker still holds
-  an unsettled message, answers 503
-  `whatsapp_webhook_retry`, and Meta's redelivery resumes that record. A
-  replayed message never captures twice or replies twice. The webhook query
-  string is redacted from uvicorn access logs.
+  a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. With
+  intake off, the route answers 404 `whatsapp_unavailable` before a claim.
+  The request claims each message, checks its sender link and saves accepted
+  media in the owner's default Business. When Business reading is on, it
+  records a read job before settling the claim and acknowledging the sender.
+  Otherwise the file waits saved and unread. Unlinked media and ordinary
+  text settle silently. Code-shaped text can receive one link-flow reply per
+  Santo Domingo day. The API answers 200 `{received: true}` after processing.
+  A settled replay returns 200 without repeating work. A live claim or an
+  interrupted request returns 503 `whatsapp_webhook_retry` when a response
+  is possible. Redelivery can reclaim a lapsed lease.
+  The document worker reads queued files and sends due grouped failure replies.
+  Post-read replies are off until W11. The webhook query string is redacted
+  from access logs.
 - POST `/api/v1/whatsapp/link-codes` (registered-only) takes an optional
   `{language}`, the web app's current language (`es-419` or `en`, default
   `es-419`; anything else is 422), and returns 201

@@ -20,8 +20,6 @@ from tests import test_financial_accounts_postgres as shared
 from tests.document_sources_support import source_objects
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion import whatsapp_heartbeat_cases as heartbeat
-from tests.ingestion import whatsapp_lease_cases as lease
-from tests.ingestion import whatsapp_recovery_cases as recovery
 from tests.ingestion.whatsapp_support import (
     RECEIPT_PNG,
     Media,
@@ -93,10 +91,10 @@ def test_concurrent_unlinked_reservations_for_one_day_take_one_reply(pool, users
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "case",
-    recovery.RECOVERY_CASES + lease.LEASE_CASES + heartbeat.HEARTBEAT_CASES,
+    heartbeat.HEARTBEAT_CASES,
     ids=lambda case: case.__name__,
 )
-async def test_recovery_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
+async def test_heartbeat_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
     await case(_world(pool, users))
 
 
@@ -530,7 +528,7 @@ async def test_group_storage_encrypts_transport_identity_and_purges_expired_data
     sink = logger.add(lambda message: records.append(message.record["extra"]))
     try:
         world.clock.now += timedelta(days=8)
-        await _worker(world).run_once()
+        world.store.reply_groups.recover(now=world.clock.now)
     finally:
         logger.remove(sink)
     assert _counts(pool, world) == []
