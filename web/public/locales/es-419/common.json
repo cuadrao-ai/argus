@@ -4638,18 +4638,6 @@
       "title": "Revisar recibo",
       "view_expenses": "Ver gastos"
     },
-    "status": {
-      "confirmed": "Gasto guardado",
-      "dismissed": "Descartado",
-      "needs_attention": "Necesita atención",
-      "pill_approved": "Aceptado",
-      "pill_attention": "Necesita atención",
-      "pill_pending": "Pendiente",
-      "preparing": "Preparando",
-      "queued": "En espera de preparación",
-      "review_ready": "Listo para revisar",
-      "saved": "Guardado, sin leer"
-    },
     "composer_receipt": {
       "open": "Abrir recibo",
       "saved": "Guardado en la Bandeja",

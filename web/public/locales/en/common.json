@@ -3387,18 +3387,6 @@
     "reading": {
       "document": "Reading the document"
     },
-    "status": {
-      "pill_approved": "Accepted",
-      "pill_attention": "Needs attention",
-      "pill_pending": "Pending",
-      "saved": "Saved, unread",
-      "queued": "Waiting to prepare",
-      "preparing": "Preparing",
-      "review_ready": "Ready to review",
-      "needs_attention": "Needs attention",
-      "confirmed": "Expense saved",
-      "dismissed": "Dismissed"
-    },
     "category": {
       "none": "No category",
       "other": "Other",

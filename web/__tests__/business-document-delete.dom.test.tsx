@@ -13,7 +13,9 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const PREVIEW_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPlkAAAAASUVORK5CYII=";
 const cleanups: (() => Promise<void>)[] = [];
 let restorePurged = false;
-afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; restorePurged = false; });
+// The Bandeja label the dossier serves; undefined leaves the sample's own.
+let dossierLabel: "needs_attention" | null | undefined;
+afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; restorePurged = false; dossierLabel = undefined; });
 
 async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false, extra: (rows: { ready: ReceiptDetail; blurry: ReceiptDetail }) => ReceiptDetail[] = () => [], readingOff = false, typedNotes = false) {
   window.history.replaceState(null, "", "/biz");
@@ -65,7 +67,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
         delete_available: !dossierDeleted, restore_available: dossierDeleted,
         approval_available: !dossierDeleted, approval_action: dossierDeleted ? null : current.approval_action,
         declaration_editable: !dossierDeleted, document_type_editable: !dossierDeleted,
-      } : { ...current, delete_available: true, restore_available: false };
+      } : { ...current, delete_available: true, restore_available: false, ...(dossierLabel === undefined ? {} : { bandeja_group: { group: "attention" as const, reason: "missing_ncf" as const, label: dossierLabel, draft_id: id, version: current.version } }) };
     },
     captures: async (_query, limit = 20, view, offset = 0) => {
       if (view === "eliminados") captureOffsets.push(offset);
@@ -399,6 +401,40 @@ for (const kind of ["draft", "receipt"] as const) {
     assert.equal(page.button("Aceptar")?.disabled, false);
     await page.click(fields.querySelector<HTMLButtonElement>('button[aria-label^="Editar detalles"]'));
     assert.ok(fields.querySelector('[data-row-open]'));
+  });
+}
+
+// The dossier's delete dialog follows the row's rule: the server's label or no Estado line at all.
+for (const kind of ["draft", "receipt"] as const) {
+  for (const [label, terms, word] of [["needs_attention", ["Emisor", "Fecha", "Total", "Archivo", "Estado"], "Necesita atención"], [null, ["Emisor", "Fecha", "Total", "Archivo"], undefined]] as const) {
+    test(`the ${kind} dossier delete dialog reads the server's Bandeja label alone: ${label ?? "none sent"}`, async () => {
+      dossierLabel = label;
+      const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "labelled", merchant: "Documento rotulado", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: ready.draft_id, version: 1 } }]);
+      const ready = await page.source.receipt("labelled");
+      await page.act(async () => page.api().openPanel(kind === "receipt"
+        ? { kind: "receipt", receiptId: ready.id, list: "inbox" }
+        : { kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
+      await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
+      await page.click(document.querySelector('[data-testid="receipt-more"] > button'));
+      await page.click(document.querySelector('[data-testid="delete-document-menu"]'));
+      const rows = [...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dl > div')];
+      assert.deepEqual(rows.map(row => row.querySelector("dt")?.textContent), terms);
+      assert.equal(rows.find(row => row.querySelector("dt")?.textContent === "Estado")?.querySelector("dd")?.textContent, word);
+    });
+  }
+}
+
+for (const [label, word] of [["cant_read", "No se pudo leer"], [null, undefined]] as const) {
+  test(`a receipt with no draft opens its delete dialog on the server's Bandeja label alone: ${label ?? "none sent"}`, async () => {
+    const page = await mount("owner", false, 0, false, ({ blurry }) => [{ ...blurry, id: "undrafted", merchant: "Documento sin borrador", filename: "Documento sin borrador", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", label, draft_id: null, version: null } }]);
+    await page.act(async () => page.api().openPanel({ kind: "receipt", receiptId: "undrafted", list: "inbox" }));
+    const footerDelete = () => document.querySelector<HTMLButtonElement>('button[aria-label="Eliminar documento"]');
+    await page.wait(() => !!footerDelete());
+    await page.click(footerDelete());
+    const rows = [...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dl > div')];
+    assert.ok(rows.length);
+    assert.equal(rows.some(row => row.querySelector("dt")?.textContent === "Estado"), label !== null);
+    assert.equal(rows.find(row => row.querySelector("dt")?.textContent === "Estado")?.querySelector("dd")?.textContent, word);
   });
 }
 
