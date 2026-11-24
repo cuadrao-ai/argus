@@ -59,16 +59,26 @@ export function RecordSupportLink({ row, compact = false, legacy = false }: { ro
   const { t } = useTransaccionesWords();
   const open = useOpenDetails(row, "support");
   if (!chosen?.capabilities.includes("read")) return compact ? null : <Unknown />;
-  const existing = row.hasProof === true || Boolean(row.report?.attachment_sources?.length);
+  const count = row.report?.attachment_sources?.length ?? 0;
+  const existing = row.report ? count > 0 : row.hasProof === true;
   const canAppend = row.report?.draft_id && row.report.can_append_supporting === true;
   if (!existing && !canAppend) return compact ? null : <Unknown meaning={row.hasProof === false ? t(legacy ? "business.expenses.no_receipt" : `${COPY}.no_attachment`) : undefined} />;
+  const countLabel = count > 0 ? t("business.intake.files_count", { count }) : "";
+  const fileIcon = <>
+    <FileText size={16} aria-hidden="true" />
+    {!compact && count > 0 && <span className={cells.attachmentCount}>{count}</span>}
+  </>;
   if (!row.opens) {
     const unavailable = t(`${COPY}.linked_unavailable`);
-    return <Tooltip content={unavailable} side="top"><span role="img" aria-label={unavailable} className={ICON}><FileText size={16} aria-hidden="true" /></span></Tooltip>;
+    return <Tooltip content={unavailable} side="top"><span role="img" aria-label={[unavailable, countLabel].filter(Boolean).join(" ")} className={ICON}>{fileIcon}</span></Tooltip>;
   }
-  return <Tooltip content={t(`${COPY}.${existing ? "open_attachment" : "add_attachment"}`)} side="top">
-    <button type="button" data-record-attachment={recordRowKey(row)} data-testid={existing ? "record-proof" : undefined} className={ICON} aria-label={t(`${COPY}.attachment_for`, { name: row.counterparty ?? t("business.transactions.unknown") })} onClick={open}>
-      {existing ? <FileText size={16} aria-hidden="true" /> : compact ? <Plus size={16} aria-hidden="true" /> : <EmptyAction icon={Plus} />}
+  const label = t(`${COPY}.attachment_for`, { name: row.counterparty ?? t("business.transactions.unknown") });
+  const hint = existing
+    ? `${t("business.dossier.tab.detalles")} · ${t("business.dossier.supporting.title")}`
+    : t(`${COPY}.add_attachment`);
+  return <Tooltip content={hint} side="top">
+    <button type="button" data-record-attachment={recordRowKey(row)} data-testid={existing ? "record-proof" : undefined} className={ICON} aria-label={countLabel ? `${label} (${countLabel})` : label} onClick={open}>
+      {existing ? fileIcon : compact ? <Plus size={16} aria-hidden="true" /> : <EmptyAction icon={Plus} />}
     </button>
   </Tooltip>;
 }
