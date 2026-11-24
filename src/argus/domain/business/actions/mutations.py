@@ -60,6 +60,7 @@ from argus.domain.business.contracts.facts import (
     MontosReview,
     ReadPurchase,
     Unknown,
+    read_fills,
 )
 from argus.domain.business.document_type import (
     TYPE_OF_KIND,
@@ -345,9 +346,14 @@ def revise(
         if document_type is not None and before is not None
         else before
     )
+    uploaded = None
+    if before is not None and patch is not None and patch.occurred_on is not None:
+        from argus.domain.business.actions.listos import _upload_years
+
+        uploaded = next(iter(_upload_years(tx, (event.id,)).values()), None)
     try:
         after = (
-            patched_facts(base, patch, source_ids, origin=origin)
+            patched_facts(base, patch, source_ids, origin=origin, upload_year=uploaded)
             if patch is not None
             else base
         )
@@ -1117,19 +1123,10 @@ def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> d
     if incoming["state"] != "known":
         return prior
     if prior["state"] == "unknown":
-        return (
-            prior
-            if prior.get("origin") in {"owner_stated", "member_set", "matched"}
-            else incoming
-        )
+        return incoming if read_fills(prior) else prior
     if currency and incoming.get("origin") == "default":
         return prior
-    if (
-        currency
-        and prior.get("origin") == "default"
-        and prior["value"] == "DOP"
-        and not prior["source_ids"]
-    ):
+    if read_fills(prior):
         return incoming
     if prior["state"] == "known" and prior["value"] == incoming["value"]:
         return prior
