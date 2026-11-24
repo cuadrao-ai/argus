@@ -31,8 +31,12 @@ from argus.domain.business.dgii_validation import (
     record_issues,
 )
 from argus.domain.business.document_type import SALE, direction
-from argus.domain.business.fiscal_identity import normalized_ncf, normalized_taxpayer_id
-from argus.domain.business.missing_reasons import DETAIL_MISSING, registered
+from argus.domain.business.fiscal_identity import (
+    ncf_type,
+    normalized_ncf,
+    normalized_taxpayer_id,
+)
+from argus.domain.business.missing_reasons import DETAIL_MISSING, REASONS, registered
 from argus.domain.business.purchase_review import net_amount
 from argus.domain.business.reporting_columns import missing_columns
 from argus.domain.business.reporting_query import DgiiChoice, Purchase606, ReportRecord
@@ -341,6 +345,18 @@ def readiness(
     row: ReportRecord, assessment: LineAssessment | None
 ) -> tuple[bool, tuple[str, ...]]:
     """Current data completeness, independent of export history and rate holds."""
+
+    if row.family == "sale":
+        number = normalized_ncf(row.fiscal_number)
+        gaps = {
+            "missing_date": row.report_date is None,
+            "missing_ncf": number is None,
+            "missing_rnc": number is not None
+            and (number[0], ncf_type(number)) in {("B", "01"), ("E", "31")}
+            and row.counterparty_key is None,
+        }
+        missing = tuple(code for code in REASONS if gaps.get(code, False))
+        return not missing, missing
 
     missing: tuple[str, ...] = ()
     if assessment is not None and assessment.issues is not None:

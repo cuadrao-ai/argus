@@ -1,16 +1,45 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createBusinessReportHttpFixture } from "../__tests__/fixtures/business-report-http-fixture";
+import { copyFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { createBusinessReportHttpFixture, fixtureId } from "../__tests__/fixtures/business-report-http-fixture";
 import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import { installReceiptBusiness } from "./support/business-receipt-fixture";
 
 // A list is as tall as its rows, its footer sits under the last row, and the footer shows only controls that change something.
 
-const CURRENT_NOTE = "Nota de prueba del registro";
+const CURRENT_NOTE = "Revisar la referencia de la orden antes de archivar el comprobante de esta compra.";
 
-async function openRegistros(page: Page, count: number, { hold, dossier = false }: { hold?: Promise<void>; dossier?: boolean } = {}) {
+type RecordOptions = {
+  hold?: Promise<void>;
+  dossier?: boolean;
+  files?: number[];
+  readOnly?: boolean;
+  theme?: "light" | "dark";
+};
+
+async function openRegistros(page: Page, count: number, { hold, dossier = false, files, readOnly = false, theme }: RecordOptions = {}) {
   const reports = createBusinessReportHttpFixture();
   const purchases = reports.records.filter((row) => row.family === "purchase" && row.report_date === "2026-10-20").slice(0, count);
   expect(purchases).toHaveLength(count);
+  if (files) {
+    const original = reports.records[0].attachment_sources![0];
+    reports.controls.readOnly = readOnly;
+    purchases.forEach((row, index) => {
+      // Supporting files can exist without an original, and the document flag cannot supply a count.
+      row.has_document = files[index] !== 2;
+      row.note = index === 0 ? CURRENT_NOTE : null;
+      row.attachment_sources = Array.from({ length: files[index] }, (_, file) => ({
+        ...original,
+        source_id: fixtureId(500 + index * 10 + file),
+        receipt_id: fixtureId(700 + index * 10 + file),
+        filename: `Archivo ${file + 1}.pdf`,
+      }));
+    });
+    reports.controls.presentation = {
+      ...reports.controls.presentation,
+      hidden: reports.controls.presentation.order.filter(key => !["counterparty", "date", "gross_amount", "note", "attachment"].includes(key)),
+    };
+  }
   reports.records.splice(0, reports.records.length, ...purchases);
   if (dossier) {
     const selected = purchases[0];
@@ -35,7 +64,7 @@ async function openRegistros(page: Page, count: number, { hold, dossier = false 
       .then(() => reports.request(request.url(), { method: request.method(), headers: request.headers(), body: request.postData() ?? undefined }))
       .then(async (response) => route.fulfill({ status: response.status, headers: Object.fromEntries(response.headers), body: Buffer.from(await response.arrayBuffer()) }))
       .then(() => null);
-  });
+  }, theme);
   if (dossier) await source.approveDraft(dossierFixtureIds.ready, 2, "registros-details", "record_expense");
   await page.goto("/biz?view=transactions");
 }
@@ -61,8 +90,13 @@ for (const width of [1440, 390]) test.describe(`at ${width}px`, () => {
 
   for (const [column, heading] of [["note", "Nota"], ["attachment", "Archivos de respaldo"]] as const) {
     test(`Registros opens Detalles at the ${column} card`, async ({ page }) => {
-      await openRegistros(page, 1, { dossier: true });
-      await page.locator(`button[data-record-${column}]`).click();
+      await openRegistros(page, 1, { dossier: true, files: [2] });
+      const entry = page.locator(`button[data-record-${column}]`);
+      if (column === "attachment") {
+        await expect(entry).toHaveText(width === 1440 ? "2" : "");
+        await expect(entry).toHaveAccessibleName(/2 archivos/);
+      }
+      await entry.click();
       const details = page.getByRole("tabpanel", { name: "Detalles", exact: true });
       await expect(page.getByRole("tab", { name: "Detalles", exact: true })).toHaveAttribute("aria-selected", "true");
       await expect(details.getByRole("heading", { name: heading, exact: true })).toBeVisible();
@@ -155,3 +189,56 @@ test("Bandeja's footer follows the same rule", async ({ page }) => {
   const shown = await page.getByTestId("records-pagination").evaluate((node) => ({ picker: Boolean(node.querySelector('button[aria-haspopup="dialog"]')), arrows: Boolean(node.querySelector("nav")) }));
   expect(shown).toEqual({ picker: false, arrows: false });
 });
+
+for (const theme of ["light", "dark"] as const) {
+  test(`Adjunto shows the reported files and names the Detalles card in ${theme}`, async ({ page }, testInfo) => {
+    const counts = [1, 2, 3, 4];
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openRegistros(page, counts.length, { files: counts, theme, readOnly: true });
+    const buttons = page.locator('td[data-col="attachment"] button');
+    await expect(buttons).toHaveText(counts.map(String));
+    for (const [index, count] of counts.entries()) {
+      await expect(buttons.nth(index)).toHaveAccessibleName(new RegExp(`\\b${count} archivo`));
+    }
+    await page.getByRole("button", { name: "Ocultar guía", exact: true }).click();
+    await buttons.nth(2).hover();
+    await expect(page.getByRole("tooltip")).toHaveText(/Detalles.*Archivos de respaldo/);
+    const filename = `receipt-upload-registros-adjunto-${theme}.png`;
+    const path = testInfo.outputPath(filename);
+    await page.screenshot({ path, animations: "disabled" });
+    await testInfo.attach(filename, { path, contentType: "image/png" });
+    if (process.env.EVIDENCE_DIR) {
+      await mkdir(process.env.EVIDENCE_DIR, { recursive: true });
+      await copyFile(path, join(process.env.EVIDENCE_DIR, filename));
+    }
+  });
+}
+
+for (const readOnly of [true, false]) {
+  test(`Registros shows notes and empty file cells for a reader who ${readOnly ? "cannot" : "can"} append`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openRegistros(page, 2, { files: [0, 0], readOnly });
+    const rows = page.locator("tr[data-record-key]");
+    const note = rows.first().locator('[data-col="note"] button');
+    await expect(note).toHaveText(CURRENT_NOTE);
+    expect(await note.evaluate(el => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === "ellipsis")).toBe(true);
+    await note.hover();
+    await expect(page.getByRole("tooltip")).toHaveText(CURRENT_NOTE);
+    const empty = rows.nth(1);
+    for (const [column, label] of [["attachment", "Agregar adjunto"], ["note", "Agregar nota"]]) {
+      await page.mouse.move(0, 0);
+      const cell = empty.locator(`[data-col="${column}"]`);
+      const dash = cell.getByText("-", { exact: true });
+      await expect(dash).toBeVisible();
+      if (readOnly) {
+        await expect(cell.getByRole("button")).toHaveCount(0);
+      } else {
+        await expect(cell.locator("svg")).toBeHidden();
+        await cell.getByRole("button").hover();
+        await expect(dash).toBeHidden();
+        await expect(cell.locator("svg")).toBeVisible();
+        await expect(page.getByRole("tooltip")).toHaveText(label);
+      }
+    }
+  });
+}

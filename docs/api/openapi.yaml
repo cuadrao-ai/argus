@@ -6771,7 +6771,7 @@ paths:
               $ref: '#/components/schemas/RecordsExport'
       responses:
         '200':
-          description: 'One Excel or CSV file: the table''s records or the 606/607 lines.'
+          description: 'One Excel or CSV file: the table''s records or the purchase 606 lines.'
           content:
             application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: {}
             text/csv: {}
@@ -6785,7 +6785,7 @@ paths:
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
         '422':
-          description: Validation Error
+          description: 'Validation Error; business_export_dgii_sales_unavailable when a sale requests mode dgii.'
           content:
             application/json:
               schema:
@@ -21154,9 +21154,7 @@ components:
       properties:
         form:
           type: string
-          enum:
-          - '606'
-          - '607'
+          const: '606'
         currency:
           type: string
           default: DOP
@@ -22886,7 +22884,10 @@ components:
         table:
           $ref: '#/components/schemas/TableExport'
         dgii:
-          $ref: '#/components/schemas/DgiiExport'
+          anyOf:
+          - $ref: '#/components/schemas/DgiiExport'
+          - type: 'null'
+          description: Null for sales, which offer only the table file.
         bandeja_count:
           type: integer
           description: Documents the Bandeja still holds in the export's resolved
@@ -31986,6 +31987,9 @@ components:
         ready:
           type: boolean
           default: false
+          description: Sales require date and NCF, plus customer RNC for B01 or E31.
+            Total is required by approval and accepted edits. Sales ignore 607 issues,
+            workflow blockers and technical state for this verdict; purchase rules are unchanged.
         missing:
           items:
             type: string
