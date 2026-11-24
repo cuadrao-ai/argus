@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated, Any, Literal
 
+from loguru import logger
 from pydantic import (
     BaseModel,
     BeforeValidator,
@@ -62,7 +63,7 @@ class ReportFilters(Contract):
     q: str = Field(default="", max_length=200)
     period: Period = Period()
     record_families: tuple[Family, ...] = ()
-    ready: bool | None = None
+    ready: Literal[False] | None = None
     review_stages: tuple[Stage, ...] = ()
     fiscal_data: FiscalData | None = None
     has_document: bool | None = None
@@ -73,9 +74,21 @@ class ReportFilters(Contract):
     categories: tuple[str, ...] = Field(default=(), max_length=200)
     #: 606 tipo de gasto codes, or `missing` for a purchase that still needs one.
     expense_types: tuple[ExpenseType | Literal["missing"], ...] = ()
-    funding_sources: tuple[str, ...] = Field(default=(), max_length=200)
-    document_kinds: tuple[DocumentKind, ...] = ()
-    fiscal_classifications: tuple[str, ...] = Field(default=(), max_length=100)
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_retired_filters(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        filters = value.copy()
+        for field in ("funding_sources", "document_kinds", "fiscal_classifications"):
+            if field in filters:
+                del filters[field]
+                logger.info("Dropped retired report filter {}", field)
+        if filters.get("ready") is True:
+            filters["ready"] = None
+            logger.info("Dropped retired report filter ready")
+        return filters
 
     @field_validator("review_stages", mode="before")
     @classmethod
@@ -108,12 +121,7 @@ class ReportFilters(Contract):
                     raise ValueError("amount range must be ordered")
         except RecordingInputError as error:
             raise ValueError(error.code) from None
-        for values in (
-            self.counterparties,
-            self.categories,
-            self.funding_sources,
-            self.fiscal_classifications,
-        ):
+        for values in (self.counterparties, self.categories):
             if any(not value or len(value) > 128 for value in values):
                 raise ValueError("invalid filter key")
         return self

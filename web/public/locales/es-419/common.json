@@ -2414,11 +2414,6 @@
         "count_other": "{{count}} registros",
         "filters": {
           "back": "Todos los filtros",
-          "account": {
-            "card": "Tarjeta del negocio",
-            "checking": "Cuenta corriente",
-            "owner": "Dinero del dueño"
-          },
           "amount": {
             "choose_currency": "Elige una moneda para definir el monto.",
             "currency": "Moneda",
@@ -2445,37 +2440,20 @@
             "invalid": "Elige un período válido de hasta 366 días.",
             "to": "Hasta"
           },
-          "document": {
-            "credit_note": "Nota de crédito",
-            "invoice": "Factura",
-            "receipt": "Recibo"
-          },
-          "fiscal": {
-            "b01": "B01 · Crédito fiscal",
-            "b02": "B02 · Consumo",
-            "e31": "E31 · Crédito fiscal electrónico",
-            "e32": "E32 · Consumo electrónico"
-          },
           "fiscal_data": {
             "all": "Todos",
             "complete": "Completos",
             "missing": "Faltan"
           },
           "groups": {
-            "account": "Cuenta",
             "amount": "Monto",
             "attachment": "Adjunto",
             "category": "Categoría",
-            "document": "Tipo de documento",
-            "fiscal": "Tipo fiscal",
             "fiscal_data": "Datos fiscales",
             "ready": "Estado",
             "review": "Revisión"
           },
           "no_matches": "No hay opciones con esa búsqueda.",
-          "ready": {
-            "all": "Todos"
-          },
           "record": "Registro",
           "remove": "Quitar filtro",
           "search": "Buscar…",

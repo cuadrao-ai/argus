@@ -1,3 +1,4 @@
+import sampleAnswer from "@/test-fixtures/records-default-report-answer.json";
 import { currencyDigits, minorToDecimal } from "@/lib/money-entry";
 import { customPeriod, todayIso, type Period } from "../business-format";
 import type { Money, RecordRow } from "./transacciones-model";
@@ -30,8 +31,7 @@ const FIXTURE_METADATA: Readonly<Record<string, PreviewRecordMetadata>> = {
 export function previewRecordMetadata(row: RecordRow, businessId: string | null): PreviewRecordMetadata | null {
   return businessId === "fixture-space" ? FIXTURE_METADATA[`${row.kind}:${row.id}`] ?? null : null;
 }
-/** The tipos de gasto the sample rows carry, for the sample's filter editor; the live editor reads the server's catalogue instead. */
-export const SAMPLE_EXPENSE_TYPES: readonly DgiiChoice[] = Object.values(FIXTURE_METADATA).flatMap((item) => item.dgii606?.expense_type ?? []).filter((choice, index, all) => all.findIndex((other) => other.code === choice.code) === index);
+export const SAMPLE_EXPENSE_TYPES: readonly DgiiChoice[] = sampleAnswer.expense_types;
 export function matchesPreviewExpenseType(row: RecordRow, businessId: string | null, selected: readonly string[]): boolean {
   if (!selected.length) return true;
   const purchase = previewRecordMetadata(row, businessId)?.dgii606;

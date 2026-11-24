@@ -18,8 +18,6 @@ export type ReportStage = z.infer<typeof stage>;
 const documentKind = z.enum(["invoice", "receipt", "credit_note", "unknown"]);
 export const recordsCurrencySchema = z.enum(["DOP", "USD", "EUR"]);
 export type RecordsCurrency = z.infer<typeof recordsCurrencySchema>;
-/** The document kinds the server's projection names on a row, so Filtros offers only kinds a record can match. The contract still accepts the others. */
-export const REPORT_DOCUMENT_KINDS = ["credit_note", "unknown"] as const satisfies readonly z.infer<typeof documentKind>[];
 const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
@@ -39,12 +37,18 @@ export const reportPeriodSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("custom"), from_date: day, to_date: day }).refine((value) => value.from_date <= value.to_date),
   z.strictObject({ kind: z.enum(["all", "this_month", "last_month", "this_year", "latest_month"]), from_date: z.null().optional(), to_date: z.null().optional() }),
 ]);
-export const reportFiltersSchema = z.strictObject({
+export const reportFiltersSchema = z.preprocess((value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  // Old links and tabs can still name these retired filters.
+  const filters = { ...value } as Record<string, unknown>;
+  for (const key of ["funding_sources", "document_kinds", "fiscal_classifications"]) delete filters[key];
+  return filters;
+}, z.strictObject({
   q: z.string().refine((value) => Array.from(value).length <= 200).default(""), period: reportPeriodSchema.default({ kind: "all" }),
   record_families: z.preprocess((value) => Array.isArray(value) && (value.length === 0 || value.length === 2 && value.includes("sale") && value.includes("purchase")) ? ["purchase"] : value, z.tuple([family]).default(["purchase"])),
   // A saved view or address bar may still name a stage the server dropped when drafts left Registros; it reads as no stage filter, never as a 422.
   review_stages: z.array(z.string()).default([]).transform((values): ReportStage[] => values.filter((value): value is ReportStage => stage.safeParse(value).success)),
-  ready: z.boolean().nullable().default(null),
+  ready: z.preprocess((value) => value === true ? null : value, z.literal(false).nullable().default(null)),
   fiscal_data: z.enum(["complete", "missing"]).nullable().default(null),
   has_document: z.boolean().nullable().default(null), currencies: z.array(z.string().regex(/^[A-Z]{3}$/)).max(200).default([]),
   amount_min: decimal.nullable().default(null), amount_max: decimal.nullable().default(null),
@@ -52,9 +56,7 @@ export const reportFiltersSchema = z.strictObject({
   // Registros no longer offers the ledger category, so a saved view or address bar that still names one is read as none: a filter nobody can see or clear never hides rows.
   categories: z.array(z.string().min(1).max(128)).max(200).default([]).transform((): string[] => []),
   expense_types: z.array(z.string().min(1).max(16)).max(20).default([]),
-  funding_sources: z.array(z.string().min(1).max(128)).max(200).default([]), document_kinds: z.array(documentKind).default([]),
-  fiscal_classifications: z.array(z.string().min(1).max(128)).max(100).default([]),
-}).transform((filters) => filters.record_families[0] === "sale" ? { ...filters, expense_types: [] } : filters);
+})).transform((filters) => filters.record_families[0] === "sale" ? { ...filters, expense_types: [] } : filters);
 const reportRecipeV1Schema = z.strictObject({
   schema_version: z.literal(1).default(1), filters: reportFiltersSchema.default(() => reportFiltersSchema.parse({})),
   sort: z.literal("date_desc").default("date_desc"),
@@ -109,7 +111,7 @@ export const reportAnswerSchema = z.object({
   resolved_period: z.object({ from_date: day.nullable(), to_date: day.nullable(), calendar: z.literal("America/Santo_Domingo") }),
   excluded_unknown_dates: count, excluded_personal: z.object({ income: count, expense: count }).optional(),
   counterparties: z.array(z.object({ key: z.string(), labels: z.array(z.string()) })), categories: z.array(z.string()), expense_types: z.array(dgiiChoiceSchema).default([]),
-  funding_sources: z.array(z.object({ key: z.string(), label: z.string().nullable(), kind: z.string().nullable() })), coverage_notes: z.array(z.string()),
+  coverage_notes: z.array(z.string()),
   overview: z.object({ not_ready: count, needs_review: count, needs_fiscal_data: count.optional(), ready_for_export: count, exported: count.optional(), export_lines: count.optional() }).optional(), effective_sort: reportSortSchema.optional(),
   sort_unavailable_reason: z.literal("amount_sort_requires_single_known_currency").nullable().optional(),
 });
