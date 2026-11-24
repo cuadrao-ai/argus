@@ -81,12 +81,12 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
   const given: Links = dossier.inheritance ?? {};
   const follows = (name: string, shown: Links) => links.get(name) ?? shown[name]?.inherited;
   /** The review Guardar sends. A field that follows its source goes as the dossier gave it: the server works out its value. */
-  const draft = (): DgiiReview | null => {
+  const draft = (selectedLinks = links): DgiiReview | null => {
     if (!fields) return null;
     const declaration: DgiiDeclaration = { form };
-    for (const field of fields[form]) if (field.name !== "rnc" && field.name !== "ncf") declaration[field.name] = (follows(field.name, given) ? stored[field.name] : values[field.name]) || null;
+    for (const field of fields[form]) if (field.name !== "rnc" && field.name !== "ncf") declaration[field.name] = ((selectedLinks.get(field.name) ?? given[field.name]?.inherited) ? stored[field.name] : values[field.name]) || null;
     if (form === "606") { if (values.category_suggested === "true") declaration.category_suggested = true; declaration.actual_refund = actualRefund; declaration.purchase_activity_id = actualRefund ? values.purchase_activity_id || null : null; }
-    const changed = (linked: boolean) => [...links].filter(([, value]) => value === linked).map(([name]) => name);
+    const changed = (linked: boolean) => [...selectedLinks].filter(([, value]) => value === linked).map(([name]) => name);
     const montos = { ...(changed(false).length ? { override_inherited: changed(false) } : {}), ...(changed(true).length ? { restore_inherited: changed(true) } : {}) };
     return { fiscal: { rnc: fiscal.rnc || null, ncf: fiscal.ncf || null, itbis: fiscal.itbis || null }, declaration, ...(Object.keys(montos).length ? { montos } : {}) };
   };
@@ -95,11 +95,10 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
   // What each linked field shows: the server's last answer for this draft, or the dossier's.
   const known: Links = unsaved ? preview.last?.inheritance ?? given : given;
   const paired = (name: string) => [name, ...(known[name]?.paired_with ?? [])];
-  const save = async () => {
-    const input = draft();
-    if (!input || !editable || !editing) return;
-    if (!dirty) { setEditing(null); return; }
-    if (broken.size) { setChecked(true); return; }
+  const save = async (input = draft(), restoring: readonly string[] = []) => {
+    if (!input || !editable || (!editing && !restoring.length)) return;
+    if (!dirty && !restoring.length) { setEditing(null); return; }
+    if ([...broken].some(name => !restoring.includes(name))) { setChecked(true); return; }
     const request = pending ?? { key: randomId(), version: dossier.version, input };
     setSaving(true); onBusy(true); setProblem(null); setRefused(null);
     try {
@@ -118,14 +117,17 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
       setProblem({ state: "failed", message: businessDateMessage(error, t, locale) || t(`business.dgii.error.${code}`, "") || fallback, reference: referenceCode(error), retry: lost, unknown: lost });
     } finally { setSaving(false); onBusy(false); }
   };
-  // Restaurar changes the form alone. Guardar sends it.
+  // Restoring is one save, including both sides of a linked amount pair.
   const restore = (name: string) => {
     const restored = paired(name);
     setEditing(name);
     change();
-    setLinks((current) => { const next = new Map(current); for (const side of restored) next.set(side, true); return next; });
+    const next = new Map(links);
+    for (const side of restored) next.set(side, true);
+    setLinks(next);
     setBroken((current) => { const kept = new Set(current); for (const side of restored) kept.delete(side); return kept; });
     setFieldResets((current) => ({ ...current, ...Object.fromEntries(restored.map((side) => [side, (current[side] ?? 0) + 1])) }));
+    void save(draft(next), restored);
   };
   const uncertain = pending !== null;
   const locked = !editable || uncertain;

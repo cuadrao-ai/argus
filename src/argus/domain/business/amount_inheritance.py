@@ -101,7 +101,7 @@ def _text(value: object) -> str | None:
     return value.isoformat() if isinstance(value, date) else str(value)
 
 
-def _equal(target: str, left: object, right: object) -> bool:
+def same_value(target: str, left: object, right: object) -> bool:
     if left is None or right is None:
         return left is right
     if INHERITANCE[target][1] not in _MONEY_SOURCES:
@@ -118,7 +118,7 @@ def inherits(
 
     if overrides is not None:
         return target not in overrides
-    return current is None or _equal(target, current, expected)
+    return current is None or same_value(target, current, expected)
 
 
 def source_owned(facts: BusinessFacts, form: str | None) -> frozenset[str]:
@@ -352,7 +352,7 @@ def inheritance_overrides(
             if name in written or (
                 not (unsaved and getattr(declared, name) is None)
                 and (stored is not None or getattr(declared, name) is not None)
-                and (stored is None or not _equal(name, getattr(declared, name), getattr(stored, name)))
+                and (stored is None or not same_value(name, getattr(declared, name), getattr(stored, name)))
             ):
                 overrides.add(name)
     if overrides.intersection(AMOUNT_SIDES):
