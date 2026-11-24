@@ -13,12 +13,10 @@ export const RECORDS_COLUMN_LAYOUT: Record<ReportColumnKey, Layout> = {
   itbis_amount: { width: 124, align: "right" },
   gross_amount: { width: 104, align: "right" },
   stage: { width: 168, align: "left" },
-  missing: { width: 240, align: "left" },
   fiscal_number: { width: 136, align: "left" },
   note: { width: 120, align: "left" },
   attachment: { width: 80, align: "right", endPin: true },
   payment_form: { width: 160, align: "left" },
-  funding: { width: 176, align: "left" },
 };
 /** The DGII's hyphens: an RNC reads 1-01-00157-7, a cédula 001-0000000-1. */
 export function taxpayerIdText(digits: string): string {

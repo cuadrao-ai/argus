@@ -139,7 +139,6 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", readin
     await act(async () => listButton(name)!.click());
   };
   const valueOf = (name: Choice) => choiceRow(name)?.querySelector("[data-row-value]")?.textContent;
-  const reason = () => document.querySelector(`[data-record-key="${row.row_id}"] [data-record-missing]`)?.textContent ?? null;
   const chip = () => document.querySelector(`[data-record-key="${row.row_id}"] [data-record-workflow]`)?.textContent ?? null;
   const pick = async (name: Choice, value: string) => {
     await toggleChoice(name);
@@ -165,7 +164,7 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", readin
     await act(async () => api!.openPanel({ kind: "expense", expenseId: "00000000-0000-4000-8000-000000009999" }));
     await wait(() => document.querySelector("#receipt-review-title")?.textContent === "Registro 00000000-0000-4000-8000-000000009999", "the other expense");
   };
-  return { act, wait, writes, chip, reason, listButton, options, toggleChoice, valueOf, pick, facts, queries, section, openRecord, openDirectly, openOtherExpense };
+  return { act, wait, writes, chip, listButton, options, toggleChoice, valueOf, pick, facts, queries, section, openRecord, openDirectly, openOtherExpense };
 }
 
 describe("opened records show only their server readiness list", () => {
@@ -230,10 +229,10 @@ describe("a recorded purchase with 606 data still missing", () => {
     const list = document.querySelector("[data-report-connected]");
     const asked = page.queries();
     await page.pick("category", "02");
-    await page.wait(() => page.reason() === "Falta la forma de pago", "the reason after Tipo de gasto");
+    const reasons = () => [...document.querySelectorAll("[data-record-missing-list] li")].map((item) => item.textContent);
+    await page.wait(() => reasons().length === 1 && page.queries() > asked, "the reason and refreshed Registros after Tipo de gasto");
     assert.equal(page.chip(), "Faltan datos", "the reason never enters the chip");
-    assert.deepEqual([...document.querySelectorAll("[data-record-missing-list] li")].map((item) => item.textContent), ["Falta la forma de pago"], "the open record follows the refreshed server missing list");
-    assert.ok(page.queries() > asked, "Registros asked the server again");
+    assert.deepEqual(reasons(), ["Falta la forma de pago"], "the open record follows the refreshed server missing list");
     await page.wait(() => page.valueOf("category")?.includes("Gastos por trabajos") === true, "the saved Tipo de gasto");
     await page.pick("payment_method", "03");
     await page.wait(() => page.chip() === "Listo", "the chip after the last missing fact");

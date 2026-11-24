@@ -237,7 +237,7 @@ async function openReadinessRecords(page: Page, language: Language = "es-419", t
 }
 
 for (const language of ["es-419", "en"] as const) {
-  test(`server readiness, reasons, filter, and all row heights in ${language}`, async ({ page }) => {
+  test(`server readiness, filter, and all row heights in ${language}`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const fixture = await openReadinessRecords(page, language);
     const spanish = language === "es-419";
@@ -247,12 +247,7 @@ for (const language of ["es-419", "en"] as const) {
     const ready = rows.nth(1).locator("[data-record-workflow]");
     await expect(missing).toHaveText(spanish ? "Faltan datos" : "Missing data");
     await expect(ready).toHaveText(spanish ? "Listo" : "Ready");
-    await expect(rows.nth(1).locator('[data-col="missing"]')).toHaveText("");
-    const reason = rows.nth(0).locator("[data-record-missing]");
-    await expect(reason).toHaveText(spanish ? "Falta el tipo de gasto+2" : "Expense type is missing+2");
-    await reason.hover();
-    await expect(page.getByRole("tooltip")).toHaveText(spanish ? "Falta el tipo de gasto · Falta la forma de pago · Falta el RNC" : "Expense type is missing · Payment method is missing · RNC is missing");
-    await page.mouse.move(0, 0);
+    await expect(table.locator('[data-col="missing"], [data-col="funding"]')).toHaveCount(0);
     for (const [density, label, height] of [["compacto", spanish ? "Compacto" : "Compact", 40], ["normal", "Normal", 48], ["amplio", spanish ? "Amplio" : "Roomy", 56]] as const) {
       await page.getByRole("button", { name: spanish ? "Opciones de vista" : "View options", exact: true }).click();
       await page.getByRole("radio", { name: spanish ? "Altura de filas" : "Row height", exact: true }).check();

@@ -66,7 +66,7 @@ describe("Business report transport", () => {
   });
   test("v2 sends complete presentation and keeps intended sort separate from the server fallback", async () => {
     const calls = respond({ ...answer(), overview: { not_ready: 61, needs_review: 40, needs_fiscal_data: 60, ready_for_export: 2, exported: 1 }, effective_sort: "date_desc", sort_unavailable_reason: "amount_sort_requires_single_known_currency" });
-    const report = reportRequestSchema.parse({ schema_version: 2, sort: "amount_asc", page_size: 100, presentation: { ...recordedReportAnswer.presentation, density: 56, hidden: ["funding", "note"] } });
+    const report = reportRequestSchema.parse({ schema_version: 2, sort: "amount_asc", page_size: 100, presentation: { ...recordedReportAnswer.presentation, density: 56, hidden: ["attachment", "note"] } });
     const result = await queryBusinessReport(scope, report);
     expect(JSON.parse(String(calls[0].options.body))).toEqual(report);
     expect(result.effective_sort).toBe("date_desc");
