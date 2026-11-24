@@ -167,6 +167,17 @@ try {
             const accept = footer.locator("[data-review-primary]");
             await expect(accept).toBeEnabled();
             await expect(accept).toBeFocused();
+            await accept.click();
+            await expect(list.getByRole("heading")).toHaveText("Corrige 1 dato antes de aceptar");
+            const funding = list.getByRole("option");
+            await expect(funding).toHaveCount(1);
+            await expect(funding).toHaveAttribute("data-reason", "blocked");
+            await expect(funding).toContainText("Cómo se pagó");
+            await expect(funding).toBeFocused();
+            await expect(list.getByRole("button", { name: "Aceptar de todos modos", exact: true })).toHaveCount(0);
+            await page.keyboard.press("Escape");
+            await expect(list).toHaveCount(0);
+            await expect(accept).toBeFocused();
             await expect(page.getByText("Cómo se pagó", { exact: true }).first()).toBeVisible();
           }
         }
