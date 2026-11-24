@@ -26,7 +26,7 @@ export function useAmountsPreview(dossier: BusinessDossier | null, rows: ReturnT
   if (!active) return undefined;
   // Until the server answers this draft, the saved record's own check stands.
   const saved = dossier?.amounts_check;
-  const value: Pick<BusinessAmountsPreview, "net_amount" | "mismatch"> = preview.current ?? {
+  const value: Pick<BusinessAmountsPreview, "net_amount" | "mismatch" | "dgii_calculated"> = preview.current ?? {
     net_amount: dossier?.net_amount ?? { amount: null, source: null },
     mismatch: saved?.state === "difference" ? { code: "amounts_mismatch", difference: saved.difference } : null,
   };

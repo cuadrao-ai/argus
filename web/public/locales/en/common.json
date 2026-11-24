@@ -2358,7 +2358,6 @@
       "counterparty_purchase": "Supplier",
       "counterparty_sale": "Customer",
       "currency_choose": "Choose",
-      "currency_fiscal_warning": "In {{currency}}, this document is excluded from {{form}} (the DGII requires pesos).",
       "currency_missing": "Currency missing",
       "difference": "Difference {{amount}}",
       "difference_unavailable": "Checked when you save.",

@@ -33,12 +33,13 @@ type Links = NonNullable<BusinessDossier["inheritance"]>;
  * The Datos fiscales tab: the declaration's fields in grouped cards, each a row
  * of the dossier's grid. A field that follows a source says so in its status
  * slot, and holding it apart offers the way back there. The amounts the server
- * calculates close their card with ƒ and never open. Retenciones and Otros
+ * calculates close their card with ƒ and never open; while an amount is being
+ * typed they show the server's preview of it. Retenciones and Otros
  * impuestos stay folded until someone adds a row. NCF modificado shows on a
  * credit or debit note, and the refund question on a purchase's credit note
  * alone. Each row saves its own change and then shows its new value.
  */
-export default function FiscalDeclarationEditor({ dossier, fields, disabled, reviewFiscal, previewLinks, onChanged, onBusy, onDirty }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; /** The server's preview of the unsaved form: what each linked field shows. */ previewLinks?: BusinessDataSource["previewAmounts"]; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
+export default function FiscalDeclarationEditor({ dossier, fields, disabled, reviewFiscal, previewLinks, montosCalculated, onChanged, onBusy, onDirty }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; /** The server's preview of the unsaved form: what each linked field shows. */ previewLinks?: BusinessDataSource["previewAmounts"]; /** What the server calculates for the amount an open Montos row holds, while it is unsaved. */ montosCalculated?: BusinessDossier["dgii_calculated"]; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   // The form is the declaration's own; a record with none declares on its kind's.
@@ -192,7 +193,8 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
     <label className="flex min-h-11 items-center gap-2 text-[13px]"><input type="checkbox" checked={actualRefund} disabled={locked} onChange={(event) => { change(); setActualRefund(event.target.checked); }} />{refundLabel}</label>
     {actualRefund ? <RefundCandidates candidates={candidates} chosen={values.purchase_activity_id ?? ""} refused={refused} disabled={locked || dossier.review_state === "accepted"} locale={locale} onChoose={(id) => { change(); setRefused(null); setValues((current) => ({ ...current, purchase_activity_id: id })); }} /> : null}
   </>;
-  const calculated = calculatedRows(dossier.dgii_calculated);
+  // The calculated amounts follow the server's preview of whatever is unsaved: this form, or an open Montos row.
+  const calculated = calculatedRows((unsaved ? preview.last?.dgii_calculated : montosCalculated) ?? dossier.dgii_calculated);
   const calculatedRow = ({ row, amount }: { row: string; amount: string }) => <DossierRow key={row} row={row} look="number" total label={t(`business.dossier.placeholder.fiscal_${row}`)} value={formatAmount(amount, currency || "DOP", locale)} status={{ kind: "calculated", text: t(`business.dossier.placeholder.fiscal_${row}_hint`) }} />;
   return <div className={`${styles.stack} @container`} data-testid={EDITOR_ID}>
     <div className={`${styles.stack} ${OFF_FIELD_CLASS}`}>

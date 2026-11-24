@@ -24,8 +24,13 @@ const REGISTRY_TONE: Record<RncRegistryStatus, "ok" | "warn" | "bad"> = { verifi
 /** The row a problem jumped to; `n` counts the jumps, so a second jump to the same row washes it again. */
 export type RowFlash = { row: ReviewRow; n: number };
 
+/** How the currency picks: the codes it offers, and the save a pick starts. */
+export type CurrencyPick = { options: readonly string[]; onPick: (currency: string) => void; saving: boolean };
+
 /** How the form edits: what each row opens, and what the page says under it. Absent for a record nobody can edit now. */
 export type FactsReview = {
+  /** The currency picker of Montos. `pick` is absent for someone who cannot change it now; `note` is what a failed pick says. */
+  currency: { pick?: CurrencyPick; note: ReactNode };
   amountsPreview?: { net_amount: NonNullable<BusinessDossier["net_amount"]>; mismatch: { difference?: string | null } | null; status: "ready" | "pending" | "error" };
   /** Puts the Subtotal back to the one the server calculates. Absent for someone who cannot change it now. */
   restoreSubtotal?: () => void;

@@ -7,7 +7,7 @@ registerReceiptReviewPage();
 
 type Source = NonNullable<Dossier["net_amount"]>["source"];
 type Page = Awaited<ReturnType<typeof setup>>;
-const subtotal = (source: Source) => ({ amount: "2923.73", source });
+const subtotal = (source: Source) => ({ amount: "2923.73", source, calculated: "2542.37" });
 const mark = (page: Page) => page.row("net_amount").querySelector('[data-testid="row-status-net_amount"]');
 const restore = (page: Page) => page.row("net_amount").querySelector<HTMLButtonElement>('[data-restore-inherited="net_amount"]');
 const pencil = (page: Page) => page.row("net_amount").querySelector('button[aria-label^="Editar detalles · "]');
@@ -34,8 +34,8 @@ test("putting a typed Subtotal back asks the server for its own, and the server'
     },
   }));
   try {
-    // The one restore control and wording of a linked field. The server states no calculated amount beside a typed one, so none is named.
-    assert.equal(restore(page)?.getAttribute("aria-label"), "Restaurar: -");
+    // The one restore control and wording of a linked field, naming the amount the server calculates.
+    assert.equal(restore(page)?.getAttribute("aria-label"), "Restaurar: RD$ 2,542.37");
     assert.ok(restore(page)?.querySelector("svg.lucide-rotate-ccw"));
     await page.act(async () => restore(page)!.click());
     await page.wait(() => sent.length === 1 && !restore(page));
@@ -49,5 +49,12 @@ test("a record nobody can edit offers no way back to the calculated Subtotal", a
   try {
     assert.equal(restore(page), null);
     assert.equal(mark(page), null);
+  } finally { await page.close(); }
+});
+
+test("a typed Subtotal whose calculated amount the server left out names none", async () => {
+  const page = await setup("fiscal", (dossier) => { dossier.net_amount = { amount: "2923.73", source: "edited", calculated: null }; });
+  try {
+    assert.equal(restore(page)?.getAttribute("aria-label"), "Restaurar: -");
   } finally { await page.close(); }
 });
