@@ -2588,6 +2588,8 @@
         },
         "workflow": {
           "exported": "Exported",
+          "missing_count_placeholder_one": "[placeholder] {{count}} detail missing",
+          "missing_count_placeholder_other": "[placeholder] {{count}} details missing",
           "not_ready": "Missing data",
           "ready": "Ready",
           "review": "To review",

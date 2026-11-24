@@ -249,10 +249,10 @@ for (const language of ["es-419", "en"] as const) {
     const spanish = language === "es-419";
     const table = page.getByTestId("transacciones-records");
     const rows = table.locator("tbody tr");
-    const missing = rows.nth(0).locator("[data-record-workflow]");
-    const ready = rows.nth(1).locator("[data-record-workflow]");
-    await expect(missing).toHaveText(spanish ? "Faltan datos" : "Missing data");
-    await expect(ready).toHaveText(spanish ? "Listo" : "Ready");
+    const missing = rows.nth(0).locator("[data-record-status]");
+    const ready = rows.nth(1).locator('[data-col="stage"]');
+    await expect(missing).toHaveText(spanish ? "Faltan 3 datos" : "[placeholder] 3 details missing");
+    await expect(ready).toBeEmpty();
     await expect(table.locator('[data-col="missing"], [data-col="funding"]')).toHaveCount(0);
     for (const [density, label, height] of [["compacto", spanish ? "Compacto" : "Compact", 40], ["normal", "Normal", 48], ["amplio", spanish ? "Amplio" : "Roomy", 56]] as const) {
       await page.getByRole("button", { name: spanish ? "Opciones de vista" : "View options", exact: true }).click();
@@ -260,7 +260,7 @@ for (const language of ["es-419", "en"] as const) {
       await page.getByRole("radio", { name: label, exact: true }).check();
       await page.keyboard.press("Escape");
       await expect(table).toHaveAttribute("data-density", density);
-      const geometry = await rows.evaluateAll((elements) => elements.map((row) => ({ height: row.getBoundingClientRect().height, chips: Array.from(row.querySelectorAll("[data-record-workflow]")).map((chip) => ({ width: chip.getBoundingClientRect().width, height: chip.getBoundingClientRect().height, lineHeight: Number.parseFloat(getComputedStyle(chip).lineHeight), whiteSpace: getComputedStyle(chip).whiteSpace })) })));
+      const geometry = await rows.evaluateAll((elements) => elements.map((row) => ({ height: row.getBoundingClientRect().height, chips: Array.from(row.querySelectorAll("[data-record-status]")).map((chip) => ({ width: chip.getBoundingClientRect().width, height: chip.getBoundingClientRect().height, lineHeight: Number.parseFloat(getComputedStyle(chip).lineHeight), whiteSpace: getComputedStyle(chip).whiteSpace })) })));
       for (const row of geometry) {
         expect(row.height).toBe(height);
         for (const chip of row.chips) {
@@ -277,7 +277,7 @@ for (const language of ["es-419", "en"] as const) {
     await card.click();
     await expect(card).toHaveAttribute("aria-pressed", "true");
     await expect.poll(() => fixture.calls.filter((call) => call.path.endsWith("/reports/query")).some((call) => (call.body as { filters?: { ready?: boolean } }).filters?.ready === false)).toBe(true);
-    await expect(table.locator('[data-record-workflow="ready"]')).toHaveCount(0);
+    await expect(table.locator('[data-record-status="ready"]')).toHaveCount(0);
     await expect(rows).toHaveCount(2);
   });
 }
@@ -288,15 +288,15 @@ for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       await openReadinessRecords(page, "es-419", theme);
       const records = page.getByTestId("transacciones-records");
-      await expect(records.locator('[data-record-workflow="not_ready"]').first()).toHaveText("Faltan datos");
-      await expect(records.locator('[data-record-workflow="ready"]').first()).toHaveText("Listo");
+      await expect(records.locator('[data-record-status="missing"]').first()).toHaveText("Faltan 3 datos");
+      await expect(records.locator('[data-record-status="ready"]')).toHaveCount(0);
       if (width === 390) {
         await expect(records.locator("[data-record-missing]")).toHaveCount(0);
         await expect(records).not.toContainText("Falta el tipo de gasto");
         await expect(records).not.toContainText("+2");
       }
       await page.getByRole("button", { name: "Ocultar guía", exact: true }).click();
-      await records.locator("[data-record-workflow]").first().scrollIntoViewIfNeeded();
+      await records.locator("[data-record-status]").first().scrollIntoViewIfNeeded();
       const screenshot = testInfo.outputPath(`receipt-upload-registros-${width}-${theme}-es-419.png`);
       await page.screenshot({ path: screenshot, fullPage: true, animations: "disabled" });
       await testInfo.attach(`Registros ${width}px ${theme} es-419`, { path: screenshot, contentType: "image/png" });

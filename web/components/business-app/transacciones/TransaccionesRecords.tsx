@@ -18,8 +18,7 @@ import { headerCurrency, magnitude, type RecordRow } from "./transacciones-model
 import { AccountLabel, amountColumnSize, PlainAmount, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
 import { visibleRecordsColumns, recordsMinimumWidth, taxpayerIdText, type RecordsViewPreferences } from "./records-view-preferences";
 import { formatRecordActivityDate, previewAmountColumnSize, recordRowKey } from "./records-row-preview";
-import RecordMissingReason from "./RecordMissingReason";
-import RecordWorkflowBadge from "./RecordWorkflowBadge";
+import RecordStatusCell, { RecordStatusControl } from "./RecordStatusCell";
 import RecordDgiiCell from "./RecordDgiiCell";
 import { RecordDetailsLinks, RecordNoteLink, RecordSupportLink } from "./RecordDetailsLinks";
 import type { RecordsSort } from "./records-pagination";
@@ -117,8 +116,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
                     <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
                   </Tooltip>}
                 </td>),
-              missing: (<td {...at("missing", "text-left")}><RecordMissingReason row={row} /></td>),
-              stage: (<td {...at("stage", "text-left")}><RecordWorkflowBadge row={row} /></td>),
+              stage: (<td {...at("stage", "text-left")}><RecordStatusCell row={row} /></td>),
               expense_type: (<td {...at("expense_type", "text-left")}><RecordDgiiCell row={row} field="expense_type" /></td>),
               payment_form: (<td {...at("payment_form", "text-left")}><RecordDgiiCell row={row} field="payment_form" /></td>),
               // The ledger's own columns, for the records table bank matching mounts beside its movements.
@@ -127,8 +125,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
               attachment: (<td {...at("attachment", "text-right")}><RecordSupportLink row={row} legacy={!preferences} /></td>),
             };
             return (
-              <tr
-                key={recordRowKey(row)}
+              <RecordStatusControl key={recordRowKey(row)} row={row}><tr
                 ref={(node) => rowRef(recordRowKey(row), node)}
                 data-record-id={row.id} data-record-key={recordRowKey(row)}
                 data-kind={row.kind}
@@ -141,7 +138,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
                 className={`group ${cellStyles.arrival} outline-none focus-visible:[&>td]:shadow-[inset_0_2px_0_var(--cuadrao-green),inset_0_-2px_0_var(--cuadrao-green)] ${opens ? "cursor-pointer" : ""}`}
               >
                 {columns.map((column) => <Fragment key={column.key}>{cells[column.key]}</Fragment>)}
-              </tr>
+              </tr></RecordStatusControl>
             );
           })}
         </tbody>
@@ -200,9 +197,9 @@ export function RecordsNarrowList({ records, rowRef }: { records: readonly Recor
     {records.map((row) => {
       const opens = row.opens;
       const body = <><span className={pageStyles.top}><Truncated text={nameOf(row)} className={pageStyles.name} /><span className={pageStyles.amount}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : row.report ? <span className="cuadrao-amount whitespace-nowrap tabular-nums">{formatMoney(row.money.amount, row.money.currency, locale)}</span> : <PlainAmount money={row.money} />}</span></span>
-        <span className={pageStyles.meta}><span className={pageStyles.marks}>{row.report?.family === null ? <Unknown /> : t(`business.transactions.records.detail.${row.kind}`)}<RecordWorkflowBadge row={row} /></span><span className={pageStyles.date}>{formatRecordActivityDate(row.occurredOn, locale)}</span></span></>;
+        <span className={pageStyles.meta}><span className={pageStyles.marks}>{row.report?.family === null ? <Unknown /> : t(`business.transactions.records.detail.${row.kind}`)}<RecordStatusCell row={row} /></span><span className={pageStyles.date}>{formatRecordActivityDate(row.occurredOn, locale)}</span></span></>;
       return <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} data-arrived={arrived.has(recordRowKey(row))} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className={pageStyles.narrowRecord}>
-        {opens ? <button type="button" ref={(node) => rowRef(recordRowKey(row), node)} className={pageStyles.row} onClick={() => { if (openGlance) openGlance(row); else openPanel(opens); }}>{body}</button> : <div className={pageStyles.row}>{body}</div>}
+        {opens ? <RecordStatusControl row={row}><button type="button" ref={(node) => rowRef(recordRowKey(row), node)} className={pageStyles.row} onClick={() => { if (openGlance) openGlance(row); else openPanel(opens); }}>{body}</button></RecordStatusControl> : <div className={pageStyles.row}>{body}</div>}
         <RecordDetailsLinks row={row} />
       </li>;
     })}
