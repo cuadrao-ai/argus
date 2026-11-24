@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useBusiness } from "./BusinessWorkspace";
 import { takeTitleFocus } from "./bandeja-order";
+import { useDelayedPending } from "./business-skeletons";
 import type { DossierTab } from "./dossier-attention";
+import DossierDocument from "./dossier/DossierDocument";
 import { DossierPlaceNav, DossierSizeButton, type DossierPlace, type JumpRow } from "./dossier/DossierHeader";
+import DossierReadFields, { DOSSIER_TITLE_BAR } from "./dossier/DossierReadFields";
 import styles from "./dossier/dossier.module.css";
 import { FOCUS_RING } from "./foundation/presentation";
 import { TrayFooter, TraySlot, useRecordTray } from "./record-tray";
@@ -33,11 +36,15 @@ export type DossierTabView = { key: Exclude<DossierTab, "documento">; count?: nu
  * Inside the tray the drawer's header is the receipt's: the title names the
  * drawer, and the status and the controls fill its slots. A view with no
  * document of its own fills the frame in one column.
+ *
+ * While the record loads (`DossierLoading`) nothing is known: the title is a
+ * bar, and the frame neither takes the heading's focus nor settles its list.
  */
 export default function ReceiptReviewFrame({ recordId, back, title, status, place, jump, tabs, tab, onTab, notices, document, documentBelow, footer }: {
   recordId: string;
   back: "inbox" | "transactions";
-  title: string;
+  /** Null while the record loads. */
+  title: string | null;
   /** Line two of the header; absent on an accepted record. */
   status?: ReactNode;
   /** Absent without a list to move through. */
@@ -59,21 +66,22 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
   const tray = useRecordTray();
   const ids = useId();
   const heading = useRef<HTMLHeadingElement>(null);
+  const known = title !== null;
   const setTitle = tray?.setTitle;
   useEffect(() => {
     if (!setTitle) return undefined;
-    setTitle(title);
+    setTitle(title ?? DOSSIER_TITLE_BAR);
     return () => setTitle(null);
   }, [setTitle, title]);
   useEffect(() => {
-    if (!takeTitleFocus(recordId)) return;
+    if (!known || !takeTitleFocus(recordId)) return;
     // In the tray the drawer's title is the receipt's.
     (heading.current ?? window.document.getElementById("receipt-review-title"))?.focus();
-  }, [recordId]);
+  }, [recordId, known]);
   const settleList = tray?.settleList;
   useEffect(() => {
-    settleList?.(back);
-  }, [settleList, back]);
+    if (known) settleList?.(back);
+  }, [settleList, back, known]);
 
   const narrow = tray ? tray.narrow === true : true;
   const views: { key: DossierTab; count?: number; content: ReactNode }[] = narrow && !documentBelow && document !== undefined
@@ -132,7 +140,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
           </button>
           {nav}
         </div>
-        <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className={`mt-1 min-w-0 break-words rounded-mark font-display text-[22px] font-medium leading-7 text-[#172b26] focus:outline-none ${FOCUS_RING} dark:text-white`}>{title}</h2>
+        <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className={`mt-1 min-w-0 break-words rounded-mark font-display text-[22px] font-medium leading-7 text-[#172b26] focus:outline-none ${FOCUS_RING} dark:text-white`}>{title ?? DOSSIER_TITLE_BAR}</h2>
         {status ? <div className="mt-1">{status}</div> : null}
       </header>
       <div className="-mx-4 tablet:-mx-8">{body}</div>
@@ -144,4 +152,27 @@ export default function ReceiptReviewFrame({ recordId, back, title, status, plac
       ) : null}
     </section>
   );
+}
+
+/**
+ * The dossier while its record loads: the Leyendo frame with nothing known yet. A title bar, the tabs, the
+ * cards of label and value bars, and the document pane; no status, no footer. A fast load shows nothing.
+ */
+export function DossierLoading({ recordId, back, children }: { recordId: string; back: "inbox" | "transactions"; children?: ReactNode }) {
+  const shown = useDelayedPending(true);
+  const [tab, setTab] = useState<DossierTab>("general");
+  if (!shown) return null;
+  return <ReceiptReviewFrame
+    recordId={recordId}
+    back={back}
+    title={null}
+    tab={tab}
+    onTab={setTab}
+    tabs={[
+      { key: "general", content: <>{children}<DossierReadFields wait="loading" /></> },
+      { key: "detalles", content: null },
+      { key: "historial", content: null },
+    ]}
+    document={<DossierDocument />}
+  />;
 }
