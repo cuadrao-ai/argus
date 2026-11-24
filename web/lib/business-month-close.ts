@@ -98,7 +98,7 @@ export type MonthCloseDocument = {
 };
 
 /** The sample books' words for what a held document needs, first fix first. The server's list is open. */
-export const FISCAL_MISSING_CODES = ["expense_type_missing", "rnc_missing", "rnc_invalid", "ncf_invalid", "date_missing", "ncf_missing", "payment_method_missing", "detail_missing"] as const;
+export const FISCAL_MISSING_CODES = ["expense_type_missing", "missing_rnc", "invalid_rnc", "invalid_ncf", "missing_date", "missing_ncf", "payment_method_missing", "detail_missing"] as const;
 export type FiscalMissingCode = (typeof FISCAL_MISSING_CODES)[number];
 
 export type MonthCloseWindow = {
@@ -320,8 +320,8 @@ function sampleMissing(document: MonthCloseDocument, named: readonly FiscalMissi
   if (document.sin_comprobante) return undefined;
   const consumption = document.kind === "invoice" && document.ncf?.startsWith("B02");
   const codes = new Set<FiscalMissingCode>(named);
-  if (!rncPresent(document.rnc) && !consumption) codes.add("rnc_missing");
-  if (!fiscalNumberPresent(document)) codes.add("ncf_missing");
+  if (!rncPresent(document.rnc) && !consumption) codes.add("missing_rnc");
+  if (!fiscalNumberPresent(document)) codes.add("missing_ncf");
   return codes.size > 0 ? FISCAL_MISSING_CODES.filter((code) => codes.has(code)) : undefined;
 }
 

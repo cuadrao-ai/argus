@@ -195,8 +195,8 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   confirmable?: readonly ListoGap[];
   /** Null when the record has no RNC or no register is loaded. */
   rnc_registry_status?: RncRegistryStatus | null;
-  /** The Subtotal and who gave it: `calculated` while the server derives it, `edited` once a person typed one. */
-  net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
+  /** The Subtotal and who gave it: `calculated` while the server derives it, `edited` once a person typed one. Its `calculated` is the amount the server derives whoever gave the Subtotal: what a typed one goes back to. */
+  net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null; calculated?: string | null };
   /** Whether the Total is the Subtotal plus its taxes and tip, by the server's rule. `difference` comes with the amount left over. */
   amounts_check?: AmountsCheck;
   /** The note this record is, by the server's reading; null for a regular purchase or sale. */

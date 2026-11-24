@@ -532,7 +532,7 @@ def test_counterparty_name_uses_latest_date_then_row_id_within_selected_family()
 @pytest.mark.parametrize("exported", [False, True])
 @pytest.mark.parametrize(
     "verdict,expected",
-    [(None, "complete"), (("ncf_missing",), "missing"), ("absent", None)],
+    [(None, "complete"), (("missing_ncf",), "missing"), ("absent", None)],
 )
 def test_current_fiscal_data_does_not_depend_on_download_history(
     exported, verdict, expected

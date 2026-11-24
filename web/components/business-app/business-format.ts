@@ -259,3 +259,13 @@ export function periodContaining(day: string, now = new Date()): PeriodKey | nul
     }) ?? null
   );
 }
+
+/** A currency's own name in the reader's language, as a list beside its ISO code says it: "Peso dominicano". */
+export function currencyName(code: string, locale: string): string {
+  try {
+    const name = new Intl.DisplayNames([locale], { type: "currency" }).of(code) ?? code;
+    return `${name.charAt(0).toLocaleUpperCase(locale)}${name.slice(1)}`;
+  } catch {
+    return code;
+  }
+}

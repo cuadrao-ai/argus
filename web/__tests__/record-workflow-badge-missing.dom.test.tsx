@@ -33,7 +33,7 @@ async function badge(lng: "en" | "es-419", report: Partial<ReportRecord>, reason
 
 test("the chip uses ready alone, including an old exported row and an excluded ready row", async () => {
   for (const [ready, stage, expected] of [[false, "exported", "Faltan datos"], [true, "needs_review", "Listo"]] as const) {
-    const host = await badge("es-419", { ready, stage, missing: ["rnc_invalid", "ncf_missing"] });
+    const host = await badge("es-419", { ready, stage, missing: ["invalid_rnc", "missing_ncf"] });
     const chip = host.querySelector("[data-record-workflow]")!;
     assert.equal(chip.textContent, expected);
     assert.equal(chip.closest("button"), null);
@@ -42,7 +42,7 @@ test("the chip uses ready alone, including an old exported row and an excluded r
 });
 
 test("Motivo shows the first reason and +N, with the full list on keyboard hover", async () => {
-  const host = await badge("es-419", { ready: false, missing: ["rnc_invalid", "ncf_missing", "expense_type_missing"] }, true);
+  const host = await badge("es-419", { ready: false, missing: ["invalid_rnc", "missing_ncf", "expense_type_missing"] }, true);
   const reason = host.querySelector<HTMLElement>("[data-record-missing]")!;
   assert.equal(reason.textContent, "RNC con error+2");
   const { act } = await import("react");
@@ -52,6 +52,6 @@ test("Motivo shows the first reason and +N, with the full list on keyboard hover
 });
 
 test("Listo has no Motivo, and unknown reason codes use the locale fallback", async () => {
-  assert.equal((await badge("es-419", { ready: true, missing: ["ncf_missing"] }, true)).textContent, "");
+  assert.equal((await badge("es-419", { ready: true, missing: ["missing_ncf"] }, true)).textContent, "");
   assert.equal((await badge("en", { ready: false, missing: ["unheard_of"] }, true)).textContent, "A detail is missing");
 });

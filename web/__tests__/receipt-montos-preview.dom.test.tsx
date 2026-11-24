@@ -10,30 +10,6 @@ const totalWarning = (page: { row: (name: string) => HTMLElement }) => {
   return status ? status.getAttribute("aria-label") : null;
 };
 
-for (const form of ["606", "607"] as const) test(`header currency warns before saving a non-DOP ${form}`, async () => {
-  const page = await setup("fiscal", (dossier) => { dossier.dgii = { ...dossier.dgii, form }; });
-  const currencyRow = () => page.host.querySelector<HTMLElement>('li[data-fact="currency"]');
-  try {
-    const heading = page.host.querySelector<HTMLButtonElement>('[data-testid="montos-currency"]')!;
-    assert.equal(heading.textContent, "DOP");
-    assert.equal(currencyRow(), null, "the currency row opens from the heading");
-    await page.act(async () => heading.click());
-    const selector = 'li[data-fact="currency"] [data-testid="edit-currency"] select';
-    const select = page.host.querySelector<HTMLSelectElement>(selector)!;
-    assert.deepEqual([...select.options].map((option) => option.value), ["", "DOP", "USD", "EUR"]);
-    for (const currency of ["USD", "EUR"]) {
-      await fill(page, selector, currency, HTMLSelectElement);
-      assert.equal(currencyRow()!.querySelector('[role="status"]')?.textContent, `En ${currency} este documento no entra al ${form} (la DGII pide pesos).`);
-      assert.equal(page.writes.length, 0);
-    }
-    await fill(page, selector, "DOP", HTMLSelectElement);
-    assert.equal(currencyRow()!.querySelector('[role="status"]'), null);
-    await page.act(async () => currencyRow()!.querySelector<HTMLButtonElement>('button[aria-label="Cancelar · Moneda"]')!.click());
-    assert.equal(currencyRow(), null);
-    assert.equal(page.writes.length, 0);
-  } finally { await page.close(); }
-});
-
 test("amount edit and cancel keep the number box and the two action slots", async () => {
   const page = await setup();
   try {
@@ -154,6 +130,30 @@ test("a failed preview on balanced amounts says the sum is checked on save", asy
     await page.wait(() => requests.length === 1);
     await page.act(async () => requests[0].reject(new Error("preview offline")));
     assert.equal(totalWarning(page), "Se revisa al guardar.", "the server checks the sum again when the person saves");
+    assert.equal(page.writes.length, 0);
+  } finally { await page.close(); }
+});
+
+test("Total facturado and ITBIS por adelantar follow the server's preview while an amount is open, and go back when it closes", async () => {
+  const stated = { billed_amount: "2923.73", itbis_advance: "526.27" };
+  const page = await setup("fiscal", (dossier) => { dossier.dgii_calculated = stated; }, () => ({
+    previewAmounts: async (_, __, input) => ({ net_amount: { amount: "980.00", source: "calculated", calculated: "980.00" }, mismatch: null, inheritance: {}, dgii_calculated: input.declaration ? { billed_amount: "1500.00", itbis_advance: "270.00" } : { billed_amount: "980.00", itbis_advance: "200.00" } }),
+  }));
+  const fiscal = page.host.querySelector<HTMLElement>('[data-testid="fiscal-declaration"]')!;
+  const shown = () => ["billed_total", "itbis_advance"].map((row) => fiscal.querySelector(`[data-fact="${row}"] [data-row-value]`)?.textContent);
+  try {
+    assert.deepEqual(shown(), ["2,923.73", "526.27"]);
+    await page.openRow("itbis");
+    await fill(page, '[data-testid="dossier-review-itbis"]', "200");
+    await page.wait(() => shown()[0] === "980.00");
+    assert.deepEqual(shown(), ["980.00", "200.00"], "a Montos row of General");
+    await page.dismiss("itbis");
+    assert.deepEqual(shown(), ["2,923.73", "526.27"]);
+
+    await page.act(async () => fiscal.querySelector<HTMLButtonElement>('[data-field="services_amount"] button[data-row-value]')!.click());
+    await fill(page, '[data-testid="fiscal-declaration-services_amount"]', "1500");
+    await page.wait(() => shown()[0] === "1,500.00");
+    assert.deepEqual(shown(), ["1,500.00", "270.00"], "a row of Datos fiscales");
     assert.equal(page.writes.length, 0);
   } finally { await page.close(); }
 });

@@ -60,6 +60,10 @@
 .stack { display:flex; flex-direction:column; gap:12px; }
 
 .card { background:var(--d-card); border:1px solid var(--d-line); border-radius:var(--radius-surface); padding:0 8px 0 16px; }
+/* A card Registros opened the record at marks its own edge for a moment. */
+.card[data-landing] { animation:cardLanding 2.4s ease-out; }
+@keyframes cardLanding { from, 70% { border-color:var(--d-green); box-shadow:0 0 0 3px var(--d-ring); } }
+@media (prefers-reduced-motion:reduce) { .card[data-landing] { animation:none; border-color:var(--d-green); } }
 .cardHead { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; padding-right:8px; border-bottom:1px solid var(--d-hair); }
 .cardHead:last-child { border-bottom:0; }
 .cardTitle { margin:0; font-family:var(--font-display, inherit); font-size:14px; font-weight:600; color:var(--d-ink); }
@@ -130,6 +134,10 @@ button.value:hover { border-color:var(--d-field-line); background:var(--d-field)
 @media (prefers-reduced-motion:reduce) { .row[data-flash]::before { animation:none; background-color:var(--d-warn-hover); } }
 .currency { display:inline-flex; align-items:center; gap:4px; height:36px; padding:0 6px 0 10px; border:1px solid var(--segment-thumb-border); border-radius:var(--radius-item); background:var(--d-field); font:inherit; font-size:13px; font-weight:600; color:var(--d-ink); cursor:pointer; }
 .currency:disabled { cursor:default; }
+.currency[aria-expanded="true"] { border-color:var(--d-green); }
+/* The currency's list hangs under its button, at the card's right edge. */
+.currencyHost { position:relative; }
+.currencyHost .list { left:auto; right:0; top:calc(100% + 4px); width:max-content; min-width:200px; max-width:calc(100vw - 32px); }
 .currency[data-missing="true"] { color:var(--d-warn-ink); border-color:var(--d-warn-bg); background:var(--d-warn-bg); }
 .link { min-height:40px; padding:0 10px; margin-right:-6px; border:0; border-radius:var(--radius-item); background:transparent; font:inherit; font-size:13.5px; font-weight:600; color:var(--d-green); cursor:pointer; }
 .link:hover { background:var(--d-hover); }

@@ -235,7 +235,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     },
   });
 
-  const rows = useReviewRows({ dossier, autosave, currencies: recordsCurrencySchema.options });
+  const rows = useReviewRows({ dossier, autosave });
   const amountsPreview = useAmountsPreview(dossier, rows.rows, source.previewAmounts);
   const dirty = rows.unsaved.length > 0;
   const holdsEdits = dirty || fiscalDirty || noteDirty || captureRetained;
@@ -510,7 +510,6 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       onCancel: () => rows.cancel(row),
       editor: editor ?? (
         <ReceiptFactEditor
-          fiscalForm={!dossier.sin_comprobante ? dossier.dgii?.form ?? recordForm(dossier) : undefined}
           field={row}
           tried={open?.tried === true}
           facts={dossier.facts}
@@ -520,7 +519,6 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           uploadYear={dossier.upload_year ?? null}
           yearToCheck={dossier.year_to_check === true}
           accounts={accounts}
-          currencies={recordsCurrencySchema.options}
           disabled={!mutable || saving}
           onChange={(patch, invalid) => rows.hold(row, { change: row === "net_amount" || row === "legal_tip" ? { write: "montos", montos: { [row]: patch[row] } } : { write: "facts", facts: { ...facts, ...patch } }, invalid: row === "amount" && !patch.amount ? edit?.invalid ?? false : invalid })}
           onFiscalChange={(value, invalid) => { if (fiscal) rows.hold(row, { change: { write: "fiscal", fiscal: { [fiscal.name]: value || null } }, invalid }); }}
@@ -629,12 +627,16 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
                 busy: autosave.busy,
                 note: <ReceiptRowSave save={failedSave("receipt_state")} onRetry={() => void autosave.retry("receipt_state")} onCancel={() => autosave.clear("receipt_state")} />,
               },
+              currency: {
+                pick: mayEdit("currency") && mutable ? { options: recordsCurrencySchema.options, onPick: (value) => void autosave.save("currency", { write: "facts", facts: { currency: { state: "known", value } } }), saving: autosave.saves.currency?.state === "saving" } : undefined,
+                note: failedSave("currency") ? <ReceiptRowSave save={failedSave("currency")} onRetry={() => void autosave.retry("currency")} onCancel={() => autosave.clear("currency")} /> : null,
+              },
             }} />
           </div>
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
         </> },
-        { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen || markBusy || settling || deletion.busy} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} onBusy={setFiscalBusy} onDirty={trackFiscalEdits} onChanged={(value) => { setDossier(value); reload(); }} /> },
+        { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen || markBusy || settling || deletion.busy} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} montosCalculated={amountsPreview?.dgii_calculated} onBusy={setFiscalBusy} onDirty={trackFiscalEdits} onChanged={(value) => { setDossier(value); reload(); }} /> },
         { key: "detalles", content: <DossierDetails entryVisit={entry.visit} origin={cameFrom} dossier={dossier} detailsCard={detailsCard} selectedSupportingSourceId={viewed?.source_id} receiptLimits={records.workspace?.receipt_limits} busy={annotations.busy || annotationBlocked}
           onSaveNote={annotations.onSaveNote} onNoteDirty={setNoteDirty} onAppend={annotations.onAppend} onUnlink={removeFile} onRestore={annotations.onRestore}
           onViewFile={canViewFile ? sourceId => { pickFile(sourceId); if (!tray || tray.narrow) setTab("documento"); } : undefined} /> },

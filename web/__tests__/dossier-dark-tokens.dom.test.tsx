@@ -72,8 +72,8 @@ test("the dossier's bordered controls, compare switch and neutral chip read toke
   assert.match(rule(dossier, '.currency[data-missing="true"]'), /border-color:var\(--d-warn-bg\)/, "a missing currency keeps its warning edge");
 
   const compare = source("components/business-app/dossier/compare.module.css");
-  assert.match(rule(compare, ".switch"), /border:1px solid transparent;/, "the same box in light as in dark");
-  assert.match(rule(compare, ":global(.dark) .switch"), /border-color:var\(--d-line\);/);
+  assert.doesNotMatch(compare, /\.switch/, "the shared segmented control draws the switch, with its own tokens");
+  assert.match(rule(compare, ".sides"), /background:var\(--d-card\);/, "its backing is the card's token in both themes");
 
   const chip = source("components/business-app/foundation/status-chip.module.css");
   assert.match(rule(chip, ".neutral"), /--workflow-ink:color-mix\(in srgb,var\(--fg\) 66%,transparent\);/);
