@@ -357,7 +357,7 @@ for (const language of ["es-419", "en"] as const) {
     assert.equal(notices.querySelectorAll("h3").length, 0);
     assert.ok(notice.querySelector(".lucide-triangle-alert"));
     assert.equal(toggle.closest("label"), null);
-    assert.ok(toggle.closest("p"), "the sentence and action share one paragraph");
+    assert.equal(toggle.closest("p"), null, "the action has its own column beside the sentence");
     for (const link of [toggle, page.button(language === "es-419" ? "Revisar" : "Review")!]) {
       assert.ok(link.classList.contains("inline"));
       assert.ok(link.classList.contains("text-[14px]"));
