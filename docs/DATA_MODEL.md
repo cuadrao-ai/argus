@@ -3454,6 +3454,8 @@ boundary proposal is approved.
   a redelivery of the same message. The webhook renews its lease during the
   bounded save. Only the holder of the current lease can settle the claim.
   The captured row points to the draft in `financial_document_extractions`.
+  If the file is eligible for a read, the bound read job and the captured
+  claim become visible in the same transaction.
   The legacy `claim_envelope` and `recovery_attempts` columns remain in the
   schema. New claims use neither column. The platform retries an unfinished
   delivery after its lease expires.

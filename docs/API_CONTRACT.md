@@ -8136,9 +8136,10 @@ answers the not-linked reply.
   a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. With
   intake off, the route answers 404 `whatsapp_unavailable` before a claim.
   The request claims each message, checks its sender link and saves accepted
-  media in the owner's default Business. When Business reading is on, it
-  records a read job before settling the claim and acknowledging the sender.
-  Otherwise the file waits saved and unread. Unlinked media and ordinary
+  media in the owner's default Business. When the sender is still linked and
+  Business reading is on, the read job and captured claim commit together.
+  The webhook then acknowledges the sender. With reading off, the file waits
+  saved and unread. Unlinked media and ordinary
   text settle silently. Code-shaped text can receive one link-flow reply per
   Santo Domingo day. The API answers 200 `{received: true}` after processing.
   A settled replay returns 200 without repeating work. A live claim or an

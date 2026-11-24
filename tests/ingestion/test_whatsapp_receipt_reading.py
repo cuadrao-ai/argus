@@ -22,6 +22,7 @@ from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
 from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_extractor_support import StubPreparation, start_request
+from tests.document_reads_support import read_receipt
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
 
@@ -102,10 +103,7 @@ def _status(world: cases.World, connection_id: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_worker_read_does_not_send_a_second_reply(monkeypatch) -> None:
-    from tests.document_reads_support import leave_reads_waiting, read_receipt
-
-    leave_reads_waiting(monkeypatch)
+async def test_worker_read_does_not_send_a_second_reply() -> None:
     world, extractor, _ = _world(on=True)
     connection_id = await _send(world, "wamid.READ-ON")
     assert _status(world, connection_id) == "queued"
@@ -137,6 +135,8 @@ async def test_same_bytes_resent_in_a_new_message_keep_one_receipt_and_one_read(
     connection_id = await _send(world, "wamid.READ-FIRST")
     await world.deliver(cases.image("700000000000201", "wamid.READ-RESENT"))
     await world.deliver(cases.image("700000000000201", "wamid.READ-RESENT"))
+    assert extractor.calls == 0
+    await read_receipt(world.documents, world.alice, connection_id)
     assert world.captures(world.alice) == [connection_id]
     assert world.captures(world.bob) == []
     assert extractor.calls == 1
@@ -154,6 +154,7 @@ async def test_with_outbound_off_the_receipt_is_read_and_nothing_is_sent() -> No
     world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(cases.image("700000000000201", "wamid.READ-QUIET"))
     [connection_id] = world.captures(world.alice)
+    await read_receipt(world.documents, world.alice, connection_id)
     assert _status(world, connection_id) == "review_ready"
     assert len(world.transport.sent) == sent_before
 
@@ -186,6 +187,7 @@ async def test_a_switch_turned_off_while_the_source_is_read_stops_before_the_pro
 
     store.source = revoke_while_reading
     connection_id = await _send(world, "wamid.READ-LATE")
+    await read_receipt(world.documents, world.alice, connection_id)
     assert extractor.calls == 0
     assert _status(world, connection_id) == "saved"
     assert len(world.transport.bodies()) == 2

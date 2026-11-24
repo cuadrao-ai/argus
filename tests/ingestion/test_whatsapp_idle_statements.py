@@ -1,12 +1,16 @@
 """Count SQL issued by the API and document worker over simulated idle windows."""
 
+from __future__ import annotations
+
 import asyncio
 import base64
 import signal
 from collections import Counter
+from collections.abc import Callable
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
@@ -22,16 +26,16 @@ from workflows import document_job, document_worker
 
 
 class EmptyPool:
-    def __init__(self):
+    def __init__(self) -> None:
         self.statements = Counter()
 
-    def connection(self):
+    def connection(self) -> nullcontext[EmptyPool]:
         return nullcontext(self)
 
-    def transaction(self):
+    def transaction(self) -> nullcontext[None]:
         return nullcontext()
 
-    def execute(self, sql, params=None):
+    def execute(self, sql: str, params: object = None) -> SimpleNamespace:
         self.statements[sql] += 1
         return SimpleNamespace(
             fetchone=lambda: (0,) if sql.startswith("select count(*)") else None,
@@ -40,7 +44,7 @@ class EmptyPool:
 
 
 class Clock:
-    def __init__(self, monkeypatch):
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self.seconds = 0
         self.elapsed = 0
         self.loop = asyncio.get_running_loop()
@@ -48,7 +52,7 @@ class Clock:
         pending = set()
         to_thread = asyncio.to_thread
 
-        async def tracked(work, *args, **kwargs):
+        async def tracked(work: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
             if asyncio.get_running_loop() is not self.loop:
                 return await to_thread(work, *args, **kwargs)
             task = asyncio.create_task(to_thread(work, *args, **kwargs))
@@ -61,10 +65,10 @@ class Clock:
         self.pending = pending
         monkeypatch.setattr(asyncio, "to_thread", tracked)
 
-    def now(self):
+    def now(self) -> datetime:
         return datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=self.seconds)
 
-    async def advance_to(self, seconds):
+    async def advance_to(self, seconds: int) -> None:
         for second in range(self.elapsed, seconds):
             self.seconds = second
             for _ in range(12):
@@ -75,7 +79,7 @@ class Clock:
 
 
 @pytest.fixture
-def idle(monkeypatch):
+def idle(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
     env = {
         "CUADRAO_WHATSAPP_VERIFY_TOKEN": "fake-verify",
         "CUADRAO_WHATSAPP_APP_SECRET": "fake-app-secret",
@@ -92,14 +96,14 @@ def idle(monkeypatch):
     for name, value in env.items():
         monkeypatch.setenv(name, value)
 
-    def set_switches(*, intake, outbound):
+    def set_switches(*, intake: bool, outbound: bool) -> None:
         monkeypatch.setenv("CUADRAO_WHATSAPP_INTAKE_ENABLED", str(intake))
         monkeypatch.setenv("CUADRAO_WHATSAPP_OUTBOUND_ENABLED", str(outbound))
 
     return set_switches
 
 
-def statement_counts(pool):
+def statement_counts(pool: EmptyPool) -> dict[str, int]:
     queries = Counter()
     for sql, count in pool.statements.items():
         if " from public.whatsapp_reply_groups g" in sql:
@@ -115,7 +119,9 @@ def statement_counts(pool):
     return dict(queries)
 
 
-def stub_api_dependencies(monkeypatch, clock, pool, app):
+def stub_api_dependencies(
+    monkeypatch: pytest.MonkeyPatch, clock: Clock, pool: EmptyPool, app: FastAPI
+) -> None:
     from argus.api import (
         apple_sign_in,
         bank_matching,
@@ -161,7 +167,9 @@ def stub_api_dependencies(monkeypatch, clock, pool, app):
     monkeypatch.setattr(whatsapp, "business_spaces", object)
 
 
-async def idle_counts(clock, pool):
+async def idle_counts(
+    clock: Clock, pool: EmptyPool
+) -> tuple[dict[str, int], dict[str, int]]:
     await clock.advance_to(300)
     first_five_minutes = statement_counts(pool)
     await clock.advance_to(3600)
@@ -170,7 +178,12 @@ async def idle_counts(clock, pool):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("intake,outbound", [(True, True), (True, False), (False, False)])
-async def test_api_boot_issues_no_idle_whatsapp_sql(monkeypatch, idle, intake, outbound):
+async def test_api_boot_issues_no_idle_whatsapp_sql(
+    monkeypatch: pytest.MonkeyPatch,
+    idle: Callable[..., None],
+    intake: bool,
+    outbound: bool,
+) -> None:
     idle(intake=intake, outbound=outbound)
     clock, pool, app = Clock(monkeypatch), EmptyPool(), FastAPI()
     stub_api_dependencies(monkeypatch, clock, pool, app)
@@ -180,7 +193,9 @@ async def test_api_boot_issues_no_idle_whatsapp_sql(monkeypatch, idle, intake, o
         monkeypatch.setattr(
             whatsapp, "httpx", SimpleNamespace(AsyncClient=lambda: client)
         )
-        with patch.object(clock.loop, "create_task", wraps=clock.loop.create_task) as started:
+        with patch.object(
+            clock.loop, "create_task", wraps=clock.loop.create_task
+        ) as started:
             async with app_setup.lifespan(app):
                 five_minutes, hour = await idle_counts(clock, pool)
             started.assert_not_called()
@@ -195,7 +210,9 @@ async def test_api_boot_issues_no_idle_whatsapp_sql(monkeypatch, idle, intake, o
 
 
 @pytest.mark.asyncio
-async def test_disabled_webhook_issues_no_sql(monkeypatch, idle):
+async def test_disabled_webhook_issues_no_sql(
+    monkeypatch: pytest.MonkeyPatch, idle: Callable[..., None]
+) -> None:
     idle(intake=False, outbound=True)
     clock, pool, app = Clock(monkeypatch), EmptyPool(), FastAPI()
     stub_api_dependencies(monkeypatch, clock, pool, app)
@@ -208,6 +225,7 @@ async def test_disabled_webhook_issues_no_sql(monkeypatch, idle):
             get = await client.get(whatsapp.WEBHOOK_PATH)
             post = await client.post(whatsapp.WEBHOOK_PATH, content=b"invalid")
     assert get.status_code == post.status_code == 404
+    assert post.json()["code"] == "whatsapp_unavailable"
     assert statement_counts(pool) == {}
 
 
@@ -222,8 +240,13 @@ async def test_disabled_webhook_issues_no_sql(monkeypatch, idle):
     ],
 )
 async def test_document_worker_paces_idle_whatsapp_sql(
-    monkeypatch, idle, intake, outbound, access_token, due
-):
+    monkeypatch: pytest.MonkeyPatch,
+    idle: Callable[..., None],
+    intake: bool,
+    outbound: bool,
+    access_token: str,
+    due: bool,
+) -> None:
     idle(intake=intake, outbound=outbound)
     # Only the API holds the webhook credentials.
     monkeypatch.setenv("CUADRAO_WHATSAPP_VERIFY_TOKEN", "")

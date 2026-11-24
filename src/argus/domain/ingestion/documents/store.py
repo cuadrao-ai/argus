@@ -236,11 +236,13 @@ class InMemoryDocumentStore:
 
     def source(self, *, user_id: str, connection_id: str) -> bytes | None:
         with self.connections._lock, self._lock:
-            path = (
-                self._sources.get((user_id, connection_id))
-                if self._live(user_id, connection_id)
-                else None
-            )
+            key = (user_id, connection_id)
+            raw = self._drafts.get(key)
+            if not self._live(*key) or raw is None:
+                return None
+            if not DocumentDraft.model_validate_json(raw).source_available:
+                return None
+            path = self._sources.get(key)
             return self.objects.get(path) if path is not None else None
 
     def capture(

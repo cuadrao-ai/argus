@@ -5,12 +5,14 @@ import base64
 import json
 from datetime import timedelta
 from types import SimpleNamespace
-from uuid import uuid4
+from typing import Any
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
 from argus.domain.ingestion.whatsapp import document_step
 from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
+from psycopg_pool import ConnectionPool
 
 from tests import test_whatsapp_intake_postgres as shared
 from tests.ingestion import whatsapp_cases as cases
@@ -22,7 +24,9 @@ users = shared.users
 pytestmark = shared.pytestmark
 
 
-def _configure_replies(monkeypatch, suffix):
+def _configure_replies(
+    monkeypatch: pytest.MonkeyPatch, suffix: UUID
+) -> list[dict[str, Any]]:
     for key, value in {
         "CUADRAO_WHATSAPP_INTAKE_ENABLED": "true",
         "CUADRAO_WHATSAPP_OUTBOUND_ENABLED": "true",
@@ -58,16 +62,16 @@ def _configure_replies(monkeypatch, suffix):
 
 @pytest.mark.asyncio
 async def test_document_upkeep_sends_a_due_group_without_webhook_credentials(
-    monkeypatch, pool, users
-):
+    monkeypatch: pytest.MonkeyPatch, pool: ConnectionPool, users: dict[str, str]
+) -> None:
     suffix = uuid4()
     monkeypatch.setattr(cases, "uuid4", lambda: suffix)
     world = await shared._linked(pool, users)
     world.clock.now = world.clock.now.replace(hour=12, minute=0, second=0, microsecond=0)
     sent = _configure_replies(monkeypatch, suffix)
     monkeypatch.setenv("CUADRAO_WHATSAPP_OUTBOUND_ENABLED", "false")
-    for index in range(2):
-        await shared._failed(world, index)
+    for index, kind in enumerate(("unsupported", "blocked")):
+        await shared._failed(world, index, kind=kind)
 
     grouped = document_step.FailureReplyUpkeep(
         world.store.reply_groups, clock=world.clock
@@ -86,10 +90,9 @@ async def test_document_upkeep_sends_a_due_group_without_webhook_credentials(
 
     world.clock.now += timedelta(seconds=60)
     await asyncio.to_thread(tick)
-    assert [message["text"]["body"] for message in sent] == [
-        "No pudimos leer 2 archivos:\n• factura_0.png\n• factura_1.png\nEnvíalos como foto o PDF."
-    ]
-    assert sent[0]["to"] == cases.ALICE_PHONE
+    [message] = sent
+    assert message["to"] == cases.ALICE_PHONE
+    assert all(f"factura_{index}.png" in message["text"]["body"] for index in range(2))
     assert shared._counts(pool, world) == [(1, 0)]
 
     restarted = document_step.FailureReplyUpkeep(
@@ -103,8 +106,11 @@ async def test_document_upkeep_sends_a_due_group_without_webhook_credentials(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("first_group", ["daily_limit", "revoked", "window"])
 async def test_due_pass_continues_after_dropping_a_group(
-    monkeypatch, pool, users, first_group
-):
+    monkeypatch: pytest.MonkeyPatch,
+    pool: ConnectionPool,
+    users: dict[str, str],
+    first_group: str,
+) -> None:
     suffix = uuid4()
     monkeypatch.setattr(cases, "uuid4", lambda: suffix)
     world = await shared._linked(pool, users)

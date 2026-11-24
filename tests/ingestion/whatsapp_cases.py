@@ -494,6 +494,34 @@ async def redelivery_during_a_live_claim_asks_for_retry(world: World) -> None:
     assert world.record("wamid.CASE-INFLIGHT").connection_id == connection_id
 
 
+async def an_expired_capture_claim_cannot_settle_or_prepare(world: World) -> None:
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000155"] = Media(RECEIPT_PNG, "image/png")
+    world.intake.renew_seconds = 3600
+    destination = world.intake.destination
+    original = destination.capture
+    prepared = []
+
+    async def capture_then_expire(**kwargs):  # noqa: ANN003, ANN202
+        captured = await original(**kwargs)
+        world.clock.now += timedelta(seconds=CLAIM_SECONDS)
+        return captured
+
+    def prepare(connection, settlement):  # noqa: ANN001, ANN202
+        prepared.append(settlement)
+        return True
+
+    body = image("700000000000155", "wamid.CASE-EXPIRED-CAPTURE")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(destination, "capture", capture_then_expire)
+        patch.setattr(destination, "prepare", prepare, raising=False)
+        with pytest.raises(DeliveryInFlight):
+            await world.deliver(body)
+    assert world.record("wamid.CASE-EXPIRED-CAPTURE").status == "received"
+    assert prepared == []
+    assert len(world.transport.sent) == 1
+
+
 async def slow_processing_times_out_as_failed_and_recovers(world: World) -> None:
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media["700000000000113"] = Media(RECEIPT_PNG, "image/png")
@@ -911,6 +939,7 @@ CASES = (
     revoke_and_relink,
     a_live_claim_blocks_a_concurrent_redelivery,
     redelivery_during_a_live_claim_asks_for_retry,
+    an_expired_capture_claim_cannot_settle_or_prepare,
     slow_processing_times_out_as_failed_and_recovers,
     revoking_also_ends_unused_codes,
     no_reply_outside_the_service_window,

@@ -20,18 +20,20 @@ from zlib import crc32
 import httpx
 import pytest
 import pytest_asyncio
-from argus.api import documents as document_routes
 from argus.api import whatsapp
 from argus.api.main import app
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
-from argus.domain.ingestion.documents.objects import owner_prefix
-from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.documents.jobs import PreparationJobs
+from argus.domain.ingestion.documents.objects import owner_prefix, source_path
+from argus.domain.ingestion.documents.service import (
+    DocumentServiceError,
+    DocumentsService,
+)
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
-from argus.domain.owner_scope import OwnerScope
 from loguru import logger
 from PIL import Image
 from psycopg_pool import ConnectionPool
@@ -222,6 +224,93 @@ async def _assert_interrupted(webhook: Webhook, raw: bytes) -> None:
 
 
 @pytest.mark.asyncio
+async def test_preparation_stays_invisible_until_the_capture_commits(
+    webhook: Webhook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    start = PreparationJobs.start
+    observed = []
+
+    def observe_after_start(
+        jobs: PreparationJobs, *, user_id: str, connection_id: str
+    ) -> None:
+        start(jobs, user_id=user_id, connection_id=connection_id)
+        inbound = webhook.store.inbound(webhook.key)
+        assert inbound is not None
+        [(_, draft, job, binding)] = webhook.drafts()
+        observed.append(
+            (inbound.status, draft["status"], draft["source_available"], job, binding)
+        )
+
+    monkeypatch.setattr(PreparationJobs, "start", observe_after_start)
+    response = await webhook.post(webhook.signed_receipt(RECEIPT_PNG))
+
+    assert response.status_code == 200
+    assert observed == [("received", "saved", False, None, None)]
+    _assert_captured(webhook, RECEIPT_PNG)
+
+
+@pytest.mark.asyncio
+async def test_reading_withdrawn_before_settlement_leaves_the_receipt_unread(
+    webhook: Webhook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    upload = webhook.documents.upload
+
+    async def upload_then_withdraw(**kwargs: Any):
+        captured = await upload(**kwargs)
+        await asyncio.to_thread(
+            turn_reading,
+            webhook.documents.business_receipt_consent,
+            kwargs["scope"].space_id,
+            webhook.owner,
+            False,
+        )
+        return captured
+
+    monkeypatch.setattr(webhook.documents, "upload", upload_then_withdraw)
+    response = await webhook.post(webhook.signed_receipt(RECEIPT_PNG))
+
+    assert response.status_code == 200
+    [(connection_id, draft, job, binding)] = webhook.drafts()
+    assert (draft["status"], draft["source_available"], draft["consent"]) == (
+        "saved",
+        True,
+        False,
+    )
+    assert job is binding is None
+    inbound = webhook.store.inbound(webhook.key)
+    assert inbound is not None
+    assert (inbound.status, inbound.connection_id) == ("captured", connection_id)
+
+
+@pytest.mark.asyncio
+async def test_refused_preparation_saves_the_receipt_with_its_reason(
+    webhook: Webhook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    start = PreparationJobs.start
+
+    def refuse_after_start(
+        jobs: PreparationJobs, *, user_id: str, connection_id: str
+    ) -> None:
+        start(jobs, user_id=user_id, connection_id=connection_id)
+        raise DocumentServiceError("business_preparation_unavailable")
+
+    monkeypatch.setattr(PreparationJobs, "start", refuse_after_start)
+    response = await webhook.post(webhook.signed_receipt(RECEIPT_PNG))
+
+    assert response.status_code == 200
+    [(connection_id, draft, job, binding)] = webhook.drafts()
+    assert (draft["status"], draft["source_available"], draft["error_code"]) == (
+        "saved",
+        True,
+        "business_preparation_unavailable",
+    )
+    assert job is binding is None
+    inbound = webhook.store.inbound(webhook.key)
+    assert inbound is not None
+    assert (inbound.status, inbound.connection_id) == ("captured", connection_id)
+
+
+@pytest.mark.asyncio
 async def test_crash_before_save_requires_webhook_redelivery_after_lease(
     webhook: Webhook, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -271,30 +360,29 @@ async def test_crash_after_save_redelivery_repairs_missing_preparation_attempt(
     webhook: Webhook, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     raw = webhook.signed_receipt(RECEIPT_PNG)
-    dispatch = document_routes.dispatch_preparation
+    start = PreparationJobs.start
     calls: list[str] = []
 
-    async def crash_once(
-        service: DocumentsService, user_id: str, connection_id: str, *, scope: OwnerScope
-    ) -> None:
+    def crash_once(jobs: PreparationJobs, *, user_id: str, connection_id: str) -> None:
         calls.append(connection_id)
+        start(jobs, user_id=user_id, connection_id=connection_id)
         if len(calls) == 1:
             raise asyncio.CancelledError
-        await dispatch(service, user_id, connection_id, scope=scope)
 
-    monkeypatch.setattr(document_routes, "dispatch_preparation", crash_once)
+    monkeypatch.setattr(PreparationJobs, "start", crash_once)
     await _assert_interrupted(webhook, raw)
 
     [(connection_id, draft, job, binding)] = webhook.drafts()
     assert calls == [connection_id]
     assert (draft["status"], draft["source_available"], job, binding) == (
-        "queued",
-        True,
+        "saved",
+        False,
         None,
         None,
     )
+    objects = webhook.documents.store.objects
     assert (
-        webhook.documents.store.source(user_id=webhook.owner, connection_id=connection_id)
+        objects.get(source_path(user_id=webhook.owner, sha256=draft["sha256"]))
         == RECEIPT_PNG
     )
     assert webhook.replies == []

@@ -340,7 +340,9 @@ class DocumentsService:
         on_capture: CaptureHook | None = None,
         context_only: bool = False,
         document_type: DocumentType | None = None,
+        defer_capture: bool = False,
     ) -> DocumentOutcome:
+        """Save the bytes, or leave publication to a delivery's settlement."""
         consent_id = None
         if space_id(scope) is not None:
             permission = await asyncio.to_thread(
@@ -363,6 +365,7 @@ class DocumentsService:
                     on_capture=on_capture,
                     consent_id=consent_id,
                     document_type=document_type,
+                    defer_capture=defer_capture,
                 )
             except BaseException as error:
                 # SystemExit/KeyboardInterrupt must travel as data: raising
@@ -405,6 +408,7 @@ class DocumentsService:
         consent_id: str | None = None,
         document_type: DocumentType | None = None,
         namespace: str | None = None,
+        defer_capture: bool = False,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()
@@ -432,6 +436,7 @@ class DocumentsService:
                 and stored.document_type != document_type
             ):
                 raise DocumentServiceError("document_type_conflict") from None
+        queue_read = consent and not defer_capture
         draft = DocumentDraft(
             connection_id=connection.id,
             filename=stored_filename(filename),
@@ -439,11 +444,12 @@ class DocumentsService:
             proposal=proposal or DraftProposal(),
             sha256=digest,
             size_bytes=len(content),
-            consent=consent,
+            consent=queue_read,
             business_reading_consent_id=consent_id,
             source_text=source_text,
             document_type=document_type,
-            status="queued" if consent else "saved",
+            status="queued" if queue_read else "saved",
+            source_available=not defer_capture,
             created_at=self.hub.clock(),
             updated_at=self.hub.clock(),
         )
@@ -460,6 +466,25 @@ class DocumentsService:
         return self.outcome(
             user_id=user_id, connection_id=connection.id, replayed=replayed, scope=scope
         )
+
+    def publish_capture(
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        scope: OwnerScope,
+        error_code: str | None = None,
+    ) -> DocumentDraft:
+        """Make a staged capture available after its delivery has been accepted."""
+        draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if not draft.source_available:
+            draft = self._update(
+                user_id,
+                draft,
+                source_available=True,
+                error_code=error_code if error_code is not None else draft.error_code,
+            )
+        return draft
 
     def outcome(
         self, *, user_id: str, connection_id: str, replayed: bool, scope: OwnerScope

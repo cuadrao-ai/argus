@@ -10,12 +10,16 @@ from __future__ import annotations
 
 import hashlib
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date, datetime
+from time import monotonic
 from typing import TYPE_CHECKING, Literal, Protocol
 from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
+    from psycopg import Connection
+
     from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
 
 ReplyLanguage = Literal["en", "es-419"]
@@ -77,6 +81,20 @@ class Settlement:
     reply_language: str | None = None
 
 
+PrepareCapture = Callable[["Connection | None", Settlement], bool]
+
+
+def settlement_time(now: datetime | Callable[[], datetime]) -> datetime:
+    return now() if callable(now) else now
+
+
+def settlement_seconds(
+    claim_until: datetime, now: datetime, deadline: float | None
+) -> float:
+    seconds = (claim_until - now).total_seconds()
+    return seconds if deadline is None else min(seconds, deadline - monotonic())
+
+
 def revoked(settlement: Settlement) -> Settlement:
     return replace(
         settlement,
@@ -128,14 +146,18 @@ class WhatsAppStore(Protocol):
         provider_message_key: bytes,
         claim_until: datetime | None,
         settlement: Settlement,
-        now: datetime,
+        now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
+        prepare: PrepareCapture | None = None,
+        deadline: float | None = None,
     ) -> Settlement | None:
-        """Settle only while the caller's claim is the one held; None when it is not.
+        """Settle only while the caller holds a live claim; None when it does not.
 
         A capture settles only while its owner's sender link is active, checked
         in the same transaction. Otherwise the message settles ``rejected`` with
-        ``SENDER_LINK_REVOKED`` and no connection. Returns what was stored.
+        ``SENDER_LINK_REVOKED`` and no connection. The optional prepare hook
+        publishes the captured document and reports whether reading was queued.
+        It shares the settlement transaction in Postgres.
         """
         ...
 
@@ -243,12 +265,21 @@ class InMemoryWhatsAppStore:
         provider_message_key: bytes,
         claim_until: datetime | None,
         settlement: Settlement,
-        now: datetime,
+        now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
+        prepare: PrepareCapture | None = None,
+        deadline: float | None = None,
     ) -> Settlement | None:
         with self._lock:
-            current = self._inbound[provider_message_key]
-            if current.status not in RETRYABLE or current.claim_until != claim_until:
+            current = self._inbound.get(provider_message_key)
+            settled_at = settlement_time(now)
+            if (
+                current is None
+                or claim_until is None
+                or settlement_seconds(claim_until, settled_at, deadline) <= 0
+                or current.status not in RETRYABLE
+                or current.claim_until != claim_until
+            ):
                 return None
             if settlement.connection_id is not None and not any(
                 link.active
@@ -257,6 +288,8 @@ class InMemoryWhatsAppStore:
                 for link in self._links
             ):
                 settlement = revoked(settlement)
+            if prepare is not None and settlement.status == "captured":
+                settlement = replace(settlement, reading=prepare(None, settlement))
             self._inbound[provider_message_key] = replace(
                 current,
                 status=settlement.status,
@@ -264,7 +297,7 @@ class InMemoryWhatsAppStore:
                 connection_id=settlement.connection_id,
                 error_code=settlement.error_code,
                 claim_until=None,
-                updated_at=now,
+                updated_at=settled_at,
             )
             if reply_failure is not None:
                 self.reply_failures.append(reply_failure)

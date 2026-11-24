@@ -10,26 +10,33 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import nullcontext
+from copy import copy
 from dataclasses import dataclass
 
 import httpx
 from fastapi import Depends, HTTPException, Request
 from loguru import logger
+from psycopg import Connection
 
 from argus.api import state as api_state
 from argus.api.business_spaces import business_spaces, space_missing_problem
 from argus.api.dependencies import problem
-from argus.api.documents import documents_service
+from argus.api.documents import documents_service, record_dispatch_preparation
 from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingestion_context
 from argus.domain.business import analytics as business_analytics
+from argus.domain.business.actions import BusinessActions
+from argus.domain.business.authority import ActionError
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
-from argus.domain.business.spaces import SpaceStore
+from argus.domain.business.spaces import PostgresSpaceStore, SpaceStore
+from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
-from argus.domain.ingestion.documents.models import DocumentExtractionError
+from argus.domain.ingestion.documents.models import DocumentDraft, DocumentExtractionError
 from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
+from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.whatsapp.ai_consent import AIConsentStore
 from argus.domain.ingestion.whatsapp.config import (
     WhatsAppSettings,
@@ -49,9 +56,11 @@ from argus.domain.ingestion.whatsapp.reply_groups import ReplyGroupCodec
 from argus.domain.ingestion.whatsapp.store import (
     SENDER_LINK_REVOKED,
     InMemoryWhatsAppStore,
+    Settlement,
     WhatsAppStore,
 )
 from argus.domain.owner_scope import BusinessSpace
+from argus.domain.postgres_connection import BorrowedConnection
 
 WEBHOOK_PATH = "/api/v1/webhooks/whatsapp"
 
@@ -115,6 +124,7 @@ class DocumentsDestination:
                 media_type=media_type,
                 source_text=source_text,
                 scope=scope.owner,
+                defer_capture=True,
             )
         except DocumentExtractionError as error:
             raise CaptureRejected(
@@ -130,56 +140,88 @@ class DocumentsDestination:
                 media_type=media_type,
                 size_bytes=len(content),
             )
-        reading = False
-        if outcome.status == "queued":
-            # Redelivery can find bytes saved just before an interrupted dispatch.
-            existing = (
-                await asyncio.to_thread(
-                    self.documents.store.job,
-                    user_id=owner_id,
-                    connection_id=outcome.connection_id,
-                )
-                if outcome.replayed
-                else None
-            )
-            if existing is None:
-                reading = await self._dispatch(
-                    owner_id, outcome.connection_id, scope.owner
-                )
-        return Captured(
-            outcome.connection_id, already_held=outcome.replayed, reading=reading
+        return Captured(outcome.connection_id, already_held=outcome.replayed)
+
+    def prepare(self, connection: Connection | None, settlement: Settlement) -> bool:
+        """Publish the source and record its read on the fenced claim's transaction."""
+        owner_id, connection_id = (
+            settlement.destination_owner_id,
+            settlement.connection_id,
         )
+        assert owner_id is not None and connection_id is not None
+        documents, spaces = self.documents, self.spaces
+        if connection is not None:
+            documents, spaces = _documents_on_connection(documents, connection)
+        business = resolve_business_scope(spaces, owner_id)
+        if business is None:
+            raise CaptureRejected(SENDER_LINK_REVOKED)
+        scope = business.owner
+        draft = documents.get(user_id=owner_id, connection_id=connection_id, scope=scope)
+        staged = draft.status == "saved" and not draft.source_available
+        queued = (
+            draft.status == "queued"
+            and draft.consent
+            and documents.store.job(user_id=owner_id, connection_id=connection_id) is None
+        )
+        if draft.business_reading_consent_id is not None and (staged or queued):
+            return self._prepare_read(documents, connection, owner_id, draft, scope)
+        documents.publish_capture(
+            user_id=owner_id, connection_id=connection_id, scope=scope
+        )
+        return False
 
-    async def _dispatch(
-        self, owner_id: str, connection_id: str, scope: BusinessSpace
+    def _prepare_read(
+        self,
+        documents: DocumentsService,
+        connection: Connection | None,
+        owner_id: str,
+        draft: DocumentDraft,
+        scope: BusinessSpace,
     ) -> bool:
-        from argus.api.documents import dispatch_preparation, release_unstarted
-
+        # Roll back the read if preparation refuses while keeping an accepted
+        # source available for the owner's review.
+        connection_id = draft.connection_id
         try:
-            try:
-                owned = await asyncio.to_thread(
-                    _as_owner, self.documents, owner_id, scope
+            with connection.transaction() if connection is not None else nullcontext():
+                owned = _as_owner(documents, owner_id, scope)
+                consent = owned.business_receipt_consent
+                if (
+                    consent is None
+                    or draft.business_reading_consent_id is None
+                    or not consent.enabled(
+                        scope.space_id,
+                        owner_id,
+                        draft.business_reading_consent_id,
+                        db=connection,
+                    )
+                ):
+                    raise DocumentServiceError("document_reading_not_allowed")
+                published = owned.publish_capture(
+                    user_id=owner_id, connection_id=connection_id, scope=scope
                 )
-            except Exception as error:
-                await asyncio.to_thread(
-                    release_unstarted,
-                    self.documents,
-                    owner_id,
-                    connection_id,
-                    scope=scope,
-                    error=error,
-                )
-            await dispatch_preparation(owned, owner_id, connection_id, scope=scope)
-        except Exception as error:
-            # A refused attempt releases the draft to the owner's inbox.
-            saved = await asyncio.to_thread(
-                self.documents.get,
+                if draft.status == "saved":
+                    owned.queue(
+                        user_id=owner_id,
+                        connection_id=connection_id,
+                        consent=True,
+                        scope=scope,
+                        expected_version=published.version,
+                    )
+                record_dispatch_preparation(owned, owner_id, connection_id, scope=scope)
+        except (ActionError, CaptureFailed, DocumentServiceError) as error:
+            code = error.code
+            documents.publish_capture(
                 user_id=owner_id,
                 connection_id=connection_id,
                 scope=scope,
+                error_code=None if code == "document_reading_not_allowed" else code,
             )
-            if saved.status != "saved":
-                raise
+            documents.release_queued(
+                user_id=owner_id,
+                connection_id=connection_id,
+                scope=scope,
+                code=code,
+            )
             logger.warning(
                 "WhatsApp receipt waits unread", failure_mode=type(error).__name__
             )
@@ -196,6 +238,26 @@ class DocumentsDestination:
             connection_id=connection_id,
             scope=scope.owner,
         )
+
+
+def _documents_on_connection(
+    documents: DocumentsService, connection: Connection
+) -> tuple[DocumentsService, SpaceStore]:
+    pool = BorrowedConnection(connection)
+    store = documents.store
+    assert isinstance(store, PostgresDocumentStore)
+    scoped = copy(documents)
+    scoped.hub = copy(documents.hub)
+    scoped.hub.connections = PostgresConnectionRepository(pool)
+    scoped.store = PostgresDocumentStore(pool, store.objects)
+    if documents.business_actions is not None:
+        scoped.business_actions = BusinessActions(
+            pool, documents.business_actions.imports
+        )
+    if documents.business_receipt_consent is not None:
+        scoped.business_receipt_consent = copy(documents.business_receipt_consent)
+        scoped.business_receipt_consent.pool = pool
+    return scoped, PostgresSpaceStore(pool)
 
 
 def _as_owner(

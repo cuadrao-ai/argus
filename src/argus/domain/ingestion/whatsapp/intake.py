@@ -13,7 +13,8 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
-from typing import Any, Protocol
+from time import monotonic
+from typing import Any, Protocol, TypeVar
 
 from loguru import logger
 
@@ -69,6 +70,7 @@ PROCESSING_SECONDS = CLAIM_SECONDS - 15
 RENEW_SECONDS = CLAIM_SECONDS / 3
 CODE_TTL = timedelta(minutes=10)
 SERVICE_WINDOW = timedelta(hours=24)
+_Result = TypeVar("_Result")
 _REPLY_REJECTION = re.compile(r"([1-5][0-9]{2})(?::([0-9]{1,10}))?")
 
 
@@ -158,21 +160,27 @@ async def _bounded(task: asyncio.Task, timeout: float) -> Any:
     return task.result()
 
 
-async def _stop(lease: _Lease, task: asyncio.Task | None) -> None:
-    """Stop the heartbeat between renewals, never inside one: a renewal cut
-    off mid-write would move the claim without moving ``lease.held``. The
-    heartbeat itself is never cancelled, so a renewal in flight always hands
-    its token to ``lease.held``."""
+async def _finish(task: asyncio.Task[_Result]) -> _Result:
+    """Wait for a started write even if the caller is cancelled."""
 
-    lease.done.set()
     cancelled = False
-    while task is not None and not task.done():
+    while not task.done():
         try:
             await asyncio.wait({task})
         except asyncio.CancelledError:
             cancelled = True
     if cancelled:
+        task.exception()
         raise asyncio.CancelledError
+    return task.result()
+
+
+async def _stop(lease: _Lease, task: asyncio.Task | None) -> None:
+    """Let an in-flight renewal hand over its updated claim before stopping."""
+
+    lease.done.set()
+    if task is not None:
+        await _finish(task)
 
 
 @dataclass(frozen=True)
@@ -317,6 +325,7 @@ class WhatsAppIntake:
         heartbeat = (
             asyncio.create_task(self._heartbeat(key, lease)) if held is not None else None
         )
+        deadline = monotonic() + self.processing_seconds
         work = asyncio.create_task(self._decide(message, sender))
         try:
             settlement = await _bounded(work, self.processing_seconds)
@@ -354,7 +363,9 @@ class WhatsAppIntake:
                 failure = self.reply_codec.failure(
                     message, link, now=self.clock(), wait=self.reply_group_wait_seconds
                 )
-        settled = await self._settle(key, held, settlement, reply_failure=failure)
+        settled = await self._settle(
+            key, held, settlement, reply_failure=failure, deadline=deadline
+        )
         if settled is None:
             log.warning("WhatsApp message claim lost before settling")
             return False
@@ -434,14 +445,26 @@ class WhatsAppIntake:
         settlement: Settlement,
         *,
         reply_failure: PendingFailure | None = None,
+        deadline: float | None = None,
     ) -> Settlement | None:
-        return await asyncio.to_thread(
-            self.store.settle,
-            provider_message_key=key,
-            claim_until=held,
-            settlement=settlement,
-            now=self.clock(),
-            reply_failure=reply_failure,
+        prepare = (
+            getattr(self.destination, "prepare", None)
+            if settlement.status == "captured"
+            else None
+        )
+        return await _finish(
+            asyncio.create_task(
+                asyncio.to_thread(
+                    self.store.settle,
+                    provider_message_key=key,
+                    claim_until=held,
+                    settlement=settlement,
+                    now=self.clock,
+                    reply_failure=reply_failure,
+                    prepare=prepare,
+                    deadline=deadline,
+                )
+            )
         )
 
     async def _decide(self, message: InboundMessage, sender: bytes) -> Settlement:

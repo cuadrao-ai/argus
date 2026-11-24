@@ -14,6 +14,7 @@ from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStor
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.whatsapp.reply_worker import FailureReplyWorker
 from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
+from psycopg.errors import QueryCanceled
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
@@ -605,3 +606,42 @@ async def test_owner_erasure_cascades_pending_attempt_and_daily_counter(pool, us
 @pytest.mark.parametrize("case", UNLINKED_CASES, ids=lambda case: case.__name__)
 async def test_unlinked_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
     await case(_world(pool, users))
+
+
+@pytest.mark.asyncio
+async def test_final_settlement_cannot_wait_on_a_lock_past_the_processing_budget(
+    pool, users, monkeypatch
+) -> None:
+    world = _world(pool, users)
+    await world.link(world.alice, cases.ALICE_PHONE)
+    media_id, message_id = "700000000000156", "wamid.CASE-SETTLEMENT-LOCK"
+    world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
+    world.intake.processing_seconds = 1.5
+    destination = world.intake.destination
+    capture = destination.capture
+    locked = asyncio.Event()
+
+    with pool.connection() as blocker, blocker.transaction():
+
+        async def capture_then_lock(**kwargs):
+            result = await capture(**kwargs)
+            blocker.execute(
+                "select 1 from public.whatsapp_inbound_messages "
+                "where provider_message_key = %s for update",
+                (world.keys.message(message_id),),
+            ).fetchone()
+            locked.set()
+            return result
+
+        monkeypatch.setattr(destination, "capture", capture_then_lock)
+        delivery = asyncio.create_task(world.deliver(cases.image(media_id, message_id)))
+        await asyncio.wait_for(locked.wait(), timeout=3)
+        done, _ = await asyncio.wait({delivery}, timeout=3)
+
+    if not done:
+        await delivery
+        pytest.fail("settlement outlasted its budget while waiting to lock the claim")
+    with pytest.raises(QueryCanceled):
+        await delivery
+    assert world.record(message_id).status == "received"
+    assert len(world.transport.sent) == 1
