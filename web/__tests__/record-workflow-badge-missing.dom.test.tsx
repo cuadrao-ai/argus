@@ -62,6 +62,21 @@ for (const { name, report, expected } of cases) {
   });
 }
 
+test("only Estado names missing data in a Registros row", async () => {
+  const host = await status({
+    missing: ["expense_type_missing", "payment_method_missing"],
+    dgii_606: { expense_type: null, payment_form: null },
+  }, "table");
+  const row = host.querySelector("tbody tr")!;
+  assert.equal(row.querySelector('td[data-col="stage"]')?.textContent, "Faltan 2 datos");
+  for (const cell of row.querySelectorAll('td:not([data-col="stage"])')) {
+    assert.doesNotMatch(cell.textContent ?? "", /Falta/);
+  }
+  for (const column of ["expense_type", "payment_form"]) {
+    assert.equal(row.querySelector(`td[data-col="${column}"] [aria-hidden="true"]`)?.textContent, "-");
+  }
+});
+
 test("two gaps expose every reason in server order through the existing tooltip", async () => {
   const host = await status({ ready: false, missing: ["missing_ncf", "missing_rnc"] });
   const trigger = host.querySelector<HTMLElement>('[tabindex="0"]');
