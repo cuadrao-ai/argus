@@ -283,8 +283,9 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       if (!shown(asked)) return;
       if (keepEdits) {
         // A new version remounts the fiscal form. Keep any input started during the read.
-        if (!pendingFiscalEdits.current) setDossier((current) => current === dossier ? next : current);
-        return;
+        if (pendingFiscalEdits.current) return;
+        setDossier((current) => current === dossier ? next : current);
+        return next;
       }
       setDossier(next);
       setUnavailable(false);
@@ -455,7 +456,8 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const closeApprovalCheck = () => {
     setApprovalCheck(null);
     // The standing can change without a new draft version, such as when a sender is verified.
-    if (currentCheck && (currentCheck.origin === "refusal" || !everyGapConfirmable)) void refresh({ keepEdits: true });
+    if (currentCheck && (currentCheck.origin === "refusal" || !everyGapConfirmable)) return refresh({ keepEdits: true });
+    return dossier;
   };
   const confirmApproval = (check: ApprovalCheck) => {
     setApprovalCheck(null);
@@ -607,7 +609,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       tabs={[
         { key: "general", count: problems.filter((problem) => problem.tab === "general").length, content: <>
           {captureRecovery}
-          <OpenRecordMissingReasons />
+          <OpenRecordMissingReasons missing={dossier.missing} reasons={dossier.reasons} />
           {/* The row in focus or under the pointer marks its value where the message says it verbatim. */}
           <div
             ref={landing}
@@ -684,9 +686,10 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     {currentCheck && confirmProblems.length ? <DossierConfirm
       problems={confirmProblems}
       onClose={closeApprovalCheck}
-      onFix={() => {
-        closeApprovalCheck();
-        goProblem(confirmProblems[0]);
+      onFix={async () => {
+        const current = await closeApprovalCheck();
+        const first = current && dossierProblems(current, t)[0];
+        if (first) goProblem(first);
       }}
       onAcceptAnyway={canAcceptGaps ? () => confirmApproval(currentCheck) : undefined}
     /> : null}

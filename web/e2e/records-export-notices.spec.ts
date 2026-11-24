@@ -216,6 +216,12 @@ async function openReadinessRecords(page: Page, language: Language = "es-419", t
         id: purchases[0].linked_activity_ids[0], merchant: "Registro sintético", amount: "100.00", currency: "DOP",
         category_id: null, account_id: null, occurred_on: "2026-10-01", receipt_id: null, draft_id: null,
         recorded_at: "2026-10-01T12:00:00Z", revision: 1,
+        missing: ["expense_type_missing", "payment_method_missing", "missing_rnc"],
+        reasons: {
+          expense_type_missing: { field: "category", words: "business.transactions.layout.workflow.missing.expense_type_missing" },
+          payment_method_missing: { field: "payment_method", words: "business.transactions.layout.workflow.missing.payment_method_missing" },
+          missing_rnc: { field: "rnc", words: "business.transactions.layout.workflow.missing.missing_rnc" },
+        },
       } });
     }
     if (/\/(reports\/|report-views(?:\/|$))/.test(path)) {
@@ -309,7 +315,7 @@ for (const width of [1440, 390]) {
 
 
 for (const theme of ["light", "dark"] as const) {
-  test(`a record with no draft opens the one dossier read only, with its complete missing list (${theme})`, async ({ page }) => {
+  test(`a record with no draft opens the one dossier read only, with its complete missing list (${theme})`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openReadinessRecords(page, "es-419", theme, true);
     await page.getByTestId("transacciones-records").locator("tbody tr").first().click();
@@ -325,6 +331,9 @@ for (const theme of ["light", "dark"] as const) {
     await expect(tray.getByTestId("dossier-status")).toHaveCount(0);
     await expect(tray.locator("[data-tab-panel] :is(button, input, select)")).toHaveCount(0);
     await expect(tray.getByText(/Revisi[oó]n\s+\d/i)).toHaveCount(0);
+    const screenshot = testInfo.outputPath(`receipt-upload-manual-expense-${theme}.png`);
+    await page.screenshot({ path: screenshot, animations: "disabled" });
+    await testInfo.attach(`Manual expense ${theme}`, { path: screenshot, contentType: "image/png" });
     if (process.env.EVIDENCE_DIR) {
       await mkdir(process.env.EVIDENCE_DIR, { recursive: true });
       await page.screenshot({ path: join(process.env.EVIDENCE_DIR, `registro-sin-borrador-${theme}-es-419.png`), animations: "disabled" });

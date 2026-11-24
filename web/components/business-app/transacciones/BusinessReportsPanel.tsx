@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SlidersHorizontal } from "lucide-react";
@@ -139,7 +139,6 @@ export default function BusinessReportsPanel() {
 }
 
 export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency, firstLoadShown, onFirstLoad }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest; firstLoadShown?: boolean; onFirstLoad?: () => void }) {
-  const openSelectedRow = useContext(RecordGlanceContext);
   const { t } = useTransaccionesWords();
   const { chosen, panel, openPanel, revision, records } = useBusiness();
   const { isBelowDesktop } = useResponsiveLayout();
@@ -229,18 +228,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     if (!row.opens) return;
     const id = recordRowKey(row);
     focused.current = null; controller.rememberAnchor(id); updateUrl(state.request, id);
-    if (openSelectedRow) {
-      openSelectedRow(row, {
-        detailsCard: options?.detailsCard,
-        refresh: async (signal) => {
-          const answer = await (transport ?? liveReportingTransport).query(scope, state.request, signal);
-          const next = answer.items.find((item) => item.row_id === row.report?.row_id);
-          return next ? businessReportRow(next) : null;
-        },
-      });
-    } else {
-      openPanel(options?.detailsCard ? { ...row.opens, detailsCard: options.detailsCard } : row.opens);
-    }
+    openPanel(options?.detailsCard ? { ...row.opens, detailsCard: options.detailsCard } : row.opens);
   };
   const rowRef = (id: string, node: HTMLElement | null) => { if (node) rowNodes.current.set(id, node); else rowNodes.current.delete(id); };
   const periodLabel = useRecordsPeriodLabel();

@@ -326,7 +326,31 @@ EditableField = FactField | Literal[
 ]
 
 
-class BusinessDossier(RecordContext):
+class ReasonDetails(Contract):
+    field: str | None
+    words: str
+
+
+class DetailReadiness(Contract):
+    missing: tuple[str, ...] = ()
+    reasons: dict[str, ReasonDetails] = Field(default_factory=dict)
+
+    @classmethod
+    def from_codes(
+        cls, missing: tuple[str, ...], gaps: tuple[BandejaReason, ...] = ()
+    ) -> DetailReadiness:
+        from argus.domain.business.missing_reasons import REASONS
+
+        return cls(
+            missing=missing,
+            reasons={
+                code: ReasonDetails(field=REASONS[code].field, words=REASONS[code].words)
+                for code in dict.fromkeys((*missing, *gaps))
+            },
+        )
+
+
+class BusinessDossier(RecordContext, DetailReadiness):
     deleted: DeletedDocument | None = None
     delete_available: bool = False
     restore_available: bool = False
@@ -497,6 +521,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "year_to_check": True,
     "bandeja_group": True,
     "listo_gaps": True,
+    "missing": True,
+    "reasons": True,
     "confirmable": True,
     "rnc_registry_status": True,
     "history": {

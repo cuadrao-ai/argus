@@ -8476,6 +8476,8 @@ The upload year is the year, on the Business calendar (America/Santo_Domingo), o
 
 `BusinessDossier` carries the same standing for its one record. `bandeja_group: {group, reason, label}` holds the three values the rule above gives the row of a receipt linked to this draft alone; the dossier's own `draft_id` and `version` name the record. An `accepted` record has a null `group` and `reason` and the `label` `accepted`. A record being approved is `listo` with `ready`, a deleted record is `eliminados` with a null `label`, and a record whose receipt is being read is `reading`. `listo_gaps` lists each distinct reason once, in the rule's order, when `group` is `attention`, and is empty for every other record. `confirmable` lists the subset the person may accept over, in that same order, as defined by `bandeja_group.RULE`. For a record in attention, `reason` is always one of its gaps: it is the first gap, except that a possible repeat no person settled shows `duplicate` before an earlier gap, as the list does. `bandeja_group.group_of` and `bandeja_group.listo_gaps` own both values, and the web renders them without a rule of its own. The dossier's `blockers` still decide `approval_available`; they are not the Listos gaps.
 
+The dossier's `missing` lists the accepted record's Registros reason codes in the order returned by `readiness()`. A draft or a complete record has an empty list. For each code in `missing` or `listo_gaps`, `reasons[code]` gives the registry's `field` (null when there is no single field to fix) and `words` (the locale key).
+
 `BusinessDossier.rnc_registry_status` is what the DGII register says of the supplier RNC or cédula the record holds. The dossier uses one answer from `DgiiRncRegistry.read` for both the status and the check-digit flag. A listed number clears the flag. SQL verification gives an active number the status `verificado`. For other listed numbers, `RncRecord.mapped` returns `suspendido`, `dado_de_baja`, `cese_temporal`, `anulado`, `rechazado`, or `desconocido` when the publisher text has no matching status. `not_found` is a number the loaded register does not list; it is never `desconocido`. The field is null when the record holds no RNC or no register is loaded, so the web then shows no register status. The read is not behind `CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED`. The three fields are excluded from the model-facing dossier.
 
 A Venta, a receipt marked Personal and one in a foreign currency are `listo` when nothing above fails, and a list approval records a Venta with its own approval (`record_income`). Every other open receipt is `attention`, except one in `reading`, which is in neither tab until its read settles. A group decides nothing by itself: no read, worker, model or schedule approves.
@@ -10933,7 +10935,9 @@ accept path recorded.
   read only, with that no receipt is attached and when it was recorded. It
   carries `dgii_606`, the same value as its Registros row (below), read for
   this one record without reading every activity; null when Registros does not
-  list it yet.
+  list it yet. Its `missing` codes match the Registros row in order, and
+  `reasons` gives each code’s field and locale key, including for a manual
+  expense with no receipt or draft.
 - POST `/api/v1/business/expenses` (`Idempotency-Key` required) takes
   `{account_id, amount, occurred_on, merchant, category_id}` and records one
   expense through `MoneyService`, in the account's currency. A retry with the

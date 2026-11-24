@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useContext, useEffect, useState, type KeyboardEvent } from "react";
+import { Fragment, useContext, useState, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, ChevronRight } from "lucide-react";
 import { currencySymbol } from "@/lib/money-entry";
 import { personName } from "@/lib/person-name";
@@ -9,7 +9,7 @@ import { useBusiness } from "../BusinessWorkspace";
 import { formatAmount, formatMoney, formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
 import { isOpenRecord } from "../record-tray";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { RecordArrivalsContext, RecordGlanceContext, RecordRowsContext } from "./RecordGlanceContext";
+import { RecordArrivalsContext, RecordGlanceContext } from "./RecordGlanceContext";
 import pageStyles from "./records-page.module.css";
 import cellStyles from "./transacciones-cells.module.css";
 import { RecordMarks, useOwnerView } from "../business-ui";
@@ -27,17 +27,12 @@ import { CELL, COLUMNS, PIN_CLASS, RECORDS_FRAME, RECORDS_TITLE } from "./Transa
 import { useTransaccionesWords } from "./transacciones-words";
 
 const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN_VALUE;
-function useReportRows(records: readonly RecordRow[]) {
-  const refresh = useContext(RecordRowsContext);
-  useEffect(() => { refresh?.(records); }, [records, refresh]);
-}
 /** A frozen cell: the open row keeps its green edge on the left one. */
 const PINNED = { left: `${PIN_CLASS.left} group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`, right: PIN_CLASS.right } as const;
 export { recordRowKey } from "./records-row-preview";
 
 /** The period's saved gastos and ventas. A row opens its record in the record tray. */
 export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange, preferences, sort, onSortChange, amountSortAvailable = false, sortNoticeId, serverSorted = false }: { serverSorted?: boolean; sort?: RecordsSort; onSortChange?: (sort: RecordsSort) => void; amountSortAvailable?: boolean; sortNoticeId?: string; preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
-  useReportRows(records);
   const { t, locale } = useTransaccionesWords();
   const owner = useOwnerView();
   const openGlance = useContext(RecordGlanceContext);
@@ -197,7 +192,6 @@ export function RecordsList({ records, rowRef }: { records: readonly RecordRow[]
 
 /** Narrow saved-record preview. Only this or the table mounts, so row refs stay unique. */
 export function RecordsNarrowList({ records, rowRef }: { records: readonly RecordRow[]; rowRef: (id: string, node: HTMLElement | null) => void }) {
-  useReportRows(records);
   const { t, locale } = useTransaccionesWords();
   const { panel, openPanel } = useBusiness();
   const openGlance = useContext(RecordGlanceContext);
