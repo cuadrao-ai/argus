@@ -171,8 +171,9 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     const retyped = typeBefore && typeAfter && typeBefore !== typeAfter ? { before: t(DOCUMENT_TYPE_LABELS[typeBefore]), after: t(DOCUMENT_TYPE_LABELS[typeAfter]) } : null;
     if (retyped) events.push({ id: `${revision.version}-document-type`, at, ...correction("document_type", retyped.before, retyped.after), who });
     // A type change moves the activity and other answers with it; beside its one Tipo line, only what the server says the person also set counts.
-    const reviewed = retyped ? { facts: revision.reviewed_fact_fields ?? [], declaration: revision.reviewed_declaration_fields ?? [] } : null;
-    const shown = (key: string) => !reviewed || (key !== "kind" && reviewed.facts.includes(key));
+    // Without that list every other changed fact still counts; the type change replaced the old form's declaration, so only named declaration changes do.
+    const reviewed = retyped ? { facts: revision.reviewed_fact_fields, declaration: revision.reviewed_declaration_fields ?? [] } : null;
+    const shown = (key: string) => !reviewed || (key !== "kind" && (!reviewed.facts || reviewed.facts.includes(key)));
     const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal" && shown(key)) as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
     for (const key of facts) {
       const show = (side: BusinessDraftRevision["before"]) => side ? presentBusinessFact(key, side, accounts, locale, labels) : "";

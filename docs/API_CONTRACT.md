@@ -8792,7 +8792,9 @@ restored subtotal displays its resulting amount. Raw audit facts remain intact.
 
 `reviewed_declaration_fields` names the changed declaration fields explicitly
 submitted by the person, recovered from the revision's saved web command. Linked
-fields that moved only because their source changed are excluded. A purchase or
+fields that moved only because their source changed are excluded. In a full
+fiscal review, a linked field counts when the server saved the value the person
+sent; one saved at another value followed its source. A purchase or
 payment-split answer the person cleared counts: its review command text keeps
 that null and carries `"cleared_kept": true`. Null preserves legacy history when
 command evidence is unavailable, or when older evidence without that marker
@@ -8804,8 +8806,9 @@ person submitted: patched facts, typed subtotal or legal tip, and the fiscal
 facts of a fiscal review. It is null when the revision has no command
 evidence. A document type switch displays one type change, plus only the fact
 and declaration fields these lists name; the activity kind the type sets is not
-a second change. A null list there adds nothing, so without command evidence
-the switch displays the type change alone. These four display fields are
+a second change. Without a fact list, the switch also displays every other
+changed fact. The switch replaces the other form's declaration, so a null
+declaration list adds no declaration change. These four display fields are
 excluded from the model-facing dossier.
 
 A revision that writes a draft's first declaration records as `before_dgii`

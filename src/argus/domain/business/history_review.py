@@ -9,7 +9,7 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
-from argus.domain.business.amount_inheritance import INHERITANCE
+from argus.domain.business.amount_inheritance import INHERITANCE, same_value
 from argus.domain.business.contracts.actions import ReviewCommand, ReviewDraft
 from argus.domain.business.contracts.dgii import SalePaymentForm
 from argus.domain.business.contracts.facts import FiscalFacts
@@ -123,11 +123,15 @@ def _reviewed_declaration(revision: "DraftRevision", request: ReviewDraft, kept:
         names.update(request.montos.override_inherited)
         names.update(request.montos.restore_inherited)
     if request.dgii is not None:
-        # Current fiscal editors name links they override or restore. An older
-        # full declaration without that evidence is ambiguous.
-        if request.montos is None and revision.before is not None and revision.before.fiscal == revision.after.fiscal:
-            return None
-        names.update(set(type(request.dgii.declaration).model_fields) - INHERITANCE.keys())
+        sent = request.dgii.declaration
+        fields = type(sent).model_fields.keys()
+        names.update(fields - INHERITANCE.keys())
+        # A linked value saved as sent may be the person's; one saved otherwise
+        # followed its source.
+        names.update(
+            name for name in fields & INHERITANCE.keys()
+            if same_value(name, getattr(sent, name), getattr(revision.after_dgii, name, None))
+        )
     names.difference_update({"form", "category_suggested", "suggestion_sources"})
     return tuple(sorted(name for name in names if getattr(revision.before_dgii, name, None) != getattr(revision.after_dgii, name, None)))
 
