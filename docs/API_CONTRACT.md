@@ -8459,6 +8459,8 @@ The upload year is the year, on the Business calendar (America/Santo_Domingo), o
 
 `BusinessDossier` carries the same standing for its one record. `bandeja_group: {group, reason, label}` holds the three values the rule above gives the row of a receipt linked to this draft alone; the dossier's own `draft_id` and `version` name the record. An `accepted` record has a null `group` and `reason` and the `label` `accepted`. A record being approved is `listo` with `ready`, a deleted record is `eliminados` with a null `label`, and a record whose receipt is being read is `reading`. `listo_gaps` lists each distinct reason once, in the rule's order, when `group` is `attention`, and is empty for every other record. `confirmable` lists the subset the person may accept over, in that same order, as defined by `bandeja_group.RULE`. For a record in attention, `reason` is always one of its gaps: it is the first gap, except that a possible repeat no person settled shows `duplicate` before an earlier gap, as the list does. `bandeja_group.group_of` and `bandeja_group.listo_gaps` own both values, and the web renders them without a rule of its own. The dossier's `blockers` still decide `approval_available`; they are not the Listos gaps.
 
+The dossier's `missing` lists the accepted record's Registros reason codes in the order returned by `readiness()`. A draft or a complete record has an empty list. For each code in `missing` or `listo_gaps`, `reasons[code]` gives the registry's `field` (null when there is no single field to fix) and `words` (the locale key).
+
 `BusinessDossier.rnc_registry_status` is what the DGII register says of the supplier RNC or cédula the record holds. The dossier uses one answer from `DgiiRncRegistry.read` for both the status and the check-digit flag. A listed number clears the flag. SQL verification gives an active number the status `verificado`. For other listed numbers, `RncRecord.mapped` returns `suspendido`, `dado_de_baja`, `cese_temporal`, `anulado`, `rechazado`, or `desconocido` when the publisher text has no matching status. `not_found` is a number the loaded register does not list; it is never `desconocido`. The field is null when the record holds no RNC or no register is loaded, so the web then shows no register status. The read is not behind `CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED`. The three fields are excluded from the model-facing dossier.
 
 A Venta, a receipt marked Personal and one in a foreign currency are `listo` when nothing above fails, and a list approval records a Venta with its own approval (`record_income`). Every other open receipt is `attention`, except one in `reading`, which is in neither tab until its read settles. A group decides nothing by itself: no read, worker, model or schedule approves.
@@ -10916,7 +10918,9 @@ accept path recorded.
   read only, with that no receipt is attached and when it was recorded. It
   carries `dgii_606`, the same value as its Registros row (below), read for
   this one record without reading every activity; null when Registros does not
-  list it yet.
+  list it yet. Its `missing` codes match the Registros row in order, and
+  `reasons` gives each code’s field and locale key, including for a manual
+  expense with no receipt or draft.
 - POST `/api/v1/business/expenses` (`Idempotency-Key` required) takes
   `{account_id, amount, occurred_on, merchant, category_id}` and records one
   expense through `MoneyService`, in the account's currency. A retry with the
@@ -11074,7 +11078,10 @@ accept path recorded.
   (`missing_rnc`, `invalid_rnc`, `missing_ncf`, `invalid_ncf`, `missing_date`,
   `duplicate`). Fiscal reasons come from `missing_items` in `dgii_line.py`,
   reading the original issues preserved by `dgii_export.py`, in the registry's
-  order. Distinct blocker reasons
+  order. Every record also carries `missing_fields`, the distinct table columns
+  for those reason fields, in registry order and limited to the record's family.
+  It includes hidden columns. A clean record has an empty list. A reason without
+  a matching column stays in `missing`. Distinct blocker reasons
   follow in the projection's blocker-table order; repeated reasons appear once.
   The `possible_duplicate` blocker (a repeated read) yields its own word,
   `duplicate`; `duplicate_document` stays the fiscal number already
@@ -11249,14 +11256,16 @@ accept path recorded.
   chosen `columns` in the preview's order with its `required` columns always in,
   and `currencies` `current` (the screen's currency) or `all` (the same request in
   every currency, with a Moneda column after Monto; refused with
-  `business_export_currency_required` while an amount range is set). A column
+  `business_export_currency_required` while an amount range is set). A saved
+  table export drops the retired `missing` and `funding` selections before
+  validating the list. At least one current selection must remain. A column
   the preview for that choice does not list is refused with
   `business_export_column_unavailable`.
   Table headers and values use the web locales through
   `records_file_words.generated.json`, generated by
   `scripts/generate_records_file_words.py`. Expense type and payment method
   use `NN - NAME` with the uppercase name from the selected locale. The table
-  also shows stage, `Falta` or `No aplica`, attachment, and account. Amounts
+  also shows stage, `Falta` or `No aplica`, and attachment. Amounts
   are exact numbers shown with two decimals, or the currency's own precision
   when it has more. An amount past Excel's 15 significant digits stays exact
   text. Dates are real dates (`dd/mm/yyyy` in CSV).
@@ -11318,20 +11327,18 @@ accept path recorded.
   layout, including when the original request omitted it. Explicit saved layouts
   keep their order, hidden columns and density. A column a saved or linked
   layout does not name joins it at the end, hidden. The
-  net amount instead joins just before the total, shown; `missing` (Motivo)
-  joins just after `stage`, shown.
+  net amount joins just before the total, shown. The upgrade preserves the
+  position of `stage` among the remaining columns. If retiring a visible column
+  would leave a family's table empty, the upgrade shows `stage` in place.
 
   `presentation.order` contains each supported table key once, in any order.
   The default visible order is `counterparty_id` (RNC o Cédula), date, expense
-  type, net amount, ITBIS, total, stage, missing. `stage` renders the fixed-width
-  Listo/Faltan datos chip from `ready`. `missing` renders the first ordered
-  reason and +N for remaining reasons, blank when ready; the full list is
-  available on hover and in the open record. The table export renders the
-  same two columns using locale-owned words. The name, fiscal number, note,
-  attachment, payment form and account are hidden by default.
+  type, net amount, ITBIS, total and stage. `stage` shows Listo/Faltan datos
+  from `ready`. The table export uses the same localized status. The name,
+  fiscal number, note, attachment and payment form are hidden by default.
   Expense type and payment form are offered and rendered only on Compras.
-  `family` and `currency` are removed from table order and hidden keys when reading
-  old saved presentations. `hidden` can name any column, but every table keeps
+  Stored and posted layouts drop `family`, `currency`, `missing` and `funding`
+  from the order and hidden keys. `hidden` can name any column, but every table keeps
   one column shown: a layout is a 422 when it leaves a family's table, in any
   country, with no shown column. Hiding every column does that, and so does
   showing only expense type or payment form, which Ventas does not offer. The

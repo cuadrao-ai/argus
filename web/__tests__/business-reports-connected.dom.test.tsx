@@ -310,7 +310,7 @@ test("a period the person chose stays chosen when Registros opens again", async 
   assert.equal(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]')?.textContent, "Mes pasado");
 });
 
-test("Estado reads ready and Motivo shows server reasons independently of legacy stage", async () => {
+test("Estado still reads server readiness independently of legacy stage and missing reasons", async () => {
   await mount({ edit: (records) => {
     Object.assign(records[0], { stage: "ready_for_export", ready: false, missing: ["payment_method_missing"] });
     Object.assign(records[1], { family: "purchase", ready: false, missing: ["missing_ncf", "missing_rnc"] });
@@ -320,13 +320,11 @@ test("Estado reads ready and Motivo shows server reasons independently of legacy
   assert.equal(cell(1, "stage"), "Faltan datos");
   assert.equal(cell(2, "stage"), "Faltan datos");
   assert.equal(cell(3, "stage"), "Listo");
-  assert.equal(cell(1, "missing"), "Falta la forma de pago");
-  assert.equal(cell(2, "missing"), "Falta el NCF+1");
-  assert.equal(cell(3, "missing"), "");
+  assert.equal(document.querySelector('[data-col="missing"], [data-col="funding"]'), null);
 });
 
 test("chosen purchase columns use the server's name, missing word and a dash for a sale", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, hidden: ["funding", "payment_form"] } }) });
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, hidden: ["attachment", "payment_form"] } }) });
   const cell = (id: number, column: string) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="${column}"]`);
   const headings = [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
   assert.ok(!headings.includes("category") && !headings.includes("detail") && headings.includes("expense_type"), "the optional purchase field replaces the removed table fields");
@@ -342,7 +340,7 @@ test("chosen purchase columns use the server's name, missing word and a dash for
   assert.equal(cell(1, "payment_form")?.textContent, "Falta");
   assert.equal(cell(3, "payment_form")?.textContent, "Efectivo");
   const request = restoreReportLocation(new URL(window.location.href).searchParams).request;
-  assert.deepEqual(request.schema_version === 2 ? request.presentation?.hidden : null, ["funding"], "the chosen columns travel with the saved presentation");
+  assert.deepEqual(request.schema_version === 2 ? request.presentation?.hidden : null, ["attachment"], "the chosen columns travel with the saved presentation");
   await page.click(document.querySelector('#records-type-venta'));
   await page.settle(() => document.querySelector('th[data-col="expense_type"]') === null);
   assert.equal(document.querySelector('th[data-col="payment_form"]'), null);

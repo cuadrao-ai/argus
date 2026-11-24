@@ -25,7 +25,11 @@ from argus.domain.business.contracts.deletion import (
     DeletedDocument,
     DocumentActionResult,
 )
-from argus.domain.business.contracts.dossier import BusinessDossier, RecordContext
+from argus.domain.business.contracts.dossier import (
+    BusinessDossier,
+    DetailReadiness,
+    RecordContext,
+)
 from argus.domain.business.contracts.listos import ListosApproved
 from argus.domain.business.country import CountryCode
 from argus.domain.business.document_type import DocumentType
@@ -524,7 +528,7 @@ class _Answers606(_Wire):
     dgii_606: Purchase606 | None = None
 
 
-class ExpenseDetail(BusinessExpense, _Answers606):
+class ExpenseDetail(BusinessExpense, _Answers606, DetailReadiness):
     # When the activity was recorded and its current revision; null when the
     # money read does not say.
     recorded_at: datetime | None = None

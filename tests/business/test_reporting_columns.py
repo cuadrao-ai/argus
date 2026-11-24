@@ -98,7 +98,6 @@ OLD_HIDDEN = ["fiscal_number", "expense_type", "payment_form", "funding"]
                 "itbis_amount",
                 "gross_amount",
                 "stage",
-                "missing",
             ],
             [
                 "counterparty",
@@ -106,7 +105,6 @@ OLD_HIDDEN = ["fiscal_number", "expense_type", "payment_form", "funding"]
                 "note",
                 "attachment",
                 "payment_form",
-                "funding",
             ],
         ),
         (
@@ -118,9 +116,8 @@ OLD_HIDDEN = ["fiscal_number", "expense_type", "payment_form", "funding"]
                 "itbis_amount",
                 "gross_amount",
                 "stage",
-                "missing",
             ],
-            ["counterparty", "fiscal_number", "note", "attachment", "funding"],
+            ["counterparty", "fiscal_number", "note", "attachment"],
         ),
     ],
 )
@@ -235,10 +232,10 @@ def test_a_column_one_country_omits_cannot_be_the_only_one_shown(monkeypatch):
 def test_a_layout_from_before_the_taxpayer_id_still_loads():
     stored = {"order": OLD_ORDER, "hidden": OLD_HIDDEN, "density": 40}
     result = answer(ReportRequestV2.model_validate({"presentation": stored}))
-    expected = list(OLD_ORDER)
-    expected.insert(expected.index("stage") + 1, "missing")
-    assert result.presentation.order == (*expected, "counterparty_id")
-    assert result.presentation.hidden == (*OLD_HIDDEN, "counterparty_id")
+    order = [key for key in OLD_ORDER if key != "funding"]
+    hidden = [key for key in OLD_HIDDEN if key != "funding"]
+    assert result.presentation.order == (*order, "counterparty_id")
+    assert result.presentation.hidden == (*hidden, "counterparty_id")
     assert result.presentation.density == 40
     assert result.columns[0].key == "counterparty" and result.columns[0].shown
 
@@ -268,18 +265,17 @@ def test_ventas_offers_no_purchase_columns():
         ).columns
     ]
     assert "expense_type" not in keys and "payment_form" not in keys
-    assert "funding" in keys
 
 
 def test_a_country_omission_leaves_the_answer(monkeypatch):
     monkeypatch.setitem(
         country.COUNTRIES,
         "DO",
-        country.BusinessCountry("DO", "DOP", frozenset({"funding"})),
+        country.BusinessCountry("DO", "DOP", frozenset({"note"})),
     )
     request = ReportRequestV2(filters={"record_families": ["purchase"]})
-    assert "funding" not in [c.key for c in answer(request, country="DO").columns]
-    assert "funding" in [c.key for c in answer(request, country="US").columns]
+    assert "note" not in [c.key for c in answer(request, country="DO").columns]
+    assert "note" in [c.key for c in answer(request, country="US").columns]
 
 
 def test_a_link_missing_the_net_amount_shows_it_before_the_total():

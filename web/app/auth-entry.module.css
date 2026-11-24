@@ -180,6 +180,39 @@
   .screen [data-auth-hero-settled="true"] { animation: none; }
 }
 
+.screen [data-auth-sign-in-steps="true"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: [feedback] auto [names] auto [summary] auto [password] auto [submit] auto;
+}
+
+.screen [data-auth-sign-in-steps] > * { grid-column: 1; }
+.screen [data-auth-sign-in-steps] > [data-auth-feedback] { grid-row: feedback; }
+.screen [data-auth-sign-in-steps] > [data-auth-collapse] { grid-row: names; }
+.screen [data-auth-sign-in-steps] > button { grid-row: submit; }
+.screen [data-auth-sign-in-panel="summary"] { grid-row: summary; }
+.screen [data-auth-sign-in-panel="password"] { grid-row: password; }
+.screen [data-auth-sign-in-panel="email"] { grid-row: summary / submit; }
+
+.screen [data-auth-sign-in-panel] {
+  --auth-step-fade-duration: 220ms;
+  align-self: start;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--auth-step-fade-duration) ease-out,
+    visibility 0s var(--auth-step-fade-duration);
+}
+
+.screen [data-auth-sign-in-panel][data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen [data-auth-sign-in-panel] { transition: none; }
+}
+
 .screen [data-auth-collapse="true"] {
   display: grid;
   grid-template-rows: 0fr;

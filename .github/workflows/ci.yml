@@ -308,6 +308,7 @@ jobs:
           PLAYWRIGHT_PORT=3101 bunx playwright test \
             e2e/business-receipt-upload-recovery.spec.ts \
             e2e/amounts-hidden-css.spec.ts \
+            e2e/auth-sign-in-motion.spec.ts \
             e2e/business-cambiar-imagen.spec.ts \
             e2e/business-ecf-checks.spec.ts \
             e2e/business-edit-row-placement.spec.ts \

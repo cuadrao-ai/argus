@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { test } from "bun:test";
 import ts from "typescript";
-import { REPORT_PRESENTATION_KEYS, reportAnswerSchema, reportPresentationSchema, reportRequestSchema } from "@/lib/business-reports-api";
+import { REPORT_PRESENTATION_KEYS, reportAnswerSchema, reportColumnSchema, reportPresentationSchema, reportRequestSchema } from "@/lib/business-reports-api";
 import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
 import { recordsPresentationToReport } from "@/lib/business-reporting-wire";
@@ -82,7 +82,11 @@ test("the web's column keys are the contract's: the openapi Presentation and Rep
   assert.deepEqual(openapiEnum("ReportColumn", "key"), [...REPORT_PRESENTATION_KEYS]);
 });
 test("the web validates a layout's shape only and keeps no column rule of its own", () => {
-  assert.equal(reportPresentationSchema.safeParse({ order: ["date", "counterparty", "category"], hidden: ["counterparty"], density: 48 }).success, true);
+  const oldLayout = { order: ["date", "counterparty", "category", "missing", "funding"], hidden: ["counterparty", "funding"], density: 48 };
+  assert.deepEqual(reportPresentationSchema.parse(oldLayout), oldLayout);
+  for (const key of ["missing", "funding"]) {
+    assert.equal(reportColumnSchema.safeParse({ ...recordedReportAnswer.columns[0], key }).success, false);
+  }
   const reversed = { ...recordedReportAnswer, columns: [...recordedReportAnswer.columns].reverse().map((column) => ({ ...column, shown: !column.shown })) };
   assert.deepEqual(reportAnswerSchema.parse(reversed).columns, reversed.columns);
 });
@@ -90,12 +94,12 @@ test("authority guard rejects renamed literal defaults and order derived from a 
   for (const source of [
     'const alwaysInFile = { counterparty: true, payment_form: true };',
     'const startingColumns = ["counterparty", "date", "gross_amount"];',
-    'const layout = () => ({ order: RECORDS_PREVIEW_COLUMNS.map(column => column.key), hidden: ["funding"] });',
+    'const layout = () => ({ order: RECORDS_PREVIEW_COLUMNS.map(column => column.key), hidden: ["attachment"] });',
     'const schema = z.object({ order: z.array(key).default([...REPORT_PRESENTATION_KEYS]) });',
   ]) assert.ok(columnDefaults(source, "hooks/candidate.js").length > 0, source);
 });
 test("only the checked fixture may provide JSON table defaults", () => {
-  assert.ok(jsonColumnDefaults({ presentation: { order: ["counterparty", "date"], hidden: ["funding", "expense_type"] } }).length > 0);
+  assert.ok(jsonColumnDefaults({ presentation: { order: ["counterparty", "date"], hidden: ["attachment", "expense_type"] } }).length > 0);
   assert.deepEqual(jsonColumnDefaults({ totals: [], matching_count: 0 }), []);
 });
 test("preview adapts the recorded server answer and request validation adds no presentation", () => {
