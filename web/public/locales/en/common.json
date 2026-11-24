@@ -3249,12 +3249,6 @@
         "waiting_for_window": "Waiting to ask",
         "withdrawn": "Withdrawn"
       },
-      "state": {
-        "open": "Awaiting review",
-        "accepting": "Checking acceptance outcome",
-        "accepted": "Recorded",
-        "dismissed": "Dismissed"
-      },
       "blocker": {
         "unknown_funding": "Confirm how this was paid.",
         "missing_fields": "Resolve the required details.",
@@ -3386,18 +3380,6 @@
     },
     "reading": {
       "document": "Reading the document"
-    },
-    "status": {
-      "pill_approved": "Accepted",
-      "pill_attention": "Needs attention",
-      "pill_pending": "Pending",
-      "saved": "Saved, unread",
-      "queued": "Waiting to prepare",
-      "preparing": "Preparing",
-      "review_ready": "Ready to review",
-      "needs_attention": "Needs attention",
-      "confirmed": "Expense saved",
-      "dismissed": "Dismissed"
     },
     "category": {
       "none": "No category",
@@ -4235,8 +4217,6 @@
       "notes_latest": "Showing the latest 50 saved notes. Older open notes are reachable through search.",
       "note_more_one": "{{count}} earlier note",
       "note_more_other": "{{count}} earlier notes",
-      "row_reading": "Reading…",
-      "row_ready": "Ready to review",
       "segments": "Show",
       "segment_review": "To review",
       "segment_problem": "Problems",

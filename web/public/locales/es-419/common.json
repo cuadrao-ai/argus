@@ -3249,12 +3249,6 @@
         "waiting_for_window": "Esperando para preguntar",
         "withdrawn": "Retirada"
       },
-      "state": {
-        "open": "Pendiente de revisión",
-        "accepting": "Consultando resultado de aceptación",
-        "accepted": "Registrado",
-        "dismissed": "Descartado"
-      },
       "blocker": {
         "unknown_funding": "Confirma cómo se pagó.",
         "missing_fields": "Completa los detalles necesarios.",
@@ -3586,8 +3580,6 @@
       "reveal_more": "Ver más",
       "review_receipts": "Revisar recibos",
       "title": "Bandeja",
-      "row_reading": "Leyendo…",
-      "row_ready": "Listo para revisar",
       "segments": "Mostrar",
       "segment_review": "Por revisar",
       "segment_problem": "Con problema",
@@ -4639,18 +4631,6 @@
       "tax": "ITBIS",
       "title": "Revisar recibo",
       "view_expenses": "Ver gastos"
-    },
-    "status": {
-      "confirmed": "Gasto guardado",
-      "dismissed": "Descartado",
-      "needs_attention": "Necesita atención",
-      "pill_approved": "Aceptado",
-      "pill_attention": "Necesita atención",
-      "pill_pending": "Pendiente",
-      "preparing": "Preparando",
-      "queued": "En espera de preparación",
-      "review_ready": "Listo para revisar",
-      "saved": "Guardado, sin leer"
     },
     "composer_receipt": {
       "open": "Abrir recibo",

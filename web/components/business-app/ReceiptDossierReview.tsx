@@ -136,7 +136,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     amount: dossier.facts.amount.value,
     currency: dossier.facts.currency.value,
     filename: receipt?.filename ?? dossier.sources.find(item => item.kind === "attachment")?.filename ?? null,
-    state: dossier.bandeja_group?.label ? t(`business.bandeja.label.${dossier.bandeja_group.label}`) : t("business.document_delete.previous.attention"),
+    state: dossier.bandeja_group?.label ? t(`business.bandeja.label.${dossier.bandeja_group.label}`) : null,
     accepted: dossier.review_state === "accepted",
     receipt,
   } : null, { initialPreview: origin?.confirmDelete === true });
