@@ -58,6 +58,7 @@ from argus.domain.business.contracts.facts import HUMAN_AMOUNT_FIELDS
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
+from argus.domain.business.history_review import review_evidence
 from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from argus.domain.business.transactions import (
     ActionTransaction,
@@ -368,9 +369,7 @@ class BusinessActions:
                         evidence = WebActionSource(
                             id=uuid4(),
                             received_at=datetime.now(timezone.utc),
-                            text=web_action_text(
-                                command.model_dump(mode="json", exclude_none=True)
-                            ),
+                            text=web_action_text(review_evidence(command)),
                         )
                         source_id = sources.record_source(
                             tx, f"web:{context.actor.actor_id}:{key}", evidence

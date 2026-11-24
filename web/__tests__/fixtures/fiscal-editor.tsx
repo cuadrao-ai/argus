@@ -46,7 +46,14 @@ export async function mountEditor(shape: { productionI18n?: boolean; fields?: Dg
     const input = JSON.parse(String(init?.body)) as { version: number; dgii: DgiiReview };
     writes.push({ key: new Headers(init?.headers).get("Idempotency-Key"), input });
     if (fail) throw new Error("lost response");
-    return Response.json({ ...current, version: current.version + 1, dgii: input.dgii.declaration });
+    const restored = (input as unknown as { montos?: { restore_inherited?: string[] } }).montos?.restore_inherited ?? [];
+    const declaration = { ...input.dgii.declaration };
+    const inheritance = { ...current.inheritance };
+    for (const name of restored) {
+      const link = inheritance[name];
+      if (link) { declaration[name] = link.value; inheritance[name] = { ...link, inherited: true }; }
+    }
+    return Response.json({ ...current, version: current.version + 1, dgii: declaration, inheritance });
   };
   const options = shape.productionI18n ? (await import("@/lib/i18n")).default.options : {};
   const namespace = shape.productionI18n ? "common" : "translation";

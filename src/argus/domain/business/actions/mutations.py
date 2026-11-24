@@ -60,6 +60,7 @@ from argus.domain.business.contracts.facts import (
     MontosReview,
     ReadPurchase,
     Unknown,
+    read_fills,
 )
 from argus.domain.business.document_type import (
     TYPE_OF_KIND,
@@ -156,6 +157,7 @@ def save_revision(
     due_on: DueOnInput | None = None,
     reason: RevisionReason | None = None,
     accepted_accounts: FinancialAccountService | None = None,
+    unchanged_version: int | None = None,
 ) -> Applied:
     if before is None and isinstance(after.legal_tip, Unknown) and after.legal_tip.origin is None:
         after = after.model_copy(update={"legal_tip": Unknown(origin="matched", source_ids=source_ids)})
@@ -222,6 +224,9 @@ def save_revision(
         document_type_detected=document_type_detected,
         due_on=after_due_on,
     ).model_dump(mode="json")
+    # Normalize older omitted defaults; repeated human answers write no revision.
+    if unchanged_version is not None and resolution["business"] == BusinessResolution.model_validate(previous).model_dump(mode="json"):
+        return Applied(outcome="applied", draft_id=event.id, version=unchanged_version)
     activity_id = None
     if accepted_accounts is not None:
         from argus.domain.business.actions.accepted_edit import revise_activity
@@ -341,9 +346,14 @@ def revise(
         if document_type is not None and before is not None
         else before
     )
+    uploaded = None
+    if before is not None and patch is not None and patch.occurred_on is not None:
+        from argus.domain.business.actions.listos import _upload_years
+
+        uploaded = next(iter(_upload_years(tx, (event.id,)).values()), None)
     try:
         after = (
-            patched_facts(base, patch, source_ids, origin=origin)
+            patched_facts(base, patch, source_ids, origin=origin, upload_year=uploaded)
             if patch is not None
             else base
         )
@@ -418,11 +428,18 @@ def revise(
                 raise ActionError("invalid_input", "fiscal_amount_precision_or_limit")
         return written
 
+    # A repeated answer is no write, but a linked field a person types leaves
+    # its source even at the same value. Only a saved 606 holds purchase
+    # answers; a 607's purchase write is refused in declare.
+    saved_purchase = stored if isinstance(stored, PurchaseDeclaration) else None
     stored, declared, fiscal_overrides = written_declaration(
         before or after, stored, declare,
         previous_resolution.get("fiscal_overrides"), previous_resolution.get("bill_mark"), linked,
         retyped=retyped,
-        written=tuple(purchase.model_fields_set if purchase is not None else ()) + (montos.override_inherited if montos else ()),
+        written=tuple(
+            name for name in (purchase.model_fields_set if purchase else ())
+            if saved_purchase is None or name in INHERITANCE or getattr(purchase, name) != getattr(saved_purchase, name)
+        ) + (montos.override_inherited if montos else ()),
         restore=montos.restore_inherited if montos else (),
         amount_derived=amount_derived,
         unsaved=unsaved,
@@ -452,6 +469,7 @@ def revise(
         due_on=due_on,
         reason=reason,
         accepted_accounts=web_accounts if event.state == "accepted" else None,
+        unchanged_version=ref.version if ref is not None and web_accounts is not None else None,
     )
 
 
@@ -1105,19 +1123,10 @@ def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> d
     if incoming["state"] != "known":
         return prior
     if prior["state"] == "unknown":
-        return (
-            prior
-            if prior.get("origin") in {"owner_stated", "member_set", "matched"}
-            else incoming
-        )
+        return incoming if read_fills(prior) else prior
     if currency and incoming.get("origin") == "default":
         return prior
-    if (
-        currency
-        and prior.get("origin") == "default"
-        and prior["value"] == "DOP"
-        and not prior["source_ids"]
-    ):
+    if currency and read_fills(prior):
         return incoming
     if prior["state"] == "known" and prior["value"] == incoming["value"]:
         return prior

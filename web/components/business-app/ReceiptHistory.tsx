@@ -7,7 +7,7 @@ import { personName } from "@/lib/person-name";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
 import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFacts, type BusinessFiscalField, type BusinessSupportingFile } from "@/lib/business-dossier";
-import { formatDay, formatTimestamp } from "./business-format";
+import { formatDay, formatMoney, formatTimestamp } from "./business-format";
 import { DOCUMENT_TYPE_LABELS } from "./receipt-fact-rows";
 import { dossierRowLabel } from "./dossier-attention";
 import { DossierCard } from "./dossier/DossierParts";
@@ -108,14 +108,17 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     return { line: changed(key, before, after), heading: diff ? fieldName(key) : undefined, diff };
   };
   /** The dictionary's fields a save changed, in its order, named and worded as Datos fiscales shows them; a field the earlier declaration lacked has nothing to strike. A sale's ways to pay are one line, where the first of them sorts, named as General names them. */
-  const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration, facts: BusinessFacts): FiscalChange[] | null => {
+  const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration, facts: BusinessFacts, reviewed?: readonly string[] | null): FiscalChange[] | null => {
     if (!dgiiFields) return null;
     const shown = (field: DgiiField, value: DgiiDeclaration[string] | undefined) => presentDgiiValue(field, value, facts, locale, t, t("business.dossier.unknown", "Unknown"));
     const forms = after.form === "607" ? salePaymentForms : NO_FORMS;
     const paidBy = (declaration: DgiiDeclaration | null | undefined) => forms.filter((name) => Number(declaration?.[name]) > 0).map((name) => dgiiOptionLabel(t, "sale_payment_form", name)).join(", ");
     const payment = { before: paidBy(before), after: paidBy(after) };
     const firstForm = dgiiFields[after.form].find((field) => forms.includes(field.name))?.name;
+    // The ways to pay are one line, so a person's edit to any of them names the whole group.
+    const named = (name: string) => !reviewed || (forms.includes(name) ? forms : [name]).some((each) => reviewed.includes(each));
     return dgiiFields[after.form].flatMap((field): FiscalChange[] => {
+      if (!named(field.name)) return [];
       if (forms.includes(field.name)) {
         if (field.name !== firstForm || payment.before === payment.after) return [];
         return [{ name: "sale_payment", field: dossierRowLabel(t, "sale_payment", { document_type: documentType }), before: payment.before || null, after: payment.after || t("business.dossier.row.no_data") }];
@@ -166,13 +169,22 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     }
     const { before_document_type: typeBefore, after_document_type: typeAfter } = revision;
     const retyped = typeBefore && typeAfter && typeBefore !== typeAfter ? { before: t(DOCUMENT_TYPE_LABELS[typeBefore]), after: t(DOCUMENT_TYPE_LABELS[typeAfter]) } : null;
-    // The activity follows the type on the server, so a type change says it once, as Tipo.
-    const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal" && !(retyped && key === "kind")) as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
+    if (retyped) events.push({ id: `${revision.version}-document-type`, at, ...correction("document_type", retyped.before, retyped.after), who });
+    // A type change moves the activity and other answers with it; beside its one Tipo line, only what the server says the person also set counts.
+    // Without that list every other changed fact still counts; the type change replaced the old form's declaration, so only named declaration changes do.
+    const reviewed = retyped ? { facts: revision.reviewed_fact_fields, declaration: revision.reviewed_declaration_fields ?? [] } : null;
+    const shown = (key: string) => !reviewed || (key !== "kind" && (!reviewed.facts || reviewed.facts.includes(key)));
+    const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal" && shown(key)) as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
     for (const key of facts) {
       const show = (side: BusinessDraftRevision["before"]) => side ? presentBusinessFact(key, side, accounts, locale, labels) : "";
-      events.push({ id: `${revision.version}-${key}`, at, ...correction(key, show(revision.before), show(revision.after)), who });
+      const subtotal = (side: "before" | "after") => {
+        const amount = revision[`${side}_net_amount`];
+        return amount === undefined ? show(revision[side]) : amount?.amount == null ? "" : formatMoney(amount.amount, revision[side]?.currency.value ?? "", locale);
+      };
+      events.push({ id: `${revision.version}-${key}`, at, ...correction(key, key === "net_amount" ? subtotal("before") : show(revision.before), key === "net_amount" ? subtotal("after") : show(revision.after)), who });
     }
     for (const key of BUSINESS_FISCAL_FIELDS) {
+      if (!shown(key)) continue;
       if (key === "include_606") {
         if (documentType === "venta") continue;
         const before = answer606(revision.before);
@@ -189,7 +201,6 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       const verified = key === "rnc" && change.line === null && after?.state === "known" && after.verified && !before?.verified;
       events.push({ id: `${revision.version}-${key}`, at, ...(verified ? { line: t("business.history.rnc_verified", "RNC verified") } : change), who });
     }
-    if (retyped) events.push({ id: `${revision.version}-document-type`, at, ...correction("document_type", retyped.before, retyped.after), who });
     if (hasNoteChange(revision)) {
       const field = t("business.dossier.note.title");
       const after = revision.after_current_note || t("business.dossier.not_recorded", "Not recorded");
@@ -215,9 +226,10 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       if (attachments.length) events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.join(", ")}`, who, kind: "supporting", testId: "history-supporting" });
     }
     if (revision.after_dgii) {
-      const changes = fiscalChanges(revision.before_dgii, revision.after_dgii, revision.after);
+      const named = reviewed ? reviewed.declaration : revision.reviewed_declaration_fields;
+      const changes = fiscalChanges(revision.before_dgii, revision.after_dgii, revision.after, named);
       // Until the dictionary loads, any difference is a save; then only a field it names counts.
-      if (changes ? changes.length : !same(revision.before_dgii, revision.after_dgii)) {
+      if (changes ? changes.length : named?.length === 0 ? false : !same(revision.before_dgii, revision.after_dgii)) {
         events.push({ id: `${revision.version}-dgii`, at, line: t("business.history.fiscal_saved", { form: revision.after_dgii.form }), who, changes: changes ?? undefined });
       }
     }

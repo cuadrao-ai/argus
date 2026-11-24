@@ -8785,6 +8785,32 @@ back as it was before the approval: the one a person saved, or none. If that
 undo cannot run, the next approval writes from that earlier declaration
 instead of keeping the failed approval's.
 
+Human review commands that repeat the saved answers leave the draft version and
+history unchanged. Historical revisions publish `before_net_amount` and
+`after_net_amount`, calculated by the server from each immutable snapshot, so a
+restored subtotal displays its resulting amount. Raw audit facts remain intact.
+
+`reviewed_declaration_fields` names the changed declaration fields explicitly
+submitted by the person, recovered from the revision's saved web command. Linked
+fields that moved only because their source changed are excluded. In a full
+fiscal review, a linked field counts when the server saved the value the person
+sent; one saved at another value followed its source. A purchase or
+payment-split answer the person cleared counts: its review command text keeps
+that null and carries `"cleared_kept": true`. Null preserves legacy history when
+command evidence is unavailable, or when older evidence without that marker
+cannot tell an omitted answer from a cleared one; an empty array means no
+explicit declaration changes.
+
+`reviewed_fact_fields` names, from the same saved command, the changed facts the
+person submitted: patched facts, typed subtotal or legal tip, and the fiscal
+facts of a fiscal review. It is null when the revision has no command
+evidence. A document type switch displays one type change, plus only the fact
+and declaration fields these lists name; the activity kind the type sets is not
+a second change. Without a fact list, the switch also displays every other
+changed fact. The switch replaces the other form's declaration, so a null
+declaration list adds no declaration change. These four display fields are
+excluded from the model-facing dossier.
+
 A revision that writes a draft's first declaration records as `before_dgii`
 the declaration the review showed, so its history entry holds only what the
 write changed: a person's answers on a first fiscal save, and on an approval
