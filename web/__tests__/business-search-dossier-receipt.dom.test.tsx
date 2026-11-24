@@ -22,7 +22,7 @@ function failure(status: number, code: string) {
   return Object.assign(new Error(code), { status, code, requestId: `req-${status}` });
 }
 
-async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dossier">>, kind: "receipt" | "note" = "receipt", served: Partial<ReceiptSummary> = {}) {
+async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dossier">>, kind: "receipt" | "note" = "receipt", served: Partial<ReceiptSummary> = {}, noteGroup?: BusinessCapture["bandeja_group"]) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -36,7 +36,7 @@ async function mount(override: Partial<Pick<BusinessDataSource, "receipt" | "dos
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
   const hit = (await fixture.receipts("all")).find((item) => item.id === "rcpt-ferreteria")!;
-  const note = { draft_id: dossierFixtureIds.ready, version: 1, revision: 1, source_id: "note-1", text: "Compra de cemento", received_at: "2026-11-10T14:00:00Z", review_state: "open" } as BusinessCapture;
+  const note = { draft_id: dossierFixtureIds.ready, version: 1, revision: 1, source_id: "note-1", text: "Compra de cemento", received_at: "2026-11-10T14:00:00Z", review_state: "open", bandeja_group: noteGroup } as BusinessCapture;
   let asked = 0;
   const custom = { ...fixture, ...override };
   const source: BusinessDataSource = { ...custom, receipt: (id, signal) => { asked += 1; return custom.receipt(id, signal); }, dossier: (id) => { asked += 1; return custom.dossier(id); } };
@@ -91,9 +91,10 @@ describe("a search hit's receipt preview", () => {
   });
 });
 
+const labels: [BandejaLabel, string, string][] = [["reading", "Leyendo…", "neutral"], ["cant_read", "No se pudo leer", "attention"], ["needs_attention", "Necesita atención", "caution"], ["ready", "Listo para aceptar", "toAccept"], ["accepted", "Aceptado", "approved"]];
+
 describe("a search hit's receipt status", () => {
   // The hit's status and group are set against the label: the preview reads the label alone.
-  const labels: [BandejaLabel, string, string][] = [["reading", "Leyendo…", "neutral"], ["cant_read", "No se pudo leer", "attention"], ["needs_attention", "Necesita atención", "caution"], ["ready", "Listo para aceptar", "toAccept"], ["accepted", "Aceptado", "approved"]];
   for (const [label, word, tone] of labels) {
     test(`the preview draws the server's Bandeja label as the list does: ${label}`, async () => {
       const page = await mount({}, "receipt", { status: "needs_attention", bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: null, version: null } });
@@ -106,6 +107,26 @@ describe("a search hit's receipt status", () => {
     const page = await mount({}, "receipt", { status: "review_ready", bandeja_group: { group: null, reason: null, label: null, draft_id: null, version: null } });
     assert.equal(page.host.querySelector('[data-testid="status-pill"]'), null);
   });
+});
+
+describe("a search hit's note status", () => {
+  // The note's review state (open) is set against the label: the preview reads the label alone.
+  for (const [label, word, tone] of labels) {
+    test(`the preview draws the server's Bandeja label as the list does: ${label}`, async () => {
+      const page = await mount({}, "note", {}, { group: "attention", reason: "missing_ncf", label, draft_id: null, version: null });
+      const pills = [...page.host.querySelectorAll('[data-testid="status-pill"]')];
+      assert.deepEqual(pills.map((pill) => [pill.textContent, pill.getAttribute("data-label"), pill.className]), [[word, label, `workflow ${tone}`]]);
+    });
+  }
+
+  for (const [name, group] of [["no label", { group: null, reason: null, label: null, draft_id: null, version: null }], ["no group", undefined]] as const) {
+    test(`a note the server gave ${name} shows no status`, async () => {
+      const page = await mount({}, "note", {}, group);
+      await page.settle(() => !page.host.querySelector('[aria-busy="true"]') && page.asked() === 1, "the record loads");
+      assert.equal(page.host.querySelector('[data-testid="status-pill"]'), null);
+      assert.doesNotMatch(page.text(), /Pendiente de revisión|\bopen\b/);
+    });
+  }
 });
 
 describe("a search hit's note preview", () => {

@@ -11,6 +11,8 @@ const OLD_OWNER = new RegExp([
   "useReceipt" + "StateWord", "receipt-state" + "-word", "receipt" + "Tag\\b",
   // The legacy tag pill, its tag type, its palette of words and their locale block.
   "foundation/Status" + "Pill", "statusName" + "ForTag", "Reception" + "Tag\\b", "reception" + "-status", "BUSINESS" + "_STATUS", "business\\.status" + "\\.",
+  // A note's review state turned into a word, and its locale block.
+  "business\\.dossier\\.state" + "\\.",
 ].join("|"));
 
 test("no source works out a receipt's status word in the web", () => {
@@ -26,5 +28,6 @@ test("the locales hold no status words for the web to pick from", () => {
   for (const language of ["es-419", "en"]) {
     const copy = JSON.parse(readFileSync(path.join(WEB, "public/locales", language, "common.json"), "utf8"));
     expect(Object.keys(copy.business)).not.toContain("status");
+    expect(Object.keys(copy.business.dossier)).not.toContain("state");
   }
 });

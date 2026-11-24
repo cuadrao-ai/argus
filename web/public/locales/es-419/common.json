@@ -3249,12 +3249,6 @@
         "waiting_for_window": "Esperando para preguntar",
         "withdrawn": "Retirada"
       },
-      "state": {
-        "open": "Pendiente de revisión",
-        "accepting": "Consultando resultado de aceptación",
-        "accepted": "Registrado",
-        "dismissed": "Descartado"
-      },
       "blocker": {
         "unknown_funding": "Confirma cómo se pagó.",
         "missing_fields": "Completa los detalles necesarios.",

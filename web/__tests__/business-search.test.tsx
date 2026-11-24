@@ -247,6 +247,21 @@ describe("original note search", () => {
     captures.hits[1].open?.();
     assert.deepEqual(opened, [{ kind: "draft", draftId: "draft-1", list: "inbox" }]);
   });
+  // The note's review state (open) is set against the label: the line says the label alone.
+  test.each([["reading", "Leyendo…"], ["cant_read", "No se pudo leer"], ["needs_attention", "Necesita atención"], ["ready", "Listo para aceptar"], ["accepted", "Aceptado"]] as const)("a note's hit says the server's Bandeja label: %s", async (label, word) => {
+    const note: BusinessCapture = { draft_id: "draft-1", version: 3, revision: 3, source_id: "source-1", text: "pintura sin recibo", received_at: "2026-10-10T14:00:00Z", review_state: "open", bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: "draft-1", version: 3 } };
+    const { groups } = await businessSearch({ expenses: [], receipts: [], accounts: [] }, [note], "es-419");
+    const parts = groups.find((group) => group.id === "captures")!.hits[0].detail.split(" · ");
+    expect(parts).toHaveLength(3);
+    expect(parts[2]).toBe(word);
+  });
+  test.each([["no label", { group: null, reason: null, label: null, draft_id: "draft-1", version: 3 }], ["no group", undefined]] as const)("a note's hit the server gave %s says no status", async (_name, bandeja_group) => {
+    const note: BusinessCapture = { draft_id: "draft-1", version: 3, revision: 3, source_id: "source-1", text: "pintura sin recibo", received_at: "2026-10-10T14:00:00Z", review_state: "open", bandeja_group };
+    const { groups } = await businessSearch({ expenses: [], receipts: [], accounts: [] }, [note], "es-419");
+    const detail = groups.find((group) => group.id === "captures")!.hits[0].detail;
+    expect(detail.split(" · ")).toHaveLength(2);
+    expect(detail).toStartWith("Nota original guardada · ");
+  });
   test("notes outage preserves real records and a safe error without fake hits", async () => {
     const { groups } = await businessSearch({ expenses: [expense], receipts: [], accounts: [] }, new Error("private server details"));
     assert.equal(groups[0].hits[0].id, expense.id);

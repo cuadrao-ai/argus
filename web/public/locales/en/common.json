@@ -3249,12 +3249,6 @@
         "waiting_for_window": "Waiting to ask",
         "withdrawn": "Withdrawn"
       },
-      "state": {
-        "open": "Awaiting review",
-        "accepting": "Checking acceptance outcome",
-        "accepted": "Recorded",
-        "dismissed": "Dismissed"
-      },
       "blocker": {
         "unknown_funding": "Confirm how this was paid.",
         "missing_fields": "Resolve the required details.",
