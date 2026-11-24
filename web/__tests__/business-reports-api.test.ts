@@ -7,7 +7,7 @@ import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 import { appendBusinessReportSupportingFile, downloadBusinessReportAttachment, downloadRecordsExport, listBusinessReportViews, mutateBusinessReportView, previewRecordsExport, queryBusinessReport, reportFiscalTotalSchema, reportRecordSchema, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, setBusinessReportSupportingFileLink, type ReportScope } from "@/lib/business-reports-api";
 
 const scope: ReportScope = { userId: "synthetic-person", businessId: "synthetic-business", grantId: "00000000-0000-4000-8000-000000000001" };
-const answer = () => ({ ...recordedReportAnswer, items: [], matching_count: 102, page: 1, page_size: 25, page_count: 5, totals: [{ currency: "DOP", kind: "expense", basis: "recorded_activity_amount", matching_count: 102, known_amount_minor: 123456789, unknown_count: 1, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "1234567.89", amount: null }], fingerprint: "a".repeat(64), captured_at: "2026-10-26T00:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
+const answer = () => ({ ...recordedReportAnswer, items: [], matching_count: 102, page: 1, page_size: 25, page_count: 5, totals: [{ currency: "DOP", kind: "expense", basis: "recorded_activity_amount", matching_count: 102, known_amount_minor: 123456789, unknown_count: 1, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "1234567.89", amount: null }], fingerprint: "a".repeat(64), captured_at: "2026-10-26T00:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
 type Call = { path: string; options: RequestInit };
 function respond(body: unknown, status = 200, contentType = "application/json") {
   const calls: Call[] = [];
@@ -287,4 +287,12 @@ test("sales recipes clear purchase-only expense filters", () => {
   const request = reportRequestSchema.parse({ filters: { record_families: ["sale"], expense_types: ["02", "missing"], fiscal_data: "complete" } });
   expect(request.filters.expense_types).toEqual([]);
   expect(request.filters.fiscal_data).toBe("complete");
+});
+
+test("an old report address discards retired filters and keeps its search and anchor", () => {
+  const old = { q: "Proveedor", funding_sources: ["cash"], document_kinds: ["unknown"], fiscal_classifications: ["B01"], ready: true };
+  const params = new URLSearchParams({ report: JSON.stringify({ filters: old }), report_row: "synthetic-row" });
+  const restored = restoreReportLocation(params);
+  expect(restored.anchor).toBe("synthetic-row");
+  expect(restored.request.filters).toEqual(reportRequestSchema.parse({ filters: { q: old.q } }).filters);
 });

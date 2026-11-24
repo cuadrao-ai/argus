@@ -2414,11 +2414,6 @@
         "count_other": "{{count}} records",
         "filters": {
           "back": "All filters",
-          "account": {
-            "card": "Business card",
-            "checking": "Checking account",
-            "owner": "Owner funds"
-          },
           "amount": {
             "choose_currency": "Choose a currency before setting an amount.",
             "currency": "Currency",
@@ -2445,37 +2440,20 @@
             "invalid": "Choose a valid period of up to 366 days.",
             "to": "To"
           },
-          "document": {
-            "credit_note": "Credit note",
-            "invoice": "Invoice",
-            "receipt": "Receipt"
-          },
-          "fiscal": {
-            "b01": "B01 · Tax credit",
-            "b02": "B02 · Consumer",
-            "e31": "E31 · Electronic tax credit",
-            "e32": "E32 · Electronic consumer"
-          },
           "fiscal_data": {
             "all": "All",
             "complete": "Complete",
             "missing": "Missing"
           },
           "groups": {
-            "account": "Account",
             "amount": "Amount",
             "attachment": "Attachment",
             "category": "Category",
-            "document": "Document type",
-            "fiscal": "Fiscal type",
             "fiscal_data": "Fiscal data",
             "ready": "Status",
             "review": "Review"
           },
           "no_matches": "No options match this search.",
-          "ready": {
-            "all": "All"
-          },
           "record": "Record",
           "remove": "Remove filter",
           "search": "Search…",

@@ -20229,10 +20229,7 @@ components:
               categories: []
               counterparties: []
               currencies: []
-              document_kinds: []
               expense_types: []
-              fiscal_classifications: []
-              funding_sources: []
               period:
                 kind: all
               q: ''
@@ -23826,24 +23823,6 @@ components:
       - replayed
       - activity
       - accounts
-    FundingOption:
-      properties:
-        key:
-          type: string
-        label:
-          anyOf:
-          - type: string
-          - type: 'null'
-        kind:
-          anyOf:
-          - type: string
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - key
-      - label
-      - kind
     GiveBusinessAccess:
       properties:
         role:
@@ -31448,11 +31427,6 @@ components:
           items:
             $ref: '#/components/schemas/DgiiChoice'
           type: array
-          default: []
-        funding_sources:
-          items:
-            $ref: '#/components/schemas/FundingOption'
-          type: array
         coverage_notes:
           items:
             type: string
@@ -31479,7 +31453,7 @@ components:
       - excluded_unknown_dates
       - counterparties
       - categories
-      - funding_sources
+      - expense_types
     ReportAttachment:
       properties:
         source_id:
@@ -31568,6 +31542,7 @@ components:
         ready:
           anyOf:
           - type: boolean
+            const: false
           - type: 'null'
         review_stages:
           items:
@@ -31635,28 +31610,6 @@ components:
             - type: string
               const: missing
           type: array
-          default: []
-        funding_sources:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        document_kinds:
-          items:
-            type: string
-            enum:
-            - invoice
-            - receipt
-            - credit_note
-            - unknown
-          type: array
-          default: []
-        fiscal_classifications:
-          items:
-            type: string
-          type: array
-          maxItems: 100
           default: []
       additionalProperties: false
       type: object
@@ -31681,6 +31634,7 @@ components:
         ready:
           anyOf:
           - type: boolean
+            const: false
           - type: 'null'
         review_stages:
           items:
@@ -31748,28 +31702,6 @@ components:
             - type: string
               const: missing
           type: array
-          default: []
-        funding_sources:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        document_kinds:
-          items:
-            type: string
-            enum:
-            - invoice
-            - receipt
-            - credit_note
-            - unknown
-          type: array
-          default: []
-        fiscal_classifications:
-          items:
-            type: string
-          type: array
-          maxItems: 100
           default: []
       additionalProperties: false
       type: object
@@ -31816,9 +31748,6 @@ components:
             counterparties: []
             categories: []
             expense_types: []
-            funding_sources: []
-            document_kinds: []
-            fiscal_classifications: []
         sort:
           type: string
           const: date_desc
@@ -31843,9 +31772,6 @@ components:
             counterparties: []
             categories: []
             expense_types: []
-            funding_sources: []
-            document_kinds: []
-            fiscal_classifications: []
         sort:
           type: string
           const: date_desc
@@ -31870,9 +31796,6 @@ components:
             counterparties: []
             categories: []
             expense_types: []
-            funding_sources: []
-            document_kinds: []
-            fiscal_classifications: []
         sort:
           type: string
           enum:
@@ -31912,9 +31835,6 @@ components:
             counterparties: []
             categories: []
             expense_types: []
-            funding_sources: []
-            document_kinds: []
-            fiscal_classifications: []
         sort:
           type: string
           enum:
@@ -32217,9 +32137,6 @@ components:
             counterparties: []
             categories: []
             expense_types: []
-            funding_sources: []
-            document_kinds: []
-            fiscal_classifications: []
         sort:
           type: string
           const: date_desc
@@ -32255,9 +32172,6 @@ components:
             counterparties: []
             categories: []
             expense_types: []
-            funding_sources: []
-            document_kinds: []
-            fiscal_classifications: []
         sort:
           type: string
           enum:
@@ -32916,10 +32830,7 @@ components:
               categories: []
               counterparties: []
               currencies: []
-              document_kinds: []
               expense_types: []
-              fiscal_classifications: []
-              funding_sources: []
               period:
                 kind: all
               q: ''
@@ -34462,10 +34373,7 @@ components:
               categories: []
               counterparties: []
               currencies: []
-              document_kinds: []
               expense_types: []
-              fiscal_classifications: []
-              funding_sources: []
               period:
                 kind: all
               q: ''

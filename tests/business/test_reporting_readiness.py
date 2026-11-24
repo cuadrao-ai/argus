@@ -117,11 +117,11 @@ def test_row_filter_and_count_agree_before_pagination(mixed_rows, ready):
         and r.currency == "DOP"
         and r.family == "purchase"
         and r.report_date.month == 9
-        and (ready is None or r.ready == ready)
+        and (ready is not False or not r.ready)
     ]
     assert answer.matching_count == len(expected)
     assert answer.overview.not_ready == sum(not row.ready for row in expected)
-    assert answer.overview.not_ready == (0 if ready else 3)
+    assert answer.overview.not_ready == 3
     pages = [
         run(mixed_rows, filters, page=page) for page in range(1, answer.page_count + 1)
     ]
