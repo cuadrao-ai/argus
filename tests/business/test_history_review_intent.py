@@ -164,3 +164,25 @@ def test_missing_evidence_names_no_facts(review_command):  # noqa: F811
     review({"document_type": "venta", "facts": {"amount": {"state": "known", "value": "1300.00"}}})
     tx.evidence.clear()
     assert projected(tx, event).history[0].reviewed_fact_fields is None
+
+
+@pytest.mark.parametrize(("itbis", "declared", "montos", "named"), [
+    pytest.param("200.00", {"paid_on": "2026-10-10"}, None, ("paid_on",), id="fiscal-fact-and-typed-payment-date"),
+    pytest.param(None, {"paid_on": "2026-10-10"}, None, ("paid_on",), id="typed-payment-date-alone"),
+    pytest.param("200.00", {"itbis": "150.00", "paid_on": "2026-10-10"}, {"override_inherited": ["itbis"]}, ("itbis", "paid_on"), id="typed-date-beside-a-named-link"),
+    pytest.param("200.00", {}, None, (), id="tax-that-followed-the-fiscal-fact"),
+])
+def test_a_full_fiscal_review_names_each_linked_value_the_person_sent(review_command, itbis, declared, montos, named):  # noqa: F811
+    review, tx, event, resolution = review_command
+    fiscal = resolution.facts.fiscal
+    body = {"dgii": {
+        "fiscal": {"rnc": fiscal.rnc.value, "ncf": fiscal.ncf.value, "itbis": itbis or fiscal.itbis.value},
+        "declaration": {**resolution.dgii.model_dump(mode="json"), **declared},
+    }}
+    if montos is not None:
+        body["montos"] = montos
+    assert review(body).outcome == "applied"
+    [entry] = projected(tx, event).history
+    assert str(entry.after_dgii.paid_on) == declared.get("paid_on", str(entry.before_dgii.paid_on)), "the typed date persists"
+    assert entry.reviewed_fact_fields == (("itbis",) if itbis else ())
+    assert entry.reviewed_declaration_fields == named

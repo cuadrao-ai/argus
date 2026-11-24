@@ -596,6 +596,16 @@ describe("a type change with what the person also set", () => {
     } finally { await page.close(); }
   });
 
+  test("a type change the server cannot attribute keeps every other changed fact", async () => {
+    const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
+    const entry = { ...retype({ ...before, amount: known("1300.00"), kind: known("income") } as unknown as BusinessFacts, { facts: [], declaration: [] }), reviewed_fact_fields: null, reviewed_declaration_fields: null };
+    const page = await render(<ReceiptHistory history={[entry]} accounts={[]} documentType="venta" dgiiFields={fields} />);
+    try {
+      assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Tipo", "Ana Peña"], ["Total", "Ana Peña"]]);
+      assert.deepEqual(diffs(page.host), [["Compra", "Venta"], ["RD$ 1,180.00", "RD$ 1,300.00"]]);
+    } finally { await page.close(); }
+  });
+
   test("a declaration field set in the same save keeps its line", async () => {
     const ReceiptHistory = (await import("@/components/business-app/ReceiptHistory")).default;
     const entry = { ...retype(sale("1180.00"), { facts: [], declaration: ["id_type"] }), after_dgii: { form: "607" as const, id_type: "2" } };
