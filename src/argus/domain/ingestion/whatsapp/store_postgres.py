@@ -2,39 +2,56 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime
 
+from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.transactions import lock_owner
 from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
 from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
 from argus.domain.ingestion.whatsapp.store import (
     UNLINKED_REPLY_RESERVED,
     Claim,
     InboundRecord,
+    PrepareCapture,
     SenderLink,
     Settlement,
     dominican_day,
     revoked,
+    settlement_seconds,
+    settlement_time,
     unlinked_reply_key,
 )
 
 _INBOUND_COLUMNS = (
     "provider_message_key, sender_hash, status, destination_owner_id::text, "
-    "connection_id::text, error_code, claim_until, received_at, updated_at, "
-    "claim_envelope, recovery_attempts"
+    "connection_id::text, error_code, claim_until, received_at, updated_at"
 )
 
 
 def _record(row: tuple) -> InboundRecord:
-    key, sender, *rest, envelope, attempts = row
-    return InboundRecord(
-        bytes(key),
-        bytes(sender),
-        *rest,
-        claim_envelope=None if envelope is None else bytes(envelope),
-        recovery_attempts=attempts,
+    key, sender, *rest = row
+    return InboundRecord(bytes(key), bytes(sender), *rest)
+
+
+def _limit_statement_time(
+    connection: Connection,
+    claim_until: datetime,
+    now: datetime | Callable[[], datetime],
+    deadline: float | None,
+) -> datetime | None:
+    settled_at = settlement_time(now)
+    seconds = settlement_seconds(claim_until, settled_at, deadline)
+    if seconds <= 0:
+        return None
+    milliseconds = max(1, int(seconds * 1000))
+    connection.execute(
+        "select set_config('statement_timeout', %s, true)", (str(milliseconds),)
     )
+    return settled_at
 
 
 class PostgresWhatsAppStore:
@@ -49,16 +66,14 @@ class PostgresWhatsAppStore:
         sender_hash: bytes,
         now: datetime,
         claim_until: datetime,
-        claim_envelope: bytes | None = None,
     ) -> Claim:
         with self._pool.connection() as connection, connection.transaction():
             row = connection.execute(
                 "insert into public.whatsapp_inbound_messages as m "
                 "(provider_message_key, sender_hash, status, claim_until, received_at, "
-                "updated_at, claim_envelope) values (%s, %s, 'received', %s, %s, %s, %s) "
+                "updated_at) values (%s, %s, 'received', %s, %s, %s) "
                 "on conflict (provider_message_key) do update "
-                "set claim_until = excluded.claim_until, updated_at = excluded.updated_at, "
-                "claim_envelope = coalesce(excluded.claim_envelope, m.claim_envelope) "
+                "set claim_until = excluded.claim_until, updated_at = excluded.updated_at "
                 "where m.status in ('received', 'failed') "
                 "and (m.claim_until is null or m.claim_until <= excluded.updated_at) "
                 f"returning {_INBOUND_COLUMNS}",
@@ -68,7 +83,6 @@ class PostgresWhatsAppStore:
                     claim_until,
                     now,
                     now,
-                    claim_envelope,
                 ),
             ).fetchone()
             if row is not None:
@@ -86,75 +100,78 @@ class PostgresWhatsAppStore:
         provider_message_key: bytes,
         claim_until: datetime | None,
         settlement: Settlement,
-        now: datetime,
+        now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
+        prepare: PrepareCapture | None = None,
+        deadline: float | None = None,
     ) -> Settlement | None:
-        with self._pool.connection() as connection, connection.transaction():
+        if claim_until is None:
+            return None
+        seconds = settlement_seconds(claim_until, settlement_time(now), deadline)
+        if seconds <= 0:
+            return None
+        with (
+            self._pool.connection(timeout=seconds) as connection,
+            connection.transaction(),
+        ):
+            if _limit_statement_time(connection, claim_until, now, deadline) is None:
+                return None
+            owner = settlement.destination_owner_id
+            if settlement.status == "captured" and owner is not None:
+                # Document purge takes the owner lock before deleting receipts and
+                # their inbound rows. Use the same order when publishing a receipt.
+                lock_owner(connection, owner)
+                if _limit_statement_time(connection, claim_until, now, deadline) is None:
+                    return None
+            holder = connection.execute(
+                "select sender_hash from public.whatsapp_inbound_messages "
+                "where provider_message_key = %s and status in ('received', 'failed') "
+                "and claim_until = %s for update",
+                (provider_message_key, claim_until),
+            ).fetchone()
+            if holder is None:
+                return None
             # Held until commit, so a revoke cannot land between this read and
             # the write; whatsapp_capture_same_space checks the same fact.
-            if settlement.connection_id is not None and (
-                connection.execute(
-                    "select 1 from public.whatsapp_sender_links l"
-                    " join public.whatsapp_inbound_messages m"
-                    " on m.sender_hash = l.wa_id_hash"
-                    " where m.provider_message_key = %s"
-                    " and l.destination_owner_id = %s and l.status = 'active'"
-                    " for share of l",
-                    (provider_message_key, settlement.destination_owner_id),
+            if settlement.connection_id is not None:
+                if _limit_statement_time(connection, claim_until, now, deadline) is None:
+                    return None
+                link = connection.execute(
+                    "select 1 from public.whatsapp_sender_links "
+                    "where wa_id_hash = %s and destination_owner_id = %s "
+                    "and status = 'active' for share",
+                    (holder[0], settlement.destination_owner_id),
                 ).fetchone()
-                is None
-            ):
-                settlement = revoked(settlement)
-            cursor = connection.execute(
+                if link is None:
+                    settlement = revoked(settlement)
+            # Check expiry after acquiring the locks. The inbound row remains
+            # unavailable to another claimant through publication and commit.
+            settled_at = _limit_statement_time(connection, claim_until, now, deadline)
+            if settled_at is None:
+                return None
+            connection.execute(
                 "update public.whatsapp_inbound_messages set status = %s, "
                 "destination_owner_id = %s, connection_id = %s, error_code = %s, "
-                "claim_until = null, claim_envelope = null, updated_at = %s "
-                "where provider_message_key = %s and status in ('received', 'failed') "
-                "and claim_until is not distinct from %s",
+                "claim_until = null, updated_at = %s "
+                "where provider_message_key = %s",
                 (
                     settlement.status,
                     settlement.destination_owner_id,
                     settlement.connection_id,
                     settlement.error_code,
-                    now,
+                    settled_at,
                     provider_message_key,
-                    claim_until,
                 ),
             )
-            if cursor.rowcount != 1:
-                return None
+            if prepare is not None and settlement.status == "captured":
+                if _limit_statement_time(connection, claim_until, now, deadline) is None:
+                    raise TimeoutError("whatsapp_settlement_timeout")
+                settlement = replace(settlement, reading=prepare(connection, settlement))
             if reply_failure is not None:
                 self.reply_groups.enqueue_on(connection, reply_failure)
+            if settlement_seconds(claim_until, settlement_time(now), deadline) <= 0:
+                raise TimeoutError("whatsapp_settlement_timeout")
             return settlement
-
-    def lapsed_claims(self, *, now: datetime, limit: int) -> list[InboundRecord]:
-        with self._pool.connection() as connection:
-            rows = connection.execute(
-                f"select {_INBOUND_COLUMNS} from public.whatsapp_inbound_messages "
-                "where status in ('received', 'failed') and claim_until is not null "
-                "and claim_until <= %s order by claim_until limit %s",
-                (now, limit),
-            ).fetchall()
-        return [_record(row) for row in rows]
-
-    def retake(
-        self,
-        *,
-        provider_message_key: bytes,
-        held: datetime,
-        now: datetime,
-        claim_until: datetime,
-    ) -> datetime | None:
-        with self._pool.connection() as connection, connection.transaction():
-            row = connection.execute(
-                "update public.whatsapp_inbound_messages "
-                "set claim_until = %s, updated_at = %s, "
-                "recovery_attempts = recovery_attempts + 1 "
-                "where provider_message_key = %s and status in ('received', 'failed') "
-                "and claim_until = %s returning claim_until",
-                (claim_until, now, provider_message_key, held),
-            ).fetchone()
-        return None if row is None else row[0]
 
     def renew(
         self,

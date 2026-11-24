@@ -13,6 +13,7 @@ from argus.api import whatsapp as module
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.ingestion.reconcile.store import InMemoryImportStore
 from argus.domain.ingestion.whatsapp.intake import CaptureFailed
+from argus.domain.ingestion.whatsapp.store import Settlement
 
 
 def _documents(owner_id: str, capabilities=("read", "prepare")):  # noqa: ANN001, ANN202
@@ -51,12 +52,18 @@ def test_the_read_binds_only_to_the_owner_who_received_the_receipt(monkeypatch):
         module._as_owner(_documents(owner, capabilities=("read",)), owner, scope)
 
 
-@pytest.mark.asyncio
-async def test_a_read_refused_before_dispatch_waits_saved(monkeypatch):  # noqa: ANN001
+def test_a_read_refused_before_dispatch_waits_saved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     owner, connection = str(uuid4()), str(uuid4())
     scope = SimpleNamespace(space_id=uuid4())
     documents = Mock()
-    documents.get = Mock(return_value=SimpleNamespace(status="queued"))
+    documents.get.return_value = SimpleNamespace(
+        status="saved",
+        source_available=False,
+        business_reading_consent_id=str(uuid4()),
+        connection_id=connection,
+    )
     destination = module.DocumentsDestination(documents, Mock())
     monkeypatch.setattr(
         module,
@@ -68,8 +75,13 @@ async def test_a_read_refused_before_dispatch_waits_saved(monkeypatch):  # noqa:
         raise CaptureFailed("business_permission_denied")
 
     monkeypatch.setattr(module, "_as_owner", refused)
-    with pytest.raises(CaptureFailed, match="business_permission_denied"):
-        await destination.read(owner_id=owner, connection_id=connection)
+    assert not destination.prepare(None, Settlement("captured", owner, connection))
+    documents.publish_capture.assert_called_once_with(
+        user_id=owner,
+        connection_id=connection,
+        scope=scope,
+        error_code="business_permission_denied",
+    )
     documents.release_queued.assert_called_once_with(
         user_id=owner,
         connection_id=connection,
