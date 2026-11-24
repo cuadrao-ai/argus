@@ -246,7 +246,8 @@ async def test_a_due_date_never_reaches_the_reply_model_on_explain_status(action
             context=context, turn=turn, message="Pagué 850 por materiales con mi dinero."
         )
         draft_id = UUID(created.saved_state["dossiers"][0]["draft_id"])
-        review = {"version": 2, "document_type": "recibo"}
+        # A review that repeats saved answers writes nothing, so both arms change the supplier.
+        review = {"version": 2, "facts": {"counterparty": {"state": "known", "value": "Ferretería Central"}}}
         if due_on is not None:
             review["due_on"] = due_on
         service.review(member, draft_id, ReviewDraft.model_validate(review), str(uuid4()))
