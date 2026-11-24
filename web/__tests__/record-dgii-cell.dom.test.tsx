@@ -38,10 +38,14 @@ test("a live purchase shows the locale text for the server code, truncated with 
   assert.equal(host.querySelector("[data-tooltip-trigger], [aria-describedby], [title]") !== null || host.textContent === LONG.label, true);
 });
 
-test("a missing answer reads with the word Bandeja uses, in the reader's language", async () => {
-  assert.equal((await cell("es-419", live({ expense_type: null, payment_form: LONG }))).textContent, "Falta");
-  assert.equal((await cell("en", live({ expense_type: LONG, payment_form: null }), "payment_form")).querySelector("[data-dgii-missing='payment_form']")!.textContent, "Missing");
-});
+for (const field of ["expense_type", "payment_form"] as const) {
+  test(`an unanswered ${field} in Registros shows the shared dash`, async () => {
+    const host = await cell("es-419", live({ expense_type: null, payment_form: null }), field);
+    assert.doesNotMatch(host.textContent ?? "", /Falta/);
+    assert.equal(host.querySelector('[aria-hidden="true"]')?.textContent, "-");
+    assert.equal(host.querySelector(".sr-only")?.textContent, "sin dato");
+  });
+}
 
 test("a sale shows a dash that says it does not apply, and a row no read describes shows a plain dash", async () => {
   const sale = await cell("es-419", live(null));
