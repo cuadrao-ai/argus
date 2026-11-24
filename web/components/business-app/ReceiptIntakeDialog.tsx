@@ -348,7 +348,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           />
 
         <section className={`${CARD} pr-3`} aria-label={t("business.intake.options_label")} data-testid="intake-options">
-          <ReceiptReadingOption state={readingState} />
+          <ReceiptReadingOption state={readingState} className="border-b border-[#ECEAE3] dark:border-white/[0.07]" />
           <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2.5">
             <span className="flex min-w-0 flex-col gap-0.5">
               <span className="text-[14px] font-medium text-[#172b26] dark:text-white">{t("business.intake.kind_label")}</span>
