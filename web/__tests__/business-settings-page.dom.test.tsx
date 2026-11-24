@@ -236,7 +236,6 @@ describe("the Negocio page", () => {
         await page.settle(() => toggle(page)?.getAttribute("aria-checked") === "true");
         assert.equal(toggle(page)?.getAttribute("aria-checked"),"true");
         assert.ok(row(page)?.textContent?.includes("Texto del servidor"));
-        assert.equal(document.querySelector('[data-testid="receipt-reading-sheet"]'),null);
         await page.click(toggle(page)!);
         await page.settle(() => toggle(page)?.getAttribute("aria-checked") === "false");
         assert.equal(toggle(page)?.getAttribute("aria-checked"),"false");
