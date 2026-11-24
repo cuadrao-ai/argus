@@ -11,6 +11,7 @@ from argus.domain.business.dgii_export import (
     line_assessments,
     line_verdicts,
 )
+from argus.domain.business.dgii_validation import fact_value
 from argus.domain.business.missing_reasons import words
 from argus.domain.business.reporting_file import (
     RecordsExport,
@@ -333,17 +334,28 @@ def test_foreign_duplicates_match_dop_without_changing_export(approved_rows, fam
     duplicate = replace(original, activity_id=fake.uuid4(), draft_id=fake.uuid4())
     dop = (original, duplicate)
     usd = tuple(replace(record, currency="USD") for record in dop)
-    dop_rows = judge(dop)
-    usd_rows = judge(usd)
-    assert [(row.ready, row.missing) for row in dop_rows] == [
-        (False, ("duplicate_document",)),
-        (False, ("duplicate_document",)),
-    ]
-    assert [(row.ready, row.missing) for row in usd_rows] == [
-        (row.ready, row.missing) for row in dop_rows
-    ]
+
+    def projected(records):
+        return tuple(
+            row.model_copy(
+                update={
+                    "family": family,
+                    "fiscal_number": fact_value(record, "ecf") or fact_value(record, "ncf"),
+                    "counterparty_key": fact_value(record, "rnc"),
+                    "report_date": record.occurred_on,
+                }
+            )
+            for row, record in zip(rows(records), records, strict=True)
+        )
+
+    dop_rows = judge(dop, projected(dop))
+    usd_rows = judge(usd, projected(usd))
+    expected = (True, ()) if family == "sale" else (False, ("duplicate_document",))
+    assert [(row.ready, row.missing) for row in dop_rows] == [expected, expected]
+    assert [(row.ready, row.missing) for row in usd_rows] == [expected, expected]
     filtered = run(usd_rows, ReportFilters(period=SEPTEMBER, ready=False))
-    assert (filtered.matching_count, filtered.overview.not_ready) == (2, 2)
+    count = 0 if family == "sale" else 2
+    assert (filtered.matching_count, filtered.overview.not_ready) == (count, count)
 
     good = (
         approved_rows[2],
@@ -394,7 +406,7 @@ def test_foreign_duplicates_match_dop_without_changing_export(approved_rows, fam
                     report=report(record_families=[chosen]), mode="dgii", format="csv"
                 ),
             ).content
-            for chosen in ("purchase", "sale")
+            for chosen in ("purchase",)
         )
         return (
             manifest,

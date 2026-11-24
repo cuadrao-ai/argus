@@ -478,7 +478,7 @@ test("Eliminados lines each row up with its headers: who on one line, when on it
 
 test("the reading notice keeps its place on Eliminados, so the list under it does not move between tabs", async () => {
   const page = await mount("owner", false, 0, false, () => [], true);
-  const notice = () => document.querySelector('[data-testid="receipt-reading-control"]');
+  const notice = () => document.querySelector('[data-testid="receipt-reading-notice"]');
   await page.wait(() => !!notice());
   const onTodos = notice();
   await page.click(document.getElementById("reception-tab-eliminados"));

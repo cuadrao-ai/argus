@@ -255,7 +255,7 @@ def test_saved_whatsapp_provenance_survives_receiving_off(
     assert post(client, fixture("image_message.json")).status_code == 200
     [saved] = alice.get("/receipts", view="all").json()["items"]
     store = whatsapp_runtime().intake.store
-    monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_WHATSAPP_INTAKE_ENABLED", "false")
     if not runtime_present:
         configure_whatsapp(None)
         pool = object()

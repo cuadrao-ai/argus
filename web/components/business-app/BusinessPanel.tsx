@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
@@ -75,7 +75,7 @@ function RecordTray({ panel, list, listRef, returnFocusRef }: { panel: RecordPan
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
   const [summary, setSummary] = useState<HTMLDivElement | null>(null);
   const [headerActions, setHeaderActions] = useState<HTMLDivElement | null>(null);
-  const [title, setTitle] = useState<string | null>(null);
+  const [title, setTitle] = useState<ReactNode>(null);
   // A dossier makes the drawer's header its own: its name, status and place in the list.
   const dossier = panel.kind !== "email";
   const settleList = useCallback((next: RecordList) => {

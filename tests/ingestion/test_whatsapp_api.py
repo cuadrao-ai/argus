@@ -74,7 +74,7 @@ def consent_reads(wa_client):
 def test_registered_consent_read_is_absent_when_receiving_is_off(
     wa_client, consent_reads, monkeypatch, identities
 ):
-    monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_WHATSAPP_INTAKE_ENABLED", "false")
     response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
     assert response.status_code == 404
     assert consent_reads == []
@@ -88,7 +88,7 @@ def test_workspace_reports_whatsapp_availability_without_a_link(
     assert wa_client.get(path, headers=bearer(ALICE)).json()["receiving_channels"][
         "whatsapp"
     ] == {"available": True}
-    monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_WHATSAPP_INTAKE_ENABLED", "false")
     assert wa_client.get(path, headers=bearer(ALICE)).json()["receiving_channels"][
         "whatsapp"
     ] == {"available": False}
@@ -97,7 +97,7 @@ def test_workspace_reports_whatsapp_availability_without_a_link(
 def test_with_the_agent_off_the_receipt_permission_is_still_available(
     wa_client, consent_reads, monkeypatch
 ):
-    monkeypatch.setenv("ARGUS_WHATSAPP_AGENT_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_WHATSAPP_AGENT_ENABLED", "false")
     response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
     assert response.status_code == 200
     body = response.json()
@@ -165,7 +165,7 @@ def test_ai_consent_missing_persistence_does_not_enable(wa_client):
 
 def test_ai_consent_revoke_remains_reachable_with_intake_disabled(wa_client, monkeypatch):
     calls = []
-    monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_WHATSAPP_INTAKE_ENABLED", "false")
     monkeypatch.setattr(app.state, "financial_accounts_pool", object(), raising=False)
     monkeypatch.setattr(
         "argus.api.routers.whatsapp.AIConsentStore.revoke",
@@ -252,7 +252,7 @@ def test_flag_off_answers_404_everywhere(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    "flag", ["ARGUS_WHATSAPP_INTAKE_ENABLED"]
+    "flag", ["CUADRAO_WHATSAPP_INTAKE_ENABLED"]
 )
 def test_unlink_ends_the_link_and_unused_codes_while_off(
     wa_client: TestClient, monkeypatch, flag: str

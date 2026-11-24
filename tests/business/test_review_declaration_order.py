@@ -144,4 +144,7 @@ def test_an_approved_record_takes_nothing_from_an_account_or_a_suggestion():
     stored = apply_purchase(None, PurchaseReview())
     linked = replace(APPROVED, built=declaration_from_facts(FACTS, "checking"))
 
-    assert written_from(FACTS, stored, (), None, linked) is stored
+    shown = written_from(FACTS, stored, (), None, linked)
+
+    assert shown == stored.model_copy(update={"id_type": "1"})
+    assert (shown.payment_method, shown.paid_on) == (None, None)

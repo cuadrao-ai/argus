@@ -437,18 +437,36 @@ test("zero RNC warnings hide the notice in DGII mode", async () => {
   assert.equal(document.querySelector('[data-testid="records-export-rnc-notice"]'), null);
 });
 
-test("607 keeps pending notices below the options", async () => {
+test("sales offer only Lo que ves and keep the table selected", async () => {
   const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"], currencies: ["DOP"] } });
-  const page = await mount({ initial, edit: (rows) => rows.filter((row) => row.family === "sale").slice(0, 1).forEach((row) => { row.fiscal_data = "missing"; row.ready = false; row.missing = ["missing_ncf"]; row.stage = "needs_fiscal_data"; }) });
+  const page = await mount({ initial });
   await open(page);
-  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
-  assert.match(dialogText(), /Formato DGII 607/);
-  assert.equal(document.querySelector('[data-testid="records-export-notices"]'), null);
-  const notice = document.querySelector('[data-testid="records-export-dgii"]')!;
-  assert.match(notice.textContent!, /1 venta tiene datos fiscales pendientes y no se incluye\./);
-  assert.ok(notice.contains(page.button("Revisar")!));
-  assert.ok(page.button("Revisar")!.classList.contains("min-h-11"), "607 keeps its existing review button");
-  assert.equal(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(page.button("Revisar")!), false);
+  assert.match(dialogText(), /Exportar ventas/);
+  assert.match(dialogText(), /Lo que ves/);
+  assert.equal(document.querySelector('[data-testid="records-export-mode-dgii"]'), null);
+  assert.equal(document.querySelector('[data-testid="records-export-dgii"]'), null);
+  assert.equal(document.querySelector<HTMLInputElement>('[data-testid="records-export-mode-table"] input')!.checked, true);
+  await page.click(downloadButton());
+  await page.settle(() => page.downloads.length === 1);
+  assert.equal(exports(page)[0].mode, "table");
+});
+
+test("the preview owns file choices independently of the tab family", async () => {
+  const page = await mount();
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input, init) => {
+    const response = await original(input, init);
+    if (String(input).endsWith("/reports/export/preview")) {
+      return Response.json({ ...await response.json(), dgii: null });
+    }
+    return response;
+  }) as typeof fetch;
+  try {
+    await open(page);
+    assert.match(dialogText(), /Exportar compras/);
+    assert.equal(document.querySelector('[data-testid="records-export-mode-dgii"]'), null);
+    assert.equal(document.querySelector<HTMLInputElement>('[data-testid="records-export-mode-table"] input')!.checked, true);
+  } finally { globalThis.fetch = original; }
 });
 
 test("Registros renders distinct server net, ITBIS and Total columns and its card uses only the net total", async () => {

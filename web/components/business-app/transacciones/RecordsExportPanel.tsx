@@ -53,7 +53,7 @@ export type RecordsExportProps = {
 };
 
 /**
- * Exportar in Registros: the table as the person sees it, or the month's 606/607
+ * Exportar in Registros: the table as the person sees it, or the month's 606
  * lines, as one Excel or CSV file. Every count and notice is the server's.
  */
 export default function RecordsExportPanel({ scope, request, periodLabel, filterCount, transport, onReviewFiscal, onOpenBandeja, onClose }: RecordsExportProps) {
@@ -63,7 +63,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const current = request.filters.currencies[0] ?? "";
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const [mode, setMode] = useState<Mode>("table");
+  const [selectedMode, setMode] = useState<Mode>("table");
   const [chosen, setChosen] = useState<string[] | null>(null);
   const [editing, setEditing] = useState(false);
   const [currencies, setCurrencies] = useState<Currencies>("all");
@@ -88,6 +88,8 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   useEffect(() => () => { running.current?.abort(); void unwritten.current?.discard(); }, []);
 
   const preview = load.kind === "ready" ? load.preview : null;
+  const dgii = preview?.dgii;
+  const mode: Mode = dgii ? selectedMode : "table";
   const everyCurrency = currencies === "all" && preview?.table.all !== null;
   const selection = preview ? (everyCurrency ? preview.table.all : preview.table.current) : null;
   // The server lists the file's columns for this currency choice; a required one is always checked.
@@ -95,18 +97,18 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const ownColumns = fileColumns.filter((column) => column.shown || column.required).map((column) => column.key);
   const checked = (key: string) => (chosen ?? ownColumns).includes(key) || fileColumns.some((column) => column.key === key && column.required);
   const columns = fileColumns.map((column) => column.key).filter(checked);
-  const count = preview ? (mode === "dgii" ? preview.dgii.record_count : selection?.record_count ?? 0) : null;
+  const count = preview ? (mode === "dgii" && dgii ? dgii.record_count : selection?.record_count ?? 0) : null;
 
-  const summary = !preview ? [periodLabel] : mode === "dgii"
-    ? preview.dgii.pending_count
-      ? [periodLabel, t("business.transactions.reporting.export.summary_dgii_ready", { count }), t("business.transactions.reporting.export.summary_dgii_pending", { count: preview.dgii.pending_count })]
-      : [periodLabel, t(sale ? "business.transactions.reporting.export.summary_dgii_sales" : "business.transactions.reporting.export.summary_dgii_purchases"), t("business.transactions.reporting.export.summary_records", { count })]
+  const summary = !preview ? [periodLabel] : mode === "dgii" && dgii
+    ? dgii.pending_count
+      ? [periodLabel, t("business.transactions.reporting.export.summary_dgii_ready", { count }), t("business.transactions.reporting.export.summary_dgii_pending", { count: dgii.pending_count })]
+      : [periodLabel, t("business.transactions.reporting.export.summary_dgii_purchases"), t("business.transactions.reporting.export.summary_records", { count })]
     : [periodLabel, filterCount ? t("business.transactions.reporting.export.summary_filters", { count: filterCount }) : null, t("business.transactions.reporting.export.summary_records", { count }), (selection?.currencies.length ?? 0) > 1 ? t("business.transactions.reporting.export.summary_currencies", { count: selection?.currencies.length }) : null];
 
   const download = async () => {
     if (!preview || !count || !selection || running.current) return;
     const choice: RecordsExportChoice = mode === "dgii" ? { mode, format } : { mode, format, columns, currencies: everyCurrency ? "all" : "current" };
-    const filename = (mode === "dgii" ? preview.dgii : selection).filenames[format];
+    const filename = (mode === "dgii" && dgii ? dgii : selection).filenames[format];
     const abort = new AbortController();
     running.current = abort;
     const kept = unwritten.current?.filename === filename ? unwritten.current : null;
@@ -143,24 +145,23 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const problem = run.kind === "failed" ? run.problem : load.kind === "failed" ? load.problem : null;
   const preparing = run.kind === "preparing";
 
-  const supplierLines = preview?.dgii.rnc_suppliers.map((supplier) => <li key={supplier.rnc}>
+  const supplierLines = dgii?.rnc_suppliers.map((supplier) => <li key={supplier.rnc}>
     <div className="flex items-start justify-between gap-3">
       <span className="min-w-0">{supplier.name}</span>
       <span className="shrink-0"><DgiiRegistryTag status={supplier.status === "rnc_inactive" ? "inactive" : "unverified"} /></span>
     </div>
     <span className="block font-mono">{supplier.rnc}</span>
   </li>);
-  const pendingFiscalSentence = preview?.dgii.pending_fiscal_count ? t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count }) : null;
-  const reviewFiscal = preview ? <button type="button" className={sale ? quietButtonClass : noticeLinkClass} onClick={() => { onClose(); onReviewFiscal(preview.dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button> : null;
-  const pendingFiscal = pendingFiscalSentence ? <>{pendingFiscalSentence} {reviewFiscal}</> : null;
-  const pendingRate = preview?.dgii.pending_rate_count ? t(sale ? "business.transactions.reporting.export.pending_rate_sales" : "business.transactions.reporting.export.pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) }) : null;
+  const pendingFiscalSentence = dgii?.pending_fiscal_count ? t("business.transactions.reporting.export.pending_fiscal_purchases", { count: dgii.pending_fiscal_count }) : null;
+  const reviewFiscal = dgii ? <button type="button" className={noticeLinkClass} onClick={() => { onClose(); onReviewFiscal(dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button> : null;
+  const pendingRate = dgii?.pending_rate_count ? t("business.transactions.reporting.export.pending_rate_purchases", { count: dgii.pending_rate_count, currencies: joinCurrencyList(dgii.pending_rate_currencies, t("business.month_close.list_and")) }) : null;
   // The 606 notices, then the Bandeja's count for the period in either mode, inside the chosen option.
-  const formNotices = preview && !sale && mode === "dgii";
+  const formNotices = dgii && mode === "dgii";
   const noticeItems = preview ? [
-    formNotices && preview.dgii.rnc_warning_count > 0 ? <li key="rnc" data-testid="records-export-rnc-notice" className={noticeClass}>
+    formNotices && dgii.rnc_warning_count > 0 ? <li key="rnc" data-testid="records-export-rnc-notice" className={noticeClass}>
       <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        <p>{t("business.transactions.reporting.export.rnc_notice_title", { count: preview.dgii.rnc_supplier_count })}</p>
+        <p>{t("business.transactions.reporting.export.rnc_notice_title", { count: dgii.rnc_supplier_count })}</p>
         <p>{t("business.transactions.reporting.export.rnc_notice_body")}</p>
         <ul id={suppliersId} data-testid="records-export-rnc-suppliers" hidden={!suppliersExpanded} tabIndex={0} aria-label={t("business.transactions.reporting.export.rnc_view_suppliers")} className="mt-2 max-h-[132px] space-y-2 overflow-y-auto rounded-mark border border-black/15 p-2 dark:border-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]">{supplierLines}</ul>
       </div>
@@ -214,11 +215,11 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
       </> : <>
         <p data-testid="records-export-summary" className="mb-4 text-[14px] text-[#56635e] dark:text-white/70">{summary.filter(Boolean).join(" · ")}</p>
         <div role="radiogroup" aria-label={t("business.transactions.reporting.export.what")} className="space-y-2">
-          {(["table", "dgii"] as const).map((key) => <div key={key} data-testid={`records-export-mode-${key}`} className="rounded-item border border-black/15 dark:border-white/20">
+          {(dgii ? ["table", "dgii"] as const : ["table"] as const).map((key) => <div key={key} data-testid={`records-export-mode-${key}`} className="rounded-item border border-black/15 dark:border-white/20">
             <label className="flex min-h-14 cursor-pointer items-center gap-3 px-3 py-2">
               <input type="radio" name="records-export-mode" checked={mode === key} onChange={() => setMode(key)} />
               <span className="min-w-0 text-[14px]">
-                <span className="block font-medium">{key === "table" ? t("business.transactions.reporting.export.table_title") : t("business.transactions.reporting.export.dgii_title", { form: sale ? "607" : "606" })}</span>
+                <span className="block font-medium">{key === "table" ? t("business.transactions.reporting.export.table_title") : t("business.transactions.reporting.export.dgii_title", { form: dgii?.form })}</span>
                 <span className="block text-black/60 dark:text-white/60">{t(key === "table" ? "business.transactions.reporting.export.table_body" : "business.transactions.reporting.export.dgii_body")}</span>
               </span>
             </label>
@@ -234,8 +235,6 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
         </> : null}
         {preview && mode === "dgii" ? <div className="mt-4 space-y-2 text-[14px]" data-testid="records-export-dgii">
           <p>{t("business.transactions.reporting.export.dgii_note")}</p>
-          {sale && pendingFiscal ? <p>{pendingFiscal}</p> : null}
-          {sale && pendingRate ? <p>{pendingRate}</p> : null}
         </div> : null}
         {preview ? <div className="mt-3"><SegmentedControl fill testId="records-export-format" label={t("business.transactions.reporting.export.format")} value={format} onChange={setFormat} segments={[{ key: "xlsx" as const, label: t("business.transactions.reporting.export.format_xlsx") }, { key: "csv" as const, label: t("business.transactions.reporting.export.format_csv") }]} /></div> : null}
         {/* Without Save As on a desktop, one tip on letting the browser ask where to save. */}

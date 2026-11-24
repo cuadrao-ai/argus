@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from decimal import Decimal
 from typing import get_args
 
@@ -19,6 +20,7 @@ from argus.domain.business.contracts.dgii import (
     money_text,
 )
 from argus.domain.business.contracts.facts import (
+    BusinessAccountFunding,
     BusinessFacts,
     Known,
     NetAmount,
@@ -355,6 +357,28 @@ def changes_recorded_refund(
         declared.actual_refund,
         declared.purchase_activity_id,
     )
+
+
+def states_declaration(document_type: DocumentType, facts: BusinessFacts) -> bool:
+    """Whether the facts of a record with no saved declaration state its own:
+    an expense the 606 takes. The review of an open one builds it, and an
+    approved one saved with none reports it."""
+
+    return (
+        isinstance(facts.kind, Known)
+        and facts.kind.value == "expense"
+        and takes_purchase_declaration(document_type, facts)
+    )
+
+
+def paying_account_type(facts: BusinessFacts, types: Mapping[str, str]) -> str | None:
+    """The type of the Business account a person stated paid the record, from
+    the Business's listed accounts by id."""
+
+    funding = facts.funding.value if isinstance(facts.funding, Known) else None
+    if not isinstance(funding, BusinessAccountFunding):
+        return None
+    return types.get(str(funding.account_id))
 
 
 def declaration_from_facts(

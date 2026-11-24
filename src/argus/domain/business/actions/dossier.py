@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from typing import Any, get_args
 from uuid import UUID
 
@@ -78,6 +79,7 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
 )
+from argus.domain.business.dgii_snapshot import account_types
 from argus.domain.business.dgii_validation import purchase_calculated
 from argus.domain.business.document_type import DocumentType, direction, kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
@@ -88,7 +90,9 @@ from argus.domain.business.purchase_review import (
     blank_answer,
     declaration_from_facts,
     net_amount,
+    paying_account_type,
     sale_payment,
+    states_declaration,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -339,16 +343,12 @@ def _approved_facts(tx: ActionTransaction) -> Callable[[str], BusinessFacts | No
     return read
 
 
-def _paying_account_type(
-    tx: ActionTransaction, facts: BusinessFacts, accounts: Sequence[AccountChoice] | None
-) -> str | None:
+def _paying_account_type(tx: ActionTransaction, facts: BusinessFacts) -> str | None:
     """The type of the Business account a person stated paid the record."""
 
-    funding = facts.funding.value if isinstance(facts.funding, Known) else None
-    if not isinstance(funding, BusinessAccountFunding):
+    if not isinstance(facts.funding, Known) or not isinstance(facts.funding.value, BusinessAccountFunding):
         return None
-    listed = record_context(tx).accounts if accounts is None else accounts
-    return next((account.type for account in listed if account.id == funding.account_id), None)
+    return paying_account_type(facts, account_types(tx.connection, tx.context))
 
 
 def linked_original(
@@ -373,7 +373,6 @@ def review_sources(
     facts: BusinessFacts,
     stored: DgiiDeclaration | None,
     document_type: DocumentType,
-    accounts: Sequence[AccountChoice] | None = None,
     shown: DeclarationSuggestions | None = None,
 ) -> LinkedSources:
     """What ``written_from`` reads beyond the draft to show its declaration:
@@ -384,18 +383,22 @@ def review_sources(
 
     ``shown`` is the suggestions a person approving saw, in place of the
     server's own read now. One is refused when its answer is no longer blank
-    or the approval saves no 606 declaration: the record changed."""
+    or the approval saves no 606 declaration: the record changed.
 
-    if links_of(state) is APPROVED:
-        return APPROVED
-    purchase = stored if isinstance(stored, PurchaseDeclaration) else None
-    reviewing = (
-        state == "open"
-        and isinstance(facts.kind, Known)
-        and facts.kind.value == "expense"
-        and takes_purchase_declaration(document_type, facts)
+    An approved expense saved with no declaration reports the one its facts
+    state, as the 606 does (``fiscal_snapshot``)."""
+
+    stated = states_declaration(document_type, facts)
+    reviewing = state == "open" and stated
+    unsaved = state == "accepted" and stored is None and stated
+    built = (
+        declaration_from_facts(facts, _paying_account_type(tx, facts))
+        if reviewing or unsaved
+        else None
     )
-    built = declaration_from_facts(facts, _paying_account_type(tx, facts, accounts)) if reviewing else None
+    if links_of(state) is APPROVED:
+        return APPROVED if built is None else replace(APPROVED, built=built)
+    purchase = stored if isinstance(stored, PurchaseDeclaration) else None
     # A suggestion shows only where the approval saves it: on a declaration
     # the person saved, or on the one built from the facts.
     offers = reviewing and (purchase is not None or built is not None)
@@ -637,7 +640,7 @@ def dossier(
     resolution = BusinessResolution.model_validate(event.resolution["business"])
     registry, registry_status = supplier_registry_read(tx, facts)
     linked = review_sources(
-        tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type, context.accounts
+        tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type
     )
     declaration = written_from(
         facts, resolution.dgii, resolution.fiscal_overrides, resolution.bill_mark, linked

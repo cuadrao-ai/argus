@@ -233,6 +233,8 @@ def test_original_document_duplicate_and_new_support_preserve_document_basis(
     assert approval.outcome == "applied"
     correct_money(service, context, str(approval.activity_id))
     before = report(http)
+    assert before["items"][0]["has_document"] is True
+    assert service.dossier(context, draft).supporting_files == ()
     duplicate = append(
         http,
         draft,

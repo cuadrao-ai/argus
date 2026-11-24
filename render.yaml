@@ -140,10 +140,22 @@ services:
         value: "true"
       - key: CUADRAO_VISION_MODEL
         sync: false
+      - key: CUADRAO_WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: CUADRAO_WHATSAPP_APP_SECRET
+        sync: false
+      - key: CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
+        sync: false
       - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
         value: "false"
+      - key: CUADRAO_WHATSAPP_NUMBER_ID
+        sync: false
       - key: CUADRAO_WHATSAPP_OUTBOUND_ENABLED
         value: "false"
+      - key: CUADRAO_WHATSAPP_SENDER_KEY
+        sync: false
+      - key: CUADRAO_WHATSAPP_VERIFY_TOKEN
+        sync: false
   - type: web
     name: cuadrao-marketing
     envVars:

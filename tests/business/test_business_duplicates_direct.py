@@ -9,6 +9,8 @@ from datetime import date, datetime, timezone
 from unittest.mock import Mock
 from uuid import uuid4
 
+import pytest
+from argus.domain.business.actions.duplicate_comparison import compare
 from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution
 from argus.domain.business.duplicates import flag_receipt_duplicates
 from argus.domain.ingestion.connections import InMemoryConnectionRepository
@@ -23,6 +25,18 @@ from argus.domain.owner_scope import BusinessSpace
 NOW = datetime(2026, 10, 12, 18, 0, tzinfo=timezone.utc)
 OWNER = str(uuid4())
 SCOPE = BusinessSpace(str(uuid4()))
+
+
+@pytest.mark.parametrize(
+    ("name", "different"),
+    [("COLMADO LA ESQUINA", False), (" colmado la esquina ", False), ("Otro colmado", True)],
+)
+def test_comparison_uses_the_duplicate_rules_name_normalization(name, different):
+    tx = Mock()
+    tx.rows.side_effect = [[], [{"at": NOW}], [], [{"at": NOW}]]
+    result = compare(tx, _event(_facts(name)), _event(_facts()), [])
+    assert result.document.counterparty == name
+    assert ("counterparty" in result.differences) is different
 
 
 def _facts(merchant: str = "Colmado La Esquina", amount: str = "250.50") -> BusinessFacts:

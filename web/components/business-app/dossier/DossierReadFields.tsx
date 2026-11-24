@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { SCREEN_READER_LOADING_LABEL } from "../business-skeletons";
 import { DossierCard } from "./DossierParts";
 import frame from "./dossier.module.css";
 import styles from "../receipt-reading.module.css";
@@ -12,16 +13,27 @@ const PLACEHOLDERS = [
   [[60, 80], [36, 64], [40, 88]],
 ];
 
-export default function DossierReadFields({ reading, children }: { reading: boolean; children?: ReactNode }) {
+/** Why the facts are not there yet: the record is loading, its document is being read, or the read is held still. */
+export type ReadFieldsWait = "loading" | "reading" | "held";
+
+/**
+ * The dossier's title while nothing about the record is known. One element, so the tray's title never churns.
+ * It carries the dossier's colors itself: in the tray the title sits outside the dossier's frame.
+ */
+export const DOSSIER_TITLE_BAR = <span className={frame.scope}><span className="sr-only">{SCREEN_READER_LOADING_LABEL}</span><span aria-hidden="true" data-testid="dossier-title-bar" className={`rounded-full ${styles.bar} ${styles.shimmer} ${styles.titleBar}`} /></span>;
+
+export default function DossierReadFields({ wait, children }: { wait: ReadFieldsWait; children?: ReactNode }) {
   const { t } = useTranslation();
   const titles = [t("business.dossier.card.comprobante"), t("business.dossier.card.report", { form: "606" }), t("business.terms.montos_title")];
+  const moving = wait === "held" ? "" : ` ${styles.shimmer}`;
+  const label = wait === "reading" ? t("business.reading.document") : wait === "loading" ? SCREEN_READER_LOADING_LABEL : undefined;
   return <>
-    <div role={reading ? "status" : undefined} aria-label={reading ? t("business.reading.document") : undefined} data-reading={reading} className={frame.stack}>
+    <div role={label ? "status" : undefined} aria-label={label} className={frame.stack}>
       {PLACEHOLDERS.map((rows, group) => <DossierCard key={group} title={titles[group]}>
         <ul className={frame.rows} aria-hidden="true">
           {rows.map(([label, value]) => <li key={label} className={`${frame.row} ${styles.placeholderRow}`}>
-            <span className={`rounded-full ${styles.bar}`} style={{ width: label }} />
-            <span className={`rounded-full ${styles.bar} ${styles.placeholderValue}`} style={{ width: value }} />
+            <span className={`rounded-full ${styles.bar}${moving}`} style={{ width: label }} />
+            <span className={`rounded-full ${styles.bar} ${styles.placeholderValue}${moving}`} style={{ width: value }} />
           </li>)}
         </ul>
       </DossierCard>)}

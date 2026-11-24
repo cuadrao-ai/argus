@@ -102,14 +102,6 @@ describe("business skeletons", () => {
     expect(grid?.children[0]?.className).toContain("tablet:col-span-2");
     await overview.close();
 
-    const detail = await open("detail");
-    const markup = detail.host.querySelector('[data-layout="detail"]')?.innerHTML ?? "";
-    expect(markup).toContain("desktop:min-h-[280px]");
-    expect(markup).toContain("min-h-[200px]");
-    expect(markup).toContain("desktop:grid-cols-[minmax(280px,1fr)_minmax(0,640px)]");
-    expect(markup).toContain("data-testid=\"business-skeleton-top\"");
-    await detail.close();
-
     const inbox = await open("inbox");
     const row = inbox.host.querySelector('[data-layout="inbox"] .px-3');
     expect(row?.className).toContain("px-3");

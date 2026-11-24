@@ -105,7 +105,7 @@ for (const enabled of [false, true]) test(`reading ${enabled ? "on" : "off"}: th
   try {
     await page.settle(() => page.host.querySelector('[data-testid="reception-pending"]') !== null);
     const loading = beforeList();
-    const reserved = page.host.querySelector<HTMLElement>('[data-testid="receipt-reading-control"]');
+    const reserved = page.host.querySelector<HTMLElement>('[data-testid="receipt-reading-notice"]');
     if (!enabled) assert.equal(reserved?.style.visibility, "hidden", "the pending notice holds its geometry without offering an action");
     await page.act(async () => { releaseList(); });
     await page.settle(() => page.host.querySelector('[data-testid="reception-row"]') !== null);
@@ -118,22 +118,24 @@ for (const enabled of [false, true]) test(`reading ${enabled ? "on" : "off"}: th
   } finally { releaseList(); releaseReading(); await page.close(); }
 });
 
-test("the Bandeja shows the reading row only while reading is off", async () => {
+test("the Bandeja shows the reading notice and its button only while reading is off, and never a switch", async () => {
   const on = await mountInbox(withReceiptReading(reading(true)));
   try {
     await on.settle(() => on.host.querySelector('[data-testid="reception-row"]') !== null);
-    assert.equal(on.host.querySelector('[data-testid="receipt-reading-control"]'), null);
+    assert.equal(on.host.querySelector('[data-testid="receipt-reading-notice"]'), null);
+    assert.equal(on.host.querySelector('[data-testid="receipt-reading-turn-on"]'), null);
     assert.equal(on.host.querySelector('[role="switch"]'), null);
   } finally { await on.close(); }
 
   const off = await mountInbox(withReceiptReading(reading(false)));
   try {
-    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null);
-    assert.ok(off.host.querySelector('[data-testid="receipt-reading-control"] [role="switch"]'));
+    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-notice"]') !== null);
+    assert.ok(off.host.querySelector('[data-testid="receipt-reading-notice"] [data-testid="receipt-reading-turn-on"]'));
+    assert.equal(off.host.querySelector('[role="switch"]'), null);
   } finally { await off.close(); }
 });
 
-test("reading off is one slim row under the views: its switch turns reading on in place, after the server's words the first time", async () => {
+test("reading off is one compact notice under the views: its button turns reading on in place, after the server's words the first time", async () => {
   const turnedOn: boolean[] = [];
   const server = withReceiptReading(reading(false));
   const off = await mountInbox({
@@ -141,26 +143,28 @@ test("reading off is one slim row under the views: its switch turns reading on i
     setReceiptReading: async (current, enabled) => { turnedOn.push(enabled); return server.setReceiptReading!(current, enabled, "es-419"); },
   });
   try {
-    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null && !off.host.querySelector('[data-testid="reception-pending"]'));
-    const notice = off.host.querySelector('[data-testid="receipt-reading-control"]')!;
+    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-notice"]') !== null && !off.host.querySelector('[data-testid="reception-pending"]'));
+    const notice = off.host.querySelector('[data-testid="receipt-reading-notice"]')!;
     const tabs = off.host.querySelector('[role="tablist"]')!;
-    assert.ok(tabs.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING, "the row sits under the views");
-    assert.deepEqual([...notice.querySelectorAll("span > span")].slice(0, 2).map((line) => line.textContent), ["Leer mis documentos automáticamente", "Tú siempre revisas y aceptas."]);
+    assert.ok(tabs.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING, "the notice sits under the views");
+    assert.deepEqual([...notice.querySelectorAll("span > span")].map((line) => line.textContent), ["La lectura automática está apagada.", "Tú siempre revisas y aceptas."]);
     assert.equal(off.host.textContent?.includes("Permiso de prueba"), false, "no consent paragraph stays on the page");
-    const toggle = notice.querySelector<HTMLButtonElement>('[role="switch"]')!;
-    assert.deepEqual([...notice.querySelectorAll("button")], [toggle], "no button opens another panel");
+    const toggle = notice.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-turn-on"]')!;
+    assert.equal(toggle.textContent, "Activar lectura de documentos");
+    assert.equal(toggle.previousElementSibling, notice.querySelector("span"), "the button sits right beside the text");
+    assert.deepEqual([...notice.querySelectorAll("button")], [toggle], "the button is the notice's only control");
     await off.act(async () => toggle.click());
-    const consent = notice.querySelector('[data-testid="receipt-reading-consent"]')!;
+    const consent = document.querySelector('[role="alertdialog"]')!;
     assert.equal(consent.querySelector("p")?.textContent, "Permiso de prueba");
     assert.deepEqual(turnedOn, []);
-    await off.act(async () => { consent.querySelector("button")!.click(); await Promise.resolve(); });
-    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') === null);
+    await off.act(async () => { consent.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!.click(); await Promise.resolve(); });
+    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-notice"]') === null);
     assert.deepEqual(turnedOn, [true]);
     assert.equal(off.host.textContent?.includes("Permiso de prueba"), false);
   } finally { await off.close(); }
 });
 
-test("a workspace refresh that lands while the switch is saving cannot undo the saved setting", async () => {
+test("a workspace refresh that lands while the turn-on is saving cannot undo the saved setting", async () => {
   const { createFixtureBusinessDataSource, fixtureReceiptReading } = await import("@/components/business-app/fixture-data");
   const fixture = createFixtureBusinessDataSource();
   let enabled = false;
@@ -177,12 +181,12 @@ test("a workspace refresh that lands while the switch is saving cannot undo the 
     },
     setReceiptReading: (current, next) => new Promise((resolve) => { answerSave = () => { enabled = next; resolve({ ...current, enabled: next }); }; }),
   }, { refresh: true });
-  const notice = () => page.host.querySelector('[data-testid="receipt-reading-control"]');
+  const notice = () => page.host.querySelector('[data-testid="receipt-reading-notice"]');
   try {
     const ready = () => notice()?.querySelector("button") != null && !page.host.querySelector('[data-testid="reception-pending"]');
     await page.settle(ready);
-    await page.act(async () => notice()!.querySelector<HTMLButtonElement>('[role="switch"]')!.click());
-    await page.act(async () => { notice()!.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-consent"] button')!.click(); await Promise.resolve(); });
+    await page.act(async () => notice()!.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-turn-on"]')!.click());
+    await page.act(async () => { document.querySelector<HTMLButtonElement>('[role="alertdialog"] [data-testid="confirm-dialog-confirm"]')!.click(); await Promise.resolve(); });
     const answered = workspaceAnswers;
     await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="workspace-refresh"]')!.click());
     await page.settle(() => workspaceAnswers > answered && ready());
@@ -207,7 +211,7 @@ test("a reading setting that did not load claims nothing", async () => {
   const unknown = await mountInbox(withReceiptReading(null));
   try {
     await unknown.settle(() => unknown.host.querySelector('[role="tablist"]') !== null);
-    assert.equal(unknown.host.querySelector('[data-testid="receipt-reading-control"]'), null);
+    assert.equal(unknown.host.querySelector('[data-testid="receipt-reading-notice"]'), null);
     assert.equal(unknown.host.textContent?.includes("sin leer"), false);
   } finally { await unknown.close(); }
 });
