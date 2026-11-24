@@ -11,7 +11,6 @@ from uuid import uuid4
 import pytest
 from argus.domain.business.contracts.actions import CaptureNote, ReviewDraft
 from argus.domain.business.contracts.facts import BusinessFactPatch
-from argus.domain.business.dgii_columns import SALES_COLUMNS
 from psycopg import Connection
 
 from tests import test_business_actions_postgres as business
@@ -495,17 +494,15 @@ def test_a_split_written_after_approval_ships_the_607_and_stays_open_after_expor
     assert _money_rows(world) == money
     assert _month(world)["dgii_forms"]["607"] == "prepared_candidate"
 
-    labels = dict(SALES_COLUMNS)
     assert _export(world)[2]["607"] == "prepared_candidate"
-    (line,) = routes.dgii_file(world, "sale")
-    assert line[labels["cash"]] == "1180.00"
     exported = _dossier(world, draft)
+    assert exported["dgii"]["cash"] == "1180.00"
     assert exported["payment_split_editable"] is True
     assert _suggested_type(exported) is None
     edited = _split(world, draft, exported["version"], cash="1000.00", card="180.00")
     assert edited.status_code == 200, edited.text
-    (line,) = routes.dgii_file(world, "sale")
-    assert (line[labels["cash"]], line[labels["card"]]) == ("1000.00", "180.00")
+    saved = _dossier(world, draft)["dgii"]
+    assert (saved["cash"], saved["card"]) == ("1000.00", "180.00")
 
 
 def test_each_write_changes_only_the_buckets_it_names(world) -> None:  # noqa: ANN001

@@ -120,7 +120,7 @@ test("the sales export shows the same line inside the chosen option", async () =
   const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"], currencies: ["DOP"] } });
   const page = await openIn("table", 2, { initial });
   assert.ok(card("table").contains(bandeja()));
-  await page.click(card("dgii").querySelector("input"));
-  assert.ok(card("dgii").contains(bandeja()));
+  assert.equal(document.querySelector('[data-testid="records-export-mode-dgii"]'), null);
   assert.equal(notices()!.children.length, 1);
+  assert.ok(page.button("Ver en Bandeja"));
 });
