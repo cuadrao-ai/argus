@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
 from argus.domain.business.amount_inheritance import saved_declaration
@@ -14,7 +15,25 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.document_type import money_document_type
 from argus.domain.business.ledger import occurred_on
+from argus.domain.business.purchase_review import (
+    declaration_from_facts,
+    paying_account_type,
+    states_declaration,
+)
 from argus.domain.recording.owner_funds import no_account
+
+
+def listed_accounts(connection, context) -> list[dict]:
+    """The accounts a Business lists, oldest first: the ones a record's
+    funding can name."""
+
+    with connection.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(
+            "select id,nickname,type,currency from public.financial_accounts"
+            " where owner_space_id=%s and user_id=%s and not archived order by created_at,id",
+            (context.actor.space_id, context.owner_id),
+        )
+        return cursor.fetchall()
 
 
 def fiscal_snapshot(cursor, context, activities, *, only_these=False):
@@ -55,6 +74,7 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
             *([[item["activity_id"] for item in activities]] if only_these else []),
         ),
     )
+    account_types: dict[str, str] | None = None
     approved = {}
     for row in cursor.fetchall():
         identifier = str(row["activity_id"])
@@ -75,11 +95,20 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
             BusinessFacts.model_validate(row["after_facts"]) if row else BusinessFacts()
         )
         declaration = TypeAdapter(DgiiDeclaration).validate_python(row["after_dgii"]) if row and row["after_dgii"] else None
+        built = None
+        if resolution and declaration is None and states_declaration(resolution.document_type, facts):
+            if account_types is None:
+                account_types = {
+                    str(item["id"]): item["type"]
+                    for item in listed_accounts(cursor.connection, context)
+                }
+            built = declaration_from_facts(facts, paying_account_type(facts, account_types))
         declaration = saved_declaration(
             facts,
             declaration,
             resolution.fiscal_overrides if resolution else None,
             resolution.bill_mark if resolution else None,
+            built,
         )
         records.append(
             FiscalRecord(

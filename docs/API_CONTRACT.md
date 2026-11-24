@@ -9308,6 +9308,15 @@ recorded (null) keeps the fill its export has always had: each blank amount
 from the approved facts, and a blank `paid_on` from `occurred_on` when the
 stored bill mark is `Factura pagada`.
 
+An accepted expense saved with no declaration is the one exception. The
+dossier and the 606 read the declaration its facts state, the one an open
+review builds: `id_type` from the RNC, the payment form of the stated Business
+account, each linked field at the value it follows, and every answer a person
+never gave blank. The dossier carries the `inheritance` entries of an open
+draft for it. It is built on each read and never stored; the first 606 write
+on the record starts from it and saves it. A saved 606 declaration whose
+`id_type` is null reads the Tipo Id its RNC states.
+
 `amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
 false` and `difference`. The signed exact decimal difference is gross minus
 net minus the same `AMOUNT_PARTS` components. With ITBIS known it appears when
