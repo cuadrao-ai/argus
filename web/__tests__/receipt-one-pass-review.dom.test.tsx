@@ -35,68 +35,42 @@ describe("a receipt with no currency", () => {
   async function noCurrency(currencies = ["DOP", "USD"], change: (dossier: Dossier) => void = () => undefined) {
     const page = await setup("noCurrency", change, worksIn(currencies));
     await page.wait(() => Boolean(page.api().records.workspace));
-    // The Montos heading is the currency's picker; its row opens at the top of the card.
+    // The Montos heading is the currency's picker: it opens its own list, and a pick saves at once.
     const picker = () => page.host.querySelector<HTMLButtonElement>('[data-testid="montos-currency"]')!;
     const row = (name: string) => page.host.querySelector<HTMLElement>(`li[data-fact="${name}"]`)!;
-    const select = () => row("currency").querySelector<HTMLSelectElement>('[data-testid="edit-currency"] select')!;
-    const action = (name: string, label: "Guardar" | "Cancelar") => row(name).querySelector<HTMLButtonElement>(`button[aria-label^="${label} · "]`)!;
-    const openRow = (name: string) => page.act(async () => (name === "currency" ? picker() : row(name).querySelector<HTMLButtonElement>("button[data-row-value]")!).click());
-    const check = (name: string) => page.act(async () => action(name, "Guardar").click());
-    const dismiss = (name: string) => page.act(async () => action(name, "Cancelar").click());
-    return { ...page, picker, row, select, action, openRow, check, dismiss };
+    const list = () => page.host.querySelector<HTMLElement>('[data-testid="receipt-facts-montos"] [role="listbox"]');
+    const options = () => [...list()?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? []];
+    const openList = () => page.act(async () => picker().click());
+    return { ...page, picker, row, list, options, openList };
   }
 
-  test("a missing currency stays unchosen until the person selects and saves it", async () => {
+  test("a missing currency stays unchosen until the person picks one, and the pick saves it", async () => {
     const page = await noCurrency(["DOP"]);
     try {
       assert.equal(page.picker().getAttribute("data-missing"), "true");
-      await page.openRow("currency");
-      assert.equal(page.select().value, "");
-
+      assert.equal(page.picker().textContent, "Elegir");
+      await page.openList();
+      assert.equal(page.list()?.getAttribute("aria-label"), "Moneda");
+      assert.ok(page.options().every((option) => option.getAttribute("aria-selected") === "false"), "none is chosen for the person");
       assert.equal(page.writes.length, 0, "opening saves nothing");
-      await page.dismiss("currency");
-      assert.equal(page.row("currency"), null, "the X closes the row");
-      assert.equal(page.writes.length, 0, "the X drops it");
-      await page.openRow("currency");
-      await fill(page, '[data-testid="edit-currency"] select', "DOP", HTMLSelectElement);
-      await page.check("currency");
-      await page.wait(() => page.writes.length === 1 && page.row("currency") === null);
+      await page.act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); });
+      assert.equal(page.list(), null, "Escape closes the list");
+      assert.equal(page.writes.length, 0, "Escape drops it");
+      await page.openList();
+      await page.act(async () => page.options().find((option) => option.dataset.value === "DOP")!.click());
+      await page.wait(() => page.writes.length === 1 && page.picker().textContent === "DOP");
       assert.deepEqual(page.writes.map(({ body }) => body), [{ currency: { state: "known", value: "DOP" } }]);
-      assert.equal(page.picker().textContent, "DOP");
       assert.equal(page.picker().getAttribute("aria-label"), "Moneda: DOP");
       assert.equal(page.picker().getAttribute("data-missing"), null);
+      assert.equal(page.row("currency"), null, "the card never grows a Moneda row");
     } finally { await page.close(); }
   });
 
   test("a Business with no account offers the three supported currencies", async () => {
     const page = await noCurrency([]);
     try {
-      await page.openRow("currency");
-      assert.deepEqual([...page.select().options].map((option) => option.value), ["", "DOP", "USD", "EUR"]);
-      assert.equal(page.select().value, "");
-    } finally { await page.close(); }
-  });
-
-  test("several currencies keep the empty choice in a control wide enough for it, and the check alone saves nothing", async () => {
-    const page = await noCurrency();
-    try {
-      await page.openRow("currency");
-      assert.equal(page.select().value, "");
-      assert.deepEqual([...page.select().options].map((option) => option.text), ["Elegir", "DOP", "USD", "EUR"]);
-      await page.check("currency");
-      assert.equal(page.writes.length, 0);
-    } finally { await page.close(); }
-  });
-
-  test("the currency select has an accessible name", async () => {
-    const page = await noCurrency();
-    try {
-      await page.openRow("currency");
-      const label = page.select().closest("label")!;
-      const name = [...label.querySelectorAll("span")].find((span) => span.textContent === "Moneda");
-      assert.ok(name, "the label names it");
-      assert.ok(name.classList.contains("sr-only"), "the row's own label gives the visible context");
-      assert.equal(page.row("currency").firstElementChild?.textContent, "Moneda");
+      await page.openList();
+      assert.deepEqual(page.options().map((option) => option.dataset.value), ["DOP", "USD", "EUR"]);
     } finally { await page.close(); }
   });
 

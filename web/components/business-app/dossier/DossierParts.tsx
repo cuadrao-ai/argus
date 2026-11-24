@@ -55,9 +55,9 @@ export function usePopover(host: RefObject<HTMLElement | null>, open: boolean, c
 }
 
 /** One group of rows on the tint: its heading, what sits beside it, and its rows. */
-export function DossierCard({ title, aside, children, testId, label }: { title: string; aside?: ReactNode; children?: ReactNode; testId?: string; label?: string }) {
+export function DossierCard({ title, aside, children, testId, label, data }: { title: string; aside?: ReactNode; children?: ReactNode; testId?: string; label?: string; data?: DossierRowProps["data"] }) {
   return (
-    <section className={styles.card} aria-label={label ?? title} data-testid={testId}>
+    <section {...data} className={styles.card} aria-label={label ?? title} data-testid={testId}>
       <div className={styles.cardHead}>
         <h3 className={styles.cardTitle}>{title}</h3>
         {aside}
@@ -187,6 +187,38 @@ const LIST_MAX = 300;
 const OPTION_HEIGHT = 40;
 
 /**
+ * The open list of a pick: every option, the stored one checked. It takes the
+ * focus as it opens, and the arrow keys walk it. Escape and Tab leave it.
+ */
+export function PickList({ label, value, options, side, onChoose, onLeave }: { label: string; value: string; options: readonly PickOption[]; side: "up" | "down"; onChoose: (value: string) => void; onLeave: (key: "Escape" | "Tab") => void }) {
+  const list = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    (list.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? list.current?.querySelector<HTMLElement>('[role="option"]'))?.focus();
+  }, []);
+  const walk = (event: KeyboardEvent<HTMLUListElement>) => {
+    const found = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]')];
+    const at = found.indexOf(document.activeElement as HTMLElement);
+    const moves: Record<string, number | undefined> = { ArrowDown: Math.min(found.length - 1, at + 1), ArrowUp: Math.max(0, at - 1), Home: 0, End: found.length - 1 };
+    const next = moves[event.key];
+    if (next !== undefined) { event.preventDefault(); found[next]?.focus(); }
+    else if (event.key === "Escape" || event.key === "Tab") onLeave(event.key);
+  };
+  return (
+    <ul ref={list} role="listbox" aria-label={label} data-side={side} className={styles.list} onKeyDown={walk}>
+      {options.map((option) => (
+        <li key={option.value} role="presentation">
+          <button type="button" role="option" aria-selected={option.value === value} data-value={option.value} className={styles.option} onClick={() => onChoose(option.value)}>
+            <span className={styles.optionCheck}>{option.value === value ? <Check size={16} aria-hidden="true" /> : null}</span>
+            <span className="min-w-0">{option.label}</span>
+            {option.status ? <OptionMark status={option.status} /> : null}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
  * One fact picked from a list, in the row grid: label, status slot, then the
  * value and its chevron as one button over the value and action slots. The
  * list opens over the form, above the row when there is room, and moves nothing.
@@ -195,14 +227,9 @@ export function DossierPickRow({ row, label, value, status, pick, below, data }:
   const { t } = useTranslation();
   const item = useRef<HTMLLIElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const list = useRef<HTMLUListElement>(null);
   const [side, setSide] = useState<"up" | "down" | null>(null);
   const open = side !== null;
   usePopover(item, open, () => setSide(null));
-  useEffect(() => {
-    if (!open) return;
-    (list.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? list.current?.querySelector<HTMLElement>('[role="option"]'))?.focus();
-  }, [open]);
   const toggle = () => {
     if (open) { setSide(null); return; }
     const box = trigger.current?.getBoundingClientRect();
@@ -212,21 +239,13 @@ export function DossierPickRow({ row, label, value, status, pick, below, data }:
     const roomBelow = box && panel ? panel.bottom - box.bottom : 0;
     setSide(roomAbove >= need || (roomBelow < need && roomAbove > roomBelow) ? "up" : "down");
   };
-  const walk = (event: KeyboardEvent<HTMLUListElement>) => {
-    const options = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]')];
-    const at = options.indexOf(document.activeElement as HTMLElement);
-    const moves: Record<string, number | undefined> = { ArrowDown: Math.min(options.length - 1, at + 1), ArrowUp: Math.max(0, at - 1), Home: 0, End: options.length - 1 };
-    const next = moves[event.key];
-    if (next !== undefined) { event.preventDefault(); options[next]?.focus(); }
-    // Escape and Tab close the list; Escape hands the focus back to the row.
-    else if (event.key === "Escape") trigger.current?.focus();
-    else if (event.key === "Tab") setSide(null);
-  };
   const choose = (next: string) => {
     setSide(null);
     trigger.current?.focus();
     if (next !== pick.value) pick.onPick(next);
   };
+  // Escape hands the focus back to the row; usePopover closes the list. Tab closes it and moves on.
+  const leave = (key: "Escape" | "Tab") => { if (key === "Escape") trigger.current?.focus(); else setSide(null); };
   const chevron = <ChevronDown size={16} aria-hidden="true" />;
   return (
     <li ref={item} {...data} data-fact={row} className={styles.row}>
@@ -238,17 +257,7 @@ export function DossierPickRow({ row, label, value, status, pick, below, data }:
           {pick.saving ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : chevron}
         </span>
       </button>
-      {open ? <ul ref={list} role="listbox" aria-label={label} data-side={side} className={styles.list} onKeyDown={walk}>
-        {pick.options.map((option) => (
-          <li key={option.value} role="presentation">
-            <button type="button" role="option" aria-selected={option.value === pick.value} data-value={option.value} className={styles.option} onClick={() => choose(option.value)}>
-              <span className={styles.optionCheck}>{option.value === pick.value ? <Check size={16} aria-hidden="true" /> : null}</span>
-              <span className="min-w-0">{option.label}</span>
-              {option.status ? <OptionMark status={option.status} /> : null}
-            </button>
-          </li>
-        ))}
-      </ul> : null}
+      {side ? <PickList label={label} value={pick.value} options={pick.options} side={side} onChoose={choose} onLeave={leave} /> : null}
       {below ? <div className={styles.below}>{below}</div> : null}
     </li>
   );

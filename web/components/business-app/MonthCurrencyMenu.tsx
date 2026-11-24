@@ -6,15 +6,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { resolveLanguage } from "@/lib/language-features";
-
-function currencyName(code: string, locale: string): string {
-  try {
-    const name = new Intl.DisplayNames([locale], { type: "currency" }).of(code) ?? code;
-    return `${name.charAt(0).toLocaleUpperCase(locale)}${name.slice(1)}`;
-  } catch {
-    return code;
-  }
-}
+import { currencyName } from "./business-format";
 
 /**
  * Moneda: which currency the figures show, when there is more than one. The ISO code is the button ("DOP"); the

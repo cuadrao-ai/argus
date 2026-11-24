@@ -1,10 +1,11 @@
 .noteBody, .supportBody { padding:8px 0 12px; }
-.noteBody[data-landing], .supportBody[data-landing="true"], .supportBody[data-landing="a"] { animation:annotationWash 2.4s ease-out; }
+/* A file just added washes the list once more for each one. */
+.supportBody[data-landing="a"] { animation:annotationWash 2.4s ease-out; }
 .supportBody[data-landing="b"] { animation:annotationWashAgain 2.4s ease-out; }
 @keyframes annotationWash { from, 70% { background-color:var(--d-flash); } }
 @keyframes annotationWashAgain { from, 70% { background-color:var(--d-flash); } }
 @media (prefers-reduced-motion:reduce) {
-  .noteBody[data-landing], .supportBody[data-landing] { animation:none; background-color:var(--d-flash); }
+  .supportBody[data-landing] { animation:none; background-color:var(--d-flash); }
 }
 .noteRead { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
 .noteText, .empty { margin:0; padding:8px 0; font-size:14.5px; line-height:21px; white-space:pre-wrap; overflow-wrap:anywhere; }

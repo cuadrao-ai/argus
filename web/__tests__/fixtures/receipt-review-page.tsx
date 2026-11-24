@@ -17,7 +17,8 @@ export function registerReceiptReviewPage() {
   afterAll(async () => { await GlobalRegistrator.unregister(); });
 }
 
-export async function mount(overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({}), userId?: string) {
+/** `dgiiNames` draws each DGII list as the app does, through its one label owner. */
+export async function mount(overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({}), userId?: string, dgiiNames = false) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -30,8 +31,10 @@ export async function mount(overrides: (fixture: BusinessDataSource) => Partial<
   const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
+  const { dgiiChoiceLabel } = await import("@/lib/dgii-labels");
   const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
+  if (dgiiNames) i18n.use(dgiiChoiceLabel);
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false }, ...(dgiiNames ? { postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true } : {}) });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
   // The email's own document stands in for a receipt saved with reading off.
   const source = {
@@ -102,7 +105,7 @@ export function button(host: Element, text: string) {
 export type Dossier = Awaited<ReturnType<BusinessDataSource["dossier"]>>;
 
 /** A review page over the sample's own server, with every write it sends kept in order. */
-export async function setup(id: keyof typeof import("@/components/business-app/dossier-fixtures").dossierFixtureIds = "fiscal", change: (dossier: Dossier) => void = () => undefined, overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({})) {
+export async function setup(id: keyof typeof import("@/components/business-app/dossier-fixtures").dossierFixtureIds = "fiscal", change: (dossier: Dossier) => void = () => undefined, overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({}), dgiiNames = false) {
   const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
   const writes: { kind: string; version: number; body: unknown; key: string }[] = [];
   let approvals = 0;
@@ -113,7 +116,7 @@ export async function setup(id: keyof typeof import("@/components/business-app/d
     reviewPurchase: async (draft, version, purchase, key) => { writes.push({ kind: "purchase", version, body: purchase, key }); const next = await fixture.reviewPurchase(draft, version, purchase, key); change(next); return next; },
     approveDraft: async () => { approvals += 1; throw new Error("probe records the separate approval call"); },
     ...overrides(fixture),
-  }));
+  }), undefined, dgiiNames);
   await page.open({ kind: "draft", draftId: dossierFixtureIds[id] }, () => Boolean(page.host.querySelector('[data-testid="receipt-current-facts"]') && page.host.querySelector('[data-testid="fiscal-declaration"]')));
   const row = (name: string) => page.host.querySelector<HTMLElement>(`[data-fact="${name}"]`)!;
   // A row opens from its value. The status slot before it can hold a button of its own.

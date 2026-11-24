@@ -219,11 +219,17 @@ test("Comparar opens General, shows only General and Detalles, and switches the 
     assert.equal(ui.host.querySelectorAll('[data-testid="receipt-original-source"]').length, 1);
     assert.deepEqual(ui.fetchedSources, ["file-new"]);
     assert.equal(document.activeElement?.getAttribute("data-testid"), "duplicate-compare-title");
-    const radio = (value: string) => ui.host.querySelector<HTMLInputElement>('input[type="radio"][value="' + value + '"]');
-    assert.equal(radio("document")?.checked, true);
+    // The app's one segmented control: a radio group of buttons over its travelling thumb.
+    const sides = ui.host.querySelector<HTMLElement>('[role="radiogroup"][aria-label="Documento a ver"]');
+    assert.ok(sides?.querySelector("[data-segment-thumb]"));
+    assert.equal(ui.host.querySelector('fieldset, input[type="radio"]'), null, "no second switch of its own");
+    const radio = (value: string) => sides.querySelector<HTMLButtonElement>(`button[role="radio"][data-segment="${value}"]`);
+    assert.deepEqual([...sides.querySelectorAll('[role="radio"]')].map((item) => item.textContent), ["Este", "Guardado antes"]);
+    assert.equal(radio("document")?.getAttribute("aria-checked"), "true");
     await ui.act(async () => { radio("other")?.click(); });
     await ui.flush();
-    assert.equal(radio("other")?.checked, true);
+    assert.equal(radio("other")?.getAttribute("aria-checked"), "true");
+    assert.equal(radio("document")?.getAttribute("aria-checked"), "false");
     assert.match(ui.host.querySelector('[data-testid="dossier-document-foot"]')?.textContent ?? "", /factura\.pdf/);
     assert.deepEqual(ui.fetchedSources, ["file-new", "file-original"]);
     assert.equal(ui.requests.length, 0);

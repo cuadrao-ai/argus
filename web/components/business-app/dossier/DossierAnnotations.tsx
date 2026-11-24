@@ -40,6 +40,7 @@ export function dossierFileSize(bytes: number, locale: string): string {
   return new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "short", maximumFractionDigits: unit === "megabyte" ? 1 : 0 }).format(amount);
 }
 
+/** A card Registros opened the record at: it scrolls into view. The note's text box takes the focus, and the files card marks its own edge. */
 function useCardLanding(focus: boolean, entryVisit: number) {
   const target = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -120,7 +121,7 @@ export function DossierNoteCard({ busy, dossier, detailsCard, entryVisit = 0, on
   );
   return (
     <DossierCard title={title} aside={meta} testId="dossier-note">
-      <div ref={landing} className={`rounded-item ${annotation.noteBody}`} data-landing={fromEntry || undefined}>
+      <div ref={landing} className={annotation.noteBody}>
         {editing ? (
           <div className={annotation.noteEditor} onKeyDown={onKeyDown}>
             <textarea ref={field} className={`rounded-item ${styles.focus} ${annotation.noteInput}`} rows={4} aria-label={title} aria-describedby={count} value={editing.text} readOnly={saving} onChange={(event) => setEditor({ text: withinNoteLimit(event.target.value), state: editing.state === "stale" ? "stale" : "ready" })} />
@@ -212,10 +213,10 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
     }
   };
   return (
-    <DossierCard title={t("business.dossier.supporting.title")} testId="dossier-supporting" aside={
+    <DossierCard title={t("business.dossier.supporting.title")} testId="dossier-supporting" data={{ "data-landing": fromEntry ? "true" : undefined }} aside={
       canAdd ? <button ref={add} type="button" className={`${styles.link} ${annotation.link}`} disabled={pending || busy} aria-busy={pending} onClick={() => picker.current?.click()}>{label}</button> : null
     }>
-      <div ref={landing} className={`rounded-item ${annotation.supportBody}`} data-landing={added ? (added % 2 ? "a" : "b") : fromEntry || undefined}>
+      <div ref={landing} className={`rounded-item ${annotation.supportBody}`} data-landing={added ? (added % 2 ? "a" : "b") : undefined}>
         {canAdd ? <input ref={picker} type="file" hidden accept={receiptLimits ? receiptFileAccept(receiptLimits) : undefined} disabled={pending || busy} onChange={pickFile} /> : null}
         {files.length ? <ul className={styles.rows}>{files.map(({ file, purge }) => {
           const name = file.filename ?? t("business.dossier.row.no_data");
