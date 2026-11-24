@@ -87,6 +87,16 @@ def test_repeating_other_saved_answers_writes_nothing(review_command, kind):
     tx.imports.put_event.assert_not_called()
 
 
+def test_typing_a_derived_amount_at_its_own_value_takes_it_from_its_source(review_command):
+    review, tx, event, resolution = review_command
+    side = next(name for name in ("services_amount", "goods_amount") if getattr(resolution.dgii, name) is not None)
+    assert side not in resolution.fiscal_overrides
+    result = review({"purchase": {side: getattr(resolution.dgii, side)}})
+    assert (result.outcome, result.version) == ("applied", event.version + 1)
+    saved = BusinessResolution.model_validate(tx.imports.put_event.call_args.args[0].resolution["business"])
+    assert side in saved.fiscal_overrides
+
+
 def test_a_real_change_keeps_the_other_facts_and_writes_one_revision(review_command):
     review, tx, event, resolution = review_command
     result = review({"facts": {"counterparty": {"state": "known", "value": fake.company()}}})
