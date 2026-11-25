@@ -22017,6 +22017,9 @@ components:
           anyOf:
           - $ref: '#/components/schemas/NetAmount'
           - type: 'null'
+        approval:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:

@@ -362,6 +362,16 @@ describe("a fiscal save in Historial", () => {
     await page.close();
   });
 
+  test("Aceptar shows only Aceptado: the answers the app filled in that it saved are no person's change", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const filled = { ...save(3, declared("606", { payment_method: null }), declared("606", { payment_method: "03" })), approval: true };
+    const approval = { status: "recorded", activity_id: "x", reviewed_version: 2, approved_revision: 2, approved_at: at(12, 20, 4), actor: actor("Ana Pérez") } as BusinessDossier["approval_result"];
+    const page = await render(<ReceiptHistory history={[filled]} accounts={[]} dgiiFields={fields} approval={approval} />, { dgiiNames: true });
+    assert.deepEqual(entries(page.host).map(eventLines), [[accepted, "Pasó a Registros", "Ana Pérez"]]);
+    assert.doesNotMatch(page.host.textContent ?? "", /Desconocido|guardados|Se revisó/);
+    await page.close();
+  });
+
   test("a 607 save names the 607", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const page = await render(<ReceiptHistory history={[save(3, null, declared("607", { income_type: "1", card: "12980.00" }))]} accounts={[]} dgiiFields={fields} documentType="venta" />);

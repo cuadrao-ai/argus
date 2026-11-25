@@ -49,7 +49,7 @@ def test_a_first_fiscal_save_starts_from_the_declaration_the_review_showed(  # n
     assert _changed(first) == changed
 
 
-def test_a_later_fiscal_save_starts_from_the_stored_declaration(actions):  # noqa: ANN001
+def test_a_later_fiscal_save_with_nothing_suggested_starts_from_the_stored_declaration(actions):  # noqa: ANN001
     service, context = actions
     draft, _ = links._fresh(service, context)
     links._review(service, context, draft, purchase=PurchaseReview(category="02"))

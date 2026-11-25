@@ -12,6 +12,10 @@ from __future__ import annotations
 
 from argus.domain.business.contracts.facts import BusinessFacts
 
+#: The version of an approval's own revision, read from its receipt ``a``: the
+#: version the approval reviewed plus one, which its claim takes.
+APPROVAL_REVISION_VERSION = "(a.command->'request'->>'version')::integer+1"
+
 
 def approved_revision_sql(draft: str, space: str, reviewed: str) -> str:
     """The query for the approved revision's ``version`` and ``after_facts``.
