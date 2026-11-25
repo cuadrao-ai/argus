@@ -3202,16 +3202,9 @@
     },
     "empty": {
       "access_error": "No pudimos cargar el acceso",
-      "all_clear_body": "Cuando llegue otro recibo, aparece aquí para que lo revises.",
-      "all_clear_title": "Todo aceptado. Pa'que cuadre.",
       "email_error": "No pudimos cargar tus correos",
       "error_body": "Tus datos siguen guardados. Revisa tu conexión e inténtalo otra vez.",
-      "inbox_body": "Súbelos, escríbelos o reenvíalos por correo. Los revisas y los aceptas para que cuenten en tus números.",
-      "inbox_error": "No pudimos cargar tu bandeja",
-      "inbox_title": "Aquí llegan tus recibos",
-      "month_body": "Agrega los recibos y facturas de este mes para ver tus ingresos, gastos e ITBIS.",
-      "overview_error": "No pudimos cargar tu negocio",
-      "see_all_periods": "Ver todos los períodos"
+      "overview_error": "No pudimos cargar tu negocio"
     },
     "expenses": {
       "no_merchant": "Gasto",
@@ -3590,7 +3583,6 @@
     },
     "intake": {
       "replayed": "Ya estaba guardado.",
-      "camera": "Tomar foto",
       "choose_another": "Elegir otro archivo",
       "formats": "{{formats}}, hasta {{size}} MB. El original es privado para ti.",
       "heic": "Esta es una foto HEIC de iPhone. Súbela desde el navegador de tu iPhone, que la convierte, o expórtala como JPG primero.",
@@ -3598,12 +3590,10 @@
       "title": "Subir recibo",
       "type_recibo": "Compra",
       "type_venta": "Venta",
-      "paste_hint": "o pega con {{keys}}",
       "camera_way": "Toma una foto",
       "camera_way_help": "Con la cámara de tu teléfono",
       "drop_title": "Arrastra tu recibo aquí",
       "drop_title_multiple": "Sube tus documentos",
-      "formats_short": "{{formats}} · hasta {{size}} MB",
       "drop_reject": "Ese tipo de archivo no se puede subir. Usa {{formats}}.",
       "row_waiting": "En cola",
       "row_minutes_left_one": "queda {{count}} min",

@@ -3168,16 +3168,9 @@
     },
     "empty": {
       "access_error": "We couldn't load access",
-      "all_clear_body": "When another receipt arrives, it shows up here for review.",
-      "all_clear_title": "All accepted. Squared away.",
       "email_error": "We couldn't load your emails",
       "error_body": "Your data is still saved. Check your connection and try again.",
-      "inbox_body": "Upload, type or forward them by email. You review and accept them so they count in your numbers.",
-      "inbox_error": "We couldn't load your inbox",
-      "inbox_title": "Your receipts land here",
-      "month_body": "Add this month's receipts and invoices to see your income, expenses and ITBIS.",
-      "overview_error": "We couldn't load your business",
-      "see_all_periods": "See all periods"
+      "overview_error": "We couldn't load your business"
     },
     "expenses": {
       "title": "Expenses",
@@ -4430,12 +4423,10 @@
       "title": "Upload receipt",
       "type_recibo": "Purchase",
       "type_venta": "Sale",
-      "paste_hint": "or paste with {{keys}}",
       "camera_way": "Take a photo",
       "camera_way_help": "With your phone's camera",
       "drop_title": "Drag your receipt here",
       "drop_title_multiple": "Upload your documents",
-      "formats_short": "{{formats}} · up to {{size}} MB",
       "drop_reject": "That file type can't be uploaded. Use {{formats}}.",
       "row_waiting": "In queue",
       "row_minutes_left_one": "{{count}} min left",
@@ -4455,7 +4446,6 @@
       "save": "Save to Inbox",
       "formats": "{{formats}}, up to {{size}} MB. The original stays private to you.",
       "choose_another": "Choose another file",
-      "camera": "Take photo",
       "panel_title": "Add documents",
       "chip_uploading": "Uploading {{position}} of {{total}}",
       "chip_saved_one": "{{count}} uploaded",

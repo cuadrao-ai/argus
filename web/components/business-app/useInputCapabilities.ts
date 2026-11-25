@@ -59,16 +59,3 @@ export function useInputCapabilities(): InputCapabilities {
   return capabilities;
 }
 
-/** Reads the first receipt-shaped file from the clipboard, if one is there. */
-export async function readClipboardFile(acceptedTypes: readonly string[]): Promise<File | null> {
-  const items = await navigator.clipboard.read();
-  for (const item of items) {
-    const type = item.types.find((candidate) => acceptedTypes.includes(candidate));
-    if (type) {
-      const blob = await item.getType(type);
-      const extension = type.split("/")[1] ?? "bin";
-      return new File([blob], `pasted-receipt.${extension}`, { type });
-    }
-  }
-  return null;
-}
