@@ -183,6 +183,24 @@ def take_suggestions(
     )
 
 
+def shown_answers(
+    shown: DgiiDeclaration | None,
+    suggestions: DeclarationSuggestions,
+    written: DgiiDeclaration | None,
+) -> DgiiDeclaration | None:
+    """``shown`` with each answer ``written`` gives as the review showed it:
+    a suggestion beside its blank answer is that answer, with its source."""
+
+    if not isinstance(shown, PurchaseDeclaration) or not isinstance(written, PurchaseDeclaration):
+        return shown
+    answered = {
+        field: getattr(suggestions, field)
+        for field in get_args(SuggestedField)
+        if getattr(written, field) is not None
+    }
+    return take_suggestions(shown, DeclarationSuggestions.model_validate(answered))
+
+
 def kept_sources(
     stored: DgiiDeclaration | None, declared: DgiiDeclaration | None
 ) -> DgiiDeclaration | None:

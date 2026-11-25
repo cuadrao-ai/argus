@@ -145,6 +145,8 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     events.push({ id: `source-${first.id}`, at: first.received_at, kind: "received", line: t("business.history.arrived", { channel }), sub: first.kind === "attachment" ? first.filename ?? undefined : undefined, who: null });
   }
   for (const revision of history) {
+    // What an approval saved is what its review showed: the approval's own line stands for it.
+    if (revision.approval) continue;
     const at = revision.created_at;
     // A revision the server made for a stated reason is a change like any other, made through Cuadrao for the person who caused it.
     const name = personName(t, revision.actor);

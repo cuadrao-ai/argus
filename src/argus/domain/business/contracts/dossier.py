@@ -150,6 +150,10 @@ class DraftRevision(Contract):
     reviewed_declaration_fields: tuple[str, ...] | None = None
     before_net_amount: NetAmount | None = None
     after_net_amount: NetAmount | None = None
+    #: An approval wrote this revision. It saves the declaration the review
+    #: showed, the answers the app filled in included, so it holds no edit of
+    #: the person's: history shows the approval in its place.
+    approval: bool = False
 
     @model_validator(mode="after")
     def historical_subtotals(self) -> DraftRevision:
@@ -554,6 +558,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
             "reviewed_declaration_fields": True,
             "before_net_amount": True,
             "after_net_amount": True,
+            "approval": True,
             "before_due_on": True,
             "after_due_on": True,
             "before_document_type": True,
