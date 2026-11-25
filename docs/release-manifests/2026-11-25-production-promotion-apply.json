@@ -1,0 +1,15 @@
+{
+  "id": "production-apply-2026-11-25-promotion",
+  "project_ref": "lgdhvepyrzbnscqssgqq",
+  "hosts": [
+    "db.lgdhvepyrzbnscqssgqq.supabase.co",
+    "aws-1-us-east-2.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "68fa813bd34399f8eb46c18d29c3843a1f014a33",
+  "versions_sha256": "6d21430a2487ae8984122b780d333e9d0561bb8b177beb501cff851a5ace261d",
+  "issued_at": "2026-11-25T07:00:00Z",
+  "expires_at": "2026-11-27T07:00:00Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas approved on 2026-11-25 (\"ok apply them so we can deploy right?\") applying the read budget wait index (20261121062739), the supporting file unlink (20261122135103) and the accepted edit history (20261123003924) migrations to production lgdhvepyrzbnscqssgqq only, before the production promotion of integration 68fa813bd (PR 2474). Staging has had all three since 2026-11-23. Read-only ledger check on 2026-11-25 found none of them on production. Dry run first."
+}
