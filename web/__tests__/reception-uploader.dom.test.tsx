@@ -57,10 +57,12 @@ for (const lng of LANGUAGES) {
     }
   });
 
-  test(`${lng}: an email row shows its address and a WhatsApp row its number's last digits`, async () => {
+  test(`${lng}: an email row shows its address and a WhatsApp row names the sender or shows only the last four`, async () => {
     assert.equal((await senderCell(lng, { channel: "email", sent_by: { id: `email:${SENDER}`, kind: "email", address: SENDER } })).text, SENDER);
     await cleanup();
-    assert.equal((await senderCell(lng, { channel: "whatsapp", sent_by: { id: "whatsapp:link", kind: "whatsapp", phone_last4: "4821" } })).text, "WhatsApp ···4821");
+    assert.equal((await senderCell(lng, { channel: "whatsapp", sent_by: { id: "whatsapp:link", kind: "whatsapp", phone_last4: "1234" } })).text, "···1234");
+    await cleanup();
+    assert.equal((await senderCell(lng, { channel: "whatsapp", sent_by: member(person("name", "Marisol Peña")) })).text, "Marisol Peña");
   });
 
   test(`${lng}: with no sender from the server the cell is empty in its own words, and the web matches no email itself`, async () => {

@@ -21,10 +21,10 @@ from argus.api.dependencies import current_user, problem
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import User
 from argus.api.whatsapp import (
-    WhatsAppOwnerContext,
     WhatsAppRuntime,
+    WhatsAppSenderContext,
     link_store,
-    require_whatsapp_owner,
+    require_whatsapp_sender,
     require_whatsapp_surface,
 )
 from argus.domain.business.authority import ActionError
@@ -119,7 +119,7 @@ async def _consent_call(request: Request, callback, *args):
         ) from None
 
 
-def _consent_store(request: Request, context: WhatsAppOwnerContext) -> AIConsentStore:
+def _consent_store(request: Request, context: WhatsAppSenderContext) -> AIConsentStore:
     store = context.runtime.receipts
     if store is None:
         raise problem(
@@ -135,13 +135,14 @@ def _consent_store(request: Request, context: WhatsAppOwnerContext) -> AIConsent
 @link_router.get("/ai-consent", response_model=AIConsentResponse, responses=_UNAVAILABLE)
 async def get_whatsapp_ai_consent(
     request: Request,
-    context: Annotated[WhatsAppOwnerContext, Depends(require_whatsapp_owner)],
+    context: Annotated[WhatsAppSenderContext, Depends(require_whatsapp_sender)],
     language: str | None = Query(default=None, max_length=16),
 ) -> AIConsentResponse:
     return await _consent_call(
         request,
         _consent_store(request, context).status,
-        UUID(context.destination_owner_id),
+        UUID(context.person_id),
+        UUID(context.space_id),
         None,
         language,
     )
@@ -151,13 +152,14 @@ async def get_whatsapp_ai_consent(
 async def enable_whatsapp_ai_consent(
     request: Request,
     body: EnableAIConsent,
-    context: Annotated[WhatsAppOwnerContext, Depends(require_whatsapp_owner)],
+    context: Annotated[WhatsAppSenderContext, Depends(require_whatsapp_sender)],
     idempotency_key: str = Header(min_length=1, max_length=80),
 ) -> AIConsentResponse:
     return await _consent_call(
         request,
         _consent_store(request, context).enable,
-        UUID(context.destination_owner_id),
+        UUID(context.person_id),
+        UUID(context.space_id),
         body,
         idempotency_key,
     )
@@ -284,10 +286,10 @@ async def receive_whatsapp_webhook(
 async def create_whatsapp_link_code(
     request: Request,
     body: LinkCodeRequest | None = None,
-    context: WhatsAppOwnerContext = Depends(require_whatsapp_owner),  # noqa: B008
+    context: WhatsAppSenderContext = Depends(require_whatsapp_sender),  # noqa: B008
 ) -> LinkCodeResponse:
     retry = _code_limiter.record_or_retry_after(
-        keys=(context.destination_owner_id,), limit=5, window_seconds=600
+        keys=(context.person_id,), limit=5, window_seconds=600
     )
     if retry is not None:
         raise problem(
@@ -300,7 +302,7 @@ async def create_whatsapp_link_code(
         )
     issued = await run_in_threadpool(
         context.runtime.intake.issue_code,
-        destination_owner_id=context.destination_owner_id,
+        destination_owner_id=context.person_id,
         reply_language=(body or LinkCodeRequest()).language,
     )
     text = link_message(issued.code)
@@ -315,11 +317,11 @@ async def create_whatsapp_link_code(
 
 @link_router.get("/link", response_model=LinkStatusResponse, responses=_UNAVAILABLE)
 async def get_whatsapp_link(
-    context: WhatsAppOwnerContext = Depends(require_whatsapp_owner),  # noqa: B008
+    context: WhatsAppSenderContext = Depends(require_whatsapp_sender),  # noqa: B008
 ) -> LinkStatusResponse:
     link = await run_in_threadpool(
         context.runtime.intake.store.destination_link,
-        destination_owner_id=context.destination_owner_id,
+        destination_owner_id=context.person_id,
     )
     if link is None:
         return LinkStatusResponse(linked=False)

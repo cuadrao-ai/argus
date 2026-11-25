@@ -70,6 +70,27 @@ def _reopen(world, *, key="reopen-1"):  # noqa: ANN001
     )
 
 
+def test_closing_a_business_leaves_each_members_number_linked(world) -> None:  # noqa: ANN001
+    pool, _, users, _, _ = world
+    with pool.connection() as db:
+        for person in (users["owner"], users["other"]):
+            db.execute(
+                "insert into public.whatsapp_sender_links"
+                "(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
+                " values(%s,%s,'1234','es-419','active',now())",
+                (person, uuid4().bytes + uuid4().bytes),
+            )
+    _close(world)
+    with pool.connection() as db:
+        assert set(
+            db.execute(
+                "select destination_owner_id::text from public.whatsapp_sender_links"
+                " where destination_owner_id=any(%s::uuid[]) and status='active'",
+                ([users["owner"], users["other"]],),
+            ).fetchall()
+        ) == {(users["owner"],), (users["other"],)}
+
+
 def test_close_denies_existing_grants_and_reopen_restores_them_without_invites(world):  # noqa: ANN001
     pool, space, users, access, member = world
     closed = _close(world)

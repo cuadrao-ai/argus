@@ -94,6 +94,8 @@ class CaptureFailed(Exception):
 class Captured:
     connection_id: str
     already_held: bool
+    storage_user_id: str
+    space_id: str
     # The receipt was queued for reading; the destination decides at capture.
     reading: bool = False
 
@@ -111,7 +113,7 @@ class IntakeDestination(Protocol):
         source_text: str | None,
     ) -> Captured: ...
 
-    async def discard(self, *, owner_id: str, connection_id: str) -> None: ...
+    async def discard(self, *, owner_id: str, space_id: str, connection_id: str) -> None: ...
 
 
 class MediaSource(Protocol):
@@ -394,9 +396,11 @@ class WhatsAppIntake:
         """Remove a new draft saved while its sender link was ending."""
 
         try:
+            assert captured.storage_user_id and captured.space_id and captured.connection_id
             await self.destination.discard(
-                owner_id=captured.destination_owner_id or "",
-                connection_id=captured.connection_id or "",
+                owner_id=captured.storage_user_id,
+                space_id=captured.space_id,
+                connection_id=captured.connection_id,
             )
             log.info("WhatsApp capture discarded after the link ended")
         except Exception as error:
@@ -548,6 +552,8 @@ class WhatsAppIntake:
             captured.connection_id,
             duplicate=captured.already_held,
             reading=captured.reading,
+            storage_user_id=captured.storage_user_id,
+            space_id=captured.space_id,
         )
 
     async def _reply(

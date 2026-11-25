@@ -124,39 +124,15 @@ def observation(db, user: str, event_id: str, connection_id: str) -> str:  # noq
     )
 
 
-def _has_reply_language(db) -> bool:  # noqa: ANN001
-    return bool(
-        db.execute(
-            "select 1 from information_schema.columns where table_schema = 'public'"
-            " and table_name = 'whatsapp_sender_links' and column_name = 'reply_language'"
-        ).fetchone()
-    )
-
-
-def sender_link(db, owner: str, destination_space: str | None = None) -> str:  # noqa: ANN001
-    columns = ["destination_owner_id", "destination_space_id", "wa_id_hash", "last4"]
-    values = [owner, destination_space, os.urandom(32), "1234"]
-    if _has_reply_language(db):
-        columns.append("reply_language")
-        values.append("es-419")
+def sender_link(db, person: str, sender_hash: bytes) -> str:  # noqa: ANN001
     return str(
         _one(
             db,
-            f"insert into public.whatsapp_sender_links ({', '.join(columns)}, status, linked_at)"
-            f" values ({', '.join(['%s'] * len(values))}, 'active', now())"
-            " returning destination_space_id",
-            tuple(values),
+            "insert into public.whatsapp_sender_links"
+            " (destination_owner_id, wa_id_hash, last4, reply_language, status, linked_at)"
+            " values (%s, %s, '1234', 'es-419', 'active', now()) returning id",
+            (person, sender_hash),
         )
-    )
-
-
-def capture(db, owner: str, connection_id: str, sender: bytes | None = None) -> None:  # noqa: ANN001
-    db.execute(
-        "insert into public.whatsapp_inbound_messages"
-        " (provider_message_key, sender_hash, destination_owner_id, status,"
-        "  connection_id, received_at, updated_at)"
-        " values (%s, %s, %s, 'captured', %s, now(), now())",
-        (os.urandom(32), sender or os.urandom(32), owner, connection_id),
     )
 
 
@@ -176,11 +152,11 @@ def test_a_forged_space_fails_every_composite_key(db, users) -> None:  # noqa: A
     owner, other = users["owner"], users["other"]
     space(db, owner)
     others = space(db, other)
-    for write in (account, connection, conversation, event, sender_link):
+    for write in (account, connection, conversation, event):
         with _raises(
             db,
             psycopg.errors.ForeignKeyViolation,
-            "owner_space_fkey|destination_space_fkey",
+            "owner_space_fkey",
         ):
             write(db, owner, others)
 
@@ -214,90 +190,59 @@ def test_observations_stay_in_their_events_space(db, users) -> None:  # noqa: AN
     )
 
 
-def test_a_sender_link_takes_its_owners_business_space(db, users) -> None:  # noqa: ANN001
-    owner, other = users["owner"], users["other"]
-    business = owned_space(db, owner)
-    assert sender_link(db, owner) == business
-    with _raises(db, psycopg.errors.RaiseException, "business_space_missing"):
-        sender_link(db, other)
+def test_a_person_and_a_number_each_have_only_one_active_link(db, users) -> None:  # noqa: ANN001
+    first, second = users["owner"], users["other"]
+    number = os.urandom(32)
+    original = sender_link(db, first, number)
+    with _raises(db, psycopg.errors.UniqueViolation, "active_destination_idx"):
+        sender_link(db, first, os.urandom(32))
+    with _raises(db, psycopg.errors.UniqueViolation, "active_sender_idx"):
+        sender_link(db, second, number)
+
+    db.execute(
+        "update public.whatsapp_sender_links set status='revoked', revoked_at=now()"
+        " where id=%s",
+        (original,),
+    )
+    assert sender_link(db, second, number) != original
 
 
-def test_a_whatsapp_capture_lands_in_the_linked_business_space(db, users) -> None:  # noqa: ANN001
-    owner, other = users["owner"], users["other"]
-    business = owned_space(db, owner)
-    sender_link(db, owner)
-    linked = bytes(
-        _one(
-            db,
-            "select wa_id_hash from public.whatsapp_sender_links where destination_owner_id = %s",
-            (owner,),
+def test_document_capture_requires_the_persons_verified_link(db, users) -> None:  # noqa: ANN001
+    person, other = users["owner"], users["other"]
+    number = os.urandom(32)
+    original = sender_link(db, person, number)
+    receipt = connection(db, person, owned_space(db, person))
+    capture_sql = (
+        "insert into public.whatsapp_inbound_messages"
+        " (provider_message_key,sender_hash,sender_link_id,destination_owner_id,status,"
+        " connection_id,received_at,updated_at)"
+        " values (%s,%s,%s,%s,'captured',%s,now(),now())"
+    )
+    for actor, digest in ((other, number), (person, os.urandom(32))):
+        with _raises(db, psycopg.errors.CheckViolation, "whatsapp_sender_link_inactive"):
+            db.execute(capture_sql, (os.urandom(32), digest, original, actor, receipt))
+    db.execute(capture_sql, (os.urandom(32), number, original, person, receipt))
+    db.execute(
+        "update public.whatsapp_sender_links set status='revoked',revoked_at=now() where id=%s",
+        (original,),
+    )
+    replacement = sender_link(db, other, number)
+    with _raises(db, psycopg.errors.CheckViolation, "whatsapp_capture_sender_immutable"):
+        db.execute(
+            "update public.whatsapp_inbound_messages set sender_link_id=%s,destination_owner_id=%s"
+            " where connection_id=%s",
+            (replacement, other, receipt),
         )
-    )
-    others_business = connection(db, other, space(db, other))
-
-    capture(db, owner, connection(db, owner, business), linked)
-    with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
-        capture(db, owner, connection(db, owner, business))
-    with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
-        capture(db, owner, connection(db, owner), linked)
-    with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
-        capture(db, owner, others_business, linked)
-
-    db.execute(
-        "update public.whatsapp_sender_links set status = 'revoked', revoked_at = now()"
-        " where destination_owner_id = %s",
-        (owner,),
-    )
-    with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
-        capture(db, owner, connection(db, owner, business), linked)
-
-
-def test_moving_a_capture_to_another_connection_rechecks_the_sender(db, users) -> None:  # noqa: ANN001
-    owner = users["owner"]
-    business = owned_space(db, owner)
-    sender_link(db, owner)
-    first = bytes(
-        _one(
-            db,
-            "select wa_id_hash from public.whatsapp_sender_links where destination_owner_id = %s",
-            (owner,),
-        )
-    )
-    original, same_sender = (
-        connection(db, owner, business),
-        connection(db, owner, business),
-    )
-    capture(db, owner, original, first)
-    row = _one(
-        db,
-        "select id from public.whatsapp_inbound_messages where sender_hash = %s",
-        (first,),
-    )
-    move = "update public.whatsapp_inbound_messages set connection_id = %s where id = %s"
-
-    db.execute(move, (same_sender, row))
-
-    db.execute(
-        "update public.whatsapp_sender_links set status = 'revoked', revoked_at = now()"
-        " where wa_id_hash = %s",
-        (first,),
-    )
-    sender_link(db, owner)
-    with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
-        db.execute(move, (original, row))
-    db.execute(
-        "update public.whatsapp_inbound_messages set updated_at = now() where id = %s",
-        (row,),
-    )
     assert (
         str(
             _one(
                 db,
-                "select connection_id from public.whatsapp_inbound_messages where id = %s",
-                (row,),
+                "select sender_link_id from public.whatsapp_inbound_messages"
+                " where connection_id=%s",
+                (receipt,),
             )
         )
-        == same_sender
+        == original
     )
 
 
@@ -442,7 +387,7 @@ def test_deleting_the_person_hands_the_business_to_custody(users) -> None:  # no
             "conversations": conversation(db, owner, business),
             "financial_import_events": event(db, owner, business),
         }
-        sender_link(db, owner, business)
+        link = sender_link(db, owner, os.urandom(32))
         db.commit()
     with ConnectionPool(shared.DSN, min_size=0, max_size=4) as pool:
         outcome = erase_open_owner(pool, owner)
@@ -466,9 +411,9 @@ def test_deleting_the_person_hands_the_business_to_custody(users) -> None:  # no
         assert (
             _one(
                 db,
-                "select count(*) from public.whatsapp_sender_links where destination_space_id = %s",
-                (business,),
+                "select count(*) from public.whatsapp_sender_links where id=%s",
+                (link,),
             )
-            == 1
+            == 0
         )
     release_custodian(business)

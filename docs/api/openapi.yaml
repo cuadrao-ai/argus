@@ -33117,6 +33117,8 @@ components:
       required:
       - id
       - kind
+      description: A person's sender id is shared across channels. An unnamed WhatsApp
+        sender shows only the last four digits.
     SentInvite:
       properties:
         id:

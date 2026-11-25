@@ -4465,7 +4465,7 @@
       "sender_search": "Buscar…",
       "sender_source": "Canal / Enviado por",
       "sent_by_unknown": "Desconocido",
-      "sent_by_whatsapp": "$t(business.reception_preview.source_whatsapp) ···{{last4}}",
+      "sent_by_whatsapp": "···{{last4}}",
       "setup_forward": "Configurar recepción por correo",
       "source": "Canal",
       "source_email": "Correo",
