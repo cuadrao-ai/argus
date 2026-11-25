@@ -548,7 +548,7 @@ def test_agent_runtime_regression_workflow_runs_full_runtime_sweep() -> None:
 
     runtime_target = ROOT / "tests" / "agent_runtime"
     hidden_regression_file = (
-        ROOT / "tests" / "agent_runtime" / "test_business_runtime.py"
+        ROOT / "tests" / "agent_runtime" / "test_state_models.py"
     )
     assert hidden_regression_file.exists()
     assert hidden_regression_file.is_relative_to(runtime_target)

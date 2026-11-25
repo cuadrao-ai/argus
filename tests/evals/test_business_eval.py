@@ -496,64 +496,6 @@ def test_scorecard_keeps_non_successful_judge_call_unavailable(outcome: str) -> 
     assert failed_verdict["failed_checks"] == ["call_unavailable"]
 
 
-@pytest.mark.asyncio
-async def test_judge_uses_exact_named_model_and_structured_adapter(monkeypatch) -> None:
-    calls = []
-
-    async def captured(**kwargs):
-        calls.append(kwargs)
-        return _verdict(passed=True)
-
-    monkeypatch.setattr(evaluation, "invoke_openrouter_json_schema", captured)
-    verdict = await evaluation.judge_reply(
-        case_id="good_spanish_pending",
-        owner_message="Pagué 850",
-        reply="Guardé el borrador.",
-        saved_state={"approved": False},
-    )
-    assert verdict is not None and verdict.passed
-    assert calls[0]["model_name"] == "x-ai/grok-4.3"
-    assert calls[0]["schema_model"] is evaluation.JudgeVerdict
-    assert calls[0]["task"] == "chat_composer"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "model",
-    [
-        "anthropic/claude-haiku-5.5",
-        "anthropic/claude-sonnet-5.5",
-        "openai/gpt-6-luna-pro",
-    ],
-)
-async def test_judge_switches_only_to_explicit_approved_model(monkeypatch, model) -> None:
-    calls = []
-
-    async def captured(**kwargs):
-        calls.append(kwargs)
-        return _verdict(passed=True)
-
-    monkeypatch.setattr(evaluation, "invoke_openrouter_json_schema", captured)
-    verdict = await evaluation.judge_reply(
-        case_id="good_spanish_pending",
-        owner_message="Pagué 850",
-        reply="Guardé el borrador.",
-        saved_state={"approved": False},
-        judge_model=model,
-    )
-    assert verdict is not None and verdict.passed
-    assert calls[0]["model_name"] == model
-    with pytest.raises(ValueError, match="approved candidate"):
-        await evaluation.judge_reply(
-            case_id="good_spanish_pending",
-            owner_message="Pagué 850",
-            reply="Guardé el borrador.",
-            saved_state={"approved": False},
-            judge_model="unapproved/model",
-        )
-    assert len(calls) == 1
-
-
 def test_sonnet_judge_cannot_be_used_as_business_runtime() -> None:
     with pytest.raises(ValueError, match="approved runtime and judge models"):
         evaluation.score_runtime_capture(

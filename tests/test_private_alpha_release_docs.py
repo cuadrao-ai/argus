@@ -1193,7 +1193,7 @@ def test_eval_docs_document_mocked_first_test_tiers_and_agent_pointer() -> None:
     assert "## Test Tiers" in readme
     assert "**Mocked harness - every change (free, no API calls):**" in readme
     assert "tests/evals/test_business*.py -q --no-cov" in readme
-    assert "fixtures, mutation detection, acceptance, invariants, runtime capture and variety" in readme
+    assert "fixtures, mutation detection, and historical scorecards" in readme
     assert "**Live eval - only the 3 sanctioned moments:**" in readme
     assert "Pre-merge on a PR that changes runtime behavior" in readme
     assert "Main promotion candidate" in readme

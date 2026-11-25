@@ -207,7 +207,7 @@ run_production_import_probe() {
 from importlib import import_module
 
 for module in (
-    "argus.agent_runtime.business.runner",
+    "argus.api.main",
     "workflows.document_job",
     "workflows.document_worker",
 ):
