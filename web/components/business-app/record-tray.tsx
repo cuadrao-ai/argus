@@ -44,9 +44,6 @@ export function isOpenRecord(panel: BusinessPanelState, target: BusinessPanelSta
   return false;
 }
 
-/** The open row's highlight, the same in the Bandeja and in Transacciones. */
-export const OPEN_ROW_CLASS = "aria-[current=true]:bg-[var(--cuadrao-green)]/10";
-
 export type RecordTrayValue = Readonly<{
   /** The drawer's pinned footer; the record's actions are portalled here. */
   footer: HTMLElement | null;

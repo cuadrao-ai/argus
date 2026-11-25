@@ -1978,16 +1978,12 @@
         "missing": {
           "label": "Sin RNC",
           "reason": "El recibo no tiene RNC. Agrégalo para poder reportarlo en el 606.",
-          "action": "Agregar RNC",
-          "approval_title": "Este recibo no tiene RNC. ¿Aceptar de todos modos?",
-          "approval_body": "Tendrás que agregar el RNC antes de exportar el 606."
+          "action": "Agregar RNC"
         },
         "invalid_length": {
           "label": "RNC con error",
           "reason": "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). Revisa que esté bien escrito.",
-          "action": "Editar RNC",
-          "approval_title": "Este RNC tiene un error. ¿Aceptar de todos modos?",
-          "approval_body": "Tendrás que corregirlo antes de exportar el 606."
+          "action": "Editar RNC"
         },
         "check_digit": {
           "label": "RNC con error",
@@ -2127,8 +2123,6 @@
       "refund_candidate_refused": "Esa compra no se puede usar para este reembolso. Elige otra.",
       "refund_candidates_none": "No hay compras aceptadas para elegir.",
       "save": "Guardar",
-      "recorded_income": "Se registró un ingreso después de aceptar la revisión {{version}}.",
-      "recorded_refund": "Se registró un reembolso después de aceptar la revisión {{version}}.",
       "error": {
         "fiscal_duplicate_document": "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo antes de aceptar.",
         "fiscal_credit_settlement_required": "Registra un reembolso solo después de confirmar que se recibió el dinero y elegir la compra original.",
@@ -2319,38 +2313,27 @@
     },
     "transactions": {
       "layout": {
-        "all_types": "Todos los tipos",
         "annotations": {
           "actions_for": "Acciones de {{name}}",
           "add_attachment": "Agregar adjunto",
           "add_note": "Agregar nota",
           "attachment_for": "Adjunto de {{name}}",
-          "choose_file": "Agregar archivos",
         "drop_release": "Suelta los archivos para seleccionarlos",
         "drop_title": "Arrastra tus archivos aquí",
           "current_note": "Nota actual",
           "duplicates_one": "Este archivo ya está en la selección.",
           "duplicates_other": "Estos {{count}} archivos ya están en la selección.",
           "edit_note_for": "Editar nota de {{name}}",
-          "empty_file": "El archivo está vacío. Elige otro.",
           "invalid_name": "Usa un nombre de archivo válido de hasta 255 caracteres.",
-          "keep_local_preview": "Conservar",
           "linked_evidence": "Adjuntos vinculados",
           "linked_unavailable": "El registro tiene un adjunto vinculado, pero no se puede abrir aquí.",
-          "linked_unknown": "No pudimos confirmar los adjuntos vinculados de este registro.",
           "local_files_one": "1 archivo en vista previa local",
           "local_files_other": "{{count}} archivos en vista previa local",
           "local_only": "Estos archivos no se han subido ni vinculado. La selección se pierde al recargar.",
           "local_preview": "Vista previa local, sin vincular",
           "no_attachment": "Sin adjunto",
-          "no_linked_attachment": "Sin adjuntos vinculados.",
-          "open_attachment": "Abrir adjunto",
-          "open_linked_attachment": "Abrir adjunto vinculado",
-          "preparing_preview": "Preparando vista previa...",
           "preview_failed": "No pudimos preparar la vista previa. No se agregó ningún archivo.",
-          "preview_file": "Ver archivo",
           "received_document": "Documento recibido",
-          "record_actions": "Acciones del registro",
           "too_large": "El archivo supera el tamaño permitido.",
           "unsupported": "Este tipo de archivo no está permitido."
         },
@@ -2359,7 +2342,6 @@
         "column_attachment": "Adjunto",
         "column_reason": "Motivo",
         "column_state": "Estado",
-        "column_type": "Tipo",
         "count_one": "{{count}} registro",
         "count_other": "{{count}} registros",
         "filters": {
@@ -2412,7 +2394,6 @@
           "title": "Filtros",
           "visible_selection_hint": "Solo cambia los resultados visibles. Las demás selecciones se conservan."
         },
-        "no_period_records": "No hay registros en este período.",
         "overview": {
           "coverage_placeholder": "{{populated}} de {{applicable}} compras",
           "export": {
@@ -2422,9 +2403,7 @@
             "title": "Ya exportados"
           },
           "fiscal": {
-            "description": "Complétalos antes de declarar",
-            "description_purchase": "Complétalos antes del 606",
-            "description_sale": "Complétalos antes del 607"
+            "description": "Complétalos antes de declarar"
           },
           "goods": {
             "title": "Bienes"
@@ -2432,7 +2411,6 @@
           "itbis": {
             "title": "ITBIS"
           },
-          "itbis_helper_placeholder": "Solo impuesto",
           "partial_placeholder": "Parcial",
           "purchases": "Compras",
           "quantity": {
@@ -2449,12 +2427,10 @@
           "total": {
             "title": "Total"
           },
-          "total_helper_placeholder": "Importe bruto",
           "unsupported_placeholder_one": "{{count}} importe no compatible",
           "unsupported_placeholder_other": "{{count}} importes no compatibles"
         },
         "period_summary": "Resumen del período · {{period}}",
-        "reset_period": "Restablecer período",
         "results": {
           "basis": "Importes confirmados",
           "breakdown": "Ver desglose",
@@ -2468,7 +2444,6 @@
           },
           "no_currency": "Sin moneda",
           "partial": "Parcial: {{amount}}",
-          "partial_meaning": "Importe incompleto",
           "personal_one": "{{count}} personal",
           "personal_other": "{{count}} personales",
           "restore": "Restaurar valores iniciales",
@@ -3221,16 +3196,9 @@
     },
     "empty": {
       "access_error": "No pudimos cargar el acceso",
-      "all_clear_body": "Cuando llegue otro recibo, aparece aquí para que lo revises.",
-      "all_clear_title": "Todo aceptado. Pa'que cuadre.",
       "email_error": "No pudimos cargar tus correos",
       "error_body": "Tus datos siguen guardados. Revisa tu conexión e inténtalo otra vez.",
-      "inbox_body": "Súbelos, escríbelos o reenvíalos por correo. Los revisas y los aceptas para que cuenten en tus números.",
-      "inbox_error": "No pudimos cargar tu bandeja",
-      "inbox_title": "Aquí llegan tus recibos",
-      "month_body": "Agrega los recibos y facturas de este mes para ver tus ingresos, gastos e ITBIS.",
-      "overview_error": "No pudimos cargar tu negocio",
-      "see_all_periods": "Ver todos los períodos"
+      "overview_error": "No pudimos cargar tu negocio"
     },
     "expenses": {
       "no_merchant": "Gasto",
@@ -3608,7 +3576,6 @@
     },
     "intake": {
       "replayed": "Ya estaba guardado.",
-      "camera": "Tomar foto",
       "choose_another": "Elegir otro archivo",
       "formats": "{{formats}}, hasta {{size}} MB. El original es privado para ti.",
       "heic": "Esta es una foto HEIC de iPhone. Súbela desde el navegador de tu iPhone, que la convierte, o expórtala como JPG primero.",
@@ -3616,12 +3583,10 @@
       "title": "Subir recibo",
       "type_recibo": "Compra",
       "type_venta": "Venta",
-      "paste_hint": "o pega con {{keys}}",
       "camera_way": "Toma una foto",
       "camera_way_help": "Con la cámara de tu teléfono",
       "drop_title": "Arrastra tu recibo aquí",
       "drop_title_multiple": "Sube tus documentos",
-      "formats_short": "{{formats}} · hasta {{size}} MB",
       "drop_reject": "Ese tipo de archivo no se puede subir. Usa {{formats}}.",
       "row_waiting": "En cola",
       "row_minutes_left_one": "queda {{count}} min",

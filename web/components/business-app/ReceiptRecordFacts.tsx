@@ -10,7 +10,7 @@ import { quietButtonClass, useCategoryLabel } from "./business-ui";
 import { dossierRowLabel, problemWords, rowProblems, type DossierProblem } from "./dossier-attention";
 import { DossierCard, DossierRow, DossierRows, type RowEdit, type RowStatus } from "./dossier/DossierParts";
 import { presentBusinessFact } from "./receipt-fact-presentation";
-import { PAYMENT_FIELDS, doubtfulFields, recordFactRows, type ReviewRow } from "./receipt-fact-rows";
+import { PAYMENT_FIELDS, askedFields, blockedFields, doubtfulFields, type ReviewRow } from "./receipt-fact-rows";
 import { resolveLanguage } from "@/lib/language-features";
 
 /** The texts a row's value may appear as in the original message: what it shows and what it stores. */
@@ -82,7 +82,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
       return scope ? t(`business.dossier.${scope}.${value}`, value) : value;
     },
   };
-  const rows = new Map(recordFactRows(dossier).map((row) => [row.key, row]));
+  const blocked = blockedFields(dossier);
+  const asked = askedFields(dossier);
   // Without an NCF and an e-CF the record has no fiscal receipt number: one field says so in place of two empty ones.
   const noFiscal = dossier.fiscal_known === true && !dossier.fiscal_value;
   const doubtful = doubtfulFields(dossier);
@@ -146,7 +147,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, problems = [], f
   />;
 
   const kind = dossier.facts.kind;
-  const waits = (key: BusinessFactField) => Boolean(rows.get(key)?.blocked || rows.get(key)?.asked);
+  const waits = (key: BusinessFactField) => blocked.has(key) || asked.has(key);
   // A clean purchase says its kind nowhere: the kind row and Compra/Venta show only while the kind needs a person.
   const kindWaits = kind.state !== "known" || waits("kind");
   const kindShown = !typeRow || kindWaits;

@@ -10,7 +10,7 @@ import ReceiptDocumentType from "@/components/business-app/ReceiptDocumentType";
 import ReceiptRecordFacts from "@/components/business-app/ReceiptRecordFacts";
 import type { RowEdit } from "@/components/business-app/dossier/DossierParts";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
-import { blockedFields, factStanding, fiscalFactRows, recordFactRows } from "@/components/business-app/receipt-fact-rows";
+import { askedFields, blockedFields } from "@/components/business-app/receipt-fact-rows";
 import type { BusinessDossier, BusinessFact, ListoGap } from "@/lib/business-dossier";
 import { dossierProblems } from "@/components/business-app/dossier-attention";
 
@@ -48,40 +48,14 @@ async function render(dossier: BusinessDossier, lng: "es-419" | "en" = "es-419",
   return { html, page, row, facts, confirmed };
 }
 
-describe("where each fact stands", () => {
-  test("every origin has its own standing; an origin the page does not know falls to a safe 'not verified'", () => {
-    assert.equal(factStanding(known("extracted", true)), "verified");
-    assert.equal(factStanding(known("owner_stated")), "person");
-    assert.equal(factStanding(known("member_set")), "person");
-    assert.equal(factStanding(known("matched")), "linked");
-    assert.equal(factStanding(known("qr_decoded")), "qr");
-    assert.equal(factStanding(known("extracted")), "suggestion");
-    assert.equal(factStanding(known("default")), "default");
-    assert.equal(factStanding({ ...known("extracted"), origin: "something_new" as never }), "unverified");
-    assert.equal(factStanding(unknown), "empty");
-    assert.equal(factStanding(ownerUnknown), "owner_unknown");
-  });
-
-  test("rows lead with missing data, then preserve the standing order; blockers and open questions mark their fields", () => {
+describe("the fields the server waits on", () => {
+  test("blockers and open questions name their fields; a blocker with no field names none", () => {
     const dossier = {
-      facts: { kind: known("member_set"), counterparty: known("extracted"), occurred_on: known("qr_decoded"), amount: known("extracted"), currency: known("default"), category_id: unknown, funding: unknown, business_share: known("owner_stated", true), receipt_state: ownerUnknown, fiscal: null },
       blockers: [{ code: "missing_fields", field: "amount" }, { code: "unknown_funding", field: "funding" }, { code: "unsupported_kind", field: null }],
-      questions: [{ id: "q1", draft_id: "d", field: "receipt_state", asked_of: "owner", channel: "web", state: "open", prompt: "", allowed_answers: [], answer_source_id: null }],
+      questions: [{ id: "q1", draft_id: "d", field: "receipt_state", asked_of: "owner", channel: "web", state: "open", prompt: "", allowed_answers: [], answer_source_id: null }, { id: "q2", draft_id: "d", field: "kind", asked_of: "owner", channel: "web", state: "answered", prompt: "", allowed_answers: [], answer_source_id: null }],
     } as unknown as BusinessDossier;
-    const rows = recordFactRows(dossier);
-    assert.deepEqual(rows.map((row) => `${row.key}:${row.standing}${row.blocked ? ":blocked" : ""}${row.asked ? ":asked" : ""}`), [
-      "category_id:empty",
-      "funding:empty:blocked",
-      "business_share:verified",
-      "kind:person",
-      "occurred_on:qr",
-      "counterparty:suggestion",
-      "amount:suggestion:blocked",
-      "currency:default",
-      "receipt_state:owner_unknown:asked",
-    ]);
-    // A blocker with no field is the attention strip's alone.
     assert.deepEqual([...blockedFields(dossier)].sort(), ["amount", "funding"]);
+    assert.deepEqual([...askedFields(dossier)], ["receipt_state"]);
   });
 });
 
@@ -140,8 +114,6 @@ describe("the form marks the rows the server's listo gaps name; blockers alone m
       blockers: [],
       questions: [],
     } as unknown as BusinessDossier;
-    const rows = fiscalFactRows(dossier.facts);
-    assert.deepEqual(rows.map((row) => `${row.key}:${row.standing}`), ["ecf:person", "rnc:qr", "ncf:empty", "itbis:empty"]);
     const { row, html } = await render(dossier);
     assert.equal(row("ncf"), null);
     assert.equal(row("ecf"), null);

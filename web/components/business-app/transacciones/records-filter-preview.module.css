@@ -49,10 +49,6 @@
 .chip { display:inline-flex; align-items:center; gap:7px; min-height:44px; padding:0 10px; border-radius:999px; font-size:14px; color:color-mix(in srgb,var(--fg) 75%,transparent); }
 .chip span { padding:5px 0; }
 .chip:hover { background:color-mix(in srgb,var(--fg) 5%,transparent); }
-.calendarPanel { display:grid; grid-template-columns:160px minmax(0,1fr); }
-.calendarBody { padding:18px; }
-.calendarInputs { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
-.monthNavigation { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .iconButton { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:999px; }
 .iconButton:hover { background:color-mix(in srgb,var(--fg) 5%,transparent); }
 .months { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
@@ -68,7 +64,6 @@
 @keyframes appear { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:translateY(0); } }
 @media(prefers-reduced-motion:reduce) { .popover { animation:none; } .chevron { transition:none; } }
 
-.viewsList { padding:12px; }
 
 .phonePanel { color: var(--fg); }
 .phonePanel .rail { border: 0; padding: 12px; width: 100%; background:var(--cuadrao-menu-surface); }
