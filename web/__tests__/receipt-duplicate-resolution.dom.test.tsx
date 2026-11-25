@@ -365,6 +365,14 @@ test("the same NCF says it is the same document and makes Eliminar este duplicad
   } finally { await ui.cleanup(); }
 });
 
+test("a sale with the same NCF as another sale says so in its verdict", async () => {
+  const ui = await mount("success", { recommendation: null, basis: "fiscal_number", documentType: "venta" });
+  try {
+    await ui.compare();
+    assert.equal(ui.host.querySelector('[data-testid="duplicate-recommendation"]')?.textContent, "Mismo NCF que otra venta.");
+  } finally { await ui.cleanup(); }
+});
+
 test("with no NCF the verdict gives the known basis and neither action is primary", async () => {
   const ui = await mount("success", { recommendation: null });
   try {
