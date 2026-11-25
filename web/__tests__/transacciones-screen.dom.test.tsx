@@ -206,7 +206,7 @@ describe("the gate", () => {
     assert.match(row.querySelector('[data-col="gross_amount"]')!.textContent ?? "", /123,456,789,012,345\.67/);
     const account = row.querySelector('[data-col="funding"] .truncate')!;
     const detail = row.querySelector('[data-col="detail"] > span')!;
-    for (const [target, expected] of [[account, /Dinero del dueño/], [detail, /Compra · Personal · Falta NCF · Marcado por Ana/]] as const) {
+    for (const [target, expected] of [[account, /Dinero del dueño/], [detail, /^Compra · Personal · Marcado por Ana$/]] as const) {
       await page.act(async () => { target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 330)); });
       assert.match(document.querySelector('[role="tooltip"]')?.textContent ?? "", expected);
       await page.act(async () => target.dispatchEvent(new MouseEvent("mouseout", { bubbles: true })));

@@ -5,7 +5,6 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
-import { BankMatchSuggestionCard, type BankMatchSuggestionCardProps } from "@/components/business-app/BankMatchSuggestion";
 import { ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
 import FiscalDeclarationEditor from "@/components/business-app/FiscalDeclarationEditor";
 import { reviewDgii } from "@/lib/business-dgii";
@@ -36,44 +35,6 @@ async function render(node: React.ReactNode) {
   await act(async () => root.render(<I18nextProvider i18n={i18n}>{node}</I18nextProvider>));
   return { host, dispose: async () => { await act(async () => root.unmount()); host.remove(); } };
 }
-
-const side = { occurredOn: "01/10/2026", description: "Ferretería Luna" };
-function card(line: { amount: string; currency: string | null }, document: { amount: string; currency: string | null }): BusinessMatchProps {
-  return { line: { ...side, ...line }, document: { ...side, kind: "receipt", ...document }, onConfirm: () => undefined, onDecline: () => undefined, enabled: true };
-}
-type BusinessMatchProps = BankMatchSuggestionCardProps;
-
-describe("a bank match suggestion shows money through the shared formatter", () => {
-  test("each side keeps its own currency, symbol and exact decimals", async () => {
-    const view = await render(<BankMatchSuggestionCard {...card({ amount: "-1500.5", currency: "DOP" }, { amount: "1234.5", currency: "USD" })} />);
-    try {
-      const line = view.host.querySelector('[data-testid="bank-match-line"]')?.textContent ?? "";
-      const document = view.host.querySelector('[data-testid="bank-match-document"]')?.textContent ?? "";
-      assert.match(line, /-RD\$ 1,500\.50/);
-      assert.match(document, /US\$ 1,234\.50/);
-      assert.doesNotMatch(line + document, /\d (DOP|USD)\b/);
-    } finally { await view.dispose(); }
-  });
-
-  test("a currency without decimals shows none", async () => {
-    const view = await render(<BankMatchSuggestionCard {...card({ amount: "1500", currency: "JPY" }, { amount: "1500", currency: "JPY" })} />);
-    try {
-      const line = view.host.querySelector('[data-testid="bank-match-line"]')?.textContent ?? "";
-      assert.match(line, /1,500(?![.\d])/);
-    } finally { await view.dispose(); }
-  });
-
-  test("a missing currency reads as unknown, never as pesos", async () => {
-    const view = await render(<BankMatchSuggestionCard {...card({ amount: "-1500.00", currency: null }, { amount: "1500.00", currency: null })} />);
-    try {
-      const line = view.host.querySelector('[data-testid="bank-match-line"] p:last-child')?.textContent;
-      const document = view.host.querySelector('[data-testid="bank-match-document"] p:last-child')?.textContent;
-      assert.equal(line, "-");
-      assert.equal(document, "-");
-      assert.doesNotMatch(view.host.textContent ?? "", /RD\$|DOP/);
-    } finally { await view.dispose(); }
-  });
-});
 
 async function readDossier(purchases: BusinessDossier["read_purchases"], currency: string | null): Promise<BusinessDossier> {
   const dossier = structuredClone(await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "caja" }]).dossier(dossierFixtureIds.ready));

@@ -247,7 +247,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     </ul>
     {!finished ? <div className="flex justify-start"><button type="button" className={`${quietButtonClass} -ml-1`} disabled={busy || blocked || rows.length >= MAX_ROWS} onClick={() => { setRows(current => [...current, emptyRow()]); focusLastEmail(); }}><Plus className="h-4 w-4" aria-hidden="true" />{t(copy("batch_add_short"))}</button></div> : null}
     {failure ? <div role="alert" className={`mt-3 space-y-1 ${fieldErrorClass}`}>
-      <p>{t(unavailable ? copy("batch_unavailable_placeholder") : refused ? "business.lifecycle.errors.business_unavailable" : copy("batch_send_error"))}</p>
+      <p>{t(unavailable ? copy("batch_unavailable") : refused ? "business.lifecycle.errors.business_unavailable" : copy("batch_send_error"))}</p>
       {refused ? <p>{t("auth.business_unavailable.body", { supportEmail })}</p> : null}
       <ReferenceCode reference={failure.reference} />
     </div> : null}

@@ -30,24 +30,21 @@ async function setup() {
 }
 
 describe("the chips", () => {
-  test("a stated Sin comprobante and a missing NCF each say so in grey text; a personal one says Personal; a receipt not yet read says nothing", async () => {
+  test("a stated Sin comprobante says so in grey text; a personal one says Personal; a missing NCF says nothing", async () => {
     const env = await setup();
     const { RecordMarks, recordFiscalMark } = await import("@/components/business-app/business-ui");
     const render = (props: Parameters<typeof RecordMarks>[0]) => env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><RecordMarks {...props} /></env.I18nextProvider>); });
-    await render({ fiscal: recordFiscalMark({ sin_comprobante: true, fiscal_known: true, fiscal_value: null }) });
+    await render({ fiscal: recordFiscalMark({ sin_comprobante: true }) });
     const stated = env.host.querySelector('[data-mark="sin_comprobante"]')!;
     assert.equal(stated.textContent, "Sin comprobante");
     assert.ok(!/amber|red|warning|danger/.test(stated.className), "grey, never amber or red");
-    await render({ fiscal: recordFiscalMark({ fiscal_known: true, fiscal_value: null }) });
-    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]')?.textContent, "Falta NCF");
-    await render({ fiscal: recordFiscalMark({ fiscal_known: true, fiscal_value: "ncf" }) });
-    assert.equal(env.host.querySelector('[data-testid="record-marks"]'), null);
-    await render({ fiscal: recordFiscalMark({ fiscal_known: false, fiscal_value: null }) });
-    assert.equal(env.host.querySelector('[data-testid="record-marks"]'), null, "nothing read, nothing claimed");
-    await render({ fiscal: recordFiscalMark({ fiscal_known: true, fiscal_value: "ncf" }), personal: true });
+    const missingNcf = { sin_comprobante: false, fiscal_known: true, fiscal_value: null };
+    await render({ fiscal: recordFiscalMark(missingNcf) });
+    assert.equal(env.host.querySelector('[data-testid="record-marks"]'), null, "a missing NCF is Estado's to say, never a chip");
+    await render({ fiscal: recordFiscalMark(missingNcf), personal: true });
     assert.equal(env.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
     assert.equal(env.host.querySelector('[data-testid="personal-marked-dot"]'), null, "the owner's own mark has no dot");
-    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]'), null);
+    assert.deepEqual([...env.host.querySelectorAll("[data-mark]")].map((mark) => mark.getAttribute("data-mark")), ["personal"]);
     await env.act(async () => env.root.unmount());
   });
 
