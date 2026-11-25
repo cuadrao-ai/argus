@@ -32,7 +32,10 @@ from argus.domain.business.annotations import (
     annotation_available,
     current_note,
 )
-from argus.domain.business.approved_facts import approved_revision_sql
+from argus.domain.business.approved_facts import (
+    APPROVAL_REVISION_VERSION,
+    approved_revision_sql,
+)
 from argus.domain.business.authority import ActionError
 from argus.domain.business.bandeja_group import (
     BandejaReason,
@@ -193,21 +196,40 @@ def approval_of(
     return None
 
 
+#: The receipts of a draft's approvals, in a Business and draft given in that order.
+_APPROVAL_RECEIPTS = (
+    " from public.business_action_receipts a where a.space_id=%s"
+    " and a.command->>'action' in ('approve_expense','approve_income','approve_refund')"
+    " and a.command->>'draft_id'=%s"
+)
+
+
 def approval_receipts(tx: ActionTransaction, event: ImportEvent) -> list[dict[str, Any]]:
     """The draft's latest approval receipt: the one it points at, else the
     newest one that names it."""
 
     pointer = event.resolution.get("approval_receipt")
-    approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
+    approval_filter = "" if pointer is None else " and a.actor_id=%s and a.idempotency_key=%s"
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
     return tx.rows(
-        "select actor,command,outcome,created_at from public.business_action_receipts"
-        " where space_id=%s and command->>'action' in ('approve_expense','approve_income','approve_refund')"
-        " and command->>'draft_id'=%s"
+        "select a.actor,a.command,a.outcome,a.created_at"
+        + _APPROVAL_RECEIPTS
         + approval_filter
-        + " order by created_at desc limit 1",
+        + " order by a.created_at desc limit 1",
         (tx.context.actor.space_id, event.id, *approval_params),
     )
+
+
+def approval_revisions(tx: ActionTransaction, draft_id: UUID) -> frozenset[int]:
+    """The versions at which this draft's approvals may have written their own
+    revision. An approval refused before its claim wrote none, and a person's
+    write that took that version carries the evidence of its command."""
+
+    rows = tx.rows(
+        f"select {APPROVAL_REVISION_VERSION} as version" + _APPROVAL_RECEIPTS,
+        (tx.context.actor.space_id, str(draft_id)),
+    )
+    return frozenset(row["version"] for row in rows)
 
 
 def duplicate_candidates(
@@ -611,6 +633,7 @@ def dossier(
         tx.authorization,
         actor_ids([row["actor"] for row in (*history, *approvals)]),
     )
+    approved = approval_revisions(tx, draft_id)
     revisions = tuple(
         DraftRevision.model_validate(
             {
@@ -619,6 +642,7 @@ def dossier(
                 "duplicate": next(
                     (decided[i] for i in row["source_ids"] if i in decided), None
                 ),
+                "approval": row["version"] in approved and not row["source_ids"],
             }
         )
         for row in history

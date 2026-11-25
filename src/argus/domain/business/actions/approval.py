@@ -24,6 +24,7 @@ from argus.domain.business.actions.fiscal import (
     require_distinct_fiscal_document,
 )
 from argus.domain.business.amount_inheritance import approved_from, written_from
+from argus.domain.business.approved_facts import APPROVAL_REVISION_VERSION
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.bandeja_group import BandejaReason, refusing
 from argus.domain.business.contracts.actions import (
@@ -202,7 +203,7 @@ def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict
         " order by p.version desc limit 1) as saved_dgii"
         " from public.business_action_receipts a"
         " join public.business_draft_revisions r on r.space_id=a.space_id"
-        " and r.draft_id=%s and r.version=(a.command->'request'->>'version')::integer+1"
+        f" and r.draft_id=%s and r.version={APPROVAL_REVISION_VERSION}"
         " where a.space_id=%s and a.actor_id::text=%s and a.idempotency_key=%s",
         (event.id, tx.context.actor.space_id, pointer["actor_id"], pointer["key"]),
     )

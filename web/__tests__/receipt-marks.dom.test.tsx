@@ -29,49 +29,6 @@ async function setup() {
   return { act, root, host, settle, I18nextProvider, i18n };
 }
 
-describe("the chips", () => {
-  test("a stated Sin comprobante and a missing NCF each say so in grey text; a personal one says Personal; a receipt not yet read says nothing", async () => {
-    const env = await setup();
-    const { RecordMarks, recordFiscalMark } = await import("@/components/business-app/business-ui");
-    const render = (props: Parameters<typeof RecordMarks>[0]) => env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><RecordMarks {...props} /></env.I18nextProvider>); });
-    await render({ fiscal: recordFiscalMark({ sin_comprobante: true, fiscal_known: true, fiscal_value: null }) });
-    const stated = env.host.querySelector('[data-mark="sin_comprobante"]')!;
-    assert.equal(stated.textContent, "Sin comprobante");
-    assert.ok(!/amber|red|warning|danger/.test(stated.className), "grey, never amber or red");
-    await render({ fiscal: recordFiscalMark({ fiscal_known: true, fiscal_value: null }) });
-    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]')?.textContent, "Falta NCF");
-    await render({ fiscal: recordFiscalMark({ fiscal_known: true, fiscal_value: "ncf" }) });
-    assert.equal(env.host.querySelector('[data-testid="record-marks"]'), null);
-    await render({ fiscal: recordFiscalMark({ fiscal_known: false, fiscal_value: null }) });
-    assert.equal(env.host.querySelector('[data-testid="record-marks"]'), null, "nothing read, nothing claimed");
-    await render({ fiscal: recordFiscalMark({ fiscal_known: true, fiscal_value: "ncf" }), personal: true });
-    assert.equal(env.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
-    assert.equal(env.host.querySelector('[data-testid="personal-marked-dot"]'), null, "the owner's own mark has no dot");
-    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]'), null);
-    await env.act(async () => env.root.unmount());
-  });
-
-  test("the owner sees a dot on the Personal chip when someone else marked it, read as Marcado por <nombre>; the accountant does not", async () => {
-    const env = await setup();
-    const { RecordMarks } = await import("@/components/business-app/business-ui");
-    const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-    const render = (role: "owner" | "accountant") => env.act(async () => {
-      const value = { chosen: role === "owner" ? { space_id: "s", name: "Mi negocio", grant_id: "own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true } : { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true } } as unknown as BusinessContextValue;
-      env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><RecordMarks fiscal={null} personal markedBy={{ display_name: "Marta", email: null, shown_as: "name" }} /></BusinessContext.Provider></env.I18nextProvider>);
-    });
-    await render("owner");
-    const chip = env.host.querySelector('[data-mark="personal"]')!;
-    assert.ok(chip.querySelector('[data-testid="personal-marked-dot"]'), "a dot on the chip");
-    assert.equal(chip.querySelector('[data-testid="personal-marked-dot"]')?.getAttribute("aria-hidden"), "true", "the dot is not read twice");
-    assert.equal(chip.querySelector(".sr-only")?.textContent, "Marcado por Marta");
-    assert.equal(chip.getAttribute("title"), "Marcado por Marta");
-    await render("accountant");
-    assert.equal(env.host.querySelector('[data-testid="personal-marked-dot"]'), null);
-    assert.equal(env.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
-    await env.act(async () => env.root.unmount());
-  });
-});
-
 describe("the Overview's two totals", () => {
   test("the Overview no longer carries the Gastos reales and Con valor fiscal cards, and an empty Bandeja adds no review line or zero count", async () => {
     const env = await setup();
@@ -194,9 +151,8 @@ describe("the receipt page's marks card", () => {
     await included.act(async () => included.root.unmount());
   });
 
-  test("the owner sees who else marked it and undoes the accountant's mark in one tap", async () => {
+  test("the owner undoes the accountant's mark in one tap", async () => {
     const page = await mountCard(dossier({}, true, true, null, "accountant"), "owner");
-    assert.equal(page.host.querySelector('[data-mark="personal"] .sr-only')?.textContent, "Marcado por Lía");
     assert.equal(page.toggle().getAttribute("aria-checked"), "true");
     await page.act(async () => { page.toggle().click(); });
     await page.settle();
@@ -263,10 +219,9 @@ describe("the receipt page's marks card", () => {
     clearToasts();
   });
 
-  test("a read-only grant reads the mark and has no control", async () => {
+  test("a read-only grant has no control", async () => {
     const page = await mountCard(dossier({ capabilities: ["read"] } as Partial<BusinessDossier>, true, true, null, "accountant"), "accountant");
     assert.equal(page.host.querySelector('[data-testid="receipt-mark-personal"]'), null);
-    assert.equal(page.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
     assert.equal(page.host.querySelector('[data-testid="receipt-606-yes"]'), null);
     await page.act(async () => page.root.unmount());
   });
@@ -448,7 +403,7 @@ describe("the review page's fiscal details", () => {
 });
 
 describe("one owner for the marks", () => {
-  test("the record names Personal and who marked it for a grantee's mark, the owner's mark and after an unmark", async () => {
+  test("the card draws no chip for a grantee's mark, the owner's mark or after an unmark", async () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { default: ReceiptMarksCard } = await import("@/components/business-app/ReceiptMarksCard");
     const owner = { chosen: null, reload: () => undefined, source: {} } as unknown as BusinessContextValue;
@@ -461,8 +416,8 @@ describe("one owner for the marks", () => {
       const server = { personal: item.personal, personal_marked_by: item.by ? { display_name: item.by, email: null, shown_as: "name" } : null, fiscal_value: "ncf" as const, include_606: null };
       const env = await setup();
       await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ReceiptMarksCard dossier={{ draft_id: "d-1", version: 3, capabilities: ["read", "prepare"], history: [], facts: { business_share: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, fiscal: null }, ...server } as unknown as BusinessDossier} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
-      assert.equal(env.host.querySelector('[data-mark="personal"]') !== null, item.personal, item.name);
-      assert.equal(env.host.querySelector('[data-mark="personal"] .sr-only')?.textContent ?? null, item.by ? `Marcado por ${item.by}` : null, `${item.name}: the record names who marked it`);
+      assert.equal(env.host.querySelector("[data-mark]"), null, item.name);
+      assert.equal(env.host.textContent?.includes("Marcado por"), false, `${item.name}: no Marcado por`);
       await env.act(async () => env.root.unmount());
     }
   });

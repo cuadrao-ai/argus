@@ -12,7 +12,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { RecordArrivalsContext, RecordGlanceContext } from "./RecordGlanceContext";
 import pageStyles from "./records-page.module.css";
 import cellStyles from "./transacciones-cells.module.css";
-import { RecordMarks, useOwnerView } from "../business-ui";
+import { useOwnerView } from "../business-ui";
 import { DENSITY_ROW_PX, type Density } from "./table-density";
 import { headerCurrency, magnitude, type RecordRow } from "./transacciones-model";
 import { AccountLabel, amountColumnSize, PlainAmount, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
@@ -112,8 +112,8 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
               itbis_amount: (<td {...at("itbis_amount", "text-right font-normal tabular-nums")}>{row.report?.itbis_amount == null || row.report.currency === null ? <Unknown /> : <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report.itbis_amount, row.report.currency, locale)}</span>}</td>),
               note: (<td {...at("note", "text-left")}><RecordNoteLink row={row} /></td>),
               detail: (<td {...at("detail", "text-left text-[#56635e] dark:text-white/65")}>
-                  {row.report?.family === null ? <Unknown /> : preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: personName(t, row.marks.markedBy) }) : null].filter(Boolean).join(" · ")}>
-                    <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
+                  {row.report?.family === null ? <Unknown /> : preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t("business.marks.sin_comprobante_chip") : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: personName(t, row.marks.markedBy) }) : null].filter(Boolean).join(" · ")}>
+                    <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}</span>
                   </Tooltip>}
                 </td>),
               stage: (<td {...at("stage", "text-left")}><RecordStatusCell row={row} /></td>),
@@ -162,7 +162,6 @@ export function RecordsList({ records, rowRef }: { records: readonly RecordRow[]
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium text-[#172b26] dark:text-white">{nameOf(row)}</span>
               <span className="mt-0.5 block truncate text-[13px] text-[#56635e] dark:text-white/65">{formatRelativeDay(row.occurredOn, today, locale)} · {t(`business.transactions.records.detail.${row.kind}`)}</span>
-              <RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} className="mt-1" />
             </span>
             <span className="shrink-0 text-right text-[15px] font-medium text-[#172b26] dark:text-white"><SignedAmount money={row.money} header={header} /></span>
           </>

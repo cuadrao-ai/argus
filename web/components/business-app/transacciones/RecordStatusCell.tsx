@@ -35,6 +35,6 @@ export default function RecordStatusCell({ row }: { row: RecordRow }) {
   const withinControl = useContext(StatusControlContext);
   if (record?.ready === undefined) return <Unknown meaning={t("business.transactions.layout.workflow.unknown")} />;
   if (record.ready || !words.length) return null;
-  const chip = <StatusChip data-record-status="missing" tone="warning">{t("business.transactions.layout.workflow.missing_count_placeholder", { count: words.length })}</StatusChip>;
+  const chip = <StatusChip data-record-status="missing" tone="warning">{t("business.transactions.layout.workflow.missing_count", { count: words.length })}</StatusChip>;
   return <Tooltip content={words.join(" · ")} side="top"><span tabIndex={withinControl ? undefined : 0} className="rounded-mark">{chip}</span></Tooltip>;
 }

@@ -33,7 +33,7 @@ import { useBusiness, type DossierDetailsCard } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
 import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
 import { sentByName } from "@/lib/sent-by";
-import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass, RecordMarks, recordFiscalMark } from "./business-ui";
+import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { expensePanel } from "./business-expense-target";
 import { DgiiAnswer } from "./transacciones/RecordDgiiCell";
 import { OpenRecordMissingReasons } from "./transacciones/RecordMissingReason";
@@ -445,7 +445,6 @@ function ExpenseEntry({ expenseId, detailsCard }: { expenseId: string; detailsCa
               <DossierRow row="expense_type" label={t("business.dossier.placeholder.expense_type")} value={<DgiiAnswer purchase={expense.dgii_606} field="expense_type" />} />
               <DossierRow row="account" label={t("business.review.account", "Paid from")} value={account} />
             </DossierRows>
-            <RecordMarks personal={expense.personal} fiscal={recordFiscalMark(expense)} markedBy={expense.personal_marked_by} className="mt-3" />
             {expense.personal && expense.fiscal_value ? <p className="mt-2 text-[13px] text-[var(--d-soft)]" data-testid="record-606-state">{said606}</p> : null}
           </DossierCard>
           <DossierCard title={t("business.terms.montos_title")} testId="record-facts-montos">

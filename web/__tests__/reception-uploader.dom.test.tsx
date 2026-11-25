@@ -40,8 +40,8 @@ const person = (shown_as: PersonName["shown_as"], value?: string): PersonName =>
 const member = (who: PersonName): SentBy => ({ id: "member:someone", kind: "member", person: who });
 
 const WORDS = {
-  "es-419": { member: "Miembro", former: "Exmiembro", unknown: "Desconocido", allowlist: ["Remitentes", "Remitente no disponible", "Remitente sin verificar"] },
-  en: { member: "Member", former: "Former member", unknown: "Unknown", allowlist: ["Senders", "Sender unavailable", "Unverified sender"] },
+  "es-419": { member: "Miembro", former: "Exmiembro", unknown: "Desconocido", allowlist: ["Remitentes", "Remitente no disponible"] },
+  en: { member: "Member", former: "Former member", unknown: "Unknown", allowlist: ["Senders", "Sender unavailable"] },
 };
 
 for (const lng of LANGUAGES) {
@@ -74,6 +74,6 @@ for (const lng of LANGUAGES) {
 
   test(`${lng}: the email allowlist keeps its own word for who may send email`, async () => {
     const { business } = (await import(`@/public/locales/${lng}/common.json`)).default;
-    assert.deepEqual([business.reception.senders.list_title, business.email.no_sender, business.reception_preview.placeholder.reason.unverified_sender], WORDS[lng].allowlist);
+    assert.deepEqual([business.reception.senders.list_title, business.email.no_sender], WORDS[lng].allowlist);
   });
 }
