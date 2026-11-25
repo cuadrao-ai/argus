@@ -23,56 +23,8 @@ import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { secondaryButtonClass } from "../business-ui";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
 import ActivityFilters, { ActivityFilterChips, EMPTY_ACTIVITY_FILTERS, type ActivityFilterValue, type ActivityFilterWords } from "./ActivityFilters";
-import { fixtureItems, toContract, type ActivityItem, type DraftItem, type LedgerAction } from "./activity-sample";
+import { fixtureItems, toContract, type DraftItem } from "./activity-sample";
 import { activityActorName, activityPhrase, activityTarget } from "./activity-words";
-
-type Area = "documents" | "records" | "invoicing" | "business";
-type Group = "uploads" | "reading" | "reviews" | "approvals" | "edits" | "files" | "invoices" | "access" | "settings" | "other";
-
-const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
-  delete_document: { area: "documents", group: "edits" },
-  restore_document: { area: "documents", group: "edits" },
-  purge_document: { area: "documents", group: "edits" },
-  expire_document: { area: "documents", group: "edits" },
-  receipt_upload: { area: "documents", group: "uploads" },
-  document_read: { area: "documents", group: "reading" },
-  document_read_failed: { area: "documents", group: "reading" },
-  receipt_review: { area: "documents", group: "reviews" },
-  receipt_confirm: { area: "documents", group: "reviews" },
-  resolve_duplicate: { area: "documents", group: "edits" },
-  append_supporting_file: { area: "documents", group: "files" },
-  prepare_attachment: { area: "documents", group: "files" },
-  rebind_attachment: { area: "documents", group: "files" },
-  business_attach_source: { area: "documents", group: "files" },
-  review_draft: { area: "records", group: "reviews" },
-  approve_expense: { area: "records", group: "approvals" },
-  approve_income: { area: "records", group: "approvals" },
-  approve_refund: { area: "records", group: "approvals" },
-  reopen_draft: { area: "records", group: "approvals" },
-  capture_note: { area: "records", group: "edits" },
-  edit_current_note: { area: "records", group: "edits" },
-  settle_remainder: { area: "records", group: "edits" },
-  mark_personal: { area: "records", group: "edits" },
-  decide_606: { area: "records", group: "edits" },
-  business_propose_activity: { area: "records", group: "edits" },
-  business_propose_allocation: { area: "records", group: "edits" },
-  invoice_draft_created: { area: "invoicing", group: "invoices" },
-  invoice_revision_saved: { area: "invoicing", group: "invoices" },
-  set_business_rnc: { area: "business", group: "settings" },
-  set_business_legal_name: { area: "business", group: "settings" },
-  receipt_reading_enabled: { area: "business", group: "settings" },
-  receipt_reading_disabled: { area: "business", group: "settings" },
-  ownership_transferred: { area: "business", group: "access" },
-  business_ask: { area: "records", group: "other" },
-  owner_grant: { area: "business", group: "access" },
-  grant_access: { area: "business", group: "access" },
-  invite_access: { area: "business", group: "access" },
-  accept_invite: { area: "business", group: "access" },
-  revoke_grant: { area: "business", group: "access" },
-  revoke_invite: { area: "business", group: "access" },
-  change_role: { area: "business", group: "access" },
-  other: { area: "business", group: "other" },
-};
 
 /* ---------- History ---------- */
 
@@ -156,9 +108,6 @@ const PAGE = 12;
 const localDay = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 
-/** A live row as the screen draws it; an action this screen does not know yet reads as "other". */
-const fromFeed = (item: Omit<ActivityItem, "action" | "actor"> & { action: string; actor: ActivityItem["actor"] | null }): DraftItem => ({ ...item, action: item.action in ACTION_META ? (item.action as LedgerAction) : "other" });
-
 export default function ActivityDraft() {
   const { t, i18n } = useTranslation();
   const { openPanel, source, chosen, invoicing, userId } = useBusiness();
@@ -170,7 +119,7 @@ export default function ActivityDraft() {
     cols: { who: t("business.activity_feed.cols.who"), what: t("business.activity_feed.cols.what"), record: t("business.activity_feed.cols.record"), area: t("business.activity_feed.cols.area"), time: t("business.activity_feed.cols.time") },
     filters: { title: t("business.activity_feed.filters.title"), date: t("business.activity_feed.filters.date"), person: t("business.activity_feed.filters.person"), area: t("business.activity_feed.filters.area"), action: t("business.activity_feed.filters.action"), clear: t("business.activity_feed.filters.clear"), clearGroup: t("business.activity_feed.filters.clear_group"), remove: t("business.activity_feed.filters.remove"), all: t("business.activity_feed.filters.all"), today: t("business.activity_feed.filters.today"), week: t("business.activity_feed.filters.week"), month: t("business.activity_feed.filters.month") },
     areas: { documents: t("business.activity_feed.areas.documents"), records: t("business.activity_feed.areas.records"), invoicing: t("business.activity_feed.areas.invoicing"), business: t("business.activity_feed.areas.business") },
-    groups: { uploads: t("business.activity_feed.groups.uploads"), reading: t("business.activity_feed.groups.reading"), reviews: t("business.activity_feed.groups.reviews"), approvals: t("business.activity_feed.groups.approvals"), edits: t("business.activity_feed.groups.edits"), files: t("business.activity_feed.groups.files"), invoices: t("business.activity_feed.groups.invoices"), access: t("business.activity_feed.groups.access"), settings: t("business.activity_feed.groups.settings"), other: t("business.activity_feed.groups.other") },
+    groups: { uploads: t("business.activity_feed.groups.uploads"), reading: t("business.activity_feed.groups.reading"), reviews: t("business.activity_feed.groups.reviews"), approvals: t("business.activity_feed.groups.approvals"), edits: t("business.activity_feed.groups.edits"), files: t("business.activity_feed.groups.files"), invoices: t("business.activity_feed.groups.invoices"), access: t("business.activity_feed.groups.access"), settings: t("business.activity_feed.groups.settings") },
     viaChat: t("business.activity_feed.via_chat"),
     formerMember: t("business.activity_feed.former_member"),
     unmarkPersonal: t("business.activity_feed.unmark_personal"),
@@ -197,18 +146,17 @@ export default function ActivityDraft() {
   const applyFilters = (next: ActivityFilterValue) => { setFilters(next); setShown(PAGE); };
   const { date, people, areas, actions: groups } = filters;
   const liveItems = feed.items;
-  const all = useMemo(() => (live ? liveItems.map(fromFeed) : mode === "empty" ? [] : mode === "contract" ? toContract(fixtureItems()) : fixtureItems()) as DraftItem[], [live, liveItems, mode]);
+  const all = useMemo<DraftItem[]>(() => live ? liveItems : mode === "empty" ? [] : mode === "contract" ? toContract(fixtureItems()) : fixtureItems(), [live, liveItems, mode]);
 
   const today = localDay(new Date().toISOString());
   const filtered = all.filter((item) => {
-    const meta = ACTION_META[item.action];
     if (date !== "all") {
       const since = new Date(); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - DATE_DAYS[date]);
       if (new Date(item.occurred_at) < since) return false;
     }
     if (people.length && !people.includes(activityActorName(t, item.actor))) return false;
-    if (areas.length && !areas.includes(meta.area)) return false;
-    if (groups.length && !groups.includes(meta.group)) return false;
+    if (areas.length && (!item.area || !areas.includes(item.area))) return false;
+    if (groups.length && (!item.group || !groups.includes(item.group))) return false;
     return true;
   });
   const page = live ? filtered : filtered.slice(0, shown);
@@ -233,8 +181,8 @@ export default function ActivityDraft() {
 
   const filterOptions = {
     people: [...new Set(all.map((item) => activityActorName(t, item.actor)))].map((name) => ({ value: name, label: name })),
-    areas: (Object.keys(c.areas) as Area[]).filter((value) => value !== "invoicing" || invoicingShown(invoicing)).map((value) => ({ value, label: c.areas[value] })),
-    actions: (Object.keys(c.groups) as Group[]).filter((g) => all.some((item) => ACTION_META[item.action].group === g)).map((value) => ({ value, label: c.groups[value] })),
+    areas: Object.entries(c.areas).filter(([value]) => value !== "invoicing" || invoicingShown(invoicing)).map(([value, label]) => ({ value, label })),
+    actions: Object.entries(c.groups).filter(([value]) => all.some((item) => item.group === value)).map(([value, label]) => ({ value, label })),
   };
   const filterWords: ActivityFilterWords = {
     title: c.filters.title, date: c.filters.date, people: c.filters.person, areas: c.filters.area, actions: c.filters.action,
@@ -278,8 +226,6 @@ export default function ActivityDraft() {
     return <span className={failed ? "text-[#9e2f39] dark:text-[#ec9aa0]" : undefined}>{failed ? <span aria-hidden="true" className="mr-1.5 inline-block h-1.5 w-1.5 -translate-y-0.5 rounded-full bg-current" /> : null}{words}{(item.action === "delete_document" || item.action === "restore_document") && open(item) ? <> <span className="underline underline-offset-2">{t(item.action === "delete_document" ? "business.document_delete.view_deleted" : "business.document_delete.open")}</span></> : null}</span>;
   };
   const channel = (item: DraftItem) => item.actor?.kind === "owner_via_agent" ? c.viaChat : null;
-  // Access and Business-setting rows reach owners and admins only; the server filters them, this only says so.
-  const restricted = (item: DraftItem) => ACTION_META[item.action].group === "access" || ACTION_META[item.action].group === "settings";
   const record = (item: DraftItem) => item.missing?.object_label
     ? <>{item.missing.object_label}{item.missing.detail ? <span className="text-[#56635e] dark:text-white/60"> · {item.missing.detail}</span> : null}</>
     : <span aria-label={c.noRecord} className="text-[#56635e] dark:text-white/60">{c.recordPlaceholder}</span>;
@@ -308,13 +254,14 @@ export default function ActivityDraft() {
             {items.map((item) => {
               const run = open(item);
               const who = actor(item, 24);
-              const phoneArea = <>{restricted(item) ? <Lock size={13} aria-label={c.managersOnly} /> : null}{c.areas[ACTION_META[item.action].area]}</>;
+              const area = item.area ? c.areas[item.area] : null;
+              const phoneArea = <>{item.restricted ? <Lock size={13} aria-label={c.managersOnly} /> : null}{area}</>;
               const content = <ActivityRowCells withRecord={!live} parts={{
                 mark: (size) => size === 24 ? who.mark : actor(item, 32).mark,
                 name: who.name,
                 what: <>{what(item, true)}{channel(item) ? <span className="text-[#56635e] dark:text-white/60"> · {channel(item)}</span> : null}</>,
                 record: record(item),
-                area: <>{c.areas[ACTION_META[item.action].area]}{restricted(item) ? <Lock size={14} aria-label={c.managersOnly} /> : null}</>,
+                area: <>{area}{item.restricted ? <Lock size={14} aria-label={c.managersOnly} /> : null}</>,
                 time: time(item.occurred_at),
                 sentence: <><span className="font-medium">{who.name}</span> {what(item)}</>,
                 phoneRecord: item.missing?.object_label ? record(item) : null,

@@ -9427,7 +9427,7 @@ the caller's own), newest first. It is read-only and additive: no existing route
 changes. The page is `{items: [...], next_cursor: string|null, actors: [...]|null}`;
 `limit` defaults to 25 and accepts only 25, 50 and 100 (any other value is 422
 `validation_error`). Each item is
-`{id, occurred_at, actor, action, object, area, restricted, role, personal, include}`.
+`{id, occurred_at, actor, action, object, area, group, restricted, role, personal, include, decision}`.
 `id` is an opaque, stable string per row. `occurred_at` is the row's server
 timestamp.
 
@@ -9474,9 +9474,11 @@ does not list yet: the consent table records when, not who.
 `business_ask`), `business` (`set_business_rnc`, `set_business_legal_name`,
 the access changes,
 `ownership_transferred`, `receipt_reading_enabled`); `invoicing` is reserved
-and empty until invoice events carry an actor. `other` has `area: null`.
-`restricted` is `true` on a row only a reader who may manage sees (the access
-changes, the two derived events and `other`), so the client can mark it.
+and empty until invoice events carry an actor. `group` is the server catalog's
+value for the `action_group` filter below. Both fields are `null` on `other`.
+`restricted` is `true` for access changes, Business settings changes and
+`other`. Only owners and admins receive these rows, and the client marks them
+with a lock.
 
 `object` is `{kind: draft|receipt|grant|invite, id, label, purged}` when the action names one
 and the server knows its id, else `null`. It is the one thing the row is about,
@@ -9547,11 +9549,12 @@ are not changes and never list, and neither does `email_ai_consent_declined`,
 the owner's own answer to the one-time email AI notice, which changes no
 Business record. `business_ask` lists, because an applied Ask opens a question
 on the draft it names. A member whose live grant allows `read` sees only the
-listed actions that are not access changes; an action the feed does not list
+listed actions with a member audience; an action the feed does not list
 never reaches a member, so a new ledger action stays hidden from members until
 the feed names it. The access changes (`owner_grant`, `grant_access`,
 `invite_access`, `accept_invite`, `revoke_grant`, `revoke_invite`,
-`change_role`), `ownership_transferred`, `receipt_reading_enabled` and
+`change_role`), `ownership_transferred`, the Business settings changes
+(`set_business_rnc`, `set_business_legal_name`, `receipt_reading_enabled`) and
 `other` list only for a reader whose live grant allows `manage`, the same rule
 as `GET /business/access`, in rows, in `actors` and under every filter. The
 page is scoped to one Business; a cursor from another Business positions

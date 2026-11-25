@@ -15,6 +15,9 @@ export type BusinessActivityItem = {
   /** null when the source recorded no actor. */
   actor: BusinessActivityActor | null;
   action: string;
+  area?: "documents" | "records" | "invoicing" | "business" | null;
+  group?: "uploads" | "reading" | "reviews" | "approvals" | "edits" | "files" | "invoices" | "access" | "settings" | null;
+  restricted?: boolean;
   /** `purged`: the document is gone for good, so it has no label and nothing opens it. */
   object: { kind: "draft" | "receipt" | "grant" | "invite"; id: string; label?: string; purged?: boolean } | null;
 };

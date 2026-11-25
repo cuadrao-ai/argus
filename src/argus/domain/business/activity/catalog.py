@@ -106,8 +106,8 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "receipt_upload": ActionSpec("documents", "uploads", object=_SUBJECT),
         "receipt_review": ActionSpec("records", "reviews", object=_SUBJECT),
         "receipt_confirm": ActionSpec("records", "approvals", object=_SUBJECT),
-        "set_business_rnc": ActionSpec("business", "settings"),
-        "set_business_legal_name": ActionSpec("business", "settings"),
+        "set_business_rnc": ActionSpec("business", "settings", "manager"),
+        "set_business_legal_name": ActionSpec("business", "settings", "manager"),
         "business_propose_activity": ActionSpec(
             "records", "edits", object=_PLANNED_DRAFT
         ),
@@ -210,6 +210,7 @@ def project(row: EventRow) -> ActivityItem:
         action=name if spec is not None else "other",
         object=None if spec is None else _object(row, spec),
         area=None if spec is None else spec.area,
+        group=None if spec is None else spec.group,
         restricted=spec is None or spec.audience == "manager",
         **({} if spec is None or spec.detail is None else _detail(row, spec.detail)),
     )
