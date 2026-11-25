@@ -3,8 +3,8 @@ import type { RecordTarget } from "./transacciones/transacciones-model";
 
 /**
  * The record a saved expense opens: its receipt when it names exactly one,
- * else the draft that recorded it, else itself. All three open the one
- * dossier; a record with neither shows there read only.
+ * else the draft that recorded it, else its own id, which asks the server for
+ * the receipt or draft behind it. Each opens the one dossier.
  */
 export function expensePanel(expense: Pick<BusinessExpense, "id" | "receipt_id" | "draft_id">): RecordTarget {
   if (expense.receipt_id) return { kind: "receipt", receiptId: expense.receipt_id, list: "transactions" };

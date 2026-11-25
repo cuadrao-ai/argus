@@ -3236,8 +3236,7 @@
       "no_merchant": "Gasto",
       "title": "Gastos",
       "gone": "Ese gasto ya no está",
-      "no_receipt": "Sin recibo adjunto",
-      "recorded_on": "Registrado el {{when}}"
+      "no_receipt": "Sin recibo adjunto"
     },
     "guide_cards": {
       "actividad_intro": {
@@ -4520,7 +4519,6 @@
       "rebind_note": "El acceso que preparó este recibo ya no es válido. Vincúlalo a tu acceso actual y vuelve a prepararlo.",
       "rebind": "Vincular a mi acceso actual",
       "rebind_failed": "No pudimos vincular este recibo. Inténtalo de nuevo.",
-      "account": "Pagado desde",
       "amount": "Total",
       "choose": "Elegir",
       "confirm": "Confirmar gasto",
@@ -4539,14 +4537,11 @@
       "saved_waiting": "Guardado, sin leer.",
       "retry": "Leer de nuevo",
       "retry_consent": "Si reintentas, el recibo se envía a nuestro proveedor de IA.",
-      "saved_body": "Guardado como un gasto de {{amount}}.",
-      "saved_title": "Gasto guardado",
       "source": "Recibo original",
       "source_error": "No pudimos abrir el recibo original con tu acceso actual.",
       "email_original": "Este es el correo en sí. Su adjunto es el recibo que debes revisar.",
       "tax": "ITBIS",
-      "title": "Revisar recibo",
-      "view_expenses": "Ver gastos"
+      "title": "Revisar recibo"
     },
     "composer_receipt": {
       "open": "Abrir recibo",

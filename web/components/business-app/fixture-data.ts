@@ -348,7 +348,6 @@ function seedExpenses(): BusinessExpense[] {
       account_id: "acct-card",
       occurred_on: dayOnly(daysAgo(6)),
       receipt_id: "rcpt-confirmed",
-      draft_id: null,
       fiscal_value: "ncf",
     },
     {
@@ -361,7 +360,6 @@ function seedExpenses(): BusinessExpense[] {
       account_id: "acct-ops",
       occurred_on: dayOnly(daysAgo(4)),
       receipt_id: null,
-      draft_id: null,
     },
     {
       id: "exp-imprenta",
@@ -373,7 +371,6 @@ function seedExpenses(): BusinessExpense[] {
       account_id: "acct-ops",
       occurred_on: dayOnly(daysAgo(5)),
       receipt_id: null,
-      draft_id: null,
     },
     {
       id: "exp-lunch",
@@ -386,7 +383,6 @@ function seedExpenses(): BusinessExpense[] {
       funding: "owner_funds",
       occurred_on: dayOnly(daysAgo(8)),
       receipt_id: null,
-      draft_id: null,
       personal: true,
       personal_marked_by: { display_name: "Marta", email: null, shown_as: "name" },
     },
@@ -472,7 +468,7 @@ export function createFixtureBusinessDataSource(
 } {
   const accounts: BusinessAccount[] = start === "none" ? [] : [...ACCOUNTS];
   const sampleEmails = inbox === "empty" ? [] : SAMPLE_EMAILS;
-  const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
+  const { createReceiptDraft, createRecordDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
   // Each read sample row has a draft of its own, so its review opens.
   let receipts = inbox === "empty" ? [] : seedReceipts().map(({ confirmableGap, stated, savedDeclaration, ...item }) => {
     if (!item.bandeja_group) return item;
@@ -484,7 +480,9 @@ export function createFixtureBusinessDataSource(
     return { ...item, draft_id: createReceiptDraft(item, { fiscal, confirmable: confirmableGap, savedDeclaration, stated: { net_amount: NO_TAX_SUBTOTAL(item.amount), ...stated } }) };
   });
   if (inbox !== "empty") void dossierSource.captureNote({ text: "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger los materiales del negocio." }, "sample-note");
-  let expenses = seedExpenses();
+  // Each saved sample gasto has the approved draft that recorded it, as on the server, so it opens its dossier.
+  let expenses: BusinessExpense[] = seedExpenses().map((expense) => ({ ...expense, draft_id: createRecordDraft(expense, receipts.find((item) => item.id === expense.receipt_id)) }));
+  receipts = receipts.map((item) => item.draft_id ? item : { ...item, draft_id: expenses.find((expense) => expense.receipt_id === item.id)?.draft_id ?? null });
   let counter = 0;
   // A synthetic name and RNC for the sample; the RNC is a made-up number.
   let fiscalProfile: FiscalProfile = { name: "Mi negocio", tax_id: { type: "rnc", value: "131245678" }, legal_name: null, can_edit: true };

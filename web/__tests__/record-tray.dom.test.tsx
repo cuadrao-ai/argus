@@ -249,8 +249,9 @@ describe("a record in the desktop tray", () => {
     await page.settle(() => saved("Estación Ruta 3") !== null, "the saved records");
     await page.click(saved("Estación Ruta 3"));
     await page.settle(() => page.recordTitle() === "Estación Ruta 3", "Estación Ruta 3 in the tray");
-    assert.equal(page.tray()!.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "tray", "a record with no draft opens the one dossier");
-    assert.equal(page.tray()!.querySelector('[data-testid="receipt-review-footer"]'), null, "with nothing to act on");
+    assert.equal(page.tray()!.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "tray", "the record opens the one dossier");
+    assert.equal(page.panel().kind, "draft", "the dossier of the draft that recorded it");
+    assert.ok(page.tray()!.querySelector('[data-testid="receipt-current-facts"]'), "with its facts");
     assert.ok(page.host.querySelector('[data-record-id="exp-gas"]'), "the list is still on the page");
     assert.equal(saved("Estación Ruta 3")?.getAttribute("aria-selected"), "true");
     assert.equal([...page.tray()!.querySelectorAll("button")].find((button) => button.textContent === "Transacciones"), undefined, "no way back inside the tray");
