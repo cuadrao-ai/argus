@@ -10,7 +10,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 from argus.api import state as api_state
-from argus.api.business_spaces import business_spaces
+from argus.api.business_spaces import business_access, business_spaces
 from argus.api.documents import documents_service
 from argus.api.main import app
 from argus.api.whatsapp import (
@@ -49,7 +49,7 @@ CODES = "/api/v1/whatsapp/link-codes"
 def consent_reads(wa_client):
     calls = []
 
-    def status(owner, reason, language=None):
+    def status(owner, space, reason, language=None):
         calls.append((owner, reason))
         return {
             "linked": True,
@@ -196,7 +196,8 @@ def wa_client(
                 runtime.settings,
                 documents=documents_service(),
                 spaces=business_spaces(),
-                store=InMemoryWhatsAppStore(),
+                access=business_access(),
+                store=InMemoryWhatsAppStore(documents_service().hub.connections, business_access()),
                 client=graph.client(),
                 app_origin="https://app.test",
             )

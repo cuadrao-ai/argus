@@ -69,8 +69,6 @@ FAMILIES = {
     "business_ai_consents": "space_id=%(s)s",
     "business_lifecycle_commands": "space_id=%(s)s",
     "business_ownership_transfers": "space_id=%(s)s",
-    "whatsapp_sender_links": "destination_space_id=%(s)s",
-    "business_whatsapp_ai_consents": "space_id=%(s)s",
     "business_document_settlements": "space_id=%(s)s",
 }
 
@@ -528,23 +526,13 @@ class PostgresBusinessCustodyGraph:
             in (
                 "business_receipt_reading_consents",
                 "business_ai_consents",
-                "business_whatsapp_ai_consents",
             )
             and old.get("owner_id") == user
             and old.get("revoked_at") is None
         ):
             new["revoked_at"] = deletion_at
-            if table in ("business_ai_consents", "business_whatsapp_ai_consents"):
+            if table == "business_ai_consents":
                 new["revoked_by"] = a
-        if table == "whatsapp_sender_links":
-            new.update(
-                wa_id_hash="\\x" + hashlib.sha256(a.encode()).hexdigest(),
-                last4="0000",
-                status="revoked",
-                revoked_at=old["revoked_at"] or deletion_at,
-            )
-        if table == "business_whatsapp_ai_consents":
-            new["sender_hash"] = "\\x" + hashlib.sha256(a.encode()).hexdigest()
         if (
             table in ("business_client_grants", "business_access_invites")
             and old.get("issuer_id") == user
@@ -612,18 +600,8 @@ class PostgresBusinessCustodyGraph:
             "delete from public.business_email_routes where space_id=%s", (scope["s"],)
         )
         db.execute(
-            "delete from public.whatsapp_inbound_messages where destination_space_id=%s or connection_id=any(%s::uuid[])",
-            (scope["s"], scope["connections"]),
-        )
-        for table in ("whatsapp_reply_attempts", "whatsapp_reply_groups"):
-            db.execute(
-                sql.SQL(
-                    "delete from public.{} where link_id in (select id from public.whatsapp_sender_links where destination_space_id=%s)"
-                ).format(sql.Identifier(table)),
-                (scope["s"],),
-            )
-        db.execute(
-            "delete from public.whatsapp_reply_days d where sender_hash in (select wa_id_hash from public.whatsapp_sender_links where destination_space_id=%s) and not exists(select 1 from public.whatsapp_reply_attempts a where a.sender_hash=d.sender_hash and a.day=d.day)",
+            "delete from public.whatsapp_inbound_messages where destination_space_id=%s"
+            " and transport_envelope is not null",
             (scope["s"],),
         )
         for table in (

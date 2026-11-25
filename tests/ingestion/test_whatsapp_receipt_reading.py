@@ -7,6 +7,7 @@ from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
+from argus.domain.business.access import InMemoryAccessStore
 from argus.domain.business.spaces import InMemorySpaceStore
 from argus.domain.ingestion.connections import InMemoryConnectionRepository
 from argus.domain.ingestion.contract import ImportCandidate, SourceRef
@@ -69,7 +70,8 @@ def _world(*, on: bool) -> tuple[cases.World, Extractor, Callable[[bool], None]]
     documents = DocumentsService(hub, InMemoryDocumentStore(connections), extractor)
     setting = reading_setting()
     documents.business_receipt_consent = setting
-    spaces, store = InMemorySpaceStore(), InMemoryWhatsAppStore()
+    access = InMemoryAccessStore()
+    spaces, store = InMemorySpaceStore(), InMemoryWhatsAppStore(connections, access)
     world = cases.build_world(
         documents=documents,
         store=store,
@@ -77,6 +79,7 @@ def _world(*, on: bool) -> tuple[cases.World, Extractor, Callable[[bool], None]]
         alice=str(uuid4()),
         bob=str(uuid4()),
         spaces=spaces,
+        access=access,
     )
 
     def turn(enabled: bool) -> None:

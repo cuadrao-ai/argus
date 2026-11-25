@@ -3,18 +3,17 @@ says who brought it in as one ``sent_by`` with a stable id. A web upload and a
 typed note name the member, read live by the people rule (#2219): by name to
 everyone, else by email only to a viewer who manages the Business and to
 themself. An email arrival names the address of its earliest delivery however
-old that is, and a WhatsApp arrival names its linked number by its last four
-digits."""
+old that is, and a WhatsApp arrival names the person who sent the file."""
 
 from __future__ import annotations
 
 import asyncio
 import json
-from hashlib import sha256
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from argus.api import whatsapp as whatsapp_api
 from argus.api.documents import documents_service
 from argus.api.email_intake import configure_email_intake
 from faker import Faker
@@ -24,6 +23,8 @@ from tests import test_business_scope_switch_routes_postgres as scope
 from tests import test_financial_accounts_postgres as shared
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
+from tests.ingestion import whatsapp_support as wa
+from tests.ingestion.whatsapp_cases import image
 from tests.test_business_reading_setting_postgres import _email, _email_runtime
 from tests.test_business_scope_switch_routes_postgres import API, _as, _note, _upload
 
@@ -179,108 +180,89 @@ def test_a_typed_note_names_its_author_by_the_people_rule(web, named: bool) -> N
         assert deleted.status_code == 200, deleted.text
 
 
-def test_a_whatsapp_or_email_arrival_names_its_sender(
-    web,  # noqa: ANN001
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    whatsapp = _uploaded(web, web.alice, None)["id"]
-    captured = lambda person_id: frozenset({whatsapp})  # noqa: E731
-    monkeypatch.setattr("argus.api.business._captured", captured)
-    monkeypatch.setattr("argus.api.business_drafts._captured", captured)
-    number = fake.msisdn()
-    sender = sha256(number.encode()).digest()
-    with Connection.connect(shared.DSN) as db:
-        [link] = db.execute(
-            "insert into public.whatsapp_sender_links(destination_owner_id,"
-            "destination_space_id,wa_id_hash,last4,reply_language,status,linked_at)"
-            " values(%s,%s,%s,%s,'es-419','active',clock_timestamp()) returning id::text",
-            (web.alice.id, web.alice.space_id, sender, number[-4:]),
-        ).fetchone()
-        db.execute(
-            "insert into public.whatsapp_inbound_messages(provider_message_key,"
-            "sender_hash,destination_owner_id,status,connection_id,received_at,updated_at)"
-            " values(%s,%s,%s,'captured',%s,clock_timestamp(),clock_timestamp())",
-            (sha256(uuid4().bytes).digest(), sender, web.alice.id, whatsapp),
+@pytest.fixture
+def phone(web, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
+    """Send signed messages through the webhook using local media and test numbers."""
+    for key, value in wa.ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("CUADRAO_WHATSAPP_OUTBOUND_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_WHATSAPP_SENDER_KEY", str(uuid4()))
+    graph = wa.FakeGraph()
+    client = graph.client()
+    monkeypatch.setattr(
+        whatsapp_api, "httpx", SimpleNamespace(AsyncClient=lambda: client)
+    )
+    previous = whatsapp_api.whatsapp_runtime()
+    whatsapp_api.start_whatsapp(scope.app)
+
+    def post(payload: dict) -> None:
+        body = wa.encode(payload)
+        answer = web.client.post(
+            whatsapp_api.WEBHOOK_PATH,
+            content=body,
+            headers={"X-Hub-Signature-256": wa.sign(body)},
         )
+        assert answer.status_code == 200, answer.text
+
+    def send(number: str, content: bytes) -> None:
+        issued = web.client.post(
+            f"{API}/whatsapp/link-codes", json={}, headers=web.alice.headers
+        )
+        assert issued.status_code == 201, issued.text
+        post(
+            wa.fixture(
+                "text_link_code.json",
+                sender=number,
+                id=str(uuid4()),
+                text=issued.json()["message_text"],
+            )
+        )
+        media_id = str(fake.random_number(digits=14, fix_len=True))
+        graph.media[media_id] = wa.Media(content, "image/png")
+        post(image(media_id, str(uuid4()), number))
+
     try:
-        _emailed(web, monkeypatch, RECEIPT + b"\x17")
-        for person, grant in _viewers(web):
-            items, text = _listed(web, person, grant)
-            arrivals = sorted(
-                ((item["channel"], _sent(item)) for item in items.values()),
-                key=lambda arrival: arrival[0],
-            )
-            by_email = {
-                "id": "email:proveedor@example.test",
-                "kind": "email",
-                "address": "proveedor@example.test",
-            }
-            by_whatsapp = {
-                "id": f"whatsapp:{link}",
-                "kind": "whatsapp",
-                "phone_last4": number[-4:],
-            }
-            assert arrivals == [
-                ("email", by_email),
-                ("email", by_email),
-                ("whatsapp", by_whatsapp),
-            ]
-            assert number not in text
+        yield send
     finally:
-        configure_email_intake(None)
+        whatsapp_api.configure_whatsapp(previous)
+        asyncio.run(client.aclose())
 
 
-def test_a_whatsapp_receipt_keeps_the_number_that_sent_it_first(
-    web,  # noqa: ANN001
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Number A links and is revoked, number B links and sends the receipt,
-    then A links again and sends the same bytes: B sent it."""
+def test_a_whatsapp_capture_names_the_web_uploader_for_every_member(web, phone) -> None:  # noqa: ANN001
+    name = fake.name()
+    _name(web.alice, name)
+    _role(web, web.bob, "editor")
+    _role(web, web.dave, "viewer")
+    uploaded = _uploaded(web, web.alice, None)
+    phone(wa.ALICE_PHONE, wa.RECEIPT_PNG + b"\x17")
+    for person, grant in _viewers(web):
+        items, _ = _listed(web, person, grant)
+        [capture] = [row for row in items.values() if row["channel"] == "whatsapp"]
+        assert wa.ALICE_PHONE not in json.dumps(capture)
+        assert (
+            _sent(capture)
+            == _sent(items[uploaded["id"]])
+            == _member(web.alice, (name, None, "name"))
+        )
+        detail = web.client.get(
+            f"{API}/business/receipts/{capture['id']}", headers=_as(person, grant)
+        )
+        assert detail.status_code == 200, detail.text
+        assert _sent(detail.json()) == _sent(capture)
 
-    whatsapp = _uploaded(web, web.alice, None)["id"]
-    monkeypatch.setattr("argus.api.business._captured", lambda person_id: frozenset({whatsapp}))
-    first, second = fake.unique.msisdn(), fake.unique.msisdn()
-    a, b = (sha256(number.encode()).digest() for number in (first, second))
-    with Connection.connect(shared.DSN) as db:
 
-        def link(sender: bytes, number: str, minutes_ago: int) -> str:
-            [linked] = db.execute(
-                "insert into public.whatsapp_sender_links(destination_owner_id,"
-                "destination_space_id,wa_id_hash,last4,reply_language,status,linked_at)"
-                " values(%s,%s,%s,%s,'es-419','active',now()-%s*interval '1 minute')"
-                " returning id::text",
-                (web.alice.id, web.alice.space_id, sender, number[-4:], minutes_ago),
-            ).fetchone()
-            return linked
-
-        def revoke(linked: str) -> None:
-            db.execute(
-                "update public.whatsapp_sender_links set status='revoked',revoked_at=now()"
-                " where id=%s",
-                (linked,),
-            )
-
-        def sent(sender: bytes, minutes_ago: int) -> None:
-            db.execute(
-                "insert into public.whatsapp_inbound_messages(provider_message_key,"
-                "sender_hash,destination_owner_id,status,connection_id,received_at,"
-                "updated_at) values(%s,%s,%s,'captured',%s,now()-%s*interval '1 minute',now())",
-                (sha256(uuid4().bytes).digest(), sender, web.alice.id, whatsapp, minutes_ago),
-            )
-
-        revoke(link(a, first, 50))
-        by_b = link(b, second, 40)
-        sent(b, 30)
-        revoke(by_b)
-        link(a, first, 20)
-        sent(a, 10)
-
-    items, _ = _listed(web, web.alice, None)
-    assert _sent(items[whatsapp]) == {
-        "id": f"whatsapp:{by_b}",
-        "kind": "whatsapp",
-        "phone_last4": second[-4:],
-    }
+def test_an_unnamed_whatsapp_sender_keeps_the_first_capturing_link(web, phone) -> None:  # noqa: ANN001
+    _name(web.alice, None)
+    phone(wa.ALICE_PHONE, wa.RECEIPT_PNG)
+    phone(wa.BOB_PHONE, wa.RECEIPT_PNG)
+    for person, grant in _viewers(web):
+        items, _ = _listed(web, person, grant)
+        [capture] = [row for row in items.values() if row["channel"] == "whatsapp"]
+        assert _sent(capture) == {
+            "id": f"member:{web.alice.id}",
+            "kind": "whatsapp",
+            "phone_last4": wa.ALICE_PHONE[-4:],
+        }
 
 
 def test_an_email_receipt_keeps_its_sender_past_the_latest_fifty_deliveries(

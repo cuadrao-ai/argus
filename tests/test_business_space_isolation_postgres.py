@@ -22,6 +22,7 @@ import psycopg
 import pytest
 from argus.api.whatsapp import DocumentsDestination
 from argus.domain import financial_search
+from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.service import BusinessService
 from argus.domain.business.spaces import PostgresSpaceStore
@@ -495,14 +496,9 @@ def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> No
         ).destination_owner_id
         == person
     )
-    with world.pool.connection() as connection:
-        [(space,)] = connection.execute(
-            "select destination_space_id::text from public.whatsapp_sender_links"
-            " where destination_owner_id = %s and status = 'active'",
-            (person,),
-        ).fetchall()
-    assert space == business.space_id
-    destination = DocumentsDestination(world.documents, world.spaces)
+    destination = DocumentsDestination(
+        world.documents, world.spaces, PostgresAccessStore(world.pool)
+    )
     captured = asyncio.run(
         destination.capture(
             owner_id=person,
@@ -525,14 +521,21 @@ def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> No
         now=now,
         claim_until=now + timedelta(seconds=90),
     )
+    capture = Settlement(
+        "captured",
+        person,
+        captured.connection_id,
+        storage_user_id=person,
+        space_id=business.space_id,
+    )
     settled = store.settle(
         provider_message_key=key,
         claim_until=claim.record.claim_until,
-        settlement=Settlement("captured", person, captured.connection_id),
+        settlement=capture,
         now=now,
     )
-    assert settled == Settlement("captured", person, captured.connection_id)
-    # M7: a Personal connection on a captured row is refused by the database.
+    assert settled == capture
+    # A signed sender and a valid link cannot turn a Personal file into a Business capture.
     forged = hashlib.sha256(uuid4().bytes).digest()
     claim = store.claim(
         provider_message_key=forged,
@@ -540,15 +543,15 @@ def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> No
         now=now,
         claim_until=now + timedelta(seconds=90),
     )
-    with pytest.raises(
-        psycopg.errors.RaiseException, match="whatsapp_capture_space_mismatch"
-    ):
-        store.settle(
-            provider_message_key=forged,
-            claim_until=claim.record.claim_until,
-            settlement=Settlement("captured", person, world.receipt[("a", "personal")]),
-            now=now,
-        )
+    refused = store.settle(
+        provider_message_key=forged,
+        claim_until=claim.record.claim_until,
+        settlement=replace(capture, connection_id=world.receipt[("a", "personal")]),
+        now=now,
+    )
+    assert refused is not None and refused.status == "rejected"
+    assert refused.connection_id is None
+    assert store.inbound(forged).sender_link_id is None
 
 
 def test_a_job_for_a_business_receipt_keeps_its_space(world: World) -> None:

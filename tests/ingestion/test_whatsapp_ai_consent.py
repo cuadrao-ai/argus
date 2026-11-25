@@ -39,8 +39,7 @@ def test_undisclosed_route_is_unavailable_without_database_access():
 
 def test_disclosure_token_binds_link_generation_and_actual_route():
     store = AIConsentStore(None, lambda: {})
-    owner, space = uuid4(), uuid4()
-    link = (uuid4(), space, owner, b"s" * 32, "1234")
+    link = (uuid4(), b"s" * 32, "1234")
     route = {
         "gateway": "openrouter",
         "interpretation": [{"model": "fixture", "provider": None}],
@@ -62,7 +61,7 @@ def test_disclosure_token_binds_link_generation_and_actual_route():
 def test_exact_disclosure_drift_invalidates_token_and_receipt(monkeypatch, suffix):
     route = {"gateway": "synthetic-fixture"}
     store = AIConsentStore(None, lambda: route)
-    link = (uuid4(), uuid4(), uuid4(), b"s" * 32, "1234")
+    link = (uuid4(), b"s" * 32, "1234")
     receipt = {
         "id": uuid4(),
         "scope_version": store.scope.version,

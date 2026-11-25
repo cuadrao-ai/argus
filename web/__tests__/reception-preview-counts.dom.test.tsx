@@ -405,7 +405,7 @@ test("a WhatsApp receipt shows the sender the server sent, or none, never one in
     await cleanup(); cleanup = async () => {}; window.localStorage.clear(); document.body.innerHTML = "";
     return shown;
   };
-  assert.deepEqual(await sender({ id: "whatsapp:link", kind: "whatsapp", phone_last4: "4821" }), ["true", "WhatsApp ···4821"]);
+  assert.deepEqual(await sender({ id: "whatsapp:link", kind: "whatsapp", phone_last4: "4821" }), ["true", "···4821"]);
   assert.deepEqual(await sender(null), ["false", "Desconocido"]);
 });
 
