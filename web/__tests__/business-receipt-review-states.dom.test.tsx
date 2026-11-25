@@ -241,6 +241,8 @@ test("a saved receipt the server names no draft for never draws a saved-expense 
     assert.ok(page.host.querySelector('[data-testid="business-record-review"]'), "the dossier frame");
     assert.equal(/Guardado como un gasto|Ver gastos|Gasto guardado|Pagado desde/.test(page.host.textContent ?? ""), false, page.host.textContent ?? "");
     assert.equal(page.button("Ver gastos"), undefined);
+    assert.ok(page.button("Registros"), "a saved receipt goes back to Registros");
+    assert.equal(page.button("Bandeja"), undefined);
   } finally {
     await page.close();
   }

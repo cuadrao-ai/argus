@@ -192,7 +192,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
   const frame = (children: ReactNode, primary?: ReactNode) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
-      back="inbox"
+      back={detail.status === "confirmed" ? "transactions" : "inbox"}
       // A receipt nobody named yet goes by its file.
       title={(!readBoard && detail.merchant) || detail.filename || t("business.review.title", "Review receipt")}
       status={<DossierStatus label={detail.bandeja_group?.label} deleted={Boolean(detail.deleted)} />}
