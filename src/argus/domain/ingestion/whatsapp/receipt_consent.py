@@ -1,16 +1,11 @@
-"""The owner's permission to read the receipts they send by WhatsApp.
-
-It is the same one switch and the same table as the agent permission, with its
-own scope, so a receipt permission never counts as an agent permission (the
-route and the scope differ, and the agent checks both).
-"""
+"""The owner's permission to read the receipts they send by WhatsApp."""
 
 from __future__ import annotations
 
 from typing import Any
 from uuid import UUID
 
-from argus.domain.ingestion.whatsapp.ai_consent import RECEIPT_SCOPE, AIConsentStore
+from argus.domain.ingestion.whatsapp.ai_consent import AIConsentStore
 from argus.llm.openrouter import resolve_openrouter_model
 
 
@@ -24,7 +19,7 @@ def receipt_provider_route() -> dict[str, Any]:
 
 
 def receipt_consent_store(pool) -> AIConsentStore:  # noqa: ANN001
-    return AIConsentStore(pool, receipt_provider_route, RECEIPT_SCOPE)
+    return AIConsentStore(pool, receipt_provider_route)
 
 
 def receipt_reading_enabled(store: AIConsentStore, owner_id: str) -> bool:

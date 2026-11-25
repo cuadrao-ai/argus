@@ -136,7 +136,6 @@ async def webhook(actions, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Web
     monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
     monkeypatch.setenv("CUADRAO_WHATSAPP_NUMBER_ID", PHONE_NUMBER_ID)
     monkeypatch.setenv("CUADRAO_WHATSAPP_SENDER_KEY", f"test-{uuid4()}")
-    monkeypatch.setenv("CUADRAO_WHATSAPP_AGENT_ENABLED", "false")
     monkeypatch.setenv("CUADRAO_WHATSAPP_OUTBOUND_ENABLED", "true")
     monkeypatch.delenv("POSTHOG_PROJECT_TOKEN", raising=False)
     monkeypatch.setattr(whatsapp.api_state, "PERSISTENCE_MODE", "supabase")

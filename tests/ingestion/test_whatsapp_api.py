@@ -20,6 +20,7 @@ from argus.api.whatsapp import (
     whatsapp_runtime,
 )
 from argus.domain.business.scope import resolve_business_scope
+from argus.domain.ingestion.whatsapp.ai_consent import RECEIPT_SCOPE
 from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 from argus.domain.owner_scope import PERSONAL
@@ -55,8 +56,8 @@ def consent_reads(wa_client):
             "available": reason is None,
             "reason": reason,
             "last4": "1234",
-            "scope_version": 1,
-            "purpose": "business_whatsapp_draft_assistance",
+            "scope_version": RECEIPT_SCOPE.version,
+            "purpose": RECEIPT_SCOPE.purpose,
             "disclosure": "Synthetic disclosure",
             "route": {"gateway": "synthetic-offline"},
             "disclosure_token": "a" * 64 if reason is None else None,
@@ -94,10 +95,7 @@ def test_workspace_reports_whatsapp_availability_without_a_link(
     ] == {"available": False}
 
 
-def test_with_the_agent_off_the_receipt_permission_is_still_available(
-    wa_client, consent_reads, monkeypatch
-):
-    monkeypatch.setenv("CUADRAO_WHATSAPP_AGENT_ENABLED", "false")
+def test_receipt_permission_is_available(wa_client, consent_reads):
     response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
     assert response.status_code == 200
     body = response.json()

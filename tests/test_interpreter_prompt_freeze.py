@@ -31,14 +31,12 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 _HOW_TO_UPDATE = f"""
 Legacy Consumer and shared text retain their existing measurement. Business
-text has a separate measurement for its two explicit owners. To land a change:
+tool declarations retain their measured fingerprint. To land a change:
 
   1. Run the live measurement for the affected scope on the branch.
   2. Commit its scorecard under docs/reports/evidence/.
   3. Compare it against the scorecard named in {FINGERPRINT_PATH} and confirm no
-     case regressed within that scope. The Business measurement is the invariant
-     measurement: the frozen seven cases judged by invariants and the varied
-     corpus judged by saved state, with no failed or unavailable case.
+     case regressed within that scope.
   4. Update that scope's fingerprint and last_measured to the new scorecard;
      preserve other scopes' evidence and totals.
 

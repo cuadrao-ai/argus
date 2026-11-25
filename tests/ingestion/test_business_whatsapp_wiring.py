@@ -1,4 +1,4 @@
-"""Linked text gets the ordinary webhook reply even with the old agent switch on."""
+"""Linked text gets the ordinary webhook reply."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -25,7 +25,6 @@ async def test_linked_text_uses_the_ordinary_webhook_reply(
 
     for key, value in ENV.items():
         monkeypatch.setenv(key, value)
-    monkeypatch.setenv("CUADRAO_WHATSAPP_AGENT_ENABLED", "true")
     monkeypatch.setenv("CUADRAO_WHATSAPP_OUTBOUND_ENABLED", "true")
     now = datetime.now(timezone.utc)
     documents = SimpleNamespace(

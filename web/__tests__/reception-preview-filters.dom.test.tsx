@@ -13,7 +13,7 @@ test("Bandeja filters share mixed/all/none behavior and restrict bulk selection 
   const i18n = (await import("i18next")).default.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } } });
   const { BusinessContext } = await import("@/components/business-app/business-context");
-  const available = { receivingChannels: { email: { available: false }, whatsapp: { available: false } } } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue;
+  const available = { receivingChannels: { email: { available: false }, whatsapp: { available: false } }, records: { workspace: { typed_notes_available: true } } } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue;
   const Filters = (await import("@/components/business-app/recepcion/ReceptionFilters")).default;
   const { emptyReceptionFilters } = await import("@/components/business-app/recepcion/reception-filters");
   function Harness() { const [value, setValue] = useState(emptyReceptionFilters); return <><Filters value={value} onChange={setValue} senders={[{ id: "a", name: "Ana" }, { id: "b", name: "Bea" }]} /><output>{JSON.stringify(value)}</output></>; }
@@ -47,19 +47,21 @@ test("Bandeja filters share mixed/all/none behavior and restrict bulk selection 
 });
 
 const off = { available: false }, on = { available: true };
-test.each<[string, ReceivingChannels, string[]]>([
-  ["both off", { whatsapp: off, email: off }, ["Carga manual", "Escrito aquí"]],
-  ["both on", { whatsapp: on, email: on }, ["WhatsApp", "Correo", "Carga manual", "Escrito aquí"]],
-  ["email only", { whatsapp: off, email: on }, ["Correo", "Carga manual", "Escrito aquí"]],
-  ["WhatsApp only", { whatsapp: on, email: off }, ["WhatsApp", "Carga manual", "Escrito aquí"]],
-])("Canal offers only the channels the server says are available: %s", async (_, receivingChannels, expected) => {
+test.each<[string, ReceivingChannels, boolean, string[]]>([
+  ["both off", { whatsapp: off, email: off }, false, ["Carga manual"]],
+  ["both on", { whatsapp: on, email: on }, false, ["WhatsApp", "Correo", "Carga manual"]],
+  ["email only", { whatsapp: off, email: on }, false, ["Correo", "Carga manual"]],
+  ["WhatsApp only", { whatsapp: on, email: off }, false, ["WhatsApp", "Carga manual"]],
+  ["typed notes on", { whatsapp: off, email: off }, true, ["Carga manual", "Escrito aquí"]],
+  ["everything on", { whatsapp: on, email: on }, true, ["WhatsApp", "Correo", "Carga manual", "Escrito aquí"]],
+])("Canal offers only the channels the server says are available: %s", async (_, receivingChannels, typedNotes, expected) => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
   const i18n = (await import("i18next")).default.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } } });
   const { BusinessContext } = await import("@/components/business-app/business-context");
-  const business = { receivingChannels } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue;
+  const business = { receivingChannels, records: { workspace: { typed_notes_available: typedNotes } } } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue;
   const Filters = (await import("@/components/business-app/recepcion/ReceptionFilters")).default;
   const { emptyReceptionFilters } = await import("@/components/business-app/recepcion/reception-filters");
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);

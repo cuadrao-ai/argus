@@ -25,8 +25,13 @@ DOCUMENT_EXTRACTION_OWNERS = frozenset(
     {DOCUMENT_EXTRACTOR_OWNER, "src/argus/domain/ingestion/documents/models.py"}
 )
 BUSINESS_DECLARATION_OWNER = "src/argus/domain/business/tools/declarations.py"
-BUSINESS_MODEL_FACING_OWNERS = frozenset(
+HISTORICAL_BUSINESS_OWNERS = frozenset(
     {"src/argus/agent_runtime/business/interpretation.py", BUSINESS_DECLARATION_OWNER}
+)
+BUSINESS_MODEL_FACING_OWNERS = frozenset(
+    owner
+    for owner in HISTORICAL_BUSINESS_OWNERS
+    if (Path(__file__).resolve().parents[1] / owner).is_file()
 )
 BUSINESS_ACCEPTANCE_STEP_IDS = {
     "es_owner_funds_no_receipt": (0, 1, 2, 3),
@@ -289,7 +294,7 @@ def _business_scope(fingerprint: dict) -> dict:
     assert set(owners) == BUSINESS_MODEL_FACING_OWNERS
     measured = business.get("surface")
     assert isinstance(measured, dict)
-    assert set(measured) <= BUSINESS_MODEL_FACING_OWNERS
+    assert set(measured) == BUSINESS_MODEL_FACING_OWNERS
     return business
 
 
@@ -356,15 +361,22 @@ def require_document_extraction_measurement(
     validate_document_extraction_measurement(scope, json.loads(path.read_text()))
 
 
+def validate_business_scorecard_surface(scope: dict, scorecard: dict) -> None:
+    historical = scorecard["surface"]
+    assert set(historical) == HISTORICAL_BUSINESS_OWNERS
+    assert scope["surface"] == {
+        owner: historical[owner] for owner in BUSINESS_MODEL_FACING_OWNERS
+    }
+
+
 def validate_business_measurement(scope: dict, scorecard: dict) -> None:
     measured = scope.get("last_measured")
     assert isinstance(measured, dict), "Business live measurement is still missing"
-    assert set(scope["surface"]) == BUSINESS_MODEL_FACING_OWNERS
     assert scorecard["schema_version"] == "business_acceptance_v1"
     assert scorecard["scope"] == "business"
     assert scorecard["status"] == "passed"
     assert scorecard["measurement_kind"] == "initial_measurement"
-    assert scorecard["surface"] == scope["surface"]
+    validate_business_scorecard_surface(scope, scorecard)
     assert scorecard["candidate_sha"] == measured["commit"]
     assert scorecard["fixture_sha256"] == measured["fixture_sha256"]
     assert scorecard["runtime_model"] == measured["runtime_model"]
@@ -448,12 +460,12 @@ def surface_drift(
     recorded: dict[str, dict[str, object]],
     observed: dict[str, dict[str, object]],
 ) -> tuple[list[str], list[str], list[str]]:
-    """(changed, added, removed) files, comparing digests only."""
+    """(changed, added, removed) files across the measured surface."""
 
     changed = sorted(
         name
         for name in recorded.keys() & observed.keys()
-        if recorded[name]["sha256"] != observed[name]["sha256"]
+        if recorded[name] != observed[name]
     )
     return (
         changed,

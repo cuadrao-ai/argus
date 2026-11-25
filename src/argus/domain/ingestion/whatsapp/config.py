@@ -47,9 +47,6 @@ class WhatsAppSettings(BaseSettings):
         default=100, ge=1, validation_alias="CUADRAO_WHATSAPP_HELD_READS_PER_DAY"
     )
     intake_enabled: Flag = Field(default=False, validation_alias=_names("INTAKE_ENABLED"))
-    # The Business agent over WhatsApp. Off by default: WhatsApp is receipt
-    # intake only until this is turned on.
-    agent_enabled: Flag = Field(default=False, validation_alias=_names("AGENT_ENABLED"))
     outbound_enabled: Flag = Field(
         default=False, validation_alias=_names("OUTBOUND_ENABLED")
     )
