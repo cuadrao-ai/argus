@@ -273,6 +273,20 @@ describe("the v2 dossier frame", () => {
     } finally { await page.close(); }
   });
 
+  for (const [sentBy, shown] of [
+    [{ id: "member:someone", kind: "member", person: { display_name: "Marisol Peña", shown_as: "name" } }, "Marisol Peña"],
+    [{ id: "whatsapp:link", kind: "whatsapp", phone_last4: "1234" }, "···1234"],
+  ] as const) test(`Detalles shows WhatsApp under Canal and ${shown} under Enviado por`, async () => {
+    const dossier = await fiscalDossier();
+    const page = await mount({ dossier, receipt: receiptOf(dossier, { sent_by: sentBy }), size: "regular" });
+    try {
+      await page.click(page.tab("Detalles"));
+      const details = page.panelOf("detalles");
+      assert.equal(details?.querySelector('[data-fact="channel"] > span:nth-child(3)')?.textContent, "WhatsApp");
+      assert.equal(details?.querySelector('[data-fact="sent_by"] > span:nth-child(3)')?.textContent, shown);
+    } finally { await page.close(); }
+  });
+
   test("Datos fiscales, Detalles and Historial each hold their own content", async () => {
     const dossier = await fiscalDossier();
     const page = await mount({ dossier, receipt: receiptOf(dossier), size: "regular" });

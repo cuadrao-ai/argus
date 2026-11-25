@@ -349,8 +349,8 @@ def _seed_transport(db, old, space, cid, grant):
     )
     sender = sha256(str(uuid4()).encode()).digest()
     link = db.execute(
-        "insert into public.whatsapp_sender_links(destination_owner_id,destination_space_id,wa_id_hash,last4,reply_language,status,linked_at) values(%s,%s,%s,'1234','es-419','active',clock_timestamp()) returning id",
-        (old, space, sender),
+        "insert into public.whatsapp_sender_links(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at) values(%s,%s,'1234','es-419','active',clock_timestamp()) returning id",
+        (old, sender),
     ).fetchone()[0]
     consent = db.execute(
         "insert into public.business_whatsapp_ai_consents(sender_link_id,space_id,owner_id,sender_hash,consenting_actor_id,grant_id,issuer_id,scope_version,purpose,disclosure,route,route_hash,idempotency_key,input_hash) values(%s,%s,%s,%s,%s,%s,%s,2,'business_whatsapp_receipt_reading','Synthetic permission',%s,%s,'whatsapp',%s) returning id",
@@ -458,6 +458,30 @@ def test_receipt_graph_survives_closed_or_transferred_custodian_deletion(
                 "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,array['read','prepare']) returning id",
                 (w["space"], w["users"]["other"], w["old"]),
             ).fetchone()[0]
+            member = w["users"]["other"]
+            member_sender = sha256(uuid4().bytes).digest()
+            member_link = db.execute(
+                "insert into public.whatsapp_sender_links"
+                "(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
+                " values(%s,%s,'4321','en','active',now()) returning id",
+                (member, member_sender),
+            ).fetchone()[0]
+            member_consent = db.execute(
+                "insert into public.business_whatsapp_ai_consents"
+                " (sender_link_id,space_id,owner_id,sender_hash,consenting_actor_id,grant_id,issuer_id,"
+                "scope_version,purpose,disclosure,route,route_hash,idempotency_key,input_hash)"
+                " select %s,space_id,%s,%s,%s,%s,issuer_id,scope_version,purpose,disclosure,"
+                "route,route_hash,idempotency_key,input_hash from public.business_whatsapp_ai_consents"
+                " where sender_link_id=%s returning id",
+                (
+                    member_link,
+                    member,
+                    member_sender,
+                    member,
+                    target,
+                    w["transport"]["link"],
+                ),
+            ).fetchone()[0]
     transfer_id = None
     if transferred:
         transfer = PostgresBusinessTransfer(w["pool"])
@@ -559,13 +583,13 @@ def test_receipt_graph_survives_closed_or_transferred_custodian_deletion(
             transfer_id,
         )
         assert db.execute(
-            "select owner_id::text,consenting_actor_id::text,revoked_at is not null from public.business_whatsapp_ai_consents where space_id=%s",
-            (w["space"],),
-        ).fetchone() == (reservation.custodian_id, reservation.deleted_actor_id, True)
+            "select owner_id::text,consenting_actor_id::text,revoked_at is not null from public.business_whatsapp_ai_consents where sender_link_id=%s",
+            (w["transport"]["link"],),
+        ).fetchone() == (w["old"], w["old"], False)
         assert db.execute(
-            "select destination_owner_id::text,last4,status from public.whatsapp_sender_links where destination_space_id=%s",
-            (w["space"],),
-        ).fetchone() == (reservation.custodian_id, "0000", "revoked")
+            "select destination_owner_id::text,last4,status from public.whatsapp_sender_links where id=%s",
+            (w["transport"]["link"],),
+        ).fetchone() == (w["old"], "1234", "active")
         for table, key, value in (
             ("business_email_routes", "space_id", w["space"]),
             ("business_email_deliveries", "space_id", w["space"]),
@@ -573,9 +597,6 @@ def test_receipt_graph_survives_closed_or_transferred_custodian_deletion(
             ("business_email_daily_usage", "route_id", w["transport"]["email_route"]),
             ("whatsapp_inbound_messages", "destination_space_id", w["space"]),
             ("whatsapp_outbox", "provider_message_key", w["transport"]["message_key"]),
-            ("whatsapp_reply_attempts", "link_id", w["transport"]["link"]),
-            ("whatsapp_reply_groups", "link_id", w["transport"]["link"]),
-            ("whatsapp_reply_days", "sender_hash", w["transport"]["sender"]),
         ):
             assert (
                 db.execute(
@@ -583,6 +604,14 @@ def test_receipt_graph_survives_closed_or_transferred_custodian_deletion(
                 ).fetchone()[0]
                 == 0
             )
+        for table, key, value in (
+            ("whatsapp_reply_attempts", "link_id", w["transport"]["link"]),
+            ("whatsapp_reply_groups", "link_id", w["transport"]["link"]),
+            ("whatsapp_reply_days", "sender_hash", w["transport"]["sender"]),
+        ):
+            assert db.execute(
+                f"select 1 from public.{table} where {key}=%s", (value,)
+            ).fetchone() == (1,)
         for table in ("checkpoints", "checkpoint_writes", "checkpoint_blobs"):
             assert (
                 db.execute(
@@ -648,6 +677,14 @@ def test_receipt_graph_survives_closed_or_transferred_custodian_deletion(
         ).fetchone()
         assert all(w["objects"].get(path) is not None for path in paths)
     FakeAuth().delete_user(w["old"])
+    if transferred:
+        with w["pool"].connection() as db:
+            assert db.execute(
+                "select c.issuer_id::text,c.consenting_actor_id::text,l.destination_owner_id::text,l.status"
+                " from public.business_whatsapp_ai_consents c join public.whatsapp_sender_links l"
+                " on c.sender_link_id=l.id where c.id=%s",
+                (member_consent,),
+            ).fetchone() == (reservation.deleted_actor_id, member, member, "active")
     writer.complete_identity_cleanup(
         space_id=w["space"], deletion_run_id=run, claim_id=token
     )

@@ -20,15 +20,20 @@ from loguru import logger
 from psycopg import Connection
 
 from argus.api import state as api_state
-from argus.api.business_spaces import business_spaces, space_missing_problem
+from argus.api.business_spaces import (
+    business_access,
+    business_spaces,
+    space_missing_problem,
+)
 from argus.api.dependencies import problem
 from argus.api.documents import documents_service, record_dispatch_preparation
 from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingestion_context
 from argus.domain.business import analytics as business_analytics
+from argus.domain.business.access import AccessStore, PostgresAccessStore
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
-from argus.domain.business.spaces import PostgresSpaceStore, SpaceStore
+from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.documents.models import DocumentDraft, DocumentExtractionError
@@ -55,6 +60,7 @@ from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
 from argus.domain.ingestion.whatsapp.reply_groups import ReplyGroupCodec
 from argus.domain.ingestion.whatsapp.store import (
     SENDER_LINK_REVOKED,
+    CapturePermissionLost,
     InMemoryWhatsAppStore,
     Settlement,
     WhatsAppStore,
@@ -92,16 +98,15 @@ _REJECTED_CAPTURE = {
 
 
 class DocumentsDestination:
-    """Saves the bytes as a document draft in the owner's Business space. It is
-    read by the model only when the owner turned receipt reading on; else it
-    waits saved, unread."""
+    """Stages a receipt in the current landing Business under the sender's grant."""
 
     def __init__(
         self,
         documents: DocumentsService,
         spaces: SpaceStore,
+        access: AccessStore,
     ) -> None:
-        self.documents, self.spaces = documents, spaces
+        self.documents, self.spaces, self.access = documents, spaces, access
 
     async def capture(
         self,
@@ -112,13 +117,18 @@ class DocumentsDestination:
         media_type: str,
         source_text: str | None = None,
     ) -> Captured:
-        # A link needs a space, so an owner without one has no link to send through.
-        scope = resolve_business_scope(self.spaces, owner_id)
+        # Keep the existing landing Business. The sender acts under their own grant.
+        scope = await asyncio.to_thread(resolve_business_scope, self.spaces, owner_id)
         if scope is None:
             raise CaptureRejected(SENDER_LINK_REVOKED)
+        capabilities = await asyncio.to_thread(
+            self.access.capabilities, scope.owner.space_id, owner_id
+        )
+        if "prepare" not in capabilities:
+            raise CaptureRejected("business_permission_denied")
         try:
             outcome = await self.documents.upload(
-                user_id=owner_id,
+                user_id=scope.person_id,
                 content=content,
                 filename=filename,
                 media_type=media_type,
@@ -140,22 +150,25 @@ class DocumentsDestination:
                 media_type=media_type,
                 size_bytes=len(content),
             )
-        return Captured(outcome.connection_id, already_held=outcome.replayed)
+        return Captured(
+            outcome.connection_id,
+            already_held=outcome.replayed,
+            storage_user_id=scope.person_id,
+            space_id=scope.owner.space_id,
+        )
 
     def prepare(self, connection: Connection | None, settlement: Settlement) -> bool:
         """Publish the source and record its read on the fenced claim's transaction."""
-        owner_id, connection_id = (
-            settlement.destination_owner_id,
-            settlement.connection_id,
-        )
-        assert owner_id is not None and connection_id is not None
-        documents, spaces = self.documents, self.spaces
+        person_id, owner_id = settlement.destination_owner_id, settlement.storage_user_id
+        connection_id = settlement.connection_id
+        assert person_id and owner_id and connection_id and settlement.space_id
+        scope = BusinessSpace(settlement.space_id)
+        documents, access = self.documents, self.access
         if connection is not None:
-            documents, spaces = _documents_on_connection(documents, connection)
-        business = resolve_business_scope(spaces, owner_id)
-        if business is None:
-            raise CaptureRejected(SENDER_LINK_REVOKED)
-        scope = business.owner
+            documents = _documents_on_connection(documents, connection)
+            access = PostgresAccessStore(BorrowedConnection(connection))
+        if "prepare" not in access.capabilities(scope.space_id, person_id):
+            raise CapturePermissionLost()
         draft = documents.get(user_id=owner_id, connection_id=connection_id, scope=scope)
         staged = draft.status == "saved" and not draft.source_available
         queued = (
@@ -164,7 +177,9 @@ class DocumentsDestination:
             and documents.store.job(user_id=owner_id, connection_id=connection_id) is None
         )
         if draft.business_reading_consent_id is not None and (staged or queued):
-            return self._prepare_read(documents, connection, owner_id, draft, scope)
+            return self._prepare_read(
+                documents, connection, person_id, owner_id, draft, scope
+            )
         documents.publish_capture(
             user_id=owner_id, connection_id=connection_id, scope=scope
         )
@@ -174,6 +189,7 @@ class DocumentsDestination:
         self,
         documents: DocumentsService,
         connection: Connection | None,
+        person_id: str,
         owner_id: str,
         draft: DocumentDraft,
         scope: BusinessSpace,
@@ -183,7 +199,7 @@ class DocumentsDestination:
         connection_id = draft.connection_id
         try:
             with connection.transaction() if connection is not None else nullcontext():
-                owned = _as_owner(documents, owner_id, scope)
+                owned = _as_sender(documents, person_id, scope)
                 consent = owned.business_receipt_consent
                 if (
                     consent is None
@@ -228,21 +244,18 @@ class DocumentsDestination:
             return False
         return True
 
-    async def discard(self, *, owner_id: str, connection_id: str) -> None:
-        scope = resolve_business_scope(self.spaces, owner_id)
-        if scope is None:
-            return
+    async def discard(self, *, owner_id: str, space_id: str, connection_id: str) -> None:
         await asyncio.to_thread(
             self.documents.hub.disconnect,
             user_id=owner_id,
             connection_id=connection_id,
-            scope=scope.owner,
+            scope=BusinessSpace(space_id),
         )
 
 
 def _documents_on_connection(
     documents: DocumentsService, connection: Connection
-) -> tuple[DocumentsService, SpaceStore]:
+) -> DocumentsService:
     pool = BorrowedConnection(connection)
     store = documents.store
     assert isinstance(store, PostgresDocumentStore)
@@ -257,16 +270,13 @@ def _documents_on_connection(
     if documents.business_receipt_consent is not None:
         scoped.business_receipt_consent = copy(documents.business_receipt_consent)
         scoped.business_receipt_consent.pool = pool
-    return scoped, PostgresSpaceStore(pool)
+    return scoped
 
 
-def _as_owner(
-    documents: DocumentsService, owner_id: str, scope: BusinessSpace
+def _as_sender(
+    documents: DocumentsService, person_id: str, scope: BusinessSpace
 ) -> DocumentsService:
-    """The documents service the Business routes build for the signed-in owner:
-    the same hub with a sink bound to the owner's own grant. A read started by a
-    delivery has no request, so it is bound here, and only to the owner who
-    received the receipt."""
+    """Bind the import sink to the sender's live grant in the receipt's Business."""
 
     from argus.api.business_drafts import bind_to_grant
     from argus.domain.business.contracts.authority import TrustedActor
@@ -276,14 +286,8 @@ def _as_owner(
     if actions is None or not isinstance(sink, ReconciliationService):
         return documents
     context = actions.resolve_actor(
-        TrustedActor(actor_id=owner_id, actor_kind="member", space_id=scope.space_id)
+        TrustedActor(actor_id=person_id, actor_kind="member", space_id=scope.space_id)
     )
-    # Only the owner who received the receipt binds the read: a grant that
-    # resolves for someone else, however capable, is not that owner.
-    if str(context.owner_id) != str(owner_id):
-        raise CaptureFailed("business_permission_denied")
-    if "prepare" not in actions.record_context(context).capabilities:
-        raise CaptureFailed("business_permission_denied")
     return bind_to_grant(documents, documents.hub, actions, context, "prepare")[0]
 
 
@@ -311,6 +315,7 @@ def build_whatsapp(
     *,
     documents: DocumentsService,
     spaces: SpaceStore,
+    access: AccessStore,
     store: WhatsAppStore,
     client: httpx.AsyncClient,
     app_origin: str | None = None,
@@ -336,7 +341,7 @@ def build_whatsapp(
             graph_api_version=settings.graph_api_version,
             max_bytes=max_bytes,
         ),
-        destination=DocumentsDestination(documents, spaces),
+        destination=DocumentsDestination(documents, spaces, access),
         clock=documents.hub.clock,
         transport=transport,
         app_origin=app_origin,
@@ -353,7 +358,8 @@ def start_whatsapp(app: object) -> None:
     settings = load_whatsapp_settings()
     documents = documents_service()
     spaces = business_spaces()
-    if not settings.intake_ready or documents is None or spaces is None:
+    access = business_access()
+    if not settings.intake_ready or documents is None or spaces is None or access is None:
         configure_whatsapp(None)
         return
     try:
@@ -368,12 +374,13 @@ def start_whatsapp(app: object) -> None:
 
             store = PostgresWhatsAppStore(pool)
         else:
-            store = InMemoryWhatsAppStore()
+            store = InMemoryWhatsAppStore(documents.hub.connections, access)
         configure_whatsapp(
             build_whatsapp(
                 settings,
                 documents=documents,
                 spaces=spaces,
+                access=access,
                 store=store,
                 client=httpx.AsyncClient(),
                 app_origin=settings.app_origin,
@@ -408,15 +415,7 @@ def whatsapp_receiving_available(scope: BusinessScope | None = None) -> bool:
         and documents is not None
         and documents.hub is ingestion_hub()
     )
-    if not ready or scope is None:
-        return ready
-    spaces = business_spaces()
-    destination = (
-        resolve_business_scope(spaces, scope.acting_person_id) if spaces else None
-    )
-    return bool(
-        scope.acting_as_owner and destination and destination.owner == scope.owner
-    )
+    return ready and (scope is None or "prepare" in scope.permissions)
 
 
 def require_whatsapp_surface(request: Request) -> WhatsAppRuntime:
@@ -464,18 +463,18 @@ def link_store() -> WhatsAppStore | None:
 
 
 @dataclass(frozen=True)
-class WhatsAppOwnerContext:
+class WhatsAppSenderContext:
     runtime: WhatsAppRuntime
-    destination_owner_id: str
+    person_id: str
+    space_id: str
 
 
-def require_whatsapp_owner(
+def require_whatsapp_sender(
     request: Request,
     runtime: WhatsAppRuntime = Depends(require_whatsapp_surface),  # noqa: B008
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
-) -> WhatsAppOwnerContext:
-    """Linking needs the person's Business space: captures land there.
-    WhatsApp is the owner's channel: a chosen client grant is refused."""
+) -> WhatsAppSenderContext:
+    """Authorize the signed-in sender in the selected Business."""
 
     from argus.api.business import working_scope
 
@@ -485,4 +484,4 @@ def require_whatsapp_owner(
         raise space_missing_problem(request)
     if not whatsapp_receiving_available(scope):
         raise unavailable_problem(request)
-    return WhatsAppOwnerContext(runtime, context.user_id)
+    return WhatsAppSenderContext(runtime, context.user_id, scope.owner.space_id)

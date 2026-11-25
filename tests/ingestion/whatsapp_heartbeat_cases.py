@@ -61,7 +61,7 @@ def _second_worker(world: World) -> World:
     documents = copy.copy(world.documents)
     documents._capture_slot = asyncio.Semaphore(1)
     second = copy.copy(world.intake)
-    second.destination = DocumentsDestination(documents, world.spaces)
+    second.destination = DocumentsDestination(documents, world.spaces, world.intake.destination.access)
     second.processing_seconds = PROCESSING_SECONDS
     return replace(world, intake=second)
 

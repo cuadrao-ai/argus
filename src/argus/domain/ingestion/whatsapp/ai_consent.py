@@ -88,23 +88,14 @@ class AIConsentStore:
             raise ConsentError("whatsapp_ai_route_unavailable", 503)
         return route
 
-    def _link(self, connection, owner_id: UUID, *, prepare: bool):
-        row = connection.execute(
-            "select l.id,l.destination_space_id,l.destination_owner_id,l.wa_id_hash,l.last4"
-            " from public.whatsapp_sender_links l join public.spaces s"
-            " on s.id=l.destination_space_id and s.created_by=l.destination_owner_id"
-            " where l.destination_owner_id=%s and l.status='active'"
-            " and s.kind='business' and s.closed_at is null for update of l",
-            (owner_id,),
+    @staticmethod
+    def _link(connection, person_id: UUID, *, lock: bool = False):
+        return connection.execute(
+            "select id,wa_id_hash,last4 from public.whatsapp_sender_links"
+            " where destination_owner_id=%s and status='active'"
+            + (" for update" if lock else ""),
+            (person_id,),
         ).fetchone()
-        if row is None:
-            raise ConsentError("whatsapp_link_required", 409)
-        auth = authorize(
-            connection,
-            TrustedActor(actor_id=owner_id, space_id=row[1], actor_kind="member"),
-        )
-        auth.require("prepare" if prepare else "read")
-        return row, auth
 
     @staticmethod
     def _latest(connection, link_id):
@@ -131,7 +122,7 @@ class AIConsentStore:
             "linked": True,
             "available": True,
             "reason": None,
-            "last4": link[4],
+            "last4": link[2],
             "scope_version": self.scope.version,
             "purpose": self.scope.purpose,
             "active_scope_version": latest["scope_version"]
@@ -159,15 +150,12 @@ class AIConsentStore:
     def status(
         self,
         owner_id: UUID,
+        space_id: UUID | None = None,
         unavailable_reason: str | None = None,
         language: str | None = None,
     ) -> dict:
         with self.pool.connection() as connection, connection.transaction():
-            link = connection.execute(
-                "select id,destination_space_id,destination_owner_id,wa_id_hash,last4"
-                " from public.whatsapp_sender_links where destination_owner_id=%s and status='active'",
-                (owner_id,),
-            ).fetchone()
+            link = self._link(connection, owner_id)
             if link is None:
                 return {
                     "linked": False,
@@ -192,19 +180,15 @@ class AIConsentStore:
             latest = self._latest(connection, link[0])
             view = self._view(link, latest, route, language)
             view["enabled"] = view["enabled"] and self._valid_grant(connection, latest)
-            owner = connection.execute(
-                "select 1 from public.spaces where id=%s and created_by=%s"
-                " and kind='business' and closed_at is null",
-                (link[1], owner_id),
-            ).fetchone()
-            if owner is None:
+            selected = space_id or (latest and latest["space_id"])
+            if selected is None:
                 unavailable_reason = "business_unavailable"
             else:
                 try:
                     authorize(
                         connection,
                         TrustedActor(
-                            actor_id=owner_id, space_id=link[1], actor_kind="member"
+                            actor_id=owner_id, space_id=selected, actor_kind="member"
                         ),
                     ).require("prepare")
                 except ActionError:
@@ -232,13 +216,22 @@ class AIConsentStore:
         except ActionError:
             return False
 
-    def enable(self, owner_id: UUID, request: EnableAIConsent, key: str) -> dict:
+    def enable(
+        self, owner_id: UUID, space_id: UUID, request: EnableAIConsent, key: str
+    ) -> dict:
         if not 1 <= len(key) <= 80 or "\x00" in key:
             raise ConsentError("invalid_idempotency_key", 422)
         route = self._route()
         input_hash = digest(request.model_dump(mode="json"))
         with self.pool.connection() as connection, connection.transaction():
-            link, auth = self._link(connection, owner_id, prepare=True)
+            auth = authorize(
+                connection,
+                TrustedActor(actor_id=owner_id, space_id=space_id, actor_kind="member"),
+            )
+            auth.require("prepare")
+            link = self._link(connection, owner_id, lock=True)
+            if link is None:
+                raise ConsentError("whatsapp_link_required", 409)
             with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(
                     "select * from public.business_whatsapp_ai_consents"
@@ -260,9 +253,9 @@ class AIConsentStore:
             if request.disclosure_token != view["disclosure_token"]:
                 raise ConsentError("whatsapp_consent_disclosure_stale", 409)
             if latest and latest["revoked_at"] is None:
-                if latest["scope_version"] == self.scope.version:
+                if view["enabled"] and self._valid_grant(connection, latest):
                     raise ConsentError("whatsapp_consent_already_enabled", 409)
-                # One active permission per number: this scope replaces the other.
+                # Keep the prior consent as history when its grant or disclosure changed.
                 connection.execute(
                     "update public.business_whatsapp_ai_consents"
                     " set revoked_at=clock_timestamp(),revoked_by=%s where id=%s",
@@ -275,9 +268,9 @@ class AIConsentStore:
                 " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     link[0],
-                    link[1],
+                    space_id,
                     owner_id,
-                    link[3],
+                    link[1],
                     owner_id,
                     auth.context.grant_id,
                     auth.provenance.issuer_id,

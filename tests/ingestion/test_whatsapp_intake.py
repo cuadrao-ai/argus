@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
+from argus.domain.business.access import InMemoryAccessStore
 from argus.domain.business.spaces import InMemorySpaceStore
 from argus.domain.ingestion.connections import InMemoryConnectionRepository
 from argus.domain.ingestion.documents.service import DocumentsService
@@ -55,13 +56,15 @@ def _world() -> cases.World:
     documents = DocumentsService(
         hub, InMemoryDocumentStore(connections), RefusingExtractor()
     )
+    access = InMemoryAccessStore()
     return cases.build_world(
         documents=documents,
-        store=InMemoryWhatsAppStore(),
+        store=InMemoryWhatsAppStore(connections, access),
         clock=clock,
         alice=str(uuid4()),
         bob=str(uuid4()),
         spaces=InMemorySpaceStore(),
+        access=access,
     )
 
 

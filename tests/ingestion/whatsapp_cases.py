@@ -15,6 +15,7 @@ from uuid import uuid4
 
 import pytest
 from argus.api.whatsapp import DocumentsDestination
+from argus.domain.business.access import AccessStore
 from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.service import DocumentsService
@@ -127,9 +128,11 @@ def build_world(
     alice: str,
     bob: str,
     spaces: SpaceStore,
+    access: AccessStore,
 ) -> World:
     for owner in (alice, bob):
-        spaces.create(owner, "Mi negocio")
+        space, _ = spaces.create(owner, "Mi negocio")
+        access.ensure_owner_grant(space.id, owner)
     graph, transport = FakeGraph(), RecordingTransport()
     # A key per world keeps message digests unique across runs on a shared database.
     keys = WhatsAppKeys(f"{SENDER_KEY}-{uuid4()}")
@@ -142,7 +145,7 @@ def build_world(
             graph_api_version="v23.0",
             max_bytes=MAX_BYTES,
         ),
-        destination=DocumentsDestination(documents, spaces),
+        destination=DocumentsDestination(documents, spaces, access),
         clock=clock,
         transport=transport,
         app_origin=ORIGIN,
@@ -381,6 +384,23 @@ async def a_sender_only_reaches_its_own_destination(world: World) -> None:
     assert (
         world.record("wamid.CASE-CLAIMS-ALICE").error_code == "whatsapp_receipt_missing"
     )
+
+
+async def a_capture_keeps_its_link_after_the_number_changes_hands(world: World) -> None:
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000180"] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(image("700000000000180", "wamid.ORIGINAL"))
+    original = world.record("wamid.ORIGINAL").sender_link_id
+    assert original is not None
+
+    world.store.revoke(destination_owner_id=world.alice, now=world.clock())
+    await world.link(world.bob, ALICE_PHONE)
+    await world.deliver(image("700000000000180", "wamid.NEW-PERSON"))
+
+    assert world.record("wamid.ORIGINAL").sender_link_id == original
+    later = world.record("wamid.NEW-PERSON")
+    assert later.destination_owner_id == world.bob
+    assert later.sender_link_id is not None and later.sender_link_id != original
 
 
 async def revoke_and_relink(world: World) -> None:
@@ -936,6 +956,7 @@ CASES = (
     oversize_and_unsupported_media_are_rejected,
     expired_media_fails_then_recovers_on_redelivery,
     a_sender_only_reaches_its_own_destination,
+    a_capture_keeps_its_link_after_the_number_changes_hands,
     revoke_and_relink,
     a_live_claim_blocks_a_concurrent_redelivery,
     redelivery_during_a_live_claim_asks_for_retry,

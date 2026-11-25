@@ -8,6 +8,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from argus.api.whatsapp import build_whatsapp
+from argus.domain.business.access import InMemoryAccessStore
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
 from argus.domain.ingestion.whatsapp.payload import Delivery, TextMessage
@@ -36,7 +37,9 @@ async def test_linked_text_uses_the_ordinary_webhook_reply(
         replies.append(loads(request.content)["text"]["body"])
         return httpx.Response(200, json={"messages": [{"id": "wamid.sent"}]})
 
-    store = InMemoryWhatsAppStore()
+    access, person = InMemoryAccessStore(), str(uuid4())
+    access.ensure_owner_grant(str(uuid4()), person)
+    store = InMemoryWhatsAppStore(Mock(), access)
     pool = Mock()
     pool.connection.side_effect = AssertionError(
         "Linked text must only use the intake store"
@@ -46,13 +49,14 @@ async def test_linked_text_uses_the_ordinary_webhook_reply(
             load_whatsapp_settings(),
             documents=documents,
             spaces=Mock(),
+            access=access,
             store=store,
             client=client,
             app_origin="https://app.test",
             pool=pool,
         )
         issued = runtime.intake.issue_code(
-            destination_owner_id=str(uuid4()), reply_language="en"
+            destination_owner_id=person, reply_language="en"
         )
         keys = runtime.intake.keys
         store.redeem_code(

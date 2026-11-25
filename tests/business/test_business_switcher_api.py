@@ -334,47 +334,53 @@ def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
         ), path
 
 
-def test_whatsapp_stays_the_owners_channel_under_a_chosen_grant(
-    wa_biz,  # noqa: ANN001, F811
-    identities,  # noqa: ANN001, F811
-) -> None:
+def test_whatsapp_linking_follows_the_selected_grant(wa_biz, identities) -> None:  # noqa: ANN001, F811
     client, _ = wa_biz
     owner = Owner(client, ALICE, identities[ALICE]["id"])
-    accountant = Owner(client, BOB, identities[BOB]["id"])
-    assert owner.start().status_code == 201 and accountant.start().status_code == 201
-    grant = _grant(owner, accountant)
-    headers = {GRANT: grant}
-    assert get_as(accountant, "/workspace", grant).json()["receiving_channels"][
+    editor = Owner(client, BOB, identities[BOB]["id"])
+    assert owner.start().status_code == 201
+    grant = _grant(owner, editor)
+    headers = {**editor.auth, GRANT: grant}
+    assert get_as(editor, "/workspace", grant).json()["receiving_channels"][
         "whatsapp"
-    ] == {"available": False}
-    assert accountant.get("/workspace").json()["receiving_channels"]["whatsapp"] == {
-        "available": True
-    }
-    # WhatsApp is the owner's channel: every link route refuses a grantee.
-    for response in (
-        client.post(
-            "/api/v1/whatsapp/link-codes", headers={**accountant.auth, **headers}
-        ),
-        client.get("/api/v1/whatsapp/link", headers={**accountant.auth, **headers}),
-        client.get("/api/v1/whatsapp/ai-consent", headers={**accountant.auth, **headers}),
-        client.post(
-            "/api/v1/whatsapp/ai-consent",
-            headers={**accountant.auth, **headers},
-            json={"action": "enable", "disclosure_token": "a" * 64},
-        ),
-    ):
-        assert (response.status_code, response.json()["code"]) == (
+    ] == {"available": True}
+    assert client.post("/api/v1/whatsapp/link-codes", headers=headers).status_code == 201
+    assert client.get("/api/v1/whatsapp/link", headers=headers).status_code == 200
+    business_access().change_role(
+        owner.scope().owner.space_id, owner.person, grant, "viewer"
+    )
+    for method, path in (("post", "link-codes"), ("get", "link"), ("get", "ai-consent")):
+        answer = client.request(method, f"/api/v1/whatsapp/{path}", headers=headers)
+        assert (answer.status_code, answer.json()["code"]) == (
             404,
             "whatsapp_unavailable",
         )
-    assert client.get("/api/v1/whatsapp/link", headers=accountant.auth).status_code == 200
-    # Ending one's own sender link is never gated: it is the person's, not the Business's.
-    assert (
-        client.delete(
-            "/api/v1/whatsapp/link", headers={**accountant.auth, **headers}
-        ).status_code
-        == 204
-    )
+    assert client.delete("/api/v1/whatsapp/link", headers=headers).status_code == 204
+
+
+@pytest.mark.parametrize("another_business", [False, True])
+def test_whatsapp_code_rechecks_the_persons_live_prepare_at_redemption(
+    wa_biz, identities, another_business  # noqa: ANN001, F811
+) -> None:
+    from argus.api.whatsapp import whatsapp_runtime
+
+    from tests.ingestion.test_whatsapp_api import post
+    from tests.ingestion.whatsapp_support import fixture
+
+    client, _ = wa_biz
+    owner = Owner(client, ALICE, identities[ALICE]["id"])
+    editor = Owner(client, BOB, identities[BOB]["id"])
+    assert owner.start().status_code == 201
+    if another_business:
+        assert editor.start().status_code == 201
+    grant = _grant(owner, editor)
+    issued = client.post("/api/v1/whatsapp/link-codes", headers={**editor.auth, GRANT: grant})
+    assert issued.status_code == 201
+    business_access().change_role(owner.scope().owner.space_id, owner.person, grant, "viewer")
+    reply = post(client, fixture("text_link_code.json", text=issued.json()["message_text"]))
+    assert reply.status_code == 200
+    linked = whatsapp_runtime().intake.store.destination_link(destination_owner_id=editor.person)
+    assert (linked is not None) is another_business
 
 
 def test_business_chat_stays_the_owners_under_a_chosen_grant(

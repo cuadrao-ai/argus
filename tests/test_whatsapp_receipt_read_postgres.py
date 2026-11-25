@@ -9,6 +9,7 @@ from hashlib import sha256
 from typing import Any
 
 import pytest
+from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.spaces import PostgresSpaceStore
@@ -29,6 +30,7 @@ from tests.document_reads_support import read_receipt
 from tests.document_sources_support import source_objects
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
+from tests.test_business_lifecycle_postgres import world as transfer_world  # noqa: F401
 
 actions = shared.actions
 users = shared.users
@@ -141,6 +143,7 @@ def _rig(actions, users):  # noqa: ANN001, ANN202
         alice=owner,
         bob=users["other"],
         spaces=PostgresSpaceStore(pool),
+        access=PostgresAccessStore(pool),
     )
     return world, extractor
 
@@ -232,13 +235,9 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
 
 
 @pytest.mark.asyncio
-async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(
+async def test_loss_of_prepare_while_staging_discards_the_receipt(
     actions, users, monkeypatch
 ):  # noqa: ANN001
-    """No fake: the owner's grant loses prepare in the table the authority
-    reads, so the read cannot start, and the saved draft records
-    ``business_permission_denied``."""
-
     world, extractor = _rig(actions, users)
     _, context, _ = actions
     documents = world.documents
@@ -261,7 +260,49 @@ async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(
         return outcome
 
     monkeypatch.setattr(documents, "upload", revoke_after_save)
-    connection_id = await _capture(world)
-    draft = _draft(world, connection_id)
-    assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
+    await world.link(world.alice, ALICE_PHONE)
+    media_id = "700000000000201"
+    world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(cases.image(media_id, "wamid.READ-DEMOTED"))
+    record = world.record("wamid.READ-DEMOTED")
+    assert (record.status, record.connection_id) == ("rejected", None)
+    [staged] = world.captures(world.alice)
+    assert (
+        documents.hub.connections.get_any_scope(
+            user_id=world.alice, connection_id=staged
+        ).status
+        == "disconnected"
+    )
     assert extractor.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_after_transfer_the_new_owners_number_captures_in_the_same_business(
+    transfer_world,  # noqa: ANN001, F811
+) -> None:
+    from argus.domain.business.transfer import PostgresBusinessTransfer
+    from argus.domain.owner_scope import BusinessSpace
+
+    from tests.test_business_transfer_postgres import _request
+    from tests.test_whatsapp_intake_postgres import _world
+
+    pool, space, people, _, _ = transfer_world
+    request = _request(transfer_world)
+    PostgresBusinessTransfer(pool).accept(
+        actor_id=people["other"], transfer_id=request.id
+    )
+    world = _world(pool, {"owner": people["other"], "other": people["owner"]})
+    await world.link(world.alice, ALICE_PHONE)
+    media_id = "700000000000201"
+    world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(cases.image(media_id, "wamid.AFTER-TRANSFER"))
+    record = world.record("wamid.AFTER-TRANSFER")
+    assert (record.status, record.destination_owner_id) == ("captured", world.alice)
+    stored = world.documents.hub.connections.get(
+        user_id=people["owner"],
+        connection_id=record.connection_id,
+        scope=BusinessSpace(space.id),
+    )
+    assert stored.id in world.store.captured_connections(
+        destination_owner_id=people["owner"]
+    )

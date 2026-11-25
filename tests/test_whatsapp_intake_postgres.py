@@ -1,19 +1,26 @@
 """The WhatsApp replay, linking and isolation cases on real Postgres."""
 
 import asyncio
+import shutil
+import subprocess
 import threading
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from pathlib import Path
+from uuid import uuid4
 
 import pytest
+from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.whatsapp.reply_worker import FailureReplyWorker
+from argus.domain.ingestion.whatsapp.store import SenderLink
 from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
+from psycopg import Connection
 from psycopg.errors import QueryCanceled
 from psycopg_pool import ConnectionPool
 
@@ -28,6 +35,11 @@ from tests.ingestion.whatsapp_support import (
     fixture,
 )
 from tests.ingestion.whatsapp_unlinked_cases import UNLINKED_CASES
+
+W4_MIGRATION = (
+    Path(__file__).resolve().parents[1]
+    / "supabase/migrations/20261125205442_whatsapp_person_links.sql"
+)
 
 users = shared.users
 pytestmark = pytest.mark.skipif(
@@ -55,6 +67,7 @@ def _world(pool: ConnectionPool, users: dict[str, str]) -> cases.World:
         alice=users["owner"],
         bob=users["other"],
         spaces=PostgresSpaceStore(pool),
+        access=PostgresAccessStore(pool),
     )
 
 
@@ -62,6 +75,31 @@ def _world(pool: ConnectionPool, users: dict[str, str]) -> cases.World:
 @pytest.mark.parametrize("case", cases.CASES, ids=lambda case: case.__name__)
 async def test_intake_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
     await case(_world(pool, users))
+
+
+def test_redeeming_without_a_live_grant_preserves_the_existing_link(pool, users) -> None:  # noqa: ANN001
+    owner, other = users["owner"], users["other"]
+    PostgresSpaceStore(pool).create(owner, "Mi negocio")
+    store = PostgresWhatsAppStore(pool)
+    now, sender = cases.Clock()(), uuid4().bytes + uuid4().bytes
+
+    def redeem(person: str) -> SenderLink | None:
+        code = uuid4().bytes + uuid4().bytes
+        store.issue_code(
+            destination_owner_id=person,
+            code_digest=code,
+            reply_language="es-419",
+            now=now,
+            expires_at=now + timedelta(minutes=10),
+        )
+        return store.redeem_code(
+            code_digest=code, sender_hash=sender, last4="1234", now=now
+        )
+
+    original = redeem(owner)
+    assert original is not None
+    assert redeem(other) is None
+    assert store.sender_link(sender_hash=sender) == original
 
 
 def test_concurrent_unlinked_reservations_for_one_day_take_one_reply(pool, users) -> None:  # noqa: ANN001
@@ -99,69 +137,177 @@ async def test_heartbeat_case_on_postgres(case, pool, users) -> None:  # noqa: A
     await case(_world(pool, users))
 
 
-# The settlement statement of the code before 20261031010000, verbatim: it
-# never names claim_envelope, so a rollout or a code-only rollback runs it
-# against sealed rows.
-_PRE_ENVELOPE_SETTLE = (
-    "update public.whatsapp_inbound_messages set status = %s, "
-    "destination_owner_id = %s, connection_id = %s, error_code = %s, "
-    "claim_until = null, updated_at = %s "
-    "where provider_message_key = %s and status in ('received', 'failed') "
-    "and claim_until is not distinct from %s"
-)
-_SEALED = b"\x01" + b"x" * 40
+@pytest.fixture
+def pre_w4_database(
+    tmp_path: Path, unused_tcp_port: int, pool: ConnectionPool
+) -> Iterator[Connection]:
+    """Start a separate local database with the migrations preceding W4."""
+    migrations = tmp_path / "supabase" / "migrations"
+    migrations.mkdir(parents=True)
+    for migration in W4_MIGRATION.parent.glob("*.sql"):
+        if migration.name < W4_MIGRATION.name:
+            shutil.copyfile(migration, migrations / migration.name)
+    with pool.connection() as matrix_db:
+        major_version = matrix_db.info.server_version // 10000
+    (migrations.parent / "config.toml").write_text(
+        f'project_id = "w4-replay-{uuid4().hex}"\n'
+        f"[db]\nport = {unused_tcp_port}\nmajor_version = {major_version}\n"
+        "[db.seed]\nenabled = false\n"
+    )
+    cli = ["supabase", "--workdir", str(tmp_path)]
+    try:
+        subprocess.run([*cli, "db", "start"], check=True)
+        with Connection.connect(
+            host="127.0.0.1",
+            port=unused_tcp_port,
+            dbname="postgres",
+            user="postgres",
+            password="postgres",
+            autocommit=True,
+        ) as db:
+            yield db
+    finally:
+        subprocess.run([*cli, "stop", "--no-backup"], check=True)
 
 
-@pytest.mark.parametrize("status", ["received", "rejected", "failed"])
-def test_pre_envelope_code_settles_a_sealed_claim_and_clears_it(pool, status) -> None:  # noqa: ANN001
-    import os
+def test_migrating_a_pre_w4_capture_names_the_original_person(
+    pre_w4_database: Connection,
+) -> None:
+    """A relink cannot reassign a document captured before W4."""
+    from argus.domain.business.authority import authorize
+    from argus.domain.business.contracts.authority import TrustedActor
+    from argus.domain.business.sent_by import receipt_senders
+    from argus.domain.business.transactions import ActionTransaction
+    from faker import Faker
 
-    key, now = os.urandom(32), cases.Clock()()
-    held = now + timedelta(seconds=90)
-    with pool.connection() as connection:
-        connection.execute(
-            "insert into public.whatsapp_inbound_messages "
-            "(provider_message_key, sender_hash, status, claim_until, received_at, "
-            "updated_at, claim_envelope) values (%s, %s, 'received', %s, %s, %s, %s)",
-            (key, b"s" * 32, held, now, now, _SEALED),
+    from tests.test_business_spaces_migration_postgres import connection, owned_space
+
+    db = pre_w4_database
+    owner = shared._create_users(db, ("owner", False))["owner"]
+    with db.transaction():
+        business = owned_space(db, owner)
+        receipt = connection(db, owner, business)
+        person = Faker().name()
+        db.execute(
+            "update public.profiles set display_name=%s where id=%s", (person, owner)
         )
-        settled = connection.execute(
-            _PRE_ENVELOPE_SETTLE, (status, None, None, None, now, key, held)
-        )
-        row = connection.execute(
-            "select status, claim_envelope from public.whatsapp_inbound_messages "
-            "where provider_message_key = %s",
-            (key,),
+        sender = uuid4().bytes + uuid4().bytes
+        link, pinned_space = db.execute(
+            "insert into public.whatsapp_sender_links"
+            "(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
+            " values(%s,%s,'1234','es-419','active',now()-interval '2 days')"
+            " returning id, destination_space_id::text",
+            (owner, sender),
         ).fetchone()
-    assert settled.rowcount == 1
-    assert row == (status, None)
-
-
-def test_a_settled_row_never_keeps_a_claim_envelope(pool) -> None:  # noqa: ANN001
-    import os
-
-    import psycopg
-
-    key = os.urandom(32)
-    with pool.connection() as connection:
-        connection.execute(
-            "insert into public.whatsapp_inbound_messages "
-            "(provider_message_key, sender_hash, status, received_at, updated_at, "
-            "claim_envelope) values (%s, %s, 'rejected', now(), now(), %s)",
-            (key, b"s" * 32, _SEALED),
+        assert pinned_space == business
+        legacy_capture = db.execute(
+            "insert into public.whatsapp_inbound_messages"
+            "(provider_message_key,sender_hash,destination_owner_id,status,connection_id,"
+            "received_at,updated_at) values(%s,%s,%s,'captured',%s,now()-interval '1 day',"
+            "now()-interval '1 day') returning sender_link_id",
+            (uuid4().bytes + uuid4().bytes, sender, owner, receipt),
+        ).fetchone()
+        assert legacy_capture == (None,)
+        db.execute(
+            "update public.whatsapp_sender_links set status='revoked', revoked_at=now()"
+            " where id=%s",
+            (link,),
         )
-        assert connection.execute(
-            "select claim_envelope from public.whatsapp_inbound_messages "
-            "where provider_message_key = %s",
-            (key,),
-        ).fetchone() == (None,)
-    with pool.connection() as connection, pytest.raises(psycopg.errors.CheckViolation):
-        connection.execute(
-            "insert into public.whatsapp_inbound_messages "
-            "(provider_message_key, sender_hash, status, claim_until, received_at, "
-            "updated_at, claim_envelope) values (%s, %s, 'received', now(), now(), "
-            "now(), %s)",
-            (os.urandom(32), b"s" * 32, b"\x02" + b"x" * 40),
+        db.execute(
+            "insert into public.whatsapp_sender_links"
+            "(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
+            " values(%s,%s,'1234','en','active',now())",
+            (owner, sender),
+        )
+    db.execute(W4_MIGRATION.read_text())
+    assert db.execute(
+        "select sender_link_id from public.whatsapp_inbound_messages where connection_id=%s",
+        (receipt,),
+    ).fetchone() == (link,)
+    auth = authorize(
+        db, TrustedActor(actor_id=owner, space_id=business, actor_kind="member")
+    )
+    tx = ActionTransaction(db, auth, None)
+    shown = receipt_senders(tx, [{"id": receipt, "channel": "whatsapp"}])[receipt]
+    assert shown.id == f"member:{owner}" and shown.person.display_name == person
+
+
+def test_erasing_a_sender_keeps_only_masked_attribution_until_the_receipt_is_deleted(
+    pool,
+    users,
+) -> None:  # noqa: ANN001
+    from argus.domain.business.authority import authorize
+    from argus.domain.business.contracts.authority import TrustedActor
+    from argus.domain.business.sent_by import receipt_senders
+    from argus.domain.business.transactions import ActionTransaction
+    from argus.domain.postgres_connection import BorrowedConnection
+
+    from tests.test_business_spaces_migration_postgres import connection, owned_space
+
+    with pool.connection() as db, db.transaction(force_rollback=True):
+        owner, sender = users["owner"], users["other"]
+        business = owned_space(db, owner)
+        receipt = connection(db, owner, business)
+        digest = uuid4().bytes + uuid4().bytes
+        message_key = uuid4().bytes + uuid4().bytes
+        link = db.execute(
+            "insert into public.whatsapp_sender_links"
+            "(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
+            " values(%s,%s,'1234','es-419','active',now()) returning id",
+            (sender, digest),
+        ).fetchone()[0]
+        db.execute(
+            "insert into public.whatsapp_inbound_messages"
+            "(provider_message_key,sender_hash,destination_owner_id,status,connection_id,"
+            "sender_link_id,received_at,updated_at) values(%s,%s,%s,'captured',%s,%s,now(),now())",
+            (message_key, digest, sender, receipt, link),
+        )
+        store = PostgresWhatsAppStore(BorrowedConnection(db))
+        assert store.captured_connections(destination_owner_id=owner) == {receipt}
+        assert not store.captured_connections(destination_owner_id=sender)
+        db.execute("delete from auth.users where id=%s", (sender,))
+        now = cases.Clock()()
+        replay = store.claim(
+            provider_message_key=message_key,
+            sender_hash=digest,
+            now=now,
+            claim_until=now + timedelta(seconds=90),
+        )
+        assert not replay.claimed
+        assert replay.record.status == "captured" and replay.record.sender_hash is None
+        assert db.execute(
+            "select l.destination_owner_id,l.wa_id_hash,l.status,l.last4,m.sender_hash,m.destination_owner_id"
+            " from public.whatsapp_inbound_messages m join public.whatsapp_sender_links l on l.id=m.sender_link_id"
+            " where m.connection_id=%s",
+            (receipt,),
+        ).fetchone() == (None, None, "revoked", "1234", None, None)
+        auth = authorize(
+            db, TrustedActor(actor_id=owner, space_id=business, actor_kind="member")
+        )
+        shown = receipt_senders(
+            ActionTransaction(db, auth, None), [{"id": receipt, "channel": "whatsapp"}]
+        )[receipt]
+        assert shown.phone_last4 == "1234" and shown.person is None
+        db.execute(
+            "delete from public.financial_source_connections where id=%s", (receipt,)
+        )
+        assert (
+            db.execute(
+                "select 1 from public.whatsapp_sender_links where id=%s", (link,)
+            ).fetchone()
+            is None
+        )
+
+
+def test_claim_payload_cannot_survive_settlement(pool) -> None:  # noqa: ANN001
+    with pool.connection() as db:
+        assert (
+            db.execute(
+                "select column_name from information_schema.columns where table_schema='public'"
+                " and table_name='whatsapp_inbound_messages'"
+                " and column_name in ('claim_envelope','recovery_attempts')"
+            ).fetchall()
+            == []
         )
 
 

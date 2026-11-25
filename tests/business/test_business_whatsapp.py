@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 from argus.api import state as api_state
-from argus.api.business_spaces import business_spaces
+from argus.api.business_spaces import business_access, business_spaces
 from argus.api.documents import documents_service
 from argus.api.main import app
 from argus.api.whatsapp import (
@@ -61,7 +61,8 @@ def wa_biz(
                 runtime.settings,
                 documents=documents_service(),
                 spaces=business_spaces(),
-                store=InMemoryWhatsAppStore(),
+                access=business_access(),
+                store=InMemoryWhatsAppStore(documents_service().hub.connections, business_access()),
                 client=graph.client(),
                 app_origin="https://app.test",
             )
