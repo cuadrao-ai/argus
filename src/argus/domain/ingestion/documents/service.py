@@ -790,8 +790,17 @@ class DocumentsService:
                         now=self.hub.clock(),
                     ):
                         raise DocumentServiceError("document_lease_lost", retryable=True)
+                    from argus.domain.ingestion.whatsapp.held import charge_read, is_held
+
+                    if is_held(draft):
+                        refused = await asyncio.to_thread(
+                            charge_read, self.store, user_id, connection_id,
+                            self.hub.clock(), self.read_budget,
+                        )
+                        if refused is not None:
+                            raise DocumentServiceError(refused)
                     business_id = space_id(scope)
-                    if business_id is not None and self.read_budget is not None:
+                    if not is_held(draft) and business_id is not None and self.read_budget is not None:
                         refused = await asyncio.to_thread(
                             self.read_budget.charge, business_id, self.hub.clock()
                         )
@@ -837,6 +846,8 @@ class DocumentsService:
                 connection_id=connection_id, holder=holder, now=self.hub.clock()
             ):
                 raise DocumentServiceError("document_lease_lost", retryable=True)
+            from argus.domain.ingestion.whatsapp.held import is_held
+
             attached = None
             if business:
                 from argus.domain.business.contracts.actions import canonical_input_hash
@@ -849,7 +860,7 @@ class DocumentsService:
                     holder=holder,
                     attempt_id=attempt_id,
                 )
-            elif batch.candidates:
+            elif batch.candidates and not is_held(draft):
                 self._deliver(user_id, connection_id, batch.candidates, scope)
                 if space_id(scope) is not None:
                     self._flag_business_duplicates(user_id, connection_id, scope)

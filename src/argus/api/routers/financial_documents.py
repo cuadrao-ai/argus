@@ -122,7 +122,10 @@ _DRAFT_RESPONSE = (
     "and `buyer_rnc` (string or null) is the RNC of the buyer as printed. No "
     "server code reads these two values. `payment_form` (`01` to `07` or null) "
     "and `expense_type` (`01` to `11` or null) are the DGII Forma de pago and "
-    "Tipo de gasto codes the reader read; null means it read none."
+    "Tipo de gasto codes the reader read; null means it read none. "
+    "A held WhatsApp draft refused by its daily cap stays saved with "
+    "`error_code=whatsapp_held_read_budget_day`; the existing resume pass "
+    "can queue it on the next Santo Domingo day while intake is ready."
 )
 
 
@@ -141,7 +144,7 @@ def _draft(context: DocumentContext, connection_id: str) -> dict[str, object]:
     }
 
 
-@router.get("")
+@router.get("", description="Lists Personal drafts except held WhatsApp files, before pagination.")
 def list_documents(
     request: Request,
     response: Response,
@@ -157,13 +160,13 @@ def list_documents(
         ):
             if connection.source == "statement" and connection.status != "disconnected":
                 try:
-                    items.append(
-                        context.service.get(
-                            user_id=context.user_id,
-                            connection_id=connection.id,
-                            scope=PERSONAL,
-                        ).model_dump(mode="json")
+                    from argus.domain.ingestion.whatsapp.held import is_held
+
+                    draft = context.service.get(
+                        user_id=context.user_id, connection_id=connection.id, scope=PERSONAL
                     )
+                    if not is_held(draft):
+                        items.append(draft.model_dump(mode="json"))
                 except DocumentServiceError as error:
                     if error.code != "document_source_unavailable":
                         raise

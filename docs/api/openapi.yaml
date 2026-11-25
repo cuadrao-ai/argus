@@ -10336,6 +10336,7 @@ paths:
       tags:
       - financial-accounts
       - financial-documents
+      description: Lists Personal drafts except held WhatsApp files, before pagination.
       parameters:
       - name: limit
         in: query
@@ -10471,7 +10472,10 @@ paths:
         it, copied before it is interpreted, and `buyer_rnc` (string or null) is the RNC of
         the buyer as printed. No server code reads these two values. `payment_form` (`01`
         to `07` or null) and `expense_type` (`01` to `11` or null) are the DGII Forma de pago
-        and Tipo de gasto codes the reader read; null means it read none.
+        and Tipo de gasto codes the reader read; null means it read none. A held WhatsApp
+        draft refused by its daily cap stays saved with `error_code=whatsapp_held_read_budget_day`;
+        the existing resume pass can queue it on the next Santo Domingo day while intake is
+        ready.
       parameters:
       - name: connection_id
         in: path
@@ -10549,7 +10553,10 @@ paths:
         it, copied before it is interpreted, and `buyer_rnc` (string or null) is the RNC of
         the buyer as printed. No server code reads these two values. `payment_form` (`01`
         to `07` or null) and `expense_type` (`01` to `11` or null) are the DGII Forma de pago
-        and Tipo de gasto codes the reader read; null means it read none.
+        and Tipo de gasto codes the reader read; null means it read none. A held WhatsApp
+        draft refused by its daily cap stays saved with `error_code=whatsapp_held_read_budget_day`;
+        the existing resume pass can queue it on the next Santo Domingo day while intake is
+        ready.
       parameters:
       - name: connection_id
         in: path

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import threading
 from datetime import date, datetime, time
-from typing import Literal
+from typing import Any, Literal
 
 from loguru import logger
 from pydantic import Field, ValidationError
@@ -20,9 +20,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from argus.domain.ingestion.email_intake.budget import BUSINESS_ZONE, business_day
 from argus.settings_names import setting_aliases
 
+HELD_READ_REFUSAL = "whatsapp_held_read_budget_day"
+HandOver = Literal["transferred", "business_full", "no_held_read"]
+
 ReadBudgetRefusal = Literal["business_read_budget_day", "business_read_budget_month"]
 READ_BUDGET_REFUSALS: frozenset[str] = frozenset(
-    {"business_read_budget_day", "business_read_budget_month"}
+    {"business_read_budget_day", "business_read_budget_month", HELD_READ_REFUSAL}
 )
 
 
@@ -123,26 +126,161 @@ class PostgresReadBudget:
     def charge(self, business_id: str, now: datetime) -> ReadBudgetRefusal | None:
         day = business_day(now)
         with self._pool.connection() as connection, connection.transaction():
-            # One charge per Business at a time, so the count read here still
-            # holds when the row is written.
-            connection.execute(
-                "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
-                (f"business_read_budget:{business_id}",),
-            )
-            today, month = connection.execute(
-                "select coalesce(sum(reads) filter (where day=%s), 0), "
-                "coalesce(sum(reads), 0) from public.business_read_daily_usage "
-                "where business_id=%s and day >= %s and day < %s",
-                (day, business_id, month_start(day), next_month_start(day)),
-            ).fetchone()
-            refused = refusal(self.settings, int(today), int(month))
-            if refused is None:
-                connection.execute(
-                    "insert into public.business_read_daily_usage(business_id, day, reads) "
-                    "values (%s, %s, 1) on conflict (business_id, day) do update "
-                    "set reads=business_read_daily_usage.reads + 1",
-                    (business_id, day),
+            return _charge_business(connection, business_id, day, self.settings)
+
+
+def _charge_business(
+    connection: Any, business_id: str, day: date, settings: ReadBudgetSettings
+) -> ReadBudgetRefusal | None:
+    # One charge per Business at a time, so the count read here still
+    # holds when the row is written.
+    connection.execute(
+        "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
+        (f"business_read_budget:{business_id}",),
+    )
+    today, month = connection.execute(
+        "select coalesce(sum(reads) filter (where day=%s), 0), "
+        "coalesce(sum(reads), 0) from public.business_read_daily_usage "
+        "where business_id=%s and day >= %s and day < %s",
+        (day, business_id, month_start(day), next_month_start(day)),
+    ).fetchone()
+    refused = refusal(settings, int(today), int(month))
+    if refused is None:
+        connection.execute(
+            "insert into public.business_read_daily_usage(business_id, day, reads) "
+            "values (%s, %s, 1) on conflict (business_id, day) do update "
+            "set reads=business_read_daily_usage.reads + 1",
+            (business_id, day),
+        )
+    else:
+        _log_refusal(business_id, day, refused, int(today), int(month))
+    return refused
+
+
+def _held_limit() -> int:
+    from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
+
+    return load_whatsapp_settings().held_reads_per_day
+
+
+class InMemoryHeldReadBudget:
+    def __init__(
+        self, business: InMemoryReadBudget, *, per_day: int | None = None
+    ) -> None:
+        self.business = business
+        self.per_day = _held_limit() if per_day is None else per_day
+        self._reads: dict[tuple[str, date], int] = {}
+        self._lock = threading.Lock()
+
+    def charge(self, user_id: str, now: datetime) -> str | None:
+        key = user_id, business_day(now)
+        with self._lock:
+            reads = self._reads.get(key, 0)
+            if reads >= self.per_day:
+                return HELD_READ_REFUSAL
+            self._reads[key] = reads + 1
+        return None
+
+    def hand_over(
+        self,
+        user_id: str,
+        business_id: str,
+        now: datetime,
+        *,
+        charged_at: datetime | None = None,
+    ) -> HandOver:
+        """Transfer the named charge, or the oldest outstanding charge.
+
+        A specific read supplies its actual charge instant, not held_at.
+        Its caller settles once under the held-file assignment lock.
+        """
+        with self._lock:
+            day = (
+                business_day(charged_at)
+                if charged_at
+                else min(
+                    (
+                        used
+                        for (user, used), reads in self._reads.items()
+                        if user == user_id and reads > 0 and used <= business_day(now)
+                    ),
+                    default=None,
                 )
-            else:
-                _log_refusal(business_id, day, refused, int(today), int(month))
-            return refused
+            )
+            key = user_id, day
+            if day is None or not self._reads.get(key, 0):
+                return "no_held_read"
+            if self.business.charge(business_id, now) is not None:
+                return "business_full"
+            self._reads[key] -= 1
+            return "transferred"
+
+
+class PostgresHeldReadBudget:
+    def __init__(
+        self,
+        pool: Any,
+        settings: ReadBudgetSettings | None = None,
+        *,
+        per_day: int | None = None,
+    ) -> None:
+        self._pool = pool
+        self.settings = settings or load_read_budget_settings()
+        self.per_day = _held_limit() if per_day is None else per_day
+
+    @staticmethod
+    def _lock(db: Any, user_id: str) -> None:
+        db.execute(
+            "select pg_advisory_xact_lock(hashtextextended(%s,0))",
+            (f"whatsapp_held_read_budget:{user_id}",),
+        )
+
+    def charge(self, user_id: str, now: datetime) -> str | None:
+        day = business_day(now)
+        with self._pool.connection() as db, db.transaction():
+            self._lock(db, user_id)
+            row = db.execute(
+                "select reads from public.whatsapp_held_read_usage where user_id=%s and day=%s",
+                (user_id, day),
+            ).fetchone()
+            if row is not None and row[0] >= self.per_day:
+                return HELD_READ_REFUSAL
+            db.execute(
+                "insert into public.whatsapp_held_read_usage(user_id,day,reads) values(%s,%s,1) on conflict(user_id,day) do update set reads=whatsapp_held_read_usage.reads+1",
+                (user_id, day),
+            )
+        return None
+
+    def hand_over(
+        self,
+        user_id: str,
+        business_id: str,
+        now: datetime,
+        *,
+        charged_at: datetime | None = None,
+    ) -> HandOver:
+        """Move a charge atomically; bind the pool to include caller settlement.
+
+        Specific reads name their actual charge instant. Without one, transfer
+        the oldest outstanding held charge. Never infer the day from held_at.
+        """
+        with self._pool.connection() as db, db.transaction():
+            self._lock(db, user_id)
+            predicate = "day=%s" if charged_at else "day<=%s"
+            row = db.execute(
+                "select day from public.whatsapp_held_read_usage where user_id=%s "
+                f"and {predicate} and reads>0 order by day limit 1",
+                (user_id, business_day(charged_at or now)),
+            ).fetchone()
+            if row is None:
+                return "no_held_read"
+            if (
+                _charge_business(db, business_id, business_day(now), self.settings)
+                is not None
+            ):
+                return "business_full"
+            db.execute(
+                "update public.whatsapp_held_read_usage set reads=reads-1 where user_id=%s and day=%s",
+                (user_id, row[0]),
+            )
+            return "transferred"

@@ -7823,6 +7823,14 @@ an approval flag. Approval remains owned by reconciliation events on that connec
 The response can be `queued` even when a puller finishes the read before the
 client reads it. Poll `GET /financial-documents/{connection_id}` for current state.
 
+Held WhatsApp files wait privately in the sender's Personal scope. Their
+`resolution.whatsapp_held` provenance marker excludes them from the collection
+before pagination, even while intake is off. A held read creates no import event
+or record. Its daily refusal code is `whatsapp_held_read_budget_day`: the draft
+stays saved and unread, and the existing resume pass can queue it on the next
+Santo Domingo day while intake is ready. `CUADRAO_WHATSAPP_HELD_READS_PER_DAY`
+defaults to 100. W8 adds no held-file endpoint or webhook caller.
+
 - `GET /financial-documents?limit=50&offset=0` returns bounded draft metadata and
   `next_offset`; maximum limit is 100. Full preparation is not included in lists.
 - `GET /financial-documents/{connection_id}` returns source metadata, lifecycle,

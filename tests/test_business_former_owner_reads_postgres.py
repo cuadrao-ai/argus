@@ -55,6 +55,8 @@ CANNOT_HOLD_A_BUSINESS_ROW = {
     "financial_plan_selections",
     "guest_workspaces",
     "profiles",
+    "whatsapp_held_files",
+    "whatsapp_held_read_usage",
 }
 LIMITED_BEFORE_THIS_PROOF = {"financial_import_events", "financial_import_observations"}
 THE_READERS_OWN_ACT = {"business_consent_acceptances", "business_guide_dismissals"}

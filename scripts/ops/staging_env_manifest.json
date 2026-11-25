@@ -360,6 +360,14 @@
           }
         },
         {
+          "name": "CUADRAO_WHATSAPP_HELD_READS_PER_DAY",
+          "kind": "plain",
+          "value": "100",
+          "production": {
+            "value": "100"
+          }
+        },
+        {
           "name": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
           "kind": "plain",
           "value": "true",
@@ -1237,6 +1245,14 @@
             "optional": true
           },
           "optional": true
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_HELD_READS_PER_DAY",
+          "kind": "plain",
+          "value": "100",
+          "production": {
+            "value": "100"
+          }
         },
         {
           "name": "CUADRAO_WHATSAPP_INTAKE_ENABLED",

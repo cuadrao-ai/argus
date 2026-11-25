@@ -21,6 +21,7 @@ from argus.domain.connection_budget import worker_pool_max
 from argus.domain.ingestion.documents.config import load_document_job_settings
 from argus.domain.ingestion.documents.worker import DocumentWorker
 from argus.domain.ingestion.whatsapp.document_step import FailureReplyUpkeep
+from argus.domain.ingestion.whatsapp.held import HeldFileExpiry
 from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
 from argus.llm.openrouter_key_policy import validate_hosted_openrouter_configuration
 from argus.log_sink import configure_logging
@@ -69,7 +70,8 @@ async def serve() -> None:
         )
         replies = FailureReplyUpkeep(PostgresReplyGroups(pool), clock=service.hub.clock)
         upkeep = in_turn(
-            expiry.tick, ReadResume(service).tick, replies.cleanup, replies.send_due
+            expiry.tick, ReadResume(service).tick, replies.cleanup, replies.send_due,
+            HeldFileExpiry(pool, objects, clock=service.hub.clock).tick,
         )
         await DocumentWorker(service, settings, upkeep).run(stop)
 
