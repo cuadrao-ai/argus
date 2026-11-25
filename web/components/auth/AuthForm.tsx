@@ -5,7 +5,7 @@ import { rememberRecoveryEmail } from "./recovery-email";
 
 import { AlertCircle, Check, EyeClosed, LoaderCircle } from "lucide-react";
 import Image from "next/image";
-import { type FormEvent, type MouseEvent, useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, type MouseEvent, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { FormField, PasswordField, useFieldChecks } from "@/components/ui/FormField";
 import { fieldLabelClass } from "@/components/ui/form-field";
 import { EMAIL_OTP_LENGTH } from "@/lib/email-otp-contract";
@@ -222,6 +222,26 @@ export default function AuthForm({
   };
   const errorRef = useRef<HTMLParagraphElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+  const swapRef = useRef<HTMLDivElement>(null);
+  const swapFrom = useRef<number | null>(null);
+  const changeStep = (step: "identity" | "password") => {
+    swapFrom.current = swapRef.current?.getBoundingClientRect().height ?? null;
+    setEntry({ mode, step });
+  };
+  // The email field and its summary swap at once; their slot eases between the two heights
+  // on the password's own transition, reversals included, so the card edge never jumps.
+  useLayoutEffect(() => {
+    const slot = swapRef.current;
+    const from = swapFrom.current;
+    swapFrom.current = null;
+    if (!slot?.getAnimations || from === null) return;
+    for (const running of slot.getAnimations()) running.cancel();
+    const to = slot.getBoundingClientRect().height;
+    const grow = slot.parentElement?.querySelector('[data-auth-collapse="grow"]')?.getAnimations().find((animation): animation is CSSTransition =>
+      animation instanceof CSSTransition && animation.transitionProperty === "grid-template-rows");
+    if (from === to || !grow?.effect) return;
+    slot.animate({ height: [`${from}px`, `${to}px`], clipPath: ["inset(0 -5px)", "inset(0 -5px)"] }, grow.effect.getTiming());
+  }, [entryStep]);
   // The server refuses a sign-up with one generic code, so an address is never
   // told whether it is invited. For the person, that refusal is invite only.
   const signupRefused = request.status === "failed" && request.code === "auth_signup_failed";
@@ -391,7 +411,7 @@ export default function AuthForm({
     if (!checks.submit()) return;
     if (isIdentityStep) {
       resetChecks();
-      setEntry({ mode, step: "password" });
+      changeStep("password");
       return;
     }
     pending.current = true;
@@ -623,7 +643,7 @@ export default function AuthForm({
               </div>
             ) : null}
             {(emailFirst || isSignup) && (
-              <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={isSignup && (!emailFirst || isIdentityStep)}
+              <div data-auth-collapse={emailFirst ? "slide" : undefined} data-open={isSignup && (!emailFirst || isIdentityStep)}
                 aria-hidden={emailFirst && (!isSignup || !isIdentityStep) ? true : undefined}
                 inert={emailFirst && (!isSignup || !isIdentityStep)}>
               <div><div role="group" aria-labelledby={`${id}-names-note`}>
@@ -640,8 +660,9 @@ export default function AuthForm({
                 <p id={`${id}-names-note`} className="mt-1.5 text-[12px]">{t("auth.form.names_optional")}</p>
               </div></div></div>
             )}
+            <div ref={swapRef} data-auth-swap={emailFirst ? "true" : undefined}>
             {emailFirst && (
-              <div data-auth-collapse="true" data-open={!isIdentityStep} aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
+              <div data-auth-collapse="swap" data-open={!isIdentityStep} aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
               <div><div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-current/15 px-3 py-2">
                 <div className="min-w-0">
                   <p className="text-[12px] opacity-70">{labels.email}</p>
@@ -650,12 +671,12 @@ export default function AuthForm({
                 </div>
                 <button type="button" disabled={isSubmitting} className="min-h-11 shrink-0 rounded px-2 text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
                   onClick={() => {
-                    setPassword(""); resetChecks(); setRequest({ status: "idle" }); setEntry({ mode, step: "identity" });
+                    setPassword(""); resetChecks(); setRequest({ status: "idle" }); changeStep("identity");
                     requestAnimationFrame(() => emailRef.current?.focus());
                   }}>{t("auth.form.edit_email")}</button>
               </div></div></div>
             )}
-            <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={!emailFirst || isIdentityStep}
+            <div data-auth-collapse={emailFirst ? "swap" : undefined} data-open={!emailFirst || isIdentityStep}
               aria-hidden={emailFirst && !isIdentityStep ? true : undefined} inert={emailFirst && !isIdentityStep}>
               <div><FormField ref={emailRef} id={`${id}-email`} type="email" label={labels.email}
               placeholder={emailFirst ? t("auth.form.email_hint") : undefined}
@@ -665,7 +686,8 @@ export default function AuthForm({
               reserveMessages={[messages.emailRequired, messages.emailInvalid, messages.emailValid]}
               autoComplete="email" autoCapitalize="none" spellCheck={false} required readOnly={isSubmitting} /></div>
             </div>
-            <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={!isIdentityStep}
+            </div>
+            <div data-auth-collapse={emailFirst ? "grow" : undefined} data-open={!isIdentityStep}
               aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
               <div><PasswordField key={mode} id={`${id}-password`} label={labels.password}
               placeholder={emailFirst ? t("auth.form.password_hint") : undefined}
