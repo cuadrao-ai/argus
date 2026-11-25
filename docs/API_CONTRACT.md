@@ -8819,13 +8819,23 @@ changed fact. The switch replaces the other form's declaration, so a null
 declaration list adds no declaration change. These four display fields are
 excluded from the model-facing dossier.
 
-A revision that writes a draft's first declaration records as `before_dgii`
-the declaration the review showed, so its history entry holds only what the
-write changed: a person's answers on a first fiscal save, and on an approval
-the suggestions it saved as answers, or nothing. With a declaration already
-stored, `before_dgii` is that one. `before_dgii` is therefore not the stored
-declaration. The undo of a failed approval reads the stored one from
-`after_dgii` of the revision before the approval's.
+A revision that writes a declaration records as `before_dgii` the declaration
+the review showed, so its history entry holds only what the write changed. Each
+suggested answer the write gives starts from the suggestion the review showed
+beside it, with its source: a person who changes a suggested Forma de pago
+changes it from the suggestion, never from a blank. An approval's revision holds
+the suggestions it saved as answers, or nothing. A write that changes the
+document type starts from the other form's declaration it replaces.
+`before_dgii` is therefore not the stored declaration. The undo of a failed
+approval reads the stored one from `after_dgii` of the revision before the
+approval's.
+
+`approval` is true on the revision an approval wrote, read from the approval's
+receipt: the revision at the version after the one the approval reviewed, with
+no source of its own. That revision saves the declaration the review showed,
+the answers the app filled in included, so it holds no edit of the person's.
+History shows the approval's own line in its place. The field is excluded from
+the model-facing dossier.
 
 `POST /business/drafts/{draft_id}/duplicate-resolution` takes
 `{version, other_draft_id, other_version, decision}` and `Idempotency-Key`.

@@ -103,6 +103,8 @@ export type BusinessDraftRevision = {
   reviewed_declaration_fields?: readonly string[] | null;
   before_net_amount?: BusinessDossier["net_amount"];
   after_net_amount?: BusinessDossier["net_amount"];
+  /** An approval wrote this revision: it saves what the review showed, so it holds no edit of the person's. */
+  approval?: boolean;
   before_dgii?: DgiiDeclaration | null;
   after_dgii?: DgiiDeclaration | null;
   draft_id: string;

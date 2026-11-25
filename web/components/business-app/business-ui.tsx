@@ -2,7 +2,6 @@
 
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { personName, type PersonName } from "@/lib/person-name";
 import { BusinessContext } from "./BusinessWorkspace";
 import { FOCUS_RING } from "./foundation/presentation";
 
@@ -103,41 +102,9 @@ export function useOwnerView(): boolean {
   return !business?.chosen || business.chosen.role === "owner";
 }
 
-/**
- * The marks a record carries, as text in a muted chip, never colour alone:
- * "Personal" when a person marked it as no part of the Business; "Sin
- * comprobante fiscal" when the read facts hold no NCF and no e-CF. Grey on
- * purpose: a missing fiscal number is a fact about the receipt, not a fault.
- * When someone other than the owner marked it Personal, the owner sees a small
- * dot on the chip that reads "Marcado por <nombre>".
- */
-/**
- * A record's marks, as the server reads them: Personal, and either "Sin
- * comprobante" (stated, out of the 606 and 607) or "Falta NCF" (no fiscal
- * number yet and none stated as missing). Nothing shows while unknown.
- */
-export function recordFiscalMark(record: { sin_comprobante?: boolean; fiscal_known?: boolean; fiscal_value?: "ncf" | "ecf" | null }): "sin_comprobante" | "missing_ncf" | null {
-  if (record.sin_comprobante) return "sin_comprobante";
-  return record.fiscal_known && !record.fiscal_value ? "missing_ncf" : null;
-}
-
-export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: PersonName | null; className?: string }) {
-  const { t } = useTranslation();
-  const owner = useOwnerView();
-  const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-mark border px-2 text-[11px] font-medium";
-  if (!personal && !fiscal) return null;
-  const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: personName(t, markedBy) }) : null;
-  return (
-    <span className={`flex flex-wrap items-center gap-1.5 ${className}`} data-testid="record-marks">
-      {personal ? (
-        <span data-mark="personal" title={marker ?? undefined} className={`${chip} gap-1 border-[var(--cuadrao-green)]/35 text-[var(--cuadrao-green)]`}>
-          {t("business.marks.personal_chip", "Personal")}
-          {marker ? <><span data-testid="personal-marked-dot" aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--cuadrao-green)]" /><span className="sr-only">{marker}</span></> : null}
-        </span>
-      ) : null}
-      {fiscal ? <span data-mark={fiscal === "sin_comprobante" ? "sin_comprobante" : "no_fiscal"} className={`${chip} border-black/15 text-black/55 dark:border-white/15 dark:text-white/55`}>{fiscal === "sin_comprobante" ? t("business.marks.sin_comprobante_chip", "No comprobante") : t("business.marks.missing_ncf_chip", "NCF missing")}</span> : null}
-    </span>
-  );
+/** A record stated to have no comprobante fiscal: out of the 606 and 607. A missing NCF is not a mark: Estado says it. */
+export function recordFiscalMark(record: { sin_comprobante?: boolean }): "sin_comprobante" | null {
+  return record.sin_comprobante ? "sin_comprobante" : null;
 }
 
 /** A short announcement with one way back, for a change the person can undo. */
