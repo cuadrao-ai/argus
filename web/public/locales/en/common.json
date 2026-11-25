@@ -183,8 +183,7 @@
       "contribution_without_period": "Contribution: {{amount}}"
     },
     "welcome": "Welcome to Cuadrao. Tell me an investing idea in plain language and I will help test it with Alpha-safe assumptions.",
-    "input_placeholder": "Ask about any company or idea",
-    "input_placeholder_prerail": "Describe an investing idea",
+    "input_placeholder": "Describe an investing idea",
     "followup_placeholder": "Add a follow-up",
     "message_empty": "Message is empty",
     "send_message": "Send message",
@@ -192,29 +191,6 @@
     "disclaimer": "Cuadrao can make mistakes. For education only. Not financial advice.",
     "trigger_create_strategy": "I want to create a new strategy.",
     "trigger_create_collection": "I want to create a new collection.",
-    "greeting": {
-      "early_a": "Hey, early bird. What should we look at?",
-      "early_b": "Early start. What are we testing?",
-      "early_c": "Morning. What is on your mind?",
-      "early_named_a": "Morning, {{name}}. What should we look at?",
-      "day_a": "What should we try today?",
-      "day_c": "Got a hunch worth checking?",
-      "day_d": "What should we look into?",
-      "day_e": "Something you have been meaning to test?",
-      "day_f": "What is worth a look today?",
-      "day_named_a": "What should we try today, {{name}}?",
-      "day_named_b": "Where do we start, {{name}}?",
-      "evening_a": "What should we look into tonight?",
-      "evening_b": "Evening. What are we testing?",
-      "evening_d": "What is worth a look tonight?",
-      "evening_named_a": "Evening, {{name}}. What should we look into?",
-      "night_b": "Still up. What should we look at?",
-      "night_c": "Late one. What are we testing?",
-      "night_named_a": "Still up, {{name}}. What are you curious about?",
-      "session_closed_weekend_a": "Stocks are closed for the weekend. Crypto is still trading.",
-      "session_closed_holiday_a": "Stocks are closed for the holiday. Crypto is still trading.",
-      "session_pre_market_a": "Regular trading opens in a few hours. Crypto has been going all night."
-    },
     "view_history": "View history",
     "chat_options": "Chat options",
     "jump_to_latest": "Jump to latest",
@@ -946,7 +922,7 @@
       "ai_on": "On. You can turn it off at any time.",
       "ai_replaces": "Another AI permission is on for this number. Turning this on replaces it.",
       "ai_off": "Off. Documents you send wait in your Inbox for you to fill in.",
-      "ai_approval": "You always approve money records yourself in Cuadrao.",
+      "ai_approval": "You always accept money records yourself in Cuadrao.",
       "ai_reason_unavailable": "AI reading cannot be turned on right now.",
       "ai_reason_whatsapp_link_required": "Link your number first.",
       "ai_reason_business_permission_denied": "Your account cannot turn it on for this business.",
@@ -1113,7 +1089,6 @@
       "no_deleted_items": "No recently deleted items",
       "chat_item": "Chat",
       "security": "Security",
-      "shared_links": "Shared links",
       "close_archived": "Close archived chats",
       "close_deleted": "Close recently deleted"
     },
@@ -1712,270 +1687,6 @@
       "sign_in_unavailable": "Sign in is not available in this preview. Your temporary chat stays here."
     }
   },
-  "receipt": {
-    "thread": {
-      "notice": "Shared from Cuadrao, snapshot from {{date}}. Your follow-ups start your own chat.",
-      "preview_notice": "Shared from Cuadrao. Snapshot preview. Your follow-ups start your own chat.",
-      "read_only": "Read-only snapshot",
-      "carried": "From a shared conversation, {{date}}"
-    },
-    "followup": {
-      "error": "Your chat could not start. Try again.",
-      "retry": "Try again",
-      "unavailable": "This shared conversation is no longer available.",
-      "loading": "Starting your chat",
-      "label": "Follow up in your own chat",
-      "placeholder": "Ask a follow-up...",
-      "send": "Send follow-up",
-      "starting": "Starting your chat",
-      "hint": "Your follow-up starts your own Cuadrao chat."
-    },
-    "calculation": {
-      "stamp": "Cuadrao computed this on {{date}}",
-      "used": "What Cuadrao used",
-      "framing": "This is arithmetic on the inputs shown, frozen on that date. It is not advice or a forecast, and it does not change if those inputs change.",
-      "short": "Arithmetic on stated inputs. Not a tip.",
-      "headline": "Arithmetic, not advice."
-    },
-    "page_title": "Tested with Cuadrao",
-    "eyebrow": "Shared with you",
-    "provenance": "Tested with Cuadrao",
-    "wordmark": "CUADRAO",
-    "framing": {
-      "headline": "This is a what if, not a tip.",
-      "detail": "Someone wondered how this idea would have gone, so Cuadrao checked it against what the market actually did on those dates. No real money moved, nobody bought anything, and this says nothing about what happens next.",
-      "short": "A what if, run on past market data. Not a tip."
-    },
-    "sections": {
-      "result": "How it went",
-      "what_was_tested": "What they tried",
-      "assumptions": "What Cuadrao assumed",
-      "note": "They left a note",
-      "chart": "How the test money moved"
-    },
-    "plan": {
-      "heading": "What ran",
-      "buy_and_hold": "Bought once at the start and held to the end. It never sold.",
-      "dca": "Bought {{cadence}}, whatever the price was that day. It never sold.",
-      "buy_the_dip": "Bought after each sharp drop, then sold about a week later.",
-      "indicator_entry": "Bought when {{indicator}} fell to {{entry}}.",
-      "indicator_exit": "Sold when {{indicator}} climbed back to {{exit}}.",
-      "crossover_entry": "Bought when the {{fast_period}} day average rose above the {{slow_period}} day average.",
-      "crossover_exit_mirrored": "Sold when it crossed back below.",
-      "crossover_exit_own": "Sold when the {{fast_period}} day average fell below the {{slow_period}} day average.",
-      "macd_entry": "Bought when MACD crossed above its signal line.",
-      "macd_exit": "Sold when MACD crossed back below its signal line.",
-      "unnamed": "Ran as {{label}}.",
-      "long_only": "These numbers are locked and will not change."
-    },
-    "cadence_values": {
-      "daily": "every day",
-      "weekly": "every week",
-      "biweekly": "every two weeks",
-      "monthly": "every month",
-      "quarterly": "every quarter"
-    },
-    "assumptions": {
-      "long_only": "Long only",
-      "equal_weight": "Equal weight",
-      "no_costs": "No fees or slippage",
-      "modeled_costs": "{{fee}} bps fee + {{slippage}} bps slippage",
-      "modeled_fee_bps": "{{bps}} bps fee",
-      "modeled_slippage_bps": "{{bps}} bps slippage",
-      "benchmark": "Compared with {{symbol}}",
-      "benchmark_same_modeled_costs": "Compared with {{symbol}}, same costs",
-      "recurring_contribution": "${{amount}} each time",
-      "recurring_contribution_cadence": "${{amount}} {{cadence}}",
-      "starting_principal": "${{amount}} to start",
-      "fractional_shares": "Fractional shares, nothing left as cash"
-    },
-    "strategy_type_values": {
-      "buy and hold": "Buy and hold",
-      "dca accumulation": "Recurring buys",
-      "buy the dip": "Buy the dip",
-      "rsi threshold": "RSI threshold",
-      "indicator threshold": "Indicator threshold",
-      "moving average crossover": "Moving average crossover",
-      "macd crossover": "MACD crossover"
-    },
-    "metric_labels": {
-      "cash_value": "Ending value",
-      "total_return_pct": "Total return",
-      "contribution_return_pct": "Return on contributions",
-      "max_drawdown_pct": "Worst dip",
-      "win_rate": "Win rate",
-      "benchmark_return_pct": "Benchmark",
-      "delta_vs_benchmark_pct": "Difference"
-    },
-    "hero": {
-      "ahead": "{{value}} ahead of {{symbol}}",
-      "behind": "{{value}} behind {{symbol}}",
-      "vs": "{{symbol}} did {{value}}",
-      "window": "{{range}}",
-      "drawdown": "Worst dip along the way: {{value}}"
-    },
-    "fine_print": {
-      "heading": "The fine print",
-      "settings": "Exact settings",
-      "assumed": "What Cuadrao assumed"
-    },
-    "fields": {
-      "asset": "What",
-      "asset_class": "Kind",
-      "strategy": "The plan",
-      "dates": "When",
-      "benchmark": "Compared with"
-    },
-    "asset_class_values": {
-      "equity": "Stocks",
-      "crypto": "Crypto",
-      "currency_pair": "Currency pair"
-    },
-    "date_range": "{{start}} to {{end}}",
-    "frozen_note": "Saved on {{date}}. These numbers are locked, so they will look the same whenever you come back.",
-    "frozen_note_undated": "These numbers were locked when the link was made, so they will look the same whenever you come back.",
-    "chart_unavailable": "No chart was saved with this one.",
-    "cta": {
-      "headline": "Got an idea? Try it.",
-      "detail": "Tell Cuadrao an idea in your own words and it will show you how it would have gone. Free to try, no account needed.",
-      "action": "Continue with Cuadrao"
-    },
-    "tombstone": {
-      "title": "This one is gone",
-      "detail": "The person who shared it took the link down, or deleted the result behind it. There is nothing left to show.",
-      "cta_detail": "You can still try Cuadrao for yourself."
-    },
-    "unavailable": {
-      "title": "We could not load this one",
-      "detail": "Something went wrong on our end, not yours. The link may well still work, so try again in a moment."
-    },
-    "owner": {
-      "share": "Share this",
-      "share_hint": "Makes a public link to the selected answers and your note. Review the preview before sharing.",
-      "note_label": "Add a note if you want",
-      "note_placeholder": "Why is this worth a look?",
-      "note_public_warning": "Anyone with the link can read this. Keep it free of anything private.",
-      "note_counter": "{{count}} of {{max}} characters",
-      "create": "Make the link",
-      "creating": "Making the link...",
-      "cancel": "Never mind",
-      "copy": "Copy link",
-      "copied": "Copied",
-      "copy_failed": "Copying did not work. Select the link and copy it.",
-      "created_note": "Your name is not on it, search engines cannot find it, and you can take it down any time from Data Controls.",
-      "errors": {
-        "create": "Cuadrao could not make that link. Try again.",
-        "note_rejected": "That note cannot go public. Take out any keys or long codes.",
-        "rate_limited": "You have made a lot of links just now. Try again shortly.",
-        "account_conversion_required": "Create an account or sign in to share this answer.",
-        "preview_changed": "The content changed. Preview it again before making the link."
-      }
-    },
-    "list": {
-      "menu": "Shared links",
-      "title": "Shared links",
-      "close": "Close shared links",
-      "intro": "Every link you have shared, with its frozen answers or test results.",
-      "loading": "Loading your links...",
-      "load_error": "Your shared links did not load.",
-      "load_more": "Show older links",
-      "retry": "Try again",
-      "empty": "You have not shared anything yet.",
-      "created_on": "Shared {{date}}",
-      "revoked_on": "Taken down {{date}}",
-      "revoked_by_source": "Taken down on its own when you deleted the chat behind it.",
-      "open": "Open it",
-      "copy": "Copy link",
-      "revoke": "Take it down",
-      "revoking": "Taking it down...",
-      "confirm_revoke": "Sure?",
-      "revoke_error": "That link did not come down. Try again.",
-      "cache_note": "The link dies on Cuadrao right away. Chat apps sometimes keep an old preview card in threads where it was already pasted, and Cuadrao cannot reach into those."
-    },
-    "strategy_facts": {
-      "strategy_type": "Strategy",
-      "cadence": "How often",
-      "indicator": "Indicator",
-      "indicator_period": "Indicator period",
-      "fast_indicator": "Fast average",
-      "fast_period": "Fast window",
-      "slow_indicator": "Slow average",
-      "slow_period": "Slow window",
-      "exit_fast_indicator": "Fast average on exit",
-      "exit_fast_period": "Fast window on exit",
-      "exit_slow_indicator": "Slow average on exit",
-      "exit_slow_period": "Slow window on exit",
-      "signal_period": "Signal window",
-      "entry_threshold": "Buys at",
-      "exit_threshold": "Sells at"
-    },
-    "kinds": {
-      "calculation": "Calculation",
-      "backtest": "Historical test",
-      "research_answer": "Research answer",
-      "mixed": "Answers and tests",
-      "answer": "Answer"
-    },
-    "research": {
-      "stamp": "Cuadrao looked this up on {{date}}",
-      "preview_stamp": "Looked up {{date}} · {{count}} sources",
-      "sources": "Sources",
-      "next_step": "What Cuadrao offered next",
-      "research_test_single": "Cuadrao offered to test buying and holding {{symbols}}.",
-      "research_test_versus": "Cuadrao offered to compare buying and holding {{symbols}}.",
-      "framing": "This records what these sources reported on that date. It is not advice or a prediction. Things may have changed since. Nothing was bought or simulated here.",
-      "short": "A dated research snapshot. Not a tip.",
-      "headline": "Research from that date, not advice."
-    },
-    "selection": {
-      "title": "Share conversation",
-      "close": "Close sharing",
-      "hint": "Choose questions and answers to share.",
-      "all": "Select all",
-      "clear": "Clear selection",
-      "count": "{{selected}} of {{eligible}} selected",
-      "turn": "Turn {{count}}",
-      "loading": "Loading answers...",
-      "empty": "There are no assistant answers in this conversation yet.",
-      "preview": "Preview public page",
-      "previewing": "Preparing preview...",
-      "edit": "Change selection or note",
-      "existing": "This selection already has a live link. The preview shows its saved content and note.",
-      "reuse": "Use this link",
-      "turns": "{{count}} turns",
-      "field_refusal": "{{field}} cannot be shared. {{reason}}",
-      "fields": {
-        "question": "The question",
-        "answer": "The answer",
-        "owner_note": "Your note",
-        "sources": "The sources"
-      },
-      "reasons": {
-        "not_completed": "This answer is not complete yet.",
-        "unsupported_turn": "This type of answer cannot be shared.",
-        "unsupported_shape": "This research format cannot be shared.",
-        "missing_sources": "This answer has no supported publisher sources.",
-        "degraded": "The research did not complete with full supporting evidence.",
-        "memory_used": "This answer uses personal memory.",
-        "missing_question": "The question for this answer is unavailable.",
-        "text_too_long": "The text is too long to publish in full.",
-        "unsafe_text": "The text contains private information or codes.",
-        "unlisted_url": "The answer contains a link outside its listed sources.",
-        "invalid_selection": "Choose eligible answers from this conversation.",
-        "preview_changed": "The content changed. Preview it again before making the link.",
-        "invalid_source": "The source content is unavailable or cannot be verified.",
-        "unsupported_backtest": "This test does not have all the facts needed for sharing.",
-        "private_inputs": "This result shows figures you typed, so it stays private."
-      },
-      "choose_turn": "Select this question and answer",
-      "continue": "Continue",
-      "cancel": "Cancel"
-    },
-    "answer": {
-      "headline": "Shared answers, not advice.",
-      "framing": "An answer shared by its owner. For information, not investment advice."
-    }
-  },
   "tools": {
     "compute": {
       "compare": "Compare with another result",
@@ -2267,16 +1978,12 @@
         "missing": {
           "label": "No RNC",
           "reason": "This receipt has no RNC. Add it so it can go on the 606.",
-          "action": "Add RNC",
-          "approval_title": "This receipt has no RNC. Approve anyway?",
-          "approval_body": "You'll need to add the RNC before exporting the 606."
+          "action": "Add RNC"
         },
         "invalid_length": {
           "label": "RNC has an error",
           "reason": "An RNC has 9 digits (business) or 11 (cédula). Check that it's typed correctly.",
-          "action": "Edit RNC",
-          "approval_title": "This RNC has an error. Approve anyway?",
-          "approval_body": "You'll need to fix it before exporting the 606."
+          "action": "Edit RNC"
         },
         "check_digit": {
           "label": "RNC has an error",
@@ -2298,7 +2005,7 @@
       "business_name_required": "Enter the business name.",
       "save_profile": "Save",
       "profile_failed": "We couldn't read or save the RNC. Check the open business before you try again.",
-      "review_note": "Use the amounts on the receipt and your tax classification. Leave blank anything you don't know. Saving creates a revision; approving is a separate step.",
+      "review_note": "Use the amounts on the receipt and your tax classification. Leave blank anything you don't know. Saving creates a revision; accepting is a separate step.",
       "field": {
         "category": "$t(business.dossier.placeholder.expense_type)",
         "goods_amount": "Amount billed for goods",
@@ -2306,7 +2013,7 @@
         "income_perceived": "Income tax perceived on purchases",
         "income_withheld": "Income tax withheld",
         "income_withholding_type": "Income withholding type",
-        "itbis": "$t(business.dossier.field.itbis)",
+        "itbis": "ITBIS billed",
         "itbis_cost": "ITBIS taken to cost",
         "itbis_perceived": "ITBIS perceived on purchases",
         "itbis_proportionality": "ITBIS subject to proportionality (Art. 349)",
@@ -2322,25 +2029,24 @@
         "services_amount": "Amount billed for services"
       },
       "field_607": {
-        "bank": "Check·transfer·deposit",
-        "barter": "Barter",
+        "bank": "$t(business.dgii.option.sale_payment_form.bank)",
+        "barter": "$t(business.dgii.option.sale_payment_form.barter)",
         "billed_amount": "Amount billed",
-        "card": "Card",
-        "cash": "Cash",
-        "credit": "Sale on credit",
-        "gift": "Vouchers…",
+        "card": "$t(business.dgii.option.sale_payment_form.card)",
+        "cash": "$t(business.dgii.option.sale_payment_form.cash)",
+        "credit": "$t(business.dgii.option.sale_payment_form.credit)",
+        "gift": "$t(business.dgii.option.sale_payment_form.gift)",
         "id_type": "Identification type",
         "income_perceived": "Income tax perceived",
-        "income_type": "Income type",
+        "income_type": "$t(business.dossier.placeholder.income_type)",
         "income_withheld_by_third_parties": "Income tax withheld by third parties",
         "itbis_perceived": "ITBIS perceived",
         "itbis_withheld_by_third_parties": "ITBIS withheld by third parties",
         "modified_ncf": "Modified fiscal receipt number",
-        "other_payment": "Other…",
+        "other_payment": "$t(business.dgii.option.sale_payment_form.other_payment)",
         "other_taxes": "Other taxes/fees",
         "withheld_on": "Withholding date"
       },
-      "form": "Format",
       "legal_name": {
         "copy_review": "pending_lucas",
         "confirm_on_save_cedula": "When you save, you confirm that this cédula belongs to {{business}}.",
@@ -2354,8 +2060,7 @@
         "tag_verified": "Verified"
       },
       "load_failed": "We couldn't load the tax fields.",
-      "no_withholdings": "No withholdings",
-      "save_failed": "We couldn't confirm the tax details were saved. Check the current record before you approve.",
+      "save_failed": "We couldn't confirm the tax details were saved. Check the current record before you accept.",
       "actual_refund": "A refund was received…",
       "option": {
         "category": {
@@ -2403,20 +2108,25 @@
           "05": "Barter",
           "06": "Credit note",
           "07": "Mixed"
+        },
+        "sale_payment_form": {
+          "cash": "Cash",
+          "bank": "Check, transfer or deposit",
+          "card": "Debit or credit card",
+          "credit": "Sale on credit",
+          "gift": "Gift vouchers or certificates",
+          "barter": "Barter",
+          "other_payment": "Other forms of sale"
         }
       },
       "original_purchase": "Original purchase",
       "refund_candidate_refused": "That purchase can't be used for this refund. Pick another one.",
-      "refund_candidates_none": "There are no approved purchases to pick.",
+      "refund_candidates_none": "There are no accepted purchases to pick.",
       "save": "Save",
-      "approve_income": "Approve income",
-      "approve_refund": "Approve refund",
-      "recorded_income": "Income was recorded after revision {{version}} was approved.",
-      "recorded_refund": "A refund was recorded after revision {{version}} was approved.",
       "error": {
-        "fiscal_duplicate_document": "This fiscal receipt already belongs to another saved record. Check it before you approve.",
+        "fiscal_duplicate_document": "This fiscal receipt already belongs to another saved record. Check it before you accept.",
         "fiscal_credit_settlement_required": "Record a refund only after you confirm the money arrived and you choose the original purchase.",
-        "recorded_correction_unsupported": "The tax details of an approved record can't be changed in this flow.",
+        "recorded_correction_unsupported": "This refund cannot be changed on the accepted record.",
         "stale_version": "This record changed. Open the current review before you save.",
         "tax_id_type": "Choose RNC or cédula.",
         "tax_id_not_digits": "Use digits and hyphens only.",
@@ -2430,19 +2140,12 @@
     },
     "activity": {
       "all_channels": "Document reading is managed for your Business across email, WhatsApp and uploads.",
-      "change": "Change",
       "error": "Document reading could not be updated. Try again.",
+      "off_notice": "Automatic reading is off.",
       "open_settings": "Open document reading settings",
       "owner_only": "Your documents are saved unread. The Business owner can turn reading on.",
-      "reading_on": "Document reading is on.",
-      "saved_prompt": "Your documents are saved unread. Turn on document reading to prepare them for review.",
-      "sheet_title": "Document reading",
-      "state_off": "Off",
-      "state_on": "On",
       "state_unknown": "Not available",
       "switch_label": "Read my documents automatically",
-      "turn_on": "Turn on document reading",
-      "turned_off": "Document reading is off.",
       "turned_on": "Document reading is on.",
       "unavailable": "AI reading can't be turned on right now."
     },
@@ -2450,9 +2153,9 @@
       "actions": {
         "accept_invite": "accepted an invitation",
         "append_supporting_file": "attached a supporting file",
-        "approve_expense": "approved an expense",
-        "approve_income": "approved an income",
-        "approve_refund": "approved a refund",
+        "approve_expense": "accepted an expense",
+        "approve_income": "accepted an income",
+        "approve_refund": "accepted a refund",
         "business_ask": "asked Cuadrao",
         "business_attach_source": "linked a document",
         "business_propose_activity": "proposed a record",
@@ -2464,7 +2167,7 @@
         "document_read": "read a document",
         "document_read_failed": "could not read a document",
         "edit_current_note": "edited a note",
-        "expire_document": "deleted a document for good after 7 days in Deleted.",
+        "expire_document": "deleted a document for good from Deleted.",
         "grant_access": "gave access",
         "invite_access": "sent an invitation",
         "invoice_draft_created": "created an invoice draft",
@@ -2481,7 +2184,7 @@
         "receipt_reading_enabled": "turned on document reading",
         "receipt_review": "reviewed a document",
         "receipt_upload": "uploaded a document",
-        "reopen_draft": "reopened an approved record",
+        "reopen_draft": "reopened an accepted record",
         "resolve_duplicate": "resolved a duplicate",
         "restore_document": "restored {{document}}.",
         "review_draft": "reviewed a record",
@@ -2524,13 +2227,13 @@
         "today": "Today",
         "week": "Last 7 days"
       },
-      "first_run_body": "When someone uploads, reviews or approves something in this business, you will see it here.",
+      "first_run_body": "When someone uploads, reviews or accepts something in this business, you will see it here.",
       "first_run_title": "No activity yet",
       "former_member": "Former member",
       "go_home": "Go to Home",
       "groups": {
         "access": "Access",
-        "approvals": "Approvals",
+        "approvals": "Acceptances",
         "edits": "Record changes",
         "files": "Attachments",
         "invoices": "Invoices",
@@ -2551,54 +2254,13 @@
       "unmark_personal": "moved an expense back to the business",
       "via_chat": "from chat"
     },
-    "bank": {
-      "empty": {
-        "no_account": "Add the business bank account before importing a statement.",
-        "no_lines": "This statement has no lines."
-      },
-      "error": {
-        "layout_not_ready": "This bank's statement layout is not ready yet.",
-        "line_already_confirmed": "This line already has a confirmed match.",
-        "one_account": "This business already has a bank account.",
-        "pair_declined": "This match was declined.",
-        "unsupported_layout": "This file does not match a supported statement."
-      },
-      "import": {
-        "account": "Bank account",
-        "choose_file": "Choose a statement file",
-        "column_amount": "Amount column",
-        "column_credit": "Credit column",
-        "column_date": "Date column",
-        "column_debit": "Debit column",
-        "column_description": "Description column",
-        "column_sign": "Sign column",
-        "converged": "Already imported",
-        "inserted": "New lines",
-        "mapped_csv": "Mapped CSV",
-        "reader": "Statement layout",
-        "submit": "Import statement",
-        "title": "Import a statement"
-      },
-      "line": {
-        "charge": "Charge",
-        "deposit": "Deposit",
-        "zero": "Zero"
-      },
-      "nav": "Bank matching",
-      "suggestion": {
-        "confidence": "Match strength",
-        "confirm": "Confirm",
-        "confirmed": "Confirmed",
-        "decline": "Not this one",
-        "declined": "Declined",
-        "pending": "Suggested",
-        "receipt": "Expense",
-        "venta": "Sale"
-      },
-      "unmatched": {
-        "count": "Charges without a receipt",
-        "empty": "Every charge in this period has a receipt.",
-        "title": "Charges without a receipt"
+    "bandeja": {
+      "label": {
+        "accepted": "Accepted",
+        "cant_read": "Couldn't read",
+        "needs_attention": "Needs attention",
+        "reading": "Reading…",
+        "ready": "Ready to accept"
       }
     },
     "consent": {
@@ -2634,7 +2296,6 @@
       "counterparty_purchase": "Supplier",
       "counterparty_sale": "Customer",
       "currency_choose": "Choose",
-      "currency_fiscal_warning": "In {{currency}}, this document is excluded from {{form}} (the DGII requires pesos).",
       "currency_missing": "Currency missing",
       "difference": "Difference {{amount}}",
       "difference_unavailable": "Checked when you save.",
@@ -2646,42 +2307,33 @@
       "net_card_purchases": "Purchases before ITBIS",
       "net_card_sales": "Sales before ITBIS",
       "total": "Total",
+      "total_adds_up": "Subtotal + ITBIS = total",
+      "total_adds_up_with_tip": "Subtotal + ITBIS + legal tip = total",
       "total_review": "Total (with ITBIS)"
     },
     "transactions": {
       "layout": {
-        "all_types": "All types",
         "annotations": {
           "actions_for": "Actions for {{name}}",
           "add_attachment": "Add attachment",
           "add_note": "Add note",
           "attachment_for": "Attachment for {{name}}",
-          "choose_file": "Add files",
         "drop_release": "Drop files to select them",
         "drop_title": "Drag your files here",
           "current_note": "Current note",
           "duplicates_one": "This file is already selected.",
           "duplicates_other": "These {{count}} files are already selected.",
           "edit_note_for": "Edit note for {{name}}",
-          "empty_file": "This file is empty. Choose another.",
           "invalid_name": "Use a valid file name of up to 255 characters.",
-          "keep_local_preview": "Keep",
           "linked_evidence": "Linked attachments",
           "linked_unavailable": "This record has a linked attachment, but it cannot be opened here.",
-          "linked_unknown": "We could not confirm the linked attachments for this record.",
           "local_files_one": "1 file in local preview",
           "local_files_other": "{{count}} files in local preview",
           "local_only": "These files have not been uploaded or linked. Your selection is cleared on reload.",
           "local_preview": "Local preview, not linked",
           "no_attachment": "No attachment",
-          "no_linked_attachment": "No linked attachments.",
-          "open_attachment": "Open attachment",
-          "open_linked_attachment": "Open linked attachment",
-          "preparing_preview": "Preparing preview...",
           "preview_failed": "We could not prepare the preview. No files were added.",
-          "preview_file": "Preview file",
           "received_document": "Received document",
-          "record_actions": "Record actions",
           "too_large": "The file exceeds the allowed size.",
           "unsupported": "This file type is not allowed."
         },
@@ -2690,16 +2342,10 @@
         "column_attachment": "Attachment",
         "column_reason": "Reason",
         "column_state": "Status",
-        "column_type": "Type",
         "count_one": "{{count}} record",
         "count_other": "{{count}} records",
         "filters": {
           "back": "All filters",
-          "account": {
-            "card": "Business card",
-            "checking": "Checking account",
-            "owner": "Owner funds"
-          },
           "amount": {
             "choose_currency": "Choose a currency before setting an amount.",
             "currency": "Currency",
@@ -2726,37 +2372,20 @@
             "invalid": "Choose a valid period of up to 366 days.",
             "to": "To"
           },
-          "document": {
-            "credit_note": "Credit note",
-            "invoice": "Invoice",
-            "receipt": "Receipt"
-          },
-          "fiscal": {
-            "b01": "B01 · Tax credit",
-            "b02": "B02 · Consumer",
-            "e31": "E31 · Electronic tax credit",
-            "e32": "E32 · Electronic consumer"
-          },
           "fiscal_data": {
             "all": "All",
             "complete": "Complete",
             "missing": "Missing"
           },
           "groups": {
-            "account": "Account",
             "amount": "Amount",
             "attachment": "Attachment",
             "category": "Category",
-            "document": "Document type",
-            "fiscal": "Fiscal type",
             "fiscal_data": "Fiscal data",
             "ready": "Status",
             "review": "Review"
           },
           "no_matches": "No options match this search.",
-          "ready": {
-            "all": "All"
-          },
           "record": "Record",
           "remove": "Remove filter",
           "search": "Search…",
@@ -2765,7 +2394,6 @@
           "title": "Filters",
           "visible_selection_hint": "Only visible results change. Other selections are kept."
         },
-        "no_period_records": "No records in this period.",
         "overview": {
           "coverage_placeholder": "{{populated}} of {{applicable}} purchases",
           "export": {
@@ -2775,9 +2403,7 @@
             "title": "Already exported"
           },
           "fiscal": {
-            "description": "Complete them before filing",
-            "description_purchase": "Complete them before the 606",
-            "description_sale": "Complete them before the 607"
+            "description": "Complete them before filing"
           },
           "goods": {
             "title": "Goods"
@@ -2785,7 +2411,6 @@
           "itbis": {
             "title": "ITBIS"
           },
-          "itbis_helper_placeholder": "Tax amount only",
           "partial_placeholder": "Partial",
           "purchases": "Purchases",
           "quantity": {
@@ -2802,12 +2427,10 @@
           "total": {
             "title": "Total"
           },
-          "total_helper_placeholder": "Gross amount",
           "unsupported_placeholder_one": "{{count}} unsupported amount",
           "unsupported_placeholder_other": "{{count}} unsupported amounts"
         },
         "period_summary": "Period summary · {{period}}",
-        "reset_period": "Reset period",
         "results": {
           "basis": "Confirmed amounts",
           "breakdown": "View breakdown",
@@ -2821,7 +2444,6 @@
           },
           "no_currency": "No currency",
           "partial": "Partial: {{amount}}",
-          "partial_meaning": "Incomplete amount",
           "personal_one": "{{count}} personal",
           "personal_other": "{{count}} personal",
           "restore": "Restore defaults",
@@ -2869,17 +2491,19 @@
         },
         "workflow": {
           "exported": "Exported",
+          "missing_count_one": "{{count}} detail missing",
+          "missing_count_other": "{{count}} details missing",
           "not_ready": "Missing data",
           "ready": "Ready",
           "review": "To review",
           "unknown": "Status unavailable",
           "missing": {
             "expense_type_missing": "Expense type is missing",
-            "rnc_missing": "RNC is missing",
-            "rnc_invalid": "RNC has an error",
-            "ncf_invalid": "NCF has an error",
-            "ncf_missing": "NCF is missing",
-            "date_missing": "Date is missing",
+            "missing_rnc": "RNC is missing",
+            "invalid_rnc": "RNC has an error",
+            "invalid_ncf": "NCF has an error",
+            "missing_ncf": "NCF is missing",
+            "missing_date": "Date is missing",
             "payment_method_missing": "Payment method is missing",
             "detail_missing": "A detail is missing",
             "billed_amount_zero": "The services or goods amount is missing",
@@ -2889,7 +2513,7 @@
             "date_in_future": "The receipt date is in the future",
             "date_too_old": "The date is not valid for this NCF",
             "duplicate_document": "This NCF is already recorded this month",
-            "possible_duplicate": "Looks repeated",
+            "duplicate": "Looks repeated",
             "itbis_cost_over_itbis": "ITBIS carried to cost is more than the ITBIS",
             "itbis_over_limit": "The ITBIS is too high for this amount",
             "itbis_proportionality_over_itbis": "Proportionality is more than the ITBIS",
@@ -2914,6 +2538,9 @@
         "export": {
           "action_one": "Export {{count}} record",
           "action_other": "Export {{count}} records",
+          "bandeja_notice_one": "{{count}} document from this period is still in the Inbox.",
+          "bandeja_notice_other": "{{count}} documents from this period are still in the Inbox.",
+          "bandeja_open": "View in Inbox",
           "columns_custom_one": "Custom columns ({{count}})",
           "columns_custom_other": "Custom columns ({{count}})",
           "columns_done": "Done",
@@ -2938,12 +2565,8 @@
           "format_xlsx": "Excel",
           "pending_fiscal_purchases_one": "{{count}} purchase has pending fiscal data and is not included.",
           "pending_fiscal_purchases_other": "{{count}} purchases have pending fiscal data and are not included.",
-          "pending_fiscal_sales_one": "{{count}} sale has pending fiscal data and is not included.",
-          "pending_fiscal_sales_other": "{{count}} sales have pending fiscal data and are not included.",
           "pending_rate_purchases_one": "{{count}} purchase in {{currencies}} needs a rate and is not included.",
           "pending_rate_purchases_other": "{{count}} purchases in {{currencies}} need a rate and are not included.",
-          "pending_rate_sales_one": "{{count}} sale in {{currencies}} needs a rate and is not included.",
-          "pending_rate_sales_other": "{{count}} sales in {{currencies}} need a rate and are not included.",
           "preparing": "Preparing…",
           "review": "Review",
           "rnc_hide_suppliers": "Hide",
@@ -2960,7 +2583,6 @@
           "summary_dgii_purchases": "all ready purchases",
           "summary_dgii_ready_one": "{{count}} ready",
           "summary_dgii_ready_other": "{{count}} ready",
-          "summary_dgii_sales": "all ready sales",
           "summary_filters_one": "{{count}} filter",
           "summary_filters_other": "{{count}} filters",
           "summary_records_one": "{{count}} record",
@@ -3071,7 +2693,8 @@
       "delete": "Delete",
       "deleted_state": "Deleted",
       "description": "It leaves the Inbox and its counts. You can restore it from Deleted.",
-      "empty_body": "Documents you delete stay here for 7 days. After that, they are deleted for good.",
+      "description_record": "It leaves Records and its totals. You can restore it from Deleted.",
+      "empty_body": "Documents you delete appear here until they are deleted for good.",
       "empty_title": "No deleted documents",
       "failed": "The document could not be deleted. Try again.",
       "fields": {
@@ -3081,14 +2704,15 @@
         "total": "Total"
       },
       "label": "Delete {{name}}",
-      "list_help": "They do not count in any total. They are deleted for good after 7 days.",
+      "list_help": "They do not count in any total. Each document shows when it is deleted for good.",
       "menu": "Delete document",
       "open": "Open",
       "previous": {
-        "attention": "Needs attention",
+        "attention": "To resolve",
         "listo": "Ready"
       },
       "purge": "Delete for good",
+      "purge_at": "on {{date}}",
       "purge_description": "This cannot be undone. The file and its data are erased from Cuadrao.",
       "purge_failed": "The document could not be deleted for good. Try again.",
       "purge_in_one": "in {{count}} day",
@@ -3099,10 +2723,15 @@
       "purged": "Document deleted for good",
       "purged_already": "This document was already deleted for good.",
       "purged_document": "a document",
+      "record_deleted": "Deleted. You can restore it from Deleted.",
+      "record_deleted_in_one": "Deleted. You have {{count}} day to restore it from Deleted.",
+      "record_deleted_in_other": "Deleted. You have {{count}} days to restore it from Deleted.",
+      "record_deleted_today": "Deleted. You can still restore it today from Deleted.",
       "restore": "Restore",
       "restore_all": "Restore all",
       "restore_failed": "The document could not be restored. Try again.",
       "restored": "Document restored to the Inbox",
+      "restored_in_records": "Document restored to Records",
       "title": "Delete this document?",
       "unnamed": "Document",
       "upload_deleted": "Previously deleted",
@@ -3113,9 +2742,149 @@
       "view_document": "View document"
     },
     "dossier": {
+      "card": {
+        "billed": "Billed amount",
+        "comprobante": "Receipt",
+        "other_taxes": "Other taxes",
+        "report": "{{form}} report"
+      },
+      "details": {
+        "arrived": "Arrived",
+        "channel": "Channel",
+        "file": "File",
+        "name": "Name",
+        "origin": "Origin",
+        "sent_by": "Sent by",
+        "size": "Size"
+      },
+      "document": {
+        "controls": "Document controls",
+        "download": "Download {{name}}",
+        "region": "Document"
+      },
+      "fiscal": {
+        "add_retention": "Add withholding",
+        "add_tax": "Add tax",
+        "field": {
+          "billed_amount": "Billed amount",
+          "goods_amount": "Goods",
+          "id_type": "ID type",
+          "income_withheld_by_third_parties": "Income tax withheld by third parties",
+          "itbis": "ITBIS billed",
+          "itbis_cost": "ITBIS taken to cost",
+          "itbis_proportionality": "ITBIS subject to proportionality",
+          "itbis_withheld_by_third_parties": "ITBIS withheld by third parties",
+          "modified_ncf": "Modified NCF",
+          "other_taxes": "Other taxes/fees",
+          "paid_on": "Payment date",
+          "services_amount": "Services",
+          "withheld_on": "Withholding date"
+        },
+        "no_other_taxes": "No other taxes.",
+        "no_retentions": "No withholdings.",
+        "remove": "Remove",
+        "source": {
+          "itbis": "Comes from Amounts",
+          "net_amount": "Comes from the subtotal",
+          "occurred_on": "Inherited from the date",
+          "rnc": "Comes from the number"
+        }
+      },
+      "gap": {
+        "missing_amount": {
+          "title": "The total is missing",
+          "text": "Enter the document's total."
+        },
+        "missing_ncf": {
+          "title": "The NCF is missing",
+          "text": "Enter it as the document shows it."
+        },
+        "missing_rnc": {
+          "title": "The RNC is missing",
+          "text": "Enter it as the document shows it."
+        }
+      },
+      "nav": {
+        "group": "Move between documents",
+        "list": "See the list",
+        "list_place": "See the list, {{place}}",
+        "next": "Next",
+        "previous": "Previous",
+        "unopened": "Unopened"
+      },
+      "note": {
+        "changed": "The note changed. This is the current saved note.",
+        "edit": "Edit note",
+        "edited_date": "Edited on {{date}}",
+        "edited_date_by": "Edited on {{date}} · {{name}}",
+        "edited_today": "Edited today",
+        "edited_today_by": "Edited today · {{name}}",
+        "empty": "No note.",
+        "save_error": "We couldn't save the note. Try again.",
+        "title": "Note"
+      },
+      "problems": {
+        "count_one": "{{count}} to resolve",
+        "count_other": "{{count}} to resolve",
+        "list": "To resolve"
+      },
       "read_purchases_title": "Purchases read on this receipt",
       "read_purchases_note": "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.",
       "read_purchase": "Purchase {{index}}",
+      "rnc_registry": {
+        "cese_temporal": "Temporarily ceased in the DGII",
+        "dado_de_baja": "Deregistered in the DGII",
+        "not_found": "Not listed in the DGII",
+        "suspendido": "Suspended in the DGII",
+        "verificado": "Verified"
+      },
+      "row": {
+        "cedula": "Cédula",
+        "date": "Date",
+        "no_data": "No value",
+        "subtotal": "Subtotal"
+      },
+      "size": {
+        "narrow": "Narrow",
+        "wide": "Widen"
+      },
+      "supporting": {
+        "add": "Add file",
+        "append_error": "We couldn't add the file.",
+        "document_label": "Supporting file",
+        "document_selector": "File to view",
+        "empty": "No supporting files.",
+        "limit_one": "Up to {{count}} file. Remove one to add another.",
+        "limit_other": "Up to {{count}} files. Remove one to add another.",
+        "limit_reached": "Remove a file to add another.",
+        "purge_in_one": "Deletes in {{count}} day",
+        "purge_in_other": "Deletes in {{count}} days",
+        "purge_today": "Deletes today",
+        "purge_tomorrow": "Deletes tomorrow",
+        "receipt_label": "Original receipt",
+        "restore": "Restore",
+        "restore_error": "We couldn't restore the file. Try again.",
+        "restore_named": "Restore {{name}}",
+        "title": "Supporting files",
+        "undo": "Undo",
+        "unlink": "Remove file",
+        "unlink_error": "We couldn't remove the file. Try again.",
+        "unlink_named": "Remove {{name}}",
+        "unlinked_toast": "File removed.",
+        "view": "View",
+        "view_error": "We couldn't open the file. Try again.",
+        "view_named": "View {{name}}"
+      },
+      "tab": {
+        "general": "General",
+        "documento": "Document",
+        "fiscal": "Tax details",
+        "detalles": "Details",
+        "historial": "History",
+        "label": "Information",
+        "count_one": "{{count}} to resolve",
+        "count_other": "{{count}} to resolve"
+      },
       "unknown_amount": "Amount unknown",
       "read_remainder_one": "Recorded {{recorded}} of a total of {{total}}. {{count}} purchase on this receipt is still unrecorded.",
       "read_remainder_other": "Recorded {{recorded}} of a total of {{total}}. {{count}} purchases on this receipt are still unrecorded.",
@@ -3127,7 +2896,6 @@
       "type_label": "Type",
       "type_detected_venta": "We read it as a sale from your business's RNC. Add the client's RNC.",
       "type_detected_recibo": "We read it as a purchase. Change it if it is a sale.",
-      "type_locked": "This record is approved. Its type no longer changes.",
       "type_clears_choices": "Changing the type clears the expense type and payment form.",
       "title": "Review record",
       "unknown": "Unknown",
@@ -3137,14 +2905,10 @@
       "business_account": "Business account",
       "amount_unknown": "Amount unknown",
       "currency_unknown": "Currency unknown",
-      "revision": "Revision {{version}}",
-      "current_details": "Current details",
       "edit": "Edit details",
       "business_amount": "Business amount",
       "default": "Default · not verified",
       "verified": "Verified",
-      "not_verified": "Not verified",
-      "needs_resolution": "Needs a decision before approval",
       "messages_title_one": "Original message",
       "messages_title_other": "Original messages",
       "proposals": "Agent proposals",
@@ -3167,92 +2931,31 @@
       "not_recorded": "Not recorded",
       "grant_used": "Permission granted by {{issuer}}",
       "reviewed_revision": "This revision was reviewed.",
-      "no_history": "No revisions have been recorded yet.",
       "decisions": "Needs your decision",
       "for_accountant": "For the accountant",
       "for_owner": "For the owner",
-      "approve": "Approve expense",
-      "approve_action": "Approve expense",
-      "approve_next": "Approve and next",
-      "approve_reason": {
-        "date": "Add the date to approve"
-      },
-      "approved_by": "Approved by {{name}} · permission granted by {{issuer}}",
-      "approving": "Approving…",
-      "approval_effect": "Approval records this revision as one expense. Saving review details does not record it.",
-      "prepare_only": "Your permission allows preparing this record. A person with approval permission must approve it.",
+      "approve": "Accept expense",
+      "approve_action": "Accept expense",
+      "approve_next": "Accept and next",
+      "approving": "Accepting…",
+      "approval_effect": "Acceptance records this revision as one expense. Saving review details does not record it.",
+      "prepare_only": "Your permission allows preparing this record. A person with acceptance permission must accept it.",
       "read_only": "Your permission allows viewing this record.",
-      "recorded": "One expense was recorded after approval of revision {{version}}.",
-      "correction_unsupported": "Corrections after recording aren't available in this first flow.",
-      "reopen": "Reopen",
-      "reopen_title": "Reopen this receipt?",
-      "reopen_body": "It goes back to the Inbox so you can correct it. It leaves your records until you approve it again.",
-      "reopening": "Reopening…",
-      "reopen_failed": "This receipt could not be reopened. Check the current record before trying again.",
-      "reopen_refused": {
-        "business_record_matched": "This receipt is matched to a bank movement. Undo that match to reopen it.",
-        "business_refund_linked": "A credit note or refund points at this receipt. Deal with that record first."
+      "confirm": {
+        "accept_anyway": "Accept anyway",
+        "placeholder": {
+          "amounts_mismatch": "The amounts do not add up",
+          "blocked_one": "Fix {{count}} item before accepting",
+          "blocked_other": "Fix {{count}} items before accepting",
+          "calculated_total": "Calculated total",
+          "subtotal_itbis": "Subtotal plus ITBIS"
+        }
       },
-      "ecf_title": "Electronic invoice",
-      "ecf_note": "What the file proves by itself. Nothing here confirms DGII accepted the invoice; a row marked Review does not block approval.",
-      "ecf_see_all_one": "See the {{count}} check",
-      "ecf_see_all_other": "See all {{count}} checks",
-      "ecf_summary": "{{ok}} of {{total}} fine",
-      "ecf_document": "e-CF {{encf}} · type {{tipo}}, {{label}}",
-      "ecf_document_untyped": "e-CF {{encf}} · type {{tipo}}",
-      "ecf_type_31": "tax credit",
-      "ecf_type_32": "consumer",
-      "ecf_checked_ago": "checked {{when}}",
-      "ecf_row_signature": "Signature",
-      "ecf_row_totals": "Totals",
-      "ecf_row_read": "Read",
-      "ecf_row_certificate": "Certificate",
-      "ecf_row_dgii": "DGII",
-      "ecf_integrity_verified": "Content unchanged since it was signed",
-      "ecf_integrity_failed": "Review: the content changed after it was signed",
-      "ecf_integrity_not_checked": "Signature not checked: {{reason}}",
-      "ecf_reason_no_signature": "the file carries no signature",
-      "ecf_reason_several_signatures": "it carries more than one signature",
-      "ecf_reason_unsupported": "signature form not supported",
-      "ecf_reason_unreadable": "the signature could not be read",
-      "ecf_totals_verified": "The totals add up",
-      "ecf_totals_failed": "Review: the totals do not add up (total {{total}}, sum {{sum}})",
-      "ecf_totals_items_failed": "Review: the lines do not add up to the base (lines {{items}})",
-      "ecf_totals_not_checked": "Totals not checked",
-      "ecf_read_verified": "The read matches the XML",
-      "ecf_read_failed": "Review: the read differs from the XML in {{fields}}",
-      "ecf_read_not_checked": "Read not compared with the XML",
-      "ecf_field_total": "total",
-      "ecf_field_itbis": "ITBIS",
-      "ecf_field_rnc": "RNC",
-      "ecf_field_ecf": "e-NCF",
-      "ecf_field_occurred_on": "date",
-      "ecf_window_valid": "valid",
-      "ecf_window_expired": "expired",
-      "ecf_window_not_yet": "not yet valid",
-      "ecf_window_unknown": "no declared date",
-      "ecf_validity_facts": "{{at}} on the date the document declares{{when}}; {{today}} today. Revocation not checked.",
-      "ecf_validity_not_checked": "Certificate validity not checked.",
-      "ecf_issuer_not_checked": "Certificate issuer not checked ({{issuer}}).",
-      "ecf_issuer_unknown": "Certificate issuer not checked.",
-      "ecf_subject_named": "The certificate names the issuer's RNC; that does not prove its identity.",
-      "ecf_subject_failed": "Review: the certificate does not name the issuer's RNC ({{serial}}).",
-      "ecf_dgii_not_checked": "DGII acceptance not looked up.",
-      "ecf_security_expected": "Expected security code: {{code}}.",
-      "ecf_security_unavailable": "Security code not available.",
-      "ecf_row_qr": "QR code",
-      "ecf_qr_match": "The QR code matches what was read",
-      "ecf_qr_differs": "Review: the QR code does not match what was read. {{pairs}}",
-      "ecf_qr_pair": "{{field}}: read {{read}}, QR {{qr}}",
-      "ecf_qr_no_read": "QR code read; nothing read from the receipt to compare it with",
-      "ecf_qr_missing": "No readable QR code",
-      "ecf_qr_verify": "Check on DGII",
-      "ecf_qr_verify_note": "Opens DGII's official consultation page in a new tab. Cuadrao sends nothing.",
       "refresh": "Check current record",
       "stale": "This record changed. Open the current revision and review it before taking another action.",
       "unavailable": "This record isn't available with your current access.",
       "outcome_unknown": "The action's outcome isn't known yet. Check the saved status before taking another action.",
-      "approval_failed": "Approval did not finish. Check the current record before another action.",
+      "approval_failed": "Acceptance did not finish. Check the current record before another action.",
       "duplicate_recorded": "You already recorded this fiscal receipt.",
       "see_recorded": "See the recorded one",
       "review_flag": {
@@ -3266,15 +2969,13 @@
         },
         "itbis_high": {
           "text": "The ITBIS looks high. Check that it is right."
-        },
-        "export_blocked": "If you approve it as is, the month's 606 can't be exported until you fix it.",
-        "fix": "Fix",
-        "approve_anyway": "Approve anyway"
+        }
       },
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
+      "field_required": "Enter a value for {{field}}.",
+      "save_unconfirmed": "We could not confirm whether {{field}} was saved.",
       "refused": "This action could not be completed. Check the current record before trying again.",
-      "blocker_fallback": "This record needs further review before approval.",
-      "blocker_unsaved": "A change didn't save. Save it again to approve.",
+      "blocker_unsaved": "A change didn't save. Save it again to accept.",
       "kind": {
         "expense": "Expense",
         "income": "Income",
@@ -3314,30 +3015,101 @@
         "suggested": "suggested"
       },
       "placeholder": {
-        "blocks_title": "Needed to approve",
         "expense_type": "Expense type",
+        "fiscal_billed_total": "Total billed",
+        "fiscal_billed_total_hint": "Services + Goods",
+        "fiscal_itbis_advance": "ITBIS to advance",
+        "fiscal_itbis_advance_hint": "ITBIS billed − carried to cost",
+        "income_type": "Income type",
+        "type_clears_sale_choices": "Changing the type clears the income type and payment form.",
+        "gap": {
+          "blocked": {
+            "title": "Something is pending",
+            "text": "Resolve what is pending before you accept it."
+          },
+          "check_details": {
+            "title": "Check the details",
+            "text": "The read left doubtful values. Compare them with the document."
+          },
+          "credit_note": {
+            "title": "It is a credit note",
+            "text": "Check which purchase it belongs to."
+          },
+          "duplicate": {
+            "text": "It looks like another document."
+          },
+          "ecf_check_failed": {
+            "title": "The e-CF did not pass the check",
+            "text": "Compare the values with the document."
+          },
+          "missing_currency": {
+            "title": "The currency is missing",
+            "text": "Choose the document's currency."
+          },
+          "missing_date": {
+            "title": "The date is missing",
+            "text": "Enter it as the document shows it."
+          },
+          "missing_itbis": {
+            "title": "The ITBIS is missing",
+            "text": "Enter it as the document shows it. If it has none, enter 0.00."
+          },
+          "missing_merchant": {
+            "title": "The issuer is missing",
+            "text": "Enter it as the document shows it."
+          },
+          "no_purchase_found": {
+            "title": "We found no purchase",
+            "text": "Enter the values as the document shows them."
+          },
+          "not_read": {
+            "title": "Not read",
+            "text": "This document has not been read yet."
+          },
+          "reading": {
+            "title": "Reading in progress",
+            "text": "Wait for the document read to finish."
+          },
+          "review_flag": {
+            "title": "It has values to check",
+            "text": "Check the marked values."
+          },
+          "several_purchases": {
+            "title": "Several purchases on one receipt",
+            "text": "Complete this record with one of the purchases."
+          },
+          "sin_comprobante": {
+            "title": "No fiscal receipt",
+            "text": "This document has no NCF or e-CF."
+          },
+          "unverified_sender": {
+            "title": "Unverified sender",
+            "text": "It came by email from a sender who is not on your list."
+          }
+        },
         "more_fiscal": "More tax details",
         "payment_form": "Payment method",
-        "save_lost": "We couldn't confirm that {{field}} was saved. Approval is paused.",
+        "rnc_registry": {
+          "anulado": "Annulled in the DGII",
+          "desconocido": "Status not confirmed in the DGII",
+          "rechazado": "Rejected in the DGII"
+        },
+        "save_lost": "We couldn't confirm that {{field}} was saved. Acceptance is paused.",
         "save_refused": "{{field}} wasn't saved. Check the value.",
         "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
         "doubtful_read": "check this",
         "done_title": "No receipts left to review",
         "done_back": "Back to Inbox",
         "total_mismatch": "Subtotal + ITBIS = {{sum}}, not {{total}}",
-        "save_first": "Save or cancel {{fields}} to approve.",
-        "group_identity": "Identification",
-        "group_amounts": "Billed amounts",
+        "save_first": "Save or cancel {{fields}} to accept.",
         "group_retentions": "Withholdings",
-        "group_other": "Other",
         "inherited_original_ncf": "Original purchase NCF",
         "inherited_rnc": "RNC",
         "restore_inherited": "Restore: {{value}}",
-        "section_choices": "For the 606",
         "suggestion_source": {
-          "last_choice": "Your last choice for this RNC",
+          "last_choice": "Last time",
           "reading": "Suggested by the reading",
-          "receipt": "Read from the receipt"
+          "receipt": "From the receipt"
         },
         "mark_no_receipt": "Mark as no receipt"
       },
@@ -3352,9 +3124,7 @@
         "fiscal": "Fiscal",
         "payment": "Payment"
       },
-      "tab_form": "Form",
       "tab_original": "Original",
-      "view_label": "View",
       "viewer": {
         "actual_size": "Actual size",
         "exit_full_screen": "Exit full screen",
@@ -3379,17 +3149,11 @@
         "waiting_for_window": "Waiting to ask",
         "withdrawn": "Withdrawn"
       },
-      "state": {
-        "open": "Awaiting review",
-        "accepting": "Checking approval outcome",
-        "accepted": "Recorded",
-        "dismissed": "Dismissed"
-      },
       "blocker": {
         "unknown_funding": "Confirm how this was paid.",
         "missing_fields": "Resolve the required details.",
-        "unresolved_facts": "Resolve the open facts before approval.",
-        "unsupported_kind": "This activity isn't supported for approval in this first flow.",
+        "unresolved_facts": "Resolve the open facts before acceptance.",
+        "unsupported_kind": "This activity isn't supported for acceptance in this first flow.",
         "owner_funding_unsupported": "Owner-funded expenses cannot be recorded in this first flow yet.",
         "permission_denied": "Your current permission does not allow this action.",
         "currency_mismatch": "The funding account and record need the same currency.",
@@ -3398,25 +3162,15 @@
     },
     "empty": {
       "access_error": "We couldn't load access",
-      "all_clear_body": "When another receipt arrives, it shows up here for review.",
-      "all_clear_title": "All approved. Squared away.",
       "email_error": "We couldn't load your emails",
       "error_body": "Your data is still saved. Check your connection and try again.",
-      "inbox_body": "Upload, type or forward them by email. You review and approve them so they count in your numbers.",
-      "inbox_error": "We couldn't load your inbox",
-      "inbox_title": "Your receipts land here",
-      "month_body": "Add this month's receipts and invoices to see your income, expenses and ITBIS.",
-      "overview_error": "We couldn't load your business",
-      "see_all_periods": "See all periods"
+      "overview_error": "We couldn't load your business"
     },
     "expenses": {
       "title": "Expenses",
       "no_merchant": "Expense",
-      "detail_title": "Saved expense",
       "gone": "That expense is no longer here",
-      "no_receipt": "No receipt attached",
-      "recorded_on": "Recorded on {{when}}",
-      "account_unknown": "Unknown"
+      "no_receipt": "No receipt attached"
     },
     "guide_cards": {
       "actividad_intro": {
@@ -3426,7 +3180,7 @@
           "label": "Nothing slips by"
         },
         "follow": {
-          "body": "See who uploaded, approved, edited or deleted documents, and when.",
+          "body": "See who uploaded, accepted, edited or deleted documents, and when.",
           "label": "Follow the activity"
         },
         "open": {
@@ -3442,8 +3196,8 @@
           "label": "Return to pending documents"
         },
         "review": {
-          "body": "Review the details and correct what you need to. Once approved, the document moves to Records.",
-          "label": "Review and approve"
+          "body": "Review the details and correct what you need to. Once accepted, the document moves to Records.",
+          "label": "Review and accept"
         },
         "title": "From document to record",
         "upload": {
@@ -3488,12 +3242,14 @@
       }
     },
     "history": {
+      "accepted_note": "It moved to Records",
       "am": "AM",
-      "approved": "Approved",
+      "approved": "Accepted",
+      "arrived": "Arrived by {{channel}}",
       "changed": "{{field}} changed from {{before}} to {{after}}",
       "changed_female": "{{field}} changed from {{before}} to {{after}}",
       "channel_email": "Email",
-      "channel_web": "Uploaded",
+      "channel_web": "web upload",
       "duplicate": { "different_purchase": "Marked as a different purchase from {{other}}" },
       "fiscal_saved": "{{form}} data saved",
       "more_changes_one": "See {{count}} more change",
@@ -3504,25 +3260,18 @@
       "received": "Received",
       "rnc_verified": "RNC verified",
       "set": "{{field}}: {{after}}",
+      "supporting": {
+        "appended": "File added",
+        "restored": "File restored",
+        "unlinked": "File removed"
+      },
       "title": "History",
-      "via_cuadrao": "{{name}} via Cuadrao"
+      "today": "Today",
+      "via_cuadrao": "{{name}} via Cuadrao",
+      "yesterday": "Yesterday"
     },
     "reading": {
-      "line": "Reading your receipt…",
-      "supplier": "Supplier",
-      "total": "Total"
-    },
-    "status": {
-      "pill_approved": "Approved",
-      "pill_attention": "Needs attention",
-      "pill_pending": "Pending",
-      "saved": "Saved, unread",
-      "queued": "Waiting to prepare",
-      "preparing": "Preparing",
-      "review_ready": "Ready to review",
-      "needs_attention": "Needs attention",
-      "confirmed": "Expense saved",
-      "dismissed": "Dismissed"
+      "document": "Reading the document"
     },
     "category": {
       "none": "No category",
@@ -3536,13 +3285,13 @@
       "interest_fees": "Interest and fees"
     },
     "file_read": {
-      "unreadable_title": "We couldn't read this file",
-      "not_a_receipt_title": "This doesn't look like a receipt.",
+      "held_day": "Reads tomorrow · Today's read limit was reached.",
       "not_a_receipt_body": "Upload the photo or the PDF of a receipt.",
-      "read_deadline_passed_body": "The reading service wasn't available. You can read it again.",
-      "placeholder": {
-        "unreadable_body": "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light."
-      },
+      "not_a_receipt_title": "This doesn’t look like a receipt",
+      "outcome_unknown_body": "File unread: the read was interrupted. You can read it again.",
+      "read_deadline_passed_body": "File unread: reading was unavailable. You can read it again.",
+      "unreadable_body": "The file is blurry, cropped or damaged. Upload a clear photo of the whole receipt.",
+      "unreadable_title": "We couldn't read this file",
       "upload_another": "Upload another document"
     },
     "actions": {
@@ -4082,7 +3831,7 @@
       "reopen_access": "Reopening restores access for members whose permissions are still valid.",
       "transfer": {
         "accept": "Accept transfer",
-        "accept_body": "You will become the owner. Only you can approve, close the business, and grant or remove access. {{ownerName}} can keep editing. Automatic document reading turns off until you activate it. This cannot be undone.",
+        "accept_body": "You will become the owner. Only you can accept records, close the business, and grant or remove access. {{ownerName}} can keep editing. Automatic document reading turns off until you activate it. This cannot be undone.",
         "accept_title": "Accept {{businessName}}?",
         "accepted": "Transfer completed",
         "cancelled": "Transfer withdrawn",
@@ -4149,7 +3898,7 @@
       "itbis_cobrado": "ITBIS collected",
       "approved_figures": {
         "copy_review": "pending_lucas",
-        "net_detail": "Approved income minus expenses"
+        "net_detail": "Accepted income minus expenses"
       },
       "receipts_failed": "We couldn't load the receipt count. The month cannot be closed yet.",
       "receipts_loading": "Loading the receipt count. The month cannot be closed yet.",
@@ -4245,14 +3994,14 @@
         "resolve": "Resolve",
         "review": "Review",
         "see_all": "See all",
-        "title": "Needs attention",
+        "title": "Pending",
         "untitled": "Untitled document",
         "whatsapp_photo": "WhatsApp photo"
       },
       "copy_review": "pending_lucas",
       "month": {
         "expenses": "Expenses",
-        "first_day": "The figures fill in when you approve your first documents.",
+        "first_day": "The figures fill in when you accept your first documents.",
         "fiscal_one": "Missing data on 1 record",
         "fiscal_other": "Missing data on {{count}} records",
       "fiscal_purchases_one": "Missing data on 1 purchase",
@@ -4270,12 +4019,12 @@
         "review": "Review",
         "see": "See",
         "terms": {
-          "expenses": "Approved purchases and expenses for the month, before ITBIS.",
+          "expenses": "Accepted purchases and expenses for the month, before ITBIS.",
           "fiscal": "Complete the missing data before filing.",
-          "income": "Approved sales for the month, before ITBIS.",
-          "itbis_purchases": "ITBIS paid on your approved purchases.",
-          "itbis_sales": "ITBIS charged on your approved sales.",
-          "net": "Approved income minus expenses for the month, before ITBIS."
+          "income": "Accepted sales for the month, before ITBIS.",
+          "itbis_purchases": "ITBIS paid on your accepted purchases.",
+          "itbis_sales": "ITBIS charged on your accepted sales.",
+          "net": "Accepted income minus expenses for the month, before ITBIS."
         },
         "under_one": "less than {{amount}}"
       }
@@ -4360,11 +4109,6 @@
       "notes_latest": "Showing the latest 50 saved notes. Older open notes are reachable through search.",
       "note_more_one": "{{count}} earlier note",
       "note_more_other": "{{count}} earlier notes",
-      "row_reading": "Reading…",
-      "row_saved": "Saved, not read",
-      "row_ready": "Ready to review",
-      "row_new": "New",
-      "row_note": "Typed note",
       "segments": "Show",
       "segment_review": "To review",
       "segment_problem": "Problems",
@@ -4469,9 +4213,10 @@
     },
     "receipts": {
       "duplicate_resolution": {
+        "arrived": "Arrived {{stamp}}",
         "basis": {
           "fiscal_number": "Same RNC and NCF as another document.",
-          "fiscal_number_sale_placeholder": "[placeholder] Same NCF as another sale.",
+          "fiscal_number_sale": "Same NCF as another sale.",
           "read_facts": "Same supplier, date and total as another document."
         },
         "column": {
@@ -4479,29 +4224,32 @@
           "this": "This"
         },
         "compare": "Compare",
+        "compare_saved": "Compare with the saved document",
         "decision": {
           "different_purchase": "They are different purchases",
           "same_purchase": "Delete this duplicate"
         },
+        "deleted": "Duplicate deleted.",
         "different": "Different",
         "documents": {
           "other": "Deleted document"
         },
         "field": {
           "amount": "Total",
-          "counterparty": "Merchant",
           "currency": "Currency",
           "fiscal_number": "NCF",
           "occurred_on": "Date"
         },
         "marked_different": "Marked as different purchases.",
         "no_file": "This document has no file.",
+        "origin": "Compare origin",
         "recommendation": {
           "different_purchase": "Same merchant, date, total and currency. The NCF is different: these are probably two different purchases.",
           "same_purchase": "It is the same document."
         },
         "refused_same_comprobante": "Same RNC and NCF: it's the same receipt. Keep one.",
         "same": "Same",
+        "select_document": "Document to view",
         "table": {
           "caption": "Main data of both documents",
           "field": "Field"
@@ -4517,7 +4265,6 @@
       "alias_save": "Save address",
       "email_title": "Receiving email",
       "history_title": "Received emails",
-      "reading_title": "Read my documents automatically",
       "senders": {
         "action_error": "This sender could not be saved. Try again.",
         "authorize": "Authorize",
@@ -4547,7 +4294,7 @@
       "amount": "Amount",
       "arrival": "Arrived",
       "arrival_date": "Arrival date",
-      "attention": "Needs attention",
+      "attention": "To resolve",
       "clear": "Clear filters",
       "clear_group": "Clear",
       "clear_selection": "Clear selection",
@@ -4556,9 +4303,14 @@
       "document_range_other": "{{from}}–{{to}} of {{count}} items",
       "eliminados": "Deleted",
       "empty": "No content in this view",
+      "empty_attention": "Nothing to resolve",
+      "empty_attention_help": "When a document needs attention or can't be read, it shows up here.",
       "empty_help": "Try another view or change the filters.",
+      "empty_listos": "No receipts are ready",
+      "empty_listos_help": "When a receipt has everything confirmed, it shows here to accept.",
       "empty_start": "Your files and notes arrive here",
       "empty_start_help": "Add a file or receive documents by email.",
+      "empty_start_upload_help": "Add a file.",
       "error": "We could not load all content.",
       "file": "Attachment",
       "forward_options": "Receive by email",
@@ -4572,41 +4324,28 @@
       "page_size": "Items per page",
       "pagination": "Inbox pages",
       "placeholder": {
-        "approve_all": "Approve all",
-        "approve_confirm_help_one": "It moves to Records as an approved expense.",
-        "approve_confirm_help_other": "They move to Records as approved expenses.",
-        "approve_confirm_one": "Approve {{count}} receipt?",
-        "approve_confirm_other": "Approve {{count}} receipts?",
-        "approve_failed_one": "{{count}} of {{total}} was not approved.",
-        "approve_failed_other": "{{count}} of {{total}} were not approved.",
-        "approved_one": "{{count}} receipt approved.",
-        "approved_other": "{{count}} receipts approved.",
-        "bulk_actions": "Approve selection",
-        "empty_attention": "Nothing needs attention",
-        "empty_attention_help": "When a receipt needs something from you, it shows here.",
-        "empty_listos": "No receipts are ready",
-        "empty_listos_help": "When a receipt has everything confirmed, it shows here to approve.",
-        "empty_start_upload_help": "Add a file.",
+        "approve_all": "Accept all",
+        "approve_confirm_help_one": "It moves to Records as an accepted expense.",
+        "approve_confirm_help_other": "They move to Records as accepted expenses.",
+        "approve_confirm_one": "Accept {{count}} receipt?",
+        "approve_confirm_other": "Accept {{count}} receipts?",
+        "approve_failed_one": "{{count}} of {{total}} was not accepted.",
+        "approve_failed_other": "{{count}} of {{total}} were not accepted.",
+        "approved_one": "{{count}} receipt accepted.",
+        "approved_other": "{{count}} receipts accepted.",
+        "bulk_actions": "Accept selection",
         "listos": "Ready",
         "open": "Open",
         "reason": {
-          "blocked": "Something is still open",
-          "ecf_check_failed": "The e-CF failed its check",
-          "foreign_currency": "Foreign currency",
-          "missing_amount": "Total missing",
-          "missing_currency": "Currency missing",
-          "missing_itbis": "ITBIS missing",
-          "missing_merchant": "Supplier missing",
-          "unverified_sender": "Unverified sender"
+          "missing_currency": "Currency missing"
         },
         "refused": {
           "duplicate_comprobante": "This comprobante is already recorded",
-          "not_listo": "No longer ready to approve",
-          "other": "It could not be approved",
+          "not_listo": "No longer ready to accept",
+          "other": "It could not be accepted",
           "stale_version": "It changed after it was listed. Open it and review it.",
-          "unknown": "We don't know if it was approved. Retry to find out."
-        },
-        "tag_listo": "Ready to approve"
+          "unknown": "We don't know if it was accepted. Retry to find out."
+        }
       },
       "remove_filter": "Remove filter: {{label}}",
       "search": "Search this list…",
@@ -4614,9 +4353,11 @@
       "select_page": "Select this page",
       "selected_one": "{{count}} selected",
       "selected_other": "{{count}} selected",
-      "sender": "Sender",
-      "sender_search": "Search senders…",
-      "sender_source": "Channel and sender",
+      "sender": "Sent by",
+      "sender_search": "Search…",
+      "sender_source": "Channel / Sent by",
+      "sent_by_unknown": "Unknown",
+      "sent_by_whatsapp": "$t(business.reception_preview.source_whatsapp) ···{{last4}}",
       "setup_forward": "Set up email intake",
       "source": "Channel",
       "source_email": "Email",
@@ -4624,7 +4365,6 @@
       "source_web": "Manual upload",
       "source_whatsapp": "WhatsApp",
       "status": "Status",
-      "status_reason": "Reason",
       "text_intake": "Text entry",
       "unseen": "Unseen",
       "views": "Inbox views",
@@ -4644,8 +4384,7 @@
       "retry": "Read again",
       "retry_consent": "Trying again sends this receipt to our AI provider.",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",
-      "reading_off": "Turn on Read my documents automatically in Document reading, then try again.",
-      "saved_title": "Saved expense",
+      "reading_off": "Turn on reading and try again.",
       "title": "Review receipt",
       "prepare": "Prepare with AI",
       "preparing": "Reading your receipt. You can leave this page; the result will wait in your inbox.",
@@ -4657,85 +4396,80 @@
       "amount": "Total",
       "currency": "Currency",
       "choose": "Choose",
-      "account": "Paid from",
       "evidence": "What the receipt says",
       "tax": "Tax",
-      "evidence_note": "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.",
-      "saved_body": "Saved as one expense of {{amount}}.",
-      "view_expenses": "View expenses",
       "confirm": "Confirm expense"
     },
     "create": {
       "label": "Create"
     },
     "intake": {
-      "replayed": "Already saved before. This is that receipt.",
+      "replayed": "Already saved.",
       "unsupported": "This file isn't supported. Try {{formats}}.",
       "uploading_progress": "Uploading {{position}} of {{total}}…",
-      "too_large": "This file is larger than {{size}} MB. Use a smaller photo or PDF.",
+      "too_large": "It is larger than {{size}} MB. Use a smaller photo or PDF.",
       "heic": "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first.",
       "title": "Upload receipt",
       "type_recibo": "Purchase",
-      "type_recibo_help": "Something the business paid for.",
       "type_venta": "Sale",
-      "type_venta_help": "An invoice the business issued.",
-      "type_auto": "Automatic",
-      "type_auto_help": "With your business's RNC it is a sale. Otherwise, a purchase.",
-      "queue_title": "Upload receipts",
-      "add_title": "Add",
-      "no_paper": "No paper?",
-      "write": "Write it",
-      "write_title": "Write it",
-      "write_placeholder": "For example: I paid RD$500 for gas today, in cash.",
-      "write_help": "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.",
-      "write_back": "Upload files",
-      "write_save": "Save",
-      "write_type": {
-        "copy_review": "pending_lucas",
-        "label": "Is it a purchase or a sale?"
-      },
-      "typed_kind": "Typed",
-      "typed_saving": "Saving…",
-      "typed_saved": "Saved to the Inbox",
-      "typed_uncertain": "We couldn't confirm it was saved. Try again; it won't be saved twice.",
-      "saved_as": "Saved as",
-      "paste_hint": "or paste with {{keys}}",
       "camera_way": "Take a photo",
       "camera_way_help": "With your phone's camera",
       "drop_title": "Drag your receipt here",
-      "drop_title_multiple": "Drag your receipts here",
-      "touch_title": "Choose your receipt",
-      "touch_title_multiple": "Choose your receipts",
-      "formats_short": "{{formats}} · up to {{size}} MB",
-      "drop_release_one": "Drop to upload 1 file",
-      "drop_release_other": "Drop to upload {{count}} files",
+      "drop_title_multiple": "Upload your documents",
       "drop_reject": "That file type can't be uploaded. Use {{formats}}.",
-      "row_waiting": "Waiting",
-      "row_seconds_left_one": "{{count}} s left",
-      "row_seconds_left_other": "{{count}} s left",
+      "row_waiting": "In queue",
       "row_minutes_left_one": "{{count}} min left",
       "row_minutes_left_other": "{{count}} min left",
       "row_saved": "Saved",
-      "row_failed_offline": "Connection lost. Your file is still here.",
+      "row_failed_offline": "Connection lost. It retries by itself when the connection returns.",
       "row_failed": "Couldn't upload. Your file is still here.",
       "retry_file": "Retry {{name}}",
       "summary_saved_one": "{{count}} saved",
       "summary_saved_other": "{{count}} saved",
       "summary_failed_one": "{{count}} not uploaded",
       "summary_failed_other": "{{count}} not uploaded",
-      "other_ways": "Other ways to add receipts",
-      "email_way": "Forward them by email",
-      "review_saved": "Review saved receipts",
+      "other_ways": "You can also send them",
+      "email_way": "Forward them to the business email",
       "choose_multiple": "Choose files",
       "remove_file": "Remove {{name}} from this upload list",
-      "keep_open": "You can close this panel and come back to your uploads. Keep this page open until every file is saved.",
-      "open_queue_one": "Upload ({{count}})",
-      "open_queue_other": "Uploads ({{count}})",
       "save": "Save to Inbox",
       "formats": "{{formats}}, up to {{size}} MB. The original stays private to you.",
-      "choose": "Choose file",
       "choose_another": "Choose another file",
-      "camera": "Take photo"
+      "panel_title": "Add documents",
+      "chip_uploading": "Uploading {{position}} of {{total}}",
+      "chip_saved_one": "{{count}} uploaded",
+      "chip_saved_other": "{{count}} uploaded",
+      "time_finishing": "Finishing…",
+      "time_seconds": "A few seconds",
+      "time_under_minute": "Less than 1 min",
+      "row_uploading": "Uploading {{name}}",
+      "row_percent": "{{percent}}%",
+      "row_saving": "Saving…",
+      "row_stopped_at": "Stopped at {{percent}}%",
+      "choose_label": "Choose files to upload",
+      "drop_click": "Click to choose",
+      "drop_or_drag": "or drag your files here",
+      "drop_release": "Drop to upload them",
+      "drop_more": "Drag more files here",
+      "formats_each": "{{formats}} · up to {{size}} MB each",
+      "options_label": "On upload",
+      "reading_help_on": "You always review and accept.",
+      "kind_label": "Purchase or sale",
+      "kind_auto": "Detect",
+      "kind_recibo": "Purchases",
+      "kind_venta": "Sales",
+      "kind_help_auto": "Detected on reading.",
+      "kind_help_picked": "For everything you upload.",
+      "kind_help_no_reading": "Without reading, you choose.",
+      "files_title": "Files",
+      "files_count_one": "{{count}} file",
+      "files_count_other": "{{count}} files",
+      "total_progress": "Upload progress",
+      "keep_tab": "The upload continues if you close this panel. Do not close the tab.",
+      "review_count_one": "Review {{count}} document",
+      "review_count_other": "Review {{count}} documents",
+      "whatsapp_way": "Send them by WhatsApp",
+      "whatsapp_way_help": "From a number linked to the business."
     },
     "period": {
       "all": "All",
@@ -4965,6 +4699,7 @@
       "mark_failed": "We could not save the change. Try again.",
       "question_606": "Include in 606?",
       "include_606": "Include in the 606",
+      "include_607": "Include in the 607",
       "yes": "Yes",
       "no": "No",
       "pending_606": "Waiting for the accountant",
@@ -4974,8 +4709,12 @@
       "excluded_606_by": "Left out of the 606 by {{name}}",
       "decide_failed": "We could not save the answer. Try again.",
       "personal_help": "It does not count in the Business totals.",
-      "sin_comprobante_chip": "No comprobante",
-      "missing_ncf_chip": "NCF missing"
+      "mark_sale": "Sale",
+      "sale_help_off": "Move it to Report 607.",
+      "sale_help_on": "It goes to Report 607.",
+      "marked_sale": "Now it is a sale. It goes to Report 607.",
+      "marked_purchase": "Now it is a purchase. It goes to Report 606.",
+      "sin_comprobante_chip": "No comprobante"
     }
   },
   "money": {
@@ -5009,7 +4748,7 @@
     "invitations_title": "Invitations",
     "nav": "Access",
     "title": "Access",
-    "subtitle": "Who can see and prepare your business records. Only you approve.",
+    "subtitle": "Who can see and prepare your business records. Only you accept them.",
     "owner": "Owner",
     "member": "Member",
     "since": "Since {{date}}",
@@ -5017,7 +4756,7 @@
     "pending_until": "Expires {{date}}",
     "pending_note": "Gets access the first time they sign in with this confirmed email.",
     "give_title": "Give access to your accountant",
-    "give_body": "Enter their email. They can see and prepare receipts. They can never approve.",
+    "give_body": "Enter their email. They can see and prepare receipts. They can never accept them.",
     "email_label": "Email address",
     "give": "Give access",
     "giving": "Giving access...",
@@ -5081,7 +4820,7 @@
     "batch_success": "{{count}} invitations sent",
     "batch_success_one": "1 invitation sent",
     "batch_title": "Invite collaborators",
-    "batch_unavailable_placeholder": "[placeholder] Invitations are unavailable.",
+    "batch_unavailable": "Invitations are unavailable.",
     "document_not_received": "Not received",
     "document_received": "Received",
 
@@ -5163,17 +4902,17 @@
     "your_access": "Your access",
     "permission_label": "Access",
     "permission_owner": "Owner",
-    "permission_owner_detail": "Full access to the business. Can approve records and invite other owners.",
+    "permission_owner_detail": "Full access to the business. Can accept records and invite other owners.",
     "permission_admin": "Admin",
-    "permission_admin_detail": "Sets up the business and manages collaborators. Cannot approve records.",
+    "permission_admin_detail": "Sets up the business and manages collaborators. Cannot accept records.",
     "permission_editor": "Editor",
-    "permission_editor_detail": "Adds documents and prepares records. Cannot approve them or manage the business.",
+    "permission_editor_detail": "Adds documents and prepares records. Cannot accept them or manage the business.",
     "permission_viewer": "Viewer",
     "permission_viewer_detail": "Views documents and records. Cannot edit or download them.",
     "invite_access": "Access",
     "invite_access_allow": "Can view and prepare business documents.",
     "invite_access_details": "Access details",
-    "invite_access_limit": "Cannot approve records or manage the business.",
+    "invite_access_limit": "Cannot accept records or manage the business.",
     "invite_access_summary": "View and prepare records",
     "invite_email_example": "name@example.com",
     "invite_email_invalid": "Check the email. For example, name@example.com.",
@@ -5300,7 +5039,7 @@
     "qr_error": "We could not generate the QR. Use Connect manually.",
     "reading_description": "Cuadrao extracts document details for your review. This applies to uploads, email and WhatsApp.",
     "reading_enable": "Enable and continue",
-    "reading_limits": "Reading does not approve records. You can change it in Settings.",
+    "reading_limits": "Reading does not accept records. You can change it in Settings.",
     "reading_question": "Read your documents automatically?",
     "reading_skip": "Continue without reading",
     "ready_status": "Ready to send",

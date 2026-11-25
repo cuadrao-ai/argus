@@ -2,11 +2,8 @@
 
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { ReceiptAttention } from "@/lib/business-api";
-import { personName, type PersonName } from "@/lib/person-name";
 import { BusinessContext } from "./BusinessWorkspace";
 import { FOCUS_RING } from "./foundation/presentation";
-export { StatusPill } from "./foundation/StatusPill";
 
 export const cardClass =
   "rounded-surface border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
@@ -59,55 +56,7 @@ export function useCategoryLabel() {
       : t("business.category.none", "No category");
 }
 
-/**
- * Title, body and next steps for a read that ended with something to say. Other attention values keep their short word.
- * `discard` offers the delete there, shown only where the server allows it.
- */
-export function useTerminalRead() {
-  const { t } = useTranslation();
-  return (attention: ReceiptAttention | null) => {
-    const uploadLabel = t("business.file_read.upload_another");
-    if (attention === "unreadable") {
-      return {
-        title: t("business.file_read.unreadable_title", "We couldn't read this file"),
-        body: t(
-          "business.file_read.placeholder.unreadable_body",
-          "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light.",
-        ),
-        upload: true,
-        uploadLabel,
-        discard: true,
-      };
-    }
-    if (attention === "not_a_receipt") {
-      return {
-        title: t("business.file_read.not_a_receipt_title", "This doesn't look like a receipt."),
-        body: t(
-          "business.file_read.not_a_receipt_body",
-          "Upload the photo or the PDF of a receipt.",
-        ),
-        upload: true,
-        uploadLabel,
-        discard: false,
-      };
-    }
-    if (attention === "read_deadline_passed") {
-      return {
-        title: t("business.attention_short.read_deadline_passed", "Reading didn't finish"),
-        body: t(
-          "business.file_read.read_deadline_passed_body",
-          "The reading service wasn't available. You can read it again.",
-        ),
-        upload: false,
-        uploadLabel,
-        discard: false,
-      };
-    }
-    return null;
-  };
-}
-
-export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layout?: "rows" | "overview" | "detail" }) {
+export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layout?: "rows" | "overview" }) {
   const { t } = useTranslation();
   const line = "rounded-mark bg-black/[0.06] dark:bg-white/[0.08]";
   const pulse = "animate-pulse motion-reduce:animate-none";
@@ -124,13 +73,7 @@ export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layo
   return (
     <div role="status" aria-label={t("common.loading", "Loading")} data-testid="business-loading" data-layout={layout}>
       <div aria-hidden="true" className={pulse}>
-        {layout === "detail" ? <>
-          <div className="mb-5 space-y-4 py-3"><div className={`${line} h-4 w-20`} /><div className={`${line} h-7 w-48 max-w-full`} /></div>
-          <div className="grid items-start gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className={`${cardClass} h-28 desktop:h-80`} />
-            <div className={`${cardClass} divide-y divide-black/[0.05] dark:divide-white/[0.05]`}>{fields}</div>
-          </div>
-        </> : <div className={layout === "overview" ? "grid gap-3 tablet:grid-cols-2" : `${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>{fields}</div>}
+        <div className={layout === "overview" ? "grid gap-3 tablet:grid-cols-2" : `${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>{fields}</div>
       </div>
     </div>
   );
@@ -159,41 +102,9 @@ export function useOwnerView(): boolean {
   return !business?.chosen || business.chosen.role === "owner";
 }
 
-/**
- * The marks a record carries, as text in a muted chip, never colour alone:
- * "Personal" when a person marked it as no part of the Business; "Sin
- * comprobante fiscal" when the read facts hold no NCF and no e-CF. Grey on
- * purpose: a missing fiscal number is a fact about the receipt, not a fault.
- * When someone other than the owner marked it Personal, the owner sees a small
- * dot on the chip that reads "Marcado por <nombre>".
- */
-/**
- * A record's marks, as the server reads them: Personal, and either "Sin
- * comprobante" (stated, out of the 606 and 607) or "Falta NCF" (no fiscal
- * number yet and none stated as missing). Nothing shows while unknown.
- */
-export function recordFiscalMark(record: { sin_comprobante?: boolean; fiscal_known?: boolean; fiscal_value?: "ncf" | "ecf" | null }): "sin_comprobante" | "missing_ncf" | null {
-  if (record.sin_comprobante) return "sin_comprobante";
-  return record.fiscal_known && !record.fiscal_value ? "missing_ncf" : null;
-}
-
-export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: PersonName | null; className?: string }) {
-  const { t } = useTranslation();
-  const owner = useOwnerView();
-  const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-mark border px-2 text-[11px] font-medium";
-  if (!personal && !fiscal) return null;
-  const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: personName(t, markedBy) }) : null;
-  return (
-    <span className={`flex flex-wrap items-center gap-1.5 ${className}`} data-testid="record-marks">
-      {personal ? (
-        <span data-mark="personal" title={marker ?? undefined} className={`${chip} gap-1 border-[var(--cuadrao-green)]/35 text-[var(--cuadrao-green)]`}>
-          {t("business.marks.personal_chip", "Personal")}
-          {marker ? <><span data-testid="personal-marked-dot" aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--cuadrao-green)]" /><span className="sr-only">{marker}</span></> : null}
-        </span>
-      ) : null}
-      {fiscal ? <span data-mark={fiscal === "sin_comprobante" ? "sin_comprobante" : "no_fiscal"} className={`${chip} border-black/15 text-black/55 dark:border-white/15 dark:text-white/55`}>{fiscal === "sin_comprobante" ? t("business.marks.sin_comprobante_chip", "No comprobante") : t("business.marks.missing_ncf_chip", "NCF missing")}</span> : null}
-    </span>
-  );
+/** A record stated to have no comprobante fiscal: out of the 606 and 607. A missing NCF is not a mark: Estado says it. */
+export function recordFiscalMark(record: { sin_comprobante?: boolean }): "sin_comprobante" | null {
+  return record.sin_comprobante ? "sin_comprobante" : null;
 }
 
 /** A short announcement with one way back, for a change the person can undo. */

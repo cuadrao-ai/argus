@@ -1,16 +1,25 @@
 from __future__ import annotations
 
-from typing import Annotated
+from functools import partial
+from typing import Annotated, Callable
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, Request, Response
 from loguru import logger
 
+from argus.api.business import BusinessContext, require_business
 from argus.api.business_drafts import (
     DraftContext,
     action_problem,
     require_drafts,
     with_source_channels,
+)
+from argus.api.business_receipt_activity import counts_now
+from argus.api.business_schemas import (
+    DocumentActionCounted,
+    DossierApprovedCounted,
+    ListosApprovedCounted,
+    ReceiptActivityCounts,
 )
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
@@ -23,15 +32,15 @@ from argus.domain.business.contracts.actions import (
     MarkPersonal,
     OutcomeUnknown,
     Refused,
-    ReopenDraft,
     ResolveDuplicate,
     ReviewDraft,
     SettleRemainder,
 )
 from argus.domain.business.contracts.amounts import AmountsPreview, AmountsPreviewRequest
-from argus.domain.business.contracts.deletion import DocumentActionResult, DocumentCommand
+from argus.domain.business.contracts.deletion import DocumentCommand
 from argus.domain.business.contracts.dossier import BusinessDossier, RecordedApproval
-from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
+from argus.domain.business.contracts.listos import ApproveListos
+from argus.domain.ingestion.email_intake import sender_policy
 
 router = APIRouter(
     prefix="/business/drafts",
@@ -47,6 +56,18 @@ _ACTION_CONFLICT = {
     "description": "`stale_version` or `idempotency_conflict`; an uncertain action"
     " returns 409 with its existing outcome code."
 }
+
+
+def counts_after(
+    business: Annotated[BusinessContext, Depends(require_business)],
+) -> Callable[[], dict]:
+    """The read an action that moved a Bandeja row answers with as
+    ``inbox_counts``, made once the action is done."""
+
+    return partial(counts_now, business)
+
+
+Counts = Annotated[Callable[[], dict], Depends(counts_after)]
 
 
 def _key(request: Request, value: str | None) -> str:
@@ -66,7 +87,7 @@ def _email_store_unavailable(request: Request):
     )
 
 
-def _email_sender_blocks_approval(request, context, draft_id) -> bool:
+def _require_email_sender(request: Request, context: DraftContext, draft_id: UUID) -> None:
     from argus.api.email_intake import email_intake
     from argus.domain.ingestion.email_intake.store import PostgresEmailStore
 
@@ -75,13 +96,14 @@ def _email_sender_blocks_approval(request, context, draft_id) -> bool:
     if store is None:
         pool = getattr(getattr(context.service, "authority", None), "pool", None)
         if pool is None:
-            return False
+            return
         store = PostgresEmailStore(pool)
     try:
         standing = store.email_document_standing(str(context.space_id), str(draft_id))
     except Exception:
         raise _email_store_unavailable(request) from None
-    return standing is not None and standing != "authorized"
+    if refusal := sender_policy.sender_refusal(standing):
+        raise ActionError("permission_denied", refusal)
 
 
 def _run(request, response, context, draft_id, command=None, key=None):
@@ -89,8 +111,7 @@ def _run(request, response, context, draft_id, command=None, key=None):
     is_approval = isinstance(command, (ApproveExpense, ApproveIncome, ApproveRefund))
     try:
         if is_approval:
-            if _email_sender_blocks_approval(request, context, draft_id):
-                raise ActionError("permission_denied", "email_sender_unauthorized")
+            _require_email_sender(request, context, draft_id)
         actor = context.for_draft(draft_id)
         if command is not None:
             if isinstance(command, ReviewDraft):
@@ -99,8 +120,6 @@ def _run(request, response, context, draft_id, command=None, key=None):
                 method = context.service.resolve_duplicate
             elif isinstance(command, SettleRemainder):
                 method = context.service.settle_remainder
-            elif isinstance(command, ReopenDraft):
-                method = context.service.reopen
             elif isinstance(command, MarkPersonal):
                 method = context.service.mark_personal
             elif isinstance(command, DecideFiscalInclusion):
@@ -244,7 +263,7 @@ def decide_fiscal_inclusion(
 
 @router.post(
     "/{draft_id}/approve",
-    response_model=BusinessDossier,
+    response_model=DossierApprovedCounted,
     responses={
         409: {
             "description": "`stale_version` or `idempotency_conflict`; an uncertain approval"
@@ -261,19 +280,26 @@ def approve_draft(
         ApproveExpense | ApproveIncome | ApproveRefund, Body(discriminator="action")
     ],
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    return _run(
+    dossier = _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)
+    )
+    # Each dossier field is passed on as it is: a rebuilt set could list its
+    # members in another order than the dossier read does.
+    return DossierApprovedCounted.model_construct(
+        **dict(dossier), inbox_counts=ReceiptActivityCounts.model_validate(counts())
     )
 
 
-@router.post("/approve-listos", response_model=ListosApproved)
+@router.post("/approve-listos", response_model=ListosApprovedCounted)
 def approve_listos(
     request: Request,
     response: Response,
     body: ApproveListos,
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     """The owner approves a named list of Listos receipts. Each one runs alone
@@ -283,11 +309,12 @@ def approve_listos(
     response.headers.update(NO_STORE)
     key = _key(request, idempotency_key)
     try:
-        return context.service.approve_listos(
+        approved = context.service.approve_listos(
             context.for_space(request), context.for_draft, body, key
         )
     except ActionError as error:
         raise action_problem(request, error.result) from None
+    return ListosApprovedCounted(results=approved.results, inbox_counts=counts())
 
 
 @router.post(
@@ -321,55 +348,24 @@ def settle_remainder(
     )
 
 
-@router.post(
-    "/{draft_id}/reopen",
-    response_model=BusinessDossier,
-    responses={
-        403: {
-            "description": "`business_permission_denied` without approve permission;"
-            " `business_human_command_required` for a non-person actor."
-        },
-        409: _ACTION_CONFLICT,
-        422: {
-            "description": "`business_draft_not_recorded` on a draft that is not approved;"
-            " `business_record_matched` while a bank line is matched to the record;"
-            " `business_refund_linked` while a credit note or refund names it."
-        },
-    },
-)
-def reopen_draft(
-    request: Request,
-    response: Response,
-    draft_id: UUID,
-    body: ReopenDraft,
-    context: Annotated[DraftContext, Depends(require_drafts)],
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-):
-    """The owner returns an approved record to the Bandeja to correct it. The
-    draft is open again at a new version with everything it holds; the money
-    row it recorded stops counting everywhere and stays as history. Replaying
-    the key answers the same; a second reopen of the open draft is refused."""
-
-    return _run(
-        request, response, context, draft_id, body, _key(request, idempotency_key)
-    )
-
-
 def _document_action(
     request: Request,
     response: Response,
     context: DraftContext,
+    counts: Callable[[], dict],
     draft_id: UUID,
     key: str | None,
     action: str,
-) -> DocumentActionResult:
+) -> DocumentActionCounted:
     from argus.domain.business.actions.document_deletion import change_document
+    from argus.domain.business.reporting_store import registros_count
 
     response.headers.update(NO_STORE)
     try:
+        actor = context.for_space(request)
         result = change_document(
             context.service,
-            context.for_space(request),
+            actor,
             DocumentCommand(action=action, document_id=draft_id),
             _key(request, key),
         )
@@ -384,12 +380,21 @@ def _document_action(
                 detail=result.code,
                 headers=NO_STORE,
             )
+        record_count = (
+            registros_count(context.service.authority, actor)
+            if result.activity_id is not None
+            else None
+        )
     except ActionError as error:
         raise action_problem(request, error.result) from None
     if action == "purge_document":
         _erase_now(context)
-    return DocumentActionResult(
-        document_id=draft_id, deleted=action != "restore_document"
+    return DocumentActionCounted(
+        document_id=draft_id,
+        deleted=action != "restore_document",
+        inbox_counts=counts(),
+        registros_count=record_count,
+        purge_at=result.purge_at,
     )
 
 
@@ -416,7 +421,7 @@ def _erase_now(context: DraftContext) -> None:
 
 @router.post(
     "/{draft_id}/delete",
-    response_model=DocumentActionResult,
+    response_model=DocumentActionCounted,
     responses={
         403: {
             "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
@@ -428,7 +433,7 @@ def _erase_now(context: DraftContext) -> None:
             "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
         },
         422: {
-            "description": "`business_document_not_open` for an approved or set-aside document; `business_document_reading` while being read; `business_document_ambiguous` for shared attachments."
+            "description": "`business_document_not_open` for an ineligible state; `business_document_linked` for a linked accepted record; `business_document_reading` while being read; `business_document_ambiguous` for shared attachments."
         },
     },
 )
@@ -437,16 +442,17 @@ def delete_document(
     response: Response,
     draft_id: UUID,
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-) -> DocumentActionResult:
+) -> DocumentActionCounted:
     return _document_action(
-        request, response, context, draft_id, idempotency_key, "delete_document"
+        request, response, context, counts, draft_id, idempotency_key, "delete_document"
     )
 
 
 @router.post(
     "/{draft_id}/restore",
-    response_model=DocumentActionResult,
+    response_model=DocumentActionCounted,
     responses={
         403: {
             "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
@@ -458,7 +464,7 @@ def delete_document(
             "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
         },
         422: {
-            "description": "`business_document_not_deleted` without a deletion marker; `business_document_ambiguous` for shared attachments."
+            "description": "`business_document_not_deleted` without a deletion marker; `business_document_restore_expired` once the 7-day window closes; `business_document_ambiguous` for shared attachments."
         },
     },
 )
@@ -467,16 +473,17 @@ def restore_document(
     response: Response,
     draft_id: UUID,
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-) -> DocumentActionResult:
+) -> DocumentActionCounted:
     return _document_action(
-        request, response, context, draft_id, idempotency_key, "restore_document"
+        request, response, context, counts, draft_id, idempotency_key, "restore_document"
     )
 
 
 @router.post(
     "/{draft_id}/purge",
-    response_model=DocumentActionResult,
+    response_model=DocumentActionCounted,
     responses={
         403: {
             "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
@@ -497,8 +504,9 @@ def purge_document(
     response: Response,
     draft_id: UUID,
     context: Annotated[DraftContext, Depends(require_drafts)],
+    counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-) -> DocumentActionResult:
+) -> DocumentActionCounted:
     return _document_action(
-        request, response, context, draft_id, idempotency_key, "purge_document"
+        request, response, context, counts, draft_id, idempotency_key, "purge_document"
     )

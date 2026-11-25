@@ -136,6 +136,7 @@ def _authorized(connection: Connection, context: ActionContext) -> Authorization
 # Registros lists approved records only: a draft reaches a row through the
 # money row it recorded, so open drafts stay in the Bandeja.
 _RECORDED_DRAFT_STATES = ("accepting", "accepted", "dismissed")
+_MAX_REPORT_INPUTS = 10_000
 
 
 def _business(events: Iterable[ImportEvent]) -> list[ImportEvent]:
@@ -143,7 +144,9 @@ def _business(events: Iterable[ImportEvent]) -> list[ImportEvent]:
 
 
 def _business_drafts(
-    connection: Connection, live: Authorization
+    connection: Connection,
+    live: Authorization,
+    selected: RecordedRecord | None = None,
 ) -> tuple[ActionTransaction, list[ImportEvent]]:
     from argus.domain.business.transactions import ActionTransaction
     from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
@@ -152,7 +155,16 @@ def _business_drafts(
     tx = ActionTransaction(
         connection, live, _PostgresTx(connection, context.owner_id, context.scope)
     )
-    return tx, _business(tx.imports.events(_RECORDED_DRAFT_STATES))
+    events = (
+        tx.imports.events_of(
+            _RECORDED_DRAFT_STATES,
+            [selected.approved.draft_id] if selected.approved.draft_id else [],
+            [selected.row.activity_id],
+        )
+        if selected is not None
+        else tx.imports.events(_RECORDED_DRAFT_STATES)
+    )
+    return tx, _business(events)
 
 
 def _speaking_drafts(
@@ -175,18 +187,16 @@ def _speaking_drafts(
     }
 
 
-def _recorded(
+def _recorded_activities(
     authority: BusinessAuthority, context: ActionContext, connection: Connection
-) -> RecordedSnapshot:
-    context = _authorized(connection, context).context
-    observed_at = connection.execute("select transaction_timestamp()").fetchone()[0]
+) -> list[dict[str, Any]]:
     canonical = load(
         PostgresFinancialAccountRepository(authority.pool),
         connection,
         {context.owner_id},
         scope=context.scope,
     )
-    activities = current_activities(
+    return current_activities(
         VisibleAccounts(
             [
                 stored
@@ -196,12 +206,94 @@ def _recorded(
             canonical,
         )
     )
+
+
+def registros_count(authority: BusinessAuthority, context: ActionContext) -> int:
+    """Each current money activity supplies one row in the unfiltered Registros list."""
+    with authority.pool.connection() as connection, connection.transaction():
+        connection.execute("set transaction isolation level repeatable read")
+        live = _authorized(connection, context)
+        count = len(_recorded_activities(authority, live.context, connection))
+        _authorized(connection, live.context)
+        return count
+
+
+def _detail_activities(
+    authority: BusinessAuthority,
+    context: ActionContext,
+    connection: Connection,
+    activity_id: str,
+) -> list[dict[str, Any]]:
+    """A credit may refer to any original. For other activities only another
+    document with the same number can change the assessment. Read candidate
+    numbers from *every* revision; the fiscal snapshot selects the approved
+    facts and line_assessments decides whether any are really duplicates."""
+    from argus.domain.business.dgii_validation import fact_value, is_credit
+    from argus.domain.business.fiscal_identity import normalized_ncf
+    from argus.domain.recording.activity_lookup import load as load_activity
+
+    repository = PostgresFinancialAccountRepository(authority.pool)
+
+    def activity(identifier: str) -> dict[str, Any] | None:
+        return load_activity(
+            repository, connection, context.owner_id, identifier, context.scope
+        )
+
+    target = activity(activity_id)
+    if target is None:
+        return []
     with connection.cursor(row_factory=dict_row) as cursor:
-        approved, _, _ = fiscal_snapshot(cursor, context, activities)
+        (record,), _, _ = fiscal_snapshot(cursor, context, [target], only_these=True)
+    if is_credit(record):
+        return _recorded_activities(authority, context, connection)
+    number = fact_value(record, "ecf") or fact_value(record, "ncf")
+    if not number:
+        return [target]
+    normalized = normalized_ncf(number)
+    revisions = connection.execute(
+        "select distinct e.activity_id::text, v.after_facts#>>'{fiscal,ecf,value}',"
+        " v.after_facts#>>'{fiscal,ncf,value}' from public.financial_import_events e"
+        " join public.business_draft_revisions v on v.space_id=e.owner_space_id and v.draft_id=e.id"
+        " where e.user_id=%s and e.owner_space_id=%s and e.state='accepted'"
+        " and e.activity_id<>%s and v.after_facts->'fiscal' is not null",
+        (context.owner_id, context.actor.space_id, activity_id),
+    )
+    peers = {
+        identifier
+        for identifier, ecf, ncf in revisions
+        if (ecf or ncf) and normalized_ncf(ecf or ncf) == normalized
+    }
+    activities = [target]
+    for identifier in sorted(peers):
+        peer = activity(identifier)
+        if peer is not None:
+            activities.append(peer)
+    return activities
+
+
+def _recorded(
+    authority: BusinessAuthority,
+    context: ActionContext,
+    connection: Connection,
+    activity_id: str | None = None,
+) -> RecordedSnapshot:
+    context = _authorized(connection, context).context
+    observed_at = connection.execute("select transaction_timestamp()").fetchone()[0]
+    activities = (
+        _recorded_activities(authority, context, connection)
+        if activity_id is None
+        else _detail_activities(authority, context, connection, activity_id)
+    )
+    with connection.cursor(row_factory=dict_row) as cursor:
+        if activity_id is None:
+            approved, _, _ = fiscal_snapshot(cursor, context, activities)
+        else:
+            approved, _, _ = fiscal_snapshot(cursor, context, activities, only_these=True)
         cursor.execute(
             "select activity_id::text, status, settled_on, payment_method"
-            " from public.business_document_settlements where space_id=%s and owner_id=%s",
-            (context.actor.space_id, context.owner_id),
+            " from public.business_document_settlements where space_id=%s and owner_id=%s"
+            " and (%s::uuid is null or activity_id=%s)",
+            (context.actor.space_id, context.owner_id, activity_id, activity_id),
         )
         settlements = {
             row["activity_id"]: Settlement(
@@ -284,7 +376,11 @@ def read_recorded(
 
 
 def projected_records(
-    authority: BusinessAuthority, context: ActionContext, connection: Connection
+    authority: BusinessAuthority,
+    context: ActionContext,
+    connection: Connection,
+    *,
+    activity_id: str | None = None,
 ) -> tuple[RecordedSnapshot, tuple[ReportRecord, ...], RncRegistrySnapshot]:
     """Project Registros on the caller's authorized transaction snapshot.
 
@@ -300,17 +396,25 @@ def projected_records(
         personal_mark_admits,
     )
     from argus.domain.business.reporting_projection import DraftState, project, value
+    from argus.domain.business.supporting_files import supporting_files_full
 
-    snapshot = _recorded(authority, context, connection)
+    snapshot = _recorded(authority, context, connection, activity_id)
     context = snapshot.context
     live = authorize(connection, context.actor, context.grant_id)
-    tx, events = _business_drafts(connection, live)
-    if len(events) + len(snapshot.records) > 10000:
+    selected = None
+    if activity_id is not None:
+        selected = next((r for r in snapshot.records if r.row.activity_id == activity_id), None)
+        if selected is None:
+            return snapshot, (), RncRegistrySnapshot()
+    tx, events = _business_drafts(connection, live, selected)
+    if activity_id is None and len(events) + len(snapshot.records) > _MAX_REPORT_INPUTS:
         raise ActionError("invalid_input", "business_report_too_large")
     accounts = record_context(tx).accounts
+    draft_ids = [event.id for event in events] if activity_id is not None else None
     question_rows = tx.rows(
-        "select id,draft_id,field,asked_of,channel,state,prompt,allowed_answers,answer_source_id,created_at from public.business_questions where space_id=%s",
-        (context.actor.space_id,),
+        "select id,draft_id,field,asked_of,channel,state,prompt,allowed_answers,answer_source_id,created_at from public.business_questions where space_id=%s"
+        " and (%s::uuid[] is null or draft_id=any(%s::uuid[]))",
+        (context.actor.space_id, draft_ids, draft_ids),
     )
     questions: dict[str, list[ReviewQuestion]] = {}
     for row in question_rows:
@@ -387,6 +491,8 @@ def projected_records(
     speaking = _speaking_drafts((record.approved for record in snapshot.records), events)
     projected = []
     for record in snapshot.records:
+        if activity_id is not None and record.row.activity_id != activity_id:
+            continue
         event = speaking.get(record.row.activity_id)
         draft = drafts[event.id] if event else None
         # A record mid-approval shows once the approval settles.
@@ -401,7 +507,8 @@ def projected_records(
             row.model_copy(
                 update={
                     "can_edit_note": can_annotate,
-                    "can_append_supporting": can_annotate,
+                    "can_append_supporting": can_annotate
+                    and not supporting_files_full(source.supporting_only for source in draft.sources),
                     "annotation_unavailable_reason": None
                     if can_annotate
                     else "business_annotation_unavailable"
@@ -467,8 +574,8 @@ def projected_records(
         row[0]
         for row in connection.execute(
             "select activity_id::text from public.business_dgii_export_lines"
-            " where space_id=%s",
-            (context.actor.space_id,),
+            " where space_id=%s and (%s::uuid is null or activity_id=%s)",
+            (context.actor.space_id, activity_id, activity_id),
         ).fetchall()
     )
     return (
@@ -476,6 +583,17 @@ def projected_records(
         with_export_verdicts(tuple(public_rows), verdicts, exported),
         rnc_snapshot,
     )
+
+
+def read_record_detail(tx: ActionTransaction, activity_id: str) -> ReportRecord | None:
+    """The selected row's readiness and 606 answers, on the open transaction."""
+    from argus.domain.postgres_connection import BorrowedConnection
+
+    authority = BusinessAuthority(BorrowedConnection(tx.connection))
+    _, rows, _ = projected_records(
+        authority, tx.context, tx.connection, activity_id=activity_id
+    )
+    return next(iter(rows), None)
 
 
 def read_606(

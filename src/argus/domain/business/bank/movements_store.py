@@ -50,6 +50,7 @@ from argus.domain.business.bank.store_postgres import (
     line_from_row,
 )
 from argus.domain.business.month_close_store import collect_documents
+from argus.domain.business.transactions import lock_owner
 
 _ACCOUNTS = """
 select ba.id::text as bank_account_id, ba.account_id::text as account_id,
@@ -269,10 +270,14 @@ class DocumentCatalog:
 
 
 @contextmanager
-def bank_session(pool, context: ActionContext, capability: str) -> Iterator[Any]:  # noqa: ANN001
+def bank_session(
+    pool, context: ActionContext, capability: str, *, owner_lock: bool = False
+) -> Iterator[Any]:  # noqa: ANN001
     """One read-committed transaction with the caller's live grant checked."""
 
     with pool.connection() as connection, connection.transaction():
+        if owner_lock:
+            lock_owner(connection, context.owner_id)
         auth = authorize(connection, context.actor, context.grant_id)
         auth.require(capability)
         if auth.context.owner_id != context.owner_id:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
 from argus.domain.business.amount_inheritance import saved_declaration
@@ -14,7 +15,24 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.document_type import money_document_type
 from argus.domain.business.ledger import occurred_on
+from argus.domain.business.purchase_review import (
+    declaration_from_facts,
+    paying_account_type,
+    states_declaration,
+)
 from argus.domain.recording.owner_funds import no_account
+
+
+def account_types(connection, context) -> dict[str, str]:
+    """The type of every account of the Business by id, archived ones too: an
+    account a record's facts name keeps its type after it is archived."""
+
+    with connection.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(
+            "select id,type from public.financial_accounts where owner_space_id=%s and user_id=%s",
+            (context.actor.space_id, context.owner_id),
+        )
+        return {str(row["id"]): row["type"] for row in cursor.fetchall()}
 
 
 def fiscal_snapshot(cursor, context, activities, *, only_these=False):
@@ -26,10 +44,8 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
         (context.actor.space_id,),
     )
     profile = cursor.fetchone()
-    # Facts and evidence come from the approved revision. The declaration is
-    # the latest revision's: the approval's own, or 606 data a person added
-    # after approval. The Personal mark and the 606 answer come from the
-    # draft as it stands now.
+    # Use the facts the owner last posted to this activity. Reapproval can
+    # supersede an earlier correction. Marks still come from the live draft.
     cursor.execute(
         "select e.id,e.activity_id,e.resolution,v.version,v.after_facts,d.after_dgii"
         " from public.financial_import_events e"
@@ -39,7 +55,10 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
         " and a.command->>'action' in ('approve_expense','approve_income','approve_refund')"
         " join lateral ("
         + approved_revision_sql(
-            "e.id", "e.owner_space_id", "(a.command->'request'->>'version')::integer"
+            "e.id",
+            "e.owner_space_id",
+            "greatest((a.command->'request'->>'version')::integer,"
+            "(e.resolution->>'accepted_edit_version')::integer)",
         )
         + ") v on true"
         " join lateral (select after_dgii from public.business_draft_revisions"
@@ -54,6 +73,7 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
             *([[item["activity_id"] for item in activities]] if only_these else []),
         ),
     )
+    types: dict[str, str] | None = None
     approved = {}
     for row in cursor.fetchall():
         identifier = str(row["activity_id"])
@@ -74,11 +94,17 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
             BusinessFacts.model_validate(row["after_facts"]) if row else BusinessFacts()
         )
         declaration = TypeAdapter(DgiiDeclaration).validate_python(row["after_dgii"]) if row and row["after_dgii"] else None
+        built = None
+        if resolution and declaration is None and states_declaration(resolution.document_type, facts):
+            if types is None:
+                types = account_types(cursor.connection, context)
+            built = declaration_from_facts(facts, paying_account_type(facts, types))
         declaration = saved_declaration(
             facts,
             declaration,
             resolution.fiscal_overrides if resolution else None,
             resolution.bill_mark if resolution else None,
+            built,
         )
         records.append(
             FiscalRecord(

@@ -20,7 +20,7 @@ from argus.domain.ingestion.documents.models import (
 )
 from argus.domain.owner_scope import BusinessSpace
 
-from tests.business.receipt_stub import DETAILS, PURCHASE
+from tests.business.receipt_stub import receipt_details, receipt_purchase
 from tests.ingestion.test_business_document_bridge import (  # noqa: F401
     document_bridge,
     reading_on,
@@ -53,7 +53,7 @@ def _batch(draft: DocumentDraft, rows: list[dict]):  # noqa: ANN202
             readable=True,
             pages_read=[1],
             observations=rows,
-            receipt=DETAILS,
+            receipt=receipt_details(NOW),
         )
     )
     return batch_from_result(result, draft.sha256, draft.connection_id, NOW, 1)
@@ -71,23 +71,23 @@ def _batch(draft: DocumentDraft, rows: list[dict]):  # noqa: ANN202
 )
 def test_a_saved_read_whose_handoff_failed_waits_as_interrupted_and_retryable(code):
     draft = _draft(code)
-    batch = _batch(draft, [PURCHASE])
+    batch = _batch(draft, [receipt_purchase(NOW)])
     assert len(batch.candidates) == 1 and batch.issues == ()
-    receipt = compose(draft, batch, [], "web")
+    receipt = compose(draft, batch, [], "web", read_pending=False)
     assert (receipt.status, receipt.attention, receipt.error_code) == (
         "needs_attention",
         "interrupted",
         code,
     )
     assert receipt.preparable is True
-    assert receipt.detail()["evidence"]["total"] == DETAILS["total"]
+    assert receipt.detail()["evidence"]["total"] == receipt_details(NOW)["total"]
     assert receipt.detail()["draft_id"] is None
 
 
 def test_a_read_that_found_nothing_still_says_no_purchase_found():
     draft = _draft("no_financial_observations")
     batch = _batch(draft, [])
-    receipt = compose(draft, batch, [], "web")
+    receipt = compose(draft, batch, [], "web", read_pending=False)
     # The read's own finding keeps its code; the inbox says no purchase was found.
     assert (receipt.status, receipt.attention, receipt.error_code) == (
         "needs_attention",
@@ -100,7 +100,7 @@ def test_a_read_that_found_nothing_still_says_no_purchase_found():
 def test_a_stored_priced_statement_stays_reprocessable():
     draft = _draft("receipt_requires_review")
     statement = {
-        **PURCHASE,
+        **receipt_purchase(NOW),
         "evidence": "statement_period",
         "direction": "unknown",
         "kind_hint": "unknown",
@@ -117,7 +117,7 @@ def test_a_stored_priced_statement_stays_reprocessable():
         )
     )
     batch = batch_from_result(result, draft.sha256, draft.connection_id, NOW, 1)
-    receipt = compose(draft, batch, [], "web")
+    receipt = compose(draft, batch, [], "web", read_pending=False)
     assert (receipt.attention, receipt.preparable, receipt.enterable) == (
         "interrupted",
         True,
@@ -138,7 +138,7 @@ def test_a_stored_unreadable_refusal_reads_as_unreadable():
         )
     )
     batch = batch_from_result(result, draft.sha256, draft.connection_id, NOW, 1)
-    receipt = compose(draft, batch, [], "web")
+    receipt = compose(draft, batch, [], "web", read_pending=False)
     assert (receipt.attention, receipt.preparable, receipt.enterable) == (
         "unreadable",
         False,
@@ -149,7 +149,7 @@ def test_a_stored_unreadable_refusal_reads_as_unreadable():
 def test_a_stored_ncf_bill_refusal_stays_reprocessable():
     draft = _draft("receipt_requires_review")
     notice = {
-        **PURCHASE,
+        **receipt_purchase(NOW),
         "evidence": "due_notice",
         "direction": "unknown",
         "kind_hint": "unknown",
@@ -164,7 +164,7 @@ def test_a_stored_ncf_bill_refusal_stays_reprocessable():
         )
     )
     batch = batch_from_result(result, draft.sha256, draft.connection_id, NOW, 1)
-    receipt = compose(draft, batch, [], "web")
+    receipt = compose(draft, batch, [], "web", read_pending=False)
     assert (receipt.attention, receipt.preparable, receipt.enterable) == (
         "interrupted",
         True,
@@ -174,8 +174,8 @@ def test_a_stored_ncf_bill_refusal_stays_reprocessable():
 
 def test_an_error_the_read_itself_produced_keeps_its_own_blocker():
     draft = _draft("receipt_purchase_ambiguous")
-    batch = _batch(draft, [PURCHASE, {**PURCHASE, "row": 2, "amount": "100.00"}])
-    receipt = compose(draft, batch, [], "web")
+    batch = _batch(draft, [receipt_purchase(NOW), {**receipt_purchase(NOW), "row": 2, "amount": "100.00"}])
+    receipt = compose(draft, batch, [], "web", read_pending=False)
     assert receipt.error_code == "receipt_purchase_ambiguous"
     assert receipt.preparable is False and receipt.enterable is True
 
@@ -276,7 +276,7 @@ def test_a_receipt_offers_another_hand_off_only_when_it_would_make_a_draft(
         expected = (READ_REFUSAL_ATTENTION.get(refused.code), False)
     else:
         expected = ("interrupted", True)
-    shown = compose(draft, batch, [], "web")
+    shown = compose(draft, batch, [], "web", read_pending=False)
     assert (shown.attention, shown.preparable) == expected
     assert shown.enterable is True
 
@@ -331,7 +331,7 @@ async def test_a_retry_replays_the_saved_read_and_never_reads_again(
         )
     draft = service.get(user_id=owner, connection_id=uploaded.connection_id, scope=scope)
     batch = service.store.get(user_id=owner, connection_id=uploaded.connection_id)
-    shown = compose(draft, batch, [], "web")
+    shown = compose(draft, batch, [], "web", read_pending=False)
     assert (shown.attention, shown.preparable) == (attention, preparable)
     if kind == "ncf_bill":
         outcome = await service.resume(

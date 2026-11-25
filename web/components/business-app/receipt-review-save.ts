@@ -7,10 +7,11 @@ import { referenceCode } from "@/lib/failure-screen";
 import { resolveLanguage } from "@/lib/language-features";
 import { randomId } from "@/lib/random-id";
 import type { BusinessDataSource } from "./business-data";
+import { recordForm } from "./dossier/fiscal-rows";
 import type { DocumentType, ReviewRow } from "./receipt-fact-rows";
 
-/** A row on the open draft that saves on its own: a fact, or one of the owner's two 606 choices. */
-export type SaveRow = ReviewRow | keyof PurchaseChoice;
+/** A dossier row that saves on its own: a fact, or one of the owner's two 606 choices. */
+export type SaveRow = ReviewRow;
 
 /** One edit, by the write that owns its fact. */
 export type ReviewChange =
@@ -18,12 +19,13 @@ export type ReviewChange =
   | { write: "facts"; facts: BusinessFactPatch }
   | { write: "fiscal"; fiscal: Partial<DgiiReview["fiscal"]> }
   | { write: "purchase"; purchase: PurchaseChoice }
+  | { write: "income_type"; incomeType: string }
+  | { write: "sale_payment"; form: string }
   | { write: "type"; documentType: DocumentType };
 
-/** Where a row's last save stands. `unknown` is a save whose outcome never came back, so its edit cannot be dropped. */
+/** Where a row's save stands; a row whose save landed holds none. `unknown` is a save whose outcome never came back, so its edit cannot be dropped. */
 export type RowSave =
   | { state: "saving" }
-  | { state: "saved" }
   | { state: "failed"; message: string; reference: string; retry: boolean; unknown: boolean };
 
 /** What a person has typed into an open row. */
@@ -38,10 +40,11 @@ function currentFiscal(dossier: BusinessDossier): DgiiReview["fiscal"] {
   return { rnc: fiscal?.rnc.value ?? null, ncf: fiscal?.ecf.value ?? fiscal?.ncf.value ?? null, itbis: fiscal?.itbis.value ?? null };
 }
 
+/** The declaration a write goes with: the record's own, or a blank one of its form. One saved for the other form is not the record's. */
 function keptDeclaration(dossier: BusinessDossier, fields: DgiiFields | null): DgiiDeclaration | null {
-  if (dossier.dgii) return dossier.dgii;
+  const form = recordForm(dossier);
+  if (dossier.dgii?.form === form) return dossier.dgii;
   if (!fields) return null;
-  const form = dossier.facts.kind.value === "income" ? "607" : "606";
   const blank: DgiiDeclaration = { form };
   for (const field of fields[form]) if (!(field.name in currentFiscal(dossier))) blank[field.name] = null;
   if (form === "606") { blank.actual_refund = false; blank.purchase_activity_id = null; }
@@ -71,8 +74,11 @@ function send(source: BusinessDataSource, dossier: BusinessDossier, change: Revi
   if (change.write === "facts") return source.reviewDraft(id, version, change.facts, key);
   if (change.write === "purchase") return source.reviewPurchase(id, version, change.purchase, key);
   if (change.write === "type") return source.setDocumentType(id, version, change.documentType, key);
+  if (change.write === "sale_payment") return source.reviewSalePayment(id, version, change.form, key);
   const declaration = keptDeclaration(dossier, fields);
   if (!declaration) throw Object.assign(new Error("tax fields unavailable"), { code: "fields_unavailable" });
+  // The 607 has no write for one answer: the type of income goes with the declaration as it stands.
+  if (change.write === "income_type") return source.reviewFiscal(id, version, { fiscal: currentFiscal(dossier), declaration: { ...declaration, income_type: change.incomeType } }, key);
   return source.reviewFiscal(id, version, { fiscal: { ...currentFiscal(dossier), ...change.fiscal }, declaration }, key);
 }
 
@@ -102,11 +108,11 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
   useEffect(() => { latest.current = dossier; }, [dossier]);
 
   const mark = useCallback((row: SaveRow, save: RowSave | null) => setSaves((current) => {
-    const others = Object.entries(current).filter(([name, other]) => name !== row && (save?.state !== "saved" || other.state !== "saved"));
+    const others = Object.entries(current).filter(([name]) => name !== row);
     return Object.fromEntries(save ? [...others, [row, save]] : others);
   }), []);
 
-  const refused = (row: SaveRow, code?: string) => code === "document_type_locked" ? t("business.dossier.type_locked", "This record is approved. Its type no longer changes.") : t(`business.dgii.error.${code}`, "") || t(`business.dossier.blocker.${code}`, "") || t("business.dossier.placeholder.save_refused", { field: label(row), defaultValue: "{{field}} wasn't saved. Check the value." });
+  const refused = (row: SaveRow, code?: string) => code === "fact_required" ? t("business.dossier.field_required", { field: label(row) }) : t(`business.dgii.error.${code}`, "") || t(`business.dossier.blocker.${code}`, "") || t("business.dossier.placeholder.save_refused", { field: label(row), defaultValue: "{{field}} wasn't saved. Check the value." });
 
   const failure = async (row: SaveRow, attempt: Attempt, base: BusinessDossier, key: string, error: unknown): Promise<Failure | null> => {
     const { code, status } = error as { code?: string; status?: number };
@@ -121,7 +127,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
     if (status === 401 || status === 403 || status === 404 || code === "permission_denied") { onLost(reference); return null; }
     if (status && status >= 400 && status < 500) return { message: businessDateMessage(error, t, locale, label(row)) ?? refused(row, code), reference, retry: false, unknown: false };
     attempts.current[row] = { change: attempt.change, base, key };
-    return { message: t("business.dossier.placeholder.save_lost", { field: label(row), defaultValue: "We couldn't confirm that {{field}} was saved. Approval is paused." }), reference, retry: true, unknown: true };
+    return { message: t(dossier?.review_state === "accepted" ? "business.dossier.save_unconfirmed" : "business.dossier.placeholder.save_lost", { field: label(row) }), reference, retry: true, unknown: true };
   };
 
   const run = (row: SaveRow, attempt: Attempt): Promise<boolean> => {
@@ -135,7 +141,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
         latest.current = next;
         delete attempts.current[row];
         onSaved(next);
-        mark(row, { state: "saved" });
+        mark(row, null);
         return true;
       } catch (error) {
         const failed = await failure(row, attempt, base, key, error);
@@ -165,17 +171,11 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
   };
 }
 
-/** What a row holds as it opens: a receipt with no currency starts on the only one the picker offers, for the check to confirm. */
-function startingEdit(row: ReviewRow, dossier: BusinessDossier | null, currencies: readonly string[]): RowEdit | null {
-  if (row !== "currency" || !dossier || dossier.facts.currency.state === "known" || currencies.length !== 1) return null;
-  return { change: { write: "facts", facts: { currency: { state: "known", value: currencies[0] } } }, invalid: false };
-}
-
 /**
  * The rows a person has open. A row saves only when asked; leaving it saves
  * nothing, so `unsaved` names what would be lost.
  */
-export function useReviewRows({ dossier, autosave, currencies }: { dossier: BusinessDossier | null; autosave: ReturnType<typeof useReviewAutosave>; currencies: readonly string[] }) {
+export function useReviewRows({ dossier, autosave }: { dossier: BusinessDossier | null; autosave: ReturnType<typeof useReviewAutosave> }) {
   const [rows, setRows] = useState<Partial<Record<ReviewRow, OpenRow>>>({});
 
   const focusRow = (row: ReviewRow, control: string) => requestAnimationFrame(() => {
@@ -189,7 +189,7 @@ export function useReviewRows({ dossier, autosave, currencies }: { dossier: Busi
     setRows((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== row)));
     focusRow(row, "button");
   };
-  const open = (row: ReviewRow) => setRows((current) => current[row] ? current : { ...current, [row]: { edit: startingEdit(row, dossier, currencies), tried: false } });
+  const open = (row: ReviewRow) => setRows((current) => current[row] ? current : { ...current, [row]: { edit: null, tried: false } });
   const hold = (row: ReviewRow, edit: RowEdit) => setRows((current) => ({ ...current, [row]: { edit, tried: false } }));
   const finish = (row: ReviewRow, saved: Promise<boolean>) => void saved.then((done) => { if (done) close(row); else focusRow(row, "input, select"); });
 

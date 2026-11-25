@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Generic, Literal, TypeVar
@@ -90,12 +91,17 @@ class Contract(BaseModel):
 class NetAmount(Contract):
     amount: str | None
     source: Literal["read", "calculated", "edited"] | None
+    #: The amount the server calculates from the total and its parts, whatever
+    #: ``source`` is: what a read or edited Subtotal goes back to.
+    calculated: str | None = None
 
 
 class InheritedValue(Contract):
     field: Literal["net_amount", "itbis", "legal_tip", "occurred_on", "rnc", "original_ncf"]
     value: str | None
     inherited: bool
+    #: The other fields that follow or leave their source together with this one.
+    paired_with: tuple[str, ...]
 
 
 class Known(Contract, Generic[T]):
@@ -427,6 +433,19 @@ def fiscal_value(facts: BusinessFacts) -> FiscalValue | None:
     if isinstance(facts.fiscal.ncf, Known):
         return "ncf"
     return None
+
+
+def read_fills(fact: Mapping[str, Any]) -> bool:
+    """Whether a later read of the document puts its value in this fact's
+    place: an unknown no person and no match settled, or the defaulted currency."""
+
+    if fact["state"] == "unknown":
+        return fact.get("origin") not in {"owner_stated", "member_set", "matched"}
+    return (
+        fact.get("origin") == "default"
+        and fact.get("value") == "DOP"
+        and not fact.get("source_ids")
+    )
 
 
 def is_personal(facts: BusinessFacts) -> bool:

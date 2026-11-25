@@ -9,7 +9,6 @@ import { reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportR
 import { restoreReportLocation } from "@/lib/business-reporting-wire";
 import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-report-http-fixture";
 import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
-import spanish from "@/public/locales/es-419/common.json";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 import { mountAnnotatedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
 
@@ -103,12 +102,12 @@ test("Total stays static without requests, filters or navigation", async () => {
 });
 
 test("six cards show report scope and the readiness card applies ready false", async () => {
-  const page = await mount({ edit: (rows) => rows.slice(3, 63).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["ncf_missing"]; }) });
+  const page = await mount({ edit: (rows) => rows.slice(3, 63).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["missing_ncf"]; }) });
   assert.deepEqual(overviewCards().map((card) => card.getAttribute("data-overview-filter")), ["fiscal"]);
   assert.equal(document.querySelectorAll("[data-overview-card]").length, 6);
   assert.match(document.querySelector('[data-overview-card="quantity"]')!.textContent!, /63/);
   const fiscal = overviewCards()[0]; assert.match(fiscal.textContent!, /Faltan datos/); assert.match(fiscal.textContent!, /30/);
-  assert.doesNotMatch(document.querySelector('[data-testid="records-overview-preview"]')!.textContent!, /Listos para exportar|Ya exportados|Por aprobar|Por revisar/);
+  assert.doesNotMatch(document.querySelector('[data-testid="records-overview-preview"]')!.textContent!, /Listos para exportar|Ya exportados|Por aceptar|Por revisar/);
   const before = sentFilters(page).length;
   await page.click(fiscal); await page.settle(() => sentFilters(page).length > before);
   assert.equal(sentFilters(page).at(-1)!.ready, false);
@@ -138,12 +137,10 @@ test("Registros leaves the Bandeja count to the sidebar", async () => {
   assert.doesNotMatch(document.body.textContent ?? "", /en la Bandeja/);
 });
 
-test("Filtros offers one Estado choice without export history", async () => {
+test("the connected purchase menu offers four groups", async () => {
   const page = await mount();
   await page.click(page.button("Filtros"));
-  await page.click(document.querySelector('[data-group="ready"]'));
-  const labels = [...document.querySelectorAll('[role="dialog"] label')].map((label) => label.textContent).filter((label) => label !== "Seleccionar todo");
-  assert.deepEqual(labels, ["Todos", "Listo", "Faltan datos"]);
+  assert.deepEqual([...document.querySelectorAll("[data-group]")].map((tab) => tab.textContent), ["Adjunto", "Monto", "Emisor", "Tipo de gasto"]);
 });
 
 test("a saved view or address bar naming a stage the server no longer has reads as no stage filter", async () => {
@@ -169,30 +166,6 @@ test("an address from another Business opens Registros without a notice", async 
   await mount();
   assert.ok(document.querySelectorAll("tbody tr").length > 0);
   assert.doesNotMatch(document.body.textContent ?? "", /Los registros cambiaron/);
-});
-
-test("supporting files freeze the uncertain file before advancing and download by returned receipt identity", async () => {
-  const page = await mount(); page.fixture.controls.fileUncertainAt = 1;
-  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
-  const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
-  const files = [new File(["first new bytes"], "primero.pdf", { type: "application/pdf" }), new File(["second new bytes"], "segundo.pdf", { type: "application/pdf" })];
-  await act(async () => { Object.defineProperty(input, "files", { configurable: true, value: files }); input.dispatchEvent(new Event("change", { bubbles: true })); });
-  await page.settle(() => document.querySelectorAll("[data-local-files] li").length === 2);
-  await page.click(page.button("Guardar"));
-  await page.settle(() => document.querySelector('[role="alert"]')?.textContent?.includes("confirmar") ?? false);
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/supporting-files")).length, 1);
-  await page.click(page.button("Reintentar"));
-  await page.settle(() => !document.querySelector('[role="dialog"]'));
-  const writes = page.fixture.calls.filter((call) => call.path.endsWith("/supporting-files"));
-  assert.equal(writes.length, 3); assert.equal(writes[0].headers.get("Idempotency-Key"), writes[1].headers.get("Idempotency-Key"));
-  assert.equal(writes[0].headers.get("X-Draft-Version"), "3"); assert.equal(writes[1].headers.get("X-Draft-Version"), "3"); assert.equal(writes[2].headers.get("X-Draft-Version"), "4");
-  assert.equal(page.fixture.records[0].attachment_sources!.length, 3); assert.equal(page.fixture.records[0].gross_amount, "100.00");
-  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
-  await page.click(page.button("primero.pdf"));
-  await page.settle(() => page.downloads.length > 0);
-  const read = page.fixture.calls.find((call) => call.path.endsWith(`/receipts/${fixtureId(8001)}/source`));
-  assert.ok(read); assert.equal(await page.downloads[0].text(), "first new bytes");
-  assert.notEqual(page.fixture.records[0].attachment_sources![1].source_id, fixtureId(8001));
 });
 
 test("canonical filters normalize legacy all families and keep one currency", () => {
@@ -245,16 +218,6 @@ test("a member with export and no Agregar keeps Exportar in the toolbar, and it 
   assert.ok(document.querySelector('[data-testid="records-export"]'), "the button is still there after the download");
 });
 
-test("viewer metadata never grants append or source bytes, and unavailable originals stay linked", async () => {
-  const page = await mount({ readOnly: true });
-  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
-  assert.equal((page.button("Original sintético.pdf") as HTMLButtonElement).disabled, true);
-  assert.equal(document.querySelector('input[type="file"]'), null);
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/source")).length, 0);
-  assert.match(document.querySelector('[role="dialog"]')!.textContent!, /Original sintético/);
-});
-
-
 test("authoritative decimal text above the safe integer limit renders exactly beside unknown money in the selected currency", async () => {
   await mount({ large: true });
   const rows = [...document.querySelectorAll("tbody tr")];
@@ -263,19 +226,6 @@ test("authoritative decimal text above the safe integer limit renders exactly be
   assert.match(rows[2].querySelector('[data-col="gross_amount"]')!.textContent!, /-/);
   assert.equal(rows[3].querySelector('[data-col="gross_amount"]')!.textContent, "20.00");
   assert.equal(rows[4].querySelector('[data-col="gross_amount"]')!.textContent, "-20.00");
-});
-
-test("an unavailable original keeps its filename and linked evidence distinct from a missing attachment", async () => {
-  const page = await mount();
-  page.fixture.storage.delete(fixtureId(700));
-  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
-  await page.click(page.button("Original sintético.pdf"));
-  await page.settle(() => document.querySelector('[role="alert"]') !== null);
-  assert.match(document.querySelector('[role="dialog"]')!.textContent!, /Original sintético.pdf/);
-  assert.equal(page.downloads.length, 0);
-  assert.equal(page.fixture.records[0].has_document, true);
-  assert.equal(page.fixture.records[0].attachment_sources![0].receipt_id, fixtureId(700));
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith(`/receipts/${fixtureId(500)}/source`)).length, 0);
 });
 
 test("older v1 servers keep query usable and leave unsupported overview unavailable", async () => {
@@ -308,41 +258,12 @@ test("view conflicts keep the unsaved name and require current version readback 
 });
 
 
-test("phone rows and their attachment editor preserve an authoritative negative decimal", async () => {
-  const page = await mount({ large: true, width: 390 });
+test("a phone row preserves the authoritative negative decimal next to the attachment control", async () => {
+  await mount({ large: true, width: 390 });
   const row = document.querySelector(`[data-record-key="draft:${fixtureId(5)}"]`)!;
   assert.match(row.textContent!, /-RD\$ 20\.00/);
-  await page.click(row.querySelector(`[data-record-attachment="draft:${fixtureId(5)}"]`));
-  await page.settle(() => document.querySelector('[role="dialog"]') !== null);
-  assert.match(document.querySelector('[role="dialog"]')!.textContent!, /-RD\$ 20\.00/);
+  assert.ok(row.querySelector(`button[data-record-attachment="draft:${fixtureId(5)}"]`));
 });
-
-for (const denied of ['note', 'supporting', 'dossier', 'source'] as const) test(`${denied} access refusal clears the cached report and closes the editor`, async () => {
-  const page = await mount();
-  await page.click(document.querySelector(`[data-record-${denied === 'source' || denied === 'supporting' ? 'attachment' : 'note'}="draft:${fixtureId(1)}"]`));
-  page.fixture.controls.reportForbidden = true;
-  if (denied === 'dossier') {
-    page.fixture.records[0].revision++;
-    await page.click(page.button('Guardar'));
-    await page.settle(() => page.button('Recargar') !== undefined);
-    const request = globalThis.fetch;
-    globalThis.fetch = (async (input, init) => String(input).endsWith('/dossier') ? Response.json({ code: 'permission_denied' }, { status: 403 }) : request(input, init)) as typeof fetch;
-    await page.click(page.button('Recargar'));
-  } else {
-    if (denied === 'supporting') {
-      const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
-      await act(async () => { Object.defineProperty(input, 'files', { configurable: true, value: [new File(['synthetic'], 'apoyo.pdf', { type: 'application/pdf' })] }); input.dispatchEvent(new Event('change', { bubbles: true })); });
-      await page.settle(() => document.querySelector('[data-local-files] li') !== null);
-    }
-    page.fixture.controls.readOnly = true;
-    await page.click(page.button(denied === 'source' ? 'Original sintético.pdf' : 'Guardar'));
-  }
-  await page.settle(() => document.querySelector('[data-testid="records-count"]') === null && document.querySelector('[role="dialog"]') === null);
-  assert.equal(document.querySelectorAll('[data-record-key]').length, 0);
-  assert.equal(document.body.textContent?.includes('Proveedor 1'), false);
-  assert.equal(document.body.textContent?.includes(spanish.business.transactions.reporting.access_unavailable), true);
-});
-
 
 const sentFilters = (page: Awaited<ReturnType<typeof mount>>) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).map((call) => (call.body as ReportRequest).filters);
 const addressFilters = () => restoreReportLocation(new URL(window.location.href).searchParams).request.filters;
@@ -387,39 +308,37 @@ test("a period the person chose stays chosen when Registros opens again", async 
   assert.equal(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]')?.textContent, "Mes pasado");
 });
 
-test("Estado reads ready and Motivo shows server reasons independently of legacy stage", async () => {
+test("Estado still reads server readiness independently of legacy stage and missing reasons", async () => {
   await mount({ edit: (records) => {
     Object.assign(records[0], { stage: "ready_for_export", ready: false, missing: ["payment_method_missing"] });
-    Object.assign(records[1], { family: "purchase", ready: false, missing: ["ncf_missing", "rnc_missing"] });
-    Object.assign(records[2], { ready: true, missing: ["ncf_missing"] });
+    Object.assign(records[1], { family: "purchase", ready: false, missing: ["missing_ncf", "missing_rnc"] });
+    Object.assign(records[2], { ready: true, missing: ["missing_ncf"] });
   } });
   const cell = (id: number, column: string) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="${column}"]`)?.textContent;
-  assert.equal(cell(1, "stage"), "Faltan datos");
-  assert.equal(cell(2, "stage"), "Faltan datos");
-  assert.equal(cell(3, "stage"), "Listo");
-  assert.equal(cell(1, "missing"), "Falta la forma de pago");
-  assert.equal(cell(2, "missing"), "Falta el NCF+1");
-  assert.equal(cell(3, "missing"), "");
+  assert.equal(cell(1, "stage"), "Falta 1 dato");
+  assert.equal(cell(2, "stage"), "Faltan 2 datos");
+  assert.equal(cell(3, "stage"), "");
+  assert.equal(document.querySelector('[data-col="missing"], [data-col="funding"]'), null);
 });
 
 test("chosen purchase columns use the server's name, missing word and a dash for a sale", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, hidden: ["funding", "payment_form"] } }) });
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, hidden: ["attachment", "payment_form"] } }) });
   const cell = (id: number, column: string) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="${column}"]`);
   const headings = [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
   assert.ok(!headings.includes("category") && !headings.includes("detail") && headings.includes("expense_type"), "the optional purchase field replaces the removed table fields");
   assert.equal(document.querySelector('th[data-col="expense_type"]')?.textContent, "Tipo de gasto");
   assert.equal(document.querySelector('th[data-col="payment_form"]'), null, "Forma de pago starts hidden");
-  assert.equal(cell(1, "expense_type")?.textContent, "Falta");
+  assert.equal(cell(1, "expense_type")?.textContent, "-sin dato");
   assert.equal(cell(3, "expense_type")?.textContent, "Gastos por trabajos, suministros y servicios");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   await page.click([...document.querySelectorAll('button[role="radio"]')].find((node) => node.textContent === "Columnas"));
   await page.click(document.querySelector('[data-column-setting="payment_form"] label'));
   await page.settle(() => document.querySelector('th[data-col="payment_form"]') !== null);
   assert.equal(document.querySelector('th[data-col="payment_form"]')?.textContent, "Forma de pago");
-  assert.equal(cell(1, "payment_form")?.textContent, "Falta");
+  assert.equal(cell(1, "payment_form")?.textContent, "-sin dato");
   assert.equal(cell(3, "payment_form")?.textContent, "Efectivo");
   const request = restoreReportLocation(new URL(window.location.href).searchParams).request;
-  assert.deepEqual(request.schema_version === 2 ? request.presentation?.hidden : null, ["funding"], "the chosen columns travel with the saved presentation");
+  assert.deepEqual(request.schema_version === 2 ? request.presentation?.hidden : null, ["attachment"], "the chosen columns travel with the saved presentation");
   await page.click(document.querySelector('#records-type-venta'));
   await page.settle(() => document.querySelector('th[data-col="expense_type"]') === null);
   assert.equal(document.querySelector('th[data-col="payment_form"]'), null);
@@ -431,7 +350,7 @@ test("Filtros offers Tipo de gasto from the server's catalogue plus Falta, and s
   await page.click(page.button("Filtros"));
   await page.click(document.querySelector('[data-group="expense_type"]'));
   const labels = [...document.querySelectorAll('[role="dialog"] label')].map((label) => label.textContent).filter((label) => label !== "Seleccionar todo");
-  assert.deepEqual(labels, ["Gastos por trabajos, suministros y servicios", "Falta"]);
+  assert.deepEqual(labels, [...recordedReportAnswer.expense_types.map((choice) => choice.label), "Falta"]);
   await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Falta"));
   await page.click(page.button("Aplicar"));
   await page.settle(() => sentFilters(page).length > before);
@@ -439,25 +358,17 @@ test("Filtros offers Tipo de gasto from the server's catalogue plus Falta, and s
   assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Tipo de gasto · Falta/);
   // 21 of the 126 fixture rows are purchases still missing their tipo de gasto.
   await page.settle(() => document.querySelectorAll("tbody tr").length === 21);
-  assert.ok([...document.querySelectorAll('tbody tr td[data-col="expense_type"]')].every((node) => node.textContent === "Falta"));
+  assert.ok([...document.querySelectorAll('tbody tr td[data-col="expense_type"]')].every((node) => node.textContent === "-sin dato"));
 });
 
-test("Filtros offers only the document kinds a row can carry, and each one finds its records", async () => {
-  const { REPORT_DOCUMENT_KINDS, reportRecordSchema } = await import("@/lib/business-reports-api");
-  assert.deepEqual([...REPORT_DOCUMENT_KINDS], ["credit_note", "unknown"]);
-  const page = await mount({ edit: (records) => { records[4].document_kind = "credit_note"; records[6].document_kind = "credit_note"; } });
-  for (const kind of REPORT_DOCUMENT_KINDS) assert.ok(reportRecordSchema.shape.document_kind.options.includes(kind), `${kind} is a contract kind`);
-  const before = sentFilters(page).length;
-  await page.click(page.button("Filtros"));
-  await page.click(document.querySelector('[data-group="document"]'));
-  const labels = [...document.querySelectorAll('[role="dialog"] label')].map((label) => label.textContent).filter((label) => label !== "Seleccionar todo");
-  assert.deepEqual(labels, ["Nota de crédito", "sin dato"]);
-  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Nota de crédito"));
-  await page.click(page.button("Aplicar"));
-  await page.settle(() => sentFilters(page).length > before);
-  assert.deepEqual(sentFilters(page).at(-1)!.document_kinds, ["credit_note"]);
-  await page.settle(() => document.querySelectorAll("tbody tr").length === 2);
-  assert.deepEqual([...document.querySelectorAll("tbody tr")].map((row) => row.getAttribute("data-record-key")), [`draft:${fixtureId(5)}`, `draft:${fixtureId(7)}`]);
+test("opening an old document filter preserves the purchase scope and its credit notes", async () => {
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { document_kinds: ["credit_note"], q: "Proveedor" } });
+  const page = await mount({ initial, edit: (records) => { records[4].document_kind = "credit_note"; } });
+  const filters = sentFilters(page).at(-1)!;
+  assert.equal(filters.q, "Proveedor");
+  assert.equal("document_kinds" in filters, false);
+  assert.deepEqual(filters.record_families, ["purchase"]);
+  for (const id of [1, 5]) assert.ok(document.querySelector(`[data-record-key="draft:${fixtureId(id)}"]`));
 });
 
 const aboveTable = () => { const section = document.querySelector('[data-testid="transacciones"]')!; const nodes = [...section.children]; const end = nodes.findIndex((node) => node.querySelector('[data-testid="transacciones-records"], [data-empty-kind]')); return nodes.slice(0, end).map((node) => `${node.tagName}:${node.getAttribute("data-testid") ?? node.getAttribute("role") ?? ""}`); };
@@ -486,11 +397,12 @@ for (const family of ["purchase", "sale"] as const) test(`an empty ${family} fil
   const page = await mount({
     initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["USD"], period, q: "Proveedor" } }),
     edit: (records) => { for (const row of records) { row.currency = "USD"; row.recorded_currency = "USD"; } },
+    queryAnswer: (_request, answer) => ({ ...answer, counterparties: [...answer.counterparties, { key: "other", labels: ["Otro comercio"] }] }),
   });
   const before = aboveTable();
   await page.click(page.button("Filtros"));
-  await page.click(document.querySelector('[data-group="document"]'));
-  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Nota de crédito"));
+  await page.click(document.querySelector('[data-group="counterparty"]'));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Proveedor autorizado"));
   await page.click(page.button("Aplicar"));
   await page.settle(() => document.querySelector('[data-empty-kind="filtered"]') !== null);
   const empty = document.querySelector('[data-empty-kind="filtered"]')!;
@@ -499,12 +411,12 @@ for (const family of ["purchase", "sale"] as const) test(`an empty ${family} fil
   assert.equal(empty.querySelector("img")?.getAttribute("src"), "/brand/records-search.webp");
   assert.deepEqual([...empty.querySelectorAll("button")].map((button) => button.textContent), ["Limpiar filtros"]);
   assert.deepEqual(aboveTable(), before, "nothing above the table moved");
-  assert.deepEqual(sentFilters(page).slice(-2).map((filters) => [filters.q, filters.document_kinds]), [["", ["credit_note"]], ["", []]]);
+  assert.deepEqual(sentFilters(page).slice(-2).map((filters) => [filters.q, filters.counterparties]), [["", ["101001577"]], ["", []]]);
   await page.click(empty.querySelector("button"));
   await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
   assert.deepEqual(aboveTable(), before);
   const applied = sentFilters(page).at(-1)!;
-  assert.deepEqual(applied.document_kinds, []);
+  assert.deepEqual(applied.counterparties, []);
   assert.deepEqual(applied.record_families, [family]);
   assert.deepEqual(applied.currencies, ["USD"]);
   assert.deepEqual(applied.period, period);
@@ -514,7 +426,7 @@ for (const family of ["purchase", "sale"] as const) test(`an empty ${family} fil
 for (const family of ["purchase", "sale"] as const) test(`empty ${family} selection has priority even with search and optional filters`, async () => {
   const initial = reportRequestSchema.parse({
     schema_version: 2,
-    filters: { record_families: [family], currencies: ["USD"], q: "Proveedor", document_kinds: ["credit_note"], period: { kind: "latest_month" } },
+    filters: { record_families: [family], currencies: ["USD"], q: "Proveedor", counterparties: ["101001577"], period: { kind: "latest_month" } },
   });
   const page = await mount({
     initial,
@@ -530,7 +442,7 @@ for (const family of ["purchase", "sale"] as const) test(`empty ${family} select
   assert.equal(empty()?.querySelector("img")?.getAttribute("src"), "/brand/records-document.webp");
   assert.equal(empty()?.querySelectorAll("button").length, 0);
   const probeFilters = sentFilters(page).slice(-2);
-  assert.deepEqual(probeFilters.map((filters) => [filters.q, filters.document_kinds]), [["", ["credit_note"]], ["", []]]);
+  assert.deepEqual(probeFilters.map((filters) => [filters.q, filters.counterparties]), [["", ["101001577"]], ["", []]]);
   for (const filters of probeFilters) {
     assert.deepEqual(filters.record_families, [family]);
     assert.deepEqual(filters.currencies, ["USD"]);
@@ -541,10 +453,10 @@ for (const family of ["purchase", "sale"] as const) test(`empty ${family} select
 
 for (const family of ["purchase", "sale"] as const) test(`empty ${family} results offer search clear when optional filters still match rows`, async () => {
   const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
-  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["DOP"], period, q: "comercio inexistente", document_kinds: ["credit_note"] } });
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["DOP"], period, q: "comercio inexistente", counterparties: ["101001577"] } });
   const page = await mount({
     initial,
-    edit: (records) => { records.find((row) => row.family === family && row.report_date === "2026-10-20")!.document_kind = "credit_note"; },
+    edit: (records) => { records.find((row) => row.family === family && row.report_date === "2026-10-20")!.counterparty_key = "101001577"; },
     waitForAnswer: false,
   });
   await page.settle(() => document.querySelector('[data-empty-kind]') !== null);
@@ -735,7 +647,7 @@ test("closing the phone Filtros sheet without a choice sends no query", async ()
 
 const fiscalCard = () => document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!;
 const fiscalCount = () => fiscalCard().querySelector(".font-display")?.textContent;
-const fiscalRecords = (rows: ReportRecord[]) => rows.forEach((row, index) => { row.stage = index < 60 ? "needs_fiscal_data" : "ready_for_export"; row.fiscal_data = index < 60 ? "missing" : "complete"; row.ready = index >= 60; row.missing = index < 60 ? ["ncf_missing"] : []; });
+const fiscalRecords = (rows: ReportRecord[]) => rows.forEach((row, index) => { row.stage = index < 60 ? "needs_fiscal_data" : "ready_for_export"; row.fiscal_data = index < 60 ? "missing" : "complete"; row.ready = index >= 60; row.missing = index < 60 ? ["missing_ncf"] : []; });
 
 test("Faltan datos narrows all pages then restores Todos while preserving search edits", async () => {
   const prior = null;
@@ -757,13 +669,12 @@ test("Faltan datos narrows all pages then restores Todos while preserving search
   assert.deepEqual(sentFilters(page).at(-1)!.record_families, ["purchase"]);
 });
 
-test("the card cannot widen a Listo filter when not_ready is zero", async () => {
+test("a legacy Listo selection opens all rows and leaves the missing-data card available", async () => {
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { ready: true } }), edit: fiscalRecords });
-  assert.equal(fiscalCount(), "0");
-  assert.equal(fiscalCard().disabled, true);
-  const before = sentFilters(page).length;
+  assert.equal(sentFilters(page).at(-1)!.ready, null);
+  assert.equal(fiscalCount(), "30");
   await page.click(fiscalCard());
-  assert.equal(sentFilters(page).length, before);
+  await page.settle(() => sentFilters(page).at(-1)?.ready === false);
 });
 
 test("clearing the status chip discards Fiscal's saved status selection", async () => {
@@ -815,13 +726,11 @@ test("history restoring the same Fiscal stage discards the old toggle snapshot",
   await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
 });
 
-test("manual Estado choice clears the remembered readiness selection", async () => {
+test("clearing all filters clears the remembered readiness selection", async () => {
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["needs_fiscal_data", "needs_review"] } }), edit: fiscalRecords });
   await page.click(fiscalCard());
   await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
-  await page.click(page.button("Filtros"));
-  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="radio"]')].find((box) => box.parentElement?.textContent === "Todos"));
-  await page.click(page.button("Aplicar"));
+  await page.click(page.button("Limpiar filtros"));
   await page.settle(() => sentFilters(page).at(-1)?.ready === null && !fiscalCard().disabled);
   assert.deepEqual(sentFilters(page).at(-1)!.review_stages, []);
   await page.click(fiscalCard());
@@ -871,7 +780,7 @@ function currencyCardAnswer(request: ReportRequest, answer: ReportAnswer): Repor
 }
 
 for (const family of ["purchase", "sale"] as const) for (const sample of currencyCardCases) test(`${family} ${sample.currency} keeps static cards and table together across pages and Clear`, async () => {
-  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { q: "Proveedor", period: { kind: "all" }, record_families: [family], has_document: true, counterparties: ["101001577"], expense_types: ["02"], funding_sources: ["cash"], document_kinds: ["unknown"], fiscal_classifications: ["B01"] } });
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { q: "Proveedor", period: { kind: "all" }, record_families: [family], has_document: true, counterparties: ["101001577"], expense_types: ["02"] } });
   const page = await mount({ initial, queryAnswer: currencyCardAnswer });
   await page.click(document.querySelector('button[aria-label^="Moneda:"]'));
   await page.click(page.button(sample.currency));
@@ -1041,13 +950,11 @@ for (const width of [1440, 390]) test(`type tabs share filters and clearing on V
   assert.equal(sentFilters(page).at(-1)?.has_document, null);
 });
 
-for (const choice of [true, false, null] as const) test(`choosing ${choice} replaces legacy stages loaded from a view`, async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["exported"] } }), edit: (rows) => rows.forEach((row, index) => { row.stage = "exported"; row.fiscal_data = index < 60 ? "missing" : "complete"; row.ready = index >= 60; row.missing = index < 60 ? ["ncf_missing"] : []; }) });
+test("the missing-data card clears legacy stages loaded from a view", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["exported"] } }), edit: (rows) => rows.forEach((row, index) => { row.stage = "exported"; row.fiscal_data = index < 60 ? "missing" : "complete"; row.ready = index >= 60; row.missing = index < 60 ? ["missing_ncf"] : []; }) });
   assert.equal(document.querySelector('button[aria-label="Quitar filtro Revisión"]'), null);
-  await page.click(page.button("Filtros"));
-  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="radio"]')].find((box) => box.parentElement?.textContent === (choice === null ? "Todos" : choice === true ? "Listo" : "Faltan datos")));
-  await page.click(page.button("Aplicar"));
-  await page.settle(() => sentFilters(page).at(-1)?.ready === choice);
+  await page.click(fiscalCard());
+  await page.settle(() => sentFilters(page).at(-1)?.ready === false);
   assert.deepEqual(sentFilters(page).at(-1)!.review_stages, []);
   assert.equal(document.querySelector('button[aria-label="Quitar filtro Revisión"]'), null);
 });
@@ -1120,7 +1027,7 @@ test("a sheet still open when the test ends spends its history step before the n
 
 
 test("the card renders not_ready even when legacy counts and the visible rows disagree", async () => {
-  const page = await mount({ edit: (rows) => { rows[0].ready = false; rows[0].missing = ["ncf_missing"]; }, queryAnswer: (_, answer) => ({ ...answer, overview: { ...answer.overview!, not_ready: 7, needs_fiscal_data: 99 } }) });
+  const page = await mount({ edit: (rows) => { rows[0].ready = false; rows[0].missing = ["missing_ncf"]; }, queryAnswer: (_, answer) => ({ ...answer, overview: { ...answer.overview!, not_ready: 7, needs_fiscal_data: 99 } }) });
   assert.equal(fiscalCount(), "7");
   assert.match(fiscalCard().textContent!, /Faltan datos/);
   await page.click(fiscalCard());

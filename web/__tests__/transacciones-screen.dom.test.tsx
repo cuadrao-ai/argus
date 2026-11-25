@@ -206,7 +206,7 @@ describe("the gate", () => {
     assert.match(row.querySelector('[data-col="gross_amount"]')!.textContent ?? "", /123,456,789,012,345\.67/);
     const account = row.querySelector('[data-col="funding"] .truncate')!;
     const detail = row.querySelector('[data-col="detail"] > span')!;
-    for (const [target, expected] of [[account, /Dinero del dueño/], [detail, /Compra · Personal · Falta NCF · Marcado por Ana/]] as const) {
+    for (const [target, expected] of [[account, /Dinero del dueño/], [detail, /^Compra · Personal · Marcado por Ana$/]] as const) {
       await page.act(async () => { target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 330)); });
       assert.match(document.querySelector('[role="tooltip"]')?.textContent ?? "", expected);
       await page.act(async () => target.dispatchEvent(new MouseEvent("mouseout", { bubbles: true })));
@@ -254,8 +254,8 @@ describe("the gate", () => {
       await page.click(category);
       assert.equal(document.querySelector('th[data-col="expense_type"]'), null);
       assert.equal(page.records()[0].querySelector('[data-col="expense_type"]'), null);
-      assert.equal(document.querySelectorAll('colgroup col').length, 7);
-      await page.click(category); assert.equal(document.querySelectorAll('colgroup col').length, 8);
+      assert.equal(document.querySelectorAll('colgroup col').length, 6);
+      await page.click(category); assert.equal(document.querySelectorAll('colgroup col').length, 7);
       for (const setting of document.querySelectorAll("[data-column-setting]")) assert.ok(setting.querySelector<HTMLInputElement>('input[type="checkbox"]')?.disabled === false && setting.querySelector("button[draggable]") && !/Siempre visible/.test(setting.textContent ?? ""), "no column is locked by name");
       const categoryGrip = document.querySelector('[data-column-setting="expense_type"] button[draggable]')!;
       assert.equal(categoryGrip.closest("label"), null, "reorder grip is separate from the checkbox label");
@@ -271,9 +271,9 @@ describe("the gate", () => {
       };
       const settingOrder = () => [...document.querySelectorAll("[data-column-setting]")].map((node) => node.getAttribute("data-column-setting"));
       const amountIndex = settingOrder().indexOf("gross_amount");
-      await drag("funding", "Notas");
+      await drag("payment_form", "Notas");
       assert.equal(settingOrder().indexOf("gross_amount"), amountIndex, "dragging notes leaves amount in place");
-      assert.ok(settingOrder().indexOf("note") > settingOrder().indexOf("funding"));
+      assert.ok(settingOrder().indexOf("note") > settingOrder().indexOf("payment_form"));
       assert.deepEqual([...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col")), settingOrder().filter((key) => !sampleRecordsPreferences().hidden.some((hidden) => hidden === key)));
       await drag("attachment", "Notas");
       await page.click(document.querySelector('[data-column-setting="attachment"] label'));
@@ -281,7 +281,7 @@ describe("the gate", () => {
       assert.equal(document.querySelectorAll('thead th')[1].getAttribute("data-col"), "attachment");
       assert.equal(document.querySelector('th[data-col="attachment"]')?.getAttribute("data-pinned"), "top");
       assert.equal(page.records()[0].querySelector('[data-col="attachment"]')?.getAttribute("data-pinned"), null);
-      await drag("funding");
+      await drag("payment_form");
       assert.equal(document.querySelector('th[data-col="attachment"]')?.getAttribute("data-pinned"), "top right");
       const grip = document.querySelector<HTMLButtonElement>('button[aria-label="Mover Total"]')!;
       await page.act(async () => { grip.dispatchEvent(new Event("pointerdown", { bubbles: true })); });
@@ -353,10 +353,7 @@ describe("the gate", () => {
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
       await page.settle(() => page.records().length === 2, "purchase scope summary");
       assert.equal(summary(), null, "Total has no subcard");
-      assert.equal(document.querySelectorAll('thead th').length, 8);
-      assert.equal(document.querySelector('th[data-col="missing"]')?.textContent, "Motivo");
-      assert.equal(document.querySelector('th[data-col="funding"]'), null);
-      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
+      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
       const amount = page.records().find((row) => row.dataset.kind === "gasto")!.querySelector('[data-col="gross_amount"]')!;
       assert.equal(amount.textContent, "2,100.00");
       assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]'), null);
@@ -389,16 +386,15 @@ describe("the gate", () => {
     const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
     Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
     try {
-      let detailReads = 0;
-      const page = await mount({ enabled: false, width: 390, expenseRead: async () => { detailReads += 1; throw new Error("detail-unavailable"); } });
+      const page = await mount({ enabled: false, width: 390, expenseRead: async (id) => ({ id, merchant: "Estación Ruta 3", amount: "2100.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-09", receipt_id: null, draft_id: null, recorded_at: null, revision: null }) });
       await page.settle(() => page.records().length > 0, "saved records");
       const row = page.records().find((item) => item.dataset.kind === "gasto")!;
       const key = row.dataset.recordKey;
       await page.click(row.matches("tr") ? row : row.querySelector("button"));
       await page.settle(() => Boolean(document.querySelector('[role="dialog"]')), "record sheet");
       assert.ok(document.querySelector('[data-testid="records-page-preview"]'));
-      assert.deepEqual([...document.querySelectorAll('[data-testid="loaded-record-glance"] dt')].map((term) => term.textContent).filter((term) => term === "Tipo de gasto" || term === "Categoría"), ["Tipo de gasto"]);
-      assert.equal(detailReads, 0, "explicit loaded-row preview makes no detail request");
+      await page.settle(() => Boolean(document.querySelector('[role="dialog"] [data-testid="business-record-review"]')), "the dossier in the sheet");
+      assert.equal(document.querySelector('[data-testid="loaded-record-glance"]'), null, "the sheet holds the dossier, not a row glance");
       assert.ok(page.records().some((item) => item.dataset.recordKey === key));
       await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]'));
       await page.settle(() => !document.querySelector('[role="dialog"]'), "sheet closed");
@@ -465,16 +461,16 @@ describe("the gate", () => {
     for (const cell of page.host.querySelectorAll('td[data-col="attachment"]')) assert.ok(cell.querySelector('[data-testid="record-proof"]') || (cell.textContent ?? "").trim() !== "", "a cell holds the receipt icon or a dash");
   });
 
-  test("a saved record with a receipt shows the receipt icon and opens in the record tray beside the list", async () => {
+  test("a saved record opens beside the list and its receipt icon opens supporting files", async () => {
     const page = await mount({ enabled: false });
     await page.settle(() => page.records().length > 0, "the saved records");
-    const withReceipt = page.records().find((node) => node.querySelector('[data-testid="record-proof"]'));
-    assert.ok(withReceipt, "a gasto with its receipt shows the icon");
-    await page.click(withReceipt!);
-    const opened = page.api().panel;
-    assert.ok(opened.kind === "receipt" || opened.kind === "draft", `opened ${opened.kind}`);
-    assert.equal((opened as { list?: string }).list, "transactions");
+    const row = page.records().find(node => node.querySelector('[data-testid="record-proof"]'));
+    assert.ok(row, "a gasto with its receipt shows the icon");
+    await page.click(row);
+    assert.deepEqual(page.api().panel, { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" });
     await page.settle(() => document.querySelector('[data-testid="transacciones-records"]') !== null && document.querySelector('[data-testid="business-record-review"]') !== null, "the record beside the list");
+    await page.click(row.querySelector('button[data-record-attachment]')!);
+    assert.deepEqual(page.api().panel, { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions", detailsCard: "support" });
   });
 
   test("an old Gastos link lands on Transacciones", async () => {
@@ -496,7 +492,7 @@ describe("the gate", () => {
     assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"] dd')?.textContent, "-sin dato", "no row names a currency, so the zero is not shown as pesos");
   });
 
-  test("Salidas is the server's own total; a personal gasto stays listed, marked Personal, and out of it", async () => {
+  test("Salidas is the server's own total; a personal gasto stays listed, with no chip, and out of it", async () => {
     const saved = await recordsOf([
       { id: "exp-1", merchant: "Colmado Don Pepe", amount: "860.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null },
       { id: "exp-2", merchant: "Comedor Doña Ana", amount: "1250.00", currency: "DOP", category_id: "dining", account_id: null, occurred_on: "2026-10-05", receipt_id: null, personal: true },
@@ -504,8 +500,8 @@ describe("the gate", () => {
     const page = await mount({ enabled: false, transacciones: saved });
     await page.settle(() => page.records().length === 2, "the saved records");
     assert.match(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"]')?.textContent ?? "", /RD\$\s?860\.00/);
-    assert.ok(document.querySelector('[data-record-id="exp-2"] [data-mark="personal"]'), "the personal gasto says so");
-    assert.equal(document.querySelector('[data-record-id="exp-1"] [data-mark="personal"]'), null);
+    assert.ok(document.querySelector('[data-record-id="exp-2"]'), "the personal gasto stays listed");
+    assert.equal(document.querySelector("[data-record-id] [data-mark]"), null, "no row draws a chip");
   });
 
   test("with igualar on and no statement imported yet, the saved records list in records mode", async () => {

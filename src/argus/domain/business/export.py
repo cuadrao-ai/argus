@@ -282,7 +282,7 @@ def sheet_rows(
     settlements: Mapping[str, Mapping[str, Any]],
 ) -> list[dict[str, str]]:
     """Each recorded row as the accountant reads it: supplier and fiscal facts
-    from the approved revision, the 606 answer from its declaration, the
+    from the last accepted review, the 606 answer from its declaration, the
     DGII summary's disposition and the month-close settlement. Net amount
     comes from the same owner as review and monthly figures."""
 
@@ -553,7 +553,50 @@ def build_archive(
     return output.getvalue()
 
 
+def _without_removed_activities(
+    activities: Sequence[Mapping[str, Any]],
+    sources: Sequence[ExportSource],
+    removed_ids: set[UUID],
+) -> tuple[tuple[Mapping[str, Any], ...], list[ExportSource]]:
+    remaining_activities = []
+    removed_drafts = set()
+    for activity in activities:
+        if UUID(activity["activity_id"]) in removed_ids:
+            removed_drafts.update(UUID(draft_id) for draft_id in activity["draft_ids"])
+        else:
+            remaining_activities.append(activity)
+
+    remaining_sources = []
+    for source in sources:
+        draft_ids = tuple(d for d in source.draft_ids if d not in removed_drafts)
+        activity_ids = tuple(a for a in source.activity_ids if a not in removed_ids)
+        if draft_ids or activity_ids:
+            remaining_sources.append(
+                replace(source, draft_ids=draft_ids, activity_ids=activity_ids)
+            )
+    return tuple(remaining_activities), remaining_sources
+
+
+class _ActivityRevised(Exception):
+    """A correction committed while the export was preparing originals."""
+
+
 def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
+    from argus.domain.business.authority import ActionError
+
+    try:
+        return _export_snapshot(authority, context, period, objects)
+    except _ActivityRevised:
+        pass
+
+    # Re-select the period, money rows and evidence together after a correction.
+    try:
+        return _export_snapshot(authority, context, period, objects)
+    except _ActivityRevised:
+        raise ActionError("stale_version", "stale_version") from None
+
+
+def _export_snapshot(authority, context, period: ExportPeriod, objects) -> bytes:
     from loguru import logger
     from psycopg.rows import dict_row
 
@@ -710,11 +753,9 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                     )
         downloads.append(source)
 
-    # The declarations are read and the records sheet built under the
-    # Business's one owner lock, the lock every 606 write takes, so one file
-    # reads one state: a write lands before this read and the sheet carries it,
-    # or it waits and the next download carries it.
-    # Read committed, so the reads after the lock see what committed before it.
+    # Recheck recorded rows and read declarations under the same owner lock
+    # used by reversals and 606 writes. Read committed sees any changes that
+    # landed while the originals were being prepared.
     with authority.pool.connection() as connection, connection.transaction():
         lock_owner(connection, context.owner_id)
         current = authorize(connection, context.actor, context.grant_id)
@@ -789,6 +830,38 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
             def lookup(sql, params):
                 cursor.execute(sql, params)
                 return cursor.fetchone()
+
+            # The scoped canonical read selected these globally unique group IDs.
+            versions = {UUID(a["activity_id"]): a["revision"] for a in activities}
+            activity_ids = versions.keys()
+            removed_ids = set()
+            if activity_ids:
+                cursor.execute(
+                    "select id,current_revision from public.financial_activity_groups"
+                    " where id=any(%s::uuid[]) and reversed_at is null",
+                    (list(activity_ids),),
+                )
+                live = cursor.fetchall()
+                if any(row["current_revision"] != versions[row["id"]] for row in live):
+                    raise _ActivityRevised
+                removed_ids = activity_ids - {row["id"] for row in live}
+            edited_drafts = {
+                d["id"]: d["resolution"].get("accepted_edit_version")
+                for d in drafts if d["state"] == "accepted"
+            }
+            if edited_drafts:
+                cursor.execute(
+                    "select id, resolution->'accepted_edit_version' as version"
+                    " from public.financial_import_events where owner_space_id=%s"
+                    " and id=any(%s::uuid[]) and state='accepted'",
+                    (context.actor.space_id, list(edited_drafts)),
+                )
+                if any(row["version"] != edited_drafts[row["id"]] for row in cursor.fetchall()):
+                    raise _ActivityRevised
+            if removed_ids:
+                activities, downloads = _without_removed_activities(
+                    activities, downloads, removed_ids
+                )
 
             fiscal_records, business_rnc, business_name = fiscal_snapshot(
                 cursor, context, activities

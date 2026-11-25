@@ -11,6 +11,7 @@ from typing import Literal
 
 from argus.domain.business.contracts.facts import InheritedValue, personal_mark_admits
 from argus.domain.business.country import DEFAULT_COUNTRY
+from argus.domain.business.dgii_codes import EXPENSE_TYPES
 from argus.domain.business.ledger import business_day
 from argus.domain.business.reporting import (
     FiscalAmount,
@@ -92,6 +93,7 @@ class ReportRecord(Contract):
     family: Family | None = None
     ready: bool = False
     missing: tuple[str, ...] = ()
+    missing_fields: tuple[TableColumn, ...] = ()
     stage: Stage | None = None
     #: Current 606/607 verdict, independent of downloaded export history.
     fiscal_data: FiscalData | None = None
@@ -180,12 +182,6 @@ class FilterOption(Contract):
     labels: tuple[str, ...]
 
 
-class FundingOption(Contract):
-    key: str
-    label: str | None
-    kind: str | None
-
-
 class ReportOverview(Contract):
     """Readiness and fiscal counts use all table filters before pagination.
     Other counts cover the period's recorded rows."""
@@ -257,10 +253,8 @@ class ReportAnswer(Contract):
     excluded_personal: ExcludedPersonal = ExcludedPersonal()
     counterparties: tuple[FilterOption, ...]
     categories: tuple[str, ...]
-    #: The tipos de gasto the records carry, by code. `missing` is always a
-    #: valid filter value and never listed here.
-    expense_types: tuple[DgiiChoice, ...] = ()
-    funding_sources: tuple[FundingOption, ...]
+    #: Complete DGII 606 catalogue in code order, including for an empty Business.
+    expense_types: tuple[DgiiChoice, ...]
     coverage_notes: tuple[str, ...] = (
         "records_only_evidence_separate",
         "legal_cancellation_coverage_unavailable",
@@ -345,9 +339,6 @@ def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) 
         (filters.counterparties, row.counterparty_key),
         (filters.categories, row.category_key),
         (filters.expense_types, _expense_type_key(row)),
-        (filters.funding_sources, row.funding_key),
-        (filters.document_kinds, row.document_kind),
-        (filters.fiscal_classifications, row.fiscal_classification),
     ):
         if values and value not in values:
             return False
@@ -692,18 +683,9 @@ def run_query(
         if period.from_date is not None
         else 0
     )
-    funding_options = {
-        row.funding_key: FundingOption(
-            key=row.funding_key, label=row.funding_label, kind=row.funding_kind
-        )
-        for row in records
-        if row.funding_key
-    }
-    expense_types = {
-        row.dgii_606.expense_type.code: row.dgii_606.expense_type
-        for row in records
-        if row.dgii_606 and row.dgii_606.expense_type
-    }
+    expense_types = tuple(
+        DgiiChoice(code=code, label=label) for code, label in sorted(EXPENSE_TYPES.items())
+    )
     family_records = [
         row
         for row in records
@@ -726,13 +708,7 @@ def run_query(
     options = {
         "counterparties": sorted(parties.items()),
         "categories": sorted({row.category_key for row in records}),
-        "expense_types": [
-            expense_types[code].model_dump(mode="json") for code in sorted(expense_types)
-        ],
-        "funding_sources": [
-            funding_options[key].model_dump(mode="json")
-            for key in sorted(funding_options)
-        ],
+        "expense_types": [choice.model_dump(mode="json") for choice in expense_types],
     }
     payload = {
         "excluded_unknown_dates": excluded_unknown_dates,
@@ -794,6 +770,5 @@ def run_query(
             for key, label in sorted(parties.items())
         ),
         categories=tuple(sorted({row.category_key for row in records})),
-        expense_types=tuple(expense_types[code] for code in sorted(expense_types)),
-        funding_sources=tuple(funding_options[key] for key in sorted(funding_options)),
+        expense_types=expense_types,
     )

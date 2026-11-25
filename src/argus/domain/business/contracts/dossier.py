@@ -7,14 +7,26 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from argus.domain.business.bandeja_group import (
+    BandejaGroupName,
+    BandejaLabel,
+    BandejaReason,
+)
 from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.document_type import DocumentType
+from argus.domain.business.fiscal_identity import NoteKind
+from argus.domain.business.rnc_registry import RncRegistryStatus
 from argus.domain.business.space_name import GivenName
 
-from .actions import ApprovalAction, DuplicateDecision
+from .actions import SUPPORTING_FILE_LIMIT, ApprovalAction, DuplicateDecision
 from .authority import ActorView, Capability, PersonName
 from .checks import DgiiQr, EcfVerification
-from .dgii import DeclarationSuggestions, DgiiDeclaration
+from .dgii import (
+    DeclarationSuggestions,
+    DgiiDeclaration,
+    PurchaseCalculated,
+    SalePayment,
+)
 from .facts import (
     HUMAN_AMOUNT_FIELDS,
     BusinessFacts,
@@ -98,6 +110,7 @@ class ReviewQuestion(Contract):
 # Why a revision no person and no read made exists, as
 # business_draft_revisions.reason stores it.
 RevisionReason = Literal["business_rnc_set"]
+SupportingChange = Literal["appended", "unlinked", "restored"]
 
 
 class DuplicateRevision(Contract):
@@ -125,8 +138,30 @@ class DraftRevision(Contract):
     after_current_note: str | None = None
     before_due_on: date | None = None
     after_due_on: date | None = None
+    before_document_type: DocumentType | None = None
+    after_document_type: DocumentType | None = None
     reason: RevisionReason | None = None
     duplicate: DuplicateRevision | None = None
+    #: What the revision did to the one supporting file in ``source_ids``, and
+    #: the file's name then. The name stays after the file's bytes are erased.
+    supporting_change: SupportingChange | None = None
+    supporting_filename: str | None = None
+    reviewed_fact_fields: tuple[str, ...] | None = None
+    reviewed_declaration_fields: tuple[str, ...] | None = None
+    before_net_amount: NetAmount | None = None
+    after_net_amount: NetAmount | None = None
+    #: An approval wrote this revision. It saves the declaration the review
+    #: showed, the answers the app filled in included, so it holds no edit of
+    #: the person's: history shows the approval in its place.
+    approval: bool = False
+
+    @model_validator(mode="after")
+    def historical_subtotals(self) -> DraftRevision:
+        from argus.domain.business.purchase_review import net_amount
+
+        object.__setattr__(self, "before_net_amount", net_amount(self.before, self.before_dgii) if self.before is not None else None)
+        object.__setattr__(self, "after_net_amount", net_amount(self.after, self.after_dgii))
+        return self
 
 
 class Blocker(Contract):
@@ -137,13 +172,29 @@ class Blocker(Contract):
 
 
 class ReviewFlag(Contract):
-    """A read value to check again. ``confirm`` flags need ``approve_anyway``
-    on the approve request; the rest only warn."""
+    """A read value to check again. Each is a Listos gap an accept names to go
+    over it; the 606 export still refuses the ``confirm`` ones."""
 
     code: Literal["rnc_check_digit", "ncf_malformed", "itbis_high", "amounts_mismatch"]
     field: Literal["rnc", "ncf", "itbis", "amount"]
     confirm: bool
     difference: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    computed_sum: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    includes_extra_charges: bool | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class AmountsCheck(Contract):
+    """Whether the Total is the Subtotal plus its taxes and tip. ``difference``
+    is what the Total leaves over, and is set on ``difference`` alone."""
+
+    state: Literal["adds_up", "difference", "unchecked"]
+    difference: str | None = None
+
+    @model_validator(mode="after")
+    def difference_goes_with_its_state(self) -> AmountsCheck:
+        if (self.state == "difference") != (self.difference is not None):
+            raise ValueError("difference is set exactly on a difference")
+        return self
 
 
 class RecordedApproval(Contract):
@@ -254,7 +305,70 @@ class DuplicateCandidate(Contract):
     comparison: DuplicateComparison
 
 
-class BusinessDossier(RecordContext):
+class SupportingFile(Contract):
+    """A supporting file of a record: on it now (``linked``), or taken off and
+    still restorable (``unlinked``). An erased file is not listed."""
+
+    source_id: UUID
+    receipt_id: UUID
+    filename: str | None
+    media_type: str | None
+    size_bytes: int | None
+    state: Literal["linked", "unlinked"]
+    #: When an unlinked file's bytes are erased. Restore is refused from then on.
+    purge_at: datetime | None = None
+    #: What the caller may do with this file now.
+    unlink_available: bool = False
+    restore_available: bool = False
+
+
+class BandejaStanding(Contract):
+    """Where a record stands in the Bandeja: the group, reason and label
+    ``bandeja_group.group_of`` gives its row in the receipt list."""
+
+    group: BandejaGroupName | None
+    reason: BandejaReason | None
+    label: BandejaLabel | None
+
+
+EditableField = FactField | Literal[
+    "actual_refund",
+    "document_type",
+    "due_on",
+    "rnc",
+    "fiscal_number",
+    "itbis",
+    "net_amount",
+    "legal_tip",
+    "modified_ncf",
+]
+
+
+class ReasonDetails(Contract):
+    field: str | None
+    words: str
+
+
+class DetailReadiness(Contract):
+    missing: tuple[str, ...] = ()
+    reasons: dict[str, ReasonDetails] = Field(default_factory=dict)
+
+    @classmethod
+    def from_codes(
+        cls, missing: tuple[str, ...], gaps: tuple[BandejaReason, ...] = ()
+    ) -> DetailReadiness:
+        from argus.domain.business.missing_reasons import REASONS
+
+        return cls(
+            missing=missing,
+            reasons={
+                code: ReasonDetails(field=REASONS[code].field, words=REASONS[code].words)
+                for code in dict.fromkeys((*missing, *gaps))
+            },
+        )
+
+
+class BusinessDossier(RecordContext, DetailReadiness):
     deleted: DeletedDocument | None = None
     delete_available: bool = False
     restore_available: bool = False
@@ -265,8 +379,16 @@ class BusinessDossier(RecordContext):
     review_note: str | None = None
     note_edit_available: bool = False
     supporting_append_available: bool = False
+    #: The record's supporting files, oldest first, and its cap. A record at
+    #: the cap takes no new file and no restore until one is unlinked.
+    supporting_files: tuple[SupportingFile, ...] = ()
+    supporting_file_limit: int = SUPPORTING_FILE_LIMIT
+    supporting_limit_reached: bool = False
     annotation_unavailable_reason: str | None = None
     dgii: DgiiDeclaration | None = None
+    #: What the 606 calculates from ``dgii`` for a purchase, as its line
+    #: writes it; null for a sale and for a record with no 606 declaration.
+    dgii_calculated: PurchaseCalculated | None = None
     draft_id: UUID
     version: int = Field(ge=1)
     review_state: Literal["open", "accepting", "accepted", "dismissed"]
@@ -278,6 +400,15 @@ class BusinessDossier(RecordContext):
     history: tuple[DraftRevision, ...]
     blockers: tuple[Blocker, ...]
     review_flags: tuple[ReviewFlag, ...] = ()
+    #: The Montos check, by the rule behind the ``amounts_mismatch`` flag.
+    amounts_check: AmountsCheck = AmountsCheck(state="unchecked")
+    #: The note this record is, credit (04, 34) or debit (03, 33); null for a
+    #: regular purchase or sale. See ``fact_blockers.record_note``.
+    note_kind: NoteKind | None = None
+    #: The declaration fields of this record that always follow their source
+    #: (see ``amount_inheritance.source_owned``): the server drops a write or
+    #: an override of one, so a review shows it read-only.
+    source_owned_fields: tuple[str, ...] = ()
     approval_available: bool
     duplicate_candidates: tuple[DuplicateCandidate, ...] = ()
     #: The approve action this draft takes once ``approval_available``, by its
@@ -315,13 +446,14 @@ class BusinessDossier(RecordContext):
     include_606_by: PersonName | None = None
     sin_comprobante: bool = False
     #: The document type: a receipt (recibo) or an invoice the business issued
-    #: (venta). Detected when no person named it. Editable while the draft is
-    #: open and the caller may prepare.
+    #: (venta). Detected when no person named it.
     document_type: DocumentType = "recibo"
     document_type_detected: bool = False
     document_type_editable: bool = False
-    #: The caller may write the 606 declaration now: open or approved, and the
-    #: caller holds prepare. A download changes nothing here.
+    facts_editable: bool = False
+    #: Fields a person can correct through review, subject to validation of the new value.
+    editable_fields: tuple[EditableField, ...] = ()
+    #: Prepare holders can edit an open draft. Only the owner can edit an accepted one.
     declaration_editable: bool = False
     #: What the server offers for each 606 answer this open expense lacks, with
     #: where it came from. The approval saves it, so only an approval takes one.
@@ -329,12 +461,11 @@ class BusinessDossier(RecordContext):
     #: The caller may write the 607 payment split now, on the same terms as
     #: declaration_editable, on a sale.
     payment_split_editable: bool = False
-    #: The caller may return this approved record to the Bandeja now: it holds
-    #: approve, and no bank match, credit note or refund is linked to the
-    #: record. The reopen route refuses on the same rule.
-    reopen_available: bool = False
+    #: How a sale was paid, as the one pick the review offers; null for any
+    #: other record. ``payment_split_editable`` says whether the caller may pick.
+    sale_payment: SalePayment | None = None
     #: The due date a person set in review; null while unknown. Never read
-    #: from the document or defaulted. Locked with the other facts once approved.
+    #: from the document or defaulted.
     due_on: date | None = None
     #: The caller may answer "¿Incluir en 606?" now: the same gate the
     #: fiscal-inclusion action enforces (a prepare-holder other than the
@@ -349,6 +480,29 @@ class BusinessDossier(RecordContext):
     #: year exactly when ``year_to_check`` holds.
     upload_year: int | None = None
     year_to_check: bool = False
+    #: Where the record stands in the Bandeja, by the one rule the receipt
+    #: list reads. ``label`` is ``accepted`` once the record is recorded.
+    bandeja_group: BandejaStanding = Field(
+        default_factory=lambda: BandejaStanding(group=None, reason=None, label=None)
+    )
+    #: Every reason a record that needs attention is not Listos, in the rule's
+    #: order; empty for any other record. ``bandeja_group.reason`` is one of them.
+    listo_gaps: tuple[BandejaReason, ...] = ()
+    #: The gaps in listo_gaps a person may name to accept this record.
+    confirmable: tuple[BandejaReason, ...] = ()
+    #: What the DGII register says of the supplier RNC: its mapped status, or
+    #: ``not_found`` when the register does not list it. Null when the record
+    #: has no RNC or no register is loaded.
+    rnc_registry_status: RncRegistryStatus | None = None
+
+    @model_validator(mode="after")
+    def human_history(self) -> BusinessDossier:
+        from argus.domain.business.history_review import human_review
+
+        sources = {source.id: source for source in self.sources if isinstance(source, WebActionSource)}
+        history = tuple(human_review(revision, sources) for revision in self.history)
+        object.__setattr__(self, "history", history)
+        return self
 
     def model_facing(self) -> dict[str, Any]:
         """The dossier as every model reads it: the JSON dump without the
@@ -364,18 +518,27 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "inheritance": True,
     "facts": set(HUMAN_AMOUNT_FIELDS),
     "dgii": {"itbis", "suggestion_sources"},
+    "dgii_calculated": True,
+    "amounts_check": True,
+    "note_kind": True,
+    "source_owned_fields": True,
     "deleted": True,
     "delete_available": True,
     "restore_available": True,
     "current_note": True,
     "note_edit_available": True,
     "supporting_append_available": True,
+    "supporting_files": True,
+    "supporting_file_limit": True,
+    "supporting_limit_reached": True,
     "annotation_unavailable_reason": True,
     "due_on": True,
+    "facts_editable": True,
+    "editable_fields": True,
     "declaration_editable": True,
-    "reopen_available": True,
     "declaration_suggestions": True,
     "payment_split_editable": True,
+    "sale_payment": True,
     "approval_action": True,
     "fiscal_inclusion_available": True,
     "refund_candidates": True,
@@ -383,12 +546,27 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "review_flags": True,
     "upload_year": True,
     "year_to_check": True,
+    "bandeja_group": True,
+    "listo_gaps": True,
+    "missing": True,
+    "reasons": True,
+    "confirmable": True,
+    "rnc_registry_status": True,
     "history": {
         "__all__": {
+            "reviewed_fact_fields": True,
+            "reviewed_declaration_fields": True,
+            "before_net_amount": True,
+            "after_net_amount": True,
+            "approval": True,
             "before_due_on": True,
             "after_due_on": True,
+            "before_document_type": True,
+            "after_document_type": True,
             "before_current_note": True,
             "after_current_note": True,
+            "supporting_change": True,
+            "supporting_filename": True,
             "before": set(HUMAN_AMOUNT_FIELDS),
             "after": set(HUMAN_AMOUNT_FIELDS),
             "before_dgii": {"itbis", "suggestion_sources"},
@@ -398,15 +576,17 @@ _UNMEASURED_DOSSIER_FIELDS = {
 }
 
 
-_UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split", "montos")
+_UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split", "sale_payment_form", "montos")
 
 
 def _unmeasured_removed(source: dict[str, Any]) -> dict[str, Any]:
+    from argus.domain.business.history_review import CLEARED_KEPT, legacy_evidence
+
     if source["kind"] != "web_action" or not any(
-        f'"{name}"' in source["text"] for name in (*_UNMEASURED_REVIEW_INPUT, "itbis")
+        f'"{name}"' in source["text"] for name in (*_UNMEASURED_REVIEW_INPUT, "itbis", CLEARED_KEPT)
     ):
         return source
-    command = json.loads(source["text"])
+    command = legacy_evidence(json.loads(source["text"]))
     for name in _UNMEASURED_REVIEW_INPUT:
         command.get("request", {}).pop(name, None)
     request = command.get("request", {})

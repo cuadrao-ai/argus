@@ -8,7 +8,7 @@ serialize shared object writes with last-reference deletion.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -265,11 +265,12 @@ class PostgresDocumentStore:
                 self.objects.put(row[0], content, draft.media_type)
             if on_capture is not None:
                 on_capture(connection, connection_id)
-            connection.execute(
-                "update public.financial_document_extractions set draft=draft || "
-                "jsonb_build_object('source_available',true) where connection_id=%s",
-                (connection_id,),
-            )
+            if draft.source_available:
+                connection.execute(
+                    "update public.financial_document_extractions set draft=draft || "
+                    "jsonb_build_object('source_available',true) where connection_id=%s",
+                    (connection_id,),
+                )
         return True
 
     def update(
@@ -429,6 +430,27 @@ class PostgresDocumentStore:
                 (now - READ_DEADLINE, limit),
             ).fetchall()
         return [(row[0], row[1]) for row in rows]
+
+    def refused_before(
+        self, *, before: Mapping[str, datetime]
+    ) -> list[tuple[str, str, int]]:
+        if not before:
+            return []
+        # ``financial_document_extractions_refused_idx`` holds only these rows.
+        refused = " or ".join(
+            "(d.draft->>'error_code'=%s and (d.draft->>'updated_at')::timestamptz < %s)"
+            for _ in before
+        )
+        with self._pool.connection() as connection:
+            rows = connection.execute(
+                "select d.user_id::text, d.connection_id::text, "
+                f"(d.draft->>'version')::integer from {_LIVE_DOCUMENTS} "
+                "and c.owner_space_id is not null and d.draft->>'status'='saved' "
+                f"and (d.draft->>'source_available')::boolean and ({refused}) "
+                "order by d.created_at, d.connection_id",
+                [value for pair in before.items() for value in pair],
+            ).fetchall()
+        return [(row[0], row[1], row[2]) for row in rows]
 
     def pull(self, *, now: datetime, cap: int) -> tuple[str, str] | None:
         with self._pool.connection() as connection, connection.transaction():

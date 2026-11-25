@@ -7,6 +7,7 @@ from argus.api.business import BusinessPerson, require_business_person
 from argus.api.business_drafts import DraftContext, require_drafts, stored_drafts
 from argus.api.routers.business_manual import router
 from argus.domain.business.authority import ActionContext, ActionError
+from argus.domain.business.bandeja_group import note_group
 from argus.domain.business.contracts.actions import Applied, OutcomeUnknown, Refused
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.dossier import AttachmentSource, BusinessDossier
@@ -14,6 +15,11 @@ from argus.domain.business.contracts.facts import BusinessFacts
 from argus.domain.business.spaces import InMemorySpaceStore
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 class CaptureService:
@@ -77,6 +83,12 @@ class CaptureService:
                     "received_at": datetime.now(timezone.utc),
                     "review_state": "open",
                     "earlier_count": 2,
+                    "bandeja_group": note_group(
+                        "open",
+                        deleted=False,
+                        draft_id=self.view.draft_id,
+                        version=self.view.version,
+                    ),
                 }
             ],
             "has_more": True,
@@ -251,6 +263,13 @@ def test_search_preserves_source_identity_and_bounds(capture_api):
     assert item["text"] == "  Original note\n"
     assert item["source_id"]
     assert (item["version"], item["revision"]) == (api.service.view.version, 1)
+    assert item["bandeja_group"] == {
+        "group": "attention",
+        "reason": "not_read",
+        "label": "needs_attention",
+        "draft_id": item["draft_id"],
+        "version": item["version"],
+    }
     # The page says what the service found: more past the limit, notes before this one.
     assert (response.json()["has_more"], item["earlier_count"]) == (True, 2)
     assert api.service.calls[-1] == ("list", "100%_", 5, "all", 0)

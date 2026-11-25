@@ -15,6 +15,7 @@ from argus.domain.business.receipt_activity import (
     inbox_counts,
     project_activity,
 )
+from argus.domain.business.sent_by import receipt_senders
 from argus.domain.business.transactions import GrantImportStore, transaction
 
 
@@ -48,14 +49,14 @@ def project(
                 + (" for update of c,d" if acknowledge_id else ""),
                 (person, business, context.scope.person_id, ids),
             )
-            from argus.api.business_drafts import draft_overlay, linked_drafts, uploaders
+            from argus.api.business_drafts import draft_overlay, linked_drafts
 
             drafts = linked_drafts(tx, [view["id"] for view in views])
-            uploaded_by = uploaders(tx, views)
+            sent_by = receipt_senders(tx, views)
             views = [
                 {
                     **draft_overlay(view, drafts.get(view["id"], [])),
-                    "uploaded_by": uploaded_by.get(view["id"]),
+                    "sent_by": sent_by.get(view["id"]),
                 }
                 for view in views
             ]
@@ -131,14 +132,14 @@ def _project(views, states, baseline, drafts=None, standings=None):
             completed_at=completed,
         )
         row = {**view, "activity": activity.wire()}
-        standing = (
-            (standings or {}).get(str(canonical[0]["id"]))
-            if len(canonical) == 1
-            else None
+        only = canonical[0] if len(canonical) == 1 else None
+        standing = (standings or {}).get(str(only["id"])) if only else None
+        if standing and standing.read == "reading":
+            row["delete_available"] = False
+        group = group_of(
+            row, standing, accepting=bool(only) and only["state"] == "accepting"
         )
-        output.append(
-            {**row, "bandeja": bandeja(row), "bandeja_group": group_of(row, standing)}
-        )
+        output.append({**row, "bandeja": bandeja(row), "bandeja_group": group})
     return output
 
 
@@ -155,14 +156,14 @@ def inbox(
     from argus.api.email_intake import email_standings
 
     store = context.service.imports.store
-    notes = 0
+    notes = accepting_notes = 0
     eliminated_notes = 0
     por_igualar = None
     if isinstance(store, GrantImportStore):
         from argus.domain.business.actions.captures import awaiting_notes, deleted_notes
 
         with transaction(store.authority, store.context) as tx:
-            notes = awaiting_notes(tx)
+            notes, accepting_notes = awaiting_notes(tx)
             eliminated_notes = deleted_notes(tx)
         from argus.domain.business.bank.service import bank_matching_on
 
@@ -172,7 +173,7 @@ def inbox(
             por_igualar = por_igualar_count(store.authority.pool, store.context)
     if emails is None:
         emails = email_standings(str(context.scope.owner.space_id))
-    result = inbox_counts(views, notes, emails, por_igualar)
+    result = inbox_counts(views, notes, emails, por_igualar, accepting_notes)
     result["bandeja_eliminados_count"] += eliminated_notes
     return result
 
@@ -214,6 +215,17 @@ def unreviewed_days(
     return days
 
 
+def bandeja_days(context) -> list[tuple[date, str | None]]:  # noqa: ANN001
+    """``unreviewed_days`` over every receipt of the working Business, for the
+    month close and the export preview alike."""
+
+    from argus.api.business_drafts import receipt_read_dates, receipt_summaries
+
+    return unreviewed_days(
+        context, receipt_summaries(context, "all"), receipt_read_dates(context)
+    )
+
+
 def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
     """One answer for the sidebar badge, the Bandeja and the Resumen, over
     every receipt of the Business, whichever view the caller reads."""
@@ -225,3 +237,20 @@ def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
         **aggregate_activity(views, reading_emails=emails.count("reading")),
         **inbox(context, views, emails),
     }
+
+
+def receipts_now(context) -> tuple[list[dict], dict]:  # noqa: ANN001
+    """Every receipt of the Business as it stands now, and ``counts`` over
+    them, from one read."""
+
+    from argus.api.business_drafts import receipt_summaries
+
+    views = receipt_summaries(context, "all")
+    return views, counts(context, views)
+
+
+def counts_now(context) -> dict:  # noqa: ANN001
+    """The counts of the Business as it stands now: what the counts read,
+    the home overview and an action that has moved a row answer with."""
+
+    return receipts_now(context)[1]

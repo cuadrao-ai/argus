@@ -28,8 +28,8 @@ MEDIA_SUFFIXES = frozenset(
 )
 INTRODUCED_STATUSES = frozenset({"A", "C", "R"})
 REJECTION = (
-    "do not commit evidence media. Attach it on the pull request, "
-    "or upload it with actions/upload-artifact."
+    "do not commit evidence media. Keep it local under temp/<lane>/ "
+    "and report its paths."
 )
 MISSING_BASE = "Cannot find the merge base. Fetch the base history and retry."
 

@@ -12,8 +12,9 @@ from uuid import uuid4
 
 import pytest
 
-from tests.business.receipt_stub import DETAILS, PURCHASE
+from tests.business.receipt_stub import receipt_details, receipt_purchase
 from tests.business.test_business_api import RECEIPT
+from tests.business_accept_support import accepting
 from tests.document_reads_support import leave_reads_waiting
 from tests.test_business_approval_fiscal_postgres import (
     EDITED_SUPPLIER,
@@ -38,6 +39,11 @@ PURCHASE_NCF = "B0100000001"
 CREDIT_NCF = "B0400000002"
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 def _get(rig, path: str, headers: dict, **params):  # noqa: ANN001, ANN202
     answer = rig.client.get(f"{API}{path}", params=params, headers=headers)
     assert answer.status_code == 200, (path, answer.text)
@@ -56,7 +62,6 @@ def _counts_match_flags(page: dict, notes: int = 0) -> None:
     assert (
         activity["ready_to_review_count"] == sum(f["por_revisar"] for f in flags) + notes
     )
-    assert activity["needs_attention_count"] == sum(f["con_problema"] for f in flags)
     assert activity["reading_count"] == sum(f["leyendo"] for f in flags)
 
 
@@ -106,8 +111,8 @@ def test_each_receipt_says_which_bandeja_buckets_it_sits_in_and_the_counts_agree
     unread = saved(RECEIPT + b"\x41")
     assert _reading(web, True).status_code == 200
     # Its own merchant and amount, so no earlier read makes it a duplicate.
-    web.stub.rows = [{**PURCHASE, "merchant": "PAPELERIA CENTRAL", "amount": "980.50"}]
-    web.stub.details = {**DETAILS, "merchant": "PAPELERIA CENTRAL", "total": "980.50"}
+    web.stub.rows = [{**receipt_purchase(), "merchant": "PAPELERIA CENTRAL", "amount": "980.50"}]
+    web.stub.details = {**receipt_details(), "merchant": "PAPELERIA CENTRAL", "total": "980.50"}
     read = saved(RECEIPT + b"\x42")
     web.stub.failure = "extraction_provider_failed"
     failed = saved(RECEIPT + b"\x43")
@@ -144,7 +149,7 @@ def test_each_receipt_says_which_bandeja_buckets_it_sits_in_and_the_counts_agree
     approved = _post(
         web,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed.json()["version"], "action": "record_expense"},
+        accepting(reviewed.json(), "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -203,11 +208,22 @@ def test_notes_say_how_many_came_before_and_whether_the_page_is_the_whole_list(
     # Exactly a page's worth is not "more".
     exact = _get(world, "/business/captures", alice.headers, limit=4)
     assert (len(exact["items"]), exact["has_more"]) == (4, False)
-    # The accountant working in Alice's Business reads the same page.
+    # The accountant working in Alice's Business reads the same page. Alice has
+    # no name, so she reads her own email and the accountant, who does not
+    # manage the Business, reads only that a member sent it.
     assert all(item["delete_available"] for item in page["items"])
+    assert {item["sent_by"]["person"]["shown_as"] for item in page["items"]} == {"email"}
+    unnamed ={"display_name": None, "email": None, "shown_as": "member"}
     assert _get(world, "/business/captures", _as(world.bob, world.grant), limit=2) == {
         **page,
-        "items": [{**item, "delete_available": False} for item in page["items"]],
+        "items": [
+            {
+                **item,
+                "delete_available": False,
+                "sent_by": {**item["sent_by"], "person": unnamed},
+            }
+            for item in page["items"]
+        ],
     }
 
 
@@ -250,7 +266,7 @@ def test_the_dossier_names_its_approve_action_and_the_606_gate_agrees_with_the_a
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed["version"], "action": "record_expense"},
+        accepting(reviewed, "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -344,7 +360,7 @@ def _approved_purchase(world, person, facts: dict, dgii: dict) -> str:  # noqa: 
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed["version"], "action": "record_expense"},
+        accepting(reviewed, "record_expense"),
         person.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -456,7 +472,7 @@ def test_the_server_picks_the_purchases_a_credit_note_may_refund(world) -> None:
     denied = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": refused["version"], "action": "record_refund"},
+        accepting(refused, "record_refund"),
         alice.headers,
     )
     assert (denied.status_code, denied.json()["code"]) == (
@@ -473,7 +489,7 @@ def test_the_server_picks_the_purchases_a_credit_note_may_refund(world) -> None:
     recorded = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": named["version"], "action": "record_refund"},
+        accepting(named, "record_refund"),
         alice.headers,
     )
     assert recorded.status_code == 200, recorded.text

@@ -14,6 +14,7 @@ from argus.domain.recording.money_schemas import MoneyRequest
 
 from tests import test_business_actions_postgres as shared
 from tests import test_registros_api_postgres as api
+from tests.business_accept_support import seen_gaps
 from tests.test_business_reporting_postgres import viewer_context
 
 users = api.users
@@ -125,7 +126,9 @@ def test_supporting_file_preserves_manual_financial_basis(client, actions, timin
         context,
         draft,
         ApproveExpense(
-            version=service.dossier(context, draft).version, action="record_expense"
+            version=service.dossier(context, draft).version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
         ),
         "approve",
     )
@@ -218,11 +221,20 @@ def test_original_document_duplicate_and_new_support_preserve_document_basis(
     monkeypatch.setattr(shared, "source", lambda *_args, **_kwargs: source_id)
     draft = shared.ready(service, context)
     approval = service.approve(
-        context, draft, ApproveExpense(version=1, action="record_expense"), "approve"
+        context,
+        draft,
+        ApproveExpense(
+            version=1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        "approve",
     )
     assert approval.outcome == "applied"
     correct_money(service, context, str(approval.activity_id))
     before = report(http)
+    assert before["items"][0]["has_document"] is True
+    assert service.dossier(context, draft).supporting_files == ()
     duplicate = append(
         http,
         draft,

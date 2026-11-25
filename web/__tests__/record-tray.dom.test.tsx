@@ -75,7 +75,7 @@ async function mount({ width = 1280 }: { width?: number } = {}) {
     throw new Error(`timed out waiting for ${what}: ${document.body.textContent?.slice(0, 300)}`);
   };
   const tray = () => document.querySelector<HTMLElement>('[data-testid="side-drawer"]');
-  const recordTitle = () => tray()?.querySelector("#receipt-review-title, #expense-detail-title")?.textContent ?? null;
+  const recordTitle = () => tray()?.querySelector("#receipt-review-title")?.textContent ?? null;
   const row = (text: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="panel"] li')].find((item) => item.textContent?.includes(text)) ?? null;
   const action = (text: string) => row(text)?.querySelector<HTMLElement>('button[class~="rowAction"]') ?? null;
   const click = async (element: HTMLElement | null | undefined) => {
@@ -125,18 +125,29 @@ describe("a record in the desktop tray", () => {
     assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Bandeja"), true, "the sidebar marks the Bandeja");
   });
 
-  test("the record sits in one column, source first, and the approve actions sit in the pinned footer", async () => {
+  test("beside the Bandeja the dossier is wide with the document beside its tabs, the size button narrows it, and the approve actions sit in the pinned footer", async () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     const page = await mount();
     await openInbox(page);
     await page.open({ kind: "draft", draftId: dossierFixtureIds.ready, list: "inbox" });
     await page.settle(() => page.tray()?.querySelector('[data-footer-slot] [data-testid="receipt-review-footer"]') != null, "the footer in the drawer slot");
-    const review = page.tray()!.querySelector('[data-testid="business-record-review"]')!;
-    const order = [...review.querySelectorAll("[data-testid^='receipt-review-']")].map((item) => item.getAttribute("data-testid"));
-    assert.deepEqual(order, ["receipt-review-source", "receipt-review-fields", "receipt-review-history"]);
-    assert.equal(review.querySelector('[data-testid="receipt-review-footer"]'), null, "no in-page sticky footer");
+    const review = () => page.tray()!.querySelector('[data-testid="business-record-review"]')!;
+    const source = () => review().querySelector('[data-testid="receipt-review-source"]');
+    assert.equal(page.tray()!.getAttribute("data-width"), "dossier");
+    assert.equal(review().getAttribute("data-size"), "regular");
+    const order = [...review().querySelectorAll("[data-testid^='receipt-review-']")].map((item) => item.getAttribute("data-testid"));
+    assert.deepEqual(order, ["receipt-review-fields", "receipt-review-history", "receipt-review-source"], "the tabs first, the document beside them");
+    assert.equal(source()?.closest("[role='tabpanel']"), null, "the document is not a tab");
+    assert.equal(review().querySelector('[data-testid="receipt-review-footer"]'), null, "no in-page sticky footer");
     const footer = page.tray()!.querySelector('[data-footer-slot]')!;
-    assert.ok([...footer.querySelectorAll("button")].some((button) => button.textContent === "Aprobar"), "Aprobar is in the pinned footer");
+    assert.ok([...footer.querySelectorAll("button")].some((button) => button.textContent === "Aceptar"), "Aceptar is in the pinned footer");
+
+    await page.click(page.tray()!.querySelector<HTMLElement>('[data-testid="dossier-size"]'));
+    assert.equal(page.tray()!.getAttribute("data-width"), "record", "the size button narrows the drawer");
+    assert.equal(review().getAttribute("data-size"), "narrow");
+    assert.equal(source()?.closest("[role='tabpanel']")?.getAttribute("data-tab-panel"), "documento", "narrow, the document is the Documento tab");
+    await page.click(page.tray()!.querySelector<HTMLElement>('[data-testid="dossier-size"]'));
+    assert.equal(page.tray()!.getAttribute("data-width"), "dossier", "and widens it again");
   });
 
   test("clicking another row swaps the record in the same tray", async () => {
@@ -151,7 +162,8 @@ describe("a record in the desktop tray", () => {
     const panel = page.panel();
     assert.ok(panel.kind === "receipt");
     assert.deepEqual({ kind: panel.kind, receiptId: panel.receiptId, list: panel.list }, { kind: "receipt", receiptId: "rcpt-papeleria", list: "inbox" });
-    assert.ok(panel.receiptIds?.includes("rcpt-papeleria"));
+    assert.equal(panel.reviewList?.scope, "inbox");
+    assert.ok(panel.reviewList.receiptIds.includes("rcpt-papeleria"));
   });
 
   test("Escape inside the tray closes it, returns to the Bandeja, and puts focus on the row", async () => {
@@ -237,6 +249,9 @@ describe("a record in the desktop tray", () => {
     await page.settle(() => saved("Estación Ruta 3") !== null, "the saved records");
     await page.click(saved("Estación Ruta 3"));
     await page.settle(() => page.recordTitle() === "Estación Ruta 3", "Estación Ruta 3 in the tray");
+    assert.equal(page.tray()!.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "tray", "the record opens the one dossier");
+    assert.equal(page.panel().kind, "draft", "the dossier of the draft that recorded it");
+    assert.ok(page.tray()!.querySelector('[data-testid="receipt-current-facts"]'), "with its facts");
     assert.ok(page.host.querySelector('[data-record-id="exp-gas"]'), "the list is still on the page");
     assert.equal(saved("Estación Ruta 3")?.getAttribute("aria-selected"), "true");
     assert.equal([...page.tray()!.querySelectorAll("button")].find((button) => button.textContent === "Transacciones"), undefined, "no way back inside the tray");
@@ -344,7 +359,7 @@ describe("what a dossier tray covers", () => {
     assert.equal(covered(page), null, "the list beside the receipt stays in the Tab order");
   });
 
-  test("Tab past either end of the dossier wraps inside it, and a layer opened from it keeps its own Tab", async () => {
+  test("Tab past either end of the dossier wraps inside it, and a Tab from outside it is not held", async () => {
     const page = await mount();
     await openInbox(page);
     await openRow(page, "Ferretería La Esquina");
@@ -363,13 +378,6 @@ describe("what a dossier tray covers", () => {
     assert.equal(document.activeElement, stops[stops.length - 1], "Shift+Tab from the first lands on the last");
     stops[1].focus();
     assert.equal(await press(stops[1], false), false, "inside the dossier the browser keeps its own order");
-    const { focusableWithin } = await import("@/components/layout/overlayFocus");
-    const summary = tray.querySelector<HTMLElement>("summary");
-    assert.ok(summary, "the dossier has a disclosure");
-    assert.ok(focusableWithin(tray).includes(summary), "a disclosure is a stop the trap can see");
-    summary.focus();
-    assert.equal(await press(summary, true), false, "Shift+Tab from a disclosure is left to the browser");
-    assert.equal(await press(summary, false), false, "Tab from a disclosure is left to the browser");
     const outside = page.action("Papelería Central")!;
     assert.equal(await press(outside, false), false, "a key from outside the dossier is not held");
   });
@@ -386,4 +394,20 @@ describe("a record below the desktop stop", () => {
     assert.equal(page.host.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "page");
     assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent === "Bandeja"), "the way back is on the page");
   });
+
+  for (const [kind, merchant] of [["a record with no draft", "Estación Ruta 3"], ["a receipt", "Nube Hosting"]] as const) {
+    test(`on a phone, the way back from ${kind} puts focus on the Registros row that opened it`, async () => {
+      const page = await mount({ width: 390 });
+      await page.open({ kind: "transactions" });
+      const opener = () => [...page.host.querySelectorAll<HTMLElement>("[data-record-id]")].find((item) => item.textContent?.includes(merchant))?.querySelector("button") ?? null;
+      await page.settle(() => opener() !== null, "the saved records");
+      await page.click(opener());
+      await page.settle(() => page.host.querySelector("#receipt-review-title")?.textContent === merchant, "the record page");
+      assert.equal(page.host.querySelector("[data-record-id]"), null, "the record replaces the list");
+      await page.click([...page.host.querySelectorAll("button")].find((button) => button.textContent === "Registros"));
+      await page.settle(() => opener() !== null, "Registros again");
+      assert.equal(page.panel().kind, "transactions");
+      assert.ok(document.activeElement === opener(), "focus is back on the row");
+    });
+  }
 });

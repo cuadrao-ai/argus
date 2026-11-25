@@ -23,7 +23,9 @@ from fastapi.testclient import TestClient
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_receipt_activity_postgres as receipts
+from tests.business.action_counts import NO_ROWS, count_no_rows
 from tests.business.test_business_api import RECEIPT
+from tests.business_accept_support import seen_gaps
 
 users = shared.users
 actions = shared.actions
@@ -36,6 +38,7 @@ def _client(service, context):
     app = FastAPI()
     add_core_middleware_and_handlers(app)
     app.include_router(router, prefix="/api/v1")
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, context.actor.actor_id, str(context.actor.space_id), context.grant_id
     )
@@ -117,7 +120,7 @@ def _captured_purchase(service, context, *, approve=False):
             ApproveExpense(
                 action="record_expense",
                 version=reviewed.version,
-                approve_anyway=True,
+                accept_gaps=seen_gaps(service, context, created.draft_id),
             ),
             str(uuid4()),
         )
@@ -144,11 +147,18 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
     key = str(uuid4())
     deleted = _act(client, target, "delete", key)
     assert deleted.status_code == 200, deleted.text
-    assert deleted.json() == {"document_id": str(target), "deleted": True}
+    answer = deleted.json()
+    purge_at = answer.pop("purge_at")
+    assert answer == {
+        "document_id": str(target),
+        "deleted": True,
+        "inbox_counts": NO_ROWS,
+    }
     assert _act(client, target, "delete", key).json() == deleted.json()
     rows = receipt_summaries(web, "all")
     [view] = [row for row in rows if row["id"] == cid]
     marker = DeletedDocument.model_validate(view["deleted"])
+    assert purge_at == marker.model_dump(mode="json")["purge_at"]
     assert marker.actor.actor_id == context.actor.actor_id
     assert marker.previous_state.group == before["bandeja_group"]["group"]
     assert view["status"] == "dismissed"
@@ -163,10 +173,8 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
     assert counts(web, rows)["bandeja_eliminados_count"] == 1
     assert len(unreviewed_days(web, rows)) == len(before_days) - 1
     home = overview_with_drafts(web, date(2026, 1, 1), date(2026, 12, 31))
-    assert (
-        home["awaiting_review"] + home["needs_attention"]
-        == before_home["awaiting_review"] + before_home["needs_attention"] - 1
-    )
+    tabs = ("bandeja_listo_count", "bandeja_attention_count")
+    assert sum(home[name] for name in tabs) == sum(before_home[name] for name in tabs) - 1
     assert home["totals"] == before_home["totals"]
     assert (
         web.service.expenses(web.scope, date(2026, 1, 1), date(2026, 12, 31))
@@ -175,6 +183,7 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
     restore_key = str(uuid4())
     restored = _act(client, target, "restore", restore_key)
     assert restored.status_code == 200, restored.text
+    assert "purge_at" not in restored.json()
     assert _act(client, target, "restore", restore_key).json() == restored.json()
     after = receipt_detail(web, web.service.receipt(web.scope, cid))
     assert after["deleted"] is None
@@ -214,9 +223,11 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
 
 
 @pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
-@pytest.mark.parametrize("prepared", [False, True])
-def test_only_owner_can_delete_or_restore(actions, users, role, prepared):
-    service, context, cid, draft_id, web = (_ready if prepared else _unread)(actions)
+@pytest.mark.parametrize("state", ["unread", "open", "accepted"])
+def test_only_owner_can_delete_or_restore(actions, users, role, state):
+    service, context, cid, draft_id, web = (_ready if state == "open" else _unread)(actions)
+    if state == "accepted":
+        draft_id = _captured_purchase(service, context, approve=True)
     capabilities = ["read"] if role == "viewer" else ["read", "prepare"]
     with service.authority.pool.connection() as db:
         db.execute(
@@ -242,7 +253,7 @@ def test_only_owner_can_delete_or_restore(actions, users, role, prepared):
             "business_permission_denied",
         )
     assert receipt_detail(web, web.service.receipt(web.scope, cid))["deleted"] is None
-    if prepared:
+    if draft_id:
         view = service.dossier(other, draft_id)
         assert not view.delete_available and not view.restore_available
 
@@ -262,25 +273,66 @@ def test_reading_document_cannot_be_deleted(actions, status):
     )
 
 
-def test_accepted_draft_cannot_be_deleted(actions):
+def test_owner_can_restore_the_same_accepted_draft_and_money(actions):
     from argus.domain.business.contracts.actions import ApproveExpense
 
-    service, context, _, draft, _ = _ready(actions)
+    service, context, receipt, draft, _ = _ready(actions)
     view = service.dossier(context, UUID(str(draft)))
     approved = service.approve(
         context,
         draft,
         ApproveExpense(
-            action="record_expense", version=view.version, approve_anyway=True
+            action="record_expense",
+            version=view.version,
+            accept_gaps=seen_gaps(service, context, draft),
         ),
         str(uuid4()),
     )
     assert approved.outcome == "applied", approved
-    refused = _act(_client(service, context), draft, "delete")
-    assert (refused.status_code, refused.json()["code"]) == (
-        422,
-        "business_document_not_open",
-    )
+    before = service.dossier(context, draft)
+    client = _client(service, context)
+    delete_key, restore_key = str(uuid4()), str(uuid4())
+
+    def money():
+        with service.authority.pool.connection() as db:
+            return db.execute(
+                "select g.reversed_at, g.current_revision, m.record_id, v.amount_minor"
+                " from public.financial_activity_groups g"
+                " join public.financial_activity_memberships m on m.activity_id=g.id"
+                " join public.financial_record_revisions v on v.record_id=m.record_id"
+                " where g.id=%s",
+                (approved.activity_id,),
+            ).fetchone()
+
+    original = money()
+    assert original[0] is None
+    deleted = _act(client, receipt, "delete", delete_key)
+    assert deleted.status_code == 200, deleted.text
+    assert before.delete_available is True and before.restore_available is False
+    dismissed = service.dossier(context, draft)
+    assert dismissed.review_state == "dismissed"
+    assert dismissed.deleted.previous_state.state == "accepted"
+    assert dismissed.deleted.previous_state.group is None
+    assert dismissed.restore_available is True and dismissed.delete_available is False
+    reversed_money = money()
+    assert reversed_money[0] is not None and reversed_money[1:] == original[1:]
+    assert _act(client, receipt, "delete", delete_key).status_code == 200
+    assert _act(client, draft, "delete").status_code == 200
+    assert service.dossier(context, draft).version == before.version + 1
+    assert money() == reversed_money
+
+    restored = _act(client, draft, "restore", restore_key)
+    assert restored.status_code == 200, restored.text
+    assert _act(client, draft, "restore", restore_key).status_code == 200
+    assert _act(client, receipt, "delete", delete_key).status_code == 200
+    after = service.dossier(context, draft)
+    assert after.version == before.version + 2
+    assert after.review_state == "accepted"
+    assert after.approval_result == before.approval_result
+    assert after.facts == before.facts and after.sources == before.sources
+    assert after.history == before.history and after.dgii == before.dgii
+    assert after.delete_available is True and after.restore_available is False
+    assert money() == original
 
 
 @pytest.mark.parametrize("prepared", [False, True])

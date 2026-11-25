@@ -14,6 +14,8 @@ from argus.domain.business.contracts.deletion import DocumentCommand
 from psycopg.types.json import Jsonb
 
 from tests import test_business_duplicate_resolution_postgres as resolution
+from tests.business.receipt_stub import receipt_date
+from tests.business_accept_support import seen_gaps
 
 actions = resolution.actions
 users = resolution.users
@@ -207,7 +209,7 @@ def test_the_comparison_recommends_by_the_fiscal_number(
     assert comparison.other.counterparty == "Synthetic shop"
     assert comparison.other.amount == "250.5"
     assert comparison.other.currency == "DOP"
-    assert comparison.other.occurred_on.isoformat() == "2026-10-11"
+    assert comparison.other.occurred_on.isoformat() == receipt_date()
     assert comparison.other.file is not None
     assert comparison.other.file.filename == "foto.txt"
     assert comparison.other.received_at is not None
@@ -217,6 +219,23 @@ def test_the_comparison_recommends_by_the_fiscal_number(
     assert not {"counterparty", "occurred_on", "amount", "currency"} & set(
         comparison.differences
     )
+
+
+@pytest.mark.owner_acts
+@pytest.mark.parametrize("name", ["SYNTHETIC SHOP", " synthetic shop "])
+def test_dossier_comparison_ignores_merchant_case_and_surrounding_spaces(actions, name):
+    service, context, _ = actions
+    first, second = _pair(actions)
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_import_events set resolution ="
+            " jsonb_set(resolution, '{business,facts,counterparty,value}', %s) where id=%s",
+            (Jsonb(name), str(second)),
+        )
+    [candidate] = service.dossier(context, second).duplicate_candidates
+    assert candidate.draft_id == first
+    assert candidate.comparison.document.counterparty == name
+    assert "counterparty" not in candidate.comparison.differences
 
 
 @pytest.mark.owner_acts
@@ -248,7 +267,11 @@ def test_the_comparison_says_where_when_and_in_what_state_each_document_is(actio
     approved = service.approve(
         context,
         first,
-        ApproveExpense(version=ready.version, action="record_expense"),
+        ApproveExpense(
+            version=ready.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first),
+        ),
         str(uuid4()),
     )
     assert approved.outcome == "applied", approved

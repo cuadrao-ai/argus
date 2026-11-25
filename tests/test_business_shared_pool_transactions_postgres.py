@@ -31,6 +31,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as shared_actions
 from tests import test_business_shared_pool_postgres as shared_pool
+from tests.business_accept_support import seen_gaps
 from tests.profile_images.pictures import png
 
 actions = shared_actions.actions
@@ -149,7 +150,11 @@ def test_refund_dossier_is_coherent_while_money_approval_commits(
             service.approve,
             actor,
             expense,
-            ApproveExpense(version=1, action="record_expense"),
+            ApproveExpense(
+                version=1,
+                action="record_expense",
+                accept_gaps=seen_gaps(service, actor, expense),
+            ),
             str(uuid4()),
         )
         assert staged.wait(3)
@@ -395,7 +400,14 @@ def test_concurrent_expense_receipt_reads_use_the_grant_connection(
     service, actor, _ = actions
     expense = shared_actions.ready(service, actor)
     approved = service.approve(
-        actor, expense, ApproveExpense(version=1, action="record_expense"), str(uuid4())
+        actor,
+        expense,
+        ApproveExpense(
+            version=1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, actor, expense),
+        ),
+        str(uuid4()),
     )
     assert approved.outcome == "applied"
     now = datetime.now(timezone.utc)

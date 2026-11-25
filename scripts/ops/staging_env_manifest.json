@@ -18,32 +18,6 @@
       "service_name": "cuadrao-api-staging",
       "entries": [
         {
-          "name": "ALPACA_API_KEY",
-          "kind": "secret",
-          "local_only": true,
-          "local": {
-            "enter": "the selected local store"
-          },
-          "local_stack_value": "local-qa-disabled"
-        },
-        {
-          "name": "ALPACA_PAPER_TRADING",
-          "kind": "plain",
-          "local_only": true,
-          "local": {
-            "value": "true"
-          }
-        },
-        {
-          "name": "ALPACA_SECRET_KEY",
-          "kind": "secret",
-          "local_only": true,
-          "local": {
-            "enter": "the selected local store"
-          },
-          "local_stack_value": "local-qa-disabled"
-        },
-        {
           "name": "APP_ENV",
           "kind": "plain",
           "keep_current": true,
@@ -235,6 +209,14 @@
           }
         },
         {
+          "name": "CUADRAO_BUSINESS_TYPED_NOTES_ENABLED",
+          "kind": "plain",
+          "value": "false",
+          "production": {
+            "value": "false"
+          }
+        },
+        {
           "name": "CUADRAO_BUSINESS_READS_PER_DAY",
           "kind": "plain",
           "value": "300",
@@ -374,7 +356,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "not_set": true
+            "enter": "the production WhatsApp display number"
           }
         },
         {
@@ -390,7 +372,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "not_set": true
+            "enter": "the production WhatsApp receiving number ID"
           }
         },
         {
@@ -473,28 +455,28 @@
           "name": "CUADRAO_WHATSAPP_VERIFY_TOKEN",
           "kind": "generated",
           "production": {
-            "not_set": true
+            "enter": "the production WhatsApp callback verify token"
           }
         },
         {
           "name": "CUADRAO_WHATSAPP_SENDER_KEY",
           "kind": "generated",
           "production": {
-            "not_set": true
+            "enter": "a distinct production sender key shared with the production document worker"
           }
         },
         {
           "name": "CUADRAO_WHATSAPP_APP_SECRET",
           "kind": "secret",
           "production": {
-            "not_set": true
+            "enter": "the production WhatsApp app secret"
           }
         },
         {
           "name": "CUADRAO_WHATSAPP_ACCESS_TOKEN",
           "kind": "secret",
           "production": {
-            "not_set": true
+            "enter": "the production WhatsApp app access token"
           }
         },
         {
@@ -1038,14 +1020,6 @@
           }
         },
         {
-          "name": "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED",
-          "kind": "plain",
-          "production_only": true,
-          "production": {
-            "value": "false"
-          }
-        },
-        {
           "name": "NEXT_PUBLIC_MOCK_AUTH",
           "kind": "plain",
           "production_only": true,
@@ -1054,25 +1028,6 @@
           },
           "local": {
             "value": "false"
-          }
-        },
-        {
-          "name": "NEXT_PUBLIC_OMNISEARCH_ENABLED",
-          "kind": "plain",
-          "production_only": true,
-          "production": {
-            "value": "true"
-          },
-          "local": {
-            "value": "true"
-          }
-        },
-        {
-          "name": "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED",
-          "kind": "plain",
-          "production_only": true,
-          "production": {
-            "value": "true"
           }
         }
       ],
@@ -1239,6 +1194,16 @@
           }
         },
         {
+          "name": "CUADRAO_INGESTION_SECRET_KEY",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "enter": "the same ingestion key as the API when replies are enabled",
+            "optional": true
+          },
+          "optional": true
+        },
+        {
           "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
           "kind": "secret",
           "production_only": true,
@@ -1262,6 +1227,54 @@
             "copy_from": "CUADRAO_VISION_MODEL",
             "service": "api"
           }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_ACCESS_TOKEN",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "enter": "the reply access token when replies are enabled",
+            "optional": true
+          },
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+          "kind": "plain",
+          "copy_from": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+          "service": "api",
+          "production": {
+            "value": "false"
+          }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_NUMBER_ID",
+          "kind": "plain",
+          "keep_current": true,
+          "production": {
+            "enter": "the sender number ID when replies are enabled",
+            "optional": true
+          },
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+          "kind": "plain",
+          "copy_from": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+          "service": "api",
+          "production": {
+            "value": "false"
+          }
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_SENDER_KEY",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "enter": "the same sender key as the API when replies are enabled",
+            "optional": true
+          },
+          "optional": true
         },
         {
           "name": "DATABASE_URL",

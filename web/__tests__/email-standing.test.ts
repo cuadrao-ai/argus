@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
 import type { BusinessEmailDelivery, BusinessEmailPart } from "@/lib/business-email";
-import { bandejaEmails, inboxCount, problemCount, readingCount } from "@/components/business-app/inbox-count";
+import { bandejaEmails, inboxCount } from "@/components/business-app/inbox-count";
 
 const part = (overrides: Partial<BusinessEmailPart> = {}): BusinessEmailPart => ({ id: "1.2", filename: "factura.pdf", media_type: "application/pdf", state: "captured", document_id: "rcpt-1", error_code: null, ...overrides });
 const email = (overrides: Partial<BusinessEmailDelivery> = {}): BusinessEmailDelivery => ({
@@ -22,19 +22,15 @@ describe("where an email stands in the Bandeja is the server's word", () => {
 });
 
 describe("the Bandeja counts are the server's", () => {
-  const activity = { reading_count: 3, unread_count: 0, presentation: "working" as const, pending_review_count: 40, needs_attention_count: 7, ready_to_review_count: 30 };
+  const activity = { reading_count: 3, unread_count: 0, presentation: "working" as const, pending_review_count: 40, ready_to_review_count: 30 };
 
   test("past one page of rows, every number is the server's, emails and notes included", () => {
     assert.equal(inboxCount({ receiptActivity: activity }), 40);
-    assert.equal(problemCount({ receiptActivity: activity }), 7);
-    assert.equal(readingCount({ receiptActivity: activity }), 3);
   });
 
   test("without the server's answer a number is unknown, never 0", () => {
     for (const records of [{}, { receiptActivity: null }]) {
       assert.equal(inboxCount(records), null);
-      assert.equal(problemCount(records), null);
-      assert.equal(readingCount(records), null);
     }
   });
 });

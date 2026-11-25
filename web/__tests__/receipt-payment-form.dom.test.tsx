@@ -39,12 +39,15 @@ async function recordScreen(dossier: BusinessDossier) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  const choices = <OwnerChoices dossier={dossier} fields={null} failed={false} disabled readOnly saves={{}} onChoose={() => {}} onRetry={() => {}} onCancel={() => {}} onReload={() => {}} />;
+  const choices = <OwnerChoices dossier={dossier} fields={null} failed={false} readOnly edit={() => assert.fail("A read-only purchase cannot edit a report choice")} note={() => null} onReload={() => {}} />;
   await act(async () => root.render(<I18nextProvider i18n={i18n}><Facts dossier={dossier} accounts={accounts} choices={choices} /></I18nextProvider>));
   const text = host.textContent ?? "";
   const screen = {
     headings: [...host.querySelectorAll("h3")].map((heading) => heading.textContent),
-    rows: Object.fromEntries([...host.querySelectorAll("dl > div")].map((row) => [row.querySelector("dt")?.textContent, row.querySelector("dd")?.textContent])),
+    rows: Object.fromEntries([...host.querySelectorAll("li[data-fact]")].map((row) => [row.firstElementChild?.textContent, {
+      value: row.querySelector("[data-row-value]")?.textContent,
+      card: row.closest("section")?.getAttribute("data-testid"),
+    }])),
     count: (needle: string) => text.split(needle).length - 1,
   };
   await act(async () => root.unmount());
@@ -52,24 +55,36 @@ async function recordScreen(dossier: BusinessDossier) {
   return screen;
 }
 
-test("an approved purchase with no paying account shows its forma de pago once, under Para el 606, and no Pago section", async () => {
+test("an approved purchase shows its forma de pago once, in the Reporte 606 card, and no Pago section", async () => {
   const screen = await recordScreen(await approvedPurchase((record) => {
     record.facts.funding = unknown;
   }));
-  assert.equal(screen.count("01 - Efectivo"), 1);
-  assert.equal(screen.rows["Forma de pago"], "01 - Efectivo");
+  assert.equal(screen.count("01 · Efectivo"), 1);
+  assert.deepEqual(screen.rows["Forma de pago"], { value: "01 · Efectivo", card: "receipt-facts-choices" });
   assert.equal(screen.count("Cómo se pagó"), 0);
-  assert.equal(screen.headings.at(-1), "Para el 606");
+  assert.ok(screen.headings.includes("Reporte 606"));
   assert.equal(screen.headings.includes("Pago"), false);
   assert.equal(screen.count("Parte del negocio"), 0);
   assert.equal(screen.count("Todo para el negocio"), 0);
 });
 
-test("a known paying account shows as Cómo se pagó, alone under Pago, beside the forma de pago", async () => {
+test("a known paying account the server does not wait on stays off the screen: forma de pago is the one payment fact", async () => {
   const screen = await recordScreen(await approvedPurchase(() => {}));
-  assert.equal(screen.rows["Cómo se pagó"], "Cuenta corriente");
-  assert.equal(screen.count("01 - Efectivo"), 1);
-  assert.deepEqual(screen.headings.slice(-2), ["Para el 606", "Pago"]);
+  assert.equal(screen.count("Cuenta corriente"), 0);
+  assert.equal(screen.rows["Cómo se pagó"], undefined);
+  assert.equal(screen.count("01 · Efectivo"), 1);
+  assert.equal(screen.headings.includes("Pago"), false);
   assert.equal(screen.rows["Parte del negocio"], undefined);
   assert.equal(screen.count("del revisor"), 0);
+});
+
+test("while the server waits on how it was paid, Cómo se pagó shows once in Comprobante beside the forma de pago", async () => {
+  const screen = await recordScreen(await approvedPurchase((record) => {
+    record.facts.funding = unknown;
+    record.blockers = [{ code: "unknown_funding", field: "funding" }];
+  }));
+  assert.deepEqual(screen.rows["Cómo se pagó"], { value: "Sin dato", card: "receipt-facts-comprobante" });
+  assert.equal(screen.count("Cómo se pagó"), 1);
+  assert.deepEqual(screen.rows["Forma de pago"], { value: "01 · Efectivo", card: "receipt-facts-choices" });
+  assert.equal(screen.headings.includes("Pago"), false);
 });

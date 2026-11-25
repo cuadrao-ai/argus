@@ -7,6 +7,7 @@ from typing import Any
 
 from argus.domain.owner_scope import OwnerScope
 from argus.domain.recording.errors import IdempotencyConflict
+from argus.domain.recording.import_claim import ImportClaim
 from argus.domain.recording.loop_storage import apply
 from argus.domain.recording.money_plan import MoneyPlan
 from argus.domain.recording.repository import (
@@ -25,12 +26,21 @@ def transact(
     legacy_account: str | None = None,
     *,
     scope: OwnerScope,
+    import_claim: ImportClaim | None = None,
 ) -> tuple[list[StoredAccount], str, int, tuple[str, ...], bool]:
     if not isinstance(repository, InMemoryFinancialAccountRepository):
         from argus.domain.recording.money_postgres import transact_postgres
 
         return transact_postgres(
-            repository, user_id, key, identity, planner, now, legacy_account, scope=scope
+            repository,
+            user_id,
+            key,
+            identity,
+            planner,
+            now,
+            legacy_account,
+            scope=scope,
+            import_claim=import_claim,
         )
     with repository._lock:
         owned = repository.held(user_id, scope)

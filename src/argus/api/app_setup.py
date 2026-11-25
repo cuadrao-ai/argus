@@ -102,33 +102,19 @@ async def lifespan(app: FastAPI):
         from argus.api.email_intake import start_email_intake, stop_email_intake
 
         start_email_intake(app)
-        from argus.api.whatsapp_worker import start_worker, stop_worker
-
-        start_worker(app)
         from argus.api.households import start_households, stop_households
 
         start_households(app)
         from argus.api.apple_sign_in import start_apple_sign_in, stop_apple_sign_in
 
         start_apple_sign_in(app)
-        from argus.api.chat.research_pricing_evidence import ResearchPricingRecorder
-        from argus.domain.research.billing import set_unpriced_spend_recorder
-
-        research_pricing_recorder = ResearchPricingRecorder()
-        set_unpriced_spend_recorder(research_pricing_recorder)
         try:
             yield
         finally:
-            set_unpriced_spend_recorder(None)
-            await research_pricing_recorder.close()
             stop_personalization_memory(app)
             stop_households(app)
             stop_apple_sign_in(app)
             await stop_email_intake(app)
-            from argus.api.whatsapp import drain_whatsapp
-
-            await drain_whatsapp()
-            await stop_worker(app)
             stop_ingestion(app)
             stop_bank_matching(app)
             stop_profile_images(app)

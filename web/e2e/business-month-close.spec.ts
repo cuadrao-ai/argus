@@ -10,7 +10,7 @@ test.describe("Inicio with settlement off", () => {
   async function openWire(page: Page, phase: "ready" | "empty" | "failed" | "loading" = "ready") {
     await page.route("**/*", (route) => (["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
     await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
-    const source = createFixtureBusinessDataSource({ chatAvailable: false });
+    const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { can_change: false } });
     let release = () => {};
     const waiting = new Promise<void>((resolve) => { release = resolve; });
     const state = { openItems: 0, monthReads: 0, phase, release };
@@ -22,8 +22,7 @@ test.describe("Inicio with settlement off", () => {
       if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba" } });
       if (path === "spaces") return route.fulfill({ json: { spaces: (await source.spaces()).slice(0, 1) } });
       if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
-      if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0 } } });
-      if (path === "receipt-reading") return route.fulfill({ json: { enabled: false, available: true, can_change: false } });
+      if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0 } } });
       if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
       if (path === "email/deliveries" || path === "captures") return route.fulfill({ json: { items: [] } });
       if (path === "consent") return fulfillAcceptedBusinessConsent(route);

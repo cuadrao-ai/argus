@@ -5,8 +5,9 @@ import { createBusinessReportHttpFixture } from "../__tests__/fixtures/business-
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture, type Language, type Theme } from "./support/breakpoint-fixture";
 import { fulfillSyntheticBusinessFallback } from "./support/synthetic-business-fallback";
 
-async function open606(page: Page) {
+async function open606(page: Page, theme: Theme = "light") {
   const fixture = createBusinessReportHttpFixture();
+  fixture.controls.bandejaCount = 3;
   const purchases = fixture.records.filter((row) => row.family === "purchase");
   purchases.forEach((row) => { row.currency = "DOP"; row.fiscal_data = "complete"; row.stage = "ready_for_export"; });
   purchases[0].fiscal_data = "missing";
@@ -21,7 +22,7 @@ async function open606(page: Page) {
     status: index % 2 ? "rnc_unverified" : "rnc_inactive",
     record_count: 1,
   }));
-  await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
+  await installBreakpointFixture(page, { language: "es-419", theme, emptyChat: true });
   await page.route("**/api/v1/business/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -36,40 +37,45 @@ async function open606(page: Page) {
   await page.getByTestId("records-export").click();
   const download = page.getByTestId("records-export-download");
   await expect(download).toBeEnabled();
+  const bandeja = page.getByTestId("records-export-bandeja-notice");
+  await expect(page.getByTestId("records-export-mode-table").getByTestId("records-export-notices").locator(":scope > li")).toHaveText(["3 comprobantes de este período siguen en la Bandeja.Ver en Bandeja"]);
   await page.getByTestId("records-export-mode-dgii").getByRole("radio").check();
   await expect(page.getByTestId("records-export-rnc-notice")).toBeVisible();
-  return { download, fixture };
+  await expect(page.getByTestId("records-export-mode-dgii")).toContainText("3 comprobantes de este período siguen en la Bandeja.");
+  await expect(page.getByTestId("records-export-mode-table").getByTestId("records-export-notices")).toHaveCount(0);
+  return { download, fixture, bandeja };
 }
 
-async function inlineAction(link: Locator) {
+/** The action sits in its own right-hand column of the notice, level with the sentence's first line. */
+async function columnAction(link: Locator) {
   const geometry = await link.evaluate((button) => {
-    const paragraph = button.closest("p")!;
-    const before = document.createRange();
-    before.setStart(paragraph, 0);
-    before.setEndBefore(button);
-    const sentence = Array.from(before.getClientRects()).at(-1)!;
-    const action = button.getBoundingClientRect();
+    const column = button.parentElement!;
+    const notice = column.parentElement!;
+    const sentence = notice.querySelector("p")!;
     const style = getComputedStyle(button);
     return {
-      parent: paragraph.tagName,
-      paragraphDisplay: getComputedStyle(paragraph).display,
-      display: style.display,
+      notice: notice.tagName,
+      inSentence: sentence.contains(button),
       fontSize: style.fontSize,
-      paragraphFontSize: getComputedStyle(paragraph).fontSize,
       padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
-      height: action.height,
+      height: button.getBoundingClientRect().height,
       lineHeight: Number.parseFloat(style.lineHeight),
-      sentenceTop: sentence.top,
-      actionTop: action.top,
+      columnWidth: column.getBoundingClientRect().width,
+      gap: column.getBoundingClientRect().left - sentence.getBoundingClientRect().right,
+      actionRight: button.getBoundingClientRect().right,
+      noticeRight: notice.getBoundingClientRect().right,
+      sentenceTop: sentence.getBoundingClientRect().top,
+      actionTop: button.getBoundingClientRect().top,
     };
   });
-  expect(geometry.parent).toBe("P");
-  expect(geometry.paragraphDisplay).toBe("block");
-  expect(["inline", "inline-block"]).toContain(geometry.display);
+  expect(geometry.notice).toBe("LI");
+  expect(geometry.inSentence).toBe(false);
   expect(geometry.fontSize).toBe("14px");
-  expect(geometry.paragraphFontSize).toBe("14px");
   expect(geometry.padding).toEqual(["0px", "0px", "0px", "0px"]);
   expect(geometry.height).toBeLessThanOrEqual(geometry.lineHeight + 1);
+  expect(geometry.columnWidth).toBeGreaterThanOrEqual(112);
+  expect(geometry.gap).toBeGreaterThanOrEqual(16);
+  expect(Math.abs(geometry.actionRight - geometry.noticeRight)).toBeLessThanOrEqual(1);
   expect(Math.abs(geometry.sentenceTop - geometry.actionTop)).toBeLessThanOrEqual(3);
 }
 
@@ -88,25 +94,28 @@ async function fullyVisible(download: Locator, page: Page) {
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
   test(`606 keeps 12 suppliers in a bordered scroll box with export visible at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    const { download, fixture } = await open606(page);
+    const { download, fixture, bandeja } = await open606(page);
     const notice = page.getByTestId("records-export-rnc-notice");
     const toggle = page.getByTestId("records-export-rnc-toggle");
     const review = page.getByTestId("records-export-notices").getByRole("button", { name: "Revisar", exact: true });
-    await inlineAction(toggle);
-    await inlineAction(review);
+    const openBandeja = bandeja.getByRole("button", { name: "Ver en Bandeja", exact: true });
+    for (const action of [toggle, review, openBandeja]) await columnAction(action);
     const rows = await page.getByTestId("records-export-notices").locator(":scope > li").evaluateAll((notices) => notices.map((row) => {
       const icon = row.querySelector("svg")!.getBoundingClientRect();
       const paragraph = row.querySelector("p")!.getBoundingClientRect();
       return { iconTop: icon.top, paragraphTop: paragraph.top };
     }));
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(4);
     for (const row of rows) expect(Math.abs(row.iconTop - row.paragraphTop)).toBeLessThanOrEqual(3);
+    await expect(page.getByTestId("records-export-notices").locator(":scope > li").last()).toHaveAttribute("data-testid", "records-export-bandeja-notice");
+    const between = await page.getByTestId("records-export-notices").locator(":scope > li").evaluateAll((notices) => notices.slice(1).map((row, index) => row.getBoundingClientRect().top - notices[index].getBoundingClientRect().bottom));
+    expect(between).toEqual([10, 10, 10]);
     const subtextGap = await notice.locator("p").evaluateAll(([title, body]) => body.getBoundingClientRect().top - title.getBoundingClientRect().bottom);
     expect(Math.abs(subtextGap)).toBeLessThanOrEqual(1);
     await fullyVisible(download, page);
     await toggle.click();
     await expect(toggle).toHaveText("Ocultar");
-    await inlineAction(toggle);
+    await columnAction(toggle);
     const list = page.getByTestId("records-export-rnc-suppliers");
     await expect(list).toBeVisible();
     await expect(list).toHaveAttribute("tabindex", "0");
@@ -156,36 +165,48 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
   });
 }
 
-async function openReadinessRecords(page: Page, language: Language = "es-419", theme: Theme = "light", targetExpense = false) {
+for (const theme of ["light", "dark"] as const) {
+  test(`the Bandeja line uses the notice colors and Ver en Bandeja opens the Bandeja (${theme})`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const { download, bandeja } = await open606(page, theme);
+    const dark = theme === "dark";
+    const pending = page.getByTestId("records-export-notices").locator(":scope > li").nth(1);
+    for (const part of ["svg", "p", "button"]) {
+      const color = await bandeja.locator(part).evaluate((element) => getComputedStyle(element).color);
+      expect(color).toBe(await pending.locator(part).evaluate((element) => getComputedStyle(element).color));
+    }
+    if (!dark) await expect(bandeja.locator("svg")).toHaveCSS("color", "rgb(125, 138, 132)");
+    await expect(download).toBeEnabled();
+    if (process.env.EVIDENCE_DIR) {
+      await mkdir(process.env.EVIDENCE_DIR, { recursive: true });
+      await page.getByTestId("records-export-dialog").screenshot({ path: join(process.env.EVIDENCE_DIR, `exportar-bandeja-606-${theme}.png`), animations: "disabled" });
+    }
+    await bandeja.getByRole("button", { name: "Ver en Bandeja", exact: true }).click();
+    await expect(page.getByTestId("records-export-panel")).toHaveCount(0);
+    await expect(page.getByTestId("transacciones-records")).toHaveCount(0);
+    await expect(page.locator("h1")).toHaveText("Bandeja");
+  });
+}
+
+async function openReadinessRecords(page: Page, language: Language = "es-419", theme: Theme = "light") {
   const fixture = createBusinessReportHttpFixture();
   const purchases = fixture.records.filter((row) => row.family === "purchase");
   purchases[0].ready = false;
-  purchases[0].missing = ["expense_type_missing", "payment_method_missing", "rnc_missing"];
+  purchases[0].missing = ["expense_type_missing", "payment_method_missing", "missing_rnc"];
   purchases[0].stage = "ready_for_export";
   purchases[1].ready = true;
   purchases[1].technical_state = null;
   purchases[1].report_date = "2026-10-20";
   purchases[1].currency = "DOP";
   purchases[1].gross_amount = "100.00";
-  purchases[1].missing = ["ncf_missing"];
+  purchases[1].missing = ["missing_ncf"];
   purchases[1].stage = "needs_fiscal_data";
   purchases[2].ready = false;
-  purchases[2].missing = ["ncf_missing"];
-  if (targetExpense) {
-    purchases[0].draft_id = null;
-    purchases[0].row_id = `expense:${purchases[0].linked_activity_ids[0]}`;
-  }
+  purchases[2].missing = ["missing_ncf"];
   await installBreakpointFixture(page, { language, theme, emptyChat: true });
   await page.route("**/api/v1/business/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    if (targetExpense && path.endsWith(`/expenses/${purchases[0].linked_activity_ids[0]}`)) {
-      return route.fulfill({ json: {
-        id: purchases[0].linked_activity_ids[0], merchant: "Registro sintético", amount: "100.00", currency: "DOP",
-        category_id: null, account_id: null, occurred_on: "2026-10-01", receipt_id: null, draft_id: null,
-        recorded_at: "2026-10-01T12:00:00Z", revision: 1,
-      } });
-    }
     if (/\/(reports\/|report-views(?:\/|$))/.test(path)) {
       const response = await fixture.request(request.url(), { method: request.method(), headers: request.headers(), body: request.postData() ?? undefined });
       if (path.endsWith("/reports/query")) {
@@ -205,29 +226,24 @@ async function openReadinessRecords(page: Page, language: Language = "es-419", t
 }
 
 for (const language of ["es-419", "en"] as const) {
-  test(`server readiness, reasons, filter, and all row heights in ${language}`, async ({ page }) => {
+  test(`server readiness, filter, and all row heights in ${language}`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const fixture = await openReadinessRecords(page, language);
     const spanish = language === "es-419";
     const table = page.getByTestId("transacciones-records");
     const rows = table.locator("tbody tr");
-    const missing = rows.nth(0).locator("[data-record-workflow]");
-    const ready = rows.nth(1).locator("[data-record-workflow]");
-    await expect(missing).toHaveText(spanish ? "Faltan datos" : "Missing data");
-    await expect(ready).toHaveText(spanish ? "Listo" : "Ready");
-    await expect(rows.nth(1).locator('[data-col="missing"]')).toHaveText("");
-    const reason = rows.nth(0).locator("[data-record-missing]");
-    await expect(reason).toHaveText(spanish ? "Falta el tipo de gasto+2" : "Expense type is missing+2");
-    await reason.hover();
-    await expect(page.getByRole("tooltip")).toHaveText(spanish ? "Falta el tipo de gasto · Falta la forma de pago · Falta el RNC" : "Expense type is missing · Payment method is missing · RNC is missing");
-    await page.mouse.move(0, 0);
+    const missing = rows.nth(0).locator("[data-record-status]");
+    const ready = rows.nth(1).locator('[data-col="stage"]');
+    await expect(missing).toHaveText(spanish ? "Faltan 3 datos" : "3 details missing");
+    await expect(ready).toBeEmpty();
+    await expect(table.locator('[data-col="missing"], [data-col="funding"]')).toHaveCount(0);
     for (const [density, label, height] of [["compacto", spanish ? "Compacto" : "Compact", 40], ["normal", "Normal", 48], ["amplio", spanish ? "Amplio" : "Roomy", 56]] as const) {
       await page.getByRole("button", { name: spanish ? "Opciones de vista" : "View options", exact: true }).click();
       await page.getByRole("radio", { name: spanish ? "Altura de filas" : "Row height", exact: true }).check();
       await page.getByRole("radio", { name: label, exact: true }).check();
       await page.keyboard.press("Escape");
       await expect(table).toHaveAttribute("data-density", density);
-      const geometry = await rows.evaluateAll((elements) => elements.map((row) => ({ height: row.getBoundingClientRect().height, chips: Array.from(row.querySelectorAll("[data-record-workflow]")).map((chip) => ({ width: chip.getBoundingClientRect().width, height: chip.getBoundingClientRect().height, lineHeight: Number.parseFloat(getComputedStyle(chip).lineHeight), whiteSpace: getComputedStyle(chip).whiteSpace })) })));
+      const geometry = await rows.evaluateAll((elements) => elements.map((row) => ({ height: row.getBoundingClientRect().height, chips: Array.from(row.querySelectorAll("[data-record-status]")).map((chip) => ({ width: chip.getBoundingClientRect().width, height: chip.getBoundingClientRect().height, lineHeight: Number.parseFloat(getComputedStyle(chip).lineHeight), whiteSpace: getComputedStyle(chip).whiteSpace })) })));
       for (const row of geometry) {
         expect(row.height).toBe(height);
         for (const chip of row.chips) {
@@ -244,7 +260,7 @@ for (const language of ["es-419", "en"] as const) {
     await card.click();
     await expect(card).toHaveAttribute("aria-pressed", "true");
     await expect.poll(() => fixture.calls.filter((call) => call.path.endsWith("/reports/query")).some((call) => (call.body as { filters?: { ready?: boolean } }).filters?.ready === false)).toBe(true);
-    await expect(table.locator('[data-record-workflow="ready"]')).toHaveCount(0);
+    await expect(table.locator('[data-record-status="ready"]')).toHaveCount(0);
     await expect(rows).toHaveCount(2);
   });
 }
@@ -255,15 +271,15 @@ for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       await openReadinessRecords(page, "es-419", theme);
       const records = page.getByTestId("transacciones-records");
-      await expect(records.locator('[data-record-workflow="not_ready"]').first()).toHaveText("Faltan datos");
-      await expect(records.locator('[data-record-workflow="ready"]').first()).toHaveText("Listo");
+      await expect(records.locator('[data-record-status="missing"]').first()).toHaveText("Faltan 3 datos");
+      await expect(records.locator('[data-record-status="ready"]')).toHaveCount(0);
       if (width === 390) {
         await expect(records.locator("[data-record-missing]")).toHaveCount(0);
         await expect(records).not.toContainText("Falta el tipo de gasto");
         await expect(records).not.toContainText("+2");
       }
       await page.getByRole("button", { name: "Ocultar guía", exact: true }).click();
-      await records.locator("[data-record-workflow]").first().scrollIntoViewIfNeeded();
+      await records.locator("[data-record-status]").first().scrollIntoViewIfNeeded();
       const screenshot = testInfo.outputPath(`receipt-upload-registros-${width}-${theme}-es-419.png`);
       await page.screenshot({ path: screenshot, fullPage: true, animations: "disabled" });
       await testInfo.attach(`Registros ${width}px ${theme} es-419`, { path: screenshot, contentType: "image/png" });
@@ -274,17 +290,3 @@ for (const width of [1440, 390]) {
     });
   }
 }
-
-
-test("readiness opened expense shows the complete missing list", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await openReadinessRecords(page, "es-419", "light", true);
-  await page.getByTestId("transacciones-records").locator("tbody tr").first().click();
-  const detail = page.getByTestId("business-expense-detail");
-  await expect(detail).toBeVisible();
-  await expect(page.locator("[data-record-missing-list] li")).toHaveText([
-    "Falta el tipo de gasto",
-    "Falta la forma de pago",
-    "Falta el RNC",
-  ]);
-});

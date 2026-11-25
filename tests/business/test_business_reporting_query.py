@@ -532,7 +532,7 @@ def test_counterparty_name_uses_latest_date_then_row_id_within_selected_family()
 @pytest.mark.parametrize("exported", [False, True])
 @pytest.mark.parametrize(
     "verdict,expected",
-    [(None, "complete"), (("ncf_missing",), "missing"), ("absent", None)],
+    [(None, "complete"), (("missing_ncf",), "missing"), ("absent", None)],
 )
 def test_current_fiscal_data_does_not_depend_on_download_history(
     exported, verdict, expected
@@ -613,3 +613,45 @@ def test_counterparty_uses_latest_nonempty_name_before_falling_back_to_identity(
         ("named", ("Known name",)),
         ("unnamed", ("unnamed",)),
     ]
+
+
+def test_empty_business_offers_every_expense_type_in_code_order():
+    from argus.domain.business.dgii_codes import EXPENSE_TYPES
+
+    answer = run([]).model_dump(mode="json")
+    assert answer["expense_types"] == [
+        {"code": code, "label": EXPENSE_TYPES[code]} for code in sorted(EXPENSE_TYPES)
+    ]
+    assert "funding_sources" not in answer
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("funding_sources", ["synthetic-private-value"]),
+        ("document_kinds", ["credit_note"]),
+        ("fiscal_classifications", ["B01"]),
+        ("ready", True),
+    ],
+)
+def test_retired_filter_is_dropped_and_only_its_name_is_logged(faker, field, value):
+    from argus.domain.business.reporting_views import SavedView
+    from loguru import logger
+
+    recipe = {"filters": {"q": "preserved", field: value}}
+    messages = []
+    sink = logger.add(lambda event: messages.append(event.record["message"]))
+    try:
+        posted = ReportRequest.model_validate(recipe)
+        saved = SavedView(
+            id=faker.uuid4(),
+            name="Synthetic view",
+            recipe=recipe,
+            version=1,
+            created_at=NOW,
+            updated_at=NOW,
+        )
+    finally:
+        logger.remove(sink)
+    assert posted.filters == saved.recipe.filters == ReportFilters(q="preserved")
+    assert messages == [f"Dropped retired report filter {field}"] * 2

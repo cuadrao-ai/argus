@@ -1,8 +1,8 @@
 """Over HTTP on the real app, Auth and Postgres: the read sets a Bandeja
 upload's type when the person named none (a Venta when the issuer RNC is the
 Business's own, in any printed format), a named type wins, the owner changes
-it while the draft is open, the change is a revision, it is locked once
-approved, and the 606 and 607 follow the type. A local stub stands in for the
+it before and after approval, each correction is a revision, and the 606 and
+607 follow the type. A local stub stands in for the
 provider."""
 
 from __future__ import annotations
@@ -27,8 +27,14 @@ from psycopg import Connection
 from psycopg.errors import CheckViolation
 
 from tests import test_financial_accounts_postgres as shared
-from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
+from tests.business.receipt_stub import (
+    ReceiptStub,
+    receipt_date,
+    receipt_details,
+    receipt_purchase,
+)
 from tests.business.test_business_api import RECEIPT
+from tests.business_accept_support import accept
 from tests.business_cleanup import delete_spaces
 from tests.business_reading_support import ROUTE
 from tests.local_supabase_support import local_supabase_gateway
@@ -48,6 +54,11 @@ OWN_RNC = "199990013"
 CLIENT_RNC = "199990056"
 SUPPLIER_RNC = "199990021"
 NAME = "PRÁCTICA Taller"
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 @pytest.fixture
@@ -143,23 +154,24 @@ def _upload(
     rnc: str | None,
     document_type: str | None = None,
     *,
-    occurred_on: str = "2026-09-03",
+    occurred_on: str | None = None,
     total: str = "1180.00",
     unsure: bool = False,
 ) -> dict:
     """One read receipt: the stub prints ``rnc`` as the RNC the read found.
     ``unsure`` reads it without knowing whether money went out or came in."""
 
+    occurred_on = occurred_on or receipt_date()
     world.stub.rows = [
         {
-            **PURCHASE,
+            **receipt_purchase(),
             "amount": total,
             "occurred_on": occurred_on,
             **({"direction": "unknown", "kind_hint": "unknown"} if unsure else {}),
         }
     ]
     world.stub.details = {
-        **DETAILS,
+        **receipt_details(),
         "occurred_on": occurred_on,
         "total": total,
         "subtotal": None,
@@ -347,7 +359,8 @@ SALE_607 = {
 
 
 def _approve(world, draft_id: str, action: str) -> None:  # noqa: ANN001
-    approved = world.client.post(
+    approved = accept(
+        world.client,
         f"{API}/business/drafts/{draft_id}/approve",
         json={"version": _dossier(world, draft_id)["version"], "action": action},
         headers=_headers(world),
@@ -418,17 +431,10 @@ def test_the_owner_retypes_open_drafts_and_the_606_and_607_follow_the_type(
         assert reviewed.json()["approval_available"] is True, reviewed.json()["blockers"]
         _approve(web, draft, f"record_{kind}")
 
-    for draft, other in ((sold, "recibo"), (bought, "venta")):
-        assert _typed(_dossier(web, draft)) == (
-            {"recibo": "venta", "venta": "recibo"}[other],
-            False,
-            False,
-        )
-        locked = _review(web, draft, {"document_type": other})
-        assert locked.status_code == 422, locked.text
-        assert locked.json()["code"] == "document_type_locked"
+    assert _typed(_dossier(web, sold)) == ("venta", False, True)
+    assert _typed(_dossier(web, bought)) == ("recibo", False, True)
     listed = _receipt(web, view["sources"][0]["connection_id"])
-    assert _typed(listed) == ("venta", False, False)
+    assert _typed(listed) == ("venta", False, True)
 
     exported = web.client.get(
         f"{API}/business/exports",
@@ -445,6 +451,19 @@ def test_the_owner_retypes_open_drafts_and_the_606_and_607_follow_the_type(
     assert placed == {bought: ("expense", "606"), sold: ("income", "607")}
     assert dgii["forms"]["606"]["record_count"] == 1
     assert dgii["forms"]["607"]["record_count"] == 1
+
+    for draft, document_type, kind in (
+        (sold, "recibo", "expense"),
+        (bought, "venta", "income"),
+    ):
+        before = _dossier(web, draft)
+        corrected = _review(web, draft, {"document_type": document_type})
+        assert corrected.status_code == 200, corrected.text
+        after = corrected.json()
+        assert after["review_state"] == "accepted"
+        assert after["approval_result"] == before["approval_result"]
+        assert _typed(after) == (document_type, False, True)
+        assert after["facts"]["kind"]["value"] == kind
 
 
 def _capture(world, body: dict):  # noqa: ANN001, ANN202
@@ -497,13 +516,11 @@ def test_a_capture_is_retyped_while_open_and_lands_in_the_607(web) -> None:  # n
     )
     assert reviewed.status_code == 200, reviewed.text
     _approve(web, draft, "record_income")
-    locked = _review(web, draft, {"document_type": "recibo"})
-    assert (locked.status_code, locked.json()["code"]) == (422, "document_type_locked")
     added = _capture(
         web,
         {
             "text": "Otra nota",
-            "draft": {"draft_id": draft, "version": 1},
+            "draft": {"draft_id": draft, "version": _dossier(web, draft)["version"]},
             "document_type": "recibo",
         },
     )
@@ -685,7 +702,8 @@ def test_a_draft_saved_with_two_answers_is_held_until_one_is_chosen(
     draft = _legacy_receipt_saved_as_income(web)
     held = _held(web, draft)
     assert held["approval_available"] is False
-    refused = web.client.post(
+    refused = accept(
+        web.client,
         f"{API}/business/drafts/{draft}/approve",
         json={"version": held["version"], "action": "record_income"},
         headers=_headers(web),
@@ -704,7 +722,8 @@ def test_a_draft_saved_with_two_answers_is_held_until_one_is_chosen(
 
 
 def _approve_status(web, draft: str, version: int):  # noqa: ANN001, ANN202
-    return web.client.post(
+    return accept(
+        web.client,
         f"{API}/business/drafts/{draft}/approve",
         json={"version": version, "action": "record_income"},
         headers=_headers(web),
@@ -764,7 +783,7 @@ def test_with_no_business_rnc_a_receipt_is_the_reads_choice_and_approves(
     assert _typed(reviewed.json()) == ("recibo", True, True)
     assert reviewed.json()["approval_available"] is True, reviewed.json()["blockers"]
     _approve(web, draft, "record_expense")
-    assert _typed(_dossier(web, draft)) == ("recibo", True, False)
+    assert _typed(_dossier(web, draft)) == ("recibo", True, True)
 
 
 def _as_saved(dossier: dict) -> tuple:
@@ -785,7 +804,7 @@ def test_the_first_business_rnc_leaves_other_issuers_and_the_next_read_uses_it(
     receipt read after it is compared with it: the Business's own number reads
     as a Venta."""
 
-    early = [_upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"]]
+    early = [_upload(web, SUPPLIER_RNC)["draft_id"]]
     note = _capture(web, {"text": "Compra de clavos"})
     assert note.status_code == 200, note.text
     early.append(note.json()["draft_id"])
@@ -795,7 +814,7 @@ def test_the_first_business_rnc_leaves_other_issuers_and_the_next_read_uses_it(
     _own_rnc(web)
 
     assert {draft: _as_saved(_dossier(web, draft)) for draft in early} == before
-    later = _upload(web, OWN_RNC, occurred_on="2026-09-05")
+    later = _upload(web, OWN_RNC)
     assert _typed(later) == ("venta", True, True)
     assert _typed(_dossier(web, later["draft_id"])) == ("venta", True, True)
 

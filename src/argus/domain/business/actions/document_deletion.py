@@ -8,7 +8,8 @@ from uuid import UUID
 
 from psycopg.types.json import Jsonb
 
-from argus.domain.business.actions import plans
+from argus.domain.business.actions import document_ledger, plans
+from argus.domain.business.annotations import supporting_uploads
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.contracts.actions import ActionOutcome, Applied
 from argus.domain.business.contracts.deletion import (
@@ -63,6 +64,9 @@ def target(
     """The draft (or generic candidates) and the uploads one document id names,
     the uploads locked. Either id of a document reaches the same rows."""
 
+    # A supporting file's upload is no document: only its record's id reaches it.
+    if supporting_uploads(rows, space_id, document_id):
+        raise ActionError("not_found", "business_record_not_found")
     candidates = ()
     try:
         event = imports.event(str(document_id))
@@ -131,21 +135,18 @@ def target(
     return event, attachments, candidates
 
 
-def is_reading(tx: ActionTransaction, attachments: list[dict]) -> bool:
+def reading_uploads(tx: ActionTransaction, attachments: list[dict]) -> set[UUID]:
     now = datetime.now(timezone.utc)
     permission = BusinessReceiptConsentStore().status_on_connection(
         tx.connection, str(tx.context.actor.space_id), tx.context.owner_id
     )
-    return any(
-        DocumentDraft.model_validate(row["draft"]).read_pending(
-            permission["enabled"]
-            and permission["consent_id"]
-            == row["draft"].get("business_reading_consent_id")
-        )
-        or (row.get("lease_until") is not None and row["lease_until"] > now)
+    return {
+        row["connection_id"]
         for row in attachments
-        if row.get("draft")
-    )
+        if row.get("draft") and DocumentDraft.model_validate(row["draft"]).read_pending(
+            business_permission=permission, lease_until=row["lease_until"], now=now,
+        )
+    }
 
 
 def _purge(tx: ActionTransaction, command: DocumentCommand) -> Applied:
@@ -197,19 +198,28 @@ def _change(
     resolution = dict(event.resolution if event else document.get("resolution", {}))
     marker = deletion(state, resolution)
     deleting = command.action == "delete_document"
+    now = datetime.now(timezone.utc)
+    activity = None
     if deleting and marker is None:
+        accepted = event is not None and state == "accepted" and "business" in resolution
         if (
-            (event is not None and state != "open")
+            (event is not None and state != "open" and not (accepted and reason is None))
             or state == "dismissed"
             or any(
                 candidate.state not in ("open", "dismissed") for candidate in candidates
             )
         ):
             raise ActionError("invalid_input", "business_document_not_open")
-        if is_reading(tx, attachments):
+        if reading_uploads(tx, attachments):
             raise ActionError("invalid_input", "business_document_reading")
         group = "attention"
-        if event is not None and "business" in event.resolution:
+        if accepted:
+            activity = document_ledger.original_activity(event)
+            if document_ledger.linked_reason(tx, event, activity) is not None:
+                raise ActionError("invalid_input", "business_document_linked")
+            document_ledger.set_reversed(tx, activity, now)
+            group = None
+        elif event is not None and "business" in resolution:
             from argus.domain.business.actions.listos import draft_standings
             from argus.domain.business.bandeja_group import draft_group, listo_reason
 
@@ -217,7 +227,7 @@ def _change(
             group = draft_group(listo_reason(standing))
         marker = DeletedDocument(
             actor=DeletingActor(actor_id=tx.context.actor.actor_id),
-            at=datetime.now(timezone.utc),
+            at=now,
             key=key,
             previous_state=PreviousDocumentState(
                 state=state,
@@ -231,18 +241,31 @@ def _change(
     elif not deleting:
         if marker is None:
             raise ActionError("invalid_input", "business_document_not_deleted")
+        if not marker.can_restore(now):
+            raise ActionError("invalid_input", "business_document_restore_expired")
         state = marker.previous_state.state
+        if event is not None and state == "accepted":
+            activity = document_ledger.original_activity(event)
+            document_ledger.set_reversed(tx, activity, None)
         resolution.pop("deleted")
     else:
-        return Applied(outcome="applied", draft_id=event.id if event else None)
+        if event is not None and marker.previous_state.state == "accepted":
+            activity = document_ledger.original_activity(event)
+        return Applied(
+            outcome="applied",
+            draft_id=event.id if event else None,
+            activity_id=activity,
+            purge_at=marker.purge_at,
+        )
     if event is not None:
         tx.imports.put_event(
             replace(
                 event,
                 state=state,
                 resolution=resolution,
+                activity_id=str(activity) if activity and not deleting else None,
                 version=event.version + 1,
-                updated_at=datetime.now(timezone.utc),
+                updated_at=now,
             )
         )
         if not deleting:
@@ -251,6 +274,8 @@ def _change(
             outcome="applied",
             draft_id=event.id,
             version=tx.imports.event(event.id).version,
+            activity_id=activity,
+            purge_at=marker.purge_at if deleting else None,
         )
     for candidate in candidates:
         candidate_state = (
@@ -278,7 +303,7 @@ def _change(
     )
     if not deleting:
         _recheck_duplicates(tx, tuple(candidate.id for candidate in candidates))
-    return Applied(outcome="applied")
+    return Applied(outcome="applied", purge_at=marker.purge_at if deleting else None)
 
 
 def _recheck_duplicates(tx: ActionTransaction, event_ids: tuple[str, ...]) -> None:

@@ -108,7 +108,8 @@ def test_a_review_shows_each_answer_from_its_first_source(shape):
     assert shown.payment_method == (
         shape.payment or (None if "payment_method" in offered else ACCOUNT_FORM[shape.account])
     )
-    assert shown.id_type == (None if "id_type" in cleared else "1")
+    # Tipo Id is source-owned: an override an older save kept is not read.
+    assert shown.id_type == "1"
     assert shown.paid_on == (
         DAY if "paid_on" not in cleared and shape.resolved_form in PAID_AT_PURCHASE else None
     )
@@ -143,4 +144,7 @@ def test_an_approved_record_takes_nothing_from_an_account_or_a_suggestion():
     stored = apply_purchase(None, PurchaseReview())
     linked = replace(APPROVED, built=declaration_from_facts(FACTS, "checking"))
 
-    assert written_from(FACTS, stored, (), None, linked) is stored
+    shown = written_from(FACTS, stored, (), None, linked)
+
+    assert shown == stored.model_copy(update={"id_type": "1"})
+    assert (shown.payment_method, shown.paid_on) == (None, None)

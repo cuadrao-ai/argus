@@ -21,19 +21,20 @@ from psycopg.types.json import Jsonb
 
 from tests import test_business_approval_fiscal_postgres as fiscal
 from tests import test_business_declaration_after_approval_postgres as recorded
+from tests.business.receipt_stub import receipt_date, receipt_day
 from tests.business.test_approved_export_unchanged import CASES, PURCHASE
+from tests.business_accept_support import seen_gaps
 from tests.test_business_dgii_postgres import cash_account
 
 users = fiscal.users
 shared_actions = fiscal.shared_actions
 actions = fiscal.actions
 pytestmark = fiscal.pytestmark
-DAY = date(2026, 9, 5)
 LINKED = {"id_type", "itbis", "legal_tip", "goods_amount", "services_amount", "paid_on"}
 
 
 def _receipt(service, context, number: int, **read) -> tuple:  # noqa: ANN001, ANN003
-    """An unreviewed receipt of the one supplier: 1,000 before ITBIS, dated DAY."""
+    """An unreviewed receipt of the one supplier: 1,000 before ITBIS, dated the receipt day."""
 
     return fiscal.receipt_draft(
         service, context, fiscal.colmado(ncf=f"B01000004{number:02d}", **read), "DOP"
@@ -74,7 +75,7 @@ def test_a_fresh_read_opens_with_the_whole_606_line(actions):  # noqa: ANN001
 
     assert shown.dgii is not None
     line = shown.dgii
-    assert (line.id_type, line.itbis, line.paid_on) == ("1", "180.00", DAY)
+    assert (line.id_type, line.itbis, line.paid_on) == ("1", "180.00", receipt_day())
     assert (line.services_amount, line.goods_amount) == ("1000.00", None)
     # The two answers stay suggestions until a person confirms or approves.
     assert (line.category, line.payment_method) == (None, None)
@@ -109,6 +110,7 @@ def test_approval_saves_what_the_review_showed(actions):  # noqa: ANN001
             version=shown.version,
             action="record_expense",
             suggestions=shown.declaration_suggestions,
+            accept_gaps=seen_gaps(service, context, draft),
         ),
         str(uuid4()),
     )
@@ -120,7 +122,7 @@ def test_approval_saves_what_the_review_showed(actions):  # noqa: ANN001
         **shown.dgii.model_dump(mode="json", exclude={"suggestion_sources"}),
         **answers,
     }
-    assert (written["goods_amount"], written["paid_on"]) == ("1000.00", DAY.isoformat())
+    assert (written["goods_amount"], written["paid_on"]) == ("1000.00", receipt_date())
 
 
 def test_saving_the_pane_as_shown_overrides_nothing(actions):  # noqa: ANN001
@@ -152,20 +154,22 @@ def test_saving_the_pane_as_shown_overrides_nothing(actions):  # noqa: ANN001
     )
 
 
-def test_an_overridden_tipo_id_holds_until_it_is_restored(actions):  # noqa: ANN001
+def test_a_typed_tipo_id_is_dropped_for_the_one_the_rnc_states(actions):  # noqa: ANN001
     service, context = actions
-    draft, _ = _fresh(service, context)
+    draft, fresh = _fresh(service, context)
+    assert "id_type" in fresh.source_owned_fields
+    assert fresh.note_kind is None
 
     _review(service, context, draft, purchase=PurchaseReview(id_type="2"))
-    overridden = service.dossier(context, draft)
-    assert overridden.dgii.id_type == "2"
-    assert overridden.inheritance["id_type"].inherited is False
-    assert overridden.inheritance["id_type"].value == "1"
+    typed = service.dossier(context, draft)
+    assert typed.dgii.id_type == "1"
+    assert typed.inheritance["id_type"].inherited is True
 
-    _review(service, context, draft, montos=MontosReview(restore_inherited=("id_type",)))
-    restored = service.dossier(context, draft)
-    assert restored.dgii.id_type == "1"
-    assert restored.inheritance["id_type"].inherited is True
+    _review(service, context, draft, montos=MontosReview(override_inherited=("id_type",)))
+    held = service.dossier(context, draft)
+    assert held.dgii.id_type == "1"
+    assert held.inheritance["id_type"].inherited is True
+    assert "id_type" in held.source_owned_fields
 
 
 def test_fecha_pago_follows_the_chosen_forma_de_pago(actions):  # noqa: ANN001
@@ -176,7 +180,7 @@ def test_fecha_pago_follows_the_chosen_forma_de_pago(actions):  # noqa: ANN001
     assert service.dossier(context, draft).dgii.paid_on is None
 
     _review(service, context, draft, purchase=PurchaseReview(payment_method="02"))
-    assert service.dossier(context, draft).dgii.paid_on == DAY
+    assert service.dossier(context, draft).dgii.paid_on == receipt_day()
 
     _review(service, context, draft, purchase=PurchaseReview(paid_on=date(2026, 9, 20)))
     _review(service, context, draft, purchase=PurchaseReview(payment_method="04"))
@@ -208,8 +212,24 @@ def test_a_linked_credit_note_carries_its_purchases_number(actions):  # noqa: AN
     link = shown.inheritance["modified_ncf"]
     assert (link.field, link.value, link.inherited) == ("original_ncf", "B0100002301", True)
 
+    # A credit note is never Listos: the refund is recorded over that gap, named.
+    assert "credit_note" in shown.listo_gaps
+    unnamed = service.approve_refund(
+        context,
+        credit,
+        ApproveRefund(version=version, action="record_refund"),
+        str(uuid4()),
+    )
+    assert (unnamed.code, unnamed.gaps) == ("not_listo", shown.listo_gaps)
     outcome = service.approve_refund(
-        context, credit, ApproveRefund(version=version, action="record_refund"), str(uuid4())
+        context,
+        credit,
+        ApproveRefund(
+            version=version,
+            action="record_refund",
+            accept_gaps=shown.listo_gaps,
+        ),
+        str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
     assert service.dossier(context, credit).dgii.modified_ncf == "B0100002301"
@@ -329,11 +349,15 @@ def test_approval_saves_the_fecha_pago_shown_on_a_draft_saved_before_the_links(a
     _saved_before_the_links(service, context, draft, overrides, paid_on=None)
 
     shown = service.dossier(context, draft)
-    assert shown.dgii.paid_on == DAY
+    assert shown.dgii.paid_on == receipt_day()
     outcome = service.approve(
         context,
         draft,
-        ApproveExpense(version=shown.version, action="record_expense"),
+        ApproveExpense(
+            version=shown.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         str(uuid4()),
     )
 
@@ -341,7 +365,7 @@ def test_approval_saves_the_fecha_pago_shown_on_a_draft_saved_before_the_links(a
     written = fiscal.revisions(service, draft)[-1]["dgii"]
     assert {k: v for k, v in written.items() if k != "suggestion_sources"} == _shown(shown)
     assert _shown(service.dossier(context, draft)) == _shown(shown)
-    assert _line(service, context, draft)["paid_on"] == "20260905"
+    assert _line(service, context, draft)["paid_on"] == receipt_day().strftime("%Y%m%d")
 
 
 @pytest.mark.parametrize("overrides", [None, ()], ids=["no overrides recorded", "none overridden"])
@@ -368,7 +392,14 @@ def test_a_credit_note_approval_saves_the_ncf_modificado_shown(actions, override
     shown = service.dossier(context, credit)
     assert (shown.dgii.modified_ncf, shown.dgii.id_type) == ("B0100002501", "1")
     outcome = service.approve_refund(
-        context, credit, ApproveRefund(version=version, action="record_refund"), str(uuid4())
+        context,
+        credit,
+        ApproveRefund(
+            version=version,
+            action="record_refund",
+            accept_gaps=seen_gaps(service, context, credit),
+        ),
+        str(uuid4()),
     )
 
     assert outcome.outcome == "applied", outcome
@@ -503,7 +534,14 @@ def test_the_dossier_of_an_approved_credit_note_shows_the_line_it_exports(action
         occurred_on="2026-09-12",
     )
     outcome = service.approve_refund(
-        context, credit, ApproveRefund(version=version, action="record_refund"), str(uuid4())
+        context,
+        credit,
+        ApproveRefund(
+            version=version,
+            action="record_refund",
+            accept_gaps=seen_gaps(service, context, credit),
+        ),
+        str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
     _saved_before_the_links(service, context, credit, (), modified_ncf="B0100000009")

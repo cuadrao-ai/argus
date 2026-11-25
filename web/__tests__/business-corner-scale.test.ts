@@ -88,6 +88,13 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
   "components/ui/adaptive-panel.module.css": [
     ".expandButton | border-radius | 999px",
   ],
+  // Each one takes the corner of the element around it, whose own corner is a class on the scale.
+  "components/business-app/receipt-intake.module.css": [
+    ".drop::before | border-radius | inherit",
+    ".ring | border-radius | inherit",
+    ".bar > i | border-radius | inherit",
+    ".total > i | border-radius | inherit",
+  ],
   "components/business-app/foundation/range-picker.module.css": [
     ".preset | border-radius | 8px",
     ".icon,.today,.load | border-radius | 999px",
@@ -97,6 +104,31 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
     ".single | border-radius | 999px",
     ".confirm | border-radius | 999px",
     ".mobile .preset | border-radius | 999px"
+  ],
+  "components/business-app/dossier/dossier.module.css": [
+    ".why | border-radius | var(--radius-mark)",
+    ".pop | border-radius | var(--radius-surface)",
+    ".issue | border-radius | var(--radius-item)",
+    ".navGroup | border-radius | var(--radius-item)",
+    ".jumpButton | border-radius | var(--radius-item) 0 0 var(--radius-item)",
+    ".navButton | border-radius | var(--radius-item)",
+    ".sizeButton | border-radius | var(--radius-item)",
+    ".jumpRow | border-radius | var(--radius-item)",
+    ".unopened | border-radius | 999px",
+    ".tabCount | border-radius | 999px",
+    ".card | border-radius | var(--radius-surface)",
+    ".value | border-radius | var(--radius-item)",
+    ".pen | border-radius | var(--radius-item)",
+    ".act | border-radius | var(--radius-item)",
+    ".field label > input, .field select, .field div:has(> input) | border-radius | var(--radius-item)",
+    ".pick | border-radius | var(--radius-item)",
+    ".list | border-radius | var(--radius-surface)",
+    ".option | border-radius | var(--radius-item)",
+    ".icon | border-radius | var(--radius-mark)",
+    ".row[data-flash]::before | border-radius | var(--radius-surface)",
+    ".currency | border-radius | var(--radius-item)",
+    ".link | border-radius | var(--radius-item)",
+    ".eventIcon | border-radius | var(--radius-item)"
   ],
   "components/business-app/foundation/business-notifications.module.css": [
     ".bellDot | border-radius | 50%",
@@ -144,14 +176,6 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
     ".exclusions summary | border-radius | 50%",
     ".exclusions p | border-radius | 12px",
     ".metric | border-radius | 20px"
-  ],
-  "components/business-app/transacciones/records-annotations-preview.module.css": [
-    ".icon | border-radius | 999px",
-    ".dialog | border-radius | 16px",
-    ".textarea | border-radius | 8px",
-    ".footer > button | border-radius | var(--radius-item)",
-    ".image | border-radius | 8px",
-    ".fileLink | border-radius | 999px"
   ],
   "components/business-app/transacciones/records-page.module.css": [
     ".pages button | border-radius | 999px",

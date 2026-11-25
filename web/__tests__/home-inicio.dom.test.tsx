@@ -24,22 +24,23 @@ async function i18n() {
   return instance;
 }
 
-// ---------------------------------------------------------------- Necesita atención
+// ---------------------------------------------------------------- Pendientes
+
+const arrived = (minutesAgo: number) => new Date(Date.UTC(2026, 10, 9, 17) - minutesAgo * 60_000).toISOString();
 
 async function receipts(): Promise<ReceiptSummary[]> {
   const source = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource({ chatAvailable: false });
   const seed = (await source.receipts("all"))[0];
-  const at = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-  const listo = (index: number): ReceiptSummary => ({ ...seed, id: `listo-${index}`, channel: "web", merchant: `Ferretería ${index}`, amount: "1180.00", currency: "DOP", status: "review_ready", attention: null, received_at: at(index), email_original: false, expense_id: null, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo", reason: null, draft_id: `d${index}`, version: 1 } });
+  const listo = (index: number): ReceiptSummary => ({ ...seed, id: `listo-${index}`, channel: "web", merchant: `Ferretería ${index}`, amount: "1180.00", currency: "DOP", status: "review_ready", attention: null, received_at: arrived(index), email_original: false, expense_id: null, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo", reason: null, label: "ready", draft_id: `d${index}`, version: 1 } });
   return [
     ...[1, 2, 3, 4].map(listo),
-    { ...listo(9), id: "unreadable", merchant: null, filename: "factura-escaneada.pdf", status: "needs_attention", attention: "unreadable", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
-    { ...listo(8), id: "itbis", merchant: "Colmado Esquina", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "missing_itbis", draft_id: "dx", version: 2 } },
-    { ...listo(7), id: "photo", merchant: null, filename: null, channel: "whatsapp", status: "review_ready", received_at: at(0) },
+    { ...listo(9), id: "unreadable", merchant: null, filename: "factura-escaneada.pdf", status: "needs_attention", attention: "unreadable", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
+    { ...listo(8), id: "itbis", merchant: "Colmado Esquina", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "missing_itbis", label: "needs_attention", draft_id: "dx", version: 2 } },
+    { ...listo(7), id: "photo", merchant: null, filename: null, channel: "whatsapp", status: "review_ready", received_at: arrived(0) },
   ] as ReceiptSummary[];
 }
 
-const NOTE: BusinessCapture = { draft_id: "note-1", version: 1, revision: 1, source_id: "s1", text: "Taxi al aeropuerto", received_at: new Date(Date.now() - 30_000).toISOString(), review_state: "open" } as BusinessCapture;
+const NOTE: BusinessCapture = { draft_id: "note-1", version: 1, revision: 1, source_id: "s1", text: "Taxi al aeropuerto", received_at: arrived(0.5), review_state: "open", bandeja_group: { group: "attention", reason: "not_read", label: "needs_attention", draft_id: "note-1", version: 1 } };
 
 type AttentionOptions = { waiting?: number | null; firstDay?: boolean | null; rows?: ReceiptSummary[] | null; notes?: BusinessCapture[]; prepare?: boolean; failed?: boolean };
 
@@ -57,7 +58,7 @@ async function attention({ waiting = 8, firstDay = false, rows = undefined, note
   const value = {
     records: {
       inbox, notes, emails: [], error: failed, refused: false, failureReference: failed ? "ref-4b1d" : null, serverReference: null,
-      receiptActivity: waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: waiting, needs_attention_count: 2, ready_to_review_count: waiting - 2, bandeja_attention_count: 2, bandeja_listo_count: waiting - 2 },
+      receiptActivity: waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: waiting, ready_to_review_count: waiting - 2, bandeja_attention_count: 2, bandeja_listo_count: waiting - 2 },
     },
     openPanel: (panel: unknown) => { opened.push(panel); },
     reload: () => { reloads += 1; },
@@ -74,7 +75,7 @@ async function attention({ waiting = 8, firstDay = false, rows = undefined, note
   return { act, host, card, opened, uploads: () => uploads, reloads: () => reloads, close: async () => { await act(async () => root.unmount()); host.remove(); } };
 }
 
-describe("Necesita atención", () => {
+describe("Pendientes", () => {
   test("its count is the sidebar's Bandeja count, and Ver todo opens the Bandeja with no filter", async () => {
     const page = await attention();
     try {
@@ -86,21 +87,23 @@ describe("Necesita atención", () => {
     } finally { await page.close(); }
   });
 
-  test("up to six rows, problems first, each with its source icon, the Bandeja's reason and when it arrived, never an amount", async () => {
+  test("up to six rows, problems first, each with its source icon, Bandeja label and arrival time, without amounts", async () => {
     const page = await attention();
     try {
       const rows = [...page.card().querySelectorAll<HTMLElement>('[data-testid="home-attention-rows"] > li')];
       assert.equal(rows.length, 6);
-      assert.deepEqual(rows.slice(0, 2).map((row) => row.dataset.problem), ["true", "true"]);
-      assert.match(rows[0].textContent ?? "", /Colmado Esquina.*Falta el ITBIS/, "newest first, as the Bandeja orders them");
-      assert.match(rows[1].textContent ?? "", /factura-escaneada\.pdf.*No se pudo leer/);
-      assert.equal(rows[0].querySelector('[data-tone="attention"]')?.firstElementChild?.className.includes("rounded-full"), true, "a problem's tag has its dot");
-      assert.ok(rows.some((row) => /Foto por WhatsApp/.test(row.textContent ?? "")), "an unread WhatsApp photo names its source");
-      assert.ok(rows.some((row) => /Taxi al aeropuerto.*Nota escrita/.test(row.textContent ?? "")));
-      assert.ok(rows.some((row) => /Listo para revisar/.test(row.textContent ?? "")));
-      for (const row of rows) assert.doesNotMatch(row.textContent ?? "", AMOUNT, "no amount or currency in a row");
-      assert.deepEqual(rows.map((row) => row.querySelector('[data-testid="home-attention-verb"]')?.textContent), ["Resolver", "Resolver", "Revisar", "Revisar", "Revisar", "Revisar"]);
-      await page.act(async () => rows[0].querySelector("button")!.click());
+      assert.deepEqual(rows.map((row) => row.querySelector('[data-label]')?.getAttribute("data-label")), ["needs_attention", "needs_attention", "cant_read", "ready", "ready", "ready"]);
+      assert.match(rows[0].textContent ?? "", /Taxi al aeropuerto.*Necesita atención/);
+      assert.match(rows[1].textContent ?? "", /Colmado Esquina.*Necesita atención/);
+      assert.match(rows[2].textContent ?? "", /factura-escaneada\.pdf.*No se pudo leer/);
+      assert.match(rows[3].textContent ?? "", /Foto por WhatsApp.*Listo para aceptar/);
+      for (const row of rows) {
+        assert.ok(row.querySelector('button > [aria-hidden="true"] > svg'), "a channel icon");
+        assert.ok(row.querySelector('[data-testid="home-attention-time"]')?.textContent, "an arrival time");
+        assert.doesNotMatch(row.textContent ?? "", AMOUNT, "no amount or currency in a row");
+      }
+      assert.deepEqual(rows.map((row) => row.querySelector('[data-testid="home-attention-verb"]')?.textContent), ["Resolver", "Resolver", "Resolver", "Revisar", "Revisar", "Revisar"]);
+      await page.act(async () => rows[1].querySelector("button")!.click());
       assert.deepEqual(page.opened, [{ kind: "receipt", receiptId: "itbis", list: "inbox" }], "a row opens exactly what the Bandeja opens for it");
     } finally { await page.close(); }
   });
@@ -214,7 +217,7 @@ describe("The month card", () => {
       assert.ok(page.find("home-month-net")?.className.includes("text-[34px]"));
       assert.equal(page.find("home-month-itbis-sales")?.textContent, "RD$ 48,248");
       assert.equal(page.find("home-month-itbis-purchases")?.textContent, "RD$ 56,845");
-      assert.doesNotMatch(page.find("home-month")?.textContent ?? "", /Ingresos menos gastos aprobados|por marcar|Ya tienes todo|Para cerrar|Cerrar mes|Mes cerrado/);
+      assert.doesNotMatch(page.find("home-month")?.textContent ?? "", /Ingresos menos gastos aceptados|por marcar|Ya tienes todo|Para cerrar|Cerrar mes|Mes cerrado/);
       assert.equal(page.find("home-month-band")?.className.includes("h-[57px]"), true);
     } finally { await page.close(); }
   });
@@ -287,7 +290,7 @@ describe("The month card", () => {
         assert.equal(page.find(id)?.textContent, "RD$ 0", id);
         assert.ok(page.find(id)?.className.includes("text-[#7d8a84]"), `${id} is muted`);
       }
-      assert.equal(page.find("home-month-first-day")?.textContent, "Las cifras se llenan cuando apruebes tus primeros documentos.");
+      assert.equal(page.find("home-month-first-day")?.textContent, "Las cifras se llenan cuando aceptes tus primeros documentos.");
       assert.equal(page.find("home-month-included"), null);
     } finally { await page.close(); }
   });
@@ -326,12 +329,11 @@ describe("Inicio reads at a glance", () => {
       const first = card.card().querySelector('[data-testid="home-attention-rows"] > li')!;
       assert.ok(first.querySelector('[data-testid="home-attention-title"]')!.className.includes(HOME_TYPE.rowTitle));
       assert.ok(first.querySelector('[data-testid="home-attention-time"]')!.className.includes(HOME_TYPE.secondary));
-      assert.ok(first.querySelector('[data-tone="attention"]')!.className.includes(HOME_TYPE.tag));
       assert.ok(first.querySelector("button")!.className.includes("min-h-[62px]"), "rows stay about 60 to 64px");
     } finally { await card.close(); }
     const { readFileSync } = await import("node:fs");
     const panel = readFileSync(new URL("../components/business-app/BusinessOverviewPanel.tsx", import.meta.url).pathname, "utf8");
-    assert.match(panel, /grid-cols-\[minmax\(0,1fr\)_440px\]/, "the month card's column is 440px; Necesita atención takes the rest");
+    assert.match(panel, /grid-cols-\[minmax\(0,1fr\)_440px\]/, "the month card's column is 440px; Pendientes takes the rest");
   });
 });
 

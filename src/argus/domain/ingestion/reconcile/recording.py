@@ -33,6 +33,7 @@ from argus.domain.recording.errors import (
     RecordingInputError,
     StaleVersion,
 )
+from argus.domain.recording.import_claim import ImportClaim, ImportClaimLost
 from argus.domain.recording.money_schemas import DESTINATION_ELIGIBILITY, MoneyRequest
 
 DEFAULT_ZONE = "America/Santo_Domingo"
@@ -276,7 +277,7 @@ class Recording:
                 event,
                 state="accepted",
                 activity_id=activity["activity_id"],
-                resolution={**event.resolution, "accepted": _recorded(activity)},
+                resolution={**event.resolution, "accepted": recorded_activity_facts(activity)},
             )
             tx.put_event(_bump(event, now))
         return self.detail(user_id=user_id, event_id=event_id, scope=scope)
@@ -352,6 +353,8 @@ class Recording:
     ) -> dict[str, Any]:
         """Write (or replay) under the claiming key, then finalize the event."""
 
+        if event.accept_key is None:
+            raise ReconcileError("import_not_open", "Nothing is waiting to be recorded.")
         try:
             if request is None:
                 stored = event.resolution.get("pending_request")
@@ -367,17 +370,22 @@ class Recording:
                 request=request,
                 idempotency_key=f"imp:{event.id}:{event.accept_key}",
                 scope=scope,
+                import_claim=ImportClaim(event.id, event.accept_key),
             )
+        except ImportClaimLost:
+            with self.store.transaction(user_id, scope=scope) as tx:
+                tx.event(event.id)  # Raises EventNotFound if it was purged.
+            raise ReconcileError("import_not_open", "Nothing is waiting to be recorded.") from None
         except _NOT_WRITTEN:
             self._release(user_id, event, now, scope=scope)
             raise
         activity = result["activity"]
         with self.store.transaction(user_id, scope=scope) as tx:
             current = tx.event(event.id)
-            if current.state == "accepting":
+            if current.state == "accepting" and current.accept_key == event.accept_key:
                 resolution = dict(current.resolution)
                 resolution["accepted_request"] = resolution.pop("pending_request", None)
-                resolution["accepted"] = _recorded(activity)
+                resolution["accepted"] = recorded_activity_facts(activity)
                 current = replace(
                     current,
                     state="accepted",
@@ -465,7 +473,7 @@ class Recording:
         return draft
 
 
-def _recorded(activity: dict[str, Any]) -> dict[str, Any]:
+def recorded_activity_facts(activity: dict[str, Any]) -> dict[str, Any]:
     """Facts of the recorded activity, kept so the event can still be matched
     after its evidence is redacted (a disconnect)."""
 

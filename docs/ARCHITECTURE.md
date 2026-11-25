@@ -386,11 +386,85 @@ health check.
 to check when the reader wrote it (origin `extracted`) and its year is not the
 upload year: the year, in America/Santo_Domingo, of the `received_at` of the
 draft's first source. A date from the QR or from a person is never checked.
-Such a record stays out of Listos, in Necesita atención with the reason
-`check_details`, and can still be approved alone. `year_to_check` in
+Such a record stays out of Listos, in Por resolver with the reason
+`check_details`. A single approval must name `check_details` and every other
+gap in `accept_gaps`, and every gap must be confirmable. `year_to_check` in
 `src/argus/domain/business/bandeja_group.py` owns the rule. The dossier carries
 its answer (`upload_year`, `year_to_check`), and the review calendar offers the
 date in the upload year from that answer. The web compares no years.
+
+### Bandeja
+
+What the person sees lives in
+[the Business web app design](../.agent/designs/cuadrao-business-app/DESIGN.md#bandeja).
+The server decides the group and the label of every Bandeja row. The web
+renders them and decides neither.
+
+- **One label owner.** `bandeja_label()` in
+  `src/argus/domain/business/bandeja_group.py` gives every row one label:
+  `reading`, `cant_read`, `needs_attention`, `ready` or `accepted`. Every row
+  carries the same `bandeja_group` shape: `group`, `reason`, `label`,
+  `draft_id` and `version`. Three builders in the same file make it.
+  `group_of` makes it for receipts, called from
+  `src/argus/api/business_receipt_activity.py`. `note_group` makes it for typed
+  notes, called from `src/argus/domain/business/actions/captures.py`.
+  `email_group` makes it for emails, called from
+  `src/argus/api/routers/email_intake.py`. The web reads the label only in
+  `rowLabel` (`web/components/business-app/recepcion/reception-model.ts`).
+- **The group picks the tab. The label picks the word.** The group is
+  `attention`, `listo`, `reading`, `eliminados` or null. Por resolver lists
+  `attention`, Listos lists `listo` and Eliminados lists `eliminados`. Todos
+  lists every row except a deleted one. `inbox_counts` in
+  `src/argus/domain/business/receipt_activity.py` counts by the same groups.
+  `RULE` in `bandeja_group.py` decides between `listo` and `attention`. The
+  label follows the group. `attention` gives `cant_read` or `needs_attention`
+  by the reason, `reading` gives `reading` and `listo` gives `ready`. A row
+  with no group gives `accepted` when it was accepted, and a deleted row has
+  no label. A receipt that is being accepted is `listo` with no `draft_id` and
+  no `version`, so a second approval cannot name it.
+- **Read failure and read held.** `READ_FAILURES` in `bandeja_group.py` holds
+  `unreadable`, `ai_unavailable`, `interrupted`, `outcome_unknown`,
+  `source_unavailable`, `read_deadline_passed` and `not_a_receipt`. Each gives
+  `cant_read` in the `attention` group. `READ_HELD` holds `read_budget_day`
+  and `read_budget_month`. Each gives the group and the label `reading`, like a
+  read that still runs, so a held row shows only on Todos.
+  [The API contract](API_CONTRACT.md) says how each count treats a held row.
+- **Read-limit resume.** `ReadResume` in `workflows/read_resume.py` reads a
+  held receipt again with no person. It runs in the document worker's upkeep,
+  beside the Eliminados purge (`workflows/document_worker.py`). The sweep calls
+  it every 30 seconds by default, and it works at most once every 10 minutes
+  (`RESUME_EVERY`). A pass takes the receipts refused before `window_start` in
+  `src/argus/domain/business/read_budget.py`, which is the start of the
+  current Santo Domingo day or month. It queues each one through the path that
+  "Leer de nuevo" uses. That path is `DocumentsService.queue` under the owner's
+  reading setting, then `dispatch_preparation`. The pass sends
+  `expected_version`, so it leaves alone a receipt that moved after the pass
+  chose it, and two workers queue one receipt once. While extraction is off,
+  the pass does nothing. The idle cost is one query every 10 minutes per worker
+  against an empty partial index, plus the log line
+  `Refused reads resumed due={} requeued={}`. The limits and the index live in
+  [the data model](DATA_MODEL.md#business-read-budget).
+- **Enviado por.** `SentBy` in `src/argus/domain/business/sent_by.py` is the
+  one sender shape for every channel: `id`, `kind` (`member`, `email` or
+  `whatsapp`), `person`, `address` and `phone_last4`. A sender carries only the
+  field its kind names. Ids are `member:<user>`, `email:<address>` and
+  `whatsapp:<link id>`, so one sender has one id on every row.
+  `receipt_senders` gives each receipt its sender. A web upload gets the
+  member on the first applied `receipt_upload` row. An email gets the sender
+  of the earliest delivery that brought it. WhatsApp gets the number's link to
+  this Business, and only its last 4 digits leave the server. A typed note
+  sends its author (`member_sender`), and an email delivery sends its sender
+  (`email_sender`). The web words a sender only in `sentByName`
+  (`web/lib/sent-by.ts`), and the filter keys on `sent_by.id`.
+- **Typed notes switch.** `business_typed_notes_enabled()` in
+  `src/argus/domain/business/config.py` reads
+  `CUADRAO_BUSINESS_TYPED_NOTES_ENABLED`, which is off by default. While it is
+  off, `capture_note` in `src/argus/api/routers/business_manual.py` refuses a
+  note that starts a draft with 404 `business_typed_notes_unavailable`, before
+  it stores anything. A note on an existing draft is not refused.
+  `GET /business/workspace` reports the switch as `typed_notes_available`.
+  `ReceiptIntakeDialog.tsx` reads it through `businessTypedNotesAvailable` in
+  `web/lib/business-api.ts`. Notes saved before still list.
 
 ### How a receipt becomes a record
 
@@ -452,9 +526,9 @@ Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
   it until that time. The count of calls (`provider_calls`) is written before
   each call, so a worker that dies does not reset it. The owner's "Leer de
   nuevo" starts a new read with a new count.
-- **Dead letter.** When the calls run out, the receipt goes to Necesitan
-  atención with its reason, the same failed state as before. That tab is the
-  dead letter, and people already work it. The worker logs the final error as
+- **Dead letter.** When the calls run out, the receipt goes to Por resolver
+  with its reason, the same failed state as before. That tab is the dead
+  letter, and people already work it. The worker logs the final error as
   `document_read_failed` with the document id. There is no separate
   dead-letter queue.
 - **Circuit breaker.** `breaker.py` owns the rules and
@@ -484,7 +558,7 @@ Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
   only when a read asks to be sent or reports how its call ended. If the
   breaker row cannot be read, reads continue.
 - **Read deadline.** A read still waiting in the queue 6 hours after it was
-  asked for goes to Necesitan atención with the code
+  asked for goes to Por resolver with the code
   `document_read_deadline_passed` (attention `read_deadline_passed`): the read
   waited too long with the service unavailable, and the receipt did not fail.
   `READ_DEADLINE_SECONDS` in `config.py` owns the 6 hours. `asked_at` on the
@@ -513,6 +587,99 @@ Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
   sits in front of those shared read slots. An idle worker does not read the
   breaker.
   Every provider call, a retry included, is charged to the Business read budget.
+
+### The record dossier
+
+The dossier is the one view of a record, opened from the Bandeja or from
+Registros. What the person sees lives in
+[the Business web app design](../.agent/designs/cuadrao-business-app/DESIGN.md#receipt-detail).
+Request and response shapes are in `docs/API_CONTRACT.md`.
+
+**The server owns every value, every editable field and every link.**
+`dossier` in `src/argus/domain/business/actions/dossier.py` builds the whole
+payload, `BusinessDossier` in `src/argus/domain/business/contracts/dossier.py`,
+and `GET /business/drafts/{draft_id}/dossier` returns it. The web keeps no copy
+of a rule. After each save the server answers with the new dossier, and the web
+replaces the one it held.
+
+The payload fields that the dossier screen reads:
+
+| Field | What it says | Owner |
+| --- | --- | --- |
+| `facts`, `net_amount` | The record's values. `net_amount.source` is `read`, `calculated` or `edited`. `net_amount.calculated` is the Subtotal the server calculates, whatever the source. | `facts_of`; `net_amount` in `purchase_review.py` |
+| `dgii` | The 606 or 607 declaration. On an open expense with none saved, it is the declaration that an approval would write. | `written_from` in `amount_inheritance.py` |
+| `inheritance` | The linked state of each fiscal field: `{field, value, inherited, paired_with}`. `field` names the source fact, `value` is the source value to restore, and `inherited` is false after a person overrides the field. | `inheritance_state` and the `INHERITANCE` map in `amount_inheritance.py` |
+| `dgii_calculated` | `{billed_amount, itbis_advance}`: the two amounts the 606 calculates and no person enters. Null for a sale and for a record with no 606 declaration. | `purchase_calculated` in `dgii_validation.py`, which the 606 line also reads |
+| `facts_editable` | Whether the caller may write to this record now: `prepare` on an open draft, `prepare` and `approve` on an accepted record. | `dossier` |
+| `editable_fields` | The fields the caller may change through review in the current state. Empty for a caller that is not a person. | `_editable_fields` in `actions/dossier.py` |
+| `declaration_editable`, `document_type_editable`, `payment_split_editable` | Whether the caller may write the 606 answers, the Compra or Venta type, and the 607 payment split. | `takes_purchase_declaration` and `takes_payment_split` in `purchase_review.py` |
+| `declaration_suggestions` | One suggestion, with its source, for each 606 answer the person has not given. | `review_sources` in `actions/dossier.py` |
+| `bandeja_group`, `listo_gaps`, `confirmable`, `missing`, `reasons` | The Bandeja label, ordered draft gaps and gaps a person may accept over. For accepted records, `missing` lists the Registros reasons in order. Each code in either list has a field and locale key in `reasons`. | `bandeja_group.RULE` and `listo_gaps`, `reporting_projection.readiness` through the reporting store, and `missing_reasons.REASONS` |
+| `review_flags`, `rnc_registry_status` | The checks on the amounts and numbers, and what the DGII register says of the RNC. | `review_flags.py`; `supplier_registry_read` in `actions/dossier.py` |
+| `amounts_check` | Whether Montos adds up: `adds_up`, `difference` with the amount left over, or `unchecked`. | `amounts_check` in `review_flags.py`, which the `amounts_mismatch` flag also reads |
+| `note_kind` | The note the record is: `credit`, `debit` or null. | `record_note` in `fact_blockers.py`, on the type table in `fiscal_identity.py` that the 606 and 607 checks read |
+| `source_owned_fields` | The declaration fields that always follow their source, so their row is read-only: a purchase's Tipo de ID, and Propina legal. | `source_owned` in `amount_inheritance.py` |
+| `history` | Every saved revision with its before and after. | `business_draft_revisions` |
+| `approval_available`, `approval_action`, `delete_available`, `restore_available` | The actions the caller may take now. | `dossier` |
+
+**One owner per fact.** The list row and the dossier read the same owner for a
+shared fact. The pill is `bandeja_group.label`, from the same `group_of` rule
+that labels the Bandeja row. The reasons are `listo_gaps`, and the approve
+route reads that same rule again inside its transaction. A linked value comes
+from `inheritance_state`, and the 606 and 607 export the saved declaration
+without recomputing a link. `dgii_calculated` and the 606 line both call
+`purchase_calculated`, so the two amounts match the line.
+
+**The server enforces what it offers.** `editable_fields` and the `*_editable`
+flags describe what a write will accept. They are not the guard. Every write
+goes through `PATCH /business/drafts/{draft_id}/review`, or the approve route,
+with the draft `version`. The server checks the permission, the version and the
+review rules again, and refuses a stale version with `stale_version`. An
+override or a restore of a linked field travels as `montos.override_inherited`
+or `montos.restore_inherited` in that same review request.
+
+**The web renders only.** `ReceiptDossierReview.tsx` loads the dossier and
+passes it down. A row has a pencil when `editable_fields` names it. A row shows
+the link icon when its `inheritance` entry has `inherited` true, and it shows
+the restore button when that entry has `inherited` false. While the fiscal form
+holds an unsaved change, the web asks
+`POST /business/drafts/{id}/amounts-preview` what each linked field would show.
+The same answer carries `dgii_calculated` for that unsaved draft.
+It does not work the value out. The web adds no amounts, compares no years and
+decides no status.
+
+A fiscal row has no pencil when `source_owned_fields` names it. NCF modificado
+shows when `note_kind` is set, and the refund question when it is `credit` on
+a purchase. The Total shows its check on `amounts_check.state` `adds_up`, and
+the difference on `difference`. The Subtotal shows ƒ while `net_amount.source`
+is `calculated`, and the way back to it once the source is `edited`. A
+purchase's Datos fiscales shows Total facturado and ITBIS por adelantar from
+`dgii_calculated`, each with ƒ and no pencil. A sale, whose `dgii_calculated`
+is null, shows neither.
+
+**A sale is the same dossier.** `document_type` `venta` makes the record a
+sale, and the record then declares on the 607. General shows Cliente and the
+Reporte 607 card: Tipo de ingreso, which is `dgii.income_type`, and Forma de
+pago, which is `sale_payment.form` picked from `sale_payment.options`. The
+server writes the pick as the sale's whole payment split, so the web shows one
+form and never an amount for each. The Venta switch in Más shows when
+`document_type_editable` is true, and it sends `document_type` through the
+same review request as every other write. Datos fiscales has no form
+picker: the form is `dgii.form`, or the form of the record's type when no
+declaration is saved.
+
+The web does hold layout. `dossier/fiscal-rows.ts` decides which card a fiscal
+field sits in, the row order, the card each calculated amount closes, and the
+fields the Datos fiscales tab leaves out. A field that the server lists and
+that file does not name still shows. `dossier/fiscal-field-label.ts` gives a
+fiscal field its one name, which Datos fiscales and Historial both read.
+
+**The sample states values.** The web's sample data
+(`dossier-fixtures.ts`, `fixture-data.ts`) writes each record's `net_amount`,
+`amounts_check`, `dgii`, `inheritance`, `dgii_calculated`, `bandeja_group`,
+`listo_gaps` and `confirmable` as literal values. It does not copy the server's
+rules for them. A sample write keeps what was sent and moves no linked,
+calculated or standing value. A test that needs one sets the field.
 
 ---
 # 7. Communication Protocols

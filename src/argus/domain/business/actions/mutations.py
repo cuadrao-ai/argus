@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from loguru import logger
@@ -12,21 +13,21 @@ from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.accepted_dates import reader_date_reason
 from argus.domain.business.actions import dossier, plans, sources
+from argus.domain.business.actions.declaration_links import (
+    saved_declaration_links,
+    written_declaration,
+)
 from argus.domain.business.actions.facts import (
     facts_of,
     patched_facts,
     reviewed_amount_facts,
     validate_facts,
 )
-from argus.domain.business.actions.fiscal import validate_changed_dates
 from argus.domain.business.amount_inheritance import (
     APPROVED,
     INHERITANCE,
     PAID_BILL_MARK,
-    inherit_amounts,
-    inheritance_overrides,
     links_of,
-    written_from,
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
@@ -45,6 +46,7 @@ from argus.domain.business.contracts.dgii import (
     FiscalReview,
     PurchaseDeclaration,
     PurchaseReview,
+    SalePaymentForm,
     SalePaymentSplit,
 )
 from argus.domain.business.contracts.dossier import RevisionReason
@@ -58,6 +60,7 @@ from argus.domain.business.contracts.facts import (
     MontosReview,
     ReadPurchase,
     Unknown,
+    read_fills,
 )
 from argus.domain.business.document_type import (
     TYPE_OF_KIND,
@@ -75,10 +78,10 @@ from argus.domain.business.purchase_review import (
     amount_is_derived,
     apply_payment_split,
     apply_purchase,
-    changes_recorded_refund,
-    kept_sources,
+    shown_answers,
     takes_payment_split,
     takes_purchase_declaration,
+    whole_payment,
 )
 from argus.domain.business.receipt_amounts import read_amount, read_amount_facts
 from argus.domain.business.transactions import ActionTransaction
@@ -89,6 +92,9 @@ from argus.domain.ingestion.documents.models import (
     ReceiptDetails,
 )
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
+
+if TYPE_CHECKING:
+    from argus.domain.recording.service import FinancialAccountService
 
 
 def event_at(
@@ -144,16 +150,20 @@ def save_revision(
     bill_mark: str | None = None,
     dgii: DgiiDeclaration | None = None,
     clear_dgii: bool = False,
+    shown_dgii: DgiiDeclaration | None = None,
     amount_derived: bool | None = None,
     fiscal_overrides: tuple[str, ...] | None = None,
     document_type: DocumentType | None = None,
     document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
     reason: RevisionReason | None = None,
+    accepted_accounts: FinancialAccountService | None = None,
+    unchanged_version: int | None = None,
 ) -> Applied:
     if before is None and isinstance(after.legal_tip, Unknown) and after.legal_tip.origin is None:
         after = after.model_copy(update={"legal_tip": Unknown(origin="matched", source_ids=source_ids)})
-    validate_facts(tx, after)
+    if accepted_accounts is None:
+        validate_facts(tx, after)
     resolution = dict(event.resolution)
     previous = resolution.get("business") or {}
     if read_purchases is None:
@@ -190,21 +200,15 @@ def save_revision(
         amount_derived = not clear_dgii and previous.get("amount_derived", False)
     if declaration is not None:
         declaration = TypeAdapter(DgiiDeclaration).validate_python(declaration)
-    elif document_type == "venta":
-        declaration = apply_payment_split(None, SalePaymentSplit())
-    # A suggestion is not saved: what is stored follows a person's answers alone.
-    linked = dossier.linked_original(tx, event.state, after, declaration)
-    if dgii is None:
-        declaration = written_from(
-            before or after, declaration, previous.get("fiscal_overrides"),
-            previous.get("bill_mark"), linked,
-        )
-    if fiscal_overrides is None:
-        fiscal_overrides = inheritance_overrides(
-            before or after, declaration, None, previous.get("fiscal_overrides"),
-            amount_derived=bool(amount_derived), linked=linked,
-        )
-    declaration = inherit_amounts(after, declaration, fiscal_overrides, linked)
+    declaration, fiscal_overrides = saved_declaration_links(
+        before or after, after, declaration,
+        previous.get("fiscal_overrides"), previous.get("bill_mark"), fiscal_overrides,
+        # A suggestion is not saved: what is stored follows a person's answers alone.
+        lambda facts, saved: dossier.linked_original(tx, event.state, facts, saved),
+        written=dgii is not None,
+        venta=document_type == "venta",
+        amount_derived=bool(amount_derived),
+    )
     amount_derived = isinstance(declaration, PurchaseDeclaration) and not set(fiscal_overrides).intersection({"goods_amount", "services_amount"})
     resolution["business"] = BusinessResolution(
         facts=after,
@@ -221,6 +225,26 @@ def save_revision(
         document_type_detected=document_type_detected,
         due_on=after_due_on,
     ).model_dump(mode="json")
+    # Normalize older omitted defaults; repeated human answers write no revision.
+    if unchanged_version is not None and resolution["business"] == BusinessResolution.model_validate(previous).model_dump(mode="json"):
+        return Applied(outcome="applied", draft_id=event.id, version=unchanged_version)
+    activity_id = None
+    if accepted_accounts is not None:
+        from argus.domain.business.actions.accepted_edit import revise_activity
+
+        assert before is not None
+        adjusted, activity_id = revise_activity(
+            tx, event, before, after, document_type, declaration, accepted_accounts
+        )
+        if adjusted is not None:
+            resolution["accepted"] = adjusted
+        resolution["accepted_edit_version"] = event.version
+    # A declaration write is read against the one the review showed
+    # (``shown_dgii``), so the revision holds only what it changed. A type
+    # change is read against the other form's declaration it replaces.
+    held = previous.get("dgii")
+    shown = shown_dgii.model_dump(mode="json") if dgii is not None and shown_dgii is not None else None
+    before_dgii = shown if shown is not None and (held is None or held.get("form") == shown["form"]) else held
     day = after.occurred_on.value
     if reader_date_reason(day) is not None:
         logger.info("business_post_read_rule draft_id={} rule=read_date_review", event.id)
@@ -231,8 +255,8 @@ def save_revision(
     tx.rows(
         "insert into public.business_draft_revisions"
         " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,"
-        "before_dgii,after_dgii,before_due_on,after_due_on,reason)"
-        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "before_dgii,after_dgii,before_due_on,after_due_on,reason,before_document_type,after_document_type)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -242,16 +266,18 @@ def save_revision(
             Jsonb(after.model_dump(mode="json")),
             list(source_ids),
             turn_key,
-            Jsonb(previous.get("dgii")) if previous.get("dgii") else None,
+            Jsonb(before_dgii) if before_dgii else None,
             Jsonb(resolution["business"].get("dgii"))
             if resolution["business"].get("dgii")
             else None,
             before_due_on,
             after_due_on,
             reason,
+            previous.get("document_type", "recibo") if before is not None else None,
+            document_type,
         ),
     )
-    return Applied(outcome="applied", draft_id=event.id, version=event.version)
+    return Applied(outcome="applied", draft_id=event.id, version=event.version, activity_id=activity_id)
 
 
 def revise(
@@ -266,11 +292,13 @@ def revise(
     fiscal_review: FiscalReview | None = None,
     purchase: PurchaseReview | None = None,
     payment_split: SalePaymentSplit | None = None,
+    sale_payment_form: SalePaymentForm | None = None,
     document_type: DocumentType | None = None,
     document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
     montos: MontosReview | None = None,
     reason: RevisionReason | None = None,
+    web_accounts: FinancialAccountService | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     named_type = document_type is not None
@@ -281,23 +309,23 @@ def revise(
         if stated_type is None or document_type not in (None, stated_type):
             raise ActionError("invalid_input", "activity_kind_unsupported")
     now = datetime.now(timezone.utc)
-    declaration_only = (
-        (purchase is not None or payment_split is not None or montos is not None)
-        and (montos is None or montos.net_amount is None and montos.legal_tip is None)
-        and patch is None
-        and fiscal_review is None
-        and document_type is None
-        and due_on is None
-        and answer_id is None
-    )
     if ref is None:
         event = new_candidate(tx.context.owner_id, now)
         before = None
     else:
         event = (
-            _open_for_type(tx, ref) if named_type else event_at(tx, ref, declaration_only)
+            _open_for_type(tx, ref)
+            if named_type and web_accounts is None
+            else event_at(tx, ref, web_accounts is not None)
         )
+        if event.state == "accepted":
+            tx.authorization.require("approve")
         before = facts_of(event)
+        if event.state == "accepted" and patch is not None and any(
+            requested is not None and requested.value != held.value
+            for requested, held in ((patch.funding, before.funding), (patch.category_id, before.category_id))
+        ):
+            raise ActionError("invalid_input", "recorded_correction_unsupported")
         event = replace(event, version=event.version + 1, updated_at=now)
     origin = {
         "member": "member_set",
@@ -320,9 +348,14 @@ def revise(
         if document_type is not None and before is not None
         else before
     )
+    uploaded = None
+    if before is not None and patch is not None and patch.occurred_on is not None:
+        from argus.domain.business.actions.listos import _upload_years
+
+        uploaded = next(iter(_upload_years(tx, (event.id,)).values()), None)
     try:
         after = (
-            patched_facts(base, patch, source_ids, origin=origin)
+            patched_facts(base, patch, source_ids, origin=origin, upload_year=uploaded)
             if patch is not None
             else base
         )
@@ -336,6 +369,8 @@ def revise(
         if not set((*montos.override_inherited, *montos.restore_inherited)) <= INHERITANCE.keys():
             raise ActionError("invalid_input", "business_amount_inheritance_invalid")
         after = reviewed_amount_facts(after, montos, source_ids, origin=origin)
+    if event.state == "accepted" and retyped and current_type == "venta" and after.category_id.value is not None:
+        after = after.model_copy(update={"category_id": Unknown(origin=origin, source_ids=source_ids)})
     if document_type is not None or not kind_disagrees(previous_type, after):
         # A kind saved before the type owned it stays blocked until a person
         # states the kind or the type; an edit that states neither leaves it.
@@ -352,48 +387,66 @@ def revise(
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
     current_form = direction(current_type).form
-    declared = fiscal_review.declaration if fiscal_review else None
-    if declared is not None and declared.form != current_form:
+    reviewed = fiscal_review.declaration if fiscal_review else None
+    if reviewed is not None and reviewed.form != current_form:
         raise ActionError("invalid_input", "fiscal_direction_unsupported")
     stored = _stored_declaration(event, retyped, current_form)
     previous_resolution = event.resolution.get("business") or {}
     linked = links_of(event.state)
-    # With none saved, the amounts an open review starts from are the server's.
-    unsaved = stored is None and linked is not APPROVED
-    amount_derived = unsaved or bool(previous_resolution.get("amount_derived"))
-    if any(change is not None for change in (fiscal_review, purchase, payment_split, montos)):
+    if any(
+        change is not None
+        for change in (fiscal_review, purchase, payment_split, sale_payment_form, montos)
+    ):
         # A write to the declaration is read against what the person was shown.
         linked = dossier.review_sources(
             tx, event.id, event.state, before or after, stored, current_type
         )
-    stored = written_from(
-        before or after, stored, previous_resolution.get("fiscal_overrides"),
-        previous_resolution.get("bill_mark"), linked,
+    # With none saved, the amounts a review starts from are the server's: an
+    # open one, and an approved one whose line its facts state.
+    unsaved = stored is None and linked is not APPROVED
+    amount_derived = unsaved or bool(previous_resolution.get("amount_derived"))
+
+    def declare(stored: DgiiDeclaration | None) -> DgiiDeclaration | None:
+        written = reviewed
+        if purchase is not None:
+            current = written or stored
+            if not takes_purchase_declaration(current_type, after):
+                raise ActionError("invalid_input", "fiscal_direction_unsupported")
+            previous = current if isinstance(current, PurchaseDeclaration) else None
+            written = apply_purchase(previous, purchase)
+        if payment_split is not None:
+            current = written or stored
+            if not takes_payment_split(current_type):
+                raise ActionError("invalid_input", "fiscal_direction_unsupported")
+            written = apply_payment_split(current, payment_split)
+        if sale_payment_form is not None:
+            if not takes_payment_split(current_type):
+                raise ActionError("invalid_input", "fiscal_direction_unsupported")
+            total = after.amount.value
+            if total is None:
+                raise ActionError("invalid_input", "fact_required", context={"field": "amount"})
+            written = whole_payment(written or stored, sale_payment_form, total)
+            if written is None:
+                raise ActionError("invalid_input", "fiscal_amount_precision_or_limit")
+        return written
+
+    # A repeated answer is no write, but a linked field a person types leaves
+    # its source even at the same value. Only a saved 606 holds purchase
+    # answers; a 607's purchase write is refused in declare.
+    saved_purchase = stored if isinstance(stored, PurchaseDeclaration) else None
+    stored, declared, fiscal_overrides = written_declaration(
+        before or after, stored, declare,
+        previous_resolution.get("fiscal_overrides"), previous_resolution.get("bill_mark"), linked,
+        retyped=retyped,
+        written=tuple(
+            name for name in (purchase.model_fields_set if purchase else ())
+            if saved_purchase is None or name in INHERITANCE or getattr(purchase, name) != getattr(saved_purchase, name)
+        ) + (montos.override_inherited if montos else ()),
+        restore=montos.restore_inherited if montos else (),
+        amount_derived=amount_derived,
+        unsaved=unsaved,
     )
-    if purchase is not None:
-        current = declared or stored
-        if not takes_purchase_declaration(current_type, after):
-            raise ActionError("invalid_input", "fiscal_direction_unsupported")
-        previous = current if isinstance(current, PurchaseDeclaration) else None
-        declared = apply_purchase(previous, purchase)
-        if (
-            event.state == "accepted"
-            and changes_recorded_refund(previous, declared)
-            and (
-                isinstance(after.kind, Known)
-                and after.kind.value == "refund"
-                or declared.actual_refund
-            )
-        ):
-            raise ActionError("invalid_input", "recorded_correction_unsupported")
-    if payment_split is not None:
-        current = declared or stored
-        if not takes_payment_split(current_type):
-            raise ActionError("invalid_input", "fiscal_direction_unsupported")
-        declared = apply_payment_split(current, payment_split)
-    validate_changed_dates(stored, declared)
     dossier.log_changed_suggestions(tx, event.id, stored, declared)
-    declared = kept_sources(stored, declared)
     return save_revision(
         tx,
         event,
@@ -403,15 +456,8 @@ def revise(
         actor,
         turn_key,
         dgii=declared,
-        fiscal_overrides=inheritance_overrides(
-            before or after, stored, declared,
-            None if retyped else (event.resolution.get("business") or {}).get("fiscal_overrides"),
-            written=tuple(purchase.model_fields_set if purchase is not None else ()) + (montos.override_inherited if montos else ()),
-            restore=montos.restore_inherited if montos else (),
-            amount_derived=amount_derived,
-            linked=linked,
-            unsaved=unsaved,
-        ),
+        shown_dgii=shown_answers(stored, linked.suggestions, declared),
+        fiscal_overrides=fiscal_overrides,
         # A declaration filled under the other type no longer applies.
         clear_dgii=retyped and declared is None,
         amount_derived=amount_is_derived(
@@ -424,6 +470,8 @@ def revise(
         document_type_detected=document_type_detected,
         due_on=due_on,
         reason=reason,
+        accepted_accounts=web_accounts if event.state == "accepted" else None,
+        unchanged_version=ref.version if ref is not None and web_accounts is not None else None,
     )
 
 
@@ -1077,19 +1125,10 @@ def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> d
     if incoming["state"] != "known":
         return prior
     if prior["state"] == "unknown":
-        return (
-            prior
-            if prior.get("origin") in {"owner_stated", "member_set", "matched"}
-            else incoming
-        )
+        return incoming if read_fills(prior) else prior
     if currency and incoming.get("origin") == "default":
         return prior
-    if (
-        currency
-        and prior.get("origin") == "default"
-        and prior["value"] == "DOP"
-        and not prior["source_ids"]
-    ):
+    if currency and read_fills(prior):
         return incoming
     if prior["state"] == "known" and prior["value"] == incoming["value"]:
         return prior

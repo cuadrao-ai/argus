@@ -7,6 +7,7 @@ from pydantic import Field
 from argus.api.business_schemas import BandejaGroup
 from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.contracts.facts import Contract
+from argus.domain.business.sent_by import SentBy
 
 
 class ManualCapture(Contract):
@@ -14,6 +15,8 @@ class ManualCapture(Contract):
     delete_available: bool = False
     restore_available: bool = False
     bandeja_group: BandejaGroup | None = None
+    # Who typed it, named for the caller.
+    sent_by: SentBy | None = None
     draft_id: UUID
     version: int = Field(ge=1)
     # The revision this note created: the number the draft's history lists.

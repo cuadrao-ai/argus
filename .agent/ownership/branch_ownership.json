@@ -2794,7 +2794,6 @@
         "src/argus/domain/backtest/**",
         "src/argus/domain/engine.py",
         "src/argus/domain/engine/**",
-        "src/argus/domain/market_data/**",
         "tests/perf/section3/**",
         "tests/section3/**"
       ],
@@ -2816,7 +2815,6 @@
         "src/argus/api/main.py",
         "src/argus/api/schemas.py",
         "src/argus/domain/engine.py",
-        "src/argus/domain/market_data/**",
         "src/argus/domain/supabase_gateway.py",
         "tests/perf/section3/**",
         "tests/section3/**",
@@ -2852,7 +2850,6 @@
         "src/argus/domain/backtest/**",
         "src/argus/domain/engine.py",
         "src/argus/domain/engine/**",
-        "src/argus/domain/market_data/**",
         "tests/section3/**"
       ]
     },

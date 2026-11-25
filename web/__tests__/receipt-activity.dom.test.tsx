@@ -1,3 +1,4 @@
+import { withReceiptReading } from "./support/receipt-reading";
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
@@ -50,14 +51,14 @@ function clock() {
 }
 
 function context(source: BusinessDataSource, reload: () => void): BusinessContextValue {
-  return { source, records: { workspace: null, overview: null, inbox: [], notes: [], notesError: false, notesTruncated: false, error: false },
+  return { source, records: { workspace: null, workspaceGrant: null, overview: null, inbox: [], notes: [], notesError: false, notesTruncated: false, error: false },
     spaces: [], chosen: null, chooseBusiness: () => {}, markAccessSeen: async () => {}, lostAccess: false, revision: 0, reload,
     period: periodRange("this_month"), setPeriod: () => {}, panel: { kind: "receipt", receiptId: "r1" }, openPanel: () => {},
     actions: { create: [], composer: [], starterEntries: [] }, bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {} };
 }
 
 async function host() { const element = document.createElement("div"); document.body.appendChild(element); return { element, root: createRoot(element) }; }
-const counts: ReceiptActivityCounts = { reading_count: 0, unread_count: 1, presentation: "unread", pending_review_count: 2, needs_attention_count: 0, ready_to_review_count: 2 };
+const counts: ReceiptActivityCounts = { reading_count: 0, unread_count: 1, presentation: "unread", pending_review_count: 2, ready_to_review_count: 2 };
 
 async function receipt(): Promise<ReceiptDetail> { const source = createFixtureBusinessDataSource(); const rows = await source.receipts("inbox"); return { ...await source.receipt(rows[0].id), id: "r1", activity: { state: "ready", unread: true, completion_cursor: "a".repeat(64) } }; }
 
@@ -482,29 +483,40 @@ test("navigation while acknowledgement is in flight ignores its late UI response
 });
 
 test("a late reading-toggle response cannot replace another Business disclosure", async () => {
-  const reading: ReceiptReading = { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Business A disclosure", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null };
+  const reading = { disclosure: "Business A disclosure" };
   let resolve!: (value: ReceiptReading) => void;
   let signal: AbortSignal | undefined;
   let reloads = 0;
-  const sourceA: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => reading, setReceiptReading: async (_reading, _enabled, _language, requestSignal) => { signal = requestSignal; return new Promise((done) => { resolve = done; }); } };
-  const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => ({ ...reading, disclosure: "Business B disclosure" }) };
+  const sourceA: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading(reading), setReceiptReading: async (_reading, _enabled, _language, requestSignal) => { signal = requestSignal; return new Promise((done) => { resolve = done; }); } };
+  const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading({ disclosure: "Business B disclosure" }) };
   const page = await host();
-  const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={context(source, () => { reloads++; })}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
-  const turnOn = () => [...page.element.querySelectorAll("button")].find((button) => button.textContent === "Turn on document reading");
+  const workspaces = new Map([[sourceA, await sourceA.workspace()], [sourceB, await sourceB.workspace()]]);
+  const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={{ ...context(source, () => { reloads++; }), records: { ...context(source, () => {}).records, workspace: workspaces.get(source)! } }}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
+  const toggle = () => page.element.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-turn-on"]');
+  const confirm = () => document.querySelector<HTMLButtonElement>('[role="alertdialog"] [data-testid="confirm-dialog-confirm"]');
   await act(async () => page.root.render(render(sourceA)));
-  await act(async () => turnOn()?.click());
-  assert.ok(document.body.textContent?.includes("Business A disclosure"), "the words agreed to sit beside the switch");
-  await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="receipt-reading-switch"]')?.click());
+  await act(async () => toggle()?.click());
+  assert.ok(document.body.textContent?.includes("Business A disclosure"), "the words agreed to appear in the dialog");
+  await act(async () => confirm()?.click());
   await act(async () => page.root.render(render(sourceB)));
   assert.equal(signal?.aborted, true);
   await act(async () => resolve({ ...reading, enabled: true }));
-  assert.equal(document.querySelector('[data-testid="receipt-reading-sheet"]'), null, "the old Business's sheet closed with it");
+  assert.equal(confirm(), null, "the old Business's words closed with it");
   assert.equal(reloads, 0);
-  assert.equal(turnOn()?.disabled, false);
-  await act(async () => turnOn()?.click());
+  assert.equal(toggle()?.disabled, false);
+  await act(async () => toggle()?.click());
   assert.ok(document.body.textContent?.includes("Business B disclosure"));
   assert.ok(!document.body.textContent?.includes("Business A disclosure"));
-  assert.equal(document.querySelector('[data-testid="receipt-reading-switch"]')?.getAttribute("aria-checked"), "false");
+  assert.ok(page.element.querySelector('[data-testid="receipt-reading-notice"]'), "reading is still off");
+  await act(async () => page.root.unmount());
+});
+
+test("a workspace answered for another Business claims nothing about its reading", async () => {
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), ...withReceiptReading({ disclosure: "Other Business disclosure" }) };
+  const page = await host();
+  const records = { ...context(source, () => {}).records, workspace: await source.workspace(), workspaceGrant: "grant-of-another-business" };
+  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={{ ...context(source, () => {}), records }}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>));
+  assert.equal(page.element.querySelector('[data-testid="receipt-reading-notice"]')?.textContent ?? null, null);
   await act(async () => page.root.unmount());
 });
 

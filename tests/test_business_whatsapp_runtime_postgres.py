@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta, timezone
+from functools import partial
 
 import pytest
 from argus.agent_runtime.business.runner import BusinessTurnRunner
-from argus.api.whatsapp_worker import build_worker
 from argus.domain.business.actions import BusinessActions
+from argus.domain.business.context import AuthorizedBusinessContext
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.ingestion.reconcile.store_postgres import PostgresImportStore
-from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp.ai_consent import AIConsentStore, EnableAIConsent
+from argus.domain.ingestion.whatsapp.business_worker import BusinessWhatsAppWorker
 from argus.domain.recording.money_service import MoneyService
 from argus.domain.recording.postgres_repository import PostgresFinancialAccountRepository
 from argus.domain.recording.service import FinancialAccountService
@@ -67,18 +68,41 @@ def runtime(world):
     )
     world.captures.consent = consent
 
-    def worker(*, sending=True, with_consent=True):
-        options = {"consent": consent} if with_consent else {}
-        return build_worker(
-            world.pool,
-            box=SecretBox(bytes(range(32))),
-            keys=world.keys,
-            transport=world.transport,
-            enabled=lambda: True,
-            send_enabled=lambda: sending,
+    runner = BusinessTurnRunner(interpreter=interpreter)
+
+    async def execute_turn(
+        *, captured, turn, lease, authorization, begin_reply, history
+    ) -> str:
+        context = AuthorizedBusinessContext(
             actions=actions,
-            runner=BusinessTurnRunner(interpreter=interpreter),
-            **options,
+            authorization=authorization,
+            turn_key=captured.turn_key,
+            lease=lease,
+            message_id=captured.id,
+            received_at=captured.received_at,
+            channel="whatsapp",
+            begin_reply=begin_reply,
+            language=captured.language,
+            require_access=partial(
+                consent.require_access, captured, authorization, lease=lease
+            ),
+        )
+        result = await runner.run(
+            context=context, turn=turn, message=captured.envelope.text, history=history
+        )
+        return result.reply_text
+
+    def worker(*, sending=True, with_consent=True) -> BusinessWhatsAppWorker:
+        return BusinessWhatsAppWorker(
+            captures=world.captures,
+            turns=world.turns,
+            outbox=world.outbox,
+            delivery=world.delivery,
+            transport=world.transport,
+            actions=actions,
+            execute_turn=execute_turn,
+            consent=consent if with_consent else None,
+            send_enabled=lambda: sending,
         )
 
     return worker, interpreter, consent

@@ -1,23 +1,14 @@
 import { todayIso, type Period } from "../business-format";
-import { receptionSender, type ReceptionRow, type ReceptionSource } from "./reception-model";
+import { receptionSentBy, type ReceptionRow, type ReceptionSource } from "./reception-model";
 
-/** Canal and Remitente only: the tabs own status. */
+/** Canal and Enviado por only: the tabs own status. `senders` holds the server's `sent_by.id`. */
 export type ReceptionFiltersValue = { channels: ReceptionSource[]; senders: string[] };
-export type SenderIdentity = { id: string; name: string | null; address: string };
+/** One sender the filter offers: the server's id and the words the screen shows for it. */
+export type SenderOption = { id: string; name: string };
 export const emptyReceptionFilters = (): ReceptionFiltersValue => ({ channels: [], senders: [] });
 
-/** A known sender address is the current contract's identity, never the search input or merchant. */
-export function receptionSenderIdentity(row: ReceptionRow): SenderIdentity | null {
-  const raw = receptionSender(row)?.trim();
-  if (!raw) return null;
-  const named = /^(.*?)\s*<([^<>]+)>$/.exec(raw);
-  const address = named ? named[2].trim() : raw;
-  const name = named?.[1].trim().replace(/^"|"$/g, "") || null;
-  return { id: `${row.source}:${address.toLocaleLowerCase()}`, name, address };
-}
-
 export function receptionFilterMatches(row: ReceptionRow, filters: ReceptionFiltersValue): boolean {
-  const sender = receptionSenderIdentity(row);
+  const sender = receptionSentBy(row);
   return (!filters.channels.length || filters.channels.includes(row.source))
     && (!filters.senders.length || !!sender && filters.senders.includes(sender.id));
 }

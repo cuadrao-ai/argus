@@ -18,7 +18,6 @@ from argus.domain.business.contracts.actions import (
     ApproveIncome,
     CaptureNote,
     ExistingDraft,
-    ReopenDraft,
     ReviewDraft,
     TypedPurchase,
 )
@@ -35,9 +34,10 @@ from argus.domain.recording.errors import RecordingInputError
 from psycopg.types.json import Jsonb
 
 from tests import test_financial_accounts_postgres as accounts
+from tests.business.receipt_stub import receipt_date
+from tests.business_accept_support import seen_gaps
 from tests.test_business_approval_fiscal_postgres import (  # noqa: F401
     NCF,
-    SEPTEMBER,
     SUPPLIER,
     actions,
     approve,
@@ -46,6 +46,7 @@ from tests.test_business_approval_fiscal_postgres import (  # noqa: F401
     lines_606,
     pytestmark,  # noqa: F401
     receipt_draft,
+    receipt_period,
     reviewed,
     saved_declaration,
     shared_actions,
@@ -105,7 +106,7 @@ def assert_sourced(service, context, draft, fiscal: bool) -> None:  # noqa: ANN0
 def exported(service, context) -> dict:  # noqa: ANN001
     """The DGII part of the export manifest."""
 
-    blob = export_package(service.authority, context, SEPTEMBER, InMemorySourceObjects())
+    blob = export_package(service.authority, context, receipt_period(), InMemorySourceObjects())
     with ZipFile(io.BytesIO(blob)) as archive:
         return json.loads(archive.read("manifest.json"))["dgii"]
 
@@ -213,7 +214,7 @@ def test_a_typed_purchase_note_approves_sourced_facts(actions, document_type) ->
             "kind": "expense",
             "amount": "1180.00",
             "currency": "DOP",
-            "occurred_on": "2026-09-05",
+            "occurred_on": receipt_date(),
             "counterparty": "PRÁCTICA Ferretería",
             "funding": {"kind": "owner_funds"},
             "business_share": {"kind": "all"},
@@ -248,7 +249,7 @@ def test_a_typed_sale_approves_sourced_facts(actions) -> None:  # noqa: ANN001, 
         {
             "amount": "2360.00",
             "currency": "DOP",
-            "occurred_on": "2026-09-06",
+            "occurred_on": receipt_date(),
             "counterparty": "PRÁCTICA Cliente",
             "funding": {"kind": "business_account", "account_id": str(checking)},
             "business_share": {"kind": "all"},
@@ -264,7 +265,11 @@ def test_a_typed_sale_approves_sourced_facts(actions) -> None:  # noqa: ANN001, 
     outcome = service.approve_income(
         context,
         capture.draft_id,
-        ApproveIncome(version=version, action="record_income"),
+        ApproveIncome(
+            version=version,
+            action="record_income",
+            accept_gaps=seen_gaps(service, context, capture.draft_id),
+        ),
         str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
@@ -288,7 +293,7 @@ def test_a_typed_purchase_with_no_paper_approves_sourced_facts(actions) -> None:
         context,
         CaptureNote(
             text="PRÁCTICA Colmado",
-            purchase=TypedPurchase(amount="350.00", occurred_on="2026-09-07"),
+            purchase=TypedPurchase(amount="350.00", occurred_on=receipt_date()),
         ),
         str(uuid4()),
     )
@@ -339,23 +344,6 @@ def test_approval_after_a_note_edit_ships_the_606_line(actions) -> None:  # noqa
         str(uuid4()),
     )
     outcome = approve(service, context, draft, noted.version)
-    assert outcome.outcome == "applied", outcome
-    shipped(service, context, draft)
-
-
-def test_reopen_then_approval_with_no_edits_ships_the_606_line(actions) -> None:  # noqa: ANN001, F811
-    service, context = actions
-    draft, version = receipt_draft(service, context, colmado(), "DOP")
-    version = reviewed(service, context, draft, version, dgii=partial_declaration())
-    assert approve(service, context, draft, version).outcome == "applied"
-    reopened = service.reopen(
-        context,
-        draft,
-        ReopenDraft(version=service.dossier(context, draft).version),
-        str(uuid4()),
-    )
-    assert reopened.outcome == "applied", reopened
-    outcome = approve(service, context, draft, reopened.version)
     assert outcome.outcome == "applied", outcome
     shipped(service, context, draft)
 

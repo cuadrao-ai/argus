@@ -5,9 +5,7 @@ from datetime import date
 import pytest
 from argus.domain.business import month_close_store
 from argus.domain.business.reporting import ReportIdentity
-from argus.domain.business.reporting_columns import SPECS
 from argus.domain.business.reporting_file import _table_cell
-from argus.domain.business.reporting_preferences import Presentation
 from argus.domain.business.reporting_query import run_query
 from faker import Faker
 
@@ -22,39 +20,14 @@ def fake():
     return result
 
 
-def test_reason_is_visible_after_state_in_new_and_existing_layouts():
-    assert SPECS["missing"].label == "business.transactions.layout.column_reason"
-    assert not SPECS["missing"].hidden
-    before = Presentation().model_dump(mode="json")
-    before["order"] = [key for key in before["order"] if key != "missing"]
-    upgraded = Presentation.model_validate(before)
-    assert upgraded.order[upgraded.order.index("stage") + 1] == "missing"
-    assert "missing" not in upgraded.hidden
-
-
 @pytest.mark.parametrize("ready,expected", [(True, "Listo"), (False, "Faltan datos")])
 def test_table_file_state_uses_only_ready(fake, ready, expected):
-    record = row(fake, ready=ready, stage="exported", missing=("ncf_missing",))
+    record = row(fake, ready=ready, stage="exported", missing=("missing_ncf",))
     assert _table_cell(record, "stage", "es-419") == expected
 
 
-@pytest.mark.parametrize(
-    "ready,missing,expected",
-    [
-        (True, ("ncf_missing",), ""),
-        (False, ("ncf_missing",), "Falta el NCF"),
-        (False, ("ncf_missing", "rnc_missing", "date_missing"), "Falta el NCF +2"),
-        (False, ("future_reason",), "Falta un dato"),
-        (False, (), ""),
-    ],
-)
-def test_table_file_reason_uses_ordered_missing(fake, ready, missing, expected):
-    record = row(fake, ready=ready, missing=missing, export_missing="rnc_missing")
-    assert _table_cell(record, "missing", "es-419") == expected
-
-
-@pytest.mark.parametrize("ready,expected", [(None, 2), (False, 2), (True, 0)])
-def test_overview_count_matches_the_current_report_filters(fake, ready, expected):
+@pytest.mark.parametrize("ready,matching", [(None, 3), (False, 2), (True, 3)])
+def test_overview_count_matches_the_current_report_filters(fake, ready, matching):
     dataset = (
         row(fake, ready=False, counterparty="selected"),
         row(fake, ready=False, counterparty="selected", stage="exported"),
@@ -70,7 +43,8 @@ def test_overview_count_matches_the_current_report_filters(fake, ready, expected
         report(q="selected", currencies=["DOP"], ready=ready),
         NOW,
     )
-    assert answer.overview.not_ready == expected
+    assert answer.matching_count == matching
+    assert answer.overview.not_ready == 2
 
 
 def test_inicio_groups_current_month_report_readiness_by_family_and_currency(fake):

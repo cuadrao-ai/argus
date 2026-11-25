@@ -7,6 +7,7 @@ from argus.api.business_drafts import receipt_detail
 from argus.domain.business.transactions import transaction
 
 from tests import test_business_document_delete_postgres as deletion
+from tests.business_accept_support import seen_gaps
 from tests.test_business_document_delete_postgres import (
     _act,
     _captured_purchase,
@@ -48,7 +49,9 @@ def _assert_duplicate_approval_refused(service, context, draft_id, other_id):
         context,
         draft_id,
         ApproveExpense(
-            action="record_expense", version=view.version, approve_anyway=True
+            action="record_expense",
+            version=view.version,
+            accept_gaps=seen_gaps(service, context, draft_id),
         ),
         str(uuid4()),
     )
@@ -173,7 +176,9 @@ def test_restore_rechecks_generic_candidates_against_new_prepared_purchase(
         context,
         repeated_id,
         ApproveExpense(
-            action="record_expense", version=view.version, approve_anyway=True
+            action="record_expense",
+            version=view.version,
+            accept_gaps=seen_gaps(service, context, repeated_id),
         ),
         str(uuid4()),
     )
@@ -270,7 +275,7 @@ def test_restore_keeps_a_valid_duplicate_decision_but_matching_ncf_still_collide
         ApproveExpense(
             action="record_expense",
             version=service.dossier(context, repeated_id).version,
-            approve_anyway=True,
+            accept_gaps=seen_gaps(service, context, repeated_id),
         ),
         str(uuid4()),
     )
@@ -281,7 +286,7 @@ def test_restore_keeps_a_valid_duplicate_decision_but_matching_ncf_still_collide
         ApproveExpense(
             action="record_expense",
             version=service.dossier(context, original_id).version,
-            approve_anyway=True,
+            accept_gaps=seen_gaps(service, context, original_id),
         ),
         str(uuid4()),
     )
@@ -351,7 +356,7 @@ def test_restore_flags_a_recorded_match_without_changing_the_recorded_event(acti
         ApproveExpense(
             action="record_expense",
             version=service.dossier(context, repeated_id).version,
-            approve_anyway=True,
+            accept_gaps=seen_gaps(service, context, repeated_id),
         ),
         str(uuid4()),
     )

@@ -1,18 +1,17 @@
 """On real local Postgres: a receipt photo is read, bound, reviewed and
 approved, and the approval writes the 606 declaration from the stored facts."""
 
+import asyncio
 import io
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from hashlib import sha256
+from itertools import count
 from uuid import UUID, uuid4
 from zipfile import ZipFile
 
 import pytest
-from argus.domain.business.contracts.actions import (
-    ApproveExpense,
-    ReviewDraft,
-    canonical_input_hash,
-)
+from argus.domain.business.actions import BusinessActions
+from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
 from argus.domain.business.contracts.dgii import FiscalReview
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.export import ExportPeriod, export_package
@@ -21,12 +20,18 @@ from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
+from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.recording.repository import NewAccount
 from faker import Faker
 from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
+from tests.business.action_counts import count_no_rows
+from tests.business.receipt_stub import receipt_date
+from tests.business_accept_support import accept, seen_gaps
+from tests.business_reading_support import turn_reading
 from tests.test_business_dgii_postgres import handover_dgii
+from tests.test_business_postgres import _service
 from tests.test_business_spaces_migration_postgres import connection
 
 users = shared.users
@@ -36,9 +41,14 @@ FILER = "199990013"
 SUPPLIER = "199990021"
 EDITED_SUPPLIER = "199990048"
 NCF = "B0100000001"
-SEPTEMBER = ExportPeriod(date(2026, 9, 1), date(2026, 9, 30))
 fake = Faker("es_MX")
 Faker.seed(606)
+SHOPS = count(1)
+
+
+def receipt_period() -> ExportPeriod:
+    day = date.fromisoformat(receipt_date())
+    return ExportPeriod(day, day)
 
 
 @pytest.fixture
@@ -63,32 +73,46 @@ def actions(shared_actions):
 
 
 def colmado(**changes):
-    """A local receipt: RNC, NCF and ITBIS printed, the supplier only in the header."""
+    """A local receipt: RNC, NCF and ITBIS printed, the supplier only in the header.
+    Each one names its own shop: two of one date and total with one name are a repeat."""
 
     read = {
-        "merchant": f"Colmado {fake.last_name()}",
+        "merchant": f"Colmado {fake.last_name()} {next(SHOPS)}",
         "total": "1180.00",
         "currency": "DOP",
         "rnc": SUPPLIER,
         "ncf": NCF,
         "itbis": "180.00",
-        "occurred_on": "2026-09-05",
+        "occurred_on": receipt_date(),
     }
     return {**read, **changes}
 
 
+def receipt_reader(service: BusinessActions) -> DocumentsService:
+    documents = _service(service.authority.pool, InMemorySourceObjects()).documents
+    documents.business_actions = service
+    return documents
+
+
 def receipt_draft(
-    service, context, receipt: dict, currency: str | None, account: str | None = None
+    service, context, receipt: dict, currency: str | None, account: str | None = None,
+    *, complete: bool = True,
 ):
     """Prepare and bind one saved photo read. The purchase row leaves the supplier unknown."""
 
     content = f"{fake.uuid4()} {receipt['total']}".encode()
     digest = sha256(content).hexdigest()
     now = datetime.now(timezone.utc)
-    holder = str(uuid4())
+    documents = receipt_reader(service)
+    setting = documents.business_receipt_consent
+    space = str(context.actor.space_id)
+    permission = setting.status(space, context.owner_id)
+    if not permission["enabled"]:
+        turn_reading(setting, space, context.owner_id)
+        permission = setting.status(space, context.owner_id)
     result = ExtractionResult.model_validate(
         dict(
-            complete=True,
+            complete=complete,
             readable=True,
             pages_read=[1],
             observations=[
@@ -116,6 +140,7 @@ def receipt_draft(
             sha256=digest,
             size_bytes=len(content),
             consent=True,
+            business_reading_consent_id=permission["consent_id"],
             created_at=now,
             updated_at=now,
         )
@@ -147,22 +172,31 @@ def receipt_draft(
                 Jsonb(batch.model_dump(mode="json")),
             ),
         )
-        db.execute(
-            "update public.financial_source_connections set lease_holder=%s,"
-            " lease_until=%s where id=%s",
-            (holder, now + timedelta(minutes=3), cid),
-        )
     service.capture_attachment_preparation(context, UUID(cid), target=None)
-    prepared = service.prepare_attachment(
-        user_id=context.owner_id,
-        connection_id=cid,
-        scope=context.scope,
-        holder=holder,
-        attempt_id=None,
-        expected_batch_sha256=canonical_input_hash(batch),
+    asyncio.run(
+        documents.resume(user_id=context.owner_id, connection_id=cid, scope=context.scope)
     )
-    assert prepared.outcome == "applied", prepared
-    return prepared.draft_id, prepared.version
+    with service.authority.pool.connection() as db:
+        return db.execute(
+            "select e.id, e.version from public.business_sources s"
+            " join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id"
+            " join public.financial_import_events e on e.id=l.draft_id where s.connection_id=%s",
+            (cid,),
+        ).fetchone()
+
+
+@pytest.mark.parametrize(("complete", "group"), [(True, "listo"), (False, "attention")])
+def test_a_completed_read_no_longer_counts_as_reading(actions, complete, group):
+    service, context = actions
+    draft, _ = receipt_draft(service, context, colmado(), "DOP", complete=complete)
+
+    dossier = service.dossier(context, draft)
+    [source] = dossier.sources
+    _, pending = receipt_reader(service).get_with_read_pending(
+        user_id=context.owner_id, connection_id=str(source.connection_id), scope=context.scope
+    )
+    assert pending is False
+    assert dossier.bandeja_group.group == group
 
 
 def review(service, context, draft, version, *, funding=None, dgii=None):
@@ -197,7 +231,11 @@ def approve(service, context, draft, version):
     return service.approve(
         context,
         draft,
-        ApproveExpense(version=version, action="record_expense"),
+        ApproveExpense(
+            version=version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         str(uuid4()),
     )
 
@@ -235,10 +273,10 @@ def booked(service, context) -> list[tuple]:
 
 
 def lines_606(service, context) -> tuple[list[str], list[dict]]:
-    """Each 606 row of September with its values joined by ``|``, and the DGII
+    """Each 606 row on the shared receipt day with its values joined by ``|``, and the DGII
     summary's issues."""
 
-    manifest, rows = handover_dgii(service, context, SEPTEMBER)
+    manifest, rows = handover_dgii(service, context, receipt_period())
     return ["|".join(row) for row in rows["606"]], manifest["issues"]
 
 
@@ -249,10 +287,11 @@ def saved_declaration(**changes):
         "modified_ncf": None,
         "selective_tax": "0.00",
         "other_taxes": "0.00",
-        "legal_tip": "0.00",
+        # Montos owns the tip: the receipt states none, so the declaration holds none.
+        "legal_tip": None,
         "category": "02",
         "category_suggested": False,
-        "paid_on": "2026-09-05",
+        "paid_on": receipt_date(),
         "services_amount": "1000.00",
         "goods_amount": "0.00",
         "itbis_withheld": "0.00",
@@ -508,6 +547,7 @@ def drafts_client(service, context):
 
     app = FastAPI()
     app.include_router(router)
+    count_no_rows(app)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, context.actor.actor_id, str(context.actor.space_id), context.grant_id
@@ -533,7 +573,8 @@ def test_same_rnc_and_ncf_already_approved_is_refused_with_its_record(actions):
     key = str(uuid4())
     with drafts_client(service, context) as client:
         refused, replayed = (
-            client.post(
+            accept(
+                client,
                 f"/business/drafts/{second}/approve",
                 json={"version": approved, "action": "record_expense"},
                 headers={"Idempotency-Key": key},
@@ -691,7 +732,7 @@ def test_records_sheet_has_the_accountant_columns(actions):
     outcome = approve(service, context, draft, approved)
     assert outcome.outcome == "applied", outcome
 
-    blob = export_package(service.authority, context, SEPTEMBER, InMemorySourceObjects())
+    blob = export_package(service.authority, context, receipt_period(), InMemorySourceObjects())
 
     with ZipFile(io.BytesIO(blob)) as archive:
         text = archive.read("records.csv").decode("utf-8-sig")
@@ -713,7 +754,7 @@ def test_records_sheet_has_the_accountant_columns(actions):
             "Pago",
         ],
         [
-            "2026-09-05",
+            receipt_date(),
             read["merchant"],
             SUPPLIER,
             NCF,
@@ -825,7 +866,11 @@ def test_a_failed_clear_still_stores_the_refusal(actions, monkeypatch):
     monkeypatch.setattr(service.imports.money, "write", refuse)
     monkeypatch.setattr(approval, "facts_of", unreadable)
     key = str(uuid4())
-    command = ApproveExpense(version=approved, action="record_expense")
+    command = ApproveExpense(
+        version=approved,
+        action="record_expense",
+        accept_gaps=seen_gaps(service, context, draft),
+    )
 
     failed, replayed = (service.approve(context, draft, command, key) for _ in range(2))
 

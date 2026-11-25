@@ -26,11 +26,11 @@ export function documentFamilyTotals(rows: readonly ReportRecord[]): ReportTotal
 /** The server's upgrade of a stored or linked layout, as `_current_columns` does it. */
 function serverLayout(presentation: ReportPresentation): ReportPresentation {
   const rename = (key: string) => key === "category" ? "expense_type" : key;
-  const order = presentation.order.filter((key) => key !== "family" && key !== "currency").map(rename);
-  const hidden = presentation.hidden.filter((key) => key !== "family" && key !== "currency").map(rename);
+  const dropped = ["family", "currency", "missing", "funding"];
+  const order = presentation.order.filter((key) => !dropped.includes(key)).map(rename);
+  const hidden = presentation.hidden.filter((key) => !dropped.includes(key)).map(rename);
   if (!order.includes("payment_form") && order.includes("expense_type")) { order.splice(order.indexOf("expense_type") + 1, 0, "payment_form"); hidden.push("payment_form"); }
   if (!order.includes("net_amount")) order.splice(order.includes("gross_amount") ? order.indexOf("gross_amount") : order.length, 0, "net_amount");
-  if (!order.includes("missing")) order.splice(order.includes("stage") ? order.indexOf("stage") + 1 : order.length, 0, "missing");
   for (const { key } of recordedReportAnswer.columns) if (!order.includes(key)) { order.push(key); if (!hidden.includes(key)) hidden.push(key); }
   return { ...presentation, order, hidden };
 }
@@ -63,7 +63,7 @@ export function createBusinessReportHttpFixture() {
   let createdViews = 0;
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
-  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", rncSuppliers: [] as ExportPreview["dgii"]["rnc_suppliers"], noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { not_ready: 0, needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
+  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", rncSuppliers: [] as NonNullable<ExportPreview["dgii"]>["rnc_suppliers"], bandejaCount: 0, noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { not_ready: 0, needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
   const dossier = (row: ReportRecord) => ({ draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
   const problem = (status: number, code: string) => Response.json({ code, detail: code }, { status });
   const matchingRecords = (report: ReportRequest) => {
@@ -75,7 +75,6 @@ export function createBusinessReportHttpFixture() {
     if (report.filters.review_stages.length) matching = matching.filter((row) => row.stage && report.filters.review_stages.includes(row.stage));
     if (report.filters.currencies.length) matching = matching.filter((row) => row.currency && report.filters.currencies.includes(row.currency));
     if (report.filters.expense_types.length) matching = matching.filter((row) => row.dgii_606 && report.filters.expense_types.includes(row.dgii_606.expense_type?.code ?? "missing"));
-    if (report.filters.document_kinds.length) matching = matching.filter((row) => report.filters.document_kinds.includes(row.document_kind));
     return matching;
   };
   const request = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
@@ -98,7 +97,7 @@ export function createBusinessReportHttpFixture() {
       return Response.json(reportAnswerSchema.parse({ presentation, columns: serverColumns(presentation, report.filters.record_families[0] === "sale"), items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
         totals: documentFamilyTotals(matching),
         fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: report.filters.period.kind === "latest_month" ? latestMonth(records) : { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
-        counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: [{ code: "02", label: "Gastos por trabajos, suministros y servicios" }], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
+        counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: recordedReportAnswer.expense_types, coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
         ...controls.legacy ? {} : { overview: { ...controls.overview, ...("not_ready" in controls.overview ? { not_ready: matching.filter((row) => !row.ready).length } : {}), ...("needs_fiscal_data" in controls.overview ? { needs_fiscal_data: matching.filter((row) => row.fiscal_data === "missing").length } : {}) }, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
     }
     if (path.endsWith("/reports/export/preview")) {
@@ -119,7 +118,8 @@ export function createBusinessReportHttpFixture() {
       const pendingFiscal = family.filter((row) => row.fiscal_data === "missing" && row.currency === controls.dgiiCurrency).length;
       return Response.json({
         table: { current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } }), true) },
-        dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort(), rnc_suppliers: controls.rncSuppliers, rnc_supplier_count: controls.rncSuppliers.length, rnc_warning_count: controls.rncSuppliers.reduce((sum, supplier) => sum + supplier.record_count, 0), filenames: names(sale ? "607" : "606") },
+        dgii: sale ? null : { form: "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort(), rnc_suppliers: controls.rncSuppliers, rnc_supplier_count: controls.rncSuppliers.length, rnc_warning_count: controls.rncSuppliers.reduce((sum, supplier) => sum + supplier.record_count, 0), filenames: names("606") },
+        bandeja_count: controls.bandejaCount,
       });
     }
     if (path.endsWith("/reports/export")) {

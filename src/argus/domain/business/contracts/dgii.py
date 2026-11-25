@@ -174,6 +174,21 @@ class SalePaymentSplit(BaseModel):
     other_payment: Money | None = None
 
 
+#: The ways a sale is paid: the buckets of its split, by name.
+SalePaymentForm = Literal[tuple(SalePaymentSplit.model_fields)]  # type: ignore[valid-type]
+
+
+class SalePayment(BaseModel):
+    """How a sale was paid, as one pick: the one bucket of its split that
+    holds the sale's whole total, null with no split, one across several or
+    one bucket that is not the total, and the forms a person may pick."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    form: SalePaymentForm | None
+    options: tuple[SalePaymentForm, ...]
+
+
 class SalesDeclaration(Declaration):
     form: Literal["607"]
     income_type: Literal["1", "2", "3", "4", "5", "6"] | None
@@ -310,3 +325,14 @@ def printed_date(value: date) -> str:
 
 def amount_or_zero(value: str | None) -> Decimal:
     return Decimal("0" if value is None else value)
+
+
+class PurchaseCalculated(BaseModel):
+    """The two amounts the 606 calculates and no person enters, as its line
+    writes them. ``itbis_advance`` is null while the purchase has no ITBIS:
+    the export writes no line for it."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    billed_amount: str
+    itbis_advance: str | None

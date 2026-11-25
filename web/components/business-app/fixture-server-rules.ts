@@ -1,5 +1,6 @@
-import type { BandejaGroup, BandejaMembership, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
+import type { BandejaGroup, BandejaLabel, BandejaMembership, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailPart, EmailStanding } from "@/lib/business-email";
+import type { SentBy } from "@/lib/sent-by";
 
 /**
  * The preview's copy of the server's Bandeja rules (`receipt_activity.py` and
@@ -32,13 +33,29 @@ function membership(view: ReceiptSummary, activity: ReceiptActivity): BandejaMem
 
 type ListedReceipt = ReceiptSummary & { draft_id?: string | null; version?: number };
 
+/** `bandeja_group.READ_FAILURES`: a read that ended with nothing to review. */
+const CANT_READ = new Set(["unreadable", "ai_unavailable", "interrupted", "outcome_unknown", "source_unavailable", "read_deadline_passed", "not_a_receipt"]);
+
+/** `bandeja_label` in short. */
+function bandejaLabel(group: BandejaGroup["group"], reason: string | null, accepted: boolean): BandejaLabel | null {
+  if (group === "attention") return CANT_READ.has(reason ?? "") ? "cant_read" : "needs_attention";
+  if (group === "reading") return "reading";
+  if (group === "listo") return "ready";
+  return group === null && accepted ? "accepted" : null;
+}
+
+/** The one shape every Bandeja row carries, with the label the server's rule gives it. */
+export function groupRow(group: BandejaGroup["group"], reason: string | null = null, { draft_id = null, version = null, accepted = false }: { draft_id?: string | null; version?: number | null; accepted?: boolean } = {}): BandejaGroup {
+  return { group, reason, label: bandejaLabel(group, reason, accepted), draft_id, version };
+}
+
 /** `bandeja_group.py` in short: the row's own read first, then the gap the sample seeds, with Listos seeded by name. */
 function bandejaGroup(view: ListedReceipt): BandejaGroup {
-  if (!awaitingOwner(view)) return { group: null, reason: null, draft_id: null, version: null };
+  if (!awaitingOwner(view)) return groupRow(null, null, { accepted: !view.email_original && view.status === "confirmed" });
   const seeded = view.bandeja_group;
   const unread = view.status === "saved" || view.status === "queued";
   const reason = view.read_pending ? "reading" : view.attention ?? (unread ? "not_read" : view.sin_comprobante ? "sin_comprobante" : view.personal ? "personal" : seeded?.reason ?? (seeded?.group === "listo" ? null : "check_details"));
-  return { group: reason === "reading" ? "reading" : reason ? "attention" : "listo", reason, draft_id: view.draft_id ?? null, version: view.draft_id ? view.version ?? null : null };
+  return groupRow(reason === "reading" ? "reading" : reason ? "attention" : "listo", reason, { draft_id: view.draft_id ?? null, version: view.draft_id ? view.version ?? null : null });
 }
 
 /** A receipt as the server lists it: its projected activity and its Bandeja flags. */
@@ -47,13 +64,13 @@ export function served<T extends ListedReceipt>(view: T): T {
   return { ...view, activity, bandeja: membership(view, activity), bandeja_group: bandejaGroup(view) };
 }
 
-/** The counts as the server sums them over every receipt, the notes no receipt carries and each email's standing. */
-export function servedCounts(views: readonly ListedReceipt[], notes: number, standings: readonly (EmailStanding | null)[]): ReceiptActivityCounts {
+/** The counts as the server sums them over every receipt, the group of each note no receipt carries, one per draft, and each email's standing. */
+export function servedCounts(views: readonly ListedReceipt[], notes: readonly (BandejaGroup | null | undefined)[], standings: readonly (EmailStanding | null)[]): ReceiptActivityCounts {
   const rows = views.map(served);
   const emails = standings.filter((standing) => standing !== null);
   const flagged = (bucket: keyof BandejaMembership) => rows.filter((row) => row.bandeja?.[bucket]).length;
-  const pending = rows.filter(awaitingOwner).length + notes + emails.length;
-  const listos = rows.filter((row) => row.bandeja_group?.group === "listo").length;
+  const pending = rows.filter(awaitingOwner).length + notes.length + emails.length;
+  const listos = rows.filter((row) => row.bandeja_group?.group === "listo").length + notes.filter((note) => note?.group === "listo").length;
   const reading = flagged("leyendo") + emails.filter((standing) => standing === "reading").length;
   const unread = rows.filter((row) => row.activity?.unread).length;
   return {
@@ -61,16 +78,15 @@ export function servedCounts(views: readonly ListedReceipt[], notes: number, sta
     unread_count: unread,
     presentation: reading ? "working" : unread ? "unread" : "none",
     pending_review_count: pending,
-    ready_to_review_count: flagged("por_revisar") + notes,
+    ready_to_review_count: flagged("por_revisar") + notes.length,
     bandeja_listo_count: listos,
     bandeja_attention_count: pending - listos - reading,
-    needs_attention_count: flagged("con_problema") + emails.filter((standing) => standing === "no_receipt").length,
     confirmed_count: rows.filter((row) => !row.email_original && row.status === "confirmed").length,
     dismissed_count: rows.filter((row) => !row.email_original && row.status === "dismissed").length,
   };
 }
 
-type EmailInput = Omit<BusinessEmailDelivery, "standing" | "saved_receipt_count" | "no_receipt_reason">;
+type EmailInput = Omit<BusinessEmailDelivery, "standing" | "bandeja_group" | "saved_receipt_count" | "no_receipt_reason">;
 
 const repeat = (part: BusinessEmailPart) => Boolean(part.repeat_of_delivery_id || part.repeat_of_upload);
 
@@ -92,9 +108,26 @@ function noReceiptReason(delivery: EmailInput): string {
   return delivery.parts.length ? "email_parts_rejected" : "email_no_attachment";
 }
 
-/** An email delivery as the server serves it: where it stands, what it saved and why it brought nothing. */
-export function servedEmail<T extends EmailInput>(delivery: T): T & Pick<BusinessEmailDelivery, "standing" | "saved_receipt_count" | "no_receipt_reason"> {
+/** `note_group` in short: a typed note's group by its draft's state. */
+export function noteGroup(state: string, draftId: string, version: number): BandejaGroup {
+  if (state === "open") return groupRow("attention", "not_read", { draft_id: draftId, version });
+  return groupRow(state === "accepting" ? "listo" : null, null, { accepted: state === "accepted" });
+}
+
+/** `email_group` in short: being read, or it brought no receipt and needs a person. */
+function emailGroup(standing: EmailStanding | null): BandejaGroup {
+  return standing === "reading" ? groupRow("reading", "reading") : groupRow(standing === "no_receipt" ? "attention" : null);
+}
+
+/** `email_sender` in short: the address an email came from, as every Bandeja row names its sender. */
+export function emailSender(sender: string | null | undefined): SentBy | null {
+  const address = sender?.trim().toLowerCase();
+  return address ? { id: `email:${address}`, kind: "email", address } : null;
+}
+
+/** An email delivery as the server serves it: who sent it, where it stands, its Bandeja group, what it saved and why it brought nothing. */
+export function servedEmail<T extends EmailInput>(delivery: T): T & Pick<BusinessEmailDelivery, "sent_by" | "standing" | "bandeja_group" | "saved_receipt_count" | "no_receipt_reason"> {
   const captured = delivery.parts.filter((part) => part.state === "captured" && part.document_id);
   const standing = standingOf(delivery, captured);
-  return { ...delivery, standing, saved_receipt_count: captured.length, no_receipt_reason: standing === "no_receipt" ? noReceiptReason(delivery) : null };
+  return { ...delivery, sent_by: emailSender(delivery.sender), standing, bandeja_group: emailGroup(standing), saved_receipt_count: captured.length, no_receipt_reason: standing === "no_receipt" ? noReceiptReason(delivery) : null };
 }

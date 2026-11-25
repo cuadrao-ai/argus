@@ -1,9 +1,7 @@
 import type { GrantedSpace, ReceiptSummary } from "../../lib/business-api";
 
-export type Capture = { input: { text: string; document_type?: string }; key: string; grant: string | null | undefined };
 export type Upload = { key: string; grant: string | null | undefined };
-/** "hold" keeps the save in flight until `releaseHeld` answers it. */
-type Answer = "lost" | "refused" | "ok" | "hold";
+type Answer = "lost" | "ok";
 
 const permissions = ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"];
 export const ownSpace = { space_id: "own-space", name: "Negocio propio sintético", grant_id: "grant-own", role: "owner", business_role: "owner", permissions, capabilities: ["read", "prepare", "approve"], access_seen: true } satisfies GrantedSpace;
@@ -11,10 +9,10 @@ export const clientSpace = { space_id: "client-admin", name: "Ferretería sinté
 
 /**
  * The Business workspace with its Bandeja header, the way the app mounts it, driven through the Agregar door.
- * `answers` script each typed-note save and `uploadAnswers` each file upload, in order; a missing answer is "ok".
+ * `uploadAnswers` script each file upload, in order; with none, the fixture's own upload answers.
  * When `spaces` are given, the person starts in the second one.
  */
-export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSpace[], uploadAnswers: Answer[] = []) {
+export async function mountIntakeWorkspace(spaces?: GrantedSpace[], uploadAnswers: Answer[] = []) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -35,9 +33,7 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
-  const captures: Capture[] = [];
   const uploads: Upload[] = [];
-  const held: (() => void)[] = [];
   const source = {
     ...fixture,
     ...(spaces ? { spaces: async () => spaces } : {}),
@@ -47,14 +43,6 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
       if (uploadAnswers.shift() === "lost") throw new TypeError("Failed to fetch");
       // The sample upload plays out over a second of progress; a scripted answer lands at once.
       return { id: `rcpt-${key}`, channel: "web", filename: file.name, media_type: file.type, size_bytes: file.size, received_at: new Date().toISOString(), status: "saved", error_code: null, attention: null, preparable: true, enterable: true, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null } as ReceiptSummary;
-    },
-    captureNote: async (input: Capture["input"], key: string, grant?: string | null) => {
-      captures.push({ input, key, grant });
-      const answer = answers.shift() ?? "ok";
-      if (answer === "lost") throw new TypeError("Failed to fetch");
-      if (answer === "refused") throw Object.assign(new Error("refused"), { status: 422, code: "validation_failed" });
-      if (answer === "hold") return new Promise((resolve) => held.push(() => resolve(fixture.captureNote(input, key))));
-      return fixture.captureNote(input, key);
     },
   };
   const host = document.createElement("div");
@@ -79,7 +67,7 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
   const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === text || item.getAttribute("aria-label") === text);
   const openAgregar = async () => {
     await act(async () => host.querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]')!.click());
-    for (let i = 0; i < 40 && !document.querySelector('[data-testid="intake-write-open"]'); i += 1) await settle();
+    for (let i = 0; i < 40 && !dialog()?.querySelector('input[type="file"]'); i += 1) await settle();
   };
   const closeAgregar = async () => {
     await act(async () => dialog()!.querySelector<HTMLButtonElement>('button[aria-label="Cerrar"]')!.click());
@@ -94,32 +82,19 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
     await act(async () => composer()!.querySelector<HTMLButtonElement>('button[aria-label="Cerrar"]')!.click());
     await settle();
   };
-  const writeNote = async (text: string, type: "Compra" | "Venta") => {
-    await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="intake-write-open"]')!.click());
-    const field = document.querySelector<HTMLTextAreaElement>("#intake-write-text")!;
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(field, text);
-      field.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="intake-write-type"] button')].find((item) => item.textContent === type)!.click());
-    await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="intake-write-save"]')!.click());
-    await settle();
+  /** Every file of the open panel by its queue status. Saved files sit folded under their count, one "saved" each. */
+  const uploadRows = () => {
+    const shown = [...document.querySelectorAll<HTMLElement>('[data-testid="receipt-upload-row"]')].map((row) => row.dataset.status);
+    const fold = document.querySelector('[data-testid="receipt-upload-saved-fold"]');
+    const folded = fold && !fold.querySelector('[data-testid="receipt-upload-row"]') ? Number(/\d+/.exec(fold.textContent ?? "")?.[0] ?? 0) : 0;
+    return [...shown, ...Array.from({ length: folded }, () => "saved")];
   };
-  const rows = () => [...document.querySelectorAll<HTMLElement>('[data-testid="receipt-typed-row"]')].map((row) => ({ status: row.dataset.status, text: row.querySelector("p")?.textContent }));
-  const uploadRows = () => [...document.querySelectorAll<HTMLElement>('[data-testid="receipt-upload-row"]')].map((row) => row.dataset.status);
-  const retry = () => act(async () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="receipt-typed-row"] button')].find((item) => item.textContent === "Reintentar")!.click());
   const retryFile = async (name: string) => {
     await act(async () => button(`Reintentar ${name}`)!.click());
     for (let i = 0; i < 40 && uploadRows().some((status) => status === "queued" || status === "uploading"); i += 1) await settle();
   };
-  const reviewSaved = () => act(async () => button("Revisar los recibos guardados")!.click());
-  /** Answers every held save as confirmed. */
-  const releaseHeld = async () => {
-    await act(async () => { held.splice(0).forEach((release) => release()); });
-    await settle();
-  };
-  /** Whether leaving the page now would ask first, the way the browser asks on refresh. */
-  const leavingAsks = () => !window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
+  const review = () => document.querySelector<HTMLButtonElement>('[data-testid="receipt-intake-review"]');
+  const reviewSaved = () => act(async () => review()!.click());
   const choose = (grant: string) => act(async () => { setChosenGrant(grant); await new Promise((resolve) => setTimeout(resolve, 50)); });
   /** Picks a file, and waits for its one upload attempt to answer. */
   const pickFile = async (name: string, lastModified = Date.now()) => {
@@ -130,5 +105,5 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
     await act(async () => { input.files = transfer.files; input.dispatchEvent(new Event("change", { bubbles: true })); });
     for (let i = 0; i < 40 && (uploads.length === before || uploadRows().some((status) => status === "queued" || status === "uploading")); i += 1) await settle();
   };
-  return { captures, uploads, dialog, button, openAgregar, closeAgregar, composer, openComposer, closeComposer, writeNote, rows, uploadRows, retry, retryFile, reviewSaved, releaseHeld, leavingAsks, settle, choose, pickFile, unmount };
+  return { uploads, dialog, button, openAgregar, closeAgregar, composer, openComposer, closeComposer, uploadRows, retryFile, review, reviewSaved, settle, choose, pickFile, unmount };
 }

@@ -12,7 +12,7 @@
 .symbol { margin-right:7px; font-family:var(--font-sans); font-size:14px; font-weight:400; letter-spacing:0; color:#56635e; }
 .breakdown { display:flex; align-items:center; justify-content:center; gap:6px; margin:6px 0 0 auto; min-height:44px; padding:0 10px; border-radius:8px; background:transparent; border:0; color:inherit; font-size:13px; cursor:pointer; }
 .breakdown:hover { background:color-mix(in srgb,var(--fg) 5%,transparent); }
-.breakdown:focus-visible,.exclusions summary:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:2px; }
+.breakdown:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:2px; }
 .currencyList { display:flex; flex-direction:column; gap:16px; padding:20px; }
 .currencyGroup { border:1px solid color-mix(in srgb,var(--fg) 10%,transparent); border-radius:20px; overflow:hidden; background:var(--cuadrao-menu-surface); color:var(--fg); }
 .currencyGroup h3 { margin:0; padding:14px 18px; background:#e7ece5; font-size:13px; font-weight:600; letter-spacing:.07em; }
@@ -22,11 +22,6 @@
 .currencyGroup dd { max-width:100%; overflow-x:auto; margin:0; font-size:21px; font-family:var(--font-display); font-weight:500; letter-spacing:-.025em; }
 .partial { display:block; margin-top:4px; font-family:var(--font-sans); font-size:12px; font-weight:400; letter-spacing:0; color:#56635e; white-space:normal; }
 .basis { margin:0; font-size:12px; line-height:1.5; color:color-mix(in srgb,var(--fg) 65%,transparent); }
-.exclusions { font-size:12px; font-weight:400; text-transform:none; letter-spacing:0; color:color-mix(in srgb,var(--fg) 70%,transparent); }
-.exclusions summary { cursor:pointer; width:32px; height:32px; display:flex; align-items:center; justify-content:center; list-style:none; border-radius:50%; }
-.exclusions summary:hover { background:color-mix(in srgb,var(--fg) 5%,transparent); }
-.exclusions summary::-webkit-details-marker { display:none; }
-.exclusions p { position:absolute; z-index:20; top:100%; left:0; width:min(300px,calc(100vw - 64px)); margin:4px 0 0; padding:12px; border-radius:12px; background:var(--cuadrao-menu-surface); border:1px solid color-mix(in srgb,var(--fg) 12%,transparent); box-shadow:0 8px 24px rgb(0 0 0 / 12%); line-height:1.5; }
 .state { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:color-mix(in srgb,var(--fg) 70%,transparent); }
 :global(.dark) .summary { color:#f8eee7; }
 :global(.dark) .metric { background:#303630; border-color:rgb(255 255 255 / 7%); }
@@ -44,6 +39,4 @@
   .currencyRow { font-size:24px; text-align:right; }
   .currencyRow + .currencyRow { margin-top:8px; padding-top:8px; font-size:20px; }
   .symbol { font-size:12px; }
-  .exclusions summary { width:44px; height:44px; }
-  .exclusions p { width:min(300px,calc(100vw - 64px)); }
 }

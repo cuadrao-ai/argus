@@ -15,9 +15,9 @@ import httpx
 import psycopg
 import pytest
 from argus.domain.business import analytics as business_analytics
+from argus.domain.business.actions import listos
 from argus.domain.business.analytics_events import business_hash_for_id
 from argus.domain.business.contracts.actions import (
-    Applied,
     ApproveExpense,
     CaptureNote,
     ExistingDraft,
@@ -28,9 +28,9 @@ from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
 from argus.observability import envelope
 from argus.observability.product_events import actor_hash_for_user
-from psycopg.types.json import Jsonb
 
 from tests import test_business_approval_fiscal_postgres as fiscal
+from tests.business_accept_support import seen_gaps
 from tests.money_assertions import _assert_no_money_properties
 
 users = fiscal.users
@@ -159,41 +159,23 @@ def _receipt_outcome(service, context, key: str) -> str | None:  # noqa: ANN001
     return row[0] if row else None
 
 
-def _complete_read(service, context, prepared, status="review_ready"):  # noqa: ANN001, ANN202
-    [(_, connection_id, _)] = _sources(service, prepared.draft_id)
-    with service.authority.pool.connection() as db:
-        document, holder, job = db.execute(
-            "select d.draft,c.lease_holder,d.preparation_job"
-            " from public.financial_document_extractions d"
-            " join public.financial_source_connections c on c.id=d.connection_id"
-            " where c.id=%s", (connection_id,),
-        ).fetchone()
-        document.update(status=status, version=document["version"] + 1)
-        db.execute(
-            "update public.financial_document_extractions set draft=%s where connection_id=%s",
-            (Jsonb(document), connection_id),
-        )
-    service.complete_attachment_read(
-        user_id=context.owner_id, connection_id=str(connection_id), scope=context.scope,
-        holder=holder, attempt_id=job["attempt_id"] if job else None,
-        document_version=document["version"], prepared=prepared,
-    )
-    return connection_id
-
-
 @pytest.mark.parametrize("group", ["listo", "attention", None])
 def test_approval_uses_the_read_group_after_a_person_edits(actions, sent, faker, group):  # noqa: ANN001
     service, context = actions
-    currency = "USD" if group == "attention" else "DOP"
-    draft, version = fiscal.receipt_draft(service, context, fiscal.colmado(currency=currency), currency)
-    if group is not None:
-        _complete_read(
-            service, context, Applied(outcome="applied", draft_id=draft, version=version),
-        )
+    # A read with no supplier needs a person; the edit below names one.
+    read = fiscal.colmado(**({"merchant": None} if group == "attention" else {}))
+    draft, version = fiscal.receipt_draft(service, context, read, "DOP")
+    if group is None:
+        # Older receipts have no saved read group.
+        with service.authority.pool.connection() as db:
+            db.execute(
+                "update public.financial_import_events set resolution=resolution-'read_group' where id=%s",
+                (draft,),
+            )
     if group == "attention":
         changed = service.review(
             context, draft, ReviewDraft(version=version, facts=BusinessFactPatch.model_validate(
-                {"currency": {"state": "known", "value": "DOP"}}
+                {"counterparty": {"state": "known", "value": faker.company()}}
             )), faker.uuid4(),
         )
         assert changed.outcome == "applied", changed
@@ -201,7 +183,14 @@ def test_approval_uses_the_read_group_after_a_person_edits(actions, sent, faker,
     reviewed = fiscal.reviewed(service, context, draft, version)
 
     outcome = service.approve(
-        context, draft, ApproveExpense(version=reviewed, action="record_expense"), faker.uuid4()
+        context,
+        draft,
+        ApproveExpense(
+            version=reviewed,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        faker.uuid4(),
     )
 
     assert outcome.outcome == "applied", outcome
@@ -214,25 +203,39 @@ def test_a_reread_replaces_the_approval_group(actions, sent, first, last):  # no
     from argus.domain.business.actions import mutations
 
     service, context = actions
-    draft_id, version = fiscal.receipt_draft(service, context, fiscal.colmado(), "DOP")
-    connection_id = _complete_read(
-        service, context, Applied(outcome="applied", draft_id=draft_id, version=version),
-        "review_ready" if first == "listo" else "needs_attention",
+    draft_id, version = fiscal.receipt_draft(
+        service, context, fiscal.colmado(), "DOP", complete=first == "listo"
     )
+    [(_, connection_id, _)] = _sources(service, draft_id)
     binding, read_context = service._attachment_context(
         context.owner_id, str(connection_id), context.scope
     )
-    with transaction(service.authority, read_context, "prepare") as tx:
-        row = service._attachment_row(tx, connection_id)
-        reread = mutations.prepare_attachment(
-            tx, ExistingDraft(draft_id=draft_id, version=version),
-            ExtractionBatch.model_validate(row["batch"]),
-            DocumentDraft.model_validate(row["draft"]), binding.actor,
-        )
-        assert "read_group" not in tx.imports.event(str(draft_id)).resolution
-    _complete_read(
-        service, context, reread, "review_ready" if last == "listo" else "needs_attention"
+    documents = fiscal.receipt_reader(service)
+    connections = documents.hub.connections
+    holder = str(uuid4())
+    assert connections.lease(
+        connection_id=str(connection_id), holder=holder, now=documents.hub.clock()
     )
+    try:
+        with transaction(service.authority, read_context, "prepare") as tx:
+            row = service._attachment_row(tx, connection_id)
+            assert tx.imports.event(str(draft_id)).resolution["read_group"] == first
+            document = DocumentDraft.model_validate(row["draft"])
+            reread = mutations.prepare_attachment(
+                tx, ExistingDraft(draft_id=draft_id, version=version),
+                ExtractionBatch.model_validate(row["batch"]), document, binding.actor,
+            )
+            assert "read_group" not in tx.imports.event(str(draft_id)).resolution
+        document = documents._update(
+            context.owner_id, document, holder=holder,
+            status="review_ready" if last == "listo" else "needs_attention",
+        )
+        service.complete_attachment_read(
+            user_id=context.owner_id, connection_id=str(connection_id), scope=context.scope,
+            holder=holder, attempt_id=None, document_version=document.version, prepared=reread,
+        )
+    finally:
+        connections.release(connection_id=str(connection_id), holder=holder)
     reviewed = fiscal.reviewed(service, context, draft_id, reread.version)
 
     outcome = fiscal.approve(service, context, draft_id, reviewed)
@@ -252,10 +255,13 @@ def test_approval_reads_the_filled_names_and_the_first_arrival(actions, sent):  
     settled: list[str | None] = []
     sent.on_post(lambda body: settled.append(_receipt_outcome(service, context, key)))
 
-    before = datetime.now(timezone.utc)
-    outcome = service.approve(
-        context, draft, ApproveExpense(version=approved, action="record_expense"), key
+    request = ApproveExpense(
+        version=approved,
+        action="record_expense",
+        accept_gaps=seen_gaps(service, context, draft),
     )
+    before = datetime.now(timezone.utc)
+    outcome = service.approve(context, draft, request, key)
     after = datetime.now(timezone.utc)
 
     assert outcome.outcome == "applied", outcome
@@ -299,9 +305,7 @@ def test_approval_reads_the_filled_names_and_the_first_arrival(actions, sent):  
             _assert_no_money_properties(body["properties"], amount)
 
     # The same approval again replays the stored outcome and reports nothing again.
-    replayed = service.approve(
-        context, draft, ApproveExpense(version=approved, action="record_expense"), key
-    )
+    replayed = service.approve(context, draft, request, key)
     assert replayed == outcome
     assert len(sent) == 2
 
@@ -325,7 +329,14 @@ def test_a_failing_analytics_read_leaves_the_approval_committed(
     key = str(uuid4())
 
     outcome = service.approve(
-        context, draft, ApproveExpense(version=approved, action="record_expense"), key
+        context,
+        draft,
+        ApproveExpense(
+            version=approved,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
+        key,
     )
 
     assert outcome.outcome == "applied", outcome
@@ -336,7 +347,7 @@ def test_a_failing_analytics_read_leaves_the_approval_committed(
 
 def test_review_gaps_reads_a_prepared_drafts_gaps_from_postgres(actions, sent):  # noqa: ANN001
     service, context = actions
-    draft, version = fiscal.receipt_draft(service, context, fiscal.colmado(), "DOP")
+    draft, version = fiscal.receipt_draft(service, context, fiscal.colmado(ncf=None), "DOP")
     [(_, connection_id, _)] = _sources(service, draft)
     reasons = partial(
         service.review_gaps,
@@ -346,11 +357,9 @@ def test_review_gaps_reads_a_prepared_drafts_gaps_from_postgres(actions, sent): 
         draft_id=draft,
     )
 
-    # Read and bound, the draft still waits on who paid, so it is not Listos.
     gaps = reasons()
-    assert gaps and gaps[0] != "not_read", gaps
+    assert "missing_ncf" in gaps, gaps
     assert all(isinstance(gap, str) for gap in gaps)
-    print("gaps", gaps)
     business_analytics.document_needs_review(
         business_id=str(context.actor.space_id),
         user_id=context.owner_id,
@@ -358,6 +367,25 @@ def test_review_gaps_reads_a_prepared_drafts_gaps_from_postgres(actions, sent): 
     )
     [review] = _events(sent, "business_document_needs_review")
     assert review["reason_codes"] == list(gaps)
+
+
+def test_review_gaps_names_an_unverified_sender_beside_another_gap(  # noqa: ANN201
+    actions,  # noqa: ANN001
+    monkeypatch: pytest.MonkeyPatch,
+):
+    service, context = actions
+    draft, _ = fiscal.receipt_draft(service, context, fiscal.colmado(ncf=None), "DOP")
+    [(_, connection_id, _)] = _sources(service, draft)
+    monkeypatch.setattr(listos, "email_draft_standing", lambda *args: "new")
+
+    gaps = service.review_gaps(
+        user_id=context.owner_id,
+        connection_id=str(connection_id),
+        scope=context.scope,
+        draft_id=draft,
+    )
+
+    assert "missing_ncf" in gaps and gaps[-1] == "unverified_sender", gaps
 
 
 def test_a_failing_gap_read_sends_nothing_and_raises_nothing(actions, sent):  # noqa: ANN001
@@ -407,7 +435,11 @@ def test_two_approvals_under_one_key_report_the_approval_once(
     draft, version = fiscal.receipt_draft(service, context, fiscal.colmado(), "DOP")
     approved = fiscal.reviewed(service, context, draft, version)
     key = str(uuid4())
-    request = ApproveExpense(version=approved, action="record_expense")
+    request = ApproveExpense(
+        version=approved,
+        action="record_expense",
+        accept_gaps=seen_gaps(service, context, draft),
+    )
 
     first = service.approve(context, draft, request, key)
     assert first.outcome == "applied", first

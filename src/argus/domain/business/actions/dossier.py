@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from typing import Any, get_args
 from uuid import UUID
 
@@ -8,6 +9,7 @@ from loguru import logger
 from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
+from argus.domain.business.actions import accepted_edit, document_ledger
 from argus.domain.business.actions.duplicate_comparison import (
     compare,
     duplicate_revisions,
@@ -16,19 +18,34 @@ from argus.domain.business.actions.facts import facts_of
 from argus.domain.business.actions.fiscal import last_choice, repeated_comprobantes
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
-from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.amount_inheritance import (
     APPROVED,
     LinkedSources,
     inheritance_state,
     links_of,
     original_ncf,
+    source_owned,
     written_from,
 )
-from argus.domain.business.annotations import annotation_available, current_note
-from argus.domain.business.approved_facts import approved_revision_sql
+from argus.domain.business.annotations import (
+    OWN_SOURCE_SQL,
+    annotation_available,
+    current_note,
+)
+from argus.domain.business.approved_facts import (
+    APPROVAL_REVISION_VERSION,
+    approved_revision_sql,
+)
 from argus.domain.business.authority import ActionError
-from argus.domain.business.bandeja_group import upload_year, year_to_check
+from argus.domain.business.bandeja_group import (
+    BandejaReason,
+    DraftStanding,
+    confirmable_gaps,
+    group_of,
+    listo_gaps,
+    upload_year,
+    year_to_check,
+)
 from argus.domain.business.config import (
     business_settlement_enabled,
     ecf_checks_panel_enabled,
@@ -46,10 +63,13 @@ from argus.domain.business.contracts.dgii import (
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
     ApprovalResult,
+    BandejaStanding,
     Blocker,
     BusinessDossier,
+    DetailReadiness,
     DraftRevision,
     DuplicateCandidate,
+    EditableField,
     RecordContext,
     RecordedApproval,
     ReviewQuestion,
@@ -62,25 +82,32 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
 )
-from argus.domain.business.document_type import DocumentType, kind_disagrees
+from argus.domain.business.dgii_snapshot import account_types
+from argus.domain.business.dgii_validation import purchase_calculated
+from argus.domain.business.document_type import DocumentType, direction, kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
-from argus.domain.business.fact_blockers import blockers
+from argus.domain.business.fact_blockers import blockers, record_note
+from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
 from argus.domain.business.purchase_review import (
     blank_answer,
     declaration_from_facts,
     net_amount,
+    paying_account_type,
+    sale_payment,
+    states_declaration,
     takes_payment_split,
     takes_purchase_declaration,
 )
-from argus.domain.business.review_flags import review_flags
+from argus.domain.business.receipts import draft_row
+from argus.domain.business.review_flags import amounts_check, review_flags
 from argus.domain.business.rnc_registry import (
-    RncRegistry,
-    postgres_rnc_fetch,
-    registry_from_config,
+    DgiiRncRegistry,
+    RncRegistrySnapshot,
+    RncRegistryStatus,
 )
 from argus.domain.business.transactions import ActionTransaction
-from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
+from argus.domain.ingestion.receipt_review import duplicate_warning
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 SOURCE = TypeAdapter(SourceEvidence)
@@ -100,13 +127,8 @@ def record_context(tx: ActionTransaction) -> RecordContext:
     )
 
 
-def rnc_registry(tx: ActionTransaction) -> RncRegistry:
-    return registry_from_config(
-        "dgii",
-        postgres_rnc_fetch(
-            lambda query, params: next(iter(tx.rows(query, params)), None)
-        ),
-    )
+def rnc_registry(tx: ActionTransaction) -> DgiiRncRegistry:
+    return DgiiRncRegistry.for_connection(tx.connection)
 
 
 def review_questions(
@@ -174,27 +196,47 @@ def approval_of(
     return None
 
 
+#: The receipts of a draft's approvals, in a Business and draft given in that order.
+_APPROVAL_RECEIPTS = (
+    " from public.business_action_receipts a where a.space_id=%s"
+    " and a.command->>'action' in ('approve_expense','approve_income','approve_refund')"
+    " and a.command->>'draft_id'=%s"
+)
+
+
 def approval_receipts(tx: ActionTransaction, event: ImportEvent) -> list[dict[str, Any]]:
     """The draft's latest approval receipt: the one it points at, else the
     newest one that names it."""
 
     pointer = event.resolution.get("approval_receipt")
-    approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
+    approval_filter = "" if pointer is None else " and a.actor_id=%s and a.idempotency_key=%s"
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
     return tx.rows(
-        "select actor,command,outcome,created_at from public.business_action_receipts"
-        " where space_id=%s and command->>'action' in ('approve_expense','approve_income','approve_refund')"
-        " and command->>'draft_id'=%s"
+        "select a.actor,a.command,a.outcome,a.created_at"
+        + _APPROVAL_RECEIPTS
         + approval_filter
-        + " order by created_at desc limit 1",
+        + " order by a.created_at desc limit 1",
         (tx.context.actor.space_id, event.id, *approval_params),
     )
+
+
+def approval_revisions(tx: ActionTransaction, draft_id: UUID) -> frozenset[int]:
+    """The versions at which this draft's approvals may have written their own
+    revision. An approval refused before its claim wrote none, and a person's
+    write that took that version carries the evidence of its command."""
+
+    rows = tx.rows(
+        f"select {APPROVAL_REVISION_VERSION} as version" + _APPROVAL_RECEIPTS,
+        (tx.context.actor.space_id, str(draft_id)),
+    )
+    return frozenset(row["version"] for row in rows)
 
 
 def duplicate_candidates(
     tx: ActionTransaction,
     event: ImportEvent,
     pending: tuple[str, ...],
+    repeated: tuple[UUID, ...],
     *,
     can_prepare: bool,
     can_delete: bool,
@@ -213,8 +255,7 @@ def duplicate_candidates(
         or event.resolution.get("different_purchases")
     )
     read = pending if warned else ()
-    draft_id = UUID(event.id)
-    fiscal = tuple(str(i) for i in repeated_comprobantes(tx, [event]).get(draft_id, ()))
+    fiscal = tuple(str(i) for i in repeated)
     candidates = []
     for other_id in dict.fromkeys((*read, *fiscal)):
         try:
@@ -245,6 +286,36 @@ def duplicate_candidates(
     return tuple(candidates)
 
 
+def bandeja_standing(
+    row: Mapping[str, Any], standing: DraftStanding | None, *, accepting: bool
+) -> tuple[BandejaStanding, tuple[BandejaReason, ...]]:
+    """The draft's Bandeja standing and every gap behind it, by the rule the
+    receipt list reads. ``row`` is the receipt row linked to this draft alone:
+    what ``receipts.draft_row`` gives it, its deleted mark and its read."""
+
+    found = group_of(row, standing, accepting=accepting)
+    gaps = listo_gaps(standing) if standing and found["group"] == "attention" else ()
+    return (
+        BandejaStanding(
+            group=found["group"], reason=found["reason"], label=found["label"]
+        ),
+        gaps,
+    )
+
+
+def supplier_registry_read(
+    tx: ActionTransaction, facts: BusinessFacts
+) -> tuple[RncRegistrySnapshot, RncRegistryStatus | None]:
+    """What the DGII register says of the supplier RNC the draft holds."""
+
+    rnc = facts.fiscal.rnc if facts.fiscal else None
+    digits = identity_digits(rnc.value) if isinstance(rnc, Known) else None
+    if not digits:
+        return RncRegistrySnapshot(), None
+    answer = rnc_registry(tx).read(digits)
+    return RncRegistrySnapshot({digits: answer.record}), answer.status
+
+
 def workflow_blockers(
     tx: ActionTransaction,
     event: ImportEvent,
@@ -270,12 +341,12 @@ def workflow_blockers(
     duplicate_ids = pending_duplicates(
         tx.imports, event, lambda event_id: attachment_signature(tx, event_id)
     )
-    unresolved_attention = event.attention in DUPLICATE_WARNINGS and (
-        event.attention != "possible_duplicate"
-        or not event.possible_duplicates
-        or bool(duplicate_ids)
-    )
-    if unresolved_attention or duplicate_ids:
+    if (
+        duplicate_warning(
+            event.attention, event.possible_duplicates, lambda: duplicate_ids
+        )
+        or duplicate_ids
+    ):
         # Settled only by a person: the draft stays reviewable, never approvable.
         blocked.append(Blocker(code="possible_duplicate"))
     return blocked, tuple(duplicate_ids)
@@ -294,16 +365,12 @@ def _approved_facts(tx: ActionTransaction) -> Callable[[str], BusinessFacts | No
     return read
 
 
-def _paying_account_type(
-    tx: ActionTransaction, facts: BusinessFacts, accounts: Sequence[AccountChoice] | None
-) -> str | None:
+def _paying_account_type(tx: ActionTransaction, facts: BusinessFacts) -> str | None:
     """The type of the Business account a person stated paid the record."""
 
-    funding = facts.funding.value if isinstance(facts.funding, Known) else None
-    if not isinstance(funding, BusinessAccountFunding):
+    if not isinstance(facts.funding, Known) or not isinstance(facts.funding.value, BusinessAccountFunding):
         return None
-    listed = record_context(tx).accounts if accounts is None else accounts
-    return next((account.type for account in listed if account.id == funding.account_id), None)
+    return paying_account_type(facts, account_types(tx.connection, tx.context))
 
 
 def linked_original(
@@ -328,7 +395,6 @@ def review_sources(
     facts: BusinessFacts,
     stored: DgiiDeclaration | None,
     document_type: DocumentType,
-    accounts: Sequence[AccountChoice] | None = None,
     shown: DeclarationSuggestions | None = None,
 ) -> LinkedSources:
     """What ``written_from`` reads beyond the draft to show its declaration:
@@ -339,18 +405,22 @@ def review_sources(
 
     ``shown`` is the suggestions a person approving saw, in place of the
     server's own read now. One is refused when its answer is no longer blank
-    or the approval saves no 606 declaration: the record changed."""
+    or the approval saves no 606 declaration: the record changed.
 
-    if links_of(state) is APPROVED:
-        return APPROVED
-    purchase = stored if isinstance(stored, PurchaseDeclaration) else None
-    reviewing = (
-        state == "open"
-        and isinstance(facts.kind, Known)
-        and facts.kind.value == "expense"
-        and takes_purchase_declaration(document_type, facts)
+    An approved expense saved with no declaration reports the one its facts
+    state, as the 606 does (``fiscal_snapshot``)."""
+
+    stated = states_declaration(document_type, facts)
+    reviewing = state == "open" and stated
+    unsaved = state == "accepted" and stored is None and stated
+    built = (
+        declaration_from_facts(facts, _paying_account_type(tx, facts))
+        if reviewing or unsaved
+        else None
     )
-    built = declaration_from_facts(facts, _paying_account_type(tx, facts, accounts)) if reviewing else None
+    if links_of(state) is APPROVED:
+        return APPROVED if built is None else replace(APPROVED, built=built)
+    purchase = stored if isinstance(stored, PurchaseDeclaration) else None
     # A suggestion shows only where the approval saves it: on a declaration
     # the person saved, or on the one built from the facts.
     offers = reviewing and (purchase is not None or built is not None)
@@ -413,6 +483,7 @@ def _read_answers(tx: ActionTransaction, draft_id: UUID) -> Mapping[str, str | N
         " join public.financial_source_connections c on c.id=s.connection_id"
         " and c.owner_space_id=s.space_id"
         " where l.space_id=%s and l.draft_id=%s and s.kind='attachment' and c.user_id=%s"
+        f" and {OWN_SOURCE_SQL}"
         " and jsonb_typeof(d.batch->'receipt')='object'"
         " order by s.received_at desc,s.id desc limit 1",
         (tx.context.actor.space_id, draft_id, tx.context.owner_id),
@@ -473,6 +544,32 @@ def log_changed_suggestions(
             logger.info("business_suggestion_changed field={} source={}", field, source)
 
 
+def _editable_fields(
+    tx: ActionTransaction,
+    event: ImportEvent,
+    link: document_ledger.LinkReason | None,
+    resolution: BusinessResolution,
+    facts: BusinessFacts,
+) -> tuple[EditableField, ...]:
+    fields: tuple[EditableField, ...] = (
+        "business_share", "receipt_state", "rnc", "itbis", "net_amount", "legal_tip", "due_on"
+    )
+    if event.state == "open" or (
+        isinstance(resolution.dgii, PurchaseDeclaration)
+        and resolution.dgii.actual_refund
+        and facts.kind.value == "expense"
+    ):
+        fields += ("actual_refund",)
+    if link != "sale_credit":
+        fields += ("fiscal_number", "modified_ncf")
+    if event.state == "open":
+        return fields + (
+            "kind", "amount", "currency", "occurred_on", "counterparty", "funding",
+            "category_id", "document_type",
+        )
+    return fields + accepted_edit.editable_posting_fields(tx, event, link)
+
+
 def dossier(
     tx: ActionTransaction,
     draft_id: UUID,
@@ -490,13 +587,14 @@ def dossier(
     questions = review_questions(tx, [draft_id]).get(str(draft_id), ())
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,reason"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,reason,"
+        " supporting_change,supporting_filename,before_document_type,after_document_type"
         " from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
     )
     source_rows = tx.rows(
-        "select s.id,s.kind,s.channel,s.received_at,s.text_content,s.connection_id,d.draft,"
+        "select s.id,s.kind,s.channel,s.received_at,s.text_content,s.connection_id,d.draft,c.lease_until,"
         " exists (select 1 from public.business_draft_sources l2"
         " join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
         " where l2.space_id=l.space_id and s2.connection_id=s.connection_id and l2.draft_id<>l.draft_id"
@@ -505,6 +603,7 @@ def dossier(
         " from public.business_draft_sources l join public.business_sources s"
         " on s.id=l.source_id and s.space_id=l.space_id"
         " left join public.financial_document_extractions d on d.connection_id=s.connection_id"
+        " left join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id"
         " where l.space_id=%s and l.draft_id=%s order by s.received_at,s.id",
         (tx.context.actor.space_id, draft_id),
     )
@@ -534,6 +633,7 @@ def dossier(
         tx.authorization,
         actor_ids([row["actor"] for row in (*history, *approvals)]),
     )
+    approved = approval_revisions(tx, draft_id)
     revisions = tuple(
         DraftRevision.model_validate(
             {
@@ -542,6 +642,7 @@ def dossier(
                 "duplicate": next(
                     (decided[i] for i in row["source_ids"] if i in decided), None
                 ),
+                "approval": row["version"] in approved and not row["source_ids"],
             }
         )
         for row in history
@@ -561,8 +662,9 @@ def dossier(
         found,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
+    registry, registry_status = supplier_registry_read(tx, facts)
     linked = review_sources(
-        tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type, context.accounts
+        tx, draft_id, event.state, facts, resolution.dgii, resolution.document_type
     )
     declaration = written_from(
         facts, resolution.dgii, resolution.fiscal_overrides, resolution.bill_mark, linked
@@ -570,38 +672,96 @@ def dossier(
     approvable = not blocked and "approve" in tx.authorization.capabilities
     can_prepare = "prepare" in tx.authorization.capabilities
     can_annotate = annotation_available(tx.authorization, event)
-    fiscal_writable = can_prepare and event.state in ("open", "accepted")
-    declaration_editable = fiscal_writable and takes_purchase_declaration(
+    facts_editable = can_prepare and (
+        event.state == "open"
+        or (event.state == "accepted" and "approve" in tx.authorization.capabilities)
+    )
+    declaration_editable = facts_editable and takes_purchase_declaration(
         resolution.document_type, facts
     )
-    reopen_available = (
-        event.state == "accepted"
-        and "approve" in tx.authorization.capabilities
-        and linked_reason(tx, event.activity_id) is None
-    )
-    from argus.domain.business.actions.document_deletion import is_reading
+    from argus.domain.business.actions.document_deletion import reading_uploads
+    from argus.domain.business.supporting_files import supporting_state
 
     marker = deletion(event.state, event.resolution)
     deleted = named_deletion(
         marker,
         people(tx.connection, tx.authorization, [marker and marker.actor.actor_id]),
     )
+    link = (
+        document_ledger.linked_reason(tx, event, UUID(event.activity_id))
+        if event.state == "accepted" and "approve" in tx.authorization.capabilities
+        else None
+    )
+    editable_fields = (
+        _editable_fields(tx, event, link, resolution, facts)
+        if facts_editable and tx.context.actor.actor_kind == "member"
+        else ()
+    )
+    in_flight = event.state in ("open", "accepted") and bool(reading_uploads(tx, source_rows))
+    reading = event.state == "open" and in_flight
     delete_available = (
-        event.state == "open"
-        and "approve" in tx.authorization.capabilities
+        "approve" in tx.authorization.capabilities
         and not any(row["shared"] for row in source_rows)
-        and not is_reading(tx, source_rows)
+        and not in_flight
+        and (
+            event.state == "open"
+            or (
+                event.state == "accepted"
+                and link is None
+            )
+        )
     )
     uploaded = upload_year(source_rows[0]["received_at"] if source_rows else None)
+    from argus.domain.business.actions.listos import attachment_reads, draft_standing
+
+    flags = review_flags(facts, registry, declaration=resolution.dgii)
+    repeated = (
+        repeated_comprobantes(tx, [event]).get(draft_id, ())
+        if event.state == "open" else ()
+    )
+    standing = None
+    if event.state == "open" and not reading:
+        standing = draft_standing(
+            tx, event, resolution,
+            blocked=blocked,
+            flags=flags,
+            read=attachment_reads(tx, [draft_id]).get(draft_id, "none"),
+            repeated=bool(repeated),
+            uploaded=uploaded,
+            every_gap=True,
+        )
+    group, gaps = bandeja_standing(
+        {
+            **draft_row(
+                event,
+                duplicate=duplicate_warning(
+                    event.attention, event.possible_duplicates, lambda: duplicate_ids
+                ),
+            ),
+            "deleted": deleted,
+            "read_pending": reading,
+        },
+        standing,
+        accepting=event.state == "accepting",
+    )
+    from argus.domain.business.reporting_store import read_record_detail
+
+    row = (
+        read_record_detail(tx, event.activity_id)
+        if event.state == "accepted" and event.activity_id
+        else None
+    )
     return BusinessDossier(
+        **DetailReadiness.from_codes(row.missing if row else (), gaps).model_dump(),
         deleted=deleted,
         delete_available=delete_available,
         restore_available=deleted is not None
+        and deleted.can_restore()
         and "approve" in tx.authorization.capabilities,
         **context.model_dump(),
         current_note=current_note(event),
         note_edit_available=can_annotate,
-        supporting_append_available=can_annotate,
+        **supporting_state(tx, draft_id, can_annotate),
         annotation_unavailable_reason=None
         if can_annotate
         else "business_annotation_unavailable",
@@ -615,12 +775,18 @@ def dossier(
         questions=questions,
         history=revisions,
         blockers=tuple(blocked),
-        review_flags=review_flags(facts, rnc_registry(tx), declaration=resolution.dgii),
+        review_flags=flags,
+        amounts_check=amounts_check(facts, resolution.dgii),
+        note_kind=record_note(facts, declaration),
+        source_owned_fields=tuple(
+            sorted(source_owned(facts, direction(resolution.document_type).form))
+        ),
         approval_available=approvable,
         duplicate_candidates=duplicate_candidates(
             tx,
             event,
             duplicate_ids,
+            repeated,
             can_prepare=can_prepare,
             can_delete=delete_available,
         ),
@@ -638,18 +804,27 @@ def dossier(
         ecf_checks_panel_available=ecf_checks_panel_enabled(),
         bill_mark=shown_bill_mark(resolution),
         dgii=declaration.model_dump(mode="json") if declaration else None,
+        dgii_calculated=purchase_calculated(facts, declaration, resolution.fiscal_overrides),
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,
-        document_type_editable=event.state == "open" and can_prepare,
+        document_type_editable=(
+            facts_editable if event.state == "open" else "document_type" in editable_fields
+        ),
+        facts_editable=facts_editable,
+        editable_fields=editable_fields,
         declaration_editable=declaration_editable,
         declaration_suggestions=linked.suggestions
         if declaration_editable
         else DeclarationSuggestions(),
-        payment_split_editable=fiscal_writable
+        payment_split_editable=facts_editable
         and takes_payment_split(resolution.document_type),
-        reopen_available=reopen_available,
+        sale_payment=sale_payment(resolution.document_type, declaration, facts.amount.value),
         due_on=resolution.due_on,
         upload_year=uploaded,
         year_to_check=year_to_check(facts, uploaded),
+        bandeja_group=group,
+        listo_gaps=gaps,
+        confirmable=confirmable_gaps(gaps),
+        rnc_registry_status=registry_status,
         **draft_marks(tx, draft_id, facts),
     )

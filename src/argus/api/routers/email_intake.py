@@ -36,7 +36,9 @@ from argus.api.ingestion import ingestion_hub
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
+from argus.domain.business.bandeja_group import email_group
 from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.sent_by import email_sender
 from argus.domain.ingestion.email_intake.addressing import AliasTaken
 from argus.domain.ingestion.email_intake.alias import (
     ALIAS_UNAVAILABLE,
@@ -687,9 +689,12 @@ def _group(
         )
     row = email_row(delivery, parts, lambda part: repeats[part.id])
     result["standing"] = row.standing
+    result["bandeja_group"] = email_group(row.standing)
     result["sender_standing"] = runtime.store.sender_standing(
         delivery.space_id, delivery.sender
     )
+    sent_by = email_sender(delivery.sender)
+    result["sent_by"] = sent_by and sent_by.model_dump(mode="json")
     result["saved_receipt_count"] = row.saved_receipt_count
     result["no_receipt_reason"] = row.no_receipt_reason
     return result

@@ -30,6 +30,8 @@ from psycopg.types.json import Jsonb
 from tests import test_business_actions_postgres as shared
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_financial_accounts_postgres as accounts
+from tests.business.receipt_stub import receipt_date
+from tests.business_accept_support import seen_gaps
 from tests.test_business_spaces_migration_postgres import connection
 
 actions = shared.actions
@@ -77,7 +79,7 @@ def saved_two_purchases(actions):  # noqa: ANN001
                         direction="outflow",
                         kind_hint="expense",
                         merchant="Colmado La Esquina",
-                        occurred_on="2026-10-11",
+                        occurred_on=receipt_date(),
                     )
                     for row, amount in ((1, "245.00"), (2, "95.00"))
                 ],
@@ -149,7 +151,7 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
 ) -> None:  # noqa: ANN001
     service, context, _, _, _, _ = two_purchases
     bridge.bind(two_purchases)
-    first = bridge.finish(two_purchases)
+    first = bridge.finish(two_purchases, keep_lease=True)
     assert first.outcome == "applied", first
     view = service.dossier(context, first.draft_id)
     codes = [(b.code, b.field) for b in view.blockers]
@@ -189,7 +191,11 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
     refused = service.approve(
         context,
         first.draft_id,
-        ApproveExpense(version=filled.version, action="record_expense"),
+        ApproveExpense(
+            version=filled.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first.draft_id),
+        ),
         "too-early",
     )
     assert refused.outcome != "applied", refused
@@ -210,7 +216,11 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
     recorded = service.approve(
         context,
         first.draft_id,
-        ApproveExpense(version=chosen.version, action="record_expense"),
+        ApproveExpense(
+            version=chosen.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first.draft_id),
+        ),
         "approve",
     )
     assert recorded.outcome == "applied", recorded

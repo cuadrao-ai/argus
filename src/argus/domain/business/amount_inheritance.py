@@ -18,6 +18,7 @@ from argus.domain.business.purchase_review import (
     derived_amount,
     id_type_of,
     net_amount,
+    stated_tip,
     take_suggestions,
 )
 
@@ -31,6 +32,10 @@ INHERITANCE = {
     "paid_on": ("606", "occurred_on"),
     "services_amount": ("606", "net_amount"),
 }
+#: The linked fields a person never holds apart: nothing in Datos fiscales
+#: could restore one. Montos owns Propina legal, and the supplier's RNC in
+#: General owns a purchase's Tipo Id.
+SOURCE_OWNED = frozenset({"id_type", "legal_tip"})
 _MONEY_SOURCES = frozenset({"net_amount", "itbis", "legal_tip"})
 #: Forma de pago codes that pay at the purchase: Fecha pago is the receipt's date.
 PAID_AT_PURCHASE = frozenset({"01", "02", "03", "07"})
@@ -47,8 +52,10 @@ class LinkedSources:
     original_ncf: str | None = None
     #: Only the amounts follow the receipt: a record that is not an open draft.
     amounts_only: bool = False
-    #: The 606 declaration the facts of an open expense state on their own,
-    #: its Forma de pago the one of the account a person said paid it.
+    corrected_sources: frozenset[str] = frozenset()
+    #: The 606 declaration the facts of an expense state on their own, its
+    #: Forma de pago the one of the account a person said paid it: for an open
+    #: expense, and for an approved one with no saved declaration.
     built: PurchaseDeclaration | None = None
 
 
@@ -94,7 +101,7 @@ def _text(value: object) -> str | None:
     return value.isoformat() if isinstance(value, date) else str(value)
 
 
-def _equal(target: str, left: object, right: object) -> bool:
+def same_value(target: str, left: object, right: object) -> bool:
     if left is None or right is None:
         return left is right
     if INHERITANCE[target][1] not in _MONEY_SOURCES:
@@ -111,7 +118,29 @@ def inherits(
 
     if overrides is not None:
         return target not in overrides
-    return current is None or _equal(target, current, expected)
+    return current is None or same_value(target, current, expected)
+
+
+def source_owned(facts: BusinessFacts, form: str | None) -> frozenset[str]:
+    """The fields of this record, on ``form``, that a person never holds
+    apart from their source. Propina legal is one once Montos states it; a
+    record saved before Montos carried the tip keeps the one its declaration
+    holds. Tipo Id is one on every purchase."""
+
+    owned = {name for name in SOURCE_OWNED if INHERITANCE[name][0] in (None, form)}
+    if stated_tip(facts) is None:
+        owned.discard("legal_tip")
+    return frozenset(owned)
+
+
+def held_apart(
+    facts: BusinessFacts, form: str | None, overrides: tuple[str, ...] | None
+) -> tuple[str, ...] | None:
+    """``overrides`` without the source-owned fields an older save left in it."""
+
+    if overrides is None:
+        return None
+    return tuple(sorted(set(overrides) - source_owned(facts, form)))
 
 
 def inheritance_state(
@@ -143,18 +172,28 @@ def inheritance_state(
         "original_ncf": linked.original_ncf,
     }
     split = derived_amount(answered, facts) if answered is not None else None
+    overrides = held_apart(facts, declaration.form, overrides)
     result = {}
     for target, (form, source) in INHERITANCE.items():
         if form is not None and declaration.form != form:
             continue
         if source == "original_ncf" and linked.original_ncf is None:
             continue
-        if linked.amounts_only and source not in _MONEY_SOURCES:
+        # An approved record with no saved line shows the built one, which
+        # follows every source as an open draft's does.
+        if (
+            linked.amounts_only
+            and linked.built is None
+            and source not in _MONEY_SOURCES | linked.corrected_sources
+        ):
             continue
         expected = getattr(split, target) if target in AMOUNT_SIDES else sources[source]
         current = getattr(declaration, target)
         result[target] = InheritedValue(
-            field=source, value=_text(expected), inherited=inherits(target, current, expected, overrides)
+            field=source,
+            value=_text(expected),
+            inherited=inherits(target, current, expected, overrides),
+            paired_with=tuple(side for side in AMOUNT_SIDES if side != target) if target in AMOUNT_SIDES else (),
         )
     return result
 
@@ -189,13 +228,24 @@ def saved_declaration(
     declaration: DgiiDeclaration | None,
     overrides: tuple[str, ...] | None,
     bill_mark: str | None,
+    built: PurchaseDeclaration | None = None,
 ) -> DgiiDeclaration | None:
     """The declaration an approved record reports: the saved one, as saved.
     One saved before overrides were recorded keeps the fill its export has
     always had: each blank amount from the approved facts, and the Fecha pago
-    of a bill read as paid from its date."""
+    of a bill read as paid from its date.
 
-    if declaration is None or overrides is not None:
+    A purchase saved with no Tipo Id takes the one its RNC states: no person
+    can give it. A record approved with none saved reports ``built``, the one
+    its facts state, each linked field at the value it follows."""
+
+    if declaration is None:
+        return inherit_amounts(facts, built, overrides)
+    if isinstance(declaration, PurchaseDeclaration) and declaration.id_type is None:
+        kind = id_type_of(facts)
+        if kind is not None:
+            declaration = declaration.model_copy(update={"id_type": kind})
+    if overrides is not None:
         return declaration
     filled = inherit_amounts(facts, declaration, None, APPROVED)
     day = facts.occurred_on.value if isinstance(facts.occurred_on, Known) else None
@@ -227,7 +277,7 @@ def written_from(
     pago from that Forma de pago."""
 
     if linked.amounts_only:
-        return saved_declaration(facts, declaration, overrides, bill_mark)
+        return saved_declaration(facts, declaration, overrides, bill_mark, linked.built)
     return inherit_amounts(facts, _answered(declaration, linked), overrides, linked)
 
 
@@ -302,7 +352,7 @@ def inheritance_overrides(
             if name in written or (
                 not (unsaved and getattr(declared, name) is None)
                 and (stored is not None or getattr(declared, name) is not None)
-                and (stored is None or not _equal(name, getattr(declared, name), getattr(stored, name)))
+                and (stored is None or not same_value(name, getattr(declared, name), getattr(stored, name)))
             ):
                 overrides.add(name)
     if overrides.intersection(AMOUNT_SIDES):
@@ -310,4 +360,5 @@ def inheritance_overrides(
     if set(restore).intersection(AMOUNT_SIDES):
         overrides.difference_update(AMOUNT_SIDES)
     overrides.difference_update(restore)
-    return tuple(sorted(overrides))
+    form = getattr(declared or stored, "form", None)
+    return held_apart(facts, form, tuple(overrides))

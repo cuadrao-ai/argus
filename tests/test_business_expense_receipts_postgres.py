@@ -25,6 +25,8 @@ from argus.domain.business.search import parse
 
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
+from tests.business.receipt_stub import receipt_month
+from tests.business_accept_support import seen_gaps
 from tests.test_business_multi_purchase_postgres import _account
 from tests.test_business_receipt_views_postgres import _web
 from tests.test_financial_accounts_postgres import _create_users
@@ -65,13 +67,15 @@ def test_an_expense_approved_from_a_draft_names_its_receipt(actions):  # noqa: A
         context,
         result.draft_id,
         ApproveExpense(
-            version=filled.version, action="record_expense", approve_anyway=True
+            version=filled.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, result.draft_id),
         ),
         "approve",
     )
     assert approved.outcome == "applied", approved
     web = _web(service, context)
-    period = (date(2026, 10, 1), date(2026, 10, 31))
+    period = receipt_month()
     # The cause: the legacy lookup finds no receipt for a draft-recorded expense.
     [legacy] = web.service.expenses(web.scope, *period)
     assert (legacy["id"], legacy["receipt_id"]) == (str(approved.activity_id), None)
@@ -110,7 +114,11 @@ def test_an_expense_approved_from_a_draft_names_its_receipt(actions):  # noqa: A
     refused = service.approve(
         reader,
         result.draft_id,
-        ApproveExpense(version=seen.version, action="record_expense"),
+        ApproveExpense(
+            version=seen.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, reader, result.draft_id),
+        ),
         "reader-approve",
     )
     assert (refused.outcome, refused.code) == (
@@ -167,7 +175,11 @@ def test_an_expense_recorded_from_a_note_names_its_draft_and_no_receipt(actions)
     approved = service.approve(
         context,
         created.draft_id,
-        ApproveExpense(version=filled.version, action="record_expense"),
+        ApproveExpense(
+            version=filled.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, created.draft_id),
+        ),
         "approve",
     )
     assert approved.outcome == "applied", approved

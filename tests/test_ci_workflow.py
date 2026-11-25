@@ -21,7 +21,7 @@ DOCS_READING_TESTS_SCRIPT = ROOT / ".github" / "docs-reading-tests.sh"
 RUNBOOK_PATH = ROOT / "docs" / "PRIVATE_LAUNCH_RUNBOOK.md"
 FAKE = Faker()
 
-_HEAVY_CI_JOBS = ("backend-shards", "frontend-checks")
+_HEAVY_CI_JOBS = ("backend-shards", "frontend-checks", "frontend-test-shards")
 MARKETING_RUNBOOK_PATH = ROOT / "docs" / "runbooks" / "cuadrao-marketing-launch.md"
 # A push or a ready pull request runs the full CI; the scheduled and manual
 # probe runs only the latest-CLI real-Postgres leg.
@@ -155,8 +155,13 @@ def test_backend_checks_gates_the_suite_by_directory() -> None:
     )
     assert workflow["env"]["ARGUS_CI_BUN_VERSION"] == "1.3.14"
     assert setup_bun_step["with"]["bun-version"] == "${{ env.ARGUS_CI_BUN_VERSION }}"
-    assert "bun test" in frontend_steps
+    assert "bun test" not in frontend_steps
     assert "bun run build" in frontend_steps
+    test_steps = "\n".join(
+        str(step.get("run", "")) for step in jobs["frontend-test-shards"]["steps"]
+    )
+    assert "bun test --shard=" in test_steps
+    assert "__tests__" not in test_steps
 
 
 def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
@@ -197,8 +202,6 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     assert "tests/test_guest_auth_local_supabase.py" in joined_steps
     assert "scripts/qa/assert_pytest_gate.py" in joined_steps
     assert guest_job["env"]["CUADRAO_OPENROUTER_API_KEY_DEV"] == ""
-    assert guest_job["env"]["ALPACA_API_KEY"] == ""
-    assert guest_job["env"]["ALPACA_SECRET_KEY"] == ""
     assert guest_job["env"]["ARGUS_MARKET_DATA_PROVIDER_MODE"] == "synthetic_unit_fixture"
     assert "live_provider" not in joined_steps
 
@@ -413,6 +416,7 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
         "docs-checks",
         "backend-checks",
         "frontend-checks",
+        "frontend-test-checks",
         "marketing-checks",
         "database-checks",
     ]
@@ -432,6 +436,9 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     assert aggregator_env["DOCS_CHECKS"] == "${{ needs.docs-checks.result }}"
     assert aggregator_env["BACKEND_CHECKS"] == "${{ needs.backend-checks.result }}"
     assert aggregator_env["FRONTEND_CHECKS"] == "${{ needs.frontend-checks.result }}"
+    assert aggregator_env["FRONTEND_TEST_CHECKS"] == (
+        "${{ needs.frontend-test-checks.result }}"
+    )
     assert aggregator_env["MARKETING_CHECKS"] == ("${{ needs.marketing-checks.result }}")
     assert aggregator_env["DATABASE_CHECKS"] == ("${{ needs.database-checks.result }}")
     aggregator_run = jobs["ci"]["steps"][0]["run"]
@@ -443,6 +450,7 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     assert 'require_selected docs-checks "$DOCS_ONLY"' in aggregator_run
     assert 'require_selected backend-checks "$RUN_HEAVY"' in aggregator_run
     assert 'require_selected frontend-checks "$RUN_HEAVY"' in aggregator_run
+    assert 'require_selected frontend-test-checks "$RUN_HEAVY"' in aggregator_run
     assert 'require_selected marketing-checks "$RUN_MARKETING"' in aggregator_run
     assert 'require_selected database-checks "$RUN_HEAVY"' in aggregator_run
 

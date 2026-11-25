@@ -8091,8 +8091,7 @@ uncertain fields, and more than 18 digits leaves the amount unresolved.
 
 ### WhatsApp receipt intake (default-off)
 
-Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` (or the older `ARGUS_WHATSAPP_INTAKE_ENABLED`; the
-Cuadrao name wins when both are set; every WhatsApp setting follows this rule) is true, its credentials are set and
+Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` is true, its credentials are set and
 the document surface above is on. While off, every route below except
 `DELETE /api/v1/whatsapp/link` and `DELETE /api/v1/whatsapp/ai-consent` answers
 404 `whatsapp_unavailable`. Selected client Businesses are also unavailable for
@@ -8115,16 +8114,15 @@ Intake is on only while the Business pilot (below) is on too. A receipt lands
 in the owner's Business space, read through `resolve_business_scope`; it never
 appears in Personal documents or imports. Link codes and link status answer
 404 `business_space_missing` until the person starts their space. A capture whose
-sender link ended before it settled is recorded `rejected` with
-`sender_link_revoked`, keeps no connection, and gets the not-linked reply.
+sender link ended before settlement is recorded as `rejected` with
+`sender_link_revoked`. The claim has no document connection, and the sender gets no reply.
 
-Linking is decided by the sender's link state, not by a word. A sender with an
-active link is never treated as linking: its text, whatever it says, is not
-looked up as a code, and the link changes only through `DELETE /api/v1/whatsapp/link`.
-A sender with no active link can only link: each token in its text shaped like
-a code (eight characters from the code alphabet) is looked up by digest, up to
-four. A failed lookup answers the expired-code reply; text with no such token
-answers the not-linked reply.
+Text from a linked sender without a file gets the `whatsapp_receipt_missing`
+reply, even when the text looks like a link code. The owner can unlink through
+`DELETE /api/v1/whatsapp/link`. For an unlinked sender, the webhook looks up
+at most four code-shaped tokens (eight characters from the code alphabet) by
+digest. A code can receive a linked or expired-code reply, at most once per
+Santo Domingo day. Other unlinked text is silent.
 
 - GET `/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`
   answers 200 `text/plain` with the challenge when the verify token matches,
@@ -8133,22 +8131,21 @@ answers the not-linked reply.
   must be `sha256=` HMAC-SHA256 of the raw body under the app secret, checked
   in constant time before parsing: else 401 `whatsapp_webhook_rejected`. A body
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
-  a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
-  `{received: true}` means every image, document and text message in it has a
-  committed delivery record with a live claim. A voice note, audio, sticker or
-  video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
-  and gets one short reply saying it is not supported yet; from an unlinked
-  sender it gets the not-linked reply. Other message types and statuses are
-  ignored. The media download, saving and reply run after the answer, in
-  order, and settle the record. A work failure behind the answer settles the
-  record `failed` and the sender gets the "send it again" reply. Shutdown waits
-  up to 20 seconds for this work; a process killed sooner leaves the record
-  unsettled until its claim expires, and the sender must send the file again.
-  A failure to commit a claim, or a redelivery while another worker still holds
-  an unsettled message, answers 503
-  `whatsapp_webhook_retry`, and Meta's redelivery resumes that record. A
-  replayed message never captures twice or replies twice. The webhook query
-  string is redacted from uvicorn access logs.
+  a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. With
+  intake off, the route answers 404 `whatsapp_unavailable` before a claim.
+  The request claims each message, checks its sender link and saves accepted
+  media in the owner's default Business. When the sender is still linked and
+  Business reading is on, the read job and captured claim commit together.
+  The webhook then acknowledges the sender. With reading off, the file waits
+  saved and unread. Media and ordinary text from an unlinked sender settle
+  silently. Code-shaped text can receive one link-flow reply per
+  Santo Domingo day. The API answers 200 `{received: true}` after processing.
+  A settled replay returns 200 without repeating work. A live claim or an
+  interrupted request returns 503 `whatsapp_webhook_retry` when a response
+  is possible. Redelivery can reclaim a lapsed lease.
+  The document worker reads queued files and sends due grouped failure replies.
+  Post-read replies are off until W11. The webhook query string is redacted
+  from access logs.
 - POST `/api/v1/whatsapp/link-codes` (registered-only) takes an optional
   `{language}`, the web app's current language (`es-419` or `en`, default
   `es-419`; anything else is 422), and returns 201
@@ -8167,12 +8164,9 @@ answers the not-linked reply.
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
-The Business agent over WhatsApp has its own switch,
-`CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
-default. Off: text from a linked owner never reaches the agent and gets the
-ordinary reply, and the worker does nothing. The receipt reading permission
-(`/api/v1/whatsapp/ai-consent`, below) does not depend on this switch, and
-`DELETE` stays reachable so an owner can always revoke.
+The webhook handles linked text directly, including when the legacy Business
+agent switch is enabled. The receipt-reading permission can always be revoked
+through `DELETE /api/v1/whatsapp/ai-consent`.
 
 Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender
@@ -8198,24 +8192,12 @@ shown in that language is the one stored and hashed, and the token binds it.
 Changing the words an owner was shown asks for consent again. With the
 Business receipt-reading setting off, a received receipt is saved unread, and
 `POST /api/v1/business/receipts/{id}/prepare` returns 422
-`business_receipt_reading_off` instead of queueing it. With it on, the receipt is
-read after the acknowledgement. When the receipt is queued for reading right
-after the acknowledgement, the acknowledgement says it is being read ("Recibido.
-Lo estoy leyendo.", "Received. I'm reading it.") and carries no link. The
-delivery then waits for a puller to settle that read, at most as long as one
-read can take (210 s at the defaults), and the one follow-up carries the review
-link. If that read does not settle in that time or the
-follow-up cannot be sent, the sender gets the standard acknowledgement with
-the review link instead, under the same 24 hour window and outbound rules.
-Every other acknowledgement keeps the review
-link: reading off. The setting is checked again just before the
-provider call, whoever asks for the read; the only window left is the commit and
-the request start. One
-follow-up message tells the sender what was read, only inside the 24 hour
-window. It names the merchant, amount and currency only when the read found one
-clear purchase with nothing marked uncertain and a merchant of letters, digits,
-spaces and & ' - . only (no domain-like text); otherwise it says only that the
-receipt is read.
+`business_receipt_reading_off`. When the webhook queues a new receipt for
+reading, its acknowledgement says the receipt is being read and carries no
+link. The webhook then returns. The document worker checks the owner's
+reading setting again before the provider call. The read outcome is available
+in the Business inbox. Completing the read sends no follow-up, review link or
+summary to WhatsApp.
 
 #### Linked-number Business AI permission
 
@@ -8309,31 +8291,47 @@ Amounts remain outside this change (#2176).
 `POST /business/drafts/{draft_id}/restore` require `Idempotency-Key` and the
 same owner-only `approve` permission as approval. The identifier is a draft
 UUID or the receipt connection UUID already used by the Bandeja when no draft
-exists. No body is required. Both return `{document_id, deleted}` and
-`Cache-Control: no-store`. Repeating the same action key returns its saved
-outcome without another change. Reusing it for another action or document
-returns 409 `business_action_conflict`.
+exists. No body is required. Both return `{document_id, deleted,
+inbox_counts}` and `Cache-Control: no-store`. `inbox_counts` is the
+`ReceiptActivityCounts` object `GET /business/receipt-activity` returns, read
+after the action from the same function, so the web shows the new counts from
+this answer and needs no second read. The counts are read when the answer is
+made. A soft-delete reply includes `purge_at`, the server's restore deadline.
+A replay of that delete returns the original deadline; restore and permanent
+delete omit the field. An accepted record's delete or restore also returns `registros_count`,
+the count of all current Registros rows in the selected Business. It matches
+`matching_count` for an unfiltered `POST /business/reports/query`.
+A repeat of the same key returns the saved outcome with current counts.
+Reusing the key for another action or document returns 409 `business_action_conflict`.
 
-Delete accepts an open draft or a document with no draft that has finished
-reading. It refuses an approved or otherwise closed draft with 422
-`business_document_not_open`, a document being read with 422
-`business_document_reading`, and a non-owner with 403
-`business_permission_denied`. An approved document must use the existing
-reopen flow first. Restore requires the deletion marker and otherwise returns
-422 `business_document_not_deleted`. Sources, revisions and financial records
-are retained until the purge below. A deleted or restored purged document
-returns 404 `business_document_purged`.
+The owner may delete an open draft, an unlinked accepted Business record, or
+a document without a draft that has finished reading. Delete returns 422
+`business_document_linked` for an accepted record linked to a refund, credit
+note, settlement or active bank match. Other ineligible states return 422
+`business_document_not_open`. A read in progress returns 422
+`business_document_reading`. A non-owner receives 403 `business_permission_denied`.
+
+Restore requires a deletion marker. A missing marker returns 422
+`business_document_not_deleted`. At `purge_at`, restore returns 422
+`business_document_restore_expired` until the worker purges the document.
+After purge, delete and restore return 404 `business_document_purged`.
+During the restore window, an accepted record keeps its comprobante reserved.
+An attempt to approve another purchase or sale with that identity gets the
+existing duplicate-comprobante error.
 
 Receipt summary, detail and dossier responses expose `deleted`,
-`delete_available` and `restore_available`. The deletion metadata contains
+`delete_available` and `restore_available`. Registros reads `delete_available`
+from the accepted record's dossier. The deletion metadata contains
 `actor: {actor_id, display_name, email, shown_as}` (named live for the reader, as in the dossier), `at`, `key`, and `previous_state: {state, group}`,
 plus `reason: "duplicate"` when the owner deleted it as a duplicate (absent
 for a plain delete).
-The previous group is `attention` or `listo`. For several generic read
-candidates, `previous_state.events` retains their IDs and prior states for
+The previous group is `attention` or `listo` for a Bandeja row and null for an accepted
+record. For several generic read candidates, `previous_state.events` retains their IDs and prior states for
 restore under the document's one marker. Server availability uses the
-current permission and document state. Row trash appears only for the server's
-`attention` group; an eligible `listo` document is deleted from its review menu.
+current permission and document state: a document being read or being approved
+is not available. Row trash follows `delete_available` in every group but
+`listo`, a read the read limit holds included; an eligible `listo` document is
+deleted from its review menu.
 
 The Bandeja adds the server group `eliminados` and
 `bandeja_eliminados_count`. `GET /business/captures?view=eliminados` returns
@@ -8343,9 +8341,12 @@ deleted standalone typed documents with the same metadata and availability.
 search and restore also reach older deleted documents.
 Notes attached to a receipt remain part of that receipt and are not counted
 again. Deleted documents leave every other Bandeja group,
-its Inicio counts, month-close pending work, and duplicate checks. Registros,
-financial totals and exports do not change. Restore removes the marker and
-returns the stored state, retaining the document's facts and original.
+its Inicio counts, and month-close pending work. Deleting an accepted record
+also removes its money from period totals, Registros, Inicio, and exports,
+including the 606 and 607. Restore brings back the same money activity and
+document facts. The delete confirmation points to Eliminados for restoration.
+Eliminados shows the deadline from each document’s `purge_at` and offers
+restore when `restore_available` is true.
 
 An exact-byte repeat upload returns the existing deleted document with its
 deletion metadata and restore availability. It neither creates another item
@@ -8361,8 +8362,9 @@ is the deletion `at` plus 7 days; the stored marker does not hold it.
 
 `POST /business/drafts/{draft_id}/purge` purges one deleted document at once.
 It requires `Idempotency-Key`, the owner-only `approve` permission and a person
-actor, takes no body, and returns `{document_id, deleted: true}` with
-`Cache-Control: no-store`. The identifier rules match delete and restore. A
+actor, takes no body, and returns `{document_id, deleted: true,
+inbox_counts}` with `Cache-Control: no-store`; `inbox_counts` is the same
+object delete and restore return. The identifier rules match delete and restore. A
 document outside Eliminados returns 422 `business_document_not_deleted`;
 shared attachments return 422 `business_document_ambiguous`; a Business whose
 owner account is being deleted or whose files are being moved returns 422
@@ -8372,7 +8374,9 @@ nothing, so the button and the expiry can race safely.
 
 A purge removes the stored file, the read, the draft with its revisions,
 questions and source links, and the draft's own message sources. A message
-source that another draft also uses stays. The Activity entries stay. A purge
+source that another draft also uses stays. Purging an accepted record also
+erases its reversed activity and its own money records and revisions.
+The Activity entries stay. A purge
 by the owner adds `purge_document` and the expiry adds `expire_document` with
 the Cuadrao actor; neither names the document or links to it. Older entries
 of the purged document keep their `object` with `purged: true` and `label:
@@ -8409,41 +8413,79 @@ it returns 503 `business_guide_unavailable` with a request reference.
 
 A Business owner explicitly enables scope version 3 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
 
-`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the scope version, configured route and exact words shown as its acceptance record. For the Business and its live consenting Owner, `enabled` depends on that generation remaining unrevoked. A change of model, gateway, scope version or disclosure keeps reading on with the same consent ID and never asks for consent again. An accepted ownership transfer or loss of the consenting person's Owner role still revokes the generation; the recipient must enable reading explicitly. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the one the `GET` returned (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
+`GET /business/workspace?language=en|es-419` returns the current permission and disclosure in `receipt_reading`. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. The web also shows it once, under the reading row of the upload panel, the Bandeja and the dossier, before the first enable, while `consented_at` is null. For a Business with an earlier consent the row enables reading without showing it again: it sends the current `disclosure_token`, and the server stores the current words as the new generation's record. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the scope version, configured route and exact words shown as its acceptance record. For the Business and its live consenting Owner, `enabled` depends on that generation remaining unrevoked. A change of model, gateway, scope version or disclosure keeps reading on with the same consent ID and never asks for consent again. An accepted ownership transfer or loss of the consenting person's Owner role still revokes the generation; the recipient must enable reading explicitly. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the version in `receipt_reading` (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
 
 The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
-Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `needs_attention_count`, `ready_to_review_count`, `bandeja_listo_count`, `bandeja_attention_count`, `bandeja_eliminados_count` and `por_igualar_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
+Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `ready_to_review_count`, `bandeja_listo_count`, `bandeja_attention_count`, `bandeja_eliminados_count` and `por_igualar_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
 
-The Bandeja's counts have three meanings and three names. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists), plus each email whose `standing` is not null (see email deliveries). `needs_attention_count` is how many of those receipts are `needs_attention`, plus each email whose `standing` is `no_receipt`. `reading_count` also counts each email whose `standing` is `reading`, and `presentation` is `working` while any receipt or email is being read. An email's `standing` is `null` when it is no row of its own: it saved a new file (one no earlier email and no earlier upload brought), so that receipt is the row; it saved its own text as the original and no attachment, so that original is the row; or it settled with every saved file a repeat and nothing refused. Otherwise it is `reading` while the delivery is `received` or `processing` or any part is `pending`, and `no_receipt` once it settled and it is `rejected`, has no parts, or has a refused part. Mail from a blocked sender is `no_receipt`. Once a retry saves a new file, the email stops counting and that receipt counts instead, so nothing counts twice. `ready_to_review_count` is the "por revisar" number, the web's `porRevisar` rule: each receipt that is not `confirmed`, not `dismissed`, not an email original, not still being read (`queued`, `preparing`, `read_pending`, or `activity.state` `reading`) and whose `attention` is not `unreadable`, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source, one per draft. An email never counts here, whatever its `standing`. `por_igualar_count` is the Transacciones "Por igualar" number: every bank movement whose state is `sugerencia` or `falta_comprobante` plus every `sin_movimiento` document, from any period, by the movements read rule (`docs/contracts/business-bank-matching.md`). It is null while bank matching is off. `GET /business/email/deliveries`, `/{id}` and `/inbox` return `standing` on each delivery. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` derives its `needs_attention` and `awaiting_review` (`pending_review_count` minus `needs_attention_count`) from the same server projection and returns the same `ready_to_review_count`. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`; the Resumen's attention line renders `needs_attention_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja: {por_revisar, con_problema, leyendo}`, its membership in those buckets by the same three predicates the counts sum: `por_revisar` is the `ready_to_review_count` rule for that receipt, `con_problema` the `needs_attention_count` rule (the receipt is `needs_attention`), `leyendo` the `reading_count` rule (its `activity.state` is `reading`). A `confirmed` or `dismissed` receipt and an email original have all three false. So `ready_to_review_count` equals the receipts flagged `por_revisar` plus the notes, `needs_attention_count` the receipts flagged `con_problema` plus the `no_receipt` emails, and `reading_count` the receipts flagged `leyendo` plus the `reading` emails. The web renders the flags; it does not recompute them. `ReceiptActivityCounts` also carries `confirmed_count` and `dismissed_count`, the receipts that left the Bandeja each way (never the email original), counted over every receipt of the Business whichever `view` is read, so `view=inbox` says what it does not list and the web needs no second fetch of `view=all`.
+The Bandeja's counts each have one meaning and one name. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists), plus each email whose `standing` is not null (see email deliveries). `reading_count` also counts each email whose `standing` is `reading`, and `presentation` is `working` while any receipt or email is being read. An email's `standing` is `null` when it is no row of its own: it saved a new file (one no earlier email and no earlier upload brought), so that receipt is the row; it saved its own text as the original and no attachment, so that original is the row; or it settled with every saved file a repeat and nothing refused. Otherwise it is `reading` while the delivery is `received` or `processing` or any part is `pending`, and `no_receipt` once it settled and it is `rejected`, has no parts, or has a refused part. Mail from a blocked sender is `no_receipt`. Once a retry saves a new file, the email stops counting and that receipt counts instead, so nothing counts twice. `ready_to_review_count` is the "por revisar" number, the web's `porRevisar` rule: each receipt that is not `confirmed`, not `dismissed`, not an email original, not still being read (`queued`, `preparing`, `read_pending`, or `activity.state` `reading`) and whose `attention` is not `unreadable`, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source, one per draft. An email never counts here, whatever its `standing`. `por_igualar_count` is the Transacciones "Por igualar" number: every bank movement whose state is `sugerencia` or `falta_comprobante` plus every `sin_movimiento` document, from any period, by the movements read rule (`docs/contracts/business-bank-matching.md`). It is null while bank matching is off. `GET /business/email/deliveries`, `/{id}` and `/inbox` return `standing` on each delivery. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` returns the same `ready_to_review_count` from the same server projection. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja: {por_revisar, con_problema, leyendo}`, its membership in three buckets: `por_revisar` is the `ready_to_review_count` rule for that receipt, `con_problema` is true while the receipt is `needs_attention` and no count sums it, `leyendo` is the `reading_count` rule (its `activity.state` is `reading`). A `confirmed` or `dismissed` receipt and an email original have all three false. So `ready_to_review_count` equals the receipts flagged `por_revisar` plus the notes, and `reading_count` the receipts flagged `leyendo` plus the `reading` emails. The web renders the flags; it does not recompute them. `ReceiptActivityCounts` also carries `confirmed_count` and `dismissed_count`, the receipts that left the Bandeja each way (never the email original), counted over every receipt of the Business whichever `view` is read, so `view=inbox` says what it does not list and the web needs no second fetch of `view=all`.
 
-One server function, `bandeja_group.group_of`, puts each open receipt in one Bandeja group. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja_group: {group, reason, draft_id, version}`. `group` is `listo`, `attention`, `reading` or `eliminados`; it is null for a `confirmed` receipt, an unmarked `dismissed` receipt and an email original. A dismissed receipt with `resolution.deleted` belongs to `eliminados` and does not enter the open groups or counts. `reading` is a receipt with `read_pending` true, and its `reason` is `reading`; a failed read is `attention`. `reason` is null for `listo` and otherwise one word, and the first gap below names it. `draft_id` and `version` are what an approval of this row names; they are null while the receipt has no open draft. The existing `bandeja`, `status` and `attention` fields keep their meaning.
+One server module, `bandeja_group`, puts each Bandeja row in one group and gives it one label. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}`, each note of `GET /business/captures` and each delivery of `GET /business/email/deliveries`, `/{id}` and `/inbox` carries `bandeja_group: {group, reason, label, draft_id, version}`. `group` is `listo`, `attention`, `reading` or `eliminados`; it is null for a `confirmed` receipt, an unmarked `dismissed` receipt and an email original. A dismissed receipt with `resolution.deleted` belongs to `eliminados` and does not enter the open groups or counts. A `dismissed` receipt with no deleted mark is a legacy import's: it has no label and `GET /business/receipts` does not list it in either view, while `dismissed_count` still counts it. A receipt row is in `reading` while its own read is pending, while another original receipt on its open draft is being read, or while the Business read limit holds its read (`attention` `read_budget_day` or `read_budget_month`), and its `reason` is `reading`; a failed read is `attention`. A receipt whose one draft is being approved (`accepting`) is `listo` with null `draft_id` and `version`, so it shows as ready and a list approval cannot name it; naming it anyway is refused with `business_draft_not_open`. `reason` is null for `listo` and otherwise one word, and the first gap below names it. `draft_id` and `version` are what an approval of this row names; they are null while the row has no open draft.
+
+`label` is the one word the Bandeja list shows, from `bandeja_group.bandeja_label`, and the web renders it without a rule of its own:
+
+| `label` | The row |
+| --- | --- |
+| `reading` | `group` is `reading`: a read that runs or will run, a read the read limit holds, or an email whose `standing` is `reading` |
+| `cant_read` | `group` is `attention` and `reason` is `unreadable`, `ai_unavailable`, `interrupted`, `outcome_unknown`, `source_unavailable`, `read_deadline_passed` or `not_a_receipt` |
+| `needs_attention` | every other `attention` row, an open note and an email whose `standing` is `no_receipt` included |
+| `ready` | `group` is `listo`, a receipt or a note being approved included |
+| `accepted` | a `confirmed` receipt, or a note whose draft is `accepted` |
+| null | an `eliminados` row, an unmarked `dismissed` one, an email original, and an email that is no row of its own |
+
+A note is `attention` with `reason` `not_read` while its draft is `open`, `listo` while it is `accepting`, and has no group once it is `accepted`. An email's group follows its `standing`: `reading` is the `reading` group, `no_receipt` is `attention` with a null `reason` (its cause is `no_receipt_reason`), and a null `standing` has no group. The existing `bandeja`, `status` and `attention` fields keep their meaning.
 
 A receipt is `listo` only when the server confirms all of these, in this order:
 
 | Condition | `reason` when it fails |
 | --- | --- |
-| The read finished | `reading` while a read runs or will run; `not_read` for a saved receipt nobody read; `attention`'s own word (such as `unreadable` or `ai_unavailable`) for a failed read; `check_details` for a read that left an issue, a receipt on several drafts, a draft with several attachments, or an approval in flight |
+| The read finished | `reading` while a read runs or will run; `not_read` for a saved receipt nobody read; `attention`'s own word (such as `unreadable` or `ai_unavailable`) for a failed read; `check_details` for a read that left an issue, a receipt on several drafts, or a draft with several attachments |
 | One purchase | `several_purchases`, `no_purchase_found` |
 | No duplicate | `duplicate`, for a possible repeat no person settled, or another open, accepting or accepted purchase with the same supplier RNC and comprobante |
-| A purchase receipt | `sale` for a Venta, whose kind is income; `credit_note` for a refund or a B04 or E34 number |
+| Not a credit note | `credit_note` for a refund or a B04 or E34 number |
 | Supplier, date, total and currency | `missing_merchant`, `missing_date`, `missing_amount`, `missing_currency` |
 | An issue date whose year is likely | `check_details`, for a year to check: the reader wrote the date (origin `extracted`) and its year is not the upload year |
-| A comprobante, unless a person said there is none | `sin_comprobante`, for a record a person stated has no comprobante fiscal (`sin_comprobante` true), in place of the `missing_rnc` and `missing_ncf` a read gap gives. Such a record stays in `attention` and is approved alone |
+| A comprobante, unless a person said there is none | `sin_comprobante`, for a record a person stated has no comprobante fiscal (`sin_comprobante` true), in place of the `missing_rnc` and `missing_ncf` a read gap gives. Such a record stays in `attention` and is accepted alone, over that gap |
 | An RNC or cédula with a valid check digit | `missing_rnc`; `invalid_rnc` when it is not 9 or 11 digits, or its check digit fails and the DGII register does not list it, the rule the 606 export applies |
 | A valid NCF or e-CF | `missing_ncf`; `invalid_ncf`; `ecf_check_failed` for a failed check on the e-CF or its QR, or a file that names an e-CF the record does not hold |
 | ITBIS | `missing_itbis` |
-| DOP | `foreign_currency` |
-| Not marked Personal | `personal` |
-| No review flag | `review_flag`, for a warning such as `itbis_high` |
-| Nothing else blocks approval | `blocked`, such as an open question |
+| No other review flag | `review_flag`, for a warning such as `itbis_high`. A flag an earlier row names (`rnc_check_digit`, `ncf_malformed`) is that row's gap alone |
+| Nothing else blocks approval | `blocked`, such as an open question. A possible repeat is `duplicate` alone |
 | A verified sender, if it came by email | `unverified_sender` |
 
 The upload year is the year, on the Business calendar (America/Santo_Domingo), of the `received_at` of the draft's first source. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
 
-Every other open receipt is `attention`. A receipt being read is in `attention` with reason `reading`, so a read in flight counts there until it settles. Any open receipt can still be approved alone from its dossier, a receipt with no NCF or in USD included. A group decides nothing by itself: no read, worker, model or schedule approves.
+`BusinessDossier` carries the same standing for its one record. `bandeja_group: {group, reason, label}` holds the three values the rule above gives the row of a receipt linked to this draft alone; the dossier's own `draft_id` and `version` name the record. An `accepted` record has a null `group` and `reason` and the `label` `accepted`. A record being approved is `listo` with `ready`, a deleted record is `eliminados` with a null `label`, and a record whose receipt is being read is `reading`. `listo_gaps` lists each distinct reason once, in the rule's order, when `group` is `attention`, and is empty for every other record. `confirmable` lists the subset the person may accept over, in that same order, as defined by `bandeja_group.RULE`. For a record in attention, `reason` is always one of its gaps: it is the first gap, except that a possible repeat no person settled shows `duplicate` before an earlier gap, as the list does. `bandeja_group.group_of` and `bandeja_group.listo_gaps` own both values, and the web renders them without a rule of its own. The dossier's `blockers` still decide `approval_available`; they are not the Listos gaps.
 
-`ReceiptActivityCounts` also carries `bandeja_listo_count` and `bandeja_attention_count`, the Bandeja's Listos and Necesitan atención tabs. `bandeja_listo_count` equals the rows whose `bandeja_group.group` is `listo`. `bandeja_attention_count` is every other row the Bandeja lists that is not still being read: receipts in `attention`, notes, and emails whose `standing` is `no_receipt`. A receipt with `bandeja_group.group` `reading` (and `reason` `reading`) and an email whose `standing` is `reading` are in neither number and show only on Todos, so the two plus `reading_count` sum to `pending_review_count`. A failed read is in `attention`. `GET /business/receipt-activity`, the `activity` of `GET /business/receipts` and `GET /business/overview` return the same pair, from one function. Bandeja, Inicio and the sidebar render this pair and no other count for these two tabs. `needs_attention_count` keeps its narrower meaning, the `needs_attention` receipts and the `no_receipt` emails. `ready_to_review_count` stays the "por revisar" number. `overview.needs_review` of `POST /business/reports/query` is a different count: the records of a period that have an approval blocker, for the Registros card.
+The dossier's `missing` lists the accepted record's Registros reason codes in the order returned by `readiness()`. A draft or a complete record has an empty list. For each code in `missing` or `listo_gaps`, `reasons[code]` gives the registry's `field` (null when there is no single field to fix) and `words` (the locale key).
+
+`BusinessDossier.rnc_registry_status` is what the DGII register says of the supplier RNC or cédula the record holds. The dossier uses one answer from `DgiiRncRegistry.read` for both the status and the check-digit flag. A listed number clears the flag. SQL verification gives an active number the status `verificado`. For other listed numbers, `RncRecord.mapped` returns `suspendido`, `dado_de_baja`, `cese_temporal`, `anulado`, `rechazado`, or `desconocido` when the publisher text has no matching status. `not_found` is a number the loaded register does not list; it is never `desconocido`. The field is null when the record holds no RNC or no register is loaded, so the web then shows no register status. The read is not behind `CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED`. The three fields are excluded from the model-facing dossier.
+
+A Venta, a receipt marked Personal and one in a foreign currency are `listo` when nothing above fails, and a list approval records a Venta with its own approval (`record_income`). Every other open receipt is `attention`, except one in `reading`, which is in neither tab until its read settles. A group decides nothing by itself: no read, worker, model or schedule approves.
+
+A single accept (`POST /business/drafts/{draft_id}/approve`, every action) follows the same rule, read again in the transaction that claims the draft. A `listo` record is accepted as it is. A record in `attention` is accepted only when a person may accept over every gap in `listo_gaps` and the request names each one in `accept_gaps`. Every other accept is refused with 422 `not_listo`, and `context` carries `gaps` (every gap, in the rule's order; the group's `reason` alone for a record that is not in `attention`) and `confirmable` (the ones a person may accept over). Aceptar opens the dossier header’s problem list. It offers acceptance only when every gap is confirmable and the dossier supplies an available approval action. Otherwise it explains which problems need attention. Opening the list from the header shows the same rows without an approval action. The approval names those gaps in `accept_gaps`. After a `not_listo` refusal the list shows the gaps and confirmable subset from the response. A new approval uses a new idempotency key. A name whose gap is gone is ignored. The stored approve command keeps `accept_gaps`, so the decision is in the action receipt. A refusal that has its own code keeps it and comes first: a blocker's code (such as `fact_required`, `possible_duplicate` or `business_questions_unresolved`), `duplicate_comprobante`, and 403 `email_sender_unauthorized`. `approve-listos` takes no `accept_gaps`, so a list never takes a record with a gap.
+
+`bandeja_group.RULE` owns which gaps a person may accept over (`bandeja_group.CONFIRMABLE`), and `bandeja_group.refusing` owns the decision:
+
+| `reason` | A person may accept over it | Why |
+| --- | --- | --- |
+| `not_read` | yes | The record has no document: a person wrote its facts, and no edit adds a read |
+| `check_details` | yes | The server could not confirm the read or the year, and the person's own look settles it |
+| `several_purchases` | yes | The person chose the purchase this record is, and settles the rest after it is recorded |
+| `no_purchase_found` | no | The record has no amount |
+| `duplicate` | yes | Another open record holds the same comprobante. The second accept is still refused with `duplicate_comprobante`, and a possible repeat no person settled is still refused by its blocker, `possible_duplicate` |
+| `credit_note` | yes | A credit note is never Listos by its kind, and a person records it alone |
+| `missing_date`, `missing_amount`, `missing_currency` | no | The money record cannot be written without them |
+| `sin_comprobante` | yes | A person stated there is no comprobante, and the DGII packet leaves the record out |
+| `missing_merchant`, `missing_rnc`, `missing_ncf`, `missing_itbis` | yes | Data the document may not carry; the record is written without it |
+| `invalid_rnc`, `invalid_ncf` | yes | A number to look at again, stored exactly as read; the 606 export still refuses it |
+| `ecf_check_failed` | yes | A failed check on the e-CF that no edit of the record clears |
+| `review_flag` | yes | A warning, such as `itbis_high` or `amounts_mismatch` |
+| `blocked` | no | Something else refuses the approval, with its own code |
+| `unverified_sender` | no | A security gate: the sender is authorized first |
+
+`ReceiptActivityCounts` also carries `bandeja_listo_count` and `bandeja_attention_count`, the Bandeja's Listos and Por resolver tabs. `bandeja_listo_count` equals the rows whose `bandeja_group.group` is `listo`, a note being approved included. `bandeja_attention_count` is every other row the Bandeja lists outside the `reading` group: receipts in `attention`, open notes, and emails whose `standing` is `no_receipt`. A receipt with `bandeja_group.group` `reading` (and `reason` `reading`) and an email whose `standing` is `reading` are in neither number and show only on Todos. `reading_count` counts those being read now. A receipt the read limit holds is in the `reading` group and nothing is reading it, so `reading_count` and `presentation` leave it out and only `pending_review_count` counts it: the two tabs plus `reading_count` plus the held receipts sum to `pending_review_count`. `ready_to_review_count` keeps its own rule and still counts a held receipt. A failed read is in `attention`. `GET /business/receipt-activity`, the `activity` of `GET /business/receipts` and `GET /business/overview` return the same pair, from one function. Bandeja, Inicio and the sidebar render this pair and no other count for these two tabs. `ready_to_review_count` stays the "por revisar" number. `overview.needs_review` of `POST /business/reports/query` is a different count: the records of a period that have an approval blocker, for the Registros card.
 
 `POST /business/receipts/{receipt_id}/read` takes `{completion_cursor}` and returns current activity under the caller's live read grant. Only the current server cursor advances that person's boundary. A stale cursor leaves newer content unread. Seeing is separate for each person and Business. GET, opening a panel and seen mutations never change financial records or list ordering. Automatic web acknowledgement requires hydrated canonical ready content intersecting the visible, focused record viewport. Explicit mark read is also supported.
 
@@ -8515,7 +8557,7 @@ uses the same original actor/grant/issuer, target and revision; drift conflicts,
 revocation denies, and a concurrent edit remains stale. The permission/version
 check and acceptance claim commit before the canonical MoneyService effect;
 recovery uses the persisted request/key, with no second ledger or blind retry
-of an unknown effect. Recorded-income amendment remains unsupported.
+of an unknown effect.
 `funding={kind: owner_funds}` records one expense only after human approval. It
 must not debit a Business bank account or decide whether capital or debt is owed.
 
@@ -8543,7 +8585,10 @@ answers 403 `business_permission_denied` and nothing runs, so only the owner
 reaches an item.
 
 The answer is 200 with `{results: [{draft_id, outcome, code, activity_id,
-existing_record_id}]}`, one result per item in the order named. `outcome` is
+existing_record_id}], inbox_counts}`, one result per item in the order named.
+`inbox_counts` is the `ReceiptActivityCounts` object
+`GET /business/receipt-activity` returns, read after every item ran; a replay
+returns the counts of now. `outcome` is
 `applied`, `refused` or `outcome_unknown`. A partial failure leaves the rest:
 every item runs whatever the one before it answered, and a refused receipt stays
 open. Each item runs `record_expense` on the same approval path as
@@ -8560,37 +8605,31 @@ its version unchanged, such as a sender no longer authorized, is `refused` with
 `not_listo`; its row says why. Other refusals keep the single approval's codes,
 such as `duplicate_comprobante` with `existing_record_id`. A draft of another
 Business or an unknown id is `refused` with `business_record_not_found` and leaves
-no ledger row. The route takes no `approve_anyway`, and nothing but a person's
+no ledger row. The route takes no `accept_gaps`, and nothing but a person's
 request reaches it.
 
-Post-recording corrections to the recorded facts are refused with
-`recorded_correction_unsupported`; the 606 declaration alone stays writable
-through the review route, before and after an export (see the review route).
-The way to correct a recorded fact is Reabrir.
+Owners can correct accepted records through `PATCH /business/drafts/{draft_id}/review`.
+The record stays accepted and keeps its money activity ID. Each save writes one
+draft revision and one action receipt. A correction to the posted amount, date,
+currency, counterparty or document type also writes one revision to the existing
+money activity. Reporting and exports use the current corrected facts and their
+source evidence. Replaying the same command key has one effect.
 
-`POST /business/drafts/{draft_id}/reopen` takes `{version}` and an
-`Idempotency-Key` and returns the dossier. It is the owner's, on the approve
-permission: a prepare or read-only grant answers 403 `business_permission_denied`,
-a record of another Business 404 `business_record_not_found`. The draft goes
-back to `open` at `version + 1` with its facts, sources, revisions, marks,
-repeat decisions and 606 or 607 data as they stand; `approval_result` is null
-and `approval_available` follows the open rules again. The money row the
-approval wrote stays in the ledger with every revision and receipt, marked
-`reversed_at`, and no read counts it: period totals, the month close, the 606
-and 607, Registros, Inicio and the account it debited read as before the
-approval. A later approval of the same draft writes one new money row, and
-the comprobante index does not refuse it. The ledger row (`reopen_draft`)
-names who, when and, in its outcome, the activity it reversed; Actividad lists
-it. Replaying the key answers the same dossier and changes nothing; a moved
-version answers 409 `stale_version`; a draft that is not approved answers 422
-`business_draft_not_recorded`. Two links refuse the reopen and leave the record
-as it is: a live bank match on it, 422 `business_record_matched` (unmatch
-first), and a credit note or refund that names it as the purchase it returns,
-recorded or still a draft, 422 `business_refund_linked`. The dossier's
-`reopen_available` is computed by the same rule, so a client shows Reabrir only
-when the server would accept it. A payment mark stays on the reversed row as
-history and the reapproved record starts `pendiente`; a line an earlier
-download recorded in `business_dgii_export_lines` stays on record.
+The dossier's `editable_fields` lists the fields the caller can change through
+review in the current state. Accepted records require `prepare` and `approve`.
+A linked money posting or an activity the draft did not record does not offer
+money edits. An account-backed posting keeps its currency; a posting with
+funding keeps its expense type. A linked sale and credit note keep their fiscal
+number and the original number the credit note names. Fiscal and amount details
+that do not alter those links remain available to the owner. An accepted expense
+with an incorrect refund flag offers `actual_refund` so the owner can clear it.
+`declaration_editable` and `payment_split_editable` still govern the separate 606
+choices and 607 payment split. A new value must still pass the review rules,
+including required total, currency and transaction date. The server returns
+`fact_required` with the field name if a required value is cleared.
+
+The draft reopen endpoint is retired. Historical `reopen_draft` receipts
+remain visible in Actividad.
 
 The seven Business tool action names remain `business_read_context`,
 `business_propose_activity`, `business_attach_source`,
@@ -8636,14 +8675,15 @@ immutable before/after `history`, live `capabilities`, `blockers`,
 approve action this draft takes, by its kind (`record_expense`,
 `record_income`, `record_refund`, the `action` the approve route's body
 discriminates on), and null while `approval_available` is false.
-`declaration_editable` is true while the caller may write the 606
-declaration: the caller holds `prepare`, the record takes a 606 (its
-`document_type` is `recibo`; a `venta`, whether it holds a 607 or nothing, and
-a record with `sin_comprobante` true read false, and a 606 write on either
-answers 422 `fiscal_direction_unsupported`), and the draft is open or
-approved. A download changes nothing here. `payment_split_editable`
-is true on the same terms for a sale: a `venta`. The type alone decides which
-form a record takes; neither flag reads the kind or a saved declaration.
+The dossier exposes `facts_editable` for review writes. Open drafts require
+`prepare`. Accepted records require the owner. `document_type_editable` follows
+the same permission. `declaration_editable` also requires a purchase eligible
+for the 606. `payment_split_editable` requires a sale. `sale_payment` is null
+on anything but a sale; on a sale it holds `form`, the one bucket of the 607
+payment split that holds the sale's whole total (null with no split, one across
+several, or one bucket that is not the total, so any pick is a new one), and
+`options`, the forms `sale_payment_form` takes. An incompatible fiscal
+form returns 422 `fiscal_direction_unsupported`.
 `declaration_suggestions` holds one suggestion for each 606 answer a person
 gives one by one, under the declaration's field name: `category` (tipo de
 gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
@@ -8726,9 +8766,8 @@ issuer_shown_as}`.
 A recorded `approval_result` carries `activity_id`, the approving `actor`,
 `reviewed_version` (the draft version the approval named, which also counts
 approvals and settlements), `approved_revision` (the latest `history` version
-at or below `reviewed_version`: the facts revision the person approved, the
-same revision the DGII export reads its facts and evidence from) and
-`approved_at` (when the approval receipt was written). Marks and 606 answers
+at or below `reviewed_version`: the facts revision the person approved) and
+`approved_at` (when the approval receipt was written). Owner corrections, marks and 606 answers
 after approval add `history` revisions without changing either field. So does
 an expense approval whose draft holds no 606 declaration, or whose saved
 declaration leaves the Tipo Id or the Forma de Pago unknown: it adds one
@@ -8741,10 +8780,54 @@ account it stays blank until a person sets it, marking the record paid does not
 set it, and the 606 reports `fiscal_fact_required` until a person answers.
 Neither blocks approval. No declaration is built without a
 supplier RNC or for a consumer B02 or E32 number. When the money write then
-fails, the reopened draft gets one more revision that puts the declaration
+fails, the draft returns to open and gets one more revision that puts the declaration
 back as it was before the approval: the one a person saved, or none. If that
 undo cannot run, the next approval writes from that earlier declaration
 instead of keeping the failed approval's.
+
+Human review commands that repeat the saved answers leave the draft version and
+history unchanged. Historical revisions publish `before_net_amount` and
+`after_net_amount`, calculated by the server from each immutable snapshot, so a
+restored subtotal displays its resulting amount. Raw audit facts remain intact.
+
+`reviewed_declaration_fields` names the changed declaration fields explicitly
+submitted by the person, recovered from the revision's saved web command. Linked
+fields that moved only because their source changed are excluded. In a full
+fiscal review, a linked field counts when the server saved the value the person
+sent; one saved at another value followed its source. A purchase or
+payment-split answer the person cleared counts: its review command text keeps
+that null and carries `"cleared_kept": true`. Null preserves legacy history when
+command evidence is unavailable, or when older evidence without that marker
+cannot tell an omitted answer from a cleared one; an empty array means no
+explicit declaration changes.
+
+`reviewed_fact_fields` names, from the same saved command, the changed facts the
+person submitted: patched facts, typed subtotal or legal tip, and the fiscal
+facts of a fiscal review. It is null when the revision has no command
+evidence. A document type switch displays one type change, plus only the fact
+and declaration fields these lists name; the activity kind the type sets is not
+a second change. Without a fact list, the switch also displays every other
+changed fact. The switch replaces the other form's declaration, so a null
+declaration list adds no declaration change. These four display fields are
+excluded from the model-facing dossier.
+
+A revision that writes a declaration records as `before_dgii` the declaration
+the review showed, so its history entry holds only what the write changed. Each
+suggested answer the write gives starts from the suggestion the review showed
+beside it, with its source: a person who changes a suggested Forma de pago
+changes it from the suggestion, never from a blank. An approval's revision holds
+the suggestions it saved as answers, or nothing. A write that changes the
+document type starts from the other form's declaration it replaces.
+`before_dgii` is therefore not the stored declaration. The undo of a failed
+approval reads the stored one from `after_dgii` of the revision before the
+approval's.
+
+`approval` is true on the revision an approval wrote, read from the approval's
+receipt: the revision at the version after the one the approval reviewed, with
+no source of its own. That revision saves the declaration the review showed,
+the answers the app filled in included, so it holds no edit of the person's.
+History shows the approval's own line in its place. The field is excluded from
+the model-facing dossier.
 
 `POST /business/drafts/{draft_id}/duplicate-resolution` takes
 `{version, other_draft_id, other_version, decision}` and `Idempotency-Key`.
@@ -8849,7 +8932,17 @@ clears a bucket, and a sale with no declaration starts one holding only
 the split. The server fills no bucket and does not check the sum when it writes;
 the export holds a split that does not equal the total with
 `fiscal_payment_total_conflict`. `payment_split` on anything but a `venta` is
-422 `fiscal_direction_unsupported`. `purchase` sits beside `facts`, not inside
+422 `fiscal_direction_unsupported`. The body's `sale_payment_form` is the one
+way a sale was paid: one of the split's bucket names (`cash`, `bank`, `card`,
+`credit`, `gift`, `barter`, `other_payment`) and no amount. The server puts the
+record's whole total in that bucket and clears the other six, in the same
+revision as any `facts` the body carries, and keeps the rest of the 607 as it
+was. It is 422 `fiscal_direction_unsupported` on anything but a `venta`, 422
+`fact_required` (`field`: `amount`) while the total is unknown, and 422
+`fiscal_amount_precision_or_limit` for a total no bucket holds exactly. After
+that, a write that changes the total and sends no declaration moves the
+bucket with it: the one bucket that held the old total holds the new one. A
+split across buckets, or one that was not the total, is never moved. `purchase` sits beside `facts`, not inside
 it: `BusinessFactPatch` is the patch the interpreter fills, and a tax field is
 never the model's to fill. The
 identifiers in `dgii.fiscal` (`rnc`, `ncf`) and `modified_ncf` are normalized on
@@ -8858,25 +8951,35 @@ digit groups are removed and `a` to `z` upper-cased, so an RNC printed
 `1-23-45678-9` saves as `123456789` and `b0100000001` as `B0100000001`.
 Nothing else is folded: a word typed in the field (`no tiene`), a separator
 beside a letter (`ab-123`) and a letter that upper-cases to two (`ß`) are still
-a 422 `validation_error`. On an approved (`accepted`) draft the same route accepts a
-review that carries only `purchase` or only `payment_split`: it writes the declaration as one more
-revision with the same web source and action receipt, the recorded facts
-unchanged. An export is not final: this route, `POST /business/drafts/{id}/personal`
-and `POST /business/drafts/{id}/fiscal-inclusion` stay open on a record a
-download already carried, the next export carries the change, and the app
-and a file already handed over can differ. The handover package
-(`GET /business/exports`) reads the declarations and builds its records sheet
-under the Business's owner lock, the lock every review write takes, so a 606
-write that runs at the same time either lands before the build, and the sheet
-carries it, or waits for the build, lands after it, and the next download
-carries it. The declaration is `prepare`'s to write,
-before and after approval: an accountant holding `prepare` adds 606 data on the
-owner's approved record, and the revision names the accountant; `approve`
-stays the owner's and is not needed for the declaration; a read-only grant is
-403 `business_permission_denied`. Any other review input on an
-approved draft is still 422 `recorded_correction_unsupported`. So is a `purchase`
+a 422 `validation_error`.
+
+On an accepted record the owner can send `facts`, `document_type`, `montos`,
+`dgii`, `purchase`, `payment_split`, `sale_payment_form` or `due_on` through this route. A prepare
+grant alone returns 403 `business_permission_denied`. Total, currency and the
+transaction date must have values. Clearing one returns 422 `fact_required`.
+ITBIS and subtotal may be empty or zero. A money-changing edit to a linked
+record returns 422 `business_document_linked`, including when a refund names
+the purchase.
+
+Type changes include `history[].before_document_type` and `after_document_type`.
+Older revisions may omit both values. An accepted save commits its draft
+revision and action receipt together. Changing the total, currency, transaction
+date, counterparty or document type advances the revision of the same money
+activity. An accepted review that changes the funding account or ledger
+category directly returns 422 `recorded_correction_unsupported`. The 606
+expense type is a declaration field and can be corrected. A declaration-only
+edit keeps the money revision. Historial shows the change. Actividad names
+the action and actor. The original approval stays in
+history. The same request and idempotency key replay one result. A new request
+must name the current draft version. Period totals, Registros, the 606 or 607,
+and the next export use the corrected values. If an edit commits while an
+export prepares its files, the export rebuilds the snapshot once. A second
+concurrent change returns 409 `stale_version`. A downloaded copy keeps the
+values it held when generated.
+
+The existing refund checks still apply. A `purchase`
 that changes `purchase_activity_id` or `actual_refund` on an approved refund, or
-that changes either one and leaves `actual_refund` true on any record: the
+that changes either one and leaves `actual_refund` true on any record is refused. The
 approval checked a refund and its purchase against the money and the money keeps
 them, so an approved credit note cannot move to another purchase, and no record
 gains a refund claim the money does not hold. An approved expense holds no refund
@@ -8886,15 +8989,13 @@ the export holds it as `fiscal_credit_reference_not_applicable`. The same values
 answer 200, and `modified_ncf` stays writable, with a number that disagrees with
 the linked purchase held by the export as `fiscal_credit_reference_conflict`.
 It may also carry `document_type` (`recibo` or `venta`),
-alone or with facts and `dgii`, for an open draft from an upload, a note or a
+alone or with facts and `dgii`, for a document from an upload, a note or a
 chat. A change
 is one revision: a `venta` becomes income and loses a payable bill mark, a
 `recibo` becomes an expense, and a declaration saved under the other type is
 cleared unless the same request saves one. The printed RNC, NCF and ITBIS stay
-as read. Setting the type, changed or not, ends `document_type_detected`. After
-approval the change is `422` `document_type_locked`. `BusinessDossier` carries
-`document_type`, `document_type_detected` and `document_type_editable` (open,
-and the caller holds `prepare`). A stale `version` is still `409`
+as read. Setting the type, changed or not, ends `document_type_detected`. The
+owner can change the type after approval. A stale `version` is still `409`
 `stale_version` first.
 
 The type is the one answer to purchase or sale; a known `facts.kind` is always
@@ -8920,8 +9021,7 @@ The same review may carry `due_on`, alone or with other review input.
 `{"state": "unknown"}` clears it. Absent, the due date stays as it is. Only a
 person sets it: no read, default or issue date fills it. A change is one
 revision, and each `history` entry carries `before_due_on` and `after_due_on`.
-After approval the change is `422` `recorded_correction_unsupported`, the same
-as the other facts. `BusinessDossier.due_on`, `ReceiptDetail.due_on` and every
+The owner can also set or clear the due date after approval. `BusinessDossier.due_on`, `ReceiptDetail.due_on` and every
 month-close and open-items line carry the date as `YYYY-MM-DD`, or `null` while
 it is unknown. Open items list the soonest due date first (see the
 [month-close contract](contracts/business-month-close.md)).
@@ -8943,8 +9043,8 @@ each with `payment_form` null; it adds no `reasons` code and does not read into
 `closed`) and `missing_fiscal_data` (every document the 606 or 607 holds this
 month, as a document line plus `missing`, the export's own words for what it
 still needs, first fix first, a missing value before a wrong one:
-`expense_type_missing`, `rnc_missing`, `rnc_invalid`, `ncf_invalid`,
-`date_missing`, `ncf_missing`, `payment_method_missing`,
+`expense_type_missing`, `missing_rnc`, `invalid_rnc`, `invalid_ncf`,
+`missing_date`, `missing_ncf`, `payment_method_missing`,
 `payment_date_missing`, `duplicate_document`, `own_rnc_required`,
 `billed_amount_zero`, `itbis_cost_over_itbis`, `payment_after_month`,
 `credit_note_reference`, `credit_note_too_late`, `credit_note_payment_form`,
@@ -9016,13 +9116,18 @@ The same existing
 `{version, action: "record_income"}`, with the existing required
 `Idempotency-Key`. `record_expense` also takes `suggestions`, the dossier's
 `declaration_suggestions` the person saw, which the approval saves (see
-`declaration_suggestions`). The route resolves the actual actor and live named grant from
+`declaration_suggestions`). Every action takes `accept_gaps`, the Listos gaps
+the person saw and accepts the record over (see the Listos rule); without it a
+record with a gap is refused with 422 `not_listo`. The route resolves the actual actor and live named grant from
 the canonical draft, then dispatches to the matching human command; the caller
 supplies no actor, space or grant. A document that arrived by email from a
 sender who is not yet authorized is refused with 403 `email_sender_unauthorized`
 until that sender is authorized. Nothing in the message is approved by receiving
 it. Both approval variants and unchanged human
 review return the authoritative `BusinessDossier` with `Cache-Control: no-store`.
+An approval's answer also carries `inbox_counts`, the `ReceiptActivityCounts`
+object `GET /business/receipt-activity` returns, read after the approval; review
+answers carry none.
 The same no-store problem responses and refusal mapping apply to both variants.
 Human review and approval remain separate from model actions. This contract
 extension does not claim delivery of the pending income handler.
@@ -9034,14 +9139,14 @@ An uncertain action result (`outcome_unknown`) returns HTTP 409 with its existin
 code, such as `business_recording_unsettled` or
 `business_approval_reconciliation_required`, and `Cache-Control: no-store`.
 This applies to draft review, duplicate resolution, Personal marks, fiscal
-inclusion, approval, reopening and remainder settlement. The route does not read
+inclusion, approval and remainder settlement. The route does not read
 or return a dossier for that result, and the result does not make a retry safe.
 Approval returns HTTP 200 only when the dossier has a recorded
 approval with the activity ID named by the applied or replayed action result.
-Replaying an old approval after reopening or approving again returns
-409 `stale_version` if that recorded activity is absent or different.
+Replaying an old approval returns 409 `stale_version` if its recorded activity
+is absent or different, including while the accepted record is in Eliminados.
 
-`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, `Pago`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. `Pago` is the stored settlement status of a recorded income or expense (`pendiente`, `pagado` or `cobrado`, the same words month close and bank matching write): `pendiente` until a settlement or a confirmed bank match stores one, and empty for a transfer. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows. A record that carries the owner's Personal mark (`business_share` none, stated by a person) is not a business row: it leaves `records.csv` and the first sheet and is listed in `personal.csv` and the fourth sheet `Personal` with the columns `Registro`, `Fecha`, `Total`, `Moneda`, `Originales` (the `originals/` paths of its included sources). Its originals stay under `originals/`, its canonical row stays in the second sheet and in `manifest.json` `records` with `personal` `yes`, and `manifest.json` `files` hashes `personal.csv`. In the DGII summary such a record has disposition `excluded` with reason `personal` unless it is a purchase the accountant answered `include_606` yes, the same rule month close applies; that answer also puts the purchase back among the business rows of `records.csv` and the first sheet, while a personal sale stays out whatever the answer. The mark and the 606 answer are read from the draft as it stands when the package is built, not from the approved revision: both change after approval, and month close, Registros and this package read them from the same place, so one mark moves the record on every surface at once.
+`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, `Pago`, in that order. The supplier and fiscal facts come from the latest accepted correction or the original approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. `Pago` is the stored settlement status of a recorded income or expense (`pendiente`, `pagado` or `cobrado`, the same words month close and bank matching write): `pendiente` until a settlement or a confirmed bank match stores one, and empty for a transfer. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows. A record that carries the owner's Personal mark (`business_share` none, stated by a person) is not a business row: it leaves `records.csv` and the first sheet and is listed in `personal.csv` and the fourth sheet `Personal` with the columns `Registro`, `Fecha`, `Total`, `Moneda`, `Originales` (the `originals/` paths of its included sources). Its originals stay under `originals/`, its canonical row stays in the second sheet and in `manifest.json` `records` with `personal` `yes`, and `manifest.json` `files` hashes `personal.csv`. In the DGII summary such a record has disposition `excluded` with reason `personal` unless it is a purchase the accountant answered `include_606` yes, the same rule month close applies; that answer also puts the purchase back among the business rows of `records.csv` and the first sheet, while a personal sale stays out whatever the answer. The mark and the 606 answer are read from the draft as it stands when the package is built, not from the approved revision: both change after approval, and month close, Registros and this package read them from the same place, so one mark moves the record on every surface at once.
 
 **DGII summary in the package.** The ZIP carries no DGII file: no 606 or 607
 TXT, no DGII workbook and no `dgii/` entry. The one DGII output is the Registros
@@ -9050,15 +9155,18 @@ TXT, no DGII workbook and no `dgii/` entry. The one DGII output is the Registros
 column reads: per-form status, the reconciliation line of each record, issues
 and totals. The filer may be a nine-digit RNC or eleven-digit cédula, preserved
 as text. A Business without a configured RNC has `No aplica` for both forms. A
-form is a `prepared_candidate` only for one complete, closed calendar month
-with complete reviewed fiscal facts; other date ranges report fiscal validation
-issues. The summary states that official prevalidation is `NOT RUN` and no tax
+form is a `prepared_candidate` when its records have complete reviewed fiscal
+facts within one calendar month, open or partial: Cuadrao may not hold the whole
+month. A range across months reports `fiscal_single_month_required`.
+`period_status` is `closed_month_candidate` only for one complete, closed
+calendar month, otherwise `DRY RUN`; it labels the period and blocks nothing.
+The summary states that official prevalidation is `NOT RUN` and no tax
 return has been submitted. The download writes nothing: it no longer records
 lines in `business_dgii_export_lines`.
-A record's fiscal facts are those of its approved revision (the one
-`approved_revision` names), and its evidence (`source_ids` in the manifest
+A record's fiscal facts come from its latest accepted correction, or from the
+original approved revision until the first correction, and its evidence (`source_ids` in the manifest
 `reconciliation` and the `Conciliación` sheet) is every source those facts
-name. A note edit, a reopen, the approval's own 606 revision and its undo after
+name. A note edit, the approval's own 606 revision and its undo after
 a failed money write attach no document and change no fact, so none of them
 removes evidence. A record with no approval, or whose approved facts name no
 source, is held with `fiscal_approval_evidence_missing`.
@@ -9072,9 +9180,8 @@ that matches keeps its origin, `verified` and sources. Printed dashes and spaces
 do not make an RNC differ, letter case and surrounding spaces do not make a
 fiscal number differ, and trailing zeros do not make the ITBIS differ. A changed
 fiscal number replaces both the NCF and the e-CF, and a null one clears both.
-The existing live
-prepare grant, expected version, immutable web-action source and review receipt
-govern this operation. Tax fields never enter the
+Fiscal writes use the same review permissions, expected version, web-action
+source and review receipt as other edits. Tax fields never enter the
 model-facing `BusinessFactPatch` or `TurnPlan` schema. A person may send an
 optional top-level `purchase` review, any field of the purchase declaration but
 `form`: the 606 expense type, payment form, payment date, goods and services
@@ -9083,11 +9190,8 @@ declaration, which remains the only 606 column owner. A suggested
 expense type is not confirmed and stays out of the export column. The 606
 manifest keeps blocking problems in `issues` and lists warn-only gaps in
 `warnings`, including an unverified or inactive supplier RNC. An RNC registry
-state never blocks approval or the export file. On an accepted record `dgii` is
-422 `recorded_correction_unsupported` and this operation never reposts money;
-`purchase` alone still writes the 606 declaration, and `payment_split` alone
-the 607 payment split, before and after an export, as the review route above
-states.
+state never blocks approval or the export file. The owner can correct fiscal facts and declarations on an accepted record
+through the review route above.
 The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note
 settlements remain unsupported. The owner alone approves income, expense or
@@ -9103,32 +9207,75 @@ or hyphens and NCF letter case normalize for identity without changing sources.
 
 Montos uses `purchase_review.net_amount` for the dossier, fiscal defaults,
 Registros, month close and exports. `BusinessFacts.amount` remains the gross
-amount paid. The dossier adds `net_amount: {amount, source}`. `amount` is an
-exact decimal string or null. `source` is `read`, `calculated`, `edited`, or
-null when the total is unknown. A known `facts.net_amount` retains the read
-subtotal or a person's edit. Otherwise the function subtracts the components
-in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes. The read's `service`
+amount paid. The dossier adds `net_amount: {amount, source, calculated}`.
+`amount` is an exact decimal string or null. `source` is `read`, `calculated`,
+`edited`, or null when the total is unknown. A known `facts.net_amount` retains
+the read subtotal or a person's edit. Otherwise the function subtracts the
+components in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes.
+`calculated` is the result of that subtraction whatever `source` is, or null
+when the total is unknown. It is the Subtotal that a read or edited one goes
+back to, and it equals `amount` while `source` is `calculated`. The read's `service`
 is the legal tip; `tip` is used only when `service` is absent. Both values live
 in existing fact JSON and revision history. No database migration is required.
 
 `POST /business/drafts/{id}/amounts-preview` takes `version` and optional
-`amount`, `itbis`, `net_amount`, and `legal_tip` fact inputs. It requires the
-same selected Business, human actor, prepare permission, open draft and current
-version as amount review. The response contains `net_amount` and `mismatch`
-(the existing `amounts_mismatch` review flag, or null). It uses the review's
-fact mutations, inheritance, net owner and shared parts check without saving
-facts, sources, revisions or action receipts. Responses are `no-store`.
+`amount`, `itbis`, `net_amount`, and `legal_tip` fact inputs. It also takes
+the unsaved fiscal form: an optional `declaration`, and the
+`override_inherited` and `restore_inherited` field names a review accepts in
+`montos`. A name in both lists is refused with 422, and so is a name that
+follows no source (`business_amount_inheritance_invalid`). It requires the
+same selected Business, human actor, permission and current version as amount
+review. A prepare holder can preview an open draft. The owner can also
+preview an accepted record. The response contains `net_amount`, `mismatch`
+(the existing `amounts_mismatch` review flag, or null) and `inheritance`: the
+map the dossier shows once that draft is saved, with the same entries. It also
+contains `dgii_calculated`, the same two amounts the dossier shows once that
+draft is saved, from `purchase_calculated`, or null as on the dossier. It uses the review's fact mutations,
+inheritance, net owner and shared parts check without saving facts, sources,
+revisions or action receipts. Responses are `no-store`.
 The web discards a preview when its draft, version or typed values change.
+The fiscal form shows its linked fields from this `inheritance` while it has
+unsaved changes. "Restaurar" changes only the form, on the field and the
+fields its entry lists in `paired_with`: Guardar sends the declaration with
+`montos.override_inherited` and `montos.restore_inherited` in one review
+request.
 
 Human review also accepts top-level `montos`, with optional `net_amount` and
 `legal_tip` fact inputs and `override_inherited` or `restore_inherited` field
 names. These inputs do not enter the interpreter's fact patch. Changing a
-main amount requires an open draft. Restoring or overriding fiscal inheritance
-uses the existing fiscal edit permission and version checks.
+main amount or its fiscal inheritance follows the review permissions and
+version checks above.
+
+`legal_tip` is source-owned (`amount_inheritance.SOURCE_OWNED`): Montos is its
+one editor, so the declaration's `legal_tip` always follows `facts.legal_tip`.
+The server drops a `legal_tip` named in `override_inherited` and a
+declaration `legal_tip` that differs from the fact. An override an older save
+recorded is ignored on an open draft and removed by the record's next save;
+an approved record exports its saved declaration unchanged until that save.
+A record saved before Montos carried the tip (`facts.legal_tip` unknown with
+no origin) has no source: its declaration keeps and takes its `legal_tip`.
+
+A purchase's `id_type` is source-owned in the same set: the supplier's RNC in
+General is its one editor, so the 606 `id_type` always follows the length of
+`facts.fiscal.rnc`. The server drops an `id_type` named in
+`override_inherited` and a declaration `id_type` that differs from the RNC's.
+An override an older save recorded is ignored on an open draft and removed by
+the record's next save. An approved record keeps its saved `id_type` until a
+save corrects the RNC. A sale's `id_type` follows no source, and a person
+gives it.
+
+The dossier lists these fields in `source_owned_fields`, for the record's own
+form: `id_type` on every purchase, and `legal_tip` once the record carries the
+tip fact. `amount_inheritance.source_owned` owns the list. A review shows each
+of them read-only, with no restore.
 
 The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
-Each entry holds `{field, value, inherited}`; `value` is the current source
-value to restore, not a copy calculated by the browser. The single mapping is
+Each entry holds `{field, value, inherited, paired_with}`; `value` is the
+current source value to restore, not a copy calculated by the browser.
+`paired_with` names the other fields that restore and override together with
+this one: `goods_amount` and `services_amount` list each other, from
+`purchase_review.AMOUNT_SIDES`, and every other entry is empty. The single
+mapping is
 `amount_inheritance.INHERITANCE`:
 
 | Fiscal field | Main source |
@@ -9165,6 +9312,19 @@ payment form with no suggestion, the form of the account that paid, whether
 or not a declaration is saved. Each linked field follows from those answers.
 An approval saves that `dgii`, with each suggestion saved as its answer.
 
+The dossier of a purchase with a 606 declaration adds
+`dgii_calculated: {billed_amount, itbis_advance}`, the two amounts the 606
+calculates and no person enters. `dgii_validation.purchase_calculated` owns
+both; the 606 line and the dossier read it, so the values match the line.
+`billed_amount` is Servicios plus Bienes and `itbis_advance` is the declared
+ITBIS minus ITBIS llevado al costo, each an exact two-decimal string. A blank
+Servicios, Bienes or llevado al costo counts as zero, as on the line, so
+`billed_amount` is never null and reads `0.00` with no amount. `itbis_advance`
+can be negative. It is null only while the purchase has no ITBIS: the export
+holds that record and writes no line. `dgii_calculated` is null for a sale and
+for a record with no 606 declaration: Monto Facturado on the 607 is an answer
+linked to the net amount, and the 607 line calculates nothing.
+
 `paid_on` follows the payment form. For `01`, `02`, `03` and `07` it is
 `occurred_on`. For any other code, or none, it is null for a person to give.
 `modified_ncf` inherits only on a credit note (type 04 or 34) whose
@@ -9185,17 +9345,52 @@ recorded (null) keeps the fill its export has always had: each blank amount
 from the approved facts, and a blank `paid_on` from `occurred_on` when the
 stored bill mark is `Factura pagada`.
 
+An accepted expense saved with no declaration is the one exception. The
+dossier and the 606 read the declaration its facts state, the one an open
+review builds: `id_type` from the RNC, the payment form of the stated Business
+account (archived or not), each linked field at the value it follows, and every answer a person
+never gave blank. The dossier carries the `inheritance` entries of an open
+draft for it. It is built on each read and never stored; the first 606 write
+on the record starts from it and saves it. A saved 606 declaration whose
+`id_type` is null reads the Tipo Id its RNC states.
+
 `amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
-false` and `difference`. The signed exact decimal difference is gross minus
-net minus the same `AMOUNT_PARTS` components. With ITBIS known it appears when
+false`, `computed_sum`, `difference` and `includes_extra_charges`. The exact
+decimal sum adds the net amount and the same `AMOUNT_PARTS` components.
+The signed difference is gross minus that sum. The boolean is true when a
+nonzero tip, selective tax or other tax contributes to the sum. With ITBIS known it appears when
 the absolute difference exceeds 0.01. With ITBIS unknown that part counts as
 zero, and it appears only when the difference is below -0.01: ITBIS is never
 negative, so it cannot close that gap. It is recomputed for every read and revision. The
 existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
 overrides are excluded from the model-facing dossier and source text.
 
+The dossier states the same check as `amounts_check: {state, difference}`.
+Both views use the same server comparison: `difference`, with the signed
+`difference` of the flag, exactly when the flag is present; `adds_up` when the
+Total, a Subtotal and the ITBIS are known and no flag is present; `unchecked`
+for a record with no fiscal facts, without a Total or a Subtotal, and while
+the ITBIS is unknown, because an unknown ITBIS lets a gap pass. `difference` is null on the other two states.
+A review shows the Total check on `adds_up` alone.
+
+`net_amount.source` says who gave the Subtotal: `read`, `calculated` while the
+server derives it, or `edited` once a person typed one. The Subtotal stays in
+`editable_fields` in every state. A `montos.net_amount` of
+`{state: "unknown"}` takes the person's Subtotal away, and the server derives
+it again.
+
+The dossier carries `note_kind`: `credit`, `debit` or null.
+`fact_blockers.record_note` owns it. The comprobante number says it first,
+the e-CF, else the NCF: types 04 and 34 are a credit note and types 03 and 33
+a debit note, from `fiscal_identity.NOTE_KINDS`, the table the 606 and 607
+checks read through `dgii_validation.is_credit` and `is_debit`. A record with
+no note number is `credit` when its kind is `refund`, or when its declaration
+holds `actual_refund` or a `modified_ncf`. Any other record is null. A review
+shows NCF modificado on a note and the refund question on a purchase's credit
+note.
+
 The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
-objects, with `difference` on `amounts_mismatch`
+objects, with the comparison fields above on `amounts_mismatch`,
 computed on every read from the stored facts; nothing is written. `rnc_check_digit`
 (field `rnc`) is a 9-digit RNC or 11-digit cédula whose check digit does not
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
@@ -9204,11 +9399,11 @@ a present NCF or e-CF that is not B plus 10 digits or E plus 12. Both have
 18% of the total minus the ITBIS, rounded to cents half to even, plus 0.55 in
 the receipt's own currency (16% for a receipt dated before 2013), in decimal
 math; a lower ITBIS is never flagged. The rate and the 0.55 are the ones the 606 holds an approved row for. The RNC and NCF stay exactly as
-read. While a `confirm` flag stands, the approve request without
-`approve_anyway: true` is refused with 422 `approval_confirmation_required` and
-`context.flags` lists those codes. Send `approve_anyway: true` with a new
-idempotency key to approve; the stored approve command keeps it in the action
-receipt. A warn-only flag never refuses. The 606 export still refuses the
+read. Every flag is one Listos gap: `rnc_check_digit` is `invalid_rnc`,
+`ncf_malformed` is `invalid_ncf`, and any other flag is `review_flag`. So a flagged
+record is accepted only by an approve request that names its gaps in
+`accept_gaps` (see the Listos rule), and `confirm` no longer changes what the
+approval refuses. The 606 export still refuses the
 same check digit and NCF format. Month close lists a present but malformed NCF
 in `ncf_malformed` as well as in `missing_ncf`; the reason codes are unchanged.
 Spanish copy for these codes is `dgii_line.COPY`.
@@ -9248,7 +9443,8 @@ grant history exists (the extractor, an erased account).
 `approve_expense`, `approve_income`, `approve_refund`, `capture_note`,
 `prepare_attachment`, `rebind_attachment`, `settle_remainder`, `mark_personal`,
 `decide_606`, `resolve_duplicate`, `edit_current_note`,
-`append_supporting_file`, `receipt_upload`, `receipt_review`,
+`append_supporting_file`, `unlink_supporting_file`, `restore_supporting_file`,
+`receipt_upload`, `receipt_review`,
 `receipt_confirm`, `set_business_rnc`, `set_business_legal_name`,
 `business_propose_activity`, `business_attach_source`,
 `business_propose_allocation`, `business_ask`, `owner_grant`, `grant_access`, `invite_access`, `accept_invite`,
@@ -9262,7 +9458,8 @@ does not list yet: the consent table records when, not who.
 
 `area` places the action for the Area filter and is server-owned: `documents`
 (`receipt_upload`, `prepare_attachment`, `rebind_attachment`,
-`append_supporting_file`, `business_attach_source`, `resolve_duplicate`),
+`append_supporting_file`, `unlink_supporting_file`, `restore_supporting_file`,
+`business_attach_source`, `resolve_duplicate`),
 `records` (`review_draft`, the approvals, `capture_note`, `settle_remainder`,
 `mark_personal`, `decide_606`, `edit_current_note`, `receipt_review`,
 `receipt_confirm`, `business_propose_activity`, `business_propose_allocation`,
@@ -9310,7 +9507,8 @@ inclusive; `to` before `from`, or `to` on the calendar's last day
 approvals, `receipt_confirm`, `decide_606`; `edits` for `capture_note`,
 `settle_remainder`, `mark_personal`, `edit_current_note`,
 `business_propose_activity`, `business_propose_allocation`; `files` for
-`rebind_attachment`, `append_supporting_file`, `business_attach_source`;
+`rebind_attachment`, `append_supporting_file`, `unlink_supporting_file`,
+`restore_supporting_file`, `business_attach_source`;
 `invoices`, reserved and empty; `access` for the access changes and
 `ownership_transferred`; `settings` for `set_business_rnc`,
 `set_business_legal_name` and `receipt_reading_enabled`). Values of one filter are OR'ed and the filters are
@@ -9589,7 +9787,12 @@ Existing `ARGUS_INGESTION_ENABLED` and `ARGUS_DOCUMENT_EXTRACTION_ENABLED` gates
 **Human note capture contract.** `POST /business/captures` takes
 `{text, draft?: {draft_id, version}, document_type?: "recibo" | "venta"}` and
 `Idempotency-Key`, returning the existing
-`BusinessDossier`. This foundation supplies its command and receipt constraints;
+`BusinessDossier`. A body without `draft` starts a draft, and is refused with 404
+`business_typed_notes_unavailable` and `Cache-Control: no-store` while
+`CUADRAO_BUSINESS_TYPED_NOTES_ENABLED` is off (the default; see
+`typed_notes_available` on `GET /business/workspace`). The refusal comes before
+the idempotency key is read, so nothing is stored. A body with `draft` is never
+refused by this switch. This foundation supplies its command and receipt constraints;
 route/service implementation is a separate owned slice. `text` is 1–500
 characters, the same limit as a record's current note (`NOTE_MAX_LENGTH`),
 rejects whitespace-only input and U+0000 (NUL), and is retained
@@ -9630,7 +9833,7 @@ else is filled: no account, funding, business share, category, fiscal number or
 declaration. So the dossier reads `sin_comprobante` true and needs no account.
 The draft stays open, is listed as a note in the Bandeja and is never Listos, so
 `approve-listos` refuses it with `not_listo`. A person reviews it and the owner
-approves it alone. Once approved it counts in the books at its whole total, and
+accepts it alone, over its `not_read` and `sin_comprobante` gaps. Once approved it counts in the books at its whole total, and
 the DGII packet leaves it out with disposition `excluded`, reason
 `no_fiscal_number`, and no month-close `missing_*` line.
 
@@ -9648,7 +9851,8 @@ matches a literal case-insensitive substring of original text (`%` and `_` are l
 `limit` is 1–50, default 20. Items contain `draft_id`, current `version`, the
 `revision` the note created (the number the draft's history lists; the web shows
 it as the note's revision) and `review_state`, plus original `source_id`, `text`
-and `received_at`. Selection
+and `received_at`. Each item carries `bandeja_group`, the group and `label` its
+draft's state gives (see receipt activity). Selection
 follows successful capture receipts through their exact immutable revision and
 source, ordered by source receipt time descending, then source ID descending.
 Each item represents a note; multiple notes may name the same draft. Reviewing
@@ -9854,8 +10058,8 @@ person starts their space, every route below except POST `/space` answers 404
   `created` is always done. `fiscal_identity` is done when the RNC or cédula is
   saved and the name is not a default. `receiving_address` is done when the
   receiving address can receive, as GET `/api/v1/business/email` says.
-  `receipt_reading` is done when the owner turned reading on, as GET
-  `/api/v1/business/receipt-reading` says. `first_document` is done once the
+  `receipt_reading` is done when `GET /api/v1/business/workspace` returns
+  `receipt_reading.enabled` as true. `first_document` is done once the
   Business received a document by any channel; opening upload, copying the
   address or linking a phone does not complete it. `team` is done once someone was
   invited or holds access besides the owner. `whatsapp` is done when a number is
@@ -10132,15 +10336,28 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  settlement_available, typed_notes_available, receipt_limits: {max_bytes, media_types}, receipt_reading, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
   is final, the open items read and the settlement PATCH are refused with 404
   `business_settlement_unavailable` before authentication (a malformed PATCH body can answer 422
   first, as it does while the switch is on), and the web shows no Por cobrar, Por pagar or mark, and shows
   ITBIS charged ("ITBIS en ventas") where ITBIS cobrado stood (see the
-  [month-close contract](contracts/business-month-close.md)). `country` and `currency` are the Business's own,
-  the same values `GET /business/space` returns. `records_default_currency` is the
+  [month-close contract](contracts/business-month-close.md)). `typed_notes_available` is the server's one
+  answer on starting a draft from a typed note, true only while
+  `CUADRAO_BUSINESS_TYPED_NOTES_ENABLED` is on (default off). While it is false,
+  `POST /business/captures` without `draft` is refused with 404
+  `business_typed_notes_unavailable`, and the web offers no "Escríbelo" in Agregar. Saved notes
+  still list, open, accept, delete and restore, and a capture with `draft` still saves.
+  `country` and `currency` are the Business's own,
+  the same values `GET /business/space` returns. `receipt_reading` carries the reading permission
+  for this Business, including `enabled`, `can_change`, and the disclosure used by the switch; it is null when the reading
+  permission service is unavailable, never an invented off state. Optional query
+  `language=en|es-419` (default `en`) selects that disclosure's language.
+  `BusinessReceiptConsentStore`, backed by `business_receipt_reading_consents`,
+  remains the setting's owner. The web reads it once with the workspace bootstrap.
+  While the list loads, only an off setting reserves the notice's space. The existing receipt-reading POST
+  remains the mutation endpoint. `records_default_currency` is the
   server-owned initial Registros selection, currently DOP, independent of the
   Business currency. Its supported values are DOP, USD and EUR. The web waits for
   the current grant's workspace before the first report request. A valid singleton
@@ -10206,8 +10423,8 @@ accept path recorded.
   `ReceiptSummary.document_type` reports the current
   type (`recibo` until a read or a person sets it),
   `document_type_detected` is true while the read's choice stands, and
-  `document_type_editable` is true while the receipt's draft is open and the
-  caller holds `prepare`. Both flags are left out of the wire when false. The
+  `document_type_editable` is true for a caller with `prepare` on an open draft
+  or the owner on an accepted record. Both flags are left out of the wire when false. The
   field meanings are in the
   [month-close contract](contracts/business-month-close.md).
 - Receiving channel availability is owned by the server. GET
@@ -10397,8 +10614,9 @@ accept path recorded.
     receipt saved yet, `no_receipt` once it settled without one, and `null`
     when the delivery is no Bandeja row of its own because a receipt it saved
     is (the rule is in receipt activity). `reading` counts in `reading_count`
-    and `no_receipt` in `needs_attention_count`; both count in
-    `pending_review_count`. Beside `standing`, from the same rule, each
+    and `no_receipt` in `bandeja_attention_count`; both count in
+    `pending_review_count`. Each delivery also carries `bandeja_group`, the
+    group and `label` its `standing` gives (see receipt activity). Beside `standing`, from the same rule, each
     delivery carries `saved_receipt_count`, the number of its parts saved as a
     receipt (`captured` with a `document_id`, repeats included), and
     `no_receipt_reason`, a code saying why it brought no receipt: the
@@ -10430,11 +10648,26 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
-- Each `ReceiptSummary` carries `uploaded_by`, the person who uploaded a web
-  upload, as `{display_name, email, shown_as}` named live for the reader by
-  the same rule as `personal_marked_by`. It comes from the first applied
-  `receipt_upload` ledger row for the receipt. It is null for a WhatsApp or
-  email arrival, and null where no ledger is kept (the in-memory app).
+- **Sent by.** Each `ReceiptSummary`, each note of `GET /business/captures`
+  and each delivery of `GET /business/email/deliveries`, `/{id}` and `/inbox`
+  carries `sent_by`, who brought the row in, as
+  `{id, kind, person, address, phone_last4}`. One server module, `sent_by`,
+  builds it. `kind` names the one field that is set:
+  - `member`: a web upload or a typed note. `person` is
+    `{display_name, email, shown_as}`, named live for the reader by the same
+    rule as `personal_marked_by`, so another member's email shows only to a
+    reader who manages the Business. A web upload reads the first applied
+    `receipt_upload` ledger row of the receipt; a note reads who typed it.
+  - `email`: `address` is the bare lowercase address the email came from. A
+    receipt reads the earliest delivery that brought it, however old.
+  - `whatsapp`: `phone_last4` is the last digits of the linked number, the
+    only part stored.
+  `id` is `member:<user id>`, `email:<address>` or `whatsapp:<link id>`: the
+  same sender has the same `id` on every row, and a number linked again keeps
+  the id of its first link to the Business. The web filters by `id` and
+  works out no sender of its own. `sent_by` is null when nothing stored says
+  who sent the row, and for receipts where no ledger is kept (the in-memory
+  app).
 - Duplicates never record money twice. Uploading the same bytes again, from
   any entry point, answers with the receipt already saved and `replayed:
   true`; nothing new is stored. A second document whose read merchant, date,
@@ -10613,7 +10846,8 @@ accept path recorded.
   source bytes, filenames, identifiers and exception messages are excluded.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
-  `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake
+  `dismissed`. Neither view lists a `dismissed` receipt with no deleted mark.
+  `channel` is `whatsapp` for a document that WhatsApp intake
   captured for the scope's destination, `email` for a document whose earliest
   email delivery arrived before the document was saved (decided at the API
   boundary from the email queue; the stored draft knows only web or whatsapp),
@@ -10649,13 +10883,12 @@ accept path recorded.
   read lists `account_id`, `amount`, `currency` and `occurred_on`. A prepared
   receipt with no single purchase is `needs_attention`, with the blocker as
   `error_code`.
-- Every `ReceiptSummary` and `ReceiptDetail` carries the owner's next step,
-  `read_pending` is true only while a read is in flight or will start (queued
-  with consent and the owner's reading allowed now); a queued receipt whose
-  owner switched reading off is reported `saved`, waits for a person, and is
-  `preparable` and `enterable` again. The web shows "Leyendo tu recibo" only
-  on `read_pending`.
-  decided by the backend. `preparable` is true when nothing was read or
+- The backend supplies the owner's next step in every `ReceiptSummary` and
+  `ReceiptDetail`. `read_pending` is true while a worker holds a live lease,
+  the receipt is preparing, or its queued read has current consent. With
+  reading switched off and the lease released or expired, a queued receipt
+  shows as `saved` and waits for a person. The web shows "Leyendo tu recibo"
+  only on `read_pending`. `preparable` is true when nothing was read or
   entered, the source is stored, nothing is reading it, and another read could
   succeed; the client then offers the consented `/prepare`. `enterable` is true
   when there is no single purchase to review and nothing is reading it. The
@@ -10675,18 +10908,21 @@ accept path recorded.
   the day or the month was spent before this read could start; `error_code`
   is `business_read_budget_day` or `business_read_budget_month`, the receipt
   is saved unread with `preparable: true`, and a consented `/prepare` reads it
-  once the budget allows), `read_deadline_passed` (the read waited 6 hours
+  once the budget allows; with no one asking, the document worker queues the
+  same read again once the budget's day or month has turned, while the owner's
+  reading setting is on), `read_deadline_passed` (the read waited 6 hours
   from the upload, or from the owner's own ask, with the reading service
   unavailable; `error_code` is `document_read_deadline_passed`, the receipt
   did not fail, `preparable` is true, and this reason never counts against
   the owner's own retries) or `other`. `error_code` stays the precise cause.
-  Nothing is retried automatically because of it.
+  Nothing is retried automatically because of it, except the read budget's
+  resume above.
 - The Business read budget counts every provider read a Business starts,
   whichever channel the receipt came from (web, email, WhatsApp, `/prepare`,
   a worker retry): `CUADRAO_BUSINESS_READS_PER_DAY` (300) a Santo Domingo day
   and `CUADRAO_BUSINESS_READS_PER_MONTH` (2000) a month, kept in Postgres. A
   capture is never refused for budget; the receipt is saved and the read waits
-  for a person.
+  for the budget's next day or month, or for a person who asks sooner.
 - GET `/api/v1/business/receipts/{id}/source` returns verified original bytes
   for PDF, text, CSV, XLSX, XML and EML, and rebuilt JPEGs for PNG/JPEG images.
   A missing image copy is built on its first download and then reused; no bulk
@@ -10724,11 +10960,13 @@ accept path recorded.
 - GET `/api/v1/business/expenses/{expense_id}` returns that expense with
   `recorded_at` and `revision` from the money read; 404 `expense_not_found`
   for any other id, including another Business's. An expense entered by hand
-  has `receipt_id` and `draft_id` null: the web shows a plain detail that says
-  no receipt is attached, with when it was recorded and its revision. It
+  has `receipt_id` and `draft_id` null: it has no dossier, so the web shows no
+  record for it and returns to Registros. It
   carries `dgii_606`, the same value as its Registros row (below), read for
   this one record without reading every activity; null when Registros does not
-  list it yet.
+  list it yet. Its `missing` codes match the Registros row in order, and
+  `reasons` gives each code’s field and locale key, including for a manual
+  expense with no receipt or draft.
 - POST `/api/v1/business/expenses` (`Idempotency-Key` required) takes
   `{account_id, amount, occurred_on, merchant, category_id}` and records one
   expense through `MoneyService`, in the account's currency. A retry with the
@@ -10738,13 +10976,8 @@ accept path recorded.
 - GET `/api/v1/business/overview?from&to` returns per-currency `totals`
   `{currency, amount, count}`, with no conversion. Beside the totals it returns
   the Business `country` and `currency`; the Business currency does not filter
-  or convert the totals. It also returns
-  `awaiting_review`, `needs_attention`, `ready_to_review_count`,
-  `last_received_at` and `last_confirmed_at`. `awaiting_review` plus `needs_attention` equals the
-  Bandeja's `pending_review_count` (see receipt activity): an email original is
-  context, never a receipt awaiting review. `needs_attention` includes each
-  email whose `standing` is `no_receipt`; `awaiting_review` includes each email
-  whose `standing` is `reading`.
+  or convert the totals. It also returns `ready_to_review_count`,
+  `last_received_at` and `last_confirmed_at`.
   `ready_to_review_count` is the Bandeja's `ready_to_review_count` (see
   receipt activity). `bandeja_listo_count` and `bandeja_attention_count` are
   the same pair receipt activity returns. `por_igualar_count` is the same number
@@ -10765,7 +10998,7 @@ accept path recorded.
   become one row, anchored as `draft:<id>` with `linked_activity_ids`; a
   standalone activity uses `activity:<id>`. These IDs do not define a future
   invoice/payment allocation. Disconnected originals never remove the financial
-  row. A reopened record leaves until it is approved again.
+  row. A deleted record leaves until it is restored.
   Recorded amounts and document facts use current Money and the actual approved
   fact revision; current workflow blockers may still require review. Sources,
   account legs, approval receipts and payment annotations are not extra rows.
@@ -10788,8 +11021,9 @@ accept path recorded.
   defaulting to `["purchase"]`, and normalizes old empty or both-type selections
   to that screen default. Its selected type scopes the table, all six cards,
   expanded Total and export. Malformed or unknown values are rejected.
-  The nullable `ready` filter accepts true (ready), false (missing data), or null
-  (all). It reads each row's `ready` verdict from `readiness` in
+  The nullable `ready` filter accepts false (missing data) or null (all).
+  Old requests, stored tabs and saved views with `ready: true` read as null.
+  It reads each row's `ready` verdict from `readiness` in
   `reporting_projection.py`; `overview.not_ready` counts false verdicts over
   the same filtered rows before pagination. Search, period, family, currency
   and every other filter apply to that count too.
@@ -10800,15 +11034,14 @@ accept path recorded.
   unresolved rows and technical failures have null and match only all. Existing
   admission rules remain unchanged. The fiscal card and this filter use the same
   missing predicate, including when a downloaded line has since been edited.
-  The screen offers one fiscal choice and keeps old `review_stages` saved views
-  readable with a clearable legacy chip. The remaining multiselects are
+  The filter menu offers attachment, amount, counterparty and, on purchases,
+  tipo de gasto. The Faltan datos card controls readiness. The request multiselects are
   `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
   `exported`),
-  `currencies`, `counterparties`, `categories`, `expense_types`, `funding_sources`,
-  `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`; the projection
-  names only `credit_note` and `unknown` on a row, so Registros offers those two) and
-  `fiscal_classifications`. `expense_types` takes 606 tipo de gasto codes (`01` to
-  `11`) and `missing`, a purchase that still needs one. `has_document` is a live linked attachment, separate
+  `currencies`, `counterparties`, `categories` and `expense_types`.
+  The server drops `funding_sources`, `document_kinds` and `fiscal_classifications`
+  on read and logs each retired field name. `expense_types` takes 606 tipo de
+  gasto codes (`01` to `11`) and `missing`, a purchase that still needs one. `has_document` is a live linked attachment, separate
   from download availability and fiscal number. Each row carries `personal`, the
   owner's Personal mark, and `include_606`, the accountant's 606 answer (`null`
   while no answer applies), both read from the draft as it stands now, after
@@ -10825,13 +11058,13 @@ accept path recorded.
   never lists: a sale, a Personal record the accountant did not admit, or a
   purchase the owner said has no comprobante. An answer written in Bandeja or on
   the recorded record shows in the next read. The answer's `expense_types` lists
-  the tipos de gasto the records carry, `{code, label}` by code; `missing` is
-  always a valid filter value and is never listed. The screen offers tipo de gasto
+  every DGII tipo de gasto as `{code, label}` in code order, even on an empty
+  Business. `missing` is always a valid filter value and is never listed. The screen offers tipo de gasto
   only on Compras and clears it when changing to Ventas or opening a saved sales
   recipe; forma de pago is an optional purchase column, not a filter.
   Categories use activity IDs plus
-  `uncategorized`; funding uses `account:<id>` or `owner_funds` and returns the
-  source account type/name, never a balance. Counterparty keys are exact normalized
+  `uncategorized`. Each row retains its funding key (`account:<id>` or
+  `owner_funds`), source account type and name. Counterparty keys are exact normalized
   tax identities within this Business. Aliases share a key; equal names never
   merge identities. Counterparty options follow the selected family across all dates.
   Each option retains the `labels` array with exactly one name, chosen from the
@@ -10884,12 +11117,24 @@ accept path recorded.
   `missing_fiscal_data` words, and `export_missing_several` is true when there
   is more than one.
   Independently of these legacy fields, every row carries `ready` and `missing`,
-  the full ordered list of reason keys. `readiness` is their one owner. Fiscal
-  reasons and their order come from `missing_items` in `dgii_line.py`, reading
-  the original issues preserved by `dgii_export.py`. Distinct blocker reasons
+  the full ordered list of reason keys. `readiness` is their one owner. Sales
+  require only Fecha and NCF, plus Cliente RNC for B01 or E31, in registry order.
+  Approval and accepted edits already require Total. Sales ignore 607 assessment
+  issues, workflow blockers and technical state for this verdict. Purchases
+  retain the fiscal and blocker rules below. Every
+  key is a code of the one registry, `missing_reasons.py`, which holds each
+  reason's code, the field a person fixes and the locale path of its words. A
+  reason the Bandeja's Listo rule also names has the same code there
+  (`missing_rnc`, `invalid_rnc`, `missing_ncf`, `invalid_ncf`, `missing_date`,
+  `duplicate`). Fiscal reasons come from `missing_items` in `dgii_line.py`,
+  reading the original issues preserved by `dgii_export.py`, in the registry's
+  order. Every record also carries `missing_fields`, the distinct table columns
+  for those reason fields, in registry order and limited to the record's family.
+  It includes hidden columns. A clean record has an empty list. A reason without
+  a matching column stays in `missing`. Distinct blocker reasons
   follow in the projection's blocker-table order; repeated reasons appear once.
   The `possible_duplicate` blocker (a repeated read) yields its own word,
-  `possible_duplicate`; `duplicate_document` stays the fiscal number already
+  `duplicate`; `duplicate_document` stays the fiscal number already
   recorded.
   Unmapped blockers yield `detail_missing` and log a warning. Technical failures
   also yield `detail_missing`. Blocker rows and old exported rows receive the
@@ -11005,8 +11250,9 @@ accept path recorded.
   (`counterparty`): the file holds it even while the table hides it. `default` is
   Forma de pago on Compras: it is offered checked while the table hides it, and
   then it is the last column. The modal renders this list.
-  `dgii` counts by the tab and period only, whatever the other filters say:
-  `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
+  `dgii` is null on Ventas, which offers only Lo que ves. On Compras it
+  counts by the tab and period only, whatever the other filters say:
+  `form` is `606`, `currency` the form's one
   currency (`DOP`), `record_count` the records whose
   current `fiscal_data` is `complete` (a line on its month's form),
   `pending_count` every record the form holds back, the two counts below,
@@ -11028,9 +11274,15 @@ accept path recorded.
   status, else `sin verificar`), `status` (`rnc_inactive` or `rnc_unverified` for
   localized fallback), and `record_count`. These notices use the same registry
   snapshot and line review as fiscal selection. Pending and excluded rows do
-  not count. Sales return zero counts and an empty list. The notice does not
+  not count. The notice does not
   block download.
-  `table.current`, `table.all` and `dgii` each carry `filenames`, `{xlsx, csv}`:
+  `bandeja_count` counts the documents the Bandeja still holds in the export's
+  resolved period, purchases and sales together, whatever the tab and the other
+  filters say. A period with no bounds counts every one. It is the month close's
+  own count (`unreviewed_days`, dated by receipt date and otherwise by arrival),
+  so one month's value equals the sum of that month's `documents_in_bandeja`.
+  The dialog shows it as one notice in either mode and never blocks download.
+  `table.current`, `table.all` and non-null `dgii` each carry `filenames`, `{xlsx, csv}`:
   the name the export below gives that choice's file in each format, from the
   same `records_filename` with the same Business name, period, dates and
   `Accept-Language`. The web offers it in the Save As window before the file is
@@ -11055,14 +11307,17 @@ accept path recorded.
   chosen `columns` in the preview's order with its `required` columns always in,
   and `currencies` `current` (the screen's currency) or `all` (the same request in
   every currency, with a Moneda column after Monto; refused with
-  `business_export_currency_required` while an amount range is set). A column
+  `business_export_currency_required` while an amount range is set). A saved
+  table export drops the retired `missing` and `funding` selections before
+  validating the list. At least one current selection must remain. A column
   the preview for that choice does not list is refused with
-  `business_export_column_unavailable`.
+  `business_export_column_unavailable`. A sale with `mode: "dgii"` is refused
+  with 422 `business_export_dgii_sales_unavailable`.
   Table headers and values use the web locales through
   `records_file_words.generated.json`, generated by
   `scripts/generate_records_file_words.py`. Expense type and payment method
   use `NN - NAME` with the uppercase name from the selected locale. The table
-  also shows stage, `Falta` or `No aplica`, attachment, and account. Amounts
+  also shows stage, `Falta` or `No aplica`, and attachment. Amounts
   are exact numbers shown with two decimals, or the currency's own precision
   when it has more. An amount past Excel's 15 significant digits stays exact
   text. Dates are real dates (`dd/mm/yyyy` in CSV).
@@ -11071,8 +11326,7 @@ accept path recorded.
   `Fecha Comprobante` ascending. Amounts are numbers. Identities and
   dates stay text. The 606 spreadsheet has 25 columns. Each of Fecha Comprobante
   and Fecha Pago becomes an `(AAAAMM)` column followed by a `(DD)` column,
-  with both payment cells blank when unpaid. The 607 retains its `AAAAMMDD`
-  date columns. For the 606 file, expense type and payment method
+  with both payment cells blank when unpaid. Expense type and payment method
   use the exact choices from the official workbook. Empty or zero ITBIS and
   income withholding amounts are numeric zero. The codes and amount fields
   come from `dgii_export.line_values`.
@@ -11124,20 +11378,18 @@ accept path recorded.
   layout, including when the original request omitted it. Explicit saved layouts
   keep their order, hidden columns and density. A column a saved or linked
   layout does not name joins it at the end, hidden. The
-  net amount instead joins just before the total, shown; `missing` (Motivo)
-  joins just after `stage`, shown.
+  net amount joins just before the total, shown. The upgrade preserves the
+  position of `stage` among the remaining columns. If retiring a visible column
+  would leave a family's table empty, the upgrade shows `stage` in place.
 
   `presentation.order` contains each supported table key once, in any order.
   The default visible order is `counterparty_id` (RNC o Cédula), date, expense
-  type, net amount, ITBIS, total, stage, missing. `stage` renders the fixed-width
-  Listo/Faltan datos chip from `ready`. `missing` renders the first ordered
-  reason and +N for remaining reasons, blank when ready; the full list is
-  available on hover and in the open record. The table export renders the
-  same two columns using locale-owned words. The name, fiscal number, note,
-  attachment, payment form and account are hidden by default.
+  type, net amount, ITBIS, total and stage. `stage` shows Listo/Faltan datos
+  from `ready`. The table export uses the same localized status. The name,
+  fiscal number, note, attachment and payment form are hidden by default.
   Expense type and payment form are offered and rendered only on Compras.
-  `family` and `currency` are removed from table order and hidden keys when reading
-  old saved presentations. `hidden` can name any column, but every table keeps
+  Stored and posted layouts drop `family`, `currency`, `missing` and `funding`
+  from the order and hidden keys. `hidden` can name any column, but every table keeps
   one column shown: a layout is a 422 when it leaves a family's table, in any
   country, with no shown column. Hiding every column does that, and so does
   showing only expense type or payment form, which Ventas does not offer. The
@@ -11209,6 +11461,12 @@ accept path recorded.
   links are never replaced. Duplicate bytes already linked here add no history
   or version. A link to another record is refused as
   `supporting_file_already_linked`; no automatic move is supported.
+  A record holds at most 3 supporting files at once. The next file is refused
+  as 422 `supporting_file_limit_reached` before any byte is stored; an unlinked
+  file does not count.
+  The limit refuses only a request that would add a file: at the limit, bytes
+  the record already holds still answer `duplicate`, and bytes another record
+  holds still answer `supporting_file_already_linked`.
 
   The command records its exact intent before object capture. The existing byte
   store retains unavailable custody references across failed writes; retries use
@@ -11218,7 +11476,73 @@ accept path recorded.
   Business/grant/human authority and source standing. Append never dispatches
   extraction, toggles consent, creates activity or changes payment state.
   Existing original downloads keep their separate live download permission.
-  Received-document selection and unlink remain unavailable.
+  Received-document selection remains unavailable.
+
+- DELETE `/api/v1/business/drafts/{draft_id}/supporting-files/{source_id}` takes
+  one supporting file off the record, and POST
+  `/api/v1/business/drafts/{draft_id}/supporting-files/{source_id}/restore` puts
+  it back. Both are human-only and need a current prepare grant, an open or
+  accepted draft, `X-Draft-Version` and `Idempotency-Key`. Neither takes a body.
+  The response is `{result: {draft_id, version, outcome, source_id, purge_at},
+  dossier}` with outcome `unlinked` or `restored`. `purge_at` is set on
+  `unlinked`: the unlink time plus 7 days. Each command increments the draft
+  version and adds one history revision with `supporting_change` (`unlinked` or
+  `restored`), the file's `supporting_filename`, the actor and the time.
+  Financial facts, approval and settlement do not change. A same-key replay
+  returns the saved result with no second revision; a changed payload under the
+  same key is 409 `business_action_conflict`; a stale version is 409
+  `stale_version`.
+
+  A supporting file is never a receipt, on a record or taken off one. The
+  receipt lists (`/business/receipts`, both views), `receipts` in search, the
+  Bandeja and overview counts and the updates feed leave its upload out, and
+  it does not complete the `first_document` setup step. The record's dossier
+  lists it. The one exception is an upload that something else also holds
+  (another source row or a read): that one is a receipt as before.
+
+  Every receipt route treats a supporting file's `receipt_id` as an id nobody
+  uploaded. GET `/api/v1/business/receipts/{receipt_id}` and its `read`,
+  `prepare` and `rebind` routes answer 404: `receipt_not_found`, or
+  `business_record_not_found` from `rebind`. The document commands
+  `delete_document`, `restore_document` and `purge_document` refuse the id
+  as `business_record_not_found`; the record's own id still reaches its
+  supporting files. Nothing reads a supporting file and nothing turns it into
+  a receipt. GET `/api/v1/business/receipts/{receipt_id}/source` is the one
+  route that answers: it downloads the file by the `receipt_id` the dossier
+  gives, until the erase.
+
+  A supporting file's upload is its own upload. The same bytes uploaded as a
+  receipt, before or after, are a second upload with its own `receipt_id`.
+  That one is a receipt in every list, and the erase of the supporting file
+  leaves it and its bytes in place.
+
+  An unlinked file leaves the dossier `sources`, report rows and search.
+  Supporting files never enter Eliminados. Restore works until `purge_at`.
+  After that the documents worker erases the upload and its bytes, unless
+  another record or source still holds the same upload. The history revision
+  keeps who, when and the file name. Refusals: 404 `supporting_file_not_found` (the id is not a supporting
+  file of this record), 422 `supporting_file_not_linked` (unlink of a file
+  already off the record), 422 `supporting_file_already_linked` (restore of a
+  file on this or another record), 422 `supporting_file_restore_expired`
+  (restore after the window or after the erase) and 422
+  `supporting_file_limit_reached` (restore onto a record that holds 3 files).
+
+  The dossier carries `supporting_files`: each file on the record (`state`
+  `linked`) and each unlinked file still inside its window (`state`
+  `unlinked`, with `purge_at`), oldest first, as `{source_id, receipt_id,
+  filename, media_type, size_bytes, state, purge_at, unlink_available,
+  restore_available}`. `supporting_file_limit` is 3, and
+  `supporting_limit_reached` says the record holds that many. At the limit
+  `supporting_append_available`, a report row's `can_append_supporting` and
+  every `restore_available` are false. `restore_available` is also false
+  once another record holds the file's bytes. Each of these is true only
+  when its command would go through now. A history revision made by an append,
+  an unlink or a restore carries `supporting_change` and `supporting_filename`.
+
+  In Detalles, Archivos de respaldo keeps an unlinked row while the server
+  offers restore. Its footer counts the calendar days until `purge_at`. The
+  broken-link button sends the restore command for that source. Unlinking it
+  again gives the row a new deadline. Historial records “Archivo quitado”.
 
 - GET `/api/v1/business/search?q&limit&kind&cursor` returns
   `{expenses: ExpenseHit[], ventas: ExpenseHit[], receipts: ReceiptHit[],

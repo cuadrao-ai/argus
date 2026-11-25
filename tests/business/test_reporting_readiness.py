@@ -11,7 +11,8 @@ from argus.domain.business.dgii_export import (
     line_assessments,
     line_verdicts,
 )
-from argus.domain.business.dgii_line import reason
+from argus.domain.business.dgii_validation import fact_value
+from argus.domain.business.missing_reasons import words
 from argus.domain.business.reporting_file import (
     RecordsExport,
     build_file,
@@ -116,11 +117,11 @@ def test_row_filter_and_count_agree_before_pagination(mixed_rows, ready):
         and r.currency == "DOP"
         and r.family == "purchase"
         and r.report_date.month == 9
-        and (ready is None or r.ready == ready)
+        and (ready is not False or not r.ready)
     ]
     assert answer.matching_count == len(expected)
     assert answer.overview.not_ready == sum(not row.ready for row in expected)
-    assert answer.overview.not_ready == (0 if ready else 3)
+    assert answer.overview.not_ready == 3
     pages = [
         run(mixed_rows, filters, page=page) for page in range(1, answer.page_count + 1)
     ]
@@ -142,7 +143,7 @@ def test_row_filter_and_count_agree_before_pagination(mixed_rows, ready):
     )
     assert several.missing == (
         "expense_type_missing",
-        "rnc_missing",
+        "missing_rnc",
         "payment_method_missing",
     )
 
@@ -161,7 +162,7 @@ def test_currency_only_is_ready_but_never_becomes_a_dgii_line(
     assert row.ready is (not missing_type)
     assert row.missing == (("expense_type_missing",) if missing_type else ())
     if missing_type:
-        assert reason(row.missing[0]) == "Falta el tipo de gasto"
+        assert words(row.missing[0], "es-419") == "Falta el tipo de gasto"
     assert (row.stage, row.fiscal_data, row.export_line) == (
         "needs_fiscal_data",
         "missing",
@@ -214,7 +215,7 @@ def test_missing_ncf_keeps_all_readiness_reasons_and_legacy_export(
     assert row.ready is False
     assert row.missing == (
         "expense_type_missing",
-        "ncf_missing",
+        "missing_ncf",
         "payment_method_missing",
     )
     if currency == "DOP":
@@ -223,7 +224,7 @@ def test_missing_ncf_keeps_all_readiness_reasons_and_legacy_export(
             row.fiscal_data,
             row.export_missing,
             row.export_missing_several,
-        ) == ("needs_fiscal_data", "missing", "ncf_missing", False)
+        ) == ("needs_fiscal_data", "missing", "missing_ncf", False)
     assert row.export_line is False
 
     def export(record):
@@ -333,17 +334,28 @@ def test_foreign_duplicates_match_dop_without_changing_export(approved_rows, fam
     duplicate = replace(original, activity_id=fake.uuid4(), draft_id=fake.uuid4())
     dop = (original, duplicate)
     usd = tuple(replace(record, currency="USD") for record in dop)
-    dop_rows = judge(dop)
-    usd_rows = judge(usd)
-    assert [(row.ready, row.missing) for row in dop_rows] == [
-        (False, ("duplicate_document",)),
-        (False, ("duplicate_document",)),
-    ]
-    assert [(row.ready, row.missing) for row in usd_rows] == [
-        (row.ready, row.missing) for row in dop_rows
-    ]
+
+    def projected(records):
+        return tuple(
+            row.model_copy(
+                update={
+                    "family": family,
+                    "fiscal_number": fact_value(record, "ecf") or fact_value(record, "ncf"),
+                    "counterparty_key": fact_value(record, "rnc"),
+                    "report_date": record.occurred_on,
+                }
+            )
+            for row, record in zip(rows(records), records, strict=True)
+        )
+
+    dop_rows = judge(dop, projected(dop))
+    usd_rows = judge(usd, projected(usd))
+    expected = (True, ()) if family == "sale" else (False, ("duplicate_document",))
+    assert [(row.ready, row.missing) for row in dop_rows] == [expected, expected]
+    assert [(row.ready, row.missing) for row in usd_rows] == [expected, expected]
     filtered = run(usd_rows, ReportFilters(period=SEPTEMBER, ready=False))
-    assert (filtered.matching_count, filtered.overview.not_ready) == (2, 2)
+    count = 0 if family == "sale" else 2
+    assert (filtered.matching_count, filtered.overview.not_ready) == (count, count)
 
     good = (
         approved_rows[2],
@@ -394,7 +406,7 @@ def test_foreign_duplicates_match_dop_without_changing_export(approved_rows, fam
                     report=report(record_families=[chosen]), mode="dgii", format="csv"
                 ),
             ).content
-            for chosen in ("purchase", "sale")
+            for chosen in ("purchase",)
         )
         return (
             manifest,
@@ -460,7 +472,7 @@ def test_blocker_and_fiscal_reasons_are_ordered_and_deduplicated(approved_rows):
     [judged] = judge((subject,), (row,))
     assert judged.missing == (
         "expense_type_missing",
-        "possible_duplicate",
+        "duplicate",
         "detail_missing",
     )
     assert judged.ready is False

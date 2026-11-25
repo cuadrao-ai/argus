@@ -21,8 +21,8 @@
 .columns,.row { display:grid; grid-template-columns:var(--columns); align-items:center; column-gap:0; }
 /* Each cell stands where the person put its column: `--col` is its place. The box and Contenido have none, so they stay first. */
 .columns > *,.row > * { order:var(--col,0); }
-.columns { min-height:40px; padding:0; color:var(--muted); font-size:14px; font-weight:500; border-bottom:1px solid var(--line); }
-.columns > span { font-size:13px; }
+.columns,.deletedColumns { min-height:40px; padding:0; color:var(--muted); font-size:14px; font-weight:500; border-bottom:1px solid var(--line); }
+.columns > span,.deletedColumns > span { font-size:13px; }
 .columns > span,.sender,.channel,.state,.arrival,.rowAction,.amountCell,.currencyCell { padding-left:var(--cell-x); padding-right:var(--cell-x); }
 /* Documento starts 16px in: the open row's 3px bar, a 4px gap, the 5px unseen dot and 4px before the title each keep their own lane. */
 .columns > .contentHeading { padding-left:16px; }
@@ -34,9 +34,10 @@
 .row[data-arrived=true] { --arrival-wash:color-mix(in srgb,var(--cuadrao-green) 20%,transparent); animation:arrival var(--arrival-highlight) ease-out; }
 @keyframes arrival { from,70% { background-color:var(--arrival-wash); } }
 .identity { display:flex; align-items:center; gap:10px; min-width:0; width:100%; min-height:44px; padding:6px 12px 6px 16px; text-align:left; border-radius:4px; }
-.documentIcon { position:relative; display:grid; place-items:center; width:22px; height:28px; flex-shrink:0; color:var(--muted); }
 .documentText { position:relative; min-width:0; }
-.title { display:block; font-size:14px; font-weight:400; line-height:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* The shared tooltip shows cut text. A line clamp, not text-overflow, so Safari adds no tooltip of its own. */
+.title,.sender,.deletedName,.deletedActorName { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; white-space:normal; overflow-wrap:anywhere; }
+.title { font-size:14px; font-weight:400; line-height:20px; }
 .secondary { display:flex; gap:10px; margin-top:2px; color:var(--muted); font-size:12px; line-height:16px; }
 .secondary > :last-child { flex-shrink:0; }
 .filename { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -44,7 +45,7 @@
 .source { display:none; }
 .source[data-info=false] { display:none; }
 .combinedHeading,.mobileArrival { display:none; }
-.sender { display:block; min-width:0; font-size:14px; line-height:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sender { min-width:0; font-size:14px; line-height:20px; }
 .channel { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:14px; line-height:20px; white-space:nowrap; }
 .channel svg { flex-shrink:0; }
 .state { display:flex; align-items:center; min-width:0; }
@@ -73,7 +74,7 @@
   .topline { flex-wrap:wrap; gap:12px; }
 }
 @container reception (max-width:819px) {
-  .topline { display:flex; flex-direction:column; align-items:stretch; }
+  .topline { display:flex; flex-direction:column; flex-wrap:nowrap; align-items:stretch; }
   .tabs { gap:20px; }
   .search { width:100%; min-width:0; flex:1 0 100%; margin:0; }
   .toolbar { gap:8px; padding:12px 0; }
@@ -90,13 +91,12 @@
   .row { display:grid!important; grid-template-columns:28px minmax(0,1fr) auto!important; gap:4px 8px; padding:12px 12px 12px 16px; min-height:0; }
   .row:last-child { border-bottom:0; }
   .identity { grid-column:2 / -1; padding:0; min-height:0; }
-  .documentIcon { display:none; }
-  .title { font-size:15px; line-height:21px; white-space:normal; overflow:visible; overflow-wrap:anywhere; }
+  .title { display:block; -webkit-line-clamp:none; font-size:15px; line-height:21px; overflow:visible; }
   .secondary { flex-wrap:wrap; margin-top:2px; gap:4px 8px; }
   .source { grid-column:2 / -1; display:flex; flex-direction:row; flex-wrap:wrap; align-items:baseline; gap:2px 8px; min-width:0; }
   .source[data-info=false] { display:flex; }
   .source .channel { font-size:13px; }
-  .source .sender { flex-basis:100%; font-size:13px; color:var(--muted); min-width:0; max-width:100%; white-space:normal; overflow:visible; overflow-wrap:anywhere; }
+  .source .sender { display:block; -webkit-line-clamp:none; flex-basis:100%; font-size:13px; color:var(--muted); min-width:0; max-width:100%; overflow:visible; }
   .source .sender[data-known=false] { display:none; }
   .source .mobileArrival { display:inline; color:var(--muted); font-size:12px; }
   .source .mobileArrival::before { content:"·"; margin-right:8px; }
@@ -154,7 +154,10 @@
 
 
 
-.toolbar > :not(.search):not(.bulkSlot) { flex-shrink:0; }
+.toolbar > :not(.search):not(.bulkSlot):not(.toolbarHelp) { flex-shrink:0; }
+/* Eliminados' line stands where the filters do, as tall as a control, and the column settings leave their square behind. So the toolbar wraps the same way on every tab, and the list and Agregar stay where they were. */
+.toolbarHelp { display:flex; align-items:center; min-width:0; min-height:44px; font-size:14px; line-height:20px; }
+.settingsSlot { width:44px; height:44px; }
 .toolbar button { white-space:nowrap; }
 .toolbar button svg { flex-shrink:0; }
 
@@ -172,7 +175,6 @@
 .fileCell { display:flex; align-items:center; justify-content:flex-start; min-width:0; padding-left:12px; }
 .fileCell button { margin-left:-13px; }
 .state { padding-top:6px; padding-bottom:6px; }
-.stateReason { display:block; min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; line-height:20px; }
 @container reception (max-width:819px) {
   .identity { grid-row:1; padding-right:44px; }
   .fileCell { grid-column:3; grid-row:1; justify-self:end; width:44px; padding-left:0; justify-content:center; }
@@ -180,10 +182,12 @@
   .fileCell[data-file=false] { display:none; }
   .mobileMoney { display:block; margin-top:2px; font-size:12px; color:var(--muted); }
   .state { padding-top:0; padding-bottom:0; }
-  .stateReason { white-space:normal; overflow:visible; overflow-wrap:anywhere; }
 }
 
 .filterChips { margin-left:-10px; width:calc(100% + 10px); }
+/* The filter's own search keeps the field corner of .input, smaller in the popover, so it never reads as the list's search pill. */
+input.filterSearch { margin-bottom:12px; }
+input.filterSearch[data-compact=true] { min-height:36px; padding:6px 10px; font-size:14px; }
 .noteIcon { display:inline-block; margin-right:6px; vertical-align:-2px; color:var(--muted); }
 
 
@@ -222,13 +226,13 @@
 .list:has(> .deletedColumns) { display:grid; grid-template-columns:minmax(160px,var(--content-cap)) repeat(3,max-content) minmax(max-content,1fr); }
 .list:has(> .deletedColumns) > * { grid-column:1 / -1; }
 .list:has(> .deletedColumns) > ul { display:grid; grid-template-columns:subgrid; min-width:0; }
-.deletedColumns,.deletedRow { display:grid; grid-template-columns:subgrid; grid-column:1 / -1; align-items:center; border-bottom:1px solid var(--line); }
-.deletedColumns { min-height:40px; color:var(--muted); font-size:13px; font-weight:500; }
+.list:has(> .deletedColumns) > ul > li { grid-column:1 / -1; }
+.deletedColumns,.deletedRow { display:grid; grid-template-columns:subgrid; align-items:center; border-bottom:1px solid var(--line); }
 .deletedRow { min-height:var(--row-height); padding:8px 0; font-size:14px; line-height:20px; transition:background-color 140ms ease; }
 .deletedRow:hover,.deletedRow:has(:focus-visible) { background:color-mix(in srgb,var(--fg) 3%,transparent); }
-.deletedColumns > span,.deletedRow > * { min-width:0; padding:0 12px; white-space:nowrap; }
+.deletedColumns > span,.deletedRow > * { min-width:0; padding:0 12px; }
+.deletedColumns > span,.deletedRow > :not(.deletedName) { white-space:nowrap; }
 .deletedColumns > :first-child,.deletedRow > :first-child { padding-left:16px; }
-.deletedName,.deletedActorName { display:block; overflow:hidden; text-overflow:ellipsis; }
 .deletedActor { display:flex; flex-direction:column; max-width:240px; }
 .deletedActor time { font-size:13px; line-height:18px; }
 .deletedMeta { color:var(--muted); }
@@ -250,12 +254,14 @@
 @container reception (max-width:819px) {
   .list:has(> .deletedColumns) { display:block; }
   .list:has(> .deletedColumns) > ul { display:block; }
-  .deletedColumns { display:none; }
+  .deletedColumns { display:flex; border-bottom:0; padding-left:16px; }
+  .deletedColumns > span { display:none; }
+  .deletedColumns > :first-child { display:block; padding:0; }
   .deletedRow { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; padding:12px 12px 8px 16px; min-height:0; }
   .deletedRow:last-child { border-bottom:0; }
   .deletedRow > *,.deletedRow > :first-child { padding:0; }
   .deletedRow > :first-child { flex-basis:100%; }
-  .deletedName { font-size:15px; line-height:21px; white-space:normal; overflow-wrap:anywhere; }
+  .deletedName { display:block; -webkit-line-clamp:none; font-size:15px; line-height:21px; overflow:visible; }
   .deletedActor { flex-direction:row; gap:6px; max-width:100%; color:var(--muted); font-size:13px; }
   .deletedActorName { display:inline; }
   .deletedActor,.deletedRow > time { flex-basis:100%; font-size:13px; }

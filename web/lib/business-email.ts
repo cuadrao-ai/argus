@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { apiFetch } from "./argus-api-transport";
+import type { BandejaGroup } from "./business-api";
+import type { SentBy } from "./sent-by";
 
 /** Received emails for a Business, as the API reports them. */
 
@@ -29,11 +31,15 @@ export type BusinessEmailDelivery = {
   waiting?: { reason: "daily_budget"; retry_at: string } | null;
   subject: string | null;
   sender: string | null;
+  /** Who brought it in, as every Bandeja row says it; null when the email names no usable address. */
+  sent_by?: SentBy | null;
   sent_at: string | null;
   error_code: string | null;
   parts: BusinessEmailPart[];
   /** Where the server says the email stands: being read, brought no receipt, or no Bandeja row of its own (null). */
   standing: EmailStanding | null;
+  /** The Bandeja tab the server puts this email in, read like a receipt's. */
+  bandeja_group?: BandejaGroup | null;
   /** Files this email saved as receipts, repeats included. Absent from servers older than #1353. */
   saved_receipt_count?: number;
   /** Why it brought no receipt, as a code; null unless `standing` is `no_receipt`. Absent from servers older than #1353. */

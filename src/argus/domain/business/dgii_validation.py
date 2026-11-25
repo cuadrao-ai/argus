@@ -10,9 +10,11 @@ from argus.domain.business.contracts.dgii import (
     MONEY_LIMIT,
     MONEY_PATTERN,
     DgiiDeclaration,
+    PurchaseCalculated,
     PurchaseDeclaration,
     SalesDeclaration,
     amount_or_zero,
+    money_text,
 )
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_columns import OPTIONAL_AMOUNTS, PAYMENT_BUCKETS
@@ -25,6 +27,7 @@ from argus.domain.business.document_type import (
 from argus.domain.business.fiscal_identity import (
     COUNTERPARTY_ID_LENGTH,
     credit_note,
+    debit_note,
     ncf_type,
     normalized_ncf,
     normalized_taxpayer_id,
@@ -72,18 +75,56 @@ def declarable(currency: str) -> bool:
     return currency == DECLARABLE_CURRENCY
 
 
-def fact_value(record: FiscalRecord, name: str) -> str | None:
-    fact = getattr(record.facts.fiscal, name, None)
+def _fiscal_value(
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+    overrides: tuple[str, ...] | None,
+    name: str,
+) -> str | None:
+    fact = getattr(facts.fiscal, name, None)
     value = fact.value if isinstance(fact, Known) else None
-    if name == "itbis" and record.declaration is not None:
-        declared = record.declaration.itbis
-        if declared is not None or not inherits(name, declared, value, record.fiscal_overrides):
+    if name == "itbis" and declaration is not None:
+        declared = declaration.itbis
+        if declared is not None or not inherits(name, declared, value, overrides):
             return declared
     return value
 
 
+def fact_value(record: FiscalRecord, name: str) -> str | None:
+    return _fiscal_value(record.facts, record.declaration, record.fiscal_overrides, name)
+
+
+def purchase_calculated(
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+    overrides: tuple[str, ...] | None,
+) -> PurchaseCalculated | None:
+    """Total Monto Facturado and ITBIS por Adelantar of a purchase, the one
+    owner of both: the 606 line writes them and the dossier shows them. A
+    blank Servicios, Bienes or llevado al costo counts as zero."""
+
+    if not isinstance(declaration, PurchaseDeclaration):
+        return None
+    itbis = _fiscal_value(facts, declaration, overrides, "itbis")
+    return PurchaseCalculated(
+        billed_amount=money_text(
+            amount_or_zero(declaration.services_amount)
+            + amount_or_zero(declaration.goods_amount)
+        ),
+        itbis_advance=None
+        if itbis is None
+        else money_text(
+            Decimal(money_text(Decimal(itbis))) - amount_or_zero(declaration.itbis_cost)
+        ),
+    )
+
+
 def is_credit(record: FiscalRecord) -> bool:
     return credit_note(fact_value(record, "ecf") or fact_value(record, "ncf"))
+
+
+def is_debit(record: FiscalRecord) -> bool:
+    return debit_note(fact_value(record, "ecf") or fact_value(record, "ncf"))
 
 
 def record_issues(
@@ -291,7 +332,7 @@ def record_issues(
                 issue("fiscal_credit_original_unsupported", "modified_ncf")
             if declaration.payment_method != "06":
                 issue("fiscal_credit_payment_code_required", "payment_method")
-        elif kind in {"03", "33"}:
+        elif is_debit(record):
             if normalized_ncf(declaration.modified_ncf) is None:
                 issue("fiscal_credit_reference_conflict", "modified_ncf")
             if declaration.actual_refund or declaration.purchase_activity_id:

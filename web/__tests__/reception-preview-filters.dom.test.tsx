@@ -16,7 +16,7 @@ test("Bandeja filters share mixed/all/none behavior and restrict bulk selection 
   const available = { receivingChannels: { email: { available: false }, whatsapp: { available: false } } } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue;
   const Filters = (await import("@/components/business-app/recepcion/ReceptionFilters")).default;
   const { emptyReceptionFilters } = await import("@/components/business-app/recepcion/reception-filters");
-  function Harness() { const [value, setValue] = useState(emptyReceptionFilters); return <><Filters value={value} onChange={setValue} senders={[{ id: "a", name: "Ana", address: "ana@example.test" }, { id: "b", name: "Bea", address: "bea@example.test" }]} /><output>{JSON.stringify(value)}</output></>; }
+  function Harness() { const [value, setValue] = useState(emptyReceptionFilters); return <><Filters value={value} onChange={setValue} senders={[{ id: "a", name: "Ana" }, { id: "b", name: "Bea" }]} /><output>{JSON.stringify(value)}</output></>; }
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent === text)!;
   const checkbox = (text: string) => { const label = [...document.querySelectorAll("label")].find(node => node.textContent === text); assert.ok(label); return label.querySelector<HTMLInputElement>("input")!; };
@@ -29,17 +29,17 @@ test("Bandeja filters share mixed/all/none behavior and restrict bulk selection 
     assert.equal(parent().indeterminate, true); assert.equal(parent().getAttribute("aria-checked"), "mixed");
     await click(parent()); assert.equal(parent().checked, true);
     await click(parent()); assert.equal(checkbox("Carga manual").checked, false);
-    await click(button("Remitente")); await click(checkbox("Anaana@example.test"));
+    await click(button("Enviado por")); await click(checkbox("Ana"));
     const search = document.querySelector<HTMLInputElement>('input[type="search"]')!;
     const type = (value: string) => act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, value); search.dispatchEvent(new Event("input", { bubbles: true })); });
     await type("Bea");
-    assert.equal(checkbox("Anaana@example.test").checked, true);
+    assert.equal(checkbox("Ana").checked, true);
     await click(checkbox("Seleccionar resultados"));
-    assert.equal(checkbox("Beabea@example.test").checked, true);
+    assert.equal(checkbox("Bea").checked, true);
     await click(checkbox("Seleccionar resultados"));
-    assert.equal(checkbox("Beabea@example.test").checked, false); assert.equal(checkbox("Anaana@example.test").checked, true);
+    assert.equal(checkbox("Bea").checked, false); assert.equal(checkbox("Ana").checked, true);
     await type("missing"); assert.equal(checkbox("Seleccionar resultados").disabled, true);
-    assert.equal(checkbox("Anaana@example.test").checked, true);
+    assert.equal(checkbox("Ana").checked, true);
     assert.equal(host.querySelector("output")?.textContent, JSON.stringify(emptyReceptionFilters()), "edits remain draft");
     await click(button("Aplicar"));
     assert.deepEqual(JSON.parse(host.querySelector("output")!.textContent!), { channels: [], senders: ["a"] });

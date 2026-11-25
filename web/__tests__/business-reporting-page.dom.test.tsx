@@ -101,7 +101,7 @@ test("a same-grant notification keeps the current report while an actual switch 
   const grantId = "00000000-0000-4000-8000-000000000001";
   setChosenGrant(grantId);
   const transport: ReportingTransport = {
-    query: async (_scope, request) => ({ ...recordedReportAnswer, items: [], matching_count: 0, page: request.page, page_size: request.page_size, page_count: 0, totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: [] }),
+    query: async (_scope, request) => ({ ...recordedReportAnswer, items: [], matching_count: 0, page: request.page, page_size: request.page_size, page_count: 0, totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], coverage_notes: [] }),
     export: async () => new Blob(), listViews: async () => [], mutateView: async () => null,
   };
   function Probe() {
@@ -117,14 +117,15 @@ test("a same-grant notification keeps the current report while an actual switch 
   assert.equal(host.textContent, "failed");
 });
 
-test("a connected last page uses full server count and original row order, with unknown values and read-only notes", async () => {
+test("a connected last page uses full server count and original row order, with unknown values and a link to the read-only note", async () => {
   const items = [row("zeta", null), row("alfa", "1234567890123.45")];
-  const answer: ReportAnswer = { ...recordedReportAnswer, items, matching_count: 102, page: 5, page_size: 25, page_count: 5, totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] };
+  const answer: ReportAnswer = { ...recordedReportAnswer, items, matching_count: 102, page: 5, page_size: 25, page_count: 5, totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] };
   const pages: number[] = [];
   const sizes: number[] = [];
+  const opened: BusinessContextValue["panel"][] = [];
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
-  const context = { chosen: { space_id: "fixture-space", role: "owner", capabilities: ["read", "prepare"] }, panel: { kind: "transactions" }, openPanel: () => undefined, records: { workspace: null } } as unknown as BusinessContextValue;
+  const context = { chosen: { space_id: "fixture-space", role: "owner", capabilities: ["read", "prepare"] }, panel: { kind: "transactions" }, openPanel: (panel: BusinessContextValue["panel"]) => opened.push(panel), records: { workspace: null } } as unknown as BusinessContextValue;
   const host = document.createElement("div"); document.body.appendChild(host); root = createRoot(host);
   await act(async () => root?.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>
     <RecordsPagePreview records={items.map(businessReportRow)} density="normal" preferences={{ ...sampleRecordsPreferences(), hidden: [] }} onSortChange={() => { throw new Error("Connected rows cannot sort locally"); }} rowRef={() => undefined} resetKey="report" connected={{ answer, onPage: (page) => pages.push(page), onPageSize: (size) => sizes.push(size) }} />
@@ -135,8 +136,12 @@ test("a connected last page uses full server count and original row order, with 
   assert.deepEqual(rows.map((item) => item.getAttribute("data-record-id")), ["zeta", "alfa"]);
   assert.match(rows[0].querySelector('[data-col="gross_amount"]')!.textContent!, /-/);
   assert.equal(rows[0].querySelector('[data-col="note"]')!.textContent, "Nota actual");
-  assert.equal(rows[0].querySelector('[data-col="note"] button'), null);
-  assert.equal(document.querySelector('[data-record-workflow="ready"]'), null);
+  const note = rows[0].querySelector<HTMLButtonElement>('[data-col="note"] button');
+  assert.ok(note);
+  assert.equal(note.getAttribute("aria-label"), spanish.business.transactions.layout.annotations.current_note);
+  await act(async () => note.click());
+  assert.deepEqual(opened, [{ kind: "draft", draftId: "zeta", list: "transactions", detailsCard: "note" }]);
+  assert.deepEqual(rows.map(item => item.querySelector('[data-col="stage"]')?.textContent), ["Falta 1 dato", "Falta 1 dato"]);
   await act(async () => (document.querySelector('th[data-col="date"] button') as HTMLElement).click());
   await act(async () => (document.querySelector('button[aria-label="Primera página"]') as HTMLElement).click());
   assert.deepEqual(pages, [1]);

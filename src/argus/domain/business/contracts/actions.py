@@ -13,8 +13,10 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 
 from argus.domain.business.accepted_dates import PastBusinessDate
+from argus.domain.business.bandeja_group import BandejaReason
 from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
@@ -24,6 +26,7 @@ from .dgii import (
     FiscalReview,
     Money,
     PurchaseReview,
+    SalePaymentForm,
     SalePaymentSplit,
 )
 from .facts import (
@@ -157,9 +160,12 @@ class ReviewDraft(Contract):
     purchase: PurchaseReview | None = None
     #: The 607 payment split a person writes on a sale; absent buckets stay.
     payment_split: SalePaymentSplit | None = None
-    #: Sets the uploaded document's type while the draft is open.
+    #: The one way a sale was paid. The server puts the whole total in that
+    #: bucket of the 607 payment split and clears the others.
+    sale_payment_form: SalePaymentForm | None = None
+    #: Sets the uploaded document's type.
     document_type: DocumentType | None = None
-    #: Sets the due date, or takes it back to unknown, while the draft is open.
+    #: Sets the due date or takes it back to unknown.
     due_on: DueOnInput | None = None
     montos: MontosReview | None = None
 
@@ -170,24 +176,29 @@ class ReviewDraft(Contract):
             and self.dgii is None
             and self.purchase is None
             and self.payment_split is None
+            and self.sale_payment_form is None
             and self.document_type is None
             and self.due_on is None
             and self.montos is None
         ):
             raise ValueError(
                 "supply review facts, a fiscal declaration, 606 fields, a 607"
-                " payment split, a document type or a due date"
+                " payment split or form, a document type or a due date"
             )
         return self
 
 
+#: The gaps the person saw and accepts the record over: every one of them, and
+#: only those ``bandeja_group.CONFIRMABLE`` lists. Kept on the stored approve
+#: command, so the decision is in the action receipt.
+AcceptedGaps = Annotated[
+    tuple[BandejaReason, ...], Field(default=(), exclude_if=lambda value: not value)
+]
+
+
 class ApproveExpense(Contract):
     version: int = Field(ge=1)
-    #: The person saw the review flags and approves anyway. Kept on the
-    #: stored approve command, so the decision is in the action receipt.
-    approve_anyway: Literal[True] | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+    accept_gaps: AcceptedGaps
     action: Literal["record_expense"]
     #: The dossier's suggestions the person saw filled in. The approval saves
     #: each into its 606 answer, with its source, while that answer is blank.
@@ -198,21 +209,13 @@ class ApproveExpense(Contract):
 
 class ApproveIncome(Contract):
     version: int = Field(ge=1, strict=True)
-    #: The person saw the review flags and approves anyway. Kept on the
-    #: stored approve command, so the decision is in the action receipt.
-    approve_anyway: Literal[True] | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+    accept_gaps: AcceptedGaps
     action: Literal["record_income"]
 
 
 class ApproveRefund(Contract):
     version: int = Field(ge=1, strict=True)
-    #: The person saw the review flags and approves anyway. Kept on the
-    #: stored approve command, so the decision is in the action receipt.
-    approve_anyway: Literal[True] | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+    accept_gaps: AcceptedGaps
     action: Literal["record_refund"]
 
 
@@ -236,19 +239,6 @@ class SettleRemainderCommand(Contract):
     action: Literal["settle_remainder"] = "settle_remainder"
     draft_id: UUID
     request: SettleRemainder
-
-
-class ReopenDraft(Contract):
-    """The owner returns an approved record to the Bandeja to correct it. The
-    money row it recorded stops counting; a later approval records it again."""
-
-    version: int = Field(ge=1, strict=True)
-
-
-class ReopenCommand(Contract):
-    action: Literal["reopen_draft"] = "reopen_draft"
-    draft_id: UUID
-    request: ReopenDraft
 
 
 class MarkPersonal(Contract):
@@ -324,6 +314,8 @@ class TypedPurchase(Contract):
 
 #: The longest note a person writes, typed or on a record, in characters.
 NOTE_MAX_LENGTH = 500
+#: How many supporting files a record holds at once. An unlinked file does not count.
+SUPPORTING_FILE_LIMIT = 3
 
 
 class CaptureNote(Contract):
@@ -455,7 +447,6 @@ Command = (
     | RebindAttachmentCommand
     | MarkPersonalCommand
     | DecideFiscalInclusionCommand
-    | ReopenCommand
     | DocumentCommand
 )
 
@@ -466,6 +457,9 @@ class Applied(Contract):
     version: int | None = Field(default=None, ge=1)
     question_id: UUID | None = None
     activity_id: UUID | None = None
+    purge_at: SkipJsonSchema[AwareDatetime | None] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class Refused(Contract):
@@ -479,7 +473,10 @@ class Refused(Contract):
     code: str
     # The approved record a duplicate_comprobante refusal points at.
     existing_record_id: UUID | None = None
-    # The review flags an approval_confirmation_required refusal names.
+    # Every gap a not_listo refusal found between the record and Listos.
+    gaps: tuple[str, ...] = ()
+    # Read back only: the review flags an approval_confirmation_required
+    # refusal stored before an accept named its gaps.
     flags: tuple[str, ...] = ()
     context: dict[str, str] | None = None
 
@@ -492,6 +489,8 @@ class Refused(Contract):
             payload.pop("existing_record_id", None)
         if self.context is None:
             payload.pop("context", None)
+        if not self.gaps:
+            payload.pop("gaps", None)
         if not self.flags:
             payload.pop("flags", None)
         return payload

@@ -33,7 +33,7 @@ function offWire(currencies: Record<string, unknown>[] = [{ currency: "DOP", inc
     missing_rnc: [line],
     missing_ncf: [],
     missing_fiscal_rows: [],
-    missing_fiscal_data: [{ ...line, missing: ["rnc_missing"] }],
+    missing_fiscal_data: [{ ...line, missing: ["missing_rnc"] }],
     unreviewed_movements_count: 0,
   };
 }
@@ -88,7 +88,7 @@ describe("Por cobrar and Por pagar while settlement is off", () => {
 
   test("the month read without settlement state parses, and no document carries a status", () => {
     const snapshot = readMonthCloseWire(offWire());
-    assert.deepEqual(snapshot.documents.map((document) => [document.id, document.status, document.missing]), [["sale-1", null, ["rnc_missing"]]]);
+    assert.deepEqual(snapshot.documents.map((document) => [document.id, document.status, document.missing]), [["sale-1", null, ["missing_rnc"]]]);
     assert.equal(snapshot.payment_methods, null);
     assert.deepEqual(snapshot.figures.map((block) => [block.net_before_itbis, block.itbis_charged, block.itbis_cobrado, block.pending_count, block.net_result_final]), [["-600.00", "180.00", null, null, true]]);
   });
@@ -142,7 +142,7 @@ describe("Por cobrar and Por pagar while settlement is off", () => {
       assert.equal(net.getAttribute("data-amount"), "-600.00");
       assert.equal(net.textContent, "-RD$ 600");
       assert.equal([net, ...net.querySelectorAll("*")].some((element) => /9e2f39|d66d75|ec9aa0|red/.test(element.getAttribute("class") ?? "")), false, "no red on a negative month");
-      assert.equal(host.textContent?.includes("Ingresos menos gastos aprobados"), false, "the definition is a tooltip, not a caption");
+      assert.equal(host.textContent?.includes("Ingresos menos gastos aceptados"), false, "the definition is a tooltip, not a caption");
       assert.equal(host.querySelector('[data-testid="home-month-itbis-sales"]')?.textContent, "RD$ 180");
     } finally {
       await act(async () => root.unmount());

@@ -287,6 +287,8 @@ def test_settings_tool_emits_the_production_pairs_the_audit_reads() -> None:
         "CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS=5",
         "CUADRAO_DOCUMENT_JOBS_MAX_READS=3",
         "CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS=3600",
+        "CUADRAO_WHATSAPP_INTAKE_ENABLED=false",
+        "CUADRAO_WHATSAPP_OUTBOUND_ENABLED=false",
         "POSTHOG_REGION=us",
     ]
     assert _settings_tool("print", "production", "workflow").returncode != 0
@@ -348,7 +350,9 @@ def test_render_blueprint_production_api_matches_the_manifest() -> None:
 
     marketing = services["cuadrao-marketing"]
     assert marketing["rootDir"] == "marketing"
-    assert "envVars" not in marketing
+    # Exact web/marketing inventories and production literals are checked in
+    # test_render_release_profile_contract.py.
+    assert marketing["envVars"]
     assert marketing["autoDeployTrigger"] == profile["services"]["marketing"][
         "auto_deploy_trigger"
     ]

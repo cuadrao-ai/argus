@@ -452,7 +452,14 @@ def _session(
     authority, context: ActionContext, capability: Capability
 ) -> Iterator[tuple]:
     with authority.pool.connection() as connection, connection.transaction():
-        connection.execute("set transaction isolation level repeatable read")
+        if capability == "prepare":
+            from argus.domain.business.transactions import lock_owner
+
+            # Take the write lock before reading the target. Read committed
+            # sees a delete that committed while the settlement was waiting.
+            lock_owner(connection, context.owner_id)
+        else:
+            connection.execute("set transaction isolation level repeatable read")
         auth = authorize(connection, context.actor, context.grant_id)
         auth.require(capability)
         if auth.context.owner_id != context.owner_id:

@@ -23,11 +23,7 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
 from argus.domain.business.dgii_export import LineAssessment
-from argus.domain.business.dgii_line import (
-    DETAIL_MISSING,
-    confirmed_declaration,
-    missing_items,
-)
+from argus.domain.business.dgii_line import confirmed_declaration, missing_items
 from argus.domain.business.dgii_validation import (
     FiscalRecord,
     fact_value,
@@ -35,8 +31,14 @@ from argus.domain.business.dgii_validation import (
     record_issues,
 )
 from argus.domain.business.document_type import SALE, direction
-from argus.domain.business.fiscal_identity import normalized_ncf, normalized_taxpayer_id
+from argus.domain.business.fiscal_identity import (
+    ncf_type,
+    normalized_ncf,
+    normalized_taxpayer_id,
+)
+from argus.domain.business.missing_reasons import DETAIL_MISSING, REASONS, registered
 from argus.domain.business.purchase_review import net_amount
+from argus.domain.business.reporting_columns import missing_columns
 from argus.domain.business.reporting_query import DgiiChoice, Purchase606, ReportRecord
 from argus.domain.business.review_flags import review_flags
 from argus.domain.ingestion.reconcile.model import ImportEvent
@@ -322,8 +324,8 @@ def project(
 
 # Fiscal reasons keep missing_items' order; distinct blocker reasons follow
 # in this table's order. Account details have no separate word in Registros.
-_BLOCKER_MISSING = {
-    "possible_duplicate": "possible_duplicate",
+BLOCKER_REASON = {
+    "possible_duplicate": "duplicate",
     "fact_required": DETAIL_MISSING,
     "activity_kind_unsupported": DETAIL_MISSING,
     "business_funding_unsupported": DETAIL_MISSING,
@@ -336,12 +338,25 @@ _BLOCKER_MISSING = {
     "business_questions_unresolved": DETAIL_MISSING,
     "business_draft_not_open": DETAIL_MISSING,
 }
+registered(BLOCKER_REASON.values())
 
 
 def readiness(
     row: ReportRecord, assessment: LineAssessment | None
 ) -> tuple[bool, tuple[str, ...]]:
     """Current data completeness, independent of export history and rate holds."""
+
+    if row.family == "sale":
+        number = normalized_ncf(row.fiscal_number)
+        gaps = {
+            "missing_date": row.report_date is None,
+            "missing_ncf": number is None,
+            "missing_rnc": number is not None
+            and (number[0], ncf_type(number)) in {("B", "01"), ("E", "31")}
+            and row.counterparty_key is None,
+        }
+        missing = tuple(code for code in REASONS if gaps.get(code, False))
+        return not missing, missing
 
     missing: tuple[str, ...] = ()
     if assessment is not None and assessment.issues is not None:
@@ -357,11 +372,11 @@ def readiness(
             missing = missing_items(assessment.record, issues)
     missing += tuple(
         reason
-        for blocker, reason in _BLOCKER_MISSING.items()
+        for blocker, reason in BLOCKER_REASON.items()
         if blocker in row.workflow_blockers
     )
     for blocker in dict.fromkeys(row.workflow_blockers):
-        if blocker not in _BLOCKER_MISSING:
+        if blocker not in BLOCKER_REASON:
             logger.warning("Unmapped reporting blocker {}: {}", blocker, DETAIL_MISSING)
             missing += (DETAIL_MISSING,)
     if row.technical_state:
@@ -382,7 +397,13 @@ def with_export_verdicts(
         identifier = row.linked_activity_ids[0]
         assessment = verdicts.get(identifier)
         ready, missing = readiness(row, assessment)
-        row = row.model_copy(update={"ready": ready, "missing": missing})
+        row = row.model_copy(
+            update={
+                "ready": ready,
+                "missing": missing,
+                "missing_fields": missing_columns(missing, row.family),
+            }
+        )
         if row.stage != "ready_for_export":
             return row
         if assessment is not None:

@@ -26,7 +26,7 @@ Pilot flow: <one or more, comma-separated: upload, email, WhatsApp, review, mont
 
 ## Testing
 
-Attach screenshots, recordings, and PDFs on the pull request, or upload them with actions/upload-artifact. Do not commit them under `docs/reports/` or an evidence folder.
+Keep screenshots, recordings, and PDFs local under `temp/<lane>/` and list their paths here. Do not attach them to the pull request or commit them.
 
 ## Risks/Rollback
 

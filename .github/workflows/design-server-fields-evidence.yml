@@ -4,23 +4,70 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [codex/private-alpha-next]
+    # Checked against script imports and driven pages by tests/test_ci_evidence_paths.py.
     paths:
-      - web/scripts/design-server-fields-evidence.ts
       - .github/workflows/design-server-fields-evidence.yml
+      - web/app/biz/page.tsx
+      - web/app/design-workspace/*
+      - web/app/fonts/*
+      - web/app/globals.css
+      - web/app/layout.tsx
+      - web/argus_display_contract/result_display_policy.json
       - web/argus_display_contract/support_contact.json
-      - web/components/business-app/BusinessMonthClosePanel.tsx
-      - web/components/business-app/BusinessOverviewPanel.tsx
-      - web/components/business-app/fixture-data.ts
+      - web/bun.lock
+      - web/components/CuadraoLockup.tsx
+      - web/components/CuadraoMark.tsx
+      - web/components/FullscreenLoading.module.css
+      - web/components/FullscreenLoading.tsx
+      - web/components/I18nProvider.tsx
+      - web/components/ThemeProvider.tsx
+      - web/components/business-app/*
+      - web/components/business-app/actividad/*
+      - web/components/business-app/dossier/*
+      - web/components/business-app/foundation/*
       - web/components/business-app/inicio/**
+      - web/components/business-app/invoicing/*
       - web/components/business-app/recepcion/**
+      - web/components/business-app/transacciones/*
+      - web/components/chat/*
+      - web/components/feedback/FeedbackAsk.tsx
+      - web/components/feedback/FeedbackDialog.tsx
+      - web/components/identity/IdentityEditor.tsx
+      - web/components/identity/IdentityMark.tsx
+      - web/components/keyboard/*
+      - web/components/layout/*
+      - web/components/money/MoneyInput.tsx
+      - web/components/receipt/ReceiptBody.tsx
+      - web/components/receipt/ReceiptChart.tsx
+      - web/components/receipt/ReceiptFollowupBox.tsx
+      - web/components/receipt/ReceiptTurnContent.tsx
+      - web/components/settings/*
+      - web/components/sidebar/*
+      - web/components/sidebar/command-palette/*
+      - web/components/status/*
+      - web/components/ui/*
       - web/e2e/support/breakpoint-fixture.ts
       - web/e2e/support/design-server-fields-reception.ts
       - web/e2e/support/month-close-wire.ts
       - web/e2e/support/synthetic-business-fallback.ts
-      - web/lib/business-month-close.ts
-      - web/lib/business-reports-api.ts
-      - web/lib/support-email.ts
+      - web/lib/*
+      - web/next.config.ts
+      - web/package.json
+      - web/postcss.config.mjs
+      - web/proxy.ts
+      - web/public/brand/*
+      - web/public/icons/apple-touch-icon-180.png
+      - web/public/images/invoicing/customer-directory.png
+      - web/public/images/invoicing/first-invoice.png
+      - web/public/images/invoicing/schedule-calendar.png
+      - web/public/images/notifications/quiet-bell.png
+      - web/public/locales/en/common.json
       - web/public/locales/es-419/common.json
+      - web/public/manifest.json
+      - web/scripts/design-server-fields-evidence.ts
+      - web/test-fixtures/records-columns-by-family.json
+      - web/test-fixtures/records-default-report-answer.json
+      - web/tsconfig.json
 
 permissions:
   contents: read

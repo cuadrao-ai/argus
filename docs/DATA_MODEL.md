@@ -2922,23 +2922,16 @@ and revisions backfill as groups with identical IDs. Refund provenance contains
 stable purchase group and reviewed revision. Purchase category edits with linked
 refunds fail explicitly, so copied historical category cannot silently drift.
 
-`financial_activity_groups.reversed_at` (nullable, migration
-`20261103003000_business_record_reversal.sql`) names the instant a Business
-reopen (`reopen_draft`) took the row out of every read. The three ledger
-loaders (`canonical_groups.load`, `loop_postgres.hydrate`,
-`owner_funds_postgres.load`) leave a reversed group and its legs out, so totals,
-the month close, the 606 and 607, Registros and account balances read as before
-the approval; the group, its records, revisions, memberships and money receipts
-stay as history, and a settlement, export line or bank outcome keyed to it stays
-too. Who reopened, when and from which draft version is the `reopen_draft` row
-in `business_action_receipts`, whose outcome names the activity. The reopened
-draft returns to `open` with `activity_id` null (the state check requires it)
-and keeps a `reopened` list in its resolution (`activity_id`, `version`,
-`actor_id`, `key`, `at`); the approval's recovery keys (`approval_receipt`,
-`accepted`, `accepted_request`, `pending_request`) leave it. Written only by
-the reopen, under the Business's owner lock; never set on a Personal row. The
-same migration admits `reopen_draft` as a turn-less human command on
-`business_action_receipts`.
+Deleting an accepted Business document sets `financial_activity_groups.reversed_at`
+under the owner's lock. The ledger loaders exclude the group and its legs from
+balances, period totals, the 606 and 607, and Registros. Restoring the document
+clears that timestamp on the same group. Correcting the document in place
+preserves the approval and writes a draft revision.
+
+Historical reversals from the retired reopen command also keep their timestamp.
+Migration `20261103003000_business_record_reversal.sql` preserves these groups
+and their `reopen_draft` action receipts, including the actor, time, reviewed
+version and activity.
 
 financial_activity_receipts binds owner/key, request hash, accepted group/revision and
 affected account IDs. Every canonical AND legacy activity writer takes one owner
@@ -3458,30 +3451,14 @@ boundary proposal is approved.
   `connection_id` (the captured document's statement connection), `error_code`,
   `claim_until`, `received_at` and `updated_at`. Linked, rejected and captured
   are final. A received row whose claim lapsed, or a failed row, is reclaimed by
-  a redelivery of the same message. Settling requires the claim the worker
-  took, so a worker whose claim lapsed cannot overwrite a newer one. A captured row's draft is owned by
-  `financial_document_extractions`.
-- Loss recovery (migration `20261031010000_whatsapp_claim_envelope.sql`):
-  `claim_envelope` holds the message (media id, type, caption, sender number)
-  sealed with the ingestion secret box, written with the claim, so a claim that
-  lapsed because the process died after the 200 can be run again.
-  `recovery_attempts` counts sweep retakes. A sweep (every 60 seconds in the
-  API process, and at most once a minute on webhook traffic, independent of
-  the document read sweep) retakes a lapsed claim by compare-and-set on
-  `claim_until` and runs the original processing path. After three retakes the
-  row settles `failed` with `whatsapp_recovery_exhausted` and the linked sender
-  gets one `whatsapp_photo_lost` reply. A lapsed row with no envelope settles
-  `failed` with `whatsapp_claim_envelope_missing`. Every settlement clears
-  `claim_envelope`: the trigger `whatsapp_inbound_clear_settled_envelope`
-  nulls it on any write that leaves `received`/`failed` or ends the claim, so
-  code from before this migration (a rollout or a code-only rollback) still
-  settles sealed rows and still drops their bytes. The check
-  `whatsapp_inbound_claim_envelope_shape` then holds by construction: an
-  envelope only on `received` and `failed`, version byte 1. Each item renews
-  its own lease (compare-and-set, fresh clock) right before its work, so no
-  photo is fetched under a lapsed lease. A photo is acknowledged only once its
-  envelope is sealed; with no codec, or when sealing fails, the webhook answers
-  503 and commits nothing, so the provider redelivers. Text stays best effort.
+  a redelivery of the same message. The webhook renews its lease during the
+  bounded save. Only the holder of the current lease can settle the claim.
+  The captured row points to the draft in `financial_document_extractions`.
+  If the file is eligible for a read, the bound read job and the captured
+  claim become visible in the same transaction.
+  The legacy `claim_envelope` and `recovery_attempts` columns remain in the
+  schema. New claims use neither column. The platform retries an unfinished
+  delivery after its lease expires.
 
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
@@ -3588,16 +3565,22 @@ The actor uses the existing account-deletion identity shape, so departure replac
 its ID with the Business alias and its name with `Exmiembro`. Delete and restore
 action receipts keep the existing `ActorProvenance` snapshot; restore removes the
 deleted marker.
-`previous_state` holds the original `state` and Bandeja `group` (`attention`
-or `listo`). A receipt with several generic, unapproved read candidates keeps
-one marker on its document JSON. Its optional `previous_state.events` maps
+`previous_state` holds the original `state` and Bandeja `group`. The group is
+`attention` or `listo` for Bandeja rows and null for an accepted record.
+A receipt with several generic, unapproved read candidates keeps one marker on
+its document JSON. Its optional `previous_state.events` maps
 candidate IDs to their prior review states. Delete dismisses those open
 candidates in the same transaction without copying the marker onto them.
-Restore removes the marker and restores those states. A receipt with an
-approved or accepting candidate cannot be deleted. The command
-ledger retains who deleted or restored the document and when. Original bytes,
-source links, facts and revisions remain in place until the purge below.
-Deletion changes no financial records, totals or exports.
+Restore removes the marker and restores those states. Delete refuses a group
+of generic candidates if any candidate is accepted or accepting. The command
+ledger records who deleted or restored the document and when. Original bytes,
+source links, facts and revisions remain in place until purge.
+For an accepted Business record, delete sets the group's `reversed_at` and
+clears the event's `activity_id` as required for a dismissed event. The
+approval snapshot in `resolution.accepted` retains the original activity ID.
+Restore uses that ID to reactivate the same group and return the event to
+`accepted` in one transaction. The monetary values and revisions stay intact
+throughout the restore window.
 
 ### Business document purge
 
@@ -3627,8 +3610,10 @@ deletion marker, so the hourly expiry query reads deleted documents only.
 A purge runs in one transaction under the owner lock. It writes the purge row
 first, then deletes the drafts, the draft's own message sources and the upload
 connections. Cascades remove revisions, source links, questions,
-observations, reads and read states. It removes custody object rows that
-recorded finished copies of the same paths. The erase then removes each path no
+observations, reads and read states. For an accepted document, purge also
+removes the reversed activity group and the money records used only by that
+group. It removes custody object rows that recorded finished copies of the
+same paths. The erase then removes each path no
 live document or custody copy still references, under the owner's stored-object
 lock, and takes it off `pending_objects`.
 
@@ -3659,6 +3644,55 @@ intent may remain pending after an object failure; its hash and authority scope
 prevent key reuse with changed payload. Existing document connections, object
 custody, source records and same-space source links own the bytes. No new table,
 foreign key, client grant or alternative evidence owner is introduced.
+
+`20261122135103_business_supporting_file_unlink.sql` lets a person take a
+supporting file off a record and put it back. `business_action_receipts` permits
+the human-only commands `unlink_supporting_file` and `restore_supporting_file`
+on the same terms as the two above. `business_draft_revisions` gains nullable
+`supporting_change` (`appended`, `unlinked` or `restored`) and
+`supporting_filename` (at most 80 characters). A revision that sets them names
+exactly one source in `source_ids`. Appends from before the migration keep both
+null.
+
+An unlink deletes the file's `business_draft_sources` row and writes one
+`unlinked` revision. The `business_sources` row, the upload and its bytes stay.
+A supporting file is unlinked when no record links its source; the newest
+`unlinked` revision is the one owner of when that happened. Restore inserts the
+link again and writes a `restored` revision. It is refused once the unlink is
+7 days old (`PURGE_AFTER`). A record holds at most 3 linked supporting files;
+the server refuses the next append or restore.
+
+An upload is a supporting file and never a receipt when a supporting source
+names it and nothing else holds it: no other `business_sources` row and no
+import observation (`UPLOAD_HELD_SQL` in `annotations.py`). The receipt
+listings, every receipt route and document command, and the expiry pass read
+that one predicate.
+
+A supporting file is never its record's document. Each reader that counts or
+picks a record's document reads the record's own sources (`own_source_sql` in
+`annotations.py`): the Listos rule, the reader's
+answers on the dossier, the file a repeat is compared by, the signature a
+settled repeat holds, the Bandeja's notes, and the one receipt a record names.
+
+A supporting file's upload has its own `financial_source_connections` row. Its
+`external_ref` is `supporting:` plus the reference a receipt with the same
+bytes has, so an upload of those bytes as a receipt makes a second row and
+neither row is ever the other. Both rows name one stored object. The erase
+removes an object only when no `financial_document_extractions` row names it.
+The migration moves each earlier upload that only a supporting file holds to
+the `supporting:` form. An earlier upload that a read or another source also
+holds keeps its reference and stays a receipt.
+
+The documents worker's expiry pass erases a supporting source that no record
+links and that has no `unlinked` revision newer than 7 days. This also covers a
+file whose record was purged while it was unlinked. The pass deletes the
+`business_sources` row. It deletes the upload, records the stored objects in
+`argus_private.business_document_purges` (reason `expiry`) and erases them only
+when no other source and no import observation holds the same upload. The
+revision is immutable, so who, when and the file name stay in the record's
+history. Two partial indexes serve the pass: `business_sources_supporting_idx`
+and `business_draft_revisions_unlinked_idx`. No table, policy or grant changes;
+row-level security is as before.
 
 ### Durable Business workspace identity
 
@@ -3773,9 +3807,17 @@ month counts and writes the day row only while both are under
 (2000), so three reads starting at once never overshoot. It is charged at the
 one place a read starts (`DocumentsService.resume`, just before the provider
 is reached). Over the budget the receipt stays saved and unread with
-`error_code` `business_read_budget_day` or `business_read_budget_month`, and
-reads again only when a person asks while the budget allows. A space deletion
-cascades its rows. The in-memory store keeps the same rule for memory mode.
+`error_code` `business_read_budget_day` or `business_read_budget_month`. It
+reads again when a person asks while the budget allows, or on its own once the
+budget's Santo Domingo day or month has turned: the document worker's upkeep
+(`workflows/read_resume.py`, at most once every ten minutes) queues it through
+the same path as "Leer de nuevo", with a fresh attempt, only while the owner's
+reading setting is on. The refusal's time is the draft's own `updated_at`; no
+column holds it. Migration `20261121062739_document_read_budget_wait_index.sql`
+adds the partial index `financial_document_extractions_refused_idx`, which
+holds only the receipts waiting on a budget, so the pass reads nothing while
+none wait. A space deletion cascades its rows. The in-memory store keeps the
+same rule for memory mode.
 
 ### Business WhatsApp AI permission
 
@@ -3888,8 +3930,7 @@ declaration and the API, so no client reads or sets it. No migration.
 
 The resolution's `due_on` is the due date a person set in review: a date, or
 absent while it is unknown. No read, default or issue date fills it. A change
-is a normal revision on an open draft, and the draft locks it with the other
-facts once approved. Migration `20261020120000_business_due_on.sql` adds the
+writes a draft revision. The owner may correct the date after approval. Migration `20261020120000_business_due_on.sql` adds the
 nullable `business_draft_revisions.before_due_on` and `after_due_on` date
 columns, so each revision keeps the value before and after it. The table keeps
 row-level security with no client policy; anon and authenticated hold no
@@ -3958,6 +3999,13 @@ actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
 
+`after_dgii` is the declaration stored once the revision is written, or null
+with none. `before_dgii` is the declaration the history compares against. It
+is the stored one when one exists. On a revision that writes the first
+declaration, a person's fiscal save or an approval, it is the declaration the
+review showed. To read the declaration stored before a revision, read
+`after_dgii` of the revision before it.
+
 Montos adds `facts.net_amount` and `facts.legal_tip` to the existing resolution
 and immutable revision JSON. These are provenance-bearing facts: read subtotal
 or human net edit, and read service charge with tip as an absence-only fallback.
@@ -3966,7 +4014,9 @@ JSON may carry a fiscal ITBIS override. `resolution.business.fiscal_overrides`
 records which fields no longer inherit from their source; null denotes older records
 whose override state must be interpreted from their saved declaration. The
 names are the keys of `amount_inheritance.INHERITANCE`, which now include
-`id_type` and `modified_ncf`. No table,
+`id_type` and `modified_ncf`. A name in `amount_inheritance.SOURCE_OWNED`
+is never recorded: `legal_tip` once the record carries that fact, and
+`id_type` on any purchase. A save removes one an older save kept. No table,
 column, migration, or backfill is added. The review action receipt records every
 edit and restore under the existing version, grant and idempotency checks.
 
@@ -4006,13 +4056,19 @@ two filled in; its expense type stays unknown and its payment form is known
 only from the Business account that paid. If the money write then fails, the
 reopened draft appends one revision that puts the declaration back as it was
 before the approval; if it cannot, the next approval writes from that earlier
-declaration. The export reads the reviewed revision's facts and the declaration
-from the latest revision, then checks current money amount, date and currency.
-On an accepted record the same `ReviewCommand`, carrying only the 606 fields or
-only a sale's 607 payment split, appends one more revision, whether or not an
-earlier download recorded the record's line
-(`business_dgii_export_lines`, migration `20261101010000`, read-only history),
-and the next export carries it; the recorded facts stay refused. The tipo de gasto suggested for an RNC has no column: the dossier
+declaration. An owner's review of an accepted record appends a draft revision and an
+action receipt in one transaction. A change to posted money facts advances
+the same activity's current revision in that transaction. A declaration-only
+change keeps its money revision. The event resolution records `accepted_edit_version`.
+Fiscal reports and exports use the latest posted facts and their source IDs,
+plus the current declaration. The original approval receipt continues to
+identify the revision that the owner first approved. Records accepted before
+in-place editing use the facts from their approval until corrected.
+
+Migration `20261123003924_business_accepted_edit_history.sql` adds nullable
+`before_document_type` and `after_document_type` to `business_draft_revisions`.
+New type changes record the previous and new type for Historial. Older
+revisions keep nulls. The tipo de gasto suggested for an RNC has no column: the dossier
 reads it from the declarations in this Business through
 `financial_import_events.business_rnc`, and a typed purchase is a draft with
 `receipt_state` `no_receipt` and no declaration. An approval that saves a

@@ -300,9 +300,7 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
         ("fiscal_number", False, False),
         ("itbis_amount", False, False),
         ("stage", False, True),
-        ("missing", False, True),
         ("attachment", False, True),
-        ("funding", False, False),
         ("counterparty_id", False, False),
     ]
     every = [
@@ -333,20 +331,20 @@ def test_a_country_omission_leaves_the_preview_and_the_file(fake, monkeypatch):
     monkeypatch.setitem(
         country.COUNTRIES,
         "DO",
-        country.BusinessCountry("DO", "DOP", frozenset({"funding"})),
+        country.BusinessCountry("DO", "DOP", frozenset({"note"})),
     )
     request = report(currencies=["DOP"])
     dominican = replace(source(row(fake)), country="DO")
     preview = summarize_export(dominican, request)
-    assert "funding" not in [column.key for column in preview.table.current.columns]
-    assert "funding" in [
+    assert "note" not in [column.key for column in preview.table.current.columns]
+    assert "note" in [
         column.key
         for column in summarize_export(
             replace(dominican, country="US"), request
         ).table.current.columns
     ]
     with pytest.raises(ActionError) as refused:
-        build_file(dominican, table(request, ("funding",), currencies="current"))
+        build_file(dominican, table(request, ("note",), currencies="current"))
     assert refused.value.result.code == "business_export_column_unavailable"
 
 
@@ -370,11 +368,9 @@ def test_the_default_file_keeps_the_name_and_ends_with_forma_de_pago(fake):
         ("itbis_amount", False, True),
         ("gross_amount", False, True),
         ("stage", False, True),
-        ("missing", False, True),
         ("fiscal_number", False, False),
         ("note", False, False),
         ("attachment", False, False),
-        ("funding", False, False),
         ("payment_form", False, True),
     ]
     checked = tuple(key for key, _, shown in columns if shown)
@@ -391,7 +387,6 @@ def test_the_default_file_keeps_the_name_and_ends_with_forma_de_pago(fake):
         "ITBIS",
         "Total",
         "Estado",
-        "Motivo",
         "Forma de pago",
     ]
     assert values[:2] == ["101001577", "Ferretería Ozama"]
@@ -404,7 +399,7 @@ def test_forma_de_pago_keeps_its_table_place_once_the_table_shows_it(fake):
         presentation=presentation,
     )
     keys = [key for key, _, _ in _file_columns(summarize_export(source(), request))]
-    assert keys[-2:] == ["payment_form", "funding"]
+    assert keys[-1] == "payment_form"
 
 
 def test_a_sales_file_keeps_the_name_and_has_no_forma_de_pago(fake):
@@ -431,10 +426,9 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     record = row(
         fake,
         stage="needs_fiscal_data",
-        export_missing="ncf_missing",
+        export_missing="missing_ncf",
         itbis_amount="18.00",
         has_document=True,
-        funding_label="Cuenta de operaciones",
         dgii_606=Purchase606(
             expense_type=DgiiChoice(code="02", label="Old category label"),
             payment_form=DgiiChoice(code="03", label="Old payment label"),
@@ -448,7 +442,6 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         "attachment",
         "expense_type",
         "payment_form",
-        "funding",
     )
     cells = xlsx(
         build_file(
@@ -464,18 +457,17 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         "Total",
         "Estado",
         "Adjunto",
-        "Cuenta",
         "Forma de pago",
     ]
     kinds = [(kind, code) for kind, _, code in cells[1]]
     assert kinds[1] == ("n", "dd/mm/yyyy")
     assert kinds[3:5] == [("n", "#,##0.00"), ("n", "#,##0.00")]
-    assert [value for _, value, _ in cells[1]][2::3] == [
+    assert [cells[1][index][1] for index in (2, 5, 7)] == [
         "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS",
         "Faltan datos",
         "03 - TARJETA CRÉDITO/DÉBITO",
     ]
-    assert [value for _, value, _ in cells[1][6:8]] == ["Sí", "Cuenta de operaciones"]
+    assert cells[1][6][1] == "Sí"
     csv_line = list(
         csv.reader(
             io.StringIO(
@@ -603,10 +595,10 @@ def test_csv_has_a_bom_and_keeps_accents(fake):
         ),
         (
             {"kind": "custom", "from_date": "2026-01-01", "to_date": "2026-12-31"},
-            "sale",
+            "purchase",
             "dgii",
             "csv",
-            "Mi negocio - Ventas 2026-01 a 2026-12 - DGII - 2026-10-18 1100.csv",
+            "Mi negocio - Compras 2026-01 a 2026-12 - DGII - 2026-10-18 1100.csv",
         ),
         (
             {"kind": "custom", "from_date": "2026-11-03", "to_date": "2026-11-09"},
@@ -725,7 +717,7 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
     assert preview.dgii.pending_rate_count == foreign_cards == 2
     assert preview.dgii.pending_rate_currencies == ("EUR", "USD")
     assert preview.dgii.pending_count == peso_card + foreign_cards
-    assert set(preview.model_dump()) == {"table", "dgii"}
+    assert set(preview.model_dump()) == {"table", "dgii", "bandeja_count"}
     manifest, lines = fiscal_manifest(
         tuple(month.approved.values()),
         rnc=FILER,
@@ -765,7 +757,7 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
             }
         ),
     )
-    assert (sales.dgii.form, sales.dgii.record_count) == ("607", len(lines["607"]))
+    assert sales.dgii is None
 
 
 def test_an_exported_line_that_is_now_incomplete_counts_as_pending_like_the_card():

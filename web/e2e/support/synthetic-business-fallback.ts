@@ -69,8 +69,7 @@ export async function fulfillSyntheticBusinessFallback(
       excluded_personal: { income: 0, expense: 0 },
       counterparties: [],
       categories: [],
-      expense_types: [],
-      funding_sources: [],
+      expense_types: recordedAnswer.expense_types,
       coverage_notes: [
         "records_only_evidence_separate",
         "legal_cancellation_coverage_unavailable",
@@ -80,7 +79,7 @@ export async function fulfillSyntheticBusinessFallback(
     }) });
   }
 
-  const source = context.source ?? createFixtureBusinessDataSource({ chatAvailable: false });
+  const source = context.source ?? createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { can_change: false } });
   const owner = context.owner ?? (await source.spaces())[0];
 
   if (path === "spaces") {
@@ -116,10 +115,6 @@ export async function fulfillSyntheticBusinessFallback(
     if (!context.fulfillConsent) throw new Error("Synthetic consent requires an accepted-consent fixture");
     return context.fulfillConsent();
   }
-  if (path === "receipt-reading") {
-    if (method !== "GET") throw new Error("Synthetic receipt-reading requires GET");
-    return route.fulfill({ json: { enabled: false, available: true, can_change: false } });
-  }
   if (path === "email") {
     if (method !== "GET") throw new Error("Synthetic email requires GET");
     return route.fulfill({ json: { enabled: true, receiving_address: "receipts@example.test" } });
@@ -130,7 +125,7 @@ export async function fulfillSyntheticBusinessFallback(
   }
   if (path === "receipts") {
     if (method !== "GET") throw new Error("Synthetic receipts requires GET");
-    return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
+    return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
   }
   if (path === "month-close") {
     if (method !== "GET") throw new Error("Synthetic month-close requires GET");

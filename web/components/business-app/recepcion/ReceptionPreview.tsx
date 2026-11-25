@@ -3,8 +3,9 @@
 import BusinessListTabs from "../foundation/BusinessListTabs";
 import GuideCard from "../foundation/GuideCard";
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
+import { sentByName } from "@/lib/sent-by";
 import { Check } from "lucide-react";
 import { resolveLanguage } from "@/lib/language-features";
 import { supportEmail } from "@/lib/support-email";
@@ -13,7 +14,8 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useReceivingChannels } from "../business-context";
-import { useBusiness } from "../BusinessWorkspace";
+import { RECEPTION_VIEW_PARAM, useBusiness } from "../BusinessWorkspace";
+import { followedReceipts } from "../BusinessReviewShortcuts";
 import ReceiptReadingControl from "../ReceiptReadingControl";
 import { loadFailure, type LoadFailure } from "../bandeja-sources";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -25,16 +27,15 @@ import ReceptionAddMenu from "./ReceptionAddMenu";
 import { useListArrivals } from "../foundation/list-arrivals";
 import { barSearchAvailable, useLendListSearch } from "../foundation/list-search";
 import ReceptionFilters, { ReceptionFilterChips } from "./ReceptionFilters";
-import { emptyReceptionFilters, receptionFilterMatches, receptionArrivedInPeriod, receptionSenderIdentity, type SenderIdentity, type ReceptionFiltersValue } from "./reception-filters";
+import { emptyReceptionFilters, receptionFilterMatches, receptionArrivedInPeriod, type SenderOption, type ReceptionFiltersValue } from "./reception-filters";
 import ReceptionEmptyState from "./ReceptionEmptyState";
 import { canAddRecords, quietButtonClass } from "../business-ui";
-import { listoItem, receptionDocumentTitle, receptionMatches, receptionRows, receptionSearchText, receptionTarget, rowDeleteTarget, type ReceptionRow, type ReceptionView } from "./reception-model";
+import { listoItem, receptionDocumentTitle, receptionMatches, receptionRows, receptionSearchText, receptionSentBy, receptionTarget, rowDeleteTarget, rowLabel, type ReceptionRow, type ReceptionView } from "./reception-model";
 import { bandejaAttentionCount, bandejaListoCount } from "../inbox-count";
 import ReceptionArrivalRow, { ReceptionPendingRow } from "./ReceptionArrivalRow";
 import ReceptionDeletedRow, { DeletedColumns } from "./ReceptionDeletedRow";
 import { useDeletedNotes } from "./useDeletedNotes";
 import { useDocumentDelete } from "../DocumentDeleteControls";
-import { useReceiptStateWord } from "../receipt-state-word";
 import { useDelayedPending } from "../business-skeletons";
 import { ReceptionSearch, ReceptionSettings } from "./ReceptionControls";
 import ReceptionColumnsHeading from "./ReceptionColumnsHeading";
@@ -49,12 +50,30 @@ import { receptionGrid } from "./reception-grid";
 import styles from "./reception.module.css";
 
 const VIEWS: ReceptionView[] = ["all", "attention", "listos", "eliminados"];
+const VIEW_CHANGE = "reception-view-change";
+const readView = (): ReceptionView => {
+  const value = new URLSearchParams(window.location.search).get(RECEPTION_VIEW_PARAM);
+  return VIEWS.find(view => view === value) ?? "all";
+};
+const subscribeView = (notify: () => void) => {
+  window.addEventListener("popstate", notify);
+  window.addEventListener(VIEW_CHANGE, notify);
+  return () => { window.removeEventListener("popstate", notify); window.removeEventListener(VIEW_CHANGE, notify); };
+};
+// Replace, like the workspace's own panel address: a tab is not a history step.
+function writeView(view: ReceptionView) {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get(RECEPTION_VIEW_PARAM) === view) return;
+  url.searchParams.set(RECEPTION_VIEW_PARAM, view);
+  window.history.replaceState(null, "", url);
+  window.dispatchEvent(new Event(VIEW_CHANGE));
+}
 /** Each tab's word, under `business.reception_preview`. */
 const VIEW_WORD: Record<ReceptionView, string> = { all: "all", attention: "attention", listos: "placeholder.listos", eliminados: "eliminados" };
 type ArrivalLoad = { scope: string; source: ReturnType<typeof useBusiness>["source"]; items: ReceiptSummary[]; failure: LoadFailure | null };
 
 
-type ReturnPosition = { scope: string; view: ReceptionView; filters: ReceptionFiltersValue; query: string; page: number; pageSize: PaginationState["pageSize"]; period: Period; admittedIds: string[] | null; selectedIds: string[] };
+type ReturnPosition = { scope: string; filters: ReceptionFiltersValue; query: string; page: number; pageSize: PaginationState["pageSize"]; period: Period; admittedIds: string[] | null; selectedIds: string[] };
 // Only the immediate dossier return uses this in-memory snapshot. Reload never restores it.
 const dossierReturns = new WeakMap<object, ReturnPosition>();
 
@@ -69,19 +88,19 @@ function ReceptionWorkspace() {
   const emailAvailable = useReceivingChannels().email.available;
   const locale = resolveLanguage({ device: i18n.resolvedLanguage ?? i18n.language });
   const word = (key: string) => t(`business.reception_preview.${key}`);
-  const { source, userId, records, chosen, panel, openPanel, revision, refresh, reload, retrySources } = useBusiness();
+  const { source, userId, records, chosen, panel, openPanel, followReceiptList, revision, refresh, reload, retrySources } = useBusiness();
   const { isBelowTablet: phone } = useResponsiveLayout();
   const scope = `${chosen?.space_id ?? "own"}:${chosen?.grant_id ?? chosen?.role ?? "unknown"}`;
   const [returnPosition] = useState(() => { const saved = dossierReturns.get(source); return saved?.scope === scope ? saved : undefined; });
   useEffect(() => { if (panel.kind === "inbox") dossierReturns.delete(source); }, [source, panel.kind]);
   const [loaded, setLoaded] = useState<ArrivalLoad | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [view, setView] = useState<ReceptionView>(returnPosition?.view ?? (panel.kind === "inbox" ? panel.view : undefined) ?? "all");
-  useEffect(() => { if (panel.kind === "inbox" && panel.view === "eliminados") setView("eliminados"); }, [panel]);
-  const stateWord = useReceiptStateWord();
+  const view = useSyncExternalStore<ReceptionView>(subscribeView, readView, () => "all");
+  useEffect(() => { if (panel.kind === "inbox" && panel.view === "eliminados") writeView("eliminados"); }, [panel]);
   const [deleting, setDeleting] = useState<ReceptionRow | null>(null);
   const deletedNotes = useDeletedNotes(view === "eliminados");
-  const deletion = useDocumentDelete(deleting && deleting.kind !== "email" ? rowDeleteTarget(deleting, deleting.kind === "receipt" ? stateWord(deleting.receipt) : t("business.document_delete.previous.attention"), t("business.document_delete.unnamed")) : null, {
+  const deletingLabel = deleting ? rowLabel(deleting) : null;
+  const deletion = useDocumentDelete(deleting && deleting.kind !== "email" ? rowDeleteTarget(deleting, deletingLabel ? t(`business.bandeja.label.${deletingLabel}`) : null, t("business.document_delete.unnamed")) : null, {
     onClose: () => setDeleting(null),
     onView: () => { if (deleting) { const target = receptionTarget(deleting); if (target.kind === "receipt" || target.kind === "draft") navigateFrom({ ...target, confirmDelete: true }); } setDeleting(null); },
   });
@@ -97,12 +116,12 @@ function ReceptionWorkspace() {
   }, [deletedNotes.items]);
   const [selectedIds, setSelectedIds] = useState<string[]>(returnPosition?.selectedIds ?? []);
   const list = useRef<HTMLDivElement>(null);
-  const chooseTab = (next: ReceptionView) => { setView(next); setSelectedIds([]); setPage(1); };
+  const chooseTab = (next: ReceptionView) => { writeView(next); setSelectedIds([]); setPage(1); };
   const applyFilters = (next: ReceptionFiltersValue) => { setFilters(next); setSelectedIds([]); setPage(1); };
   const [query, setQuery] = useState(returnPosition?.query ?? "");
   const [preferences, setPreferences] = useReceptionPreferences();
-  // The poll hands over a new array every tick; re-read the full list only when what it carries changed.
-  const inboxContent = useMemo(() => JSON.stringify(records.inbox), [records.inbox]);
+  // Unversioned fixtures and mocks keep their inbox-content trigger; the server's version owns live changes.
+  const listChange = records.listVersion ?? JSON.stringify(records.inbox);
   useEffect(() => {
     let current = true;
     const controller = new AbortController();
@@ -111,7 +130,7 @@ function ReceptionWorkspace() {
       if (current) setLoaded(previous => ({ scope, source, items: previous?.scope === scope && previous.source === source ? previous.items : [], failure: loadFailure(error) }));
     });
     return () => { current = false; controller.abort(); };
-  }, [source, scope, revision, attempt, inboxContent]);
+  }, [source, scope, revision, attempt, listChange]);
   const arrivals = loaded?.scope === scope && loaded.source === source ? loaded : null;
   const arrivalsDown = !!arrivals?.failure && !arrivals.failure.refused;
   const sourcesDown = (["notes", "emails"] as const).filter(key => { const failure = key === "notes" ? records.notesFailure : records.emailsFailure; return failure && !failure.refused; });
@@ -157,20 +176,32 @@ function ReceptionWorkspace() {
   }, [pending, failed, admittedIds, admissionKey, deletedNotes.items, hold, arrived]);
   const byId = new Map(latestRows.map(row => [`${row.kind}:${row.id}`, row]));
   const rows = (admittedIds ?? latestIds).map(id => byId.get(id)).filter((row): row is ReceptionRow => !!row);
-  const senders = [...new Map(rows.map(receptionSenderIdentity).filter((value): value is SenderIdentity => !!value).map(sender => [sender.id, sender])).values()].sort((a, b) => (a.name || a.address).localeCompare(b.name || b.address, locale));
+  const senders = [...new Map(rows.flatMap((row): [string, SenderOption][] => { const sender = receptionSentBy(row); return sender ? [[sender.id, { id: sender.id, name: sentByName(t, sender) }]] : []; })).values()].sort((a, b) => a.name.localeCompare(b.name, locale));
   const queryText = query.trim().toLocaleLowerCase(locale);
-  const matched = rows.filter(row => receptionMatches(row, view) && receptionFilterMatches(row, filters) && receptionArrivedInPeriod(row, period) && (!queryText || receptionSearchText(row).toLocaleLowerCase(locale).includes(queryText)));
+  // An Eliminados row shows no channel, sender or arrival date, so the tab has none of those controls and only search narrows it.
+  const searchOnly = view === "eliminados";
+  const matched = rows.filter(row => receptionMatches(row, view) && (searchOnly || (receptionFilterMatches(row, filters) && receptionArrivedInPeriod(row, period))) && (!queryText || receptionSearchText(row).toLocaleLowerCase(locale).includes(queryText)));
   const pages = Math.max(1, Math.ceil(matched.length / pageSize));
   const currentPage = Math.min(page, pages);
   const shown = matched.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const amountSize = previewAmountColumnSize(matched.flatMap(row => row.kind === "receipt" && row.receipt.amount != null && row.receipt.currency ? [{ amount: row.receipt.amount, currency: row.receipt.currency }] : []), locale);
-  // The boxes live on Listos, for owners; Estado says nothing there, since every row on the tab is the same.
+  // The boxes live on Listos, for owners.
   const selectable = view === "listos" && chosen?.capabilities.includes("approve") === true;
-  const showStatus = view !== "listos";
+  const columns = shownReceptionColumns(preferences);
+  // Receipts opened from the Bandeja follow the list as the server last answered it.
+  const listedReceipts = matched.flatMap(row => row.kind === "receipt" ? [row.id] : []).join("|");
+  const reviewList = panel.kind === "receipt" || panel.kind === "draft" ? panel.reviewList : undefined;
+  const openedFrom = reviewList?.scope === "inbox" ? reviewList.receiptIds : undefined;
+  const openReceipt = panel.kind === "receipt" ? panel.receiptId : null;
+  useEffect(() => {
+    if (pending || failed || !openedFrom) return;
+    const followed = followedReceipts(openReceipt, openedFrom, listedReceipts ? listedReceipts.split("|") : []);
+    if (followed.join("|") !== openedFrom.join("|")) followReceiptList(followed);
+  }, [pending, failed, openedFrom, openReceipt, listedReceipts, followReceiptList]);
   const navigateFrom = (next: Parameters<typeof openPanel>[0]) => {
-    dossierReturns.set(source, { scope, view, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
+    dossierReturns.set(source, { scope, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
     openPanel(next.kind === "receipt" || next.kind === "draft"
-      ? { ...next, receiptIds: matched.flatMap(row => row.kind === "receipt" ? [row.id] : []) }
+      ? { ...next, reviewList: { scope: "inbox", receiptIds: listedReceipts ? listedReceipts.split("|") : [] } }
       : next);
   };
   const rowKey = (row: ReceptionRow) => `${row.kind}:${row.id}`;
@@ -196,13 +227,13 @@ function ReceptionWorkspace() {
     if (records.error && !records.refused) reload();
     if (retryableSources.length) retrySources(retryableSources);
   };
-  const clear = () => { applyFilters(emptyReceptionFilters()); setQuery(""); setPeriod(periodRange("all")); };
-  const narrowed = !!queryText || period.key !== "all" || filters.channels.length > 0 || filters.senders.length > 0;
-  const tabEmpty = view === "all" ? null : view;
+  const clear = () => { if (!searchOnly) { applyFilters(emptyReceptionFilters()); setPeriod(periodRange("all")); } searchQuery(""); };
+  const narrowed = !!queryText || (!searchOnly && (period.key !== "all" || filters.channels.length > 0 || filters.senders.length > 0));
   const empty = narrowed ? { kind: "filtered" as const, title: word("empty"), body: word("empty_help"), action: { label: word("clear"), run: clear } }
     : view === "eliminados" ? { kind: "done" as const, title: t("business.document_delete.empty_title"), body: t("business.document_delete.empty_body") }
-    : tabEmpty ? { kind: "done" as const, title: word(`placeholder.empty_${tabEmpty}`), body: word(`placeholder.empty_${tabEmpty}_help`) }
-    : { kind: "first_run" as const, title: word("empty_start"), body: word(emailAvailable ? "empty_start_help" : "placeholder.empty_start_upload_help") };
+    : view === "attention" ? { kind: "done" as const, title: word("empty_attention"), body: word("empty_attention_help") }
+    : view === "listos" ? { kind: "done" as const, title: word("empty_listos"), body: word("empty_listos_help") }
+    : { kind: "first_run" as const, title: word("empty_start"), body: word(emailAvailable ? "empty_start_help" : "empty_start_upload_help") };
   const searchQuery = (next: string) => { setSelectedIds([]); setPage(1); setQuery(next); };
   // A wide screen keeps Agregar in the top bar; with the bar's search on, it also searches from there, scoped to
   // Bandeja, through the query this list lends. A phone keeps both.
@@ -211,7 +242,7 @@ function ReceptionWorkspace() {
   const guide = (key: string) => t(`business.guide_cards.bandeja_intro.${key}`);
   useLendListSearch("inbox", searchInBar ? { query, setQuery: searchQuery } : null);
   return <PullToRefresh onRefresh={refresh}>
-    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-columns={shownReceptionColumns(preferences, { status: showStatus }).join(" ")} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
+    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={columns.includes("status")} data-density={preferences.density} data-columns={columns.join(" ")} style={{ ...receptionGrid(preferences, { select: selectable }, amountSize.width), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {phone ? <div className={styles.phoneHeading} data-surface-block="heading"><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       {source.mode === "live" && userId && chosen ? (
         <GuideCard cardId="bandeja-intro" pending={waiting} title={guide("title")}
@@ -227,22 +258,25 @@ function ReceptionWorkspace() {
       </div>
       <div className={styles.toolbar} data-surface-block="toolbar" data-selecting={selected.length > 0}>
         {searchInBar ? null : <ReceptionSearch value={query} onChange={searchQuery} />}
-        <div role="group" aria-label={word("arrival_date")}><RecordsDatePreview period={period} value={period} title={word("arrival_date")} onChange={next => { setSelectedIds([]); setPage(1); setPeriod(next); }} /></div>
-        <ReceptionFilters key={scope} senders={senders} value={filters} onChange={applyFilters} />
-        <div className={styles.bulkSlot}>{selected.length ? <ReceptionBulkBar count={selected.length} approve={() => approval.ask(selected)} clear={() => setSelectedIds([])} /> : null}</div>
-        {(query && !searchInBar) || period.key !== "all" ? <button className={quietButtonClass} onClick={clear}>{word("clear")}</button> : null}
-        <div className={styles.tools}>{reviewNext ? <button type="button" data-testid="business-primary-review" className={`${styles.quietAction} rounded-full`} onClick={() => navigateFrom({ kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}{allListos.length && !selected.length ? <button type="button" data-testid="reception-approve-all" className={`${styles.quietAction} rounded-full`} onClick={() => approval.ask(allListos)}><Check size={16} aria-hidden="true" />{word("placeholder.approve_all")}</button> : null}<ReceptionAddMenu key={scope} addInBar={barTools} /><ReceptionSettings value={preferences} view={view} onChange={setPreferences} /></div>
+        {searchOnly ? <p className={`${styles.toolbarHelp} text-[#56635e] dark:text-white/70`} data-testid="deleted-list-help">{t("business.document_delete.list_help")}</p> : <>
+          <div role="group" aria-label={word("arrival_date")}><RecordsDatePreview period={period} value={period} title={word("arrival_date")} onChange={next => { setSelectedIds([]); setPage(1); setPeriod(next); }} /></div>
+          <ReceptionFilters key={scope} senders={senders} value={filters} onChange={applyFilters} />
+          <div className={styles.bulkSlot}>{selected.length ? <ReceptionBulkBar count={selected.length} approve={() => approval.ask(selected)} clear={() => setSelectedIds([])} /> : null}</div>
+        </>}
+        {(query && !searchInBar) || (!searchOnly && period.key !== "all") ? <button className={quietButtonClass} onClick={clear}>{word("clear")}</button> : null}
+        <div className={styles.tools}>{reviewNext && !searchOnly ? <button type="button" data-testid="business-primary-review" className={`${styles.quietAction} rounded-full`} onClick={() => navigateFrom({ kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}{allListos.length && !selected.length ? <button type="button" data-testid="reception-approve-all" className={`${styles.quietAction} rounded-full`} onClick={() => approval.ask(allListos)}><Check size={16} aria-hidden="true" />{word("placeholder.approve_all")}</button> : null}<ReceptionAddMenu key={scope} addInBar={barTools} />{searchOnly ? <span className={styles.settingsSlot} aria-hidden="true" /> : <ReceptionSettings value={preferences} onChange={setPreferences} />}</div>
       </div>
-      <ReceptionFilterChips value={filters} senders={senders} onChange={applyFilters} />
-      {view === "eliminados" ? <p className="text-[14px] text-[#56635e] dark:text-white/70">{t("business.document_delete.list_help")}</p> : <ReceiptReadingControl />}
+      {searchOnly ? null : <ReceptionFilterChips value={filters} senders={senders} onChange={applyFilters} />}
+      <ReceiptReadingControl pending={waiting} />
       {approval.failed.length ? <ReceptionApprovalFailure failed={approval.failed} attempted={approval.attempted} onRetry={approval.retry} onDismiss={approval.dismiss} /> : null}
       {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : onlySourcesFailed ? t(`business.inbox.${sourcesLine}`) : word("error")}{refusedForGood ? <> {t("auth.business_unavailable.body", { supportEmail })}</> : null}{reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
       <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${view}`} tabIndex={0} className={styles.list} data-surface-block="list">
-        {view === "eliminados" ? <DeletedColumns /> : <ReceptionColumnsHeading preferences={preferences} view={view} status={showStatus}>{!selectable ? null : pageListos.length ? <label className={styles.checkbox}><input type="checkbox" checked={allSelected} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageListos.map(row => row.rowId))} /></label> : <span className={styles.checkbox} />}</ReceptionColumnsHeading>}
+        {view === "eliminados" ? <DeletedColumns /> : <ReceptionColumnsHeading preferences={preferences}>{!selectable ? null : pageListos.length ? <label className={styles.checkbox}><input type="checkbox" checked={allSelected} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageListos.map(row => row.rowId))} /></label> : <span className={styles.checkbox} />}</ReceptionColumnsHeading>}
         {waiting ? <ul role="status" aria-label={word("loading")} aria-busy="true" data-testid="reception-pending" style={{ visibility: placeholdersShown ? "visible" : "hidden" }}>
-          {[0, 1, 2, 3, 4].map(index => <ReceptionPendingRow key={index} index={index} preferences={preferences} view={view} selectable={selectable} />)}
+          {[0, 1, 2, 3, 4].map(index => <ReceptionPendingRow key={index} index={index} preferences={preferences} selectable={selectable} />)}
         </ul> : <ul aria-label={word("list_label")}>
-          {shown.map(row => view === "eliminados" ? <ReceptionDeletedRow key={`${row.kind}-${row.id}`} row={row} title={titleOf(row)} openPanel={navigateFrom} /> : <ReceptionArrivalRow key={`${row.kind}-${row.id}`} row={row} rowKey={rowKey(row)} arrived={fresh.has(rowKey(row))} view={view} onDelete={(row.kind === "receipt" ? row.receipt.bandeja_group?.group === "attention" && row.receipt.delete_available : row.kind === "note" && row.note.bandeja_group?.group === "attention" && row.note.delete_available) && chosen?.capabilities.includes("approve") && source.deleteDocument ? () => { setDeleting(row); deletion.ask(); } : undefined} panel={panel} openPanel={navigateFrom} preferences={preferences} selectable={selectable} checkable={selectable && listoItem(row) !== null} checked={selectedIds.includes(rowKey(row))} unseen={unseenIds.has(rowKey(row))} onCheck={() => setSelectedIds(current => current.includes(rowKey(row)) ? current.filter(id => id !== rowKey(row)) : [...current, rowKey(row)])} />)}
+          {/* The server says what can be deleted. A Listos row offers it only in its review menu. */}
+          {shown.map(row => view === "eliminados" ? <ReceptionDeletedRow key={`${row.kind}-${row.id}`} row={row} title={titleOf(row)} openPanel={navigateFrom} /> : <ReceptionArrivalRow key={`${row.kind}-${row.id}`} row={row} rowKey={rowKey(row)} arrived={fresh.has(rowKey(row))} onDelete={(row.kind === "receipt" ? row.receipt.delete_available && row.receipt.bandeja_group?.group !== "listo" : row.kind === "note" && row.note.delete_available && row.note.bandeja_group?.group !== "listo") && chosen?.capabilities.includes("approve") && source.deleteDocument ? () => { setDeleting(row); deletion.ask(); } : undefined} panel={panel} openPanel={navigateFrom} preferences={preferences} selectable={selectable} checkable={selectable && listoItem(row) !== null} checked={selectedIds.includes(rowKey(row))} unseen={unseenIds.has(rowKey(row))} onCheck={() => setSelectedIds(current => current.includes(rowKey(row)) ? current.filter(id => id !== rowKey(row)) : [...current, rowKey(row)])} />)}
         </ul>}
         {!pending && !failed && !shown.length ? <ReceptionEmptyState {...empty} /> : null}
       </div>

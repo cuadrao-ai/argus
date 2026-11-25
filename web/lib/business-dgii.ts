@@ -17,6 +17,8 @@ export type DgiiField = { name: string; label: string; kind: "select" | "date" |
 export type DgiiFields = Record<"606" | "607", DgiiField[]>;
 /** The 606 answers a person gives one by one. An absent field stays as it was. */
 export type PurchaseChoice = { category?: string | null; payment_method?: string | null };
+/** How a sale was paid, as one pick: the server's one form, null with none or a split across several, and the forms it offers. */
+export type SalePayment = { form: string | null; options: readonly string[] };
 export type TaxIdType = "rnc" | "cedula";
 export type TaxId = { type: TaxIdType; value: string };
 /** The razón social a person who manages the Business confirmed against the registry row for its tax id. */
@@ -42,4 +44,6 @@ export const setFiscalProfile = (input: FiscalProfileInput, key: string): Promis
 export const lookupRegistry = (taxId: TaxId, signal?: AbortSignal): Promise<RegistryAnswer> => apiFetch("/business/fiscal-profile/registry", { method: "POST", body: JSON.stringify({ tax_id: taxId }), signal });
 export const setLegalName = (input: LegalNameInput, key: string): Promise<FiscalProfile> => apiFetch("/business/fiscal-profile/legal-name", { method: "PUT", headers: { "Idempotency-Key": key }, body: JSON.stringify(input) });
 export const reviewDgii = (draftId: string, version: number, dgii: DgiiReview, key: string): Promise<BusinessDossier> => apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, dgii: { fiscal: dgii.fiscal, declaration: dgii.declaration }, ...(dgii.montos ? { montos: dgii.montos } : {}) }) }).then(readBusinessDossier);
+/** The one way a sale was paid. The body names the form alone: the server puts the whole total in its bucket. */
+export const reviewSalePayment = (draftId: string, version: number, form: string, key: string): Promise<BusinessDossier> => apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, sale_payment_form: form }) }).then(readBusinessDossier);
 export const reviewPurchase = (draftId: string, version: number, purchase: PurchaseChoice, key: string): Promise<BusinessDossier> => apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, purchase }) }).then(readBusinessDossier);

@@ -13,6 +13,8 @@ from argus.domain.business.contracts.facts import BusinessFacts
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from tests.business.action_counts import count_no_rows
+
 
 class MissingDraft:
     def context_for_draft(self, actor_id, draft_id, **_pin):
@@ -108,6 +110,7 @@ def test_approve_route_dispatches_strict_income_and_expense_commands():
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(service, uuid4())
     draft_id = uuid4()
     url = f"/business/drafts/{draft_id}/approve"
@@ -141,6 +144,21 @@ def test_approve_route_dispatches_strict_income_and_expense_commands():
     ]
 
 
+def test_draft_reopen_route_is_unavailable():
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(MissingDraft(), uuid4())
+    draft_id = uuid4()
+    with TestClient(app) as client:
+        response = client.post(
+            f"/business/drafts/{draft_id}/reopen",
+            json={},
+            headers={"Idempotency-Key": "retired-draft-reopen"},
+        )
+    assert response.status_code in (404, 405), response.text
+    assert "/business/drafts/{draft_id}/reopen" not in app.openapi()["paths"]
+
+
 def test_duplicate_resolution_is_a_strict_business_command():
     app = FastAPI()
     app.include_router(router)
@@ -166,7 +184,6 @@ def test_duplicate_resolution_is_a_strict_business_command():
         ("POST", "approve", {"action": "record_expense"}, "approve"),
         ("POST", "approve", {"action": "record_income"}, "approve_income"),
         ("POST", "approve", {"action": "record_refund"}, "approve_refund"),
-        ("POST", "reopen", {}, "reopen"),
         ("PATCH", "review", {"facts": {"amount": {"state": "unknown"}}}, "review"),
         (
             "POST",
@@ -186,7 +203,6 @@ def test_duplicate_resolution_is_a_strict_business_command():
         "expense",
         "income",
         "refund",
-        "reopen",
         "review",
         "duplicate",
         "personal",
@@ -246,6 +262,7 @@ def test_unsettled_action_returns_conflict_without_reading_dossier(
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         UnsettledDraft(), actor
     )

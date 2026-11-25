@@ -11,12 +11,12 @@ from uuid import uuid4
 import pytest
 from argus.domain.business.contracts.actions import CaptureNote, ReviewDraft
 from argus.domain.business.contracts.facts import BusinessFactPatch
-from argus.domain.business.dgii_columns import SALES_COLUMNS
 from psycopg import Connection
 
 from tests import test_business_actions_postgres as business
 from tests import test_business_fiscal_routes_postgres as routes
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import accept
 from tests.test_business_approve_unpaid_postgres import (
     BUYER_OR_SUPPLIER,
     SPAN,
@@ -49,6 +49,11 @@ pytestmark = _local_supabase
 TEXT = "Gasolina en la estación"
 PURCHASE = {"amount": "500.00", "occurred_on": "2026-09-03"}
 OTHER_SUPPLIER = "199990048"
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 def _typed(world, person=None, grant=None, key=None, **body):  # noqa: ANN001, ANN003, ANN202
@@ -117,7 +122,7 @@ def test_a_person_reviews_it_alone_and_the_bandeja_holds_it_until_then(world) ->
         item["draft_id"]
         for item in _get(world, "/business/captures", view="inbox").json()["items"]
     ] == [draft]
-    assert _get(world, "/business/overview", **SPAN).json()["awaiting_review"] == 1
+    assert _get(world, "/business/overview", **SPAN).json()["bandeja_attention_count"] == 1
     many = _post(
         world,
         "/business/drafts/approve-listos",
@@ -197,7 +202,8 @@ def test_someone_who_prepares_types_it_and_only_the_owner_approves(world) -> Non
     dossier = answer.json()
     assert dossier["approval_action"] is None
 
-    refused = world.client.post(
+    refused = accept(
+        world.client,
         f"{API}/business/drafts/{dossier['draft_id']}/approve",
         json={"version": dossier["version"], "action": "record_expense"},
         headers={**_as(world.bob, world.grant), "Idempotency-Key": str(uuid4())},
@@ -306,7 +312,8 @@ def test_the_type_a_person_chose_for_an_rnc_comes_back_as_a_suggestion(world) ->
 def _approve_shown(world, dossier: dict, suggestions: dict):  # noqa: ANN001, ANN202
     """The approve request the review screen sends: the suggestions it showed."""
 
-    return world.client.post(
+    return accept(
+        world.client,
         f"{API}/business/drafts/{dossier['draft_id']}/approve",
         json={
             "version": dossier["version"],
@@ -487,17 +494,15 @@ def test_a_split_written_after_approval_ships_the_607_and_stays_open_after_expor
     assert _money_rows(world) == money
     assert _month(world)["dgii_forms"]["607"] == "prepared_candidate"
 
-    labels = dict(SALES_COLUMNS)
     assert _export(world)[2]["607"] == "prepared_candidate"
-    (line,) = routes.dgii_file(world, "sale")
-    assert line[labels["cash"]] == "1180.00"
     exported = _dossier(world, draft)
+    assert exported["dgii"]["cash"] == "1180.00"
     assert exported["payment_split_editable"] is True
     assert _suggested_type(exported) is None
     edited = _split(world, draft, exported["version"], cash="1000.00", card="180.00")
     assert edited.status_code == 200, edited.text
-    (line,) = routes.dgii_file(world, "sale")
-    assert (line[labels["cash"]], line[labels["card"]]) == ("1000.00", "180.00")
+    saved = _dossier(world, draft)["dgii"]
+    assert (saved["cash"], saved["card"]) == ("1000.00", "180.00")
 
 
 def test_each_write_changes_only_the_buckets_it_names(world) -> None:  # noqa: ANN001
@@ -563,11 +568,11 @@ def test_a_sale_with_no_declaration_gets_the_split_and_nothing_else(world) -> No
     )
 
 
-def test_an_approved_sale_keeps_its_facts_whatever_comes_with_the_split(world) -> None:  # noqa: ANN001
+def test_an_approved_sale_can_change_a_fact_and_its_split_together(world) -> None:  # noqa: ANN001
     draft, _ = _sale(world, "B0100000117")
     before = _dossier(world, draft)
 
-    refused = _review(
+    corrected = _review(
         world,
         draft,
         {
@@ -578,9 +583,12 @@ def test_an_approved_sale_keeps_its_facts_whatever_comes_with_the_split(world) -
         world.alice.headers,
     )
 
-    assert refused.status_code == 422, refused.text
-    assert refused.json()["code"] == "recorded_correction_unsupported"
-    assert _dossier(world, draft)["dgii"]["cash"] is None
+    assert corrected.status_code == 200, corrected.text
+    after = _dossier(world, draft)
+    assert after["review_state"] == "accepted"
+    assert after["approval_result"] == before["approval_result"]
+    assert after["facts"]["counterparty"]["value"] == "Otro"
+    assert after["dgii"]["cash"] == "1180.00"
 
 
 def test_a_purchase_takes_no_split(world) -> None:  # noqa: ANN001
@@ -623,13 +631,22 @@ def test_an_open_sale_takes_the_split_on_the_same_route(world) -> None:  # noqa:
 def test_someone_who_prepares_writes_the_split_and_a_stale_write_is_refused(
     world,
 ) -> None:  # noqa: ANN001
-    draft, _ = _sale(world, "B0100000116")
-    version = _dossier(world, draft)["version"]
+    draft, before = _reviewed(world, "income", "B0100000116")
+    version = before["version"]
+    accountant = _as(world.bob, world.grant)
 
-    written = _split(world, draft, version, _as(world.bob, world.grant), cash="1180.00")
+    written = _split(world, draft, version, accountant, cash="1180.00")
     assert written.status_code == 200, written.text
     stale = _split(world, draft, version, cash="1000.00")
     assert stale.status_code == 409, stale.text
+
+    approved = _approve(world, draft, written.json()["version"], "income")
+    assert approved.status_code == 200, approved.text
+    refused = _split(world, draft, approved.json()["version"], accountant, cash="1000.00")
+    assert (refused.status_code, refused.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
     assert _dossier(world, draft)["dgii"]["cash"] == "1180.00"
 
 

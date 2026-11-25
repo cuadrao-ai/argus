@@ -18,25 +18,28 @@ from fastapi.testclient import TestClient
 from httpx import Response
 
 from tests.business.conftest import ALICE, BOB
-from tests.business.receipt_stub import PURCHASE, ReceiptStub
+from tests.business.receipt_stub import ReceiptStub, receipt_date, receipt_purchase
 
 BASE = "/api/v1/business"
 RECEIPT = (
     Path(__file__).parents[1] / "document_extraction_fixtures/receipt-dop.png"
 ).read_bytes()
-EVIDENCE = {
-    "merchant": "FERRETERIA LA ESQUINA SRL",
-    "occurred_on": "2026-10-06",
-    "total": "3450.00",
-    "currency": "DOP",
-    "tax": "526.27",
-    "tip": None,
-    "service": None,
-    "lines": [
-        {"description": "Pintura blanca 1 gal", "amount": "1850.00"},
-        {"description": "Brochas x3", "amount": "1073.73"},
-    ],
-}
+
+
+def evidence() -> dict:
+    return {
+        "merchant": "FERRETERIA LA ESQUINA SRL",
+        "occurred_on": receipt_date(),
+        "total": "3450.00",
+        "currency": "DOP",
+        "tax": "526.27",
+        "tip": None,
+        "service": None,
+        "lines": [
+            {"description": "Pintura blanca 1 gal", "amount": "1850.00"},
+            {"description": "Brochas x3", "amount": "1073.73"},
+        ],
+    }
 
 
 class Owner:
@@ -67,8 +70,15 @@ class Owner:
             headers["Idempotency-Key"] = key
         return self.client.post(BASE + path, json=body, headers={**self.auth, **headers})
 
+    def reading_status(self, **params: str) -> dict:
+        response = self.get("/workspace", **params)
+        assert response.status_code == 200, response.text
+        setting = response.json()["receipt_reading"]
+        assert setting is not None
+        return setting
+
     def reading(self, enabled: bool):
-        shown = self.get("/receipt-reading").json()
+        shown = self.reading_status()
         return self.post(
             "/receipt-reading",
             {
@@ -100,7 +110,7 @@ class Owner:
             "Idempotency-Key": str(uuid4()),
             "X-Document-Filename": quote(name),
         }
-        shown = self.get("/receipt-reading").json()
+        shown = self.reading_status()
         if not consent and shown["enabled"]:
             assert (
                 self.post(
@@ -280,7 +290,7 @@ def test_business_and_personal_never_see_each_other(alice: Owner) -> None:
     expense = {
         "account_id": personal_id,
         "amount": "125.00",
-        "occurred_on": "2026-10-06",
+        "occurred_on": receipt_date(),
         "merchant": "Colmado",
         "category_id": None,
     }
@@ -328,10 +338,12 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
         "invoicing_available": False,
         "notifications_available": False,
         "settlement_available": False,
+        "typed_notes_available": False,
         "receiving_channels": {
             "email": {"available": False}, "whatsapp": {"available": False}
         },
         "logo_url": None,
+        "receipt_reading": empty["receipt_reading"],
         "receipt_limits": {
             "max_bytes": 10485760,
             "media_types": [
@@ -422,13 +434,13 @@ def test_upload_with_consent_prepares_a_reviewable_receipt(
     } == {
         "status": "review_ready",
         "merchant": "FERRETERIA LA ESQUINA SRL",
-        "occurred_on": "2026-10-06",
+        "occurred_on": receipt_date(),
         "amount": "3450",
         "currency": "DOP",
         "account_id": None,
         "expense_id": None,
         "missing_fields": ["account_id"],
-        "evidence": EVIDENCE,
+        "evidence": evidence(),
     }
     assert detail["version"] >= 1
     [listed] = alice.get("/receipts", view="inbox").json()["items"]
@@ -470,7 +482,7 @@ def test_saved_receipt_prepares_only_with_consent(
         "document_extraction_consent_required",
     )
     assert stub.calls == []
-    shown = alice.get("/receipt-reading").json()
+    shown = alice.reading_status()
     enabled = alice.post(
         "/receipt-reading",
         {
@@ -517,7 +529,7 @@ def test_confirm_refuses_missing_fields_and_currency_mismatch(alice: Owner) -> N
     precision = alice.confirm(receipt_id, version, "c-3")
     assert (precision.status_code, precision.json()["code"]) == (422, "amount_precision")
     assert alice.get(
-        "/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}
+        "/expenses", **{"from": receipt_date(), "to": receipt_date()}
     ).json() == {"items": []}
 
 
@@ -539,7 +551,7 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
     other_key = alice.confirm(receipt_id, version, "confirm-2").json()
     assert replay["expense_id"] == other_key["expense_id"] == expense_id
     assert alice.get(
-        "/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}
+        "/expenses", **{"from": receipt_date(), "to": receipt_date()}
     ).json() == {
         "items": [
             {
@@ -549,7 +561,7 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
                 "currency": "DOP",
                 "category_id": None,
                 "account_id": account,
-                "occurred_on": "2026-10-06",
+                "occurred_on": receipt_date(),
                 "receipt_id": receipt_id,
                 "fiscal_known": True,
             }
@@ -564,7 +576,6 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
             "pending_review_count": 0,
             "bandeja_listo_count": 0,
             "bandeja_attention_count": 0,
-            "needs_attention_count": 0,
             "ready_to_review_count": 0,
             "por_igualar_count": None,
             "confirmed_count": 1,
@@ -622,31 +633,31 @@ def test_overview_totals_each_currency_and_counts_the_inbox(alice: Owner) -> Non
     for account, amount in ((dop, "1000.50"), (dop, "200.00"), (usd, "24.00")):
         alice.post(
             "/expenses",
-            {"account_id": account, "amount": amount, "occurred_on": "2026-10-02"},
+            {"account_id": account, "amount": amount, "occurred_on": receipt_date()},
             key=str(uuid4()),
         )
     prepared(alice)
     alice.post("/receipt-reading", {"enabled": False, "scope_version": SCOPE_VERSION})
     alice.upload(content=RECEIPT + b"\0", consent=False)
-    overview = alice.get("/overview", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
+    overview = alice.get("/overview", **{"from": receipt_date(), "to": receipt_date()}).json()
     assert {
         key: overview[key]
         for key in (
             "from",
             "to",
             "totals",
-            "awaiting_review",
-            "needs_attention",
+            "bandeja_listo_count",
+            "bandeja_attention_count",
         )
     } == {
-        "from": "2026-10-01",
-        "to": "2026-10-31",
+        "from": receipt_date(),
+        "to": receipt_date(),
         "totals": [
             {"currency": "DOP", "amount": "1200.50", "count": 2},
             {"currency": "USD", "amount": "24.00", "count": 1},
         ],
-        "awaiting_review": 2,
-        "needs_attention": 0,
+        "bandeja_listo_count": 0,
+        "bandeja_attention_count": 2,
     }
     assert overview["last_received_at"] is not None
     assert overview["last_confirmed_at"] is not None
@@ -729,7 +740,6 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
             "pending_review_count": 0,
             "bandeja_listo_count": 0,
             "bandeja_attention_count": 0,
-            "needs_attention_count": 0,
             "ready_to_review_count": 0,
             "por_igualar_count": None,
             "confirmed_count": 0,
@@ -737,7 +747,7 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
             "bandeja_eliminados_count": 0,
         },
     }
-    window = {"from": "2026-10-01", "to": "2026-10-31"}
+    window = {"from": receipt_date(), "to": receipt_date()}
     assert bob.get("/expenses", **window).json() == {"items": []}
     assert [e["id"] for e in alice.get("/expenses", **window).json()["items"]] == [
         expense_id
@@ -749,8 +759,8 @@ def test_a_multi_row_csv_waits_for_attention_with_every_row_kept(
 ) -> None:
     """A spreadsheet is not one receipt: it is set aside, and its rows stay as evidence."""
     stub.rows = [
-        PURCHASE,
-        {**PURCHASE, "row": 2, "amount": "100.00", "merchant": "COLMADO DON JOSE"},
+        receipt_purchase(),
+        {**receipt_purchase(), "row": 2, "amount": "100.00", "merchant": "COLMADO DON JOSE"},
     ]
     rows = b"date,amount,merchant\n2026-10-06,3450.00,Ferreteria\n2026-10-06,100.00,Colmado\n"
     uploaded = alice.upload(content=rows, name="gastos.csv", media_type="text/csv")
@@ -775,7 +785,7 @@ def test_a_multi_row_csv_waits_for_attention_with_every_row_kept(
     assert source.status_code == 200
     assert source.content == rows
     assert alice.get(
-        "/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}
+        "/expenses", **{"from": receipt_date(), "to": receipt_date()}
     ).json() == {"items": []}
 
 
@@ -793,13 +803,13 @@ def test_upload_header_does_not_enable_business_reading(alice, stub):
     assert response.status_code == 200
     assert response.json()["activity"]["state"] == "saved_unread"
     assert stub.calls == []
-    assert alice.get("/receipt-reading").json()["enabled"] is False
+    assert alice.reading_status()["enabled"] is False
 
 
 def test_owner_enabling_reads_backlog_once_and_disabling_stops_new_reads(alice, stub):
     saved = alice.upload(consent=False).json()
     assert alice.get("/receipt-activity").json()["unread_count"] == 1
-    shown = alice.get("/receipt-reading").json()
+    shown = alice.reading_status()
     body = {
         "enabled": True,
         "scope_version": SCOPE_VERSION,
@@ -828,7 +838,7 @@ def test_receipt_list_and_detail_share_cursor_and_ack_does_not_record_money(alic
     assert (
         listed["activity"]["completion_cursor"] == detail["activity"]["completion_cursor"]
     )
-    before = alice.get("/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
+    before = alice.get("/expenses", **{"from": receipt_date(), "to": receipt_date()}).json()
     ack = alice.post(
         f"/receipts/{rid}/read",
         {"completion_cursor": detail["activity"]["completion_cursor"]},
@@ -836,7 +846,7 @@ def test_receipt_list_and_detail_share_cursor_and_ack_does_not_record_money(alic
     assert ack.status_code == 200, ack.text
     assert ack.json()["unread"] is False
     assert (
-        alice.get("/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
+        alice.get("/expenses", **{"from": receipt_date(), "to": receipt_date()}).json()
         == before
     )
 
@@ -849,7 +859,7 @@ def test_missing_source_does_not_strand_other_unread_receipts(alice, stub):
         user_id=alice.scope().person_id, connection_id=first["id"]
     )
     documents._update(alice.scope().person_id, draft, source_available=False)
-    shown = alice.get("/receipt-reading").json()
+    shown = alice.reading_status()
     enabled = alice.post(
         "/receipt-reading",
         {

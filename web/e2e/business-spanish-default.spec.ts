@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { ProfilePatch, UserResponse } from "../lib/argus-api";
 import type { BusinessAccount } from "../lib/business-api";
@@ -40,6 +40,9 @@ async function installAccount(page: Page, language: Language, options: { languag
   });
 }
 
+/** A dossier row's label is its first child. */
+const rowLabel = (review: Locator, row: string) => review.locator(`[data-fact="${row}"] > :first-child`);
+
 type Painted = { langs: string[]; texts: string[] };
 
 /** Every lang the document took and every text node it ever held, from the first parsed byte, so a word replaced before the next frame still counts. */
@@ -71,13 +74,13 @@ const paintedSoFar = (page: Page) => page.evaluate(() => (window as Window & { _
 async function setup(page: Page, language: Language, options: { languageChosen?: boolean } = {}) {
   await installAccount(page, language, options);
   await recordPaint(page);
-  const source = createFixtureBusinessDataSource({ chatAvailable: false });
+  const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { enabled: true, can_change: false } });
   const receipt = await source.receipt("rcpt-ferreteria");
-  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, ready_to_review_count: 1, needs_attention_count: 0 };
+  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, ready_to_review_count: 1 };
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.split("/business/")[1];
-    if (path === "workspace") return route.fulfill({ json: await source.workspace() });
+    if (path === "workspace") return route.fulfill({ json: { ...await source.workspace(), typed_notes_available: true } });
     if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: BUSINESS_NAME } });
     if (path === "spaces") {
       const spaces = (await source.spaces()).slice(0, 1).map((space) => ({ ...space, name: BUSINESS_NAME }));
@@ -86,7 +89,6 @@ async function setup(page: Page, language: Language, options: { languageChosen?:
     if (path === "overview") return route.fulfill({ json: { ...await source.overview("2026-10-01", "2026-10-31"), totals: [], fiscal_totals: [], without_fiscal_totals: [] } });
     if (path === "receipts") return route.fulfill({ json: { items: url.searchParams.get("view") === "all" ? [receipt] : [receipt], activity } });
     if (path === `receipts/${receipt.id}`) return route.fulfill({ json: receipt });
-    if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
     if (["email/deliveries", "captures"].includes(path)) return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
@@ -142,37 +144,33 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   for (const word of [spanishGreeting, "Inicio", "Bandeja", "Agregar"]) expect(painted!.texts, `${word} painted`).toContain(word);
   const firstScreenEnglish = [`business.overview.greetings.${PINNED_PERIOD}`, "business.overview.greeting_unnamed", "business.nav.overview", "business.nav.inbox", "business.nav.transactions", "business.actions.add", "business.month_close.action_review"].map((key) => en(key));
   expect(painted!.texts.filter((text) => firstScreenEnglish.includes(text)), "no English word painted before Spanish").toEqual([]);
-  await expect(page.getByRole("heading", { name: es("business.inicio.attention.title") })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pendientes", exact: true })).toBeVisible();
+  await expect(page.getByTestId("home-attention").getByTestId("status-pill")).toHaveText("Necesita atención");
   await expect(page.getByTestId("amounts-toggle")).toHaveAccessibleName("Ocultar montos");
   for (const english of ["Upload receipts", "My business", "Record expense", "Open inbox", "Add", "Overview", "Inbox", "Hide amounts"]) {
     await expect(page.getByText(english, { exact: true })).toHaveCount(0);
   }
 
   await page.getByTestId("business-primary-upload").click();
-  const upload = page.getByRole("dialog", { name: "Agregar" });
+  const upload = page.getByRole("dialog", { name: "Agregar documentos" });
   await expect(upload).toBeVisible();
   await expect(upload).not.toContainText("Upload receipt");
-  await expect(upload.getByTestId("intake-choose")).toHaveText("Elegir archivos");
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  await page.getByTestId("business-primary-upload").click();
-  await page.getByTestId("intake-write-open").click();
-  const record = page.getByRole("dialog");
-  await expect(record.getByTestId("intake-write")).toBeVisible();
-  await expect(record).toContainText("Escríbelo");
-  await expect(record).not.toContainText("Write it");
+  await expect(upload.getByTestId("intake-drop-zone")).toContainText("Sube tus documentos");
+  await expect(upload.getByTestId("intake-drop-zone")).toContainText("Haz clic para elegir");
+  await expect(upload).toContainText("Compra o venta");
+  await expect(upload).not.toContainText("Purchase or sale");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   await page.getByTestId("home-attention-rows").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   const review = page.getByTestId("side-drawer");
-  await expect(review).toContainText("Emisor");
-  await expect(review).toContainText("Fecha del comprobante");
-  await expect(review).toContainText("Categoría");
-  await expect(review).toContainText("Moneda");
-  await expect(review).toContainText("Cómo se pagó");
+  await expect(review.getByRole("heading", { name: "Comprobante", exact: true })).toBeVisible();
+  await expect(rowLabel(review, "counterparty")).toHaveText("Emisor");
+  await expect(rowLabel(review, "occurred_on")).toHaveText("Fecha");
+  await expect(rowLabel(review, "funding")).toHaveText("Cómo se pagó");
+  await expect(review.getByRole("heading", { name: "Montos", exact: true })).toBeVisible();
+  await expect(review.getByTestId("montos-currency")).toHaveAccessibleName("Moneda: DOP");
   await expect(review).not.toContainText("Merchant");
   await expect(review).not.toContainText("Paid from");
   await expect(review).not.toContainText("How it was paid");
@@ -183,7 +181,8 @@ test("an English account opens Business in English", async ({ page }) => {
   await page.goto("/biz");
   await expect(page.locator("#business-overview-title")).toHaveText(englishGreeting);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("heading", { name: en("business.inicio.attention.title") })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pending", exact: true })).toBeVisible();
+  await expect(page.getByTestId("home-attention").getByTestId("status-pill")).toHaveText("Needs attention");
   await expect(page.getByTestId("business-sidebar-nav")).toContainText(en("business.nav.overview"));
   await expect(page.getByTestId("business-sidebar-nav")).toContainText(en("business.nav.inbox"));
   await expect(page.getByTestId("business-primary-upload")).toHaveText(en("business.actions.add"));
@@ -193,25 +192,21 @@ test("an English account opens Business in English", async ({ page }) => {
   }
 
   await page.getByTestId("business-primary-upload").click();
-  const upload = page.getByRole("dialog", { name: en("business.intake.add_title") });
+  const upload = page.getByRole("dialog", { name: en("business.intake.panel_title") });
   await expect(upload).toBeVisible();
-  await expect(upload.getByTestId("intake-choose")).toHaveText(en("business.intake.choose_multiple"));
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  await page.getByTestId("business-primary-upload").click();
-  await page.getByTestId("intake-write-open").click();
-  await expect(page.getByRole("dialog")).toContainText(en("business.intake.write"));
+  await expect(upload.getByTestId("intake-drop-zone")).toContainText(en("business.intake.drop_click"));
+  await expect(upload).toContainText(en("business.intake.kind_label"));
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   await page.getByTestId("home-attention-rows").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   const review = page.getByTestId("side-drawer");
-  await expect(review).toContainText(en("business.terms.counterparty_purchase"));
-  await expect(review).toContainText(en("business.dossier.field.occurred_on"));
-  await expect(review).toContainText(en("business.dossier.field.category_id"));
-  await expect(review).toContainText(en("business.review.currency"));
-  await expect(review).toContainText("How it was paid");
+  await expect(review.getByRole("heading", { name: en("business.dossier.card.comprobante"), exact: true })).toBeVisible();
+  await expect(rowLabel(review, "counterparty")).toHaveText(en("business.terms.counterparty_purchase"));
+  await expect(rowLabel(review, "occurred_on")).toHaveText(en("business.dossier.row.date"));
+  await expect(rowLabel(review, "funding")).toHaveText("How it was paid");
+  await expect(review.getByRole("heading", { name: en("business.terms.montos_title"), exact: true })).toBeVisible();
+  await expect(review.getByTestId("montos-currency")).toHaveAccessibleName(`${en("business.dossier.field.currency")}: DOP`);
   await expect(review).not.toContainText("Emisor");
   await expect(review).not.toContainText("Pagado desde");
 });

@@ -257,10 +257,11 @@ export function BottomSheetSurface({
                 {titleIcon && !titleHidden ? <span aria-hidden="true" className="flex shrink-0">{titleIcon}</span> : null}
                 {title}
               </h2>
+              {/* A div: a caller may pass a slot element, which a paragraph cannot hold. */}
               {description ? (
-                <p id={descriptionId} className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} leading-relaxed text-[#56635e] dark:text-white/70`}>
+                <div id={descriptionId} className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} leading-relaxed text-[#56635e] dark:text-white/70`}>
                   {description}
-                </p>
+                </div>
               ) : null}
             </div>
             {dismissible && !hasBelow ? (

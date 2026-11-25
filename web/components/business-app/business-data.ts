@@ -7,8 +7,8 @@ import { getBusinessSetup } from "@/lib/business-setup-api";
 import * as searchApi from "@/lib/business-search-api";
 import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
 import type { ArgusLanguage } from "@/lib/language-features";
-import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch, ShownSuggestions } from "@/lib/business-dossier";
-import { getDgiiFields, getFiscalProfile, lookupRegistry, reviewDgii, reviewPurchase, setFiscalProfile, setLegalName, type DgiiFields, type DgiiReview, type FiscalProfile, type FiscalProfileInput, type FiscalProfileSaved, type LegalNameInput, type PurchaseChoice, type RegistryAnswer, type TaxId } from "@/lib/business-dgii";
+import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
+import { getDgiiFields, getFiscalProfile, lookupRegistry, reviewDgii, reviewPurchase, reviewSalePayment, setFiscalProfile, setLegalName, type DgiiFields, type DgiiReview, type FiscalProfile, type FiscalProfileInput, type FiscalProfileSaved, type LegalNameInput, type PurchaseChoice, type RegistryAnswer, type TaxId } from "@/lib/business-dgii";
 import type {
   GrantedSpace,
   BusinessAccount,
@@ -40,12 +40,11 @@ export type BusinessDataSource = Readonly<{
   spaceDirectory?: () => Promise<api.BusinessDirectory>;
   /** The person dismissed the one-time access line for one of their grants. */
   markAccessSeen: (grantId: string) => Promise<void>;
-  workspace: () => Promise<BusinessWorkspaceInfo>;
+  workspace: (language?: ArgusLanguage) => Promise<BusinessWorkspaceInfo>;
   receiptActivity?: typeof api.getReceiptActivity;
   receiptPage?: typeof api.getBusinessReceiptPage;
   /** The Bandeja page only when the Business's lists changed since the version named; null when they did not. */
   receiptChanges?: typeof api.getBusinessReceiptChanges;
-  receiptReading?: typeof api.getReceiptReading;
   setReceiptReading?: typeof api.setReceiptReading;
   /** The selected Business's setup steps, for whoever may manage it. */
   setup?: typeof getBusinessSetup;
@@ -60,11 +59,11 @@ export type BusinessDataSource = Readonly<{
   dgiiFields: () => Promise<DgiiFields>;
   reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>;
   reviewPurchase: (id: string, version: number, purchase: PurchaseChoice, key: string) => Promise<BusinessDossier>;
+  reviewSalePayment: (id: string, version: number, form: string, key: string) => Promise<BusinessDossier>;
   setDocumentType: (id: string, version: number, documentType: "recibo" | "venta", key: string) => Promise<BusinessDossier>;
-  approveDraft: (id: string, version: number, key: string, action: BusinessApprovalAction, approveAnyway?: boolean, suggestions?: ShownSuggestions) => Promise<BusinessDossier>;
+  approveDraft: typeof api.approveBusinessDraft;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner returns an approved record to the Bandeja; the server reverses its money row. */
-  reopenDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   deleteDocument?: typeof api.deleteBusinessDocument;
   restoreDocument?: typeof api.restoreBusinessDocument;
   purgeDocument?: typeof api.purgeBusinessDocument;
@@ -122,7 +121,6 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receiptActivity: api.getReceiptActivity,
   receiptPage: api.getBusinessReceiptPage,
   receiptChanges: api.getBusinessReceiptChanges,
-  receiptReading: api.getReceiptReading,
   setReceiptReading: api.setReceiptReading,
   setup: getBusinessSetup,
   markReceiptRead: api.markReceiptRead,
@@ -136,10 +134,10 @@ export const liveBusinessDataSource: BusinessDataSource = {
   dgiiFields: getDgiiFields,
   reviewFiscal: reviewDgii,
   reviewPurchase,
+  reviewSalePayment,
   setDocumentType: api.setBusinessDraftDocumentType,
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
-  reopenDraft: api.reopenBusinessDraft,
   deleteDocument: api.deleteBusinessDocument,
   restoreDocument: api.restoreBusinessDocument,
   purgeDocument: api.purgeBusinessDocument,
@@ -246,7 +244,6 @@ export function withBusinessSpace(
     receiptActivity: source.receiptActivity ? after(source.receiptActivity) : undefined,
     receiptPage: source.receiptPage ? after(source.receiptPage) : undefined,
     receiptChanges: source.receiptChanges ? after(source.receiptChanges) : undefined,
-    receiptReading: source.receiptReading ? after(source.receiptReading) : undefined,
     setup: source.setup ? after(source.setup) : undefined,
     setReceiptReading: source.setReceiptReading,
     markReceiptRead: source.markReceiptRead,
@@ -261,10 +258,10 @@ export function withBusinessSpace(
     dgiiFields: source.dgiiFields,
     reviewFiscal: source.reviewFiscal,
     reviewPurchase: source.reviewPurchase,
+    reviewSalePayment: source.reviewSalePayment,
     setDocumentType: source.setDocumentType,
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,
-    reopenDraft: source.reopenDraft,
     deleteDocument: source.deleteDocument,
     restoreDocument: source.restoreDocument,
     purgeDocument: source.purgeDocument,

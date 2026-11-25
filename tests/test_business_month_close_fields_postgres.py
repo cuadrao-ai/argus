@@ -20,6 +20,7 @@ from argus.domain.business.actions import approval
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import accept
 from tests.test_business_open_items_postgres import (  # noqa: F401
     API,
     PRACTICE,
@@ -32,6 +33,11 @@ from tests.test_business_open_items_postgres import (  # noqa: F401
 from tests.test_business_open_items_postgres import pytestmark as _local_supabase
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 @pytest.fixture(autouse=True)
@@ -83,7 +89,8 @@ def _reviewed(
 
 
 def _approve(world, draft: str, version: int, kind: str, key: str | None = None):  # noqa: ANN001, ANN202
-    return world.client.post(
+    return accept(
+        world.client,
         f"{API}/business/drafts/{draft}/approve",
         json={"version": version, "action": f"record_{kind}"},
         headers={**world.alice.headers, "Idempotency-Key": key or str(uuid4())},

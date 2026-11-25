@@ -48,7 +48,6 @@ from argus.api.business_drafts import (
     expenses_with_receipts,
     overview_with_drafts,
     receipt_detail,
-    receipt_summaries,
     receipt_summary,
     require_legacy_receipt_write,
     unread_backlog,
@@ -131,7 +130,10 @@ from argus.api.whatsapp import whatsapp_receiving_available
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
-from argus.domain.business.config import business_settlement_enabled
+from argus.domain.business.config import (
+    business_settlement_enabled,
+    business_typed_notes_enabled,
+)
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
@@ -823,6 +825,7 @@ def rename_space(
 def get_workspace(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
+    language: Literal["en", "es-419"] = "en",
 ) -> dict[str, Any]:
     space_id = context.scope.owner.space_id
     workspace = {
@@ -831,11 +834,17 @@ def get_workspace(
         "invoicing_available": invoicing_available(request),
         "notifications_available": notifications_available(),
         "settlement_available": business_settlement_enabled(),
+        "typed_notes_available": business_typed_notes_enabled(),
         "receiving_channels": {
             "email": {"available": email_receiving_available()},
             "whatsapp": {"available": whatsapp_receiving_available(context.scope)},
         },
         "logo_url": picture_urls("business", [space_id])[space_id],
+        "receipt_reading": (
+            receipt_reading(request, language, context)
+            if context.service.documents.business_receipt_consent is not None
+            else None
+        ),
     }
     if not context.scope.acting_as_owner:
         # Business chat is the owner's: the client's shell shows no composer.
@@ -945,7 +954,6 @@ async def upload_receipt(
     return await run_in_threadpool(receipt_summary, context, receipt)
 
 
-@router.get("/receipt-reading")
 def receipt_reading(
     request: Request,
     language: Literal["en", "es-419"] = "en",
@@ -1013,9 +1021,9 @@ async def set_receipt_reading(
 def receipt_activity_counts(
     context: Annotated[BusinessContext, Depends(require_business)],
 ) -> dict:
-    from argus.api.business_receipt_activity import counts
+    from argus.api.business_receipt_activity import counts_now
 
-    return counts(context, receipt_summaries(context, "all"))
+    return counts_now(context)
 
 
 @router.post("/receipts/{receipt_id}/read", response_model=ReceiptActivity)
@@ -1063,14 +1071,15 @@ def list_receipts(
 ) -> Any:
     try:
         from argus.api import business_list_version as versions
-        from argus.api.business_receipt_activity import counts
+        from argus.api.business_receipt_activity import receipts_now
+        from argus.domain.business.receipt_activity import listed
         from argus.domain.business.receipts import CLOSED
 
         version = versions.stored_version(context)
         if version and versions.unchanged(if_none_match, version):
             return versions.not_modified(version)
-        items = receipt_summaries(context, "all")
-        activity = counts(context, items)
+        items, activity = receipts_now(context)
+        items = [item for item in items if listed(item)]
         if view == "inbox":
             items = [item for item in items if item["status"] not in CLOSED]
         answer = {"items": items, "activity": activity}
@@ -1145,18 +1154,19 @@ async def prepare_receipt(
     try:
         if consent != "true":
             raise DocumentServiceError("document_extraction_consent_required")
-        _refuse_email_original(request, context, receipt_id)
-        require_legacy_receipt_write(context, receipt_id)
-        context.service.queue(context.scope, receipt_id)
+        await run_in_threadpool(_refuse_email_original, request, context, receipt_id)
+        await run_in_threadpool(require_legacy_receipt_write, context, receipt_id)
+        await run_in_threadpool(context.service.queue, context.scope, receipt_id)
         await dispatch_preparation(
             context.service.documents,
             context.scope.person_id,
             receipt_id,
             scope=context.scope.owner,
         )
-        [receipt] = _email_flagged(
-            context, [context.service.receipt(context.scope, receipt_id)]
+        receipt = await run_in_threadpool(
+            context.service.receipt, context.scope, receipt_id
         )
+        [receipt] = await run_in_threadpool(_email_flagged, context, [receipt])
         return await run_in_threadpool(receipt_summary, context, receipt)
     except Exception as error:
         raise _problem(request, error) from None

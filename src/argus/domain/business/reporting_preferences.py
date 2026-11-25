@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated, Any, Literal
 
+from loguru import logger
 from pydantic import (
     BaseModel,
     BeforeValidator,
@@ -17,6 +18,7 @@ from pydantic import (
 from argus.domain.business.contracts.dgii import ExpenseType
 from argus.domain.business.reporting_columns import (
     HIDDEN_COLUMNS,
+    RETIRED_COLUMNS,
     TABLE_COLUMNS,
     Family,
     TableColumn,
@@ -61,7 +63,7 @@ class ReportFilters(Contract):
     q: str = Field(default="", max_length=200)
     period: Period = Period()
     record_families: tuple[Family, ...] = ()
-    ready: bool | None = None
+    ready: Literal[False] | None = None
     review_stages: tuple[Stage, ...] = ()
     fiscal_data: FiscalData | None = None
     has_document: bool | None = None
@@ -72,9 +74,21 @@ class ReportFilters(Contract):
     categories: tuple[str, ...] = Field(default=(), max_length=200)
     #: 606 tipo de gasto codes, or `missing` for a purchase that still needs one.
     expense_types: tuple[ExpenseType | Literal["missing"], ...] = ()
-    funding_sources: tuple[str, ...] = Field(default=(), max_length=200)
-    document_kinds: tuple[DocumentKind, ...] = ()
-    fiscal_classifications: tuple[str, ...] = Field(default=(), max_length=100)
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_retired_filters(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        filters = value.copy()
+        for field in ("funding_sources", "document_kinds", "fiscal_classifications"):
+            if field in filters:
+                del filters[field]
+                logger.info("Dropped retired report filter {}", field)
+        if filters.get("ready") is True:
+            filters["ready"] = None
+            logger.info("Dropped retired report filter ready")
+        return filters
 
     @field_validator("review_stages", mode="before")
     @classmethod
@@ -107,12 +121,7 @@ class ReportFilters(Contract):
                     raise ValueError("amount range must be ordered")
         except RecordingInputError as error:
             raise ValueError(error.code) from None
-        for values in (
-            self.counterparties,
-            self.categories,
-            self.funding_sources,
-            self.fiscal_classifications,
-        ):
+        for values in (self.counterparties, self.categories):
             if any(not value or len(value) > 128 for value in values):
                 raise ValueError("invalid filter key")
         return self
@@ -149,17 +158,28 @@ def _current_columns(value: Any) -> Any:
     layout does not name joins it at the end, hidden.
     Tipo de gasto, Forma de pago and the net amount keep their shipped places."""
 
-    if not isinstance(value, dict) or not isinstance(value.get("order"), list):
+    if not isinstance(value, dict):
         return value
+    old_order = value.get("order", TABLE_COLUMNS)
+    old_hidden = value.get("hidden", HIDDEN_COLUMNS)
+    if not isinstance(old_order, (list, tuple)) or not isinstance(
+        old_hidden, (list, tuple)
+    ):
+        return value
+    if not isinstance(old_order, list) and not any(
+        key in old_order or key in old_hidden for key in RETIRED_COLUMNS
+    ):
+        return value
+    dropped = ("family", "currency", *RETIRED_COLUMNS)
     order = [
         "expense_type" if key == "category" else key
-        for key in value["order"]
-        if key not in ("family", "currency")
+        for key in old_order
+        if key not in dropped
     ]
     hidden = [
         "expense_type" if key == "category" else key
-        for key in value.get("hidden", list(HIDDEN_COLUMNS))
-        if key not in ("family", "currency")
+        for key in old_hidden
+        if key not in dropped
     ]
     if "payment_form" not in order and "expense_type" in order:
         order.insert(order.index("expense_type") + 1, "payment_form")
@@ -168,14 +188,22 @@ def _current_columns(value: Any) -> Any:
     if "net_amount" not in order:
         index = order.index("gross_amount") if "gross_amount" in order else len(order)
         order.insert(index, "net_amount")
-    if "missing" not in order:
-        index = order.index("stage") + 1 if "stage" in order else len(order)
-        order.insert(index, "missing")
     for key in TABLE_COLUMNS:
         if key not in order:
             order.append(key)
             if key not in hidden:
                 hidden.append(key)
+    # A legacy layout can lose the column that kept every table visible.
+    retired_was_shown = any(
+        (key in old_order or "order" not in value) and key not in old_hidden
+        for key in RETIRED_COLUMNS
+    )
+    if (
+        retired_was_shown
+        and hidden.count("stage") == 1
+        and not every_table_shows_one(key for key in TABLE_COLUMNS if key not in hidden)
+    ):
+        hidden.remove("stage")
     return {**value, "order": order, "hidden": hidden}
 
 

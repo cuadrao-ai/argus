@@ -2,7 +2,6 @@
 saves the 606 line its review showed, and the export reads that same line."""
 
 from dataclasses import dataclass
-from datetime import date
 from itertools import product
 from uuid import uuid4
 
@@ -14,12 +13,13 @@ from psycopg.types.json import Jsonb
 from tests import test_business_approval_fiscal_postgres as fiscal
 from tests import test_business_declaration_after_approval_postgres as recorded
 from tests import test_business_fiscal_links_postgres as links
+from tests.business.receipt_stub import receipt_day
+from tests.business_accept_support import seen_gaps
 
 users = fiscal.users
 shared_actions = fiscal.shared_actions
 actions = fiscal.actions
 pytestmark = fiscal.pytestmark
-DAY = date(2026, 9, 5)
 FORMS = ("01", "02", "03", "04", "05", "06", "07")
 ANSWERS = ("category", "payment_method")
 #: The server's suggestion for each answer. Compra a crédito pays later, so a
@@ -128,8 +128,8 @@ def _approve(service, context, draft, shown) -> None:  # noqa: ANN001
         ApproveExpense(
             version=shown.version,
             action="record_expense",
-            approve_anyway=True,
             suggestions=shown.declaration_suggestions,
+            accept_gaps=seen_gaps(service, context, draft),
         ),
         str(uuid4()),
     )
@@ -165,17 +165,17 @@ def test_an_approval_saves_and_exports_the_line_its_review_showed(actions, shape
 
 
 @pytest.mark.parametrize("account", [None, "checking"], ids=["owner funds", "checking"])
-def test_a_tipo_id_a_person_cleared_is_approved_blank(actions, account):  # noqa: ANN001
+def test_a_tipo_id_a_person_cleared_still_follows_the_rnc(actions, account):  # noqa: ANN001
     service, context = actions
     draft = _open(service, context, Shape("yes", "01", "id_type", account=account))
     shown = service.dossier(context, draft)
-    assert shown.dgii.id_type is None
-    assert shown.inheritance["id_type"].inherited is False
+    assert shown.dgii.id_type == "1"
+    assert shown.inheritance["id_type"].inherited is True
 
     _approve(service, context, draft, shown)
 
-    assert fiscal.revisions(service, draft)[-1]["dgii"]["id_type"] is None
-    assert links._line(service, context, draft)["id_type"] == ""
+    assert fiscal.revisions(service, draft)[-1]["dgii"]["id_type"] == "1"
+    assert links._line(service, context, draft)["id_type"] == "1"
 
 
 def test_a_saved_blank_forma_de_pago_shows_the_account_that_paid(actions):  # noqa: ANN001
@@ -184,11 +184,11 @@ def test_a_saved_blank_forma_de_pago_shows_the_account_that_paid(actions):  # no
 
     shown = service.dossier(context, draft)
 
-    assert (shown.dgii.payment_method, shown.dgii.paid_on) == ("02", DAY)
+    assert (shown.dgii.payment_method, shown.dgii.paid_on) == ("02", receipt_day())
     assert shown.inheritance["paid_on"].inherited is True
     _approve(service, context, draft, shown)
     line = links._line(service, context, draft)
-    assert (line["payment_method"], line["paid_on"]) == ("02", "20260905")
+    assert (line["payment_method"], line["paid_on"]) == ("02", receipt_day().strftime("%Y%m%d"))
 
 
 def test_a_suggested_forma_de_pago_comes_before_the_account_that_paid(actions):  # noqa: ANN001

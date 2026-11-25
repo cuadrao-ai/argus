@@ -4,21 +4,78 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [codex/private-alpha-next]
+    # Checked against script imports and driven pages by tests/test_ci_evidence_paths.py.
     paths:
       - .github/workflows/business-duplicate-resolution-evidence.yml
-      - web/scripts/receipt-duplicate-resolution-evidence.ts
-      - web/components/business-app/DossierAttentionStrip.tsx
-      - web/components/business-app/ReceiptDossierReview.tsx
-      - web/components/business-app/ReceiptDuplicateCompare.tsx
-      - web/components/business-app/ReceiptReviewFrame.tsx
-      - web/components/business-app/ReceiptSourcePreview.tsx
-      - web/components/business-app/dossier-attention.ts
-      - web/components/business-app/foundation/StatusChip.tsx
-      - web/components/business-app/foundation/status-chip.module.css
-      - web/lib/business-api.ts
-      - web/lib/business-dossier.ts
+      - web/__tests__/fixtures/business-report-http-fixture.ts
+      - web/__tests__/fixtures/recorded-report-answer.ts
+      - web/app/biz/page.tsx
+      - web/app/design-workspace/*
+      - web/app/fonts/*
+      - web/app/globals.css
+      - web/app/layout.tsx
+      - web/argus_display_contract/result_display_policy.json
+      - web/argus_display_contract/support_contact.json
+      - web/bun.lock
+      - web/components/CuadraoLockup.tsx
+      - web/components/CuadraoMark.tsx
+      - web/components/FullscreenLoading.module.css
+      - web/components/FullscreenLoading.tsx
+      - web/components/I18nProvider.tsx
+      - web/components/ThemeProvider.tsx
+      - web/components/business-app/*
+      - web/components/business-app/actividad/*
+      - web/components/business-app/dossier/*
+      - web/components/business-app/foundation/*
+      - web/components/business-app/inicio/*
+      - web/components/business-app/invoicing/*
+      - web/components/business-app/recepcion/*
+      - web/components/business-app/recepcion/assets/inbox-empty.png
+      - web/components/business-app/transacciones/*
+      - web/components/chat/*
+      - web/components/feedback/FeedbackAsk.tsx
+      - web/components/feedback/FeedbackDialog.tsx
+      - web/components/identity/IdentityEditor.tsx
+      - web/components/identity/IdentityMark.tsx
+      - web/components/keyboard/*
+      - web/components/layout/*
+      - web/components/money/MoneyInput.tsx
+      - web/components/receipt/ReceiptBody.tsx
+      - web/components/receipt/ReceiptChart.tsx
+      - web/components/receipt/ReceiptFollowupBox.tsx
+      - web/components/receipt/ReceiptTurnContent.tsx
+      - web/components/settings/*
+      - web/components/sidebar/*
+      - web/components/sidebar/command-palette/*
+      - web/components/status/*
+      - web/components/ui/*
+      - web/e2e/accepted-dossier-edit.spec.ts
+      - web/e2e/business-accepted-document-delete.spec.ts
+      - web/e2e/business-dossier-confirm.spec.ts
+      - web/e2e/dossier-read-states.spec.ts
+      - web/e2e/support/breakpoint-fixture.ts
+      - web/e2e/support/business-receipt-fixture.ts
+      - web/e2e/support/month-close-wire.ts
+      - web/e2e/support/synthetic-business-fallback.ts
+      - web/lib/*
+      - web/next.config.ts
+      - web/package.json
+      - web/playwright.config.ts
+      - web/postcss.config.mjs
+      - web/proxy.ts
+      - web/public/brand/*
+      - web/public/icons/apple-touch-icon-180.png
+      - web/public/images/invoicing/customer-directory.png
+      - web/public/images/invoicing/first-invoice.png
+      - web/public/images/invoicing/schedule-calendar.png
+      - web/public/images/notifications/quiet-bell.png
       - web/public/locales/en/common.json
       - web/public/locales/es-419/common.json
+      - web/public/manifest.json
+      - web/scripts/receipt-duplicate-resolution-evidence.ts
+      - web/test-fixtures/records-columns-by-family.json
+      - web/test-fixtures/records-default-report-answer.json
+      - web/tsconfig.json
 
 permissions:
   contents: read
@@ -28,6 +85,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
+      OPENROUTER_API_KEY: ""
       NEXT_PUBLIC_MOCK_AUTH: "true"
       NEXT_PUBLIC_ARGUS_API_URL: http://127.0.0.1:3198/api/v1
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:3198
@@ -61,6 +119,9 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:3198/ > /dev/null
           bun scripts/receipt-duplicate-resolution-evidence.ts
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:3198 bunx playwright test e2e/accepted-dossier-edit.spec.ts e2e/business-accepted-document-delete.spec.ts --output ../temp/duplicate-resolution-evidence/accepted
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:3198 bunx playwright test e2e/business-dossier-confirm.spec.ts --output ../temp/duplicate-resolution-evidence/dossier-confirm
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:3198 bunx playwright test e2e/dossier-read-states.spec.ts --output=../temp/duplicate-resolution-evidence/read-states
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

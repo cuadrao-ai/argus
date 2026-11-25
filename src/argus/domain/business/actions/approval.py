@@ -23,10 +23,10 @@ from argus.domain.business.actions.fiscal import (
     refund_reference,
     require_distinct_fiscal_document,
 )
-from argus.domain.business.actions.listos import draft_standings
-from argus.domain.business.amount_inheritance import approved_from
+from argus.domain.business.amount_inheritance import approved_from, written_from
+from argus.domain.business.approved_facts import APPROVAL_REVISION_VERSION
 from argus.domain.business.authority import ActionContext, ActionError
-from argus.domain.business.bandeja_group import listo_reason
+from argus.domain.business.bandeja_group import BandejaReason, refusing
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
     Applied,
@@ -57,9 +57,8 @@ from argus.domain.business.contracts.listos import (
     ListosApproved,
 )
 from argus.domain.business.document_type import require_type_kind
-from argus.domain.business.review_flags import unconfirmed
 from argus.domain.business.transactions import ActionTransaction, transaction
-from argus.domain.ingestion.reconcile.model import ImportEvent
+from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
 from argus.domain.recording.money_schemas import (
     MoneyRequest,
@@ -76,9 +75,12 @@ def _reviewed_facts(
     draft_id: UUID,
     version: int,
     kind: Literal["expense", "income", "refund"],
-    approve_anyway: bool = False,
-    listo: bool = False,
+    accept_gaps: tuple[BandejaReason, ...] = (),
 ) -> tuple[ImportEvent, BusinessFacts]:
+    """The draft and its facts, once the Listos rule admits the accept: the
+    record has no gap, or a person may accept over each one and ``accept_gaps``
+    names them all."""
+
     event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=version))
     view = dossier.dossier(tx, draft_id)
     if view.blockers:
@@ -95,13 +97,11 @@ def _reviewed_facts(
     )
     validate_facts(tx, view.facts)
     require_distinct_fiscal_document(tx, event, view.facts)
-    flagged = unconfirmed(view.review_flags)
-    if flagged and not approve_anyway:
-        raise ActionError(
-            "invalid_input", "approval_confirmation_required", flags=flagged
-        )
-    if listo and listo_reason(draft_standings(tx, [event])[event.id]) is not None:
-        raise ActionError("invalid_input", "not_listo")
+    standing = view.bandeja_group
+    if standing.group != "listo":
+        gaps = view.listo_gaps or ((standing.reason,) if standing.reason else ())
+        if standing.group != "attention" or refusing(gaps, accept_gaps):
+            raise ActionError("invalid_input", "not_listo", gaps=gaps)
     return event, view.facts
 
 
@@ -149,32 +149,30 @@ def _approval_declaration(
     facts: BusinessFacts,
     failed: dict | None,
     shown: DeclarationSuggestions | None,
-) -> DgiiDeclaration | None:
-    """The declaration an approval writes: the one its review showed, which
-    ``approved_from`` owns, with the suggestions the person was ``shown`` or
-    for a bulk approval (None) the server's own, read now. None when there
-    is none, or the draft already holds it with its overrides recorded.
+) -> tuple[DgiiDeclaration | None, DgiiDeclaration | None]:
+    """The declaration an approval writes, and the one its review showed.
+
+    It writes the shown one, which ``approved_from`` owns, with the
+    suggestions the person was ``shown`` or for a bulk approval (None) the
+    server's own, read now. It writes None when there is none, or the draft
+    already holds it with its overrides recorded.
 
     After a ``failed`` approval whose revision was never undone, the person's
-    declaration is the one before that revision, and it is written back.
+    declaration is the one stored before that revision, and it is written back.
     """
 
     business = event.resolution.get("business") or {}
-    saved = failed["before_dgii"] if failed is not None else business.get("dgii")
+    saved = failed["saved_dgii"] if failed is not None else business.get("dgii")
     held = _declaration(saved) if saved else None
     overrides = business.get("fiscal_overrides")
-    reviewed = approved_from(
-        facts,
-        held,
-        overrides,
-        business.get("bill_mark"),
-        dossier.review_sources(
-            tx, event.id, event.state, facts, held, business.get("document_type", "recibo"), shown=shown
-        ),
+    bill_mark = business.get("bill_mark")
+    linked = dossier.review_sources(
+        tx, event.id, event.state, facts, held, business.get("document_type", "recibo"), shown=shown
     )
+    reviewed = approved_from(facts, held, overrides, bill_mark, linked)
     if failed is None and (reviewed is None or reviewed == held and overrides is not None):
-        return None
-    return reviewed
+        return None, None
+    return reviewed, written_from(facts, held, overrides, bill_mark, linked)
 
 
 def _declaration(stored: dict) -> DgiiDeclaration:
@@ -182,9 +180,13 @@ def _declaration(stored: dict) -> DgiiDeclaration:
 
 
 def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict | None:
-    """The revision the last approval wrote on this open draft, while it is
-    still the draft's declaration: that approval's money write failed and
-    its revision was never undone. None otherwise.
+    """The last approval of this open draft, while its revision is still the
+    draft's declaration: that approval's money write failed and its revision
+    was never undone. None otherwise.
+
+    ``saved_dgii`` is the declaration stored before that approval, the one to
+    put back: the revision before the approval's holds it, because every write
+    of a declaration is a revision.
 
     The approval writes its revision at the version its claim took (request
     version + 1); a person's saved declaration is never there.
@@ -195,9 +197,13 @@ def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict
     if event.state != "open" or not dgii or not pointer:
         return None
     built = tx.rows(
-        "select r.before_dgii,r.after_dgii from public.business_action_receipts a"
+        "select r.after_dgii,("
+        "select p.after_dgii from public.business_draft_revisions p"
+        " where p.space_id=r.space_id and p.draft_id=r.draft_id and p.version<r.version"
+        " order by p.version desc limit 1) as saved_dgii"
+        " from public.business_action_receipts a"
         " join public.business_draft_revisions r on r.space_id=a.space_id"
-        " and r.draft_id=%s and r.version=(a.command->'request'->>'version')::integer+1"
+        f" and r.draft_id=%s and r.version={APPROVAL_REVISION_VERSION}"
         " where a.space_id=%s and a.actor_id::text=%s and a.idempotency_key=%s",
         (event.id, tx.context.actor.space_id, pointer["actor_id"], pointer["key"]),
     )
@@ -207,8 +213,8 @@ def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict
 def _clear_approval_declaration(
     service: BusinessActions, context: ActionContext, draft_id: UUID
 ) -> None:
-    """Undo, on the reopened draft, the revision a failed approval wrote: the
-    declaration goes back to the one the person had saved, or to none.
+    """After a failed approval returns the draft to open, restore the declaration
+    the person had saved, if any.
 
     A failure here leaves it for the next approval to undo and never stops
     the refusal from being stored.
@@ -220,7 +226,7 @@ def _clear_approval_declaration(
             failed = _failed_approval_revision(tx, event)
             if failed is None:
                 return
-            before = failed["before_dgii"]
+            saved = failed["saved_dgii"]
             facts = facts_of(event)
             mutations.save_revision(
                 tx,
@@ -234,8 +240,8 @@ def _clear_approval_declaration(
                 (),
                 tx.authorization.provenance,
                 None,
-                dgii=_declaration(before) if before else None,
-                clear_dgii=not before,
+                dgii=_declaration(saved) if saved else None,
+                clear_dgii=not saved,
             )
     except ActionError as error:
         logger.warning("business.approval_declaration_not_cleared code={}", error.code)
@@ -247,10 +253,10 @@ def reviewed_request(
     draft_id: UUID,
     version: int,
     kind: Literal["expense", "income", "refund"],
-    approve_anyway: bool = False,
+    accept_gaps: tuple[BandejaReason, ...] = (),
 ) -> MoneyRequest:
     with transaction(service.authority, context, "approve") as tx:
-        event, facts = _reviewed_facts(tx, draft_id, version, kind, approve_anyway)
+        event, facts = _reviewed_facts(tx, draft_id, version, kind, accept_gaps)
         purchase = refund_reference(event) if kind == "refund" else None
     draft = _money_request(facts, context.actor.space_id, kind, purchase)
     preview = service.imports.money.preview(
@@ -269,10 +275,11 @@ def approve(
     draft_id: UUID,
     request: ApproveExpense | ApproveIncome | ApproveRefund,
     key: str,
-    listo: bool = False,
+    bulk: bool = False,
 ) -> ActionOutcome:
-    """``listo`` admits the draft only while the Listos rule still holds, read
-    in the transaction that claims it."""
+    """The Listos rule admits the draft, read again in the transaction that
+    claims it. ``bulk``: one receipt of a list, which no person reviewed, so
+    its declaration takes the server's own suggestions."""
 
     kind: Literal["expense", "income", "refund"] = (
         "refund"
@@ -322,7 +329,7 @@ def approve(
                     draft_id,
                     request.version,
                     kind,
-                    bool(request.approve_anyway),
+                    request.accept_gaps,
                 )
             )
         except (ActionError, *_NOT_WRITTEN) as error:
@@ -354,12 +361,11 @@ def approve(
                             draft_id,
                             request.version,
                             kind,
-                            bool(request.approve_anyway),
-                            listo,
+                            request.accept_gaps,
                         )
                         failed = _failed_approval_revision(tx, event)
-                        declared = _approval_declaration(
-                            tx, event, facts, failed, None if listo else shown
+                        declared, shown_dgii = _approval_declaration(
+                            tx, event, facts, failed, None if bulk else shown
                         )
                     except ActionError as error:
                         return plans.finish_receipt(tx, key, error.result)
@@ -397,6 +403,7 @@ def approve(
                             None,
                             dgii=declared,
                             clear_dgii=declared is None,
+                            shown_dgii=shown_dgii,
                         )
                         event = tx.imports.event(str(draft_id))
                     plans.finish_receipt(
@@ -433,6 +440,8 @@ def approve(
             result = Refused(
                 outcome="invalid_input", code=getattr(error, "code", "activity_invalid")
             )
+        except EventNotFound:
+            raise
         except Exception:
             return OutcomeUnknown(code="business_recording_unsettled")
         else:
@@ -461,8 +470,30 @@ def approve(
                 service, context, draft_id, request.version, datetime.now(timezone.utc)
             )
         return result
+    except EventNotFound:
+        return Refused(outcome="not_found", code="business_record_not_found")
     except ActionError as error:
         return error.result
+
+
+def _listo_request(
+    service: BusinessActions, context: ActionContext, item: ListoItem, key: str
+) -> ApproveExpense | ApproveIncome:
+    """The approval a Listos row takes: a sale's own, and the purchase approval
+    for every other draft, which refuses what it cannot record. A retry takes
+    the kind its first attempt stored, so it replays that answer even after
+    the draft changed kind."""
+
+    with transaction(service.authority, context) as tx:
+        stored = plans.stored_action(tx, key)
+        if stored is None:
+            kind = facts_of(tx.imports.event(str(item.draft_id))).kind
+            income = isinstance(kind, Known) and kind.value == "income"
+        else:
+            income = stored == "approve_income"
+    if income:
+        return ApproveIncome(version=item.version, action="record_income")
+    return ApproveExpense(version=item.version, action="record_expense")
 
 
 def _approve_listo(
@@ -477,13 +508,14 @@ def _approve_listo(
 
     key = hashlib.sha256(f"listos:{request_key}:{item.draft_id}".encode()).hexdigest()
     try:
+        context = resolve(item.draft_id)
         outcome = approve(
             service,
-            resolve(item.draft_id),
+            context,
             item.draft_id,
-            ApproveExpense(version=item.version, action="record_expense"),
+            _listo_request(service, context, item, key),
             key,
-            listo=True,
+            bulk=True,
         )
     except ActionError as error:
         outcome = error.result

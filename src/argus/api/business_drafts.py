@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass
+from functools import partial
 from types import SimpleNamespace
 from typing import Annotated
 from uuid import UUID
@@ -33,9 +34,15 @@ from argus.domain.business.actions.marks import (
     record_marks,
 )
 from argus.domain.business.actions.receipts import draft_for_receipt
+from argus.domain.business.annotations import (
+    OWN_SOURCE_SQL,
+    own_source_sql,
+    supporting_uploads,
+)
 from argus.domain.business.authority import ActionContext, ActionError, authorize
+from argus.domain.business.bandeja_group import confirmable_gaps
 from argus.domain.business.contracts.actions import Refused
-from argus.domain.business.contracts.authority import PersonName, TrustedActor
+from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.deletion import DeletedDocument, deletion
 from argus.domain.business.contracts.dossier import AccountChoice, RecordContext
 from argus.domain.business.contracts.facts import (
@@ -44,8 +51,8 @@ from argus.domain.business.contracts.facts import (
     Known,
     personal_mark_admits,
 )
-from argus.domain.business.people import named, named_deletion, people
-from argus.domain.business.receipts import read_attention
+from argus.domain.business.people import named_deletion, people
+from argus.domain.business.receipts import draft_row
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
@@ -55,7 +62,8 @@ from argus.domain.business.transactions import (
     record_legacy_action,
     transaction,
 )
-from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
+from argus.domain.ingestion.connections import ConnectionNotFound
+from argus.domain.ingestion.receipt_review import duplicate_warning
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
 
@@ -80,8 +88,11 @@ def action_problem(request: Request, refusal: Refused) -> HTTPException:
         detail=refusal.code,
         context=refusal.context or ({"existing_record_id": str(refusal.existing_record_id)}
         if refusal.existing_record_id
-        else {"flags": list(refusal.flags)}
-        if refusal.flags
+        else {
+            "gaps": list(refusal.gaps),
+            "confirmable": list(confirmable_gaps(refusal.gaps)),
+        }
+        if refusal.gaps
         else None),
         headers=NO_STORE,
     )
@@ -310,20 +321,30 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         ) from None
     except ActionError as error:
         raise action_problem(request, error.result) from None
-    scoped_documents, imports = bind_to_grant(
+    return _granted(
         documents,
         hub,
         actions,
         context,
         capability,
+        record,
+        scope,
         legacy_action(request),
         request_key(request),
+    )
+
+
+def _granted(  # noqa: ANN202
+    documents, hub, actions, context, capability, record, scope=None, action=None, key=None  # noqa: ANN001
+):
+    scoped_documents, imports = bind_to_grant(
+        documents, hub, actions, context, capability, action, key
     )
     return BusinessContext(
         BusinessScope(
             context.owner_id,
             context.scope,
-            actor_id=user_id,
+            actor_id=str(context.actor.actor_id),
             grant_id=str(context.grant_id),
             role="owner" if context.is_current_owner else "accountant",
             business_role=context.business_role,
@@ -331,6 +352,24 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         ),
         BusinessService(scoped_documents, imports, _captured),
         record,
+    )
+
+
+def grant_reader(
+    request: Request, actions: BusinessActions, context: ActionContext
+) -> BusinessContext:
+    """The saved receipts of the Business a route already resolved, read as
+    that same grant. It adds no check of its own: the route's own rule decides
+    who may call it."""
+
+    from argus.api.documents import documents_service
+    from argus.api.ingestion import ingestion_hub
+
+    documents, hub = documents_service(), ingestion_hub()
+    if documents is None or hub is None or documents.hub is not hub:
+        raise unavailable_problem(request)
+    return _granted(
+        documents, hub, actions, context, "read", actions.record_context(context)
     )
 
 
@@ -354,30 +393,13 @@ def upload_recorder(context: BusinessContext, request):  # noqa: ANN001, ANN201
     return record
 
 
-def uploaders(tx, views: list[dict]) -> dict[str, PersonName]:  # noqa: ANN001
-    """Who uploaded each web upload, from the first ledger row its upload wrote,
-    named for the caller. A WhatsApp or email arrival names nobody."""
-
-    ids = [view["id"] for view in views if view.get("channel") == "web"]
-    if not ids:
-        return {}
-    rows = tx.rows(
-        "select distinct on (subject) subject, actor_id"
-        " from public.business_action_receipts,"
-        " jsonb_array_elements_text(command->'subjects') subject"
-        " where space_id=%s and command->>'action'='receipt_upload'"
-        " and outcome->>'outcome'='applied' and subject = any(%s)"
-        " order by subject, created_at",
-        (tx.context.actor.space_id, ids),
-    )
-    found = people(tx.connection, tx.authorization, [row["actor_id"] for row in rows])
-    return {row["subject"]: named(found, row["actor_id"]) for row in rows}
-
-
 def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> None:
     store = context.service.imports.store
     if isinstance(store, GrantImportStore):
         with transaction(store.authority, store.context, "prepare") as tx:
+            # A supporting file is no receipt, whatever record holds it.
+            if supporting_uploads(tx.rows, tx.context.actor.space_id, receipt_id):
+                raise ConnectionNotFound()
             rows = tx.rows(
                 "select draft from public.financial_document_extractions where connection_id=%s and user_id=%s",
                 (receipt_id, tx.context.owner_id),
@@ -391,22 +413,16 @@ def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> N
                 raise ActionError("invalid_input", "business_action_required")
 
 
-_BRIDGE_STATUS = {
-    "open": "review_ready",
-    "accepting": "review_ready",
-    "accepted": "confirmed",
-    "dismissed": "dismissed",
-}
-
-
 def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # noqa: ANN001
-    """The bridge drafts each receipt is linked to, one query for all of them."""
+    """The bridge drafts each receipt is linked to, one query for all of them.
+    A row's ``attention`` is its duplicate warning while nobody settled it."""
 
     if not connection_ids:
         return {}
     rows = tx.rows(
         "select distinct s.connection_id, e.id, e.state, e.version, e.updated_at, e.attention,"
-        " e.activity_id, e.resolution, o.connection_id as duplicate_receipt_id,"
+        " e.possible_duplicates, e.activity_id, e.resolution,"
+        " o.connection_id as duplicate_receipt_id,"
         + MARKER_COLUMNS
         + " from public.business_sources s"
         " join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id"
@@ -415,7 +431,7 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
         "   select s2.connection_id from public.business_draft_sources l2"
         "   join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
         "   where l2.space_id=e.owner_space_id and l2.draft_id=(e.possible_duplicates)[1]"
-        "   and s2.connection_id is not null limit 1"
+        f"   and s2.connection_id is not null and {own_source_sql('s2')} limit 1"
         " ) o on true"
         + MARKER_JOIN
         + " where s.space_id=%s and s.connection_id = any(%s) and e.user_id=%s"
@@ -429,21 +445,25 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
     found: dict[str, list[dict]] = {}
     markers = marker_people(tx, rows)
     for row in rows:
-        if row["attention"] == "possible_duplicate":
-            from argus.domain.business.actions.duplicate_resolution import (
-                attachment_signature,
-            )
-            from argus.domain.business.duplicates import pending_duplicates
-
-            event = tx.imports.event(str(row["id"]))
-            if event.possible_duplicates and not pending_duplicates(
-                tx.imports, event, lambda event_id: attachment_signature(tx, event_id)
-            ):
-                row["attention"] = None
+        if not duplicate_warning(
+            row["attention"], row["possible_duplicates"], partial(_pending, tx, row)
+        ):
+            row["attention"] = None
         facts = BusinessResolution.model_validate(row["resolution"]["business"]).facts
         row["marks"] = record_marks(facts, row, tx.context.owner_id, markers)
         found.setdefault(str(row["connection_id"]), []).append(row)
     return found
+
+
+def _pending(tx, row: dict) -> tuple[str, ...]:  # noqa: ANN001
+    from argus.domain.business.actions.duplicate_resolution import attachment_signature
+    from argus.domain.business.duplicates import pending_duplicates
+
+    return pending_duplicates(
+        tx.imports,
+        tx.imports.event(str(row["id"])),
+        lambda event_id: attachment_signature(tx, event_id),
+    )
 
 
 def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
@@ -472,8 +492,11 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         return summary
     row = drafts[0]
     summary = {**summary, "deleted": deletion(row["state"], row["resolution"])}
+    type_editable = row["state"] in ("open", "accepted")
     resolution = BusinessResolution.model_validate(row["resolution"]["business"])
     if legacy == str(row["id"]):
+        if "document_type_editable" in summary:
+            summary["document_type_editable"] = type_editable
         return (
             {**summary, "due_on": resolution.due_on} if "due_on" in summary else summary
         )
@@ -485,9 +508,10 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     funding = value(facts.funding)
     out = {
         **summary,
-        "status": _BRIDGE_STATUS.get(row["state"], "review_ready"),
-        "attention": None,
-        "error_code": None,
+        **draft_row(
+            SimpleNamespace(state=row["state"], resolution=row["resolution"]),
+            duplicate=row["attention"] is not None,
+        ),
         "preparable": False,
         "enterable": False,
         "expense_id": str(row["activity_id"]) if row["activity_id"] else None,
@@ -503,7 +527,9 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         **row["marks"],
         "document_type": resolution.document_type,
         "document_type_detected": resolution.document_type_detected,
-        "document_type_editable": row["state"] == "open",
+        "document_type_editable": type_editable,
+        "delete_available": summary.get("delete_available", True)
+        and row["state"] == "open",
     }
     for key, item in (
         ("draft_id", str(row["id"])),
@@ -512,17 +538,9 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     ):
         if key in summary:
             out[key] = item
-    out.update(
-        read_attention(SimpleNamespace(state=row["state"], resolution=row["resolution"]))
-    )
-    if row["state"] == "open" and row["attention"] in DUPLICATE_WARNINGS:
+    if out["attention"] == "duplicate":
         original = row.get("duplicate_receipt_id")
-        out.update(
-            status="needs_attention",
-            attention="duplicate",
-            error_code="possible_duplicate",
-            duplicate_of=str(original) if original else None,
-        )
+        out["duplicate_of"] = str(original) if original else None
     return out
 
 
@@ -569,8 +587,10 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
             and view.get("delete_available", True)
             and view["status"] not in ("confirmed", "dismissed")
             and not view.get("read_pending")
-            and (view.get("bandeja_group") or {}).get("group") in ("attention", "listo"),
-            "restore_available": can_delete and view.get("deleted") is not None,
+            and (view.get("bandeja_group") or {}).get("group") is not None,
+            "restore_available": can_delete
+            and view.get("deleted") is not None
+            and view["deleted"].can_restore(),
         }
         for view in views
     ]
@@ -581,13 +601,13 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
         context.record_context.capabilities if context.record_context else ()
     )
     # The overlay names "personal" only for a receipt one draft owns: nothing else to mark.
-    # The same people set its document type while that draft is open.
+    # Accepted drafts can only be corrected by their owner.
     return [
         {
             **view,
             **({"personal_editable": editable} if "personal" in view else {}),
             **(
-                {"document_type_editable": editable}
+                {"document_type_editable": editable and (view["status"] != "confirmed" or can_delete)}
                 if view.get("document_type_editable")
                 else {}
             ),
@@ -627,13 +647,11 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     projection over the overlaid views: an approved draft is a saved expense
     and the email itself is not a receipt, the same as in the Bandeja."""
 
-    from argus.api.business_receipt_activity import inbox
+    from argus.api.business_receipt_activity import counts_now
     from argus.domain.business import ledger
 
     data = context.service.overview(context.scope, start, end)
-    counts = inbox(context, receipt_summaries(context, "all"))
-    data["needs_attention"] = counts["needs_attention_count"]
-    data["awaiting_review"] = counts["pending_review_count"] - data["needs_attention"]
+    counts = counts_now(context)
     data["ready_to_review_count"] = counts["ready_to_review_count"]
     data["bandeja_listo_count"] = counts["bandeja_listo_count"]
     data["bandeja_attention_count"] = counts["bandeja_attention_count"]
@@ -679,7 +697,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
         " left join public.business_draft_sources l on l.draft_id=e.id"
         " and l.space_id=e.owner_space_id"
         " left join public.business_sources s on s.id=l.source_id"
-        " and s.space_id=l.space_id and s.connection_id is not null"
+        f" and s.space_id=l.space_id and s.connection_id is not null and {OWN_SOURCE_SQL}"
         + MARKER_JOIN
         + " where e.owner_space_id=%s and e.user_id=%s and e.activity_id = any(%s)"
         " and e.resolution ? 'business'"
@@ -780,8 +798,20 @@ def expense_detail(context: BusinessContext, expense_id: str) -> dict:
     draft that recorded it, or neither for an expense entered by hand, and the
     606 answers its Registros row shows."""
 
+    from argus.domain.business.contracts.dossier import DetailReadiness
+    from argus.domain.business.reporting_store import read_record_detail
+
     [item] = _with_records(context, [context.service.expense(context.scope, expense_id)])
-    return {**item, "dgii_606": answers_606(context, [expense_id]).get(expense_id)}
+    store = context.service.imports.store
+    row = None
+    if isinstance(store, GrantImportStore):
+        with transaction(store.authority, store.context) as tx:
+            row = read_record_detail(tx, expense_id)
+    return {
+        **item,
+        "dgii_606": row.dgii_606.model_dump(mode="json") if row and row.dgii_606 else None,
+        **DetailReadiness.from_codes(row.missing if row else ()).model_dump(mode="json"),
+    }
 
 
 def search_with_drafts(

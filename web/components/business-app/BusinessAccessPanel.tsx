@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
+import { formatDate } from "./business-format";
 import { EmptyState } from "./foundation/EmptyState";
 import { cardClass, dangerButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -17,7 +18,7 @@ import { resolveLanguage } from "@/lib/language-features";
 type Pending = { kind: "grant"; item: BusinessAccessGrant } | { kind: "invite"; item: BusinessAccessInvite };
 
 function formatDay(value: string, locale: string): string {
-  return new Date(value).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
+  return formatDate(new Date(value), locale, { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
 }
 
 /**

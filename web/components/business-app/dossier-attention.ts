@@ -1,47 +1,141 @@
 import type { TFunction } from "i18next";
-import { businessDateMessage } from "@/lib/business-date-errors";
-import type { BusinessDossier, BusinessFactField } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessDuplicateCandidate, ListoGap, ReviewFlag, ReviewFlagCode } from "@/lib/business-dossier";
 import { documentFamily, factLabel } from "@/lib/counterparty-term";
+import { READ_FACT_ROWS, RECORD_FIELDS, type ReviewRow } from "./receipt-fact-rows";
+import type { SaveRow } from "./receipt-review-save";
+import { formatMoney } from "./business-format";
 
-/** The words of the "Parece repetido" flow: the top box and the compare view. */
+/** The words of the "Parece repetido" flow: the problem and the compare view. */
 export const DUPLICATE_KEYS = "business.receipts.duplicate_resolution";
 
-export type AttentionItem = {
+export function duplicateBasisKey(basis: BusinessDuplicateCandidate["basis"], type?: BusinessDossier["document_type"]): string {
+  return `${DUPLICATE_KEYS}.basis.${basis === "fiscal_number" && documentFamily(type) === "sale" ? "fiscal_number_sale" : basis}`;
+}
+
+/** The dossier's tabs. Documento joins them only in the narrow size. */
+export type DossierTab = "general" | "documento" | "fiscal" | "detalles" | "historial";
+
+/** One reason the record is not Listos, as the panel says it: the server's gap, its words, and the row that fixes it. */
+export type DossierProblem = {
   key: string;
-  /** The row the item points at; null when no row holds it. */
-  field: BusinessFactField | null;
+  reason: ListoGap;
+  title: string;
   text: string;
-  /** Only on the "Parece repetido" item: each document this one may repeat, with why the server says so. */
-  duplicates?: readonly { draftId: string; text: string }[];
+  tab: DossierTab;
+  /** The row the problem points at; null when no row holds it. */
+  row: ReviewRow | null;
+  /** The tab and the row, as the problem list says where to go. */
+  where: string;
+  /** Only on the "Parece repetido" problem: the first document this one may repeat. */
+  compare?: string;
+  amountComparison?: { totals?: string; difference: string };
 };
 
-type T = TFunction;
+type Standing = Pick<BusinessDossier, "listo_gaps" | "reasons" | "review_flags" | "duplicate_candidates" | "document_type" | "facts" | "year_to_check"> & Partial<Pick<BusinessDossier, "blockers">>;
+
+const GAP = "business.dossier.gap";
+/** Copy the locked design does not hold yet waits here for its owner. */
+const PLACEHOLDER_GAP = "business.dossier.placeholder.gap";
+function problemRow(field: string | null | undefined): ReviewRow | null {
+  if (field === "ncf") return "fiscal_number";
+  return READ_FACT_ROWS.find(row => row === field) ?? RECORD_FIELDS.find(row => row === field) ?? null;
+}
+/** The gaps whose words the flag copy already owns. */
+const OWN_WORDS: Partial<Record<ListoGap, string>> = { invalid_rnc: "business.dossier.review_flag.rnc_check_digit", invalid_ncf: "business.dossier.review_flag.ncf_malformed" };
+/** A flag whose own gap already names it: `review_flag` says the others. */
+const OWN_GAP: Partial<Record<ReviewFlagCode, ListoGap>> = { rnc_check_digit: "invalid_rnc", ncf_malformed: "invalid_ncf" };
+
+/** The name of a row of the form: the General cards, the problem list and the save lines say the same word. */
+export function dossierRowLabel(t: TFunction, row: SaveRow | "ncf" | "ecf", dossier: { document_type?: BusinessDossier["document_type"]; facts?: Pick<BusinessDossier["facts"], "fiscal"> } | null): string {
+  const fiscal = dossier?.facts?.fiscal;
+  switch (row) {
+    case "rnc": return (fiscal?.rnc.value ?? "").replace(/\D/g, "").length === 11 ? t("business.dossier.row.cedula") : t("business.dossier.field.rnc");
+    case "fiscal_number": return fiscal?.ecf.state === "known" ? t("business.dossier.field.ecf") : t("business.dossier.field.ncf");
+    case "occurred_on": return t("business.dossier.row.date");
+    case "net_amount": return t("business.dossier.row.subtotal");
+    case "itbis": return t("business.terms.itbis");
+    case "legal_tip": return t("business.terms.legal_tip");
+    case "amount": return t("business.terms.total");
+    case "currency": return t("business.dossier.field.currency");
+    case "document_type": return t("business.dossier.type_label");
+    case "category": return t("business.dossier.placeholder.expense_type");
+    case "payment_method": case "sale_payment": return t("business.dossier.placeholder.payment_form");
+    case "income_type": return t("business.dossier.placeholder.income_type");
+    default: return factLabel(t, row, documentFamily(dossier?.document_type));
+  }
+}
+
+function amountComparison(flag: ReviewFlag, dossier: Standing, t: TFunction, currency: string, locale: string): DossierProblem["amountComparison"] {
+  if (flag.difference == null) return;
+  const money = (value: string) => formatMoney(value, currency, locale);
+  const difference = t("business.terms.difference", { amount: money(flag.difference) });
+  if (flag.computed_sum == null || flag.includes_extra_charges == null || dossier.facts.amount.value == null) return { difference };
+  const label = flag.includes_extra_charges ? "calculated_total" : "subtotal_itbis";
+  const totals = [
+    `${t("business.terms.total")} ${money(dossier.facts.amount.value)}`,
+    `${t(`business.dossier.confirm.placeholder.${label}`)} ${money(flag.computed_sum)}`,
+  ].join(" · ");
+  return { totals, difference };
+}
+
+function rowSection(row: ReviewRow, t: TFunction, general: string): string {
+  if (["amount", "net_amount", "itbis", "legal_tip", "currency"].includes(row)) return t("business.terms.montos_title");
+  if (["rnc", "fiscal_number", "counterparty", "occurred_on", "kind", "funding", "document_type"].includes(row)) return t("business.dossier.card.comprobante");
+  return general;
+}
 
 /**
- * What stops approval, as the server's blockers say it, and the documents this
- * one may repeat: the top box, the row markers and the footer read this one
- * list. The duplicate is one item, where its blocker is; a candidate the server
- * lists without a blocker (an RNC and NCF pair) comes last. A recorded approval
- * leaves nothing to do.
+ * Why the record is not Listos: the gaps and their flags, in the server's
+ * order. The pill's reason, the problem list, the row status slots and the
+ * approval action read this one list. Nothing here decides a reason.
  */
-export function dossierAttention(dossier: Pick<BusinessDossier, "blockers" | "review_state" | "approval_result" | "duplicate_candidates" | "document_type">, t: T, locale: string): AttentionItem[] {
-  if (dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return [];
-  const candidates = dossier.review_state === "open" ? dossier.duplicate_candidates ?? [] : [];
-  const duplicate: AttentionItem = {
-    key: "possible-duplicate",
-    field: null,
-    text: t(`${DUPLICATE_KEYS}.title`, "Looks repeated"),
-    duplicates: candidates.map((candidate) => ({ draftId: candidate.draft_id, text: t(`${DUPLICATE_KEYS}.basis.${candidate.basis === "fiscal_number" && documentFamily(dossier.document_type) === "sale" ? "fiscal_number_sale_placeholder" : candidate.basis}`, "") })),
-  };
-  const items = dossier.blockers.map((blocker, index): AttentionItem => {
-    if (blocker.code === "possible_duplicate") return duplicate;
-    const label = blocker.field ? factLabel(t, blocker.field, documentFamily(dossier.document_type)) : null;
-    const dateMessage = businessDateMessage(blocker, t, locale, label ?? undefined);
-    if (dateMessage) return { key: `blocker-${blocker.code}-${index}`, field: blocker.field, text: dateMessage };
-    const reason = blocker.code === "fact_required" && label ? null
-      : t(`business.dossier.blocker.${blocker.code}`, "") || t("business.dossier.blocker_fallback", "This record needs further review before approval.");
-    return { key: `blocker-${blocker.code}-${index}`, field: blocker.field, text: [reason, label].filter(Boolean).join(" · ") };
+export function dossierProblems(dossier: Standing, t: TFunction): DossierProblem[] {
+  const locale = t("business.terms.difference", { returnDetails: true }).usedLng;
+  const currency = dossier.facts.currency.state === "known" ? dossier.facts.currency.value : null;
+  const flags = dossier.review_flags ?? [];
+  const candidate = dossier.duplicate_candidates?.[0];
+  const general = t("business.dossier.tab.general");
+  const words = (reason: ListoGap, part: "title" | "text") => t([
+    `${OWN_WORDS[reason] ?? `${GAP}.${reason}`}.${part}`,
+    `${PLACEHOLDER_GAP}.${reason}.${part}`,
+    ...(part === "title" ? [`business.attention_short.${reason}`] : []),
+  ], { defaultValue: "" });
+  const otherFlags = flags.filter(item => !OWN_GAP[item.code]);
+  const issues = (dossier.listo_gaps ?? []).flatMap<{ reason: ListoGap; key: string; flag?: ReviewFlag }>((reason, index) => {
+    const key = `${index}-${reason}`;
+    if (reason === "review_flag" && otherFlags.length) {
+      return otherFlags.map(flag => ({ reason, key: `${key}-${flag.code}`, flag }));
+    }
+    return [{ reason, key }];
   });
-  const shown = [...new Set(items)];
-  return shown.includes(duplicate) || !candidates.length ? shown : [...shown, duplicate];
+  return issues.map(({ reason, key, flag }): DossierProblem => {
+    if (reason === "duplicate") {
+      const basis = candidate ? duplicateBasisKey(candidate.basis, dossier.document_type) : null;
+      return { key, reason, title: t(`${DUPLICATE_KEYS}.title`), text: basis ? t(basis) : words(reason, "text"), tab: "general", row: null, where: `${general} · ${t(`${DUPLICATE_KEYS}.compare`)}`, compare: candidate?.draft_id };
+    }
+    // `blocked` is the server's blockers: the first field one names is where the fix is.
+    const blockedField = reason === "blocked" ? dossier.blockers?.find((blocker) => blocker.field)?.field ?? null : null;
+    const row = reason === "check_details" && dossier.year_to_check ? "occurred_on"
+      : blockedField ?? problemRow(flag?.field ?? dossier.reasons?.[reason]?.field);
+    const comparison = flag?.code === "amounts_mismatch" && currency ? amountComparison(flag, dossier, t, currency, locale) : undefined;
+    const text = reason === "invalid_rnc" && !flags.some((item) => item.code === "rnc_check_digit") ? t("business.dgii.rnc_check.invalid_length.reason")
+      : flag?.code === "amounts_mismatch" ? comparison?.difference ?? words(reason, "text")
+      : flag ? t(`business.dossier.review_flag.${flag.code}.text`)
+      : words(reason, "text");
+    return {
+      key, reason, title: flag?.code === "amounts_mismatch" ? t("business.dossier.confirm.placeholder.amounts_mismatch") : words(reason, "title"), text, tab: "general", row,
+      where: row ? `${rowSection(row, t, general)} · ${dossierRowLabel(t, row, dossier)}` : general,
+      amountComparison: comparison,
+    };
+  });
+}
+
+/** The problems that point at one row, for its status slot. */
+export function rowProblems(problems: readonly DossierProblem[], row: SaveRow): DossierProblem[] {
+  return problems.filter((problem) => problem.row === row);
+}
+
+/** What a row's status slot says of its problems: each sentence once. */
+export function problemWords(problems: readonly DossierProblem[]): string {
+  return [...new Set(problems.map((problem) => problem.text))].join("\n");
 }

@@ -22,11 +22,11 @@ const owner = { space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", grant_id: "af2
 const client = { ...owner, space_id: "49767c9c-9f8a-4af7-82e3-bcc065e09a19", grant_id: "b3acd38c-2e99-49aa-888f-4ee3a6268066", name: "Taller Sol", role: "accountant", capabilities: ["read", "prepare"] };
 const closed = { ...owner, closed_at: "2026-10-21T17:45:00Z", reopen_until: "2026-11-20T17:45:00Z" };
 const owned = { ...owner, member_count: 3, reopen_until: closed.reopen_until, export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 1204 }, { start: "2026-01-01", end: "2026-10-21", record_count: 310 }], members: [
-  { grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa Pérez", eligible: true, reason: null },
-  { grant_id: "3200626b-f480-4249-97bd-04bdc03f1a15", name: "Ana López", eligible: false, reason: "email_unconfirmed" },
-  { grant_id: "2100626b-f480-4249-97bd-04bdc03f1a15", name: "Luis Díaz", eligible: false, reason: "owns_open_business" },
+  { grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa Pérez", shown_as: "name", eligible: true, reason: null },
+  { grant_id: "3200626b-f480-4249-97bd-04bdc03f1a15", name: "Ana López", shown_as: "name", eligible: false, reason: "email_unconfirmed" },
+  { grant_id: "2100626b-f480-4249-97bd-04bdc03f1a15", name: "Luis Díaz", shown_as: "name", eligible: false, reason: "owns_open_business" },
 ] };
-const transfer = { id: "14ed5edb-9a72-428e-9a4a-52f5ab77c342", space_id: owner.space_id, grant_id: client.grant_id, business_name: owner.name, owner_name: "María Rosa", target_name: "Rosa Pérez", role: "target", status: "pending", expires_at: "2026-10-24T17:45:00Z" };
+const transfer = { id: "14ed5edb-9a72-428e-9a4a-52f5ab77c342", space_id: owner.space_id, grant_id: client.grant_id, business_name: owner.name, owner_name: "María Rosa", owner_shown_as: "name", target_name: "Rosa Pérez", target_shown_as: "name", role: "target", status: "pending", expires_at: "2026-10-24T17:45:00Z" };
 const evidence: { file: string; sha256: string; state: string; width: number; theme: string; posts: number; retryKeys?: string[] }[] = [];
 const browser = await chromium.launch({ headless: true });
 try {
@@ -57,10 +57,9 @@ try {
       if (path === "workspace") return route.fulfill({ json: await source.workspace() });
       if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
       if (path === "fiscal-profile") return route.fulfill({ json: { ...await source.fiscalProfile(), name: owner.name } });
-      if (path === "receipt-reading") return route.fulfill({ json: { enabled: false, available: true, can_change: true } });
       if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.invalid" } });
       if (path === "captures" || path === "email/deliveries" || path === "email/senders") return route.fulfill({ json: { items: [] } });
-      if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
+      if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
       if (path === "month-close") return route.fulfill({ json: monthCloseWire("2026-10") });
       if (path === "open-items") { const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] }; return route.fulfill({ json: { today: "2026-10-21", cuentas_por_cobrar: none, cuentas_por_pagar: none } }); }
       if (path === "invitations") return route.fulfill({ json: [] });
@@ -80,8 +79,8 @@ try {
       if (state.startsWith("close-")) {
         const dialog = page.getByRole("dialog");
         await expect(dialog.getByRole("button", { name: "Descargar copia", exact: true })).toBeVisible();
-        await expect(dialog).toContainText("ene – dic 2025 · 1,204 registros");
-        if (state === "close-downloaded") { await dialog.getByRole("button", { name: "Descargar: ene – dic 2025", exact: true }).click(); await expect(dialog.getByTestId("business-close-period").first()).toHaveAttribute("data-status", "downloaded"); }
+        await expect(dialog).toContainText("Ene – Dic 2025 · 1,204 registros");
+        if (state === "close-downloaded") { await dialog.getByRole("button", { name: "Descargar: Ene – Dic 2025", exact: true }).click(); await expect(dialog.getByTestId("business-close-period").first()).toHaveAttribute("data-status", "downloaded"); }
         if (state === "close-confirm" || state === "close-uncertain") {
           await dialog.getByRole("button", { name: "Continuar sin descargar", exact: true }).click();
           await expect(dialog).toContainText("3 miembros pierden acceso al cerrar."); await expect(dialog).toContainText("Podrás reabrirlo hasta el");
@@ -105,12 +104,14 @@ try {
         const settingsRow = page.getByTestId("profile-menu-settings");
         await expect(settingsRow).toContainText("Ajustes");
         await settingsRow.click();
-        await page.getByTestId("settings-window").getByRole("button", { name: "Eliminar cuenta", exact: true }).click();
-        const dialog = page.getByRole("dialog", { name: "¿Eliminar tu cuenta?", exact: true });
-        await expect(dialog).toBeVisible();
-        const submit = dialog.getByRole("button", { name: "Eliminar cuenta", exact: true });
-        if (state === "deletion-owned") { await expect(dialog).toContainText("cada negocio tuyo necesita otro dueño o cerrarse"); await expect(dialog).toContainText(owner.name); await expect(submit).toHaveCount(0); await dialog.scrollIntoViewIfNeeded(); }
-        else { await expect(submit).toBeEnabled(); await expect(dialog).toContainText("nadie podrá reabrirlo"); await expect(dialog).toContainText("hora de RD"); await submit.scrollIntoViewIfNeeded(); }
+        // Ajustes settles its sections when the profile read answers, and settling reopens it on the first one.
+        await expect(page.getByTestId("settings-window").getByTestId("settings-nav-whatsapp")).toBeVisible();
+        await page.getByTestId("settings-window").getByTestId("settings-nav-account").click();
+        // A phone opens Cuenta as its own pane over the settings list.
+        const cuenta = page.getByTestId(width === 390 ? "settings-pane-account" : "settings-window");
+        const start = cuenta.getByRole("button", { name: "Eliminar cuenta", exact: true });
+        if (state === "deletion-owned") { await expect(cuenta.getByTestId("account-deletion-pending")).toBeVisible(); await expect(cuenta).toContainText("Cada negocio necesita otro dueño o cerrarse."); await expect(cuenta.getByTestId("account-owned-business")).toContainText(owner.name); await expect(start).toHaveCount(0); }
+        else { await start.click(); await expect(cuenta).toContainText("nadie podrá reabrirlo"); await expect(cuenta).toContainText("hora de RD"); await expect(start.last()).toBeEnabled(); await start.last().scrollIntoViewIfNeeded(); }
       }
       await page.evaluate(label => { const stamp = document.createElement("div"); stamp.textContent = label; stamp.style.cssText = "position:fixed;bottom:4px;right:4px;background:#fff;color:#111;border:1px solid #999;padding:3px;z-index:99999;font:10px sans-serif"; document.body.append(stamp); }, `Synthetic fixture proof · ${head.slice(0, 7)}`);
       const file = `${state}-${width}-${theme}.png`;

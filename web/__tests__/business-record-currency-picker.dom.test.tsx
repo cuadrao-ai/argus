@@ -1,86 +1,78 @@
 import assert from "node:assert/strict";
-import { afterAll, beforeAll, describe, mock, test } from "bun:test";
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { BusinessDataSource } from "@/components/business-app/business-data";
+import { describe, test } from "bun:test";
+import { registerReceiptReviewPage, setup, type Dossier } from "./fixtures/receipt-review-page";
 
-mock.module("next/navigation", () => ({
-  usePathname: () => "/biz",
-  useRouter: () => ({ push: () => {}, replace: () => {}, refresh: () => {}, prefetch: () => {} }),
-  useSearchParams: () => new URLSearchParams(),
-}));
+registerReceiptReviewPage();
 
-beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
-  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-});
-afterAll(async () => {
-  await GlobalRegistrator.unregister();
-});
+const euros = (dossier: Dossier) => { dossier.facts.currency = { state: "known", value: "EUR", origin: "extracted", verified: false, source_ids: [] }; };
 
-/** A workspace that works in pesos and Canadian dollars (the fixture accounts are pesos and US dollars), holding a receipt in euros. */
-async function mount(target: { kind: "receipt"; id: string }, overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource>) {
-  const { act } = await import("react");
-  const { createRoot } = await import("react-dom/client");
-  const i18next = (await import("i18next")).default;
-  const { I18nextProvider } = await import("react-i18next");
-  const spanish = (await import("@/public/locales/es-419/common.json")).default;
-  const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
-  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
-  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
-  const ReceiptReviewPanel = (await import("@/components/business-app/ReceiptReviewPanel")).default;
-  const { setChosenGrant } = await import("@/lib/business-grant");
-  setChosenGrant(null);
-  const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
-  const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
-  const source: BusinessDataSource = {
-    ...fixture,
-    workspace: async () => ({ ...await fixture.workspace(), currencies: ["DOP", "CAD"] }),
-    ...overrides(fixture),
-  };
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-  await act(async () => {
-    root.render(
-      <I18nextProvider i18n={i18n}>
-        <BusinessConsentTestProvider accepted>
-          <BusinessWorkspaceProvider source={source}>
-            <ReceiptReviewPanel target={target} />
-          </BusinessWorkspaceProvider>
-        </BusinessConsentTestProvider>
-      </I18nextProvider>,
-    );
-  });
-  const settle = async (ready: () => boolean) => {
-    for (let i = 0; i < 80 && !ready(); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
-    assert.ok(ready(), "the page settled");
-  };
-  const idle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
-  return { host, act, settle, idle, close: () => act(async () => { root.unmount(); host.remove(); }) };
+/** A workspace that works in pesos and Canadian dollars, holding a receipt in euros. */
+async function receipt(change: (dossier: Dossier) => void = euros) {
+  const page = await setup("fiscal", change, (fixture) => ({ workspace: async () => ({ ...await fixture.workspace(), currencies: ["DOP", "CAD"] }) }));
+  const montos = () => page.host.querySelector<HTMLElement>('[data-testid="receipt-facts-montos"]')!;
+  const picker = () => montos().querySelector<HTMLButtonElement>('[data-testid="montos-currency"]')!;
+  const options = () => [...montos().querySelectorAll<HTMLButtonElement>('[role="listbox"][aria-label="Moneda"] [role="option"]')];
+  const press = () => page.act(async () => picker().click());
+  return { ...page, montos, picker, options, press };
 }
 
-const optionTexts = (select: Element | null | undefined) => [...(select?.querySelectorAll("option") ?? [])].map((option) => option.textContent ?? "");
-
-describe("the currency picker on a receipt", () => {
-  test("offers DOP, USD and EUR from the Montos header on a prepared record", async () => {
-    const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
-    const view = await mount({ kind: "receipt", id: "rcpt-ferreteria" }, (fixture) => ({
-      receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), draft_id: dossierFixtureIds.fiscal }),
-      dossier: async (id) => {
-        const dossier = structuredClone(await fixture.dossier(id));
-        dossier.facts.currency = { state: "known", value: "EUR", origin: "extracted", verified: false, source_ids: [] };
-        return dossier;
-      },
-    }));
+describe("the currency picker in the Montos heading", () => {
+  test("opens its own list in place: DOP, USD and EUR, the record's own checked, and no Moneda row", async () => {
+    const page = await receipt();
     try {
-      await view.settle(() => Boolean(view.host.querySelector('[data-fact="currency"] button')));
-      const edit = view.host.querySelector<HTMLButtonElement>('[data-fact="currency"] button');
-      assert.ok(edit);
-      await view.idle();
-      await view.act(async () => edit.click());
-      const picker = view.host.querySelector('[data-testid="edit-currency"] select');
-      assert.deepEqual(optionTexts(picker).filter(Boolean).filter((text) => text !== "Elegir"), ["DOP", "USD", "EUR"]);
-    } finally { await view.close(); }
+      const rows = () => [...page.montos().querySelectorAll("li[data-fact]")].map((row) => row.getAttribute("data-fact"));
+      const before = rows();
+      assert.equal(page.picker().textContent, "EUR");
+      assert.equal(page.picker().getAttribute("aria-haspopup"), "listbox");
+      await page.press();
+      assert.equal(page.picker().getAttribute("aria-expanded"), "true");
+      assert.deepEqual(page.options().map((option) => option.dataset.value), ["DOP", "USD", "EUR"]);
+      assert.deepEqual(page.options().map((option) => option.textContent), ["DOP · Peso dominicano", "USD · Dólar estadounidense", "EUR · Euro"]);
+      assert.deepEqual(page.options().map((option) => option.getAttribute("aria-selected")), ["false", "false", "true"]);
+      assert.equal(document.activeElement, page.options()[2], "the list takes the focus on the record's own");
+      assert.deepEqual(rows(), before, "no row is added under the heading");
+      assert.equal(page.montos().querySelector('select, [data-row-open], button[aria-label^="Guardar"], button[aria-label^="Cancelar"]'), null);
+      await page.press();
+      assert.equal(page.options().length, 0, "a second press closes it");
+      assert.equal(page.writes.length, 0, "looking saves nothing");
+    } finally { await page.close(); }
+  });
+
+  test("a pick saves at once through the record's facts, and picking the same one saves nothing", async () => {
+    const page = await receipt(() => undefined);
+    try {
+      assert.equal(page.picker().textContent, "DOP");
+      await page.press();
+      await page.act(async () => page.options().find((option) => option.dataset.value === "DOP")!.click());
+      assert.equal(page.options().length, 0);
+      assert.equal(page.writes.length, 0);
+      await page.press();
+      await page.act(async () => page.options().find((option) => option.dataset.value === "USD")!.click());
+      await page.wait(() => page.picker().textContent === "USD" && !page.picker().hasAttribute("aria-busy"));
+      assert.deepEqual(page.writes.map(({ kind, body }) => ({ kind, body })), [{ kind: "facts", body: { currency: { state: "known", value: "USD" } } }]);
+      assert.equal(page.options().length, 0, "the list closed");
+      assert.equal(document.activeElement, page.picker());
+      assert.doesNotMatch(page.montos().textContent ?? "", /Guardado/);
+    } finally { await page.close(); }
+  });
+
+  test("a pick the server refuses says so under the rows, and the picker keeps the saved currency", async () => {
+    const page = await setup("fiscal", euros, () => ({ reviewDraft: async () => { throw Object.assign(new Error("refused"), { status: 422, code: "currency_mismatch" }); } }));
+    try {
+      const montos = page.host.querySelector<HTMLElement>('[data-testid="receipt-facts-montos"]')!;
+      const picker = () => montos.querySelector<HTMLButtonElement>('[data-testid="montos-currency"]')!;
+      await page.act(async () => picker().click());
+      await page.act(async () => montos.querySelector<HTMLButtonElement>('[role="option"][data-value="USD"]')!.click());
+      await page.wait(() => Boolean(montos.querySelector('[data-testid="row-save-failed"]')));
+      assert.equal(picker().textContent, "EUR");
+    } finally { await page.close(); }
+  });
+
+  test("someone who cannot edit the record reads the currency and opens no list", async () => {
+    const page = await receipt((dossier) => { euros(dossier); dossier.capabilities = ["read"]; dossier.facts_editable = false; dossier.editable_fields = []; });
+    try {
+      assert.equal(page.picker().disabled, true);
+      assert.equal(page.picker().textContent, "EUR");
+    } finally { await page.close(); }
   });
 });

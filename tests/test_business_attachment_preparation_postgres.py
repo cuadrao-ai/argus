@@ -12,6 +12,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
     canonical_input_hash,
 )
+from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
@@ -20,7 +21,9 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as shared
 from tests import test_financial_accounts_postgres as database
+from tests.business.action_counts import count_no_rows
 from tests.business.test_business_api import RECEIPT
+from tests.business_accept_support import accept, seen_gaps
 from tests.document_reads_support import leave_reads_waiting, read_receipt
 from tests.test_business_actions_postgres import create
 from tests.test_business_reading_setting_postgres import (  # noqa: F401
@@ -120,9 +123,9 @@ def bind(prepared, target=None):
     return service.capture_attachment_preparation(context, UUID(cid), target=target)
 
 
-def finish(prepared, digest=None):
+def finish(prepared, digest=None, *, keep_lease=False):
     service, context, _, cid, holder, batch = prepared
-    return service.prepare_attachment(
+    result = service.prepare_attachment(
         user_id=context.owner_id,
         connection_id=cid,
         scope=context.scope,
@@ -130,6 +133,11 @@ def finish(prepared, digest=None):
         attempt_id=None,
         expected_batch_sha256=canonical_input_hash(batch) if digest is None else digest,
     )
+    if not keep_lease:
+        PostgresConnectionRepository(service.authority.pool).release(
+            connection_id=cid, holder=holder
+        )
+    return result
 
 
 def test_exact_saved_batch_creates_one_unverified_draft_and_replays(
@@ -140,7 +148,7 @@ def test_exact_saved_batch_creates_one_unverified_draft_and_replays(
     monkeypatch.setattr(
         service.imports.money, "write", lambda **kw: pytest.fail("capture wrote money")
     )
-    result = finish(prepared)
+    result = finish(prepared, keep_lease=True)
     assert result.outcome == "applied"
     assert finish(prepared).draft_id == result.draft_id
     dossier = service.dossier(context, result.draft_id)
@@ -339,8 +347,6 @@ def test_new_grant_does_not_rescue_revoked_original(prepared):
 def test_disconnected_source_refuses_completion(prepared):
     service, _, _, cid, _, _ = prepared
     bind(prepared)
-    from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
-
     PostgresConnectionRepository(service.authority.pool).disconnect(
         user_id=prepared[1].owner_id, connection_id=cid, now=datetime.now(timezone.utc)
     )
@@ -379,6 +385,7 @@ def post_approve(service, context, draft_id, *, version=1, extra=None):
         return await call_next(request)
 
     app.include_router(router)
+    count_no_rows(app)
     app.dependency_overrides[require_drafts] = lambda: DraftContext(
         service, context.actor.actor_id, str(context.actor.space_id)
     )
@@ -386,7 +393,8 @@ def post_approve(service, context, draft_id, *, version=1, extra=None):
     configure_email_intake(None)
     try:
         with TestClient(app) as drafts:
-            return drafts.post(
+            return accept(
+                drafts,
                 f"/business/drafts/{draft_id}/approve",
                 json={"version": version, "action": "record_expense", **(extra or {})},
                 headers={"Idempotency-Key": str(uuid4())},
@@ -473,7 +481,11 @@ def test_accepted_target_refuses_completion(prepared):
     result = service.approve(
         context,
         draft_id,
-        ApproveExpense(version=1, action="record_expense"),
+        ApproveExpense(
+            version=1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft_id),
+        ),
         str(uuid4()),
     )
     assert result.outcome == "applied", result
@@ -614,7 +626,7 @@ def test_unrelated_upload_ledger_cannot_authorize_email(prepared, users, wrong):
 def test_legacy_default_direct_origin_does_not_authorize_linked_email(prepared):
     service, context, _, cid, holder, _ = prepared
     bind(prepared)
-    draft_id = finish(prepared).draft_id
+    draft_id = finish(prepared, keep_lease=True).draft_id
     store, route = link_prepared_email(prepared)
     assert stored_origin(service, draft_id) == "direct"
     with service.authority.pool.connection() as db:
@@ -763,7 +775,8 @@ def test_a_stuck_fiscal_receipt_with_no_currency_recovers_without_a_new_read(
     )
     assert Decimal(str(facts["amount"]["value"])) == Decimal("10189.45")
     assert facts["fiscal"]["ecf"]["value"] == ECF
-    approved = web.client.post(
+    approved = accept(
+        web.client,
         f"{API}/business/drafts/{detail['draft_id']}/approve",
         json={"version": detail["version"], "action": "record_expense"},
         headers={**web.alice.headers, "Idempotency-Key": str(uuid4())},

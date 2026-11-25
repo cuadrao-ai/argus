@@ -5,7 +5,6 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
-import { BankMatchSuggestionCard, type BankMatchSuggestionCardProps } from "@/components/business-app/BankMatchSuggestion";
 import { ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
 import FiscalDeclarationEditor from "@/components/business-app/FiscalDeclarationEditor";
 import { reviewDgii } from "@/lib/business-dgii";
@@ -36,44 +35,6 @@ async function render(node: React.ReactNode) {
   await act(async () => root.render(<I18nextProvider i18n={i18n}>{node}</I18nextProvider>));
   return { host, dispose: async () => { await act(async () => root.unmount()); host.remove(); } };
 }
-
-const side = { occurredOn: "01/10/2026", description: "Ferretería Luna" };
-function card(line: { amount: string; currency: string | null }, document: { amount: string; currency: string | null }): BusinessMatchProps {
-  return { line: { ...side, ...line }, document: { ...side, kind: "receipt", ...document }, onConfirm: () => undefined, onDecline: () => undefined, enabled: true };
-}
-type BusinessMatchProps = BankMatchSuggestionCardProps;
-
-describe("a bank match suggestion shows money through the shared formatter", () => {
-  test("each side keeps its own currency, symbol and exact decimals", async () => {
-    const view = await render(<BankMatchSuggestionCard {...card({ amount: "-1500.5", currency: "DOP" }, { amount: "1234.5", currency: "USD" })} />);
-    try {
-      const line = view.host.querySelector('[data-testid="bank-match-line"]')?.textContent ?? "";
-      const document = view.host.querySelector('[data-testid="bank-match-document"]')?.textContent ?? "";
-      assert.match(line, /-RD\$ 1,500\.50/);
-      assert.match(document, /US\$ 1,234\.50/);
-      assert.doesNotMatch(line + document, /\d (DOP|USD)\b/);
-    } finally { await view.dispose(); }
-  });
-
-  test("a currency without decimals shows none", async () => {
-    const view = await render(<BankMatchSuggestionCard {...card({ amount: "1500", currency: "JPY" }, { amount: "1500", currency: "JPY" })} />);
-    try {
-      const line = view.host.querySelector('[data-testid="bank-match-line"]')?.textContent ?? "";
-      assert.match(line, /1,500(?![.\d])/);
-    } finally { await view.dispose(); }
-  });
-
-  test("a missing currency reads as unknown, never as pesos", async () => {
-    const view = await render(<BankMatchSuggestionCard {...card({ amount: "-1500.00", currency: null }, { amount: "1500.00", currency: null })} />);
-    try {
-      const line = view.host.querySelector('[data-testid="bank-match-line"] p:last-child')?.textContent;
-      const document = view.host.querySelector('[data-testid="bank-match-document"] p:last-child')?.textContent;
-      assert.equal(line, "-");
-      assert.equal(document, "-");
-      assert.doesNotMatch(view.host.textContent ?? "", /RD\$|DOP/);
-    } finally { await view.dispose(); }
-  });
-});
 
 async function readDossier(purchases: BusinessDossier["read_purchases"], currency: string | null): Promise<BusinessDossier> {
   const dossier = structuredClone(await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "caja" }]).dossier(dossierFixtureIds.ready));
@@ -116,7 +77,7 @@ describe("the purchases read on a receipt", () => {
 describe("the original purchase picker in the tax details", () => {
   const candidate = { id: "act-1", merchant: "Ferretería", amount: "1234.50", currency: "USD", occurred_on: "2026-10-01" };
   async function mountEditor(candidates: BusinessDossier["refund_candidates"], answer: (body: Record<string, unknown>) => Response = () => Response.json({})) {
-    const dossier = { ...structuredClone(await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "caja" }]).dossier(dossierFixtureIds.ready)), refund_candidates: candidates };
+    const dossier = { ...structuredClone(await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "caja" }]).dossier(dossierFixtureIds.ready)), refund_candidates: candidates, note_kind: "credit" as const };
     const asked: string[] = [];
     const sent: Record<string, unknown>[] = [];
     globalThis.fetch = async (url, init) => {
@@ -125,15 +86,17 @@ describe("the original purchase picker in the tax details", () => {
       sent.push(body);
       return answer(body);
     };
-    const view = await render(<FiscalDeclarationEditor dossier={dossier} fields={{ "606": [], "607": [] }} reviewFiscal={reviewDgii} disabled={false} onChanged={() => undefined} onBusy={() => undefined} onDirty={() => undefined} />);
-    const refund = view.host.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const view = await render(<FiscalDeclarationEditor dossier={{ ...dossier, facts_editable: true, editable_fields: ["actual_refund"] }} fields={{ "606": [], "607": [] }} reviewFiscal={reviewDgii} disabled={false} onChanged={() => undefined} onBusy={() => undefined} onDirty={() => undefined} />);
+    const row = view.host.querySelector('[data-fact="actual_refund"]')!;
+    await act(async () => row.querySelector<HTMLButtonElement>("button[data-row-value]")!.click());
+    const refund = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
     assert.ok(refund);
     await act(async () => refund.click());
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
     const rows = () => [...view.host.querySelectorAll<HTMLElement>('[data-testid="refund-candidate"]')];
     const pick = (index: number) => act(async () => rows()[index].querySelector<HTMLInputElement>('input[type="radio"]')!.click());
     const save = async () => {
-      const button = [...view.host.querySelectorAll("button")].find((node) => node.textContent === "Guardar");
+      const button = row.querySelector<HTMLButtonElement>('button[aria-label^="Guardar · "]');
       assert.ok(button);
       await act(async () => button.click());
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
@@ -156,7 +119,7 @@ describe("the original purchase picker in the tax details", () => {
   test("with no candidates it says so", async () => {
     const { view } = await mountEditor([]);
     try {
-      assert.equal(view.host.querySelector('[data-testid="refund-candidates-none"]')?.textContent, "No hay compras aprobadas para elegir.");
+      assert.equal(view.host.querySelector('[data-testid="refund-candidates-none"]')?.textContent, "No hay compras aceptadas para elegir.");
     } finally { await view.dispose(); }
   });
 

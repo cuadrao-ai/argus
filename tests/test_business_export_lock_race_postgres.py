@@ -9,16 +9,19 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import threading
 from unittest.mock import patch
 from uuid import uuid4
 from zipfile import ZipFile
 
+import pytest
 from argus.domain.business import export as export_module
 from argus.domain.business.actions import mutations
 from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.ingestion.documents import store_postgres
 
+from tests.business_accept_support import accepting
 from tests.test_business_fiscal_routes_postgres import (  # noqa: F401
     API,
     _known,
@@ -36,10 +39,13 @@ FILER = "199990013"
 SUPPLIER = "199990021"
 
 
-def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
-    """One approved purchase of September 2026 with its 606 data complete and
-    Forma de Pago 01, on a Business whose RNC is set."""
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
+
+@pytest.fixture(autouse=True)
+def _configured_filer(world) -> None:  # noqa: ANN001, F811
     alice = world.alice
     profile = world.client.patch(
         f"{API}/business/fiscal-profile",
@@ -52,6 +58,13 @@ def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
         headers={**alice.headers, "Idempotency-Key": str(uuid4())},
     )
     assert profile.status_code == 200, profile.text
+
+
+def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
+    """One approved purchase of September 2026 with its 606 data complete and
+    Forma de Pago 01, on a Business whose RNC is set."""
+
+    alice = world.alice
     note = _note(world, alice, f"Compra {ncf}")
     assert note.status_code == 200, note.text
     draft = note.json()["draft_id"]
@@ -88,7 +101,7 @@ def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": reviewed.json()["version"], "action": "record_expense"},
+        accepting(reviewed.json(), "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text
@@ -174,6 +187,70 @@ def test_a_write_between_the_snapshot_and_the_build_is_in_the_sheet(world):  # n
     assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
 
 
+def test_an_accepted_delete_between_the_snapshot_and_the_build_is_excluded(world):  # noqa: ANN001, F811
+    draft, _ = recorded(world, "B0100001004")
+    kept_draft, _ = recorded(world, "B0100001005")
+    before = download(world)
+    assert before.status_code == 200, before.text
+    with ZipFile(io.BytesIO(before.content)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        assert len(manifest["records"]) == 2
+        reconciled = {
+            entry["draft_id"]: entry for entry in manifest["dgii"]["reconciliation"]
+        }
+        assert {
+            draft_id: entry["disposition"] for draft_id, entry in reconciled.items()
+        } == {
+            draft: "606",
+            kept_draft: "606",
+        }
+        removed_originals = {
+            item["file"] for item in manifest["sources"] if draft in item["draft_ids"]
+        }
+        assert b"Compra B0100001004" in [archive.read(name) for name in removed_originals]
+
+    reached, resume = threading.Event(), threading.Event()
+    outcome = {}
+    with patch.object(
+        store_postgres,
+        "PostgresDocumentStore",
+        paused(store_postgres.PostgresDocumentStore, reached, resume),
+    ):
+        exporter = in_thread(outcome, "export", lambda: download(world))
+        try:
+            assert reached.wait(20)
+            deleted = _post(
+                world,
+                f"/business/drafts/{draft}/delete",
+                {},
+                world.alice.headers,
+            )
+            assert deleted.status_code == 200, deleted.text
+        finally:
+            resume.set()
+            exporter.join(30)
+
+    after = outcome["export"]
+    assert after.status_code == 200, after.text
+    with ZipFile(io.BytesIO(after.content)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        rows = list(
+            csv.DictReader(io.StringIO(archive.read("records.csv").decode("utf-8-sig")))
+        )
+        assert [row["NCF"] for row in rows] == ["B0100001005"]
+        assert [row["activity_id"] for row in manifest["records"]] == [
+            reconciled[kept_draft]["activity_id"]
+        ]
+        assert [entry["draft_id"] for entry in manifest["dgii"]["reconciliation"]] == [
+            kept_draft
+        ]
+        assert all(item["draft_ids"] == [kept_draft] for item in manifest["sources"])
+        assert b"Compra B0100001005" in [
+            archive.read(item["file"]) for item in manifest["sources"]
+        ]
+        assert not removed_originals.intersection(archive.namelist())
+
+
 def test_a_write_holding_the_owner_lock_lands_before_the_build(world):  # noqa: ANN001, F811
     """The write is saving its revision when the export starts. The export
     builds after that write commits: the sheet ships 03."""
@@ -222,3 +299,46 @@ def test_a_write_arriving_during_the_build_lands_after_it(world):  # noqa: ANN00
     view = dossier(world, draft)
     assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
     assert shipped_payment_form(download(world)) == "03"
+
+
+@pytest.mark.parametrize("field", ["amount", "ncf"])
+def test_an_accepted_edit_during_export_updates_the_whole_package(world, field):  # noqa: F811
+    draft, version = recorded(world, "B0100001006")
+    reached, resume = threading.Event(), threading.Event()
+    outcome = {}
+    with patch.object(
+        store_postgres,
+        "PostgresDocumentStore",
+        paused(store_postgres.PostgresDocumentStore, reached, resume),
+    ):
+        exporter = in_thread(outcome, "export", lambda: download(world))
+        try:
+            assert reached.wait(20)
+            edit = {"facts": _known({"amount": "1380.00"})} if field == "amount" else {
+                "dgii": {
+                    "fiscal": {"rnc": SUPPLIER, "ncf": "B0100001007", "itbis": "180.00"},
+                    "declaration": dossier(world, draft)["dgii"],
+                }
+            }
+            changed = _review(
+                world, draft, {"version": version, **edit},
+                world.alice.headers,
+            )
+            assert changed.status_code == 200, changed.text
+        finally:
+            resume.set()
+            exporter.join(30)
+    response = outcome["export"]
+    assert response.status_code == 200, response.text
+    with ZipFile(io.BytesIO(response.content)) as archive:
+        [row] = csv.DictReader(io.StringIO(archive.read("records.csv").decode("utf-8-sig")))
+        manifest = json.loads(archive.read("manifest.json"))
+    if field == "amount":
+        assert (row["Total"], row["Subtotal"]) == ("1380.00", "1200.00")
+    else:
+        assert row["NCF"] == "B0100001007"
+        assert manifest["records"][0]["activity_revision"] == "1"
+    assert manifest["dgii"]["issues"] == []
+    source_ids = {item["source_id"] for item in manifest["sources"]}
+    [reconciled] = manifest["dgii"]["reconciliation"]
+    assert set(reconciled["source_ids"]) <= source_ids

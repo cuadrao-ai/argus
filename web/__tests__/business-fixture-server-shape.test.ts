@@ -13,7 +13,6 @@ test("the sample's Bandeja counts equal the receipts it flags plus the emails th
   const notes = new Set((await source.captures("", 50, "inbox")).items.map((note) => note.draft_id)).size;
   assert.equal(notes, 1, "the sample has one note awaiting review");
   assert.equal(page.activity?.ready_to_review_count, flagged("por_revisar") + notes);
-  assert.equal(page.activity?.needs_attention_count, flagged("con_problema") + emails.filter((email) => email.standing === "no_receipt").length);
   assert.equal(page.activity?.reading_count, flagged("leyendo") + emails.filter((email) => email.standing === "reading").length);
   assert.equal(page.activity?.confirmed_count, all.filter((item) => item.status === "confirmed" && !item.email_original).length);
   assert.equal(page.activity?.dismissed_count, 0);
@@ -50,8 +49,23 @@ test("a receipt sent for reading is leyendo, and one queued that nothing reads i
   const file = new File(["x"], "recibo.jpg", { type: "image/jpeg" });
   const saved = await source.uploadReceipt(file, false, "upload-saved");
   assert.deepEqual(saved.bandeja, { por_revisar: true, con_problema: false, leyendo: false });
-  assert.deepEqual(saved.bandeja_group, { group: "attention", reason: "not_read", draft_id: null, version: null });
+  assert.deepEqual(saved.bandeja_group, { group: "attention", reason: "not_read", label: "needs_attention", draft_id: null, version: null });
   assert.equal(saved.activity?.state, "saved_unread");
   const prepared = await source.prepareReceipt(saved.id);
   assert.deepEqual(prepared.bandeja, { por_revisar: false, con_problema: false, leyendo: true });
+});
+
+test("the sample's accept actions answer with the counts its next list read gives, as the server's do", async () => {
+  const source = createFixtureBusinessDataSource();
+  const before = (await source.receiptPage!("inbox")).activity;
+  // The sample refuses one Listos row and leaves another unsettled; the rest record.
+  const [first, second] = (await source.receiptPage!("inbox")).items.filter((item) => item.bandeja_group?.group === "listo" && !["rcpt-listo-suplidora", "rcpt-listo-repuestos"].includes(item.id));
+  const many = await source.approveListos([{ draft_id: first.bandeja_group!.draft_id!, version: first.bandeja_group!.version! }], "key-many");
+  assert.deepEqual(many.results.map((result) => result.outcome), ["applied"]);
+  assert.deepEqual(many.inbox_counts, (await source.receiptPage!("inbox")).activity);
+  assert.equal(many.inbox_counts.bandeja_listo_count, before.bandeja_listo_count! - 1);
+  const dossier = await source.dossier(second.bandeja_group!.draft_id!);
+  const one = await source.approveDraft(dossier.draft_id, dossier.version, "key-one", dossier.approval_action!);
+  assert.equal(one.approval_result?.status, "recorded");
+  assert.deepEqual(one.inbox_counts, (await source.receiptPage!("inbox")).activity);
 });

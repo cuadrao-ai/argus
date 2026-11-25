@@ -14,7 +14,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import { useRecordTray } from "./record-tray";
 import { POLL_MS, POLLS } from "./useEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
-import { formatBusinessName, formatRelativeTime } from "./business-format";
+import { formatBusinessName, formatDate, formatRelativeTime } from "./business-format";
 import { Settle } from "./business-skeletons";
 import { canManageBusiness, cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { CopyButton, useCopyLabels, WrappingAddress } from "./foundation/CopyButton";
@@ -182,7 +182,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
     return receipt && savedUnread(receipt) ? receipt : null;
   };
   const savedCount = delivery.saved_receipt_count;
-  const resumeAt = waiting ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(waiting.retry_at)) : null;
+  const resumeAt = waiting ? formatDate(new Date(waiting.retry_at), locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }) : null;
   const reason = waiting
     ? t("business.email.waiting_resume", "This email is waiting. Processing resumes automatically from {{time}} UTC. You do not need to send it again.", { time: resumeAt })
     : delivery.error_code

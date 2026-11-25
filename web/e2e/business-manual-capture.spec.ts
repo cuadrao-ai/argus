@@ -4,12 +4,14 @@ import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import type { BusinessCaptureInput } from "../lib/business-api";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
+const LISTED_NOTE = "Nota que pone el registro en la Bandeja";
 type CaptureMode = "ok" | "lost" | "denied" | "stale" | "business_action_unsettled" | "outcome_unknown" | "conflict";
-async function setup(page: Page, draftId?: string, workspaceUnavailable = false) {
+async function setup(page: Page, draftId?: string, workspaceUnavailable = false, listedDraftId?: string) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
-  const state = { mode: "ok" as CaptureMode, notesUnavailable: false, workspaceUnavailable, starts: 0, approvals: 0, captures: [] as { input: BusinessCaptureInput; key: string }[] };
+  const state = { mode: "ok" as CaptureMode, notesUnavailable: false, workspaceUnavailable, starts: 0, approvals: 0, workspaceLoads: 0, captures: [] as { input: BusinessCaptureInput; key: string }[] };
+  if (listedDraftId) await source.captureNote({ text: LISTED_NOTE, draft: { draft_id: listedDraftId, version: (await source.dossier(listedDraftId)).version } }, "fixture-listed-note");
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.split("/business/")[1];
@@ -20,8 +22,9 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
       if (path === "fiscal-profile/fields") return route.fulfill({ json: { "606": [], "607": [] } });
       if (path === "spaces") return route.fulfill({ json: { spaces: await source.spaces() } });
       if (path === "workspace") {
+        state.workspaceLoads++;
         if (state.workspaceUnavailable) return route.fulfill({ status: 403, json: { detail: { code: "permission_denied", status: 403, title: "Action refused", detail: "permission_denied", request_id: "capture-test" } } });
-        return route.fulfill({ json: await source.workspace() });
+        return route.fulfill({ json: { ...await source.workspace(), typed_notes_available: true } });
       }
       if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
       if (path === "receipts") return route.fulfill({ json: { items: [] } });
@@ -50,13 +53,17 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
       if (draft) {
         if (draft[2] === "dossier") return route.fulfill({ json: await source.dossier(draft[1]) });
         const body = route.request().postDataJSON();
-        if (draft[2] === "approve") { state.approvals++; return route.fulfill({ json: await source.approveDraft(draft[1], body.version, route.request().headers()["idempotency-key"], body.action) }); }
+        if (draft[2] === "approve") {
+          state.approvals++;
+          const options = { acceptGaps: body.accept_gaps, suggestions: body.suggestions };
+          return route.fulfill({ json: await source.approveDraft(draft[1], body.version, route.request().headers()["idempotency-key"], body.action, options) });
+        }
         return route.fulfill({ json: await source.reviewDraft(draft[1], body.version, body.facts, route.request().headers()["idempotency-key"]) });
       }
       return route.fulfill({ json: { items: [] } });
     } catch (error) {
-      const failure = error as { status?: number; code?: string };
-      return route.fulfill({ status: failure.status ?? 500, json: { code: failure.code ?? "unknown" } });
+      const failure = error as { status?: number; code?: string; context?: unknown };
+      return route.fulfill({ status: failure.status ?? 500, json: { code: failure.code ?? "unknown", context: failure.context } });
     }
   });
   await page.goto(`/biz${draftId ? `?draft=${draftId}` : ""}`);
@@ -64,20 +71,20 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
   return { state, source };
 }
 
-/** Agregar is the one door: the owner types the note into its "Escríbelo" panel and it lands in the Bandeja. */
-async function newNote(page: Page) {
-  await page.getByTestId("business-primary-upload").click();
-  await page.getByTestId("intake-write-open").click();
-  return page.getByTestId("intake-write");
-}
 /** A record keeps "Agregar nota" in its Más menu. */
 async function openAppend(page: Page) {
   await openMore(page);
   await page.getByRole("menuitem", { name: "Agregar nota", exact: true }).click();
 }
-/** A phone shows a record's form or its original, one at a time. */
-async function showOriginal(page: Page, width: number) {
-  if (width < 720) await page.getByTestId("business-record-review").getByRole("radio", { name: "Original", exact: true }).click();
+/** The Bandeja row of the record `setup` listed. A record opened from its list has the workspace answer behind it. */
+async function openListed(page: Page) {
+  await page.getByRole("button", { name: /Bandeja/ }).first().click();
+  await page.getByTestId("reception-row").filter({ hasText: LISTED_NOTE }).getByRole("button").first().click();
+  await expect(page.getByTestId("business-record-review")).toBeVisible();
+}
+/** The approve button. A wide screen adds its keyboard shortcut to the name. */
+function approveButton(page: Page) {
+  return page.getByTestId("receipt-review-footer").getByRole("button", { name: /^Aceptar(?: (?:Ctrl ↵|⌘↵))?$/ });
 }
 async function openMore(page: Page) {
   await page.getByTestId("receipt-more").getByRole("button", { name: "Más", exact: true }).click();
@@ -89,61 +96,9 @@ async function screenshot(page: Page, name: string) {
 for (const width of [1280, 390]) {
   test.describe(`Spanish manual notes ${width}px`, () => {
     test.use({ viewport: { width, height: 900 } });
-    test("original sparse note opens canonical review, appends and returns through note search", async ({ page }) => {
-      // Quarantined at 1280px: fails about 1 run in 3 on integration too (#2208). 390px still runs.
-      test.skip(width === 1280, "Flaky on integration, see #2208");
-      const { state } = await setup(page);
-      const write = await newNote(page);
-      const original = "  Ayer compré pintura para el taller.\nNo sé cuánto pagué.  ";
-      await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill("  ");
-      // A typed note names its own type inside its card: Guardar waits for text and Compra or Venta.
-      await expect(write.getByTestId("intake-write-save")).toBeDisabled();
-      await write.getByTestId("intake-write-type").getByRole("radio", { name: "Compra", exact: true }).click();
-      await expect(write.getByTestId("intake-write-save")).toBeDisabled();
-      expect(state.captures).toHaveLength(0);
-      await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill(original);
-      const starts = state.starts;
-      await write.getByTestId("intake-write-save").click();
-      await expect(page.getByTestId("receipt-typed-row")).toContainText("Guardado en la Bandeja");
-      expect(state.captures[0].input).toMatchObject({ text: original.trim(), document_type: "recibo" });
-      await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog")).toHaveCount(0);
-      await page.getByRole("button", { name: /Bandeja/ }).first().click();
-      await page.getByTestId("reception-row").filter({ hasText: "Ayer compré pintura" }).getByRole("button").first().click();
-      const record = page.getByTestId("business-record-review");
-      await expect(record).toBeVisible();
-      // A sparse note lists what is missing before it can be approved.
-      await expect(record.getByRole("region", { name: "Falta para aprobar", exact: true })).toBeVisible();
-      await expect(record).not.toContainText("RD$ 0");
-      await showOriginal(page, width);
-      await expect(record.getByRole("blockquote")).toHaveText(original.trim());
-      expect(state.starts).toBe(starts);
-      expect(state.approvals).toBe(0);
-      await screenshot(page, `sparse-original-${width}`);
-      await openAppend(page);
-      const append = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
-      await append.getByRole("textbox", { name: "Nota original", exact: true }).fill("Pagué con mi dinero %_");
-      await append.getByRole("button", { name: "Guardar nota", exact: true }).click();
-      await expect(record).toContainText("Pagué con mi dinero %_");
-      expect(state.captures[1].input.draft?.version).toBe(1);
-      expect(state.captures[1].key).not.toBe(state.captures[0].key);
-      expect(state.approvals).toBe(0);
-      // A phone has a Buscar button in its header; a wide screen's top-bar field sits under the open record, so the shortcut opens search.
-      if (width < 720) await page.getByRole("button", { name: "Buscar", exact: true }).click();
-      else await page.keyboard.press("Control+K");
-      await page.getByPlaceholder("Busca comercio, monto o nota").fill("pintura");
-      const hit = page.getByTestId("workspace-search-results").getByRole("button", { name: /Ayer compré pintura/ });
-      await expect(hit).toContainText("Nota original guardada");
-      await hit.click();
-      // The hit opens the saved note with every message on its record, and from there the record itself.
-      await expect(page.getByRole("region", { name: "Nota original guardada", exact: true })).toContainText("Pagué con mi dinero %_");
-      await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
-      await showOriginal(page, width);
-      await expect(record).toContainText("Pagué con mi dinero %_");
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    });
     test("lost append response retains verbatim intent across close and explicit same-key retry without approval", async ({ page }) => {
-      const { state } = await setup(page, dossierFixtureIds.ready);
+      const { state } = await setup(page, undefined, false, dossierFixtureIds.ready);
+      await openListed(page);
       await openAppend(page);
       const dialog = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
       const text = "  Falta comprobar esta compra.\n  ";
@@ -153,7 +108,7 @@ for (const width of [1280, 390]) {
       await expect(dialog.getByRole("alert")).toContainText("No pudimos confirmar");
       await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue(text);
       await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-      await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
+      await expect(approveButton(page)).toBeDisabled();
       expect(state.captures).toHaveLength(1);
       await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
       await screenshot(page, `uncertain-retained-${width}`);
@@ -165,8 +120,21 @@ for (const width of [1280, 390]) {
   });
 }
 
+test.describe("a phone that lands on a record link", () => {
+  test.use({ viewport: { width: 390, height: 900 } });
+  test("offers no Agregar nota while the workspace answer is not loaded", async ({ page }) => {
+    const { state } = await setup(page, dossierFixtureIds.ready);
+    await expect(page.getByTestId("business-record-review")).toBeVisible();
+    await openMore(page);
+    await expect(page.getByRole("menu", { name: "Más", exact: true })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);
+    expect(state.workspaceLoads).toBe(0);
+  });
+});
+
 test("denied and stale append preserve text, and read-only exposes no append", async ({ page }) => {
   const { state, source } = await setup(page, dossierFixtureIds.ready);
+  await expect(approveButton(page)).toBeEnabled();
   await openAppend(page);
   const dialog = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
   await dialog.getByRole("textbox", { name: "Nota original", exact: true }).fill("Mi texto sin perder");
@@ -179,7 +147,7 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("Tu acceso actual");
   await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue("Mi texto sin perder");
-  await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toHaveCount(0);
+  await expect(approveButton(page)).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
   await page.getByRole("button", { name: "Volver a abrir la nota conservada", exact: true }).click();
@@ -192,17 +160,19 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);
   await source.approveDraft(dossierFixtureIds.ready, 2, "fixture-explicit-approval", "record_expense");
   await page.goto(`/biz?draft=${dossierFixtureIds.ready}`);
-  await expect(page.getByTestId("business-record-review")).toContainText("Se registró un gasto");
+  // An accepted record says where it went in its Historial and shows no status pill.
+  await expect(page.getByTestId("receipt-review-history").getByTestId("history-sub")).toHaveText("Pasó a Registros");
+  await expect(page.getByTestId("status-pill")).toHaveCount(0);
   await openMore(page);
   await expect(page.getByRole("menuitem", { name: "Agregar nota", exact: true })).toHaveCount(0);
 });
 
-test("new-note entry waits for successful own-workspace load", async ({ page }) => {
-  const { state } = await setup(page, undefined, true);
-  await expect(page.getByTestId("workspace-panel-region").getByRole("heading", { name: "Cuadrao Business aún no está disponible para tu cuenta." })).toBeVisible();
+test("Agregar has no door to a typed note", async ({ page }) => {
+  const { state } = await setup(page);
   await page.getByTestId("business-primary-upload").click();
-  // Agregar opens, but the typed-note door stays closed until the own workspace has loaded.
-  await expect(page.getByRole("dialog", { name: "Agregar", exact: true })).toBeVisible();
+  const upload = page.getByRole("dialog", { name: "Agregar documentos", exact: true });
+  await expect(upload.getByTestId("intake-drop-zone")).toBeVisible();
+  await expect(upload).not.toContainText("Escríbelo");
   await expect(page.getByTestId("intake-write-open")).toHaveCount(0);
   expect(state.captures).toEqual([]);
 });
@@ -235,7 +205,7 @@ for (const code of ["business_action_unsettled", "outcome_unknown"] as const) {
     await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true })).toBeEnabled();
     await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-    await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
+    await expect(approveButton(page)).toBeDisabled();
     expect(state.captures).toHaveLength(1);
     await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
     await dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true }).click();

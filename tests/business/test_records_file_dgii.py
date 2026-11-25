@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import date
 
 import pytest
+from argus.domain.business.authority import ActionError
 from argus.domain.business.reporting_file import (
     RecordsExport,
     build_file,
@@ -161,30 +162,11 @@ def test_rnc_notice_counts_exported_rows_and_groups_normalized_supplier_identity
 
 
 @pytest.mark.parametrize("format", ("csv", "xlsx"))
-def test_607_spreadsheet_columns_and_dates_stay_unchanged(format):
-    from argus.domain.business.dgii_columns import COLUMNS
-    from argus.domain.business.dgii_export import line_values
-
-    month = books()
+def test_sales_dgii_file_is_unavailable(format):
     request = report(record_families=["sale"])
-    built = build_file(month, RecordsExport(report=request, mode="dgii", format=format))
-    if format == "xlsx":
-        header, *rows = xlsx(built.content)
-        headers = [value for _, value, _ in header]
-        dates = [line[5] for line in rows]
-        assert all(kind == "s" and len(value) == 8 for kind, value, _ in dates)
-    else:
-        headers, *rows = csv.reader(io.StringIO(built.content.decode("utf-8-sig")))
-        dates = [line[5] for line in rows]
-        assert dates == sorted(
-            line_values(month.approved[row.linked_activity_ids[0]])[5]
-            for row in month.records
-            if row.family == "sale" and row.fiscal_data == "complete"
-        )
-    assert headers == [label for _, label in COLUMNS["607"]]
-    preview = summarize_export(month, request).dgii
-    assert preview.rnc_warning_count == preview.rnc_supplier_count == 0
-    assert preview.rnc_suppliers == ()
+    with pytest.raises(ActionError) as refused:
+        build_file(books(), RecordsExport(report=request, mode="dgii", format=format))
+    assert refused.value.result.code == "business_export_dgii_sales_unavailable"
 
 
 def test_rnc_snapshot_copies_entries_and_preserves_misses():
@@ -202,9 +184,7 @@ def test_rnc_snapshot_copies_entries_and_preserves_misses():
     ("form", "name", "code"),
     [
         *(("606", "income_withholding_type", f"{n:02}") for n in range(1, 10)),
-        *(("607", "income_type", str(n)) for n in range(1, 7)),
         *(("606", "id_type", str(n)) for n in range(1, 3)),
-        *(("607", "id_type", str(n)) for n in range(1, 4)),
     ],
 )
 def test_dgii_file_writes_the_withholding_income_and_id_codes_without_names(
@@ -221,7 +201,7 @@ def test_dgii_file_writes_the_withholding_income_and_id_codes_without_names(
         else record
         for key, record in month.approved.items()
     }
-    request = report(record_families=["sale" if form == "607" else "purchase"])
+    request = report(record_families=["purchase"])
     built = build_file(
         replace(month, approved=approved),
         RecordsExport(report=request, mode="dgii", format="csv"),
@@ -232,7 +212,7 @@ def test_dgii_file_writes_the_withholding_income_and_id_codes_without_names(
     assert {line[column] for line in lines} == {code}
 
 
-#: The 606/607 files of the practice month, hashed at 5877fc650 before the name
+#: The 606 files of the practice month, hashed at 5877fc650 before the name
 #: column took Emisor and Cliente. A screen word must never reach these files.
 DGII_FILES = {
     ("purchase", "csv"): (
@@ -242,14 +222,6 @@ DGII_FILES = {
     ("purchase", "xlsx"): (
         3,
         "522622fd10960d89dd9570c92dd89e3596816572a58e56ed7bd05e80db76f9b0",
-    ),
-    ("sale", "csv"): (
-        1,
-        "e8f1fceb4f311c7fd212c8d66ba2d0bb1fac4297c52327b27b40b4cea9ebf521",
-    ),
-    ("sale", "xlsx"): (
-        1,
-        "145c642d4639261b49f4e931515f9a4605d422517b2a085838ac549ec2da863a",
     ),
 }
 

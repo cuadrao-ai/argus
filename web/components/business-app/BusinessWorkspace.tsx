@@ -39,7 +39,7 @@ import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessio
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { shownScreen } from "./record-tray";
+import { recordList, shownScreen } from "./record-tray";
 import { browserAuthGeneration } from "@/lib/browser-auth-generation";
 import { withBusinessSession, withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
@@ -62,8 +62,8 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
+import ReceiptUploadChip from "./ReceiptUploadChip";
 import { intakeWork } from "./intake-work";
-import { TypedNoteQueue } from "./typed-note-queue";
 import { openRecordsExport } from "./transacciones/records-export-request";
 import { HandHeart } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -73,16 +73,21 @@ import BusinessHeader from "./foundation/BusinessHeader";
 import { afterListCheck, useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
+import { withAnsweredCounts } from "./inbox-count";
 import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
 import type { RecordsFocus } from "./transacciones/records-focus";
 import { useEmailDeliveries } from "./useEmailDeliveries";
 import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
-import { canAddRecords, canManageBusiness, quietButtonClass } from "./business-ui";
+import { canAddRecords, canManageBusiness } from "./business-ui";
 import { applyListSearch, SEARCHABLE_LISTS, useScopedList } from "./foundation/list-search";
 import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, publishBusinessAppearance } from "@/lib/business-profile-api";
+
+type ReceiptReviewList = Readonly<{ scope: "batch" | "inbox"; receiptIds: readonly string[] }>;
+
+export type DossierDetailsCard = "note" | "support";
 
 export type BusinessPanelState =
   | { kind: "overview" }
@@ -90,15 +95,15 @@ export type BusinessPanelState =
   | { kind: "invoicing" }
   // Actividad: the history of changes in this Business, live from the server.
   | { kind: "activity" }
-  // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
+  // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `cameFrom` is the record a phone comes back from.
   // `focus` opens Registros on one list, as a count elsewhere counted it.
-  | { kind: "transactions"; expenseId?: string; focus?: RecordsFocus }
-  | { kind: "expense"; expenseId: string }
+  | { kind: "transactions"; cameFrom?: Extract<BusinessPanelState, { kind: "receipt" | "draft" | "expense" }>; focus?: RecordsFocus; deletedDraftId?: string }
+  | { kind: "expense"; expenseId: string; detailsCard?: DossierDetailsCard }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
-  // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
-  | { kind: "receipt"; receiptId: string; list?: RecordList; receiptIds?: readonly string[]; confirmDelete?: boolean }
-  | { kind: "draft"; draftId: string; list?: RecordList; receiptIds?: readonly string[]; confirmDelete?: boolean }
+  // `list` is the screen behind the dossier and the screen it closes to.
+  | { kind: "receipt"; receiptId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean; detailsCard?: DossierDetailsCard }
+  | { kind: "draft"; draftId: string; list?: RecordList; reviewList?: ReceiptReviewList; confirmDelete?: boolean; detailsCard?: DossierDetailsCard }
   // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
   | { kind: "email"; emailId: string };
 
@@ -109,6 +114,8 @@ const BUSINESS_TABS = new Set<string>(["datos", "equipo", "correo"]);
 type Records = {
   workspace: BusinessWorkspaceInfo | null;
   workspaceGrant?: string | null;
+  /** The `revision` whose read answered `workspace`; a read always starts after its revision commits. */
+  workspaceRevision?: number;
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
   receiptActivity?: ReceiptActivityCounts | null;
@@ -157,6 +164,9 @@ export type BusinessContextValue = Readonly<{
   invoicing?: InvoicingState;
   receivingChannels?: ReceivingChannels;
   directoryStatus?: BusinessDirectoryStatus;
+  directoryReference?: string | null;
+  /** The directory chose this Business and its initial list answer has settled. */
+  inboxReady?: boolean;
   /** Every Business the person may enter, the server's list; null until read. */
   spaces: GrantedSpace[] | null;
   closedSpaces?: ClosedGrantedSpace[];
@@ -179,6 +189,8 @@ export type BusinessContextValue = Readonly<{
   setPeriod: (next: PeriodKey | Period) => void;
   panel: BusinessPanelState;
   openPanel: (panel: BusinessPanelState) => void;
+  /** A dossier opened from the Bandeja follows these ids when its list changes. */
+  followReceiptList: (receiptIds: readonly string[]) => void;
   /** Asks `guard` before the open panel changes, until the returned function runs. */
   guardPanel: (guard: PanelGuard) => () => void;
   actions: BusinessActions;
@@ -200,6 +212,8 @@ const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor, so `has_more` sends the rest to search.
 const NOTES_PAGE = 50;
 const PANEL_KINDS = new Set(["overview", "inbox", "transactions"]);
+/** The Bandeja tab, kept while the Bandeja or a record opened from it is on screen. */
+export const RECEPTION_VIEW_PARAM = "receptionView";
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
@@ -260,6 +274,13 @@ function shellViewFromSearch(params: URLSearchParams): ChatShellView {
   return params.has("conversation") || params.get("view") === "chat" ? "chat" : "workspace";
 }
 
+/** Whether the Bandeja is on screen; undefined while a linked record has not loaded and said which list it belongs to. */
+function onBandeja(panel: BusinessPanelState): boolean | undefined {
+  if (panel.kind === "inbox") return true;
+  if ((panel.kind === "receipt" || panel.kind === "draft") && panel.list === undefined) return undefined;
+  return recordList(panel) === "inbox";
+}
+
 function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
   try {
     const url = new URL(window.location.href);
@@ -270,6 +291,7 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
     url.searchParams.delete("email");
     url.searchParams.delete("segment");
     url.searchParams.delete("tab");
+    if (onBandeja(panel) === false) url.searchParams.delete(RECEPTION_VIEW_PARAM);
     if (view === "workspace") {
       if (panel.kind === "business" && panel.tab) url.searchParams.set("tab", panel.tab);
       if (panel.kind === "receipt") url.searchParams.set("receipt", panel.receiptId);
@@ -324,8 +346,14 @@ function BusinessWorkspaceContent({
   // workspace-scoped source is in effect, so the first fetch is already scoped.
   const onRecord = directRecord && (panel.kind === "receipt" || panel.kind === "draft");
   const scopedSource = onRecord ? sessionSource : workspaceSource;
-  const previewSourceFor = useMemo(() => createLocalBusinessPreviewSource(scopedSource), [scopedSource]);
-  const source = localPreview ? previewSourceFor(chosenGrant) : scopedSource;
+  const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
+  // An action's counts show only on the Business it started in: an answer that lands after a switch names another one's.
+  const countedSource = useMemo(() => withAnsweredCounts(scopedSource, () => {
+    const asked = getChosenGrant();
+    return (counts) => setRecords((current) => (current.workspaceGrant === asked ? { ...current, receiptActivity: counts } : current));
+  }), [scopedSource]);
+  const previewSourceFor = useMemo(() => createLocalBusinessPreviewSource(countedSource), [countedSource]);
+  const source = localPreview ? previewSourceFor(chosenGrant) : countedSource;
   const [initialView] = useState<ChatShellView>(() =>
     shellViewFromSearch(new URLSearchParams(searchParams.toString())),
   );
@@ -337,9 +365,9 @@ function BusinessWorkspaceContent({
   }), []);
   const [period, setPeriodState] = useState<Period>(() => periodRange("this_month"));
   const setPeriod = useCallback((next: PeriodKey | Period) => setPeriodState(typeof next === "string" ? periodRange(next) : next), []);
-  const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
   const [notesAttempt, setNotesAttempt] = useState(0);
   const [revision, setRevision] = useState(0);
+  const [directoryReference, setDirectoryReference] = useState<string | null>(null);
   const [directoryStatus, setDirectoryStatus] = useState<BusinessDirectoryStatus>("loading");
   const [directorySpaces, setSpaces] = useState<GrantedSpace[] | null>(null);
   const [closedSpaces, setClosedSpaces] = useState<ClosedGrantedSpace[]>([]);
@@ -386,6 +414,7 @@ function BusinessWorkspaceContent({
   useEffect(() => {
     let cancelled = false;
     setDirectoryStatus("loading");
+    setDirectoryReference(null);
     const directory = source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false }));
     directory.then(
       ({ spaces: listed, closed_spaces: closed, invitations_available: capability }) => {
@@ -409,7 +438,7 @@ function BusinessWorkspaceContent({
           }
         }
       },
-      () => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); setInvitationsAvailable(false); } },
+      (error: unknown) => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); setDirectoryReference(referenceCode(error)); setInvitationsAvailable(false); } },
     );
     return () => { cancelled = true; };
   }, [source, revision, accessRevision]);
@@ -506,12 +535,14 @@ function BusinessWorkspaceContent({
       if (disposition === "attach_and_close") setIntakeTarget(null);
     });
   }, [uploadQueue, reload, conversationId, intakeTarget]);
-  const uploads = useSyncExternalStore(uploadQueue.subscribe, uploadQueue.snapshot, uploadQueue.snapshot);
-  const [typedNotes] = useState(() => new TypedNoteQueue(reload));
-  // Every way Agregar closes forgets finished typed notes; one still saving or unconfirmed waits for its retry.
-  useEffect(() => { if (!intakeTarget) typedNotes.clearSettled(chosenGrant); }, [intakeTarget, typedNotes, chosenGrant]);
-  // Leaving the page asks first while anything Agregar took is still being sent, or a typed note is not saved yet.
-  const [inFlight] = useState(() => intakeWork([uploadQueue, typedNotes]));
+  // A lost connection stops a file where it was; when the browser is back online each one goes again by itself.
+  useEffect(() => {
+    const resume = () => uploadQueue.retryOffline();
+    window.addEventListener("online", resume);
+    return () => window.removeEventListener("online", resume);
+  }, [uploadQueue]);
+  // Leaving the page asks first while anything Agregar took is still being sent.
+  const [inFlight] = useState(() => intakeWork([uploadQueue]));
   const unfinishedIntake = useSyncExternalStore(inFlight.subscribe, inFlight.unfinished, () => false);
   useEffect(() => {
     if (!unfinishedIntake) return;
@@ -529,13 +560,13 @@ function BusinessWorkspaceContent({
     let cancelled = false;
     if (onRecord) return;
     runQuietRetries(() => Promise.all([
-      source.workspace(),
+      source.workspace(normalizeEnabledLanguage(i18n.language)),
       source.overview(period.from, period.to),
       source.receiptPage?.("inbox") ?? source.receipts("inbox").then((items) => ({ items, activity: null })),
     ]))
       .then(([workspace, overview, page]) => {
         if (cancelled) return;
-        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, overview, inbox: page.items, receiptActivity: page.activity, listVersion: "version" in page ? page.version : null, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
+        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, workspaceRevision: revision, overview, inbox: page.items, receiptActivity: page.activity, listVersion: "version" in page ? page.version : null, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
         reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {
@@ -574,7 +605,7 @@ function BusinessWorkspaceContent({
     return () => {
       cancelled = true;
     };
-  }, [chosenGrant, onRecord, period.from, period.to, revision, source, reloadWaits]);
+  }, [chosenGrant, i18n.language, onRecord, period.from, period.to, revision, source, reloadWaits]);
 
   const notificationsAvailable = records.workspaceGrant === chosenGrant && records.workspace?.notifications_available === true;
   const receivingChannels = useMemo(() => businessReceivingChannels(records.workspaceGrant === chosenGrant ? records.workspace : null), [chosenGrant, records.workspace, records.workspaceGrant]);
@@ -652,6 +683,12 @@ function BusinessWorkspaceContent({
     },
     [bridge],
   );
+  const followReceiptList = useCallback((receiptIds: readonly string[]) => {
+    setPanel((current) => {
+      if ((current.kind !== "receipt" && current.kind !== "draft") || current.reviewList?.scope !== "inbox") return current;
+      return { ...current, reviewList: { ...current.reviewList, receiptIds } };
+    });
+  }, []);
 
   const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
   // The top bar names the screen on the page, also the list under an open record; Facturación's waits for the server's answer like its screen does.
@@ -698,6 +735,7 @@ function BusinessWorkspaceContent({
       setPeriod,
       panel,
       openPanel,
+      followReceiptList,
       guardPanel,
       actions,
       bridge,
@@ -706,10 +744,14 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, invitationsAvailable, lostAccess, markAccessSeen, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, followReceiptList, invitationsAvailable, lostAccess, markAccessSeen, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
-  const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
+  // A null choice is legitimate while the directory loads, but is not a list scope.
+  // Wait for the first workspace answer too: its list version must precede Todos's
+  // first read. Background directory checks retain both answers and the mounted list.
+  const inboxReady = directorySpaces !== null && chosen !== null && (records.workspaceGrant === chosenGrant || records.error);
+  const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus, directoryReference, inboxReady }), [value, directoryStatus, directoryReference, inboxReady]);
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
   // The list on screen lends its query (wide screens with bar search); the search then starts scoped to it.
@@ -752,9 +794,7 @@ function BusinessWorkspaceContent({
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
       headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
-        {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
-          {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
-        </button> : null}
+        {intakeTarget ? null : <ReceiptUploadChip queue={uploadQueue} grant={chosenGrant} onOpen={setIntakeTarget} />}
         {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
         {localPreview && !shell.isBelowTablet && shell.openPersonalInvitation ? <Tooltip content={t("cuadrao_invitation.title")} side="bottom">
           <button type="button" data-testid="personal-invitation-shortcut" aria-label={t("cuadrao_invitation.title")} aria-haspopup="dialog" onClick={(event) => shell.openPersonalInvitation?.(event.currentTarget)} className="flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0]">
@@ -789,7 +829,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
+  }, [notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, chosenGrant, intakeTarget, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>
@@ -800,14 +840,20 @@ function BusinessWorkspaceContent({
         <ReceiptIntakeDialog
           target={intakeTarget}
           queue={uploadQueue}
-          notes={typedNotes}
           onClose={() => {
-            if (intakeTarget) uploadQueue.clearSettled(intakeTarget, chosenGrant);
+            // The Bandeja batch stays for its chip; a composer upload is one file and is forgotten once it is done.
+            if (intakeTarget === "composer") uploadQueue.clearSettled(intakeTarget, chosenGrant);
             setIntakeTarget(null);
           }}
           onReview={(saved) => {
             setIntakeTarget(null);
-            openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id, list: "inbox" } : { kind: "inbox" });
+            // The dossier opens on the first one and walks only this batch: "1 de N".
+            if (saved.length > 0) openPanel({
+              kind: "receipt",
+              receiptId: saved[0].id,
+              list: "inbox",
+              reviewList: { scope: "batch", receiptIds: saved.map((receipt) => receipt.id) },
+            });
           }}
         />
         <ToastViewport />

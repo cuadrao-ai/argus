@@ -22,16 +22,23 @@ export function dgiiAnswerText(t: TFunction, purchase: Purchase606, field: keyof
   return t(`business.dgii.option.${field === "expense_type" ? "category" : "payment_method"}.${choice.code}`, { defaultValue: choice.code }) || choice.code;
 }
 
-/** One 606 answer as Registros shows it: the localized DGII name, truncated with the full name on hover; the word Bandeja uses for a missing answer; a dash that says it does not apply for a record the 606 never lists; a plain dash when no read says. */
-export function DgiiAnswer({ purchase, field }: { purchase: Purchase606 | null | undefined; field: keyof Purchase606 }) {
+/** Registros reports missing answers in Estado. Search and review name them beside the field. */
+export function DgiiAnswer({ purchase, field, missingDisplay = "label" }: {
+  purchase: Purchase606 | null | undefined;
+  field: keyof Purchase606;
+  missingDisplay?: "label" | "dash";
+}) {
   const { t } = useTransaccionesWords();
   if (purchase === undefined) return <Unknown />;
   if (purchase === null) return <Unknown meaning={t("business.export.form_no_aplica")} />;
-  if (!purchase[field]) return <span data-dgii-missing={field} className={`${chip.workflow} ${palette.review}`}>{dgiiAnswerText(t, purchase, field)}</span>;
+  if (!purchase[field]) {
+    if (missingDisplay === "dash") return <Unknown />;
+    return <span className={`${chip.workflow} ${palette.review}`}>{dgiiAnswerText(t, purchase, field)}</span>;
+  }
   return <Truncated text={dgiiAnswerText(t, purchase, field)} />;
 }
 
 export default function RecordDgiiCell({ row, field }: { row: RecordRow; field: keyof Purchase606 }) {
   const { chosen } = useBusiness();
-  return <DgiiAnswer purchase={record606(row, chosen?.space_id ?? null)} field={field} />;
+  return <DgiiAnswer purchase={record606(row, chosen?.space_id ?? null)} field={field} missingDisplay="dash" />;
 }

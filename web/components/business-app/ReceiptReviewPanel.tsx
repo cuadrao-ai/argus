@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useState } from "react";
-import { AlertCircle, CircleAlert, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useEffectEvent, useReducer, useState, type ReactNode } from "react";
+import { AlertCircle, CircleAlert, Clock3, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { recordGone, referenceCode } from "@/lib/failure-screen";
@@ -9,48 +9,88 @@ import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } f
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import ReceiptDossierReview from "./ReceiptDossierReview";
+import ReceiptHistory from "./ReceiptHistory";
 import ReceiptReadNotice from "./ReceiptReadNotice";
-import ReceiptReadingState, { ReadingSheen } from "./ReceiptReadingState";
+import DossierReadFields from "./dossier/DossierReadFields";
+import DossierReadFailure, { ReadStateDelete } from "./dossier/DossierReadFailure";
 import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
-import ReceiptSourcePreview from "./ReceiptSourcePreview";
-import ReceiptReviewFrame from "./ReceiptReviewFrame";
-import { DeleteDocumentMenuItem, RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
-import ReceiptReviewFooter, { ReceiptMoreMenu } from "./ReceiptReviewFooter";
+import type { DossierTab } from "./dossier-attention";
+import DossierDetails from "./dossier/DossierDetails";
+import DossierDocument from "./dossier/DossierDocument";
+import { DossierStatus } from "./dossier/DossierHeader";
+import { DossierBare } from "./dossier/DossierParts";
+import { useJumpRows } from "./dossier/jump-rows";
+import ReceiptReviewFrame, { DossierLoading } from "./ReceiptReviewFrame";
+import { RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { showToast } from "./foundation/toasts";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
-import { useReceiptStateWord } from "./receipt-state-word";
 import { useShownRecord } from "./useShownRecord";
-import { receiptTag } from "./recepcion/reception-status";
-import type { ReceiptDetail } from "@/lib/business-api";
-import { useBusiness } from "./BusinessWorkspace";
+import type { BusinessExpenseDetail, ReceiptDetail } from "@/lib/business-api";
+import { useBusiness, type DossierDetailsCard } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
-import { canAddRecords, dangerButtonClass, primaryButtonClass, quietButtonClass, secondaryButtonClass, StatusPill, useTerminalRead } from "./business-ui";
-import { ContentFade, Settle } from "./business-skeletons";
-import { resolveLanguage } from "@/lib/language-features";
+import { sentByName } from "@/lib/sent-by";
+import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
+import { expensePanel } from "./business-expense-target";
+import { ContentFade } from "./business-skeletons";
 
-function ReceiptEntry({ receiptId }: { receiptId: string }) {
-  const { t, i18n } = useTranslation();
-  const stateWord = useReceiptStateWord();
-  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
-  const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
-  const terminalRead = useTerminalRead();
+function readingNow(receipt: ReceiptDetail | null): boolean {
+  return receipt?.bandeja?.leyendo === true && receipt.attention !== "read_budget_day" && receipt.attention !== "read_budget_month";
+}
+
+type ReadView = { detail: ReceiptDetail | null; readLanded: boolean };
+type RecoveryAction = { key: string; label: string; run: () => void | Promise<void>; testId?: string; icon?: typeof RotateCcw };
+
+function showReceipt(previous: ReadView, detail: ReceiptDetail): ReadView {
+  const sameReceipt = previous.detail?.id === detail.id;
+  const readLanded = Boolean(sameReceipt && detail.draft_id && (
+    readingNow(previous.detail) || (previous.readLanded && previous.detail?.draft_id === detail.draft_id)
+  ));
+  return { detail, readLanded };
+}
+
+/** A record that did not load: the shared retry line and its reference. */
+function LoadFailure({ reference, onRetry }: { reference: string; onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <DossierBare><section className={SURFACE_CARD} data-testid="receipt-load-error">
+      <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
+        <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+        {t("common.refresh_failed", "We couldn't update.")}
+      </p>
+      <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={reference} /></div>
+      <button type="button" className={`${secondaryButtonClass} mt-4`} onClick={onRetry}>
+        {t("common.retry", "Retry")}
+      </button>
+    </section></DossierBare>
+  );
+}
+
+function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCard?: DossierDetailsCard }) {
+  const { t } = useTranslation();
   const { source, reload, openPanel, revision, panel, actions, chosen } = useBusiness();
   const origin = panel?.kind === "receipt" || panel?.kind === "draft" ? panel : null;
-  const receiptIds = origin?.receiptIds ?? [];
+  const reviewList = origin?.reviewList;
+  const receiptIds = reviewList?.receiptIds ?? [];
   const consent = useBusinessConsent();
-  const [detail, setDetail] = useState<ReceiptDetail | null>(null);
+  const [{ detail, readLanded }, setDetail] = useReducer(showReceipt, { detail: null, readLanded: false });
   // The reference of the last load that failed.
   const [failure, setFailure] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState<"prepare" | "rebind" | "refresh" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
+  const [tab, setTab] = useState<DossierTab>(detailsCard ? "detalles" : "general");
+  const [entry, setEntry] = useState(panel);
+  if (entry !== panel) {
+    setEntry(panel);
+    if (detailsCard) setTab("detalles");
+  }
+  const jumpList = useJumpRows(receiptIds);
   const canDelete = detail?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
-  const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, stateWord(detail), t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
+  const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, detail.bandeja_group?.label ? t(`business.bandeja.label.${detail.bandeja_group.label}`) : null, t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
   const retainReceipt = useCallback(() => setUnprepared(true), []);
   const shown = useShownRecord(receiptId);
   // A receipt that is gone closes onto its list, so a dead link never leaves a panel whose Reintentar cannot work.
@@ -83,9 +123,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   }, [receiptId, source, revision, attempt]);
 
   const { canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { canPrepare: false, canApprove: false };
-  const confirmed = detail?.status === "confirmed";
   // Backend state only: the receipt is being read when the server's Bandeja flag says so, never from the status.
-  const waitingForAi = detail?.bandeja?.leyendo === true;
+  const waitingForAi = readingNow(detail);
   const [readStalled, setReadStalled] = useState(false);
   // The read settles on the server; this page asks again until it has, so the same page moves on.
   useReceiptReadPoll({
@@ -105,21 +144,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const openDraft = unprepared ? null : detail?.draft_id ?? null;
   // An open dossier stays mounted through a failed refetch: its rows hold what the person typed.
   if (failure !== null && !openDraft) {
-    return (
-      <section className={SURFACE_CARD} data-testid="receipt-load-error">
-        <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
-          <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-          {t("common.refresh_failed", "We couldn't update.")}
-        </p>
-        <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={failure} /></div>
-        <button type="button" className={`${secondaryButtonClass} mt-4`} onClick={retry}>
-          {t("common.retry", "Retry")}
-        </button>
-      </section>
-    );
+    return <LoadFailure reference={failure} onRetry={retry} />;
   }
-  if (!detail) return <Settle pending layout="detail" />;
-  const terminal = terminalRead(detail.attention);
+  if (!detail) return <DossierLoading recordId={receiptId} back={origin?.list ?? "inbox"} />;
   const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (openDraft) {
     const notice = failure === null ? null : (
@@ -131,28 +158,61 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
         </div>
       </div>
     );
-    return <ReceiptDossierReview draftId={openDraft} onUnprepared={retainReceipt} receipt={detail} notice={notice} />;
+    return <ReceiptDossierReview detailsCard={detailsCard} readLanded={readLanded} draftId={openDraft} onUnprepared={retainReceipt} receipt={detail} notice={notice} />;
   }
-  const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id, list: origin?.list, receiptIds }); };
+  const openReceipt = (id: string) => {
+    handTitleFocus(id);
+    openPanel({ kind: "receipt", receiptId: id, ...(reviewList ? { list: origin?.list, reviewList } : {}) });
+  };
   const position = receiptPlace(receiptId, receiptIds);
   const moves = busy ? {} : receiptNavigationActions(receiptId, receiptIds, openReceipt);
   const place = position ? { ...position, previous: moves.previous, next: moves.next } : null;
-  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
+  const needsAttention = detail.status === "needs_attention";
+  const reason = detail.attention;
+  const replaceUnreadable = reason === "unreadable" || reason === "not_a_receipt";
+  const held = needsAttention && reason === "read_budget_day";
+  const cannotRead = detail.bandeja_group?.label === "cant_read";
+  const failed = needsAttention && (cannotRead || replaceUnreadable || reason === "read_deadline_passed") ? reason : null;
+  const readBoard = waitingForAi || held || (cannotRead && Boolean(failed));
+  const footer = (primary?: ReactNode) => {
+    if (deletion.confirmBar) return deletion.confirmBar;
+    const disabled = busy !== null || deletion.busy;
+    // With no draft the only document action is its deletion, so the footer names it; a menu would hold one row.
+    const documentAction = canDelete
+      ? <ReadStateDelete onClick={deletion.ask} disabled={disabled} />
+      : detail.restore_available
+        ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} />
+        : null;
+    if (!documentAction && !primary) return null;
+    return <div className="flex flex-wrap items-center gap-2">
+      {documentAction}
+      {primary ? <div className="ml-auto">{primary}</div> : null}
+    </div>;
+  };
+  const frame = (children: ReactNode, primary?: ReactNode) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
-      back={confirmed ? "transactions" : "inbox"}
-      title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
-      badge={<StatusPill tag={receiptTag(detail).tag} label={stateWord(detail)} />}
-      amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
-      origin={{ channel: detail.channel, receivedAt: detail.received_at }}
+      back={detail.status === "confirmed" ? "transactions" : "inbox"}
+      // A receipt nobody named yet goes by its file.
+      title={(!readBoard && detail.merchant) || detail.filename || t("business.review.title", "Review receipt")}
+      status={<DossierStatus label={detail.bandeja_group?.label} deleted={Boolean(detail.deleted)} />}
       place={place}
-      source={source}
-      footer={deletion.confirmBar ?? (canDelete ? <ReceiptReviewFooter actions={<ReceiptMoreMenu groups={[<DeleteDocumentMenuItem key="delete" disabled={busy !== null || deletion.busy} onClick={deletion.ask} />]} />} /> : detail.restore_available ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} /> : undefined)}
-    >
-      {children}
-    </ReceiptReviewFrame>{deletion.dialog}</ContentFade>
+      jump={place ? { title: origin?.list === "transactions" ? t("business.nav.transactions", "Transactions") : t("business.nav.inbox", "Inbox"), rows: jumpList.rows, onOpen: jumpList.load, onPick: busy ? () => {} : openReceipt } : null}
+      tab={tab}
+      onTab={setTab}
+      tabs={[
+        { key: "general", content: children },
+        { key: "detalles", content: <DossierDetails detailsCard={detailsCard} origin={{ channel: detail.channel, sentBy: detail.sent_by ? sentByName(t, detail.sent_by) : null, receivedAt: detail.received_at, filename: detail.filename, sizeBytes: detail.size_bytes }} /> },
+        ...(readBoard ? [{ key: "historial" as const, content: <ReceiptHistory history={[]} accounts={[]} sources={[{
+          kind: "attachment", id: detail.id, connection_id: detail.id, channel: detail.channel,
+          received_at: detail.received_at, filename: detail.filename, media_type: detail.media_type,
+        }]} /> }] : []),
+      ]}
+      document={<DossierDocument file={detail} reading={waitingForAi} />}
+      footer={footer(primary)}
+    />{deletion.dialog}</ContentFade>
   );
-  if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice receipt={detail} preparable={false} /></>);
+  if (!readBoard && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice receipt={detail} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
 
   const prepare = async () => {
@@ -211,12 +271,53 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     }
   };
 
-  // A read the backend says is running shows the reading state until it settles; the poll then swaps in the filled fields at once.
+  const canRebind = needsAttention && detail.error_code === "business_record_not_found" && canApprove;
+  const canRetry = needsAttention && detail.preparable && canPrepare;
+  const duplicateId = needsAttention ? detail.duplicate_of : null;
+  const recovery: RecoveryAction[] = [];
+  if (canRebind) recovery.push({ key: "rebind", label: t("business.review.rebind"), run: rebind, testId: "receipt-rebind" });
+  if (canRetry) recovery.push({ key: "retry", label: t("business.review.retry"), run: prepare, icon: RotateCcw });
+  if (duplicateId) recovery.push({
+    key: "original", label: t("business.review.see_original"), testId: "receipt-duplicate-original",
+    run: () => openPanel({ kind: "receipt", receiptId: duplicateId }),
+  });
+  if (needsAttention && uploadAnother && (replaceUnreadable || (cannotRead && !detail.preparable))) {
+    recovery.push({ key: "upload", label: t("business.file_read.upload_another"), run: uploadAnother.run });
+  }
+  const recoveryButton = ({ key, label, run, testId, icon: Icon }: RecoveryAction, className: string) => (
+    <button key={key} type="button" data-testid={testId} disabled={busy !== null} className={className} onClick={() => void run()}>
+      {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}{label}
+    </button>
+  );
+  const [firstRecovery, ...otherRecovery] = recovery;
+  const primary = firstRecovery ? recoveryButton(firstRecovery, primaryButtonClass) : null;
+  const recoveryDetails = <>
+    {canRebind ? <p className="mt-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.rebind_note")}</p> : null}
+    {!failed && (canRetry || canRebind) ? <p className="mt-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent")}</p> : null}
+    {otherRecovery.length ? <div className={`mt-3 flex flex-wrap gap-2${failed ? " justify-center" : ""}`}>{otherRecovery.map((action) => recoveryButton(action, secondaryButtonClass))}</div> : null}
+  </>;
+  const bridgeNotice = incompleteBridge ? <div className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p><button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button></div> : null;
+  const recoveryProblem = problem ? <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p> : null;
+
+  if (held) {
+    return <>
+      <ReceiptShortcutRegistration actions={moves} />
+      {frame(<>
+        <p role="status" className="flex items-center gap-3 rounded-item bg-[var(--d-hair)] px-4 py-3.5 text-[14px] leading-5 text-[var(--d-soft)]">
+          <Clock3 size={18} className="shrink-0" aria-hidden="true" />{t("business.file_read.held_day")}
+        </p>
+        {bridgeNotice}
+        {recoveryDetails}
+        {recoveryProblem}
+        <DossierReadFields wait="held" />
+      </>, primary)}
+    </>;
+  }
   if (waitingForAi) {
     return <>
       <ReceiptShortcutRegistration actions={moves} />
       {frame(
-        <ReceiptReadingState>
+        <DossierReadFields wait="reading">
           {readStalled ? (
             <div role="status" data-testid="receipt-read-stalled" className="text-[15px] leading-[22px] text-[#56635e] dark:text-white/70">
               <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
@@ -224,10 +325,18 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
             </div>
           ) : null}
           {detail.activity?.state === "reading" ? <ReceiptReadingControl /> : null}
-        </ReceiptReadingState>,
-        <ReadingSheen><ReceiptSourcePreview detail={detail} /></ReadingSheen>,
-        true,
+        </DossierReadFields>,
       )}
+    </>;
+  }
+  if (failed) {
+    return <>
+      <ReceiptShortcutRegistration actions={moves} />
+      {frame(
+        <>{bridgeNotice}<DossierReadFailure reason={failed} retry={canRetry || canRebind} problem={problem}>{recoveryDetails}</DossierReadFailure></>,
+        primary,
+      )}
+      <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </>;
   }
   return (
@@ -236,109 +345,69 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       {frame(
         <>
           {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}
-          {incompleteBridge ? <div className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p><button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button></div> : null}
-          {detail.status === "needs_attention" ? (
+          {bridgeNotice}
+          {needsAttention ? (
             <div role="alert" data-testid="receipt-attention" className={`${SURFACE_CARD} text-[14px] text-black/75 dark:text-white/75`}>
-              {terminal ? (
-                <>
-                  <p className="flex gap-2.5">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
-                    <span>
-                      <span className="block font-medium">{terminal.title}</span>
-                      <span className="mt-1 block">{terminal.body}</span>
-                    </span>
-                  </p>
-                  {(terminal.upload && uploadAnother) || (terminal.discard && canDelete) ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {terminal.upload && uploadAnother ? (
-                        <button type="button" className={primaryButtonClass} onClick={uploadAnother.run}>
-                          {terminal.uploadLabel}
-                        </button>
-                      ) : null}
-                      {terminal.discard && canDelete ? (
-                        <button type="button" className={dangerButtonClass} disabled={busy !== null || deletion.busy} onClick={deletion.ask}>
-                          {t("business.document_delete.menu")}
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <p className="flex gap-2.5">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
-                  <span>{t(`business.attention_short.${detail.attention}`)}</span>
-                </p>
-              )}
-              {detail.duplicate_of ? (
-                <button type="button" data-testid="receipt-duplicate-original" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
-                  {t("business.review.see_original", "See the receipt already saved")}
-                </button>
-              ) : null}
-              {detail.error_code === "business_record_not_found" && canApprove ? (
-                <>
-                  <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">{t("business.review.rebind_note", "The access that prepared this receipt is no longer valid. Bind it to your current access, then prepare it again.")}</p>
-                  <button type="button" data-testid="receipt-rebind" disabled={busy !== null} onClick={() => void rebind()} className={`${secondaryButtonClass} mt-3`}>
-                    {t("business.review.rebind", "Bind to my current access")}
-                  </button>
-                </>
-              ) : null}
-              {detail.preparable && canPrepare ? (
-                <>
-                  <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">
-                    {t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}
-                  </p>
-                  <button type="button" disabled={busy !== null} onClick={() => void prepare()} className={`${secondaryButtonClass} mt-3`}>
-                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                    {t("business.review.retry", "Read again")}
-                  </button>
-                </>
-              ) : null}
+              <p className="flex gap-2.5">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
+                <span>{t(`business.attention_short.${detail.attention}`)}</span>
+              </p>
+              {recoveryDetails}
             </div>
           ) : null}
           <ReceiptReadNotice receipt={detail} preparable={detail.preparable && canPrepare} />
-          {problem ? (
-            <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p>
-          ) : null}
+          {recoveryProblem}
 
-          {confirmed ? (
-            <div className={`${SURFACE_CARD} flex flex-wrap items-center justify-between gap-3`}>
-              <p className="text-[14px] text-black/75 dark:text-white/75">
-                {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: money(detail.amount, detail.currency) })}
-              </p>
-              <button type="button" className={secondaryButtonClass} onClick={() => openPanel({ kind: "transactions" })}>
-                {t("business.review.view_expenses", "View expenses")}
-              </button>
-            </div>
-          ) : canPrepare ? null : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
+          {canPrepare ? null : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
         </>,
-        <>
-          <ReceiptSourcePreview detail={detail} />
-          {detail.evidence ? (
-            <details className={SURFACE_CARD}>
-              <summary className="cursor-pointer text-[14px] font-medium text-black/70 dark:text-white/70">
-                {t("business.review.evidence", "What the receipt says")}
-              </summary>
-              <dl className="mt-3 space-y-1.5 text-[13px] text-black/65 dark:text-white/65">
-                {detail.evidence.merchant ? <div className="flex justify-between gap-3"><dt>{t("business.review.merchant", "Merchant")}</dt><dd className="text-right">{detail.evidence.merchant}</dd></div> : null}
-                {detail.evidence.occurred_on ? <div className="flex justify-between gap-3"><dt>{t("business.review.date", "Date")}</dt><dd>{formatDay(detail.evidence.occurred_on, locale)}</dd></div> : null}
-                {detail.evidence.lines.map((line, index) => (
-                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="cuadrao-amount tabular-nums">{money(line.amount, detail.evidence?.currency ?? null)}</dd></div>
-                ))}
-                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="cuadrao-amount tabular-nums">{money(detail.evidence.tax, detail.evidence.currency)}</dd></div> : null}
-                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="cuadrao-amount tabular-nums">{money(detail.evidence.total, detail.evidence.currency)}</dd></div> : null}
-              </dl>
-              <p className="mt-3 text-[12px] text-black/45 dark:text-white/45">
-                {t("business.review.evidence_note", "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.")}
-              </p>
-            </details>
-          ) : null}
-        </>,
+        primary,
       )}
       <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </>
   );
 }
 
-export default function ReceiptReviewPanel({ target }: { target: { kind: "receipt" | "draft"; id: string } }) {
-  return target.kind === "draft" ? <ReceiptDossierReview draftId={target.id} /> : <ReceiptEntry receiptId={target.id} />;
+/**
+ * A saved record opened by its own id (a Registros row, a month's document, an `?expense=` link) opens the dossier
+ * of the receipt or draft behind it. One with neither has no dossier, so it closes onto Registros.
+ */
+function ExpenseEntry({ expenseId, detailsCard }: { expenseId: string; detailsCard?: DossierDetailsCard }) {
+  const { t } = useTranslation();
+  const { source, openPanel } = useBusiness();
+  const [failure, setFailure] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const gone = () => {
+    openPanel({ kind: "transactions" });
+    showToast({ kind: "info", text: t("business.expenses.gone") });
+  };
+  const onLoaded = useEffectEvent((expense: BusinessExpenseDetail) => {
+    const target = expensePanel(expense);
+    if (target.kind === "expense") gone();
+    else openPanel(detailsCard ? { ...target, detailsCard } : target);
+  });
+  // A record that is gone closes onto Registros, so a dead link never leaves a panel whose Reintentar cannot work.
+  const onLoadFailed = useEffectEvent((error: unknown) => {
+    if (recordGone(error)) gone();
+    else setFailure(referenceCode(error));
+  });
+  // The read keys on the record, not on the workspace's revision or its navigation callback.
+  useEffect(() => {
+    let active = true;
+    source.expense(expenseId).then(
+      (expense) => { if (active) onLoaded(expense); },
+      (error: unknown) => { if (active) onLoadFailed(error); },
+    );
+    return () => {
+      active = false;
+    };
+  }, [expenseId, source, attempt]);
+  if (failure !== null) return <LoadFailure reference={failure} onRetry={() => { setFailure(null); setAttempt((value) => value + 1); }} />;
+  return <DossierLoading recordId={expenseId} back="transactions" />;
+}
+
+/** The one dossier, whatever a record was opened by: its receipt, its draft, or its own id. */
+export default function ReceiptReviewPanel({ target, detailsCard }: { detailsCard?: DossierDetailsCard; target: { kind: "receipt" | "draft" | "expense"; id: string } }) {
+  if (target.kind === "draft") return <ReceiptDossierReview detailsCard={detailsCard} draftId={target.id} />;
+  if (target.kind === "expense") return <ExpenseEntry key={target.id} detailsCard={detailsCard} expenseId={target.id} />;
+  return <ReceiptEntry key={target.id} detailsCard={detailsCard} receiptId={target.id} />;
 }

@@ -28,7 +28,7 @@ def _post_budget(owner: Owner, path: str, **headers: str):
     if path == "/receipts":
         return owner.upload(consent=False)
     if path == "/receipt-reading":
-        shown = owner.get("/receipt-reading").json()
+        shown = owner.reading_status()
         return owner.post(
             path,
             {

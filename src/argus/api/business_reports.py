@@ -10,13 +10,19 @@ from fastapi import APIRouter, Depends, Header, Request, Response
 from psycopg import Error as PostgresError
 from psycopg_pool import PoolTimeout
 
+from argus.api import business_receipt_activity
 from argus.api.business import (
     BusinessPerson,
     MembershipRoute,
     require_business_person,
     require_business_surface,
 )
-from argus.api.business_drafts import DraftContext, action_problem, require_drafts
+from argus.api.business_drafts import (
+    DraftContext,
+    action_problem,
+    grant_reader,
+    require_drafts,
+)
 from argus.api.business_reporting_schemas import DeleteReportView
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
@@ -136,6 +142,9 @@ def preview_report_export(
             body.report,
             business_name=_business_name(person, actor),
             locale=_file_locale(language),
+            bandeja=lambda: business_receipt_activity.bandeja_days(
+                grant_reader(request, context.service, actor)
+            ),
         )
 
     return _run(request, response, preview)

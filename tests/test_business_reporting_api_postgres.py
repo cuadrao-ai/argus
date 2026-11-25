@@ -5,6 +5,8 @@ from urllib.parse import unquote
 from uuid import uuid4
 
 import pytest
+from argus.api import documents as documents_api
+from argus.api import ingestion
 from argus.api.business import (
     BusinessPerson,
     require_business_person,
@@ -13,11 +15,20 @@ from argus.api.business import (
 from argus.api.business_drafts import DraftContext, require_drafts
 from argus.api.business_reports import router
 from argus.domain.business.spaces import PostgresSpaceStore
+from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
+from argus.domain.ingestion.hub import IngestionHub
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
+from tests import test_business_single_candidate_postgres as single
 from tests.business.test_records_export_filename import one_stem
+from tests.business_accept_support import seen_gaps
+from tests.document_sources_support import source_objects
+from tests.ingestion.whatsapp_support import RefusingExtractor
 from tests.test_business_dgii_postgres import cash_account
 from tests.test_business_reporting_postgres import record_expense, viewer_context
 
@@ -27,7 +38,7 @@ pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
 
 
 @pytest.fixture
-def client(actions):
+def client(actions, monkeypatch):
     service, context, _ = actions
     app = FastAPI()
 
@@ -49,6 +60,19 @@ def client(actions):
         str(selected[0].actor.actor_id), spaces
     )
     app.dependency_overrides[require_business_surface] = lambda: None
+    hub = IngestionHub(
+        PostgresConnectionRepository(service.authority.pool),
+        box=None,
+        sink=service.imports,
+        clock=service.imports.clock,
+    )
+    documents = DocumentsService(
+        hub,
+        PostgresDocumentStore(service.authority.pool, source_objects()),
+        RefusingExtractor(),
+    )
+    monkeypatch.setattr(ingestion, "_hub", hub)
+    monkeypatch.setattr(documents_api, "_service", documents)
     with TestClient(app) as http:
         yield http, selected
 
@@ -172,7 +196,15 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     pending, version = captured(service, context, "B0100000032", funding)
     approved(service, context, pending, version)
     month = {**PURCHASES, "period": SEPTEMBER}
-    card = query(http, filters=month)["overview"]["needs_fiscal_data"]
+    answer = query(http, filters=month)
+    assert {
+        item["draft_id"]: (item["ready"], item["missing_fields"])
+        for item in answer["items"]
+    } == {
+        str(complete): (True, []),
+        str(pending): (False, ["expense_type"]),
+    }
+    card = answer["overview"]["needs_fiscal_data"]
     unrelated = {**month, "q": "nothing matches this", "has_document": True}
     summary = preview(http, unrelated)["dgii"]
     assert (
@@ -224,6 +256,14 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     official[22] = "01 - EFECTIVO"
     official[5:7] = [official[5][:6], official[5][6:], official[6][:6], official[6][6:]]
     assert written[1:] == [official]
+
+
+def test_preview_counts_a_receipt_waiting_in_the_bandeja(client, actions):
+    http, _ = client
+    every = {**PURCHASES, "period": {"kind": "all"}}
+    assert preview(http, every)["bandeja_count"] == 0
+    single._saved(actions, "expense")
+    assert preview(http, every)["bandeja_count"] == 1
 
 
 def test_viewer_can_read_but_not_export_and_revocation_stops_reads(
@@ -317,6 +357,49 @@ def test_view_recipe_reopens_current_page_one(client, actions):
     result = query(http, **saved["recipe"])
     assert result["page"] == 1
     assert result["matching_count"] == 1
+
+
+def test_posted_layout_and_saved_v2_view_keep_the_same_remaining_columns(client, actions):
+    http, _ = client
+    service, context, _ = actions
+    layout = query(http, schema_version=2)["presentation"]
+    expected = {
+        "order": [
+            "stage",
+            *(
+                key
+                for key in layout["order"]
+                if key not in {"stage", "missing", "funding"}
+            ),
+        ],
+        "hidden": ["note", "fiscal_number"],
+        "density": 56,
+    }
+    recipe = {
+        "schema_version": 2,
+        "presentation": {
+            "order": ["missing", *expected["order"], "funding"],
+            "hidden": ["note", "funding", "fiscal_number", "missing"],
+            "density": 56,
+        },
+    }
+    assert query(http, **recipe)["presentation"] == expected
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into argus_private.business_saved_report_views"
+            " (space_id,actor_id,name,recipe) values (%s,%s,%s,%s)",
+            (
+                context.actor.space_id,
+                context.actor.actor_id,
+                "Legacy layout",
+                Jsonb(recipe),
+            ),
+        )
+    response = http.get("/business/report-views")
+    assert response.status_code == 200, response.text
+    [saved] = response.json()
+    assert saved["recipe"]["presentation"] == expected
+    assert query(http, **saved["recipe"])["presentation"] == expected
 
 
 def test_validation_and_authorization_errors_are_never_cached(client, actions, users):
@@ -446,7 +529,11 @@ def document_backed_expense(service, context, *, personal):
     approved = service.approve(
         context,
         draft,
-        ApproveExpense(version=version, action="record_expense"),
+        ApproveExpense(
+            version=version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        ),
         str(uuid4()),
     )
     assert approved.outcome == "applied", approved
@@ -584,3 +671,50 @@ def test_export_source_carries_rnc_registry_after_its_database_transaction(actio
     finally:
         with service.authority.pool.connection() as db:
             db.execute("delete from public.dgii_rnc where rnc=%s", (SUPPLIER,))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("funding_sources", ["synthetic-private"]),
+        ("document_kinds", ["unknown"]),
+        ("fiscal_classifications", ["B01"]),
+        ("ready", True),
+    ],
+)
+def test_old_posted_and_stored_filters_drop_only_retired_field(
+    client, actions, field, value
+):
+    from loguru import logger
+
+    http, _ = client
+    service, context, _ = actions
+    recipe = {"schema_version": 2, "filters": {"currencies": ["DOP"], field: value}}
+    messages = []
+    sink = logger.add(lambda event: messages.append(event.record["message"]))
+    try:
+        query(http, **recipe)
+        assert f"Dropped retired report filter {field}" in messages
+        messages.clear()
+        with service.authority.pool.connection() as db:
+            db.execute(
+                "insert into argus_private.business_saved_report_views"
+                " (space_id,actor_id,name,recipe) values (%s,%s,%s,%s)",
+                (
+                    context.actor.space_id,
+                    context.actor.actor_id,
+                    "Legacy filters",
+                    Jsonb(recipe),
+                ),
+            )
+        response = http.get("/business/report-views")
+        assert response.status_code == 200, response.text
+        [saved] = response.json()
+        filters = saved["recipe"]["filters"]
+        assert filters["currencies"] == ["DOP"]
+        assert filters["ready"] is None
+        if field != "ready":
+            assert field not in filters
+        assert f"Dropped retired report filter {field}" in messages
+    finally:
+        logger.remove(sink)

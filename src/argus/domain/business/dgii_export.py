@@ -12,7 +12,6 @@ from argus.domain.business import dgii_606_rules
 from argus.domain.business.contracts.dgii import (
     MONEY_PATTERN,
     PurchaseDeclaration,
-    amount_or_zero,
     date_cell,
     money_text,
     period_text,
@@ -36,6 +35,7 @@ from argus.domain.business.dgii_validation import (
     fact_value,
     is_credit,
     ncf_type,
+    purchase_calculated,
     record_issues,
 )
 from argus.domain.business.document_type import direction
@@ -70,14 +70,9 @@ def line_values(record: FiscalRecord) -> tuple[str, ...]:
         itbis=money_text(Decimal(fact_value(record, "itbis"))),
         occurred_on=record.occurred_on,
     )
-    if isinstance(declaration, PurchaseDeclaration):
-        values["billed_amount"] = money_text(
-            amount_or_zero(declaration.services_amount)
-            + amount_or_zero(declaration.goods_amount)
-        )
-        values["itbis_advance"] = money_text(
-            Decimal(values["itbis"]) - amount_or_zero(declaration.itbis_cost)
-        )
+    calculated = purchase_calculated(record.facts, declaration, record.fiscal_overrides)
+    if calculated is not None:
+        values.update(calculated.model_dump())
     result = []
     for name, _ in COLUMNS[declaration.form]:
         value = None if name in {"itbis_perceived", "income_perceived"} else values[name]
@@ -349,14 +344,6 @@ def fiscal_manifest(
         issues.append(
             {
                 "code": "fiscal_single_month_required",
-                "field": "period",
-                "activity_id": None,
-            }
-        )
-    elif not closed_month and rnc is not None:
-        issues.append(
-            {
-                "code": "fiscal_closed_calendar_month_required",
                 "field": "period",
                 "activity_id": None,
             }

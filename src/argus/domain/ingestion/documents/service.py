@@ -136,16 +136,20 @@ def stored_filename(filename: str) -> str:
     return kept[:80] or "document"
 
 
-def document_ref(user_id: str, scope: OwnerScope, digest: str) -> str:
+def document_ref(
+    user_id: str, scope: OwnerScope, digest: str, namespace: str | None = None
+) -> str:
     """The connection reference for one file in one scope.
 
     References are globally unique, so the same bytes uploaded in Personal and
     in Business must differ. The Personal form is the original one, unchanged.
+    The same bytes under a ``namespace`` are an upload of their own.
     """
 
     space = space_id(scope)
     owner = user_id if space is None else f"{user_id}:{space}"
-    return hashlib.sha256(f"{owner}:{digest}".encode()).hexdigest()
+    ref = hashlib.sha256(f"{owner}:{digest}".encode()).hexdigest()
+    return ref if namespace is None else f"{namespace}:{ref}"
 
 
 @dataclass(frozen=True)
@@ -207,7 +211,10 @@ class DocumentsService:
     def get(
         self, *, user_id: str, connection_id: str, scope: OwnerScope
     ) -> DocumentDraft:
-        connection = self._connection(user_id, connection_id, scope=scope)
+        return self._stored_draft(self._connection(user_id, connection_id, scope=scope))
+
+    def _stored_draft(self, connection: SourceConnection) -> DocumentDraft:
+        user_id, connection_id = connection.user_id, connection.id
         draft = self.store.draft(user_id=user_id, connection_id=connection_id)
         if draft is None:
             if self.store.get(user_id=user_id, connection_id=connection_id) is None:
@@ -333,7 +340,9 @@ class DocumentsService:
         on_capture: CaptureHook | None = None,
         context_only: bool = False,
         document_type: DocumentType | None = None,
+        defer_capture: bool = False,
     ) -> DocumentOutcome:
+        """Save the bytes, or leave publication to a delivery's settlement."""
         consent_id = None
         if space_id(scope) is not None:
             permission = await asyncio.to_thread(
@@ -356,6 +365,7 @@ class DocumentsService:
                     on_capture=on_capture,
                     consent_id=consent_id,
                     document_type=document_type,
+                    defer_capture=defer_capture,
                 )
             except BaseException as error:
                 # SystemExit/KeyboardInterrupt must travel as data: raising
@@ -397,10 +407,12 @@ class DocumentsService:
         on_capture: CaptureHook | None,
         consent_id: str | None = None,
         document_type: DocumentType | None = None,
+        namespace: str | None = None,
+        defer_capture: bool = False,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()
-        external_ref = document_ref(user_id, scope, digest)
+        external_ref = document_ref(user_id, scope, digest, namespace)
         replayed = False
         try:
             connection = self.hub.connections.create(
@@ -424,6 +436,7 @@ class DocumentsService:
                 and stored.document_type != document_type
             ):
                 raise DocumentServiceError("document_type_conflict") from None
+        queue_read = consent and not defer_capture
         draft = DocumentDraft(
             connection_id=connection.id,
             filename=stored_filename(filename),
@@ -431,11 +444,12 @@ class DocumentsService:
             proposal=proposal or DraftProposal(),
             sha256=digest,
             size_bytes=len(content),
-            consent=consent,
+            consent=queue_read,
             business_reading_consent_id=consent_id,
             source_text=source_text,
             document_type=document_type,
-            status="queued" if consent else "saved",
+            status="queued" if queue_read else "saved",
+            source_available=not defer_capture,
             created_at=self.hub.clock(),
             updated_at=self.hub.clock(),
         )
@@ -452,6 +466,25 @@ class DocumentsService:
         return self.outcome(
             user_id=user_id, connection_id=connection.id, replayed=replayed, scope=scope
         )
+
+    def publish_capture(
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        scope: OwnerScope,
+        error_code: str | None = None,
+    ) -> DocumentDraft:
+        """Make a staged capture available after its delivery has been accepted."""
+        draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if not draft.source_available:
+            draft = self._update(
+                user_id,
+                draft,
+                source_available=True,
+                error_code=error_code if error_code is not None else draft.error_code,
+            )
+        return draft
 
     def outcome(
         self, *, user_id: str, connection_id: str, replayed: bool, scope: OwnerScope
@@ -492,35 +525,41 @@ class DocumentsService:
         row = self.hub.connections.get_any_scope(
             user_id=user_id, connection_id=connection_id
         )
-        business = space_id(row.scope)
-        if business is None:
+        if space_id(row.scope) is None:
             return True
-        if self.business_receipt_consent is None:
-            return False
         draft = self.store.draft(user_id=user_id, connection_id=connection_id)
         return bool(
-            draft
-            and draft.business_reading_consent_id
-            and self.business_receipt_consent.enabled(
-                business, user_id, draft.business_reading_consent_id
-            )
+            draft and draft.reading_allowed(self._business_permission(row.scope, user_id))
         )
 
-    def read_pending(
-        self, user_id: str, connection_id: str, draft: DocumentDraft
-    ) -> bool:
-        """A read will happen: one is in flight, or the document is queued with
-        consent and the owner's reading is allowed right now. A queued document
-        whose owner switched reading off waits for a person, not for a read."""
-
-        return draft.read_pending(
-            draft.status == "queued" and self._reading_allowed(user_id, connection_id)
+    def get_with_read_pending(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> tuple[DocumentDraft, bool]:
+        connection = self._connection(user_id, connection_id, scope=scope)
+        draft = self._stored_draft(connection)
+        return draft, draft.read_pending(
+            business_permission=self._business_permission(scope, user_id)
+            if draft.status == "queued" and space_id(scope) is not None
+            else None,
+            lease_until=connection.lease_until,
+            now=self.hub.clock(),
         )
 
     def queue(
-        self, *, user_id: str, connection_id: str, consent: bool, scope: OwnerScope
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        consent: bool,
+        scope: OwnerScope,
+        expected_version: int | None = None,
     ) -> DocumentOutcome:
+        """``expected_version`` queues only the draft its caller chose: one
+        that moved since is someone else's, and is left to them."""
+
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if expected_version is not None and draft.version != expected_version:
+            raise DocumentServiceError("document_version_conflict", retryable=True)
         if draft.status == "dismissed":
             raise DocumentServiceError("business_document_deleted")
         if draft.status == "preparing":

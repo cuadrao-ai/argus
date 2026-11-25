@@ -15,6 +15,7 @@ from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionRes
 from psycopg.types.json import Jsonb
 
 from tests import test_business_attachment_preparation_postgres as shared
+from tests.business.receipt_stub import receipt_date
 from tests.test_business_spaces_migration_postgres import connection
 
 actions = shared.actions
@@ -53,7 +54,7 @@ def _receipt(actions, content: bytes, merchant: str = "Synthetic shop"):  # noqa
                         evidence="transaction",
                         amount="250.50",
                         currency="DOP",
-                        occurred_on="2026-10-11",
+                        occurred_on=receipt_date(),
                         direction="outflow",
                         kind_hint="expense",
                         merchant=merchant,
@@ -112,7 +113,7 @@ def test_the_second_receipt_with_the_same_read_is_marked_and_the_first_stays_cle
     service, context, _ = actions
     original = _receipt(actions, b"synthetic receipt 250.50 DOP")
     shared.bind(original)
-    first = shared.finish(original)
+    first = shared.finish(original, keep_lease=True)
     assert first.outcome == "applied", first
     second_receipt = _receipt(actions, b"the same receipt, photographed again")
     shared.bind(second_receipt)

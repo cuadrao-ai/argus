@@ -1,20 +1,21 @@
 """What a person should look at again before approving a receipt.
 
 A flag never changes a stored value: the RNC and NCF stay exactly as read.
-Normalizing happens here, for the comparison only. ``confirm`` flags need an
-explicit "approve anyway" on the approve request; the 606 export still refuses
-them. An ITBIS flag only warns.
+Normalizing happens here, for the comparison only. Every flag is a Listos gap
+(``bandeja_group.RULE``), which an accept names to go over it. The 606 export
+still refuses the ``confirm`` ones.
 """
 
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, localcontext
+from typing import Literal
 
 from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
 )
-from argus.domain.business.contracts.dossier import ReviewFlag
+from argus.domain.business.contracts.dossier import AmountsCheck, ReviewFlag
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_606_rules import itbis_limit
 from argus.domain.business.fiscal_identity import (
@@ -24,6 +25,7 @@ from argus.domain.business.fiscal_identity import (
     rnc_check_digit_ok,
 )
 from argus.domain.business.purchase_review import (
+    AMOUNT_PARTS,
     amount_parts,
     exact_amount_text,
     net_amount,
@@ -74,17 +76,48 @@ def review_flags(
         and itbis_too_high(Decimal(total), Decimal(itbis), _known(facts.occurred_on))
     ):
         flags.append(ReviewFlag(code="itbis_high", field="itbis", confirm=False))
-    net = net_amount(facts, declaration)
-    if total is not None and net.amount is not None:
-        difference = Decimal(total) - Decimal(net.amount) - sum(amount_parts(facts, declaration))
-        # An unknown ITBIS counts as zero and can only close a gap the Total leaves.
-        if difference < Decimal("-0.01") or (itbis is not None and difference > Decimal("0.01")):
-            flags.append(ReviewFlag(
-                code="amounts_mismatch", field="amount", confirm=False,
-                difference=exact_amount_text(difference),
-            ))
+    amounts = _amounts_result(facts, declaration)
+    if isinstance(amounts, ReviewFlag):
+        flags.append(amounts)
     return tuple(flags)
 
 
-def unconfirmed(flags: tuple[ReviewFlag, ...]) -> tuple[str, ...]:
-    return tuple(flag.code for flag in flags if flag.confirm)
+def amounts_check(
+    facts: BusinessFacts, declaration: DgiiDeclaration | None = None
+) -> AmountsCheck:
+    result = _amounts_result(facts, declaration)
+    if isinstance(result, ReviewFlag):
+        return AmountsCheck(state="difference", difference=result.difference)
+    return AmountsCheck(state=result)
+
+
+def _amounts_result(
+    facts: BusinessFacts, declaration: DgiiDeclaration | None
+) -> Literal["unchecked", "adds_up"] | ReviewFlag:
+    """Whether the Total is the Subtotal plus its taxes and tip: the one owner
+    of the ``amounts_mismatch`` flag and of the dossier's Montos check. It
+    answers ``unchecked`` for a record with no fiscal facts, without a Total
+    or a Subtotal, and while an unknown ITBIS leaves a gap it could close."""
+
+    total = _known(facts.amount)
+    if facts.fiscal is None or total is None:
+        return "unchecked"
+    itbis = _known(facts.fiscal.itbis)
+    with localcontext() as context:
+        # The 40-character Amount permits both large integers and tiny fractions
+        # in one receipt. Keep all places plus a carry when combining them.
+        context.prec = max(context.prec, 82)
+        net = net_amount(facts, declaration)
+        if net.amount is None:
+            return "unchecked"
+        parts = amount_parts(facts, declaration)
+        computed = Decimal(net.amount) + sum(parts)
+        difference = Decimal(total) - computed
+    # An unknown ITBIS counts as zero and can only close a gap the Total leaves.
+    if difference < Decimal("-0.01") or (itbis is not None and difference > Decimal("0.01")):
+        return ReviewFlag(
+            code="amounts_mismatch", field="amount", confirm=False,
+            computed_sum=exact_amount_text(computed), difference=exact_amount_text(difference),
+            includes_extra_charges=any(value for name, value in zip(AMOUNT_PARTS, parts, strict=True) if name != "itbis"),
+        )
+    return "adds_up" if itbis is not None else "unchecked"

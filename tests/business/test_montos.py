@@ -44,6 +44,29 @@ def test_small_purchase_derives_net_once_and_places_it_in_goods():
 
 
 @pytest.mark.parametrize(
+    ("tip", "other_tax", "computed", "difference", "extras"),
+    [(None, None, "118.00", "7.00", False), ("10", None, "128.00", "-3.00", True),
+     ("0", "0", "118.00", "7.00", False), (None, "4", "122.00", "3.00", True)],
+)
+def test_mismatch_flag_reports_the_compared_sum(tip, other_tax, computed, difference, extras):
+    facts = receipt("125", "18", "100", tip)
+    declaration = apply_purchase(None, PurchaseReview(category="09", other_taxes=other_tax))
+    flag, = review_flags(facts, declaration=declaration)
+    assert flag.model_dump() == {
+        "code": "amounts_mismatch", "field": "amount", "confirm": False,
+        "computed_sum": computed, "includes_extra_charges": extras, "difference": difference,
+    }
+
+
+def test_mismatch_keeps_unit_charges_on_a_long_exact_subtotal():
+    total = "1" + "0" * 28
+    facts = receipt(total, None, str(int(total) + 1), "1")
+    flag, = review_flags(facts)
+    assert flag.computed_sum == f"{int(total) + 2}.00"
+    assert flag.difference == "-2.00"
+
+
+@pytest.mark.parametrize(
     ("total", "tax", "subtotal", "tip", "expected", "source", "difference"),
     [
         ("1442.00", "152.54", "1289.46", None, "1289.46", "read", None),
@@ -62,6 +85,22 @@ def test_receipt_amounts(total, tax, subtotal, tip, expected, source, difference
     assert result.source == source
     mismatch = next((flag for flag in review_flags(facts) if flag.code == "amounts_mismatch"), None)
     assert (mismatch.difference if mismatch else None) == difference
+
+
+@pytest.mark.parametrize(
+    ("facts", "source", "calculated"),
+    [
+        (receipt("1280", "180", "1000", "100"), "read", "1000.00"),
+        (receipt("1200", "180", "1000"), "read", "1020.00"),
+        (receipt("1280", "180", tip="100"), "calculated", "1000.00"),
+        (BusinessFacts(net_amount=known("1000")), "read", None),
+        (BusinessFacts(), None, None),
+    ],
+    ids=["read and equal", "read and apart", "derived", "no total beside a subtotal", "no total"],
+)
+def test_the_net_amount_states_the_subtotal_the_server_calculates(facts, source, calculated):
+    result = net_amount(facts)
+    assert (result.source, result.calculated) == (source, calculated)
 
 
 @pytest.mark.parametrize(

@@ -14,6 +14,34 @@ import { resolveLanguage } from "@/lib/language-features";
 
 const ReceiptImageZoom = lazy(() => import("./ReceiptImageZoom"));
 
+export type ReceiptSourceState = { kind: "loading" } | { kind: "ready"; url: string; blob: Blob; sourceId: string } | { kind: "failed" };
+
+/** The original file of one receipt, loaded with the person's access. A file of an earlier receipt never shows on the current one. */
+export function useReceiptSource(id: string, read?: (id: string, signal: AbortSignal) => Promise<Blob>): { current: ReceiptSourceState; reload: () => void } {
+  const { source } = useBusiness();
+  const [state, setState] = useState<ReceiptSourceState>({ kind: "loading" });
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const abort = new AbortController();
+    const bytes = read ? read(id, abort.signal) : source.receiptSource(id);
+    bytes
+      .then((blob) => new Promise<{ url: string; blob: Blob }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ url: String(reader.result), blob });
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      }))
+      .then(({ url, blob }) => { if (!cancelled) setState({ kind: "ready", url, blob, sourceId: id }); })
+      .catch(() => { if (!cancelled) setState({ kind: "failed" }); });
+    return () => { cancelled = true; abort.abort(); };
+  }, [id, source, retry, read]);
+  return {
+    current: state.kind === "ready" && state.sourceId !== id ? { kind: "loading" } : state,
+    reload: () => { setState({ kind: "loading" }); setRetry((value) => value + 1); },
+  };
+}
+
 /** A document compared beside another carries only its file, so where and when it arrived are optional and their line shows only with both. */
 export default function ReceiptSourcePreview({ detail, initialExpanded = false, showArrivalContext = true }: { initialExpanded?: boolean; showArrivalContext?: boolean; detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "email_delivery_ids"> & Partial<Pick<ReceiptSummary, "received_at" | "channel">> }) {
   const { t, i18n } = useTranslation();
@@ -23,25 +51,8 @@ export default function ReceiptSourcePreview({ detail, initialExpanded = false, 
   // The API lists deliveries earliest first; the first one is where the file first arrived by email.
   const firstEmail = detail.email_delivery_ids?.[0];
   const arrival = showArrivalContext && detail.channel && detail.received_at ? { channel: detail.channel, receivedAt: detail.received_at } : null;
-  const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; url: string; blob: Blob; sourceId: string } | { kind: "failed" }>({ kind: "loading" });
   const [expanded, setExpanded] = useState(initialExpanded);
-  const [retry, setRetry] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    source.receiptSource(detail.id)
-      .then((blob) => new Promise<{ url: string; blob: Blob }>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve({ url: String(reader.result), blob });
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-      }))
-      .then(({ url, blob }) => { if (!cancelled) setState({ kind: "ready", url, blob, sourceId: detail.id }); })
-      .catch(() => { if (!cancelled) setState({ kind: "failed" }); });
-    return () => { cancelled = true; };
-  }, [detail.id, source, retry]);
-
-  const current = state.kind === "ready" && state.sourceId !== detail.id ? { kind: "loading" as const } : state;
+  const { current, reload } = useReceiptSource(detail.id);
 
   return (
     <figure className={SURFACE_CARD} data-testid="receipt-original-source">
@@ -53,7 +64,7 @@ export default function ReceiptSourcePreview({ detail, initialExpanded = false, 
         {current.kind === "failed" ? (
           <div className="p-5 text-center">
             <p role="alert" className="text-[14px] text-black/65 dark:text-white/65">{t("business.review.source_error", "We couldn't open the original receipt with your current access.")}</p>
-            <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => { setState({ kind: "loading" }); setRetry((value) => value + 1); }}>
+            <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={reload}>
               <RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.retry_source", "Try opening again")}
             </button>
           </div>

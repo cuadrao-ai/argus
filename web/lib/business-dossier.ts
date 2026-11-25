@@ -1,5 +1,5 @@
-import type { BusinessAccount, DocumentDeleteAccess } from "./business-api";
-import type { DgiiDeclaration, SuggestedField, SuggestionSource } from "./business-dgii";
+import type { BandejaGroup, BusinessAccount, DocumentDeleteAccess, ReceiptAttention } from "./business-api";
+import type { DgiiDeclaration, SalePayment, SuggestedField, SuggestionSource } from "./business-dgii";
 import type { PersonName, PersonShown } from "./person-name";
 
 export type BusinessFact<T> =
@@ -88,9 +88,23 @@ export type BusinessReviewQuestion = {
   created_at: string;
 };
 
+export type EditableDossierField = BusinessFactField | "rnc" | "fiscal_number" | "itbis" | "document_type" | "due_on" | "modified_ncf" | "actual_refund";
+
 export type BusinessDraftRevision = {
+  before_document_type?: NonNullable<BusinessDossier["document_type"]> | null;
+  after_document_type?: NonNullable<BusinessDossier["document_type"]> | null;
+  before_due_on?: string | null;
+  after_due_on?: string | null;
   before_current_note?: string | null;
   after_current_note?: string | null;
+  supporting_change?: "appended" | "unlinked" | "restored" | null;
+  supporting_filename?: string | null;
+  reviewed_fact_fields?: readonly string[] | null;
+  reviewed_declaration_fields?: readonly string[] | null;
+  before_net_amount?: BusinessDossier["net_amount"];
+  after_net_amount?: BusinessDossier["net_amount"];
+  /** An approval wrote this revision: it saves what the review showed, so it holds no edit of the person's. */
+  approval?: boolean;
   before_dgii?: DgiiDeclaration | null;
   after_dgii?: DgiiDeclaration | null;
   draft_id: string;
@@ -145,12 +159,8 @@ export function readBusinessDossier(value: unknown): BusinessDossier {
 
 export const REVIEW_FLAG_CODES = ["rnc_check_digit", "ncf_malformed", "itbis_high", "amounts_mismatch"] as const;
 export type ReviewFlagCode = (typeof REVIEW_FLAG_CODES)[number];
-/** A read value to check again. A `confirm` flag stops approval until the person approves anyway; the rest only warn. */
-export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis" | "amount"; confirm: boolean; difference?: string | null };
-
-export function isReviewFlagCode(value: unknown): value is ReviewFlagCode {
-  return REVIEW_FLAG_CODES.includes(value as ReviewFlagCode);
-}
+/** A read value to check again. The Listo rule decides whether the owner may accept over it. */
+export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis" | "amount"; confirm: boolean; difference?: string | null; computed_sum?: string | null; includes_extra_charges?: boolean | null };
 
 export type BusinessApprovalAction = "record_expense" | "record_income" | "record_refund";
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
@@ -161,21 +171,73 @@ export type DeclarationSuggestion = { value: string; source: SuggestionSource };
 /** The suggestions a person saw filled in, which an expense approval saves into its blank answers. */
 export type ShownSuggestions = Partial<Record<SuggestedField, DeclarationSuggestion>>;
 
-export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
-  net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
-  inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on" | "rnc" | "original_ncf"; value: string | null; inherited: boolean }>;
+/** Reasons from the Listo rule, plus a read in progress. */
+export const LISTO_GAPS = ["not_read", "check_details", "several_purchases", "no_purchase_found", "duplicate", "credit_note", "missing_merchant", "missing_date", "missing_amount", "missing_currency", "sin_comprobante", "missing_rnc", "invalid_rnc", "missing_ncf", "invalid_ncf", "ecf_check_failed", "missing_itbis", "review_flag", "blocked", "unverified_sender", "reading"] as const;
+export type ListoGap = (typeof LISTO_GAPS)[number] | ReceiptAttention;
+/** What the DGII register says of the supplier RNC: its mapped status, or `not_found` when a loaded register does not list it. */
+export const RNC_REGISTRY_STATUSES = ["verificado", "suspendido", "dado_de_baja", "cese_temporal", "anulado", "rechazado", "desconocido", "not_found"] as const;
+export type RncRegistryStatus = (typeof RNC_REGISTRY_STATUSES)[number];
+
+export type BusinessSupportingFile = {
+  source_id: string;
+  receipt_id: string;
+  filename: string | null;
+  media_type: string | null;
+  size_bytes: number | null;
+  state: "linked" | "unlinked";
+  purge_at: string | null;
+  unlink_available: boolean;
+  restore_available: boolean;
+};
+
+export type AmountsCheck = { state: "adds_up" | "unchecked"; difference?: null } | { state: "difference"; difference: string };
+
+export type RecordReadiness = {
+  missing?: readonly string[];
+  reasons?: Readonly<Record<string, { field: string | null; words: string }>>;
+};
+
+export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & RecordReadiness & {
+  /** Where the record stands in the Bandeja, by the rule the receipt list reads. An accepted record has the label `accepted`; a deleted one has none. */
+  bandeja_group?: Pick<BandejaGroup, "group" | "reason" | "label"> | null;
+  /** Every reason a record that needs attention is not Listos, in the rule's order; empty for any other record. */
+  listo_gaps?: readonly ListoGap[];
+  /** The gaps the owner may explicitly accept over, as named by the server. */
+  confirmable?: readonly ListoGap[];
+  /** Null when the record has no RNC or no register is loaded. */
+  rnc_registry_status?: RncRegistryStatus | null;
+  /** The Subtotal and who gave it: `calculated` while the server derives it, `edited` once a person typed one. Its `calculated` is the amount the server derives whoever gave the Subtotal: what a typed one goes back to. */
+  net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null; calculated?: string | null };
+  /** Whether the Total is the Subtotal plus its taxes and tip, by the server's rule. `difference` comes with the amount left over. */
+  amounts_check?: AmountsCheck;
+  /** The note this record is, by the server's reading; null for a regular purchase or sale. */
+  note_kind?: "credit" | "debit" | null;
+  /** The declaration fields that always follow their source: the server drops a write to one, so its row is read-only. */
+  source_owned_fields?: readonly string[];
+  inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on" | "rnc" | "original_ncf"; value: string | null; inherited: boolean; paired_with: readonly string[] }>;
   current_note?: string | null;
   note_edit_available?: boolean;
   supporting_append_available?: boolean;
+  supporting_files?: BusinessSupportingFile[];
+  supporting_file_limit?: number;
+  supporting_limit_reached?: boolean;
   annotation_unavailable_reason?: string | null;
   dgii?: DgiiDeclaration | null;
-  /** The caller may write the 606 declaration now: it holds prepare, the record takes a 606, and no downloaded TXT carries it. */
+  /** What the 606 calculates from `dgii` for a purchase; null for a sale and for a record with no 606 declaration. */
+  dgii_calculated?: { billed_amount: string; itbis_advance: string | null } | null;
+  /** The server authorizes writing this dossier's facts and fiscal details. */
+  facts_editable?: boolean;
+  /** The fields the caller can correct at this revision. */
+  editable_fields?: readonly EditableDossierField[];
+  /** The caller may write the general 606 choices for this record. */
   declaration_editable?: boolean;
+  /** The caller may write a sale's 607 answers now. */
+  payment_split_editable?: boolean;
+  /** How a sale was paid, as one pick; null for a record that is not a sale. */
+  sale_payment?: SalePayment | null;
   /** The Business year in which the first source arrived, and whether the issue date is a read whose year is not that year. The server decides both; the date field offers the upload year exactly when `year_to_check` is true. */
   upload_year?: number | null;
   year_to_check?: boolean;
-  /** The caller may return this approved record to the Bandeja now: it holds approve and no bank match, credit note or refund is linked to it. */
-  reopen_available?: boolean;
   /** What the server offers for each 606 answer this open expense lacks, under the declaration's field name. The approval saves the ones the person saw. */
   declaration_suggestions?: Partial<Record<SuggestedField, DeclarationSuggestion | null>>;
   /** What the e-CF XML proved by itself; null for any other source. */
@@ -206,7 +268,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   document_type?: "recibo" | "venta";
   /** The type was read from the document, not picked; absent when false. */
   document_type_detected?: boolean;
-  /** True while the draft is open and the caller can prepare. The server refuses a change after approval. */
+  /** The server permits changing this document type at the current revision. */
   document_type_editable?: boolean;
   draft_id: string;
   version: number;
@@ -228,6 +290,6 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   fiscal_inclusion_available?: boolean;
   /** Purchases this draft may refund, newest first; empty unless it is a refund or a credit note. */
   refund_candidates?: RefundCandidate[];
-  /** A recorded approval names the facts revision the person approved and when; later marks add history revisions without changing either. */
+  /** A recorded approval names the facts revision the person approved and when; later changes add history revisions without changing either. */
   approval_result: { status: "recorded"; activity_id: string; reviewed_version: number; approved_revision: number; approved_at: string; actor: BusinessActor } | { status: "outcome_unknown" | "failed"; code: string; reviewed_version: number } | null;
 };

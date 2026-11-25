@@ -15,17 +15,9 @@ A receipt lives in one place. It is in Bandeja until it is approved. After that 
 
 ## Bandeja
 
-Tabs: **Todos · Necesitan atención · Listos**. Bandeja opens on Todos. Todos has no count. The other tabs show one server count, and the sidebar and Inicio use the same count. The tabs own status, so Filtros has only Canal and Remitente, and picking a tab adds no chip.
+Tabs: **Todos · Por resolver · Listos · Eliminados**. Bandeja opens on Todos. [Bandeja](../../.agent/designs/cuadrao-business-app/DESIGN.md#bandeja) in the design owns the tabs, the counts, the labels, the Estado column and Filtros.
 
-Columns: Contenido, Adjunto, Canal, Estado, Llegada, action. Remitente, Monto and Moneda stay off by default and are available in the column menu. It is the Registros column menu with the same rule: no column is locked by name, and each tab keeps at least one menu column. Columns are fixed by position, not by name: the box and Contenido, the row's identity, stay first and the action stays last, and none of the three is in the menu. Every other column hides or moves. The layout is kept on the device. The row stays a table on normal laptops. Cards are for phone size only.
-
-Estado by tab:
-
-| Tab | Estado |
-| --- | --- |
-| Todos | The tag: Leyendo, Necesita atención, Listo para aprobar or Aprobado |
-| Necesitan atención | Only the reason, as plain text |
-| Listos | No column |
+Columns: Contenido, Adjunto, Canal, Estado, Llegada, action. Enviado por, Monto and Moneda stay off by default and are available in the column menu. It is the Registros column menu with the same rule: no column is locked by name, and each tab keeps at least one menu column. Columns are fixed by position, not by name: the box and Contenido, the row's identity, stay first and the action stays last, and none of the three is in the menu. Every other column hides or moves. The layout is kept on the device. The row stays a table on normal laptops. Cards are for phone size only.
 
 Checkboxes are only on Listos, for owners.
 
@@ -40,11 +32,10 @@ A receipt is Listos only when the server confirms all of these:
 - The read finished, and nothing is missing from the six facts.
 - It has a valid NCF or e-CF.
 - It has an RNC with a valid check digit.
-- Its currency is DOP.
 - It has no duplicate ([Duplicados](../../.agent/designs/cuadrao-business-app/DESIGN.md#duplicados)) and no review flag.
 - Its sender is verified, if it came by email.
 
-Every other open receipt that has finished reading is in Necesitan atención, with one plain reason. A failed read stays there, as [When a read fails](../../.agent/designs/cuadrao-business-app/DESIGN.md#when-a-read-fails) says. A receipt still reading is in no tab count and shows only on Todos, as Leyendo. The sidebar still counts it, because it is a waiting row. The owner opens a receipt and approves it from the dossier. Listos only adds a faster way. A USD receipt or a receipt with no NCF reaches Registros through this single approval.
+Every other open receipt that has finished reading is in Por resolver. The dossier names its one reason. A failed read stays there, as [When a read fails](../../.agent/designs/cuadrao-business-app/DESIGN.md#when-a-read-fails) says. A receipt still reading is in no tab count and shows only on Todos. The sidebar still counts it, because it is a waiting row. The owner opens a receipt and approves it from the dossier. Listos only adds a faster way. A receipt with no NCF reaches Registros through this single approval.
 
 **Aprobar todos:** the owner selects rows or takes all of them, sees the count, and confirms. Only the owner sees this action. Nothing is approved without the owner. If some fail, the screen says which, and those stay in Listos. Selection does not change when a new receipt arrives.
 
@@ -80,6 +71,8 @@ The review shows the DGII legal name and status in place of "RNC sin verificar",
 
 ## Typed entry
 
+Creating a typed entry is off for the pilot. `CUADRAO_BUSINESS_TYPED_NOTES_ENABLED` turns it on and is off by default. Entries saved before still show in Bandeja.
+
 Agregar has a small typed entry for a purchase with no paper: amount, date, and supplier or description. It is saved as sin comprobante, counts in the books, stays out of the 606, and a person reviews it. The Registros note editor stays off.
 
 ## Pilot setup
@@ -88,7 +81,7 @@ José is an accountant who runs client Businesses. For the one pilot client, Jos
 
 ## States
 
-- **Empty:** reuse the existing art, with text for an empty Listos and an empty Necesitan atención.
+- **Empty:** reuse the existing art, with text for an empty Listos and an empty Por resolver.
 - **Loading:** the skeleton follows the final columns and the Listos checkboxes.
 - **Offline:** the existing connection banner shows in the Business app.
 - **Failure:** every failure shows what was refused, a `Ref.`, and a way out.

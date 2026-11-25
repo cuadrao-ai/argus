@@ -23,7 +23,15 @@ WORKFLOW = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(
 FAKE = Faker()
 
 ALWAYS = {"docs-change-gate", "ownership-gate", "ci"}
-HEAVY = ALWAYS | {"backend-checks", "backend-shards", "frontend-checks", "database-checks", "database-shards"}
+HEAVY = ALWAYS | {
+    "backend-checks",
+    "backend-shards",
+    "frontend-checks",
+    "frontend-test-checks",
+    "frontend-test-shards",
+    "database-checks",
+    "database-shards",
+}
 EVERY = HEAVY | {"marketing-checks"}
 DOCS = ALWAYS | {"docs-checks"}
 
@@ -267,6 +275,7 @@ RESULT_KEYS = {
     "docs-checks": "DOCS_CHECKS",
     "backend-checks": "BACKEND_CHECKS",
     "frontend-checks": "FRONTEND_CHECKS",
+    "frontend-test-checks": "FRONTEND_TEST_CHECKS",
     "marketing-checks": "MARKETING_CHECKS",
     "database-checks": "DATABASE_CHECKS",
 }

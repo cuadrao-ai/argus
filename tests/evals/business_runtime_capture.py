@@ -833,6 +833,8 @@ async def capture_case(
                 messages: set[str] = set()
                 histories: dict[str, list[dict[str, str]]] = {}
                 submitted_approvals: dict[str, int] = {}
+                # The gaps each approval named; a replay is the same request.
+                named_gaps: dict[str, tuple[str, ...]] = {}
                 history: list[dict[str, str]] = []
                 drafts: dict[str, str] = {}
                 observed_steps = []
@@ -1021,12 +1023,17 @@ async def capture_case(
                                 bool(step.get("replay")),
                                 submitted_approvals,
                             )
+                            if key not in named_gaps:
+                                named_gaps[key] = service.dossier(
+                                    context, draft_id
+                                ).listo_gaps
                             outcome = service.approve(
                                 context,
                                 draft_id,
                                 ApproveExpense(
                                     version=submitted_reviewed_version,
                                     action="record_expense",
+                                    accept_gaps=named_gaps[key],
                                 ),
                                 key,
                             )

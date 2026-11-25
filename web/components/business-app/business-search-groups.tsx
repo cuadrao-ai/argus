@@ -2,7 +2,7 @@ import { createElement, type ReactNode } from "react";
 import { AtSign, Banknote, FileText, HandCoins, ImageIcon, Landmark, Mail } from "lucide-react";
 import type { TFunction } from "i18next";
 import type { WorkspaceSearchGroup, WorkspaceSearchHit, WorkspaceSearchPage } from "@/components/chat/ChatWorkspace";
-import type { BusinessAccount, ReceiptSummary } from "@/lib/business-api";
+import type { BusinessAccount } from "@/lib/business-api";
 import {
   isInvalidSearchCursor,
   isStaleSearchCursor,
@@ -35,8 +35,14 @@ export type SearchGroupContext = Readonly<{
   source: BusinessDataSource;
   accounts: readonly BusinessAccount[];
   openPanel: (panel: BusinessPanelState) => void;
-  stateWord: (receipt: ReceiptSummary) => string;
 }>;
+
+/** A receipt hit's status in words: the server's Bandeja label, or that it is deleted. A hit with neither says nothing. */
+export function receiptStatusWord(t: TFunction, receipt: BusinessSearchReceipt): string | null {
+  const label = receipt.bandeja_group?.label;
+  if (label) return t(`business.bandeja.label.${label}`);
+  return receipt.deleted ? t("business.document_delete.deleted_state") : null;
+}
 
 const line = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
 
@@ -76,7 +82,7 @@ function pager<K extends BusinessSearchKind>(
 
 /** The six record groups of one answer, in the order the owner reads them. */
 export function searchKindGroups(ctx: SearchGroupContext, query: string, found: BusinessSearchResult): Record<BusinessSearchKind, WorkspaceSearchGroup> {
-  const { t, locale, source, accounts, openPanel, stateWord } = ctx;
+  const { t, locale, source, accounts, openPanel } = ctx;
   const nickname = new Map(accounts.map((account) => [account.id, account.nickname]));
   const preview = (record: BusinessSearchRecord): ReactNode => createElement(BusinessSearchDossier, { record, source, accounts });
   // Opening a result tells the backend, so it ranks first next time; a miss never reaches the person.
@@ -113,7 +119,7 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
         id: receipt.id,
         icon: receipt.media_type === "application/pdf" ? FileText : ImageIcon,
         title: receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt"),
-        detail: line(stateWord(receipt), formatDay(receipt.occurred_on ?? receipt.received_at, locale)),
+        detail: line(receiptStatusWord(t, receipt), formatDay(receipt.occurred_on ?? receipt.received_at, locale)),
         amount: money(receipt.amount, receipt.currency),
         badge: t("business.search.badge_receipt", "Receipt"),
         preview: preview({ kind: "receipt", receipt }),

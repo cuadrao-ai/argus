@@ -12,6 +12,7 @@ from psycopg_pool import ConnectionPool
 
 from argus.domain.business.actions import captures, mutations, plans, related, sources
 from argus.domain.business.actions import dossier as views
+from argus.domain.business.annotations import supporting_uploads
 from argus.domain.business.authority import (
     ActionContext,
     ActionError,
@@ -36,7 +37,6 @@ from argus.domain.business.contracts.actions import (
     PrepareAttachmentCommand,
     ReadContext,
     RebindAttachmentCommand,
-    ReopenDraft,
     ResolveDuplicate,
     ReviewCommand,
     ReviewDraft,
@@ -58,6 +58,7 @@ from argus.domain.business.contracts.facts import HUMAN_AMOUNT_FIELDS
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
+from argus.domain.business.history_review import review_evidence
 from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from argus.domain.business.transactions import (
     ActionTransaction,
@@ -65,6 +66,7 @@ from argus.domain.business.transactions import (
     transaction,
 )
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
+from argus.domain.ingestion.email_intake import sender_policy
 from argus.domain.ingestion.email_intake.store import email_connection_standing
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.owner_scope import OwnerScope, space_id
@@ -252,17 +254,28 @@ class BusinessActions:
             )
 
     def preview_amounts(self, context: ActionContext, draft_id: UUID, request: AmountsPreviewRequest) -> AmountsPreview:
-        from argus.domain.business.actions.amounts_preview import preview_amounts
+        from argus.domain.business.actions.amounts_preview import (
+            DraftSources,
+            preview_amounts,
+        )
         from argus.domain.business.amount_inheritance import links_of
         from argus.domain.business.contracts.facts import BusinessResolution
 
         with transaction(self.authority, context, "prepare") as tx:
             if context.actor.actor_kind != "member":
                 raise ActionError("permission_denied", "business_human_command_required")
-            event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=request.version))
+            event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=request.version), True)
+            if event.state == "accepted":
+                tx.authorization.require("approve")
             mutations.facts_of(event)
             resolution = BusinessResolution.model_validate(event.resolution.get("business"))
-            return preview_amounts(resolution, request, links_of(event.state))
+            sources = DraftSources(
+                review=lambda facts, stored: views.review_sources(
+                    tx, draft_id, event.state, facts, stored, resolution.document_type
+                ),
+                stored=lambda facts, stored: views.linked_original(tx, event.state, facts, stored),
+            )
+            return preview_amounts(resolution, request, links_of(event.state), sources)
 
     def _activities(self, context: ActionContext, connection: Connection) -> list[dict]:
         """The Business's current money activities, as the Resumen reads them."""
@@ -356,9 +369,7 @@ class BusinessActions:
                         evidence = WebActionSource(
                             id=uuid4(),
                             received_at=datetime.now(timezone.utc),
-                            text=web_action_text(
-                                command.model_dump(mode="json", exclude_none=True)
-                            ),
+                            text=web_action_text(review_evidence(command)),
                         )
                         source_id = sources.record_source(
                             tx, f"web:{context.actor.actor_id}:{key}", evidence
@@ -372,9 +383,11 @@ class BusinessActions:
                             fiscal_review=request.dgii,
                             purchase=request.purchase,
                             payment_split=request.payment_split,
+                            sale_payment_form=request.sale_payment_form,
                             document_type=request.document_type,
                             due_on=request.due_on,
                             montos=request.montos,
+                            web_accounts=self.imports.money.accounts,
                         )
                 except ActionError as error:
                     result = error.result
@@ -459,17 +472,6 @@ class BusinessActions:
                 return plans.finish_receipt(tx, key, result)
         except ActionError as error:
             return error.result
-
-    def reopen(
-        self,
-        context: ActionContext,
-        draft_id: UUID,
-        request: ReopenDraft,
-        key: str,
-    ) -> ActionOutcome:
-        from argus.domain.business.actions.reopen import reopen
-
-        return reopen(self, context, draft_id, request, key)
 
     def mark_personal(
         self,
@@ -791,7 +793,10 @@ class BusinessActions:
             " and c.source='statement' and c.status<>'disconnected' for update of c,d",
             (connection_id, tx.context.owner_id, tx.context.actor.space_id),
         )
-        if not rows:
+        # A supporting file's upload is never prepared: it is not a receipt.
+        if not rows or supporting_uploads(
+            tx.rows, tx.context.actor.space_id, connection_id
+        ):
             raise ActionError("not_found", "business_record_not_found")
         return rows[0]
 
@@ -824,13 +829,21 @@ class BusinessActions:
             raise ActionError("not_found", "business_record_not_found")
         return binding, context
 
+    def preparation_context(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> ActionContext:
+        """The authority this receipt's read is bound to, as every take of the
+        read resolves it: a read started again with no person runs under it."""
+
+        return self._attachment_context(user_id, connection_id, scope)[1]
+
     @staticmethod
     def _require_email_read(tx: ActionTransaction, connection_id: UUID) -> None:
         standing = email_connection_standing(
             tx.connection, str(tx.context.actor.space_id), str(connection_id)
         )
-        if standing is not None and standing != "authorized":
-            raise ActionError("permission_denied", "email_sender_unauthorized")
+        if refusal := sender_policy.sender_refusal(standing):
+            raise ActionError("permission_denied", refusal)
 
     def _checked_attachment(
         self,
@@ -908,7 +921,7 @@ class BusinessActions:
         _, context = self._attachment_context(user_id, connection_id, scope)
         with transaction(self.authority, context) as tx:
             event = tx.imports.event(str(draft_id))
-            standing = draft_standings(tx, [event]).get(event.id)
+            standing = draft_standings(tx, [event], every_gap=True).get(event.id)
         return listo_gaps(standing) if standing is not None else ()
 
     def prepare_attachment(

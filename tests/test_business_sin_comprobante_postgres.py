@@ -3,8 +3,8 @@
 A purchase or a sale the owner states has no comprobante fiscal counts in the
 month's income and expense, stays out of the 606 and the 607, and never holds
 the month open. A record with a comprobante whose number is missing still
-holds it open. The mark is a fact on the draft: editable while the draft is
-open, kept in its history, and locked once the draft is approved.
+holds it open. The owner can edit the mark before or after approval, and
+the draft history keeps each change.
 """
 
 from __future__ import annotations
@@ -24,11 +24,12 @@ from argus.domain.business.month_close_store import read_month
 
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
+from tests.business.receipt_stub import receipt_month
+from tests.business_accept_support import accepting, seen_gaps
 from tests.test_business_multi_purchase_postgres import _account as cash_account
 from tests.test_business_receipt_views_postgres import _web as receipt_web
 from tests.test_business_scope_switch_routes_postgres import (  # noqa: F401
     API,
-    _code,
     web,
 )
 from tests.test_business_scope_switch_routes_postgres import (
@@ -38,6 +39,11 @@ from tests.test_business_scope_switch_routes_postgres import (
 actions = bridge.actions
 users = bridge.users
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 @pytest.fixture(autouse=True)
@@ -111,7 +117,9 @@ def _approve(world, draft: str, version: int, kind: str) -> str:  # noqa: ANN001
         world,
         "POST",
         f"/business/drafts/{draft}/approve",
-        {"version": version, "action": f"record_{kind}"},
+        accepting(
+            _get(world, f"/business/drafts/{draft}/dossier").json(), f"record_{kind}"
+        ),
         world.alice.headers,
     )
     return approved["approval_result"]["activity_id"]
@@ -297,20 +305,27 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
     detail = _get(web, f"/business/expenses/{cash_purchase}").json()
     assert detail["sin_comprobante"] is True
 
-    # Locked after approval, like every other fact.
-    locked = web.client.patch(
-        f"{API}/business/drafts/{draft}/review",
-        json={
+    after = _send(
+        web,
+        "PATCH",
+        f"/business/drafts/{draft}/review",
+        {
             "version": _get(web, f"/business/drafts/{draft}/dossier").json()["version"],
             "facts": {"receipt_state": {"state": "known", "value": "fiscal_receipt"}},
         },
-        headers={**web.alice.headers, "Idempotency-Key": str(uuid4())},
+        web.alice.headers,
     )
-    assert _code(locked) == (422, "recorded_correction_unsupported"), locked.text
-    assert (
-        _get(web, f"/business/drafts/{draft}/dossier").json()["sin_comprobante"] is True
-    )
-    assert _close(web, "2026-09") == september
+    assert after["review_state"] == "accepted"
+    assert after["approval_result"]["activity_id"] == cash_purchase
+    assert after["sin_comprobante"] is False
+    assert after["history"][-1]["after"]["receipt_state"]["value"] == "fiscal_receipt"
+    assert "sin_comprobante" not in _get(web, f"/business/expenses/{cash_purchase}").json()
+
+    reopened_month = _close(web, "2026-09")
+    assert reopened_month["closed"] is False
+    assert [item["activity_id"] for item in reopened_month["missing_ncf"]] == [
+        cash_purchase
+    ]
 
 
 def test_a_record_with_a_comprobante_and_no_number_still_holds_the_month_open(
@@ -375,7 +390,8 @@ def test_an_uploaded_receipt_reads_its_mark_after_prepare(
     expense: int,
     itbis_paid: int,
 ) -> None:
-    monkeypatch.setattr(single, "RECEIPT", {**single.RECEIPT, **receipt})
+    read = {**single.receipt(), **receipt}
+    monkeypatch.setattr(single, "receipt", lambda: read)
     saved = single._saved(actions, "expense")
     service, context, _, cid, _, _ = saved
     bridge.bind(saved)
@@ -404,7 +420,11 @@ def test_an_uploaded_receipt_reads_its_mark_after_prepare(
     approved = service.approve(
         context,
         prepared.draft_id,
-        ApproveExpense(version=reviewed.version, action="record_expense"),
+        ApproveExpense(
+            version=reviewed.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, prepared.draft_id),
+        ),
         "approve",
     )
     assert approved.outcome == "applied", approved
@@ -415,11 +435,11 @@ def test_an_uploaded_receipt_reads_its_mark_after_prepare(
     assert row.get("sin_comprobante", False) is marked
     assert detail.get("sin_comprobante", False) is marked
     assert service.dossier(context, prepared.draft_id).sin_comprobante is marked
-    october = read_month(service.authority, context, "2026-10")
-    [dop] = october["currencies"]
+    month = read_month(service.authority, context, receipt_month()[0].strftime("%Y-%m"))
+    [dop] = month["currencies"]
     assert (dop["expense_before_itbis_minor"], dop["itbis_paid_minor"]) == (
         expense,
         itbis_paid,
     )
-    [line] = october["cuentas_por_pagar"]
+    [line] = month["cuentas_por_pagar"]
     assert line["sin_comprobante"] is marked

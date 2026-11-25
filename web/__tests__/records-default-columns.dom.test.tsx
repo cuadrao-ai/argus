@@ -20,9 +20,10 @@ const shownKeys = (value: RecordsViewPreferences) => visibleRecordsColumns(value
 const forFamily = (family: "purchase" | "sale"): RecordsViewPreferences => ({ ...sampleRecordsPreferences(), columns: sampleRecordsColumns(family) });
 
 test("the server's default table starts with RNC o Cédula on Compras and on Ventas", () => {
-  assert.deepEqual(shownKeys(forFamily("purchase")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
-  assert.deepEqual(shownKeys(forFamily("sale")), ["counterparty_id", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
-  assert.deepEqual(recordsColumnSettings(forFamily("purchase")).filter((column) => !column.shown).map(({ key }) => key), ["counterparty", "fiscal_number", "note", "attachment", "payment_form", "funding"]);
+  assert.deepEqual(shownKeys(forFamily("purchase")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.deepEqual(shownKeys(forFamily("sale")), ["counterparty_id", "date", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.deepEqual(recordsColumnSettings(forFamily("purchase")).filter((column) => !column.shown).map(({ key }) => key), ["counterparty", "fiscal_number", "note", "attachment", "payment_form"]);
+  assert.deepEqual(recordsColumnSettings(forFamily("sale")).filter((column) => !column.shown).map(({ key }) => key), ["counterparty", "fiscal_number", "note", "attachment"]);
 });
 
 test("the person can hide any column, but the last one shown stays", () => {
@@ -34,7 +35,7 @@ test("the person can hide any column, but the last one shown stays", () => {
   }
   assert.deepEqual(shownKeys(value), shown.slice(-1));
   assert.equal(toggleRecordsColumn(value, shown.at(-1)!), value);
-  assert.deepEqual(shownKeys(toggleRecordsColumn(value, "note")), ["missing", "note"]);
+  assert.deepEqual(shownKeys(toggleRecordsColumn(value, "note")), ["stage", "note"]);
 });
 
 test("any column moves, to the first place too, and the first shown column is the frozen one", () => {
@@ -68,23 +69,22 @@ async function mount(preferences: RecordsViewPreferences) {
   const i18n = (await import("i18next")).default.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } }, interpolation: { escapeValue: false } });
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-  const { RecordsAnnotationsPreview } = await import("@/components/business-app/transacciones/RecordsAnnotationsPreview");
   const { RecordsTable } = await import("@/components/business-app/transacciones/TransaccionesRecords");
   const value = { chosen: { space_id: "fixture-space", capabilities: ["read"] }, records: { workspace: { receipt_limits: { max_bytes: 100, media_types: ["application/pdf"] } } }, panel: { kind: "transactions" }, openPanel: () => {} } as unknown as BusinessContextValue;
   const records = [row("known", "Ferretería Ozama", "101001577"), row("person", "Ana Pérez", "00100000001"), row("none", "Colmado Sin RNC", null)];
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
-  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><RecordsAnnotationsPreview><RecordsTable records={records} preferences={preferences} density="normal" rowRef={() => {}} /></RecordsAnnotationsPreview></BusinessContext.Provider></I18nextProvider>));
+  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><RecordsTable records={records} preferences={preferences} density="normal" rowRef={() => {}} /></BusinessContext.Provider></I18nextProvider>));
   cleanup = async () => { await act(async () => root.unmount()); };
   return { act, host };
 }
 const cell = (host: HTMLElement, id: string, column: string) => host.querySelector<HTMLElement>(`tr[data-record-id="${id}"] td[data-col="${column}"]`)!;
 
-test("every column title is bold in one style, and the table names the new column", async () => {
+test("every column title is bold in one style", async () => {
   const { host } = await mount(forFamily("purchase"));
   const titles = [...host.querySelectorAll<HTMLElement>("thead th")];
   assert.equal(titles[0].textContent, "RNC o Cédula");
-  assert.equal(titles.length, 8);
-  assert.equal(titles.at(-1)?.textContent, "Motivo");
+  assert.equal(titles.length, 7);
+  assert.equal(titles.at(-1)?.textContent, "Estado");
   for (const title of titles) {
     assert.match(title.className, /\bfont-semibold\b/, title.textContent ?? "");
     assert.doesNotMatch(title.className, /\bfont-normal\b/);

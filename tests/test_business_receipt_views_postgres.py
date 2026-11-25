@@ -6,7 +6,6 @@ retryable."""
 
 from __future__ import annotations
 
-from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
@@ -39,6 +38,8 @@ from starlette.requests import Request
 
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
+from tests.business.receipt_stub import receipt_date, receipt_month
+from tests.business_accept_support import seen_gaps
 from tests.document_sources_support import source_objects
 from tests.ingestion.whatsapp_support import RefusingExtractor
 
@@ -128,14 +129,14 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
         assert (view["currency"], view["merchant"], view["occurred_on"]) == (
             "DOP",
             "Hotel Brisa del Este SRL",
-            "2026-10-09",
+            receipt_date(),
         )
     assert detail["draft_id"] == str(result.draft_id)
     assert detail["version"] == service.dossier(context, result.draft_id).version
     assert detail["record_context"]["capabilities"]
     # Linked and open: counted once as awaiting review, in the inbox, in search and in updates.
-    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
-    assert (counts["awaiting_review"], counts["needs_attention"]) == (1, 0)
+    counts = overview_with_drafts(web, *receipt_month())
+    assert counts["bandeja_listo_count"] + counts["bandeja_attention_count"] == 1
     assert [item["id"] for item in receipt_summaries(web, "inbox")] == [cid]
     [hit] = search_with_drafts(web, parse("Brisa"))["receipts"]
     assert (hit["id"], hit["status"], hit["merchant"]) == (
@@ -176,7 +177,9 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
         context,
         result.draft_id,
         ApproveExpense(
-            version=filled.version, action="record_expense", approve_anyway=True
+            version=filled.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, result.draft_id),
         ),
         "approve",
     )
@@ -186,8 +189,8 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
         assert (view["status"], view["attention"]) == ("confirmed", None)
         assert view["expense_id"] == str(approved.activity_id)
         assert view["account_id"] == str(funding)
-    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
-    assert (counts["awaiting_review"], counts["needs_attention"]) == (0, 0)
+    counts = overview_with_drafts(web, *receipt_month())
+    assert counts["bandeja_listo_count"] + counts["bandeja_attention_count"] == 0
     assert receipt_summaries(web, "inbox") == []
     [update] = [u for u in updates_with_drafts(web) if u["receipt_id"] == cid]
     assert (update["kind"], update["expense_id"]) == (
@@ -220,6 +223,8 @@ def test_a_saved_read_whose_handoff_failed_waits_as_interrupted_on_postgres(acti
             ),
         )
     web = _web(service, context)
+    connections = web.service.documents.hub.connections
+    connections.release(connection_id=cid, holder=saved[4])
     row, detail = _views(web, cid)
     for view in (row, detail):
         assert (view["status"], view["attention"], view["error_code"]) == (
@@ -231,6 +236,9 @@ def test_a_saved_read_whose_handoff_failed_waits_as_interrupted_on_postgres(acti
     assert detail["draft_id"] is None
     assert detail["evidence"]["total"] == "33254.91"
     # The hand-off then succeeds: the draft owns the receipt.
+    assert connections.lease(
+        connection_id=cid, holder=saved[4], now=web.service.documents.hub.clock()
+    )
     result = bridge.finish(saved)
     assert result.outcome == "applied", result
     row, detail = _views(web, cid)
@@ -267,8 +275,8 @@ def test_a_repeat_receipt_shows_as_a_duplicate_of_its_original_in_every_view(act
         assert Decimal(view["amount"]) == Decimal("33254.91")
     original, _ = _views(web, cid1)
     assert (original["status"], original["attention"]) == ("review_ready", None)
-    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
-    assert (counts["awaiting_review"], counts["needs_attention"]) == (1, 1)
+    counts = overview_with_drafts(web, *receipt_month())
+    assert counts["bandeja_listo_count"] + counts["bandeja_attention_count"] == 2
     [update] = [u for u in updates_with_drafts(web) if u["receipt_id"] == cid2]
     assert (update["kind"], update["attention"]) == (
         "receipt_needs_attention",
@@ -316,6 +324,7 @@ def test_a_receipt_whose_grant_went_away_asks_the_owner_to_rebind(actions):  # n
             ),
         )
     web = _web(service, context)
+    web.service.documents.hub.connections.release(connection_id=cid, holder=saved[4])
     row, detail = _views(web, cid)
     for view in (row, detail):
         assert (view["status"], view["attention"], view["error_code"]) == (
@@ -361,8 +370,8 @@ def test_a_dismissed_draft_closes_its_receipt_in_every_view(actions):  # noqa: A
     assert detail["draft_id"] == str(result.draft_id)
     # Closed: out of the inbox, out of the counts, and no update is announced for it.
     assert receipt_summaries(web, "inbox") == []
-    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
-    assert (counts["awaiting_review"], counts["needs_attention"]) == (0, 0)
+    counts = overview_with_drafts(web, *receipt_month())
+    assert counts["bandeja_listo_count"] + counts["bandeja_attention_count"] == 0
     assert [u for u in updates_with_drafts(web) if u["receipt_id"] == cid] == []
 
 
@@ -393,8 +402,8 @@ def test_a_receipt_linked_to_two_drafts_asks_a_person_to_check(actions):  # noqa
     # The second receipt keeps its own single draft (a repeat of the first).
     other, _ = _views(web, cid2)
     assert (other["status"], other["attention"]) == ("needs_attention", "duplicate")
-    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
-    assert (counts["awaiting_review"], counts["needs_attention"]) == (0, 2)
+    counts = overview_with_drafts(web, *receipt_month())
+    assert counts["bandeja_listo_count"] + counts["bandeja_attention_count"] == 2
     [update] = [u for u in updates_with_drafts(web) if u["receipt_id"] == cid1]
     assert (update["kind"], update["attention"]) == (
         "receipt_needs_attention",
@@ -447,7 +456,11 @@ def test_an_approved_draft_still_asking_for_purchases_says_so_in_every_view(acti
     recorded = service.approve(
         context,
         first.draft_id,
-        ApproveExpense(version=chosen.version, action="record_expense"),
+        ApproveExpense(
+            version=chosen.version,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, first.draft_id),
+        ),
         "approve",
     )
     assert recorded.outcome == "applied", recorded
@@ -463,8 +476,8 @@ def test_an_approved_draft_still_asking_for_purchases_says_so_in_every_view(acti
         assert view["expense_id"] == str(recorded.activity_id)
         assert Decimal(view["amount"]) == Decimal("245.00")
     assert receipt_summaries(web, "inbox") == []
-    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
-    assert (counts["awaiting_review"], counts["needs_attention"]) == (0, 0)
+    counts = overview_with_drafts(web, *receipt_month())
+    assert counts["bandeja_listo_count"] + counts["bandeja_attention_count"] == 0
     [update] = [u for u in updates_with_drafts(web) if u["receipt_id"] == cid]
     assert (update["kind"], update["attention"]) == (
         "expense_confirmed",

@@ -13,6 +13,7 @@ from argus.domain.recording.errors import (
     RecordingInputError,
     RegisteredAccountRequired,
 )
+from argus.domain.recording.import_claim import ImportClaim, require_import_claim
 from argus.domain.recording.money_postgres import owner_lock
 from argus.domain.recording.owner_funds import NoAccountRecord
 
@@ -28,23 +29,24 @@ def load(
     scope: OwnerScope,
     *,
     activity_id: str | None = None,
+    history: bool = False,
 ) -> list[NoAccountRecord]:
     if not isinstance(scope, BusinessSpace):
         return []
     selected = " and g.id=%s" if activity_id is not None else ""
+    current = "" if history else " and m.activity_revision=g.current_revision"
     rows = connection.execute(
         f"""select g.id,r.id,r.user_id,r.owner_space_id,r.currency,v.amount_minor,
         v.as_of,v.as_of_zone,v.details->>'note',v.details->>'category_id',v.recorded_at,
-        r.record_kind,r.funding
+        r.record_kind,r.funding,m.activity_revision,v.recorded_by::text
         from public.financial_records r
-        join public.financial_record_revisions v on v.record_id=r.id and v.user_id=r.user_id
-        and v.revision=r.current_revision
         join public.financial_activity_memberships m on m.record_id=r.id
-        and m.record_owner_id=r.user_id and m.record_revision=v.revision
+        and m.record_owner_id=r.user_id and m.user_id=r.user_id
+        join public.financial_record_revisions v on v.record_id=r.id and v.user_id=r.user_id
+        and v.revision=m.record_revision
         join public.financial_activity_groups g on g.id=m.activity_id and g.user_id=m.user_id
-        and g.current_revision=m.activity_revision
         where r.account_id is null and g.reversed_at is null
-        and r.user_id=any(%s::uuid[]) and r.owner_space_id=%s{selected}""",
+        and r.user_id=any(%s::uuid[]) and r.owner_space_id=%s{selected}{current}""",
         (
             list(user_ids),
             scope.space_id,
@@ -57,12 +59,25 @@ def load(
     ]
 
 
+def load_history(
+    repository: PostgresFinancialAccountRepository,
+    user_id: str,
+    scope: OwnerScope,
+    activity_id: str,
+) -> list[NoAccountRecord]:
+    with repository._pool.connection() as connection:
+        rows = load(connection, [user_id], scope, activity_id=activity_id, history=True)
+    return sorted(rows, key=lambda row: row.revision, reverse=True)
+
+
 def transact(
     repository: PostgresFinancialAccountRepository,
     row: NoAccountRecord,
     key: str,
     identity: str,
     preview_valid: bool,
+    *,
+    import_claim: ImportClaim | None = None,
 ) -> dict[str, Any]:
     with repository._pool.connection() as connection:
         with connection.transaction():
@@ -78,7 +93,7 @@ def transact(
             ).fetchone():
                 raise AccountNotFound()
             receipt = connection.execute(
-                "select identity_hash,activity_id from public.financial_activity_receipts where user_id=%s and scope='canonical' and idempotency_key=%s",
+                "select identity_hash,activity_id,revision from public.financial_activity_receipts where user_id=%s and scope='canonical' and idempotency_key=%s",
                 (row.user_id, key),
             ).fetchone()
             if receipt:
@@ -88,15 +103,22 @@ def transact(
                     (
                         item
                         for item in load(
-                            connection, [row.user_id], BusinessSpace(row.owner_space_id)
+                            connection,
+                            [row.user_id],
+                            BusinessSpace(row.owner_space_id),
+                            activity_id=str(receipt[1]),
+                            history=True,
                         )
-                        if item.activity_id == str(receipt[1])
+                        if item.revision == receipt[2]
                     ),
                     None,
                 )
                 if saved is None:
                     raise IdempotencyConflict()
                 return {"activity": saved.response(), "accounts": [], "replayed": True}
+            require_import_claim(
+                connection, row.user_id, BusinessSpace(row.owner_space_id), import_claim
+            )
             if not preview_valid:
                 raise RecordingInputError(
                     "preview_required", "Review the proposed change before saving it."

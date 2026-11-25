@@ -9,12 +9,17 @@ from pathlib import Path
 
 import pytest
 import yaml
+from argus.domain.business.rnc_registry import (
+    INACTIVE_BY_RAW,
+    DgiiRncRegistry,
+    RegistryStatus,
+    RncRecord,
+)
 from argus.domain.business.supplier_fast_path import (
     SupplierFastPath,
     SupplierFastPathDisabled,
     SupplierRegistryHit,
     lookup_supplier_fast_path,
-    map_registry_status,
     ncf_valid_on_issue_date,
     supplier_fast_path_enabled,
 )
@@ -51,30 +56,26 @@ class _Cursor:
 
     def execute(self, query: str, params: tuple | None = None) -> None:
         self.calls += 1
-        self._call = self.calls
-        self.last_params = params
 
     def fetchone(self):
-        if self._call == 1:
-            return self.lookup_row
-        return (self.loaded,)
+        return self.lookup_row or {"rnc": None, "loaded": self.loaded}
 
 
 class _Connection:
     def __init__(self, lookup_row=None, loaded: bool = True) -> None:
         self.cursor_obj = _Cursor(lookup_row, loaded)
 
-    def cursor(self) -> _Cursor:
+    def cursor(self, *, row_factory) -> _Cursor:
         return self.cursor_obj
 
 
 class _Exploding:
-    def cursor(self):
+    def cursor(self, *, row_factory):
         raise AssertionError("flag off touched the database")
 
 
 class _Broken:
-    def cursor(self):
+    def cursor(self, *, row_factory):
         raise RuntimeError("database unavailable")
 
 
@@ -107,7 +108,8 @@ def _enable(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_map_registry_status_keeps_known_rows_and_an_unseen_value(
     raw: str, mapped: str, label: str | None
 ) -> None:
-    info = map_registry_status(raw)
+    verification = "verificado" if mapped == "verificado" else "no_activo"
+    info = RncRecord("109990011", "Taller Sol", None, raw, None, verification).mapped
 
     assert info.status == mapped
     assert info.label == label
@@ -168,7 +170,13 @@ def test_flag_on_returns_raw_status_beside_the_mapping(
 ) -> None:
     _enable(monkeypatch)
     connection = _Connection(
-        ("109990011", "Taller Sol", " SUSPENDIDO ", date(2026, 10, 1))
+        {
+            "rnc": "109990011",
+            "name": "Taller Sol",
+            "status": " SUSPENDIDO ",
+            "verification": "no_activo",
+            "file_date": date(2026, 10, 1),
+        }
     )
 
     result = lookup_supplier_fast_path(
@@ -224,6 +232,43 @@ def test_empty_registry_is_not_loaded_and_a_miss_is_not_found(
     assert empty.registry.checked_at == CHECKED_AT
     assert isinstance(missing, SupplierFastPath)
     assert missing.registry.outcome == "not_found"
+
+
+#: The publisher text behind each status; ``desconocido`` is text no row maps.
+RAW_BY_STATUS = {
+    RegistryStatus.VERIFICADO: "ACTIVO",
+    **{info.status: raw for raw, info in INACTIVE_BY_RAW.items()},
+    RegistryStatus.DESCONOCIDO: "EN TRAMITE",
+}
+
+
+@pytest.mark.parametrize("status", list(RegistryStatus))
+def test_a_listed_rnc_answers_its_mapped_status_with_the_flag_off(
+    status: RegistryStatus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(FLAG, raising=False)
+    row = {
+        "rnc": "109990011",
+        "name": "FERRETERIA PRUEBA",
+        "status": RAW_BY_STATUS[status],
+        "file_date": date(2026, 10, 1),
+        "verification": "verificado" if status == RegistryStatus.VERIFICADO else "no_activo",
+    }
+
+    registry = DgiiRncRegistry.for_connection(_Connection(row))
+    assert registry.read("1-09-99001-1").status is status
+
+
+def test_an_rnc_a_loaded_register_does_not_list_is_not_found_never_desconocido() -> None:
+    registry = DgiiRncRegistry.for_connection(_Connection(None, loaded=True))
+    found = registry.read("109990099").status
+    assert found == "not_found"
+    assert found not in set(RegistryStatus)
+
+
+def test_an_empty_register_answers_nothing() -> None:
+    registry = DgiiRncRegistry.for_connection(_Connection(None, loaded=False))
+    assert registry.read("109990099").status is None
 
 
 def test_database_errors_still_propagate(monkeypatch: pytest.MonkeyPatch) -> None:

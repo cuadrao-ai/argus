@@ -57,7 +57,7 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
   }]));
   const pending = () => receipts.filter((item) => item.status !== "confirmed");
   const answer = (waiting: number): ReceiptPage => {
-    const activity: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: waiting, needs_attention_count: 0, ready_to_review_count: waiting, bandeja_attention_count: waiting, bandeja_listo_count: 0, confirmed_count: 3 - waiting, dismissed_count: 0 };
+    const activity: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: waiting, ready_to_review_count: waiting, bandeja_attention_count: waiting, bandeja_listo_count: 0, confirmed_count: 3 - waiting, dismissed_count: 0 };
     return { items: pending() as ReceiptSummary[], activity, version: `"v${3 - waiting}"` };
   };
   const checks: ((page: ReceiptPage | null) => void)[] = [];
@@ -76,7 +76,7 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
       const recorded: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_result: { status: "recorded", activity_id: `expense-${id}`, reviewed_version: current.version, approved_revision: current.version, approved_at: "2026-10-10T14:40:00Z", actor: { actor_id: "a", actor_kind: "member", display_name: "Lucía", grant_id: "g-own", issuer_id: "a", issuer_display_name: "Lucía" } } };
       dossiers.set(id, recorded);
       receipts = receipts.map((item) => (item.draft_id === id ? { ...item, status: "confirmed", version: item.version + 1 } : item));
-      return structuredClone(recorded);
+      return { ...structuredClone(recorded), inbox_counts: answer(pending().length).activity };
     },
   };
 
@@ -101,7 +101,7 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
   const tabBadge = () => host.querySelector('[data-testid="business-bottom-tabs"] button span.absolute')?.textContent ?? null;
   const attentionTab = () => host.querySelector('[data-testid="bandeja"] [data-testid="reception-count-attention"]')?.textContent ?? null;
   const shown = () => [sidebarBadge(), tabBadge(), attentionTab()];
-  const approve = () => [...host.querySelectorAll<HTMLButtonElement>('[data-testid="panel"] button')].find((item) => item.textContent === "Aprobar") ?? null;
+  const approve = () => [...host.querySelectorAll<HTMLButtonElement>('[data-testid="panel"] button')].find((item) => item.textContent === "Aceptar") ?? null;
   try {
     await act(async () => root.render(
       <I18nextProvider i18n={i18n}>
@@ -111,7 +111,7 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
       </I18nextProvider>,
     ));
     await settle(() => sidebarBadge() === "3" && attentionTab() === "3");
-    await act(async () => api!.openPanel({ kind: "receipt", receiptId: "rcpt-Uno", list: "inbox", receiptIds: ["rcpt-Uno", "rcpt-Dos", "rcpt-Tres"] }));
+    await act(async () => api!.openPanel({ kind: "receipt", receiptId: "rcpt-Uno", list: "inbox", reviewList: { scope: "inbox", receiptIds: ["rcpt-Uno", "rcpt-Dos", "rcpt-Tres"] } }));
     await settle(() => approve() !== null);
     assert.deepEqual(shown(), ["3", "3", "3"], "before the approval: badge, phone tab and Bandeja tab all show 3");
 
@@ -122,9 +122,9 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
     const older = answer(3);
 
     const button = approve();
-    assert.ok(button, "Aprobar is on the page");
+    assert.ok(button, "Aceptar is on the page");
     await act(async () => button.click());
-    const confirmation = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((item) => item.textContent === "Aprobar");
+    const confirmation = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((item) => item.textContent === "Aceptar");
     if (confirmation) await act(async () => confirmation.click());
     await settle(() => sidebarBadge() === "2" && tabBadge() === "2" && attentionTab() === "2");
     assert.deepEqual(shown(), ["2", "2", "2"], "the approval's reload shows 2");

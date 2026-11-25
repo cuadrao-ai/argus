@@ -32,6 +32,11 @@ actions = documents.actions
 pytestmark = documents.pytestmark
 
 
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
+
+
 def _target(actions, kind):
     if kind in ("bridged", "unread"):
         return (documents._ready if kind == "bridged" else documents._unread)(actions)

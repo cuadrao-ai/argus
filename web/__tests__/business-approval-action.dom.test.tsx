@@ -33,7 +33,9 @@ async function mountReview(dossier: BusinessDossier, mode: "live" | "fixture") {
   await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId={dossier.draft_id} /></BusinessContext.Provider></I18nextProvider>));
   const approve = (label: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === label);
   const close = async () => { await act(async () => root.unmount()); host.remove(); await GlobalRegistrator.unregister(); };
-  return { act, approve, sent, close };
+  /** Every accept button the footer shows, by its words. */
+  const accepts = () => [...host.querySelectorAll<HTMLButtonElement>("[data-footer-actions] button")].map((button) => button.textContent).filter((text) => text?.startsWith("Aceptar"));
+  return { act, approve, accepts, sent, close };
 }
 
 async function ready(over: Partial<BusinessDossier>): Promise<BusinessDossier> {
@@ -47,8 +49,8 @@ for (const mode of ["live", "fixture"] as const) {
     // The facts say expense; the server's approval_action is the one that approves.
     const page = await mountReview(await ready({ approval_action: "record_income" }), mode);
     try {
-      const button = page.approve("Aprobar ingreso");
-      assert.ok(button, "the label follows the server's action");
+      const button = page.approve("Aceptar");
+      assert.ok(button, "the one verb, whatever the action");
       assert.equal(button.disabled, false);
       await page.act(async () => button.click());
       assert.deepEqual(page.sent, ["record_income"]);
@@ -60,11 +62,22 @@ test("with no approval action from the server there is nothing to approve", asyn
   for (const approval_action of [null, undefined]) {
     const page = await mountReview(await ready({ approval_action }), "live");
     try {
-      const button = page.approve("Aprobar");
+      const button = page.approve("Aceptar");
       assert.ok(button);
       assert.equal(button.disabled, true);
       await page.act(async () => button.click());
       assert.deepEqual(page.sent, []);
+    } finally { await page.close(); }
+  }
+});
+
+test("the accept button reads Aceptar for an expense, an income and a refund alike", async () => {
+  for (const approval_action of ["record_expense", "record_income", "record_refund"] as const) {
+    const page = await mountReview(await ready({ approval_action }), "live");
+    try {
+      assert.deepEqual(page.accepts(), ["Aceptar"], approval_action);
+      await page.act(async () => page.approve("Aceptar")!.click());
+      assert.deepEqual(page.sent, [approval_action], "and the server's action is what it sends");
     } finally { await page.close(); }
   }
 });

@@ -26,6 +26,7 @@ from psycopg import Connection
 from tests import test_business_actions_postgres as business
 from tests import test_business_fiscal_routes_postgres as routes
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import accept, seen_gaps
 from tests.test_business_fiscal_routes_postgres import _known, _review
 from tests.test_business_scope_switch_routes_postgres import API, _note
 from tests.test_business_scope_switch_routes_postgres import (
@@ -36,6 +37,11 @@ actions = business.actions
 users = business.users
 world = routes.world
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 @pytest.fixture(autouse=True)
@@ -113,7 +119,8 @@ def _reviewed(  # noqa: ANN202
 
 
 def _approve(world, draft: str, version: int, kind: str, key: str | None = None):  # noqa: ANN001, ANN202
-    return world.client.post(
+    return accept(
+        world.client,
         f"{API}/business/drafts/{draft}/approve",
         json={"version": version, "action": ACTION[kind]},
         headers={**world.alice.headers, "Idempotency-Key": key or str(uuid4())},
@@ -330,6 +337,9 @@ def test_a_lost_acknowledgement_reuses_the_one_row(
         raise ConnectionError("Synthetic lost acknowledgement after the money commit")
 
     run = getattr(service, approve)
+    command = command.model_copy(
+        update={"accept_gaps": seen_gaps(service, context, draft)}
+    )
     monkeypatch.setattr(service.imports, "_write", interrupted)
     assert run(context, draft, command, "lost").outcome == "outcome_unknown"
     monkeypatch.setattr(service.imports, "_write", original)
@@ -499,8 +509,9 @@ def test_an_unpaid_sale_reads_everywhere_and_is_collected(world) -> None:  # noq
     assert [item["Pago"] for item in rows] == ["pendiente"]
     assert manifest["records"][0]["funding"] == "unknown"
     assert forms["607"] == "prepared_candidate"
-    [line] = routes.dgii_file(world, "sale")
-    assert line["Número Comprobante Fiscal"] == "B0100000031"
+    [line] = routes.table_file(world, "sale")
+    assert (line["NCF"], line["Total"], line["Estado"]) == ("B0100000031", "1180", "Listo")
+    routes.assert_sales_dgii_refused(world)
 
     settled = _settle(world, activity, "cobrado", "transferencia")
     assert (settled["document_kind"], settled["status"]) == ("invoice", "cobrado")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleCheck, Clock, LogOut } from "lucide-react";
 import { dangerConfirmButtonClass, quietButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
@@ -22,7 +22,19 @@ import { supportEmail } from "@/lib/support-email";
  * that answer in place of the buttons and has no way back.
  */
 
-type ConfirmState = "idle" | "submitting" | "error" | AccountDeletionOutcome;
+type PendingState = "idle" | "submitting" | "error" | "unavailable";
+type FinishedOutcome = Exclude<AccountDeletionOutcome, "unavailable">;
+type ConfirmState = PendingState | FinishedOutcome;
+
+export type AccountDeletionAnswer = { outcome: FinishedOutcome; notices: AccountDeletionNotice[] };
+
+const FinishDeletionContext = createContext<((answer: AccountDeletionAnswer) => void) | null>(null);
+
+/** One answer owner, mounted by Ajustes above its responsive layouts. */
+export function AccountDeletionState({ children }: { children: (answer: AccountDeletionAnswer | null) => ReactNode }) {
+  const [answer, setAnswer] = useState<AccountDeletionAnswer | null>(null);
+  return <FinishDeletionContext.Provider value={setAnswer}>{children(answer)}</FinishDeletionContext.Provider>;
+}
 
 const FINISHED: readonly ConfirmState[] = ["success", "in_progress", "requested"];
 const FINISHED_COPY = {
@@ -30,6 +42,11 @@ const FINISHED_COPY = {
   in_progress: "settings.profile.request_deletion.in_progress",
   requested: "settings.profile.request_deletion.requested",
 } as const;
+
+export function useAccountDeletionTitle(): string {
+  const { t } = useTranslation();
+  return t("settings.profile.delete_account", "Delete account");
+}
 
 /** The last way out, when no in-app path can delete the account. */
 export function DeletionSupportLink() {
@@ -42,27 +59,30 @@ export function DeletionSupportLink() {
   );
 }
 
-export default function AccountDeletionConfirm({
-  notices,
-  profileLanguage,
-  onBack,
-  onAccountDeleted,
-  onClose,
-}: {
+type AccountDeletionConfirmProps = {
   /** Closed Businesses still inside their reopen window: a warning, never a block. */
   notices: AccountDeletionNotice[];
   profileLanguage: string;
   onBack: () => void;
   onAccountDeleted: () => void;
   onClose: () => void;
-}) {
-  const { t, i18n } = useTranslation();
-  const [state, setState] = useState<ConfirmState>("idle");
+};
+
+export default function AccountDeletionConfirm(props: AccountDeletionConfirmProps) {
+  const finish = useContext(FinishDeletionContext);
+  // Standalone settings sheets use the same owner, only when no window owns it.
+  if (!finish) return (
+    <AccountDeletionState>
+      {(answer) => answer ? <FinishedAccountDeletion answer={answer} onClose={props.onClose} /> : <AccountDeletionConfirm {...props} />}
+    </AccountDeletionState>
+  );
+  return <AccountDeletionForm {...props} onFinished={finish} />;
+}
+
+function AccountDeletionForm({ notices, profileLanguage, onBack, onAccountDeleted, onClose, onFinished }: AccountDeletionConfirmProps & { onFinished: (answer: AccountDeletionAnswer) => void }) {
+  const [state, setState] = useState<PendingState>("idle");
   const busy = useRef(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const finished = FINISHED.includes(state);
-  const title = t("settings.profile.delete_account", "Delete account");
-  useSettingsStep(title, finished || state === "submitting" ? undefined : onBack);
 
   useEffect(() => {
     cancelRef.current?.focus();
@@ -75,7 +95,8 @@ export default function AccountDeletionConfirm({
     try {
       // 202 and a post-lock 503 are in_progress; 404 (command off here) files a support ticket.
       const outcome = await requestAccountDeletion(profileLanguage);
-      setState(outcome);
+      if (outcome === "unavailable") setState(outcome);
+      else onFinished({ outcome, notices });
       if (deletionEndsSession(outcome)) onAccountDeleted();
       else busy.current = outcome === "requested";
     } catch (err) {
@@ -84,6 +105,26 @@ export default function AccountDeletionConfirm({
       busy.current = false;
     }
   };
+
+  return <AccountDeletionContent state={state} notices={notices} onBack={onBack} onClose={onClose} onSubmit={() => void submit()} cancelRef={cancelRef} />;
+}
+
+export function FinishedAccountDeletion({ answer, onClose }: { answer: AccountDeletionAnswer; onClose: () => void }) {
+  return <AccountDeletionContent state={answer.outcome} notices={answer.notices} onClose={onClose} />;
+}
+
+function AccountDeletionContent({ state, notices, onClose, onBack, onSubmit, cancelRef }: {
+  state: ConfirmState;
+  notices: AccountDeletionNotice[];
+  onClose: () => void;
+  onBack?: () => void;
+  onSubmit?: () => void;
+  cancelRef?: RefObject<HTMLButtonElement | null>;
+}) {
+  const { t, i18n } = useTranslation();
+  const finished = FINISHED.includes(state);
+  const title = useAccountDeletionTitle();
+  useSettingsStep(title, finished || state === "submitting" ? undefined : onBack);
 
   const footer = finished ? (
     <p role="status" className="flex items-start gap-2.5 text-[14px] leading-[21px]">
@@ -95,7 +136,7 @@ export default function AccountDeletionConfirm({
       <button ref={cancelRef} type="button" className={secondaryButtonClass} onClick={onBack} disabled={state === "submitting"}>
         {t("common.cancel", "Cancel")}
       </button>
-      <button type="button" className={dangerConfirmButtonClass} onClick={() => void submit()} disabled={state === "submitting"}>
+      <button type="button" className={dangerConfirmButtonClass} onClick={onSubmit} disabled={state === "submitting"}>
         {state === "submitting" ? t("settings.profile.request_deletion.submitting") : t("settings.profile.request_deletion.confirm", "Delete account")}
       </button>
     </div>

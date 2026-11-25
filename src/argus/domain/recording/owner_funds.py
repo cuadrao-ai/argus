@@ -23,6 +23,7 @@ from argus.domain.recording.money_plan import request_identity
 from argus.domain.recording.money_schemas import MoneyRequest
 
 if TYPE_CHECKING:
+    from argus.domain.recording.import_claim import ImportClaim
     from argus.domain.recording.repository import (
         FinancialAccountRepository,
         StoredAccount,
@@ -56,11 +57,13 @@ class NoAccountRecord:
     kind: Literal["expense", "income"]
     #: None when nobody has stated how it was paid.
     funding: Literal["owner_funds"] | None
+    revision: int = 1
+    recorded_by: str | None = None
 
     def response(self) -> dict[str, Any]:
         return {
             "activity_id": self.activity_id,
-            "revision": 1,
+            "revision": self.revision,
             "kind": self.kind,
             "amount_minor": self.amount_minor,
             "amount": format_minor_units(self.amount_minor, self.currency),
@@ -77,7 +80,7 @@ class NoAccountRecord:
             "reversal_of_revision": None,
             "reason": None,
             "recorded_at": self.recorded_at,
-            "recorded_by": self.user_id,
+            "recorded_by": self.recorded_by,
             "funding": self.funding,
             "legs": [],
         }
@@ -147,6 +150,8 @@ def write(
     now: datetime,
     activity_id: str | None = None,
     entered: bool = False,
+    *,
+    import_claim: ImportClaim | None = None,
 ) -> dict[str, Any]:
     from argus.domain.recording.repository import InMemoryFinancialAccountRepository
 
@@ -167,11 +172,14 @@ def write(
         now,
         request.kind,
         OWNER_FUNDS if request.owner_funding else None,
+        recorded_by=user_id,
     )
     if not isinstance(repository, InMemoryFinancialAccountRepository):
         from argus.domain.recording.owner_funds_postgres import transact
 
-        return transact(repository, row, key, identity, preview_valid)
+        return transact(
+            repository, row, key, identity, preview_valid, import_claim=import_claim
+        )
     with repository._lock:
         receipt = repository._money_receipts.get((user_id, None, key))
         if receipt:

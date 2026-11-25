@@ -34,7 +34,7 @@ async function mount(prepared: boolean, width: number) {
     bandeja_group: { group: "attention", reason: "missing_ncf", draft_id: seed.draft_id, version: seed.version },
   }));
   const outside: ReceiptDetail = { ...arrivals[0], id: "outside-tab", merchant: "Fuera de la pestaña", bandeja_group: { group: "listo", reason: null, draft_id: seed.draft_id, version: seed.version } };
-  const inbox = [outside, ...arrivals.toReversed()];
+  let inbox = [outside, ...arrivals.toReversed()];
   const activity = (await fixture.receiptPage!("all")).activity;
   const source = { ...fixture, receipts: async () => inbox, receiptPage: async () => ({ items: inbox, activity }), emailDeliveries: async () => [], receipt: async (id: string) => {
     const receipt = inbox.find(row => row.id === id); assert.ok(receipt); return receipt;
@@ -61,11 +61,36 @@ async function mount(prepared: boolean, width: number) {
   const click = async (node: HTMLElement | null | undefined) => { assert.ok(node); await act(async () => node.click()); };
   await click(host.querySelector("#reception-tab-attention"));
   const place = () => document.querySelector<HTMLElement>('[data-testid="receipt-place"]');
-  const next = () => place()?.querySelectorAll<HTMLButtonElement>("button")[1];
-  const previous = () => place()?.querySelectorAll<HTMLButtonElement>("button")[0];
+  const next = () => place()?.querySelector<HTMLButtonElement>('button[aria-label="Recibo siguiente"]');
+  const previous = () => place()?.querySelector<HTMLButtonElement>('button[aria-label="Recibo anterior"]');
   const openFirst = async () => { await click(host.querySelector('[data-testid="reception-row"] button.rowAction')); await wait(() => place() !== null); };
-  return { host, act, click, openFirst, wait, place, next, previous, api: () => api!, cleanup: async () => { await act(async () => root.unmount()); host.remove(); } };
+  const removeFromList = async (id: string) => {
+    await act(async () => {
+      inbox = inbox.filter((receipt) => receipt.id !== id);
+      api!.reload();
+    });
+    await wait(() => host.querySelector(`[data-list-row="receipt:${id}"]`) === null);
+  };
+  return { host, act, click, openFirst, wait, place, next, previous, removeFromList, api: () => api!, cleanup: async () => { await act(async () => root.unmount()); host.remove(); } };
 }
+
+test("a dossier opened from a Bandeja row follows the list when another row disappears", async () => {
+  const page = await mount(false, 1440);
+  const heading = () => document.getElementById("receipt-review-title")?.textContent;
+  try {
+    await page.openFirst();
+    await page.wait(() => heading() === "Recibo sintético 0" && page.place()?.textContent === "1 de 28");
+    assert.ok(page.host.querySelector('[data-list-row="receipt:origin-1"]'));
+    await page.removeFromList("origin-1");
+    assert.equal(heading(), "Recibo sintético 0");
+    assert.equal(page.place()?.textContent, "1 de 27");
+    await page.click(page.next());
+    await page.wait(() => heading() === "Recibo sintético 2");
+    assert.equal(page.place()?.textContent, "2 de 27");
+  } finally {
+    await page.cleanup();
+  }
+});
 
 for (const prepared of [false, true]) for (const width of [1440, 390]) {
   test(`a filtered receipt drawer has one item, prepared=${prepared}, width=${width}`, async () => {
@@ -95,6 +120,7 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
       await page.openFirst();
       await page.wait(() => page.place()?.textContent === "1 de 1");
       assert.equal(page.place()?.textContent, "1 de 1");
+      assert.equal(page.place()?.querySelector('[data-testid="dossier-jump"]')?.textContent, "1 de 1", "the place opens the jump card");
       assert.equal(page.next()?.disabled, true);
       assert.equal(page.previous()?.disabled, true);
     } finally { await page.cleanup(); }
@@ -109,16 +135,19 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
       assert.equal(origin.kind, "receipt");
       if (origin.kind !== "receipt") throw new Error("Expected an open receipt");
       const expectedIds = Array.from({ length: 28 }, (_, index) => `origin-${index}`);
-      assert.deepEqual(origin.receiptIds, expectedIds);
+      const reviewList = origin.reviewList;
+      assert.ok(reviewList);
+      assert.equal(reviewList.scope, "inbox");
+      assert.deepEqual(reviewList.receiptIds, expectedIds);
 
-      // Check every transition against the list's actual navigation snapshot,
+      // Check every transition against the receipt list held by the dossier,
       // without rendering the full dossier 28 times in each viewport.
       const { receiptNavigationActions, receiptPlace } = await import("@/components/business-app/BusinessReviewShortcuts");
       let receiptId = origin.receiptId;
       for (let index = 0; index < expectedIds.length; index++) {
         assert.equal(receiptId, expectedIds[index]);
-        assert.deepEqual(receiptPlace(receiptId, origin.receiptIds!), { index: index + 1, total: 28 });
-        const moves = receiptNavigationActions(receiptId, origin.receiptIds!, (id) => { receiptId = id; });
+        assert.deepEqual(receiptPlace(receiptId, reviewList.receiptIds), { index: index + 1, total: 28 });
+        const moves = receiptNavigationActions(receiptId, reviewList.receiptIds, (id) => { receiptId = id; });
         assert.equal(Boolean(moves.next), index < 27);
         assert.equal(Boolean(moves.previous), index > 0);
         moves.next?.();

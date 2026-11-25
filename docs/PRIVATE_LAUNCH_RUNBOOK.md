@@ -174,7 +174,7 @@ Render env tab, staging, names and non-secret flags:
 Render env tab, production, names and non-secret flags:
 
 - `cuadrao-api`: the [section 3](#3-render-environment-on-production) profile keys and their non-secret values; `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED`; `CUADRAO_VISION_MODEL` present or absent (do not set it until the allow-list change); `SUPABASE_ANON_KEY` present (`sync: false`; do not record the value); `renderSubdomainPolicy` still enabled until the promotion-day apply; the staging-true `CUADRAO_*` names in section 3 absent. On promotion day, confirm `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `false` on dashboard `cuadrao-api`. The check is the name and on/off only. Never set or change it on production without the founder's explicit approval.
-- `cuadrao-marketing` (marketing site): start command confirmed on 2026-10-18 as `bun run start -- -p $PORT`. `MARKETING_POSTAL_ADDRESS` present or absent (do not record the string). Do not expect the business-web env from the `cuadrao-app` contract (`NEXT_PUBLIC_CUADRAO_API_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED`, `ARGUS_TRUSTED_CLIENT_IP_HEADER`) on this service.
+- `cuadrao-marketing` (marketing site): start command confirmed on 2026-10-18 as `bun run start -- -p $PORT`. `MARKETING_POSTAL_ADDRESS` present or absent (do not record the string). Do not expect the business-web env from the `cuadrao-app` contract (`NEXT_PUBLIC_CUADRAO_API_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ARGUS_TRUSTED_CLIENT_IP_HEADER`) on this service.
 
 ### 1. Preflight
 
@@ -318,9 +318,8 @@ The [staging deploy workflow](ops/deploy-staging.md) deploys API, documents work
 | Dashboard service | Audit label | Name | `origin/main` profile and `render.yaml` | Integration profile |
 | --- | --- | --- | --- | --- |
 | `cuadrao-api` | `cuadrao-api` | `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` on `main`, `false` on integration | `false` |
-| `cuadrao-app` | `cuadrao-app` | `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` on `main`'s business-web block | `false` |
 
-Dashboard `cuadrao-marketing` builds `marketing/` and is not the business app. The business-web flag lives in the settings manifest's `web` surface, whose production service is `cuadrao-app`. Live production was not read for this checklist. Lucas chooses the business-web value before the next `cuadrao-app` build. The candidate audit expects the candidate profile, which says `false`. Choosing `true` means a reviewed profile change, a new landed SHA, and a new gate before the audit. The web value is baked at build time, so the choice is made before that build. Record the choice in the manifest. Do not set the business-web flag on the marketing site.
+The web app no longer has receipt sharing (#2369). It also no longer reads `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED`, `NEXT_PUBLIC_RESEARCH_RAIL_ENABLED` or `NEXT_PUBLIC_OMNISEARCH_ENABLED`, and the settings manifest no longer names them. If dashboard `cuadrao-app` still has any of them, `python3 scripts/ops/staging_env.py print production web --live-names <file>` lists it under "delete now". The API flag stays until the backend sharing code is retired.
 
 #### Service setting from PR #695
 
@@ -1240,8 +1239,6 @@ Keep true secrets manual in Render:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_JWT_SECRET`
 - `CUADRAO_OPENROUTER_API_KEY_STG` for staging, `CUADRAO_OPENROUTER_API_KEY_PROD` for production, one name per environment with no fallback; selection belongs to `src/argus/llm/openrouter_key_policy.py`
-- `ALPACA_API_KEY`
-- `ALPACA_SECRET_KEY`
 - `CUADRAO_OPS_TOKEN`
 - `CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`
 - `POSTHOG_PROJECT_TOKEN`

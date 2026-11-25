@@ -26,8 +26,12 @@ product and pilot behavior. `docs/PRODUCT.md` is the short overview.
 Services: `docs/ARCHITECTURE.md`. Endpoints: `docs/API_CONTRACT.md` and
 `docs/api/openapi.yaml`. Tables and row security: `docs/DATA_MODEL.md`. Core flows:
 `docs/CORE_FLOWS.md` retains dated walk evidence. Business web design lives in
-`.agent/designs/cuadrao-business-app/DESIGN.md`. Marketing design lives in
-`.agent/designs/cuadrao-business/DESIGN.md`. The execution history is in
+`.agent/designs/cuadrao-business-app/DESIGN.md`. Bandeja (Inbox) behavior lives in
+that DESIGN.md § Bandeja, and how Bandeja is built lives in `docs/ARCHITECTURE.md`
+§ Bandeja. Record dossier behavior lives in that DESIGN.md § Receipt detail, and how
+the dossier is built lives in `docs/ARCHITECTURE.md` § The record dossier.
+Marketing design lives in `.agent/designs/cuadrao-business/DESIGN.md`.
+The execution history is in
 `docs/specs/argus-execution-board.md`; its older mobile assignments are historical.
 A spec, roadmap or green test does not assign work. Your brief does.
 
@@ -122,7 +126,8 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - Spanish first (`es-419`), in natural Dominican wording. Every user-facing string lives
   in `web/public/locales/es-419/common.json` and its `en` twin. No hardcoded strings.
-- Spanish copy comes through your brief; until then, ship marked placeholder keys.
+- User-facing words come only from your brief. If it lacks the exact words for a string,
+  stop and ask. Never invent words and never add a placeholder key.
 - No em dash in user-facing copy, in any language (`src/argus/domain/visible_reply.py`).
 - No "Argus", provider or vendor names in user-facing copy. Never name outside
   companies or competitors in code, comments, docs, PRs, issues or commit messages.
@@ -136,7 +141,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 - The body also carries an issue reference (`Closes|Fixes|Refs #N`, anywhere on a line) and a `Pilot flow:` line, checked by `scripts/ci/check_pr_body.py`. Bot authors are exempt.
 - Hotspot files need the lead's `landing-next` label, and a pull request over about 800 non-test lines needs `size-approved`.
 - Merge `codex/private-alpha-next` in before the last push. Never rebase a published branch.
-- Attach visual evidence on the pull request, or upload it with actions/upload-artifact. Do not commit it. Capture it at the exact head.
+- Capture visual evidence at the exact head and keep it local under `temp/<lane>/`. Report its paths; the founder sees it in the session. Never attach it to a pull request or issue, upload it, or commit it.
 - CI fails a pull request that adds or changes a file over 2 MiB, including renames with new content and type changes. Only existing files the pull request leaves unchanged are exempt. Site assets under `marketing/public/` are allowed.
 - Never merge your own PR. Report the PR link, head SHA, tests added and the proof.
 - Review against the named parent branch; never assume `main` is the comparison base.

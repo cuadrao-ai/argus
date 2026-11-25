@@ -1,5 +1,5 @@
 import type { BusinessAccount } from "@/lib/business-api";
-import type { BusinessDossier, BusinessFact, ReviewFlag, ReviewFlagCode } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessFact, ListoGap, ReviewFlag, ReviewFlagCode } from "@/lib/business-dossier";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 
 /** Each flag as the dossier carries it, keyed by its code. */
@@ -38,6 +38,9 @@ export async function flaggedReceipt(codes: readonly ReviewFlagCode[], accounts:
   dossier.declaration_suggestions = { category: null, payment_method: null };
   dossier.dgii_qr = null;
   dossier.review_flags = codes.map((code) => REVIEW_FLAGS[code]);
+  // The Montos check and the Subtotal as the server states them for these amounts.
+  dossier.amounts_check = codes.includes("amounts_mismatch") ? { state: "difference", difference: REVIEW_FLAGS.amounts_mismatch.difference } : { state: "adds_up" };
+  dossier.net_amount = { amount: "1000.00", source: "calculated" };
   return dossier;
 }
 
@@ -50,7 +53,7 @@ export function receiptLine(activityId: string, counterparty: string, ncf: strin
 }
 
 /** The problem body the server refuses an action with: status, a title from the code, and the refusal's context. */
-export function refusal(code: string, context?: { existing_record_id: string } | { flags: string[] }): Response {
+export function refusal(code: string, context?: { existing_record_id: string } | { gaps: ListoGap[]; confirmable: ListoGap[] }): Response {
   const body = { type: `https://api.argus.app/problems/${code.replaceAll("_", "-")}`, title: code.replaceAll("_", " ").replace(/^./, (first) => first.toUpperCase()), status: 422, detail: code, code, request_id: "req-review-flags", ...(context ? { context } : {}) };
   return Response.json(body, { status: 422 });
 }

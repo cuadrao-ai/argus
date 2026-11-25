@@ -8,7 +8,9 @@ from uuid import UUID, uuid4
 from argus.domain.business import analytics as business_analytics
 from argus.domain.business.actions import mutations, plans, sources
 from argus.domain.business.actions.facts import facts_of, patched_facts
+from argus.domain.business.annotations import own_source_sql
 from argus.domain.business.authority import ActionContext, ActionError
+from argus.domain.business.bandeja_group import note_group
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
     Applied,
@@ -23,7 +25,8 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.document_type import resolved_document_type, typed_facts
-from argus.domain.business.people import named_deletion, people
+from argus.domain.business.people import named, named_deletion, people
+from argus.domain.business.sent_by import member_sender
 from argus.domain.business.transactions import ActionTransaction, transaction
 
 if TYPE_CHECKING:
@@ -145,13 +148,14 @@ _NOTES = (
     " and cardinality(v.source_ids)=1 and s.kind='message' and s.channel='web'"
 )
 # The Bandeja's notes: drafts still awaiting review that no receipt carries.
-# A note added to a receipt's record is part of that receipt's row.
+# A note added to a receipt's record is part of that receipt's row. A
+# supporting file is no receipt, so a note that holds one still has its own row.
 _WITHOUT_RECEIPT = (
     " and not exists ("
     "   select 1 from public.business_draft_sources l2"
     "   join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
     "   where l2.draft_id=e.id and l2.space_id=e.owner_space_id"
-    "   and s2.connection_id is not null)"
+    f"   and s2.connection_id is not null and {own_source_sql('s2')})"
 )
 _AWAITING_WITHOUT_RECEIPT = " and e.state in ('open','accepting')" + _WITHOUT_RECEIPT
 _DELETED_NOTES = (
@@ -162,6 +166,11 @@ _DELETED_NOTES = (
     " where draft_id=e.id and space_id=e.owner_space_id and s.id=any(source_ids)) v on true"
     " where e.owner_space_id=%s and e.user_id=%s and s.kind='message'"
     " and e.state='dismissed' and e.resolution ? 'deleted'" + _WITHOUT_RECEIPT
+)
+# Who typed a deleted note: the actor of the revision that brought its source.
+_DELETED_AUTHOR = (
+    " (select x.actor->>'actor_id' from public.business_draft_revisions x"
+    " where x.draft_id=e.id and x.space_id=e.owner_space_id and x.version=v.version)"
 )
 
 
@@ -198,6 +207,8 @@ def page(
         rows = tx.rows(
             "select * from (select e.id as draft_id,e.version,v.version as revision,"
             " s.id as source_id,s.text_content as text,s.received_at,e.state as review_state,e.resolution,"
+            + (_DELETED_AUTHOR if view == "eliminados" else " r.actor_id")
+            + " as author,"
             " count(*) over (partition by e.id order by s.received_at,s.id"
             " rows between unbounded preceding and 1 preceding) as earlier_count"
             + (_DELETED_NOTES if view == "eliminados" else _NOTES)
@@ -208,32 +219,28 @@ def page(
             (context.actor.space_id, context.owner_id, query, limit + 1, offset),
         )
         markers = [deletion(row["review_state"], row.pop("resolution")) for row in rows]
+        authors = [row.pop("author") for row in rows]
         found = people(
             tx.connection,
             tx.authorization,
-            [marker.actor.actor_id for marker in markers if marker],
+            [*authors, *(marker.actor.actor_id for marker in markers if marker)],
         )
-        for row, marker in zip(rows, markers, strict=False):
+        for row, marker, author in zip(rows, markers, authors, strict=False):
             marker = named_deletion(marker, found)
-            group = (
-                "eliminados"
-                if marker
-                else "attention"
-                if row["review_state"] == "open"
-                else None
-            )
             row.update(
+                sent_by=member_sender(author, named(found, author)) if author else None,
                 deleted=marker,
                 delete_available=row["review_state"] == "open"
                 and "approve" in tx.authorization.capabilities,
                 restore_available=marker is not None
+                and marker.can_restore()
                 and "approve" in tx.authorization.capabilities,
-                bandeja_group={
-                    "group": group,
-                    "reason": "not_read" if group == "attention" else None,
-                    "draft_id": row["draft_id"],
-                    "version": row["version"],
-                },
+                bandeja_group=note_group(
+                    row["review_state"],
+                    deleted=marker is not None,
+                    draft_id=row["draft_id"],
+                    version=row["version"],
+                ),
             )
     return {"items": rows[:limit], "has_more": len(rows) > limit}
 
@@ -254,14 +261,19 @@ def awaiting_note_arrivals(tx) -> list[tuple]:  # noqa: ANN001
     ]
 
 
-def awaiting_notes(tx) -> int:  # noqa: ANN001
+def awaiting_notes(tx) -> tuple[int, int]:  # noqa: ANN001
     """How many drafts the Bandeja's notes stand for, uncapped: the same rows
-    ``entries(view="inbox")`` lists, one per draft."""
+    ``entries(view="inbox")`` lists, one per draft. Then how many of those are
+    being approved now, which ``note_group`` puts in Listos."""
 
-    return tx.rows(
-        "select count(distinct e.id) as drafts" + _NOTES + _AWAITING_WITHOUT_RECEIPT,
+    row = tx.rows(
+        "select count(distinct e.id) as drafts,"
+        " count(distinct e.id) filter (where e.state='accepting') as accepting"
+        + _NOTES
+        + _AWAITING_WITHOUT_RECEIPT,
         (tx.context.actor.space_id, tx.context.owner_id),
-    )[0]["drafts"]
+    )[0]
+    return row["drafts"], row["accepting"]
 
 
 def deleted_notes(tx: ActionTransaction) -> int:

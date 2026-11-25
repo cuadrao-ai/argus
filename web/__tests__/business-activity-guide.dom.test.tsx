@@ -106,7 +106,7 @@ const LOCKED = {
   "es-419": {
     title: "Lo que pasa en tu negocio, en un solo lugar",
     points: [
-      ["Sigue la actividad", "Ve quién subió, aprobó, editó o eliminó documentos, y cuándo."],
+      ["Sigue la actividad", "Ve quién subió, aceptó, editó o eliminó documentos, y cuándo."],
       ["Recupera lo eliminado", "Abre la fila de un documento eliminado para verlo en Eliminados o restaurarlo."],
       ["Nada se pierde de vista", "Lo que se borra definitivamente también queda anotado, aunque ya no se pueda abrir."],
     ],
@@ -114,7 +114,7 @@ const LOCKED = {
   en: {
     title: "What happens in your business, in one place",
     points: [
-      ["Follow the activity", "See who uploaded, approved, edited or deleted documents, and when."],
+      ["Follow the activity", "See who uploaded, accepted, edited or deleted documents, and when."],
       ["Get it back", "Open a deleted document's row to see it in Deleted or restore it."],
       ["Nothing slips by", "Permanently deleted documents are still noted here, even though they can't be opened."],
     ],

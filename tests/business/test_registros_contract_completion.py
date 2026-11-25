@@ -22,7 +22,7 @@ def row(identifier, **fields):
     )
 
 
-def test_v1_remains_strict_and_v2_hides_purchase_fields_and_funding_by_default():
+def test_v1_remains_strict_and_v2_hides_purchase_fields_by_default():
     with pytest.raises(ValidationError):
         ReportRequest(sort="name_asc")
     with pytest.raises(ValidationError):
@@ -35,7 +35,6 @@ def test_v1_remains_strict_and_v2_hides_purchase_fields_and_funding_by_default()
         "note",
         "attachment",
         "payment_form",
-        "funding",
     )
     assert "net_amount" not in request.presentation.hidden
     assert "itbis_amount" not in request.presentation.hidden

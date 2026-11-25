@@ -11,20 +11,21 @@ const SHARED_CONTEXTS = new Map([
   ["business.invoicing_preview.document_customer_ced", "CED: {{id}}"],
   ["business.invoicing_preview.document_customer_rnc", "RNC: {{id}}"],
   ["business.invoicing_preview.subtotal", "Subtotal"],
-  ["business.receipts.duplicate_resolution.basis.fiscal_number_sale_placeholder", "[placeholder] Same NCF as another sale."],
+  ["business.reception_preview.sent_by_whatsapp", "WhatsApp ···{{last4}}"],
   ["business.reception_preview.source_whatsapp", "WhatsApp"],
   ["business.transactions.layout.results.personal_one", "{{count}} personal"],
   ["business.notifications.times.recent", "5 min"],
   ["business.dossier.section.fiscal", "Fiscal"],
   ["business.dossier.tab_original", "Original"],
+  // A formula of names both languages share.
+  ["business.terms.total_adds_up", "Subtotal + ITBIS = total"],
   // A review marker, not copy: both languages wait on, or passed, the same review.
   ["business.guide_cards.actividad_intro.copy_review", "approved"],
   ["business.home_setup.copy_review", "pending_lucas"],
   ["business.inicio.copy_review", "pending_lucas"],
-  ["business.intake.write_type.copy_review", "pending_lucas"],
   ["business.month_close.placeholder.copy_review", "pending_lucas"],
 ]);
-const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Personal", "Normal", "No", "Ref.", "Excel", "CSV"]);
+const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Subtotal", "General", "Personal", "Normal", "No", "Ref.", "Excel", "CSV"]);
 
 type Tree = { [key: string]: string | Tree };
 

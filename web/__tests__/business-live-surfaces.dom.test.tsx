@@ -170,13 +170,13 @@ describe("an Actividad row opens what it is about", () => {
     feed = async () => ({ items: [{ ...item("approval", "Lucía Peña", "approve_expense", 5), object: { kind: "draft", id: dossierFixtureIds.ready, label: "Ferretería La Esquina" } }], next_cursor: null });
     const page = await mount("view=activity", { dossier: (id: string) => { asked.push(id); return fixture.dossier(id); } });
     try {
-      await page.settle(() => Boolean(activityRow(page, "aprobó un gasto")));
-      const row = activityRow(page, "aprobó un gasto");
+      await page.settle(() => Boolean(activityRow(page, "aceptó un gasto")));
+      const row = activityRow(page, "aceptó un gasto");
       assert.ok(row, "the approval row is a button");
       await page.click(row);
-      await page.settle(() => asked.length > 0 && !!document.querySelector('[data-testid="receipt-top-block"]'));
+      await page.settle(() => asked.length > 0 && !!document.querySelector('[data-testid="business-record-review"]'));
       assert.deepEqual([...new Set(asked)], [dossierFixtureIds.ready], "the record the row names is the one read");
-      assert.ok(document.querySelector('[data-testid="receipt-top-block"]'), "the record opened");
+      assert.ok(document.querySelector('[data-testid="business-record-review"]'), "the record opened");
     } finally { await page.close(); }
   });
 
@@ -213,7 +213,7 @@ describe("an Actividad row opens what it is about", () => {
   });
 });
 
-for (const [action, words] of [["purge_document", "borró definitivamente un documento."], ["expire_document", "borró definitivamente un documento después de 7 días en Eliminados."]] as const) {
+for (const [action, words] of [["purge_document", "borró definitivamente un documento."], ["expire_document", "borró definitivamente un documento de Eliminados."]] as const) {
   test(`Actividad shows ${action} with no name and no link`, async () => {
     const actor = action === "expire_document" ? { display_name: null, shown_as: null, kind: "extractor" } : { display_name: "Lucía Peña", shown_as: "name", kind: "member" };
     feed = async () => ({ items: [{ ...item("purge-event", "Lucía Peña", action, 5), actor, object: null }], next_cursor: null });

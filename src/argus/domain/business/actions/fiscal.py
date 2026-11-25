@@ -164,7 +164,11 @@ def comprobante_identity(facts: Mapping[str, Any]) -> tuple[str, ...] | None:
 
 
 def same_comprobante(
-    tx, drafts: Mapping[str, Mapping[str, Any]], states: Sequence[str]
+    tx,
+    drafts: Mapping[str, Mapping[str, Any]],
+    states: Sequence[str],
+    *,
+    reserve_restorable: bool = False,
 ) -> dict[str, tuple[UUID, ...]]:
     """For each draft, by id, the other documents of this Business in
     ``states`` that are its comprobante, oldest first. ``drafts`` maps each id
@@ -178,12 +182,17 @@ def same_comprobante(
             wanted.setdefault(identity, []).append(draft_id)
     if not wanted:
         return {}
+    from argus.domain.business.contracts.deletion import PURGE_AFTER
+
     rows = tx.rows(
         "select id,resolution->'business'->'facts' as facts"
         " from public.financial_import_events where owner_space_id=%s"
-        " and state=any(%s) and resolution->'business'->'facts'->'fiscal' is not null"
+        " and (state=any(%s) or (%s and state='dismissed'"
+        " and resolution->'deleted'->'previous_state'->>'state'='accepted'"
+        " and (resolution->'deleted'->>'at')::timestamptz > clock_timestamp() - %s))"
+        " and resolution->'business'->'facts'->'fiscal' is not null"
         " order by created_at,id",
-        (tx.context.actor.space_id, list(states)),
+        (tx.context.actor.space_id, list(states), reserve_restorable, PURGE_AFTER),
     )
     found: dict[str, tuple[UUID, ...]] = {}
     for row in rows:
@@ -216,7 +225,10 @@ def repeated_comprobantes(
 def require_distinct_fiscal_document(tx, event, facts: BusinessFacts) -> None:
     stored = facts.model_dump(mode="json")
     identity = comprobante_identity(stored)
-    matches = same_comprobante(tx, {event.id: stored}, ("accepting", "accepted"))
+    # Keep a deleted approval's number free to restore until its deadline.
+    matches = same_comprobante(
+        tx, {event.id: stored}, ("accepting", "accepted"), reserve_restorable=True
+    )
     if identity is None or event.id not in matches:
         return
     if identity[0] == "sale":

@@ -11,7 +11,7 @@ export function useCutOff<T extends HTMLElement>(text: string): [RefObject<T | n
   useLayoutEffect(() => {
     const node = ref.current;
     if (!node) return undefined;
-    const measure = () => setCut(node.scrollWidth > node.clientWidth);
+    const measure = () => setCut(node.scrollHeight > node.clientHeight || node.scrollWidth > node.clientWidth);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);

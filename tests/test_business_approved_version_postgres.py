@@ -7,16 +7,23 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import uuid4
 
+import pytest
 from psycopg import Connection
 from pydantic import TypeAdapter
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import accepting
 from tests.test_business_fiscal_routes_postgres import (  # noqa: F401
     _post,
     pytestmark,
     world,
 )
 from tests.test_business_scope_switch_routes_postgres import API, _as, _note
+
+
+@pytest.fixture(autouse=True)
+def _typed_notes(typed_notes_on: None) -> None:
+    """These flows start a draft by typing a note: typed notes on."""
 
 
 def test_recorded_approval_names_the_approved_revision_after_later_marks(world) -> None:  # noqa: ANN001, F811
@@ -48,7 +55,7 @@ def test_recorded_approval_names_the_approved_revision_after_later_marks(world) 
     approved = _post(
         world,
         f"/business/drafts/{draft}/approve",
-        {"version": approved_revision, "action": "record_expense"},
+        accepting(reviewed.json(), "record_expense"),
         alice.headers,
     )
     assert approved.status_code == 200, approved.text

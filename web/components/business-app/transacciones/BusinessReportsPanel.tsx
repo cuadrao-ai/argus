@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SlidersHorizontal } from "lucide-react";
@@ -30,12 +30,10 @@ import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview, { RecordsLoadingBar } from "./RecordsLoadingPreview";
 import loading from "./records-loading-preview.module.css";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
-import { RecordsAnnotationsPreview } from "./RecordsAnnotationsPreview";
-import { RecordArrivalsContext, RecordEvidenceContext, RecordGlanceContext } from "./RecordGlanceContext";
+import { RecordArrivalsContext, RecordGlanceContext, type OpenRecordGlance } from "./RecordGlanceContext";
 import { useListArrivals } from "../foundation/list-arrivals";
 import { focusKey, focusRequest } from "./records-focus";
 import { recordRowKey } from "./records-row-preview";
-import type { RecordRow } from "./transacciones-model";
 import { useFiscalStageToggle } from "./useFiscalStageToggle";
 import { useBusinessReport } from "./useBusinessReport";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -64,12 +62,11 @@ export function reportFiltersForUi(filters: ReportFilters): PreviewFilters {
   result.fiscal_data = filters.fiscal_data;
   result.attachment = filters.has_document === null ? "any" : filters.has_document ? "with" : "without";
   result.amount = { currency, min: filters.amount_min ?? "", max: filters.amount_max ?? "" };
-  result.counterparty = filters.counterparties; result.expense_type = filters.expense_types; result.account = filters.funding_sources;
-  result.document = filters.document_kinds; result.fiscal = filters.fiscal_classifications.map((value) => value.toLowerCase());
+  result.counterparty = filters.counterparties; result.expense_type = filters.expense_types;
   return result;
 }
 export function reportFiltersFromUi(current: ReportFilters, filters: PreviewFilters, kind: RecordsFilter["kind"]): ReportFilters {
-  return { ...current, record_families: [kind === "venta" ? "sale" : "purchase"], ready: filters.ready, fiscal_data: filters.fiscal_data, review_stages: [], has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: [filters.amount.currency], amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, categories: [], expense_types: kind === "venta" ? [] : filters.expense_type, funding_sources: filters.account, document_kinds: filters.document as ReportFilters["document_kinds"], fiscal_classifications: filters.fiscal.map((value) => /^[be]\d\d$/i.test(value) ? value.toUpperCase() : value) };
+  return { ...current, record_families: [kind === "venta" ? "sale" : "purchase"], ready: filters.ready, fiscal_data: filters.fiscal_data, review_stages: [], has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: [filters.amount.currency], amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, categories: [], expense_types: kind === "venta" ? [] : filters.expense_type };
 }
 
 /** The list Registros opens on: a focus another screen opened, else this scope's saved address, else the latest month. A scope not known yet reads the address as it stands. */
@@ -141,9 +138,8 @@ export default function BusinessReportsPanel() {
 }
 
 export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency, firstLoadShown, onFirstLoad }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest; firstLoadShown?: boolean; onFirstLoad?: () => void }) {
-  const openSelectedRow = useContext(RecordGlanceContext);
   const { t } = useTransaccionesWords();
-  const { panel, openPanel, revision, records } = useBusiness();
+  const { chosen, panel, openPanel, revision, records } = useBusiness();
   const { isBelowDesktop } = useResponsiveLayout();
   const { userId, businessId, grantId } = scope;
   const scopeKey = `${userId}:${businessId}`;
@@ -188,9 +184,13 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     return () => window.removeEventListener("popstate", restore);
   }, [controller, scopeKey, clearFiscal, singleCurrency]);
   useEffect(() => { controller.rememberAnchor(restored.anchor); }, [controller, restored.anchor]);
+  const deletedDraftId = panel.kind === "transactions" ? panel.deletedDraftId : undefined;
+  const clearedByDelete = deletedDraftId !== undefined && state.anchor !== null
+    && [answer, scopeData?.answer].some((report) => report?.items.some((row) => row.draft_id === deletedDraftId && row.row_id === state.anchor));
   useEffect(() => {
+    if (clearedByDelete) controller.rememberAnchor(null);
     if (previousRevision.current !== revision) { previousRevision.current = revision; void controller.refresh(); }
-  }, [revision, controller]);
+  }, [revision, controller, clearedByDelete]);
   // The Business's one change check says when something changed; the table reads itself again without leaving the screen.
   const arrivals = useListArrivals(screen, "data-record-key");
   const { hold, arrived } = arrivals;
@@ -215,24 +215,19 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   }, [controller, upgrading, state.request]);
   // A record that left the current view says so once, in a toast; nothing above the table moves.
   useEffect(() => {
-    if (state.load.kind !== "ready" || !state.missingAnchor) return;
+    if (state.load.kind !== "ready" || !state.missingAnchor || clearedByDelete) return;
     showToast({ kind: "info", text: t("business.search.record_unavailable") });
     controller.rememberAnchor(null);
-  }, [controller, state.load.kind, state.missingAnchor, t]);
+  }, [controller, state.load.kind, state.missingAnchor, clearedByDelete, t]);
   const recipe = (patch: Partial<ReportRequest>, push = true) => {
     if (patch.filters && patch.filters.ready !== state.request.filters.ready) clearFiscal();
     load(singleCurrency(reportRequestSchema.parse({ ...state.request, ...patch, page: 1 })), push);
   };
-  const open = (row: RecordRow) => {
+  const open: OpenRecordGlance = (row, options) => {
     if (!row.opens) return;
     const id = recordRowKey(row);
     focused.current = null; controller.rememberAnchor(id); updateUrl(state.request, id);
-    if (openSelectedRow) openSelectedRow(row, async (signal) => {
-      const answer = await (transport ?? liveReportingTransport).query(scope, state.request, signal);
-      const next = answer.items.find((item) => item.row_id === row.report?.row_id);
-      return next ? businessReportRow(next) : null;
-    });
-    else openPanel(row.opens);
+    openPanel(options?.detailsCard ? { ...row.opens, detailsCard: options.detailsCard } : row.opens);
   };
   const rowRef = (id: string, node: HTMLElement | null) => { if (node) rowNodes.current.set(id, node); else rowNodes.current.delete(id); };
   const periodLabel = useRecordsPeriodLabel();
@@ -290,10 +285,6 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     },
     busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain,
     notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !currentFormat ? <p>{t(`${REPORTING}pending_contract`)}</p> : null,
-  };
-  const recheckAnnotationAccess = () => {
-    setScopeData(null); controller.revoke();
-    void controller.refresh().then(() => { if (controller.getSnapshot().load.kind === "ready") void controller.listViews(); });
   };
   const changeFilter = (next: RecordsFilter) => recipe({ filters: { ...state.request.filters, q: next.query, record_families: [next.kind === "venta" ? "sale" : "purchase"] } }, false);
   const applyFilters = (next: PreviewFilters) => recipe({ filters: reportFiltersFromUi(state.request.filters, next, filter.kind) });
@@ -383,17 +374,17 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   }, [exportRequested, state.load.kind, presentation]); // eslint-disable-line react-hooks/exhaustive-deps
   // Agregar lives in the top bar; the toolbar keeps Export as its own button, same gate. A phone keeps Agregar in the heading.
   const toolbarAction = <RecordsExportButton onExport={openExport} enabled={state.load.kind === "ready"} />;
-  return <RecordsAnnotationsPreview connected={{ scope, rows, refresh: controller.refresh, revoke: recheckAnnotationAccess }}><PullToRefresh onRefresh={async () => { await controller.refresh(); return controller.getSnapshot().load.kind === "ready" ? "updated" : "failed"; }}>
+  return <PullToRefresh onRefresh={async () => { await controller.refresh(); return controller.getSnapshot().load.kind === "ready" ? "updated" : "failed"; }}>
     <section ref={screen} tabIndex={-1} data-testid="transacciones" data-report-connected data-report-schema={state.request.schema_version} className="pb-6 outline-none" style={unseen(!firstWait || skeletonShown)}>
       <RecordsHeading />
       <RecordsGuide pending={firstWait} />
       <RecordsTypeTabs value={filter.kind} onChange={(kind) => recipe({ filters: { ...state.request.filters, record_families: [kind === "venta" ? "sale" : "purchase"] } }, false)} />
       <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} notReadyCount={overview?.not_ready ?? null} selected={filters.ready === false} loading={answerPending || firstWait} shown={skeletonShown} onChoose={toggleFiscal} />
-      <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: savedViews }} />
-      {firstWait ? <RecordsLoadingPreview preferences={preferences} density={preferences?.density} shown={skeletonShown} /> : state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : !table ? <RecordsLoadingPreview preferences={preferences} density={preferences?.density} shown={skeletonShown} /> : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordArrivalsContext.Provider value={arrivals.fresh}><RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
+      <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [] }, applyFilters, views: savedViews }} />
+      {firstWait ? <RecordsLoadingPreview preferences={preferences} density={preferences?.density} shown={skeletonShown} /> : state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : !table ? <RecordsLoadingPreview preferences={preferences} density={preferences?.density} shown={skeletonShown} /> : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordArrivalsContext.Provider value={arrivals.fresh}><RecordGlanceContext.Provider value={open}>
         <RecordsPagePreview records={rows} preferences={table.preferences} onSortChange={() => undefined} density={table.preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: table.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
-      </RecordEvidenceContext.Provider></RecordGlanceContext.Provider></RecordArrivalsContext.Provider>}
+      </RecordGlanceContext.Provider></RecordArrivalsContext.Provider>}
     </section>
-    {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={reviewDgiiPending} onClose={() => setExporting(null)} /> : null}
-  </PullToRefresh></RecordsAnnotationsPreview>;
+    {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={reviewDgiiPending} onOpenBandeja={chosen?.capabilities.includes("prepare") ? () => openPanel({ kind: "inbox" }) : undefined} onClose={() => setExporting(null)} /> : null}
+  </PullToRefresh>;
 }

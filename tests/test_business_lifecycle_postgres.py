@@ -19,6 +19,7 @@ from argus.domain.business.spaces import PostgresSpaceStore
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import seen_gaps
 from tests.business_cleanup import delete_spaces
 
 users = shared.users
@@ -499,7 +500,11 @@ def test_export_windows_download_the_whole_history_with_exact_money(actions):  #
         )
         review = ReviewDraft(version=version, facts=facts)
         assert service.review(context, draft, review, f"r-{day}").outcome == "applied"
-        approve = ApproveExpense(version=version + 1, action="record_expense")
+        approve = ApproveExpense(
+            version=version + 1,
+            action="record_expense",
+            accept_gaps=seen_gaps(service, context, draft),
+        )
         assert service.approve(context, draft, approve, f"a-{day}").outcome == "applied"
     [preview] = PostgresBusinessLifecycle(service.authority.pool).owned_spaces(
         str(context.owner_id)

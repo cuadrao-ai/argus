@@ -3,38 +3,28 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
-import type { RowShown } from "./ReceiptEditRow";
-import { FACT_LABEL_CLASS, FACT_ROW_CLASS } from "./ReceiptRecordFacts";
+import { DossierRow, type RowEdit } from "./dossier/DossierParts";
 import { DOCUMENT_TYPE_LABELS } from "./receipt-fact-rows";
 
 /**
- * Compra or Venta on one record, as a fact row. `row` is the shared edit row on
- * a draft whose type can still change; after approval it is fixed. While the
- * record is open, a sale read from the business's RNC asks for the client's RNC.
+ * Compra or Venta on one record, as a row of the form. `edit` is the shared
+ * row edit on a record whose type can change.
+ * While the record is open, a sale read from the business's RNC asks for the
+ * client's RNC.
  */
-export default function ReceiptDocumentType({ dossier, row, note }: {
+export default function ReceiptDocumentType({ dossier, edit, note }: {
   dossier: BusinessDossier;
-  row?: (shown: RowShown) => ReactNode;
+  edit?: RowEdit;
   /** The row's save state. */
   note?: ReactNode;
 }) {
   const { t } = useTranslation();
   const current = dossier.document_type;
   if (!current) return null;
-  const label = t("business.dossier.type_label", "Type");
-  const value = t(DOCUMENT_TYPE_LABELS[current]);
   const detected = dossier.document_type_detected && dossier.review_state === "open" && current === "venta"
     ? t("business.dossier.type_detected_venta", "We read it as a sale from your business's RNC. Add the client's RNC.")
     : null;
-
   return (
-    <div data-testid="receipt-document-type" data-fact="document_type" data-type={current} data-detected={dossier.document_type_detected ? "true" : undefined} className={FACT_ROW_CLASS}>
-      <dt className={FACT_LABEL_CLASS}>{label}</dt>
-      <dd className="min-w-0 break-words py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white">
-        {row ? row({ label, value }) : value}
-        {detected ? <p className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{detected}</p> : null}
-        {note}
-      </dd>
-    </div>
+    <DossierRow row="document_type" testId="receipt-document-type" data={{ "data-type": current, "data-detected": dossier.document_type_detected ? "true" : undefined }} label={t("business.dossier.type_label", "Type")} value={t(DOCUMENT_TYPE_LABELS[current])} edit={edit} below={detected || note ? <>{detected ? <p>{detected}</p> : null}{note}</> : undefined} />
   );
 }

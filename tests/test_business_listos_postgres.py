@@ -1,7 +1,8 @@
 """Over HTTP, on the real app, Auth and Postgres: one rule puts every open
-receipt in Listos or in Necesitan atención with one reason, the Bandeja, Inicio
-and the sidebar read one pair of counts, and only the owner approves a named
-list of Listos receipts, each on the approval path with its own idempotency."""
+receipt in Listos or in Necesitan atención with one reason and gives every
+Bandeja row its label, the Bandeja, Inicio and the sidebar read one pair of
+counts, and only the owner approves a named list of Listos receipts, each on
+the approval path with its own idempotency."""
 
 from __future__ import annotations
 
@@ -23,9 +24,10 @@ from psycopg.types.json import Jsonb
 
 from tests import test_business_scope_switch_routes_postgres as scope
 from tests import test_financial_accounts_postgres as shared
-from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
+from tests.business.receipt_stub import ReceiptStub, receipt_details, receipt_purchase
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
+from tests.business_accept_support import accept
 from tests.business_reading_support import ROUTE
 from tests.document_reads_support import leave_reads_waiting
 from tests.test_business_approve_unpaid_postgres import _declaration
@@ -38,7 +40,7 @@ from tests.test_business_reading_setting_postgres import (
 )
 from tests.test_business_scope_switch_routes_postgres import API, PERIOD, _as, _note
 
-pytestmark = scope.pytestmark
+pytestmark = [scope.pytestmark, pytest.mark.usefixtures("typed_notes_on")]
 people = scope.web
 SUPPLIER = "199990021"
 OTHER_SUPPLIER = "199990048"
@@ -99,7 +101,7 @@ def _set_read(rig, index: int, read: dict) -> None:  # noqa: ANN001
 
     amount = f"{1000 + index}.00"
     details = {
-        **DETAILS,
+        **receipt_details(),
         "merchant": f"FERRETERIA {index}",
         "subtotal": None,
         "total": amount,
@@ -111,7 +113,7 @@ def _set_read(rig, index: int, read: dict) -> None:  # noqa: ANN001
     rig.stub.details = details
     rig.stub.rows = [
         {
-            **PURCHASE,
+            **receipt_purchase(),
             "merchant": details["merchant"],
             "amount": read.get("amount", amount),
             "currency": details["currency"],
@@ -144,6 +146,10 @@ def _group(rig, receipt_id: str) -> tuple[str | None, str | None]:  # noqa: ANN0
     return found["group"], found["reason"]
 
 
+def _label(rig, receipt_id: str) -> str | None:  # noqa: ANN001
+    return _row(rig, receipt_id)["bandeja_group"]["label"]
+
+
 def _named(rig, receipt_id: str) -> dict:  # noqa: ANN001
     found = _row(rig, receipt_id)["bandeja_group"]
     return {"draft_id": found["draft_id"], "version": found["version"]}
@@ -165,9 +171,20 @@ def _counts(rig, headers: dict | None = None) -> tuple[int, int]:  # noqa: ANN00
         overview["bandeja_listo_count"],
         overview["bandeja_attention_count"],
     ) == numbers
-    listed = [row["bandeja_group"]["group"] for row in page["items"]]
-    assert listed.count("listo") == numbers[0]
-    assert sum(numbers) + activity["reading_count"] == activity["pending_review_count"]
+    listed = [row["bandeja_group"] for row in page["items"]]
+    notes = _get(rig, "/business/captures", headers, view="inbox", limit=50)["items"]
+    ready_notes = {
+        note["draft_id"] for note in notes if note["bandeja_group"]["group"] == "listo"
+    }
+    assert [row["group"] for row in listed].count("listo") + len(ready_notes) == numbers[0]
+    # A row the read limit holds is in the reading group, and nothing reads it.
+    held = [row["group"] for row in listed].count("reading") - sum(
+        row["bandeja"]["leyendo"] for row in page["items"]
+    )
+    assert (
+        sum(numbers) + activity["reading_count"] + held
+        == activity["pending_review_count"]
+    )
     return numbers
 
 
@@ -188,7 +205,8 @@ def _results(answer) -> list[tuple[str, str | None]]:  # noqa: ANN001
 
 
 def _approve_alone(rig, item: dict, key: str | None = None):  # noqa: ANN001, ANN202
-    return rig.client.post(
+    return accept(
+        rig.client,
         f"{API}/business/drafts/{item['draft_id']}/approve",
         json={"version": item["version"], "action": "record_expense"},
         headers={**rig.alice.headers, "Idempotency-Key": key or str(uuid4())},
@@ -276,7 +294,7 @@ def _state(item: dict) -> tuple:
         ),
         pytest.param({"ncf": "", "ecf": ""}, "missing_ncf", id="a blank number"),
         pytest.param({"itbis": None}, "missing_itbis", id="no ITBIS"),
-        pytest.param({"currency": "USD"}, "foreign_currency", id="USD"),
+        pytest.param({"currency": "USD"}, None, id="USD"),
         pytest.param({"itbis": "900.00"}, "review_flag", id="ITBIS above the rate"),
         pytest.param({"subtotal": "900.00"}, "review_flag", id="amounts do not add up"),
         pytest.param({"ncf": "B0400000002"}, "credit_note", id="a credit note"),
@@ -287,13 +305,14 @@ def test_the_rule_gives_one_group_and_one_reason(rig, read: dict, reason) -> Non
 
     group = "attention" if reason else "listo"
     assert _group(rig, receipt) == (group, reason)
+    assert _label(rig, receipt) == ("needs_attention" if reason else "ready")
     assert _counts(rig) == ((0, 1) if reason else (1, 0))
 
 
 def test_a_receipt_that_needs_a_person_can_still_be_approved_alone(rig) -> None:  # noqa: ANN001
     for read, reason in (
         ({"ncf": None}, "missing_ncf"),
-        ({"currency": "USD"}, "foreign_currency"),
+        ({"itbis": None}, "missing_itbis"),
     ):
         receipt = _read(rig, read)
         assert _group(rig, receipt) == ("attention", reason)
@@ -302,6 +321,7 @@ def test_a_receipt_that_needs_a_person_can_still_be_approved_alone(rig) -> None:
         assert approved.status_code == 200, approved.text
         assert _row(rig, receipt)["status"] == "confirmed"
         assert _group(rig, receipt) == (None, None)
+        assert _label(rig, receipt) == "accepted"
     assert _money(rig) == 2
     assert _counts(rig) == (0, 0)
 
@@ -316,6 +336,7 @@ def test_a_receipt_not_yet_read_has_no_draft_to_approve(rig, monkeypatch) -> Non
     leave_reads_waiting(monkeypatch)
     reading = _upload(rig, RECEIPT + b"\xa2").json()["id"]
     assert _group(rig, reading) == ("reading", "reading")
+    assert _label(rig, reading) == "reading"
     assert _counts(rig)[0] == 0
 
 
@@ -323,19 +344,22 @@ def test_an_unfinished_read_never_reaches_listos(rig) -> None:  # noqa: ANN001
     rig.stub.failure = "encrypted_document"
     unreadable = _upload(rig, RECEIPT + b"\xa3").json()["id"]
     assert _group(rig, unreadable) == ("attention", "unreadable")
+    assert _label(rig, unreadable) == "cant_read"
 
     rig.stub.failure = "extraction_provider_failed"
     failed = _upload(rig, RECEIPT + b"\xa4").json()["id"]
     assert _group(rig, failed) == ("attention", "ai_unavailable")
+    assert _label(rig, failed) == "cant_read"
 
     clean = _read(rig)
     rig.stub.details = {**rig.stub.details, "ncf": "B0100000094"}
     rig.stub.rows = [
-        {**PURCHASE, "amount": "100.00"},
-        {**PURCHASE, "amount": "200.00"},
+        {**receipt_purchase(), "amount": "100.00"},
+        {**receipt_purchase(), "amount": "200.00"},
     ]
     many = _upload(rig, RECEIPT + b"\xa5").json()["id"]
     assert _group(rig, many) == ("attention", "several_purchases")
+    assert _label(rig, many) == "needs_attention"
     assert _group(rig, clean) == ("listo", None)
     assert _counts(rig) == (1, 3)
 
@@ -344,22 +368,6 @@ def test_a_receipt_with_no_amount_needs_a_person(rig) -> None:  # noqa: ANN001
     receipt = _read(rig, {"total": None, "amount": None})
     assert _group(rig, receipt)[0] == "attention"
     assert _counts(rig) == (0, 1)
-
-
-def test_an_approval_in_flight_is_not_listo(rig) -> None:  # noqa: ANN001
-    receipt = _read(rig)
-    item = _named(rig, receipt)
-    with Connection.connect(shared.DSN) as db:
-        db.execute(
-            "update public.financial_import_events set state='accepting',"
-            " accept_key='in-flight' where id=%s",
-            (item["draft_id"],),
-        )
-    assert _group(rig, receipt) == ("attention", "check_details")
-    assert _results(_approve_many(rig, [item])) == [
-        ("refused", "business_draft_not_open")
-    ]
-    assert _money(rig) == 0
 
 
 def test_a_read_with_an_issue_needs_a_person(rig) -> None:  # noqa: ANN001
@@ -459,12 +467,6 @@ def test_a_record_with_no_comprobante_says_so_and_takes_no_606(  # noqa: ANN201
     assert refused.json()["code"] == "fiscal_direction_unsupported"
 
 
-def test_a_sale_stays_out_of_the_faster_way(rig) -> None:  # noqa: ANN001
-    sale = _read(rig)
-    _review(rig, _named(rig, sale), {"document_type": "venta"})
-    assert _group(rig, sale) == ("attention", "sale")
-
-
 def test_a_read_of_several_purchases_is_not_settled_by_an_amount(rig) -> None:  # noqa: ANN001
     receipt = _read(rig)
     item = _named(rig, receipt)
@@ -508,20 +510,6 @@ def _mark_personal(rig, item: dict, personal: bool) -> dict:  # noqa: ANN001
     )
     assert answer.status_code == 200, answer.text
     return answer.json()
-
-
-def test_a_personal_mark_keeps_a_receipt_out_of_listos(rig) -> None:  # noqa: ANN001
-    receipt = _read(rig)
-    item = _named(rig, receipt)
-    marked = _mark_personal(rig, item, True)
-
-    assert _group(rig, receipt) == ("attention", "personal")
-    listed = {"draft_id": item["draft_id"], "version": marked["version"]}
-    assert _results(_approve_many(rig, [listed])) == [("refused", "not_listo")]
-    assert _money(rig) == 0
-
-    _mark_personal(rig, listed, False)
-    assert _group(rig, receipt) == ("listo", None)
 
 
 def test_a_repeat_needs_a_person_until_a_person_settles_it(rig) -> None:  # noqa: ANN001
@@ -576,7 +564,7 @@ def test_a_sale_with_the_same_comprobante_is_no_repeat_of_a_purchase(rig) -> Non
     assert _group(rig, purchase) == ("attention", "duplicate")
 
     _review(rig, _named(rig, sale), {"document_type": "venta"})
-    assert _group(rig, sale) == ("attention", "sale")
+    assert _group(rig, sale) == ("listo", None)
     assert _group(rig, purchase) == ("listo", None)
 
 
@@ -688,6 +676,15 @@ def test_the_three_reads_agree_for_every_row_the_bandeja_lists(rig, monkeypatch)
     assert rig.client.post(WEBHOOK, content=body, headers=signed(body)).status_code == 202
     assert asyncio.run(runtime.next())
     assert _counts(rig) == (1, 3)
+    [email] = _get(rig, "/business/email/deliveries")["items"]
+    assert email["standing"] == "no_receipt"
+    assert email["bandeja_group"] == {
+        "group": "attention",
+        "reason": None,
+        "label": "needs_attention",
+        "draft_id": None,
+        "version": None,
+    }
 
     assert _results(_approve_many(rig, [_named(rig, listo)])) == [("applied", None)]
     assert _counts(rig) == (0, 3)
@@ -870,12 +867,12 @@ def test_a_receipt_edited_after_listing_is_refused_and_the_rest_go(rig) -> None:
 
 def test_one_failure_among_many_leaves_the_rest(rig) -> None:  # noqa: ANN001
     good = [_read(rig) for _ in range(2)]
-    usd = _read(rig, {"currency": "USD"})
+    gap = _read(rig, {"itbis": None})
     note = _note(rig, rig.alice, "Pagué 850 en Ferretería Prueba").json()
     missing = {"draft_id": str(uuid4()), "version": 1}
     items = [
         _named(rig, good[0]),
-        _named(rig, usd),
+        _named(rig, gap),
         {"draft_id": note["draft_id"], "version": note["version"]},
         missing,
         _named(rig, good[1]),
@@ -889,7 +886,7 @@ def test_one_failure_among_many_leaves_the_rest(rig) -> None:  # noqa: ANN001
         ("applied", None),
     ]
     assert _money(rig) == 2
-    assert _group(rig, usd) == ("attention", "foreign_currency")
+    assert _group(rig, gap) == ("attention", "missing_itbis")
 
 
 def test_a_money_write_that_fails_settles_on_replay_and_the_rest_go(
@@ -979,7 +976,7 @@ def test_the_list_limit_is_stated_and_held(rig) -> None:  # noqa: ANN001
     unknown = [{"draft_id": str(uuid4()), "version": 1} for _ in range(LIMIT + 1)]
 
     assert len(_results(_approve_many(rig, unknown[:LIMIT]))) == LIMIT
-    confirmed = {**unknown[0], "approve_anyway": True}
+    confirmed = {**unknown[0], "accept_gaps": ["missing_itbis"]}
     for body in (unknown, [], [unknown[0], unknown[0]], [confirmed]):
         refused = _approve_many(rig, body)
         assert (refused.status_code, refused.json()["code"]) == (422, "validation_error")

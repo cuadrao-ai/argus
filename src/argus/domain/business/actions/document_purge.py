@@ -3,8 +3,9 @@ definitivamente" and the 7-day expiry run the same two steps:
 
 1. ``purge``, in one transaction under the owner lock: record the purge with
    the stored objects still to erase, then delete the draft, its revisions,
-   its message sources and the uploads with their reads. From the commit on,
-   the document is gone for every reader and cannot be restored.
+   its message sources and the uploads with their reads. For an accepted
+   record, also erase its reversed money row and private ledger records.
+   From the commit on, the document is gone for every reader and cannot be restored.
 2. ``erase``: remove each recorded object and take it off the record. A
    failed erase keeps the rest on the record, and the next run finishes it.
 
@@ -13,6 +14,7 @@ the record and changes nothing."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 from uuid import UUID
@@ -21,8 +23,10 @@ from loguru import logger
 from psycopg import Connection
 from psycopg.rows import dict_row
 
+from argus.domain.business.actions.document_ledger import original_activity
+from argus.domain.business.annotations import SUPPORTING_SOURCE_SQL, UPLOAD_HELD_SQL
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.deletion import deletion
+from argus.domain.business.contracts.deletion import PURGE_AFTER, deletion
 from argus.domain.business.transactions import lock_owner
 from argus.domain.ingestion.documents.objects import SourceObjects, connection_prefix
 from argus.domain.ingestion.documents.store_postgres import lock_sources
@@ -37,58 +41,12 @@ BATCH = 25
 MAX_BATCHES = 20
 
 
-def was_purged(connection: Connection, space_id: UUID, document_id: UUID) -> bool:
-    return (
-        connection.execute(
-            "select 1 from argus_private.business_document_purges"
-            " where space_id=%s and %s=any(document_ids)",
-            (space_id, document_id),
-        ).fetchone()
-        is not None
-    )
+Rows = Callable[[str, tuple[Any, ...]], list[dict[str, Any]]]
 
 
-def purge(
-    connection: Connection,
-    imports: ImportTx,
-    *,
-    space_id: UUID,
-    owner_id: str,
-    document_id: UUID,
-    reason: PurgeReason,
-    now: datetime,
-) -> bool:
-    """Step 1, inside the caller's transaction, which holds the owner lock.
-    False when the document was purged before."""
+def _stored(rows: Rows, space_id: UUID, owner_id: str, uploads: list[str]) -> list[str]:
+    """The stored objects of the uploads. Refused while one is in motion."""
 
-    from argus.domain.business.actions.document_deletion import target
-
-    if was_purged(connection, space_id, document_id):
-        return False
-
-    def rows(statement: str, params: tuple[Any, ...]) -> list[dict[str, Any]]:
-        with connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(statement, params)
-            return list(cursor.fetchall()) if cursor.description else []
-
-    event, attachments, candidates = target(
-        rows, imports, space_id, owner_id, document_id
-    )
-    document = attachments[0]["draft"] if attachments else None
-    marker = deletion(
-        event.state if event else document["status"],
-        event.resolution if event else document.get("resolution", {}),
-    )
-    if marker is None:
-        raise ActionError("invalid_input", "business_document_not_deleted")
-    if reason == "expiry" and marker.purge_at > now:
-        raise ActionError("invalid_input", "business_document_purge_not_due")
-    if any(
-        row["lease_until"] is not None and row["lease_until"] > now for row in attachments
-    ):
-        raise ActionError("invalid_input", "business_document_reading")
-    events = [event] if event is not None else list(candidates)
-    uploads = [str(row["connection_id"]) for row in attachments]
     paths = sorted(
         {
             path
@@ -110,7 +68,18 @@ def purge(
         (space_id, paths, paths, owner_id),
     ):
         raise ActionError("invalid_input", "business_document_purge_busy")
-    ids = sorted({str(document_id), *(item.id for item in events), *uploads})
+    return paths
+
+
+def _record(
+    connection: Connection,
+    space_id: UUID,
+    owner_id: str,
+    ids: list[str],
+    reason: PurgeReason,
+    uploads: list[str],
+    paths: list[str],
+) -> None:
     pending = [
         *paths,
         *(
@@ -123,6 +92,170 @@ def purge(
         "(space_id,document_ids,reason,pending_objects) values (%s,%s::uuid[],%s,%s)",
         (space_id, ids, reason, pending),
     )
+
+
+def _remove(
+    connection: Connection,
+    space_id: UUID,
+    *,
+    events: list[str],
+    sources: list[UUID],
+    uploads: list[str],
+    paths: list[str],
+) -> None:
+    connection.execute(
+        "select set_config('argus.business_document_purge_space',%s,true)",
+        (str(space_id),),
+    )
+    connection.execute(
+        "delete from public.financial_import_events where owner_space_id=%s and id=any(%s::uuid[])",
+        (space_id, events),
+    )
+    connection.execute(
+        "delete from public.business_sources where space_id=%s and id=any(%s::uuid[])",
+        (space_id, sources),
+    )
+    connection.execute(
+        "delete from public.financial_source_connections where owner_space_id=%s and id=any(%s::uuid[])",
+        (space_id, uploads),
+    )
+    connection.execute("select set_config('argus.business_document_purge_space','',true)")
+    connection.execute(
+        "delete from argus_private.business_custody_objects where space_id=%s"
+        " and source_path is null and destination_path=any(%s)",
+        (space_id, paths),
+    )
+
+
+def _rows(connection: Connection) -> Rows:
+    def rows(statement: str, params: tuple[Any, ...]) -> list[dict[str, Any]]:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(statement, params)
+            return list(cursor.fetchall()) if cursor.description else []
+
+    return rows
+
+
+#: An unlinked supporting file whose restore window has passed: no record
+#: holds it and no unlink newer than the cutoff protects it. A file whose
+#: record was purged has no unlink left, so it is due at once.
+_UNLINKED_DUE = (
+    f" {SUPPORTING_SOURCE_SQL}"
+    " and not exists (select 1 from public.business_draft_sources l"
+    " where l.source_id=s.id and l.space_id=s.space_id)"
+    " and not exists (select 1 from public.business_draft_revisions r"
+    " where r.space_id=s.space_id and r.supporting_change='unlinked'"
+    " and r.source_ids=array[s.id] and r.created_at>%s)"
+)
+
+
+def purge_supporting(
+    connection: Connection,
+    *,
+    space_id: UUID,
+    owner_id: str,
+    source_id: UUID,
+    now: datetime,
+) -> bool:
+    """Erase one unlinked supporting file, inside the caller's transaction,
+    which holds the owner lock. The upload and its bytes go only when nothing
+    else holds the upload. False when the file is not due any more."""
+
+    rows = _rows(connection)
+    found = rows(
+        f"select s.connection_id,{UPLOAD_HELD_SQL} as held"
+        " from public.business_sources s"
+        " where s.space_id=%s and s.id=%s and" + _UNLINKED_DUE,
+        (space_id, source_id, now - PURGE_AFTER),
+    )
+    if not found:
+        return False
+    uploads = [] if found[0]["held"] else [str(found[0]["connection_id"])]
+    paths = _stored(rows, space_id, owner_id, uploads)
+    if uploads:
+        ids = [str(source_id), *uploads]
+        _record(connection, space_id, owner_id, ids, "expiry", uploads, paths)
+    _remove(
+        connection, space_id, events=[], sources=[source_id], uploads=uploads, paths=paths
+    )
+    return True
+
+
+def was_purged(connection: Connection, space_id: UUID, document_id: UUID) -> bool:
+    return (
+        connection.execute(
+            "select 1 from argus_private.business_document_purges"
+            " where space_id=%s and %s=any(document_ids)",
+            (space_id, document_id),
+        ).fetchone()
+        is not None
+    )
+
+
+def _remove_activity(connection: Connection, owner_id: str, activity: UUID) -> None:
+    records = [
+        row[0]
+        for row in connection.execute(
+            "select distinct record_id from public.financial_activity_memberships"
+            " where activity_id=%s and user_id=%s and record_owner_id=%s",
+            (activity, owner_id, owner_id),
+        ).fetchall()
+    ]
+    removed = connection.execute(
+        "delete from public.financial_activity_groups"
+        " where id=%s and user_id=%s and reversed_at is not null returning id",
+        (activity, owner_id),
+    ).fetchone()
+    if removed is None:
+        raise ActionError("invalid_input", "business_record_not_found")
+    connection.execute(
+        "delete from public.financial_records r where r.user_id=%s and r.id=any(%s::uuid[])"
+        " and not exists (select 1 from public.financial_activity_memberships m"
+        " where m.record_id=r.id and m.record_owner_id=r.user_id)",
+        (owner_id, records),
+    )
+
+
+def purge(
+    connection: Connection,
+    imports: ImportTx,
+    *,
+    space_id: UUID,
+    owner_id: str,
+    document_id: UUID,
+    reason: PurgeReason,
+    now: datetime,
+) -> bool:
+    """Step 1, inside the caller's transaction, which holds the owner lock.
+    False when the document was purged before."""
+
+    from argus.domain.business.actions.document_deletion import target
+
+    if was_purged(connection, space_id, document_id):
+        return False
+
+    rows = _rows(connection)
+    event, attachments, candidates = target(
+        rows, imports, space_id, owner_id, document_id
+    )
+    document = attachments[0]["draft"] if attachments else None
+    marker = deletion(
+        event.state if event else document["status"],
+        event.resolution if event else document.get("resolution", {}),
+    )
+    if marker is None:
+        raise ActionError("invalid_input", "business_document_not_deleted")
+    if reason == "expiry" and marker.purge_at > now:
+        raise ActionError("invalid_input", "business_document_purge_not_due")
+    if any(
+        row["lease_until"] is not None and row["lease_until"] > now for row in attachments
+    ):
+        raise ActionError("invalid_input", "business_document_reading")
+    events = [event] if event is not None else list(candidates)
+    uploads = [str(row["connection_id"]) for row in attachments]
+    paths = _stored(rows, space_id, owner_id, uploads)
+    ids = sorted({str(document_id), *(item.id for item in events), *uploads})
+    _record(connection, space_id, owner_id, ids, reason, uploads, paths)
     messages = [
         row["id"]
         for row in rows(
@@ -137,27 +270,15 @@ def purge(
     ]
     for item in events:
         duplicates.forget(imports, item, now)
-    connection.execute(
-        "select set_config('argus.business_document_purge_space',%s,true)",
-        (str(space_id),),
-    )
-    connection.execute(
-        "delete from public.financial_import_events where owner_space_id=%s and id=any(%s::uuid[])",
-        (space_id, [item.id for item in events]),
-    )
-    connection.execute(
-        "delete from public.business_sources where space_id=%s and id=any(%s::uuid[])",
-        (space_id, messages),
-    )
-    connection.execute(
-        "delete from public.financial_source_connections where owner_space_id=%s and id=any(%s::uuid[])",
-        (space_id, uploads),
-    )
-    connection.execute("select set_config('argus.business_document_purge_space','',true)")
-    connection.execute(
-        "delete from argus_private.business_custody_objects where space_id=%s"
-        " and source_path is null and destination_path=any(%s)",
-        (space_id, paths),
+    if event is not None and marker.previous_state.state == "accepted":
+        _remove_activity(connection, owner_id, original_activity(event))
+    _remove(
+        connection,
+        space_id,
+        events=[item.id for item in events],
+        sources=messages,
+        uploads=uploads,
+        paths=paths,
     )
     return True
 
@@ -205,8 +326,8 @@ def erase(pool: Any, objects: SourceObjects | None, space_id: UUID) -> int:
 
 
 class DocumentExpiry:
-    """Purges documents deleted ``PURGE_AFTER`` ago and finishes erases left
-    over. The documents worker's sweep loop calls ``tick`` every 30 seconds;
+    """Purges documents deleted ``PURGE_AFTER`` ago and supporting files
+    unlinked that long ago, and finishes erases left over. The documents worker's sweep loop calls ``tick`` every 30 seconds;
     it runs at most once per ``every``."""
 
     def __init__(
@@ -243,19 +364,49 @@ class DocumentExpiry:
         for _ in range(MAX_BATCHES):
             due = self._due(now, after)
             for space, owner, document in due:
-                self._purge(space, owner, document, now, result)
+                self._purge(
+                    space,
+                    owner,
+                    result,
+                    lambda db, space=space, owner=owner, document=document: purge(
+                        db,
+                        _PostgresTx(db, owner, BusinessSpace(str(space))),
+                        space_id=space,
+                        owner_id=owner,
+                        document_id=document,
+                        reason="expiry",
+                        now=now,
+                    ),
+                )
             if len(due) < BATCH:
                 break
             after = (due[-1][0], due[-1][2])
+        for space, owner, source in self._due_supporting(now):
+            self._purge(
+                space,
+                owner,
+                result,
+                lambda db, space=space, owner=owner, source=source: purge_supporting(
+                    db, space_id=space, owner_id=owner, source_id=source, now=now
+                ),
+            )
         if any(result.values()):
             logger.info("Document expiry run {}", result)
         return result
 
+    def _due_supporting(self, now: datetime) -> list[tuple[UUID, str, UUID]]:
+        with self.pool.connection() as db:
+            return db.execute(
+                "select s.space_id,c.user_id::text,s.id from public.business_sources s"
+                " join public.financial_source_connections c"
+                " on c.id=s.connection_id and c.owner_space_id=s.space_id"
+                " where" + _UNLINKED_DUE + " order by s.space_id,s.id limit %s",
+                (now - PURGE_AFTER, BATCH * MAX_BATCHES),
+            ).fetchall()
+
     def _due(
         self, now: datetime, after: tuple[UUID, UUID] | None
     ) -> list[tuple[UUID, str, UUID]]:
-        from argus.domain.business.contracts.deletion import PURGE_AFTER
-
         with self.pool.connection() as db:
             return db.execute(
                 "select owner_space_id,user_id::text,id from ("
@@ -281,20 +432,12 @@ class DocumentExpiry:
             ).fetchall()
 
     def _purge(
-        self, space: UUID, owner: str, document: UUID, now: datetime, result: dict
+        self, space: UUID, owner: str, result: dict, step: Callable[[Connection], bool]
     ) -> None:
         try:
             with self.pool.connection() as db, db.transaction():
                 lock_owner(db, owner)
-                purged = purge(
-                    db,
-                    _PostgresTx(db, owner, BusinessSpace(str(space))),
-                    space_id=space,
-                    owner_id=owner,
-                    document_id=document,
-                    reason="expiry",
-                    now=now,
-                )
+                purged = step(db)
         except ActionError as error:
             # A restore, an ambiguous link or a running read wins this round.
             logger.info("Document expiry skipped a document code={}", error.code)

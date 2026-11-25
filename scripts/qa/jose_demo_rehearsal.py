@@ -1009,7 +1009,7 @@ class Rehearsal:
         with self.rec.step(
             "0", "receipt-reading-on", "receipt reading enabled for the Business"
         ):
-            reading = api.get("/business/receipt-reading?language=es-419")
+            reading = api.get("/business/workspace?language=es-419")["receipt_reading"]
             if not reading["enabled"]:
                 api.send(
                     "POST",
@@ -1023,7 +1023,7 @@ class Rehearsal:
                     key=self.key("reading"),
                 )
             expect(
-                api.get("/business/receipt-reading?language=es-419")["enabled"],
+                api.get("/business/workspace?language=es-419")["receipt_reading"]["enabled"],
                 "reading still off",
             )
         with self.rec.step(
@@ -1040,10 +1040,11 @@ class Rehearsal:
         """--dry-run: read the Business, print every write a real run would make."""
 
         api = self.api
-        reading = api.get("/business/receipt-reading?language=es-419")
+        workspace = api.get("/business/workspace?language=es-419")
+        reading = workspace["receipt_reading"]
         accounts = [
             a
-            for a in api.get("/business/workspace")["accounts"]
+            for a in workspace["accounts"]
             if a.get("currency") == "DOP"
             and a.get("type", "checking") in ("checking", "savings")
         ]
@@ -2201,7 +2202,7 @@ class Seeder:
                     {"space_id": name["id"], "name": self.args.business_name},
                 ),
             )
-        reading = api.get("/business/receipt-reading?language=es-419")
+        reading = api.get("/business/workspace?language=es-419")["receipt_reading"]
         out["reading"] = {"enabled_before": reading["enabled"]}
         if not reading["enabled"]:
             backlog = [

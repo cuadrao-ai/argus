@@ -4,122 +4,156 @@ import { fill, registerReceiptReviewPage, setup } from "./fixtures/receipt-revie
 
 registerReceiptReviewPage();
 
-for (const form of ["606", "607"] as const) test(`header currency warns before saving a non-DOP ${form}`, async () => {
-  const page = await setup("fiscal", (dossier) => { dossier.dgii = { ...dossier.dgii, form }; });
-  try {
-    await page.openRow("currency");
-    const selector = '[data-testid="edit-currency"] select';
-    const select = page.host.querySelector<HTMLSelectElement>(selector)!;
-    assert.deepEqual([...select.options].map((option) => option.value), ["", "DOP", "USD", "EUR"]);
-    for (const currency of ["USD", "EUR"]) {
-      await fill(page, selector, currency, HTMLSelectElement);
-      assert.ok(page.row("currency").textContent?.includes(`En ${currency} este documento no entra al ${form} (la DGII pide pesos).`));
-      assert.equal(page.writes.length, 0);
-    }
-    await fill(page, selector, "DOP", HTMLSelectElement);
-    assert.equal(page.row("currency").querySelector('[role="status"]'), null);
-    await page.dismiss("currency");
-    assert.equal(page.writes.length, 0);
-  } finally { await page.close(); }
-});
+/** The Total's warning, as its status slot says it; null when the Total carries none. */
+const totalWarning = (page: { row: (name: string) => HTMLElement }) => {
+  const status = page.row("amount").querySelector('[data-testid="row-status-amount"][data-status="warn"]');
+  return status ? status.getAttribute("aria-label") : null;
+};
 
 test("amount edit and cancel keep the number box and the two action slots", async () => {
   const page = await setup();
   try {
-    const before = page.row("amount").querySelector<HTMLElement>("[data-number-box]")!;
-    assert.ok(!page.row("amount").querySelector("button")!.classList.contains("opacity-0"));
-    const width = [...before.classList].find((name) => name.startsWith("w-["));
-    assert.ok(width);
+    const value = () => page.row("amount").querySelector<HTMLElement>("button[data-row-value]");
+    assert.ok(value()?.classList.contains("cuadrao-amount"));
+    assert.ok(page.row("amount").querySelector('button[aria-label="Editar detalles · Total"]'));
     await page.openRow("amount");
-    const editing = page.row("amount").querySelector<HTMLElement>("[data-number-box]")!;
-    assert.ok(editing.classList.contains(width));
-    assert.ok(editing.querySelector("input")!.classList.contains("text-right"));
-    assert.equal(editing.querySelector("select"), null);
-    assert.equal(editing.querySelector('[aria-hidden="true"]'), null);
-    assert.equal(editing.nextElementSibling?.querySelectorAll("button").length, 2);
+    const field = page.row("amount").querySelector<HTMLElement>("[data-row-open]")!;
+    const input = field.querySelector<HTMLInputElement>('[data-testid="dossier-review-amount"]')!;
+    assert.ok(input.classList.contains("text-right"));
+    assert.equal(field.querySelector("select"), null, "the currency stays in the heading");
+    assert.equal(field.textContent?.includes("RD$"), false, "the number carries no symbol");
+    assert.deepEqual([...field.nextElementSibling!.querySelectorAll("button")].map((button) => button.getAttribute("aria-label")), ["Guardar · Total", "Cancelar · Total"]);
     await page.dismiss("amount");
-    assert.ok(page.row("amount").querySelector("[data-number-box]"));
+    assert.equal(page.row("amount").querySelector("[data-row-open]"), null);
+    assert.ok(value());
   } finally { await page.close(); }
 });
 
 test("the difference follows the current server preview while typing and drops cancelled replies", async () => {
   const requests: { input: unknown; resolve: (value: import("@/lib/business-api").BusinessAmountsPreview) => void }[] = [];
-  const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }]; }, () => ({
+  const page = await setup("fiscal", (dossier) => { dossier.amounts_check = { state: "difference", difference: "20.00" }; }, () => ({
     previewAmounts: async (_, __, input) => new Promise((resolve) => { requests.push({ input, resolve }); }),
   }));
   try {
     await page.openRow("amount");
     await fill(page, '[data-testid="dossier-review-amount"]', "1201");
-    assert.equal(page.row("amount").querySelector('[data-testid="amounts-difference"]')?.textContent, "Diferencia 20.00");
-    assert.equal(page.host.querySelector('[data-testid="receipt-facts-montos"]')?.getAttribute("aria-busy"), "true");
+    assert.equal(totalWarning(page), "Diferencia 20.00");
+    assert.equal(Boolean(page.host.querySelector('[data-testid="receipt-facts-montos"] > div[aria-busy="true"]')), true);
     await page.wait(() => requests.length === 1);
     assert.deepEqual(requests[0].input, { amount: { state: "known", value: "1201" } });
     await page.act(async () => requests[0].resolve({ net_amount: { amount: "1000", source: "read" }, mismatch: { code: "amounts_mismatch", difference: "7.89" } }));
-    assert.equal(page.row("amount").querySelector('[data-testid="amounts-difference"]')?.textContent, "Diferencia 7.89");
+    assert.equal(totalWarning(page), "Diferencia 7.89");
+    assert.equal(page.host.querySelector('[data-testid="receipt-facts-montos"] > div[aria-busy="true"]'), null);
     assert.equal(page.writes.length, 0);
     await fill(page, '[data-testid="dossier-review-amount"]', "1202");
     await page.wait(() => requests.length === 2);
     await page.dismiss("amount");
     await page.act(async () => requests[1].resolve({ net_amount: { amount: "1000", source: "read" }, mismatch: null }));
-    assert.equal(page.row("amount").querySelector('[data-testid="amounts-difference"]')?.textContent, "Diferencia 20.00");
+    assert.equal(totalWarning(page), "Diferencia 20.00");
     assert.equal(page.writes.length, 0);
     await page.openRow("itbis");
     await fill(page, '[data-testid="dossier-review-itbis"]', "300");
-    assert.equal(page.row("amount").querySelector('[data-testid="amounts-difference"]')?.textContent, "Diferencia 20.00");
+    assert.equal(totalWarning(page), "Diferencia 20.00");
     await page.wait(() => requests.length === 3);
     await page.act(async () => requests[2].resolve({ net_amount: { amount: "980", source: "calculated" }, mismatch: null }));
-    assert.equal(page.row("amount").querySelector('[data-testid="amounts-difference"]'), null);
+    assert.equal(totalWarning(page), null);
   } finally { await page.close(); }
 });
 
 test("a tax preview updates the closed calculated net using the server result", async () => {
   const page = await setup("fiscal", (dossier) => { dossier.net_amount = { amount: "1000.00", source: "calculated" }; }, () => ({
-    previewAmounts: async () => ({ net_amount: { amount: "980.00", source: "calculated" }, mismatch: null }),
+    previewAmounts: async () => ({ net_amount: { amount: "980.00", source: "calculated" }, mismatch: null, inheritance: {} }),
   }));
+  const net = () => page.row("net_amount").querySelector("[data-row-value]")?.textContent;
   try {
+    assert.equal(net(), "1,000.00");
     await page.openRow("itbis");
     await fill(page, '[data-testid="dossier-review-itbis"]', "200");
-    await page.wait(() => page.row("net_amount").textContent?.includes("980.00") === true);
-    assert.ok(page.row("net_amount").querySelector('[data-testid="amount-calculated"]'));
+    await page.wait(() => net() === "980.00");
+    assert.equal(page.row("net_amount").querySelector('[data-testid="row-status-net_amount"]')?.getAttribute("data-status"), "calculated");
     assert.equal(page.writes.length, 0);
     await page.dismiss("itbis");
-    assert.ok(page.row("net_amount").textContent?.includes("1,000.00"));
+    assert.equal(net(), "1,000.00");
   } finally { await page.close(); }
 });
 
 test("a failed amount preview retains the last warning instead of claiming a balanced receipt", async () => {
   let called = false;
-  const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }]; }, () => ({
+  const page = await setup("fiscal", (dossier) => { dossier.amounts_check = { state: "difference", difference: "20.00" }; }, () => ({
     previewAmounts: async () => { called = true; throw new Error("preview offline"); },
   }));
   try {
     await page.openRow("amount");
     await fill(page, '[data-testid="dossier-review-amount"]', "1201");
     await page.wait(() => called);
-    assert.equal(page.row("amount").querySelector('[data-testid="amounts-difference"]')?.textContent, "Diferencia 20.00");
+    await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+    assert.equal(totalWarning(page), "Diferencia 20.00");
     assert.equal(page.writes.length, 0);
   } finally { await page.close(); }
 });
 
 test("a preview shows only for the amounts it was computed from, and a failed one says the sum is checked on save", async () => {
   const requests: { resolve: (value: import("@/lib/business-api").BusinessAmountsPreview) => void; reject: (error: Error) => void }[] = [];
-  const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }]; }, () => ({
+  const page = await setup("fiscal", (dossier) => { dossier.amounts_check = { state: "difference", difference: "20.00" }; }, () => ({
     previewAmounts: async () => new Promise((resolve, reject) => { requests.push({ resolve, reject }); }),
   }));
-  const difference = () => page.row("amount").querySelector('[data-testid="amounts-difference"]')?.textContent;
-  const unavailable = () => page.row("amount").querySelector('[data-testid="amounts-unavailable"]');
   try {
     await page.openRow("amount");
     await fill(page, '[data-testid="dossier-review-amount"]', "1201");
     await page.wait(() => requests.length === 1);
     await page.act(async () => requests[0].resolve({ net_amount: { amount: "1000", source: "read" }, mismatch: null }));
-    assert.equal(difference(), undefined);
+    assert.equal(totalWarning(page), null);
     await fill(page, '[data-testid="dossier-review-amount"]', "1202");
-    assert.equal(difference(), "Diferencia 20.00");
+    assert.equal(totalWarning(page), "Diferencia 20.00");
     await page.wait(() => requests.length === 2);
     await page.act(async () => requests[1].reject(new Error("preview offline")));
-    assert.equal(difference(), "Diferencia 20.00");
-    assert.equal(unavailable()?.textContent, "Se revisa al guardar.", "the server checks the sum again when the person saves");
+    assert.equal(totalWarning(page), "Diferencia 20.00");
+    await fill(page, '[data-testid="dossier-review-amount"]', "1201");
+    assert.equal(totalWarning(page), null, "the answer for 1201 still stands");
+    await fill(page, '[data-testid="dossier-review-amount"]', "1203");
+    await page.wait(() => requests.length === 3);
+    await page.act(async () => requests[2].reject(new Error("preview offline")));
+    assert.equal(totalWarning(page), "Diferencia 20.00");
+    assert.equal(page.writes.length, 0);
+  } finally { await page.close(); }
+});
+
+test("a failed preview on balanced amounts says the sum is checked on save", async () => {
+  const requests: { reject: (error: Error) => void }[] = [];
+  const page = await setup("fiscal", (dossier) => { dossier.review_flags = []; }, () => ({
+    previewAmounts: async () => new Promise((_, reject) => { requests.push({ reject }); }),
+  }));
+  try {
+    await page.openRow("amount");
+    await fill(page, '[data-testid="dossier-review-amount"]', "1201");
+    assert.equal(totalWarning(page), null);
+    await page.wait(() => requests.length === 1);
+    await page.act(async () => requests[0].reject(new Error("preview offline")));
+    assert.equal(totalWarning(page), "Se revisa al guardar.", "the server checks the sum again when the person saves");
+    assert.equal(page.writes.length, 0);
+  } finally { await page.close(); }
+});
+
+test("Total facturado and ITBIS por adelantar follow the server's preview while an amount is open, and go back when it closes", async () => {
+  const stated = { billed_amount: "2923.73", itbis_advance: "526.27" };
+  const page = await setup("fiscal", (dossier) => { dossier.dgii_calculated = stated; }, () => ({
+    previewAmounts: async (_, __, input) => ({ net_amount: { amount: "980.00", source: "calculated", calculated: "980.00" }, mismatch: null, inheritance: {}, dgii_calculated: input.declaration ? { billed_amount: "1500.00", itbis_advance: "270.00" } : { billed_amount: "980.00", itbis_advance: "200.00" } }),
+  }));
+  const fiscal = page.host.querySelector<HTMLElement>('[data-testid="fiscal-declaration"]')!;
+  const shown = () => ["billed_total", "itbis_advance"].map((row) => fiscal.querySelector(`[data-fact="${row}"] [data-row-value]`)?.textContent);
+  try {
+    assert.deepEqual(shown(), ["2,923.73", "526.27"]);
+    await page.openRow("itbis");
+    await fill(page, '[data-testid="dossier-review-itbis"]', "200");
+    await page.wait(() => shown()[0] === "980.00");
+    assert.deepEqual(shown(), ["980.00", "200.00"], "a Montos row of General");
+    await page.dismiss("itbis");
+    assert.deepEqual(shown(), ["2,923.73", "526.27"]);
+
+    await page.act(async () => fiscal.querySelector<HTMLButtonElement>('[data-field="services_amount"] button[data-row-value]')!.click());
+    await fill(page, '[data-testid="fiscal-declaration-services_amount"]', "1500");
+    await page.wait(() => shown()[0] === "1,500.00");
+    assert.deepEqual(shown(), ["1,500.00", "270.00"], "a row of Datos fiscales");
     assert.equal(page.writes.length, 0);
   } finally { await page.close(); }
 });

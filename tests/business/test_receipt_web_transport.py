@@ -114,7 +114,7 @@ def test_web_request_uses_saved_owner_reading_permission_and_replays_once(
     assert again.json()["replayed"] is True
     listed = owner.get("/receipts").json()["items"]
     assert [receipt["id"] for receipt in listed] == [saved["id"]]
-    assert owner.get("/receipt-reading").json()["enabled"] is reading
+    assert owner.reading_status()["enabled"] is reading
 
 
 @pytest.mark.parametrize(

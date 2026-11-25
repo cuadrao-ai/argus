@@ -208,8 +208,8 @@ describe("Business hits open the panel that holds them", () => {
       media_type: "image/jpeg",
       size_bytes: 1,
       received_at: "2026-10-07T14:00:00Z",
-      status: "review_ready" as const,
-      bandeja_group: { group: "listo" as const, reason: null, draft_id: null, version: null },
+      status: "needs_attention" as const,
+      bandeja_group: { group: "listo" as const, reason: null, label: "ready" as const, draft_id: null, version: null },
       error_code: null,
       expense_id: null,
       merchant: null,
@@ -226,7 +226,9 @@ describe("Business hits open the panel that holds them", () => {
       ["IMG_2214.jpg", ImageIcon, "-"],
       ["factura.pdf", FileText, "-"],
     ]);
-    expect(receipts.hits[0].detail).toContain("Ready to review");
+    // The hit's status is set against its Bandeja label: the line says the label.
+    const spanish = await businessSearch({ expenses: [], receipts: [receipt], accounts: [] }, [], "es-419");
+    expect(spanish.groups.find((group) => group.id === "receipts")!.hits[0].detail).toStartWith("Listo para aceptar · ");
     expect(receipts.hits[0].badge).toBe("Receipt");
     receipts.hits[0].open?.();
     expect(opened).toEqual([{ kind: "receipt", receiptId: "rcpt-2", list: "inbox" }]);
@@ -241,8 +243,24 @@ describe("original note search", () => {
     const captures = groups.find((group) => group.id === "captures")!;
     assert.deepEqual(captures.hits.map((hit) => [hit.id, hit.title, hit.amount]), [["source-1", note.text, null], ["source-2", "Agrego el pago", null]]);
     assert.equal(captures.hits[1].badge, "Note");
+    assert.doesNotMatch(captures.hits[0].detail, /Revisi[oó]n/i, "a note's hit carries no revision number");
     captures.hits[1].open?.();
     assert.deepEqual(opened, [{ kind: "draft", draftId: "draft-1", list: "inbox" }]);
+  });
+  // The note's review state (open) is set against the label: the line says the label alone.
+  test.each([["reading", "Leyendo…"], ["cant_read", "No se pudo leer"], ["needs_attention", "Necesita atención"], ["ready", "Listo para aceptar"], ["accepted", "Aceptado"]] as const)("a note's hit says the server's Bandeja label: %s", async (label, word) => {
+    const note: BusinessCapture = { draft_id: "draft-1", version: 3, revision: 3, source_id: "source-1", text: "pintura sin recibo", received_at: "2026-10-10T14:00:00Z", review_state: "open", bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: "draft-1", version: 3 } };
+    const { groups } = await businessSearch({ expenses: [], receipts: [], accounts: [] }, [note], "es-419");
+    const parts = groups.find((group) => group.id === "captures")!.hits[0].detail.split(" · ");
+    expect(parts).toHaveLength(3);
+    expect(parts[2]).toBe(word);
+  });
+  test.each([["no label", { group: null, reason: null, label: null, draft_id: "draft-1", version: 3 }], ["no group", undefined]] as const)("a note's hit the server gave %s says no status", async (_name, bandeja_group) => {
+    const note: BusinessCapture = { draft_id: "draft-1", version: 3, revision: 3, source_id: "source-1", text: "pintura sin recibo", received_at: "2026-10-10T14:00:00Z", review_state: "open", bandeja_group };
+    const { groups } = await businessSearch({ expenses: [], receipts: [], accounts: [] }, [note], "es-419");
+    const detail = groups.find((group) => group.id === "captures")!.hits[0].detail;
+    expect(detail.split(" · ")).toHaveLength(2);
+    expect(detail).toStartWith("Nota original guardada · ");
   });
   test("notes outage preserves real records and a safe error without fake hits", async () => {
     const { groups } = await businessSearch({ expenses: [expense], receipts: [], accounts: [] }, new Error("private server details"));
@@ -260,18 +278,27 @@ describe("Tipo de gasto in the results", () => {
   const services = { code: "02", label: "Gastos por trabajos, suministros y servicios" };
   const receipt = { id: "rcpt-saved", channel: "web" as const, filename: "factura-7.pdf", media_type: "application/pdf", size_bytes: 1, received_at: "2026-10-07T14:00:00Z", status: "confirmed" as const, error_code: null, expense_id: "exp-7", merchant: "Imprenta Sol", occurred_on: "2026-10-07", amount: "500.00", currency: "DOP", category_id: null, account_id: null, attention: null, preparable: false, enterable: false };
 
-  test("each hit and its preview say the server's 606 answer as Registros does, and never Categoría", async () => {
+  test("an expense search hit and its preview still say Falta for an unanswered Tipo de gasto", async () => {
+    const missing = { ...expense, dgii_606: { expense_type: null, payment_form: null } };
+    const { groups } = await businessSearch({ expenses: [missing] }, [], "es-419");
+    const hit = groups.find(group => group.id === "expenses")!.hits[0];
+    expect(hit.detail).toContain("Falta");
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: es419 } } });
+    const preview = renderToStaticMarkup(<I18nextProvider i18n={i18n}>{hit.preview}</I18nextProvider>);
+    expect(preview.split("Tipo de gasto</dt><dd>")[1]?.split("</dd>")[0]).toContain("Falta");
+  });
+
+  test("each hit and its preview show the server's 606 answer and never Categoría", async () => {
     const typed = { ...expense, id: "exp-typed", dgii_606: { expense_type: services, payment_form: null } };
-    const missing = { ...expense, id: "exp-missing", dgii_606: { expense_type: null, payment_form: null } };
     const personal = { ...expense, id: "exp-personal", personal: true, dgii_606: null };
     const sale = { ...expense, id: "venta-1", receipt_id: null, dgii_606: null };
     const saved = { ...receipt, dgii_606: { expense_type: services, payment_form: null } };
     const pending = { ...receipt, id: "rcpt-pending", status: "review_ready" as const, expense_id: null, dgii_606: null };
-    const { groups } = await businessSearch({ expenses: [typed, missing, personal], ventas: [sale], receipts: [saved, pending], accounts: [] }, [], "es-419");
+    const { groups } = await businessSearch({ expenses: [typed, personal], ventas: [sale], receipts: [saved, pending], accounts: [] }, [], "es-419");
     const hits = (id: string) => groups.find((group) => group.id === id)!.hits;
-    const [typedHit, missingHit, personalHit] = hits("expenses");
+    const [typedHit, personalHit] = hits("expenses");
     expect(typedHit.detail).toContain(services.label);
-    expect(missingHit.detail).toContain("Falta");
     for (const hit of [personalHit, hits("ventas")[0]]) {
       expect(hit.detail).not.toContain("No aplica");
       expect(hit.detail).not.toContain("Falta");
@@ -282,15 +309,14 @@ describe("Tipo de gasto in the results", () => {
     await i18n.init({ lng: "es-419", fallbackLng: false, interpolation: { escapeValue: false }, resources: { "es-419": { translation: es419 } } });
     const html = (hit: { preview?: unknown }) => renderToStaticMarkup(<I18nextProvider i18n={i18n}>{hit.preview as React.ReactNode}</I18nextProvider>);
     const answer = (markup: string) => markup.split("Tipo de gasto</dt><dd>")[1]?.split("</dd>")[0] ?? null;
-    const shown = [typedHit, missingHit, personalHit, hits("ventas")[0], ...hits("receipts")].map(html);
+    const shown = [typedHit, personalHit, hits("ventas")[0], ...hits("receipts")].map(html);
     for (const markup of shown) expect(markup).not.toContain("Categoría");
     expect(answer(shown[0])).toContain(services.label);
-    expect(answer(shown[1])).toContain("Falta");
+    expect(answer(shown[1])).toContain("No aplica");
     expect(answer(shown[2])).toContain("No aplica");
-    expect(answer(shown[3])).toContain("No aplica");
-    expect(answer(shown[4])).toContain(services.label);
+    expect(answer(shown[3])).toContain(services.label);
     // A receipt still in review has no approved record: no Tipo de gasto yet.
-    expect(answer(shown[5])).toBeNull();
+    expect(answer(shown[4])).toBeNull();
   });
 });
 
@@ -305,6 +331,7 @@ describe("record preview in the results", () => {
     const html = (group: string) => renderToStaticMarkup(<I18nextProvider i18n={i18n}>{found.find((item) => item.id === group)!.hits[0].preview}</I18nextProvider>);
     assert.ok(html("expenses").includes("Ferretería La Esquina") && html("expenses").includes("RD$"));
     assert.ok(html("receipts").includes("factura-9.pdf"));
-    assert.ok(html("captures").includes("pintura sin recibo") && html("captures").includes("Revision 2"));
+    assert.ok(html("captures").includes("pintura sin recibo"));
+    assert.doesNotMatch(html("captures"), /Revisi[oó]n/i, "a note's preview carries no revision number");
   });
 });

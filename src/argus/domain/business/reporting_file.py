@@ -11,17 +11,18 @@ import io
 import json
 import unicodedata
 from calendar import monthrange
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import xlsxwriter
 from pydantic import model_validator
+from typing_extensions import assert_never
 
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
 from argus.domain.business.contracts.dgii import printed_date
@@ -37,8 +38,10 @@ from argus.domain.business.dgii_validation import (
 )
 from argus.domain.business.export import spreadsheet_cell
 from argus.domain.business.fiscal_identity import identity_digits
+from argus.domain.business.month_close import unreviewed_in_month
 from argus.domain.business.reporting_columns import (
     CURRENCY_LABEL,
+    RETIRED_COLUMNS,
     SPECS,
     FileColumn,
 )
@@ -102,6 +105,18 @@ class RecordsExport(Contract):
     currencies: Literal["all", "current"] = "all"
     format: Literal["xlsx", "csv"] = "xlsx"
 
+    @model_validator(mode="before")
+    @classmethod
+    def drop_retired_table_columns(cls, value: Any) -> Any:
+        if isinstance(value, dict) and value.get("mode") == "table":
+            columns = value.get("columns")
+            if isinstance(columns, (list, tuple)):
+                return {
+                    **value,
+                    "columns": [key for key in columns if key not in RETIRED_COLUMNS],
+                }
+        return value
+
     @model_validator(mode="after")
     def mode_choices(self) -> RecordsExport:
         if self.mode == "table":
@@ -151,15 +166,15 @@ class RncSupplier(Contract):
 
 
 class DgiiExport(Contract):
-    form: Literal["606", "607"]
+    form: Literal["606"]
     #: The one currency the form states; Revisar shows its pending records.
     currency: str = DECLARABLE_CURRENCY
     record_count: int
-    #: Every record the 606/607 holds back, for either reason below.
+    #: Every record the 606 holds back, for either reason below.
     pending_count: int
-    #: Pesos records the 606/607 holds for missing fiscal data.
+    #: Pesos records the 606 holds for missing fiscal data.
     pending_fiscal_count: int
-    #: Foreign-currency records the 606/607 holds until they have a rate.
+    #: Foreign-currency records the 606 holds until they have a rate.
     pending_rate_count: int
     pending_rate_currencies: tuple[str, ...]
     rnc_warning_count: int
@@ -170,7 +185,9 @@ class DgiiExport(Contract):
 
 class ExportPreview(Contract):
     table: TableExport
-    dgii: DgiiExport
+    dgii: DgiiExport | None
+    #: Documents the Bandeja still holds in the export's period, either tab.
+    bandeja_count: int
 
 
 @dataclass(frozen=True)
@@ -349,7 +366,11 @@ def summarize_export(
     *,
     business_name: str | None = None,
     locale: FileLocale = "es-419",
+    bandeja: Iterable[tuple[date, str | None]] = (),
 ) -> ExportPreview:
+    """``bandeja`` is the close day and currency of each draft the Bandeja
+    still lists, as ``unreviewed_days`` answers them."""
+
     def filenames(
         mode: Literal["table", "dgii"], dates: Sequence[date]
     ) -> ExportFileNames:
@@ -370,14 +391,21 @@ def summarize_export(
         )
 
     every = _with_currencies(request, "all")
-    dgii = _dgii_selection(source, request)
+    dgii = _dgii_selection(source, request) if _family(request) == "purchase" else None
+    period = resolve_period(request.filters.period, source.records, source.observed_at)
+    waiting = unreviewed_in_month(
+        ((day, "") for day, _ in bandeja),
+        period.from_date or date.min,
+        period.to_date or date.max,
+    )
     return ExportPreview(
+        bandeja_count=sum(waiting.values()),
         table=TableExport(
             current=selection(request, False),
             all=None if every is None else selection(every, True),
         ),
         dgii=DgiiExport(
-            form="607" if _family(request) == "sale" else "606",
+            form="606",
             record_count=len(dgii.lines),
             pending_count=len(dgii.pending_fiscal) + len(dgii.pending_rate),
             pending_fiscal_count=len(dgii.pending_fiscal),
@@ -391,16 +419,10 @@ def summarize_export(
             filenames=filenames(
                 "dgii", [record.occurred_on for record in _dgii_records(source, dgii)]
             ),
-        ),
+        )
+        if dgii is not None
+        else None,
     )
-
-
-def _missing_word(row: ReportRecord, locale: FileLocale) -> str:
-    if row.ready or not row.missing:
-        return ""
-    words = _WORDS[locale]["business.transactions.layout.workflow.missing"]
-    first = words.get(row.missing[0], words["detail_missing"])
-    return f"{first} +{len(row.missing) - 1}" if len(row.missing) > 1 else first
 
 
 def _dgii_word(
@@ -441,15 +463,13 @@ def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
     if key == "stage":
         state = "ready" if row.ready else "not_ready"
         return _WORDS[locale][f"business.transactions.layout.workflow.{state}"]
-    if key == "missing":
-        return _missing_word(row, locale)
     if key == "note":
         return row.note
     if key == "attachment":
         return _WORDS[locale]["common.yes" if row.has_document else "common.no"]
     if key in ("expense_type", "payment_form"):
         return _dgii_word(row, key, locale)
-    return row.funding_label
+    assert_never(key)
 
 
 def _period_name(start: date | None, end: date | None, separator: str) -> str:
@@ -590,11 +610,10 @@ def build_file(
     request = choice.report
     family = _family(request)
     if choice.mode == "dgii":
-        form = "607" if family == "sale" else "606"
-        columns = COLUMNS[form]
-        headers = (
-            _PURCHASE_HEADERS if form == "606" else tuple(label for _, label in columns)
-        )
+        if family == "sale":
+            raise ActionError("invalid_input", "business_export_dgii_sales_unavailable")
+        columns = COLUMNS["606"]
+        headers = _PURCHASE_HEADERS
         records = _dgii_records(source, _dgii_selection(source, request))
         rows = [
             [
@@ -602,14 +621,14 @@ def build_file(
                 for (name, _), value in zip(columns, line_values(record), strict=True)
                 for cell in (
                     (value[:6] or None, value[6:] or None)
-                    if form == "606" and name in _SPLIT_DATES
+                    if name in _SPLIT_DATES
                     else (_dgii_cell(name, value),)
                 )
             ]
             for record in records
         ]
         dates = [record.occurred_on for record in records]
-        sheet = form
+        sheet = "606"
     else:
         selected = _with_currencies(request, choice.currencies)
         if selected is None:
@@ -650,12 +669,17 @@ def preview_export(
     *,
     business_name: str | None = None,
     locale: FileLocale = "es-419",
+    bandeja: Callable[[], Iterable[tuple[date, str | None]]] = tuple,
 ) -> ExportPreview:
+    """``bandeja`` is read only once the grant has proven it exports."""
+
+    source = read_export_source(authority, context)
     return summarize_export(
-        read_export_source(authority, context),
+        source,
         request,
         business_name=business_name,
         locale=locale,
+        bandeja=bandeja(),
     )
 
 

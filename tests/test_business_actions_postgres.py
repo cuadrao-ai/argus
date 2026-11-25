@@ -21,6 +21,7 @@ from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_accept_support import expense_accept
 from tests.test_business_spaces_migration_postgres import space
 
 users = shared.users
@@ -293,11 +294,10 @@ def ready(service, context, *, owner_funds=False):
 
 @pytest.mark.owner_acts
 def test_human_approval_recovers_committed_money_once(actions, monkeypatch):
-    from argus.domain.business.contracts.actions import ApproveExpense
 
     service, context, _ = actions
     draft = ready(service, context)
-    request = ApproveExpense(version=1, action="record_expense")
+    request = expense_accept(service, context, draft)
     original = service.imports._write
 
     def interrupted(*args, **kwargs):
@@ -326,7 +326,6 @@ def test_human_approval_recovers_committed_money_once(actions, monkeypatch):
 
 
 def test_agent_cannot_approve_and_generic_review_cannot_bypass_history(actions):
-    from argus.domain.business.contracts.actions import ApproveExpense
     from argus.domain.ingestion.reconcile.model import ReconcileError
 
     service, context, _ = actions
@@ -336,7 +335,10 @@ def test_agent_cannot_approve_and_generic_review_cannot_bypass_history(actions):
     )
     assert (
         service.approve(
-            agent, draft, ApproveExpense(version=1, action="record_expense"), "agent"
+            agent,
+            draft,
+            expense_accept(service, agent, draft),
+            "agent",
         ).outcome
         == "permission_denied"
     )
@@ -385,7 +387,6 @@ def test_owner_uncertainty_escalates_question_without_inventing_answer(actions):
 
 @pytest.mark.owner_acts
 def test_approval_rechecks_grant_after_preview_before_claim(actions, users, monkeypatch):
-    from argus.domain.business.contracts.actions import ApproveExpense
 
     service, context, grant = actions
     draft = ready(service, context)
@@ -407,7 +408,10 @@ def test_approval_rechecks_grant_after_preview_before_claim(actions, users, monk
 
     monkeypatch.setattr(service.imports.money, "preview", revoke_after_preview)
     result = service.approve(
-        context, draft, ApproveExpense(version=1, action="record_expense"), "approve"
+        context,
+        draft,
+        expense_accept(service, context, draft),
+        "approve",
     )
     assert result.outcome == "not_found"
     with service.authority.pool.connection() as db:
@@ -427,11 +431,10 @@ def test_approval_rechecks_grant_after_preview_before_claim(actions, users, monk
 
 @pytest.mark.owner_acts
 def test_concurrent_approval_and_recorded_correction(actions):
-    from argus.domain.business.contracts.actions import ApproveExpense
 
     service, context, _ = actions
     draft = ready(service, context)
-    request = ApproveExpense(version=1, action="record_expense")
+    request = expense_accept(service, context, draft)
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(
             executor.map(
@@ -450,8 +453,13 @@ def test_concurrent_approval_and_recorded_correction(actions):
         ),
         "correct",
     )
-    assert correction.code == "recorded_correction_unsupported"
-    assert service.dossier(context, draft).history == view.history
+    assert correction.outcome == "applied", correction
+    corrected = service.dossier(context, draft)
+    assert corrected.review_state == "accepted"
+    assert corrected.approval_result == view.approval_result
+    assert corrected.facts.amount.value == "99"
+    assert corrected.history[:-1] == view.history
+    assert corrected.history[-1].after.amount == corrected.facts.amount
 
 
 def test_cross_client_source_and_account_are_not_found(actions, users):
@@ -820,7 +828,6 @@ def test_legacy_hand_entry_cannot_create_another_candidate_for_typed_receipt(act
 
 @pytest.mark.owner_acts
 def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatch):
-    from argus.domain.business.contracts.actions import ApproveExpense
     from argus.domain.recording.money_reads import current_activities
     from argus.domain.recording.schemas import account_response
 
@@ -834,7 +841,7 @@ def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatc
         )
     ]
     assert service.dossier(context, draft).approval_available
-    request = ApproveExpense(version=1, action="record_expense")
+    request = expense_accept(service, context, draft)
     original = money.write
 
     def interrupted(**kwargs):
@@ -929,7 +936,7 @@ def test_owner_workspace_uses_existing_live_membership(actions, monkeypatch):
     hub = SimpleNamespace(
         sink=service.imports, connections=SimpleNamespace(list=lambda **kwargs: [])
     )
-    documents = SimpleNamespace(hub=hub)
+    documents = SimpleNamespace(hub=hub, business_receipt_consent=None)
     app = FastAPI()
     app.state.financial_accounts_pool = service.authority.pool
     app.include_router(router)
@@ -961,10 +968,13 @@ def test_owner_workspace_uses_existing_live_membership(actions, monkeypatch):
             "invoicing_available",
         "notifications_available",
             "settlement_available",
+            "typed_notes_available",
             "receiving_channels",
             "receipt_limits",
+            "receipt_reading",
             "logo_url",
         }
+        assert response.json()["receipt_reading"] is None
         assert response.json()["chat_available"] is False
         assert [a["id"] for a in response.json()["accounts"]] == [account_ids[0]]
         assert response.headers["cache-control"] == "no-store"

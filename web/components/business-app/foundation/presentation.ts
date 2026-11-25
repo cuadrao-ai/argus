@@ -1,27 +1,11 @@
-import { CircleAlert, CircleCheck, Clock } from "lucide-react";
-import type { ReceptionTag } from "../recepcion/reception-status";
-
-export const BUSINESS_STATUS = {
-  approved: { labelKey: "business.status.pill_approved", label: "Aprobado", icon: CircleCheck, ink: "#2f5a49", surface: "#e3ebe1" },
-  pending: { labelKey: "business.status.pill_pending", label: "Pendiente", icon: Clock, ink: "#735c14", surface: "#f2e8c9" },
-  needs_attention: { labelKey: "business.status.pill_attention", label: "Necesita atención", icon: CircleAlert, ink: "#9e2f39", surface: "#f6dfe0" },
-} as const;
-
-export type BusinessStatusName = keyof typeof BUSINESS_STATUS;
-
 export const CANVAS = "#F7F5EE";
 export const LOADING_TRACK = "#7d8a84";
 export const MUTED_TEXT = "#56635e";
 export const CONFIRM_ACTION = "#9e2f39";
+export const ATTENTION_INK = "#9e2f39";
 /** The one keyboard focus ring for every Business button, dialogs included. */
 export const FOCUS_RING =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]";
-
-export function statusNameForTag(tag: ReceptionTag["tag"]): BusinessStatusName {
-  if (tag === "approved") return "approved";
-  if (tag === "attention") return "needs_attention";
-  return "pending";
-}
 
 function channel(hex: string, index: number): number {
   const value = Number.parseInt(hex.slice(1 + index * 2, 3 + index * 2), 16) / 255;

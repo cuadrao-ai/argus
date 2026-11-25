@@ -13,9 +13,12 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const PREVIEW_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPlkAAAAASUVORK5CYII=";
 const cleanups: (() => Promise<void>)[] = [];
 let restorePurged = false;
-afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; restorePurged = false; });
+// The Bandeja label the dossier serves; undefined leaves the sample's own.
+let dossierLabel: "needs_attention" | null | undefined;
+afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; restorePurged = false; dossierLabel = undefined; });
 
-async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false) {
+async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false, extra: (rows: { ready: ReceiptDetail; blurry: ReceiptDetail }) => ReceiptDetail[] = () => [], readingOff = false, typedNotes = false) {
+  window.history.replaceState(null, "", "/biz");
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -27,26 +30,29 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(role === "owner" ? null : "synthetic-role");
-  const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
+  const fixture = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: readingOff ? { disclosure_token: null } : undefined });
   const ready = await fixture.receipt("rcpt-ferreteria");
   const blurry = await fixture.receipt("rcpt-blurry");
   const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez", shown_as: "name" }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
   let dossierDeleted = true;
   let items: ReceiptDetail[] = [
-    { ...blurry, id: "attention", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
+    { ...blurry, id: "attention", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
     { ...ready, id: "ready", merchant: "Documento listo", delete_available: true, bandeja_group: { group: "listo", reason: null, draft_id: ready.draft_id, version: 1 } },
     { ...ready, id: "reading", merchant: "Documento leyendo", delete_available: false, bandeja_group: { group: "reading", reason: null, draft_id: null, version: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } },
-    { ...ready, id: "approved", merchant: "Documento aprobado", status: "confirmed", delete_available: false, bandeja_group: { group: null, reason: null, draft_id: null, version: null } },
+    { ...ready, id: "approved", merchant: "Documento aceptado", status: "confirmed", delete_available: false, bandeja_group: { group: null, reason: null, draft_id: null, version: null } },
     { ...(deletedDossier ? ready : blurry), id: "deleted", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } },
+    ...extra({ ready, blurry }),
   ];
+  const listed = items.filter(item => !item.deleted).length;
   let notes: BusinessCapture[] = Array.from({ length: noteCount }, (_, index) => ({ draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2, revision: 1, source_id: `note-source-${index}`, text: index === 50 ? "Documento antiguo" : index ? `Documento anotado ${index}` : "Documento anotado", received_at: new Date(Date.UTC(2026, 10, 12, 9) - index * 60_000).toISOString(), review_state: "dismissed", deleted: deletion, delete_available: false, restore_available: true, bandeja_group: { group: "eliminados", reason: null, draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2 } }));
-  const counts = (): ReceiptActivityCounts => ({ reading_count: 1, unread_count: 0, presentation: "none", pending_review_count: 3, needs_attention_count: 1, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 1, bandeja_eliminados_count: 11 });
+  const counts = (): ReceiptActivityCounts => ({ reading_count: 1, unread_count: 0, presentation: "none", pending_review_count: 3, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 1, bandeja_eliminados_count: 11 });
   const captureOffsets: number[] = [];
   const calls: { id: string; key: string }[] = [];
   const restores: string[] = [];
   const purges: { id: string; key: string }[] = [];
   const source: BusinessDataSource = {
     ...fixture,
+    workspace: async () => ({ ...await fixture.workspace(), typed_notes_available: typedNotes }),
     spaces: async () => (await fixture.spaces()).map(space => ({ ...space, role: role === "owner" ? "owner" : "accountant", business_role: role, grant_id: role === "owner" ? space.grant_id : "synthetic-role", capabilities: role === "owner" ? space.capabilities : role === "viewer" ? ["read"] : ["read", "prepare"] })),
     receipts: async view => view === "all" ? items : items.filter(item => !item.deleted),
     receiptPage: async view => ({ items: view === "all" ? items : items.filter(item => !item.deleted), activity: counts() }),
@@ -61,7 +67,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
         delete_available: !dossierDeleted, restore_available: dossierDeleted,
         approval_available: !dossierDeleted, approval_action: dossierDeleted ? null : current.approval_action,
         declaration_editable: !dossierDeleted, document_type_editable: !dossierDeleted,
-      } : { ...current, delete_available: true, restore_available: false };
+      } : { ...current, delete_available: true, restore_available: false, ...(dossierLabel === undefined ? {} : { bandeja_group: { group: "attention" as const, reason: "missing_ncf" as const, label: dossierLabel, draft_id: id, version: current.version } }) };
     },
     captures: async (_query, limit = 20, view, offset = 0) => {
       if (view === "eliminados") captureOffsets.push(offset);
@@ -75,14 +81,14 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
       calls.push({ id, key });
       if (failFirst && calls.length === 1) throw new Error("synthetic outage");
       items = items.map(item => item.id === id || item.draft_id === id ? { ...item, status: "dismissed", deleted: deletion, delete_available: false, restore_available: true, bandeja_group: { ...item.bandeja_group!, group: "eliminados" } } : item);
-      return { document_id: id, deleted: true };
+      return { document_id: id, deleted: true, inbox_counts: counts() };
     },
     purgeDocument: async (id, key) => {
       purges.push({ id, key });
       if (failFirst && purges.length === 1) throw new Error("synthetic outage");
       items = items.filter(item => item.id !== id);
       notes = notes.filter(note => note.draft_id !== id);
-      return { document_id: id, deleted: true };
+      return { document_id: id, deleted: true, inbox_counts: counts() };
     },
     restoreDocument: async id => {
       restores.push(id);
@@ -93,7 +99,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
       dossierDeleted = false;
       notes = notes.map(note => note.draft_id === id ? { ...note, review_state: "open", deleted: null, delete_available: true, restore_available: false, bandeja_group: { ...note.bandeja_group!, group: "attention" } } : note);
       items = items.map(item => item.id === id || item.draft_id === id ? { ...item, status: "needs_attention", deleted: null, delete_available: true, restore_available: false, bandeja_group: { ...item.bandeja_group!, group: "attention" } } : item);
-      return { document_id: id, deleted: false };
+      return { document_id: id, deleted: false, inbox_counts: counts() };
     },
   };
   const i18n = i18next.createInstance();
@@ -110,7 +116,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   };
   await act(async () => api!.openPanel({ kind: "inbox" }));
   await wait(() => api!.chosen !== null && api!.records.receiptActivity?.bandeja_eliminados_count === 11);
-  await wait(() => document.querySelectorAll('[data-testid="reception-row"]').length === 4);
+  await wait(() => document.querySelectorAll('[data-testid="reception-row"]').length === listed);
   const click = async (element: HTMLElement | null) => { assert.ok(element); await act(async () => element!.click()); };
   const button = (label: string, within: ParentNode = document) => [...within.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === label) ?? null;
   return { act, wait, click, button, calls, restores, purges, captureOffsets, source, items, api: () => api! };
@@ -136,6 +142,31 @@ test("trash belongs only to the server attention row and only the owner", async 
   }
 });
 
+test("a held receipt keeps the size button enabled and names its delete action in both sizes", async () => {
+  const page = await mount("owner", false, 0, false, ({ blurry }) => [{
+    ...blurry, id: "held", attention: "read_budget_day", delete_available: true,
+    bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null },
+  }]);
+  await page.act(async () => page.api().openPanel({ kind: "receipt", receiptId: "held", list: "inbox" }));
+  await page.wait(() => !!document.querySelector('[data-testid="dossier-size"]'));
+  const size = document.querySelector<HTMLButtonElement>('[data-testid="dossier-size"]')!;
+  const discard = () => document.querySelector<HTMLButtonElement>('[data-testid="receipt-review-footer"] button[aria-label="Eliminar documento"]');
+  assert.equal(size.disabled, false);
+  assert.equal(discard()?.textContent, "Eliminar documento");
+  await page.click(size);
+  assert.equal(discard()?.textContent, "");
+  assert.ok(discard()?.querySelector("svg"));
+});
+
+test("the row trash follows the server's delete_available: a read the limit holds keeps it, a read in progress and an approval in flight do not", async () => {
+  await mount("owner", false, 0, false, ({ ready, blurry }) => [
+    { ...blurry, id: "held", merchant: "Documento retenido", filename: "Documento retenido", status: "needs_attention", attention: "read_budget_day", delete_available: true, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } },
+    { ...ready, id: "accepting", merchant: "Documento aceptandose", delete_available: false, bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } },
+  ]);
+  const trash = () => [...document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Eliminar "]')].map(node => node.getAttribute("aria-label"));
+  assert.deepEqual(trash().sort(), ["Eliminar Documento equivocado", "Eliminar Documento retenido"]);
+});
+
 test("a Todos row puts Abrir next to its content and the trash last, at the far right", async () => {
   await mount();
   const row = [...document.querySelectorAll('[data-testid="reception-row"]')].find(node => node.textContent?.includes("Documento equivocado"))!;
@@ -157,6 +188,24 @@ test("delete asks with facts, starts on Cancel and Escape returns to the row", a
   await page.wait(() => !document.querySelector('[role="alertdialog"]'));
   assert.equal(page.calls.length, 0);
   assert.equal(document.activeElement, trash);
+});
+
+// The row's status and group are set against the label: the dialog reads the label alone.
+for (const [label, word] of [["reading", "Leyendo…"], ["cant_read", "No se pudo leer"], ["needs_attention", "Necesita atención"], ["ready", "Listo para aceptar"], ["accepted", "Aceptado"]] as const) {
+  test(`the row's delete dialog names the server's Bandeja label: ${label}`, async () => {
+    const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "labelled", merchant: "Documento rotulado", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: null, version: null } }]);
+    await page.click(document.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Documento rotulado"]'));
+    await page.wait(() => !!document.querySelector('[role="alertdialog"]'));
+    const state = [...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dl > div')].find(row => row.querySelector("dt")?.textContent === "Estado");
+    assert.equal(state?.querySelector("dd")?.textContent, word);
+  });
+}
+
+test("a row the server gave no label has no Estado line: the web makes up no word", async () => {
+  const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "unlabelled", merchant: "Documento sin rótulo", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label: null, draft_id: null, version: null } }]);
+  await page.click(document.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Documento sin rótulo"]'));
+  await page.wait(() => !!document.querySelector('[role="alertdialog"]'));
+  assert.deepEqual([...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dt')].map(term => term.textContent), ["Contraparte", "Fecha", "Total", "Archivo"]);
 });
 
 test("Ver documento opens the existing review and pins the confirmation bar", async () => {
@@ -182,8 +231,18 @@ test("Más offers deletion for a ready document with the same dialog and no view
   assert.equal(page.button("Ver documento", dialog), null);
 });
 
-test("Más is one menu: Agregar nota, then Personal, then Eliminar documento last in red, a line between groups, every row 44px with its icon", async () => {
+test("Más leaves Agregar nota out while the workspace reports typed notes off", async () => {
   const page = await mount();
+  const ready = await page.source.receipt("ready");
+  await page.act(async () => page.api().openPanel({ kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
+  await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
+  await page.click(document.querySelector<HTMLButtonElement>('[data-testid="receipt-more"] > button'));
+  const rows = [...document.getElementById("receipt-more-panel")!.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]')];
+  assert.deepEqual(rows.map(row => row.firstChild?.nextSibling?.textContent), ["PersonalNo cuenta en los totales del negocio.", "VentaPásalo al Reporte 607.", "Eliminar documento"]);
+});
+
+test("Más is one menu: Agregar nota, then Personal and Venta, then Eliminar documento last in red, a line between groups, every row 44px with its icon", async () => {
+  const page = await mount("owner", false, 0, false, () => [], false, true);
   const ready = await page.source.receipt("ready");
   await page.act(async () => page.api().openPanel({ kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
   await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
@@ -192,23 +251,23 @@ test("Más is one menu: Agregar nota, then Personal, then Eliminar documento las
   await page.click(trigger);
   const menu = document.getElementById("receipt-more-panel")!;
   assert.equal(menu.getAttribute("role"), "menu");
-  assert.deepEqual([...menu.children].map(node => node.getAttribute("role")), ["menuitem", "separator", "menuitemcheckbox", "separator", "menuitem"]);
+  assert.deepEqual([...menu.children].map(node => node.getAttribute("role")), ["menuitem", "separator", "menuitemcheckbox", "menuitemcheckbox", "separator", "menuitem"]);
   const rows = [...menu.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]')];
-  assert.deepEqual(rows.map(row => row.firstChild?.nextSibling?.textContent), ["Agregar nota", "PersonalNo cuenta en los totales del negocio.", "Eliminar documento"]);
+  assert.deepEqual(rows.map(row => row.firstChild?.nextSibling?.textContent), ["Agregar nota", "PersonalNo cuenta en los totales del negocio.", "VentaPásalo al Reporte 607.", "Eliminar documento"]);
   for (const row of rows) {
     assert.ok(row.className.includes("min-h-11"), `${row.textContent} is 44px high`);
     assert.equal(row.firstElementChild?.tagName.toLowerCase(), "svg", `${row.textContent} starts with its icon`);
   }
-  assert.ok(rows[2].className.includes("text-[#9e2f39]"), "delete reads red");
+  assert.ok(rows[3].className.includes("text-[#9e2f39]"), "delete reads red");
   assert.equal(document.activeElement, rows[0], "opening the menu focuses its first row");
   await page.act(async () => { rows[0].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
   assert.equal(document.activeElement, rows[1], "arrow keys walk the rows");
   await page.act(async () => { rows[1].dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })); });
-  assert.equal(document.activeElement, rows[2]);
-  await page.act(async () => { rows[2].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
+  assert.equal(document.activeElement, rows[3]);
+  await page.act(async () => { rows[3].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
   assert.equal(document.activeElement, rows[0], "and wrap around");
   assert.ok(!/Pendiente del contador|Esperando al contable|Sin responder/.test(menu.textContent ?? ""), menu.textContent ?? "");
-  await page.click(rows[2]);
+  await page.click(rows[3]);
   assert.ok(document.querySelector('[role="alertdialog"]'), "delete still asks first");
   assert.equal(page.calls.length, 0);
 });
@@ -231,7 +290,7 @@ test("Eliminados uses the server count, lists provenance and restores with a Ver
   assert.match(tab.textContent ?? "", /11/);
   await page.click(tab);
   const row = document.querySelector('[data-testid="deleted-document-row"]')!;
-  assert.match(row.textContent ?? "", /Documento eliminado.*Necesitan atención.*María Pérez/);
+  assert.match(row.textContent ?? "", /Documento eliminado.*Por resolver.*María Pérez/);
   await page.click(page.button("Restaurar", row));
   await page.wait(() => !document.querySelector('[data-testid="deleted-document-row"]'));
   assert.deepEqual(page.restores, ["deleted"]);
@@ -326,7 +385,7 @@ for (const kind of ["draft", "receipt"] as const) {
     const fields = document.querySelector('[data-testid="receipt-current-facts"]');
     assert.ok(frame);
     assert.ok(fields);
-    assert.equal(page.button("Aprobar")?.disabled, true);
+    assert.equal(page.button("Aceptar")?.disabled, true);
     assert.equal(fields.querySelector('button[aria-label^="Editar detalles"]'), null);
 
     await page.click(page.button("Restaurar"));
@@ -334,14 +393,48 @@ for (const kind of ["draft", "receipt"] as const) {
     assert.equal(page.button("Restaurar") === null, true, "Restaurar must disappear after the current dossier reloads");
     assert.equal(document.querySelector('[data-testid="business-record-review"]'), frame);
     assert.equal(page.api().panel.kind, kind);
-    assert.equal(page.button("Aprobar")?.disabled, false);
+    assert.equal(page.button("Aceptar")?.disabled, false);
     assert.ok(fields.querySelector('button[aria-label^="Editar detalles"]'));
     await page.click(page.button("Ver", document.querySelector('[data-testid="toast-viewport"]')!));
     assert.equal(document.querySelector('[data-testid="business-record-review"]'), frame);
     assert.equal(page.button("Restaurar"), null);
-    assert.equal(page.button("Aprobar")?.disabled, false);
+    assert.equal(page.button("Aceptar")?.disabled, false);
     await page.click(fields.querySelector<HTMLButtonElement>('button[aria-label^="Editar detalles"]'));
     assert.ok(fields.querySelector('[data-row-open]'));
+  });
+}
+
+// The dossier's delete dialog follows the row's rule: the server's label or no Estado line at all.
+for (const kind of ["draft", "receipt"] as const) {
+  for (const [label, terms, word] of [["needs_attention", ["Emisor", "Fecha", "Total", "Archivo", "Estado"], "Necesita atención"], [null, ["Emisor", "Fecha", "Total", "Archivo"], undefined]] as const) {
+    test(`the ${kind} dossier delete dialog reads the server's Bandeja label alone: ${label ?? "none sent"}`, async () => {
+      dossierLabel = label;
+      const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "labelled", merchant: "Documento rotulado", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: ready.draft_id, version: 1 } }]);
+      const ready = await page.source.receipt("labelled");
+      await page.act(async () => page.api().openPanel(kind === "receipt"
+        ? { kind: "receipt", receiptId: ready.id, list: "inbox" }
+        : { kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
+      await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
+      await page.click(document.querySelector('[data-testid="receipt-more"] > button'));
+      await page.click(document.querySelector('[data-testid="delete-document-menu"]'));
+      const rows = [...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dl > div')];
+      assert.deepEqual(rows.map(row => row.querySelector("dt")?.textContent), terms);
+      assert.equal(rows.find(row => row.querySelector("dt")?.textContent === "Estado")?.querySelector("dd")?.textContent, word);
+    });
+  }
+}
+
+for (const [label, word] of [["cant_read", "No se pudo leer"], [null, undefined]] as const) {
+  test(`a receipt with no draft opens its delete dialog on the server's Bandeja label alone: ${label ?? "none sent"}`, async () => {
+    const page = await mount("owner", false, 0, false, ({ blurry }) => [{ ...blurry, id: "undrafted", merchant: "Documento sin borrador", filename: "Documento sin borrador", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", label, draft_id: null, version: null } }]);
+    await page.act(async () => page.api().openPanel({ kind: "receipt", receiptId: "undrafted", list: "inbox" }));
+    const footerDelete = () => document.querySelector<HTMLButtonElement>('button[aria-label="Eliminar documento"]');
+    await page.wait(() => !!footerDelete());
+    await page.click(footerDelete());
+    const rows = [...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dl > div')];
+    assert.ok(rows.length);
+    assert.equal(rows.some(row => row.querySelector("dt")?.textContent === "Estado"), label !== null);
+    assert.equal(rows.find(row => row.querySelector("dt")?.textContent === "Estado")?.querySelector("dd")?.textContent, word);
   });
 }
 
@@ -383,20 +476,44 @@ test("Eliminados lines each row up with its headers: who on one line, when on it
   assert.equal(actions.querySelector('[data-testid="purge-document"]')!.textContent, "", "the hidden action is an icon at the far right, so showing it moves nothing");
 });
 
-test("Eliminados counts down to the server's purge day", async () => {
-  const { purgeDays } = await import("@/components/business-app/recepcion/ReceptionDeletedRow");
-  const now = new Date(2026, 10, 13, 9);
-  assert.equal(purgeDays(new Date(2026, 10, 20, 8).toISOString(), now), 7);
-  assert.equal(purgeDays(new Date(2026, 10, 14, 23).toISOString(), now), 1);
-  assert.equal(purgeDays(new Date(2026, 10, 13, 23).toISOString(), now), 0);
-  assert.equal(purgeDays(new Date(2026, 10, 12, 23).toISOString(), now), 0);
-  const page = await mount();
+test("the reading notice keeps its place on Eliminados, so the list under it does not move between tabs", async () => {
+  const page = await mount("owner", false, 0, false, () => [], true);
+  const notice = () => document.querySelector('[data-testid="receipt-reading-notice"]');
+  await page.wait(() => !!notice());
+  const onTodos = notice();
   await page.click(document.getElementById("reception-tab-eliminados"));
-  const countdown = document.querySelector('[data-testid="purge-countdown"]')!;
-  assert.equal(countdown.getAttribute("datetime"), "2026-11-19T10:00:00Z");
-  const days = purgeDays("2026-11-19T10:00:00Z");
-  assert.equal(countdown.textContent, days > 0 ? `Borrado definitivo en ${days} ${days === 1 ? "día" : "días"}` : "Borrado definitivo hoy");
-  assert.match(document.body.textContent ?? "", /No cuentan en ningún total\. Se borran definitivamente 7 días después\./);
+  await page.wait(() => !!document.querySelector('[data-testid="deleted-document-row"]'));
+  assert.equal(notice(), onTodos, "the same notice stays mounted, with no second read of the setting");
+});
+
+test("Eliminados counts down on the server's calendar day and shows the date after it passes", async () => {
+  const { formatTimestamp } = await import("@/components/business-app/business-format");
+  function deadlineIn(days: number) {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    date.setHours(14, 5, 0, 0);
+    return date.toISOString();
+  }
+  const expired = deadlineIn(-1);
+  const entries = [
+    { id: "expired", purgeAt: expired, label: `Borrado definitivo el ${formatTimestamp(expired, "es-419")}`, restore: false, lastDay: false },
+    { id: "due-today", purgeAt: deadlineIn(0), label: "Borrado definitivo hoy", restore: true, lastDay: true },
+    { id: "future", purgeAt: deadlineIn(2), label: "Borrado definitivo en 2 días", restore: true, lastDay: false },
+  ];
+  const page = await mount("owner", false, 0, false, ({ blurry }) => entries.map(({ id, purgeAt, restore }) => ({
+    ...blurry, id, merchant: id, status: "dismissed", delete_available: false, restore_available: restore,
+    deleted: { actor: { actor_id: "ana", display_name: "Ana Peña", shown_as: "name" }, at: "2026-10-25T10:00:00Z", purge_at: purgeAt, key: id, previous_state: { state: "open", group: "attention" } },
+    bandeja_group: { group: "eliminados", reason: null, label: null, draft_id: null, version: null },
+  })));
+  await page.click(document.getElementById("reception-tab-eliminados"));
+  for (const { purgeAt, label, restore, lastDay } of entries) {
+    const time = document.querySelector(`time[datetime="${purgeAt}"]`);
+    assert.ok(time);
+    assert.equal(time.textContent, label);
+    assert.equal(time.getAttribute("data-last-day"), String(lastDay));
+    assert.equal(!!page.button("Restaurar", time.closest("li")!), restore);
+  }
+  assert.equal(document.querySelector('[data-testid="deleted-list-help"]')?.textContent, "No cuentan en ningún total. Cada documento indica cuándo se borra definitivamente.");
 });
 
 test("Borrar definitivamente asks without Estado, retries its key and leaves no undo", async () => {
@@ -428,7 +545,7 @@ test("Borrar definitivamente asks without Estado, retries its key and leaves no 
   assert.equal(page.purges[0].id, "deleted");
   assert.match(document.body.textContent ?? "", /Documento borrado definitivamente/);
   assert.equal(page.button("Deshacer"), null);
-  assert.match(document.body.textContent ?? "", /Los documentos que elimines quedan aquí 7 días\. Después se borran definitivamente\./);
+  assert.match(document.body.textContent ?? "", /Los documentos que elimines aparecerán aquí hasta que se borren definitivamente\./);
 });
 
 test("only the owner sees Borrar definitivamente", async () => {

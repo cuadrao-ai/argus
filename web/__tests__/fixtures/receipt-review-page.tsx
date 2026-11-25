@@ -17,7 +17,8 @@ export function registerReceiptReviewPage() {
   afterAll(async () => { await GlobalRegistrator.unregister(); });
 }
 
-export async function mount(overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({})) {
+/** `dgiiNames` draws each DGII list as the app does, through its one label owner. */
+export async function mount(overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({}), userId?: string, dgiiNames = false) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -30,8 +31,10 @@ export async function mount(overrides: (fixture: BusinessDataSource) => Partial<
   const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
+  const { dgiiChoiceLabel } = await import("@/lib/dgii-labels");
   const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
+  if (dgiiNames) i18n.use(dgiiChoiceLabel);
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false }, ...(dgiiNames ? { postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true } : {}) });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
   // The email's own document stands in for a receipt saved with reading off.
   const source = {
@@ -57,7 +60,7 @@ export async function mount(overrides: (fixture: BusinessDataSource) => Partial<
     root.render(
       <I18nextProvider i18n={i18n}>
         <BusinessConsentTestProvider accepted>
-          <BusinessWorkspaceProvider source={source as never}>
+          <BusinessWorkspaceProvider source={source as never} userId={userId}>
             <Probe />
           </BusinessWorkspaceProvider>
         </BusinessConsentTestProvider>
@@ -90,6 +93,9 @@ export async function mount(overrides: (fixture: BusinessDataSource) => Partial<
   return { act, root, host, wait, open, frame, source, i18n, api: () => api!, runShortcut };
 }
 
+/** A row whose save landed: back in read mode, with nothing working. A row says nothing more about a save. */
+export const landed = (row: Element) => !row.querySelector('[data-row-open], [aria-busy="true"], [data-testid="row-saving"]');
+
 export function button(host: Element, text: string) {
   const found = [...host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === text);
   assert.ok(found, `missing button ${text}`);
@@ -99,7 +105,7 @@ export function button(host: Element, text: string) {
 export type Dossier = Awaited<ReturnType<BusinessDataSource["dossier"]>>;
 
 /** A review page over the sample's own server, with every write it sends kept in order. */
-export async function setup(id: keyof typeof import("@/components/business-app/dossier-fixtures").dossierFixtureIds = "fiscal", change: (dossier: Dossier) => void = () => undefined, overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({})) {
+export async function setup(id: keyof typeof import("@/components/business-app/dossier-fixtures").dossierFixtureIds = "fiscal", change: (dossier: Dossier) => void = () => undefined, overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({}), dgiiNames = false) {
   const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
   const writes: { kind: string; version: number; body: unknown; key: string }[] = [];
   let approvals = 0;
@@ -110,11 +116,11 @@ export async function setup(id: keyof typeof import("@/components/business-app/d
     reviewPurchase: async (draft, version, purchase, key) => { writes.push({ kind: "purchase", version, body: purchase, key }); const next = await fixture.reviewPurchase(draft, version, purchase, key); change(next); return next; },
     approveDraft: async () => { approvals += 1; throw new Error("probe records the separate approval call"); },
     ...overrides(fixture),
-  }));
-  await page.open({ kind: "draft", draftId: dossierFixtureIds[id] }, () => Boolean(page.host.querySelector('[data-testid="receipt-current-facts"]') && page.host.querySelector('[data-testid="fiscal-declaration"] summary')));
-  await page.wait(() => Boolean(page.host.querySelector('[data-fact="category"] option') || !page.host.querySelector('[data-testid="receipt-facts-choices"]')));
+  }), undefined, dgiiNames);
+  await page.open({ kind: "draft", draftId: dossierFixtureIds[id] }, () => Boolean(page.host.querySelector('[data-testid="receipt-current-facts"]') && page.host.querySelector('[data-testid="fiscal-declaration"]')));
   const row = (name: string) => page.host.querySelector<HTMLElement>(`[data-fact="${name}"]`)!;
-  const open = async (name: string) => page.act(async () => row(name).querySelector<HTMLButtonElement>("button")!.click());
+  // A row opens from its value. The status slot before it can hold a button of its own.
+  const open = async (name: string) => page.act(async () => (row(name).querySelector<HTMLButtonElement>("button[data-row-value]") ?? row(name).querySelector<HTMLButtonElement>("button"))!.click());
   const leave = (selector: string) => page.act(async () => { page.host.querySelector<HTMLElement>(selector)!.blur(); await new Promise((resolve) => setTimeout(resolve, 10)); });
   const action = (name: string, label: "Guardar" | "Cancelar") => row(name).querySelector<HTMLButtonElement>(`button[aria-label^="${label} · "]`)!;
   const check = (name: string) => page.act(async () => action(name, "Guardar").click());
@@ -123,8 +129,8 @@ export async function setup(id: keyof typeof import("@/components/business-app/d
   return { ...page, writes, approvals: () => approvals, row, openRow: open, leave, action, check, dismiss, press, close: () => page.act(async () => page.root.unmount()) };
 }
 
-export async function fill(page: { host: Element; act: (run: () => Promise<void>) => Promise<void> }, selector: string, value: string, element: typeof HTMLInputElement | typeof HTMLSelectElement = HTMLInputElement) {
-  const input = page.host.querySelector<HTMLInputElement>(selector);
+export async function fill(page: { host: ParentNode; act: (run: () => Promise<void>) => Promise<void> }, selector: string, value: string, element: typeof HTMLInputElement | typeof HTMLSelectElement | typeof HTMLTextAreaElement = HTMLInputElement) {
+  const input = page.host.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(selector);
   assert.ok(input, selector);
   await page.act(async () => {
     input.focus();
@@ -133,3 +139,23 @@ export async function fill(page: { host: Element; act: (run: () => Promise<void>
   });
 }
 
+
+/** The server waits on the record's kind: the one state in which a purchase shows Compra/Venta. */
+export const kindAsked = (dossier: Dossier) => { dossier.questions = [{ id: "question-kind", draft_id: dossier.draft_id, field: "kind", asked_of: "accountant", channel: "web", state: "open", prompt: "", allowed_answers: ["known"], answer_source_id: null, created_at: "2026-10-10T14:22:00Z" }]; };
+
+type Host = { host: ParentNode; act: (run: () => Promise<void>) => Promise<void> };
+
+/** Opens a pick row's list, as a press on the row does, and returns its options. */
+export async function openList(page: Host, name: string) {
+  const trigger = page.host.querySelector<HTMLButtonElement>(`[data-fact="${name}"] button[aria-haspopup="listbox"]`);
+  assert.ok(trigger, `${name} opens no list`);
+  if (trigger.getAttribute("aria-expanded") !== "true") await page.act(async () => trigger.click());
+  return [...page.host.querySelectorAll<HTMLButtonElement>(`[data-fact="${name}"] [role="option"]`)];
+}
+
+/** Picks one option of a pick row. The pick saves at once: the row has no check. */
+export async function pick(page: Host, name: string, value: string) {
+  const option = (await openList(page, name)).find((item) => item.dataset.value === value);
+  assert.ok(option, `${name} offers no ${value}`);
+  await page.act(async () => option.click());
+}

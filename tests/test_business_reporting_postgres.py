@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.actions import ApproveExpense, MarkPersonal
+from argus.domain.business.contracts.actions import MarkPersonal
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.reporting import summarize
 from argus.domain.business.reporting_query import Purchase606
@@ -13,6 +13,7 @@ from argus.domain.business.reporting_store import read_recorded
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_export_postgres as export_tests
+from tests.business_accept_support import expense_accept
 from tests.test_business_dgii_postgres import approve, cash_account, reviewed
 from tests.test_business_spaces_migration_postgres import owned_space
 
@@ -35,7 +36,10 @@ def report(snapshot):
 def record_expense(service, context, *, owner_funds=False):
     draft = shared.ready(service, context, owner_funds=owner_funds)
     outcome = service.approve(
-        context, draft, ApproveExpense(version=1, action="record_expense"), str(uuid4())
+        context,
+        draft,
+        expense_accept(service, context, draft),
+        str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
     return draft, str(outcome.activity_id)
@@ -552,7 +556,7 @@ def record_personal_expense(service, context):
     outcome = service.approve(
         context,
         draft,
-        ApproveExpense(version=version + 1, action="record_expense"),
+        expense_accept(service, context, draft, version + 1),
         str(uuid4()),
     )
     assert outcome.outcome == "applied", outcome
@@ -569,7 +573,7 @@ def test_a_recorded_expense_without_an_ncf_needs_fiscal_data(actions):
     [row] = result.items
     assert (row.stage, row.export_missing, row.export_line) == (
         "needs_fiscal_data",
-        "ncf_missing",
+        "missing_ncf",
         False,
     )
     assert (result.overview.ready_for_export, result.overview.export_lines) == (0, 0)
@@ -791,8 +795,10 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
         ),
         payment_form=cash,
     )
-    assert answer.expense_types == (
-        DgiiChoice(code="02", label="Gastos por trabajos, suministros y servicios"),
+    from argus.domain.business.dgii_codes import EXPENSE_TYPES
+
+    assert [(choice.code, choice.label) for choice in answer.expense_types] == sorted(
+        EXPENSE_TYPES.items()
     )
     missing = read_report(
         service.authority,
@@ -960,7 +966,7 @@ def test_606_answers_never_reach_another_business_of_the_same_owner(actions):
         assert events == []
 
 
-def test_each_offered_document_kind_filter_matches_a_record_of_that_kind(actions):
+def test_legacy_document_kind_filter_keeps_records_of_every_kind(actions):
     from argus.domain.business.reporting_query import ReportRequest
     from argus.domain.business.reporting_store import read_report
 
@@ -974,15 +980,16 @@ def test_each_offered_document_kind_filter_matches_a_record_of_that_kind(actions
     assert refund.outcome == "applied", refund
     credit = refund.draft_id
     rows = read_report(service.authority, context, ReportRequest()).items
-    # The projection names only these two kinds; Registros offers exactly them.
+    # The projection retains each document kind for the report totals.
     assert {row.document_kind for row in rows} == {"credit_note", "unknown"}
-    for kind, drafts in (
-        ("credit_note", {str(credit)}),
-        ("unknown", {str(plain), str(purchase.draft_id)}),
-    ):
+    for kind in ("credit_note", "unknown"):
         answer = read_report(
             service.authority,
             context,
             ReportRequest(filters={"document_kinds": [kind]}),
         )
-        assert {row.draft_id for row in answer.items} == drafts, kind
+        assert {row.draft_id for row in answer.items} == {
+            str(credit),
+            str(plain),
+            str(purchase.draft_id),
+        }

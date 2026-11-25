@@ -101,6 +101,18 @@ def receipt(tx: ActionTransaction, key: str, command: Command) -> dict | None:
     return row
 
 
+def stored_action(tx: ActionTransaction, key: str) -> str | None:
+    """The action a key's receipt stored. A command built from state that can
+    move between attempts reads it first, so a retry builds the same command."""
+
+    rows = tx.rows(
+        "select command->>'action' as action from public.business_action_receipts"
+        " where space_id=%s and actor_id=%s and idempotency_key=%s",
+        (tx.context.actor.space_id, tx.context.actor.actor_id, key),
+    )
+    return rows[0]["action"] if rows else None
+
+
 def start_receipt(
     tx: ActionTransaction,
     key: str,

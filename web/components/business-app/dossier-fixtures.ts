@@ -1,6 +1,7 @@
-import type { BusinessAccount, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
-import { factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type RefundCandidate, type ShownSuggestions } from "@/lib/business-dossier";
+import type { BusinessAccount, BusinessApprovalOptions, BusinessCapture, BusinessCaptureInput, BusinessExpense, ReceiptDetail } from "@/lib/business-api";
+import { LISTO_GAPS, factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessDraftRevision, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type BusinessFunding, type BusinessMontosReview, type EditableDossierField, type ListoGap, type RefundCandidate } from "@/lib/business-dossier";
 import type { DgiiDeclaration, DgiiField, DgiiFields, DgiiReview, PurchaseChoice, SuggestedField, SuggestionSources } from "@/lib/business-dgii";
+import { noteGroup } from "./fixture-server-rules";
 
 const SUGGESTED: readonly SuggestedField[] = ["category", "payment_method"];
 /** A 606 answer still to give: none saved, or a tipo de gasto nobody confirmed. */
@@ -12,6 +13,45 @@ function keptSources(before: DgiiDeclaration | null | undefined, after: DgiiDecl
   delete next.suggestion_sources;
   return Object.keys(kept).length ? { ...next, suggestion_sources: kept } : next;
 }
+
+/**
+ * Where a sample record stands in the Bandeja, as the server states it: its
+ * label, every reason it is not in Listos, and the ones a person may accept
+ * over. Each record is given its standing. The sample copies no rule of
+ * `bandeja_group.py`: a write that would change a real record's reasons leaves
+ * a sample's as they were, and only an approval, which the sample answers
+ * itself, states the accepted one.
+ */
+type Standing = Required<Pick<BusinessDossier, "bandeja_group" | "listo_gaps" | "confirmable" | "missing" | "reasons">>;
+const LISTO: Standing = { bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [], missing: [], reasons: {} };
+const ACCEPTED: Standing = { bandeja_group: { group: null, reason: null, label: "accepted" }, listo_gaps: [], confirmable: [], missing: [], reasons: {} };
+const blocked = { field: null, words: "business.dossier.placeholder.gap.blocked.title" };
+const missingAmount = { field: "amount", words: "business.dossier.gap.missing_amount.title" };
+const sinComprobante = { sin_comprobante: { field: "ncf", words: "business.dossier.placeholder.gap.sin_comprobante.title" } };
+const receiptReasons: Readonly<Record<string, Standing["reasons"]>> = {
+  "rcpt-ferreteria": sinComprobante,
+  "rcpt-papeleria": sinComprobante,
+  "rcpt-falta-rnc": { missing_rnc: { field: "rnc", words: "business.transactions.layout.workflow.missing.missing_rnc" } },
+  "rcpt-falta-ncf": { missing_ncf: { field: "ncf", words: "business.transactions.layout.workflow.missing.missing_ncf" } },
+  "rcpt-remitente": { unverified_sender: { field: null, words: "business.dossier.placeholder.gap.unverified_sender.title" } },
+};
+const attention = (gaps: readonly ListoGap[], reasons: Standing["reasons"], confirmable: readonly ListoGap[] = []): Standing => ({ missing: [], reasons, bandeja_group: { group: "attention", reason: gaps[0], label: "needs_attention" }, listo_gaps: [...gaps], confirmable: [...confirmable] });
+/** The stand-in records that are not in Listos, each with the reasons the server would state for it. */
+const STAND_IN_STANDING: Partial<Record<string, Standing>> = {
+  unknown: attention(["blocked"], { blocked }),
+  unknownAmount: attention(["missing_amount", "blocked"], { missing_amount: missingAmount, blocked }),
+  income: attention(["blocked"], { blocked }),
+  unknownKind: attention(["blocked"], { blocked }),
+};
+
+/**
+ * What the server states for a regular purchase whose amounts it has not
+ * checked: no note, and Tipo de ID follows the RNC. Each sample record states
+ * these fields as the server would for it. No write here works one out.
+ */
+const STATED_PURCHASE: Required<Pick<BusinessDossier, "amounts_check" | "note_kind" | "source_owned_fields">> = { amounts_check: { state: "unchecked" }, note_kind: null, source_owned_fields: ["id_type"] };
+/** What the server states for a sample receipt's draft, given whole by the sample's data. */
+export type StatedDraft = Partial<Pick<BusinessDossier, "net_amount" | "amounts_check" | "dgii" | "inheritance" | "dgii_calculated" | "declaration_suggestions" | "review_flags">>;
 
 export const dossierFixtureIds = {
   unknown: "10000000-0000-4000-8000-000000000001",
@@ -47,7 +87,6 @@ export const dossierFixtureIds = {
 
 export const EXPENSE_TYPES: Record<string, string> = { "01": "Gastos de personal", "02": "Gastos por trabajos, suministros y servicios", "03": "Arrendamientos", "04": "Gastos de activos fijo", "05": "Gastos de representación", "06": "Otras deducciones admitidas", "07": "Gastos financieros", "08": "Gastos extraordinarios", "09": "Compras y gastos que formarán parte del costo de venta", "10": "Adquisiciones de activos", "11": "Gastos de seguros" };
 export const PAYMENT_FORMS: Record<string, string> = { "01": "Efectivo", "02": "Cheques/transferencias/depósito", "03": "Tarjeta crédito/débito", "04": "Compra a crédito", "05": "Permuta", "06": "Nota de crédito", "07": "Mixto" };
-const SERVICE_EXPENSE_TYPES = new Set(["02", "03", "07", "11"]);
 const sampleField = (name: string, label: string, kind: DgiiField["kind"] = "money", options: string[] = [], labels: Record<string, string> = {}): DgiiField => ({ name, label, kind, options, labels });
 const SAMPLE_DGII_FIELDS: DgiiFields = {
   "606": [
@@ -68,6 +107,9 @@ const SAMPLE_DGII_FIELDS: DgiiFields = {
     sampleField("cash", "Efectivo"), sampleField("bank", "Cheque/ Transferencia/ Depósito"), sampleField("card", "Tarjeta Débito/Crédito"), sampleField("credit", "Venta a Crédito"), sampleField("gift", "Bonos o Certificados de Regalo"), sampleField("barter", "Permuta"), sampleField("other_payment", "Otras Formas de Ventas"),
   ],
 };
+/** The buckets of a sale's payment split, as the server's 607 names them. */
+const SALE_PAYMENT_FORMS = ["cash", "bank", "card", "credit", "gift", "barter", "other_payment"] as const;
+const blank607 = (): DgiiDeclaration => ({ ...Object.fromEntries(SAMPLE_DGII_FIELDS["607"].filter(({ name }) => !["rnc", "ncf", "itbis"].includes(name)).map(({ name }) => [name, null])), form: "607" });
 const printedIdentifier = (value: string | null) => value === null ? null : value.trim().replace(/(?<=[0-9])[-\s]+(?=[0-9])/g, "").toUpperCase();
 
 const sourceId = "20000000-0000-4000-8000-000000000001";
@@ -120,6 +162,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       blockers: ready ? name === "unknownKind" ? [{ code: "missing_fields", field: "kind" }] : name === "income" ? [{ code: "unsupported_kind", field: "kind" }] : [] : [{ code: "unknown_funding", field: "funding" }, ...(name === "unknownAmount" ? [{ code: "missing_fields", field: "amount" as const }] : [])],
       approval_available: ready && name !== "readOnly" && name !== "income" && name !== "unknownKind",
       approval_result: null,
+      ...STATED_PURCHASE,
+      ...(STAND_IN_STANDING[name] ?? LISTO),
     });
   }
   const fiscalDossier = dossiers.get(dossierFixtureIds.fiscal)!;
@@ -139,11 +183,11 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     { name: "qr_matches_read", state: "verified", code: null, detail: {}, read_vs_qr: { rnc: { read: "131999888", qr: "131999888" }, ecf: { read: "E310000000777", qr: "E310000000777" } } },
   ] };
   const fiscalQr: BusinessDossier["dgii_qr"] = { url: "https://ecf.dgii.gov.do/ecf/consultatimbre?RncEmisor=131999888&ENCF=E310000000777&MontoTotal=3450.00&CodigoSeguridad=AbC123", host: "ecf.dgii.gov.do", rnc_emisor: "131999888", encf: "E310000000777", monto_total: "3450.00", codigo_seguridad: "AbC123", fecha_emision: "2026-10-09", fecha_firma: null, rnc_comprador: null };
-  dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, declaration_suggestions: { category: { value: "02", source: "last_choice" }, payment_method: { value: "03", source: "last_choice" } }, fiscal_value: "ncf", ecf_checks: fiscalChecks, ecf_checks_panel_available: true, dgii_qr: fiscalQr, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo vía Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
+  dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, net_amount: { amount: "2923.73", source: "calculated" }, amounts_check: { state: "adds_up" }, declaration_suggestions: { category: { value: "02", source: "last_choice" }, payment_method: { value: "03", source: "last_choice" } }, fiscal_value: "ncf", ecf_checks: fiscalChecks, ecf_checks_panel_available: true, dgii_qr: fiscalQr, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo vía Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
   const fiscalSample = dossiers.get(fiscalDossier.draft_id)!;
   dossiers.set(dossierFixtureIds.saveRefused, { ...fiscalSample, draft_id: dossierFixtureIds.saveRefused });
-  dossiers.set(dossierFixtureIds.fiscalBlocked, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalBlocked, facts: { ...fiscalAfter, occurred_on: unknown() }, blockers: [{ code: "fact_required", field: "occurred_on" }], approval_available: false });
-  dossiers.set(dossierFixtureIds.noCurrency, { ...fiscalSample, draft_id: dossierFixtureIds.noCurrency, facts: { ...fiscalAfter, currency: unknown() }, blockers: [{ code: "fact_required", field: "currency" }], approval_available: false });
+  dossiers.set(dossierFixtureIds.fiscalBlocked, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalBlocked, facts: { ...fiscalAfter, occurred_on: unknown() }, blockers: [{ code: "fact_required", field: "occurred_on" }], approval_available: false, ...attention(["missing_date"], { missing_date: { field: "occurred_on", words: "business.transactions.layout.workflow.missing.missing_date" } }) });
+  dossiers.set(dossierFixtureIds.noCurrency, { ...fiscalSample, draft_id: dossierFixtureIds.noCurrency, facts: { ...fiscalAfter, currency: unknown() }, blockers: [{ code: "fact_required", field: "currency" }], approval_available: false, ...attention(["missing_currency"], { missing_currency: { field: "currency", words: "business.dossier.placeholder.gap.missing_currency.title" } }) });
   dossiers.set(dossierFixtureIds.fiscalAttached, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalAttached, sources: [{ id: sourceId, kind: "attachment", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", connection_id: "rcpt-ferreteria", filename: "recibo-ferreteria.jpg", media_type: "image/jpeg" }] });
   dossiers.set(dossierFixtureIds.totalsOff, { ...fiscalSample, draft_id: dossierFixtureIds.totalsOff, ecf_checks: { ...fiscalChecks, checks: fiscalChecks.checks.map((check) => check.name === "totals_arithmetic" ? { ...check, state: "failed" as const, code: "totals_mismatch", detail: { monto_total: "3450.00", sum_of_parts: "3449.00" } } : check) } });
   const declaredSourceId = "20000000-0000-4000-8000-000000000020";
@@ -159,7 +203,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const elena: BusinessActor = { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" };
   const personalSourceId = "20000000-0000-4000-8000-000000000016";
   const personalFacts: BusinessFacts = { ...marked.facts, business_share: { state: "known", value: { kind: "none" }, origin: "member_set", verified: true, source_ids: [personalSourceId] } };
-  dossiers.set(marked.draft_id, { ...marked, version: 4, review_state: "accepted", approval_available: false, reopen_available: true, personal: true, personal_marked_by: { display_name: elena.display_name, email: null, shown_as: "name" }, facts: personalFacts, sources: [...marked.sources, { id: personalSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T15:05:00Z", text: JSON.stringify({ version: 3, personal: true }) }], history: [...marked.history, { draft_id: marked.draft_id, version: 4, actor: elena, before: marked.facts, after: personalFacts, source_ids: [personalSourceId], turn_key: null, created_at: "2026-10-10T15:05:00Z" }], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000002", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor } });
+  dossiers.set(marked.draft_id, { ...marked, ...ACCEPTED, version: 4, review_state: "accepted", approval_available: false, personal: true, personal_marked_by: { display_name: elena.display_name, email: null, shown_as: "name" }, facts: personalFacts, sources: [...marked.sources, { id: personalSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T15:05:00Z", text: JSON.stringify({ version: 3, personal: true }) }], history: [...marked.history, { draft_id: marked.draft_id, version: 4, actor: elena, before: marked.facts, after: personalFacts, source_ids: [personalSourceId], turn_key: null, created_at: "2026-10-10T15:05:00Z" }], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000002", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor } });
   // The three gates the server serves on a dossier, by the rules its actions enforce. The sample's
   // owner holds approve, so a prepare-holder without it stands in for the accountant.
   const approvalActions: Record<string, BusinessApprovalAction> = { expense: "record_expense", income: "record_income", refund: "record_refund" };
@@ -178,9 +222,22 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       .slice(0, 20)
       .map((other) => ({ id: other.approval_result?.status === "recorded" ? other.approval_result.activity_id : other.draft_id, merchant: other.facts.counterparty.value, occurred_on: other.facts.occurred_on.value ?? "", amount: other.facts.amount.value ?? "", currency: money.value }));
   };
-  const declarationEditable = (draft: BusinessDossier) => draft.capabilities.includes("prepare") && (draft.review_state === "open" || draft.review_state === "accepted") && draft.facts.kind.value !== "income";
-  const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates" | "declaration_editable" | "declaration_suggestions"> => ({
-    declaration_editable: declarationEditable(draft),
+  const factsEditable = (draft: BusinessDossier) => !draft.deleted && draft.capabilities.includes("prepare") && (draft.review_state === "open" || (draft.review_state === "accepted" && draft.capabilities.includes("approve")));
+  const declarationEditable = (draft: BusinessDossier) => factsEditable(draft) && draft.facts.kind.value !== "income";
+  const editableFields = (draft: BusinessDossier): EditableDossierField[] => {
+    if (!factsEditable(draft)) return [];
+    const fields: EditableDossierField[] = ["kind", "amount", "occurred_on", "counterparty", "funding", "business_share", "receipt_state", "category_id", "rnc", "fiscal_number", "itbis", "net_amount", "legal_tip", "document_type", "due_on", "modified_ncf"];
+    if (draft.review_state === "open" || (draft.facts.kind.value === "expense" && draft.dgii?.actual_refund === true)) fields.push("actual_refund");
+    if (draft.review_state === "open" || draft.facts.funding.value?.kind !== "business_account") fields.push("currency");
+    return fields;
+  };
+  const isSale = (draft: BusinessDossier) => draft.document_type === "venta";
+  const paidForms = (draft: BusinessDossier) => SALE_PAYMENT_FORMS.filter((name) => Number(draft.dgii?.[name] ?? 0) > 0);
+  const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates" | "declaration_editable" | "declaration_suggestions" | "payment_split_editable" | "sale_payment"> => ({
+    declaration_editable: declarationEditable(draft) && !isSale(draft),
+    payment_split_editable: factsEditable(draft) && isSale(draft),
+    // The one form a sale was paid in: the only bucket of its split, when it holds the whole total.
+    sale_payment: isSale(draft) ? { form: paidForms(draft).length === 1 && draft.facts.amount.state === "known" && Number(draft.dgii?.[paidForms(draft)[0]]) === Number(draft.facts.amount.value) ? paidForms(draft)[0] : null, options: [...SALE_PAYMENT_FORMS] } : null,
     // The server offers a suggestion only for an answer the record lacks.
     // Only on an open expense, whose approval saves it, and only for an answer the record lacks.
     declaration_suggestions: Object.fromEntries(SUGGESTED.map((field) => [field, declarationEditable(draft) && draft.review_state === "open" && draft.facts.kind.value === "expense" && blankAnswer(draft.dgii, field) ? draft.declaration_suggestions?.[field] ?? null : null])),
@@ -189,35 +246,73 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     refund_candidates: refundCandidates(draft),
   });
   const reviewReceipts = new Map<string, { input: string; result: BusinessDossier }>();
-  const fail = (status: number, code: string): never => { throw Object.assign(new Error(code), { status, code, requestId: `sample-${code}` }); };
+  const fail = (status: number, code: string, context?: unknown): never => { throw Object.assign(new Error(code), { status, code, context, requestId: `sample-${code}` }); };
   const get = (id: string) => {
     const found = dossiers.get(id);
     if (!found) return fail(404, "draft_not_found");
-    // The sample reads a type the way the server does: open and preparable means it can still change.
     const stated = found.facts.receipt_state.state === "known" && (found.facts.receipt_state.value === "no_receipt" || found.facts.receipt_state.value === "informal_receipt");
-    return structuredClone({ document_type: "recibo" as const, ...found, sin_comprobante: stated && !found.fiscal_value, document_type_editable: found.review_state === "open" && found.capabilities.includes("prepare"), ...served(found) });
+    const editable = editableFields(found);
+    const offers = served(found);
+    return structuredClone({ document_type: "recibo" as const, ...found, sin_comprobante: stated && !found.fiscal_value, facts_editable: factsEditable(found), editable_fields: editable, document_type_editable: editable.includes("document_type"), ...offers });
   };
   let receiptDraftCount = 0;
   let captureCount = 0;
   const captures: BusinessCapture[] = [];
   const captureReceipts = new Map<string, { input: string; draftId: string }>();
-  const writeDeclaration = (id: string, version: number, key: string, body: unknown, change: (current: BusinessDossier, stated: <T>(value: T | null) => BusinessFact<T>) => { facts?: BusinessFacts; dgii: DgiiDeclaration }) => {
+  const writeDeclaration = (id: string, version: number, key: string, body: unknown, change: (current: BusinessDossier, stated: <T>(value: T | null) => BusinessFact<T>) => { facts?: BusinessFacts; dgii: DgiiDeclaration }, links: Pick<BusinessMontosReview, "override_inherited" | "restore_inherited"> = {}) => {
     if (!key) fail(422, "idempotency_key_required");
     const input = JSON.stringify({ id, version, body });
     const prior = reviewReceipts.get(key);
     if (prior) return prior.input === input ? structuredClone(prior.result) : fail(409, "idempotency_conflict");
     const current = get(id);
-    if (!current.capabilities.includes("prepare")) fail(403, "permission_denied");
+    if (!current.facts_editable) fail(403, "permission_denied");
     if (current.version !== version) fail(409, "stale_version");
     if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
     const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
     const stated = <T>(value: T | null): BusinessFact<T> => value === null ? { state: "unknown", value: null, origin: "member_set", verified: false, source_ids: [actionSourceId] } : { state: "known", value, origin: "member_set", verified: false, source_ids: [actionSourceId] };
     const { facts: nextFacts = current.facts, dgii: written } = change(current, stated);
+    // The write is kept as it was sent: a field it names is held apart or linked again, at the value its record states. No other value moves.
+    const inheritance = { ...current.inheritance };
     const dgii = keptSources(current.dgii, written);
+    for (const name of links.override_inherited ?? []) if (inheritance[name]) inheritance[name] = { ...inheritance[name], inherited: false };
+    for (const name of links.restore_inherited ?? []) if (inheritance[name]) { inheritance[name] = { ...inheritance[name], inherited: true }; dgii[name] = inheritance[name].value; }
     const fiscalValue = nextFacts.fiscal?.ecf.state === "known" ? "ecf" : nextFacts.fiscal?.ncf.state === "known" ? "ncf" : null;
-    const next: BusinessDossier = { ...current, version: current.version + 1, facts: nextFacts, fiscal_value: fiscalValue, dgii, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, body }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: nextFacts, before_dgii: current.dgii ?? null, after_dgii: dgii, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
+    const next: BusinessDossier = { ...current, version: current.version + 1, facts: nextFacts, fiscal_value: fiscalValue, dgii, inheritance, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, body }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: nextFacts, before_dgii: current.dgii ?? null, after_dgii: dgii, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
     dossiers.set(id, next);
     reviewReceipts.set(key, { input, result: get(id) });
+    return get(id);
+  };
+  const reviewFacts = (id: string, version: number, patch: BusinessFactPatch, key: string) => {
+    if (!key) fail(422, "idempotency_key_required");
+    const input = JSON.stringify({ id, version, facts: patch });
+    const prior = reviewReceipts.get(key);
+    if (prior) return prior.input === input ? structuredClone(prior.result) : fail(409, "idempotency_conflict");
+    const current = get(id);
+    if (!current.facts_editable) fail(403, "permission_denied");
+    if (current.version !== version) fail(409, "stale_version");
+    const required = (["amount", "currency", "occurred_on"] as const).find((field) => patch[field]?.state === "unknown");
+    if (current.review_state === "accepted" && required) fail(422, "fact_required", { field: required });
+    if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
+    if (id === dossierFixtureIds.saveConcurrent && version === 2) {
+      const otherSourceId = "20000000-0000-4000-8000-000000000014";
+      const otherFacts: BusinessFacts = { ...current.facts, counterparty: { state: "known", value: "Corrección de otra persona", origin: "member_set", verified: false, source_ids: [otherSourceId] } };
+      dossiers.set(id, { ...current, version: 3, facts: otherFacts, sources: [...current.sources, { id: otherSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T14:31:00Z", text: JSON.stringify({ version, facts: { counterparty: { state: "known", value: "Corrección de otra persona" } } }) }], history: [...current.history, { draft_id: id, version: 3, actor: { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" }, before: current.facts, after: otherFacts, source_ids: [otherSourceId], turn_key: null, created_at: "2026-10-10T14:31:00Z" }] });
+      throw new TypeError("Synthetic request interrupted before write; another human advanced the draft");
+    }
+    const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
+    const updated = Object.fromEntries(Object.entries(patch).filter(([, fact]) => fact !== undefined).map(([key, fact]) => [key, { ...fact, origin: "member_set", verified: false, source_ids: [actionSourceId] }])) as Partial<BusinessFacts>;
+    const next: BusinessDossier = { ...current, version: current.version + 1, facts: { ...current.facts, ...updated }, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, facts: patch }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: { ...current.facts, ...updated }, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
+    if (next.facts.funding.state === "known") {
+      next.questions = next.questions.map((question) => question.field === "funding" ? { ...question, state: "answered", answer_source_id: actionSourceId } : question);
+      next.blockers = next.blockers.filter((blocker) => blocker.field !== "funding");
+    }
+    if (next.facts.kind.state === "known" && next.facts.kind.value === "expense") next.blockers = next.blockers.filter((blocker) => blocker.field !== "kind");
+    next.blockers = next.blockers.filter((blocker) => !(blocker.code === "fact_required" && blocker.field && next.facts[blocker.field]?.state === "known"));
+    if (patch.net_amount) next.net_amount = { amount: next.facts.net_amount?.value ?? null, source: next.facts.net_amount?.value == null ? null : "edited" };
+    next.approval_available = next.review_state === "open" && next.blockers.length === 0 && next.capabilities.includes("approve") && next.facts.kind.state === "known" && next.facts.kind.value === "expense";
+    dossiers.set(id, next);
+    reviewReceipts.set(key, { input, result: get(id) });
+    if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
     return get(id);
   };
   return {
@@ -235,15 +330,18 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const itbis = held(fiscal.itbis);
       if (itbis === null || review.fiscal.itbis === null ? itbis !== review.fiscal.itbis : Number(itbis) !== Number(review.fiscal.itbis)) fiscal.itbis = stated(review.fiscal.itbis);
       return { facts: { ...current.facts, fiscal }, dgii: review.declaration };
-    }),
+    }, review.montos),
     reviewPurchase: async (id: string, version: number, purchase: PurchaseChoice, key: string) => writeDeclaration(id, version, key, purchase, (current) => {
       const blank = Object.fromEntries(SAMPLE_DGII_FIELDS["606"].filter(({ name }) => !["rnc", "ncf", "itbis"].includes(name)).map(({ name }) => [name, null]));
       const dgii: DgiiDeclaration = { ...blank, actual_refund: false, purchase_activity_id: null, ...current.dgii, ...purchase, form: "606" };
-      if (typeof dgii.category === "string" && !dgii.services_amount && !dgii.goods_amount && current.facts.amount.state === "known") {
-        const cents = Math.round(Number(current.facts.amount.value) * 100) - Math.round(Number(current.facts.fiscal?.itbis.value ?? 0) * 100);
-        dgii[SERVICE_EXPENSE_TYPES.has(dgii.category) ? "services_amount" : "goods_amount"] = (cents / 100).toFixed(2);
-      }
       return { dgii };
+    }),
+    // The server puts the record's whole total in the picked bucket and clears the others.
+    reviewSalePayment: async (id: string, version: number, form: string, key: string) => writeDeclaration(id, version, key, { sale_payment_form: form }, (current) => {
+      if (!isSale(current)) fail(422, "fiscal_direction_unsupported");
+      if (current.facts.amount.state !== "known") fail(422, "fact_required", { field: "amount" });
+      const split = Object.fromEntries(SALE_PAYMENT_FORMS.map((name) => [name, name === form ? Number(current.facts.amount.value).toFixed(2) : null]));
+      return { dgii: { ...blank607(), ...(current.dgii?.form === "607" ? current.dgii : {}), ...split, form: "607" } };
     }),
     captureNote: async (request: BusinessCaptureInput, key: string) => {
       const input = JSON.stringify(request);
@@ -267,9 +365,10 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         history: [...(previous?.history ?? []), { draft_id: id, version, actor, before: previous?.facts ?? null, after: current, source_ids: [noteSourceId], turn_key: null, created_at: receivedAt }],
         blockers: previous?.blockers ?? [{ code: "missing_fields", field: "kind" }, { code: "missing_fields", field: "amount" }, { code: "unknown_funding", field: "funding" }],
         approval_available: previous?.approval_available ?? false, approval_result: null,
+        ...(previous ? {} : attention(["missing_amount", "blocked"], { missing_amount: missingAmount, blocked })),
       };
       dossiers.set(id, next);
-      captures.push({ draft_id: id, version, revision: version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open" });
+      captures.push({ draft_id: id, version, revision: version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open", sent_by: { id: `member:${actor.actor_id}`, kind: "member", person: { display_name: actor.display_name, email: null, shown_as: actor.shown_as } } });
       captureReceipts.set(key, { input, draftId: id });
       return get(id);
     },
@@ -282,73 +381,122 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       // As the server counts it: every note of the draft before this one, whatever the query or the page keeps.
       const earlier = (note: BusinessCapture) => captures.filter((other) => other.draft_id === note.draft_id && newestFirst(other, note) > 0).length;
       const found = captures.filter((note) => listed(note) && note.text.toLowerCase().includes(query.toLowerCase())).sort(newestFirst);
-      const items = found.slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state, earlier_count: earlier(note) }; });
+      const items = found.slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state, earlier_count: earlier(note), bandeja_group: noteGroup(current.review_state, note.draft_id, current.version) }; });
       return { items, has_more: found.length > limit };
     },
-    createReceiptDraft: (receipt: ReceiptDetail, fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }) => {
+    /**
+     * The draft of a sample receipt, with the history the server writes. A read
+     * (`by: "read"`) is revision 1 by the extractor, for the person whose grant
+     * it used: read values from the file, and the answers no read gives left
+     * open. A mark a person gave after it is revision 2, by that person. A
+     * receipt a person filled in by hand (`by: "person"`) starts as theirs.
+     * `stated` holds what the server states for this receipt's draft: its
+     * Subtotal, its Montos check, its 606 with each link, and the answers it
+     * suggests. The sample works none of them out, and no write here moves
+     * one. `savedDeclaration` says a person saved that 606, as a revision.
+     */
+    createReceiptDraft: (receipt: ReceiptDetail, { fiscal, confirmable, by = "read", stated: served = {}, savedDeclaration = false }: { fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }; confirmable?: boolean; by?: "read" | "person"; stated?: StatedDraft; savedDeclaration?: boolean } = {}) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
-      const reviewed = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
-      const scalar = (value: string | null): BusinessFact<string> => value ? reviewed(value) : unknown();
-      const current: BusinessFacts = {
-        kind: reviewed("expense"),
+      const read = by === "read";
+      const stated = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
+      const found = <T>(value: T): BusinessFact<T> => read ? { state: "known", value, origin: "extracted", verified: false, source_ids: [sourceId] } : stated(value);
+      const scalar = (value: string | null): BusinessFact<string> => value ? found(value) : unknown();
+      const answer = <T>(value: T | null | undefined): BusinessFact<T> => value == null || read ? unknown() : stated(value);
+      const first: BusinessFacts = {
+        kind: found("expense"),
         amount: scalar(receipt.amount),
         currency: scalar(receipt.currency),
         occurred_on: scalar(receipt.occurred_on),
         counterparty: scalar(receipt.merchant),
-        funding: receipt.account_id ? reviewed({ kind: "business_account", account_id: receipt.account_id }) : unknown(),
-        business_share: reviewed({ kind: "all" }),
-        receipt_state: reviewed(receipt.sin_comprobante ? "no_receipt" : fiscal ? "fiscal_receipt" : "informal_receipt"),
-        category_id: scalar(receipt.category_id),
+        funding: answer(receipt.account_id ? { kind: "business_account" as const, account_id: receipt.account_id } : null),
+        business_share: answer({ kind: "all" as const }),
+        receipt_state: answer(receipt.sin_comprobante ? "no_receipt" as const : fiscal ? "fiscal_receipt" as const : "informal_receipt" as const),
+        category_id: answer(receipt.category_id),
         fiscal: fiscal ? { rnc: scalar(fiscal.rnc), ncf: scalar(fiscal.ncf), ecf: unknown(), itbis: scalar(fiscal.itbis) } : null,
+        ...(read && served.net_amount?.source === "read" && served.net_amount.amount !== null ? { net_amount: found(served.net_amount.amount) } : {}),
       };
+      // The draft stands where its row does: the row's reason, and whether a person may accept over it, as the earlier draft of this receipt said.
+      const reason = LISTO_GAPS.find((gap) => gap === receipt.bandeja_group?.reason);
+      const earlier = receipt.draft_id ? dossiers.get(receipt.draft_id)?.confirmable ?? [] : [];
+      const standing = reason ? attention([reason], receiptReasons[receipt.id] ?? {}, confirmable ?? earlier.includes(reason) ? [reason] : []) : LISTO;
+      const marked = read && receipt.sin_comprobante;
+      const current: BusinessFacts = marked ? { ...first, receipt_state: stated("no_receipt") } : first;
+      // The read ends a moment after the file arrives, and a person marks it after that: seconds, so no sample time runs ahead of the clock for long.
+      const later = (seconds: number) => new Date(Date.parse(receipt.received_at) + seconds * 1000).toISOString();
       const source = { id: sourceId, kind: "attachment" as const, channel: receipt.channel, received_at: receipt.received_at, connection_id: receipt.id, filename: receipt.filename, media_type: receipt.media_type };
-      const action = { id: reviewSourceId, kind: "web_action" as const, channel: "web" as const, received_at: receipt.received_at, text: JSON.stringify({ version: receipt.version - 1, fields: { merchant: receipt.merchant, amount: receipt.amount, currency: receipt.currency, occurred_on: receipt.occurred_on, account_id: receipt.account_id, category_id: receipt.category_id } }) };
+      const action = { id: reviewSourceId, kind: "web_action" as const, channel: "web" as const, received_at: read ? later(20) : receipt.received_at, text: JSON.stringify(read ? { version: 1, facts: { receipt_state: { state: "known", value: "no_receipt" } } } : { version: receipt.version - 1, fields: { merchant: receipt.merchant, amount: receipt.amount, currency: receipt.currency, occurred_on: receipt.occurred_on, account_id: receipt.account_id, category_id: receipt.category_id } }) };
+      const history: BusinessDraftRevision[] = [{ draft_id: id, version: 1, actor: read ? { ...actor, actor_kind: "extractor" } : actor, before: null, after: first, source_ids: [read ? sourceId : reviewSourceId], turn_key: null, created_at: read ? later(10) : receipt.received_at, before_document_type: null, after_document_type: "recibo" }];
+      if (marked) history.push({ draft_id: id, version: 2, actor, before: first, after: current, source_ids: [reviewSourceId], turn_key: null, created_at: later(20) });
       dossiers.set(id, {
         draft_id: id, space_id: receipt.record_context?.space_id ?? "fixture-space", space_name: receipt.record_context?.space_name ?? "Mi negocio", accounts: receipt.record_context?.accounts ?? [],
-        capabilities: receipt.record_context?.capabilities ?? [], version: 1, review_state: "open", facts: current, sources: [source, action], questions: [],
-        history: [{ draft_id: id, version: 1, actor, before: null, after: current, source_ids: [reviewSourceId], turn_key: null, created_at: receipt.received_at }],
+        capabilities: receipt.record_context?.capabilities ?? [], version: history.length, review_state: "open", facts: current, sources: read && !marked ? [source] : [source, action], questions: [],
+        history,
         blockers: [], approval_available: true, approval_result: null,
         sin_comprobante: receipt.sin_comprobante, personal: receipt.personal, personal_marked_by: receipt.personal_marked_by,
+        ...STATED_PURCHASE, ...standing, ...served,
+      });
+      const shown = dossiers.get(id)!;
+      if (shown.dgii && savedDeclaration) {
+        const saved = shown.dgii;
+        const savedSourceId = "20000000-0000-4000-8000-000000000021";
+        dossiers.set(id, {
+          ...shown, version: shown.version + 1,
+          sources: [...shown.sources, { id: savedSourceId, kind: "web_action", channel: "web", received_at: later(40), text: JSON.stringify({ version: shown.version, dgii: { declaration: saved }, montos: { override_inherited: ["paid_on"] } }) }],
+          history: [...shown.history, { draft_id: id, version: shown.version + 1, actor, before: current, after: current, before_dgii: null, after_dgii: saved, source_ids: [savedSourceId], turn_key: null, created_at: later(40) }],
+        });
+      }
+      return id;
+    },
+    /**
+     * The approved draft behind a saved sample gasto, with the history the server writes. One from `receipt` is
+     * read first (revision 1, by the extractor), then a person gives how it was paid. One with no receipt is a
+     * person's entry. Every value is the record's own; none is worked out.
+     */
+    createRecordDraft: (record: BusinessExpense, receipt?: ReceiptDetail) => {
+      const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
+      const by = (origin: "extracted" | "member_set", source: string) => <T>(value: T | null | undefined): BusinessFact<T> => value == null ? unknown() : { state: "known", value, origin, verified: false, source_ids: [source] };
+      const stated = by("member_set", reviewSourceId);
+      const found = receipt ? by("extracted", sourceId) : stated;
+      const at = (seconds: number) => new Date(Date.parse(receipt?.received_at ?? `${record.occurred_on}T14:00:00Z`) + seconds * 1000).toISOString();
+      const funding = stated<BusinessFunding>(record.funding === "owner_funds" ? { kind: "owner_funds" } : record.account_id ? { kind: "business_account", account_id: record.account_id } : null);
+      const first: BusinessFacts = {
+        kind: found("expense"),
+        amount: found(record.amount),
+        currency: found(record.currency),
+        occurred_on: found(record.occurred_on),
+        counterparty: found(record.merchant),
+        funding: receipt ? unknown() : funding,
+        business_share: receipt ? unknown() : stated({ kind: record.personal ? "none" : "all" }),
+        receipt_state: receipt ? unknown() : stated("no_receipt"),
+        category_id: receipt ? unknown() : stated(record.category_id),
+        fiscal: record.fiscal_value ? { rnc: unknown(), ncf: found(`B01${String(receiptDraftCount).padStart(8, "0")}`), ecf: unknown(), itbis: unknown() } : null,
+      };
+      const facts: BusinessFacts = { ...first, funding };
+      const action = { id: reviewSourceId, kind: "web_action" as const, channel: "web" as const, received_at: at(20), text: JSON.stringify(receipt ? { version: 1, facts: { funding: { state: "known", value: funding.value } } } : { version: 0, fields: { merchant: record.merchant, amount: record.amount, currency: record.currency, occurred_on: record.occurred_on, account_id: record.account_id, category_id: record.category_id } }) };
+      const revision = (version: number, before: BusinessFacts | null, after: BusinessFacts, read: boolean): BusinessDraftRevision => ({ draft_id: id, version, actor: read ? { ...actor, actor_kind: "extractor" } : actor, before, after, source_ids: [read ? sourceId : reviewSourceId], turn_key: null, created_at: at(read ? 10 : 20), ...(version === 1 ? { before_document_type: null, after_document_type: "recibo" as const } : {}) });
+      const history = receipt ? [revision(1, null, first, true), revision(2, first, facts, false)] : [revision(1, null, facts, false)];
+      dossiers.set(id, {
+        draft_id: id, space_id: receipt?.record_context?.space_id ?? "fixture-space", space_name: receipt?.record_context?.space_name ?? "Mi negocio", accounts,
+        capabilities: receipt?.record_context?.capabilities ?? ["read", "prepare", "approve"], version: history.length + 1, review_state: "accepted", facts, questions: [], history,
+        sources: receipt ? [{ id: sourceId, kind: "attachment", channel: receipt.channel, received_at: receipt.received_at, connection_id: receipt.id, filename: receipt.filename, media_type: receipt.media_type }, action] : [action],
+        blockers: [], approval_available: false,
+        approval_result: { status: "recorded", activity_id: record.id, reviewed_version: history.length, approved_revision: history.length, approved_at: at(60), actor },
+        personal: record.personal, personal_marked_by: record.personal_marked_by,
+        ...STATED_PURCHASE, ...ACCEPTED,
       });
       return id;
     },
     dossier: async (id: string) => id === dossierFixtureIds.unprepared ? fail(409, "draft_not_prepared") : get(id),
-    reviewDraft: async (id: string, version: number, patch: BusinessFactPatch, key: string) => {
-      if (!key) fail(422, "idempotency_key_required");
-      const input = JSON.stringify({ id, version, facts: patch });
-      const prior = reviewReceipts.get(key);
-      if (prior) return prior.input === input ? structuredClone(prior.result) : fail(409, "idempotency_conflict");
-      const current = get(id);
-      if (!current.capabilities.includes("prepare")) fail(403, "permission_denied");
-      if (current.version !== version) fail(409, "stale_version");
-      if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
-      if (id === dossierFixtureIds.saveConcurrent && version === 2) {
-        const otherSourceId = "20000000-0000-4000-8000-000000000014";
-        const otherFacts: BusinessFacts = { ...current.facts, counterparty: { state: "known", value: "Corrección de otra persona", origin: "member_set", verified: false, source_ids: [otherSourceId] } };
-        dossiers.set(id, { ...current, version: 3, facts: otherFacts, sources: [...current.sources, { id: otherSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T14:31:00Z", text: JSON.stringify({ version, facts: { counterparty: { state: "known", value: "Corrección de otra persona" } } }) }], history: [...current.history, { draft_id: id, version: 3, actor: { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" }, before: current.facts, after: otherFacts, source_ids: [otherSourceId], turn_key: null, created_at: "2026-10-10T14:31:00Z" }] });
-        throw new TypeError("Synthetic request interrupted before write; another human advanced the draft");
-      }
-      const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
-      const updated = Object.fromEntries(Object.entries(patch).map(([key, fact]) => [key, { ...fact, origin: "member_set", verified: false, source_ids: [actionSourceId] }])) as Partial<BusinessFacts>;
-      const next: BusinessDossier = { ...current, version: current.version + 1, facts: { ...current.facts, ...updated }, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, facts: patch }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: { ...current.facts, ...updated }, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
-      if (next.facts.funding.state === "known") {
-        next.questions = next.questions.map((question) => question.field === "funding" ? { ...question, state: "answered", answer_source_id: actionSourceId } : question);
-        next.blockers = next.blockers.filter((blocker) => blocker.field !== "funding");
-      }
-      if (next.facts.kind.state === "known" && next.facts.kind.value === "expense") next.blockers = next.blockers.filter((blocker) => blocker.field !== "kind");
-      next.blockers = next.blockers.filter((blocker) => !(blocker.code === "fact_required" && blocker.field && next.facts[blocker.field]?.state === "known"));
-      next.approval_available = next.blockers.length === 0 && next.capabilities.includes("approve") && next.facts.kind.state === "known" && next.facts.kind.value === "expense";
-      dossiers.set(id, next);
-      reviewReceipts.set(key, { input, result: get(id) });
-      if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
-      return get(id);
-    },
+    reviewMontos: async (id: string, version: number, montos: BusinessMontosReview, key: string) => reviewFacts(id, version, { net_amount: montos.net_amount, legal_tip: montos.legal_tip }, key),
+    reviewDraft: async (id: string, version: number, patch: BusinessFactPatch, key: string) => reviewFacts(id, version, patch, key),
     setDocumentType: async (id: string, version: number, documentType: "recibo" | "venta") => {
       const current = get(id);
       if (current.version !== version) fail(409, "stale_version");
       if (!current.document_type_editable) fail(422, "document_type_locked");
       if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
-      dossiers.set(id, { ...current, version: current.version + 1, document_type: documentType, document_type_detected: undefined });
+      // A new type drops the other form's declaration; a sale starts its 607 with nothing answered.
+      const dgii = documentType === current.document_type ? current.dgii : documentType === "venta" ? blank607() : null;
+      dossiers.set(id, { ...current, version: current.version + 1, document_type: documentType, document_type_detected: undefined, dgii, history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: current.facts, before_document_type: current.document_type, after_document_type: documentType, source_ids: [], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] });
       return get(id);
     },
     settleRemainder: async (id: string, version: number) => {
@@ -360,16 +508,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       dossiers.set(id, { ...current, version: current.version + 1, unrecorded_purchases: 0 });
       return get(id);
     },
-    reopenDraft: async (id: string, version: number) => {
-      const current = get(id);
-      if (!current.capabilities.includes("approve")) fail(403, "business_permission_denied");
-      if (current.version !== version) fail(409, "stale_version");
-      if (current.review_state !== "accepted") fail(422, "business_draft_not_recorded");
-      if (!current.reopen_available) fail(422, "business_record_matched");
-      dossiers.set(id, { ...current, version: current.version + 1, review_state: "open", approval_available: true, approval_result: null, reopen_available: false });
-      return get(id);
-    },
-    approveDraft: async (id: string, version: number, action: BusinessApprovalAction = "record_expense", suggestions?: ShownSuggestions) => {
+    approveDraft: async (id: string, version: number, action: BusinessApprovalAction = "record_expense", { acceptGaps = [], suggestions }: BusinessApprovalOptions = {}) => {
       const current = get(id);
       if (current.approval_action && action !== current.approval_action) fail(422, "invalid_request");
       if (id === dossierFixtureIds.denied) fail(403, "permission_denied");
@@ -383,8 +522,11 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       }
       if (current.version !== version) fail(409, "stale_version");
       if (!current.approval_available) fail(422, "unresolved_facts");
+      const gaps = current.listo_gaps ?? [];
+      const confirmable = current.confirmable ?? [];
+      if (gaps.some((gap) => !confirmable.includes(gap) || !acceptGaps.includes(gap))) fail(422, "not_listo", { gaps, confirmable });
       if (id === dossierFixtureIds.outcomeUnknown) {
-        const next: BusinessDossier = { ...current, review_state: "accepting", approval_available: false, approval_result: { status: "outcome_unknown", code: "recording_unknown", reviewed_version: version } };
+        const next: BusinessDossier = { ...current, ...LISTO, review_state: "accepting", approval_available: false, approval_result: { status: "outcome_unknown", code: "recording_unknown", reviewed_version: version } };
         dossiers.set(id, next);
         throw new TypeError("Synthetic connection interrupted");
       }
@@ -392,7 +534,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const taken = SUGGESTED.flatMap((field) => suggestions?.[field] ? [[field, suggestions[field]!] as const] : []);
       if (taken.some(([field]) => !blankAnswer(current.dgii, field))) fail(422, "suggestion_stale");
       const saved: DgiiDeclaration | null | undefined = taken.length ? { ...(current.dgii ?? { form: "606" }), ...Object.fromEntries(taken.map(([field, { value }]) => [field, value])), ...(taken.some(([field]) => field === "category") ? { category_suggested: false } : {}), suggestion_sources: { ...current.dgii?.suggestion_sources, ...Object.fromEntries(taken.map(([field, { source }]) => [field, source])) } } : current.dgii;
-      const next: BusinessDossier = { ...current, dgii: saved, version: current.version + 1, review_state: "accepted", approval_available: false, reopen_available: current.capabilities.includes("approve"), approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: version, approved_revision: factsRevision(current), approved_at: "2026-10-10T14:40:00Z", actor } };
+      const next: BusinessDossier = { ...current, ...ACCEPTED, dgii: saved, version: current.version + 1, review_state: "accepted", approval_available: false, approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: version, approved_revision: factsRevision(current), approved_at: "2026-10-10T14:40:00Z", actor } };
       dossiers.set(id, next);
       return get(id);
     },
