@@ -492,14 +492,14 @@ async def invoke_openrouter_json_schema(
         )
         data: dict[str, object] = {}
         try:
-            replay = None
+            transport_options: dict[str, httpx.AsyncBaseTransport] = {}
             if task == "document_extraction" and local_reader_fixtures_enabled():
                 from argus.llm.local_reader_fixtures import response_body
 
-                replay = httpx.MockTransport(
+                transport_options["transport"] = httpx.MockTransport(
                     lambda _: httpx.Response(200, json=response_body(document_sha256))
                 )
-            async with httpx.AsyncClient(timeout=permit.timeout_seconds, transport=replay) as client:
+            async with httpx.AsyncClient(timeout=permit.timeout_seconds, **transport_options) as client:
                 request_args = {}
                 if before_request is not None:
                     request_args["prepared_request"] = transport.prepare_json_schema_request(
