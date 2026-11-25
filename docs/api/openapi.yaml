@@ -15923,6 +15923,20 @@ components:
             - invoicing
             - business
           - type: 'null'
+        group:
+          anyOf:
+          - type: string
+            enum:
+            - uploads
+            - reading
+            - reviews
+            - approvals
+            - edits
+            - files
+            - invoices
+            - access
+            - settings
+          - type: 'null'
         restricted:
           type: boolean
           default: false

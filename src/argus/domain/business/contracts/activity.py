@@ -126,6 +126,7 @@ class ActivityItem(Contract):
     action: ActivityAction
     object: ActivityObject | None = None
     area: Area | None = None
+    group: ActionGroup | None = None
     #: Listed only for a reader who may manage.
     restricted: bool = False
     role: BusinessRole | None = None

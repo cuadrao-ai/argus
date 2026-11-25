@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -644,31 +645,13 @@ def test_the_owners_email_ai_consent_answer_lists_for_no_one(people, business, a
         assert "email_ai_consent" not in page.model_dump_json()
 
 
-def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, authority):
+@contextmanager
+def _activity_http(business, authority):
     from argus.api.business import BusinessPerson, require_business_person
     from argus.api.business_drafts import DraftContext, stored_drafts
     from argus.api.routers.business_activity import router
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
-
-    draft_id = str(uuid4())
-    with Connection.connect(shared.DSN) as db:
-        receipt(
-            db,
-            business,
-            people["owner"],
-            {"action": "invite_access", "invite_id": str(uuid4()), "email": EMAIL},
-            seconds_ago=2,
-        )
-        receipt(
-            db,
-            business,
-            people["editor"],
-            {"action": "review_draft", "draft_id": draft_id},
-            seconds_ago=1,
-            draft_id=draft_id,
-        )
-        db.commit()
 
     app = FastAPI()
 
@@ -689,6 +672,30 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
         )
 
     with TestClient(app) as client:
+        yield client, acting_as
+
+
+def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, authority):
+    draft_id = str(uuid4())
+    with Connection.connect(shared.DSN) as db:
+        receipt(
+            db,
+            business,
+            people["owner"],
+            {"action": "invite_access", "invite_id": str(uuid4()), "email": EMAIL},
+            seconds_ago=2,
+        )
+        receipt(
+            db,
+            business,
+            people["editor"],
+            {"action": "review_draft", "draft_id": draft_id},
+            seconds_ago=1,
+            draft_id=draft_id,
+        )
+        db.commit()
+
+    with _activity_http(business, authority) as (client, acting_as):
         acting_as(people["owner"])
         response = client.get("/business/activity", params={"limit": 25})
         assert response.status_code == 200, response.text
@@ -708,6 +715,7 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
                 "action",
                 "object",
                 "area",
+                "group",
                 "restricted",
                 "role",
                 "personal",
@@ -782,19 +790,38 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
         assert gone.json()["detail"]["code"] == "business_record_not_found"
 
 
-def test_a_leak_check_sees_a_real_page(people, business, authority):
+@pytest.mark.parametrize(
+    ("role", "can_manage"),
+    [("owner", True), ("admin", True), ("editor", False), ("viewer", False)],
+)
+def test_settings_history_is_visible_and_locked_only_for_managers(
+    people, business, authority, role, can_manage, faker
+):
+    rnc, legal_name = faker.numerify("1########"), faker.company()
+    commands = (
+        {"action": "set_business_rnc", "rnc": rnc},
+        {"action": "set_business_legal_name", "legal_name": legal_name},
+    )
     with Connection.connect(shared.DSN) as db:
-        receipt(
-            db,
-            business,
-            people["owner"],
-            {"action": "set_business_rnc", "rnc": "131234567"},
-            seconds_ago=1,
-        )
+        for command in commands:
+            receipt(db, business, people["owner"], command)
         db.commit()
-    page = _seen(authority, people["viewer"], business)
-    assert _actions(page) == ["set_business_rnc"]
-    assert "131234567" not in json.dumps(page.model_dump(mode="json"))
+
+    with _activity_http(business, authority) as (client, acting_as):
+        acting_as(people[role])
+        response = client.get("/business/activity")
+    assert response.status_code == 200
+    actions = {command["action"] for command in commands}
+    listed = {
+        item["action"]: (item["group"], item["restricted"])
+        for item in response.json()["items"]
+        if item["action"] in actions
+    }
+    assert listed == (
+        {action: ("settings", True) for action in actions} if can_manage else {}
+    )
+    assert rnc not in response.text
+    assert legal_name not in response.text
 
 
 def test_the_read_lets_postgres_push_the_page_bound_into_the_visible_rows(business):
