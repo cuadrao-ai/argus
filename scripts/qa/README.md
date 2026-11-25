@@ -44,6 +44,25 @@ The local stack uses the stable `project_id = "argus-qa"` (containers such as
 `http://localhost:3000`, API on `http://localhost:8000` — so the Argus
 HttpOnly cookie transport is real in local QA.
 
+For a free Business receipt walk, use a disposable local stack. Set the
+following in both the API and document worker environments before starting them:
+
+```bash
+export CUADRAO_LOCAL_READER_FIXTURES=true
+export CUADRAO_DOCUMENT_EXTRACTION_ENABLED=true
+export CUADRAO_OPENROUTER_API_KEY_DEV=local-placeholder
+```
+
+Keep the configured vision model from `.env.example`. Start the API and web app
+as usual and run `poetry run python -m workflows.document_worker` from the
+repository root. As the Business owner, turn on receipt reading and upload a
+synthetic one-page image. The default response is a paid hardware receipt for
+DOP 3,450.00. Open it in Bandeja, choose **Aceptar**, then check Registros and
+Actividad. For a receipt that needs attention, upload
+`tests/document_extraction_fixtures/receipt-dop.png`. Its bytes select the
+DOP 250.50 colmado receipt with missing fiscal identifiers, even after a rename.
+Unset the fixture setting and restart both processes to return to live reading.
+
 ## Identities
 
 `setup-local-identities.sh` creates two disposable users through the real
