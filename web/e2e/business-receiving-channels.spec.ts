@@ -55,6 +55,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("checkbox", { name: "Carga manual", exact: true })).toBeVisible();
     await expect(page.getByRole("checkbox", { name: "Correo", exact: true })).toHaveCount(0);
     await expect(page.getByRole("checkbox", { name: "WhatsApp", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("checkbox", { name: "Escrito aquí", exact: true })).toHaveCount(0);
     await page.goto("/biz?view=business&tab=correo");
     await expect(page.getByTestId("business-settings")).toBeVisible();
     await expect(page.getByRole("button", { name: "Obtener una dirección" })).toHaveCount(0);

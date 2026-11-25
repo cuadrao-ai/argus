@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronRight, Inbox, ListFilter, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -8,7 +8,8 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import RecordsPreviewPopover from "../transacciones/RecordsPreviewPopover";
 import RecordsFilterSelection from "../transacciones/RecordsFilterSelection";
 import styles from "../transacciones/records-filter-preview.module.css";
-import { useReceivingChannels } from "../business-context";
+import { BusinessContext, useReceivingChannels } from "../business-context";
+import { businessTypedNotesAvailable } from "@/lib/business-api";
 import { CHANNEL_ICON, CHANNELS } from "../foundation/channel-icons";
 import { emptyReceptionFilters, type ReceptionFiltersValue, type SenderOption } from "./reception-filters";
 import receptionStyles from "./reception.module.css";
@@ -23,7 +24,8 @@ function FilterEditor({ senders, value, onChange, close, phone = false }: Props 
   const [draft, setDraft] = useState(value);
   const [query, setQuery] = useState("");
   const receiving = useReceivingChannels();
-  const offered = CHANNELS.filter(channel => channel === "web" || channel === "note" || receiving[channel].available);
+  const typedNotes = businessTypedNotesAvailable(useContext(BusinessContext)?.records.workspace);
+  const offered = CHANNELS.filter(channel => channel === "web" || (channel === "note" ? typedNotes : receiving[channel].available));
 
   const [group, setGroup] = useState<typeof GROUPS[number]>("source");
   const [choosing, setChoosing] = useState(phone);
