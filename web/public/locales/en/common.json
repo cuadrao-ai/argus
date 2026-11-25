@@ -1978,16 +1978,12 @@
         "missing": {
           "label": "No RNC",
           "reason": "This receipt has no RNC. Add it so it can go on the 606.",
-          "action": "Add RNC",
-          "approval_title": "This receipt has no RNC. Accept anyway?",
-          "approval_body": "You'll need to add the RNC before exporting the 606."
+          "action": "Add RNC"
         },
         "invalid_length": {
           "label": "RNC has an error",
           "reason": "An RNC has 9 digits (business) or 11 (cédula). Check that it's typed correctly.",
-          "action": "Edit RNC",
-          "approval_title": "This RNC has an error. Accept anyway?",
-          "approval_body": "You'll need to fix it before exporting the 606."
+          "action": "Edit RNC"
         },
         "check_digit": {
           "label": "RNC has an error",
@@ -2127,8 +2123,6 @@
       "refund_candidate_refused": "That purchase can't be used for this refund. Pick another one.",
       "refund_candidates_none": "There are no accepted purchases to pick.",
       "save": "Save",
-      "recorded_income": "Income was recorded after revision {{version}} was accepted.",
-      "recorded_refund": "A refund was recorded after revision {{version}} was accepted.",
       "error": {
         "fiscal_duplicate_document": "This fiscal receipt already belongs to another saved record. Check it before you accept.",
         "fiscal_credit_settlement_required": "Record a refund only after you confirm the money arrived and you choose the original purchase.",
@@ -2319,38 +2313,27 @@
     },
     "transactions": {
       "layout": {
-        "all_types": "All types",
         "annotations": {
           "actions_for": "Actions for {{name}}",
           "add_attachment": "Add attachment",
           "add_note": "Add note",
           "attachment_for": "Attachment for {{name}}",
-          "choose_file": "Add files",
         "drop_release": "Drop files to select them",
         "drop_title": "Drag your files here",
           "current_note": "Current note",
           "duplicates_one": "This file is already selected.",
           "duplicates_other": "These {{count}} files are already selected.",
           "edit_note_for": "Edit note for {{name}}",
-          "empty_file": "This file is empty. Choose another.",
           "invalid_name": "Use a valid file name of up to 255 characters.",
-          "keep_local_preview": "Keep",
           "linked_evidence": "Linked attachments",
           "linked_unavailable": "This record has a linked attachment, but it cannot be opened here.",
-          "linked_unknown": "We could not confirm the linked attachments for this record.",
           "local_files_one": "1 file in local preview",
           "local_files_other": "{{count}} files in local preview",
           "local_only": "These files have not been uploaded or linked. Your selection is cleared on reload.",
           "local_preview": "Local preview, not linked",
           "no_attachment": "No attachment",
-          "no_linked_attachment": "No linked attachments.",
-          "open_attachment": "Open attachment",
-          "open_linked_attachment": "Open linked attachment",
-          "preparing_preview": "Preparing preview...",
           "preview_failed": "We could not prepare the preview. No files were added.",
-          "preview_file": "Preview file",
           "received_document": "Received document",
-          "record_actions": "Record actions",
           "too_large": "The file exceeds the allowed size.",
           "unsupported": "This file type is not allowed."
         },
@@ -2359,7 +2342,6 @@
         "column_attachment": "Attachment",
         "column_reason": "Reason",
         "column_state": "Status",
-        "column_type": "Type",
         "count_one": "{{count}} record",
         "count_other": "{{count}} records",
         "filters": {
@@ -2412,7 +2394,6 @@
           "title": "Filters",
           "visible_selection_hint": "Only visible results change. Other selections are kept."
         },
-        "no_period_records": "No records in this period.",
         "overview": {
           "coverage_placeholder": "{{populated}} of {{applicable}} purchases",
           "export": {
@@ -2422,9 +2403,7 @@
             "title": "Already exported"
           },
           "fiscal": {
-            "description": "Complete them before filing",
-            "description_purchase": "Complete them before the 606",
-            "description_sale": "Complete them before the 607"
+            "description": "Complete them before filing"
           },
           "goods": {
             "title": "Goods"
@@ -2432,7 +2411,6 @@
           "itbis": {
             "title": "ITBIS"
           },
-          "itbis_helper_placeholder": "Tax amount only",
           "partial_placeholder": "Partial",
           "purchases": "Purchases",
           "quantity": {
@@ -2449,12 +2427,10 @@
           "total": {
             "title": "Total"
           },
-          "total_helper_placeholder": "Gross amount",
           "unsupported_placeholder_one": "{{count}} unsupported amount",
           "unsupported_placeholder_other": "{{count}} unsupported amounts"
         },
         "period_summary": "Period summary · {{period}}",
-        "reset_period": "Reset period",
         "results": {
           "basis": "Confirmed amounts",
           "breakdown": "View breakdown",
@@ -2468,7 +2444,6 @@
           },
           "no_currency": "No currency",
           "partial": "Partial: {{amount}}",
-          "partial_meaning": "Incomplete amount",
           "personal_one": "{{count}} personal",
           "personal_other": "{{count}} personal",
           "restore": "Restore defaults",
@@ -3187,23 +3162,15 @@
     },
     "empty": {
       "access_error": "We couldn't load access",
-      "all_clear_body": "When another receipt arrives, it shows up here for review.",
-      "all_clear_title": "All accepted. Squared away.",
       "email_error": "We couldn't load your emails",
       "error_body": "Your data is still saved. Check your connection and try again.",
-      "inbox_body": "Upload, type or forward them by email. You review and accept them so they count in your numbers.",
-      "inbox_error": "We couldn't load your inbox",
-      "inbox_title": "Your receipts land here",
-      "month_body": "Add this month's receipts and invoices to see your income, expenses and ITBIS.",
-      "overview_error": "We couldn't load your business",
-      "see_all_periods": "See all periods"
+      "overview_error": "We couldn't load your business"
     },
     "expenses": {
       "title": "Expenses",
       "no_merchant": "Expense",
       "gone": "That expense is no longer here",
-      "no_receipt": "No receipt attached",
-      "recorded_on": "Recorded on {{when}}"
+      "no_receipt": "No receipt attached"
     },
     "guide_cards": {
       "actividad_intro": {
@@ -4418,7 +4385,6 @@
       "retry_consent": "Trying again sends this receipt to our AI provider.",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",
       "reading_off": "Turn on reading and try again.",
-      "saved_title": "Saved expense",
       "title": "Review receipt",
       "prepare": "Prepare with AI",
       "preparing": "Reading your receipt. You can leave this page; the result will wait in your inbox.",
@@ -4430,11 +4396,8 @@
       "amount": "Total",
       "currency": "Currency",
       "choose": "Choose",
-      "account": "Paid from",
       "evidence": "What the receipt says",
       "tax": "Tax",
-      "saved_body": "Saved as one expense of {{amount}}.",
-      "view_expenses": "View expenses",
       "confirm": "Confirm expense"
     },
     "create": {
@@ -4449,12 +4412,10 @@
       "title": "Upload receipt",
       "type_recibo": "Purchase",
       "type_venta": "Sale",
-      "paste_hint": "or paste with {{keys}}",
       "camera_way": "Take a photo",
       "camera_way_help": "With your phone's camera",
       "drop_title": "Drag your receipt here",
       "drop_title_multiple": "Upload your documents",
-      "formats_short": "{{formats}} · up to {{size}} MB",
       "drop_reject": "That file type can't be uploaded. Use {{formats}}.",
       "row_waiting": "In queue",
       "row_minutes_left_one": "{{count}} min left",
@@ -4474,7 +4435,6 @@
       "save": "Save to Inbox",
       "formats": "{{formats}}, up to {{size}} MB. The original stays private to you.",
       "choose_another": "Choose another file",
-      "camera": "Take photo",
       "panel_title": "Add documents",
       "chip_uploading": "Uploading {{position}} of {{total}}",
       "chip_saved_one": "{{count}} uploaded",
