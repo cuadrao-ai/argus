@@ -189,6 +189,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
       {primary ? <div className="ml-auto">{primary}</div> : null}
     </div>;
   };
+  const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const frame = (children: ReactNode, primary?: ReactNode) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
@@ -210,10 +211,11 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
       ]}
       document={<DossierDocument file={detail} reading={waitingForAi} />}
       footer={footer(primary)}
-    />{deletion.dialog}</ContentFade>
+    />
+      {detail.activity?.completion_cursor && !held && !waitingForAi && <ReceiptSeenBoundary receipt={detail} hydrated={!incompleteBridge} />}
+      {deletion.dialog}</ContentFade>
   );
   if (!readBoard && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice receipt={detail} preparable={false} /></>);
-  const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
 
   const prepare = async () => {
     if (!consent.accepted) {
@@ -336,7 +338,6 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
         <>{bridgeNotice}<DossierReadFailure reason={failed} retry={canRetry || canRebind} problem={problem}>{recoveryDetails}</DossierReadFailure></>,
         primary,
       )}
-      <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </>;
   }
   return (
@@ -362,7 +363,6 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
         </>,
         primary,
       )}
-      <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </>
   );
 }

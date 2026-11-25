@@ -9,6 +9,8 @@ from uuid import UUID
 from argus.domain.business.actions.listos import linked_standings
 from argus.domain.business.bandeja_group import group_of
 from argus.domain.business.receipt_activity import (
+    SAVED_STATUSES,
+    acknowledge,
     aggregate_activity,
     awaiting_owner,
     bandeja,
@@ -20,6 +22,8 @@ from argus.domain.business.transactions import GrantImportStore, transaction
 
 
 def _stamp(draft: dict, view: dict) -> str | None:
+    if view["status"] in SAVED_STATUSES:
+        return "saved" if draft.get("status") in SAVED_STATUSES else None
     if draft.get("status") not in ("review_ready", "needs_attention") or view.get(
         "preparable"
     ):
@@ -70,15 +74,11 @@ def project(
             if acknowledge_id:
                 chosen = next(view for view in result if view["id"] == acknowledge_id)
                 activity = chosen["activity"]
-                if (
-                    activity["state"] == "ready"
-                    and cursor == activity["completion_cursor"]
-                ):
+                if acknowledge(activity, cursor):
                     tx.rows(
                         "insert into public.business_receipt_read_states(space_id,person_id,connection_id,completion_cursor) values (%s,%s,%s,%s) on conflict (space_id,person_id,connection_id) do update set completion_cursor=excluded.completion_cursor,seen_at=clock_timestamp()",
                         (business, person, acknowledge_id, cursor),
                     )
-                    activity["unread"] = False
             return result
     if not hasattr(documents, "receipt_seen"):
         documents.receipt_seen = {}
@@ -99,9 +99,8 @@ def project(
     if acknowledge_id:
         chosen = next(view for view in result if view["id"] == acknowledge_id)
         activity = chosen["activity"]
-        if activity["state"] == "ready" and cursor == activity["completion_cursor"]:
+        if acknowledge(activity, cursor):
             documents.receipt_seen[(business, person, acknowledge_id)] = cursor
-            activity["unread"] = False
     return result
 
 

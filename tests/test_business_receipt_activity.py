@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from argus.domain.business.receipt_activity import (
     BANDEJA,
     acknowledge,
@@ -28,27 +29,32 @@ def projected(**changes):
     """A receipt view as the API projects it, its activity attached."""
 
     view = receipt(**changes)
-    completion = None if view["status"] in ("saved", "queued") else "v1"
     return {
         **view,
-        "activity": project_activity(view, completion=completion, seen=None).wire(),
+        "activity": project_activity(view, completion="v1", seen=None).wire(),
     }
 
 
-def test_saved_receipt_waiting_for_consent_is_unread_and_never_ready():
-    result = project_activity(receipt(status="saved"), completion="v1", seen=None)
+@pytest.mark.parametrize("status", ["saved", "queued"])
+def test_saved_receipt_stays_unread_until_this_person_opens_it(status):
+    view = receipt(status=status)
+    result = project_activity(view, completion="v1", seen=None, baseline=NOW)
     assert result.state == "saved_unread"
-    assert result.unread is True
-    assert result.completion_cursor is None
+    assert result.unread
+    assert result.completion_cursor
+    opened = project_activity(view, completion="v1", seen=result.completion_cursor)
+    assert not opened.unread
+    assert opened.completion_cursor == result.completion_cursor
 
 
 def test_stale_acknowledgement_cannot_consume_a_new_completion():
     old = project_activity(receipt(), completion="v1", seen=None)
     current = project_activity(receipt(), completion="v2", seen=None)
-    assert acknowledge(current, old.completion_cursor, None) is None
-    assert (
-        acknowledge(current, current.completion_cursor, None) == current.completion_cursor
-    )
+    activity = current.wire()
+    assert not acknowledge(activity, old.completion_cursor)
+    assert activity["unread"]
+    assert acknowledge(activity, current.completion_cursor)
+    assert not activity["unread"]
 
 
 def test_reading_wins_aggregate_and_context_originals_are_excluded():

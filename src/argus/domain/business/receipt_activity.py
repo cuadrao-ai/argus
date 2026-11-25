@@ -25,6 +25,8 @@ from typing import Any, Callable, Iterable, Literal, Mapping, Sequence
 
 from argus.domain.business.receipts import CLOSED
 
+SAVED_STATUSES = ("saved", "queued")
+
 
 @dataclass(frozen=True)
 class ReceiptActivity:
@@ -54,8 +56,6 @@ def project_activity(
         return ReceiptActivity("inactive", False, None)
     if view.get("read_pending"):
         return ReceiptActivity("reading", False, None)
-    if view["status"] in ("saved", "queued"):
-        return ReceiptActivity("saved_unread", True, None)
     if view["status"] == "needs_attention" and (
         view.get("preparable")
         or view.get("attention")
@@ -74,25 +74,22 @@ def project_activity(
         if completion
         else None
     )
+    unread = cursor is not None and seen != cursor
+    if view["status"] in SAVED_STATUSES:
+        return ReceiptActivity("saved_unread", unread, cursor)
     prior = completed_at or view["received_at"]
     if isinstance(prior, str):
         prior = datetime.fromisoformat(prior.replace("Z", "+00:00"))
     old = baseline is not None and prior <= baseline
-    return ReceiptActivity(
-        "ready", cursor is not None and seen != cursor and not old, cursor
-    )
+    return ReceiptActivity("ready", unread and not old, cursor)
 
 
-def acknowledge(
-    activity: ReceiptActivity, cursor: str | None, seen: str | None
-) -> str | None:
-    if (
-        activity.state == "ready"
-        and cursor is not None
-        and cursor == activity.completion_cursor
-    ):
-        return cursor
-    return seen
+def acknowledge(activity: dict[str, Any], cursor: str | None) -> bool:
+    """Mark this person's projected activity seen only for the content opened."""
+    if cursor is None or cursor != activity["completion_cursor"]:
+        return False
+    activity["unread"] = False
+    return True
 
 
 def awaiting_owner(view: Mapping[str, Any]) -> bool:

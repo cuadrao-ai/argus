@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from argus.api.business_drafts import receipt_detail, receipt_summaries, scoped_legacy
 from argus.api.business_receipt_activity import project
@@ -14,6 +16,7 @@ from starlette.requests import Request
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_receipt_views_postgres as views
 from tests import test_business_single_candidate_postgres as single
+from tests.business.test_business_api import RECEIPT
 
 actions = bridge.actions
 users = bridge.users
@@ -90,10 +93,22 @@ def test_cursor_tracks_canonical_revision_and_stale_ack_preserves_new_content(ac
 
 
 @pytest.mark.owner_acts
+@pytest.mark.parametrize("state", ["ready", "saved_unread"])
 def test_read_only_viewer_boundary_is_isolated_from_owner_and_no_financial_write(
-    actions, users
+    actions, users, state, faker
 ):
     service, context, cid, draft_id, owner = ready(actions)
+    if state == "saved_unread":
+        saved = asyncio.run(
+            owner.service.upload(
+                owner.scope,
+                content=RECEIPT,
+                filename=faker.file_name(extension="png"),
+                media_type="image/png",
+                consent=False,
+            )
+        )
+        cid = saved.id
     with service.authority.pool.connection() as db:
         grant = db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values (%s,%s,%s,ARRAY['read']) returning id",
@@ -131,6 +146,9 @@ def test_read_only_viewer_boundary_is_isolated_from_owner_and_no_financial_write
         scope,
     )
     detail = receipt_detail(reader, reader.service.receipt(reader.scope, cid))
+    assert detail["activity"]["state"] == state
+    assert detail["activity"]["unread"]
+    assert detail["activity"]["completion_cursor"]
     assert reader.record_context.capabilities == {"read"}
     assert (
         project(
@@ -141,6 +159,8 @@ def test_read_only_viewer_boundary_is_isolated_from_owner_and_no_financial_write
         )[0]["activity"]["unread"]
         is False
     )
+    reopened = receipt_detail(reader, reader.service.receipt(reader.scope, cid))
+    assert not reopened["activity"]["unread"]
     assert (
         receipt_detail(owner, owner.service.receipt(owner.scope, cid))["activity"][
             "unread"

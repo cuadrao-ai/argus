@@ -30048,6 +30048,8 @@ components:
         unread:
           type: boolean
         completion_cursor:
+          description: The cursor for opening this saved receipt or completed read. A later
+            completed read has a new cursor. Acknowledgements apply only to the caller.
           anyOf:
           - type: string
           - type: 'null'

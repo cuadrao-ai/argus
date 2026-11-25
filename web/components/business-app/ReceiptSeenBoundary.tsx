@@ -13,7 +13,7 @@ export default function ReceiptSeenBoundary({ receipt, hydrated }: { receipt: Re
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const identity = useRef({ id: receipt.id, cursor: receipt.activity?.completion_cursor });
   useLayoutEffect(() => { identity.current = { id: receipt.id, cursor: receipt.activity?.completion_cursor }; }, [receipt.id, receipt.activity?.completion_cursor]);
-  const cursor = receipt.activity?.state === "ready" ? receipt.activity.completion_cursor : null;
+  const cursor = receipt.activity?.completion_cursor;
   const mark = useCallback(async () => {
     if (!hydrated || !cursor || !source.markReceiptRead || (inFlight.current?.id === receipt.id && inFlight.current?.cursor === cursor) || acknowledged.current === cursor) return;
     const request = { id: receipt.id, cursor };
