@@ -1,6 +1,8 @@
 """The WhatsApp replay, linking and isolation cases on real Postgres."""
 
 import asyncio
+import shutil
+import subprocess
 import threading
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -18,6 +20,7 @@ from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.whatsapp.reply_worker import FailureReplyWorker
 from argus.domain.ingestion.whatsapp.store import SenderLink
 from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
+from psycopg import Connection
 from psycopg.errors import QueryCanceled
 from psycopg_pool import ConnectionPool
 
@@ -32,6 +35,11 @@ from tests.ingestion.whatsapp_support import (
     fixture,
 )
 from tests.ingestion.whatsapp_unlinked_cases import UNLINKED_CASES
+
+W4_MIGRATION = (
+    Path(__file__).resolve().parents[1]
+    / "supabase/migrations/20261125205442_whatsapp_person_links.sql"
+)
 
 users = shared.users
 pytestmark = pytest.mark.skipif(
@@ -129,8 +137,43 @@ async def test_heartbeat_case_on_postgres(case, pool, users) -> None:  # noqa: A
     await case(_world(pool, users))
 
 
-def test_migrating_a_pre_w4_capture_names_the_original_person(pool, users) -> None:  # noqa: ANN001
-    """Run against the disposable database at the preceding migration, in rollback."""
+@pytest.fixture
+def pre_w4_database(
+    tmp_path: Path, unused_tcp_port: int, pool: ConnectionPool
+) -> Iterator[Connection]:
+    """Start a separate local database with the migrations preceding W4."""
+    migrations = tmp_path / "supabase" / "migrations"
+    migrations.mkdir(parents=True)
+    for migration in W4_MIGRATION.parent.glob("*.sql"):
+        if migration.name < W4_MIGRATION.name:
+            shutil.copyfile(migration, migrations / migration.name)
+    with pool.connection() as matrix_db:
+        major_version = matrix_db.info.server_version // 10000
+    (migrations.parent / "config.toml").write_text(
+        f'project_id = "w4-replay-{uuid4().hex}"\n'
+        f"[db]\nport = {unused_tcp_port}\nmajor_version = {major_version}\n"
+        "[db.seed]\nenabled = false\n"
+    )
+    cli = ["supabase", "--workdir", str(tmp_path)]
+    try:
+        subprocess.run([*cli, "db", "start"], check=True)
+        with Connection.connect(
+            host="127.0.0.1",
+            port=unused_tcp_port,
+            dbname="postgres",
+            user="postgres",
+            password="postgres",
+            autocommit=True,
+        ) as db:
+            yield db
+    finally:
+        subprocess.run([*cli, "stop", "--no-backup"], check=True)
+
+
+def test_migrating_a_pre_w4_capture_names_the_original_person(
+    pre_w4_database: Connection,
+) -> None:
+    """A relink cannot reassign a document captured before W4."""
     from argus.domain.business.authority import authorize
     from argus.domain.business.contracts.authority import TrustedActor
     from argus.domain.business.sent_by import receipt_senders
@@ -139,13 +182,9 @@ def test_migrating_a_pre_w4_capture_names_the_original_person(pool, users) -> No
 
     from tests.test_business_spaces_migration_postgres import connection, owned_space
 
-    with pool.connection() as db, db.transaction(force_rollback=True):
-        if not db.execute(
-            "select 1 from information_schema.columns where table_schema='public'"
-            " and table_name='whatsapp_sender_links' and column_name='destination_space_id'"
-        ).fetchone():
-            pytest.skip("migration replay requires the pre-W4 disposable schema")
-        owner = users["owner"]
+    db = pre_w4_database
+    owner = shared._create_users(db, ("owner", False))["owner"]
+    with db.transaction():
         business = owned_space(db, owner)
         receipt = connection(db, owner, business)
         person = Faker().name()
@@ -153,19 +192,22 @@ def test_migrating_a_pre_w4_capture_names_the_original_person(pool, users) -> No
             "update public.profiles set display_name=%s where id=%s", (person, owner)
         )
         sender = uuid4().bytes + uuid4().bytes
-        link = db.execute(
+        link, pinned_space = db.execute(
             "insert into public.whatsapp_sender_links"
             "(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
-            " values(%s,%s,'1234','es-419','active',now()-interval '2 days') returning id",
+            " values(%s,%s,'1234','es-419','active',now()-interval '2 days')"
+            " returning id, destination_space_id::text",
             (owner, sender),
-        ).fetchone()[0]
-        db.execute(
+        ).fetchone()
+        assert pinned_space == business
+        legacy_capture = db.execute(
             "insert into public.whatsapp_inbound_messages"
             "(provider_message_key,sender_hash,destination_owner_id,status,connection_id,"
             "received_at,updated_at) values(%s,%s,%s,'captured',%s,now()-interval '1 day',"
-            "now()-interval '1 day')",
+            "now()-interval '1 day') returning sender_link_id",
             (uuid4().bytes + uuid4().bytes, sender, owner, receipt),
-        )
+        ).fetchone()
+        assert legacy_capture == (None,)
         db.execute(
             "update public.whatsapp_sender_links set status='revoked', revoked_at=now()"
             " where id=%s",
@@ -177,28 +219,17 @@ def test_migrating_a_pre_w4_capture_names_the_original_person(pool, users) -> No
             " values(%s,%s,'1234','en','active',now())",
             (owner, sender),
         )
-        migration = (
-            next(
-                (Path(__file__).resolve().parents[1] / "supabase/migrations").glob(
-                    "*_whatsapp_person_links.sql"
-                )
-            )
-            .read_text()
-            .strip()
-        )
-        assert migration.startswith("begin;") and migration.endswith("commit;")
-        db.execute("set constraints all immediate")
-        db.execute(migration.removeprefix("begin;").removesuffix("commit;"))
-        assert db.execute(
-            "select sender_link_id from public.whatsapp_inbound_messages where connection_id=%s",
-            (receipt,),
-        ).fetchone() == (link,)
-        auth = authorize(
-            db, TrustedActor(actor_id=owner, space_id=business, actor_kind="member")
-        )
-        tx = ActionTransaction(db, auth, None)
-        shown = receipt_senders(tx, [{"id": receipt, "channel": "whatsapp"}])[receipt]
-        assert shown.id == f"member:{owner}" and shown.person.display_name == person
+    db.execute(W4_MIGRATION.read_text())
+    assert db.execute(
+        "select sender_link_id from public.whatsapp_inbound_messages where connection_id=%s",
+        (receipt,),
+    ).fetchone() == (link,)
+    auth = authorize(
+        db, TrustedActor(actor_id=owner, space_id=business, actor_kind="member")
+    )
+    tx = ActionTransaction(db, auth, None)
+    shown = receipt_senders(tx, [{"id": receipt, "channel": "whatsapp"}])[receipt]
+    assert shown.id == f"member:{owner}" and shown.person.display_name == person
 
 
 def test_erasing_a_sender_keeps_only_masked_attribution_until_the_receipt_is_deleted(
