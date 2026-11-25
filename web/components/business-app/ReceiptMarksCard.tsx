@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
-import { primaryButtonClass, quietButtonClass, RecordMarks, recordFiscalMark, secondaryButtonClass } from "./business-ui";
+import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { dismissToast, showToast } from "./foundation/toasts";
 import { MenuCheckItem, useCloseMoreMenu } from "./ReceiptReviewFooter";
@@ -42,7 +42,6 @@ export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, 
   const personal = dossier.personal === true;
   const inclusion = dossier.include_606 ?? null;
   const answeredBy = dossier.include_606_by ? personName(t, dossier.include_606_by) : "";
-  const markedBy = dossier.personal_marked_by ?? null;
 
   // A failed change says so here, beside the work, with Reintentar.
   const fail = (text: string, again: () => void) => {
@@ -142,9 +141,6 @@ export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, 
 
   return (
     <div className={SURFACE_CARD} data-testid="receipt-marks-card">
-      <div className="flex flex-wrap items-center justify-between gap-3 empty:hidden">
-        <RecordMarks personal={personal} fiscal={recordFiscalMark(dossier)} markedBy={markedBy} />
-      </div>
       {canPrepare ? (
         <div className="flex items-center justify-between gap-4 mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">
           <span className="min-w-0">

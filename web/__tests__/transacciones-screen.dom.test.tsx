@@ -492,7 +492,7 @@ describe("the gate", () => {
     assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"] dd')?.textContent, "-sin dato", "no row names a currency, so the zero is not shown as pesos");
   });
 
-  test("Salidas is the server's own total; a personal gasto stays listed, marked Personal, and out of it", async () => {
+  test("Salidas is the server's own total; a personal gasto stays listed, with no chip, and out of it", async () => {
     const saved = await recordsOf([
       { id: "exp-1", merchant: "Colmado Don Pepe", amount: "860.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null },
       { id: "exp-2", merchant: "Comedor Doña Ana", amount: "1250.00", currency: "DOP", category_id: "dining", account_id: null, occurred_on: "2026-10-05", receipt_id: null, personal: true },
@@ -500,8 +500,8 @@ describe("the gate", () => {
     const page = await mount({ enabled: false, transacciones: saved });
     await page.settle(() => page.records().length === 2, "the saved records");
     assert.match(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"]')?.textContent ?? "", /RD\$\s?860\.00/);
-    assert.ok(document.querySelector('[data-record-id="exp-2"] [data-mark="personal"]'), "the personal gasto says so");
-    assert.equal(document.querySelector('[data-record-id="exp-1"] [data-mark="personal"]'), null);
+    assert.ok(document.querySelector('[data-record-id="exp-2"]'), "the personal gasto stays listed");
+    assert.equal(document.querySelector("[data-record-id] [data-mark]"), null, "no row draws a chip");
   });
 
   test("with igualar on and no statement imported yet, the saved records list in records mode", async () => {

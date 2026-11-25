@@ -38,11 +38,13 @@ type Options = {
   record?: "fiscal" | "income";
   target?: "draft" | "expense";
   missing?: string[];
+  /** Fields the server would add to every expense it serves. */
+  expense?: Partial<BusinessExpenseDetail>;
   /** What the server would answer on this dossier: read-only, and so on. */
   serve?: (dossier: Dossier) => void;
 };
 
-async function mount({ width = 1280, record = "fiscal", target = "draft", missing, serve = () => undefined }: Options = {}) {
+async function mount({ width = 1280, record = "fiscal", target = "draft", missing, serve = () => undefined, expense = {} }: Options = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -99,7 +101,7 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", missin
     expense: async (id: string): Promise<BusinessExpenseDetail> => ({
       missing: id === row.linked_activity_ids[0] ? detailMissing : [], reasons,
       id, merchant: `Registro ${id}`, amount: "100.00", currency: "DOP", category_id: null, account_id: null,
-      occurred_on: "2026-10-01", receipt_id: null, draft_id: null, recorded_at: "2026-10-01T12:00:00Z", revision: 1,
+      occurred_on: "2026-10-01", receipt_id: null, draft_id: null, recorded_at: "2026-10-01T12:00:00Z", revision: 1, ...expense,
     } as BusinessExpenseDetail),
     reviewPurchase: async (id: string, version: number, purchase: PurchaseChoice, key: string) => {
       writes.push({ version, purchase });
@@ -229,6 +231,14 @@ describe("opened records show only their server readiness list", () => {
       assert.deepEqual(shown(), [], "a different target has no readiness answer from the previous selection");
     });
   }
+});
+
+test("an open record marked Personal and Sin comprobante draws no chip", async () => {
+  const page = await mount({ target: "expense", missing: [], expense: { personal: true, sin_comprobante: true, personal_marked_by: { display_name: "Marta", email: null, shown_as: "name" } } });
+  await page.openOtherExpense();
+  assert.ok(document.querySelector('[data-testid="record-facts-comprobante"]'), "the record is open");
+  assert.equal(document.querySelector("[data-mark]"), null);
+  assert.equal(document.querySelector('[data-testid="record-marks"]'), null);
 });
 
 describe("a recorded purchase with 606 data still missing", () => {

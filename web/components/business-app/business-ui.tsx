@@ -2,7 +2,6 @@
 
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { personName, type PersonName } from "@/lib/person-name";
 import { BusinessContext } from "./BusinessWorkspace";
 import { FOCUS_RING } from "./foundation/presentation";
 
@@ -103,35 +102,9 @@ export function useOwnerView(): boolean {
   return !business?.chosen || business.chosen.role === "owner";
 }
 
-/**
- * The marks a record carries, as text in a muted chip, never colour alone:
- * "Personal" when a person marked it as no part of the Business; "Sin
- * comprobante" when it is stated to have none, out of the 606 and 607.
- * When someone other than the owner marked it Personal, the owner sees a small
- * dot on the chip that reads "Marcado por <nombre>". A missing NCF is not a
- * mark: Estado says it.
- */
+/** A record stated to have no comprobante fiscal: out of the 606 and 607. A missing NCF is not a mark: Estado says it. */
 export function recordFiscalMark(record: { sin_comprobante?: boolean }): "sin_comprobante" | null {
   return record.sin_comprobante ? "sin_comprobante" : null;
-}
-
-export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: PersonName | null; className?: string }) {
-  const { t } = useTranslation();
-  const owner = useOwnerView();
-  const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-mark border px-2 text-[11px] font-medium";
-  if (!personal && !fiscal) return null;
-  const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: personName(t, markedBy) }) : null;
-  return (
-    <span className={`flex flex-wrap items-center gap-1.5 ${className}`} data-testid="record-marks">
-      {personal ? (
-        <span data-mark="personal" title={marker ?? undefined} className={`${chip} gap-1 border-[var(--cuadrao-green)]/35 text-[var(--cuadrao-green)]`}>
-          {t("business.marks.personal_chip", "Personal")}
-          {marker ? <><span data-testid="personal-marked-dot" aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--cuadrao-green)]" /><span className="sr-only">{marker}</span></> : null}
-        </span>
-      ) : null}
-      {fiscal ? <span data-mark="sin_comprobante" className={`${chip} border-black/15 text-black/55 dark:border-white/15 dark:text-white/55`}>{t("business.marks.sin_comprobante_chip", "No comprobante")}</span> : null}
-    </span>
-  );
 }
 
 /** A short announcement with one way back, for a change the person can undo. */
