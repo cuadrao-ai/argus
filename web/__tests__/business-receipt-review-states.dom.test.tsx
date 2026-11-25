@@ -230,6 +230,22 @@ test("a record the server has not prepared falls back to the same plain state", 
   }
 });
 
+test("a saved receipt the server names no draft for never draws a saved-expense view of its own", async () => {
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+  const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
+  const base = await createFixtureBusinessDataSource().receipt("rcpt-blurry");
+  const detail = { ...base, ...notReceipt(), status: "confirmed", attention: null, error_code: null, enterable: false, draft_id: null, merchant: null, amount: "24.00", currency: "USD", expense_id: "exp-hosting", activity: null } as ReceiptDetail;
+  const page = await render(() => <ReceiptReviewPanel target={{ kind: "receipt", id: detail.id }} />, { source: { ...liveBusinessDataSource, receipt: async () => detail } });
+  try {
+    assert.ok(page.host.querySelector('[data-testid="business-record-review"]'), "the dossier frame");
+    assert.equal(/Guardado como un gasto|Ver gastos|Gasto guardado|Pagado desde/.test(page.host.textContent ?? ""), false, page.host.textContent ?? "");
+    assert.equal(page.button("Ver gastos"), undefined);
+  } finally {
+    await page.close();
+  }
+});
+
 test("the sample's first row and Papelería Central open their dossier", async () => {
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const source = createFixtureBusinessDataSource({ chatAvailable: false });

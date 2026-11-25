@@ -3252,8 +3252,7 @@
       "title": "Expenses",
       "no_merchant": "Expense",
       "gone": "That expense is no longer here",
-      "no_receipt": "No receipt attached",
-      "recorded_on": "Recorded on {{when}}"
+      "no_receipt": "No receipt attached"
     },
     "guide_cards": {
       "actividad_intro": {
@@ -4475,7 +4474,6 @@
       "retry_consent": "Trying again sends this receipt to our AI provider.",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",
       "reading_off": "Turn on reading and try again.",
-      "saved_title": "Saved expense",
       "title": "Review receipt",
       "prepare": "Prepare with AI",
       "preparing": "Reading your receipt. You can leave this page; the result will wait in your inbox.",
@@ -4487,11 +4485,8 @@
       "amount": "Total",
       "currency": "Currency",
       "choose": "Choose",
-      "account": "Paid from",
       "evidence": "What the receipt says",
       "tax": "Tax",
-      "saved_body": "Saved as one expense of {{amount}}.",
-      "view_expenses": "View expenses",
       "confirm": "Confirm expense"
     },
     "create": {

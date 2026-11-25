@@ -36,13 +36,12 @@ type Dossier = Awaited<ReturnType<BusinessDataSource["dossier"]>>;
 type Options = {
   width?: number;
   record?: "fiscal" | "income";
-  target?: "draft" | "expense";
   missing?: string[];
   /** What the server would answer on this dossier: read-only, and so on. */
   serve?: (dossier: Dossier) => void;
 };
 
-async function mount({ width = 1280, record = "fiscal", target = "draft", missing, serve = () => undefined }: Options = {}) {
+async function mount({ width = 1280, record = "fiscal", missing, serve = () => undefined }: Options = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -70,7 +69,6 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", missin
   report.records.splice(1);
   const [row] = report.records;
   Object.assign(row, { draft_id: draftId, counterparty: "Ferretería La Esquina", ready: false, missing: ["expense_type_missing", "payment_method_missing"], stage: "needs_fiscal_data", fiscal_data: "missing", export_missing: "expense_type_missing", export_missing_several: true });
-  if (target === "expense") Object.assign(row, { draft_id: null, row_id: `expense:${row.linked_activity_ids[0]}` });
   const reasons = {
     expense_type_missing: { field: "category", words: "business.transactions.layout.workflow.missing.expense_type_missing" },
     payment_method_missing: { field: "payment_method", words: "business.transactions.layout.workflow.missing.payment_method_missing" },
@@ -88,7 +86,7 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", missin
   const detailVersions: number[] = [];
   const served = (dossier: Dossier) => {
     detailVersions.push(dossier.version);
-    Object.assign(dossier, { missing: detailMissing, reasons });
+    Object.assign(dossier, { missing: dossier.draft_id === draftId ? detailMissing : [], reasons });
     serve(dossier);
     return dossier;
   };
@@ -96,10 +94,11 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", missin
     ...fixture,
     mode: "live" as const,
     dossier: async (id: string) => served(await fixture.dossier(id)),
+    // Every saved record names the draft that recorded it; any other id is another record's.
     expense: async (id: string): Promise<BusinessExpenseDetail> => ({
-      missing: id === row.linked_activity_ids[0] ? detailMissing : [], reasons,
+      missing: [], reasons,
       id, merchant: `Registro ${id}`, amount: "100.00", currency: "DOP", category_id: null, account_id: null,
-      occurred_on: "2026-10-01", receipt_id: null, draft_id: null, recorded_at: "2026-10-01T12:00:00Z", revision: 1,
+      occurred_on: "2026-10-01", receipt_id: null, draft_id: id === row.linked_activity_ids[0] ? draftId : dossierFixtureIds.ready, recorded_at: "2026-10-01T12:00:00Z", revision: 1,
     } as BusinessExpenseDetail),
     reviewPurchase: async (id: string, version: number, purchase: PurchaseChoice, key: string) => {
       writes.push({ version, purchase });
@@ -167,24 +166,24 @@ async function mount({ width = 1280, record = "fiscal", target = "draft", missin
       const selected = document.querySelector<HTMLElement>(`[data-record-key="${row.row_id}"]`)!;
       (selected.matches("tr") ? selected : selected.querySelector<HTMLButtonElement>("button")!).click();
     });
-    await wait(() => target === "expense" ? document.querySelector('[data-testid="record-facts-comprobante"]') !== null : facts() !== null, "the record's detail");
+    await wait(() => facts() !== null, "the record's detail");
   };
   const openDirectly = async () => {
     await act(async () => api!.openPanel({ kind: "draft", draftId, list: "transactions" }));
-    await wait(() => target === "expense" ? document.querySelector('[data-testid="record-facts-comprobante"]') !== null : facts() !== null, "the record's detail");
+    await wait(() => facts() !== null, "the record's detail");
   };
   const openFromSearch = async () => {
     const { searchKindGroups } = await import("@/components/business-app/business-search-groups");
-    const expense = { ...await source.expense(row.linked_activity_ids[0]), draft_id: target === "draft" ? draftId : null };
+    const expense = await source.expense(row.linked_activity_ids[0]);
     const groups = searchKindGroups({
       t: i18n.t.bind(i18n), locale: "es-419", source, accounts: [], openPanel: api!.openPanel, stateWord: () => "",
     }, "Registro", { expenses: [expense], ventas: [], accounts: [], receipts: [], email_deliveries: [], email_senders: [], next_cursors: {} });
     await act(async () => groups.expenses.hits[0].open!());
-    await wait(() => target === "expense" ? document.querySelector('[data-testid="record-facts-comprobante"]') !== null : facts() !== null, "the search result's detail");
+    await wait(() => facts() !== null, "the search result's detail");
   };
   const openOtherExpense = async () => {
     await act(async () => api!.openPanel({ kind: "expense", expenseId: "00000000-0000-4000-8000-000000009999" }));
-    await wait(() => document.querySelector("#receipt-review-title")?.textContent === "Registro 00000000-0000-4000-8000-000000009999", "the other expense");
+    await wait(() => api!.panel.kind === "draft" && api!.panel.draftId === dossierFixtureIds.ready && facts() !== null, "the other record");
   };
   return { act, wait, writes, detailVersions, chip, listButton, options, toggleChoice, valueOf, pick, facts, queries, section, openRecord, openDirectly, openFromSearch, openOtherExpense };
 }
@@ -194,41 +193,39 @@ describe("opened records show only their server readiness list", () => {
   const words = ["Falta el tipo de gasto", "Falta la forma de pago", "Falta el RNC"];
   const shown = () => [...document.querySelectorAll("[data-record-missing-list] li")].map((item) => item.textContent);
 
-  for (const target of ["expense", "draft"] as const) {
-    for (const entry of ["openFromSearch", "openRecord"] as const) {
-      test(`${target}: ${entry} shows the record's ordered missing reasons and words`, async () => {
-        const page = await mount({ target, missing });
-        await page[entry]();
-        assert.deepEqual(shown(), words);
-      });
-    }
-
-    test(`${target}: a clean detail has no missing list even when the report row has gaps`, async () => {
-      const page = await mount({ target, missing: [] });
-      await page.openRecord();
-      assert.deepEqual(shown(), []);
-    });
-
-    test(`${target}: on a phone, the way back puts focus on the live report row that opened it`, async () => {
-      const page = await mount({ width: 390, target, missing: [] });
-      await page.openRecord();
-      assert.equal(document.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "page", "the record is the page");
-      await page.act(async () => [...document.querySelectorAll("button")].find((button) => button.textContent === "Registros")!.click());
-      const opener = () => {
-        const selected = document.querySelector<HTMLElement>("[data-record-key]");
-        return selected?.matches("tr") ? selected : selected?.querySelector("button") ?? null;
-      };
-      await page.wait(() => opener() !== null && document.activeElement === opener(), "focus on the row that opened the record");
-    });
-
-    test(`${target}: another opened record never inherits the selected report's reasons`, async () => {
-      const page = await mount({ target, missing });
-      await page.openRecord();
+  for (const entry of ["openFromSearch", "openRecord"] as const) {
+    test(`${entry} shows the record's ordered missing reasons and words`, async () => {
+      const page = await mount({ missing });
+      await page[entry]();
       assert.deepEqual(shown(), words);
-      await page.openOtherExpense();
-      assert.deepEqual(shown(), [], "a different target has no readiness answer from the previous selection");
     });
   }
+
+  test("a clean detail has no missing list even when the report row has gaps", async () => {
+    const page = await mount({ missing: [] });
+    await page.openRecord();
+    assert.deepEqual(shown(), []);
+  });
+
+  test("on a phone, the way back puts focus on the live report row that opened it", async () => {
+    const page = await mount({ width: 390, missing: [] });
+    await page.openRecord();
+    assert.equal(document.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "page", "the record is the page");
+    await page.act(async () => [...document.querySelectorAll("button")].find((button) => button.textContent === "Registros")!.click());
+    const opener = () => {
+      const selected = document.querySelector<HTMLElement>("[data-record-key]");
+      return selected?.matches("tr") ? selected : selected?.querySelector("button") ?? null;
+    };
+    await page.wait(() => opener() !== null && document.activeElement === opener(), "focus on the row that opened the record");
+  });
+
+  test("another opened record never inherits the selected report's reasons", async () => {
+    const page = await mount({ missing });
+    await page.openRecord();
+    assert.deepEqual(shown(), words);
+    await page.openOtherExpense();
+    assert.deepEqual(shown(), [], "a different target has no readiness answer from the previous selection");
+  });
 });
 
 describe("a recorded purchase with 606 data still missing", () => {
