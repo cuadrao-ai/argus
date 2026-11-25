@@ -78,6 +78,7 @@ from argus.domain.business.purchase_review import (
     amount_is_derived,
     apply_payment_split,
     apply_purchase,
+    shown_answers,
     takes_payment_split,
     takes_purchase_declaration,
     whole_payment,
@@ -238,11 +239,12 @@ def save_revision(
         if adjusted is not None:
             resolution["accepted"] = adjusted
         resolution["accepted_edit_version"] = event.version
-    # A person's first declaration is read against the one the review showed
-    # (``shown_dgii``), so the revision holds only what they changed.
-    before_dgii = previous.get("dgii") or (
-        shown_dgii.model_dump(mode="json") if dgii is not None and shown_dgii is not None else None
-    )
+    # A declaration write is read against the one the review showed
+    # (``shown_dgii``), so the revision holds only what it changed. A type
+    # change is read against the other form's declaration it replaces.
+    held = previous.get("dgii")
+    shown = shown_dgii.model_dump(mode="json") if dgii is not None and shown_dgii is not None else None
+    before_dgii = shown if shown is not None and (held is None or held.get("form") == shown["form"]) else held
     day = after.occurred_on.value
     if reader_date_reason(day) is not None:
         logger.info("business_post_read_rule draft_id={} rule=read_date_review", event.id)
@@ -454,7 +456,7 @@ def revise(
         actor,
         turn_key,
         dgii=declared,
-        shown_dgii=stored,
+        shown_dgii=shown_answers(stored, linked.suggestions, declared),
         fiscal_overrides=fiscal_overrides,
         # A declaration filled under the other type no longer applies.
         clear_dgii=retyped and declared is None,

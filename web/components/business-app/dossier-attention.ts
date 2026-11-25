@@ -9,7 +9,7 @@ import { formatMoney } from "./business-format";
 export const DUPLICATE_KEYS = "business.receipts.duplicate_resolution";
 
 export function duplicateBasisKey(basis: BusinessDuplicateCandidate["basis"], type?: BusinessDossier["document_type"]): string {
-  return `${DUPLICATE_KEYS}.basis.${basis === "fiscal_number" && documentFamily(type) === "sale" ? "fiscal_number_sale_placeholder" : basis}`;
+  return `${DUPLICATE_KEYS}.basis.${basis === "fiscal_number" && documentFamily(type) === "sale" ? "fiscal_number_sale" : basis}`;
 }
 
 /** The dossier's tabs. Documento joins them only in the narrow size. */

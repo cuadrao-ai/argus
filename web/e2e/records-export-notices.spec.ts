@@ -234,7 +234,7 @@ for (const language of ["es-419", "en"] as const) {
     const rows = table.locator("tbody tr");
     const missing = rows.nth(0).locator("[data-record-status]");
     const ready = rows.nth(1).locator('[data-col="stage"]');
-    await expect(missing).toHaveText(spanish ? "Faltan 3 datos" : "[placeholder] 3 details missing");
+    await expect(missing).toHaveText(spanish ? "Faltan 3 datos" : "3 details missing");
     await expect(ready).toBeEmpty();
     await expect(table.locator('[data-col="missing"], [data-col="funding"]')).toHaveCount(0);
     for (const [density, label, height] of [["compacto", spanish ? "Compacto" : "Compact", 40], ["normal", "Normal", 48], ["amplio", spanish ? "Amplio" : "Roomy", 56]] as const) {

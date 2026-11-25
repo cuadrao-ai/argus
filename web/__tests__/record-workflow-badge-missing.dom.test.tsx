@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import type { ReportRecord } from "@/lib/business-reports-api";
+import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
 import { createBusinessReportHttpFixture } from "./fixtures/business-report-http-fixture";
 
 beforeAll(() => {
@@ -13,7 +14,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 let cleanup = async () => {};
 afterEach(async () => { await cleanup(); document.body.innerHTML = ""; });
 
-async function status(report: Partial<ReportRecord>, surface: "cell" | "table" | "phone" = "cell", lng = "es-419", actionable = true) {
+async function status(report: Partial<ReportRecord>, surface: "cell" | "table" | "phone" | "legacy-table" | "legacy-list" = "cell", lng = "es-419", actionable = true, edit: (row: RecordRow) => RecordRow = (row) => row) {
   await cleanup();
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -22,15 +23,18 @@ async function status(report: Partial<ReportRecord>, surface: "cell" | "table" |
   await i18n.init({ lng, resources: { [lng]: { translation: (await import(`@/public/locales/${lng}/common.json`)).default } }, interpolation: { escapeValue: false } });
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const Component = (await import("@/components/business-app/transacciones/RecordStatusCell")).default;
-  const { RecordsTable, RecordsNarrowList } = await import("@/components/business-app/transacciones/TransaccionesRecords");
+  const { RecordsTable, RecordsNarrowList, RecordsList } = await import("@/components/business-app/transacciones/TransaccionesRecords");
   const { sampleRecordsPreferences } = await import("@/components/business-app/transacciones/sample-records-preferences");
   const { businessReportRow } = await import("@/lib/business-reporting-wire");
-  const row = businessReportRow({ ...createBusinessReportHttpFixture().records[0], ready: false, missing: [], ...report });
+  const row = edit(businessReportRow({ ...createBusinessReportHttpFixture().records[0], ready: false, missing: [], ...report }));
   if (!actionable) row.opens = null;
   const value = { chosen: { space_id: "s", capabilities: ["read"] }, panel: { kind: "transactions" }, records: { workspace: null }, openPanel: () => {} } as unknown as BusinessContextValue;
   const preferences = sampleRecordsPreferences();
   const stored = { ...preferences, order: ["missing", ...preferences.order], hidden: [] };
-  const node = surface === "cell" ? <Component row={row} /> : surface === "phone" ? <RecordsNarrowList records={[row]} rowRef={() => {}} /> : <RecordsTable records={[row]} density="normal" rowRef={() => {}} preferences={stored} />;
+  const node = surface === "cell" ? <Component row={row} />
+    : surface === "phone" ? <RecordsNarrowList records={[row]} rowRef={() => {}} />
+    : surface === "legacy-list" ? <RecordsList records={[row]} rowRef={() => {}} />
+    : <RecordsTable records={[row]} density="normal" rowRef={() => {}} preferences={surface === "table" ? stored : undefined} />;
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}>{node}</BusinessContext.Provider></I18nextProvider>));
   cleanup = async () => { await act(async () => root.unmount()); };
@@ -96,6 +100,19 @@ test("one gap shows its count and exposes its reason only through the tooltip", 
   assert.equal(document.querySelector('[role="tooltip"]')?.textContent, "Falta el RNC");
 });
 
+for (const [lng, pill, chip] of [["es-419", "Falta 1 dato", /Falta NCF/], ["en", "1 detail missing", /NCF missing|\[placeholder\]/]] as const) {
+  for (const surface of ["table", "phone", "legacy-table", "legacy-list"] as const) {
+    test(`${lng} ${surface}: a purchase missing its NCF says so only in Estado, never in an NCF chip`, async () => {
+      const { recordFiscalMark } = await import("@/components/business-app/business-ui");
+      const readWithoutNcf = { sin_comprobante: false, fiscal_known: true, fiscal_value: null };
+      const host = await status({ ready: false, missing: ["missing_ncf"] }, surface, lng, true, (row) => ({ ...row, marks: { ...row.marks, fiscal: recordFiscalMark(readWithoutNcf) } }));
+      assert.equal(host.querySelector("[data-mark]"), null);
+      assert.doesNotMatch(host.textContent ?? "", chip);
+      if (surface === "table" || surface === "phone") assert.equal(host.querySelector("[data-record-status]")?.textContent, pill);
+    });
+  }
+}
+
 test("unknown readiness keeps the Unknown mark", async () => {
   const host = await status({ ready: undefined, missing: ["missing_rnc"] });
   assert.equal(host.querySelector(".sr-only")?.textContent, "Estado no disponible");
@@ -104,7 +121,7 @@ test("unknown readiness keeps the Unknown mark", async () => {
 
 test("unknown reason codes retain the existing registry-word fallback", async () => {
   const host = await status({ ready: false, missing: ["unheard_of"] }, "cell", "en");
-  assert.equal(host.textContent, "[placeholder] 1 detail missing");
+  assert.equal(host.textContent, "1 detail missing");
   const trigger = host.querySelector<HTMLElement>('[tabindex="0"]')!;
   const { act } = await import("react");
   await act(async () => { trigger.focus(); await new Promise(resolve => setTimeout(resolve, 350)); });

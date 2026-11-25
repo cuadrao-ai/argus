@@ -2269,56 +2269,6 @@
         "ready": "Ready to accept"
       }
     },
-    "bank": {
-      "empty": {
-        "no_account": "Add the business bank account before importing a statement.",
-        "no_lines": "This statement has no lines."
-      },
-      "error": {
-        "layout_not_ready": "This bank's statement layout is not ready yet.",
-        "line_already_confirmed": "This line already has a confirmed match.",
-        "one_account": "This business already has a bank account.",
-        "pair_declined": "This match was declined.",
-        "unsupported_layout": "This file does not match a supported statement."
-      },
-      "import": {
-        "account": "Bank account",
-        "choose_file": "Choose a statement file",
-        "column_amount": "Amount column",
-        "column_credit": "Credit column",
-        "column_date": "Date column",
-        "column_debit": "Debit column",
-        "column_description": "Description column",
-        "column_sign": "Sign column",
-        "converged": "Already imported",
-        "inserted": "New lines",
-        "mapped_csv": "Mapped CSV",
-        "reader": "Statement layout",
-        "submit": "Import statement",
-        "title": "Import a statement"
-      },
-      "line": {
-        "charge": "Charge",
-        "deposit": "Deposit",
-        "zero": "Zero"
-      },
-      "nav": "Bank matching",
-      "suggestion": {
-        "confidence": "Match strength",
-        "confirm": "Confirm",
-        "confirmed": "Confirmed",
-        "decline": "Not this one",
-        "declined": "Declined",
-        "pending": "Suggested",
-        "receipt": "Expense",
-        "venta": "Sale"
-      },
-      "unmatched": {
-        "count": "Charges without a receipt",
-        "empty": "Every charge in this period has a receipt.",
-        "title": "Charges without a receipt"
-      }
-    },
     "consent": {
       "title": "Before you start",
       "body": "Cuadrao keeps the receipts, invoices and data you upload to read them, organize them and prepare your reports. Only you and the people you invite to your business can see them. You can ask us to delete your data whenever you want.",
@@ -2566,8 +2516,8 @@
         },
         "workflow": {
           "exported": "Exported",
-          "missing_count_placeholder_one": "[placeholder] {{count}} detail missing",
-          "missing_count_placeholder_other": "[placeholder] {{count}} details missing",
+          "missing_count_one": "{{count}} detail missing",
+          "missing_count_other": "{{count}} details missing",
           "not_ready": "Missing data",
           "ready": "Ready",
           "review": "To review",
@@ -4298,7 +4248,7 @@
         "arrived": "Arrived {{stamp}}",
         "basis": {
           "fiscal_number": "Same RNC and NCF as another document.",
-          "fiscal_number_sale_placeholder": "[placeholder] Same NCF as another sale.",
+          "fiscal_number_sale": "Same NCF as another sale.",
           "read_facts": "Same supplier, date and total as another document."
         },
         "column": {
@@ -4419,14 +4369,7 @@
         "listos": "Ready",
         "open": "Open",
         "reason": {
-          "blocked": "Something is still open",
-          "ecf_check_failed": "The e-CF failed its check",
-          "foreign_currency": "Foreign currency",
-          "missing_amount": "Total missing",
-          "missing_currency": "Currency missing",
-          "missing_itbis": "ITBIS missing",
-          "missing_merchant": "Supplier missing",
-          "unverified_sender": "Unverified sender"
+          "missing_currency": "Currency missing"
         },
         "refused": {
           "duplicate_comprobante": "This comprobante is already recorded",
@@ -4806,8 +4749,7 @@
       "sale_help_on": "It goes to Report 607.",
       "marked_sale": "Now it is a sale. It goes to Report 607.",
       "marked_purchase": "Now it is a purchase. It goes to Report 606.",
-      "sin_comprobante_chip": "No comprobante",
-      "missing_ncf_chip": "NCF missing"
+      "sin_comprobante_chip": "No comprobante"
     }
   },
   "money": {
@@ -4913,7 +4855,7 @@
     "batch_success": "{{count}} invitations sent",
     "batch_success_one": "1 invitation sent",
     "batch_title": "Invite collaborators",
-    "batch_unavailable_placeholder": "[placeholder] Invitations are unavailable.",
+    "batch_unavailable": "Invitations are unavailable.",
     "document_not_received": "Not received",
     "document_received": "Received",
 
