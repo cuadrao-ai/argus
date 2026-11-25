@@ -180,40 +180,7 @@
   .screen [data-auth-hero-settled="true"] { animation: none; }
 }
 
-.screen [data-auth-sign-in-steps="true"] {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: [feedback] auto [names] auto [summary] auto [password] auto [submit] auto;
-}
-
-.screen [data-auth-sign-in-steps] > * { grid-column: 1; }
-.screen [data-auth-sign-in-steps] > [data-auth-feedback] { grid-row: feedback; }
-.screen [data-auth-sign-in-steps] > [data-auth-collapse] { grid-row: names; }
-.screen [data-auth-sign-in-steps] > button { grid-row: submit; }
-.screen [data-auth-sign-in-panel="summary"] { grid-row: summary; }
-.screen [data-auth-sign-in-panel="password"] { grid-row: password; }
-.screen [data-auth-sign-in-panel="email"] { grid-row: summary / submit; }
-
-.screen [data-auth-sign-in-panel] {
-  --auth-step-fade-duration: 220ms;
-  align-self: start;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity var(--auth-step-fade-duration) ease-out,
-    visibility 0s var(--auth-step-fade-duration);
-}
-
-.screen [data-auth-sign-in-panel][data-open="true"] {
-  opacity: 1;
-  visibility: visible;
-  transition-delay: 0s;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .screen [data-auth-sign-in-panel] { transition: none; }
-}
-
-.screen [data-auth-collapse="true"] {
+.screen [data-auth-collapse] {
   display: grid;
   grid-template-rows: 0fr;
   margin-block: 0;
@@ -222,20 +189,30 @@
     margin-bottom 280ms cubic-bezier(.2,.7,.2,1), visibility 0s 280ms;
 }
 
-.screen [data-auth-collapse="true"][data-open="true"] {
+.screen [data-auth-collapse][data-open="true"] {
   grid-template-rows: 1fr;
   margin-bottom: 0.75rem;
   visibility: visible;
   transition-delay: 0s;
 }
 
-.screen [data-auth-collapse="true"] > div {
+.screen [data-auth-collapse] > div {
   min-height: 0;
   margin-inline: -5px;
   padding-inline: 5px;
   overflow: clip;
 }
 
+.screen [data-auth-collapse="swap"] { transition: none; }
+.screen [data-auth-swap="true"] { display: flow-root; margin-block: 0; }
+
+.screen [data-auth-collapse="grow"] {
+  opacity: 0;
+  transition: grid-template-rows 260ms ease, opacity 220ms ease, margin-bottom 260ms ease, visibility 0s 260ms;
+}
+
+.screen [data-auth-collapse="grow"][data-open="true"] { opacity: 1; }
+
 @media (prefers-reduced-motion: reduce) {
-  .screen [data-auth-collapse="true"] { transition: none; }
+  .screen [data-auth-collapse] { transition: none; }
 }

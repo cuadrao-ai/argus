@@ -328,6 +328,7 @@ jobs:
             e2e/records-export-notices.spec.ts \
             e2e/records-table-hugs-rows.spec.ts
           PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
+          bunx playwright test --config e2e/auth-account-transition.playwright.config.ts
 
       - name: Verify auth button labels stay readable in every state
         run: cd web && PLAYWRIGHT_PORT=3103 bunx playwright test e2e/auth-button-contrast.spec.ts

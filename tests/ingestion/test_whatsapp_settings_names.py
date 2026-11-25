@@ -7,7 +7,6 @@ from pydantic import SecretStr
 # Field, canonical suffix, synthetic environment value, parsed value, default.
 SETTINGS = (
     ("intake_enabled", "INTAKE_ENABLED", "true", True, False),
-    ("agent_enabled", "AGENT_ENABLED", "true", True, False),
     ("outbound_enabled", "OUTBOUND_ENABLED", "true", True, False),
     ("verify_token", "VERIFY_TOKEN", "synthetic-verify", "synthetic-verify", None),
     ("app_secret", "APP_SECRET", "synthetic-app", "synthetic-app", None),

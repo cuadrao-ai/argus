@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
-from argus.agent_runtime.business.interpretation import BusinessInterpretation
+from argus.domain.ingestion.documents.models import ExtractionResult
 from argus.llm import openrouter
 from argus.llm.openrouter import (
     openrouter_profile_for_task,
@@ -189,43 +190,9 @@ def test_judge_request_model_parameters(model, temperature, reasoning):
 @pytest.mark.parametrize(
     "schema_model,response_value,valid",
     [
-        (
-            BusinessInterpretation,
-            {"records": [{"facts": {"amount": {"state": "known", "value": "37"}}}]},
-            True,
-        ),
-        (
-            BusinessInterpretation,
-            {"records": [{"facts": {"funding": {"state": "unknown"}}}]},
-            True,
-        ),
-        (
-            BusinessInterpretation,
-            {"records": [{"facts": {"funding": {"state": "owner_does_not_know"}}}]},
-            True,
-        ),
-        (BusinessInterpretation, {"records": [{"facts": {"amount": None}}]}, False),
-        (
-            BusinessInterpretation,
-            {"records": [{"facts": {"amount": {"state": "known"}}}]},
-            False,
-        ),
-        (
-            BusinessInterpretation,
-            {
-                "records": [
-                    {
-                        "facts": {
-                            "amount": {"state": "known", "value": "37"},
-                            "grant_id": "fake",
-                        }
-                    }
-                ]
-            },
-            False,
-        ),
         (NestedWireResult, {"item": {"value": "kept"}}, True),
         (NestedWireResult, {"item": {"note": "missing value"}}, False),
+        (NestedWireResult, {"item": {"value": "kept", "grant_id": "fake"}}, False),
         (CompleteWireResult, {"value": "native"}, True),
         (CompleteWireResult, {"value": None}, False),
     ],
@@ -456,8 +423,417 @@ def test_document_read_allows_a_long_receipt_answer() -> None:
     payload = openrouter._json_schema_payload(
         model="google/gemini-3.8-flash",
         messages=[{"role": "user", "content": "probe"}],
-        schema_model=BusinessInterpretation,
-        schema_name="BusinessInterpretation",
+        schema_model=ExtractionResult,
+        schema_name="document_observations",
         profile=profile,
     )
     assert payload["max_tokens"] == 16000
+
+
+@pytest.mark.parametrize("async_path", [False, True])
+@pytest.mark.parametrize("guard_order", ["observer_outer", "observer_inner"])
+@pytest.mark.parametrize("failure", [None, "revoked", "route_drift"])
+@pytest.mark.asyncio
+async def test_actual_post_keeps_nested_diagnostic_then_access_guards(
+    async_path, guard_order, failure
+):
+    import httpx
+    from argus.llm import openrouter
+    from argus.llm.openrouter_request_policy import (
+        openrouter_payload_route,
+        validate_openrouter_route,
+    )
+
+    events = []
+    payload = {"model": "test/model", "provider": openrouter.openrouter_provider_policy()}
+    routes = [openrouter_payload_route(payload)]
+
+    def observer(task, actual):
+        events.append("observer")
+        if failure == "route_drift":
+            actual = {**actual, "provider": {"allow_fallbacks": True}}
+        return actual
+
+    def access(task, actual):
+        validate_openrouter_route(actual, routes)
+        events.append("access")
+        if failure == "revoked":
+            raise PermissionError("captured_consent_revoked")
+        return actual
+
+    def post(url, **kwargs):
+        events.append("post")
+        assert kwargs["json"] == payload
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    async def apost(url, **kwargs):
+        return post(url, **kwargs)
+
+    client = SimpleNamespace(post=apost if async_path else post)
+    first, second = ((observer, False), (access, True))
+    if guard_order == "observer_inner":
+        first, second = second, first
+    with openrouter.openrouter_request_guard(first[0], final=first[1]):
+        with openrouter.openrouter_request_guard(second[0], final=second[1]):
+            kwargs = dict(
+                client=client,
+                api_key="offline-placeholder",
+                payload=payload,
+                retry_attempt=(
+                    "interpretation",
+                    2.0,
+                    "test/model",
+                    "json_schema",
+                    "Test",
+                    None,
+                ),
+            )
+            call = (
+                openrouter._post_openrouter_json_schema
+                if async_path
+                else openrouter._post_openrouter_json_schema_sync
+            )
+            if failure:
+                with pytest.raises(PermissionError):
+                    if async_path:
+                        await call(**kwargs)
+                    else:
+                        call(**kwargs)
+            elif async_path:
+                await call(**kwargs)
+            else:
+                call(**kwargs)
+    assert events == (
+        ["observer", "access", "post"]
+        if not failure
+        else ["observer", "access"]
+        if failure == "revoked"
+        else ["observer"]
+    )
+    assert openrouter._guard_request("interpretation", payload) is payload
+
+
+@pytest.mark.parametrize("async_path", [False, True])
+@pytest.mark.parametrize("revoke", [False, True])
+@pytest.mark.asyncio
+async def test_internal_reasoning_retry_rechecks_live_access_before_each_post(
+    async_path, revoke, monkeypatch
+):
+    import httpx
+    from argus.llm import openrouter
+
+    payload = {"model": "test/model", "reasoning": {"effort": "medium"}}
+    events = []
+    live = {"value": True}
+
+    def access(task, actual):
+        events.append("access")
+        if not live["value"]:
+            raise PermissionError("captured_consent_revoked")
+        return actual
+
+    def post(url, **kwargs):
+        events.append("post")
+        if events.count("post") == 1:
+            live["value"] = not revoke
+            return httpx.Response(400, request=httpx.Request("POST", url))
+        assert "reasoning" not in kwargs["json"]
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    async def apost(url, **kwargs):
+        return post(url, **kwargs)
+
+    monkeypatch.setattr(
+        openrouter,
+        "_reserve_openrouter_attempt",
+        lambda *args: SimpleNamespace(timeout_seconds=2.0),
+    )
+    kwargs = dict(
+        client=SimpleNamespace(post=apost if async_path else post),
+        api_key="offline-placeholder",
+        payload=payload,
+        retry_attempt=("interpretation", 2.0, "test/model", "json_schema", "Test", None),
+    )
+    call = (
+        openrouter._post_openrouter_json_schema
+        if async_path
+        else openrouter._post_openrouter_json_schema_sync
+    )
+    with openrouter.openrouter_request_guard(access, final=True):
+        if revoke:
+            with pytest.raises(PermissionError, match="captured_consent_revoked"):
+                if async_path:
+                    await call(**kwargs)
+                else:
+                    call(**kwargs)
+        elif async_path:
+            await call(**kwargs)
+        else:
+            call(**kwargs)
+    assert events == (
+        ["access", "post", "access"] if revoke else ["access", "post", "access", "post"]
+    )
+
+
+@pytest.mark.parametrize("async_path", [False, True])
+@pytest.mark.parametrize("denial", ["revoked", "undisclosed_fallback"])
+@pytest.mark.asyncio
+async def test_candidate_fallback_cannot_dispatch_after_access_or_route_denial(
+    async_path, denial, monkeypatch
+):
+    import httpx
+    from argus.llm import openrouter
+    from argus.llm.openrouter_request_policy import validate_openrouter_route
+    from pydantic import BaseModel
+
+    class Result(BaseModel):
+        ok: bool
+
+    posts = []
+    live = {"value": True}
+    routes = [
+        {"model": "test/primary", "provider": openrouter.openrouter_provider_policy()},
+        {"model": "test/fallback", "provider": openrouter.openrouter_provider_policy()},
+    ]
+
+    def access(task, payload):
+        validate_openrouter_route(payload, routes if denial == "revoked" else routes[:1])
+        if not live["value"]:
+            raise PermissionError("captured_consent_revoked")
+        return payload
+
+    def post(url, **kwargs):
+        posts.append(kwargs["json"])
+        live["value"] = denial != "revoked"
+        return httpx.Response(503, request=httpx.Request("POST", url))
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        def post(self, url, **kwargs):
+            return post(url, **kwargs)
+
+    class AsyncClient(Client):
+        async def post(self, url, **kwargs):
+            return post(url, **kwargs)
+
+    monkeypatch.setattr(openrouter.httpx, "AsyncClient", AsyncClient)
+    monkeypatch.setattr(openrouter.httpx, "Client", Client)
+    monkeypatch.setattr(
+        openrouter, "resolve_openrouter_api_key", lambda: "offline-placeholder"
+    )
+    monkeypatch.setattr(
+        openrouter,
+        "openrouter_structured_model_candidates",
+        lambda *args, **kwargs: ["test/primary", "test/fallback"],
+    )
+    call = (
+        openrouter.invoke_openrouter_json_schema
+        if async_path
+        else openrouter.invoke_openrouter_json_schema_sync
+    )
+    with openrouter.openrouter_request_guard(access, final=True):
+        with pytest.raises(PermissionError):
+            kwargs = dict(
+                task="interpretation",
+                messages=[],
+                schema_model=Result,
+                schema_name="Result",
+            )
+            if async_path:
+                await call(**kwargs)
+            else:
+                call(**kwargs)
+    assert len(posts) == 1
+    assert posts[0]["model"] == "test/primary"
+
+
+@pytest.mark.parametrize("extra", ["models", "route", "plugins", "provider"])
+def test_disclosure_rejects_undisclosed_routing_or_recipient_overrides(extra):
+    from argus.llm.openrouter_request_policy import validate_openrouter_route
+
+    original = {"model": "test/model", "provider": None}
+    changed = {**original, extra: {"override": True}}
+    with pytest.raises(PermissionError, match="openrouter_consent_route_changed"):
+        validate_openrouter_route(changed, [original])
+
+
+@pytest.mark.asyncio
+async def test_actual_post_access_guards_are_isolated_between_concurrent_tasks():
+    import asyncio
+
+    import httpx
+    from argus.llm import openrouter
+
+    posts = []
+
+    async def run(model, admitted):
+        def access(task, payload):
+            assert payload["model"] == model
+            if not admitted:
+                raise PermissionError("captured_consent_revoked")
+            return payload
+
+        async def post(url, **kwargs):
+            posts.append(kwargs["json"]["model"])
+            return httpx.Response(200, request=httpx.Request("POST", url))
+
+        with openrouter.openrouter_request_guard(access, final=True):
+            await asyncio.sleep(0)
+            return await openrouter._post_openrouter_json_schema(
+                client=SimpleNamespace(post=post),
+                api_key="offline-placeholder",
+                payload={"model": model},
+                retry_attempt=("interpretation", 2.0, model, "json_schema", "Test", None),
+            )
+
+    results = await asyncio.gather(
+        run("test/allowed", True), run("test/denied", False), return_exceptions=True
+    )
+    assert isinstance(results[0], httpx.Response)
+    assert isinstance(results[1], PermissionError)
+    assert posts == ["test/allowed"]
+
+
+@pytest.mark.parametrize("async_path", [False, True])
+@pytest.mark.parametrize(
+    "mutation", ["replacement", "model", "provider", "nested_provider"]
+)
+@pytest.mark.asyncio
+async def test_nested_final_guard_cannot_change_intercepted_post_after_access(
+    async_path, mutation
+):
+    import asyncio
+
+    import httpx
+    from argus.llm import openrouter
+    from argus.llm.openrouter_request_policy import (
+        openrouter_payload_route,
+        validate_openrouter_route,
+    )
+
+    payload = {
+        "model": "approved",
+        "provider": {**openrouter.openrouter_provider_policy(), "order": ["disclosed"]},
+    }
+    routes = [openrouter_payload_route(payload)]
+    posts = []
+
+    def access(task, actual):
+        validate_openrouter_route(actual, routes)
+        return actual
+
+    def nested_final(task, actual):
+        if mutation == "replacement":
+            return {**actual, "model": "undisclosed"}
+        if mutation == "model":
+            actual["model"] = "undisclosed"
+        elif mutation == "provider":
+            actual["provider"] = {"allow_fallbacks": True}
+        else:
+            actual["provider"]["order"].append("undisclosed")
+        return actual
+
+    def post(url, **kwargs):
+        posts.append(kwargs["json"])
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    async def apost(url, **kwargs):
+        return post(url, **kwargs)
+
+    with openrouter.openrouter_request_guard(access, final=True):
+        await asyncio.sleep(0)
+        with openrouter.openrouter_request_guard(nested_final, final=True):
+            kwargs = dict(
+                client=SimpleNamespace(post=apost if async_path else post),
+                api_key="offline-placeholder",
+                payload=payload,
+                retry_attempt=(
+                    "interpretation",
+                    2.0,
+                    "approved",
+                    "json_schema",
+                    "Test",
+                    None,
+                ),
+            )
+            with pytest.raises(PermissionError):
+                if async_path:
+                    await openrouter._post_openrouter_json_schema(**kwargs)
+                else:
+                    openrouter._post_openrouter_json_schema_sync(**kwargs)
+    assert posts == []
+
+
+@pytest.mark.asyncio
+async def test_final_validator_captured_alias_cannot_change_intercepted_http_after_await():
+    import asyncio
+
+    import httpx
+    from argus.llm import openrouter
+
+    captured = []
+    dispatched = []
+    events = []
+    payload = {
+        "model": "approved",
+        "provider": {**openrouter.openrouter_provider_policy(), "order": ["disclosed"]},
+    }
+
+    def access(task, actual):
+        events.append("access")
+        assert actual == payload
+        return actual
+
+    def inner_validator(task, actual):
+        events.append("validator")
+        captured.append(actual)
+        return actual
+
+    async def post(url, **kwargs):
+        await asyncio.sleep(0)
+        captured[0]["model"] = "undisclosed"
+        captured[0]["provider"]["order"].append("undisclosed")
+        dispatched.append(kwargs["json"])
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    with openrouter.openrouter_request_guard(access, final=True):
+        await asyncio.sleep(0)
+        with openrouter.openrouter_request_guard(inner_validator, final=True):
+            await openrouter._post_openrouter_json_schema(
+                client=SimpleNamespace(post=post),
+                api_key="offline-placeholder",
+                payload=payload,
+                retry_attempt=(
+                    "interpretation",
+                    2.0,
+                    "approved",
+                    "json_schema",
+                    "Test",
+                    None,
+                ),
+            )
+    assert events == ["validator", "access"]
+    assert dispatched == [
+        {
+            "model": "approved",
+            "provider": {
+                **openrouter.openrouter_provider_policy(),
+                "order": ["disclosed"],
+            },
+        }
+    ]
+    assert dispatched[0] is not captured[0]
