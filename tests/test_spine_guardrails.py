@@ -103,30 +103,16 @@ def test_no_banned_quarantine_module(module_name: str) -> None:
 # by eval, not by per-language literals in the runtime interpretation path. Legitimate
 # presentation-layer i18n (presentation_i18n.py, recovery_messages.py, and the other
 # established locale-aware modules) is the accepted baseline and is intentionally NOT
-# policed here; this tripwire guards Business interpretation and the shared
-# capability modules, where the quarantine added per-language copy.
-LOCALE_FORBIDDEN_FILES = [
-    ARGUS_SRC / "agent_runtime" / "business" / "interpretation.py",
-]
-LOCALE_FORBIDDEN_DIRS = [
-    ARGUS_SRC / "agent_runtime" / "capabilities",
-]
+# policed here. This tripwire guards shared capability modules.
+CAPABILITIES = ARGUS_SRC / "agent_runtime" / "capabilities"
 LOCALE_LITERAL = "es-419"
-
-
-def _locale_scan_targets() -> list[Path]:
-    targets = [p for p in LOCALE_FORBIDDEN_FILES if p.exists()]
-    for directory in LOCALE_FORBIDDEN_DIRS:
-        if directory.exists():
-            targets.extend(_py_files(directory))
-    return targets
 
 
 @pytest.mark.parametrize(
     "path",
     [
         pytest.param(p, id=str(p.relative_to(REPO_ROOT)))
-        for p in _locale_scan_targets()
+        for p in _py_files(CAPABILITIES)
     ],
 )
 def test_no_per_language_branch_in_interpretation_path(path: Path) -> None:
@@ -138,13 +124,7 @@ def test_no_per_language_branch_in_interpretation_path(path: Path) -> None:
 
 
 def test_locale_scan_covers_expected_files() -> None:
-    """Guard the guard: ensure the locale scan actually resolved its core targets, so a
-    moved/renamed interpret stage cannot silently empty the parametrization."""
-    resolved = {p.name for p in _locale_scan_targets()}
-    assert {"interpretation.py"} <= resolved, (
-        "Locale tripwire lost its core targets; update LOCALE_FORBIDDEN_FILES if the "
-        f"interpret stage moved. Resolved: {sorted(resolved)}"
-    )
+    assert CAPABILITIES / "contract.py" in _py_files(CAPABILITIES)
 
 
 # --- Tripwire 4: issue #154 migrated surfaces stay language-agnostic ----------

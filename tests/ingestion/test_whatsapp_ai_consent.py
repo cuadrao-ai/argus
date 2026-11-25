@@ -1,5 +1,4 @@
 from dataclasses import replace
-from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -36,16 +35,6 @@ def test_undisclosed_route_is_unavailable_without_database_access():
     store = AIConsentStore(None, lambda: {})
     with pytest.raises(ConsentError, match="route_unavailable"):
         store._route()
-    assert store.capture_consent(None, uuid4()) is None
-
-
-def test_unconsented_capture_cannot_open_database_or_read_provider_route():
-    def forbidden():
-        raise AssertionError("route must not be loaded")
-
-    store = AIConsentStore(None, forbidden)
-    with pytest.raises(ConsentError, match="consent_required"):
-        store.require_access(SimpleNamespace(ai_consent_id=None), None, lease=None)
 
 
 def test_disclosure_token_binds_link_generation_and_actual_route():
@@ -69,54 +58,27 @@ def test_disclosure_token_binds_link_generation_and_actual_route():
     assert digest(route) == digest(dict(reversed(list(route.items()))))
 
 
-def test_missing_original_consent_grant_never_selects_a_replacement():
-    from argus.domain.ingestion.whatsapp.business_worker import BusinessWhatsAppWorker
-
-    def forbidden(*args, **kwargs):
-        raise AssertionError("must not select another grant")
-
-    worker = BusinessWhatsAppWorker(
-        captures=None,
-        turns=None,
-        outbox=None,
-        delivery=None,
-        transport=None,
-        actions=SimpleNamespace(resolve_actor=forbidden),
-        consent=SimpleNamespace(original_grant=lambda captured: None),
-    )
-    with pytest.raises(PermissionError, match="consent_required"):
-        worker._authorization(object(), None)
-
-
 @pytest.mark.parametrize("suffix", [" Updated scope.", "\n"])
-def test_exact_disclosure_drift_invalidates_token_receipt_and_capture(
-    monkeypatch, suffix
-):
-    from argus.domain.ingestion.whatsapp import ai_consent
-
+def test_exact_disclosure_drift_invalidates_token_and_receipt(monkeypatch, suffix):
     route = {"gateway": "synthetic-fixture"}
     store = AIConsentStore(None, lambda: route)
     link = (uuid4(), uuid4(), uuid4(), b"s" * 32, "1234")
     receipt = {
         "id": uuid4(),
-        "scope_version": ai_consent.SCOPE_VERSION,
-        "disclosure": ai_consent.DISCLOSURE,
+        "scope_version": store.scope.version,
+        "disclosure": store.scope.disclosure,
         "route_hash": digest(route),
         "consented_at": None,
         "revoked_at": None,
     }
     original = store._view(link, receipt, route)
     assert original["enabled"]
-    monkeypatch.setattr(store, "_latest", lambda *args: receipt)
-    monkeypatch.setattr(store, "_valid_grant", lambda *args: True)
-    assert store.capture_consent(None, link[0]) == receipt["id"]
     monkeypatch.setattr(
         store,
         "scope",
-        replace(store.scope, disclosure=ai_consent.DISCLOSURE + suffix),
+        replace(store.scope, disclosure=store.scope.disclosure + suffix),
     )
     changed = store._view(link, receipt, route)
     assert changed["disclosure_token"] != original["disclosure_token"]
     assert not changed["enabled"]
-    assert store.capture_consent(None, link[0]) is None
     assert receipt["disclosure"] + suffix == changed["disclosure"]

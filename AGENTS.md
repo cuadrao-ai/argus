@@ -41,10 +41,6 @@ Layout: `src/argus/api/` API, `src/argus/domain/business/` Business domain,
 packages with no personal app, `supabase/migrations/`,
 `tests/` (with `tests/evals/`), `scripts/` checks and ops tools, `.github/` CI and setup.
 
-`src/argus/agent_runtime/business/` serves WhatsApp intake through its
-`BusinessTurnRunner`. Preserve its Business interpretation boundary and measured
-model-facing text; it is not the retired investing chat.
-
 ## Setup and run
 
 - Python is pinned by `.python-version` (3.10.20); run it through `poetry run`. Frontend
@@ -86,9 +82,8 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 - One owner per fact. Ask of every change who else holds this fact and what forces
   them to agree. Derive from one source; never keep two copies in sync.
 - A fact used by more than one of the API, app and marketing site lives only in `shared/`, and each one lists it as a dependency. Never copy files between those folders or read another one's files. scripts/check_cross_folder_links.py enforces this.
-- Preserve the Business interpreter's WhatsApp intake boundary. Do not add regex,
-  phrase lists or language gates ahead of interpretation; code checks facts after
-  interpretation, and any layer that patches a weak model read logs when it fires.
+- Do not add regex, phrase lists or language gates ahead of interpretation; code checks
+  facts after interpretation, and any layer that patches a weak model read logs when it fires.
 - Keep the Business and document-extraction entries protected by
   `tests/test_interpreter_prompt_freeze.py`. Changes to their measured prompt
   builders or `Field(description=...)` need the affected scope's live measurement,

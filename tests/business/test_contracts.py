@@ -247,6 +247,8 @@ def test_model_cannot_emit_human_approval() -> None:
         TypeAdapter(BusinessAction).validate_python(
             {"action": "record_expense", "version": 1}
         )
+    with pytest.raises(ValidationError):
+        TurnPlan.model_validate({"actions": [{"action": "approve_expense"}]})
 
 
 def test_plan_references_only_prior_draft_creation() -> None:

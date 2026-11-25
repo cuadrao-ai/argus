@@ -39,7 +39,6 @@ ENTRY_POINTS = (
     "workflows.document_worker",
     "workflows.document_job",
 )
-SMOKE_ENTRY_POINT = "argus.agent_runtime.business.runner"
 
 
 @dataclass(frozen=True)
@@ -180,7 +179,7 @@ def audit(
 ) -> tuple[list[dict[str, object]], list[str]]:
     graph, uses = import_graph(root)
     paths = {entry: import_paths(graph, entry) for entry in ENTRY_POINTS}
-    smoke_paths = import_paths(graph, SMOKE_ENTRY_POINT)
+    smoke_paths = paths["argus.api.main"]
     installed = production_dependencies((root / "pyproject.toml").read_text())
     candidates = {
         name: IMPORT_ALIASES.get(name, name.replace("-", "_"))

@@ -51,15 +51,9 @@
     },
     "business": {
       "owners": [
-        "src/argus/agent_runtime/business/interpretation.py",
         "src/argus/domain/business/tools/declarations.py"
       ],
       "surface": {
-        "src/argus/agent_runtime/business/interpretation.py": {
-          "chars": 4610,
-          "entries": 6,
-          "sha256": "f8c5121a4acf1a9a486bcb62cc54f0aba2ee2058e8978e9920705baaafdeb666"
-        },
         "src/argus/domain/business/tools/declarations.py": {
           "chars": 428,
           "entries": 7,

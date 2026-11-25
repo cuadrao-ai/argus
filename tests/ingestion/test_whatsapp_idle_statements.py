@@ -86,7 +86,6 @@ def idle(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
         "CUADRAO_WHATSAPP_ACCESS_TOKEN": "fake-access",
         "CUADRAO_WHATSAPP_NUMBER_ID": "1234",
         "CUADRAO_WHATSAPP_SENDER_KEY": "fake-sender",
-        "CUADRAO_WHATSAPP_AGENT_ENABLED": "true",
         "CUADRAO_INGESTION_SECRET_KEY": base64.urlsafe_b64encode(b"k" * 32).decode(),
         "CUADRAO_DOCUMENT_EXTRACTION_ENABLED": "true",
         "CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS": "60",
