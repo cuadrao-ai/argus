@@ -50,10 +50,30 @@ class ReadResume:
             self.run(now)
 
     def run(self, now: datetime) -> dict[str, int]:
-        due = self.service.store.refused_before(
-            before={code: window_start(code, now) for code in READ_BUDGET_REFUSALS}
-        )
-        requeued = sum(self._resume(*receipt) for receipt in due)
+        from argus.domain.business.read_budget import HELD_READ_REFUSAL
+        from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
+        from argus.domain.owner_scope import space_id
+
+        before = {code: window_start(code, now) for code in READ_BUDGET_REFUSALS}
+        if not load_whatsapp_settings().intake_ready:
+            before.pop(HELD_READ_REFUSAL, None)
+        due = self.service.store.refused_before(before=before)
+        requeued = 0
+        for user, connection, version in due:
+            try:
+                scope = self.service.hub.connections.get_any_scope(
+                    user_id=user, connection_id=connection
+                ).scope
+                if space_id(scope) is not None:
+                    requeued += self._resume(user, connection, version)
+                    continue
+                # A Personal held read has no Business grant to bind.
+                self.service.queue(user_id=user, connection_id=connection,
+                                   consent=True, scope=scope, expected_version=version)
+                asyncio.run(dispatch_preparation(self.service, user, connection, scope=scope))
+                requeued += 1
+            except Exception as error:
+                logger.warning("Refused held read left waiting", failure_mode=type(error).__name__)
         logger.info("Refused reads resumed due={} requeued={}", len(due), requeued)
         return dict(due=len(due), requeued=requeued)
 

@@ -252,10 +252,10 @@ def test_a_receipt_the_person_asked_for_first_is_left_to_them(desk):  # noqa: AN
     assert (draft(desk, receipt), job(desk, receipt)) == asked
 
 
-def test_the_index_holds_exactly_the_read_budget_refusals(desk):  # noqa: ANN001
+def test_the_index_holds_business_and_held_read_budget_refusals(desk):  # noqa: ANN001
     with desk.pool.connection() as db:
         [definition] = db.execute(
             "select indexdef from pg_indexes where schemaname='public'"
             " and indexname='financial_document_extractions_refused_idx'"
         ).fetchone()
-    assert set(re.findall(r"'(business_\w+)'", definition)) == READ_BUDGET_REFUSALS
+    assert set(re.findall(r"'(\w+_read_budget_\w+)'", definition)) == READ_BUDGET_REFUSALS

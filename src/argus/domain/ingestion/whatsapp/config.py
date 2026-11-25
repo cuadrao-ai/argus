@@ -43,6 +43,9 @@ def _names(name: str) -> str:
 class WhatsAppSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
 
+    held_reads_per_day: int = Field(
+        default=100, ge=1, validation_alias="CUADRAO_WHATSAPP_HELD_READS_PER_DAY"
+    )
     intake_enabled: Flag = Field(default=False, validation_alias=_names("INTAKE_ENABLED"))
     # The Business agent over WhatsApp. Off by default: WhatsApp is receipt
     # intake only until this is turned on.

@@ -3429,6 +3429,47 @@ per-person advisory lock, so the five-device limit holds under concurrency. Row 
 with no policies and every client grant revoked, so no client role can read or
 write it. Proven by `tests/test_ingestion_shortcuts_postgres.py`.
 
+Held WhatsApp files (migration `20261125001000_whatsapp_held_files.sql`) are
+Personal uploads with `financial_source_connections.owner_space_id` null:
+
+- `whatsapp_held_files`: `id`, `user_id`, captured `sender_link_id`, unique
+  32-byte `provider_message_key`, `connection_id`, `reason`, `state`,
+  `assigned_space_id`, `assigned_connection_id`, `held_at` and `settled_at`.
+  This row owns state (`held`, `assigned`, `expired`) and reason (`no_buyer_rnc`,
+  `no_match`, `two_matches`, `no_eligible_business`, `held_read_cap`, `read_failed`).
+  Captured message and connection identifiers survive expiry as tombstones;
+  they are not foreign keys. Identical bytes can have multiple message rows
+  sharing one Personal draft. `resolution.whatsapp_held` is immutable provenance,
+  not a second state or reason.
+- `whatsapp_held_read_usage`: primary key `(user_id, day)`, with nonnegative
+  `reads`. `business_day` owns the Santo Domingo day. `read_budget.py` owns the
+  counter and `hand_over`: one transaction uses the existing Business
+  `refusal()` rule and advisory lock to add one Business read and subtract one
+  held read, or changes neither count when full. A specific read supplies its
+  actual `charged_at`, not its upload time. Without it the oldest outstanding
+  charge is transferred. W9 must transfer and settle once inside
+  `PostgresHeldFiles.assignment`, using `BoundPool` for the same transaction.
+
+Both tables cascade from `auth.users`, enable RLS, and grant authenticated
+users SELECT only with `user_id = auth.uid()`. Client writes are revoked.
+The existing account-deletion source step erases the owner's objects before
+auth deletion; the new rows then cascade. No new deletion step is introduced.
+
+The partial `(held_at, id)` index selects live rows for hourly expiry inside
+the existing worker upkeep. `PURGE_AFTER` remains the only retention age.
+Expiry and assignment share owner, source and held-row locks. Expiry rejects
+moved or assigned files, active readers, newer messages sharing the draft,
+shared original/rebuilt paths, Business source and custody references, and
+account deletion in progress. It calls `PostgresDocumentStore.forget` on that
+same transaction. Failed erasure retains the draft; a partial erase cannot
+settle as assigned. Success erases the draft, connection and unshared objects,
+then keeps the expired held row. An assignment winner stays safe on retry.
+
+The rebuilt `financial_document_extractions_refused_idx` includes
+`whatsapp_held_read_budget_day`. The existing ten-minute resume pass includes
+live held Personal refusals. Neither expiry nor resume queries WhatsApp tables
+while `intake_ready` is false. W9 owns routing, adoption and the webhook caller.
+
 WhatsApp receipt intake keeps three service-role-only tables (migration
 `20261008130000_whatsapp_intake.sql`). Phone numbers, provider message ids and
 link codes are stored only as HMAC-SHA256 digests under

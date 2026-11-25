@@ -146,6 +146,8 @@ services:
         sync: false
       - key: CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
         sync: false
+      - key: CUADRAO_WHATSAPP_HELD_READS_PER_DAY
+        value: "100"
       - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
         value: "false"
       - key: CUADRAO_WHATSAPP_NUMBER_ID
@@ -260,6 +262,8 @@ services:
         sync: false
       - key: CUADRAO_WHATSAPP_ACCESS_TOKEN
         sync: false
+      - key: CUADRAO_WHATSAPP_HELD_READS_PER_DAY
+        value: "100"
       - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
         value: "false"
       - key: CUADRAO_WHATSAPP_NUMBER_ID
@@ -380,6 +384,8 @@ services:
         sync: false
       - key: CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
         sync: false
+      - key: CUADRAO_WHATSAPP_HELD_READS_PER_DAY
+        value: "100"
       - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
         value: "true"
       - key: CUADRAO_WHATSAPP_NUMBER_ID
@@ -509,6 +515,8 @@ services:
         sync: false
       - key: CUADRAO_WHATSAPP_ACCESS_TOKEN
         sync: false
+      - key: CUADRAO_WHATSAPP_HELD_READS_PER_DAY
+        value: "100"
       - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
         sync: false
       - key: CUADRAO_WHATSAPP_NUMBER_ID

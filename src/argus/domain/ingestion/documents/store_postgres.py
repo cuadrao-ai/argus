@@ -436,6 +436,20 @@ class PostgresDocumentStore:
     ) -> list[tuple[str, str, int]]:
         if not before:
             return []
+        from argus.domain.business.read_budget import HELD_READ_REFUSAL
+        from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
+
+        before = dict(before)
+        if not load_whatsapp_settings().intake_ready:
+            before.pop(HELD_READ_REFUSAL, None)
+        if not before:
+            return []
+        held = (
+            " or (d.draft->'resolution'->>'whatsapp_held'='true' and exists("
+            "select 1 from public.whatsapp_held_files h where h.user_id=d.user_id"
+            " and h.connection_id=d.connection_id and h.state='held'))"
+            if HELD_READ_REFUSAL in before else ""
+        )
         # ``financial_document_extractions_refused_idx`` holds only these rows.
         refused = " or ".join(
             "(d.draft->>'error_code'=%s and (d.draft->>'updated_at')::timestamptz < %s)"
@@ -445,7 +459,7 @@ class PostgresDocumentStore:
             rows = connection.execute(
                 "select d.user_id::text, d.connection_id::text, "
                 f"(d.draft->>'version')::integer from {_LIVE_DOCUMENTS} "
-                "and c.owner_space_id is not null and d.draft->>'status'='saved' "
+                f"and (c.owner_space_id is not null{held}) and d.draft->>'status'='saved' "
                 f"and (d.draft->>'source_available')::boolean and ({refused}) "
                 "order by d.created_at, d.connection_id",
                 [value for pair in before.items() for value in pair],
