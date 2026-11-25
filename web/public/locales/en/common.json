@@ -2369,38 +2369,27 @@
     },
     "transactions": {
       "layout": {
-        "all_types": "All types",
         "annotations": {
           "actions_for": "Actions for {{name}}",
           "add_attachment": "Add attachment",
           "add_note": "Add note",
           "attachment_for": "Attachment for {{name}}",
-          "choose_file": "Add files",
         "drop_release": "Drop files to select them",
         "drop_title": "Drag your files here",
           "current_note": "Current note",
           "duplicates_one": "This file is already selected.",
           "duplicates_other": "These {{count}} files are already selected.",
           "edit_note_for": "Edit note for {{name}}",
-          "empty_file": "This file is empty. Choose another.",
           "invalid_name": "Use a valid file name of up to 255 characters.",
-          "keep_local_preview": "Keep",
           "linked_evidence": "Linked attachments",
           "linked_unavailable": "This record has a linked attachment, but it cannot be opened here.",
-          "linked_unknown": "We could not confirm the linked attachments for this record.",
           "local_files_one": "1 file in local preview",
           "local_files_other": "{{count}} files in local preview",
           "local_only": "These files have not been uploaded or linked. Your selection is cleared on reload.",
           "local_preview": "Local preview, not linked",
           "no_attachment": "No attachment",
-          "no_linked_attachment": "No linked attachments.",
-          "open_attachment": "Open attachment",
-          "open_linked_attachment": "Open linked attachment",
-          "preparing_preview": "Preparing preview...",
           "preview_failed": "We could not prepare the preview. No files were added.",
-          "preview_file": "Preview file",
           "received_document": "Received document",
-          "record_actions": "Record actions",
           "too_large": "The file exceeds the allowed size.",
           "unsupported": "This file type is not allowed."
         },
@@ -2409,7 +2398,6 @@
         "column_attachment": "Attachment",
         "column_reason": "Reason",
         "column_state": "Status",
-        "column_type": "Type",
         "count_one": "{{count}} record",
         "count_other": "{{count}} records",
         "filters": {
@@ -2462,7 +2450,6 @@
           "title": "Filters",
           "visible_selection_hint": "Only visible results change. Other selections are kept."
         },
-        "no_period_records": "No records in this period.",
         "overview": {
           "coverage_placeholder": "{{populated}} of {{applicable}} purchases",
           "export": {
@@ -2472,9 +2459,7 @@
             "title": "Already exported"
           },
           "fiscal": {
-            "description": "Complete them before filing",
-            "description_purchase": "Complete them before the 606",
-            "description_sale": "Complete them before the 607"
+            "description": "Complete them before filing"
           },
           "goods": {
             "title": "Goods"
@@ -2482,7 +2467,6 @@
           "itbis": {
             "title": "ITBIS"
           },
-          "itbis_helper_placeholder": "Tax amount only",
           "partial_placeholder": "Partial",
           "purchases": "Purchases",
           "quantity": {
@@ -2499,12 +2483,10 @@
           "total": {
             "title": "Total"
           },
-          "total_helper_placeholder": "Gross amount",
           "unsupported_placeholder_one": "{{count}} unsupported amount",
           "unsupported_placeholder_other": "{{count}} unsupported amounts"
         },
         "period_summary": "Period summary · {{period}}",
-        "reset_period": "Reset period",
         "results": {
           "basis": "Confirmed amounts",
           "breakdown": "View breakdown",
@@ -2518,7 +2500,6 @@
           },
           "no_currency": "No currency",
           "partial": "Partial: {{amount}}",
-          "partial_meaning": "Incomplete amount",
           "personal_one": "{{count}} personal",
           "personal_other": "{{count}} personal",
           "restore": "Restore defaults",
