@@ -186,7 +186,7 @@ for(const language of ["en","es-419"] as const){
    expect(page.sendButton().textContent).toBe(translations.workspace_setup_preview.batch_retry);
    expect(page.emails().every(field=>field.disabled)).toBe(true);
    expect(document.querySelector('[data-recipient-email][aria-invalid="true"]')).toBeNull();
-   expect(document.body.textContent).toContain(translations.workspace_setup_preview.batch_unavailable_placeholder);
+   expect(document.body.textContent).toContain(translations.workspace_setup_preview.batch_unavailable);
    expect(document.body.textContent).not.toContain(translations.workspace_setup_preview.batch_send_error);
    expect(document.body.textContent).not.toContain("Untranslated server detail");
    expect(document.querySelector('[data-testid="error-reference"]')).not.toBeNull();

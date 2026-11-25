@@ -2269,56 +2269,6 @@
         "ready": "Listo para aceptar"
       }
     },
-    "bank": {
-      "empty": {
-        "no_account": "[placeholder] business.bank.empty.no_account",
-        "no_lines": "[placeholder] business.bank.empty.no_lines"
-      },
-      "error": {
-        "layout_not_ready": "[placeholder] business.bank.error.layout_not_ready",
-        "line_already_confirmed": "[placeholder] business.bank.error.line_already_confirmed",
-        "one_account": "[placeholder] business.bank.error.one_account",
-        "pair_declined": "[placeholder] business.bank.error.pair_declined",
-        "unsupported_layout": "[placeholder] business.bank.error.unsupported_layout"
-      },
-      "import": {
-        "account": "[placeholder] business.bank.import.account",
-        "choose_file": "[placeholder] business.bank.import.choose_file",
-        "column_amount": "[placeholder] business.bank.import.column_amount",
-        "column_credit": "[placeholder] business.bank.import.column_credit",
-        "column_date": "[placeholder] business.bank.import.column_date",
-        "column_debit": "[placeholder] business.bank.import.column_debit",
-        "column_description": "[placeholder] business.bank.import.column_description",
-        "column_sign": "[placeholder] business.bank.import.column_sign",
-        "converged": "[placeholder] business.bank.import.converged",
-        "inserted": "[placeholder] business.bank.import.inserted",
-        "mapped_csv": "[placeholder] business.bank.import.mapped_csv",
-        "reader": "[placeholder] business.bank.import.reader",
-        "submit": "[placeholder] business.bank.import.submit",
-        "title": "[placeholder] business.bank.import.title"
-      },
-      "line": {
-        "charge": "[placeholder] business.bank.line.charge",
-        "deposit": "[placeholder] business.bank.line.deposit",
-        "zero": "[placeholder] business.bank.line.zero"
-      },
-      "nav": "[placeholder] business.bank.nav",
-      "suggestion": {
-        "confidence": "[placeholder] business.bank.suggestion.confidence",
-        "confirm": "Confirmar",
-        "confirmed": "[placeholder] business.bank.suggestion.confirmed",
-        "decline": "No es este",
-        "declined": "[placeholder] business.bank.suggestion.declined",
-        "pending": "[placeholder] business.bank.suggestion.pending",
-        "receipt": "Gasto",
-        "venta": "Venta"
-      },
-      "unmatched": {
-        "count": "[placeholder] business.bank.unmatched.count",
-        "empty": "[placeholder] business.bank.unmatched.empty",
-        "title": "[placeholder] business.bank.unmatched.title"
-      }
-    },
     "consent": {
       "title": "Antes de empezar",
       "body": "Cuadrao guarda los recibos, facturas y datos que subes para leerlos, organizarlos y preparar tus reportes. Solo tú y las personas que invites a tu negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
@@ -2566,8 +2516,8 @@
         },
         "workflow": {
           "exported": "Exportado",
-          "missing_count_placeholder_one": "Falta {{count}} dato",
-          "missing_count_placeholder_other": "Faltan {{count}} datos",
+          "missing_count_one": "Falta {{count}} dato",
+          "missing_count_other": "Faltan {{count}} datos",
           "not_ready": "Faltan datos",
           "ready": "Listo",
           "review": "Por revisar",
@@ -4400,7 +4350,7 @@
         "arrived": "Llegó {{stamp}}",
         "basis": {
           "fiscal_number": "Mismo RNC y NCF que otro documento.",
-          "fiscal_number_sale_placeholder": "[placeholder] Same NCF as another sale.",
+          "fiscal_number_sale": "Mismo NCF que otra venta.",
           "read_facts": "Mismo suplidor, fecha y total que otro documento."
         },
         "column": {
@@ -4521,14 +4471,7 @@
         "listos": "Listos",
         "open": "Abrir",
         "reason": {
-          "blocked": "Tiene algo pendiente",
-          "ecf_check_failed": "El e-CF no pasó la revisión",
-          "foreign_currency": "Moneda extranjera",
-          "missing_amount": "Falta el total",
-          "missing_currency": "Falta la moneda",
-          "missing_itbis": "Falta el ITBIS",
-          "missing_merchant": "Falta el suplidor",
-          "unverified_sender": "Remitente sin verificar"
+          "missing_currency": "Falta la moneda"
         },
         "refused": {
           "duplicate_comprobante": "Este comprobante ya está registrado",
@@ -4801,8 +4744,7 @@
       "sale_help_on": "Va al Reporte 607.",
       "marked_sale": "Ahora es una venta. Va al Reporte 607.",
       "marked_purchase": "Ahora es una compra. Va al Reporte 606.",
-      "sin_comprobante_chip": "Sin comprobante",
-      "missing_ncf_chip": "Falta NCF"
+      "sin_comprobante_chip": "Sin comprobante"
     }
   },
   "money": {
@@ -4908,7 +4850,7 @@
     "batch_success": "{{count}} invitaciones enviadas",
     "batch_success_one": "1 invitación enviada",
     "batch_title": "Invita a colaboradores",
-    "batch_unavailable_placeholder": "[placeholder] Las invitaciones no están disponibles.",
+    "batch_unavailable": "Las invitaciones no están disponibles.",
     "document_not_received": "Sin recibir",
     "document_received": "Recibido",
 
