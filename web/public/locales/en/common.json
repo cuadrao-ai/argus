@@ -1978,16 +1978,12 @@
         "missing": {
           "label": "No RNC",
           "reason": "This receipt has no RNC. Add it so it can go on the 606.",
-          "action": "Add RNC",
-          "approval_title": "This receipt has no RNC. Accept anyway?",
-          "approval_body": "You'll need to add the RNC before exporting the 606."
+          "action": "Add RNC"
         },
         "invalid_length": {
           "label": "RNC has an error",
           "reason": "An RNC has 9 digits (business) or 11 (cédula). Check that it's typed correctly.",
-          "action": "Edit RNC",
-          "approval_title": "This RNC has an error. Accept anyway?",
-          "approval_body": "You'll need to fix it before exporting the 606."
+          "action": "Edit RNC"
         },
         "check_digit": {
           "label": "RNC has an error",
@@ -2127,8 +2123,6 @@
       "refund_candidate_refused": "That purchase can't be used for this refund. Pick another one.",
       "refund_candidates_none": "There are no accepted purchases to pick.",
       "save": "Save",
-      "recorded_income": "Income was recorded after revision {{version}} was accepted.",
-      "recorded_refund": "A refund was recorded after revision {{version}} was accepted.",
       "error": {
         "fiscal_duplicate_document": "This fiscal receipt already belongs to another saved record. Check it before you accept.",
         "fiscal_credit_settlement_required": "Record a refund only after you confirm the money arrived and you choose the original purchase.",
