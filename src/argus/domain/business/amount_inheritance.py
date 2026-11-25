@@ -10,11 +10,14 @@ from argus.domain.business.contracts.dgii import (
     DeclarationSuggestions,
     DgiiDeclaration,
     PurchaseDeclaration,
+    SalePaymentSplit,
 )
 from argus.domain.business.contracts.facts import BusinessFacts, InheritedValue, Known
+from argus.domain.business.document_type import SALE, DocumentType, direction
 from argus.domain.business.fiscal_identity import credit_note
 from argus.domain.business.purchase_review import (
     AMOUNT_SIDES,
+    apply_payment_split,
     derived_amount,
     id_type_of,
     net_amount,
@@ -57,6 +60,7 @@ class LinkedSources:
     #: Forma de pago the one of the account a person said paid it: for an open
     #: expense, and for an approved one with no saved declaration.
     built: PurchaseDeclaration | None = None
+    approved_type: DocumentType | None = None
 
 
 NO_SOURCES = LinkedSources()
@@ -229,6 +233,8 @@ def saved_declaration(
     overrides: tuple[str, ...] | None,
     bill_mark: str | None,
     built: PurchaseDeclaration | None = None,
+    *,
+    approved_type: DocumentType | None = None,
 ) -> DgiiDeclaration | None:
     """The declaration an approved record reports: the saved one, as saved.
     One saved before overrides were recorded keeps the fill its export has
@@ -236,10 +242,12 @@ def saved_declaration(
     of a bill read as paid from its date.
 
     A purchase saved with no Tipo Id takes the one its RNC states: no person
-    can give it. A record approved with none saved reports ``built``, the one
-    its facts state, each linked field at the value it follows."""
+    can give it. With no saved line, a purchase uses ``built`` and a sale
+    starts with an empty 607. Both inherit the amounts their facts state."""
 
     if declaration is None:
+        if direction(approved_type) is SALE:
+            return inherit_amounts(facts, apply_payment_split(None, SalePaymentSplit()), overrides)
         return inherit_amounts(facts, built, overrides)
     if isinstance(declaration, PurchaseDeclaration) and declaration.id_type is None:
         kind = id_type_of(facts)
@@ -277,7 +285,9 @@ def written_from(
     pago from that Forma de pago."""
 
     if linked.amounts_only:
-        return saved_declaration(facts, declaration, overrides, bill_mark, linked.built)
+        return saved_declaration(
+            facts, declaration, overrides, bill_mark, linked.built, approved_type=linked.approved_type
+        )
     return inherit_amounts(facts, _answered(declaration, linked), overrides, linked)
 
 
