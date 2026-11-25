@@ -1,7 +1,36 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
+import { expectOneCanonicalCard } from "./auth-card-assertions";
+
+type StepChange = { before: number; midway: number | null; afterOneFrame: number; transitions: string[] };
+
+async function changeStep(button: Locator): Promise<StepChange> {
+  return button.evaluate(async (el: HTMLButtonElement) => {
+    const card = el.closest<HTMLElement>("[data-auth-entry-step]")!;
+    const height = () => card.getBoundingClientRect().height;
+    const before = height();
+    el.click();
+    await Promise.resolve();
+    const transitions = card.getAnimations({ subtree: true }).filter(
+      (animation): animation is CSSTransition => animation instanceof CSSTransition &&
+        animation.effect instanceof KeyframeEffect && animation.effect.target instanceof HTMLElement &&
+        animation.effect.target.matches("[data-open]"),
+    );
+    let midway: number | null = null;
+    if (transitions.length > 0) {
+      for (const transition of transitions) {
+        transition.pause();
+        transition.currentTime = Number(transition.effect!.getTiming().duration) / 2;
+      }
+      midway = height();
+      for (const transition of transitions) transition.play();
+    }
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    return { before, midway, afterOneFrame: height(), transitions: transitions.map(t => t.transitionProperty) };
+  });
+}
 
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
-  test(`sign-in steps keep their height and move focus with ${reducedMotion} motion`, async ({ page }) => {
+  test(`sign-in card grows for the password step and slides back with ${reducedMotion} motion`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion });
     await page.route("**/api/v1/me", route => route.fulfill({ status: 401, json: { detail: "unauthorized" } }));
@@ -9,86 +38,45 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const card = page.locator("[data-auth-entry-step]");
     const email = card.locator('input[type="email"]');
     const password = card.locator('input[autocomplete="current-password"]');
+    const submit = card.locator('button[type="submit"]');
     await email.fill("demo@example.test");
     await page.evaluate(() => document.fonts.ready);
     const height = () => card.evaluate(el => el.getBoundingClientRect().height);
-    const initialHeight = await height();
-    expect(initialHeight).toBeGreaterThan(0);
+    const settle = () => card.evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(a => a.finished)));
 
-    for (const [button, field] of [
-      [card.locator('button[type="submit"]'), password],
-      [card.getByRole("button", { name: "Editar" }), email],
-    ] as const) {
-      const motion = await button.evaluate(async (el: HTMLButtonElement) => {
-        const card = el.closest<HTMLElement>("[data-auth-entry-step]")!;
-        el.click();
-        await Promise.resolve();
-        const transitions = card.getAnimations({ subtree: true }).filter(
-          (animation): animation is CSSTransition => animation instanceof CSSTransition &&
-            animation.effect instanceof KeyframeEffect && animation.effect.target instanceof HTMLElement &&
-            animation.effect.target.matches("[data-open]"),
-        );
-        for (const transition of transitions) {
-          transition.pause();
-          transition.currentTime = Number(transition.effect!.getTiming().duration) / 2;
-        }
-        // Let scheduled focus handlers run while both steps are still mid-transition.
-        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-        const result = {
-          height: card.getBoundingClientRect().height,
-          visibleFields: [...card.querySelectorAll('input[type="email"], input[type="password"]')]
-            .filter(field => field.checkVisibility({ opacityProperty: true, visibilityProperty: true }))
-            .map(field => field.getAttribute("autocomplete")),
-          fades: transitions.filter(t => t.transitionProperty === "opacity").map(t => ({
-            duration: Number(t.effect!.getTiming().duration),
-            opacity: Number(getComputedStyle((t.effect as KeyframeEffect).target!).opacity),
-          })),
-          properties: transitions.map(t => t.transitionProperty),
-          focusedInput: card.querySelector("input:focus")?.getAttribute("autocomplete"),
-        };
-        for (const transition of transitions) transition.play();
-        return result;
-      });
-      await expect(field).toBeFocused();
-      expect(await height()).toBe(initialHeight);
-      expect(motion.height).toBe(initialHeight);
-      const target = await field.getAttribute("autocomplete");
-      if (reducedMotion === "reduce") {
-        expect(motion.properties).toEqual([]);
-        expect(motion.visibleFields).toEqual([target]);
-        expect(motion.focusedInput).toBe(target);
-      } else {
-        expect(motion.visibleFields).toEqual(["email", "current-password"]);
-        expect(motion.fades.length).toBeGreaterThanOrEqual(2);
-        for (const fade of motion.fades) {
-          expect(fade.duration).toBeGreaterThanOrEqual(200);
-          expect(fade.duration).toBeLessThanOrEqual(250);
-          expect(fade.opacity).toBeGreaterThan(0);
-          expect(fade.opacity).toBeLessThan(1);
-        }
-        expect(motion.focusedInput).not.toBe(target);
-      }
+    const emailStepHeight = await height();
+    expect(emailStepHeight).toBeGreaterThan(0);
+    await expect(password).toBeHidden();
+    await expectOneCanonicalCard(card);
+
+    const forward = await changeStep(submit);
+    await expect(password).toBeFocused();
+    await settle();
+    const passwordStepHeight = await height();
+    expect(passwordStepHeight).toBeGreaterThan(emailStepHeight);
+    await expect(email).toBeHidden();
+    await expectOneCanonicalCard(card);
+
+    const back = await changeStep(card.getByRole("button", { name: "Editar" }));
+    await expect(email).toBeFocused();
+    await settle();
+    expect(await height()).toBe(emailStepHeight);
+    await expect(password).toBeHidden();
+
+    expect(forward.before).toBe(emailStepHeight);
+    expect(back.before).toBe(passwordStepHeight);
+    if (reducedMotion === "reduce") {
+      expect(forward.transitions).toEqual([]);
+      expect(back.transitions).toEqual([]);
+      expect(forward.afterOneFrame).toBe(passwordStepHeight);
+      expect(back.afterOneFrame).toBe(emailStepHeight);
+    } else {
+      expect(forward.transitions).toContain("grid-template-rows");
+      expect(back.transitions).toContain("grid-template-rows");
+      expect(forward.midway).toBeGreaterThan(emailStepHeight);
+      expect(forward.midway).toBeLessThan(passwordStepHeight);
+      expect(back.midway).toBeGreaterThan(emailStepHeight);
+      expect(back.midway).toBeLessThan(passwordStepHeight);
     }
   });
 }
-
-test("the end of a fade preserves a keyboard user's new focus", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/login");
-  await page.locator('input[type="email"]').fill("demo@example.test");
-  const submit = page.locator('form button[type="submit"]');
-  await submit.focus();
-  await submit.evaluate(async (button: HTMLButtonElement) => {
-    button.click();
-    await Promise.resolve();
-    for (const fade of button.form!.getAnimations({ subtree: true })) fade.pause();
-  });
-  await page.keyboard.press("Shift+Tab");
-  const recovery = page.getByRole("link", { name: "¿Olvidaste tu contraseña?" });
-  await expect(recovery).toBeFocused();
-  await submit.evaluate(async (button: HTMLButtonElement) => {
-    for (const fade of button.form!.getAnimations({ subtree: true })) fade.finish();
-    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-  });
-  await expect(recovery).toBeFocused();
-});

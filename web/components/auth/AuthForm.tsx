@@ -5,7 +5,7 @@ import { rememberRecoveryEmail } from "./recovery-email";
 
 import { AlertCircle, Check, EyeClosed, LoaderCircle } from "lucide-react";
 import Image from "next/image";
-import { type FormEvent, type MouseEvent, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { type FormEvent, type MouseEvent, useEffect, useId, useRef, useState } from "react";
 import { FormField, PasswordField, useFieldChecks } from "@/components/ui/FormField";
 import { fieldLabelClass } from "@/components/ui/form-field";
 import { EMAIL_OTP_LENGTH } from "@/lib/email-otp-contract";
@@ -206,14 +206,9 @@ export default function AuthForm({
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [entry, setEntry] = useState<{ mode: AuthFormMode; step: "identity" | "password"; moveFocus: boolean }>({
-    mode,
-    step: "identity",
-    moveFocus: false,
-  });
+  const [entry, setEntry] = useState<{ mode: AuthFormMode; step: "identity" | "password" }>({ mode, step: "identity" });
   const entryStep = entry.mode === mode ? entry.step : "identity";
   const isIdentityStep = emailFirst && entryStep === "identity";
-  const crossfadeSignIn = emailFirst && mode === "login";
   const cardRef = useRef<HTMLDivElement>(null);
   const [request, setRequest] = useState<{ status: "idle" | "pending" } | { status: "failed"; code: string }>({ status: "idle" });
   const pending = useRef(false);
@@ -297,7 +292,7 @@ export default function AuthForm({
   useEffect(() => {
     if (emailFirst) {
       setPassword("");
-      setEntry({ mode, step: "identity", moveFocus: false });
+      setEntry({ mode, step: "identity" });
     }
     setNeedsEmailConfirmation(false);
     setConfirmationCode("");
@@ -315,34 +310,14 @@ export default function AuthForm({
     return supersedeChoice;
   }, [mode, resetChecks, emailFirst]);
 
-  useLayoutEffect(() => {
-    if (!emailFirst || entry.mode !== mode || !entry.moveFocus || needsEmailConfirmation) return;
-    const field = isIdentityStep
-      ? emailRef.current
-      : formRef.current?.querySelector<HTMLInputElement>('input[autocomplete$="password"]');
-    if (!field) return;
-    if (!crossfadeSignIn) {
-      const frame = requestAnimationFrame(() => field.focus());
+  useEffect(() => {
+    if (emailFirst && entry.mode === mode && entryStep === "password") {
+      const frame = requestAnimationFrame(() => {
+        formRef.current?.querySelector<HTMLInputElement>('input[autocomplete$="password"]')?.focus();
+      });
       return () => cancelAnimationFrame(frame);
     }
-    const panel = field.closest("[data-auth-sign-in-panel]");
-    const fade = panel?.getAnimations?.().find(
-      (animation) => "transitionProperty" in animation && animation.transitionProperty === "opacity",
-    );
-    if (!fade) {
-      field.focus();
-      return;
-    }
-    let cancelled = false;
-    const previousFocus = document.activeElement;
-    const focus = () => {
-      if (!cancelled && (document.activeElement === previousFocus || document.activeElement === document.body)) {
-        field.focus();
-      }
-    };
-    void fade.finished.then(focus, focus);
-    return () => { cancelled = true; };
-  }, [crossfadeSignIn, emailFirst, entry, isIdentityStep, mode, needsEmailConfirmation]);
+  }, [emailFirst, entry, entryStep, mode]);
 
   useEffect(() => {
     if (checks.attempt > 0) formRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
@@ -416,7 +391,7 @@ export default function AuthForm({
     if (!checks.submit()) return;
     if (isIdentityStep) {
       resetChecks();
-      setEntry({ mode, step: "password", moveFocus: true });
+      setEntry({ mode, step: "password" });
       return;
     }
     pending.current = true;
@@ -639,7 +614,7 @@ export default function AuthForm({
           <h2 tabIndex={-1} className="outline-none font-display mb-[21px] text-[24px] font-medium tracking-tight text-black dark:text-white">
             {t(`auth.${mode}.title`)}
           </h2>
-          <form ref={formRef} data-auth-sign-in-steps={crossfadeSignIn || undefined} onSubmit={handleSubmit} noValidate aria-busy={isSubmitting} className="space-y-3">
+          <form ref={formRef} onSubmit={handleSubmit} noValidate aria-busy={isSubmitting} className="space-y-3">
             {authError ? (
               <div data-auth-feedback="true">
                 <p ref={errorRef} tabIndex={-1} role="alert" data-testid={signupRefused ? "invite-only-refusal" : undefined} className={blockingErrorBannerClass}>
@@ -666,8 +641,7 @@ export default function AuthForm({
               </div></div></div>
             )}
             {emailFirst && (
-              <div data-auth-sign-in-panel={crossfadeSignIn ? "summary" : undefined}
-                data-auth-collapse={!crossfadeSignIn ? "true" : undefined} data-open={!isIdentityStep} aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
+              <div data-auth-collapse="true" data-open={!isIdentityStep} aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
               <div><div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-current/15 px-3 py-2">
                 <div className="min-w-0">
                   <p className="text-[12px] opacity-70">{labels.email}</p>
@@ -676,12 +650,12 @@ export default function AuthForm({
                 </div>
                 <button type="button" disabled={isSubmitting} className="min-h-11 shrink-0 rounded px-2 text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
                   onClick={() => {
-                    setPassword(""); resetChecks(); setRequest({ status: "idle" }); setEntry({ mode, step: "identity", moveFocus: true });
+                    setPassword(""); resetChecks(); setRequest({ status: "idle" }); setEntry({ mode, step: "identity" });
+                    requestAnimationFrame(() => emailRef.current?.focus());
                   }}>{t("auth.form.edit_email")}</button>
               </div></div></div>
             )}
-            <div data-auth-sign-in-panel={crossfadeSignIn ? "email" : undefined}
-              data-auth-collapse={emailFirst && !crossfadeSignIn ? "true" : undefined} data-open={!emailFirst || isIdentityStep}
+            <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={!emailFirst || isIdentityStep}
               aria-hidden={emailFirst && !isIdentityStep ? true : undefined} inert={emailFirst && !isIdentityStep}>
               <div><FormField ref={emailRef} id={`${id}-email`} type="email" label={labels.email}
               placeholder={emailFirst ? t("auth.form.email_hint") : undefined}
@@ -691,8 +665,7 @@ export default function AuthForm({
               reserveMessages={[messages.emailRequired, messages.emailInvalid, messages.emailValid]}
               autoComplete="email" autoCapitalize="none" spellCheck={false} required readOnly={isSubmitting} /></div>
             </div>
-            <div data-auth-sign-in-panel={crossfadeSignIn ? "password" : undefined}
-              data-auth-collapse={emailFirst && !crossfadeSignIn ? "true" : undefined} data-open={!isIdentityStep}
+            <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={!isIdentityStep}
               aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
               <div><PasswordField key={mode} id={`${id}-password`} label={labels.password}
               placeholder={emailFirst ? t("auth.form.password_hint") : undefined}
