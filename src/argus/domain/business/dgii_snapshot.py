@@ -105,6 +105,7 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
             resolution.fiscal_overrides if resolution else None,
             resolution.bill_mark if resolution else None,
             built,
+            approved_type=resolution.document_type if resolution else None,
         )
         records.append(
             FiscalRecord(
