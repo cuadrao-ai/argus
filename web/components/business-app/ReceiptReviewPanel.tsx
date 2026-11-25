@@ -19,7 +19,7 @@ import type { DossierTab } from "./dossier-attention";
 import DossierDetails from "./dossier/DossierDetails";
 import DossierDocument from "./dossier/DossierDocument";
 import { DossierStatus } from "./dossier/DossierHeader";
-import { DossierBare, DossierCard, DossierRow, DossierRows } from "./dossier/DossierParts";
+import { DossierBare } from "./dossier/DossierParts";
 import { useJumpRows } from "./dossier/jump-rows";
 import ReceiptReviewFrame, { DossierLoading } from "./ReceiptReviewFrame";
 import { RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
@@ -31,14 +31,10 @@ import { useShownRecord } from "./useShownRecord";
 import type { BusinessExpenseDetail, ReceiptDetail } from "@/lib/business-api";
 import { useBusiness, type DossierDetailsCard } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
 import { sentByName } from "@/lib/sent-by";
 import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { expensePanel } from "./business-expense-target";
-import { DgiiAnswer } from "./transacciones/RecordDgiiCell";
-import { OpenRecordMissingReasons } from "./transacciones/RecordMissingReason";
 import { ContentFade } from "./business-skeletons";
-import { resolveLanguage } from "@/lib/language-features";
 
 function readingNow(receipt: ReceiptDetail | null): boolean {
   return receipt?.bandeja?.leyendo === true && receipt.attention !== "read_budget_day" && receipt.attention !== "read_budget_month";
@@ -73,9 +69,7 @@ function LoadFailure({ reference, onRetry }: { reference: string; onRetry: () =>
 }
 
 function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCard?: DossierDetailsCard }) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
-  const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
+  const { t } = useTranslation();
   const { source, reload, openPanel, revision, panel, actions, chosen } = useBusiness();
   const origin = panel?.kind === "receipt" || panel?.kind === "draft" ? panel : null;
   const reviewList = origin?.reviewList;
@@ -129,7 +123,6 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
   }, [receiptId, source, revision, attempt]);
 
   const { canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { canPrepare: false, canApprove: false };
-  const confirmed = detail?.status === "confirmed";
   // Backend state only: the receipt is being read when the server's Bandeja flag says so, never from the status.
   const waitingForAi = readingNow(detail);
   const [readStalled, setReadStalled] = useState(false);
@@ -199,9 +192,9 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
   const frame = (children: ReactNode, primary?: ReactNode) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
-      back={confirmed ? "transactions" : "inbox"}
+      back={detail.status === "confirmed" ? "transactions" : "inbox"}
       // A receipt nobody named yet goes by its file.
-      title={(!readBoard && detail.merchant) || detail.filename || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
+      title={(!readBoard && detail.merchant) || detail.filename || t("business.review.title", "Review receipt")}
       status={<DossierStatus label={detail.bandeja_group?.label} deleted={Boolean(detail.deleted)} />}
       place={place}
       jump={place ? { title: origin?.list === "transactions" ? t("business.nav.transactions", "Transactions") : t("business.nav.inbox", "Inbox"), rows: jumpList.rows, onOpen: jumpList.load, onPick: busy ? () => {} : openReceipt } : null}
@@ -365,16 +358,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
           <ReceiptReadNotice receipt={detail} preparable={detail.preparable && canPrepare} />
           {recoveryProblem}
 
-          {confirmed ? (
-            <div className={`${SURFACE_CARD} flex flex-wrap items-center justify-between gap-3`}>
-              <p className="text-[14px] text-black/75 dark:text-white/75">
-                {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: money(detail.amount, detail.currency) })}
-              </p>
-              <button type="button" className={secondaryButtonClass} onClick={() => openPanel({ kind: "transactions" })}>
-                {t("business.review.view_expenses", "View expenses")}
-              </button>
-            </div>
-          ) : canPrepare ? null : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
+          {canPrepare ? null : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
         </>,
         primary,
       )}
@@ -383,33 +367,28 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
   );
 }
 
-type ExpenseView = { status: "loading" } | { status: "failed"; reference: string } | { status: "ready"; expense: BusinessExpenseDetail };
-
 /**
- * A saved record opened by its own id (a Registros row, a month's document, an `?expense=` link). One that names a
- * receipt or a draft opens that record. One with neither has no dossier on the server, so the same frame shows what
- * the money read says about it, read only: no status, no action, no document.
+ * A saved record opened by its own id (a Registros row, a month's document, an `?expense=` link) opens the dossier
+ * of the receipt or draft behind it. One with neither has no dossier, so it closes onto Registros.
  */
 function ExpenseEntry({ expenseId, detailsCard }: { expenseId: string; detailsCard?: DossierDetailsCard }) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
-  const { source, records, openPanel } = useBusiness();
-  const [state, setState] = useState<ExpenseView>({ status: "loading" });
+  const { t } = useTranslation();
+  const { source, openPanel } = useBusiness();
+  const [failure, setFailure] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [tab, setTab] = useState<DossierTab>("general");
+  const gone = () => {
+    openPanel({ kind: "transactions" });
+    showToast({ kind: "info", text: t("business.expenses.gone") });
+  };
   const onLoaded = useEffectEvent((expense: BusinessExpenseDetail) => {
     const target = expensePanel(expense);
-    if (target.kind === "expense") setState({ status: "ready", expense });
+    if (target.kind === "expense") gone();
     else openPanel(detailsCard ? { ...target, detailsCard } : target);
   });
   // A record that is gone closes onto Registros, so a dead link never leaves a panel whose Reintentar cannot work.
   const onLoadFailed = useEffectEvent((error: unknown) => {
-    if (!recordGone(error)) {
-      setState({ status: "failed", reference: referenceCode(error) });
-      return;
-    }
-    openPanel({ kind: "transactions" });
-    showToast({ kind: "info", text: t("business.expenses.gone") });
+    if (recordGone(error)) gone();
+    else setFailure(referenceCode(error));
   });
   // The read keys on the record, not on the workspace's revision or its navigation callback.
   useEffect(() => {
@@ -422,46 +401,8 @@ function ExpenseEntry({ expenseId, detailsCard }: { expenseId: string; detailsCa
       active = false;
     };
   }, [expenseId, source, attempt]);
-  if (state.status === "failed") return <LoadFailure reference={state.reference} onRetry={() => { setState({ status: "loading" }); setAttempt((value) => value + 1); }} />;
-  if (state.status === "loading") return <DossierLoading recordId={expenseId} back="transactions" />;
-  const { expense } = state;
-  const account = expense.funding === "owner_funds"
-    ? t("business.dossier.owner_funds", "Owner's money")
-    : (records.workspace?.accounts ?? []).find((item) => item.id === expense.account_id)?.nickname ?? null;
-  const said606 = expense.include_606 === true ? t("business.marks.included_606", "Included in the 606") : expense.include_606 === false ? t("business.marks.excluded_606", "Not included in the 606") : t("business.marks.pending_606", "Waiting for the accountant");
-  return (
-    <ContentFade><ReceiptReviewFrame
-      recordId={expenseId}
-      back="transactions"
-      title={expense.merchant ?? t("business.expenses.no_merchant", "Expense")}
-      tab={tab}
-      onTab={setTab}
-      tabs={[
-        { key: "general", content: <>
-          <OpenRecordMissingReasons missing={expense.missing} reasons={expense.reasons} />
-          <DossierCard title={t("business.dossier.card.comprobante")} testId="record-facts-comprobante">
-            <DossierRows>
-              <DossierRow row="occurred_on" label={t("business.dossier.row.date")} value={formatDay(expense.occurred_on, locale)} />
-              <DossierRow row="expense_type" label={t("business.dossier.placeholder.expense_type")} value={<DgiiAnswer purchase={expense.dgii_606} field="expense_type" />} />
-              <DossierRow row="account" label={t("business.review.account", "Paid from")} value={account} />
-            </DossierRows>
-            {expense.personal && expense.fiscal_value ? <p className="mt-2 text-[13px] text-[var(--d-soft)]" data-testid="record-606-state">{said606}</p> : null}
-          </DossierCard>
-          <DossierCard title={t("business.terms.montos_title")} testId="record-facts-montos">
-            <DossierRows>
-              <DossierRow row="amount" label={t("business.terms.total")} look="number" total value={formatMoney(expense.amount, expense.currency, locale)} />
-            </DossierRows>
-          </DossierCard>
-        </> },
-        { key: "detalles", content: <DossierCard title={t("business.dossier.details.file")}>
-          <p className="text-[14px] leading-5 text-[var(--d-soft)]">{t("business.expenses.no_receipt", "No receipt attached")}</p>
-        </DossierCard> },
-        ...(expense.recorded_at ? [{ key: "historial" as const, content: <DossierCard title={t("business.dossier.tab.historial")}>
-          <p className="text-[14px] leading-5 text-[var(--d-soft)]">{t("business.expenses.recorded_on", "Recorded on {{when}}", { when: formatTimestamp(expense.recorded_at, locale) })}</p>
-        </DossierCard> }] : []),
-      ]}
-    /></ContentFade>
-  );
+  if (failure !== null) return <LoadFailure reference={failure} onRetry={() => { setFailure(null); setAttempt((value) => value + 1); }} />;
+  return <DossierLoading recordId={expenseId} back="transactions" />;
 }
 
 /** The one dossier, whatever a record was opened by: its receipt, its draft, or its own id. */
