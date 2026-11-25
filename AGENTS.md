@@ -126,7 +126,8 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - Spanish first (`es-419`), in natural Dominican wording. Every user-facing string lives
   in `web/public/locales/es-419/common.json` and its `en` twin. No hardcoded strings.
-- Spanish copy comes through your brief; until then, ship marked placeholder keys.
+- User-facing words come only from your brief. If it lacks the exact words for a string,
+  stop and ask. Never invent words and never add a placeholder key.
 - No em dash in user-facing copy, in any language (`src/argus/domain/visible_reply.py`).
 - No "Argus", provider or vendor names in user-facing copy. Never name outside
   companies or competitors in code, comments, docs, PRs, issues or commit messages.
