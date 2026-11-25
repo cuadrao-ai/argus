@@ -63,7 +63,12 @@ ACCESS_CHANGES = {
     "revoke_invite",
     "change_role",
 }
-MANAGER_ONLY = ACCESS_CHANGES | {"ownership_transferred", "receipt_reading_enabled"}
+MANAGER_ONLY = ACCESS_CHANGES | {
+    "ownership_transferred",
+    "receipt_reading_enabled",
+    "set_business_legal_name",
+    "set_business_rnc",
+}
 NONE = ActivityFilters()
 
 
@@ -111,7 +116,7 @@ def test_every_action_has_a_catalog_area_and_group():
 
 
 def test_every_access_action_is_a_manager_change_or_a_read_mark():
-    managed = {name for name, spec in CATALOG.items() if spec.audience == "manager"}
+    managed = {name for name in ACCESS_CHANGES if CATALOG[name].audience == "manager"}
     assert managed == set(get_args(AccessAction)) - READ_MARKS
 
 
@@ -155,7 +160,7 @@ def test_a_filtered_manager_page_names_only_catalog_actions_so_other_never_match
     member = visibility(manager=False, filters=ActivityFilters(groups=("access",)))
     assert member.only == ()
     settings = visibility(manager=False, filters=ActivityFilters(groups=("settings",)))
-    assert settings.only == ("set_business_legal_name", "set_business_rnc")
+    assert settings.only == ()
 
 
 def _action_names(annotation: object) -> set[str]:
@@ -280,17 +285,14 @@ def test_the_object_is_the_server_owned_id_when_one_is_known(
     assert item.object is None or item.object.label is None
 
 
-def test_the_area_and_restriction_come_from_the_catalog():
-    assert (project(row({"action": "review_draft"})).area, False) == ("records", False)
-    grant = project(row({"action": "revoke_grant", "grant_id": str(DRAFT)}))
-    assert (grant.area, grant.restricted) == ("business", True)
-    upload = project(row({"action": "receipt_upload"}))
-    assert (upload.area, upload.restricted) == ("documents", False)
-    transfer = project(row({"action": "ownership_transferred"}))
-    assert (transfer.area, transfer.restricted, transfer.object) == (
-        "business",
-        True,
-        None,
+@pytest.mark.parametrize("action", ACTIONS)
+def test_each_item_carries_its_catalog_area_group_and_audience(action: str):
+    spec = ACTIONS[action]
+    item = project(row({"action": action}))
+    assert (item.area, item.group, item.restricted) == (
+        spec.area,
+        spec.group,
+        spec.audience == "manager",
     )
 
 
@@ -418,8 +420,9 @@ def test_the_typed_detail_is_read_from_the_stored_command(command, field, expect
 )
 def test_an_action_the_feed_does_not_know_is_other_with_no_object(command: dict):
     item = project(row(command))
-    assert (item.action, item.object, item.area, item.restricted) == (
+    assert (item.action, item.object, item.area, item.group, item.restricted) == (
         "other",
+        None,
         None,
         None,
         True,
@@ -438,6 +441,7 @@ def test_the_item_carries_the_live_name_and_only_the_promised_fields():
         "action",
         "object",
         "area",
+        "group",
         "restricted",
         "role",
         "personal",

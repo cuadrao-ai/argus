@@ -98,7 +98,7 @@ def test_each_filter_narrows_the_page_the_reader_may_see(people, business, autho
         ),
         (
             ActivityFilters(areas=("business",)),
-            ["set_business_rnc"],
+            [],
             ["owner_grant", "set_business_rnc", "change_role"],
         ),
         (
@@ -110,7 +110,7 @@ def test_each_filter_narrows_the_page_the_reader_may_see(people, business, autho
             ActivityFilters(
                 areas=("business", "records"), groups=("settings", "approvals")
             ),
-            ["set_business_rnc", "approve_expense"],
+            ["approve_expense"],
             ["set_business_rnc", "approve_expense"],
         ),
         (ActivityFilters(areas=("invoicing",)), [], []),

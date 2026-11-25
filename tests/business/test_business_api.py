@@ -14,6 +14,7 @@ from argus.api.ingestion import ingestion_hub
 from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.service import BusinessService
+from faker import Faker
 from fastapi.testclient import TestClient
 from httpx import Response
 
@@ -827,6 +828,34 @@ def test_owner_enabling_reads_backlog_once_and_disabling_stops_new_reads(alice, 
     second = alice.upload(content=RECEIPT + b"another", consent=False).json()
     assert second["activity"]["state"] == "saved_unread"
     assert len(stub.calls) == 1
+
+
+def test_opening_a_saved_receipt_acknowledges_only_the_content_opened(
+    alice: Owner, faker: Faker
+) -> None:
+    filename = faker.file_name(extension="png")
+    receipt_id = alice.upload(consent=False, name=filename).json()["id"]
+    path = f"/receipts/{receipt_id}/read"
+    saved = alice.detail(receipt_id)["activity"]
+    assert saved["state"] == "saved_unread" and saved["unread"]
+    assert saved["completion_cursor"]
+    assert alice.get("/receipt-activity").json()["unread_count"] == 1
+    response = alice.post(path, {"completion_cursor": saved["completion_cursor"]})
+    assert response.status_code == 200, response.text
+    assert response.json() == {**saved, "unread": False}
+    assert alice.detail(receipt_id)["activity"] == response.json()
+    assert alice.get("/receipt-activity").json()["unread_count"] == 0
+
+    assert alice.reading(True).status_code == 200
+    ready = alice.detail(receipt_id)["activity"]
+    assert ready["state"] == "ready" and ready["unread"]
+    assert ready["completion_cursor"] != saved["completion_cursor"]
+    stale = alice.post(path, {"completion_cursor": saved["completion_cursor"]})
+    assert stale.json() == ready
+    assert alice.get("/receipt-activity").json()["unread_count"] == 1
+    reopened = alice.post(path, {"completion_cursor": ready["completion_cursor"]})
+    assert reopened.json() == {**ready, "unread": False}
+    assert alice.get("/receipt-activity").json()["unread_count"] == 0
 
 
 def test_receipt_list_and_detail_share_cursor_and_ack_does_not_record_money(alice):
