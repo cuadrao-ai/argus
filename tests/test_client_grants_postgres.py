@@ -81,6 +81,8 @@ CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
     "public.financial_record_revisions": {"authenticated": frozenset({"SELECT"})},
     "public.financial_records": {"authenticated": frozenset({"SELECT"})},
     "public.guest_workspaces": {"authenticated": frozenset({"SELECT"})},
+    "public.whatsapp_held_files": {"authenticated": frozenset({"SELECT"})},
+    "public.whatsapp_held_read_usage": {"authenticated": frozenset({"SELECT"})},
 }
 
 # Column grants that are not covered by a table-level grant above.
