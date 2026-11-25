@@ -418,8 +418,10 @@ def review_sources(
         if reviewing or unsaved
         else None
     )
+    if state == "accepted":
+        return replace(APPROVED, built=built, approved_type=document_type)
     if links_of(state) is APPROVED:
-        return APPROVED if built is None else replace(APPROVED, built=built)
+        return APPROVED
     purchase = stored if isinstance(stored, PurchaseDeclaration) else None
     # A suggestion shows only where the approval saves it: on a declaration
     # the person saved, or on the one built from the facts.
