@@ -1978,16 +1978,12 @@
         "missing": {
           "label": "Sin RNC",
           "reason": "El recibo no tiene RNC. Agrégalo para poder reportarlo en el 606.",
-          "action": "Agregar RNC",
-          "approval_title": "Este recibo no tiene RNC. ¿Aceptar de todos modos?",
-          "approval_body": "Tendrás que agregar el RNC antes de exportar el 606."
+          "action": "Agregar RNC"
         },
         "invalid_length": {
           "label": "RNC con error",
           "reason": "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). Revisa que esté bien escrito.",
-          "action": "Editar RNC",
-          "approval_title": "Este RNC tiene un error. ¿Aceptar de todos modos?",
-          "approval_body": "Tendrás que corregirlo antes de exportar el 606."
+          "action": "Editar RNC"
         },
         "check_digit": {
           "label": "RNC con error",
@@ -2127,8 +2123,6 @@
       "refund_candidate_refused": "Esa compra no se puede usar para este reembolso. Elige otra.",
       "refund_candidates_none": "No hay compras aceptadas para elegir.",
       "save": "Guardar",
-      "recorded_income": "Se registró un ingreso después de aceptar la revisión {{version}}.",
-      "recorded_refund": "Se registró un reembolso después de aceptar la revisión {{version}}.",
       "error": {
         "fiscal_duplicate_document": "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo antes de aceptar.",
         "fiscal_credit_settlement_required": "Registra un reembolso solo después de confirmar que se recibió el dinero y elegir la compra original.",
