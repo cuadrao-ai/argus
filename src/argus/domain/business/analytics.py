@@ -258,6 +258,7 @@ def read_approval(
     """The read's facts, the approved version's facts, the first arrival and
     the draft's type, read after the approval committed."""
 
+    from argus.domain.business.record_origin import draft_arrivals
     from argus.domain.business.transactions import transaction
 
     with transaction(service.authority, context) as tx:
@@ -267,18 +268,13 @@ def read_approval(
             " where space_id=%s and draft_id=%s and version<=%s order by version",
             (context.actor.space_id, draft_id, version),
         )
-        arrived = tx.rows(
-            "select min(s.received_at) as received_at from public.business_draft_sources l"
-            " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
-            " where l.draft_id=%s and l.space_id=%s",
-            (draft_id, context.actor.space_id),
-        )
+        arrived = draft_arrivals(tx, [draft_id]).get(draft_id)
         event = tx.imports.event(str(draft_id))
     reads = [row["after_facts"] for row in revisions if row["actor_kind"] == "extractor"]
     business = event.resolution.get("business") or {}
     facts = ApprovalFacts(
         read_facts=reads[-1] if reads else None,
-        received_at=arrived[0]["received_at"] if arrived else None,
+        received_at=arrived.received_at if arrived else None,
         document_type=business.get("document_type") or "recibo",
         read_group=event.resolution.get("read_group"),
     )

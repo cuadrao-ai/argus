@@ -18156,6 +18156,12 @@ components:
             - approve
           type: array
           uniqueItems: true
+        retained_source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          default: []
         original_connection_id:
           anyOf:
           - type: string
@@ -21502,6 +21508,12 @@ components:
             - approve
           type: array
           uniqueItems: true
+        retained_source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          default: []
         original_connection_id:
           anyOf:
           - type: string
@@ -32014,6 +32026,10 @@ components:
             type: string
           type: array
           default: []
+        reasons:
+          additionalProperties:
+            $ref: '#/components/schemas/ReasonDetails'
+          type: object
         missing_fields:
           items:
             type: string
@@ -32138,6 +32154,10 @@ components:
             - unknown
             - unsupported
           - type: 'null'
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         counterparty:
           anyOf:
           - type: string
@@ -32161,6 +32181,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        attachment_count:
+          type: integer
+          minimum: 0.0
+          default: 0
         has_document:
           type: boolean
           default: false

@@ -80,15 +80,15 @@ export const purchase606Schema = z.object({ expense_type: dgiiChoiceSchema.nulla
 export const reportRecordSchema = z.object({
   row_id: z.string().min(1), draft_id: z.string().nullable(), linked_activity_ids: z.array(z.string()), revision: count,
   report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), fiscal_data: z.enum(["complete", "missing"]).nullable().optional(), export_missing: z.string().nullable().optional(), export_missing_several: z.boolean().optional(), export_line: z.boolean().optional(),
-  ready: z.boolean(), missing: z.array(z.string()),
+  ready: z.boolean(), missing: z.array(z.string()), reasons: z.record(z.string(), z.object({ field: z.string().nullable(), words: z.string() })),
   technical_state: z.string().nullable(), workflow_blockers: z.array(z.string()), currency: z.string().nullable(), gross_amount: decimal.nullable(),
   net_amount: decimal.nullable().optional(), net_amount_source: z.enum(["read", "calculated", "edited"]).nullable().optional(), amounts_difference: decimal.nullable().optional(),
   inheritance: z.record(z.string(), z.object({ field: z.enum(["net_amount", "itbis", "legal_tip", "occurred_on", "rnc", "original_ncf"]), value: z.string().nullable(), inherited: z.boolean() })).optional(),
   itbis_amount: decimal.nullable().optional(), goods_amount: decimal.nullable().optional(), services_amount: decimal.nullable().optional(),
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),
-  money_effect: effect, adjustment_effect: effect.nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),
+  money_effect: effect, adjustment_effect: effect.nullable(), title: z.string().nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),
   category_key: z.string(), funding_key: z.string().nullable(), funding_label: z.string().nullable(), funding_kind: z.string().nullable(),
-  has_document: z.boolean(), personal: z.boolean().optional(), dgii_606: purchase606Schema.nullable().optional(), document_kind: documentKind, fiscal_classification: z.string(), fiscal_number: z.string().nullable(),
+  attachment_count: z.number().int().nonnegative(), has_document: z.boolean(), personal: z.boolean().optional(), dgii_606: purchase606Schema.nullable().optional(), document_kind: documentKind, fiscal_classification: z.string(), fiscal_number: z.string().nullable(),
   note: z.string().nullable(), settlement_status: z.string().nullable(), dependency_fingerprint: z.string(),
   can_edit_note: z.boolean().optional(), can_append_supporting: z.boolean().optional(), annotation_unavailable_reason: z.string().nullable().optional(), attachment_sources: z.array(reportAttachmentSourceSchema).optional(),
 });

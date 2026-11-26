@@ -84,3 +84,22 @@ def test_a_compared_file_that_arrived_by_email_says_so(dossier) -> None:  # noqa
     seen = with_source_channels(dossier, UploadIntake(frozenset(), emails))
     assert _channels(seen) == ("email", "web")
     assert [s.channel for s in seen.sources] == ["email"]
+
+
+def test_every_file_projection_uses_the_record_origin(dossier, monkeypatch):
+    from argus.domain.business import record_origin
+
+    owner = record_origin.record_origins
+    earlier = NOW - timedelta(days=3)
+
+    def email_origins(*args, **kwargs):
+        return {
+            key: origin.model_copy(update={"channel": "email", "received_at": earlier})
+            for key, origin in owner(*args, **kwargs).items()
+        }
+
+    monkeypatch.setattr(record_origin, "record_origins", email_origins)
+    seen = with_source_channels(dossier, UploadIntake(frozenset(), {}))
+    pair = seen.duplicate_candidates[0].comparison
+    for file in (*seen.sources, pair.document.file, pair.other.file):
+        assert (file.channel, file.received_at) == ("email", earlier)

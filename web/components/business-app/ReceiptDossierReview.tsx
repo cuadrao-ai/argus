@@ -126,7 +126,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const canDelete = dossier?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
   const title = dossier?.title ?? t("business.document_delete.unnamed");
   const files = dossier?.supporting_files ?? [];
-  const attachments = dossier?.sources.filter(item => item.kind === "attachment").filter(item => !files.some(file => file.source_id === item.id)) ?? [];
+  const attachments = dossier?.sources.filter(item => item.kind === "attachment").filter(item => dossier.retained_source_ids.includes(item.id) && !files.some(file => file.source_id === item.id)) ?? [];
   const original = attachments.find(item => item.connection_id === dossier?.original_connection_id);
   const deletion = useDocumentDelete(canDelete && dossier ? {
     id: draftId,
@@ -422,7 +422,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const canApprove = dossier.capabilities.includes("approve");
   const line = approvalLine(canApprove, canPrepare);
   const canViewFile = !!annotations.readFile;
-  const viewableFiles = canViewFile ? files.filter(file => file.state === "linked") : [];
+  const viewableFiles = canViewFile ? files.filter(file => dossier.retained_source_ids.includes(file.source_id)) : [];
   const viewed = pickedFile === undefined ? viewableFiles[0] : viewableFiles.find(file => file.source_id === pickedFile);
   const busy = annotations.busy || duplicateBusy || autosave.busy || refreshing || operation.kind === "approving";
   const saveHolds = autosave.busy || autosave.failed || holdsEdits;

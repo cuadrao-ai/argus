@@ -107,9 +107,11 @@ from argus.domain.business.purchase_review import (
     takes_purchase_declaration,
 )
 from argus.domain.business.receipts import draft_row, record_title
+from argus.domain.business.record_attachments import retained_source_ids
 from argus.domain.business.record_origin import (
     OriginUpload,
     UploadIntake,
+    draft_arrivals,
     record_origins,
     with_source_channels,
 )
@@ -729,14 +731,22 @@ def dossier(
             )
         )
     )
-    uploaded = upload_year(source_rows[0]["received_at"] if source_rows else None)
-    from argus.domain.business.actions.listos import attachment_reads, draft_standing
-
-    flags = review_flags(facts, registry, declaration=resolution.dgii)
     repeated = (
         repeated_comprobantes(tx, [event]).get(draft_id, ())
         if event.state == "open" else ()
     )
+    retained = retained_source_ids(tx, [draft_id])
+    has_files = any(isinstance(item, AttachmentSource) for item in evidence)
+    intake = (
+        UploadIntake.stored(tx)
+        if has_files or duplicate_ids or repeated
+        else UploadIntake(frozenset(), {})
+    )
+    arrival = draft_arrivals(tx, [draft_id], intake).get(draft_id)
+    uploaded = upload_year(arrival.received_at if arrival else None)
+    from argus.domain.business.actions.listos import attachment_reads, draft_standing
+
+    flags = review_flags(facts, registry, declaration=resolution.dgii)
     standing = None
     if event.state == "open" and not reading:
         standing = draft_standing(
@@ -769,22 +779,13 @@ def dossier(
         if event.state == "accepted" and event.activity_id
         else None
     )
-    primary = next(
-        (item for item in source_rows if item["own"] and item["kind"] == "attachment"),
-        None,
-    )
-    has_files = any(isinstance(item, AttachmentSource) for item in evidence)
-    intake = (
-        UploadIntake.stored(tx)
-        if has_files or duplicate_ids or repeated
-        else UploadIntake(frozenset(), {})
-    )
+    primary = next((row for row in source_rows if arrival and row["id"] == arrival.file_source_id), None)
     source = None
     message_senders = {}
     if primary:
         source = OriginUpload.model_validate(primary["draft"])
     elif evidence:
-        source = next((item for item in evidence if not isinstance(item, AttachmentSource)), None)
+        source = next((item for item in evidence if arrival and item.id == arrival.first_source_id), None)
         if source:
             actor = next(
                 (entry["actor"] for entry in history if source.id in entry["source_ids"]),
@@ -796,11 +797,13 @@ def dossier(
     origin = None
     if source:
         [origin] = record_origins(tx, [source], intake, message_senders).values()
+        origin = origin.model_copy(update={"received_at": arrival.received_at})
     dossier = BusinessDossier(
         **DetailReadiness.from_codes(row.missing if row else (), gaps).model_dump(),
         origin=origin,
         title=record_title(facts.counterparty.value, origin.filename if origin else None),
-        original_connection_id=primary["connection_id"] if primary else None,
+        original_connection_id=(primary["connection_id"] if primary and str(primary["id"]) in retained else None),
+        retained_source_ids=tuple(item.id for item in evidence if str(item.id) in retained),
         deleted=deleted,
         delete_available=delete_available,
         restore_available=deleted is not None

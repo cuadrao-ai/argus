@@ -233,7 +233,7 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
               <span className={annotation.filename} title={name}>{name}</span>
               {file.size_bytes != null ? <span className={annotation.status}>{dossierFileSize(file.size_bytes, locale)}</span> : null}
               <span className={purge ? annotation.fileActions : `${annotation.fileActions} ${pointer.rowActions}`}>
-                {!purge && onViewFile ? <button type="button" className={styles.pen} title={t("business.dossier.supporting.view")} aria-label={t("business.dossier.supporting.view_named", { name })} aria-pressed={selected} onClick={() => onViewFile(file.source_id)}><Eye size={16} aria-hidden="true" /></button> : null}
+                {dossier?.retained_source_ids.includes(file.source_id) && onViewFile ? <button type="button" className={styles.pen} title={t("business.dossier.supporting.view")} aria-label={t("business.dossier.supporting.view_named", { name })} aria-pressed={selected} onClick={() => onViewFile(file.source_id)}><Eye size={16} aria-hidden="true" /></button> : null}
                 {linkChange ? <Tooltip content={t(`business.dossier.supporting.${action}`)} side="top">
                   <button type="button" className={styles.pen} aria-label={t(`business.dossier.supporting.${action}_named`, { name })} aria-disabled={pending || busy} onClick={() => {
                     if (purge && purge.getTime() <= Date.now()) {

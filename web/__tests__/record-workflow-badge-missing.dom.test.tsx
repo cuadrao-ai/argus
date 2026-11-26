@@ -4,7 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import type { ReportRecord } from "@/lib/business-reports-api";
 import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
-import { createBusinessReportHttpFixture } from "./fixtures/business-report-http-fixture";
+import { createBusinessReportHttpFixture, reportReasons } from "./fixtures/business-report-http-fixture";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
@@ -26,7 +26,7 @@ async function status(report: Partial<ReportRecord>, surface: "cell" | "table" |
   const { RecordsTable, RecordsNarrowList, RecordsList } = await import("@/components/business-app/transacciones/TransaccionesRecords");
   const { sampleRecordsPreferences } = await import("@/components/business-app/transacciones/sample-records-preferences");
   const { businessReportRow } = await import("@/lib/business-reporting-wire");
-  const row = edit(businessReportRow({ ...createBusinessReportHttpFixture().records[0], ready: false, missing: [], ...report }));
+  const row = edit(businessReportRow({ ...createBusinessReportHttpFixture().records[0], ready: false, missing: [], reasons: reportReasons(...report.missing ?? []), ...report }));
   if (!actionable) row.opens = null;
   const value = { chosen: { space_id: "s", capabilities: ["read"] }, panel: { kind: "transactions" }, records: { workspace: null }, openPanel: () => {} } as unknown as BusinessContextValue;
   const preferences = sampleRecordsPreferences();
@@ -119,13 +119,13 @@ test("unknown readiness keeps the Unknown mark", async () => {
   assert.equal(host.querySelector('[data-record-status]'), null);
 });
 
-test("unknown reason codes retain the existing registry-word fallback", async () => {
-  const host = await status({ ready: false, missing: ["unheard_of"] }, "cell", "en");
-  assert.equal(host.textContent, "1 detail missing");
+test("a reason uses the word the server names, even for a new code", async () => {
+  const host = await status({ ready: false, missing: ["supplier_id"], reasons: { supplier_id: { field: "rnc", words: "business.transactions.layout.workflow.missing.missing_rnc" } } }, "cell", "es-419");
+  assert.equal(host.textContent, "Falta 1 dato");
   const trigger = host.querySelector<HTMLElement>('[tabindex="0"]')!;
   const { act } = await import("react");
   await act(async () => { trigger.focus(); await new Promise(resolve => setTimeout(resolve, 350)); });
-  assert.equal(document.querySelector('[role="tooltip"]')?.textContent, "A detail is missing");
+  assert.equal(document.querySelector('[role="tooltip"]')?.textContent, "Falta el RNC");
 });
 
 for (const surface of ["phone", "table"] as const) {

@@ -380,8 +380,7 @@ health check.
 
 **Year check.** The reader often writes the wrong year. An issue date is a year
 to check when the reader wrote it (origin `extracted`) and its year is not the
-upload year: the year, in America/Santo_Domingo, of the `received_at` of the
-draft's first source. A date from the QR or from a person is never checked.
+upload year: the year, in America/Santo_Domingo, when the record's first file or message arrived. A date from the QR or from a person is never checked.
 Such a record stays out of Listos, in Por resolver with the reason
 `check_details`. A single approval must name `check_details` and every other
 gap in `accept_gaps`, and every gap must be confirmable. `year_to_check` in
@@ -396,8 +395,9 @@ What the person sees lives in
 The server decides the group and the label of every Bandeja row. The web
 renders them and decides neither.
 
-`record_origins` in `src/argus/domain/business/record_origin.py` supplies each receipt summary’s channel, sender, arrival, file name and size.
-`record_title` in `src/argus/domain/business/receipts.py` names receipts and dossiers from the same rule.
+`record_origins` in `src/argus/domain/business/record_origin.py` supplies the channel, sender, arrival, file name and size on receipt and dossier responses, including after a note save. A stored capture identifies a WhatsApp file even when the file was saved earlier.
+The first file or message sets the arrival shown in Bandeja, the dossier and Inicio.
+`record_title` in `src/argus/domain/business/receipts.py` names receipts, dossiers and saved records. Search uses the full reviewed name.
 
 - **One label owner.** `bandeja_label()` in
   `src/argus/domain/business/bandeja_group.py` gives every row one label:
@@ -605,8 +605,9 @@ The payload fields that the dossier screen reads:
 
 | Field | What it says | Owner |
 | --- | --- | --- |
+| `retained_source_ids`, `original_connection_id` | Evidence with stored file content and the retained original. Registros checks those same files when building its attachment count and filter. | `retained_source_ids` in `record_attachments.py` |
 | `origin` | The channel, sender, arrival, file name and size shown in Origen and Archivo, however the record opens. | `record_origins` in `src/argus/domain/business/record_origin.py` |
-| `title` | The document name shared by the dossier, receipt list, detail and search. | `record_title` in `src/argus/domain/business/receipts.py` |
+| `title` | The document name shared by the dossier, receipt list, Registros and search. | `record_title` in `src/argus/domain/business/receipts.py` |
 | `facts`, `net_amount` | The record's values. `net_amount.source` is `read`, `calculated` or `edited`. `net_amount.calculated` is the Subtotal the server calculates, whatever the source. | `facts_of`; `net_amount` in `purchase_review.py` |
 | `dgii` | The 606 or 607 declaration. On an open expense with none saved, it is the declaration that an approval would write. | `written_from` in `amount_inheritance.py` |
 | `inheritance` | The linked state of each fiscal field: `{field, value, inherited, paired_with}`. `field` names the source fact, `value` is the source value to restore, and `inherited` is false after a person overrides the field. | `inheritance_state` and the `INHERITANCE` map in `amount_inheritance.py` |
@@ -615,7 +616,7 @@ The payload fields that the dossier screen reads:
 | `editable_fields` | The fields the caller may change through review in the current state. Empty for a caller that is not a person. | `_editable_fields` in `actions/dossier.py` |
 | `declaration_editable`, `document_type_editable`, `payment_split_editable` | Whether the caller may write the 606 answers, the Compra or Venta type, and the 607 payment split. | `takes_purchase_declaration` and `takes_payment_split` in `purchase_review.py` |
 | `declaration_suggestions` | One suggestion, with its source, for each 606 answer the person has not given. | `review_sources` in `actions/dossier.py` |
-| `bandeja_group`, `listo_gaps`, `confirmable`, `missing`, `reasons` | The Bandeja label, ordered draft gaps and gaps a person may accept over. For accepted records, `missing` lists the Registros reasons in order. Each code in either list has a field and locale key in `reasons`. | `bandeja_group.RULE` and `listo_gaps`, `reporting_projection.readiness` through the reporting store, and `missing_reasons.REASONS` |
+| `bandeja_group`, `listo_gaps`, `confirmable`, `missing`, `reasons` | The Bandeja label, ordered draft gaps and gaps a person may accept over. For accepted records, the dossier and Registros return the same ordered `missing` codes. Each code has a field and locale key in `reasons`. | `bandeja_group.RULE` and `listo_gaps`, `reporting_projection.readiness` through the reporting store, and `missing_reasons.REASONS` |
 | `review_flags`, `rnc_registry_status` | The checks on the amounts and numbers, and what the DGII register says of the RNC. | `review_flags.py`; `supplier_registry_read` in `actions/dossier.py` |
 | `amounts_check` | Whether Montos adds up: `adds_up`, `difference` with the amount left over, or `unchecked`. | `amounts_check` in `review_flags.py`, which the `amounts_mismatch` flag also reads |
 | `note_kind` | The note the record is: `credit`, `debit` or null. | `record_note` in `fact_blockers.py`, on the type table in `fiscal_identity.py` that the 606 and 607 checks read |

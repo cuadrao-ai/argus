@@ -59,14 +59,14 @@ export function RecordSupportLink({ row, compact = false, legacy = false }: { ro
   const { t } = useTransaccionesWords();
   const open = useOpenDetails(row, "support");
   if (!chosen?.capabilities.includes("read")) return compact ? null : <Unknown />;
-  const count = row.report?.attachment_sources?.length ?? 0;
-  const existing = row.report ? count > 0 : row.hasProof === true;
+  const count = row.report?.attachment_count;
+  const existing = row.report ? Boolean(count) : row.hasProof === true;
   const canAppend = row.report?.draft_id && row.report.can_append_supporting === true;
   if (!existing && !canAppend) return compact ? null : <Unknown meaning={row.hasProof === false ? t(legacy ? "business.expenses.no_receipt" : `${COPY}.no_attachment`) : undefined} />;
-  const countLabel = count > 0 ? t("business.intake.files_count", { count }) : "";
+  const countLabel = count ? t("business.intake.files_count", { count }) : "";
   const fileIcon = <>
     <FileText size={16} aria-hidden="true" />
-    {!compact && count > 0 && <span className={cells.attachmentCount}>{count}</span>}
+    {!compact && !!count && <span className={cells.attachmentCount}>{count}</span>}
   </>;
   if (!row.opens) {
     const unavailable = t(`${COPY}.linked_unavailable`);

@@ -9,6 +9,9 @@ from dataclasses import asdict, replace
 from datetime import date, datetime, timedelta
 from typing import Literal
 
+from pydantic import Field
+
+from argus.domain.business.contracts.dossier import DetailReadiness
 from argus.domain.business.contracts.facts import InheritedValue, personal_mark_admits
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.dgii_codes import EXPENSE_TYPES
@@ -79,7 +82,7 @@ class Purchase606(Contract):
     payment_form: DgiiChoice | None
 
 
-class ReportRecord(Contract):
+class ReportRecord(DetailReadiness):
     can_edit_note: bool = False
     can_append_supporting: bool = False
     annotation_unavailable_reason: str | None = "business_annotation_unsupported"
@@ -92,7 +95,6 @@ class ReportRecord(Contract):
     date_basis: Literal["document_issue", "activity_effective"]
     family: Family | None = None
     ready: bool = False
-    missing: tuple[str, ...] = ()
     missing_fields: tuple[TableColumn, ...] = ()
     stage: Stage | None = None
     #: Current 606/607 verdict, independent of downloaded export history.
@@ -117,6 +119,7 @@ class ReportRecord(Contract):
     money_kind: str = "unknown"
     money_effect: Literal["known", "unknown", "unsupported"] = "known"
     adjustment_effect: Literal["known", "unknown", "unsupported"] | None = None
+    title: str | None = None
     counterparty: str | None = None
     counterparty_key: str | None = None
     category_key: str = "uncategorized"
@@ -124,6 +127,7 @@ class ReportRecord(Contract):
     funding_label: str | None = None
     funding_kind: str | None = None
     has_document: bool = False
+    attachment_count: int = Field(default=0, ge=0)
     personal: bool = False
     include_606: bool | None = None
     #: None for a record the 606 never lists: a sale, a Personal record the
@@ -323,6 +327,7 @@ def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) 
     if filters.q and not any(
         _text(filters.q) in _text(value or "")
         for value in (
+            row.title,
             row.counterparty,
             row.note,
             row.counterparty_key,
@@ -625,7 +630,7 @@ def matching_records(
 
     def value(row: ReportRecord) -> object:
         if field == "name":
-            return _text(row.counterparty) if row.counterparty else None
+            return _text(row.title) if row.title else None
         if field == "amount":
             return (
                 parse_minor_units(row.gross_amount, row.currency)

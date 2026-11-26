@@ -121,7 +121,7 @@ describe("the v2 dossier frame", () => {
   for (const size of ["regular", "narrow"] as const) test(`Ver opens the backing file, then the strip returns to the receipt in ${size}`, async () => {
     const original = { ...photoSource, channel: "web" as const, filename: "comprobante.jpg" };
     const dossier = await fiscalDossier({
-      supporting_files: [support], original_connection_id: original.connection_id, sources: [original],
+      supporting_files: [support], retained_source_ids: [support.source_id, original.id], original_connection_id: original.connection_id, sources: [original],
       origin: { ...photoOrigin, channel: original.channel, filename: original.filename, sent_by: null },
     });
     const previousFetch = globalThis.fetch;
@@ -414,7 +414,7 @@ describe("the dossier's status is the server's", () => {
 
 describe("accepting a record that is not Listos", () => {
   test("a source receipt is displayed even when there are no separate supporting files", async () => {
-    const dossier = await fiscalDossier({ supporting_files: [], original_connection_id: photoSource.connection_id, origin: photoOrigin, sources: [photoSource] });
+    const dossier = await fiscalDossier({ supporting_files: [], retained_source_ids: [photoSource.id], original_connection_id: photoSource.connection_id, origin: photoOrigin, sources: [photoSource] });
     const page = await mount({ dossier, receipt: receiptOf(dossier) });
     try {
       await page.click(page.tab("Documento"));

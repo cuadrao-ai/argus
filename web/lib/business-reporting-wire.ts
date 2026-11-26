@@ -32,7 +32,7 @@ export function businessReportRow(report: ReportRecord): RecordRow {
   const activityId = report.linked_activity_ids[0];
   return {
     report, id: activityId ?? report.draft_id ?? report.row_id,
-    kind: report.family === "sale" ? "venta" : "gasto", occurredOn: report.report_date ?? "", counterparty: report.counterparty,
+    kind: report.family === "sale" ? "venta" : "gasto", occurredOn: report.report_date ?? "", counterparty: report.title,
     money: { amount: report.gross_amount ?? "", currency: report.currency ?? "" }, categoryId: report.category_key === "uncategorized" ? null : report.category_key,
     account: report.funding_kind === "checking" || report.funding_kind === "savings" ? { kind: "bank", name: report.funding_label } : report.funding_kind === "credit_card" ? { kind: "card", name: report.funding_label } : report.funding_kind === "cash" ? { kind: "cash", name: report.funding_label } : null,
     hasProof: report.has_document, marks: { personal: report.personal ?? false, markedBy: null, fiscal: null },

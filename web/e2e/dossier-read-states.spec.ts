@@ -107,7 +107,7 @@ test("Detalles edits a record note and opens its supporting file in the document
   const base = await source.dossier(receipt.draft_id!);
   const id = "00000000-0000-4000-8000-000000000197";
   const support = { source_id: "00000000-0000-4000-8000-000000000198", receipt_id: "00000000-0000-4000-8000-000000000199", filename: "orden-de-compra.svg", media_type: "image/svg+xml", size_bytes: 8251, state: "linked" as const, unlink_available: true, restore_available: false, purge_at: null };
-  let dossier = { ...base, draft_id: id, space_id: "fixture-space", current_note: "Revisar la orden.", note_edit_available: true, supporting_append_available: true, supporting_files: [support], annotation_unavailable_reason: null };
+  let dossier = { ...base, draft_id: id, space_id: "fixture-space", current_note: "Revisar la orden.", note_edit_available: true, supporting_append_available: true, supporting_files: [support], retained_source_ids: [...base.retained_source_ids, support.source_id], annotation_unavailable_reason: null };
   await installReceiptBusiness(page, ([resource, target, action], route) => {
     if (resource === "drafts" && target === id) {
       if (action === "dossier") return Promise.resolve(dossier);
@@ -148,7 +148,7 @@ test("Detalles keeps a removed file until the server withdraws its link-back off
     unlink_available: true, restore_available: false,
   };
   let dossier: BusinessDossier = { ...base, space_id: "fixture-space", current_note: null, note_edit_available: true,
-    supporting_append_available: true, annotation_unavailable_reason: null, supporting_files: [linked] };
+    supporting_append_available: true, annotation_unavailable_reason: null, supporting_files: [linked], retained_source_ids: [...base.retained_source_ids, sourceId] };
   let now = "2026-11-15T16:00:00Z";
   let purgeAt = "2026-11-22T16:00:00Z";
   await page.clock.setFixedTime(new Date(now));
@@ -164,7 +164,8 @@ test("Detalles keeps a removed file until the server withdraws its link-back off
     const file: BusinessSupportingFile = restoring ? linked : {
       ...linked, state: "unlinked", purge_at: purgeAt, restore_available: true, unlink_available: false,
     };
-    dossier = { ...dossier, version, supporting_files: [file], history: [...dossier.history, {
+    dossier = { ...dossier, version, supporting_files: [file],
+      retained_source_ids: restoring ? [...base.retained_source_ids, sourceId] : base.retained_source_ids, history: [...dossier.history, {
       // A person's save over the record's facts, as the server writes a supporting file change.
       ...base.history.at(-1)!, before: base.facts, after: base.facts, version, created_at: now, supporting_change: outcome,
       source_ids: [sourceId], supporting_filename: linked.filename,
@@ -174,8 +175,10 @@ test("Detalles keeps a removed file until the server withdraws its link-back off
   const details = page.getByRole("tab", { name: "Detalles", exact: true });
   const row = page.getByTestId("dossier-supporting").getByRole("listitem").filter({ hasText: "respaldo.pdf" });
   const unlink = row.getByRole("button", { name: /^Quitar/ });
+  const view = row.getByRole("button", { name: /^Ver\b/ });
   await page.goto(`/biz?draft=${dossier.draft_id}`);
   await details.click();
+  await expect(view).toBeVisible();
   await unlink.click();
   await expect(row).toContainText("Se borra en 7 días");
   now = "2026-11-21T16:00:00Z";
@@ -188,6 +191,7 @@ test("Detalles keeps a removed file until the server withdraws its link-back off
 
   await row.getByRole("button", { name: "Restaurar respaldo.pdf", exact: true }).click();
   await expect(unlink).toBeVisible();
+  await expect(view).toBeVisible();
   await expect(row).not.toContainText("Se borra");
   purgeAt = "2026-11-28T16:00:00Z";
   await unlink.click();

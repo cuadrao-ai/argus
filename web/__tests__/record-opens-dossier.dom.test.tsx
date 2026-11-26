@@ -244,7 +244,7 @@ test("receipt, draft, expense, search and deep links show the dossier's own orig
   assert.ok(original?.kind === "attachment");
   const other = { ...original, id: "source-other", connection_id: "receipt-other", filename: "later.pdf" };
   const served = {
-    ...dossier, title, origin, original_connection_id: original.connection_id, delete_available: true,
+    ...dossier, title, origin, retained_source_ids: [original.id], original_connection_id: original.connection_id, delete_available: true,
     sources: [other, ...dossier.sources.map(item => item.id === original.id ? { ...original, channel: "whatsapp" as const } : item)],
   };
   const asked: string[] = [];

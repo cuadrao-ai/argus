@@ -26,6 +26,7 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.document_type import resolved_document_type, typed_facts
 from argus.domain.business.people import named, named_deletion, people
+from argus.domain.business.record_origin import draft_arrivals
 from argus.domain.business.sent_by import member_sender
 from argus.domain.business.transactions import ActionTransaction, transaction
 
@@ -249,16 +250,14 @@ def awaiting_note_arrivals(tx) -> list[tuple]:  # noqa: ANN001
     """When each note draft the Bandeja still lists first arrived, one per
     draft, with the currency its review named (None while unknown)."""
 
-    return [
-        (row["arrived_at"], row["currency"])
-        for row in tx.rows(
-            "select min(s.received_at) as arrived_at,"
-            " max(e.resolution #>> '{business,facts,currency,value}')"
-            " filter (where e.resolution #>> '{business,facts,currency,state}' = 'known')"
-            " as currency" + _NOTES + _AWAITING_WITHOUT_RECEIPT + " group by e.id",
-            (tx.context.actor.space_id, tx.context.owner_id),
-        )
-    ]
+    rows = tx.rows(
+        "select distinct e.id,case when e.resolution #>> '{business,facts,currency,state}'='known'"
+        " then e.resolution #>> '{business,facts,currency,value}' end as currency"
+        + _NOTES + _AWAITING_WITHOUT_RECEIPT,
+        (tx.context.actor.space_id, tx.context.owner_id),
+    )
+    arrivals = draft_arrivals(tx, [row["id"] for row in rows])
+    return [(arrivals[row["id"]].received_at, row["currency"]) for row in rows]
 
 
 def awaiting_notes(tx) -> tuple[int, int]:  # noqa: ANN001
