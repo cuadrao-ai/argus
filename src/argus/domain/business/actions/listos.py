@@ -28,7 +28,7 @@ from argus.domain.business.bandeja_group import (
 from argus.domain.business.contracts.dossier import Blocker, ReviewFlag
 from argus.domain.business.contracts.facts import BusinessResolution, fiscal_value
 from argus.domain.business.receipts import read_attention
-from argus.domain.business.record_origin import DraftArrival, draft_arrivals
+from argus.domain.business.record_origin import DraftArrival, first_draft_sources
 from argus.domain.business.review_flags import review_flags
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.email_intake.store import email_draft_standing
@@ -90,8 +90,8 @@ def _upload_years(
     tx: ActionTransaction, draft_ids: Sequence[UUID]
 ) -> dict[UUID, int | None]:
     return {
-        draft_id: upload_year(arrival.received_at)
-        for draft_id, arrival in draft_arrivals(tx, draft_ids).items()
+        draft_id: upload_year(first["received_at"])
+        for draft_id, (first, _) in first_draft_sources(tx, draft_ids).items()
     }
 
 

@@ -395,7 +395,7 @@ What the person sees lives in
 The server decides the group and the label of every Bandeja row. The web
 renders them and decides neither.
 
-`record_origins` in `src/argus/domain/business/record_origin.py` supplies each receipt summary’s channel, sender, arrival, file name and size.
+`record_origins` in `src/argus/domain/business/record_origin.py` supplies the channel, sender, arrival, file name and size on receipt and dossier responses, including after a note save. A stored capture identifies a WhatsApp file even when the file was saved earlier.
 The first file or message sets the arrival shown in Bandeja, the dossier and Inicio.
 `record_title` in `src/argus/domain/business/receipts.py` names receipts, dossiers and saved records. Search uses the full reviewed name.
 

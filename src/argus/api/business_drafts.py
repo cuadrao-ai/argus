@@ -506,11 +506,14 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     summary = {**summary, "deleted": deletion(row["state"], row["resolution"])}
     type_editable = row["state"] in ("open", "accepted")
     resolution = BusinessResolution.model_validate(row["resolution"]["business"])
-    summary["merchant"] = resolution.facts.counterparty.value
+    counterparty = resolution.facts.counterparty.value
+    if "merchant" in summary:
+        summary["merchant"] = counterparty
     arrival = row.get("arrival")
-    if arrival:
+    if arrival and "received_at" in summary:
         summary["received_at"] = arrival.received_at
-    summary["title"] = record_title(summary["merchant"], arrival.filename if arrival else summary.get("filename"))
+    if "title" in summary:
+        summary["title"] = record_title(counterparty, arrival.filename if arrival else summary.get("filename"))
     if legacy == str(row["id"]):
         if "document_type_editable" in summary:
             summary["document_type_editable"] = type_editable

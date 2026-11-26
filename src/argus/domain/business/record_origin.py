@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal, TypedDict
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -16,6 +16,7 @@ from argus.domain.business.contracts.dossier import (
     AttachmentSource,
     BusinessDossier,
     ComparedDocument,
+    ComparedFile,
     MessageSource,
     RecordOrigin,
     WebActionSource,
@@ -26,13 +27,7 @@ if TYPE_CHECKING:
     from argus.domain.business.transactions import ActionTransaction
     from argus.domain.ingestion.email_intake.store import EmailRelation
 
-Channel = Literal["web", "whatsapp", "email"]
 EmailFlag = tuple[tuple[str, ...], bool, datetime | None]
-
-
-class FileArrival(TypedDict):
-    channel: Channel
-    received_at: datetime
 
 
 class OriginUpload(BaseModel):
@@ -61,11 +56,13 @@ class UploadIntake:
     @classmethod
     def stored(cls, tx: ActionTransaction) -> UploadIntake:
         from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+        from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
         from argus.domain.postgres_connection import BorrowedConnection
 
         pool = BorrowedConnection(tx.connection)
         owner = tx.context.owner_id
         space = str(tx.context.actor.space_id)
+        captured = PostgresWhatsAppStore(pool).captured_connections(destination_owner_id=owner)
         arrivals = tx.rows(
             "select m.connection_id::text as id,min(m.received_at) as received_at"
             " from public.whatsapp_inbound_messages m join public.financial_source_connections c"
@@ -81,22 +78,16 @@ class UploadIntake:
             (space, owner),
         )
         return cls(
-            frozenset(row["id"] for row in sources),
+            captured.union(row["id"] for row in sources),
             email_flags(PostgresEmailStore(pool).membership(space)),
             {row["id"]: row["received_at"] for row in arrivals},
         )
 
-    def arrival(self, connection_id: str, saved_at: datetime) -> FileArrival:
+    def arrival(self, connection_id: str, saved_at: datetime) -> datetime:
         """The earliest file or inbound message, even when processing ran later."""
-        at = saved_at
-        channel: Channel = "whatsapp" if connection_id in self.captured else "web"
-        whatsapp = self.whatsapp_arrivals.get(connection_id)
-        if whatsapp is not None and whatsapp <= at:
-            channel, at = "whatsapp", whatsapp
         email = self.emails.get(connection_id)
-        if email and email[2] is not None and email[2] <= at:
-            channel, at = "email", email[2]
-        return {"channel": channel, "received_at": at}
+        candidates = (saved_at, self.whatsapp_arrivals.get(connection_id), email[2] if email else None)
+        return min(at for at in candidates if at is not None)
 
     def deliveries(self, connection_id: str) -> tuple[str, ...]:
         flag = self.emails.get(connection_id)
@@ -111,38 +102,47 @@ class DraftArrival:
     filename: str | None
 
 
-def draft_arrivals(
+def first_draft_sources(
     tx: ActionTransaction, draft_ids: Sequence[UUID], intake: UploadIntake | None = None
-) -> dict[UUID, DraftArrival]:
+) -> dict[UUID, tuple[dict, dict | None]]:
     """Each record's first own source and first own file in actual arrival order."""
     if not draft_ids:
         return {}
     rows = tx.rows(
-        "select l.draft_id,s.id,s.received_at,s.connection_id,"
-        " (d.draft->>'created_at')::timestamptz as saved_at,d.draft->>'filename' as filename"
+        "select l.draft_id,s.id,s.connection_id,d.draft->>'filename' as filename,"
+        " coalesce((d.draft->>'created_at')::timestamptz,s.received_at) as received_at"
         " from public.business_draft_sources l join public.business_sources s"
         " on s.id=l.source_id and s.space_id=l.space_id"
         " left join public.financial_document_extractions d on d.connection_id=s.connection_id"
-        f" where l.space_id=%s and l.draft_id=any(%s::uuid[]) and {OWN_SOURCE_SQL}",
+        f" where l.space_id=%s and l.draft_id=any(%s::uuid[]) and {OWN_SOURCE_SQL} order by s.id",
         (tx.context.actor.space_id, list(draft_ids)),
     )
     grouped: dict[UUID, list[dict]] = {}
     for row in rows:
-        if row["saved_at"] is not None:
+        if row.get("connection_id") is not None:
             if intake is None:
                 intake = UploadIntake.stored(tx)
-            row["received_at"] = intake.arrival(str(row["connection_id"]), row["saved_at"])["received_at"]
+            row["received_at"] = intake.arrival(str(row["connection_id"]), row["received_at"])
         grouped.setdefault(row["draft_id"], []).append(row)
     found = {}
     for draft_id, sources in grouped.items():
-        sources.sort(key=lambda row: (row["received_at"], row["id"]))
+        sources.sort(key=lambda row: row["received_at"])
         first = sources[0]
-        file = next((row for row in sources if row["connection_id"]), None)
-        found[draft_id] = DraftArrival(
+        file = next((row for row in sources if row.get("connection_id")), None)
+        found[draft_id] = (first, file)
+    return found
+
+
+def draft_arrivals(
+    tx: ActionTransaction, draft_ids: Sequence[UUID], intake: UploadIntake | None = None
+) -> dict[UUID, DraftArrival]:
+    return {
+        draft_id: DraftArrival(
             first["received_at"], first["id"], file["id"] if file else None,
             file["filename"] if file else None,
         )
-    return found
+        for draft_id, (first, file) in first_draft_sources(tx, draft_ids, intake).items()
+    }
 
 
 def record_origins(
@@ -152,15 +152,18 @@ def record_origins(
     message_senders: Mapping[str, SentBy] | None = None,
 ) -> dict[str, RecordOrigin]:
     """Resolve intake and viewer-scoped senders together for one record or a page."""
-    uploads = [
-        {
-            "id": doc.connection_id,
-            **intake.arrival(doc.connection_id, doc.created_at),
-            "email_delivery_ids": intake.deliveries(doc.connection_id),
-        }
-        for doc in sources
-        if isinstance(doc, OriginUpload)
-    ]
+    uploads = []
+    for doc in sources:
+        if isinstance(doc, OriginUpload):
+            at = intake.arrival(doc.connection_id, doc.created_at)
+            email = intake.emails.get(doc.connection_id)
+            channel = "whatsapp" if doc.connection_id in intake.captured else "web"
+            if email and email[2] == at:
+                channel = "email"
+            uploads.append({
+                "id": doc.connection_id, "channel": channel, "received_at": at,
+                "email_delivery_ids": intake.deliveries(doc.connection_id),
+            })
     senders = receipt_senders(tx, uploads) if tx and uploads else {}
     by_id = {view["id"]: view for view in uploads}
     result = {}
@@ -190,19 +193,25 @@ def with_source_channels(
 ) -> BusinessDossier:
     """Each evidence or compared file carries its own upload channel."""
 
+    def file_origin(file: AttachmentSource | ComparedFile) -> dict:
+        key = str(file.connection_id)
+        upload = OriginUpload(
+            connection_id=key, created_at=file.received_at, filename=file.filename, size_bytes=None
+        )
+        return record_origins(None, [upload], intake)[key].model_dump(include={"channel", "received_at"})
+
     def compared(document: ComparedDocument) -> ComparedDocument:
         file = document.file
         if file is None:
             return document
-        arrival = intake.arrival(str(file.connection_id), file.received_at)
         return document.model_copy(
-            update={"file": file.model_copy(update=arrival)}
+            update={"file": file.model_copy(update=file_origin(file))}
         )
 
     sources = tuple(
         source.model_copy(
             update={
-                **intake.arrival(str(source.connection_id), source.received_at),
+                **file_origin(source),
                 "email_delivery_ids": intake.deliveries(str(source.connection_id)),
             }
         )
