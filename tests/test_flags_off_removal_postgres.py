@@ -29,7 +29,7 @@ from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
 
 from tests.document_sources_support import stored_paths
-from tests.ingestion.whatsapp_cases import NOTICE, prepare_phone_business
+from tests.ingestion.whatsapp_link_support import NOTICE, prepare_phone_business
 from tests.ingestion.whatsapp_support import ENV as WHATSAPP_TEST_ENV
 from tests.local_supabase_support import local_supabase_gateway
 from tests.test_conversation_surfaces_postgres import DSN

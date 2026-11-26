@@ -355,7 +355,7 @@ def test_the_worker_pass_asks_the_store_at_most_once_in_its_interval(rig, monkey
 
 @pytest.mark.asyncio
 async def test_a_whatsapp_read_spends_the_same_budget_as_the_web() -> None:
-    world, extractor, _ = _world(on=True)
+    world, extractor, _ = await _world(on=True)
     budget(world.documents, per_day=1)
     scope = world.business(world.alice)
     by_whatsapp = await _send(world, "wamid.BUDGET-1")

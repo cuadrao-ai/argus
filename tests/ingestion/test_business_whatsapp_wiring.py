@@ -16,7 +16,7 @@ from argus.domain.ingestion.whatsapp.replies import compose_reply
 from argus.domain.ingestion.whatsapp.senders import SenderBusinesses
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
-from tests.ingestion.test_whatsapp_link_disclosure import ENGLISH_NOTICE
+from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE
 from tests.ingestion.whatsapp_support import ALICE_PHONE, ENV
 
 

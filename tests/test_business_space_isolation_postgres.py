@@ -61,7 +61,7 @@ from tests.business_cleanup import delete_spaces
 from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_reads_support import TakenAtOnce
 from tests.document_sources_support import LOCAL_STORAGE, source_objects
-from tests.ingestion.whatsapp_cases import NOTICE, prepare_phone_business
+from tests.ingestion.whatsapp_link_support import NOTICE, prepare_phone_business
 
 pytestmark = pytest.mark.skipif(
     not (shared.DSN and LOCAL_STORAGE),

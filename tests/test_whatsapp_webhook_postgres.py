@@ -44,11 +44,10 @@ from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_sources_support import source_objects
 from tests.ingestion.whatsapp_cases import (
     ALICE_PHONE,
-    NOTICE,
     Clock,
     image,
-    prepare_phone_business,
 )
+from tests.ingestion.whatsapp_link_support import NOTICE, prepare_phone_business
 from tests.ingestion.whatsapp_support import (
     ENV,
     PHONE_NUMBER_ID,

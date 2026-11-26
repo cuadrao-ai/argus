@@ -33,10 +33,12 @@ from argus.domain.ingestion.whatsapp.payload import parse_delivery
 from argus.domain.ingestion.whatsapp.reply_groups import ReplyGroupCodec
 from argus.domain.ingestion.whatsapp.store import Settlement
 from argus.domain.owner_scope import PERSONAL, BusinessSpace
-from faker import Faker
 
-from tests.business_reading_support import reading_setting
-from tests.ingestion.test_whatsapp_link_disclosure import ENGLISH_NOTICE, NOTICE
+from tests.ingestion.whatsapp_link_support import (
+    ENGLISH_NOTICE,
+    NOTICE,
+    prepare_phone_business,
+)
 from tests.ingestion.whatsapp_support import (
     ALICE_PHONE,
     BOB_PHONE,
@@ -124,23 +126,6 @@ class World:
 
     def record(self, message_id: str):  # noqa: ANN201
         return self.store.inbound(self.keys.message(message_id))
-
-
-def prepare_phone_business(pool, space_id: str, person: str) -> None:  # noqa: ANN001
-    with pool.connection() as db:
-        db.execute(
-            "update public.spaces set business_rnc=%s, business_tax_id_type='rnc'"
-            " where id=%s and business_rnc is null",
-            (Faker().numerify("1########"), space_id),
-        )
-    grant = next(g for g in PostgresAccessStore(pool).spaces_for(person) if g.space_id == space_id)
-    reading = reading_setting(pool)
-    status = reading.status(space_id, grant.owner_id)
-    if not status["enabled"]:
-        reading.set(
-            space_id, grant.owner_id, actor_id=person, enabled=True,
-            version=status["scope_version"], disclosure_token=status["disclosure_token"],
-        )
 
 
 def build_world(

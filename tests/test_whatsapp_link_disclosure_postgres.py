@@ -12,8 +12,12 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_whatsapp_intake_postgres as shared
 from tests.business_reading_support import ROUTE, reading_setting, turn_reading
-from tests.ingestion.test_whatsapp_link_disclosure import ENGLISH_NOTICE, NOTICE
-from tests.ingestion.whatsapp_cases import Clock, prepare_phone_business
+from tests.ingestion.whatsapp_cases import Clock
+from tests.ingestion.whatsapp_link_support import (
+    ENGLISH_NOTICE,
+    NOTICE,
+    prepare_phone_business,
+)
 
 pool, users, pytestmark = shared.pool, shared.users, shared.pytestmark
 

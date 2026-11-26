@@ -7,16 +7,7 @@ from argus.domain.ingestion.whatsapp.ai_consent import (
     require_link_disclosure,
 )
 
-NOTICE = (
-    "Al vincular tu número, aceptas que la foto o el PDF que envíes se lea con IA "
-    "para saber a qué negocio va."
-)
-
-
-ENGLISH_NOTICE = (
-    "By linking your number, you agree that the photo or PDF you send is read by AI "
-    "to find which business it belongs to."
-)
+from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE, NOTICE
 
 
 @pytest.mark.parametrize(("language", "notice"), [("en", ENGLISH_NOTICE), ("es-419", NOTICE)])

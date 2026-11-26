@@ -28,6 +28,7 @@ from tests import test_financial_accounts_postgres as shared
 from tests.document_sources_support import source_objects
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion import whatsapp_heartbeat_cases as heartbeat
+from tests.ingestion.whatsapp_link_support import NOTICE, prepare_phone_business
 from tests.ingestion.whatsapp_support import (
     RECEIPT_PNG,
     Media,
@@ -80,7 +81,7 @@ async def test_intake_case_on_postgres(case, pool, users) -> None:  # noqa: ANN0
 def test_redeeming_without_a_live_grant_preserves_the_existing_link(pool, users) -> None:  # noqa: ANN001
     owner, other = users["owner"], users["other"]
     space, _ = PostgresSpaceStore(pool).create(owner, "Mi negocio")
-    cases.prepare_phone_business(pool, space.id, owner)
+    prepare_phone_business(pool, space.id, owner)
     store = PostgresWhatsAppStore(pool)
     now, sender = cases.Clock()(), uuid4().bytes + uuid4().bytes
 
@@ -90,7 +91,7 @@ def test_redeeming_without_a_live_grant_preserves_the_existing_link(pool, users)
             destination_owner_id=person,
             code_digest=code,
             reply_language="es-419",
-            disclosure=cases.NOTICE,
+            disclosure=NOTICE,
             now=now,
             expires_at=now + timedelta(minutes=10),
         )
