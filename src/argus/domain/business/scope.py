@@ -53,10 +53,6 @@ class BusinessScope:
         return self.person_id if self.actor_id is None else self.actor_id
 
     @property
-    def acting_as_owner(self) -> bool:
-        return "assign_owner" in self.permissions
-
-    @property
     def permissions(self) -> frozenset[str]:
         return ROLE_PERMISSIONS[self.business_role]
 

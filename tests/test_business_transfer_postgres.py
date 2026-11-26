@@ -75,7 +75,7 @@ def test_accept_changes_authority_and_preserves_storage_and_other_access(world):
     assert access.spaces_for(people["owner"])[0].role == "accountant"
     assert access.spaces_for(people["owner"])[0].capabilities == ("read", "prepare")
     scope = resolve_business_scope(PostgresSpaceStore(pool), people["other"])
-    assert scope.person_id == people["owner"] and scope.acting_as_owner
+    assert scope.person_id == people["owner"] and "assign_owner" in scope.permissions
     assert PostgresSpaceStore(pool).open_space(people["owner"]) is None
     access.give(space.id, people["other"], "new-member@example.test")
     with pytest.raises(LookupError):
@@ -333,7 +333,7 @@ def test_transferred_receipt_reads_reviews_history_and_original_are_scoped(
     )
     assert service.dossier(current, finished.draft_id).version == finished.version
     base = views._web(service, old)
-    assert not base.scope.acting_as_owner
+    assert "assign_owner" not in base.scope.permissions
     app = FastAPI()
     app.state.financial_accounts_pool = pool
     request = Request(
@@ -353,7 +353,7 @@ def test_transferred_receipt_reads_reviews_history_and_original_are_scoped(
     web = scoped_legacy(
         request, base.service.documents, base.service.documents.hub, users["other"], scope
     )
-    assert web.scope.acting_as_owner and web.scope.person_id == old.owner_id
+    assert "assign_owner" in web.scope.permissions and web.scope.person_id == old.owner_id
     detail = receipt_detail(web, web.service.receipt(web.scope, cid))
     assert detail["id"] == cid
     result = service.review(

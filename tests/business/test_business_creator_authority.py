@@ -108,6 +108,11 @@ domain/business/purge.py:_delete_graph SQL select created_by with (space, closed
 domain/business/purge.py:_delete_graph SQL where s.created_by, where s.current_owner_id with (space,)
 domain/business/purge.py:_erase_objects SQL where created_by=%s with (placeholder,) * 4
 """.strip().splitlines()
+    # W4 stores the person who granted phone consent in this row's owner_id.
+    # Recheck that person's identified grant, independent of the Business creator.
+    + [
+        "domain/ingestion/whatsapp/ai_consent.py:_valid_grant authorize(connection, TrustedActor(actor_id=row['owner_id'], space_id=row['space_id'], actor_kind='member'), row['grant_id'])"
+    ]
     # Household and beta invitation rows have their own unrelated created_by.
     + """
 domain/household/invites.py:_insert SQL insert created_by with (iid, kind, hash_token(token), user_id, source_label, max_uses, now, expires_at, key, request_hash)
@@ -119,17 +124,6 @@ domain/household/postgres.py:_require_member_row SQL select created_by with (hou
 domain/household/postgres.py:close SQL select created_by with (household_id,)
 domain/household/postgres.py:create_household SQL insert created_by with (hid, trimmed, user_id, user_id, now)
 domain/household/postgres.py:create_invitation SQL insert created_by with (invite_id, household_id, hash_token(token), user_id, now, expires)
-""".strip().splitlines()
-)
-# W4 owns the independent phone-link/Business-role change. These existing
-# expressions can disappear without an update here, and allow no new checks.
-W4 = set(
-    """
-api/whatsapp.py:_as_owner str(context.owner_id) != str(owner_id)
-api/whatsapp.py:whatsapp_receiving_available scope.acting_as_owner
-domain/ingestion/whatsapp/ai_consent.py:_link SQL on s.created_by=l.destination_owner_id with (owner_id,)
-domain/ingestion/whatsapp/ai_consent.py:_valid_grant authorize(connection, TrustedActor(actor_id=row['owner_id'], space_id=row['space_id'], actor_kind='member'), row['grant_id'])
-domain/ingestion/whatsapp/ai_consent.py:status SQL where created_by=%s with (link[1], owner_id)
 """.strip().splitlines()
 )
 
@@ -277,7 +271,6 @@ def _terms(node: ast.expr) -> Iterator[ast.expr]:
 
 def test_business_creator_never_decides_a_permission() -> None:
     unexpected = []
-    w4_sites = W4.copy()
     for path in sorted(SOURCE.rglob("*.py")):
         source = path.read_text()
         if not re.search(r"owner_id|created_by|acting_as_owner", source, re.I):
@@ -285,9 +278,7 @@ def test_business_creator_never_decides_a_permission() -> None:
         relative = path.relative_to(SOURCE).as_posix()
         for line, name, use in sorted(set(_uses(source, relative))):
             site = f"{relative}:{name} {use}"
-            if site in w4_sites:
-                w4_sites.remove(site)
-            elif site not in RECORD_USES:
+            if site not in RECORD_USES:
                 unexpected.append(f"{relative}:{line} {name}  {use}")
     assert not unexpected, "\n" + "\n".join(unexpected)
 
