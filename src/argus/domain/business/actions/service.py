@@ -588,9 +588,7 @@ class BusinessActions:
                             raise ActionError(
                                 "permission_denied", "business_human_command_required"
                             )
-                        acting_owner = str(context.actor.actor_id) == str(
-                            context.owner_id
-                        )
+                        acting_owner = "assign_owner" in tx.authorization.permissions
                         if owner is not None and acting_owner != owner:
                             raise ActionError(
                                 "permission_denied", "business_permission_denied"
@@ -735,10 +733,8 @@ class BusinessActions:
 
         if context.actor.actor_kind != "member":
             raise ActionError("permission_denied", "business_human_command_required")
-        if not context.is_current_owner:
-            raise ActionError("permission_denied", "business_owner_required")
-        with transaction(self.authority, context, "prepare") as tx:
-            if not tx.context.is_current_owner:
+        with transaction(self.authority, context) as tx:
+            if "assign_owner" not in tx.authorization.permissions:
                 raise ActionError("permission_denied", "business_owner_required")
             row = self._attachment_row(tx, connection_id)
             if row["preparation_binding"] is None:

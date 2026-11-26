@@ -138,6 +138,7 @@ from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
 from argus.domain.business.notifications.config import notifications_available
+from argus.domain.business.receipt_consent import RECEIPT_READING_PERMISSION
 from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.search import SearchKind
@@ -846,7 +847,7 @@ def get_workspace(
             else None
         ),
     }
-    if not context.scope.acting_as_owner:
+    if "assign_owner" not in context.scope.permissions:
         # Business chat is the owner's: the client's shell shows no composer.
         workspace = {**workspace, "chat_available": False}
     return {**workspace, **_identity(context.scope)}
@@ -898,7 +899,7 @@ async def upload_receipt(
     context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
 ) -> dict[str, Any]:
     """The receipt's identity is its bytes, so a retry returns the same receipt.
-    The owner's stored receipt-reading setting decides whether it is read."""
+    The Business receipt-reading setting decides whether it is read."""
 
     _required_idempotency_key(request, idempotency_key)
     try:
@@ -966,7 +967,7 @@ def receipt_reading(
         **permission.status(
             context.scope.owner.space_id, context.scope.person_id, language
         ),
-        "can_change": context.scope.acting_as_owner,
+        "can_change": RECEIPT_READING_PERMISSION in context.scope.permissions,
     }
 
 
@@ -977,7 +978,8 @@ async def set_receipt_reading(
     context: Annotated[BusinessContext, Depends(require_business_document_write)] = None,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
-    owner_only(request, context)
+    """A member with approve can turn automatic reading on or off."""
+
     key = _required_idempotency_key(request, idempotency_key)
     permission = context.service.documents.business_receipt_consent
     if permission is None:
@@ -1150,7 +1152,6 @@ async def prepare_receipt(
     consent: str | None = Header(default=None, alias="X-Extraction-Consent"),
     context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
 ) -> dict[str, Any]:
-    # Sending a document to the AI provider is the owner's choice alone.
     try:
         if consent != "true":
             raise DocumentServiceError("document_extraction_consent_required")

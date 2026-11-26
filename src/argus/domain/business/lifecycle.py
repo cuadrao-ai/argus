@@ -11,6 +11,7 @@ from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
 from argus.domain.business.people import person_name
+from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
 from argus.domain.business.space_name import typed_name
 
 REOPEN_WINDOW = timedelta(days=30)
@@ -126,7 +127,7 @@ class PostgresBusinessLifecycle:
         access = PostgresAccessStore(self._pool)
         result = []
         for space in access.spaces_for(owner_id):
-            if space.role != "owner":
+            if "assign_owner" not in space.permissions:
                 continue
             grants = access.list(space.space_id, owner_id).grants
             with self._pool.connection() as db, db.transaction():
@@ -210,16 +211,20 @@ class PostgresBusinessLifecycle:
     def closed_spaces(self, owner_id: str) -> tuple[LifecycleResult, ...]:
         with self._pool.connection() as connection:
             rows = connection.execute(
-                "select s.id::text,s.name,s.closed_at from public.spaces s"
+                "select s.id::text,s.name,s.closed_at,g.business_role from public.spaces s"
                 " join public.business_client_grants g on g.space_id=s.id"
                 " join auth.users u on u.id=g.grantee_id"
-                " where g.grantee_id=%s and g.business_role='owner' and g.revoked_at is null and s.kind='business'"
+                " where g.grantee_id=%s and g.revoked_at is null and (g.expires_at is null or g.expires_at>clock_timestamp()) and s.kind='business'"
                 " and s.closed_at>clock_timestamp()-%s"
                 " and coalesce(u.is_anonymous,false)=false"
                 " order by s.closed_at desc,s.id",
                 (owner_id, REOPEN_WINDOW),
             ).fetchall()
-        return tuple(LifecycleResult(*row) for row in rows)
+        return tuple(
+            LifecycleResult(space_id, name, closed_at)
+            for space_id, name, closed_at, role in rows
+            if "assign_owner" in ROLE_PERMISSIONS[BusinessRole(role)]
+        )
 
     def _command(
         self,
@@ -319,15 +324,17 @@ class PostgresBusinessLifecycle:
             " where id=%s and kind='business' for update",
             (space_id,),
         ).fetchone()
+        grant = connection.execute(
+            "select business_role from public.business_client_grants where space_id=%s"
+            " and grantee_id=%s and revoked_at is null"
+            " and (expires_at is null or expires_at>clock_timestamp())"
+            " and 'read'=any(capabilities) for share",
+            (space_id, owner_id),
+        ).fetchone()
         if (
             row is None
-            or not connection.execute(
-                "select 1 from public.business_client_grants where space_id=%s"
-                " and grantee_id=%s and business_role='owner' and revoked_at is null"
-                " and (expires_at is null or expires_at>clock_timestamp())"
-                " and 'read'=any(capabilities)",
-                (space_id, owner_id),
-            ).fetchone()
+            or grant is None
+            or "assign_owner" not in ROLE_PERMISSIONS[BusinessRole(grant[0])]
         ):
             raise BusinessLifecycleError("business_record_not_found")
         return row

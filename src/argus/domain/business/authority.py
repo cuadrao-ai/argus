@@ -55,6 +55,13 @@ class ActionContext:
         return self.business_role == BusinessRole.OWNER
 
     @property
+    def permissions(self) -> frozenset[Permission]:
+        permissions = ROLE_PERMISSIONS[self.business_role]
+        if self.actor.actor_kind != "member":
+            return permissions & {"read", "prepare"}
+        return permissions
+
+    @property
     def scope(self) -> BusinessSpace:
         return BusinessSpace(str(self.actor.space_id))
 
@@ -109,28 +116,26 @@ def authorize(
             # The close paused this grant; it was not removed.
             raise ActionError("permission_denied", "business_closed")
         raise ActionError("not_found", "business_record_not_found")
-    role = BusinessRole(row["business_role"])
-    capabilities = ROLE_PERMISSIONS[role]
-    if actor.actor_kind != "member":
-        capabilities &= {"read", "prepare"}
+    context = ActionContext(
+        actor,
+        row["id"],
+        row["owner_id"],
+        row["name"],
+        row["current_owner_id"],
+        BusinessRole(row["business_role"]),
+        row["country"],
+    )
+    permissions = context.permissions
     return Authorization(
-        context=ActionContext(
-            actor,
-            row["id"],
-            row["owner_id"],
-            row["name"],
-            row["current_owner_id"],
-            role,
-            row["country"],
-        ),
+        context=context,
         provenance=ActorProvenance(
             actor_id=actor.actor_id,
             actor_kind=actor.actor_kind,
             grant_id=row["id"],
             issuer_id=row["issuer_id"],
         ),
-        capabilities=capabilities & {"read", "prepare", "approve"},
-        permissions=capabilities,
+        capabilities=permissions & {"read", "prepare", "approve"},
+        permissions=permissions,
     )
 
 

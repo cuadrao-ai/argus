@@ -696,3 +696,85 @@ def test_default_business_bootstrap_rechecks_live_membership(web, state):
         assert replay.json()["id"] == space
         assert replay.json()["name"] == f"Negocio de {web.alice.email}"
         assert access.granted(web.alice.id, owner).business_role == state
+
+
+def test_admin_changes_reading_and_former_owner_loses_controls_after_transfer(
+    web, faker, monkeypatch
+):
+    from argus.api.documents import documents_service
+
+    from tests.business_reading_support import ROUTE
+
+    setting = documents_service().business_receipt_consent
+    monkeypatch.setattr(setting, "route_resolver", lambda: ROUTE)
+    alice, new_owner = web.alice, web.dave
+    route = f"{API}/business"
+    [own] = [
+        item
+        for item in web.client.get(f"{route}/spaces", headers=alice.headers).json()[
+            "spaces"
+        ]
+        if item["space_id"] == alice.space_id
+    ]
+    promotion = web.client.patch(
+        f"{route}/access/grants/{web.grant_d}",
+        json={"role": "admin"},
+        headers=alice.headers,
+    )
+    assert promotion.status_code == 200, promotion.text
+    invitation = promotion.json()["invites"][0]["id"]
+    joined = web.client.post(
+        f"{route}/invitations/{invitation}/accept",
+        json={"space_id": alice.space_id},
+        headers=new_owner.headers,
+    )
+    assert joined.status_code == 200, joined.text
+    admin = _as(new_owner, web.grant_d)
+    workspace = web.client.get(f"{route}/workspace", headers=admin)
+    assert workspace.status_code == 200, workspace.text
+    reading = workspace.json()["receipt_reading"]
+    assert reading["can_change"]
+
+    def change(headers, enabled):
+        return web.client.post(
+            f"{route}/receipt-reading",
+            headers={**headers, "Idempotency-Key": faker.uuid4()},
+            json={
+                "enabled": enabled,
+                "scope_version": reading["scope_version"],
+                "disclosure_token": reading["disclosure_token"],
+            },
+        )
+
+    for enabled in (True, False):
+        result = change(admin, enabled)
+        assert result.status_code == 200, result.text
+        assert result.json()["enabled"] is enabled
+
+    requested = web.client.post(
+        f"{route}/spaces/{alice.space_id}/ownership-transfers",
+        headers={**alice.headers, "Idempotency-Key": faker.uuid4()},
+        json={"target_grant_id": web.grant_d, "confirmation": own["name"]},
+    )
+    assert requested.status_code == 200, requested.text
+    accepted = web.client.post(
+        f"{route}/ownership-transfers/{requested.json()['id']}/accept",
+        headers=new_owner.headers,
+    )
+    assert accepted.status_code == 200, accepted.text
+    selected = _as(alice, own["grant_id"])
+    workspace = web.client.get(f"{route}/workspace", headers=selected)
+    assert workspace.status_code == 200, workspace.text
+    assert not workspace.json()["chat_available"]
+    reading = workspace.json()["receipt_reading"]
+    assert not reading["can_change"]
+    for enabled in (True, False):
+        result = change(selected, enabled)
+        assert (result.status_code, result.json()["code"]) == (
+            403,
+            "business_permission_denied",
+        )
+    chat = web.client.get(
+        f"{API}/conversations", params={"surface": "business"}, headers=selected
+    )
+    assert (chat.status_code, chat.json()["code"]) == (403, "business_permission_denied")

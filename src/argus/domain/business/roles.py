@@ -22,7 +22,7 @@ ROLE_PERMISSIONS = MappingProxyType(
             {"read", "prepare", "approve", "manage", "download", "export", "assign_owner"}
         ),
         BusinessRole.ADMIN: frozenset(
-            {"read", "prepare", "manage", "download", "export"}
+            {"read", "prepare", "approve", "manage", "download", "export"}
         ),
         BusinessRole.EDITOR: frozenset({"read", "prepare", "download", "export"}),
         BusinessRole.VIEWER: frozenset({"read"}),

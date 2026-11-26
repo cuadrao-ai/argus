@@ -54,7 +54,7 @@ class BusinessScope:
 
     @property
     def acting_as_owner(self) -> bool:
-        return self.business_role == BusinessRole.OWNER
+        return "assign_owner" in self.permissions
 
     @property
     def permissions(self) -> frozenset[str]:

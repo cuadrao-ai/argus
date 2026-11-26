@@ -119,14 +119,14 @@ def test_wrong_business_id_cannot_rename_current_business(biz):
 
 
 @pytest.mark.parametrize(
-    "is_owner,name,expected",
+    "role,name,expected",
     [
-        (True, "Mi negocio", 409),
-        (True, "Colmado La Esquina", 200),
-        (False, "Mi negocio", 200),
+        ("owner", "Mi negocio", 409),
+        ("owner", "Colmado La Esquina", 200),
+        ("editor", "Mi negocio", 200),
     ],
 )
-def test_export_requires_name_only_for_owner(monkeypatch, is_owner, name, expected):
+def test_export_requires_name_only_for_owner(monkeypatch, role, name, expected):
     from types import SimpleNamespace
     from uuid import uuid4
 
@@ -134,6 +134,7 @@ def test_export_requires_name_only_for_owner(monkeypatch, is_owner, name, expect
     from argus.api.business_drafts import require_drafts
     from argus.api.documents import require_saved_documents
     from argus.api.routers import business_export
+    from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
@@ -141,10 +142,8 @@ def test_export_requires_name_only_for_owner(monkeypatch, is_owner, name, expect
     spaces = InMemorySpaceStore()
     space, _ = spaces.create(owner, name)
     context = SimpleNamespace(
-        actor=SimpleNamespace(
-            actor_id=owner if is_owner else str(uuid4()), space_id=space.id
-        ),
-        owner_id=owner,
+        actor=SimpleNamespace(space_id=space.id),
+        permissions=ROLE_PERMISSIONS[BusinessRole(role)],
     )
     app = FastAPI()
     app.include_router(business_export.router)

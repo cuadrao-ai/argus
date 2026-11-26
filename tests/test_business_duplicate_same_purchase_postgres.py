@@ -15,7 +15,7 @@ from psycopg.types.json import Jsonb
 
 from tests import test_business_duplicate_resolution_postgres as resolution
 from tests.business.receipt_stub import receipt_date
-from tests.business_accept_support import seen_gaps
+from tests.business_accept_support import grant_member, seen_gaps
 
 actions = resolution.actions
 users = resolution.users
@@ -138,18 +138,34 @@ def test_same_purchase_sends_the_newer_document_to_eliminados_and_restores(actio
     assert {c.draft_id for c in again.duplicate_candidates} == {first}
 
 
-def test_only_the_owner_may_choose_same_purchase(actions):
-    service, context, _ = actions
+@pytest.mark.owner_acts
+@pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
+def test_same_purchase_uses_members_approval_permission(actions, users, role):
+    from tests.test_business_document_delete_postgres import _client
+
+    service, owner, _ = actions
     first, second = _pair(actions)
+    member = grant_member(service, owner, users["other"], role)
     before = _stored(service, second)
-    view = service.dossier(context, second)
-    assert view.delete_available is False
-    assert [c.decisions for c in view.duplicate_candidates] == [("different_purchase",)]
-    refused = service.resolve_duplicate(
-        context, second, _same_purchase(service, context, second, first), str(uuid4())
+    view = service.dossier(member, second)
+    assert view.delete_available is (role == "admin")
+    assert ("same_purchase" in view.duplicate_candidates[0].decisions) is (
+        role == "admin"
     )
-    assert refused.outcome == "permission_denied", refused
-    assert _stored(service, second) == before
+    response = _client(service, member).post(
+        f"/api/v1/business/drafts/{second}/duplicate-resolution",
+        json=_same_purchase(service, member, second, first).model_dump(mode="json"),
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+    if role == "admin":
+        assert response.status_code == 200, response.text
+        assert response.json()["deleted"]["reason"] == "duplicate"
+    else:
+        assert (response.status_code, response.json()["code"]) == (
+            403,
+            "business_permission_denied",
+        )
+        assert _stored(service, second) == before
 
 
 @pytest.mark.owner_acts

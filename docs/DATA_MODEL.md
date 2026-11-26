@@ -3599,8 +3599,8 @@ onto the receipt. A dismissed item without this marker is not deleted.
 
 The marker holds `{actor: {actor_id}, at, key, previous_state}` and an
 optional `reason`. A marker written before #2219 also holds the actor's
-`display_name`; no reader uses it, and every response names the person live for the reader, never storing `shown_as`. The only reason is `duplicate`, written when the
-owner settles a possible repeat as the same purchase; a plain delete stores no
+`display_name`; no reader uses it, and every response names the person live for the reader, never storing `shown_as`. The only reason is `duplicate`, written when a
+member with `approve` marks a repeat as the same purchase. A plain delete stores no
 `reason` key. It needs no migration: the marker is JSON.
 The actor uses the existing account-deletion identity shape, so departure replaces
 its ID with the Business alias and its name with `Exmiembro`. Delete and restore
@@ -3808,7 +3808,7 @@ storage.
 
 ### Business receipt reading consent and attention
 
-`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `20261103040226_business_receipt_reading_scope_2.sql` widens the scope check from 1 to 1 or 2 and changes no row. `20261109070949_business_receipt_reading_scope_3.sql` widens it to 1, 2 or 3 and changes no row; scope 3 names invoices, receipts and PDFs. `SCOPE_VERSION` in `src/argus/domain/business/receipt_consent.py` names the current scope. The stored scope version, route and disclosure record what the Owner accepted. Reading stays enabled across model, gateway, scope version and disclosure changes until that generation is revoked. An accepted transfer revokes the existing generation; the recipient must enable reading explicitly. Losing the consenting person's Owner role also revokes their generation. Storage ownership remains separate from the consenting Owner's identity. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate the same active generation and original grant through the shared Business consent store. Completion holds the consent row lock through its transaction and rechecks before commit; current model, gateway and scope do not invalidate the recorded permission.
+`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, consenting member, scope version, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `20261103040226_business_receipt_reading_scope_2.sql` widens the scope check from 1 to 1 or 2 and changes no row. `20261109070949_business_receipt_reading_scope_3.sql` widens it to 1, 2 or 3 and changes no row; scope 3 names invoices, receipts and PDFs. `SCOPE_VERSION` in `src/argus/domain/business/receipt_consent.py` names the current scope. The stored scope version, route and disclosure record what the member accepted. Reading stays enabled across model, gateway, scope version and disclosure changes until that generation is revoked. An accepted transfer revokes the existing generation. A member with `approve` can enable reading again. The generation also ends if the consenting member loses approval authority. The stored `owner_id` identifies the consenting person. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate the same active generation and original grant through the shared Business consent store. Completion holds the consent row lock through its transaction and rechecks before commit; current model, gateway and scope do not invalidate the recorded permission.
 
 This table is the only Business reading consent. Two earlier migrations stay in the repo because staging already applied them, so a fresh database and staging run the same files in order and end identical. `20261014090000_business_email_receipt_reading_consent.sql` created a per-address `business_email_ai_consents` table and a unique index `business_email_routes_consent_key` on `business_email_routes(id, space_id, principal_id)`. `20261014120000_business_ai_consents.sql` drops that table, its trigger function and that index, and adds `business_ai_consents`, a per-Business owner setting (service role only, RLS with no policies). No code reads or writes `business_ai_consents`. It is empty, superseded by `business_receipt_reading_consents`, and must not gain a reader.
 
@@ -3971,7 +3971,7 @@ declaration and the API, so no client reads or sets it. No migration.
 
 The resolution's `due_on` is the due date a person set in review: a date, or
 absent while it is unknown. No read, default or issue date fills it. A change
-writes a draft revision. The owner may correct the date after approval. Migration `20261020120000_business_due_on.sql` adds the
+writes a draft revision. A member with `approve` may correct the date after approval. Migration `20261020120000_business_due_on.sql` adds the
 nullable `business_draft_revisions.before_due_on` and `after_due_on` date
 columns, so each revision keeps the value before and after it. The table keeps
 row-level security with no client policy; anon and authenticated hold no
@@ -4089,7 +4089,7 @@ person's profile `home_country` never decides a Business. See the
 
 The existing human `ReviewCommand` carries the tax input. It updates the current
 resolution and appends one source-linked revision atomically. Every later
-revision preserves the declaration. Owner approval binds the reviewed revision.
+revision preserves the declaration. Approval binds the reviewed revision.
 When the draft holds no declaration, or one whose Tipo Id or Forma de Pago is
 unknown, an expense approval appends one revision at the next version with the
 606 declaration built from the reviewed facts, or the saved one with only those
@@ -4097,13 +4097,13 @@ two filled in; its expense type stays unknown and its payment form is known
 only from the Business account that paid. If the money write then fails, the
 reopened draft appends one revision that puts the declaration back as it was
 before the approval; if it cannot, the next approval writes from that earlier
-declaration. An owner's review of an accepted record appends a draft revision and an
+declaration. A correction to an accepted record appends a draft revision and an
 action receipt in one transaction. A change to posted money facts advances
 the same activity's current revision in that transaction. A declaration-only
 change keeps its money revision. The event resolution records `accepted_edit_version`.
 Fiscal reports and exports use the latest posted facts and their source IDs,
 plus the current declaration. The original approval receipt continues to
-identify the revision that the owner first approved. Records accepted before
+identify the revision the approver accepted. Records accepted before
 in-place editing use the facts from their approval until corrected.
 
 Migration `20261123003924_business_accepted_edit_history.sql` adds nullable
@@ -4411,6 +4411,10 @@ this bounded domain slice.
 
 ### Business canonical membership and invitation migration
 
+Who created the Business never decides a permission. Every check, in order: the person may use Cuadrao; for WhatsApp, the phone is linked to them; then their current role in that Business. The creator stays only as a recorded fact.
+
+`ROLE_PERMISSIONS` in `src/argus/domain/business/roles.py` maps each current role to its permissions. Migration `20261125204143_business_admin_approve.sql` replaces `business_grant_approve_owner_only` with `business_grant_role_capabilities`. On each grant insert or update, the trigger derives `capabilities` from `business_role`. Dueño and Admin receive `approve`. The migration also backfills existing Admin grants. It creates no reading consent.
+
 `20261025182039_business_membership_roles.sql` maps existing active legacy grants
 without inventing historical acceptance: legacy anchor plus approve becomes
 Owner, prepare becomes Editor, and read-only becomes Viewer. No collaborator
@@ -4427,8 +4431,8 @@ or another authority. Writing it on membership mutation makes a stale repeatable
 read transaction abort instead of validating against an old membership snapshot.
 The service locks the Business before rechecking actor permissions and executing
 membership/acceptance commands. The database's actual clock checks expiry after
-lock acquisition. Role loss invalidates that Owner's live consent generations;
-new membership never creates consent.
+lock acquisition. Loss of approval authority ends the member's Business receipt-reading consent.
+Owner-specific AI consent ends on loss of the Owner role. New membership never creates consent.
 
 `argus_private.business_invitation_commands` owns per-recipient idempotency:
 primary key `(space_id, actor_id, command_key)` binds email, requested role and
@@ -4447,9 +4451,8 @@ Known rejection can retry and accepted sends converge. SMTP exactly-once deliver
 is not asserted.
 
 Legacy record custody, source IDs, object paths, retained documents and historical
-action provenance stay unchanged. The one-open-default-Business creation limit,
-legacy anchor-only transfer admission and existing account-deletion custody guards
-remain. Reverting application code alone after applying the schema is unsafe:
+action provenance stay unchanged. The one-open-default-Business creation limit and account-deletion
+custody guards remain. Transfer requires `assign_owner` on the initiator's live grant. Reverting application code alone after applying the schema is unsafe:
 older code can auto-accept invitations and cannot interpret all canonical roles.
 Hosted migration and any forward rollback require separate authorization and
 review of pending invitations and active grants. This PR supplies local proof only.
@@ -4479,7 +4482,7 @@ commands are server-only. Current owner lookup and pending recipient queries
 have indexes. Replay and target acceptance are tested on actual Postgres.
 Financial values, record IDs, revisions, sources and object paths do not move on
 transfer. Historical consent stays attributed to its original person and is
-revoked. The current owner must consent separately. Private/client behavior,
+revoked. A member with `approve` must enable Business receipt reading again. Private/client behavior,
 retention and account-deletion custody movement remain WIP, with global account
 deletion and lifecycle readiness still closed.
 

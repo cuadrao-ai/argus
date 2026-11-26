@@ -8297,7 +8297,7 @@ Amounts remain outside this change (#2176).
 
 `POST /business/drafts/{draft_id}/delete` and
 `POST /business/drafts/{draft_id}/restore` require `Idempotency-Key` and the
-same owner-only `approve` permission as approval. The identifier is a draft
+`approve` permission held by Dueño and Admin. The identifier is a draft
 UUID or the receipt connection UUID already used by the Bandeja when no draft
 exists. No body is required. Both return `{document_id, deleted,
 inbox_counts}` and `Cache-Control: no-store`. `inbox_counts` is the
@@ -8312,12 +8312,12 @@ the count of all current Registros rows in the selected Business. It matches
 A repeat of the same key returns the saved outcome with current counts.
 Reusing the key for another action or document returns 409 `business_action_conflict`.
 
-The owner may delete an open draft, an unlinked accepted Business record, or
+A member with `approve` may delete an open draft, an unlinked accepted Business record, or
 a document without a draft that has finished reading. Delete returns 422
 `business_document_linked` for an accepted record linked to a refund, credit
 note, settlement or active bank match. Other ineligible states return 422
 `business_document_not_open`. A read in progress returns 422
-`business_document_reading`. A non-owner receives 403 `business_permission_denied`.
+`business_document_reading`. A member without `approve` receives 403 `business_permission_denied`.
 
 Restore requires a deletion marker. A missing marker returns 422
 `business_document_not_deleted`. At `purge_at`, restore returns 422
@@ -8331,7 +8331,7 @@ Receipt summary, detail and dossier responses expose `deleted`,
 `delete_available` and `restore_available`. Registros reads `delete_available`
 from the accepted record's dossier. The deletion metadata contains
 `actor: {actor_id, display_name, email, shown_as}` (named live for the reader, as in the dossier), `at`, `key`, and `previous_state: {state, group}`,
-plus `reason: "duplicate"` when the owner deleted it as a duplicate (absent
+plus `reason: "duplicate"` when the actor deleted it as a duplicate (absent
 for a plain delete).
 The previous group is `attention` or `listo` for a Bandeja row and null for an accepted
 record. For several generic read candidates, `previous_state.events` retains their IDs and prior states for
@@ -8369,7 +8369,7 @@ purges it for good. The deletion metadata adds a read-only `purge_at`, which
 is the deletion `at` plus 7 days; the stored marker does not hold it.
 
 `POST /business/drafts/{draft_id}/purge` purges one deleted document at once.
-It requires `Idempotency-Key`, the owner-only `approve` permission and a person
+It requires `Idempotency-Key`, the `approve` permission and a person
 actor, takes no body, and returns `{document_id, deleted: true,
 inbox_counts}` with `Cache-Control: no-store`; `inbox_counts` is the same
 object delete and restore return. The identifier rules match delete and restore. A
@@ -8385,7 +8385,7 @@ questions and source links, and the draft's own message sources. A message
 source that another draft also uses stays. Purging an accepted record also
 erases its reversed activity and its own money records and revisions.
 The Activity entries stay. A purge
-by the owner adds `purge_document` and the expiry adds `expire_document` with
+by a member adds `purge_document` and the expiry adds `expire_document` with
 the Cuadrao actor; neither names the document or links to it. Older entries
 of the purged document keep their `object` with `purged: true` and `label:
 null`, so the client says "un documento" and opens nothing. After the purge every
@@ -8419,9 +8419,9 @@ it returns 503 `business_guide_unavailable` with a request reference.
 
 ### Business receipt automatic reading and attention
 
-A Business owner explicitly enables scope version 3 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
+A member with `approve` can enable or disable scope version 3 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the consenting member's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
 
-`GET /business/workspace?language=en|es-419` returns the current permission and disclosure in `receipt_reading`. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. The web also shows it once, under the reading row of the upload panel, the Bandeja and the dossier, before the first enable, while `consented_at` is null. For a Business with an earlier consent the row enables reading without showing it again: it sends the current `disclosure_token`, and the server stores the current words as the new generation's record. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the scope version, configured route and exact words shown as its acceptance record. For the Business and its live consenting Owner, `enabled` depends on that generation remaining unrevoked. A change of model, gateway, scope version or disclosure keeps reading on with the same consent ID and never asks for consent again. An accepted ownership transfer or loss of the consenting person's Owner role still revokes the generation; the recipient must enable reading explicitly. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the version in `receipt_reading` (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
+`GET /business/workspace?language=en|es-419` returns the setting and disclosure in `receipt_reading`. Its `can_change` field reflects the caller's `approve` permission. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. The web also shows it once, under the reading row of the upload panel, the Bandeja and the dossier, before the first enable, while `consented_at` is null. For a Business with an earlier consent the row enables reading without showing it again: it sends the current `disclosure_token`, and the server stores the current words as the new generation's record. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the scope version, configured route and exact words shown as its acceptance record. `enabled` requires an active consent generation from a member with live approval authority. A change of model, gateway, scope version or disclosure keeps reading on with the same consent ID and never asks for consent again. An accepted ownership transfer or loss of the consenting person's approval authority ends that generation. A member with `approve` can enable reading again. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from a member with `approve`. `scope_version` is the version in `receipt_reading` (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
 
 The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
@@ -8582,15 +8582,14 @@ that names one answers 422
 `recorded_correction_unsupported`. An open funding question still blocks with
 `business_questions_unresolved`, as every open question does.
 
-`POST /business/drafts/approve-listos` is how the owner approves a named list
+`POST /business/drafts/approve-listos` lets a member with `approve` accept a named list
 of Listos receipts. It takes `{items: [{draft_id, version}]}` and an
 `Idempotency-Key`, and the versions are the ones `bandeja_group` listed. A list
 holds at most 50 items, each draft once. Each item is its own approval, run in
 turn, so a longer selection is sent as several requests. An empty list, a longer
 list or a repeated draft answers 422 `validation_error` and approves nothing. A
 missing key answers 400 `idempotency_key_required`. A caller without `approve`
-answers 403 `business_permission_denied` and nothing runs, so only the owner
-reaches an item.
+answers 403 `business_permission_denied` before any item runs.
 
 The answer is 200 with `{results: [{draft_id, outcome, code, activity_id,
 existing_record_id}], inbox_counts}`, one result per item in the order named.
@@ -8616,7 +8615,7 @@ Business or an unknown id is `refused` with `business_record_not_found` and leav
 no ledger row. The route takes no `accept_gaps`, and nothing but a person's
 request reaches it.
 
-Owners can correct accepted records through `PATCH /business/drafts/{draft_id}/review`.
+Members with `approve` can correct accepted records through `PATCH /business/drafts/{draft_id}/review`.
 The record stays accepted and keeps its money activity ID. Each save writes one
 draft revision and one action receipt. A correction to the posted amount, date,
 currency, counterparty or document type also writes one revision to the existing
@@ -8629,8 +8628,8 @@ A linked money posting or an activity the draft did not record does not offer
 money edits. An account-backed posting keeps its currency; a posting with
 funding keeps its expense type. A linked sale and credit note keep their fiscal
 number and the original number the credit note names. Fiscal and amount details
-that do not alter those links remain available to the owner. An accepted expense
-with an incorrect refund flag offers `actual_refund` so the owner can clear it.
+that do not alter those links remain editable. An accepted expense
+with an incorrect refund flag offers `actual_refund` so the reviewer can clear it.
 `declaration_editable` and `payment_split_editable` still govern the separate 606
 choices and 607 payment split. A new value must still pass the review rules,
 including required total, currency and transaction date. The server returns
@@ -8684,7 +8683,7 @@ approve action this draft takes, by its kind (`record_expense`,
 `record_income`, `record_refund`, the `action` the approve route's body
 discriminates on), and null while `approval_available` is false.
 The dossier exposes `facts_editable` for review writes. Open drafts require
-`prepare`. Accepted records require the owner. `document_type_editable` follows
+`prepare`. Accepted records also require `approve`. `document_type_editable` follows
 the same permission. `declaration_editable` also requires a purchase eligible
 for the 606. `payment_split_editable` requires a sale. `sale_payment` is null
 on anything but a sale; on a sale it holds `form`, the one bucket of the 607
@@ -8724,9 +8723,9 @@ nobody writes a source, and one sent on a review is replaced by the stored
 one.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
-enforces: a member holding `prepare` who is not the owner, on an `open` or
+enforces: a member holding `prepare` without `assign_owner`, on an `open` or
 `accepted` draft whose facts make the 606 question apply (a personal receipt
-with a fiscal number); the owner reads false. `refund_candidates` is the
+with a fiscal number). It is false for the current Dueño. `refund_candidates` is the
 server's list of purchases this draft may refund, `[{id, merchant,
 occurred_on, amount, currency}]` with `id` the activity the declaration's
 `purchase_activity_id` names: empty unless the draft's kind is `refund` or its
@@ -8775,7 +8774,7 @@ A recorded `approval_result` carries `activity_id`, the approving `actor`,
 `reviewed_version` (the draft version the approval named, which also counts
 approvals and settlements), `approved_revision` (the latest `history` version
 at or below `reviewed_version`: the facts revision the person approved) and
-`approved_at` (when the approval receipt was written). Owner corrections, marks and 606 answers
+`approved_at` (when the approval receipt was written). Corrections, marks and 606 answers
 after approval add `history` revisions without changing either field. So does
 an expense approval whose draft holds no 606 declaration, or whose saved
 declaration leaves the Tipo Id or the Forma de Pago unknown: it adds one
@@ -8850,8 +8849,7 @@ number, or two sales with one fiscal number regardless of buyer RNC, are one
 comprobante, which approval accepts once, so
 `different_purchase` on such a pair answers 422 `duplicate_same_comprobante`.
 
-`same_purchase` deletes the target document as a duplicate. It is the
-owner's alone and follows every rule of
+`same_purchase` deletes the target document as a duplicate. It follows every rule of
 `POST /business/drafts/{draft_id}/delete`: it needs `approve`, an open
 document that is not being read and shares no attachment, and it answers the
 same refusals. The pair must be a pending receipt-fact pair or share one
@@ -8910,7 +8908,7 @@ review and unchanged preparation retry preserve it; changed facts or attached
 evidence reopen the approval blocker. Approval checks current evidence again,
 including comparison changes. Replay requires current human `prepare` authority
 and the still-valid pair decision; changed input under the same key answers 409.
-Every other review and owner-approval condition remains in force.
+Every other review and approval condition remains in force.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. The body's `purchase` carries the 606 fields a person
@@ -8961,7 +8959,7 @@ Nothing else is folded: a word typed in the field (`no tiene`), a separator
 beside a letter (`ab-123`) and a letter that upper-cases to two (`ß`) are still
 a 422 `validation_error`.
 
-On an accepted record the owner can send `facts`, `document_type`, `montos`,
+On an accepted record a member with `approve` can send `facts`, `document_type`, `montos`,
 `dgii`, `purchase`, `payment_split`, `sale_payment_form` or `due_on` through this route. A prepare
 grant alone returns 403 `business_permission_denied`. Total, currency and the
 transaction date must have values. Clearing one returns 422 `fact_required`.
@@ -9002,8 +9000,8 @@ chat. A change
 is one revision: a `venta` becomes income and loses a payable bill mark, a
 `recibo` becomes an expense, and a declaration saved under the other type is
 cleared unless the same request saves one. The printed RNC, NCF and ITBIS stay
-as read. Setting the type, changed or not, ends `document_type_detected`. The
-owner can change the type after approval. A stale `version` is still `409`
+as read. Setting the type, changed or not, ends `document_type_detected`. A member with `approve`
+can change the type after approval. A stale `version` is still `409`
 `stale_version` first.
 
 The type is the one answer to purchase or sale; a known `facts.kind` is always
@@ -9029,7 +9027,7 @@ The same review may carry `due_on`, alone or with other review input.
 `{"state": "unknown"}` clears it. Absent, the due date stays as it is. Only a
 person sets it: no read, default or issue date fills it. A change is one
 revision, and each `history` entry carries `before_due_on` and `after_due_on`.
-The owner can also set or clear the due date after approval. `BusinessDossier.due_on`, `ReceiptDetail.due_on` and every
+A member with `approve` can also set or clear the due date after approval. `BusinessDossier.due_on`, `ReceiptDetail.due_on` and every
 month-close and open-items line carry the date as `YYYY-MM-DD`, or `null` while
 it is unknown. Open items list the soonest due date first (see the
 [month-close contract](contracts/business-month-close.md)).
@@ -9198,12 +9196,11 @@ declaration, which remains the only 606 column owner. A suggested
 expense type is not confirmed and stays out of the export column. The 606
 manifest keeps blocking problems in `issues` and lists warn-only gaps in
 `warnings`, including an unverified or inactive supplier RNC. An RNC registry
-state never blocks approval or the export file. The owner can correct fiscal facts and declarations on an accepted record
+state never blocks approval or the export file. A member with `approve` can correct fiscal facts and declarations on an accepted record
 through the review route above.
 The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note
-settlements remain unsupported. The owner alone approves income, expense or
-refund. Under the existing per-owner transaction lock, fiscal duplicate approval
+settlements remain unsupported. A Dueño or Admin can approve income, expense or refund. Under the existing per-owner transaction lock, fiscal duplicate approval
 is refused before money recording. A purchase or refund whose supplier RNC and
 NCF match one already approved or being approved in the Business is refused with
 422 `duplicate_comprobante`, and the problem's `context.existing_record_id` names
@@ -9233,7 +9230,7 @@ the unsaved fiscal form: an optional `declaration`, and the
 `montos`. A name in both lists is refused with 422, and so is a name that
 follows no source (`business_amount_inheritance_invalid`). It requires the
 same selected Business, human actor, permission and current version as amount
-review. A prepare holder can preview an open draft. The owner can also
+review. A prepare holder can preview an open draft. A member with `approve` can also
 preview an accepted record. The response contains `net_amount`, `mismatch`
 (the existing `amounts_mismatch` review flag, or null) and `inheritance`: the
 map the dossier shows once that draft is saved, with the same entries. It also
@@ -9458,7 +9455,7 @@ grant history exists (the extractor, an erased account).
 `business_propose_allocation`, `business_ask`, `owner_grant`, `grant_access`, `invite_access`, `accept_invite`,
 `revoke_grant`, `revoke_invite`, `change_role`), two events read from other
 tables (`ownership_transferred`: an accepted ownership transfer, the new owner
-as actor at its acceptance; `receipt_reading_enabled`: the owner turning
+as actor at its acceptance; `receipt_reading_enabled`: the consenting member turning
 Business receipt reading on, at its consent), plus `other`, which only a reader
 whose live grant allows `manage` sees, for an action the feed does not know
 yet; the server never echoes the stored command. Turning receipt reading off
@@ -9699,15 +9696,13 @@ Probe JSON is exactly `{message:"Test message"}` and creates no fiscal observati
 `GET /business/fiscal-profile` returns `{name, tax_id, legal_name, can_edit}` under the same live read
 grant. Optional `draft_id` supplies the existing canonical Business anchor.
 `name` is the Business name the switcher lists, null while the Business keeps a default name.
-`tax_id` is null until the owner sets one.
+`tax_id` is null until a member with `manage` sets one.
 A set tax id is `{type, value}` where `type` is `rnc` or `cedula` and `value` is digits only.
 An RNC is 9 digits. A cédula is 11 digits. Leading zeros stay. `legal_name` is null until a
 person who manages the Business confirms one, else `{value, confirmed_at}`: the razón social
-and when it was confirmed. `can_edit` is true only for
-the space owner. Another member of that Business receives the same profile with `can_edit`
-false. The route does not take a space id, so another Business is not addressable here.
+and when it was confirmed. `can_edit` is true for a person with `manage` in that Business. The route does not take a space id, so another Business is not addressable here.
 
-`PATCH /business/fiscal-profile` requires the space owner, approve permission, and
+`PATCH /business/fiscal-profile` requires a person with `manage` and
 `Idempotency-Key`. The body is `{name, previous_name, tax_id, previous_tax_id}`.
 `name` is 1 to 80 characters after trimming. `previous_name` and `previous_tax_id` must
 match the stored profile. `previous_name` is null for a Business that keeps a default name, and a default name sent there is read as null. A mismatch is 409 `stale_version`. Spaces and hyphens in
@@ -9723,8 +9718,7 @@ Validation failures are 422 and the problem `code` says what to fix.
 - `tax_id_all_zero` means every digit is zero.
 - `business_name_invalid` means the name is blank or longer than 80 characters.
 
-A member who is not the owner and holds approve receives 403 `business_owner_required`.
-A member without approve receives 403 `business_permission_denied`. Each accepted change
+A member without `manage` receives 403 `business_permission_denied`. Each accepted change
 is an immutable action receipt with the actor and the time. Replaying the same key returns
 the saved profile and does not write again. The first tax id a Business saves
 (none stored before) types its open drafts once more by the read's rule: a `recibo`
@@ -10108,18 +10102,12 @@ person starts their space, every route below except POST `/space` answers 404
     "you now have access" line, per grant: POST
     `/api/v1/business/spaces/{grant_id}/seen` (204, idempotent, one
     `access_seen` ledger row by the person) records it; it is always true
-    for the own Business, and a new grant shows the line again. Through a
-    grant the accountant reads (`workspace`, `overview`, `receipts`,
-    `expenses`, `search`, `updates`, `captures`, `exports`, email deliveries)
-    and prepares (upload without consent, review by hand) that Business
-    only; a record of another Business is 404, as today. Owner-only on
-    purpose, 403 `business_permission_denied` for a grantee: `/space`,
-    `/access*`, POST `/accounts`, POST `/expenses`, email address creation
-    and stop, WhatsApp, Business chat, every approve (`approve`, `settle
-    remainder`, legacy `confirm`), and sending a document to the AI
-    provider (`/receipts/{id}/prepare`). A grantee's upload is not refused
-    for `X-Extraction-Consent`: the header is ignored and the owner's
-    receipt-reading setting decides whether the receipt is read.
+    for the own Business, and a new grant shows the line again. The grant
+    scopes reads and writes to that Business. A record of another Business is
+    404. Upload and draft review require `prepare`. Confirming a receipt,
+    approving a draft and settling its remainder require `approve`. The legacy
+    POST `/expenses` stays Owner-only. Upload ignores `X-Extraction-Consent`
+    and uses the Business receipt-reading setting.
     Every legacy write under a grant leaves a `business_action_receipts` row
     (`receipt_upload`, `receipt_review`, `receipt_confirm`) naming the grant
     and its issuer.
@@ -10129,12 +10117,9 @@ person starts their space, every route below except POST `/space` answers 404
     under it, whatever other grants the caller holds, and with no header the
     own Business is the only one in scope. Notes (`/business/captures`) and
     exports (`/business/exports`) run in the chosen Business under the
-    grantee's own `read` and `prepare`; approval is the owner's alone whatever
-    a grant row says (`approve` is dropped for anyone but the Business owner
-    on every route: approve, settle, confirm). Business conversations stay
-    the owner's: a stored conversation belongs to its space's creator
-    (`conversations_owner_space_fkey`), so a chosen grant is refused with 403
-    `business_permission_denied` wherever the chat is a Business one: `POST`
+    grantee's permissions. Business chat requires the current Owner role. A stored conversation belongs to its space's creator
+    (`conversations_owner_space_fkey`). A caller with a non-Owner grant receives
+    403 `business_permission_denied` for Business chat: `POST`
     and `GET /conversations` with `surface=business`, and on a Business
     conversation `PATCH` and `DELETE /conversations/{id}`, `GET
     /conversations/{id}/messages`. Retired chat, action and run endpoints
@@ -10142,23 +10127,15 @@ person starts their space, every route below except POST `/space` answers 404
     404 regardless of the selected Business. The web client sends
     `X-Business-Grant` only on `/business` calls and on `/conversations`
     with `surface=business`, never on Personal chat. A
-    client's `GET /business/workspace` reports
+    non-Owner member's `GET /business/workspace` reports
     `chat_available: false`. With no header and no own Business nothing is
     in scope: the Business routes answer 404 `business_space_missing`, record
     ids included. `GET /business/spaces` reports effective capabilities:
-    `approve` never appears on a grant that is not the owner's own.
-    The own Business's routes refuse a chosen grant with 403
-    `business_permission_denied`: GET and PATCH `/business/space`, creating,
-    stopping or re-running the receiving email address and its deliveries
-    (`POST` and `DELETE /business/email`, `POST
-    /business/email/deliveries/{id}/retry`; a grantee reads them), and every WhatsApp link route
-    (WhatsApp is the owner's channel; ending one's own sender link is never
-    gated). GET `/business/workspace` under a grant reads the client's
-    Business as it is and never heals an owner grant. A grant is live only
-    while the owner who issued it keeps owner access: once the issuer's own
-    owner grant is revoked with no live one since, every grant they gave
-    answers 403 `business_grant_not_live`, and comes back when owner access is
-    restored. Each grantee write on the legacy receipt surface (upload, review,
+    `approve` appears on Dueño and Admin grants. Creating or stopping a receiving
+    email address and retrying a delivery require `manage`. WhatsApp link routes
+    retain their own checks. GET `/business/workspace` under a grant reads the
+    selected Business and never heals an owner grant. Accepted memberships
+    survive loss of the issuer's access. Each legacy receipt write (upload, review,
     confirm) leaves one `business_action_receipts` row naming the grant,
     keyed by the record and the request's `Idempotency-Key` (a replay repeats
     its row, a second review gets its own); the upload row is written in the
@@ -10167,21 +10144,18 @@ person starts their space, every route below except POST `/space` answers 404
     `business_share` is `none` and a person stated it (origin `owner_stated`
     for the owner, `member_set` for anyone else): POST
     `/api/v1/business/drafts/{id}/personal` (`Idempotency-Key`, body
-    `{version, personal}`), the owner or anyone holding prepare through a
-    live grant (403 `business_permission_denied` for a read-only grant), on
-    an open or an approved draft, reversible with `personal: false` by the
-    same people, so the owner can always take back anyone's mark; each way is
-    a new revision in the history and one `mark_personal` ledger row naming
-    the actor, the grant used and its issuer. A `none` of any other origin
-    (a model's reading, a match, a default) marks nothing. Approval stays the
-    owner's alone. Approval admits a
-    personal receipt and records it as today; a partial share stays refused.
+    `{version, personal}`). A member holding `prepare` may set or clear the
+    mark on an open or approved draft. A read-only grant receives 403
+    `business_permission_denied`. Each change writes a revision and a
+    `mark_personal` ledger row naming the actor, the grant used and its issuer. A `none` of any other origin
+    (a model's reading, a match, a default) marks nothing. A person with
+    `approve` may accept a personal receipt. A partial share stays refused.
     "Has fiscal value" is an NCF or an e-CF the draft knows, of any origin
     (the e-CF check state comes later); the 606 itself is not built. A
-    prepare-holder who is not the owner answers POST
+    prepare-holder without `assign_owner` answers POST
     `/api/v1/business/drafts/{id}/fiscal-inclusion` (`Idempotency-Key`, body
     `{version, include}`) for a personal receipt with a fiscal number (the
-    owner acting as owner is 403 `business_permission_denied`; otherwise 409
+    current Dueño receives 403 `business_permission_denied`; otherwise 409
     `business_606_not_applicable`); the answer is the fact
     `fiscal.include_606`, a revision and a `decide_606` ledger row. Receipt
     summaries and details, expenses and their detail, and the draft dossier
@@ -10287,14 +10261,14 @@ person starts their space, every route below except POST `/space` answers 404
 | Role | Read records | Prepare/upload | Approve financial records | Manage Business/members | Invite Owner | Original/download/export |
 | --- | --- | --- | --- | --- | --- | --- |
 | Owner | Yes | Yes | Yes | Yes | Yes | Yes |
-| Admin | Yes | Yes | No | Yes | No | Yes |
+| Admin | Yes | Yes | Yes | Yes | No | Yes |
 | Editor | Yes | Yes | No | No | No | Yes |
 | Viewer | Yes | No | No | No | No | No |
 
 `permissions` is derived from the canonical role. Legacy `role` remains `owner`
-for every Owner and `accountant` for the other roles. Legacy `capabilities` stays
-within `read`, `prepare`, `approve`; it cannot distinguish Admin from Editor and
-is not independently writable authority. Agents never approve. Viewer can read
+for every Owner and `accountant` for the other roles. Legacy `capabilities` projects `read`, `prepare` and `approve` from that role.
+Dueño and Admin share the same legacy capabilities. `permissions` distinguishes
+their authority to transfer ownership or close the Business. Agents never approve. Viewer can read
 receipt and record metadata, but original-object and export endpoints refuse
 before returning bytes. Metadata does not include a signed original URL. The
 Personal document route remains Personal-only. This does not prevent copying
@@ -10305,8 +10279,8 @@ and reopen the selected shared Business. Name reads/writes honor the selected
 grant and require management permission for writes. `spaces.created_by` remains
 record custody. `current_owner_id` remains the legacy default/transfer anchor;
 it cannot restore membership. The one-open-created/default Business restriction
-is retained. The existing transfer command requires a live Owner who also
-matches that anchor; this batch adds no co-Owner transfer workflow. Transfer
+is retained. The existing transfer command requires `assign_owner` on a live grant in the selected Business,
+including when a co-Owner initiates it. Transfer
 cancels pending invitations whose actual issuer loses the necessary authority,
 while invitations from other authorized Owners/Admins survive without changing
 issuer. Accepted memberships survive inviter loss independently.
@@ -10406,7 +10380,7 @@ accept path recorded.
   requires `Idempotency-Key`, and `X-Document-Filename` is URL-encoded. A
   receipt's identity is its bytes, so a retry returns the same receipt. It
   ignores `X-Extraction-Consent`. It answers a `ReceiptSummary` that is
-  `queued` while the owner's receipt-reading setting is on and `saved`
+  `queued` while the Business receipt-reading setting is on and `saved`
   while it is off. Optional `X-Document-Type` is `recibo` or `venta`. `recibo`
   is a purchase. `venta` is an invoice the business has already issued: the
   same capture, prepared as income, so month close and the 607 selection can
@@ -10432,7 +10406,7 @@ accept path recorded.
   type (`recibo` until a read or a person sets it),
   `document_type_detected` is true while the read's choice stands, and
   `document_type_editable` is true for a caller with `prepare` on an open draft
-  or the owner on an accepted record. Both flags are left out of the wire when false. The
+  or `approve` on an accepted record. Both flags are left out of the wire when false. The
   field meanings are in the
   [month-close contract](contracts/business-month-close.md).
 - Receiving channel availability is owned by the server. GET
@@ -10589,7 +10563,7 @@ accept path recorded.
     `email_sender_unauthorized` refusal and response shapes are unchanged.
     A separate authenticated direct upload retains its own authority, including
     when its bytes match a captured email attachment. Receipt reading must also
-    remain enabled, and final Business approval stays with the owner.
+    remain enabled. Final Business approval requires a person with `approve`.
   - GET `/api/v1/business/email/inbox` groups deliveries as
     `remitentes_nuevos`, then `bandeja`. A first scan from an authorized
     sender sets `notice` to "Prueba recibida". Every item carries
@@ -10647,7 +10621,7 @@ accept path recorded.
     allowance resets returns normal received/processing state.
     POST `/{id}/retry` (prepare capability) re-queues a `partial` delivery.
   - Every captured part is an ordinary saved document with `consent=false`; AI
-    preparation still waits for the owner's choice. The grant is checked again
+    preparation still requires Business receipt-reading consent. The grant is checked again
     before each fetch, and the provider's recipients must equal the signed
     event's recipients. Retries back off and stop after eight attempts until an
     explicit retry.
@@ -10917,7 +10891,7 @@ accept path recorded.
   is `business_read_budget_day` or `business_read_budget_month`, the receipt
   is saved unread with `preparable: true`, and a consented `/prepare` reads it
   once the budget allows; with no one asking, the document worker queues the
-  same read again once the budget's day or month has turned, while the owner's
+  same read again once the budget's day or month has turned, while the Business
   reading setting is on), `read_deadline_passed` (the read waited 6 hours
   from the upload, or from the owner's own ask, with the reading service
   unavailable; `error_code` is `document_read_deadline_passed`, the receipt
@@ -10943,7 +10917,7 @@ accept path recorded.
   original reads remain unchanged. No public audit endpoint is introduced.
 - POST `/api/v1/business/receipts/{id}/prepare` requires
   `X-Extraction-Consent: true`, else 422
-  `document_extraction_consent_required`. While the owner's receipt-reading
+  `document_extraction_consent_required`. While the Business receipt-reading
   setting is off it is 422 `business_receipt_reading_off` and nothing is
   queued. A receipt entered by hand is 409
   `document_entered_by_owner`, here and on `/financial-documents`. It queues preparation as an
@@ -11700,11 +11674,11 @@ This legacy domain slice separates the default/transfer anchor from record custo
 now owns ordinary Business authority. Existing financial `user_id` and
 `spaces.created_by` keep custody. A transfer requests an existing live Editar
 member and exact current name. It changes no authority until that same member
-accepts. Acceptance serializes with close, checks the current owner and live
-member again, promotes the recipient and leaves the former owner with read and
-prepare. The owner may cancel a pending request. No transfer email is sent.
-Receipt reading requires the current owner's own consent generation after
-transfer. Historical consent never becomes the recipient's consent.
+accepts. Acceptance serializes with close, rechecks the initiator's
+`assign_owner` permission and the recipient's live membership, promotes the
+recipient and assigns the outgoing Owner the Editor role. The initiating Owner may cancel a pending request. Transfer mail is described below.
+A member with `approve` must enable receipt reading again after transfer.
+Historical consent never becomes the recipient's consent.
 Full account-deletion custody retention, purge, mounted routes and UI remain
 unavailable until their separate acceptance evidence is complete.
 

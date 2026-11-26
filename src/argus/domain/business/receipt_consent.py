@@ -1,4 +1,4 @@
-"""Versioned owner permission for email, WhatsApp and uploaded document reads."""
+"""Versioned Business permission for email, WhatsApp and uploaded document reads."""
 
 from __future__ import annotations
 
@@ -12,24 +12,40 @@ from uuid import uuid4
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
-from argus.domain.business.authority import ActionError
+from argus.domain.business.authority import ActionError, authorize
+from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.roles import ROLE_PERMISSIONS, Permission
 
-# Scope, route and disclosure record what the owner accepted. Later changes
-# do not end that permission; revocation ends its generation.
+RECEIPT_READING_PERMISSION: Permission = "approve"
+# Scope, route and disclosure record what the approver accepted.
+# Changing the disclosure does not revoke an existing consent.
 SCOPE_VERSION = 3
 DISCLOSURES = {
     "en": "We use artificial intelligence to read the documents that come in by email or WhatsApp, or that you upload to Cuadrao (invoices, receipts and PDFs), and prepare a draft of each one. You review it and accept it. If you turn it off, they are saved unread; if you turn it back on, the ones left unread are read too. Details in the privacy notice.",
     "es-419": "Leemos con inteligencia artificial los documentos que llegan por correo, por WhatsApp o que subes en Cuadrao (facturas, recibos y PDF), y preparamos un borrador de cada uno. Tú lo revisas y lo aceptas. Si lo apagas, se guardan sin leer; si lo vuelves a activar, también se leen los que quedaron sin leer. Detalles en el aviso de privacidad.",
 }
-_COLUMNS = ("id", "scope_version", "consented_at", "revoked_at", "route", "disclosure")
+_COLUMNS = (
+    "id",
+    "scope_version",
+    "consented_at",
+    "revoked_at",
+    "route",
+    "disclosure",
+    "approver_live",
+)
 
 
 def _row(db, space_id, *, lock: bool = False):
     found = db.execute(
-        "select id::text,scope_version,consented_at,revoked_at,route,disclosure from public.business_receipt_reading_consents"
+        "select id::text,scope_version,consented_at,revoked_at,route,disclosure,"
+        " exists(select 1 from public.business_client_grants g"
+        " where g.space_id=c.space_id and g.grantee_id=c.owner_id and %s=any(g.capabilities)"
+        " and g.created_at<=c.consented_at and g.revoked_at is null"
+        " and (g.expires_at is null or g.expires_at>clock_timestamp()))"
+        " from public.business_receipt_reading_consents c"
         " where space_id=%s order by consented_at desc,id desc limit 1"
         + (" for share" if lock else ""),
-        (space_id,),
+        (RECEIPT_READING_PERMISSION, space_id),
     ).fetchone()
     return dict(zip(_COLUMNS, found, strict=True)) if found else None
 
@@ -52,7 +68,7 @@ def _view(row, space_id, owner_id, route, language):
         "route": route,
         "disclosure_token": token,
         "available": route is not None,
-        "enabled": bool(row and row["revoked_at"] is None),
+        "enabled": bool(row and row["revoked_at"] is None and row["approver_live"]),
         "consent_id": row["id"] if row else None,
         "consented_at": row["consented_at"] if row else None,
         "revoked_at": row["revoked_at"] if row else None,
@@ -74,12 +90,29 @@ class BusinessReceiptConsentStore:
         access = self.access_resolver() if self.access_resolver else None
         return access._lock if access is not None else nullcontext()
 
-    def _is_memory_owner(self, space_id: str, actor_id: str) -> bool:
+    def _memory_approving_grant(
+        self, space_id: str, actor_id: str
+    ) -> tuple[str, int | None] | None:
         access = self.access_resolver() if self.access_resolver else None
-        return access is not None and any(
-            grant.space_id == space_id and "approve" in grant.permissions
-            for grant in access.spaces_for(actor_id)
-        )
+        if access is None:
+            return None
+        for grant in access.spaces_for(actor_id):
+            if (
+                grant.space_id != space_id
+                or RECEIPT_READING_PERMISSION not in grant.permissions
+            ):
+                continue
+            # A promotion can reuse the same grant ID after an intervening demotion.
+            losses = (
+                event.membership_version
+                for event in reversed(access.ledger)
+                if str(event.grant_id) == grant.grant_id
+                and event.action == "change_role"
+                and event.business_role is not None
+                and RECEIPT_READING_PERMISSION not in ROLE_PERMISSIONS[event.business_role]
+            )
+            return grant.grant_id, next(losses, None)
+        return None
 
     def _route(self):
         try:
@@ -92,20 +125,24 @@ class BusinessReceiptConsentStore:
         if self.pool is None:
             with self._lock, self._memory_guard():
                 row = self._rows.get((str(space_id), str(owner_id)))
-                result = _view(row, space_id, owner_id, route, language)
-                if (
-                    row
-                    and self.access_resolver
-                    and not self._is_memory_owner(space_id, row.get("actor_id", owner_id))
-                ):
-                    result["enabled"] = False
-                return result
+                if row:
+                    row = {
+                        **row,
+                        "approver_live": row["approval_period"]
+                        == self._memory_approving_grant(space_id, row["actor_id"]),
+                    }
+                return _view(row, space_id, owner_id, route, language)
         with self.pool.connection() as db:
             return self.status_on_connection(db, space_id, owner_id, language)
 
     def status_on_connection(
-        self, db: Connection, space_id: str, owner_id: str, language: str = "en",
-        *, lock: bool = False,
+        self,
+        db: Connection,
+        space_id: str,
+        owner_id: str,
+        language: str = "en",
+        *,
+        lock: bool = False,
     ) -> dict:
         route = self._route()
         owner = db.execute(
@@ -155,12 +192,8 @@ class BusinessReceiptConsentStore:
         if self.pool is None:
             acting_person = str(actor_id or owner_id)
             with self._lock, self._memory_guard():
-                allowed = (
-                    self._is_memory_owner(space_id, acting_person)
-                    if self.access_resolver
-                    else acting_person == str(owner_id)
-                )
-                if not allowed:
+                approval_period = self._memory_approving_grant(space_id, acting_person)
+                if approval_period is None:
                     raise ActionError("permission_denied", "business_permission_denied")
                 identity = (str(space_id), acting_person, key)
                 replay = self._commands.get(identity)
@@ -178,6 +211,7 @@ class BusinessReceiptConsentStore:
                     self._rows[(str(space_id), str(owner_id))] = {
                         "id": str(uuid4()),
                         "actor_id": acting_person,
+                        "approval_period": approval_period,
                         "scope_version": version,
                         "consented_at": now,
                         "revoked_at": None,
@@ -194,15 +228,19 @@ class BusinessReceiptConsentStore:
                 (space_id, owner_id),
             ).fetchone()
             acting_person = owner_id if actor_id is None else actor_id
-            if (
-                not owner
-                or not db.execute(
-                    "select 1 from public.business_client_grants where space_id=%s and grantee_id=%s"
-                    " and business_role='owner' and revoked_at is null and expires_at is null",
-                    (space_id, acting_person),
-                ).fetchone()
-            ):
+            if owner is None:
                 raise ActionError("permission_denied", "business_permission_denied")
+            try:
+                authorize(
+                    db,
+                    TrustedActor(
+                        actor_id=acting_person, actor_kind="member", space_id=space_id
+                    ),
+                ).require(RECEIPT_READING_PERMISSION)
+            except ActionError:
+                raise ActionError(
+                    "permission_denied", "business_permission_denied"
+                ) from None
             owner_id = owner[0]
             shown = _view(None, space_id, owner_id, route, language)
             replay = db.execute(

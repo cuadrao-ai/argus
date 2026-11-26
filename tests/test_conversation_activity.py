@@ -6,12 +6,18 @@ from unittest.mock import MagicMock
 
 import pytest
 from argus.api import state as api_state
-from argus.api.business_spaces import business_spaces, configure_business_spaces
+from argus.api.business_spaces import (
+    business_access,
+    business_spaces,
+    configure_business_access,
+    configure_business_spaces,
+)
 from argus.api.conversation_activity import _as_datetime
 from argus.api.dependencies import current_user
 from argus.api.guest_access import guest_account_context, store_account_context
 from argus.api.main import app
 from argus.api.schemas import BacktestRun, ConversationActivity, EvidenceArtifact
+from argus.domain.business.access import InMemoryAccessStore
 from argus.domain.business.spaces import InMemorySpaceStore
 from argus.domain.conversation_activity import (
     ActivityReadState,
@@ -518,9 +524,13 @@ def test_supabase_activity_gateway_mutation_passes_verified_source_identity() ->
 def business_conversation_scope(monkeypatch):
     monkeypatch.setenv("CUADRAO_BUSINESS_CHAT_ENABLED", "true")
     previous = business_spaces()
-    configure_business_spaces(InMemorySpaceStore())
+    previous_access = business_access()
+    access = InMemoryAccessStore()
+    configure_business_spaces(InMemorySpaceStore(access))
+    configure_business_access(access)
     yield
     configure_business_spaces(previous)
+    configure_business_access(previous_access)
 
 
 def _api_client() -> TestClient:
@@ -528,7 +538,9 @@ def _api_client() -> TestClient:
     client.post("/api/v1/dev/reset")
     spaces = business_spaces()
     assert spaces is not None
-    spaces.create(api_state.store.get_or_create_dev_user().id, "Business")
+    user_id = api_state.store.get_or_create_dev_user().id
+    space, _ = spaces.create(user_id, "Business")
+    business_access().ensure_owner_grant(space.id, user_id)
     return client
 
 

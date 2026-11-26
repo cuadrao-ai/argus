@@ -9,11 +9,17 @@ from unittest.mock import patch
 
 import pytest
 from argus.api import state as api_state
-from argus.api.business_spaces import business_spaces, configure_business_spaces
+from argus.api.business_spaces import (
+    business_access,
+    business_spaces,
+    configure_business_access,
+    configure_business_spaces,
+)
 from argus.api.dependencies import current_user
 from argus.api.guest_access import registered_account_context, store_account_context
 from argus.api.main import app
 from argus.api.schemas import OnboardingState, User
+from argus.domain.business.access import InMemoryAccessStore
 from argus.domain.business.spaces import InMemorySpaceStore
 from fastapi import Request
 from fastapi.testclient import TestClient
@@ -46,6 +52,7 @@ def _user(request: Request) -> User:
 def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setenv("CUADRAO_BUSINESS_CHAT_ENABLED", "true")
     previous_spaces = business_spaces()
+    previous_access = business_access()
     api_state.store.reset()
     app.dependency_overrides[current_user] = _user
     try:
@@ -53,11 +60,14 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
             patch.object(api_state, "supabase_gateway", None),
             TestClient(app) as test_client,
         ):
-            configure_business_spaces(InMemorySpaceStore())
+            access = InMemoryAccessStore()
+            configure_business_spaces(InMemorySpaceStore(access))
+            configure_business_access(access)
             yield test_client
     finally:
         app.dependency_overrides.clear()
         configure_business_spaces(previous_spaces)
+        configure_business_access(previous_access)
         api_state.store.reset()
 
 
@@ -69,6 +79,7 @@ def _start_space(person: str) -> str:
     spaces = business_spaces()
     assert spaces is not None
     space, _ = spaces.create(person, "Mi negocio")
+    business_access().ensure_owner_grant(space.id, person)
     return space.id
 
 
@@ -231,3 +242,25 @@ def test_retired_artifact_actions_stay_closed_for_business(client, suffix):
         f"/api/v1/conversations/{business}{suffix}", json={}, headers=_as(ALICE)
     )
     assert response.status_code == 404
+
+
+def test_demotion_removes_chat_access_even_without_a_selected_grant(client):
+    from argus.domain.business.roles import BusinessRole
+
+    space = _start_space(ALICE)
+    conversation = _create(client, ALICE, "Compras", surface="business")
+    access = business_access()
+    access.confirm(BOB, "bob@example.test")
+    _, listing = access.give(space, ALICE, "bob@example.test", BusinessRole.OWNER)
+    access.accept_invite(BOB, space, listing.invites[0].id)
+    creator_grant = access.spaces_for(ALICE)[0].grant_id
+    access.change_role(space, BOB, creator_grant, BusinessRole.EDITOR)
+    for path in (
+        "/conversations?surface=business",
+        f"/conversations/{conversation}/activity",
+    ):
+        response = client.get(f"/api/v1{path}", headers=_as(ALICE))
+        assert (response.status_code, response.json().get("code")) == (
+            403,
+            "business_permission_denied",
+        )

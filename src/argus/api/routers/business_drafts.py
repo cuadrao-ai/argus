@@ -302,7 +302,7 @@ def approve_listos(
     counts: Counts,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    """The owner approves a named list of Listos receipts. Each one runs alone
+    """A member with approve can accept a named list of Listos receipts. Each one runs alone
     on the approval path, and the answer holds one result per item in the order
     named. Replaying the key repeats each item's answer."""
 

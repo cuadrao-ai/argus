@@ -63,9 +63,8 @@ def require_manager(
         " order by g.created_at limit 1",
         (space_id, actor_id),
     ).fetchone()
-    if row is None or "manage" not in ROLE_PERMISSIONS[BusinessRole(row[1])]:
-        raise MembershipError("business_permission_denied")
-    if role == BusinessRole.OWNER and row[1] != "owner":
+    required = "assign_owner" if role == BusinessRole.OWNER else "manage"
+    if row is None or required not in ROLE_PERMISSIONS[BusinessRole(row[1])]:
         raise MembershipError("business_permission_denied")
     return row[0]
 

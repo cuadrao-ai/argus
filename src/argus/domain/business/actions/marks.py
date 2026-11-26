@@ -55,13 +55,12 @@ def marker_people(tx, rows: list[dict[str, Any]]) -> dict[str, PersonName | None
 def record_marks(
     facts: BusinessFacts,
     row: dict[str, Any],
-    owner_id: str,
     found: Mapping[str, PersonName | None],
 ) -> dict:
     """The wire marks of one record from its facts and its MARKER_JOIN columns,
     each person named from ``found`` (``marker_people``).
     ``personal_marked_by`` names whoever last changed the mark only while the
-    record is Personal and that person is not the Business owner;
+    record is Personal and its saved origin identifies a member mark;
     ``include_606_by`` names whoever gave the 606 answer while it applies.
     ``fiscal_known`` says the record's facts exist, so an empty
     ``fiscal_value`` means no fiscal number rather than nothing read yet."""
@@ -73,7 +72,7 @@ def record_marks(
         "fiscal_known": True,
         "personal": personal,
         "personal_marked_by": named(found, marker)
-        if personal and marker and marker != str(owner_id)
+        if personal and marker and facts.business_share.origin == "member_set"
         else None,
         "fiscal_value": fiscal_value(facts),
         "include_606": answer,
@@ -92,9 +91,9 @@ def fiscal_inclusion_available(tx, facts: BusinessFacts, state: str) -> bool:  #
 
     actor = tx.context.actor
     return (
-        "prepare" in tx.authorization.capabilities
+        "prepare" in tx.authorization.permissions
         and actor.actor_kind == "member"
-        and str(actor.actor_id) != str(tx.context.owner_id)
+        and "assign_owner" not in tx.authorization.permissions
         and state in ("open", "accepted")
         and fiscal_question_applies(facts)
     )
@@ -113,7 +112,7 @@ def draft_marks(tx, draft_id: Any, facts: BusinessFacts) -> dict:  # noqa: ANN00
     )
     return {
         **record_marks(
-            facts, rows[0] if rows else {}, tx.context.owner_id, marker_people(tx, rows)
+            facts, rows[0] if rows else {}, marker_people(tx, rows)
         ),
         "fiscal_question_applies": fiscal_question_applies(facts),
     }

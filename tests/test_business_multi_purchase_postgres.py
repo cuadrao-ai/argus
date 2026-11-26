@@ -31,7 +31,7 @@ from tests import test_business_actions_postgres as shared
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_financial_accounts_postgres as accounts
 from tests.business.receipt_stub import receipt_date
-from tests.business_accept_support import seen_gaps
+from tests.business_accept_support import grant_member, seen_gaps
 from tests.test_business_spaces_migration_postgres import connection
 
 actions = shared.actions
@@ -147,7 +147,7 @@ def _account(service, context):  # noqa: ANN001
 
 @pytest.mark.owner_acts
 def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
-    two_purchases,
+    two_purchases, users,
 ) -> None:  # noqa: ANN001
     service, context, _, _, _, _ = two_purchases
     bridge.bind(two_purchases)
@@ -234,18 +234,31 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
     assert after.review_state == "accepted"
     assert (after.read_total, after.unrecorded_purchases) == ("340.00", 1)
     assert len(after.read_purchases) == 2
-    # A person settles the rest; the ledger holds that decision once.
-    settled = service.settle_remainder(
-        context, first.draft_id, SettleRemainder(version=after.version), "settle"
-    )
-    assert settled.outcome == "applied", settled
-    # The same key again replays the stored outcome; nothing is written twice.
-    assert (
-        service.settle_remainder(
-            context, first.draft_id, SettleRemainder(version=after.version), "settle"
-        )
-        == settled
-    )
+    # The grant's live role controls the same action the dossier offers.
+    from tests.test_business_document_delete_postgres import _client
+
+    member = grant_member(service, context, users["other"], "viewer")
+    url = f"/api/v1/business/drafts/{first.draft_id}/remainder/settle"
+    with _client(service, member) as client:
+        for role in ("viewer", "editor", "admin"):
+            with service.authority.pool.connection() as db:
+                db.execute(
+                    "update public.business_client_grants set business_role=%s where id=%s",
+                    (role, member.grant_id),
+                )
+            body = {"version": after.version}
+            headers = {"Idempotency-Key": str(uuid4())}
+            settled = client.post(url, json=body, headers=headers)
+            if role != "admin":
+                assert (settled.status_code, settled.json()["code"]) == (
+                    403,
+                    "business_permission_denied",
+                )
+            else:
+                assert settled.status_code == 200, settled.text
+                assert settled.json()["unrecorded_purchases"] == 0
+                replay = client.post(url, json=body, headers=headers)
+                assert replay.status_code == 200 and replay.json() == settled.json()
     done = service.dossier(context, first.draft_id)
     assert (done.unrecorded_purchases, done.review_state) == (0, "accepted")
     assert done.facts.amount.value in ("245.00", "245")

@@ -12,7 +12,6 @@ from argus.domain.business.actions.document_purge import DocumentExpiry, erase
 from argus.domain.business.activity.queries import read_activity
 from argus.domain.business.authority import ActionError, authorize
 from argus.domain.business.contracts.activity import ActivityFilters
-from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.deletion import PURGE_AFTER, DeletedDocument
 from argus.domain.business.transactions import record_legacy_action
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
@@ -20,6 +19,7 @@ from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from tests import test_business_actions_postgres as shared
 from tests import test_business_document_delete_postgres as deleting
 from tests.business.action_counts import NO_ROWS
+from tests.business_accept_support import grant_member
 from tests.document_sources_support import source_objects
 
 users = shared.users
@@ -149,7 +149,10 @@ def test_purged_document_is_not_found_and_cannot_be_restored(actions):
     assert "NotFound" in type(gone.value).__name__
 
 
-def test_purge_needs_a_deleted_document_and_the_owner(actions, users):
+@pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
+def test_purge_needs_a_deleted_document_and_approval_permission(
+    actions, users, role, live_objects
+):
     service, context, cid, draft_id, web = deleting._ready(actions)
     client = deleting._client(service, context)
     refused = deleting._act(client, draft_id, "purge")
@@ -158,22 +161,18 @@ def test_purge_needs_a_deleted_document_and_the_owner(actions, users):
         "business_document_not_deleted",
     )
     assert deleting._act(client, draft_id, "delete").status_code == 200
-    with service.authority.pool.connection() as db:
-        db.execute(
-            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'admin',%s)",
-            (context.actor.space_id, users["other"], context.owner_id, ["read", "prepare"]),
+    member = grant_member(service, context, users["other"], role)
+    configure_documents(web.service.documents)
+    response = deleting._act(deleting._client(service, member), draft_id, "purge")
+    if role == "admin":
+        assert response.status_code == 200, response.text
+        assert cid not in {row["id"] for row in receipt_summaries(web, "all")}
+    else:
+        assert (response.status_code, response.json()["code"]) == (
+            403,
+            "business_permission_denied",
         )
-    admin = service.resolve_actor(
-        TrustedActor(
-            actor_id=users["other"], actor_kind="member", space_id=context.actor.space_id
-        )
-    )
-    refused = deleting._act(deleting._client(service, admin), draft_id, "purge")
-    assert (refused.status_code, refused.json()["code"]) == (
-        403,
-        "business_permission_denied",
-    )
-    assert _marker(web, cid) is not None
+        assert _marker(web, cid) is not None
 
 
 @pytest.mark.parametrize("prepared", [False, True])

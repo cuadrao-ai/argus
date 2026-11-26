@@ -154,6 +154,74 @@ def test_viewer_reads_receipt_metadata_but_cannot_read_original_or_use_personal_
     assert personal.status_code == 404
 
 
+@pytest.mark.parametrize(
+    "role,can_change", [("admin", True), ("editor", False), ("viewer", False)]
+)
+def test_reading_controls_and_writes_follow_selected_grant(
+    alice, bob, role, can_change, faker
+):
+    selected = {**bob.auth, "X-Business-Grant": join(alice, bob, role)}
+    workspace = bob.client.get("/api/v1/business/workspace", headers=selected)
+    assert workspace.status_code == 200, workspace.text
+    setting = workspace.json()["receipt_reading"]
+    assert setting["can_change"] is can_change
+
+    for enabled in (True, False):
+        result = bob.client.post(
+            "/api/v1/business/receipt-reading",
+            headers={**selected, "Idempotency-Key": faker.uuid4()},
+            json={
+                "enabled": enabled,
+                "scope_version": setting["scope_version"],
+                "disclosure_token": setting["disclosure_token"],
+            },
+        )
+        assert result.status_code == (200 if can_change else 403), result.text
+        if can_change:
+            assert result.json()["enabled"] is enabled
+        else:
+            assert result.json()["code"] == "business_permission_denied"
+        assert alice.reading_status()["enabled"] is (can_change and enabled)
+
+
+def test_new_admin_grant_does_not_reactivate_its_predecessors_consent(alice, bob, faker):
+    grant = join(alice, bob, "admin")
+    headers = {**bob.auth, "X-Business-Grant": grant}
+    setting = alice.reading_status()
+    body = {
+        "enabled": True,
+        "scope_version": setting["scope_version"],
+        "disclosure_token": setting["disclosure_token"],
+    }
+    first = bob.client.post(
+        "/api/v1/business/receipt-reading",
+        json=body,
+        headers={**headers, "Idempotency-Key": faker.uuid4()},
+    )
+    assert first.status_code == 200, first.text
+    removed = alice.client.delete(
+        f"/api/v1/business/access/grants/{grant}", headers=alice.auth
+    )
+    assert removed.status_code == 204, removed.text
+    replacement = join(alice, bob, "admin")
+    assert replacement != grant
+    assert not alice.reading_status()["enabled"]
+    fresh = bob.client.post(
+        "/api/v1/business/receipt-reading",
+        json=body,
+        headers={
+            **bob.auth,
+            "X-Business-Grant": replacement,
+            "Idempotency-Key": faker.uuid4(),
+        },
+    )
+    assert fresh.status_code == 200, fresh.text
+    assert (
+        fresh.json()["enabled"]
+        and fresh.json()["consent_id"] != first.json()["consent_id"]
+    )
+
+
 def test_coowner_reading_consent_is_explicit_and_stops_with_role_loss(alice, bob):
     grant = join(alice, bob, "owner")
     selected = {**bob.auth, "X-Business-Grant": grant}
@@ -186,6 +254,19 @@ def test_coowner_reading_consent_is_explicit_and_stops_with_role_loss(alice, bob
         json=body,
     )
     assert replay.status_code == 403
+    promotion = alice.client.patch(
+        f"/api/v1/business/access/grants/{grant}",
+        headers=alice.auth,
+        json={"role": "admin"},
+    )
+    assert promotion.status_code == 200, promotion.text
+    invitation = promotion.json()["invites"][0]
+    accepted = bob.post(
+        f"/invitations/{invitation['id']}/accept",
+        {"space_id": alice.scope().owner.space_id},
+    )
+    assert accepted.status_code == 200 and accepted.json()["grant_id"] == grant
+    assert not alice.reading_status()["enabled"]
 
 
 @pytest.mark.parametrize(

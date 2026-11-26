@@ -8,6 +8,7 @@ from psycopg import Connection
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_approve_unpaid_postgres as approvals
+from tests.business_accept_support import accepting
 from tests.test_business_approve_unpaid_postgres import (
     SPAN,
     _block,
@@ -69,6 +70,112 @@ def fiscal(before, **changes):
             "declaration": before["dgii"],
         }
     }
+
+
+def test_transferred_creator_can_mark_and_answer_as_editor(world):
+    from tests.test_business_fiscal_routes_postgres import _post
+
+    draft, dossier = approvals._reviewed(world, "expense", NCF)
+    space = world.alice.space_id
+    with Connection.connect(DSN) as db:
+        name, creator_grant = db.execute(
+            "select s.name, g.id from public.spaces s join public.business_client_grants g"
+            " on g.space_id=s.id where s.id=%s and g.grantee_id=%s",
+            (space, world.alice.id),
+        ).fetchone()
+    pending = _post(
+        world,
+        f"/business/spaces/{space}/ownership-transfers",
+        {"target_grant_id": world.grant, "confirmation": name},
+        world.alice.headers,
+    )
+    assert pending.status_code == 200, pending.text
+    transferred = _post(
+        world,
+        f"/business/ownership-transfers/{pending.json()['id']}/accept",
+        {},
+        world.bob.headers,
+    )
+    assert transferred.status_code == 200, transferred.text
+    current = {**world.bob.headers, GRANT: world.grant}
+    former = {**world.alice.headers, GRANT: str(creator_grant)}
+    path = f"/business/drafts/{draft}"
+    marked = _post(
+        world,
+        f"{path}/personal",
+        {"version": dossier["version"], "personal": True},
+        former,
+    )
+    assert marked.status_code == 200, marked.text
+    seen = marked.json()
+    assert seen["personal_marked_by"]["email"] == world.alice.email
+    assert seen["facts"]["business_share"]["origin"] == "member_set"
+    assert seen["fiscal_inclusion_available"] and not seen["approval_available"]
+    owner_view = world.client.get(f"{API}{path}/dossier", headers=current)
+    assert owner_view.status_code == 200, owner_view.text
+    assert not owner_view.json()["fiscal_inclusion_available"]
+    body = {"version": seen["version"], "include": True}
+    denied = _post(world, f"{path}/fiscal-inclusion", body, current)
+    assert (denied.status_code, denied.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
+    answer = _post(world, f"{path}/fiscal-inclusion", body, former)
+    assert answer.status_code == 200 and answer.json()["include_606"] is True, answer.text
+    # A Business without a given name prompts its current owner before exporting.
+    with Connection.connect(DSN) as db:
+        db.execute("update public.spaces set name='Mi negocio' where id=%s", (space,))
+    for headers, status in ((former, 200), (current, 409)):
+        exported = world.client.get(
+            f"{API}/business/exports", params=approvals.EXPORT, headers=headers
+        )
+        assert exported.status_code == status
+        if status == 409:
+            assert exported.json()["code"] == "business_name_required"
+
+
+@pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
+def test_accept_and_correct_through_a_chosen_grant(world, faker, role):
+    with Connection.connect(DSN) as db:
+        db.execute(
+            "update public.business_client_grants set business_role=%s where id=%s",
+            (role, world.grant),
+        )
+    headers = {**world.bob.headers, GRANT: world.grant}
+    draft, open_view = approvals._reviewed(world, "expense", NCF)
+    base = f"{API}/business/drafts/{draft}"
+    seen = world.client.get(f"{base}/dossier", headers=headers)
+    assert seen.status_code == 200, seen.text
+    assert seen.json()["approval_available"] is (role == "admin")
+    result = world.client.post(
+        f"{base}/approve",
+        json=accepting(open_view, "record_expense"),
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+    )
+    if role != "admin":
+        assert (result.status_code, result.json()["code"]) == (
+            403,
+            "business_permission_denied",
+        )
+        result = approvals._approve(world, draft, open_view["version"], "expense")
+    assert result.status_code == 200, result.text
+    assert result.json()["review_state"] == "accepted"
+    merchant = faker.company()
+    saved = review(
+        world,
+        draft,
+        result.json(),
+        {"facts": {"counterparty": {"state": "known", "value": merchant}}},
+        headers=headers,
+    )
+    if role == "admin":
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["facts"]["counterparty"]["value"] == merchant
+    else:
+        assert (saved.status_code, saved.json()["code"]) == (
+            403,
+            "business_permission_denied",
+        )
 
 
 @pytest.mark.parametrize(
