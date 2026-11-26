@@ -102,7 +102,7 @@ export function createFixtureSearch(env: Env): Search {
     return {
       expenses: found,
       ventas: SAMPLE_VENTAS.filter((item) => env.matches(text, [item.merchant, item.amount].join(" "))),
-      receipts: env.receipts().filter((item) => !listed.has(item.expense_id ?? "")).filter((item) => env.matches(text, [item.merchant, item.filename, item.amount].join(" "))) as ReceiptSummary[],
+      receipts: env.receipts().filter((item) => !listed.has(item.expense_id ?? "")).filter((item) => env.matches(text, [item.title, item.merchant, item.filename, item.amount].join(" "))) as ReceiptSummary[],
       accounts: env.accounts().filter((item) => env.matches(text, [item.nickname, item.type, item.currency].join(" "))) as BusinessAccount[],
       email_deliveries: env.emails().filter((item) => env.matches(text, [item.subject, item.sender].join(" "))) as BusinessSearchEmail[],
       email_senders: SAMPLE_SENDERS.filter((item) => env.matches(text, item.value)),

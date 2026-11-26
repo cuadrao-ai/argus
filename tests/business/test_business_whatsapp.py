@@ -167,7 +167,7 @@ def test_forwards_and_captions_reach_the_inbox_like_a_direct_send(wa_biz) -> Non
     assert stub.calls == []
 
 
-def test_dossier_attachment_sources_that_arrived_by_whatsapp_say_so(monkeypatch) -> None:  # noqa: ANN001
+def test_dossier_attachment_sources_that_arrived_by_whatsapp_say_so() -> None:
     """The dossier reads the same captured set /business/receipts reads: a
     WhatsApp arrival says whatsapp, a web upload keeps web, and an email arrival
     of the same file still wins, as it does on the receipt list."""
@@ -175,12 +175,12 @@ def test_dossier_attachment_sources_that_arrived_by_whatsapp_say_so(monkeypatch)
     from datetime import datetime, timedelta, timezone
     from uuid import uuid4
 
-    from argus.api import business_drafts as api
     from argus.domain.business.contracts.dossier import (
         AttachmentSource,
         BusinessDossier,
         MessageSource,
     )
+    from argus.domain.business.record_origin import UploadIntake, with_source_channels
 
     now = datetime(2026, 10, 26, 15, 0, tzinfo=timezone.utc)
 
@@ -208,35 +208,9 @@ def test_dossier_attachment_sources_that_arrived_by_whatsapp_say_so(monkeypatch)
     captured = frozenset(
         {str(by_whatsapp.connection_id), str(whatsapp_then_email.connection_id)}
     )
-    seen = api.with_whatsapp_sources(dossier, captured)
-    assert [s.channel for s in seen.sources] == ["whatsapp", "web", "whatsapp", "web"]
-    assert api.with_whatsapp_sources(dossier, frozenset()) is dossier
-    monkeypatch.setattr(
-        "argus.api.email_intake.email_receipt_flags",
-        lambda space_id: {
-            str(whatsapp_then_email.connection_id): (
-                ("d1",),
-                False,
-                now - timedelta(minutes=1),
-            )
-        },
-    )
-    assert [s.channel for s in api.with_email_sources(seen, "space").sources] == [
-        "whatsapp",
-        "web",
-        "email",
-        "web",
-    ]
-    asked = []
-
-    def captured_for(owner_id: str) -> frozenset[str]:
-        asked.append(owner_id)
-        return captured
-
-    monkeypatch.setattr(api, "_captured", captured_for)
-    composed = api.with_source_channels(dossier, space_id="space", owner_id="owner")
-    assert [s.channel for s in composed.sources] == ["whatsapp", "web", "email", "web"]
-    assert asked == ["owner"]
+    emails = {str(whatsapp_then_email.connection_id): (("d1",), False, now - timedelta(minutes=1))}
+    seen = with_source_channels(dossier, UploadIntake(captured, emails))
+    assert [s.channel for s in seen.sources] == ["whatsapp", "web", "email", "web"]
 
 
 @pytest.mark.parametrize("runtime_present", [True, False])

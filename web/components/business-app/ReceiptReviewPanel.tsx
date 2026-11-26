@@ -31,7 +31,6 @@ import { useShownRecord } from "./useShownRecord";
 import type { BusinessExpenseDetail, ReceiptDetail } from "@/lib/business-api";
 import { useBusiness, type DossierDetailsCard } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { sentByName } from "@/lib/sent-by";
 import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { expensePanel } from "./business-expense-target";
 import { ContentFade } from "./business-skeletons";
@@ -158,7 +157,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
         </div>
       </div>
     );
-    return <ReceiptDossierReview detailsCard={detailsCard} readLanded={readLanded} draftId={openDraft} onUnprepared={retainReceipt} receipt={detail} notice={notice} />;
+    return <ReceiptDossierReview detailsCard={detailsCard} readLanded={readLanded} draftId={openDraft} onUnprepared={retainReceipt} receipt={{ id: detail.id, activity: detail.activity, draftVersion: detail.version }} notice={notice} />;
   }
   const openReceipt = (id: string) => {
     handTitleFocus(id);
@@ -194,8 +193,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
       back={detail.status === "confirmed" ? "transactions" : "inbox"}
-      // A receipt nobody named yet goes by its file.
-      title={(!readBoard && detail.merchant) || detail.filename || t("business.review.title", "Review receipt")}
+      title={detail.title ?? t("business.document_delete.unnamed")}
       status={<DossierStatus label={detail.bandeja_group?.label} deleted={Boolean(detail.deleted)} />}
       place={place}
       jump={place ? { title: origin?.list === "transactions" ? t("business.nav.transactions", "Transactions") : t("business.nav.inbox", "Inbox"), rows: jumpList.rows, onOpen: jumpList.load, onPick: busy ? () => {} : openReceipt } : null}
@@ -203,11 +201,8 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
       onTab={setTab}
       tabs={[
         { key: "general", content: children },
-        { key: "detalles", content: <DossierDetails detailsCard={detailsCard} origin={{ channel: detail.channel, sentBy: detail.sent_by ? sentByName(t, detail.sent_by) : null, receivedAt: detail.received_at, filename: detail.filename, sizeBytes: detail.size_bytes }} /> },
-        ...(readBoard ? [{ key: "historial" as const, content: <ReceiptHistory history={[]} accounts={[]} sources={[{
-          kind: "attachment", id: detail.id, connection_id: detail.id, channel: detail.channel,
-          received_at: detail.received_at, filename: detail.filename, media_type: detail.media_type,
-        }]} /> }] : []),
+        { key: "detalles", content: <DossierDetails detailsCard={detailsCard} receipt={detail} /> },
+        ...(readBoard ? [{ key: "historial" as const, content: <ReceiptHistory history={[]} accounts={[]} origin={detail} /> }] : []),
       ]}
       document={<DossierDocument file={detail} reading={waitingForAi} />}
       footer={footer(primary)}

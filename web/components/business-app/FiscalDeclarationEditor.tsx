@@ -179,7 +179,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, rev
     const dateProblem = checked && broken.has(field.name);
     const control = field.kind === "date" ? <DatePicker key={fieldResets[field.name]} id={id} label={label} value={value} disabled={locked} invalid={dateProblem} onChange={(iso, invalid) => setValue(iso ?? "", invalid)} />
       : field.kind === "money" ? <MoneyInput key={fieldResets[field.name]} flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} />
-      : field.kind === "select" ? <ReviewSelect id={id} name={field.name} aria-label={label} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{dgiiOptionLabel(t, field.name, option)}</option>)}</ReviewSelect>
+      : field.kind === "select" ? <ReviewSelect id={id} name={field.name} aria-label={label} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.row.no_data")}</option>{field.options.map((option) => <option key={option} value={option}>{dgiiOptionLabel(t, field.name, option)}</option>)}</ReviewSelect>
       : <input id={id} name={field.name} className={REVIEW_INPUT_CLASS} autoComplete="off" aria-label={label} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)} />;
     const shown = !value ? "" : field.kind === "date" ? formatDay(value, locale)
       : field.kind === "money" ? formatAmount(value, currency || "DOP", locale)
@@ -237,7 +237,7 @@ function RefundCandidates({ candidates, chosen, refused, disabled, locale, onCho
         <label className="flex min-h-11 items-center gap-3 px-3 py-2">
           <input type="radio" name="refund-purchase" value={purchase.id} checked={chosen === purchase.id} disabled={disabled} onChange={() => onChoose?.(purchase.id)} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] text-[#172b26] dark:text-white">{purchase.merchant ?? UNKNOWN_VALUE}</span>
+            <span className="block truncate text-[14px] text-[#172b26] dark:text-white">{purchase.merchant ?? t("business.dossier.row.no_data")}</span>
             <span className="block text-[#56635e] dark:text-white/65">{formatDay(purchase.occurred_on, locale)}</span>
           </span>
           <span className="shrink-0 tabular-nums text-[14px] text-[#172b26] dark:text-white">{formatMoney(purchase.amount, purchase.currency, locale) || UNKNOWN_VALUE}</span>

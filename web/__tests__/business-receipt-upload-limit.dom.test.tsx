@@ -61,7 +61,7 @@ function fakeXhr(respond: (request: { url: string; method: string; headers: Head
 
 function saved(id: string, filename: string): ReceiptSummary {
   return {
-    id, channel: "web", filename, media_type: "image/jpeg", size_bytes: 7,
+    id, channel: "web", title: filename, filename, media_type: "image/jpeg", size_bytes: 7,
     received_at: "2026-10-19T12:00:00Z", status: "saved", error_code: null,
     attention: null, preparable: true, enterable: true, expense_id: null,
     merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null,

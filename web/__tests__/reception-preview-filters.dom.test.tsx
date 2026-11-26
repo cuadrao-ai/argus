@@ -25,10 +25,10 @@ test("Bandeja filters share mixed/all/none behavior and restrict bulk selection 
     await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={available}><Harness /></BusinessContext.Provider></I18nextProvider>); });
     await click(button("Filtros"));
     const parent = () => checkbox("Seleccionar todo");
-    assert.ok(parent()); await click(checkbox("Carga manual"));
+    assert.ok(parent()); await click(checkbox("Carga web"));
     assert.equal(parent().indeterminate, true); assert.equal(parent().getAttribute("aria-checked"), "mixed");
     await click(parent()); assert.equal(parent().checked, true);
-    await click(parent()); assert.equal(checkbox("Carga manual").checked, false);
+    await click(parent()); assert.equal(checkbox("Carga web").checked, false);
     await click(button("Enviado por")); await click(checkbox("Ana"));
     const search = document.querySelector<HTMLInputElement>('input[type="search"]')!;
     const type = (value: string) => act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, value); search.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -48,12 +48,12 @@ test("Bandeja filters share mixed/all/none behavior and restrict bulk selection 
 
 const off = { available: false }, on = { available: true };
 test.each<[string, ReceivingChannels, boolean, string[]]>([
-  ["both off", { whatsapp: off, email: off }, false, ["Carga manual"]],
-  ["both on", { whatsapp: on, email: on }, false, ["WhatsApp", "Correo", "Carga manual"]],
-  ["email only", { whatsapp: off, email: on }, false, ["Correo", "Carga manual"]],
-  ["WhatsApp only", { whatsapp: on, email: off }, false, ["WhatsApp", "Carga manual"]],
-  ["typed notes on", { whatsapp: off, email: off }, true, ["Carga manual", "Escrito aquí"]],
-  ["everything on", { whatsapp: on, email: on }, true, ["WhatsApp", "Correo", "Carga manual", "Escrito aquí"]],
+  ["both off", { whatsapp: off, email: off }, false, ["Carga web"]],
+  ["both on", { whatsapp: on, email: on }, false, ["WhatsApp", "Correo", "Carga web"]],
+  ["email only", { whatsapp: off, email: on }, false, ["Correo", "Carga web"]],
+  ["WhatsApp only", { whatsapp: on, email: off }, false, ["WhatsApp", "Carga web"]],
+  ["typed notes on", { whatsapp: off, email: off }, true, ["Carga web", "Escrito aquí"]],
+  ["everything on", { whatsapp: on, email: on }, true, ["WhatsApp", "Correo", "Carga web", "Escrito aquí"]],
 ])("Canal offers only the channels the server says are available: %s", async (_, receivingChannels, typedNotes, expected) => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");

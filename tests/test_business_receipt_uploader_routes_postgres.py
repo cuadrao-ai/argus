@@ -102,7 +102,7 @@ def _notes(world, person: scope.Person, grant: str | None, view: str) -> tuple[d
 def _emailed(world, monkeypatch: pytest.MonkeyPatch, content: bytes) -> None:  # noqa: ANN001
     """One email from proveedor@example.test with ``content`` attached, read in."""
 
-    with_documents = SimpleNamespace(**vars(world), documents=documents_service())
+    with_documents = SimpleNamespace(alice=world.alice, documents=documents_service())
     runtime, route = _email_runtime(with_documents, monkeypatch, _email(content))
     body = json.dumps(
         {

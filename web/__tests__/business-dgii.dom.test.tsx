@@ -328,7 +328,7 @@ test("the 607 editor names its rows as the board does, in both languages, and le
     await act(async () => { await view.i18n.changeLanguage("en"); });
     assert.deepEqual(labels(), ["ID type", "Billed amount", "ITBIS billed", "ITBIS withheld by third parties", "Income tax withheld by third parties", "Withholding date", "Other taxes/fees"]);
     await view.open("id_type");
-    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "01 · RNC"], ["2", "02 · Cédula"], ["3", "03 · Passport or tax ID"]]);
+    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "No value"], ["1", "01 · RNC"], ["2", "02 · Cédula"], ["3", "03 · Passport or tax ID"]]);
   } finally { await view.dispose(); }
 });
 

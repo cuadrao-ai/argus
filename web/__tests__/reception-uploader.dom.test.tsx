@@ -15,7 +15,7 @@ const LANGUAGES = ["es-419", "en"] as const;
 const SENDER = "proveedor@ejemplo.test";
 
 /** The Enviado por cell of one Bandeja row, drawn in `lng` with every column shown. */
-async function senderCell(lng: typeof LANGUAGES[number], receipt: Partial<ReceiptSummary>, emails: BusinessEmailDelivery[] = []) {
+async function senderCell(lng: typeof LANGUAGES[number] | "cimode", receipt: Partial<ReceiptSummary>, emails: BusinessEmailDelivery[] = []) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -23,7 +23,8 @@ async function senderCell(lng: typeof LANGUAGES[number], receipt: Partial<Receip
   const { receptionRows } = await import("@/components/business-app/recepcion/reception-model");
   const source = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource({ chatAvailable: false });
   const i18n = (await import("i18next")).default.createInstance();
-  await i18n.init({ lng, resources: { [lng]: { translation: (await import(`@/public/locales/${lng}/common.json`)).default } }, interpolation: { escapeValue: false } });
+  const resources = lng === "cimode" ? {} : { [lng]: { translation: (await import(`@/public/locales/${lng}/common.json`)).default } };
+  await i18n.init({ lng, resources, interpolation: { escapeValue: false } });
   const seed = (await source.receipts("all"))[0];
   const [row] = receptionRows([{ ...seed, id: "uploaded", email_delivery_ids: [], ...receipt }], [], emails);
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
@@ -40,8 +41,8 @@ const person = (shown_as: PersonName["shown_as"], value?: string): PersonName =>
 const member = (who: PersonName): SentBy => ({ id: "member:someone", kind: "member", person: who });
 
 const WORDS = {
-  "es-419": { member: "Miembro", former: "Exmiembro", unknown: "Desconocido", allowlist: ["Remitentes", "Remitente no disponible"] },
-  en: { member: "Member", former: "Former member", unknown: "Unknown", allowlist: ["Senders", "Sender unavailable"] },
+  "es-419": { member: "Miembro", former: "Exmiembro", unknown: "Sin dato", allowlist: ["Remitentes", "Remitente no disponible"] },
+  en: { member: "Member", former: "Former member", unknown: "No value", allowlist: ["Senders", "Sender unavailable"] },
 };
 
 for (const lng of LANGUAGES) {
@@ -79,3 +80,11 @@ for (const lng of LANGUAGES) {
     assert.deepEqual([business.reception.senders.list_title, business.email.no_sender], WORDS[lng].allowlist);
   });
 }
+
+test("Bandeja renders a nameless web upload with the shared channel, empty value and document keys", async () => {
+  await senderCell("cimode", { channel: "web", title: null, merchant: null, filename: null, sent_by: null });
+  const row = document.querySelector('[data-testid="reception-row"]')!;
+  assert.equal(row.querySelector('[data-testid="reception-channel"]')?.textContent, "business.dossier.web");
+  assert.equal(row.querySelector('[data-testid="reception-sender"]')?.textContent, "business.dossier.row.no_data");
+  assert.ok(row.textContent?.includes("business.document_delete.unnamed"));
+});

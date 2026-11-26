@@ -15,7 +15,7 @@ import { sentByName } from "@/lib/sent-by";
 import type { BusinessPanelState } from "../BusinessWorkspace";
 import { formatAmount, formatDate, formatMoney, formatRelativeTime } from "../business-format";
 import { isOpenRecord } from "../record-tray";
-import { receptionSentBy, receptionDocumentTitle, receptionTarget, type ReceptionRow } from "./reception-model";
+import { receptionChannelKey, receptionSentBy, receptionDocumentTitle, receptionTarget, type ReceptionRow } from "./reception-model";
 import type { ReceptionColumnKey, ReceptionPreferences } from "./reception-columns";
 import { originPlace, receptionPlaces } from "./reception-grid";
 import ReceptionOriginal from "./ReceptionOriginal";
@@ -70,7 +70,7 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, panel, openP
   const receipt = row.kind === "receipt" ? row.receipt : null;
   const target = receptionTarget(row);
   const open = () => openPanel(target);
-  const title = receptionDocumentTitle(row, { untitled: t("business.receipt.untitled"), pending: word("intake_pending"), exception: word("intake_exception"), text: word("text_intake") });
+  const title = receptionDocumentTitle(row, { untitled: t("business.document_delete.unnamed"), pending: word("intake_pending"), exception: word("intake_exception"), text: word("text_intake") });
   const places = receptionPlaces(preferences);
   const has = places.has;
   const money = receipt && has("amount") ? formatMoney(receipt.amount, receipt.currency, locale) : null;
@@ -83,8 +83,8 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, panel, openP
   const identity = <button type="button" onClick={open} className={styles.identity}>
     <span className={styles.documentText}>{unseen ? <span className={styles.unseenDot} aria-hidden="true" /> : null}<span ref={titleRef} className={styles.title}>{unseen ? <span className="sr-only">{word("unseen")}: </span> : null}{row.kind === "note" ? <ChatCircle className={styles.noteIcon} size={15} aria-hidden="true" /> : null}{title}</span>{money ? <span className={`${styles.mobileMoney} cuadrao-amount`}>{money}</span> : null}</span>
   </button>;
-  const channel = (cell?: CellProps) => has("source") ? <span className={styles.channel} {...cell}><SourceIcon size={15} aria-hidden="true" />{word(`source_${row.source}`)}</span> : null;
-  const from = (cell?: CellProps) => !has("sender") ? null : sender ? <ReceptionCutText text={sender} className={styles.sender} data-known="true" {...cell} /> : <span className={styles.sender} data-known="false" {...cell}>{word("sent_by_unknown")}</span>;
+  const channel = (cell?: CellProps) => has("source") ? <span className={styles.channel} {...cell}><SourceIcon size={15} aria-hidden="true" />{t(receptionChannelKey(row.source))}</span> : null;
+  const from = (cell?: CellProps) => !has("sender") ? null : sender ? <ReceptionCutText text={sender} className={styles.sender} data-known="true" {...cell} /> : <span className={styles.sender} data-known="false" {...cell}>{t("business.dossier.row.no_data")}</span>;
   // Below 940px Canal, Enviado por and the phone's arrival share one cell, in the order they read there. A wide table hides it and draws each at its own place.
   const origin = <span className={styles.source} style={places.shared} data-info={has("source") || has("sender")} data-testid="reception-source">
     {from()}{channel()}

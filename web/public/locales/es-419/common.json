@@ -2247,7 +2247,6 @@
       "load_more_failed": "No pudimos cargar más actividad.",
       "managers_only": "Solo lo ven dueños y administradores",
       "no_actor": "Actor no registrado",
-      "no_record": "sin dato",
       "pm": "p.m.",
       "record_placeholder": "-",
       "retry": "Reintentar",
@@ -2333,7 +2332,6 @@
           "local_preview": "Vista previa local, sin vincular",
           "no_attachment": "Sin adjunto",
           "preview_failed": "No pudimos preparar la vista previa. No se agregó ningún archivo.",
-          "received_document": "Documento recibido",
           "too_large": "El archivo supera el tamaño permitido.",
           "unsupported": "Este tipo de archivo no está permitido."
         },
@@ -2603,7 +2601,6 @@
       },
       "run": "Igualar sugerencias",
       "run_short": "Igualar",
-      "unknown": "sin dato",
       "undo": "Deshacer",
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
@@ -2897,8 +2894,6 @@
       "type_detected_venta": "La detectamos por el RNC de tu negocio. Completa el RNC del cliente.",
       "type_detected_recibo": "Lo detectamos como compra. Cámbialo si es una venta.",
       "type_clears_choices": "Cambiar el tipo borra el tipo de gasto y la forma de pago.",
-      "title": "Revisar registro",
-      "unknown": "Desconocido",
       "rnc_unknown": "Sin RNC",
       "owner_unknown": "El dueño no sabe",
       "owner_funds": "Dinero del dueño",
@@ -3006,7 +3001,6 @@
       },
       "standing": {
         "suggestion": "Leído de la fuente · sugerencia sin verificar",
-        "empty": "Sin dato",
         "missing": "Falta"
       },
       "confirm_value": "Confirmar",
@@ -3283,7 +3277,6 @@
       "changed": "{{field}} cambiado de {{before}} a {{after}}",
       "changed_female": "{{field}} cambiada de {{before}} a {{after}}",
       "channel_email": "Correo",
-      "channel_web": "Carga Web",
       "duplicate": { "different_purchase": "Marcado como compra distinta de {{other}}" },
       "fiscal_saved": "Datos del {{form}} guardados",
       "more_changes_one": "Ver {{count}} cambio más",
@@ -3361,7 +3354,6 @@
         "review": "Revisar",
         "see_all": "Ver todo",
         "title": "Pendientes",
-        "untitled": "Documento sin nombre",
         "whatsapp_photo": "Foto por WhatsApp"
       },
       "copy_review": "pending_lucas",
@@ -3502,7 +3494,6 @@
       "open_receipt": "Abrir recibo",
       "repeat": "Ya recibiste este archivo",
       "repeat_upload": "Ya habías guardado este archivo",
-      "no_filename": "Adjunto sin nombre",
       "body_failed": "No se pudo cargar el mensaje.",
       "waiting_label": "En espera hasta mañana",
       "waiting_resume": "Este correo está pendiente. Se procesará automáticamente a partir del {{time}} UTC. No tienes que enviarlo otra vez.",
@@ -4316,9 +4307,6 @@
     "reading": {
       "document": "Leyendo el documento"
     },
-    "receipt": {
-      "untitled": "Recibo"
-    },
     "receipts": {
       "duplicate_resolution": {
         "arrived": "Llegó {{stamp}}",
@@ -4464,13 +4452,11 @@
       "sender": "Enviado por",
       "sender_search": "Buscar…",
       "sender_source": "Canal / Enviado por",
-      "sent_by_unknown": "Desconocido",
       "sent_by_whatsapp": "···{{last4}}",
       "setup_forward": "Configurar recepción por correo",
       "source": "Canal",
       "source_email": "Correo",
       "source_note": "Escrito aquí",
-      "source_web": "Carga manual",
       "source_whatsapp": "WhatsApp",
       "status": "Estado",
       "text_intake": "Entrada de texto",
@@ -4505,8 +4491,7 @@
       "source": "Recibo original",
       "source_error": "No pudimos abrir el recibo original con tu acceso actual.",
       "email_original": "Este es el correo en sí. Su adjunto es el recibo que debes revisar.",
-      "tax": "ITBIS",
-      "title": "Revisar recibo"
+      "tax": "ITBIS"
     },
     "composer_receipt": {
       "open": "Abrir recibo",

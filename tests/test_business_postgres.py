@@ -17,6 +17,8 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
+from argus.api.business import BusinessContext, require_business, require_business_surface
+from argus.api.routers.business import router as business_router
 from argus.domain import financial_search
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import parse
@@ -41,6 +43,8 @@ from argus.domain.recording.postgres_repository import (
 )
 from argus.domain.recording.schemas import CreateFinancialAccountRequest
 from argus.domain.recording.service import FinancialAccountService
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
@@ -236,7 +240,17 @@ def test_source_is_the_stored_object_and_only_its_owner_reads_it(rig: dict) -> N
         service.receipt(rig["other"], receipt_id)
 
 
-def test_a_receipt_entered_by_hand_is_saved_once_and_linked(rig: dict) -> None:
+@pytest.fixture
+def receipt_api(rig: dict) -> Iterator[TestClient]:
+    app = FastAPI()
+    app.include_router(business_router)
+    app.dependency_overrides[require_business_surface] = lambda: None
+    app.dependency_overrides[require_business] = lambda: BusinessContext(rig["owner"], rig["service"])
+    with TestClient(app) as client:
+        yield client
+
+
+def test_a_receipt_entered_by_hand_is_saved_once_and_linked(rig: dict, receipt_api: TestClient) -> None:
     service, scope = rig["service"], rig["owner"]
     receipt = asyncio.run(
         service.upload(
@@ -265,7 +279,9 @@ def test_a_receipt_entered_by_hand_is_saved_once_and_linked(rig: dict) -> None:
             "account_id": account["id"],
         },
     )
-    assert (entered.missing_fields, entered.detail()["evidence"]) == ([], None)
+    response = receipt_api.get(f"/business/receipts/{receipt.id}")
+    assert response.status_code == 200, response.text
+    assert (response.json()["missing_fields"], response.json()["evidence"]) == ([], None)
     first = service.confirm(scope, receipt.id, entered.version, "by-hand")
     second = service.confirm(scope, receipt.id, entered.version, "other-tab")
     assert first.review.expense_id == second.review.expense_id
@@ -291,7 +307,7 @@ def test_a_receipt_entered_by_hand_is_saved_once_and_linked(rig: dict) -> None:
 
 
 def test_entry_by_hand_after_a_read_records_one_expense_across_tabs_and_a_restart(
-    rig: dict,
+    rig: dict, receipt_api: TestClient,
 ) -> None:
     service, scope = rig["service"], rig["owner"]
     service.documents.extractor.rows = [
@@ -335,7 +351,9 @@ def test_entry_by_hand_after_a_read_records_one_expense_across_tabs_and_a_restar
         None,
         [],
     )
-    assert entered.detail()["evidence"]["total"] == "3450.00"
+    response = receipt_api.get(f"/business/receipts/{receipt_id}")
+    assert response.status_code == 200, response.text
+    assert response.json()["evidence"]["total"] == "3450.00"
 
     restarted = rig["restart"]()
     assert asyncio.run(restarted.start_entry(scope, receipt_id, 0)) == 0
@@ -356,7 +374,10 @@ def test_entry_by_hand_after_a_read_records_one_expense_across_tabs_and_a_restar
 def test_search_finds_the_business_expense_and_its_source_never_personal(
     rig: dict,
 ) -> None:
+    from argus.api.business_drafts import search_with_drafts
+
     service, scope = rig["service"], rig["owner"]
+    context = BusinessContext(scope, service)
     accounts = service.accounts
     personal = accounts.create(
         user_id=scope.person_id,
@@ -383,7 +404,7 @@ def test_search_finds_the_business_expense_and_its_source_never_personal(
     receipt_id, version = _reviewed(rig)
     expense_id = service.confirm(scope, receipt_id, version, "k").review.expense_id
 
-    found = service.search(scope, parse("ferreteria"))
+    found = search_with_drafts(context, parse("ferreteria"))
 
     assert [(e["id"], e["receipt_id"]) for e in found["expenses"]] == [
         (expense_id, receipt_id)
@@ -393,11 +414,11 @@ def test_search_finds_the_business_expense_and_its_source_never_personal(
     assert media_type == "image/jpeg" and content.startswith(b"\xff\xd8")
     assert content != RECEIPT
     assert service.documents.store.source(user_id=scope.person_id, connection_id=receipt_id) == RECEIPT
-    assert [r["id"] for r in service.search(scope, parse("recibo"))["receipts"]] == [
+    assert [r["id"] for r in search_with_drafts(context, parse("recibo"))["receipts"]] == [
         receipt_id
     ]
-    assert [a["nickname"] for a in service.search(scope, parse("ops"))["accounts"]] == ["Ops"]
-    assert service.search(rig["other"], parse("ferreteria")) == {
+    assert [a["nickname"] for a in search_with_drafts(context, parse("ops"))["accounts"]] == ["Ops"]
+    assert search_with_drafts(BusinessContext(rig["other"], service), parse("ferreteria")) == {
         "expenses": [],
         "ventas": [],
         "receipts": [],

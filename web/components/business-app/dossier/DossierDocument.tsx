@@ -3,7 +3,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Download, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BusinessSupportingFile } from "@/lib/business-dossier";
+import type { BusinessSupportingFile, RecordOrigin } from "@/lib/business-dossier";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "../BusinessWorkspace";
 import { DelayedSourceWell } from "../business-skeletons";
@@ -16,7 +16,7 @@ import styles from "./dossier.module.css";
 
 const ReceiptImageZoom = lazy(() => import("../ReceiptImageZoom"));
 
-export type DossierFile = Pick<ReceiptSummary, "id" | "media_type" | "filename"> & Partial<Pick<ReceiptSummary, "channel" | "email_delivery_ids">> & { supporting?: boolean };
+export type DossierFile = Pick<ReceiptSummary, "id" | "media_type" | "filename" | "email_delivery_ids"> & { channel?: RecordOrigin["channel"]; supporting?: boolean };
 
 type ReadFile = (id: string, signal: AbortSignal) => Promise<Blob>;
 
@@ -38,7 +38,7 @@ function FilePreview({ file, kind, current, reload, reading }: {
         <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={reload}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.retry_source", "Try opening again")}</button>
       </div>
     ) : current.kind === "loading" ? <DelayedSourceWell />
-      : kind !== "download" ? <Suspense fallback={<DelayedSourceWell />}><ReceiptImageZoom reading={reading} src={current.url} blob={current.blob} sourceId={current.sourceId} pdf={kind === "pdf"} alt={file.supporting ? file.filename ?? t("business.dossier.supporting.document_label") : t("business.review.source", "Original receipt")} /></Suspense>
+      : kind !== "download" ? <Suspense fallback={<DelayedSourceWell />}><ReceiptImageZoom reading={reading} src={current.url} blob={current.blob} sourceId={current.sourceId} pdf={kind === "pdf"} alt={file.supporting ? file.filename ?? t("business.document_delete.unnamed") : t("business.review.source", "Original receipt")} /></Suspense>
       : <p className={styles.note}>{t("business.dossier.download_source", "Download the original to read this file.")}</p>}
   </>;
 }
@@ -157,7 +157,7 @@ function DocumentFoot({ file, url }: { file: DossierFile; url: string | null }) 
   const { openPanel } = useBusiness();
   const channelLabel = useChannelLabel();
   const Icon = file.channel ? CHANNEL_ICON[file.channel] : null;
-  const name = file.filename ?? t("business.review.source", "Original receipt");
+  const name = file.filename ?? t("business.document_delete.unnamed");
   const deliveries = file.email_delivery_ids?.length ?? 0;
   // The API lists deliveries earliest first; the first one is where the file first arrived by email.
   const firstEmail = file.email_delivery_ids?.[0];
@@ -170,7 +170,7 @@ function DocumentFoot({ file, url }: { file: DossierFile; url: string | null }) 
         {Icon && file.channel ? <><Icon size={15} aria-hidden="true" className="shrink-0" /><span className="whitespace-nowrap" data-testid="receipt-source-channel">{file.channel === "email" ? t("business.dossier.arrived_by_email", "Arrived by email") : channelLabel(file.channel)}{file.channel === "email" && firstEmail ? <>{" · "}{seeEmail(t("business.dossier.see_email", "See email"), "receipt-see-email")}</> : null}</span><span aria-hidden="true">·</span></> : null}
         <span className={styles.docFile} title={name}>{name}</span>
       </span>
-      {url ? <a href={url} download={file.filename ?? "receipt"} className={styles.docLink} aria-label={t("business.dossier.document.download", { name })}><Download size={16} aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
+      {url ? <a href={url} download={name} className={styles.docLink} aria-label={t("business.dossier.document.download", { name })}><Download size={16} aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
     </div>
   </>;
 }
@@ -187,7 +187,7 @@ export default function DossierDocument({ file, children, extra, reading = false
   onPick?: (sourceId: string | null) => void; file?: DossierFile | null; children?: ReactNode; extra?: ReactNode; /** A read is running: the band sweeps the original. */ reading?: boolean }) {
   const { t } = useTranslation();
   const displayed: DossierFile | null | undefined = selected ? {
-    id: selected.receipt_id, filename: selected.filename ?? t("business.dossier.supporting.document_label"),
+    id: selected.receipt_id, filename: selected.filename,
     media_type: selected.media_type ?? "application/octet-stream", supporting: true,
   } : file;
   return (
@@ -195,7 +195,7 @@ export default function DossierDocument({ file, children, extra, reading = false
       {supporting.length > 0 && onPick ? <div role="group" aria-label={t("business.dossier.supporting.document_selector")} className={`${styles.docStrip} [&_button]:rounded-item`}>
         <button type="button" aria-pressed={!selected} onClick={() => onPick(null)}>{t("business.dossier.supporting.receipt_label")}</button>
         {supporting.map(item => <button type="button" key={item.source_id} aria-pressed={selected?.source_id === item.source_id}
-          title={item.filename ?? undefined} onClick={() => onPick(item.source_id)}>{item.filename ?? t("business.dossier.supporting.document_label")}</button>)}
+          title={item.filename ?? undefined} onClick={() => onPick(item.source_id)}>{item.filename ?? t("business.document_delete.unnamed")}</button>)}
       </div> : null}
       {displayed ? <FileStage key={displayed.id} file={displayed} reading={reading} read={selected ? readSupport : undefined} /> : null}
       <div className={styles.docStage} data-beside-file={file ? true : undefined}>{!selected && <>{children}{extra}</>}</div>

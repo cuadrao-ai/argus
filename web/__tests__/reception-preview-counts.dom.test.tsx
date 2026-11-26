@@ -36,10 +36,10 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } }, interpolation: { escapeValue: false } });
   const seed = (await source.receipts("all"))[0];
   let receipts: ReceiptSummary[] = tweak([
-    { ...seed, id: "review-receipt", merchant: "Recibo admitido", bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "attention", reason: "missing_ncf", label: "needs_attention", draft_id: "draft-review", version: 2 } },
-    { ...seed, id: "reading-receipt", merchant: "Recibo en lectura", status: "queued", bandeja: { por_revisar: false, leyendo: true, con_problema: false }, bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null } },
-    { ...seed, id: "problem-receipt", merchant: "Recibo con problema", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
-    ...["uno", "dos", "tres"].map((name, index) => ({ ...seed, id: `listo-${name}`, merchant: `Listo ${name}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo" as const, reason: null, label: "ready" as const, draft_id: `draft-${name}`, version: index + 1 } })),
+    { ...seed, id: "review-receipt", title: "Recibo admitido", merchant: "Recibo admitido", bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "attention", reason: "missing_ncf", label: "needs_attention", draft_id: "draft-review", version: 2 } },
+    { ...seed, id: "reading-receipt", title: "Recibo en lectura", merchant: "Recibo en lectura", status: "queued", bandeja: { por_revisar: false, leyendo: true, con_problema: false }, bandeja_group: { group: "reading", reason: "reading", label: "reading", draft_id: null, version: null } },
+    { ...seed, id: "problem-receipt", title: "Recibo con problema", merchant: "Recibo con problema", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
+    ...["uno", "dos", "tres"].map((name, index) => ({ ...seed, id: `listo-${name}`, title: `Listo ${name}`, merchant: `Listo ${name}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo" as const, reason: null, label: "ready" as const, draft_id: `draft-${name}`, version: index + 1 } })),
   ]);
   const notes: BusinessCapture[] = receiptsOnly ? [] : [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open", bandeja_group: { group: "attention", reason: "not_read", label: "needs_attention", draft_id: "admitted-note", version: 1 } }, ...extraNotes];
   const emails = receiptsOnly ? [] : (await source.emailDeliveries()).filter(email => email.id === "email-boletin" || email.id === "email-estacion");
@@ -68,7 +68,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   const badge = (key: string) => tab(key)?.querySelector("span")?.textContent;
   const row = (name: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')].find(element => element.textContent?.includes(name));
   const remount = async () => { await act(async () => root.unmount()); const again = createRoot(host); await act(async () => { again.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Inbox /></BusinessContext.Provider></I18nextProvider>); }); cleanup = async () => { await act(async () => again.unmount()); host.remove(); }; await settle(() => host.querySelector('[data-testid="reception-row"]') !== null); };
-  return { host, context, opened, remount, uploads: () => uploads, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); }); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", label: "needs_attention" as const, draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
+  return { host, context, opened, remount, uploads: () => uploads, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", title: "Recibo sin admitir", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); }); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", label: "needs_attention" as const, draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
 }
 
 const rows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')];
@@ -211,7 +211,7 @@ test("a receipt still being read never carries the dot, and each channel keeps i
   assert.equal(row("Recibo en lectura").getAttribute("data-unseen"), "false");
   assert.equal(row("Recibo en lectura").querySelector('[data-testid="reception-channel"]')?.textContent, "Correo");
   assert.equal(row("Recibo admitido").querySelector('[data-testid="reception-channel"]')?.textContent, "WhatsApp");
-  assert.equal(row("Recibo con problema").querySelector('[data-testid="reception-channel"]')?.textContent, "Carga manual");
+  assert.equal(row("Recibo con problema").querySelector('[data-testid="reception-channel"]')?.textContent, "Carga web");
 });
 
 test("every row has one quiet Abrir, the row click does the same, and nothing else differs by state", async () => {
@@ -289,7 +289,7 @@ const LABELS = [
   ["Listo uno", "ready", "Listo para aceptar", "toAccept"],
   ["Recibo aceptado", "accepted", "Aceptado", "approved"],
 ] as const;
-const withAccepted = (receipts: ReceiptSummary[]): ReceiptSummary[] => [...receipts, { ...receipts[0], id: "accepted-receipt", merchant: "Recibo aceptado", status: "confirmed", bandeja: { por_revisar: false, leyendo: false, con_problema: false }, bandeja_group: { group: null, reason: null, label: "accepted", draft_id: null, version: null } }];
+const withAccepted = (receipts: ReceiptSummary[]): ReceiptSummary[] => [...receipts, { ...receipts[0], id: "accepted-receipt", title: "Recibo aceptado", merchant: "Recibo aceptado", status: "confirmed", bandeja: { por_revisar: false, leyendo: false, con_problema: false }, bandeja_group: { group: null, reason: null, label: "accepted", draft_id: null, version: null } }];
 const heading = (page: Awaited<ReturnType<typeof mount>>, word: string) => [...page.host.querySelectorAll("#reception-list > div:first-child > span")].some(cell => cell.textContent === word);
 const pill = (row: Element | undefined) => row?.querySelector<HTMLElement>('[data-testid="status-pill"]') ?? null;
 /** What a row's Estado cell says, all of it: the pill and anything beside it. */
@@ -406,7 +406,7 @@ test("a WhatsApp receipt shows the sender the server sent, or none, never one in
     return shown;
   };
   assert.deepEqual(await sender({ id: "whatsapp:link", kind: "whatsapp", phone_last4: "4821" }), ["true", "···4821"]);
-  assert.deepEqual(await sender(null), ["false", "Desconocido"]);
+  assert.deepEqual(await sender(null), ["false", "Sin dato"]);
 });
 
 test("with Canal, Adjunto and Enviado por apart, a row's cells and focus stops come in the order its columns show", async () => {
@@ -711,7 +711,7 @@ test("on a phone the original covers the page: a tap on its header opens nothing
 });
 
 const DELETION = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez", shown_as: "name" as const }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
-const withDeleted = (receipts: ReceiptSummary[]): ReceiptSummary[] => [...receipts, { ...receipts[0], id: "deleted-receipt", merchant: "Recibo eliminado", status: "dismissed", deleted: DELETION, restore_available: true, bandeja: { por_revisar: false, leyendo: false, con_problema: false }, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } }];
+const withDeleted = (receipts: ReceiptSummary[]): ReceiptSummary[] => [...receipts, { ...receipts[0], id: "deleted-receipt", title: "Recibo eliminado", merchant: "Recibo eliminado", status: "dismissed", deleted: DELETION, restore_available: true, bandeja: { por_revisar: false, leyendo: false, con_problema: false }, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } }];
 const deletedRows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="deleted-document-row"]')];
 const toolbar = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector<HTMLElement>('[data-surface-block="toolbar"]')!;
 const LIST_CONTROLS: Record<string, (page: Awaited<ReturnType<typeof mount>>) => Element | null | undefined> = {

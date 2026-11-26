@@ -219,7 +219,7 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
       <div ref={landing} className={`rounded-item ${annotation.supportBody}`} data-landing={added ? (added % 2 ? "a" : "b") : undefined}>
         {canAdd ? <input ref={picker} type="file" hidden accept={receiptLimits ? receiptFileAccept(receiptLimits) : undefined} disabled={pending || busy} onChange={pickFile} /> : null}
         {files.length ? <ul className={styles.rows}>{files.map(({ file, purge }) => {
-          const name = file.filename ?? t("business.dossier.row.no_data");
+          const name = file.filename ?? t("business.document_delete.unnamed");
           const selected = !purge && selectedSupportingSourceId === file.source_id;
           const action = purge ? "restore" : "unlink";
           const linkChange = purge ? onRestore : file.unlink_available ? onUnlink : undefined;

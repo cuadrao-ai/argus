@@ -214,7 +214,7 @@ class BusinessService:
             draft,
             self.documents.store.get(user_id=person, connection_id=receipt_id),
             events,
-            "whatsapp" if receipt_id in whatsapp else "web",
+            captured=receipt_id in whatsapp,
             read_pending=read_pending,
         )
 
@@ -491,7 +491,7 @@ class BusinessService:
         self,
         scope: BusinessScope,
         query: business_search.SearchQuery,
-        views: Mapping[str, dict[str, Any]] | None = None,
+        views: Mapping[str, dict[str, Any]],
         numbers: Mapping[str, tuple[str, ...]] | None = None,
     ) -> dict[str, list[dict[str, Any]]]:
         """Every match, unpaged: expenses, ventas (saved income) and accounts
@@ -530,11 +530,9 @@ class BusinessService:
         expenses = self._expenses(scope, activities, date.min, date.max)
         ventas = self._expenses(scope, activities, date.min, date.max, kind="income")
         listed = {item["id"] for item in [*expenses, *ventas]}
-        shown = views or {}
         receipts = [
             summary
-            for receipt in self.receipts(scope)
-            for summary in [shown.get(receipt.id) or receipt.summary()]
+            for summary in views.values()
             if summary["expense_id"] not in listed
             and not summary["email_original"]
             and business_search.matches(
@@ -542,7 +540,7 @@ class BusinessService:
                 _summary_text(summary),
                 amount=summary["amount"],
                 currency=summary["currency"],
-                numbers=known.get(receipt.id, ()),
+                numbers=known.get(summary["id"], ()),
             )
         ]
         accounts = [
@@ -624,7 +622,7 @@ class BusinessService:
         }
 
     def updates(
-        self, scope: BusinessScope, views: Mapping[str, dict[str, Any]] | None = None
+        self, scope: BusinessScope, views: Mapping[str, dict[str, Any]]
     ) -> list[dict[str, Any]]:
         return updates(
             self.receipts(scope), ledger.recorded_at(self._activities(scope)), views
@@ -641,7 +639,7 @@ class BusinessService:
 
 def _summary_text(summary: Mapping[str, Any]) -> str:
     return " ".join(
-        filter(None, [summary["merchant"], summary["filename"], summary["amount"]])
+        filter(None, [summary["title"], summary["merchant"], summary["filename"], summary["amount"]])
     )
 
 

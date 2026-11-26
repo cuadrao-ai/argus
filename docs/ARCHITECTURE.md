@@ -233,12 +233,8 @@ API Control Plane (argus-api / FastAPI / Render)
 
 ## Existing Alpha web surface
 
-Three clients ship from this repository: the public website (`cuadrao-web`,
-built from `marketing/`), the signed-in web app on staging (`cuadrao-web-staging`,
-built from `web/`, Business only through `NEXT_PUBLIC_BUSINESS_ONLY_WEB`), and
-the native iPhone app (`ios/ArgusFoundation/`). The
-[Cuadrao launch boundary](specs/argus-minimum-viable-ecosystem-experience.md#consumer-and-business-launch-boundary)
-owns the consumer iPhone and business web direction.
+The public website is built from `marketing/` and the signed-in Business web
+app from `web/`. The personal mobile apps are archived.
 
 **Chosen because:**
 
@@ -400,6 +396,9 @@ What the person sees lives in
 The server decides the group and the label of every Bandeja row. The web
 renders them and decides neither.
 
+`record_origins` in `src/argus/domain/business/record_origin.py` supplies each receipt summary’s channel, sender, arrival, file name and size.
+`record_title` in `src/argus/domain/business/receipts.py` names receipts and dossiers from the same rule.
+
 - **One label owner.** `bandeja_label()` in
   `src/argus/domain/business/bandeja_group.py` gives every row one label:
   `reading`, `cant_read`, `needs_attention`, `ready` or `accepted`. Every row
@@ -451,8 +450,8 @@ renders them and decides neither.
   `whatsapp:<link id>`, so one sender has one id on every row.
   `receipt_senders` gives each receipt its sender. A web upload gets the
   member on the first applied `receipt_upload` row. An email gets the sender
-  of the earliest delivery that brought it. WhatsApp gets the number's link to
-  this Business, and only its last 4 digits leave the server. A typed note
+  of the earliest delivery that brought it. WhatsApp gets the member linked to
+  the sending number, or its last four digits when the member has no name. A typed note
   sends its author (`member_sender`), and an email delivery sends its sender
   (`email_sender`). The web words a sender only in `sentByName`
   (`web/lib/sent-by.ts`), and the filter keys on `sent_by.id`.
@@ -606,6 +605,8 @@ The payload fields that the dossier screen reads:
 
 | Field | What it says | Owner |
 | --- | --- | --- |
+| `origin` | The channel, sender, arrival, file name and size shown in Origen and Archivo, however the record opens. | `record_origins` in `src/argus/domain/business/record_origin.py` |
+| `title` | The document name shared by the dossier, receipt list, detail and search. | `record_title` in `src/argus/domain/business/receipts.py` |
 | `facts`, `net_amount` | The record's values. `net_amount.source` is `read`, `calculated` or `edited`. `net_amount.calculated` is the Subtotal the server calculates, whatever the source. | `facts_of`; `net_amount` in `purchase_review.py` |
 | `dgii` | The 606 or 607 declaration. On an open expense with none saved, it is the declaration that an approval would write. | `written_from` in `amount_inheritance.py` |
 | `inheritance` | The linked state of each fiscal field: `{field, value, inherited, paired_with}`. `field` names the source fact, `value` is the source value to restore, and `inherited` is false after a person overrides the field. | `inheritance_state` and the `INHERITANCE` map in `amount_inheritance.py` |
@@ -776,9 +777,8 @@ portfolio results, persistence, or quotas.
 
 ### API Layer
 
-Request in -> response out. Decomposed into focused routers (`api/routers/auth`,
-`conversations`, `backtest`, `agent`, and supporting product routers). The
-`api/main.py` registers routers and contains no business logic.
+`src/argus/api/main.py` registers the request routers, including
+`src/argus/api/routers/auth.py`.
 
 ### AI Orchestrator (Stateless Per Request)
 
@@ -1077,7 +1077,7 @@ Structured action chips are not natural-language NLU shortcuts. They enter LangG
 | Layer | Owns |
 |---|---|
 | LLM (interpret node) | Intent, task_relation, semantic_turn_act, strategy field extraction, social/approval/education detection, assistant_response |
-| Deterministic (post-LLM) | Symbol resolution via `domain/market_data.resolve_asset()`, asset class parity check, date range limit check, missing required fields check |
+| Deterministic (post-LLM) | Asset class parity check, date range limit check, missing required fields check |
 
 No regex gate intercepts a user message before the LLM sees it. No hardcoded natural language string competes with the LLM's response in any stage file.
 
@@ -1232,43 +1232,9 @@ Long-only runs must ignore exit signals while flat and duplicate full-position
 entries while already long. Chart markers, trade counts, win-rate inputs, and
 user-facing trade explanations consume fills, not raw triggers.
 
-For the current Alpha architecture, `domain/engine_launch` is the sufficient
-engine adapter boundary. Product surfaces consume canonical run and evidence
-contracts rather than engine-native output. Do not add a formal multi-engine
-plugin interface until a second validated engine or workflow creates a concrete
-need; that abstraction belongs to the later engine-leverage experiment.
-
 # 14. Search Architecture
 
-## Global Search
-
-Alpha search is implemented using **Postgres Full-Text Search (FTS)** + recency + pin boost.
-
-**Ranking Criteria:**
-1. Pinned boost (explicit user intent)
-2. Exact title/name match
-3. Symbol match
-4. Recency (updated_at)
-5. Basic text relevance
-
-## Deferred Direction
-
-The global Search surface retains SQL/text search. A vector-search replacement
-is not part of this launch assignment. This boundary does not prohibit reuse of
-the existing Mem0/pgvector adapter for scoped Cuadrao memory under the
-[reuse decision](#cuadrao-reuse-decisions). Memory recall and global Search have
-different owners and acceptance criteria.
-
-## Structured Recall Versus Memory
-
-P2 continuity comes from owner-scoped `Idea`, `IdeaVersion`,
-`EvidenceArtifact`, `DecisionNote`, conversation, and run records in Supabase.
-That structured recall is not memory. Current production availability for
-personalization memory (flag, role gate, semantic recall) and its approved
-transition are owned by
-[PRODUCT.md Current production availability and planned changes](PRODUCT.md#current-production-availability-and-planned-changes).
-Other docs link there rather than restate rollout state. Memory must not be
-required for the idea/evidence/comparison loop.
+`search` in `src/argus/api/business_search.py` returns ranked, paginated Business results for the current member.
 
 # 15. Deletion / Archival Model
 
@@ -1454,7 +1420,7 @@ If not, it likely should wait.
 
 # 22. Agent Runtime Decision Filter
 
-When writing any code that touches `agent_runtime/`, ask:
+When writing any code that touches `src/argus/agent_runtime/`, ask:
 
 1. **Does this add a regex, localized stop-word/alias table, display-label token matcher, or early-return gate before the LLM call?** If yes, stop. Move language interpretation to the LLM system prompt or consume typed action metadata instead.
 2. **Does this store derived state in `TaskSnapshot`?** If yes, stop. Compute it fresh from `pending_strategy_summary` instead.

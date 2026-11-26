@@ -67,6 +67,7 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
     ...template,
     id,
     merchant,
+    title: merchant,
     email_original: merchant === null,
     draft_id: merchant === null ? null : `draft-${id}`,
     version: 2,
@@ -76,7 +77,7 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
   const dossiers = new Map<string, BusinessDossier>(
     receipts.filter((item) => item.draft_id).map((item) => [
       item.draft_id!,
-      { ...structuredClone(ready), draft_id: item.draft_id!, capabilities: capabilities as BusinessDossier["capabilities"], facts: { ...ready.facts, counterparty: { ...ready.facts.counterparty, state: "known", value: item.merchant! } } as BusinessDossier["facts"] },
+      { ...structuredClone(ready), draft_id: item.draft_id!, title: item.merchant, capabilities: capabilities as BusinessDossier["capabilities"], facts: { ...ready.facts, counterparty: { ...ready.facts.counterparty, state: "known", value: item.merchant! } } as BusinessDossier["facts"] },
     ]),
   );
   const pending = () => receipts.filter((item) => item.status !== "confirmed");

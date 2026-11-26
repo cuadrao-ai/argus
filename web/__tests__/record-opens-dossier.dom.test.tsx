@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { BusinessDataSource } from "@/components/business-app/business-data";
 import type { BusinessExpense, BusinessExpenseDetail } from "@/lib/business-api";
 import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 
 // Every saved record opens the one dossier: the receipt or draft behind it. A record opened by its own id
 // only names that record; it never draws a view of its own.
 mock.module("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(""),
+  useSearchParams: () => new URLSearchParams(window.location.search),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
   usePathname: () => "/biz",
 }));
@@ -146,40 +147,59 @@ describe("a record opened by its own id", () => {
   });
 });
 
+async function mountRecord(source: BusinessDataSource, grantId: string | null = null) {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+  const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
+  const { setChosenGrant } = await import("@/lib/business-grant");
+  setChosenGrant(grantId);
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+  let workspace: ReturnType<typeof useChatWorkspace>;
+  let api: ReturnType<typeof useBusiness> | null = null;
+  function Probe() {
+    api = useBusiness();
+    workspace = useChatWorkspace();
+    return <BusinessPanel />;
+  }
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source}><Probe /></BusinessWorkspaceProvider></BusinessConsentTestProvider></I18nextProvider>);
+  });
+  return {
+    open: (next: BusinessPanelState) => api!.openPanel(next),
+    chosen: () => api!.chosen,
+    search: (query: string) => workspace!.search.find(query),
+    async close() {
+      await act(async () => root.unmount());
+      host.remove();
+      document.body.innerHTML = "";
+      setChosenGrant(null);
+    },
+  };
+}
+
 describe("the sample's saved records", () => {
   test("each opens its dossier, with its facts, from Registros' own id", async () => {
     const { act } = await import("react");
-    const { createRoot } = await import("react-dom/client");
-    const i18next = (await import("i18next")).default;
-    const { I18nextProvider } = await import("react-i18next");
-    const spanish = (await import("@/public/locales/es-419/common.json")).default;
-    const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
-    const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
-    const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
-    const { setChosenGrant } = await import("@/lib/business-grant");
-    setChosenGrant(null);
-    const i18n = i18next.createInstance();
-    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
     const source = createFixtureBusinessDataSource({ chatAvailable: true });
     const saved: BusinessExpense[] = await source.expenses("2000-01-01", null);
     assert.ok(saved.length >= 4, "the sample has saved records");
-    let api: ReturnType<typeof useBusiness> | null = null;
-    function Probe() {
-      api = useBusiness();
-      return <BusinessPanel />;
-    }
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    const root = createRoot(host);
-    await act(async () => {
-      root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source}><Probe /></BusinessWorkspaceProvider></BusinessConsentTestProvider></I18nextProvider>);
-    });
+    const page = await mountRecord(source);
     const facts = () => document.querySelector('[data-testid="receipt-current-facts"]');
     const title = () => document.querySelector("#receipt-review-title")?.textContent ?? null;
     try {
       for (const record of saved) {
-        await act(async () => api!.openPanel({ kind: "expense", expenseId: record.id }));
+        await act(async () => page.open({ kind: "expense", expenseId: record.id }));
         for (let i = 0; i < 80 && !(facts() && title() === record.merchant); i += 1) {
           await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
         }
@@ -188,9 +208,112 @@ describe("the sample's saved records", () => {
         assert.deepEqual(oldRecordView(document.querySelector<HTMLElement>('[data-testid="business-record-review"]')!), [], record.id);
       }
     } finally {
-      await act(async () => root.unmount());
-      host.remove();
-      document.body.innerHTML = "";
+      await page.close();
     }
   });
+});
+
+test("receipt, draft, expense, search and deep links show the dossier's own origin and title", async () => {
+  const { act } = await import("react");
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { formatTimestamp } = await import("@/components/business-app/business-format");
+  const { dossierFileSize } = await import("@/components/business-app/dossier/DossierAnnotations");
+  const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
+  const record = (await fixture.expenses("2000-01-01", null)).find(row => row.draft_id && row.receipt_id)!;
+  const receipt = { ...await fixture.receipt(record.receipt_id!), channel: "email" as const };
+  const expense = await fixture.expense(record.id);
+  const draftId = record.draft_id!;
+  // Give the receipt row and source evidence different values: reading either must fail on every route.
+  const origin = {
+    channel: "web" as const,
+    sent_by: { kind: "member" as const, id: "member:origin", person: { shown_as: "name" as const, display_name: "María Solís" } },
+    filename: "comprobante-original.pdf",
+    received_at: "2026-10-11T14:36:00Z",
+    size_bytes: 18700,
+  };
+  const title = "Suministros de muestra";
+  const found = { receipts: [receipt], expenses: [record], ventas: [], accounts: [], email_deliveries: [], email_senders: [], next_cursors: {} };
+  const note = (await fixture.captures()).items[0];
+  const spaces = await fixture.spaces();
+  const dossier = await fixture.dossier(draftId);
+  const owner = spaces.find(space => space.space_id === dossier.space_id && space.role === "owner");
+  assert.ok(owner);
+  assert.ok(owner.capabilities.includes("approve"));
+  const file = new Blob(["%PDF-1.4\nsynthetic receipt"], { type: "application/pdf" });
+  const original = dossier.sources.find(item => item.kind === "attachment" && item.connection_id === receipt.id);
+  assert.ok(original?.kind === "attachment");
+  const other = { ...original, id: "source-other", connection_id: "receipt-other", filename: "later.pdf" };
+  const served = {
+    ...dossier, title, origin, original_connection_id: original.connection_id, delete_available: true,
+    sources: [other, ...dossier.sources.map(item => item.id === original.id ? { ...original, channel: "whatsapp" as const } : item)],
+  };
+  const asked: string[] = [];
+  const source: BusinessDataSource = {
+    ...fixture,
+    dossier: async id => {
+      asked.push(id);
+      return id === draftId ? served : fixture.dossier(id);
+    },
+    receipt: async id => id === receipt.id ? receipt : fixture.receipt(id),
+    expense: async id => id === expense.id ? expense : fixture.expense(id),
+    receiptSource: async id => id === receipt.id ? file : new Blob(["another file"]),
+    search: async () => found,
+    spaces: async () => spaces,
+    captures: async () => ({ items: [{ ...note, draft_id: draftId }] }),
+    deleteDocument: async () => { throw new Error("Only the preview is opened"); },
+  };
+  const expectedBytes = Buffer.from(await file.arrayBuffer()).toString("base64");
+  const links = { receipt: receipt.id, draft: draftId, expense: record.id };
+  const routes = ["receipt", "draft", "expense", "search-receipts", "search-expenses", "search-captures", "?receipt", "?draft", "?expense"] as const;
+  for (const route of routes) {
+    asked.length = 0;
+    const query = route.startsWith("?") ? route.slice(1) as keyof typeof links : null;
+    window.history.replaceState(null, "", query ? `/biz?${query}=${links[query]}` : "/biz");
+    const page = await mountRecord(source, owner.grant_id);
+    try {
+      assert.equal(page.chosen()?.grant_id, owner.grant_id, route);
+      await act(async () => {
+        if (route === "receipt") page.open({ kind: "receipt", receiptId: receipt.id, list: "inbox" });
+        if (route === "draft") page.open({ kind: "draft", draftId, list: "transactions" });
+        if (route === "expense") page.open({ kind: "expense", expenseId: record.id });
+        if (route.startsWith("search-")) {
+          const groups = await page.search(title);
+          const hit = groups.find(group => group.id === route.slice("search-".length))?.hits[0];
+          assert.ok(hit?.open, route);
+          hit.open();
+        }
+      });
+      for (let i = 0; i < 80 && !document.querySelector('[data-testid="dossier-document-foot"] a[download]'); i++) {
+        await act(async () => { await new Promise(resolve => setTimeout(resolve, 25)); });
+      }
+      assert.deepEqual([...new Set(asked)], [draftId], route);
+      const foot = document.querySelector('[data-testid="dossier-document-foot"]');
+      assert.equal(foot?.querySelector("[title]")?.getAttribute("title"), origin.filename, route);
+      const download = foot?.querySelector<HTMLAnchorElement>("a[download]");
+      assert.equal(download?.download, origin.filename, route);
+      assert.equal(foot?.querySelector('[data-testid="receipt-source-channel"]')?.textContent, "Carga web", route);
+      assert.equal(download?.getAttribute("href"), `data:application/pdf;base64,${expectedBytes}`, route);
+      const details = document.querySelector<HTMLButtonElement>('[role="tab"][data-tab="detalles"]');
+      assert.ok(details, route);
+      await act(async () => details.click());
+      const value = (fact: string) => document.querySelector(`[data-testid="dossier-details"] [data-fact="${fact}"] > :nth-child(3)`)?.textContent;
+      assert.deepEqual([document.querySelector("#receipt-review-title")?.textContent, ...["channel", "sent_by", "received_at", "filename", "size"].map(value)],
+        [title, "Carga web", origin.sent_by.person.display_name, formatTimestamp(origin.received_at, "es-419"), origin.filename, dossierFileSize(origin.size_bytes, "es-419")], route);
+      const click = async (selector: string) => {
+        const button = document.querySelector<HTMLButtonElement>(selector);
+        assert.ok(button, selector);
+        await act(async () => button.click());
+      };
+      await click('[data-testid="receipt-more"] > button');
+      await click('[data-testid="delete-document-menu"]');
+      const fileRow = [...document.querySelectorAll('[role="alertdialog"] dl > div')].find(row => row.querySelector("dt")?.textContent === "Archivo");
+      assert.equal(fileRow?.querySelector("dd")?.textContent, origin.filename, route);
+      const dialog = document.querySelector('[role="alertdialog"]');
+      assert.equal(dialog?.querySelector("#argus-confirm-title")?.textContent, "¿Eliminar este documento?", route);
+      assert.equal(dialog?.querySelector('[data-testid="document-delete-facts"]')?.getAttribute("aria-label"), title, route);
+    } finally {
+      await page.close();
+      window.history.replaceState(null, "", "/biz");
+    }
+  }
 });

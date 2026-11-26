@@ -18156,6 +18156,19 @@ components:
             - approve
           type: array
           uniqueItems: true
+        original_connection_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        origin:
+          anyOf:
+          - $ref: '#/components/schemas/RecordOrigin'
+          - type: 'null'
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         deleted:
           anyOf:
           - $ref: '#/components/schemas/DeletedDocument'
@@ -21489,6 +21502,19 @@ components:
             - approve
           type: array
           uniqueItems: true
+        original_connection_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        origin:
+          anyOf:
+          - $ref: '#/components/schemas/RecordOrigin'
+          - type: 'null'
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         deleted:
           anyOf:
           - $ref: '#/components/schemas/DeletedDocument'
@@ -30131,6 +30157,10 @@ components:
           default: false
         id:
           type: string
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         activity:
           anyOf:
           - $ref: '#/components/schemas/ReceiptActivity'
@@ -30332,6 +30362,7 @@ components:
       type: object
       required:
       - id
+      - title
       - channel
       - filename
       - media_type
@@ -30428,6 +30459,10 @@ components:
           default: false
         id:
           type: string
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         activity:
           anyOf:
           - $ref: '#/components/schemas/ReceiptActivity'
@@ -30598,6 +30633,7 @@ components:
       type: object
       required:
       - id
+      - title
       - channel
       - filename
       - media_type
@@ -30751,6 +30787,10 @@ components:
           default: false
         id:
           type: string
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         activity:
           anyOf:
           - $ref: '#/components/schemas/ReceiptActivity'
@@ -30921,6 +30961,7 @@ components:
       type: object
       required:
       - id
+      - title
       - channel
       - filename
       - media_type
@@ -31115,6 +31156,38 @@ components:
       - space_name
       - accounts
       - capabilities
+    RecordOrigin:
+      properties:
+        channel:
+          type: string
+          enum:
+          - web
+          - whatsapp
+          - email
+          - note
+        sent_by:
+          anyOf:
+          - $ref: '#/components/schemas/SentBy'
+          - type: 'null'
+        received_at:
+          type: string
+          format: date-time
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        size_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - channel
+      - sent_by
+      - received_at
+      - filename
+      - size_bytes
     RecordedApproval:
       properties:
         status:

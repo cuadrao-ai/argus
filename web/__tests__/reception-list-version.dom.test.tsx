@@ -22,8 +22,8 @@ async function mount(paged: boolean, listVersion: string | null = "version-1") {
   const i18n = (await import("i18next")).default.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } } });
   const seed = (await fixture.receipts("all"))[0];
-  const inbox: ReceiptSummary[] = [{ ...seed, id: "inbox-receipt", merchant: "Recibo pendiente" }];
-  let all: ReceiptSummary[] = [...inbox, { ...seed, id: "accepted-receipt", merchant: "Recibo aceptado", bandeja_group: { group: null, reason: null, label: "accepted", draft_id: null, version: null } }];
+  const inbox: ReceiptSummary[] = [{ ...seed, id: "inbox-receipt", title: "Recibo pendiente", merchant: "Recibo pendiente" }];
+  let all: ReceiptSummary[] = [...inbox, { ...seed, id: "accepted-receipt", title: "Recibo aceptado", merchant: "Recibo aceptado", bandeja_group: { group: null, reason: null, label: "accepted", draft_id: null, version: null } }];
   let reads = 0;
   const readAll = async (view: string) => { assert.equal(view, "all"); reads++; return all; };
   let context: BusinessContextValue = {
@@ -45,7 +45,7 @@ async function mount(paged: boolean, listVersion: string | null = "version-1") {
     reads: () => reads,
     inbox: () => context.records.inbox,
     titles: () => [...host.querySelectorAll('[data-testid="reception-row"]')].map(row => row.textContent ?? "").join("|"),
-    editAccepted: () => { all = all.map(row => row.id === "accepted-receipt" ? { ...row, merchant: "Recibo corregido" } : row); },
+    editAccepted: () => { all = all.map(row => row.id === "accepted-receipt" ? { ...row, title: "Recibo corregido", merchant: "Recibo corregido" } : row); },
     tick: async (next: Partial<BusinessContextValue["records"]> = {}) => {
       context = { ...context, records: { ...context.records, listChecks: (context.records.listChecks ?? 0) + 1, ...next } };
       await render();
@@ -76,7 +76,7 @@ for (const paged of [true, false]) {
     await page.tick();
     await page.tick({ inbox: page.inbox()!.map(row => ({ ...row })) });
     assert.equal(page.reads(), 1, "answered checks and new array identities do not re-read");
-    await page.tick({ inbox: page.inbox()!.map(row => ({ ...row, merchant: "Cambio en inbox" })) });
+    await page.tick({ inbox: page.inbox()!.map(row => ({ ...row, title: "Cambio en inbox", merchant: "Cambio en inbox" })) });
     assert.equal(page.reads(), 1, "inbox content is not a second trigger when a version exists");
     assert.match(page.titles(), /Recibo aceptado/, "Todos still comes from the all response");
     assert.doesNotMatch(page.titles(), /Cambio en inbox|Recibo corregido/);
@@ -87,7 +87,7 @@ for (const paged of [true, false]) {
     page.editAccepted();
     await page.tick({ inbox: page.inbox()!.map(row => ({ ...row })) });
     assert.equal(page.reads(), 1);
-    await page.tick({ inbox: page.inbox()!.map(row => ({ ...row, merchant: "Cambio en inbox" })) });
+    await page.tick({ inbox: page.inbox()!.map(row => ({ ...row, title: "Cambio en inbox", merchant: "Cambio en inbox" })) });
     assert.equal(page.reads(), 2);
     assert.match(page.titles(), /Recibo corregido/);
     assert.doesNotMatch(page.titles(), /Cambio en inbox/, "the fallback triggers a read; it never supplies Todos rows");

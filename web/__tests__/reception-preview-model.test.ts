@@ -66,6 +66,16 @@ test("an arrival keeps source identity searchable without making its amount prim
 });
 
 
+test("Bandeja search finds the displayed receipt title when the editable merchant is empty", async () => {
+  const { rows } = await sample();
+  const row = rows.find(item => item.id === "rcpt-ambiguous");
+  assert.ok(row?.kind === "receipt");
+  assert.equal(row.receipt.draft_id, null);
+  assert.equal(row.receipt.merchant, null);
+  assert.equal(row.receipt.title, "COLMADO DON PEDRO");
+  assert.ok(receptionSearchText(row).includes(row.receipt.title));
+});
+
 test("independent attachments keep distinct rows while their original email stays context", async () => {
   const { receipts, emails } = await sample();
   const delivery = { ...emails[0], id: "delivery-three", standing: null };
@@ -81,8 +91,8 @@ test("document identity uses captured facts and delivery exceptions retain their
   const { rows } = await sample();
   const labels = { untitled: "Documento", pending: "Recepción en proceso", exception: "Llegada sin documento", text: "Entrada de texto" };
   const receipt = rows.find(row => row.kind === "receipt"); assert.ok(receipt?.kind === "receipt");
-  assert.equal(receptionDocumentTitle({ ...receipt, receipt: { ...receipt.receipt, merchant: null, filename: "original.pdf" } }, labels), "original.pdf");
-  assert.equal(receptionDocumentTitle({ ...receipt, receipt: { ...receipt.receipt, attention: "unreadable", filename: "unreadable.jpg" } }, labels), "unreadable.jpg");
+  assert.equal(receptionDocumentTitle({ ...receipt, receipt: { ...receipt.receipt, title: "original.pdf", merchant: null, filename: "original.pdf" } }, labels), "original.pdf");
+  assert.equal(receptionDocumentTitle({ ...receipt, receipt: { ...receipt.receipt, title: "unreadable.jpg", attention: "unreadable", filename: "unreadable.jpg" } }, labels), "unreadable.jpg");
   for (const row of rows.filter(row => row.kind === "email")) assert.equal(receptionDocumentTitle(row, labels), row.email.delivery.subject?.trim() || (row.email.standing === "reading" ? labels.pending : labels.exception));
 });
 

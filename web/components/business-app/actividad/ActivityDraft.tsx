@@ -124,7 +124,7 @@ export default function ActivityDraft() {
     formerMember: t("business.activity_feed.former_member"),
     unmarkPersonal: t("business.activity_feed.unmark_personal"),
     managersOnly: t("business.activity_feed.managers_only"),
-    noRecord: t("business.activity_feed.no_record"),
+    noRecord: t("business.dossier.row.no_data"),
     loadMore: t("business.activity_feed.load_more"),
     am: t("business.activity_feed.am"),
     pm: t("business.activity_feed.pm"),

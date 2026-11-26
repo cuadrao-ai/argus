@@ -8,7 +8,7 @@ from argus.api.business_drafts import (
     action_problem,
     require_drafts,
     stored_drafts,
-    with_source_channels,
+    with_review_note,
 )
 from argus.api.business_manual_schemas import ManualCapturePage
 from argus.api.dependencies import problem
@@ -88,10 +88,9 @@ def capture_note(
                 headers=NO_STORE,
             )
         assert result.draft_id is not None
-        return with_source_channels(
+        return with_review_note(
             context.service.dossier(actor, result.draft_id),
             space_id=str(actor.actor.space_id),
-            owner_id=actor.owner_id,
             service=context.service,
         )
     except ActionError as error:

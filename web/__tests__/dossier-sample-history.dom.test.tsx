@@ -59,7 +59,7 @@ test("the sample's Historial is Llegó por, Leído, then what a person changed",
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
-    await act(async () => { root.render(<I18nextProvider i18n={i18n}><ReceiptHistory history={dossier.history} accounts={dossier.accounts} sources={dossier.sources} documentType="recibo" /></I18nextProvider>); });
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><ReceiptHistory history={dossier.history} origin={dossier.origin} accounts={dossier.accounts} sources={dossier.sources} documentType="recibo" /></I18nextProvider>); });
     const lines = [...host.querySelectorAll("li")].map((item) => [...[...item.querySelectorAll("p")].map((line) => line.querySelector('[aria-hidden="true"]')?.textContent ?? line.textContent), item.querySelector('[data-testid="history-who"] span')?.textContent ?? null]);
     shown[receipt.id] = lines;
     assert.deepEqual(lines.at(-2), ["Leído", "Cuadrao"], `${receipt.id}: Cuadrao read it`);

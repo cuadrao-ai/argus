@@ -16,7 +16,7 @@ function OriginalContent({ receipt, close }: { receipt: ReceiptSummary; close: (
 
 function DesktopOriginal({ receipt, close, returnFocusRef }: { receipt: ReceiptSummary; close: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
   const { t } = useTranslation();
-  return <AdaptivePanel titleClassName="break-all" title={receipt.filename || t("business.review.source")} closeLabel={t("common.close")} onClose={close} width="lg" returnFocusRef={returnFocusRef}><OriginalContent receipt={receipt} close={close} /></AdaptivePanel>;
+  return <AdaptivePanel titleClassName="break-all" title={receipt.filename || t("business.document_delete.unnamed")} closeLabel={t("common.close")} onClose={close} width="lg" returnFocusRef={returnFocusRef}><OriginalContent receipt={receipt} close={close} /></AdaptivePanel>;
 }
 
 export default function ReceptionOriginal({ receipt }: { receipt: ReceiptSummary }) {
@@ -24,7 +24,7 @@ export default function ReceptionOriginal({ receipt }: { receipt: ReceiptSummary
   const { isBelowDesktop: phone } = useResponsiveLayout();
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const name = receipt.filename || t("business.review.source");
+  const name = receipt.filename || t("business.document_delete.unnamed");
   const Icon = receipt.media_type.startsWith("image/") ? ImageIcon : FileText;
   const close = () => setOpen(false);
   return <>

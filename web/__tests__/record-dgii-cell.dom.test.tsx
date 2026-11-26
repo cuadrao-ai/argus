@@ -43,7 +43,7 @@ for (const field of ["expense_type", "payment_form"] as const) {
     const host = await cell("es-419", live({ expense_type: null, payment_form: null }), field);
     assert.doesNotMatch(host.textContent ?? "", /Falta/);
     assert.equal(host.querySelector('[aria-hidden="true"]')?.textContent, "-");
-    assert.equal(host.querySelector(".sr-only")?.textContent, "sin dato");
+    assert.equal(host.querySelector(".sr-only")?.textContent, "Sin dato");
   });
 }
 
@@ -52,7 +52,7 @@ test("a sale shows a dash that says it does not apply, and a row no read describ
   assert.equal(sale.querySelector('[aria-hidden="true"]')!.textContent, "-");
   assert.equal(sale.querySelector(".sr-only")!.textContent, "No aplica");
   const unread = await cell("es-419", { id: "exp-unknown" }, "expense_type", "fixture-space");
-  assert.equal(unread.querySelector(".sr-only")!.textContent, "sin dato");
+  assert.equal(unread.querySelector(".sr-only")!.textContent, "Sin dato");
 });
 
 test("the sample rows carry every case the mock needs", async () => {

@@ -55,5 +55,5 @@ test("unknown overview counts use placeholders only during a pending request", a
   const settled = await render(<RecordsOverviewPreview {...props} />);
   assert.match(pending, /visibility:hidden/);
   assert.ok(!settled.includes("visibility:hidden"));
-  assert.ok(settled.includes("sin dato") || settled.includes("Sin dato"));
+  assert.ok(settled.includes("Sin dato"));
 });

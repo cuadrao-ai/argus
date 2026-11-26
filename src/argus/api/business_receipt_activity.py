@@ -17,7 +17,6 @@ from argus.domain.business.receipt_activity import (
     inbox_counts,
     project_activity,
 )
-from argus.domain.business.sent_by import receipt_senders
 from argus.domain.business.transactions import GrantImportStore, transaction
 
 
@@ -56,12 +55,8 @@ def project(
             from argus.api.business_drafts import draft_overlay, linked_drafts
 
             drafts = linked_drafts(tx, [view["id"] for view in views])
-            sent_by = receipt_senders(tx, views)
             views = [
-                {
-                    **draft_overlay(view, drafts.get(view["id"], [])),
-                    "sent_by": sent_by.get(view["id"]),
-                }
+                draft_overlay(view, drafts.get(view["id"], []))
                 for view in views
             ]
             states = {str(row["connection_id"]): row for row in rows}

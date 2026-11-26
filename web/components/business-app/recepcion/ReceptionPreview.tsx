@@ -205,7 +205,7 @@ function ReceptionWorkspace() {
       : next);
   };
   const rowKey = (row: ReceptionRow) => `${row.kind}:${row.id}`;
-  const titleOf = (row: ReceptionRow) => receptionDocumentTitle(row, { untitled: t("business.receipt.untitled"), pending: word("intake_pending"), exception: word("intake_exception"), text: word("text_intake") });
+  const titleOf = (row: ReceptionRow) => receptionDocumentTitle(row, { untitled: t("business.document_delete.unnamed"), pending: word("intake_pending"), exception: word("intake_exception"), text: word("text_intake") });
   const target = (row: ReceptionRow): ListoTarget[] => { const item = listoItem(row); return item ? [{ ...item, rowId: rowKey(row), title: titleOf(row) }] : []; };
   // A row that stops being Listos leaves the count and comes back if it returns; a poll never touches `selectedIds`.
   const selected = selectable ? rows.filter(row => selectedIds.includes(rowKey(row))).flatMap(target) : [];

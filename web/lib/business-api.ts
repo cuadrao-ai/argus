@@ -112,6 +112,7 @@ export function markReceiptRead(id: string, completionCursor: string): Promise<R
 
 export type ReceiptSummary = ReceiptReviewFields & DocumentDeleteAccess & {
   id: string;
+  title: string | null;
   activity?: ReceiptActivity | null;
   /** The server's Bandeja membership; absent from servers older than #1353, which reads as in no bucket. */
   bandeja?: BandejaMembership | null;

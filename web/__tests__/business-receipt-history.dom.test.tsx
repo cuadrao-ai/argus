@@ -97,9 +97,9 @@ describe("Historial", () => {
       revision(2, at(10, 13, 5), actor("Ana Peña"), facts("1200.00"), facts("1250.00")),
       revision(3, at(11, 8, 0), actor("Ana Peña"), facts("1250.00"), facts("1250.00", "USD")),
     ];
-    const sources = [{ id: "s1", kind: "attachment", channel: "whatsapp", received_at: at(10, 9, 20), connection_id: "c", filename: "a.jpg", media_type: "image/jpeg" }] as BusinessDossier["sources"];
+    const sources = [{ id: "s1", kind: "attachment", channel: "whatsapp", received_at: at(10, 9, 20), connection_id: "c", filename: "a.jpg", media_type: "image/jpeg" }] satisfies BusinessDossier["sources"];
     const approval = { status: "recorded", activity_id: "x", reviewed_version: 3, approved_revision: 3, approved_at: at(11, 0, 5), actor: actor("Lucía Mateo") } as BusinessDossier["approval_result"];
-    const page = await render(<ReceiptHistory history={history} accounts={[]} sources={sources} approval={approval} />);
+    const page = await render(<ReceiptHistory history={history} accounts={[]} origin={sources[0]} approval={approval} />);
     const section = page.host.querySelector('[data-testid="receipt-history"]')!;
     // One card per day, newest first: every event says what happened, who did it and when, in full.
     assert.deepEqual([...section.querySelectorAll('[data-testid="history-day"] h3')].map((title) => title.textContent), ["11 Oct 2026", "10 Oct 2026"]);
@@ -133,27 +133,39 @@ describe("Historial", () => {
     }
   });
 
+  test("the arrival line uses the record origin when a message predates the original file", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const origin = { channel: "web" as const, received_at: at(10, 9, 0), filename: "compra.pdf" };
+    const sources: BusinessDossier["sources"] = [{ id: "message", kind: "message", channel: "whatsapp", received_at: at(9, 9, 0), text: "Te mando el recibo" }];
+    const page = await render(<ReceiptHistory history={[]} accounts={[]} origin={origin} sources={sources} />);
+    try {
+      const event = page.host.querySelector("li")!;
+      assert.deepEqual(eventLines(event), ["Llegó por Carga web", origin.filename, null]);
+      assert.equal(event.querySelector("time")?.dateTime, origin.received_at);
+    } finally { await page.close(); }
+  });
+
   test("names the channel a receipt came in by: Correo and Web, never a participle", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
-    for (const [channel, word] of [["email", "Correo"], ["web", "Carga Web"]] as const) {
-      const sources = [{ id: "s", kind: "attachment", channel, received_at: at(10, 9, 0), connection_id: "c", filename: null, media_type: "application/pdf" }] as BusinessDossier["sources"];
-      const page = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources} />);
+    for (const [channel, word] of [["email", "Correo"], ["web", "Carga web"]] as const) {
+      const sources = [{ id: "s", kind: "attachment", channel, received_at: at(10, 9, 0), connection_id: "c", filename: null, media_type: "application/pdf" }] satisfies BusinessDossier["sources"];
+      const page = await render(<ReceiptHistory history={[]} accounts={[]} origin={sources[0]} />);
       assert.equal(page.host.querySelector("li p")?.textContent, `Llegó por ${word}`);
       await page.close();
     }
   });
 
-  test("a chat proposal or a web action is not Recibido; the first file or WhatsApp message is", async () => {
+  test("a WhatsApp note records an arrival and a web note has no file arrival", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const sources = [
       { id: "p", kind: "agent_proposal", channel: "web", received_at: at(9, 8, 0), text: "Gasto de pintura" },
       { id: "w", kind: "web_action", channel: "web", received_at: at(9, 8, 30), text: "Revisó" },
       { id: "m", kind: "message", channel: "whatsapp", received_at: at(9, 9, 0), text: "Te mando el recibo" },
     ] as BusinessDossier["sources"];
-    const page = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources} />);
+    const page = await render(<ReceiptHistory history={[]} accounts={[]} origin={{ channel: "whatsapp", received_at: sources[2].received_at, filename: null }} sources={sources} />);
     assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Llegó por WhatsApp"]);
     await page.close();
-    const proposalOnly = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources.slice(0, 2)} />);
+    const proposalOnly = await render(<ReceiptHistory history={[]} accounts={[]} origin={{ channel: "note", received_at: sources[0].received_at, filename: null }} sources={sources.slice(0, 2)} />);
     assert.equal(proposalOnly.host.querySelector('[data-testid="receipt-history"]'), null);
     await proposalOnly.close();
   });
@@ -197,8 +209,8 @@ describe("Historial", () => {
 
   for (const kind of ["extractor", "owner_via_agent"] as const) test(`the revision that creates the record is one Leído by Cuadrao, never a list of its values (${kind})`, async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
-    const sources = [{ id: "s1", kind: "attachment", channel: "email", received_at: at(10, 8, 58), connection_id: "c", filename: "factura.pdf", media_type: "application/pdf" }] as BusinessDossier["sources"];
-    const page = await render(<ReceiptHistory history={[revision(1, at(10, 9, 0), actor("Ana Peña", kind), null, arrived)]} accounts={[]} sources={sources} />);
+    const sources = [{ id: "s1", kind: "attachment", channel: "email", received_at: at(10, 8, 58), connection_id: "c", filename: "factura.pdf", media_type: "application/pdf" }] satisfies BusinessDossier["sources"];
+    const page = await render(<ReceiptHistory history={[revision(1, at(10, 9, 0), actor("Ana Peña", kind), null, arrived)]} accounts={[]} origin={sources[0]} />);
     assert.deepEqual([...page.host.querySelectorAll("li")].map(eventLines), [["Leído", "Cuadrao"], ["Llegó por Correo", "factura.pdf", null]]);
     assert.equal(page.host.querySelector('[data-testid="history-diff"]'), null);
     assert.doesNotMatch(page.host.textContent ?? "", /Actividad|Parte del negocio|Categoría|Comprobante|Total|Moneda|Fecha|Emisor|Ana Peña/);
@@ -357,7 +369,7 @@ describe("a fiscal save in Historial", () => {
     const [entry] = entries(page.host);
     assert.equal(entry.querySelector("p")?.textContent, "Datos del 606 guardados");
     // The names Datos fiscales gives the same fields, not the DGII column headers.
-    assert.deepEqual(changes(entry), [["Tipo de ID", "Desconocido", "01 · RNC"], ["Bienes", null, "RD$ 3,450.00"]]);
+    assert.deepEqual(changes(entry), [["Tipo de ID", "Sin dato", "01 · RNC"], ["Bienes", null, "RD$ 3,450.00"]]);
     assert.equal(entry.querySelector('[data-testid="history-more"]'), null, "two changes need no button");
     await page.close();
   });
@@ -398,10 +410,10 @@ describe("a fiscal save in Historial", () => {
     assert.equal(more.getAttribute("aria-expanded"), "true");
     assert.equal(more.textContent, "Ver menos");
     assert.deepEqual(changes(entry), [
-      ["Tipo de gasto", "Desconocido", "Gastos por trabajos, suministros y servicios"],
+      ["Tipo de gasto", "Sin dato", "Gastos por trabajos, suministros y servicios"],
       ["ITBIS Retenido", "RD$ 0.00", "RD$ 270.00"],
-      ["Tipo de Retención en ISR", "Desconocido", "Honorarios por servicios"],
-      ["Forma de pago", "Desconocido", "Tarjeta crédito/débito"],
+      ["Tipo de Retención en ISR", "Sin dato", "Honorarios por servicios"],
+      ["Forma de pago", "Sin dato", "Tarjeta crédito/débito"],
     ]);
     await page.close();
     const three = await render(<ReceiptHistory history={[save(4, before, { ...after, payment_method: null })]} accounts={[]} dgiiFields={fields} />);

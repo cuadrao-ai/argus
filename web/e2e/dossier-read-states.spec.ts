@@ -21,7 +21,7 @@ for (const state of ["reading", "held", "failed"] as const) {
       const reading = state === "reading";
       const failed = state === "failed";
       const receipt: ReceiptDetail = {
-        ...base, draft_id: null, merchant: null, filename: file, media_type: "image/svg+xml",
+        ...base, draft_id: null, merchant: null, title: file, filename: file, media_type: "image/svg+xml",
         status: reading ? "queued" : "needs_attention", attention: reading ? null : failed ? "not_a_receipt" : "read_budget_day",
         error_code: reading ? null : failed ? "not_a_receipt" : "business_read_budget_day",
         enterable: false, preparable: state === "held", read_pending: reading, delete_available: true, activity: null,

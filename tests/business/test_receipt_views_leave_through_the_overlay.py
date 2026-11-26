@@ -249,3 +249,17 @@ def test_the_overlay_module_owns_every_helper_the_routers_use():
         "def expenses_with_receipts(",
     ):
         assert helper in source
+
+
+def test_only_record_origins_constructs_a_record_origin():
+    constructors = []
+    for path in SOURCE.rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        if "RecordOrigin" in source:
+            for function in ast.walk(ast.parse(source)):
+                if isinstance(function, ast.FunctionDef) and any(
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id == "RecordOrigin" for node in ast.walk(function)
+                ):
+                    constructors.append((path.relative_to(SOURCE).as_posix(), function.name))
+    assert constructors == [("domain/business/record_origin.py", "record_origins")]

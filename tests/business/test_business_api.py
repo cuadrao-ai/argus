@@ -415,6 +415,7 @@ def test_upload_with_consent_prepares_a_reviewable_receipt(
         "web",
         "recibo ferretería.png",
     )
+    assert summary["title"] == summary["filename"]
     assert summary["media_type"] == "image/png"
     assert summary["size_bytes"] == len(RECEIPT)
     detail = alice.detail(summary["id"])
@@ -446,6 +447,7 @@ def test_upload_with_consent_prepares_a_reviewable_receipt(
     assert detail["version"] >= 1
     [listed] = alice.get("/receipts", view="inbox").json()["items"]
     assert listed["id"] == summary["id"] and listed["status"] == "review_ready"
+    assert listed["title"] == detail["title"] == detail["merchant"]
 
 
 def test_upload_rejects_what_documents_reject(alice: Owner) -> None:
@@ -472,6 +474,8 @@ def test_saved_receipt_prepares_only_with_consent(
     uploaded = alice.upload(consent=False).json()
     assert uploaded["status"] == "saved"
     receipt = alice.detail(uploaded["id"])
+    assert receipt["draft_id"] is None
+    assert receipt["title"] == uploaded["title"] == receipt["filename"]
     assert (receipt["version"], receipt["evidence"], receipt["missing_fields"]) == (
         0,
         None,
