@@ -22,6 +22,7 @@ from argus.domain.ingestion.documents.models import (
 )
 from argus.domain.ingestion.documents.preparation import PreparedDocument
 from argus.domain.ingestion.email_intake.budget import business_day
+from argus.llm.local_reader_fixtures import hardware_receipt, purchase
 
 
 def receipt_date(at: datetime | None = None) -> str:
@@ -41,34 +42,11 @@ def receipt_month(at: datetime | None = None) -> tuple[date, date]:
 
 
 def receipt_purchase(at: datetime | None = None) -> dict[str, Any]:
-    return {
-        "page": 1,
-        "row": 1,
-        "evidence": "transaction",
-        "status": "posted",
-        "amount": "3450.00",
-        "currency": "DOP",
-        "occurred_on": receipt_date(at),
-        "direction": "outflow",
-        "kind_hint": "expense",
-        "merchant": "FERRETERIA LA ESQUINA SRL",
-    }
+    return purchase(receipt_details(at))
 
 
 def receipt_details(at: datetime | None = None) -> dict[str, Any]:
-    return {
-        "payment_status": "paid",
-        "merchant": "FERRETERIA LA ESQUINA SRL",
-        "occurred_on": receipt_date(at),
-        "currency": "DOP",
-        "items": [
-            {"id": "1", "description": "Pintura blanca 1 gal", "total": "1850.00"},
-            {"id": "2", "description": "Brochas x3", "total": "1073.73"},
-        ],
-        "subtotal": "2923.73",
-        "tax": "526.27",
-        "total": "3450.00",
-    }
+    return hardware_receipt(receipt_date(at))
 
 
 class ReceiptStub:

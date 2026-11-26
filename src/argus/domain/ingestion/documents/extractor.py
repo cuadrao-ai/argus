@@ -747,6 +747,7 @@ class DocumentExtractor:
                     + prepared.text,
                 }
             )
+        document_sha256 = hashlib.sha256(content).hexdigest()
         token = begin_openrouter_route_receipt_capture()
         failure = None
         result = None
@@ -757,6 +758,7 @@ class DocumentExtractor:
                     partial(
                         invoke_openrouter_json_schema,
                         task="document_extraction",
+                        document_sha256=document_sha256,
                         model_name=model,
                         messages=[
                             {"role": "system", "content": _PROMPT},
@@ -790,7 +792,7 @@ class DocumentExtractor:
             "pages": prepared.pages,
             "media_type": media_type,
             "document_currency": prepared.document_currency,
-            "sha256": hashlib.sha256(content).hexdigest(),
+            "sha256": document_sha256,
             "model": model,
             "route_receipts": [receipt.as_dict() for receipt in receipts],
         }
