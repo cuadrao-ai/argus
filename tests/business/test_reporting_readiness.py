@@ -319,7 +319,7 @@ def test_foreign_amount_mismatch_matches_dop_without_changing_export(
             lines,
             result.content,
             summarize_export(dataset, report()).dgii,
-            judged[0].model_dump(exclude={"ready", "missing"}),
+            judged[0].model_dump(exclude={"ready", "missing", "reasons"}),
         )
 
     assert export(usd) == export(replace(original, currency="USD"))

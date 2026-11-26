@@ -279,6 +279,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & Rec
   version: number;
   review_state: "open" | "accepting" | "accepted" | "dismissed";
   facts: BusinessFacts;
+  retained_source_ids: string[];
   original_connection_id: string | null;
   origin: RecordOrigin | null;
   title: string | null;

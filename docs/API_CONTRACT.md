@@ -8463,7 +8463,7 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | Nothing else blocks approval | `blocked`, such as an open question. A possible repeat is `duplicate` alone |
 | A verified sender, if it came by email | `unverified_sender` |
 
-The upload year is the year, on the Business calendar (America/Santo_Domingo), of the `received_at` of the draft's first source. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
+The upload year is the year, on the Business calendar (America/Santo_Domingo), when the record's first file or message reached the Business. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
 
 `BusinessDossier` carries the same standing for its one record. `bandeja_group: {group, reason, label}` holds the three values the rule above gives the row of a receipt linked to this draft alone; the dossier's own `draft_id` and `version` name the record. An `accepted` record has a null `group` and `reason` and the `label` `accepted`. A record being approved is `listo` with `ready`, a deleted record is `eliminados` with a null `label`, and a record whose receipt is being read is `reading`. `listo_gaps` lists each distinct reason once, in the rule's order, when `group` is `attention`, and is empty for every other record. `confirmable` lists the subset the person may accept over, in that same order, as defined by `bandeja_group.RULE`. For a record in attention, `reason` is always one of its gaps: it is the first gap, except that a possible repeat no person settled shows `duplicate` before an earlier gap, as the list does. `bandeja_group.group_of` and `bandeja_group.listo_gaps` own both values, and the web renders them without a rule of its own. The dossier's `blockers` still decide `approval_available`; they are not the Listos gaps.
 
@@ -8687,11 +8687,15 @@ discriminates on), and null while `approval_available` is false.
 The dossier's `origin` gives the original upload's `channel`, `sent_by`, `received_at`,
 `filename` and `size_bytes`. The receipt summary carries the same five fields directly.
 `record_origins` reads both from the saved upload and its intake history for the current
-viewer. A stored WhatsApp attachment or a captured inbound upload identifies the channel.
-`original_connection_id` names the original upload to preview and is null for a message.
+viewer. Arrival is the time the first file or message reached the Business. A later
+file save or a repeat delivery keeps the original arrival.
+`original_connection_id` names the retained original upload. It is null for a
+message or when the stored copies are missing. The record keeps its origin.
+`retained_source_ids` lists the evidence files with stored content, including supporting files.
+A disconnected source can retain its file identity in the dossier. Opening it returns HTTP 410.
 Supporting files cannot supply the record's origin. For a message written on the web,
 `origin.channel` is `note`. A WhatsApp message keeps `whatsapp`. A message has no filename
-or size, and a record without a source has a null origin. The dossier and receipt responses share `record_title`. It takes a linked draft's
+or size, and a record without a source has a null origin. The dossier, receipt and saved record responses share `record_title`. It takes a linked draft's
 known counterparty, or the stored read's merchant when the receipt has no draft. It uses
 the original filename when the merchant is absent and returns null when both are absent.
 The dossier exposes `facts_editable` for review writes. Open drafts require
@@ -10986,7 +10990,9 @@ accept path recorded.
   draft is linked to several receipts or to none still opens its record.
   Optional `kind` is `expense` (default) or `income`: `income` lists the
   period's ventas in the same shape, `merchant` being the client, each item in
-  its own currency. Any other value is 422.
+  its own currency. For a draft-backed record, the list, detail and search use the full
+  reviewed title, including when the counterparty exceeds 200 characters. Any other
+  value of `kind` is 422.
 - GET `/api/v1/business/expenses/{expense_id}` returns that expense with
   `recorded_at` and `revision` from the money read; 404 `expense_not_found`
   for any other id, including another Business's. An expense entered by hand
@@ -11007,7 +11013,8 @@ accept path recorded.
   `{currency, amount, count}`, with no conversion. Beside the totals it returns
   the Business `country` and `currency`; the Business currency does not filter
   or convert the totals. It also returns `ready_to_review_count`,
-  `last_received_at` and `last_confirmed_at`.
+  `last_received_at` and `last_confirmed_at`. The former is the latest receipt arrival
+  shown in Bandeja.
   `ready_to_review_count` is the Bandeja's `ready_to_review_count` (see
   receipt activity). `bandeja_listo_count` and `bandeja_attention_count` are
   the same pair receipt activity returns. `por_igualar_count` is the same number
@@ -11028,7 +11035,9 @@ accept path recorded.
   become one row, anchored as `draft:<id>` with `linked_activity_ids`; a
   standalone activity uses `activity:<id>`. These IDs do not define a future
   invoice/payment allocation. Disconnected originals never remove the financial
-  row. A deleted record leaves until it is restored.
+  row. A deleted record leaves until it is restored. Each row carries its display
+  `title` from the dossier's title rule. A filename can name a record whose
+  `counterparty` and fiscal export supplier are empty.
   Recorded amounts and document facts use current Money and the actual approved
   fact revision; current workflow blockers may still require review. Sources,
   account legs, approval receipts and payment annotations are not extra rows.
@@ -11055,7 +11064,9 @@ accept path recorded.
   Old requests, stored tabs and saved views with `ready: true` read as null.
   It reads each row's `ready` verdict from `readiness` in
   `reporting_projection.py`; `overview.not_ready` counts false verdicts over
-  the same filtered rows before pagination. Search, period, family, currency
+  the same filtered rows before pagination. Each row supplies the same ordered
+  `missing` codes and `reasons` map as its dossier. The web renders the locale key
+  in each reason. Search, period, family, currency
   and every other filter apply to that count too.
   The nullable `fiscal_data` filter accepts `complete`, `missing` or null (all).
   Each row's `fiscal_data` comes from its current 606/607 verdict, independently
@@ -11071,8 +11082,7 @@ accept path recorded.
   `currencies`, `counterparties`, `categories` and `expense_types`.
   The server drops `funding_sources`, `document_kinds` and `fiscal_classifications`
   on read and logs each retired field name. `expense_types` takes 606 tipo de
-  gasto codes (`01` to `11`) and `missing`, a purchase that still needs one. `has_document` is a live linked attachment, separate
-  from download availability and fiscal number. Each row carries `personal`, the
+  gasto codes (`01` to `11`) and `missing`, a purchase that still needs one. `has_document` requires a live linked attachment with stored content. Each row carries `personal`, the
   owner's Personal mark, and `include_606`, the accountant's 606 answer (`null`
   while no answer applies), both read from the draft as it stands now, after
   approval too, the same source month close and the export handoff read.
@@ -11462,7 +11472,8 @@ accept path recorded.
   `annotation_unavailable_reason`; standalone activities cannot be annotated.
   `revision` is the exact draft version for these commands. `attachment_sources`
   carries source/receipt IDs, filename, media type, nullable source availability
-  and current download permission. Missing storage is distinct from no evidence.
+  and `download_available` for the current viewer. `attachment_count` counts linked
+  files with retained content. Evidence stays linked when its stored content is missing.
 
 - PUT `/api/v1/business/drafts/{draft_id}/current-note` accepts
   `{expected_version, note}` and `Idempotency-Key` (1..80 characters). A current
@@ -11585,11 +11596,10 @@ accept path recorded.
   shows no Tipo de gasto for it. `q` is
   1 to 512 characters and `limit` is 1 to 20 (default 5), applied to each
   list. There is no index of its own: every request reads the records from
-  their owners. Expenses, ventas and accounts are the space's hits from the
-  canonical financial search (`financial_search.hits` with the Business scope)
-  and match as `/financial-search` matches: an expense or a venta on its note
-  (the merchant or the client), kind and category, an account on its nickname,
-  type and currency. A Business space has no plans, so no plan hits. Ventas are
+  their owners. Expenses and ventas match the reviewed record title, kind, category
+  and source ID. Standalone activities use their activity note for the name. Accounts
+  match nickname, type and currency. Both use the financial search text matcher.
+  A Business space has no plans, so no plan hits. Ventas are
   saved income (an approved Venta); `merchant` is the client, as on a Venta's
   receipt. Receipts match by the same rule on the reviewed merchant, the
   filename and the reviewed amount as written.

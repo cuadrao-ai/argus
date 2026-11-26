@@ -4,6 +4,13 @@ import { reportAnswerSchema, reportRequestSchema, type ExportPreview, type Repor
 
 export const fixtureId = (value: number) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
 export const FROZEN_REPORT_BACKEND = "eda4bb38ab2a195761523b084dbbfb6862e67c7e";
+const reasonFields: Record<string, string | null> = {
+  missing_ncf: "ncf", missing_rnc: "rnc", expense_type_missing: "category",
+  payment_method_missing: "payment_method", credit_note_payment_form: "payment_method", detail_missing: null,
+};
+export function reportReasons(...codes: readonly string[]): ReportRecord["reasons"] {
+  return Object.fromEntries(codes.map(code => [code, { field: reasonFields[code], words: `business.transactions.layout.workflow.missing.${code}` }]));
+}
 const text = (value: string) => value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
 const cents = (amount: string) => BigInt(amount.replace(".", ""));
 const decimal = (minor: bigint) => `${minor / BigInt(100)}.${String(minor % BigInt(100)).padStart(2, "0")}`;
@@ -48,11 +55,12 @@ function latestMonth(rows: readonly ReportRecord[]) {
 export function createBusinessReportHttpFixture() {
   const records: ReportRecord[] = Array.from({ length: 126 }, (_, index) => ({
     row_id: `draft:${fixtureId(index + 1)}`, draft_id: fixtureId(index + 1), linked_activity_ids: [fixtureId(1000 + index)], revision: 3,
-    report_date: index === 0 ? "1999-10-01" : index === 2 ? null : "2026-10-20", date_basis: "document_issue", family: index % 2 ? "sale" : "purchase", stage: index === 2 ? null : "needs_review", technical_state: index === 2 ? "processing" : null, workflow_blockers: [], ready: true, missing: [],
+    report_date: index === 0 ? "1999-10-01" : index === 2 ? null : "2026-10-20", date_basis: "document_issue", family: index % 2 ? "sale" : "purchase", stage: index === 2 ? null : "needs_review", technical_state: index === 2 ? "processing" : null, workflow_blockers: [], ready: true, missing: [], reasons: {},
     currency: index === 2 ? null : index === 1 ? "USD" : "DOP", gross_amount: index === 2 ? null : "100.00", recorded_amount: index === 2 ? null : "100.00", recorded_currency: index === 2 ? null : index === 1 ? "USD" : "DOP", proposed_amount: null,
     money_kind: index % 2 ? "income" : "expense", money_effect: index === 2 ? "unknown" : "known", adjustment_effect: null,
+    title: index === 125 ? "José Peña" : `Proveedor ${index + 1}`,
     counterparty: index === 125 ? "José Peña" : `Proveedor ${index + 1}`, counterparty_key: null, category_key: "uncategorized", funding_key: null, funding_label: null, funding_kind: null,
-    has_document: index === 0 || index === 125, document_kind: "unknown", fiscal_classification: "unknown", fiscal_number: null,
+    attachment_count: index === 0 || index === 125 ? 1 : 0, has_document: index === 0 || index === 125, document_kind: "unknown", fiscal_classification: "unknown", fiscal_number: null,
     // Sales carry no 606 answers; every third purchase still needs its tipo de gasto, every fifth its forma de pago.
     dgii_606: index % 2 ? null : { expense_type: index % 3 ? { code: "02", label: "Gastos por trabajos, suministros y servicios" } : null, payment_form: index % 5 ? { code: "01", label: "Efectivo" } : null },
     note: `Nota ${index + 1}`, settlement_status: "paid", dependency_fingerprint: `dependency-${index}`, can_edit_note: true, can_append_supporting: true, annotation_unavailable_reason: null,
@@ -64,10 +72,10 @@ export function createBusinessReportHttpFixture() {
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
   const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", rncSuppliers: [] as NonNullable<ExportPreview["dgii"]>["rnc_suppliers"], bandejaCount: 0, noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { not_ready: 0, needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
-  const dossier = (row: ReportRecord) => ({ draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
+  const dossier = (row: ReportRecord) => ({ missing: row.missing, reasons: reportReasons(...row.missing), draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
   const problem = (status: number, code: string) => Response.json({ code, detail: code }, { status });
   const matchingRecords = (report: ReportRequest) => {
-    let matching = records.filter((row) => !report.filters.q || text(`${row.counterparty} ${row.note} ${row.attachment_sources?.map((source) => source.filename).join(" ")}`).includes(text(report.filters.q)));
+    let matching = records.filter((row) => !report.filters.q || text(`${row.title} ${row.counterparty} ${row.note} ${row.attachment_sources?.map((source) => source.filename).join(" ")}`).includes(text(report.filters.q)));
     matching = matching.filter((row) => row.family === report.filters.record_families[0]);
     if (report.filters.ready !== null) matching = matching.filter((row) => row.ready === report.filters.ready);
     if (report.filters.fiscal_data !== null) matching = matching.filter((row) => row.fiscal_data === report.filters.fiscal_data);
@@ -92,7 +100,15 @@ export function createBusinessReportHttpFixture() {
       const blocked = report.sort.startsWith("amount_") && (currencies.size !== 1 || currencies.has(null));
       const effective_sort = blocked ? "date_desc" : report.sort;
       if (effective_sort.startsWith("name_")) matching.sort((a, b) => (a.counterparty ?? "").localeCompare(b.counterparty ?? "") * (effective_sort.endsWith("asc") ? 1 : -1));
-      const items = matching.slice((report.page - 1) * report.page_size, report.page * report.page_size).map((row) => ({ ...row, can_edit_note: !controls.readOnly, can_append_supporting: !controls.readOnly, attachment_sources: row.attachment_sources?.map((source) => ({ ...source, source_available: source.receipt_id === fixtureId(700) ? controls.originalAvailable : source.source_available, download_available: !controls.readOnly && (source.receipt_id !== fixtureId(700) || controls.originalAvailable) })) }));
+      const items = matching.slice((report.page - 1) * report.page_size, report.page * report.page_size).map(row => {
+        const attachments = row.attachment_sources?.map(source => ({
+          ...source, source_available: source.receipt_id === fixtureId(700) ? controls.originalAvailable : source.source_available,
+          download_available: !controls.readOnly && (source.receipt_id !== fixtureId(700) || controls.originalAvailable),
+        })) ?? [];
+        const count = attachments.filter(source => source.source_available).length;
+        return { ...row, reasons: reportReasons(...row.missing), can_edit_note: !controls.readOnly, can_append_supporting: !controls.readOnly,
+          attachment_count: count, has_document: count > 0, attachment_sources: attachments };
+      });
       const presentation = serverLayout(report.schema_version === 2 && report.presentation ? report.presentation : controls.presentation);
       return Response.json(reportAnswerSchema.parse({ presentation, columns: serverColumns(presentation, report.filters.record_families[0] === "sale"), items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
         totals: documentFamilyTotals(matching),

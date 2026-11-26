@@ -375,6 +375,7 @@ class RecordOrigin(Contract):
 
 
 class BusinessDossier(RecordContext, DetailReadiness):
+    retained_source_ids: tuple[UUID, ...] = ()
     original_connection_id: UUID | None = None
     origin: RecordOrigin | None = None
     title: str | None = None
@@ -523,6 +524,7 @@ class BusinessDossier(RecordContext, DetailReadiness):
 
 #: The due date a person sets in review, wherever the dossier carries it.
 _UNMEASURED_DOSSIER_FIELDS = {
+    "retained_source_ids": True,
     "original_connection_id": True,
     "origin": True,
     "title": True,

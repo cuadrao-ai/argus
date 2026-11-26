@@ -8,6 +8,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Literal
+from uuid import UUID
 
 from psycopg import Connection
 from psycopg.rows import dict_row
@@ -395,6 +396,7 @@ def projected_records(
         is_personal,
         personal_mark_admits,
     )
+    from argus.domain.business.record_origin import draft_arrivals
     from argus.domain.business.reporting_projection import DraftState, project, value
     from argus.domain.business.supporting_files import supporting_files_full
 
@@ -429,9 +431,18 @@ def projected_records(
         for row in cursor.fetchall():
             draft_id = row.pop("draft_id")
             linked.setdefault(draft_id, []).append(ReportSource(linked=True, **row))
+    resolutions = {
+        event.id: BusinessResolution.model_validate(event.resolution["business"])
+        for event in events
+    }
+    arrivals = draft_arrivals(
+        tx,
+        [UUID(key) for key, resolution in resolutions.items()
+         if linked.get(key) and not resolution.facts.counterparty.value],
+    )
     drafts = {}
     for event in events:
-        resolution = BusinessResolution.model_validate(event.resolution["business"])
+        resolution = resolutions[event.id]
         facts = resolution.facts
         technical = None
         try:
@@ -479,8 +490,10 @@ def projected_records(
                 }
             ).encode()
         ).hexdigest()
+        arrival = arrivals.get(UUID(event.id))
         drafts[event.id] = DraftState(
-            event, facts, fiscal, codes, technical, sources, dependency
+            event, facts, fiscal, codes, technical, sources, dependency,
+            original_filename=arrival.filename if arrival else None,
         )
     originals = {
         record.approved.activity_id: record.approved for record in snapshot.records
@@ -499,10 +512,19 @@ def projected_records(
         if draft and draft.event.state == "accepting":
             continue
         projected.append(project(record, draft, originals, filer_identity, accounts))
+    from argus.domain.business.record_attachments import retained_source_ids
+
+    retained = retained_source_ids(tx, list(drafts))
     public_rows = []
     for row in projected:
         draft = drafts.get(row.draft_id)
         can_annotate = annotation_available(live, draft.event if draft else None)
+        sources = draft.sources if draft else ()
+        files = [source for source in sources if source.source_id in retained]
+        connected = {
+            source.source_id: source for source in files
+            if source.connection_status not in (None, "disconnected")
+        }
         public_rows.append(
             row.model_copy(
                 update={
@@ -514,18 +536,27 @@ def projected_records(
                     else "business_annotation_unavailable"
                     if draft
                     else "business_annotation_unsupported",
+                    "has_document": bool(connected),
+                    "attachment_count": len(files),
+                    "attachment_filenames": tuple(
+                        source.filename for source in connected.values() if source.filename
+                    ),
                     "attachment_sources": tuple(
                         ReportAttachment(
                             source_id=source.source_id,
                             receipt_id=source.connection_id,
                             filename=source.filename,
                             media_type=source.media_type,
-                            source_available=source.source_available,
-                            download_available="download" in live.permissions
-                            and source.source_available is True
-                            and source.connection_status not in (None, "disconnected"),
+                            source_available=(
+                                source.source_available if source.source_id in retained else False
+                            ),
+                            download_available=(
+                                "download" in live.permissions
+                                and source.source_available is True
+                                and source.source_id in connected
+                            ),
                         )
-                        for source in (draft.sources if draft else ())
+                        for source in sources
                         if source.kind == "attachment"
                     ),
                 }

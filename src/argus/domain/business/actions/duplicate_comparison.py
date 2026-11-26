@@ -9,7 +9,6 @@ from typing import Any
 from uuid import UUID
 
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.annotations import OWN_SOURCE_SQL
 from argus.domain.business.contracts.actions import ResolveDuplicateCommand
 from argus.domain.business.contracts.dossier import (
     ComparedDocument,
@@ -22,6 +21,7 @@ from argus.domain.business.contracts.dossier import (
 )
 from argus.domain.business.contracts.facts import FiscalFacts, Known
 from argus.domain.business.duplicates import recommendation, same_value
+from argus.domain.business.record_origin import DraftArrival, draft_arrivals
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
@@ -38,20 +38,16 @@ def _known(fact: object) -> Any:
     return fact.value if isinstance(fact, Known) else None
 
 
-def _first_file(tx: ActionTransaction, draft_id: str) -> dict[str, Any] | None:
-    """The document's first attached file, with the digest of its bytes."""
-
+def _comparison_file(tx: ActionTransaction, arrival: DraftArrival | None) -> dict[str, Any] | None:
+    if arrival is None or arrival.file_source_id is None:
+        return None
     files = tx.rows(
-        "select s.connection_id,s.channel,(d.draft->>'created_at')::timestamptz as received_at,d.draft->>'filename' as filename,"
-        "d.draft->>'media_type' as media_type,"
-        "coalesce(d.source_sha256,d.draft->>'sha256') as sha256"
-        " from public.business_draft_sources l join public.business_sources s"
-        " on s.id=l.source_id and s.space_id=l.space_id"
-        " join public.financial_document_extractions d on d.connection_id=s.connection_id"
-        " where l.space_id=%s and l.draft_id=%s and s.kind='attachment'"
-        f" and {OWN_SOURCE_SQL}"
-        " order by s.received_at,s.id limit 1",
-        (tx.context.actor.space_id, draft_id),
+        "select s.connection_id,s.channel,(d.draft->>'created_at')::timestamptz as received_at,"
+        " d.draft->>'filename' as filename,d.draft->>'media_type' as media_type,"
+        " coalesce(d.source_sha256,d.draft->>'sha256') as sha256"
+        " from public.business_sources s join public.financial_document_extractions d"
+        " on d.connection_id=s.connection_id where s.space_id=%s and s.id=%s",
+        (tx.context.actor.space_id, arrival.file_source_id),
     )
     return files[0] if files else None
 
@@ -77,29 +73,24 @@ def duplicate_revisions(
             counterparty = _known(facts_of(tx.imports.event(other_id)).counterparty)
         except EventNotFound:
             counterparty = None
-        file = _first_file(tx, other_id)
+        arrival = draft_arrivals(tx, [request.other_draft_id]).get(request.other_draft_id)
         found[source.id] = DuplicateRevision(
             decision=request.decision,
             other_draft_id=request.other_draft_id,
             other_counterparty=counterparty,
-            other_filename=file and file["filename"],
+            other_filename=arrival.filename if arrival else None,
         )
     return found
 
 
 def _document(
-    tx: ActionTransaction, event: ImportEvent, approvals: list[dict[str, Any]]
+    tx: ActionTransaction, event: ImportEvent, approvals: list[dict[str, Any]],
+    arrival: DraftArrival | None,
 ) -> tuple[ComparedDocument, Any]:
     """The document and the digest of its file, which never leaves the server."""
 
     facts = facts_of(event)
-    file = _first_file(tx, event.id)
-    received = tx.rows(
-        "select min(s.received_at) as at from public.business_draft_sources l"
-        " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
-        " where l.space_id=%s and l.draft_id=%s",
-        (tx.context.actor.space_id, event.id),
-    )
+    file = _comparison_file(tx, arrival)
     amount = _known(facts.amount)
     fiscal = facts.fiscal or FiscalFacts()
     return (
@@ -118,7 +109,7 @@ def _document(
                 channel=file["channel"],
                 received_at=file["received_at"],
             ),
-            received_at=received[0]["at"],
+            received_at=arrival.received_at if arrival else None,
             approved_at=approvals[0]["created_at"] if approvals else None,
             state=event.state,
         ),
@@ -135,8 +126,10 @@ def compare(
     """``other_approvals`` is the other draft's approval receipt when it is
     recorded; the reviewed draft is open and has none."""
 
-    document, digest = _document(tx, event, [])
-    counterpart, other_digest = _document(tx, other, other_approvals)
+    here, there = UUID(event.id), UUID(other.id)
+    arrivals = draft_arrivals(tx, [here, there])
+    document, digest = _document(tx, event, [], arrivals.get(here))
+    counterpart, other_digest = _document(tx, other, other_approvals, arrivals.get(there))
     differences = [
         name
         for name in _VALUES

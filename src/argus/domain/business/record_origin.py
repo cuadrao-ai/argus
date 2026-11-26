@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypedDict
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from argus.domain.business.annotations import OWN_SOURCE_SQL
 from argus.domain.business.contracts.authority import SentBy
 from argus.domain.business.contracts.dossier import (
     AttachmentSource,
@@ -26,6 +28,11 @@ if TYPE_CHECKING:
 
 Channel = Literal["web", "whatsapp", "email"]
 EmailFlag = tuple[tuple[str, ...], bool, datetime | None]
+
+
+class FileArrival(TypedDict):
+    channel: Channel
+    received_at: datetime
 
 
 class OriginUpload(BaseModel):
@@ -49,17 +56,22 @@ def email_flags(relations: Mapping[str, EmailRelation]) -> dict[str, EmailFlag]:
 class UploadIntake:
     captured: frozenset[str]
     emails: Mapping[str, EmailFlag]
+    whatsapp_arrivals: Mapping[str, datetime] = field(default_factory=dict)
 
     @classmethod
     def stored(cls, tx: ActionTransaction) -> UploadIntake:
         from argus.domain.ingestion.email_intake.store import PostgresEmailStore
-        from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
         from argus.domain.postgres_connection import BorrowedConnection
 
         pool = BorrowedConnection(tx.connection)
         owner = tx.context.owner_id
         space = str(tx.context.actor.space_id)
-        captured = PostgresWhatsAppStore(pool).captured_connections(destination_owner_id=owner)
+        arrivals = tx.rows(
+            "select m.connection_id::text as id,min(m.received_at) as received_at"
+            " from public.whatsapp_inbound_messages m join public.financial_source_connections c"
+            " on c.id=m.connection_id where c.owner_space_id=%s and c.user_id=%s"
+            " and m.status='captured' group by m.connection_id", (space, owner),
+        )
         # A record can carry a WhatsApp attachment without an inbound webhook row.
         sources = tx.rows(
             "select distinct s.connection_id::text as id from public.business_sources s"
@@ -69,19 +81,68 @@ class UploadIntake:
             (space, owner),
         )
         return cls(
-            captured.union(row["id"] for row in sources),
+            frozenset(row["id"] for row in sources),
             email_flags(PostgresEmailStore(pool).membership(space)),
+            {row["id"]: row["received_at"] for row in arrivals},
         )
 
-    def channel(self, connection_id: str, saved_at: datetime) -> Channel:
-        flag = self.emails.get(connection_id)
-        if flag and flag[2] is not None and flag[2] <= saved_at:
-            return "email"
-        return "whatsapp" if connection_id in self.captured else "web"
+    def arrival(self, connection_id: str, saved_at: datetime) -> FileArrival:
+        """The earliest file or inbound message, even when processing ran later."""
+        at = saved_at
+        channel: Channel = "whatsapp" if connection_id in self.captured else "web"
+        whatsapp = self.whatsapp_arrivals.get(connection_id)
+        if whatsapp is not None and whatsapp <= at:
+            channel, at = "whatsapp", whatsapp
+        email = self.emails.get(connection_id)
+        if email and email[2] is not None and email[2] <= at:
+            channel, at = "email", email[2]
+        return {"channel": channel, "received_at": at}
 
     def deliveries(self, connection_id: str) -> tuple[str, ...]:
         flag = self.emails.get(connection_id)
         return flag[0] if flag else ()
+
+
+@dataclass(frozen=True)
+class DraftArrival:
+    received_at: datetime
+    first_source_id: UUID
+    file_source_id: UUID | None
+    filename: str | None
+
+
+def draft_arrivals(
+    tx: ActionTransaction, draft_ids: Sequence[UUID], intake: UploadIntake | None = None
+) -> dict[UUID, DraftArrival]:
+    """Each record's first own source and first own file in actual arrival order."""
+    if not draft_ids:
+        return {}
+    rows = tx.rows(
+        "select l.draft_id,s.id,s.received_at,s.connection_id,"
+        " (d.draft->>'created_at')::timestamptz as saved_at,d.draft->>'filename' as filename"
+        " from public.business_draft_sources l join public.business_sources s"
+        " on s.id=l.source_id and s.space_id=l.space_id"
+        " left join public.financial_document_extractions d on d.connection_id=s.connection_id"
+        f" where l.space_id=%s and l.draft_id=any(%s::uuid[]) and {OWN_SOURCE_SQL}",
+        (tx.context.actor.space_id, list(draft_ids)),
+    )
+    grouped: dict[UUID, list[dict]] = {}
+    for row in rows:
+        if row["saved_at"] is not None:
+            if intake is None:
+                intake = UploadIntake.stored(tx)
+            row["received_at"] = intake.arrival(str(row["connection_id"]), row["saved_at"])["received_at"]
+        grouped.setdefault(row["draft_id"], []).append(row)
+    found = {}
+    for draft_id, sources in grouped.items():
+        sources.sort(key=lambda row: (row["received_at"], row["id"]))
+        first = sources[0]
+        file = next((row for row in sources if row["connection_id"]), None)
+        found[draft_id] = DraftArrival(
+            first["received_at"], first["id"], file["id"] if file else None,
+            file["filename"] if file else None,
+        )
+    return found
 
 
 def record_origins(
@@ -94,19 +155,20 @@ def record_origins(
     uploads = [
         {
             "id": doc.connection_id,
-            "channel": intake.channel(doc.connection_id, doc.created_at),
+            **intake.arrival(doc.connection_id, doc.created_at),
             "email_delivery_ids": intake.deliveries(doc.connection_id),
         }
         for doc in sources
         if isinstance(doc, OriginUpload)
     ]
     senders = receipt_senders(tx, uploads) if tx and uploads else {}
-    channels = {view["id"]: view["channel"] for view in uploads}
+    by_id = {view["id"]: view for view in uploads}
     result = {}
     for source in sources:
         if isinstance(source, OriginUpload):
-            key, at = source.connection_id, source.created_at
-            channel, sender = channels[key], senders.get(key)
+            key = source.connection_id
+            channel, at = by_id[key]["channel"], by_id[key]["received_at"]
+            sender = senders.get(key)
             filename, size = source.filename or None, source.size_bytes
         else:
             key, at = str(source.id), source.received_at
@@ -132,15 +194,15 @@ def with_source_channels(
         file = document.file
         if file is None:
             return document
-        channel = intake.channel(str(file.connection_id), file.received_at)
+        arrival = intake.arrival(str(file.connection_id), file.received_at)
         return document.model_copy(
-            update={"file": file.model_copy(update={"channel": channel})}
+            update={"file": file.model_copy(update=arrival)}
         )
 
     sources = tuple(
         source.model_copy(
             update={
-                "channel": intake.channel(str(source.connection_id), source.received_at),
+                **intake.arrival(str(source.connection_id), source.received_at),
                 "email_delivery_ids": intake.deliveries(str(source.connection_id)),
             }
         )

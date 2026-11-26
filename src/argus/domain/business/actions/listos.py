@@ -28,6 +28,7 @@ from argus.domain.business.bandeja_group import (
 from argus.domain.business.contracts.dossier import Blocker, ReviewFlag
 from argus.domain.business.contracts.facts import BusinessResolution, fiscal_value
 from argus.domain.business.receipts import read_attention
+from argus.domain.business.record_origin import DraftArrival, draft_arrivals
 from argus.domain.business.review_flags import review_flags
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.email_intake.store import email_draft_standing
@@ -88,16 +89,10 @@ def attachment_reads(
 def _upload_years(
     tx: ActionTransaction, draft_ids: Sequence[UUID]
 ) -> dict[UUID, int | None]:
-    """Each draft's upload year, from its first source as the dossier orders them."""
-
-    rows = tx.rows(
-        "select l.draft_id,min(s.received_at) as received_at"
-        " from public.business_draft_sources l"
-        " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
-        " where l.space_id=%s and l.draft_id=any(%s) group by l.draft_id",
-        (tx.context.actor.space_id, list(draft_ids)),
-    )
-    return {row["draft_id"]: upload_year(row["received_at"]) for row in rows}
+    return {
+        draft_id: upload_year(arrival.received_at)
+        for draft_id, arrival in draft_arrivals(tx, draft_ids).items()
+    }
 
 
 def _read_state(attachments: list[dict[str, Any]]) -> ReadState:
@@ -171,6 +166,7 @@ def draft_standings(
     *,
     every_gap: bool = False,
     live_siblings: bool = False,
+    arrivals: Mapping[UUID, DraftArrival] | None = None,
 ) -> dict[str, DraftStanding]:
     """The standing of each open Business draft, by id. The sender costs the
     most, so it is read last and only for a draft nothing else keeps out: that
@@ -183,7 +179,9 @@ def draft_standings(
     ids = list(drafts)
     questions = review_questions(tx, ids)
     reads = attachment_reads(tx, ids, live_siblings=live_siblings)
-    uploaded = _upload_years(tx, ids)
+    uploaded = _upload_years(tx, ids) if arrivals is None else {
+        key: upload_year(arrival.received_at) for key, arrival in arrivals.items()
+    }
     repeated = repeated_comprobantes(tx, drafts.values())
     accounts = record_context(tx).accounts
     registry = rnc_registry(tx)
@@ -223,4 +221,8 @@ def linked_standings(
         tx,
         (event for event in tx.imports.events(("open",)) if event.id in wanted),
         live_siblings=True,
+        arrivals={
+            row["id"]: row["arrival"]
+            for linked in drafts.values() for row in linked if row.get("arrival")
+        },
     )

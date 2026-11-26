@@ -141,7 +141,7 @@ test("A stale note save shows the new server note alongside the user's draft", a
 test("Detalles follows server note, add, remove and restore permissions", async () => {
   const a = supporting("a", { unlink_available: true });
   const b = supporting("b");
-  const dossier = await sample({ current_note: null, note_edit_available: false, supporting_files: [a, b, supporting("quitado", { state: "unlinked" })] });
+  const dossier = await sample({ current_note: null, note_edit_available: false, retained_source_ids: [a.source_id, b.source_id], supporting_files: [a, b, supporting("quitado", { state: "unlinked" })] });
   const page = await mount();
   const changes: string[] = [];
   try {
@@ -171,8 +171,8 @@ test("Archivos de respaldo shows the server's current restore offer and deadline
   const dossier = await sample({ supporting_file_limit: 1, supporting_limit_reached: false, supporting_append_available: true });
   const page = await mount();
   const restored: string[] = [];
-  const showFiles = (supporting_files: BusinessSupportingFile[]) => page.details({
-    dossier: { ...dossier, supporting_files }, onRestore: async (id: string) => { restored.push(id); },
+  const showFiles = (supporting_files: BusinessSupportingFile[], retained_source_ids: string[] = []) => page.details({
+    dossier: { ...dossier, supporting_files, retained_source_ids }, onRestore: async (id: string) => { restored.push(id); },
     onAppend: async () => {}, onViewFile: () => {}, onUnlink: async () => {},
   });
   const card = () => page.host.querySelector('[data-testid="dossier-supporting"]');
@@ -203,7 +203,7 @@ test("Archivos de respaldo shows the server's current restore offer and deadline
     await page.act(async () => restore.focus());
     await page.click(restore);
     assert.deepEqual(restored, [file.source_id]);
-    await showFiles([supporting("evidencia", { unlink_available: true })]);
+    await showFiles([supporting("evidencia", { unlink_available: true })], [file.source_id]);
     assert.equal(time(), null);
     assert.ok(page.button("Ver evidencia.pdf"));
     assert.ok(document.activeElement === page.button("Quitar evidencia.pdf"), "keyboard focus stays on the file action");

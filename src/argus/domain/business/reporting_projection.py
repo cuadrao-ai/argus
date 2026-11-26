@@ -12,7 +12,7 @@ from pydantic import TypeAdapter
 
 from argus.domain.business.amount_inheritance import APPROVED, inheritance_state
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, SalesDeclaration
-from argus.domain.business.contracts.dossier import AccountChoice
+from argus.domain.business.contracts.dossier import AccountChoice, DetailReadiness
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     Known,
@@ -38,6 +38,7 @@ from argus.domain.business.fiscal_identity import (
 )
 from argus.domain.business.missing_reasons import DETAIL_MISSING, REASONS, registered
 from argus.domain.business.purchase_review import net_amount
+from argus.domain.business.receipts import record_title
 from argus.domain.business.reporting_columns import missing_columns
 from argus.domain.business.reporting_query import DgiiChoice, Purchase606, ReportRecord
 from argus.domain.business.review_flags import review_flags
@@ -56,6 +57,7 @@ class DraftState:
     technical_state: str | None
     sources: tuple[ReportSource, ...]
     dependency_fingerprint: str
+    original_filename: str | None = None
 
 
 def value(facts: BusinessFacts, name: str) -> Any:
@@ -252,6 +254,7 @@ def project(
         ),
         None,
     )
+    counterparty = value(facts, "counterparty") or (activity.get("note") if not draft else None)
     return ReportRecord(
         row_id=f"draft:{draft.event.id}"
         if draft
@@ -279,9 +282,11 @@ def project(
         money_kind=recorded.row.kind,
         money_effect=effect,
         adjustment_effect=adjustment,
-        # With no draft, the activity's note is its merchant.
-        counterparty=value(facts, "counterparty")
-        or (activity.get("note") if not draft else None),
+        title=record_title(
+            draft.facts.counterparty.value if draft else counterparty,
+            draft.original_filename if draft else None,
+        ),
+        counterparty=counterparty,
         counterparty_key=identity,
         category_key=activity.get("category_id") or "uncategorized",
         funding_key=funding_key,
@@ -291,12 +296,6 @@ def project(
         else "owner_funds"
         if funding_key == "owner_funds"
         else None,
-        has_document=any(
-            source.linked
-            and source.kind == "attachment"
-            and source.connection_status not in (None, "disconnected")
-            for source in sources
-        ),
         personal=is_personal(marks),
         include_606=fiscal_inclusion(marks),
         dgii_606=purchase,
@@ -308,13 +307,6 @@ def project(
         else "unknown",
         fiscal_number=fiscal_number,
         document_identifiers=(fiscal_number,) if fiscal_number else (),
-        attachment_filenames=tuple(
-            source.filename
-            for source in sources
-            if source.linked
-            and source.filename
-            and source.connection_status not in (None, "disconnected")
-        ),
         # Only a saved note: the draft's and the activity's `note` hold the merchant.
         note=draft.event.resolution.get("current_note") if draft else None,
         settlement_status=recorded.settlement.status if recorded.settlement else None,
@@ -397,10 +389,12 @@ def with_export_verdicts(
         identifier = row.linked_activity_ids[0]
         assessment = verdicts.get(identifier)
         ready, missing = readiness(row, assessment)
+        detail = DetailReadiness.from_codes(missing)
         row = row.model_copy(
             update={
                 "ready": ready,
-                "missing": missing,
+                "missing": detail.missing,
+                "reasons": detail.reasons,
                 "missing_fields": missing_columns(missing, row.family),
             }
         )

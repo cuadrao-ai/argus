@@ -45,9 +45,13 @@ fake = Faker()
 
 
 @pytest.fixture
-def documents(actions):
+def documents(actions, monkeypatch):
     service, _, _ = actions
     objects = InMemorySourceObjects()
+    monkeypatch.setattr(
+        "argus.domain.business.record_attachments.stored_paths",
+        lambda tx, paths: set(paths).intersection(objects.objects),
+    )
     hub = IngestionHub(
         PostgresConnectionRepository(service.authority.pool),
         box=None,

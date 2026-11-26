@@ -57,7 +57,12 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.people import named_deletion, people
 from argus.domain.business.receipts import Receipt, draft_row, record_title
-from argus.domain.business.record_origin import OriginUpload, UploadIntake, record_origins
+from argus.domain.business.record_origin import (
+    OriginUpload,
+    UploadIntake,
+    draft_arrivals,
+    record_origins,
+)
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
@@ -449,7 +454,9 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
     )
     found: dict[str, list[dict]] = {}
     markers = marker_people(tx, rows)
+    arrivals = draft_arrivals(tx, list({row["id"] for row in rows}))
     for row in rows:
+        row["arrival"] = arrivals.get(row["id"])
         if not duplicate_warning(
             row["attention"], row["possible_duplicates"], partial(_pending, tx, row)
         ):
@@ -499,7 +506,11 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     summary = {**summary, "deleted": deletion(row["state"], row["resolution"])}
     type_editable = row["state"] in ("open", "accepted")
     resolution = BusinessResolution.model_validate(row["resolution"]["business"])
-    summary["title"] = record_title(resolution.facts.counterparty.value, summary.get("filename"))
+    summary["merchant"] = resolution.facts.counterparty.value
+    arrival = row.get("arrival")
+    if arrival:
+        summary["received_at"] = arrival.received_at
+    summary["title"] = record_title(summary["merchant"], arrival.filename if arrival else summary.get("filename"))
     if legacy == str(row["id"]):
         if "document_type_editable" in summary:
             summary["document_type_editable"] = type_editable
@@ -521,7 +532,6 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         "preparable": False,
         "enterable": False,
         "expense_id": str(row["activity_id"]) if row["activity_id"] else None,
-        "merchant": value(facts.counterparty),
         "amount": value(facts.amount),
         "currency": value(facts.currency),
         "occurred_on": (value(facts.occurred_on) or None)
@@ -660,7 +670,7 @@ def receipt_summaries(context: BusinessContext, view: str) -> list[dict]:
     items = _receipt_views(context, receipts)
     if view == "inbox":
         items = [item for item in items if item["status"] not in CLOSED]
-    return items
+    return sorted(items, key=lambda row: row["received_at"], reverse=True)
 
 
 def receipt_read_dates(context: BusinessContext) -> dict[str, str]:
@@ -681,11 +691,12 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     projection over the overlaid views: an approved draft is a saved expense
     and the email itself is not a receipt, the same as in the Bandeja."""
 
-    from argus.api.business_receipt_activity import counts_now
+    from argus.api.business_receipt_activity import receipts_now
     from argus.domain.business import ledger
 
     data = context.service.overview(context.scope, start, end)
-    counts = counts_now(context)
+    views, counts = receipts_now(context)
+    data["last_received_at"] = max((view["received_at"] for view in views), default=None)
     data["ready_to_review_count"] = counts["ready_to_review_count"]
     data["bandeja_listo_count"] = counts["bandeja_listo_count"]
     data["bandeja_attention_count"] = counts["bandeja_attention_count"]
@@ -736,7 +747,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
         + " where e.owner_space_id=%s and e.user_id=%s and e.activity_id = any(%s)"
         " and e.resolution ? 'business'"
         # The latest revised draft speaks for its activity, whatever order the rows come in.
-        " order by e.updated_at desc, e.id desc",
+        " order by e.updated_at desc, e.id desc, s.received_at, s.id",
         (
             tx.context.actor.space_id,
             tx.context.owner_id,
@@ -746,6 +757,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
     drafts: dict[str, set[str]] = {}
     receipts: dict[str, set[str]] = {}
     marks: dict[str, dict] = {}
+    arrivals = draft_arrivals(tx, list({row["draft_id"] for row in rows}))
     markers = marker_people(tx, rows)
     for row in rows:
         activity = str(row["activity_id"])
@@ -755,7 +767,11 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
         typed = (row.get("resolution") or {}).get("business")
         if typed and activity not in marks:
             facts = BusinessResolution.model_validate(typed).facts
-            marks[activity] = record_marks(facts, row, tx.context.owner_id, markers)
+            arrival = arrivals.get(row["draft_id"])
+            marks[activity] = {
+                **record_marks(facts, row, tx.context.owner_id, markers),
+                "merchant": record_title(facts.counterparty.value, arrival.filename if arrival else None),
+            }
     return {
         activity: {
             "draft_id": ids.pop() if len(ids) == 1 else None,
@@ -785,7 +801,7 @@ def _with_records(context: BusinessContext, expenses: list[dict]) -> list[dict]:
             **{
                 key: value
                 for key, value in found.get(item["id"], {}).items()
-                if item.get(key) is None and value is not None
+                if key == "merchant" or (item.get(key) is None and value is not None)
             },
         }
         for item in expenses
@@ -861,10 +877,9 @@ def search_with_drafts(
     views = {
         item["id"]: item for item in _receipt_views(context, receipts)
     }
-    found = context.service.search(context.scope, query, views, numbers)
-    found["expenses"] = _with_records(context, found["expenses"])
-    found["ventas"] = _with_records(context, found["ventas"])
-    return found
+    return context.service.search(
+        context.scope, query, views, numbers, with_records=partial(_with_records, context)
+    )
 
 
 def updates_with_drafts(context: BusinessContext) -> list[dict]:
