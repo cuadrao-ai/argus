@@ -279,30 +279,9 @@ def email_receipt_flags(
     history = email_history()
     if history is None:
         return {}
-    return {
-        document: (
-            tuple(relation["delivery_ids"]),
-            relation["grouped"],
-            relation["first_received_at"],
-        )
-        for document, relation in history.store.membership(space_id).items()
-    }
+    from argus.domain.business.record_origin import email_flags
 
-
-def email_review_note(space_id: str, delivery_ids, store=None) -> str | None:  # noqa: ANN001
-    """The review note of the first of these deliveries that carries one, from
-    ``store`` or the saved email history."""
-
-    if store is None:
-        history = email_history()
-        if history is None:
-            return None
-        store = history.store
-    for delivery_id in sorted(delivery_ids):
-        delivery = store.get(delivery_id, space_id)
-        if delivery is not None and delivery.review_note:
-            return delivery.review_note
-    return None
+    return email_flags(history.store.membership(space_id))
 
 
 def part_repeat(
@@ -355,11 +334,3 @@ def email_standings(space_id: str) -> list[EmailStanding]:
         for delivery in runtime.store.list(space_id, limit=None)
     )
     return [standing for standing in standings if standing is not None]
-
-
-def arrived_by_email(saved_at: datetime, first_received_at: datetime | None) -> bool:
-    """A document whose earliest email arrived before it was saved was saved by
-    that email. One saved before any email came by another way (a web upload),
-    and the email that brought the same bytes later is a repeat of it."""
-
-    return first_received_at is not None and first_received_at <= saved_at

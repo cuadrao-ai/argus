@@ -11,6 +11,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
+from faker import Faker
 
 from tests.business.receipt_stub import receipt_details, receipt_purchase
 from tests.business.test_business_api import RECEIPT
@@ -95,6 +96,27 @@ def _review_with(rig, draft: str, facts: dict, dgii: dict | None, headers: dict)
     )
     assert answer.status_code == 200, answer.text
     return answer.json()
+
+
+def test_receipt_summary_and_dossier_report_one_origin(web, faker: Faker) -> None:  # noqa: ANN001, F811
+    assert _reading(web, True).status_code == 200
+    content = RECEIPT + faker.binary(length=16)
+    uploaded = _upload(web, content)
+    assert uploaded.status_code == 200, uploaded.text
+    receipt_id = uploaded.json()["id"]
+    headers = web.alice.headers
+    page = _get(web, "/business/receipts", headers, view="all")
+    summary = next(row for row in page["items"] if row["id"] == receipt_id)
+    draft = _get(web, f"/business/receipts/{receipt_id}", headers)["draft_id"]
+    dossier = _get(web, f"/business/drafts/{draft}/dossier", headers)
+    assert dossier["original_connection_id"] == receipt_id
+    assert dossier["origin"] == {
+        key: summary[key] for key in ("channel", "sent_by", "received_at", "filename", "size_bytes")
+    }
+    assert (summary["channel"], summary["sent_by"]["id"], summary["filename"], summary["size_bytes"]) == (
+        "web", f"member:{web.alice.id}", "recibo.png", len(content)
+    )
+    assert dossier["title"] == dossier["facts"]["counterparty"]["value"]
 
 
 def test_each_receipt_says_which_bandeja_buckets_it_sits_in_and_the_counts_agree(

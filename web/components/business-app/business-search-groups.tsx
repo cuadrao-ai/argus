@@ -83,6 +83,7 @@ function pager<K extends BusinessSearchKind>(
 /** The six record groups of one answer, in the order the owner reads them. */
 export function searchKindGroups(ctx: SearchGroupContext, query: string, found: BusinessSearchResult): Record<BusinessSearchKind, WorkspaceSearchGroup> {
   const { t, locale, source, accounts, openPanel } = ctx;
+  const empty = t("business.dossier.row.no_data");
   const nickname = new Map(accounts.map((account) => [account.id, account.nickname]));
   const preview = (record: BusinessSearchRecord): ReactNode => createElement(BusinessSearchDossier, { record, source, accounts });
   // Opening a result tells the backend, so it ranks first next time; a miss never reaches the person.
@@ -102,8 +103,8 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
     return {
       id: expense.id,
       icon: sale ? HandCoins : Banknote,
-      title: expense.merchant ?? (sale ? UNKNOWN_VALUE : t("business.expenses.no_merchant", "Expense")),
-      detail: line(expense.occurred_on ? formatDay(expense.occurred_on, locale) : UNKNOWN_VALUE, expense.dgii_606 ? dgiiAnswerText(t, expense.dgii_606, "expense_type") : null, expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? nickname.get(expense.account_id) : null),
+      title: expense.merchant ?? (sale ? empty : t("business.expenses.no_merchant", "Expense")),
+      detail: line(expense.occurred_on ? formatDay(expense.occurred_on, locale) : empty, expense.dgii_606 ? dgiiAnswerText(t, expense.dgii_606, "expense_type") : null, expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? nickname.get(expense.account_id) : null),
       amount: money(expense.amount, expense.currency),
       badge: sale ? t("business.search.badge_venta", "Sale") : t("business.search.badge_expense", "Expense"),
       preview: preview({ kind: "expense", expense }),
@@ -118,7 +119,7 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
       items.map((receipt) => ({
         id: receipt.id,
         icon: receipt.media_type === "application/pdf" ? FileText : ImageIcon,
-        title: receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt"),
+        title: receipt.merchant ?? receipt.filename ?? t("business.document_delete.unnamed"),
         detail: line(receiptStatusWord(t, receipt), formatDay(receipt.occurred_on ?? receipt.received_at, locale)),
         amount: money(receipt.amount, receipt.currency),
         badge: t("business.search.badge_receipt", "Receipt"),
@@ -141,8 +142,8 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
       items.map((email) => ({
         id: email.id,
         icon: Mail,
-        title: email.subject ?? UNKNOWN_VALUE,
-        detail: line(email.sender ?? UNKNOWN_VALUE, email.received_at ? formatDay(email.received_at, locale) : UNKNOWN_VALUE, t(`business.email.state.${email.state}`, email.state)),
+        title: email.subject ?? empty,
+        detail: line(email.sender ?? empty, email.received_at ? formatDay(email.received_at, locale) : empty, t(`business.email.state.${email.state}`, email.state)),
         amount: null,
         badge: t("business.search.badge_email", "Email"),
         preview: preview({ kind: "email", email }),
@@ -153,7 +154,7 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
       items.map((sender) => ({
         id: sender.id,
         icon: AtSign,
-        title: sender.value || UNKNOWN_VALUE,
+        title: sender.value || empty,
         detail: line(t(`business.search.sender_kind.${sender.kind}`, sender.kind), t(`business.search.sender_status.${sender.status}`, sender.status)),
         amount: null,
         badge: t("business.search.badge_sender", "Sender"),

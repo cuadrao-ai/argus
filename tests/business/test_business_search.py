@@ -367,14 +367,14 @@ def test_the_match_sees_the_receipt_as_the_person_sees_it(alice: Owner) -> None:
     assert documents is not None
     service = BusinessService(documents, documents.hub.sink, _captured)
     scope = alice.scope()
-    [receipt] = [r for r in service.receipts(scope) if r.id == receipt_id]
+    [receipt] = alice.get("/receipts", view="all").json()["items"]
     view = {
-        **receipt.summary(),
+        **receipt,
         "status": "review_ready",
         "merchant": "Hotel Brisa del Este SRL",
         "amount": "33254.91",
     }
-    assert service.search(scope, parse("Brisa"))["receipts"] == []
+    assert service.search(scope, parse("Brisa"), {receipt_id: receipt})["receipts"] == []
     [hit] = service.search(scope, parse("Brisa"), {receipt_id: view})["receipts"]
     assert (hit["id"], hit["status"], hit["merchant"]) == (
         receipt_id,

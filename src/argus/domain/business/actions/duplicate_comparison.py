@@ -42,7 +42,7 @@ def _first_file(tx: ActionTransaction, draft_id: str) -> dict[str, Any] | None:
     """The document's first attached file, with the digest of its bytes."""
 
     files = tx.rows(
-        "select s.connection_id,s.channel,s.received_at,d.draft->>'filename' as filename,"
+        "select s.connection_id,s.channel,(d.draft->>'created_at')::timestamptz as received_at,d.draft->>'filename' as filename,"
         "d.draft->>'media_type' as media_type,"
         "coalesce(d.source_sha256,d.draft->>'sha256') as sha256"
         " from public.business_draft_sources l join public.business_sources s"

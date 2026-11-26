@@ -313,11 +313,11 @@ def test_the_same_file_in_a_second_email_names_the_first_delivery_and_adds_no_re
     )
 
 
-def test_dossier_attachment_sources_that_arrived_by_email_say_so(monkeypatch):  # noqa: ANN001
+def test_dossier_attachment_sources_that_arrived_by_email_say_so() -> None:
     from datetime import datetime, timedelta, timezone
 
-    from argus.api import business_drafts as api
     from argus.domain.business.contracts.dossier import AttachmentSource, BusinessDossier
+    from argus.domain.business.record_origin import UploadIntake, with_source_channels
 
     now = datetime(2026, 10, 13, 17, 14, tzinfo=timezone.utc)
 
@@ -337,9 +337,7 @@ def test_dossier_attachment_sources_that_arrived_by_email_say_so(monkeypatch):  
         attachment("b.pdf"),
     )
     dossier = BusinessDossier.model_construct(sources=(by_email, web_first, by_web))
-    monkeypatch.setattr(
-        "argus.api.email_intake.email_receipt_flags",
-        lambda space_id: {
+    emails = {
             # Arrived by email a minute before it was saved: an email receipt.
             str(by_email.connection_id): (
                 ("d1", "d2"),
@@ -348,16 +346,13 @@ def test_dossier_attachment_sources_that_arrived_by_email_say_so(monkeypatch):  
             ),
             # Saved on the web an hour before any email brought it: keeps web, lists the email.
             str(web_first.connection_id): (("d3",), False, now + timedelta(hours=1)),
-        },
-    )
-    seen = api.with_email_sources(dossier, "space")
+    }
+    seen = with_source_channels(dossier, UploadIntake(frozenset(), emails))
     assert [(s.channel, s.email_delivery_ids) for s in seen.sources] == [
         ("email", ("d1", "d2")),
         ("web", ("d3",)),
         ("web", ()),
     ]
-    monkeypatch.setattr("argus.api.email_intake.email_receipt_flags", lambda space_id: {})
-    assert api.with_email_sources(dossier, "space") is dossier
 
 
 def _route_for(store, owner: Owner, recipient: str):  # noqa: ANN001, ANN202

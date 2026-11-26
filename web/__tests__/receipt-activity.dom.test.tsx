@@ -502,7 +502,7 @@ test("an unpaid NCF due notice shows Factura por pagar on the dossier", async ()
   const detail = { ...await receipt(), draft_id: marked.draft_id, version: marked.version };
   const source: BusinessDataSource = { ...fixture, dossier: async () => marked };
   const page = await host();
-  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={marked.draft_id} receipt={detail} /></BusinessContext.Provider></I18nextProvider>));
+  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={marked.draft_id} receipt={{ id: detail.id, activity: detail.activity, draftVersion: detail.version }} /></BusinessContext.Provider></I18nextProvider>));
   assert.equal(page.element.querySelector('[data-testid="bill-mark"]')?.textContent, "Factura por pagar");
   await act(async () => page.root.unmount());
 });
@@ -515,7 +515,7 @@ test("old dossier hydration cannot consume a newer receipt completion", async ()
   let marked = 0;
   const source: BusinessDataSource = { ...fixture, markReceiptRead: async (_id, cursor) => { marked++; return { state: "ready", unread: false, completion_cursor: cursor }; } };
   const page = await host();
-  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={dossier.draft_id} receipt={detail} /></BusinessContext.Provider></I18nextProvider>));
+  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={dossier.draft_id} receipt={{ id: detail.id, activity: detail.activity, draftVersion: detail.version }} /></BusinessContext.Provider></I18nextProvider>));
   await act(async () => intersect(page.element));
   assert.equal(marked, 0);
   await act(async () => page.root.unmount());

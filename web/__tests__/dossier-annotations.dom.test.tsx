@@ -47,8 +47,8 @@ async function mount() {
   const field = () => host.querySelector<HTMLTextAreaElement>("textarea[aria-label='Nota']");
   return {
     act, host,
-    details: (props: Omit<DetailsProps, "origin">) => render(<Details origin={{}} {...props} />),
-    history: (dossier: BusinessDossier) => render(<History history={dossier.history} sources={dossier.sources} accounts={[]} supportingFiles={dossier.supporting_files} />),
+    details: (props: DetailsProps) => render(<Details {...props} />),
+    history: (dossier: BusinessDossier) => render(<History history={dossier.history} origin={dossier.origin} sources={dossier.sources} accounts={[]} supportingFiles={dossier.supporting_files} />),
     button: (label: string, area: ParentNode = host) => [...area.querySelectorAll("button")].find((button) => (button.getAttribute("aria-label") ?? button.textContent?.trim()) === label),
     click: async (node?: HTMLButtonElement) => {
       assert.ok(node, "the action is available");

@@ -99,7 +99,7 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
       const findButton = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent === text);
       await page.click(findButton("Filtros"));
       if (width < 1024) await page.click(document.querySelector('[data-group="source"]'));
-      const manual = [...document.querySelectorAll("label")].find(node => node.textContent === "Carga manual")?.querySelector("input");
+      const manual = [...document.querySelectorAll("label")].find(node => node.textContent === "Carga web")?.querySelector("input");
       await page.click(manual);
       await page.click(findButton("Aplicar"));
       const searchField = () => page.host.querySelector<HTMLInputElement>('input[type="search"]');

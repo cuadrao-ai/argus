@@ -208,6 +208,13 @@ test("a row the server gave no label has no Estado line: the web makes up no wor
   assert.deepEqual([...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dt')].map(term => term.textContent), ["Contraparte", "Fecha", "Total", "Archivo"]);
 });
 
+test("a nameless document's delete dialog renders absent facts with the empty value", async () => {
+  const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, merchant: null, occurred_on: null, amount: null, filename: null, delete_available: true }]);
+  await page.click(document.querySelector('button[aria-label="Eliminar Documento"]'));
+  const facts = document.querySelector('[role="alertdialog"] [data-testid="document-delete-facts"]')!;
+  assert.deepEqual([...facts.querySelectorAll("dd")].slice(0, 4).map(value => value.textContent), ["Sin dato", "Sin dato", "-Sin dato", "Sin dato"]);
+});
+
 test("Ver documento opens the existing review and pins the confirmation bar", async () => {
   const page = await mount();
   await page.click(document.querySelector('button[aria-label="Eliminar Documento equivocado"]'));

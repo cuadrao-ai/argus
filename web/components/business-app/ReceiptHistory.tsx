@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { personName } from "@/lib/person-name";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { DgiiDeclaration, DgiiField, DgiiFields } from "@/lib/business-dgii";
-import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFacts, type BusinessFiscalField, type BusinessSupportingFile } from "@/lib/business-dossier";
+import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFacts, type BusinessFiscalField, type BusinessSupportingFile, type RecordOrigin } from "@/lib/business-dossier";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
 import { DOCUMENT_TYPE_LABELS } from "./receipt-fact-rows";
 import { dossierRowLabel } from "./dossier-attention";
@@ -46,18 +46,18 @@ function localDay(date: Date): string {
 
 /**
  * The Historial tab: what the API already records, newest first, in one card
- * per day ("Hoy", "Ayer", then the date). Its arrival comes from the first
- * source. The revision that creates the record is one line, never a list of
+ * per day ("Hoy", "Ayer", then the date). Its arrival comes from the record origin. The revision that creates the record is one line, never a list of
  * its values: Leído when Cuadrao read a document or a message, the person's
  * line when a person started it. Later revisions give one correction per
  * changed field with its struck-to-green diff, and the dated acceptance comes
  * from the recorded approval: the one place an accepted record says so. Notes
  * and supporting file changes come from saved revisions.
  */
-export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType, dgiiFields = null, salePaymentForms = NO_FORMS, supportingFiles = [] }: {
+export default function ReceiptHistory({ history, accounts, origin, sources = [], approval = null, documentType, dgiiFields = null, salePaymentForms = NO_FORMS, supportingFiles = [] }: {
   history: BusinessDraftRevision[];
   documentType?: BusinessDossier["document_type"];
   accounts: BusinessAccount[];
+  origin?: Pick<RecordOrigin, "channel" | "received_at" | "filename"> | null;
   sources?: BusinessDossier["sources"];
   approval?: BusinessDossier["approval_result"];
   /** The DGII field dictionary that names and orders a fiscal save's changes; until it loads a save shows no field list. */
@@ -110,7 +110,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   /** The dictionary's fields a save changed, in its order, named and worded as Datos fiscales shows them; a field the earlier declaration lacked has nothing to strike. A sale's ways to pay are one line, where the first of them sorts, named as General names them. */
   const fiscalChanges = (before: DgiiDeclaration | null | undefined, after: DgiiDeclaration, facts: BusinessFacts, reviewed?: readonly string[] | null): FiscalChange[] | null => {
     if (!dgiiFields) return null;
-    const shown = (field: DgiiField, value: DgiiDeclaration[string] | undefined) => presentDgiiValue(field, value, facts, locale, t, t("business.dossier.unknown", "Unknown"));
+    const shown = (field: DgiiField, value: DgiiDeclaration[string] | undefined) => presentDgiiValue(field, value, facts, locale, t, t("business.dossier.row.no_data"));
     const forms = after.form === "607" ? salePaymentForms : NO_FORMS;
     const paidBy = (declaration: DgiiDeclaration | null | undefined) => forms.filter((name) => Number(declaration?.[name]) > 0).map((name) => dgiiOptionLabel(t, "sale_payment_form", name)).join(", ");
     const payment = { before: paidBy(before), after: paidBy(after) };
@@ -134,15 +134,10 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   };
 
   const events: HistoryEvent[] = [];
-  const changedFiles = new Set(history.filter((revision) => revision.supporting_change).map((revision) => revision.source_ids[0]));
   const filesBySource = new Map(supportingFiles.map((file) => [file.source_id, file]));
-  // What arrived is a file or a WhatsApp message; a chat proposal or a web action is not a receipt coming in.
-  const first = sources
-    .filter((item) => (item.kind === "attachment" && !changedFiles.has(item.id) && !filesBySource.has(item.id)) || (item.kind === "message" && item.channel === "whatsapp"))
-    .sort((a, b) => Date.parse(a.received_at) - Date.parse(b.received_at))[0];
-  if (first) {
-    const channel = first.channel === "whatsapp" ? "WhatsApp" : first.channel === "email" ? t("business.history.channel_email", "Email") : t("business.history.channel_web", "Web");
-    events.push({ id: `source-${first.id}`, at: first.received_at, kind: "received", line: t("business.history.arrived", { channel }), sub: first.kind === "attachment" ? first.filename ?? undefined : undefined, who: null });
+  if (origin && origin.channel !== "note") {
+    const channel = origin.channel === "whatsapp" ? "WhatsApp" : origin.channel === "email" ? t("business.history.channel_email", "Email") : t("business.dossier.web");
+    events.push({ id: "arrival", at: origin.received_at, kind: "received", line: t("business.history.arrived", { channel }), sub: origin.filename ?? undefined, who: null });
   }
   for (const revision of history) {
     // What an approval saved is what its review showed: the approval's own line stands for it.
@@ -223,7 +218,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       // Earlier links did not record an explicit supporting change.
       const attachments = revision.source_ids.flatMap((id) => {
         const source = sources.find((source) => source.id === id);
-        return source?.kind === "attachment" ? [source.filename ?? t("business.transactions.layout.annotations.received_document")] : [];
+        return source?.kind === "attachment" ? [source.filename ?? t("business.document_delete.unnamed")] : [];
       });
       if (attachments.length) events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.join(", ")}`, who, kind: "supporting", testId: "history-supporting" });
     }

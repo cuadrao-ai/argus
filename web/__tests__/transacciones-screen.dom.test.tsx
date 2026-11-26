@@ -191,7 +191,7 @@ describe("the gate", () => {
     assert.doesNotMatch(page.body(), /Banco al día|Por igualar|Igualadas|¿Este\?|Igualar sugerencias/);
     const summary = document.querySelector<HTMLElement>('[data-testid="transacciones-summary"]')!;
     assert.deepEqual([...summary.querySelectorAll("[data-total]")].map((cell) => cell.getAttribute("data-total")), ["entradas", "salidas"]);
-    assert.equal(summary.querySelector('[data-total="entradas"] dd')?.textContent, "-sin dato");
+    assert.equal(summary.querySelector('[data-total="entradas"] dd')?.textContent, "-Sin dato");
     assert.match(summary.querySelector('[data-total="salidas"]')?.textContent ?? "", /RD\$\s?\d/);
   });
 
@@ -489,7 +489,7 @@ describe("the gate", () => {
     await chooseRecordKind(page, "venta");
     assert.equal(empty()?.querySelector("h3")?.textContent, "No hay ventas en esta selección");
     assert.equal(empty()?.querySelector("button"), null);
-    assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"] dd')?.textContent, "-sin dato", "no row names a currency, so the zero is not shown as pesos");
+    assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"] dd')?.textContent, "-Sin dato", "no row names a currency, so the zero is not shown as pesos");
   });
 
   test("Salidas is the server's own total; a personal gasto stays listed, with no chip, and out of it", async () => {
@@ -602,7 +602,7 @@ describe("Transacciones table", () => {
     await page.settle(() => page.row("mv-nube") !== null, "Todas");
     const cell = (id: string, col: string) => page.row(id)!.querySelector<HTMLElement>(`[data-col="${col}"]`)!;
     assert.equal(cell("mv-colmado", "category").querySelector('[aria-hidden="true"]')?.textContent, "-");
-    assert.match(cell("mv-colmado", "category").textContent ?? "", /sin dato/);
+    assert.match(cell("mv-colmado", "category").textContent ?? "", /Sin dato/);
     assert.ok(!page.body().includes("—"), "the movements table never shows the long dash");
     assert.match(cell("mv-verificacion", "gross_amount").textContent ?? "", /0\.00/);
     assert.doesNotMatch(cell("mv-verificacion", "gross_amount").querySelector('[aria-hidden="true"]')?.textContent ?? "", /[-−—+]/);
@@ -627,8 +627,8 @@ describe("Transacciones table", () => {
     await page.ready();
     const row = page.row("l1")!;
     assert.match(row.querySelector('[data-col="counterparty"]')?.textContent ?? "", /COMPRA POS COLMADO/);
-    assert.match(row.querySelector('[data-col="funding"]')?.textContent ?? "", /sin dato/);
-    assert.match(row.querySelector('[data-col="category"]')?.textContent ?? "", /sin dato/);
+    assert.match(row.querySelector('[data-col="funding"]')?.textContent ?? "", /Sin dato/);
+    assert.match(row.querySelector('[data-col="category"]')?.textContent ?? "", /Sin dato/);
     assert.match(document.querySelector('[data-testid="transacciones-summary"] [data-total="entradas"]')?.textContent ?? "", /RD\$ 0\.00/, "a known zero in the server's block");
     assert.match(page.screen()?.textContent ?? "", /Banco al día hasta el/);
   });
@@ -754,7 +754,7 @@ describe("Transacciones currency", () => {
     } };
     const page = await mount({ transacciones: older, businessCurrency: "DOP" });
     await page.ready();
-    assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="igualadas"] dd')?.textContent, "-sin dato");
+    assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="igualadas"] dd')?.textContent, "-Sin dato");
     assert.equal(menu(), null, "a server that does not follow a currency offers no menu");
   });
 
@@ -803,7 +803,7 @@ describe("Transacciones currency", () => {
     assert.match(document.querySelector('[data-record-id="venta-1"]')?.textContent ?? "", /Venta/);
     assert.equal(document.querySelector('[data-record-id="venta-1"]')?.className.includes("cursor-pointer"), false, "a venta with no receipt or draft has no record to open");
     assert.equal(document.querySelector('[data-record-id="venta-2"]')?.className.includes("cursor-pointer"), true);
-    assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="entradas"] dd')?.textContent, "-sin dato");
+    assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="entradas"] dd')?.textContent, "-Sin dato");
   });
 });
 

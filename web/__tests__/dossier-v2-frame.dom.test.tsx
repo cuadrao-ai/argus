@@ -75,6 +75,17 @@ async function mount({ fetchFile, detailsCard, dossier, receipt, readReceipt, si
   return { act, all, tabs, tab, panelOf, button, click, sent, opened, resizes, close, text: () => document.body.textContent ?? "" };
 }
 
+const photoOrigin = {
+  channel: "whatsapp",
+  sent_by: { id: "s1", kind: "whatsapp", phone_last4: "0142" },
+  received_at: "2026-11-19T13:41:00Z",
+  filename: "foto-0412.jpg",
+  size_bytes: 1_258_291,
+} as const;
+
+const photoSource = { id: "original", kind: "attachment", connection_id: "receipt-original", media_type: "image/jpeg",
+  channel: photoOrigin.channel, received_at: photoOrigin.received_at, filename: photoOrigin.filename } as const;
+
 async function fiscalDossier(over: Partial<BusinessDossier> = {}): Promise<BusinessDossier> {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.fiscal);
   return { ...dossier, review_flags: [], duplicate_candidates: [], blockers: [], approval_available: true, approval_action: "record_expense", bandeja_group: { group: "listo", reason: null, label: "ready" }, listo_gaps: [], confirmable: [], ...over };
@@ -93,7 +104,7 @@ const attention = (gaps: readonly ListoGap[], confirmable: readonly ListoGap[] =
 };
 
 function receiptOf(dossier: BusinessDossier, over: Partial<ReceiptDetail> = {}): ReceiptDetail {
-  return { id: `receipt-${dossier.draft_id}`, draft_id: dossier.draft_id, version: dossier.version, merchant: dossier.facts.counterparty.value, filename: "foto-0412.jpg", media_type: "image/jpeg", channel: "whatsapp", received_at: "2026-11-19T13:41:00Z", size_bytes: 1_258_291, status: "review_ready", enterable: true, preparable: false, attention: null, activity: { state: "ready", unread: false }, bandeja: { por_revisar: true, con_problema: false, leyendo: false }, bandeja_group: { ...dossier.bandeja_group, draft_id: dossier.draft_id, version: dossier.version }, sent_by: { id: "s1", kind: "whatsapp", phone_last4: "0142" }, amount: "4720.00", currency: "DOP", occurred_on: "2026-11-18", ...over } as unknown as ReceiptDetail;
+  return { id: `receipt-${dossier.draft_id}`, draft_id: dossier.draft_id, version: dossier.version, merchant: dossier.facts.counterparty.value, ...photoOrigin, media_type: photoSource.media_type, status: "review_ready", enterable: true, preparable: false, attention: null, activity: { state: "ready", unread: false }, bandeja: { por_revisar: true, con_problema: false, leyendo: false }, bandeja_group: { ...dossier.bandeja_group, draft_id: dossier.draft_id, version: dossier.version }, amount: "4720.00", currency: "DOP", occurred_on: "2026-11-18", ...over } as unknown as ReceiptDetail;
 }
 
 /** Words another lane owns: read from the locale, so this suite follows them. */
@@ -108,10 +119,11 @@ describe("the v2 dossier frame", () => {
   };
 
   for (const size of ["regular", "narrow"] as const) test(`Ver opens the backing file, then the strip returns to the receipt in ${size}`, async () => {
-    const dossier = await fiscalDossier({ supporting_files: [support], sources: [{
-      kind: "attachment", id: "original", channel: "web", connection_id: "receipt-original", filename: "comprobante.jpg",
-      media_type: "image/jpeg", received_at: "2026-10-10T10:00:00Z",
-    }] });
+    const original = { ...photoSource, channel: "web" as const, filename: "comprobante.jpg" };
+    const dossier = await fiscalDossier({
+      supporting_files: [support], original_connection_id: original.connection_id, sources: [original],
+      origin: { ...photoOrigin, channel: original.channel, filename: original.filename, sent_by: null },
+    });
     const previousFetch = globalThis.fetch;
     const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
     process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
@@ -273,12 +285,21 @@ describe("the v2 dossier frame", () => {
     } finally { await page.close(); }
   });
 
+  test("Detalles distinguishes a typed web note from a file upload", async () => {
+    const dossier = await fiscalDossier({ original_connection_id: null, origin: { ...photoOrigin, channel: "note", filename: null, size_bytes: null } });
+    const page = await mount({ dossier, size: "regular" });
+    try {
+      await page.click(page.tab("Detalles"));
+      assert.equal(page.panelOf("detalles")?.querySelector('[data-fact="channel"] > span:nth-child(3)')?.textContent, "Escrito aquí");
+    } finally { await page.close(); }
+  });
+
   for (const [sentBy, shown] of [
     [{ id: "member:someone", kind: "member", person: { display_name: "Marisol Peña", shown_as: "name" } }, "Marisol Peña"],
     [{ id: "whatsapp:link", kind: "whatsapp", phone_last4: "1234" }, "···1234"],
   ] as const) test(`Detalles shows WhatsApp under Canal and ${shown} under Enviado por`, async () => {
-    const dossier = await fiscalDossier();
-    const page = await mount({ dossier, receipt: receiptOf(dossier, { sent_by: sentBy }), size: "regular" });
+    const dossier = await fiscalDossier({ origin: { ...photoOrigin, sent_by: sentBy } });
+    const page = await mount({ dossier, receipt: receiptOf(dossier), size: "regular" });
     try {
       await page.click(page.tab("Detalles"));
       const details = page.panelOf("detalles");
@@ -288,7 +309,7 @@ describe("the v2 dossier frame", () => {
   });
 
   test("Datos fiscales, Detalles and Historial each hold their own content", async () => {
-    const dossier = await fiscalDossier();
+    const dossier = await fiscalDossier({ origin: photoOrigin });
     const page = await mount({ dossier, receipt: receiptOf(dossier), size: "regular" });
     try {
       await page.click(page.tab("Datos fiscales"));
@@ -393,7 +414,7 @@ describe("the dossier's status is the server's", () => {
 
 describe("accepting a record that is not Listos", () => {
   test("a source receipt is displayed even when there are no separate supporting files", async () => {
-    const dossier = await fiscalDossier({ supporting_files: [] });
+    const dossier = await fiscalDossier({ supporting_files: [], original_connection_id: photoSource.connection_id, origin: photoOrigin, sources: [photoSource] });
     const page = await mount({ dossier, receipt: receiptOf(dossier) });
     try {
       await page.click(page.tab("Documento"));

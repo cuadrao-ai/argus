@@ -49,6 +49,7 @@ export default function ReceiptSourcePreview({ detail, initialExpanded = false, 
   const channelLabel = useChannelLabel();
   const deliveries = detail.email_delivery_ids?.length ?? 0;
   // The API lists deliveries earliest first; the first one is where the file first arrived by email.
+  const name = detail.filename ?? t("business.document_delete.unnamed");
   const firstEmail = detail.email_delivery_ids?.[0];
   const arrival = showArrivalContext && detail.channel && detail.received_at ? { channel: detail.channel, receivedAt: detail.received_at } : null;
   const [expanded, setExpanded] = useState(initialExpanded);
@@ -78,8 +79,8 @@ export default function ReceiptSourcePreview({ detail, initialExpanded = false, 
       </div>
       <figcaption className={`${expanded ? "" : "hidden desktop:block"} mt-3 px-1 text-[13px] text-black/60 dark:text-white/60`}>
         <div className="flex items-center justify-between gap-2">
-          <span className="min-w-0 break-all">{detail.filename ?? t("business.review.source", "Original receipt")}</span>
-          {current.kind === "ready" ? <a href={current.url} download={detail.filename ?? "receipt"} className={`${quietButtonClass} shrink-0 px-3`}><Download className="h-4 w-4" aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
+          <span className="min-w-0 break-all">{name}</span>
+          {current.kind === "ready" ? <a href={current.url} download={name} className={`${quietButtonClass} shrink-0 px-3`}><Download className="h-4 w-4" aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
         </div>
         {arrival || detail.channel === "email" && firstEmail ? <p data-testid="receipt-source-channel">
           {arrival ? arrival.channel === "email" ? t("business.dossier.arrived_by_email", "Arrived by email") : channelLabel(arrival.channel) : null}

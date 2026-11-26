@@ -63,6 +63,7 @@ from argus.domain.business.contracts.dgii import (
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
     ApprovalResult,
+    AttachmentSource,
     BandejaStanding,
     Blocker,
     BusinessDossier,
@@ -88,7 +89,13 @@ from argus.domain.business.document_type import DocumentType, direction, kind_di
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers, record_note
 from argus.domain.business.fiscal_identity import identity_digits
-from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
+from argus.domain.business.people import (
+    actor_ids,
+    actor_view,
+    named,
+    named_deletion,
+    people,
+)
 from argus.domain.business.purchase_review import (
     blank_answer,
     declaration_from_facts,
@@ -100,12 +107,19 @@ from argus.domain.business.purchase_review import (
     takes_purchase_declaration,
 )
 from argus.domain.business.receipts import draft_row
+from argus.domain.business.record_origin import (
+    OriginUpload,
+    UploadIntake,
+    record_origins,
+    with_source_channels,
+)
 from argus.domain.business.review_flags import amounts_check, review_flags
 from argus.domain.business.rnc_registry import (
     DgiiRncRegistry,
     RncRegistrySnapshot,
     RncRegistryStatus,
 )
+from argus.domain.business.sent_by import member_sender
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.receipt_review import duplicate_warning
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
@@ -597,6 +611,7 @@ def dossier(
     )
     source_rows = tx.rows(
         "select s.id,s.kind,s.channel,s.received_at,s.text_content,s.connection_id,d.draft,c.lease_until,"
+        f" {OWN_SOURCE_SQL} as own,"
         " exists (select 1 from public.business_draft_sources l2"
         " join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
         " where l2.space_id=l.space_id and s2.connection_id=s.connection_id and l2.draft_id<>l.draft_id"
@@ -620,6 +635,7 @@ def dossier(
                 connection_id=row["connection_id"],
                 filename=metadata.get("filename"),
                 media_type=metadata["media_type"],
+                received_at=metadata["created_at"],
             )
         else:
             value["text"] = row["text_content"]
@@ -753,8 +769,41 @@ def dossier(
         if event.state == "accepted" and event.activity_id
         else None
     )
-    return BusinessDossier(
+    primary = next(
+        (item for item in source_rows if item["own"] and item["kind"] == "attachment"),
+        None,
+    )
+    has_files = any(isinstance(item, AttachmentSource) for item in evidence)
+    intake = (
+        UploadIntake.stored(tx)
+        if has_files or duplicate_ids or repeated
+        else UploadIntake(frozenset(), {})
+    )
+    source = None
+    message_senders = {}
+    if primary:
+        source = OriginUpload.model_validate(primary["draft"])
+    elif evidence:
+        source = next((item for item in evidence if not isinstance(item, AttachmentSource)), None)
+        if source:
+            actor = next(
+                (entry["actor"] for entry in history if source.id in entry["source_ids"]),
+                None,
+            )
+            if actor and actor["actor_kind"] == "member":
+                actor_id = actor["actor_id"]
+                message_senders[str(source.id)] = member_sender(actor_id, named(found, actor_id))
+    origin = None
+    if source:
+        [origin] = record_origins(tx, [source], intake, message_senders).values()
+    title = origin.filename if origin else None
+    if isinstance(facts.counterparty, Known):
+        title = facts.counterparty.value
+    dossier = BusinessDossier(
         **DetailReadiness.from_codes(row.missing if row else (), gaps).model_dump(),
+        origin=origin,
+        title=title,
+        original_connection_id=primary["connection_id"] if primary else None,
         deleted=deleted,
         delete_available=delete_available,
         restore_available=deleted is not None
@@ -830,3 +879,4 @@ def dossier(
         rnc_registry_status=registry_status,
         **draft_marks(tx, draft_id, facts),
     )
+    return with_source_channels(dossier, intake)

@@ -105,7 +105,7 @@ test("six groups, in the order Gastos, Ventas, Recibos, Cuentas, Correos, Remite
     assert.equal(button("Ventas", "[data-group-reveal]")?.textContent, "Ver más (1)");
     assert.equal(button("Ventas", "[data-group-load]"), null, "nothing to fetch while rows are hidden");
     const email = group("Correos")!.textContent ?? "";
-    assert.ok(email.includes("-"), `an email with no subject or sender shows a short dash: ${email}`);
+    assert.ok(email.includes("Sin dato"), `an email with no subject or sender shows the empty value: ${email}`);
     assert.ok(!email.includes("—"), "never the long dash");
     assert.ok(!/\b0\b/.test(group("Recibos")!.textContent ?? ""), "an unknown receipt amount is never 0");
     assert.ok((group("Recibos")!.textContent ?? "").includes("-"));

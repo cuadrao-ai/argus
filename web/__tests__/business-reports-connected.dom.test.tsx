@@ -328,14 +328,14 @@ test("chosen purchase columns use the server's name, missing word and a dash for
   assert.ok(!headings.includes("category") && !headings.includes("detail") && headings.includes("expense_type"), "the optional purchase field replaces the removed table fields");
   assert.equal(document.querySelector('th[data-col="expense_type"]')?.textContent, "Tipo de gasto");
   assert.equal(document.querySelector('th[data-col="payment_form"]'), null, "Forma de pago starts hidden");
-  assert.equal(cell(1, "expense_type")?.textContent, "-sin dato");
+  assert.equal(cell(1, "expense_type")?.textContent, "-Sin dato");
   assert.equal(cell(3, "expense_type")?.textContent, "Gastos por trabajos, suministros y servicios");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   await page.click([...document.querySelectorAll('button[role="radio"]')].find((node) => node.textContent === "Columnas"));
   await page.click(document.querySelector('[data-column-setting="payment_form"] label'));
   await page.settle(() => document.querySelector('th[data-col="payment_form"]') !== null);
   assert.equal(document.querySelector('th[data-col="payment_form"]')?.textContent, "Forma de pago");
-  assert.equal(cell(1, "payment_form")?.textContent, "-sin dato");
+  assert.equal(cell(1, "payment_form")?.textContent, "-Sin dato");
   assert.equal(cell(3, "payment_form")?.textContent, "Efectivo");
   const request = restoreReportLocation(new URL(window.location.href).searchParams).request;
   assert.deepEqual(request.schema_version === 2 ? request.presentation?.hidden : null, ["attachment"], "the chosen columns travel with the saved presentation");
@@ -358,7 +358,7 @@ test("Filtros offers Tipo de gasto from the server's catalogue plus Falta, and s
   assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Tipo de gasto · Falta/);
   // 21 of the 126 fixture rows are purchases still missing their tipo de gasto.
   await page.settle(() => document.querySelectorAll("tbody tr").length === 21);
-  assert.ok([...document.querySelectorAll('tbody tr td[data-col="expense_type"]')].every((node) => node.textContent === "-sin dato"));
+  assert.ok([...document.querySelectorAll('tbody tr td[data-col="expense_type"]')].every((node) => node.textContent === "-Sin dato"));
 });
 
 test("opening an old document filter preserves the purchase scope and its credit notes", async () => {
@@ -696,7 +696,7 @@ test("a failed filtered request hides the prior Fiscal count", async () => {
   await page.type(document.querySelector('input[type="search"]')!, "no matches");
   await page.settle(() => document.querySelector('[role="alert"]') !== null);
   assert.notEqual(fiscalCount(), "30");
-  assert.equal(fiscalCount(), "-sin dato");
+  assert.equal(fiscalCount(), "-Sin dato");
   assert.equal(fiscalCard().disabled, true);
 });
 
@@ -821,7 +821,7 @@ test("a currency-filtered six-card answer clears old figures while loading and s
   } finally { await act(async () => release()); }
   await page.settle(() => document.querySelector('[data-empty-kind="no_results"]') !== null);
   assert.deepEqual(shelfMoney(), [null, null, null, null]);
-  for (const metric of ["total", "itbis", "goods", "services"]) assert.match(document.querySelector(`[data-overview-card="${metric}"]`)!.textContent!, /-sin dato/);
+  for (const metric of ["total", "itbis", "goods", "services"]) assert.match(document.querySelector(`[data-overview-card="${metric}"]`)!.textContent!, /-Sin dato/);
   assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "0");
   assert.equal(fiscalCount(), "0");
   assert.equal(fiscalCard().disabled, true);

@@ -11,6 +11,7 @@ import styles from "../transacciones/records-filter-preview.module.css";
 import { BusinessContext, useReceivingChannels } from "../business-context";
 import { businessTypedNotesAvailable } from "@/lib/business-api";
 import { CHANNEL_ICON, CHANNELS } from "../foundation/channel-icons";
+import { receptionChannelKey } from "./reception-model";
 import { emptyReceptionFilters, type ReceptionFiltersValue, type SenderOption } from "./reception-filters";
 import receptionStyles from "./reception.module.css";
 
@@ -50,7 +51,7 @@ function FilterEditor({ senders, value, onChange, close, phone = false }: Props 
     {!phone || !choosing ? <section className={styles.editor} role={phone ? undefined : "tabpanel"} aria-label={word(group)}>
       {phone ? <button ref={back} type="button" className={styles.clear} onClick={() => setChoosing(true)}><ArrowLeft size={18} aria-hidden="true" />{shared("back")}</button> : null}
       <div className="flex items-center justify-between gap-3"><h3 className={styles.heading}>{word(group)}</h3><button type="button" className={styles.clear} onClick={() => setDraft({ ...draft, [group === "source" ? "channels" : "senders"]: [] })}>{word("clear_group")}</button></div>
-      {group === "source" ? <RecordsFilterSelection options={offered.map((value) => { const Icon = CHANNEL_ICON[value]; return { value, label: word(`source_${value}`), icon: <Icon size={17} aria-hidden="true" /> }; })} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : <>
+      {group === "source" ? <RecordsFilterSelection options={offered.map((value) => { const Icon = CHANNEL_ICON[value]; return { value, label: t(receptionChannelKey(value)), icon: <Icon size={17} aria-hidden="true" /> }; })} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : <>
         <input type="search" className={`${styles.input} ${receptionStyles.filterSearch}`} data-compact={!phone} aria-label={word("sender_search")} placeholder={word("sender_search")} value={query} onChange={event => setQuery(event.target.value)} />
         <RecordsFilterSelection options={senders.map(sender => ({ value: sender.id, label: sender.name }))} selected={draft.senders} query={query} keepSelectedVisible onChange={senders => setDraft({ ...draft, senders })} />
       </>}
@@ -78,7 +79,7 @@ export function ReceptionFilterChips({ value, senders, onChange }: Props) {
   const word = (key: string) => t(`business.reception_preview.${key}`);
   const groups = ["channels", "senders"] as const;
   return <div className={`${styles.chips} ${receptionStyles.filterChips}`} data-testid="reception-filter-chips">{groups.flatMap(group => value[group].map(id => {
-    const label = group === "channels" ? word(`source_${id}`) : senders.find(sender => sender.id === id)?.name || word("sender");
+    const label = group === "channels" ? t(receptionChannelKey(id)) : senders.find(sender => sender.id === id)?.name || word("sender");
     return <button type="button" key={`${group}:${id}`} className={styles.chip} aria-label={t("business.reception_preview.remove_filter", { label })} onClick={() => onChange({ ...value, [group]: value[group].filter(item => item !== id) })}><span>{label}</span><X size={14} aria-hidden="true" /></button>;
   }))}{groups.some(group => value[group].length) ? <button type="button" className={styles.clear} onClick={() => onChange(emptyReceptionFilters())}>{word("clear")}</button> : null}</div>;
 }

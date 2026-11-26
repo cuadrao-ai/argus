@@ -10,10 +10,11 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
 from argus.domain.business.bandeja_group import Attention
 from argus.domain.business.contracts.deletion import DeletedDocument, deletion
+from argus.domain.business.contracts.dossier import RecordOrigin
 from argus.domain.business.contracts.facts import BusinessResolution, Known
 from argus.domain.ingestion.documents.failures import READ_DEADLINE_PASSED
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
@@ -24,8 +25,6 @@ from argus.domain.ingestion.receipt_review import (
     receipt_review,
 )
 
-# ``email`` is set at the API boundary from the email queue, never stored on the draft.
-Channel = Literal["web", "whatsapp", "email"]
 REVIEW_FIELDS = (
     "merchant",
     "occurred_on",
@@ -126,7 +125,7 @@ _UPDATE_KINDS: Mapping[str, str] = {
 class Receipt:
     draft: DocumentDraft
     review: ReceiptReview
-    channel: Channel
+    captured: bool
     read_pending: bool
     entered_by_owner: bool = False
     # Deliveries this document arrived in; set at the API boundary from the email queue.
@@ -236,17 +235,14 @@ class Receipt:
             return list(UNREAD_NEEDS)
         return [name for name in self.review.missing if name in REVIEW_FIELDS]
 
-    def summary(self) -> dict[str, Any]:
+    def summary(self, origin: RecordOrigin) -> dict[str, Any]:
         return {
             "id": self.id,
-            "channel": self.channel,
+            **origin.model_dump(),
             "email_delivery_ids": list(self.email_delivery_ids),
             "email_original": self.email_original,
-            "filename": self.draft.filename,
             "source_text": self.draft.source_text,
             "media_type": self.draft.media_type,
-            "size_bytes": self.draft.size_bytes,
-            "received_at": self.draft.created_at,
             "status": self.status,
             "deleted": self.deleted,
             "delete_available": all(
@@ -265,9 +261,9 @@ class Receipt:
             **review_fields(self.review),
         }
 
-    def detail(self) -> dict[str, Any]:
+    def detail(self, origin: RecordOrigin) -> dict[str, Any]:
         return {
-            **self.summary(),
+            **self.summary(origin),
             "version": self.version,
             "draft_id": self.review.event_id,
             "evidence": None if self.entered_by_owner else evidence(self.review),
@@ -360,8 +356,8 @@ def compose(
     draft: DocumentDraft,
     batch: ExtractionBatch | None,
     events: Iterable[Mapping[str, Any]],
-    channel: Channel,
     *,
+    captured: bool = False,
     read_pending: bool,
 ) -> Receipt:
     # Lazy: the action package imports this module.
@@ -379,7 +375,7 @@ def compose(
     return Receipt(
         draft,
         review,
-        channel,
+        captured,
         read_pending=read_pending,
         entered_by_owner=entered,
         deleted=marker,
@@ -419,7 +415,7 @@ def evidence(review: ReceiptReview) -> dict[str, Any] | None:
 def updates(
     receipts: Iterable[Receipt],
     confirmed_at: Mapping[str, datetime],
-    views: Mapping[str, Mapping[str, Any]] | None = None,
+    views: Mapping[str, Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     """Newest first. ``confirmed_at`` maps an expense id to when it was recorded.
     ``views`` are the receipts' overlaid summaries by id: when a receipt has
@@ -427,7 +423,9 @@ def updates(
 
     items = []
     for receipt in receipts:
-        view = (views or {}).get(receipt.id) or receipt.summary()
+        if receipt.id not in views:
+            continue
+        view = views[receipt.id]
         kind = _UPDATE_KINDS.get(view["status"])
         if kind is None:
             continue
@@ -443,7 +441,7 @@ def updates(
                 "expense_id": expense_id,
                 "error_code": view["error_code"],
                 "attention": view["attention"],
-                "label": view["merchant"] or receipt.draft.filename,
+                "label": view["merchant"] or view["filename"],
             }
         )
     return sorted(items, key=lambda item: item["occurred_at"], reverse=True)

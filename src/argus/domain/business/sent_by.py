@@ -2,37 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Literal
 from uuid import UUID
 
-from pydantic import model_validator
-
-from argus.domain.business.contracts.authority import PersonName
-from argus.domain.business.contracts.facts import Contract
+from argus.domain.business.contracts.authority import PersonName, SentBy
 from argus.domain.business.people import named, people
 from argus.domain.ingestion.email_intake.alignment import bare_address
-
-
-class SentBy(Contract):
-    """A person's sender id is shared across channels. An unnamed WhatsApp sender shows only the last four digits."""
-
-    id: str
-    kind: Literal["member", "email", "whatsapp"]
-    #: The member, named for the viewer as ``people`` reads them.
-    person: PersonName | None = None
-    address: str | None = None
-    phone_last4: str | None = None
-
-    @model_validator(mode="after")
-    def _one_sender(self) -> SentBy:
-        shown = {
-            "member": self.person,
-            "email": self.address,
-            "whatsapp": self.phone_last4,
-        }
-        if [kind for kind, value in shown.items() if value is not None] != [self.kind]:
-            raise ValueError("a sender carries exactly what its kind names")
-        return self
 
 
 def member_sender(actor_id: UUID | str, person: PersonName) -> SentBy:

@@ -3,7 +3,6 @@
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { recordGone, referenceCode, refusedForGood } from "@/lib/failure-screen";
-import { sentByName } from "@/lib/sent-by";
 import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
@@ -115,7 +114,7 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
   );
 }
 
-export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepared, receipt, notice, readLanded }: { detailsCard?: DossierDetailsCard; draftId: string; readLanded?: boolean; onUnprepared?: () => void; receipt?: ReceiptDetail; notice?: ReactNode }) {
+export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepared, receipt, notice, readLanded }: { detailsCard?: DossierDetailsCard; draftId: string; readLanded?: boolean; onUnprepared?: () => void; receipt?: Pick<ReceiptDetail, "id" | "activity"> & { draftVersion: number }; notice?: ReactNode }) {
   const { t } = useTranslation();
   const primaryKeys = usePrimaryKeys();
   const { source, reload, records, openPanel, guardPanel, panel, chosen } = useBusiness();
@@ -125,18 +124,22 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const landing = useReadLanding(readLanded ? dossier?.draft_id ?? null : null);
   const canDelete = dossier?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
+  const title = dossier?.title ?? t("business.document_delete.unnamed");
+  const files = dossier?.supporting_files ?? [];
+  const attachments = dossier?.sources.filter(item => item.kind === "attachment").filter(item => !files.some(file => file.source_id === item.id)) ?? [];
+  const original = attachments.find(item => item.connection_id === dossier?.original_connection_id);
   const deletion = useDocumentDelete(canDelete && dossier ? {
     id: draftId,
-    name: dossier.facts.counterparty.value || receipt?.filename || t("business.document_delete.unnamed"),
+    name: title,
     merchant: dossier.facts.counterparty.value,
     family: documentFamily(dossier.document_type),
     date: dossier.facts.occurred_on.value,
     amount: dossier.facts.amount.value,
     currency: dossier.facts.currency.value,
-    filename: receipt?.filename ?? dossier.sources.find(item => item.kind === "attachment")?.filename ?? null,
+    filename: dossier.origin?.filename ?? null,
     state: dossier.bandeja_group?.label ? t(`business.bandeja.label.${dossier.bandeja_group.label}`) : null,
     accepted: dossier.review_state === "accepted",
-    receipt,
+    receipt: original ? { id: original.connection_id, media_type: original.media_type } : undefined,
   } : null, { initialPreview: origin?.confirmDelete === true });
   const [unavailable, setUnavailable] = useState(false);
   const [operation, setOperation] = useState<Operation>({ kind: "idle" });
@@ -418,15 +421,9 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const canPrepare = dossier.capabilities.includes("prepare");
   const canApprove = dossier.capabilities.includes("approve");
   const line = approvalLine(canApprove, canPrepare);
-  const files = dossier.supporting_files ?? [];
-  const primarySources = dossier.sources.filter(item => !files.some(file => file.source_id === item.id));
   const canViewFile = !!annotations.readFile;
   const viewableFiles = canViewFile ? files.filter(file => file.state === "linked") : [];
   const viewed = pickedFile === undefined ? viewableFiles[0] : viewableFiles.find(file => file.source_id === pickedFile);
-  const attachments = primarySources.filter(item => item.kind === "attachment");
-  // Line one is who issued it; a record nobody named yet goes by its file.
-  const sourceName = recorded ? attachments[0]?.filename : receipt?.filename ?? attachments[0]?.filename;
-  const title = dossier.facts.counterparty.state === "known" ? dossier.facts.counterparty.value : sourceName ?? t("business.dossier.title", "Review record");
   const busy = annotations.busy || duplicateBusy || autosave.busy || refreshing || operation.kind === "approving";
   const saveHolds = autosave.busy || autosave.failed || holdsEdits;
   const reviewing = dossier.review_state === "open" && !dossier.deleted;
@@ -487,7 +484,6 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const hasNext = position !== null && position.index < position.total;
   // Accepting the last of a run leaves the run; with no list there is nowhere to move on to, so the record stays open.
   const leavesRun = Boolean(receipt && reviewList);
-  const firstSource = primarySources[0];
   const fiscalFacts = dossier.facts.fiscal;
   const fiscalEdit: Record<"rnc" | "fiscal_number" | "itbis", { name: "rnc" | "ncf" | "itbis"; value: string }> = {
     rnc: { name: "rnc", value: fiscalFacts?.rnc.value ?? "" },
@@ -547,10 +543,6 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
   const failedSave = (row: ReviewRow) => { const save = autosave.saves[row]; return save?.state === "failed" ? save : undefined; };
   const rowNote = (row: ReviewRow) => <ReceiptRowSave save={failedSave(row)} onRetry={() => rows.retry(row)} />;
   const choiceNote = (choice: ReportChoice) => <ReceiptRowSave save={failedSave(choice)} onRetry={() => void autosave.retry(choice)} onCancel={() => autosave.clear(choice)} />;
-  // Where it came from: the receipt's own row when there is one, else the record's first source.
-  const cameFrom = receipt
-    ? { channel: receipt.channel, sentBy: receipt.sent_by ? sentByName(t, receipt.sent_by) : null, receivedAt: receipt.received_at, filename: receipt.filename, sizeBytes: receipt.size_bytes }
-    : firstSource ? { channel: firstSource.channel, receivedAt: firstSource.received_at, filename: firstSource.kind === "attachment" ? firstSource.filename : null } : {};
   const head = {
     recordId: receipt?.id ?? draftId,
     back: recorded ? "transactions" as const : "inbox" as const,
@@ -601,7 +593,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
     </div> : null}
   </> : null;
   const noSource = !attachments.length && !dossier.sources.some((item) => item.kind === "message" || item.kind === "agent_proposal");
-  const [original, ...supporting] = attachments;
+  const supporting = attachments.filter(item => item !== original);
   const { onUnlink } = annotations;
   const removeFile = onUnlink && (async (sourceId: string) => {
     await onUnlink(sourceId);
@@ -663,10 +655,10 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
         </> },
         { key: "fiscal", content: <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen || markBusy || settling || deletion.busy} reviewFiscal={source.reviewFiscal} previewLinks={source.previewAmounts} montosCalculated={amountsPreview?.dgii_calculated} onBusy={setFiscalBusy} onDirty={trackFiscalEdits} onChanged={(value) => { setDossier(value); reload(); }} /> },
-        { key: "detalles", content: <DossierDetails entryVisit={entry.visit} origin={cameFrom} dossier={dossier} detailsCard={detailsCard} selectedSupportingSourceId={viewed?.source_id} receiptLimits={records.workspace?.receipt_limits} busy={annotations.busy || annotationBlocked}
+        { key: "detalles", content: <DossierDetails entryVisit={entry.visit} dossier={dossier} detailsCard={detailsCard} selectedSupportingSourceId={viewed?.source_id} receiptLimits={records.workspace?.receipt_limits} busy={annotations.busy || annotationBlocked}
           onSaveNote={annotations.onSaveNote} onNoteDirty={setNoteDirty} onAppend={annotations.onAppend} onUnlink={removeFile} onRestore={annotations.onRestore}
           onViewFile={canViewFile ? sourceId => { pickFile(sourceId); if (!tray || tray.narrow) setTab("documento"); } : undefined} /> },
-        { key: "historial", content: <ReceiptHistory supportingFiles={files} documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} dgiiFields={fields} salePaymentForms={dossier.sale_payment?.options} /> },
+        { key: "historial", content: <ReceiptHistory origin={dossier.origin} supportingFiles={files} documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} dgiiFields={fields} salePaymentForms={dossier.sale_payment?.options} /> },
       ]}
       document={
         <DossierDocument
@@ -674,7 +666,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
           supporting={viewableFiles}
           selected={viewed}
           onPick={pickFile}
-          file={original ? { id: original.connection_id, filename: original.filename, media_type: original.media_type, channel: original.channel, email_delivery_ids: original.email_delivery_ids } : null}
+          file={original ? { id: original.connection_id, filename: dossier.origin?.filename ?? null, media_type: original.media_type, channel: dossier.origin?.channel, email_delivery_ids: original.email_delivery_ids } : null}
           extra={supporting.length || !noSource && !original || dossier.sources.some((item) => item.kind !== "attachment") ? <>
             {supporting.map((attachment) => <ReceiptSourcePreview key={attachment.id} initialExpanded detail={{ id: attachment.connection_id, filename: attachment.filename, media_type: attachment.media_type, received_at: attachment.received_at, channel: attachment.channel, email_delivery_ids: attachment.email_delivery_ids }} />)}
             <ReceiptMessages sources={dossier.sources} highlight={highlight} />
@@ -717,7 +709,7 @@ export default function ReceiptDossierReview({ detailsCard, draftId, onUnprepare
       onCancel={() => answerRetype(false)}
       onConfirm={() => answerRetype(true)}
     /> : null}
-    {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
+    {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === draftId && dossier.version === receipt.draftVersion} /> : null}
   </></ContentFade>
     {/* Every branch returns a fragment holding the keyed note dialog, so a denied save that hides the record keeps the typed text. */}
     {captureDialog}

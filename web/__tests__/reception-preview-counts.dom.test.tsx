@@ -211,7 +211,7 @@ test("a receipt still being read never carries the dot, and each channel keeps i
   assert.equal(row("Recibo en lectura").getAttribute("data-unseen"), "false");
   assert.equal(row("Recibo en lectura").querySelector('[data-testid="reception-channel"]')?.textContent, "Correo");
   assert.equal(row("Recibo admitido").querySelector('[data-testid="reception-channel"]')?.textContent, "WhatsApp");
-  assert.equal(row("Recibo con problema").querySelector('[data-testid="reception-channel"]')?.textContent, "Carga manual");
+  assert.equal(row("Recibo con problema").querySelector('[data-testid="reception-channel"]')?.textContent, "Carga web");
 });
 
 test("every row has one quiet Abrir, the row click does the same, and nothing else differs by state", async () => {
@@ -406,7 +406,7 @@ test("a WhatsApp receipt shows the sender the server sent, or none, never one in
     return shown;
   };
   assert.deepEqual(await sender({ id: "whatsapp:link", kind: "whatsapp", phone_last4: "4821" }), ["true", "···4821"]);
-  assert.deepEqual(await sender(null), ["false", "Desconocido"]);
+  assert.deepEqual(await sender(null), ["false", "Sin dato"]);
 });
 
 test("with Canal, Adjunto and Enviado por apart, a row's cells and focus stops come in the order its columns show", async () => {

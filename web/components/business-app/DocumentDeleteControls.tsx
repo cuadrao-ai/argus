@@ -14,11 +14,12 @@ import { randomId } from "@/lib/random-id";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { counterpartyTerm, documentFamily, type RecordFamily } from "@/lib/counterparty-term";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
-import { formatDay, formatMoney, todayIso, UNKNOWN_VALUE } from "./business-format";
+import { formatDay, formatMoney, todayIso } from "./business-format";
 import { resolveLanguage } from "@/lib/language-features";
 import { secondaryButtonClass, quietButtonClass } from "./business-ui";
 import { CONFIRM_ACTION, FOCUS_RING } from "./foundation/presentation";
 import { showToast } from "./foundation/toasts";
+import { Unknown } from "./transacciones/transacciones-parts";
 import { MenuItem } from "./ReceiptReviewFooter";
 
 export type DeleteDocumentTarget = {
@@ -34,7 +35,7 @@ export type DeleteDocumentTarget = {
   /** The server's Bandeja label in words; null when the server gave the document none. */
   state: string | null;
   accepted?: boolean;
-  receipt?: ReceiptSummary;
+  receipt?: Pick<ReceiptSummary, "id" | "media_type">;
 };
 
 export function receiptDeleteTarget(receipt: ReceiptSummary, state: string | null, unnamed: string): DeleteDocumentTarget {
@@ -48,7 +49,7 @@ export function documentPurgeDistance(purgeAt: string | null | undefined) {
   return dueDistance(todayIso(deadline), todayIso());
 }
 
-function DocumentThumbnail({ receipt }: { receipt?: ReceiptSummary }) {
+function DocumentThumbnail({ receipt }: { receipt?: Pick<ReceiptSummary, "id" | "media_type"> }) {
   const { source } = useBusiness();
   const [image, setImage] = useState<string | null>(null);
   useEffect(() => {
@@ -73,14 +74,15 @@ function DocumentThumbnail({ receipt }: { receipt?: ReceiptSummary }) {
 function DeleteFacts({ target, withState = true }: { target: DeleteDocumentTarget; withState?: boolean }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
+  const empty = t("business.dossier.row.no_data");
   const facts = {
-    counterparty: target.merchant || UNKNOWN_VALUE,
-    date: target.date ? formatDay(target.date, locale) : UNKNOWN_VALUE,
-    total: formatMoney(target.amount, target.currency, locale) || UNKNOWN_VALUE,
-    file: target.filename || UNKNOWN_VALUE,
+    counterparty: target.merchant || empty,
+    date: target.date ? formatDay(target.date, locale) : empty,
+    total: formatMoney(target.amount, target.currency, locale) || <Unknown />,
+    file: target.filename || empty,
     ...(withState && target.state ? { state: target.state } : {}),
   };
-  return <div className="mt-4 flex items-start gap-3" data-testid="document-delete-facts">
+  return <div className="mt-4 flex items-start gap-3" role="group" aria-label={target.name} data-testid="document-delete-facts">
     <DocumentThumbnail receipt={target.receipt} />
     <dl className="min-w-0 flex-1 space-y-2 text-[14px]">
       {Object.entries(facts).map(([key, value]) => <div key={key} className="flex flex-wrap justify-between gap-x-3"><dt className="text-[#56635e] dark:text-white/70">{key === "counterparty" ? counterpartyTerm(t, target.family) : t(`business.document_delete.fields.${key}`)}</dt><dd className={`min-w-0 break-words text-right ${key === "total" ? "cuadrao-amount tabular-nums" : ""}`}>{value}</dd></div>)}

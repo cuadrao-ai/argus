@@ -200,6 +200,13 @@ describe("Business hits open the panel that holds them", () => {
     expect(opened).toEqual([{ kind: "draft", draftId: "draft-2", list: "transactions" }, { kind: "expense", expenseId: "exp-3" }]);
   });
 
+  test("the email search hit labels its absent subject and sender with the shared empty value", async () => {
+    const { groups } = await businessSearch({ email_deliveries: [{ id: "delivery", sender: null, subject: null, received_at: "2026-10-07T14:00:00Z", state: "captured", inbox_group: null }] }, [], "es-419");
+    const hit = groups.find(group => group.id === "email_deliveries")!.hits[0];
+    assert.equal(hit.title, "Sin dato");
+    assert.match(hit.detail, /^Sin dato · /);
+  });
+
   test("a receipt opens its review and shows the file type it is", async () => {
     const receipt = {
       id: "rcpt-2",

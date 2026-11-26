@@ -8,6 +8,10 @@ import { bandejaEmails, openNotesByDraft, type BandejaEmail, type OpenNote } fro
 
 export type ReceptionView = "all" | "attention" | "listos" | "eliminados";
 export type ReceptionSource = ReceiptChannel | "note";
+export function receptionChannelKey(channel: string): string {
+  return channel === "web" ? "business.dossier.web" : `business.reception_preview.source_${channel}`;
+}
+
 export type ReceptionRow =
   | { kind: "receipt"; id: string; receivedAt: string; source: ReceiptChannel; receipt: ReceiptSummary }
   | { kind: "note"; id: string; receivedAt: string; source: "note"; note: OpenNote }

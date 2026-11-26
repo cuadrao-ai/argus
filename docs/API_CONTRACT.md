@@ -8684,6 +8684,14 @@ immutable before/after `history`, live `capabilities`, `blockers`,
 approve action this draft takes, by its kind (`record_expense`,
 `record_income`, `record_refund`, the `action` the approve route's body
 discriminates on), and null while `approval_available` is false.
+The dossier's `origin` gives the original upload's `channel`, `sent_by`, `received_at`,
+`filename` and `size_bytes`. The receipt summary carries the same five fields directly.
+`record_origins` reads both from the saved upload and its intake history for the current
+viewer. `original_connection_id` names the original upload to preview and is null for a message.
+Supporting files cannot supply the record's origin. For a message written on the web,
+`origin.channel` is `note`. A WhatsApp message keeps `whatsapp`. A message has no filename
+or size, and a record without a source has a null origin. The dossier's `title` is its
+known counterparty, then its original filename, and null when neither is known.
 The dossier exposes `facts_editable` for review writes. Open drafts require
 `prepare`. Accepted records require the owner. `document_type_editable` follows
 the same permission. `declaration_editable` also requires a purchase eligible

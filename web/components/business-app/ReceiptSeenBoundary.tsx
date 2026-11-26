@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { ReceiptDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 
-export default function ReceiptSeenBoundary({ receipt, hydrated }: { receipt: ReceiptDetail; hydrated: boolean }) {
+export default function ReceiptSeenBoundary({ receipt, hydrated }: { receipt: Pick<ReceiptDetail, "id" | "activity">; hydrated: boolean }) {
   const { source, reload } = useBusiness();
   const sentinel = useRef<HTMLDivElement>(null);
   const acknowledged = useRef<string | null>(null);

@@ -6,7 +6,7 @@
 
 ## One rule
 
-A receipt lives in one place. It is in Bandeja until it is approved. After that it is in Registros. Inicio only counts.
+A receipt lives in one place. It is in Bandeja until it is approved. After that it is in Registros. Inicio links a waiting row back to its record.
 
 | Stage | Where |
 | --- | --- |
@@ -15,43 +15,15 @@ A receipt lives in one place. It is in Bandeja until it is approved. After that 
 
 ## Bandeja
 
-Tabs: **Todos · Por resolver · Listos · Eliminados**. Bandeja opens on Todos. [Bandeja](../../.agent/designs/cuadrao-business-app/DESIGN.md#bandeja) in the design owns the tabs, the counts, the labels, the Estado column and Filtros.
-
-Columns: Contenido, Adjunto, Canal, Estado, Llegada, action. Enviado por, Monto and Moneda stay off by default and are available in the column menu. It is the Registros column menu with the same rule: no column is locked by name, and each tab keeps at least one menu column. Columns are fixed by position, not by name: the box and Contenido, the row's identity, stay first and the action stays last, and none of the three is in the menu. Every other column hides or moves. The layout is kept on the device. The row stays a table on normal laptops. Cards are for phone size only.
-
-Checkboxes are only on Listos, for owners.
-
-Every row has one action, **Abrir**. It opens the receipt, and a row click does the same, in every state. A receipt with no draft opens its original and its reason, with no form.
-
-Removed from live: En proceso, Más acciones.
+The [Bandeja design](../../.agent/designs/cuadrao-business-app/DESIGN.md#bandeja) owns the tabs, columns, filters and row actions.
 
 ### Listos
 
-A receipt is Listos only when the server confirms all of these:
-
-- The read finished, and nothing is missing from the six facts.
-- It has a valid NCF or e-CF.
-- It has an RNC with a valid check digit.
-- It has no duplicate ([Duplicados](../../.agent/designs/cuadrao-business-app/DESIGN.md#duplicados)) and no review flag.
-- Its sender is verified, if it came by email.
-
-Every other open receipt that has finished reading is in Por resolver. The dossier names its one reason. A failed read stays there, as [When a read fails](../../.agent/designs/cuadrao-business-app/DESIGN.md#when-a-read-fails) says. A receipt still reading is in no tab count and shows only on Todos. The sidebar still counts it, because it is a waiting row. The owner opens a receipt and approves it from the dossier. Listos only adds a faster way. A receipt with no NCF reaches Registros through this single approval.
-
-**Aprobar todos:** the owner selects rows or takes all of them, sees the count, and confirms. Only the owner sees this action. Nothing is approved without the owner. If some fail, the screen says which, and those stay in Listos. Selection does not change when a new receipt arrives.
+See [Bandeja tabs](../../.agent/designs/cuadrao-business-app/DESIGN.md#tabs), [labels](../../.agent/designs/cuadrao-business-app/DESIGN.md#labels) and [row actions](../../.agent/designs/cuadrao-business-app/DESIGN.md#rows).
 
 ## Dossier
 
-The base is the staging dossier: the original on one side, and Historial stays.
-
-**Step 1, six read facts:** supplier, date, total with currency, RNC, NCF or e-CF, ITBIS. Every fact is editable in place.
-
-**Step 2, two owner choices:** tipo de gasto (José's 11) and forma de pago (José's 7). Both are offered and neither blocks approval. Forma de pago is filled when the receipt prints it. Tipo de gasto is filled from the last choice for that RNC. The owner can change both.
-
-**Step 3, hidden:** other 606 fields sit closed under "Más datos fiscales".
-
-The top box lists only what blocks approval. An edit shows a saved state. Leaving with unsaved edits warns first. Clicking outside closes the dossier, with the same warning. Every refusal shows a clear message and a `Ref.`.
-
-Removed: Confirmar datos leídos, the Comprobante row, Consultar registro actual, and the old Categoría list. Personal stays for the design pass.
+See [Receipt detail](../../.agent/designs/cuadrao-business-app/DESIGN.md#receipt-detail) for the layout, the fields a person can edit and how a record is reviewed.
 
 ## Approval and the 606
 

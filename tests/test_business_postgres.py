@@ -356,7 +356,11 @@ def test_entry_by_hand_after_a_read_records_one_expense_across_tabs_and_a_restar
 def test_search_finds_the_business_expense_and_its_source_never_personal(
     rig: dict,
 ) -> None:
+    from argus.api.business import BusinessContext
+    from argus.api.business_drafts import search_with_drafts
+
     service, scope = rig["service"], rig["owner"]
+    context = BusinessContext(scope, service)
     accounts = service.accounts
     personal = accounts.create(
         user_id=scope.person_id,
@@ -383,7 +387,7 @@ def test_search_finds_the_business_expense_and_its_source_never_personal(
     receipt_id, version = _reviewed(rig)
     expense_id = service.confirm(scope, receipt_id, version, "k").review.expense_id
 
-    found = service.search(scope, parse("ferreteria"))
+    found = search_with_drafts(context, parse("ferreteria"))
 
     assert [(e["id"], e["receipt_id"]) for e in found["expenses"]] == [
         (expense_id, receipt_id)
@@ -393,11 +397,11 @@ def test_search_finds_the_business_expense_and_its_source_never_personal(
     assert media_type == "image/jpeg" and content.startswith(b"\xff\xd8")
     assert content != RECEIPT
     assert service.documents.store.source(user_id=scope.person_id, connection_id=receipt_id) == RECEIPT
-    assert [r["id"] for r in service.search(scope, parse("recibo"))["receipts"]] == [
+    assert [r["id"] for r in search_with_drafts(context, parse("recibo"))["receipts"]] == [
         receipt_id
     ]
-    assert [a["nickname"] for a in service.search(scope, parse("ops"))["accounts"]] == ["Ops"]
-    assert service.search(rig["other"], parse("ferreteria")) == {
+    assert [a["nickname"] for a in search_with_drafts(context, parse("ops"))["accounts"]] == ["Ops"]
+    assert search_with_drafts(BusinessContext(rig["other"], service), parse("ferreteria")) == {
         "expenses": [],
         "ventas": [],
         "receipts": [],

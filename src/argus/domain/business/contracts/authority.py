@@ -83,6 +83,28 @@ class PersonName(Contract):
         return self
 
 
+class SentBy(Contract):
+    """A person's sender id is shared across channels. An unnamed WhatsApp sender shows only the last four digits."""
+
+    id: str
+    kind: Literal["member", "email", "whatsapp"]
+    #: The member, named for the viewer as ``people`` reads them.
+    person: PersonName | None = None
+    address: str | None = None
+    phone_last4: str | None = None
+
+    @model_validator(mode="after")
+    def _one_sender(self) -> SentBy:
+        shown = {
+            "member": self.person,
+            "email": self.address,
+            "whatsapp": self.phone_last4,
+        }
+        if [kind for kind, value in shown.items() if value is not None] != [self.kind]:
+            raise ValueError("a sender carries exactly what its kind names")
+        return self
+
+
 class ActorView(Contract):
     """Who acted and who granted their access, each named live for the viewer."""
 
