@@ -11287,7 +11287,7 @@ accept path recorded.
   name, `required` says every file holds it (the name and Moneda), and `shown`
   says the modal offers it checked. The registry gives each column a file rule.
   `as_shown` follows the table's visibility. `always` is the name
-  (`counterparty`): the file holds it even while the table hides it. `default` is
+  (`counterparty`): the file writes the row’s `title` even while the table hides the column. `default` is
   Forma de pago on Compras: it is offered checked while the table hides it, and
   then it is the last column. The modal renders this list.
   `dgii` is null on Ventas, which offers only Lo que ves. On Compras it

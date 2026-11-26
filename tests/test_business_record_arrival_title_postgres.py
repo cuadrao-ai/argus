@@ -9,15 +9,19 @@ from argus.domain.business.ledger import business_day
 from faker import Faker
 from psycopg import Connection
 
+from tests import test_business_document_type_postgres as documents
 from tests import test_business_listos_postgres as listos
 from tests.business.test_business_api import RECEIPT
+from tests.business.test_records_file import xlsx
 from tests.test_business_approve_unpaid_postgres import _export, _report
+from tests.test_business_fiscal_routes_postgres import _lines, dgii_file, registros_export
 from tests.test_business_receipt_uploader_routes_postgres import _emailed
 from tests.test_financial_accounts_postgres import DSN
 
 pytestmark = listos.pytestmark
 people = listos.people
 rig = listos.rig
+web = documents.web
 
 
 def test_first_message_arrival_survives_later_file_processing(
@@ -111,7 +115,7 @@ def test_full_reviewed_title_survives_approval_and_finds_the_saved_record(
     titles = {
         "Bandeja": listos._row(rig, receipt)["title"],
         "dossier": dossier["title"],
-        "Registros": _report(rig)["counterparty"],
+        "Registros": _report(rig)["title"],
         "saved list": listed["merchant"],
         "saved detail": detail["merchant"],
         "saved search": next(
@@ -121,18 +125,36 @@ def test_full_reviewed_title_survives_approval_and_finds_the_saved_record(
     assert titles == dict.fromkeys(titles, counterparty)
 
 
-def test_registros_names_a_file_without_making_it_the_supplier(rig) -> None:  # noqa: ANN001
-    receipt = listos._read(rig, {"occurred_on": "2026-09-03"})
-    item = listos._named(rig, receipt)
-    reviewed = listos._review(
-        rig, item, {"facts": {"counterparty": {"state": "unknown"}}}
-    )
-    filename = reviewed["origin"]["filename"]
-    assert reviewed["title"] == filename
-    approved = listos._approve_alone(rig, {**item, "version": reviewed["version"]})
-    assert approved.status_code == 200, approved.text
-    report = _report(rig)
+def test_registros_names_a_file_without_making_it_the_supplier(web) -> None:  # noqa: ANN001
+    documents._own_rnc(web)
+    day = "2026-09-03"
+    receipt = documents._upload(web, documents.SUPPLIER_RNC, occurred_on=day)
+    draft = receipt["draft_id"]
+    facts = documents._facts("expense", "1180.00", day, documents._account(web))
+    facts["counterparty"] = {"state": "unknown"}
+    reviewed = documents._review(web, draft, {"facts": facts, "dgii": documents.PURCHASE_606})
+    assert reviewed.status_code == 200, reviewed.text
+    filename = receipt["filename"]
+    assert filename and reviewed.json()["title"] == filename
+    documents._approve(web, draft, "record_expense")
+
+    report = _report(web)
+    assert listos._row(web, receipt["id"])["title"] == filename
+    [saved_hit] = listos._get(web, "/business/search", q=filename)["expenses"]
+    assert saved_hit["merchant"] == filename
     assert report["counterparty"] is None
-    assert report.get("title") == filename
-    _, [exported], _ = _export(rig)
-    assert exported["Proveedor"] == ""
+    _, [record], _ = _export(web)
+    assert record["Proveedor"] == ""
+    [fiscal] = dgii_file(web, "purchase")
+    assert fiscal["RNC o Cédula"] == documents.SUPPLIER_RNC
+    assert filename not in fiscal.values()
+
+    columns = ["counterparty", "date"]
+    [csv_row] = _lines(registros_export(web, "purchase", "table", columns))
+    workbook = registros_export(web, "purchase", "table", columns, fmt="xlsx")
+    assert workbook.status_code == 200, workbook.text
+    header, values = xlsx(workbook.content)
+    names = [cell[1] for cell in header]
+    assert (report["title"], csv_row["Emisor"], values[names.index("Emisor")][1]) == (
+        filename, filename, filename,
+    )
