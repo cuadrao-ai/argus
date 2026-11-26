@@ -6,7 +6,7 @@ import type { ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
 const detail = (status: ReceiptDetail["status"], error_code: string | null): ReceiptDetail => ({
   id: "r1",
   channel: "web",
-  filename: "recibo.png",
+  title: "recibo.png", filename: "recibo.png",
   source_text: null,
   media_type: "image/png",
   size_bytes: 70,

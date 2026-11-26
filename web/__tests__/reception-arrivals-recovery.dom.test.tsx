@@ -34,7 +34,7 @@ async function mount(language: "es-419" | "en" = "es-419", panel: BusinessContex
   const i18n = (await import("i18next")).default.createInstance();
   await i18n.init({ lng: language, resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default }, en: { translation: (await import("@/public/locales/en/common.json")).default } }, interpolation: { escapeValue: false } });
   const seed = (await source.receipts("all"))[0];
-  const receipt = (id: string): ReceiptSummary => ({ ...seed, id, merchant: `Recibo ${id}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false } });
+  const receipt = (id: string): ReceiptSummary => ({ ...seed, id, title: `Recibo ${id}`, merchant: `Recibo ${id}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false } });
   let receipts = [receipt("uno")];
   const calls: string[] = [];
   const read = { failure: null as Error | null };

@@ -82,7 +82,7 @@ for (const lng of LANGUAGES) {
 }
 
 test("Bandeja renders a nameless web upload with the shared channel, empty value and document keys", async () => {
-  await senderCell("cimode", { channel: "web", merchant: null, filename: null, sent_by: null });
+  await senderCell("cimode", { channel: "web", title: null, merchant: null, filename: null, sent_by: null });
   const row = document.querySelector('[data-testid="reception-row"]')!;
   assert.equal(row.querySelector('[data-testid="reception-channel"]')?.textContent, "business.dossier.web");
   assert.equal(row.querySelector('[data-testid="reception-sender"]')?.textContent, "business.dossier.row.no_data");

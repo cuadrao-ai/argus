@@ -8687,11 +8687,13 @@ discriminates on), and null while `approval_available` is false.
 The dossier's `origin` gives the original upload's `channel`, `sent_by`, `received_at`,
 `filename` and `size_bytes`. The receipt summary carries the same five fields directly.
 `record_origins` reads both from the saved upload and its intake history for the current
-viewer. `original_connection_id` names the original upload to preview and is null for a message.
+viewer. A stored WhatsApp attachment or a captured inbound upload identifies the channel.
+`original_connection_id` names the original upload to preview and is null for a message.
 Supporting files cannot supply the record's origin. For a message written on the web,
 `origin.channel` is `note`. A WhatsApp message keeps `whatsapp`. A message has no filename
-or size, and a record without a source has a null origin. The dossier's `title` is its
-known counterparty, then its original filename, and null when neither is known.
+or size, and a record without a source has a null origin. The dossier and receipt responses share `record_title`. It takes a linked draft's
+known counterparty, or the stored read's merchant when the receipt has no draft. It uses
+the original filename when the merchant is absent and returns null when both are absent.
 The dossier exposes `facts_editable` for review writes. Open drafts require
 `prepare`. Accepted records require the owner. `document_type_editable` follows
 the same permission. `declaration_editable` also requires a purchase eligible
@@ -10903,7 +10905,8 @@ accept path recorded.
   Registros both follow that one check. The in-memory app keeps no change
   marks and derives the version from the answer itself. `ETag` is in the CORS
   exposed headers.
-- GET `/api/v1/business/receipts/{id}` returns a `ReceiptDetail`. `version` is
+- GET `/api/v1/business/receipts/{id}` returns a `ReceiptDetail`. The summary, detail and
+  search hit include the same nullable `title`, including before a draft exists. `version` is
   the import event's version, and `0` while there is no purchase to review.
   `evidence` is what the receipt says, and corrections never change it.
   `missing_fields` lists the review fields still needed. A receipt nobody has

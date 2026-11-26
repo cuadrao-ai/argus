@@ -106,7 +106,7 @@ from argus.domain.business.purchase_review import (
     takes_payment_split,
     takes_purchase_declaration,
 )
-from argus.domain.business.receipts import draft_row
+from argus.domain.business.receipts import draft_row, record_title
 from argus.domain.business.record_origin import (
     OriginUpload,
     UploadIntake,
@@ -796,13 +796,10 @@ def dossier(
     origin = None
     if source:
         [origin] = record_origins(tx, [source], intake, message_senders).values()
-    title = origin.filename if origin else None
-    if isinstance(facts.counterparty, Known):
-        title = facts.counterparty.value
     dossier = BusinessDossier(
         **DetailReadiness.from_codes(row.missing if row else (), gaps).model_dump(),
         origin=origin,
-        title=title,
+        title=record_title(facts.counterparty.value, origin.filename if origin else None),
         original_connection_id=primary["connection_id"] if primary else None,
         deleted=deleted,
         delete_available=delete_available,

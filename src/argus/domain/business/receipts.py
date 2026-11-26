@@ -105,6 +105,10 @@ READ_REFUSAL_ATTENTION: Mapping[str, Attention] = {
 }
 
 
+def record_title(counterparty: str | None, filename: str | None) -> str | None:
+    return counterparty or filename
+
+
 def failure_attention(code: str) -> Attention | None:
     """The owner's reason for a read that ended on ``code``; None when no
     reason names it."""
@@ -236,8 +240,10 @@ class Receipt:
         return [name for name in self.review.missing if name in REVIEW_FIELDS]
 
     def summary(self, origin: RecordOrigin) -> dict[str, Any]:
+        read = (self.review.evidence or {}).get("receipt")
         return {
             "id": self.id,
+            "title": record_title(read.get("merchant") if read else None, origin.filename),
             **origin.model_dump(),
             "email_delivery_ids": list(self.email_delivery_ids),
             "email_original": self.email_original,
@@ -441,7 +447,7 @@ def updates(
                 "expense_id": expense_id,
                 "error_code": view["error_code"],
                 "attention": view["attention"],
-                "label": view["merchant"] or view["filename"],
+                "label": view["title"],
             }
         )
     return sorted(items, key=lambda item: item["occurred_at"], reverse=True)

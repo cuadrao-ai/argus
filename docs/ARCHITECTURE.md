@@ -397,6 +397,7 @@ The server decides the group and the label of every Bandeja row. The web
 renders them and decides neither.
 
 `record_origins` in `src/argus/domain/business/record_origin.py` supplies each receipt summary’s channel, sender, arrival, file name and size.
+`record_title` in `src/argus/domain/business/receipts.py` names receipts and dossiers from the same rule.
 
 - **One label owner.** `bandeja_label()` in
   `src/argus/domain/business/bandeja_group.py` gives every row one label:
@@ -605,6 +606,7 @@ The payload fields that the dossier screen reads:
 | Field | What it says | Owner |
 | --- | --- | --- |
 | `origin` | The channel, sender, arrival, file name and size shown in Origen and Archivo, however the record opens. | `record_origins` in `src/argus/domain/business/record_origin.py` |
+| `title` | The document name shared by the dossier, receipt list, detail and search. | `record_title` in `src/argus/domain/business/receipts.py` |
 | `facts`, `net_amount` | The record's values. `net_amount.source` is `read`, `calculated` or `edited`. `net_amount.calculated` is the Subtotal the server calculates, whatever the source. | `facts_of`; `net_amount` in `purchase_review.py` |
 | `dgii` | The 606 or 607 declaration. On an open expense with none saved, it is the declaration that an approval would write. | `written_from` in `amount_inheritance.py` |
 | `inheritance` | The linked state of each fiscal field: `{field, value, inherited, paired_with}`. `field` names the source fact, `value` is the source value to restore, and `inherited` is false after a person overrides the field. | `inheritance_state` and the `INHERITANCE` map in `amount_inheritance.py` |

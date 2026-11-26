@@ -39,6 +39,7 @@ async function workspace(withBandeja = false) {
     ...older,
     id: `receipt-${name}`,
     merchant: `receipt-${name}`,
+    title: `${name}.jpg`,
     filename: `${name}.jpg`,
     activity: { state: "ready", unread: false, completion_cursor: null },
     received_at: new Date(Date.UTC(2026, 9, 28, 12, 0, -index)).toISOString(),

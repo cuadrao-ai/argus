@@ -623,7 +623,7 @@ describe("the jump card under N de M", () => {
   test("it lists the run in the list's order with each row's label, and opens the one picked", async () => {
     const dossier = await fiscalDossier();
     const first = receiptOf(dossier);
-    const second = receiptOf(dossier, { id: "receipt-2", merchant: "Refrigeración Juan Martínez", activity: { state: "ready", unread: true } as ReceiptDetail["activity"], bandeja_group: { group: "attention", reason: "missing_rnc", label: "needs_attention", draft_id: "d2", version: 1 } });
+    const second = receiptOf(dossier, { id: "receipt-2", title: "Refrigeración Juan Martínez", merchant: "Sin revisar", activity: { state: "ready", unread: true } as ReceiptDetail["activity"], bandeja_group: { group: "attention", reason: "missing_rnc", label: "needs_attention", draft_id: "d2", version: 1 } });
     const reviewList = { scope: "batch" as const, receiptIds: [first.id, second.id] };
     const page = await mount({ dossier, receipt: first, size: "regular", list: [second, first], panel: { kind: "receipt", receiptId: first.id, list: "inbox", reviewList } });
     try {
@@ -631,6 +631,7 @@ describe("the jump card under N de M", () => {
       assert.equal(jump.getAttribute("aria-label"), "Ver la lista, 1 de 2");
       await page.click(jump);
       const rows = page.all<HTMLButtonElement>('[data-testid="dossier-jump-card"] [role="option"]');
+      assert.match(rows[1].textContent ?? "", /Refrigeración Juan Martínez/);
       assert.deepEqual(rows.map((row) => row.getAttribute("data-receipt")), [first.id, second.id]);
       assert.deepEqual(rows.map((row) => row.getAttribute("aria-selected")), ["true", "false"]);
       assert.deepEqual(rows.map((row) => row.querySelector('[data-testid="jump-pill"]')?.textContent), ["Listo para aceptar", "Necesita atención"]);

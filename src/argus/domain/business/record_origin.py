@@ -57,13 +57,20 @@ class UploadIntake:
         from argus.domain.postgres_connection import BorrowedConnection
 
         pool = BorrowedConnection(tx.connection)
+        owner = tx.context.owner_id
+        space = str(tx.context.actor.space_id)
+        captured = PostgresWhatsAppStore(pool).captured_connections(destination_owner_id=owner)
+        # A record can carry a WhatsApp attachment without an inbound webhook row.
+        sources = tx.rows(
+            "select distinct s.connection_id::text as id from public.business_sources s"
+            " join public.financial_source_connections c on c.id=s.connection_id"
+            " and c.owner_space_id=s.space_id"
+            " where s.space_id=%s and c.user_id=%s and s.kind='attachment' and s.channel='whatsapp'",
+            (space, owner),
+        )
         return cls(
-            PostgresWhatsAppStore(pool).captured_connections(
-                destination_owner_id=tx.context.owner_id
-            ),
-            email_flags(
-                PostgresEmailStore(pool).membership(str(tx.context.actor.space_id))
-            ),
+            captured.union(row["id"] for row in sources),
+            email_flags(PostgresEmailStore(pool).membership(space)),
         )
 
     def channel(self, connection_id: str, saved_at: datetime) -> Channel:

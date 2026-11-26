@@ -39,7 +39,7 @@ export type DeleteDocumentTarget = {
 };
 
 export function receiptDeleteTarget(receipt: ReceiptSummary, state: string | null, unnamed: string): DeleteDocumentTarget {
-  return { id: receipt.id, name: receipt.merchant || receipt.filename || unnamed, merchant: receipt.merchant, family: documentFamily(receipt.document_type), date: receipt.occurred_on, amount: receipt.amount, currency: receipt.currency, filename: receipt.filename, state, accepted: receipt.bandeja_group?.label === "accepted", receipt };
+  return { id: receipt.id, name: receipt.title ?? unnamed, merchant: receipt.merchant, family: documentFamily(receipt.document_type), date: receipt.occurred_on, amount: receipt.amount, currency: receipt.currency, filename: receipt.filename, state, accepted: receipt.bandeja_group?.label === "accepted", receipt };
 }
 
 export function documentPurgeDistance(purgeAt: string | null | undefined) {

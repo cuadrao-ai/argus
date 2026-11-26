@@ -52,7 +52,7 @@ function sampleSender(channel: ReceiptDetail["channel"], deliveries: readonly st
 type SampleReceipt = ReceiptDetail & { confirmableGap?: boolean; /** What the server states for the receipt's draft. */ stated?: StatedDraft; /** A person saved the stated 606. */ savedDeclaration?: boolean };
 
 function receipt(
-  partial: Partial<SampleReceipt> & Pick<ReceiptDetail, "id" | "status">,
+  partial: Partial<SampleReceipt> & Pick<ReceiptDetail, "id" | "status" | "title">,
 ): SampleReceipt {
   const channel = partial.channel ?? "web";
   return {
@@ -98,6 +98,7 @@ function read(id: string, reason: string | null, merchant: string, amount: strin
     enterable: false,
     fiscal_known: true,
     fiscal_value: reason === "missing_ncf" ? null : "ncf",
+    title: merchant,
     merchant,
     amount,
     currency: "DOP",
@@ -169,6 +170,7 @@ function seedReceipts(): SampleReceipt[] {
   return [
     receipt({
       id: "rcpt-ferreteria",
+      title: "Ferretería La Esquina",
       // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
       sin_comprobante: true,
       bandeja_group: groupRow("attention", "sin_comprobante"),
@@ -203,6 +205,7 @@ function seedReceipts(): SampleReceipt[] {
     }),
     receipt({
       id: "rcpt-papeleria",
+      title: "Papelería Central",
       // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
       sin_comprobante: true,
       bandeja_group: groupRow("attention", "sin_comprobante"),
@@ -235,6 +238,7 @@ function seedReceipts(): SampleReceipt[] {
     }),
     receipt({
       id: "rcpt-blurry",
+      title: "IMG_2209.jpg",
       // New since the last visit until it is opened, as the server marks it.
       activity: { state: "ready", unread: true, completion_cursor: "sample-blurry" },
       status: "needs_attention",
@@ -249,6 +253,7 @@ function seedReceipts(): SampleReceipt[] {
     }),
     receipt({
       id: "rcpt-unknown",
+      title: "IMG_2215.jpg",
       status: "needs_attention",
       filename: "IMG_2215.jpg",
       received_at: daysAgo(2),
@@ -261,6 +266,7 @@ function seedReceipts(): SampleReceipt[] {
     }),
     receipt({
       id: "rcpt-ambiguous",
+      title: "COLMADO DON PEDRO",
       status: "needs_attention",
       channel: "email",
       email_delivery_ids: ["email-colmado"],
@@ -287,6 +293,7 @@ function seedReceipts(): SampleReceipt[] {
     }),
     receipt({
       id: "rcpt-saved",
+      title: "almuerzo-cliente.png",
       email_delivery_ids: ["email-ferreteria"],
       email_original: true,
       status: "saved",
@@ -300,6 +307,7 @@ function seedReceipts(): SampleReceipt[] {
     }),
     receipt({
       id: "rcpt-reading",
+      title: "IMG_2231.jpg",
       status: "queued",
       channel: "whatsapp",
       filename: "IMG_2231.jpg",
@@ -318,6 +326,7 @@ function seedReceipts(): SampleReceipt[] {
     gap("rcpt-remitente", "unverified_sender", "Papelería Nueva", "767.00", { channel: "email", email_delivery_ids: ["email-nueva"], filename: "papeleria-nueva.pdf", media_type: "application/pdf", received_at: hoursAgo(34) }),
     receipt({
       id: "rcpt-confirmed",
+      title: "Nube Hosting",
       fiscal_known: true,
       status: "confirmed",
       filename: "hosting-sep.pdf",
@@ -706,6 +715,7 @@ export function createFixtureBusinessDataSource(
       counter += 1;
       const created = receipt({
         id: `rcpt-new-${counter}`,
+        title: file.name,
         sent_by: member("sample-lucia", "Lucía"),
         status: consentToPrepare ? "queued" : "saved",
         filename: file.name,

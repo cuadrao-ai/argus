@@ -210,6 +210,7 @@ describe("Business hits open the panel that holds them", () => {
   test("a receipt opens its review and shows the file type it is", async () => {
     const receipt = {
       id: "rcpt-2",
+      title: "IMG_2214.jpg",
       channel: "whatsapp" as const,
       filename: "IMG_2214.jpg",
       media_type: "image/jpeg",
@@ -226,7 +227,7 @@ describe("Business hits open the panel that holds them", () => {
       category_id: null,
       account_id: null,
     };
-    const pdf = { ...receipt, id: "rcpt-3", media_type: "application/pdf", filename: "factura.pdf" };
+    const pdf = { ...receipt, id: "rcpt-3", title: "factura.pdf", media_type: "application/pdf", filename: "factura.pdf" };
     const { groups, opened } = await businessSearch({ expenses: [], receipts: [receipt, pdf], accounts: [] });
     const receipts = groups.find((group) => group.id === "receipts")!;
     expect(receipts.hits.map((hit) => [hit.title, hit.icon, hit.amount])).toEqual([
@@ -283,7 +284,7 @@ describe("original note search", () => {
 
 describe("Tipo de gasto in the results", () => {
   const services = { code: "02", label: "Gastos por trabajos, suministros y servicios" };
-  const receipt = { id: "rcpt-saved", channel: "web" as const, filename: "factura-7.pdf", media_type: "application/pdf", size_bytes: 1, received_at: "2026-10-07T14:00:00Z", status: "confirmed" as const, error_code: null, expense_id: "exp-7", merchant: "Imprenta Sol", occurred_on: "2026-10-07", amount: "500.00", currency: "DOP", category_id: null, account_id: null, attention: null, preparable: false, enterable: false };
+  const receipt = { id: "rcpt-saved", title: "Imprenta Sol", channel: "web" as const, filename: "factura-7.pdf", media_type: "application/pdf", size_bytes: 1, received_at: "2026-10-07T14:00:00Z", status: "confirmed" as const, error_code: null, expense_id: "exp-7", merchant: "Imprenta Sol", occurred_on: "2026-10-07", amount: "500.00", currency: "DOP", category_id: null, account_id: null, attention: null, preparable: false, enterable: false };
 
   test("an expense search hit and its preview still say Falta for an unanswered Tipo de gasto", async () => {
     const missing = { ...expense, dgii_606: { expense_type: null, payment_form: null } };
@@ -330,7 +331,7 @@ describe("Tipo de gasto in the results", () => {
 describe("record preview in the results", () => {
   test("every Business hit carries a preview that shows what the hit already knows", async () => {
     const note: BusinessCapture = { draft_id: "draft-1", version: 5, revision: 2, source_id: "source-1", text: "pintura sin recibo", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
-    const receipt = { id: "rcpt-9", channel: "web" as const, filename: "factura-9.pdf", media_type: "application/pdf", size_bytes: 1, received_at: "2026-10-07T14:00:00Z", status: "review_ready" as const, error_code: null, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, attention: null, preparable: false, enterable: false };
+    const receipt = { id: "rcpt-9", title: "factura-9.pdf", channel: "web" as const, filename: "factura-9.pdf", media_type: "application/pdf", size_bytes: 1, received_at: "2026-10-07T14:00:00Z", status: "review_ready" as const, error_code: null, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, attention: null, preparable: false, enterable: false };
     const { groups: found, search: built } = await businessSearch({ expenses: [expense], receipts: [receipt], accounts: [] }, [note]);
     assert.equal(built.previewAvailable, true);
     const i18n = i18next.createInstance();

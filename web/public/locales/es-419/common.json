@@ -4491,8 +4491,7 @@
       "source": "Recibo original",
       "source_error": "No pudimos abrir el recibo original con tu acceso actual.",
       "email_original": "Este es el correo en sí. Su adjunto es el recibo que debes revisar.",
-      "tax": "ITBIS",
-      "title": "Revisar recibo"
+      "tax": "ITBIS"
     },
     "composer_receipt": {
       "open": "Abrir recibo",

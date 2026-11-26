@@ -146,13 +146,13 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     fiscal: null,
   };
   const messageOrigin = { channel: "whatsapp" as const, sent_by: null, received_at: "2026-10-10T14:20:00Z", filename: null, size_bytes: null };
-  const dossiers = new Map<string, Omit<BusinessDossier, "title">>();
+  const dossiers = new Map<string, BusinessDossier>();
   for (const [name, id] of Object.entries(dossierFixtureIds)) {
     const ready = name !== "unknown" && name !== "unknownAmount";
     const current: BusinessFacts = { ...facts, category_id: { ...known("other"), origin: "member_set", source_ids: [reviewSourceId] }, funding: ready ? { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "member_set", source_ids: [reviewSourceId] } : unknown(), amount: name === "unknownAmount" ? unknown() : facts.amount, kind: name === "unknownKind" ? unknown() : name === "income" ? known("income") : facts.kind };
     dossiers.set(id, {
       draft_id: id,
-      original_connection_id: null, origin: messageOrigin,
+      title: "Ferretería La Esquina", original_connection_id: null, origin: messageOrigin,
       // The server's reading: every sample record has read facts.
       fiscal_known: true,
       space_id: "50000000-0000-4000-8000-000000000001",
@@ -254,9 +254,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const reviewReceipts = new Map<string, { input: string; result: BusinessDossier }>();
   const fail = (status: number, code: string, context?: unknown): never => { throw Object.assign(new Error(code), { status, code, context, requestId: `sample-${code}` }); };
   const get = (id: string) => {
-    const stored = dossiers.get(id);
-    if (!stored) return fail(404, "draft_not_found");
-    const found = { ...stored, title: stored.facts.counterparty.value ?? stored.origin?.filename ?? null };
+    const found = dossiers.get(id);
+    if (!found) return fail(404, "draft_not_found");
     const stated = found.facts.receipt_state.state === "known" && (found.facts.receipt_state.value === "no_receipt" || found.facts.receipt_state.value === "informal_receipt");
     const editable = editableFields(found);
     const offers = served(found);
@@ -303,7 +302,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     if (id === dossierFixtureIds.saveConcurrent && version === 2) {
       const otherSourceId = "20000000-0000-4000-8000-000000000014";
       const otherFacts: BusinessFacts = { ...current.facts, counterparty: { state: "known", value: "Corrección de otra persona", origin: "member_set", verified: false, source_ids: [otherSourceId] } };
-      dossiers.set(id, { ...current, version: 3, facts: otherFacts, sources: [...current.sources, { id: otherSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T14:31:00Z", text: JSON.stringify({ version, facts: { counterparty: { state: "known", value: "Corrección de otra persona" } } }) }], history: [...current.history, { draft_id: id, version: 3, actor: { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" }, before: current.facts, after: otherFacts, source_ids: [otherSourceId], turn_key: null, created_at: "2026-10-10T14:31:00Z" }] });
+      dossiers.set(id, { ...current, title: "Corrección de otra persona", version: 3, facts: otherFacts, sources: [...current.sources, { id: otherSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T14:31:00Z", text: JSON.stringify({ version, facts: { counterparty: { state: "known", value: "Corrección de otra persona" } } }) }], history: [...current.history, { draft_id: id, version: 3, actor: { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" }, before: current.facts, after: otherFacts, source_ids: [otherSourceId], turn_key: null, created_at: "2026-10-10T14:31:00Z" }] });
       throw new TypeError("Synthetic request interrupted before write; another human advanced the draft");
     }
     const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
@@ -368,6 +367,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const sentBy = { id: `member:${actor.actor_id}`, kind: "member" as const, person: { display_name: actor.display_name, email: null, shown_as: actor.shown_as } };
       const next: BusinessDossier = {
         ...(previous ?? get(dossierFixtureIds.unknown)), draft_id: id, version, facts: current,
+        title: previous?.title ?? null,
         origin: previous ? previous.origin : { channel: "note", sent_by: sentBy, received_at: receivedAt, filename: null, size_bytes: null },
         sources: [...(previous?.sources ?? []), { id: noteSourceId, kind: "message", channel: "web", received_at: receivedAt, text: request.text }],
         questions: previous?.questions ?? [],
@@ -437,7 +437,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const history: BusinessDraftRevision[] = [{ draft_id: id, version: 1, actor: read ? { ...actor, actor_kind: "extractor" } : actor, before: null, after: first, source_ids: [read ? sourceId : reviewSourceId], turn_key: null, created_at: read ? later(10) : receipt.received_at, before_document_type: null, after_document_type: "recibo" }];
       if (marked) history.push({ draft_id: id, version: 2, actor, before: first, after: current, source_ids: [reviewSourceId], turn_key: null, created_at: later(20) });
       dossiers.set(id, {
-        original_connection_id: receipt.id, origin: receiptOrigin(receipt),
+        title: receipt.title, original_connection_id: receipt.id, origin: receiptOrigin(receipt),
         draft_id: id, space_id: receipt.record_context?.space_id ?? "fixture-space", space_name: receipt.record_context?.space_name ?? "Mi negocio", accounts: receipt.record_context?.accounts ?? [],
         capabilities: receipt.record_context?.capabilities ?? [], version: history.length, review_state: "open", facts: current, sources: read && !marked ? [source] : [source, action], questions: [],
         history,
@@ -486,7 +486,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const revision = (version: number, before: BusinessFacts | null, after: BusinessFacts, read: boolean): BusinessDraftRevision => ({ draft_id: id, version, actor: read ? { ...actor, actor_kind: "extractor" } : actor, before, after, source_ids: [read ? sourceId : reviewSourceId], turn_key: null, created_at: at(read ? 10 : 20), ...(version === 1 ? { before_document_type: null, after_document_type: "recibo" as const } : {}) });
       const history = receipt ? [revision(1, null, first, true), revision(2, first, facts, false)] : [revision(1, null, facts, false)];
       dossiers.set(id, {
-        original_connection_id: receipt?.id ?? null, origin: receipt ? receiptOrigin(receipt) : null,
+        title: record.merchant, original_connection_id: receipt?.id ?? null, origin: receipt ? receiptOrigin(receipt) : null,
         draft_id: id, space_id: receipt?.record_context?.space_id ?? "fixture-space", space_name: receipt?.record_context?.space_name ?? "Mi negocio", accounts,
         capabilities: receipt?.record_context?.capabilities ?? ["read", "prepare", "approve"], version: history.length + 1, review_state: "accepted", facts, questions: [], history,
         sources: receipt ? [{ id: sourceId, kind: "attachment", channel: receipt.channel, received_at: receipt.received_at, connection_id: receipt.id, filename: receipt.filename, media_type: receipt.media_type }, action] : [action],

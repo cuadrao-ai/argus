@@ -12,8 +12,9 @@ from argus.domain.business.search import parse
 from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.money_service import MoneyService
+from faker import Faker
 
-from tests.business.receipt_stub import receipt_date
+from tests.business.receipt_stub import ReceiptStub, receipt_date
 from tests.business.test_business_api import (  # noqa: F401
     RECEIPT,
     Owner,
@@ -74,6 +75,21 @@ def confirmed(owner: Owner, account: str, merchant: str) -> tuple[str, str]:
     body = owner.confirm(receipt_id, version, str(uuid4())).json()
     assert body["status"] == "confirmed", body
     return receipt_id, body["expense_id"]
+
+
+def test_undrafted_receipt_title_reads_the_merchant_even_without_editable_fields(
+    alice: Owner, stub: ReceiptStub, faker: Faker  # noqa: F811
+) -> None:
+    merchant = faker.company()
+    stub.details["merchant"] = merchant
+    stub.rows = []
+    receipt_id = prepared(alice)
+    detail = alice.detail(receipt_id)
+    assert detail["draft_id"] is None and detail["merchant"] is None
+    assert detail["evidence"]["merchant"] == merchant
+    [summary] = alice.get("/receipts", view="all").json()["items"]
+    [hit] = alice.get("/search", q=merchant).json()["receipts"]
+    assert detail["title"] == summary["title"] == hit["title"] == merchant
 
 
 def test_finds_the_business_expense_and_never_the_personal_one(alice: Owner) -> None:  # noqa: F811

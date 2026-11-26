@@ -67,6 +67,7 @@ async function mount({ width = 800, strict = false, role = "owner", refuse = nul
     ...template,
     id,
     merchant,
+    title: merchant,
     email_original: merchant === null,
     draft_id: merchant === null ? null : `draft-${id}`,
     version: 2,

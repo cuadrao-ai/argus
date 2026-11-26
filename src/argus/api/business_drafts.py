@@ -56,7 +56,7 @@ from argus.domain.business.contracts.facts import (
     personal_mark_admits,
 )
 from argus.domain.business.people import named_deletion, people
-from argus.domain.business.receipts import Receipt, draft_row
+from argus.domain.business.receipts import Receipt, draft_row, record_title
 from argus.domain.business.record_origin import OriginUpload, UploadIntake, record_origins
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
@@ -499,6 +499,7 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     summary = {**summary, "deleted": deletion(row["state"], row["resolution"])}
     type_editable = row["state"] in ("open", "accepted")
     resolution = BusinessResolution.model_validate(row["resolution"]["business"])
+    summary["title"] = record_title(resolution.facts.counterparty.value, summary.get("filename"))
     if legacy == str(row["id"]):
         if "document_type_editable" in summary:
             summary["document_type_editable"] = type_editable

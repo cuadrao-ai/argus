@@ -6,7 +6,7 @@ import { ReceiptUploadQueue } from "../components/business-app/receipt-upload-qu
 const limits = { max_bytes: 20, media_types: ["text/plain"] };
 const file = (name: string) => new File(["receipt"], name, { type: "text/plain" });
 const savedReceipt = (id: string): ReceiptSummary => ({
-  id, channel: "web", filename: null, media_type: "text/plain", size_bytes: 7,
+  id, channel: "web", title: null, filename: null, media_type: "text/plain", size_bytes: 7,
   received_at: "2026-11-04T12:00:00Z", status: "saved", error_code: null,
   attention: null, preparable: true, enterable: true, expense_id: null,
   merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null,

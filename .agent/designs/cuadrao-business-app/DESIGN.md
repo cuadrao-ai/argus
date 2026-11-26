@@ -1628,7 +1628,7 @@ this date. The server decides every value, every editable field and every
 link, as
 [the dossier architecture](../../../docs/ARCHITECTURE.md#the-record-dossier) says.
 
-**Frame.** The header uses the title from the dossier. A nameless document reads
+**Frame.** The header uses the server’s title, including when a receipt has no draft. A nameless document reads
 "Documento" (`business.document_delete.unnamed`). Line two shows the Bandeja label that the server
 gives, and the reasons the record is not in Listos. One reason sits beside the
 pill and jumps to its row. Several reasons open a list. An accepted record has

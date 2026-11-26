@@ -193,8 +193,7 @@ function ReceiptEntry({ receiptId, detailsCard }: { receiptId: string; detailsCa
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
       back={detail.status === "confirmed" ? "transactions" : "inbox"}
-      // A receipt nobody named yet goes by its file.
-      title={(!readBoard && detail.merchant) || detail.filename || t("business.document_delete.unnamed")}
+      title={detail.title ?? t("business.document_delete.unnamed")}
       status={<DossierStatus label={detail.bandeja_group?.label} deleted={Boolean(detail.deleted)} />}
       place={place}
       jump={place ? { title: origin?.list === "transactions" ? t("business.nav.transactions", "Transactions") : t("business.nav.inbox", "Inbox"), rows: jumpList.rows, onOpen: jumpList.load, onPick: busy ? () => {} : openReceipt } : null}

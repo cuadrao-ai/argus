@@ -106,11 +106,7 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
     );
   }
 
-  const title = (row: ReceptionRow) => {
-    // The supplier once read; before that, the source: a WhatsApp photo has no file name of its own.
-    if (row.kind === "receipt" && row.source === "whatsapp" && !row.receipt.filename?.trim() && !(row.receipt.merchant?.trim() && row.receipt.attention !== "unreadable")) return t("business.inicio.attention.whatsapp_photo");
-    return receptionDocumentTitle(row, { untitled: t("business.document_delete.unnamed"), pending: t("business.reception_preview.intake_pending"), exception: t("business.reception_preview.intake_exception"), text: t("business.reception_preview.text_intake") });
-  };
+  const title = (row: ReceptionRow) => receptionDocumentTitle(row, { untitled: t("business.document_delete.unnamed"), pending: t("business.reception_preview.intake_pending"), exception: t("business.reception_preview.intake_exception"), text: t("business.reception_preview.text_intake") });
   return card(
     <ul data-testid="home-attention-rows">
       {attentionRows(waiting).map((row) => {

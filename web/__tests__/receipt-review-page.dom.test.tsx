@@ -134,21 +134,30 @@ describe("one receipt review page", () => {
   });
 
   test("a prepared record has one Aceptar, and a saved edit and its revision survive a trip to the Bandeja", async () => {
-    const page = await mount();
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     const id = dossierFixtureIds.ready;
+    const editedTitle = "Ferretería Prueba Revisada";
+    let editedVersion: number | undefined;
+    const page = await mount((fixture) => ({
+      dossier: async (...args) => {
+        const stored = await fixture.dossier(...args);
+        return stored.draft_id === id && stored.version === editedVersion ? { ...stored, title: editedTitle } : stored;
+      },
+    }));
     await page.open({ kind: "draft", draftId: id }, () => page.frame().fields !== null);
     const approve = [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button')].filter((button) => button.textContent === "Aceptar");
     assert.equal(approve.length, 1);
     const before = await page.source.dossier(id);
     await page.act(async () => {
-      await page.source.reviewDraft(id, before.version, { counterparty: { state: "known", value: "Ferretería Prueba Revisada" } }, "edit-1113");
+      const saved = await page.source.reviewDraft(id, before.version, { counterparty: { state: "known", value: editedTitle } }, "edit-1113");
+      editedVersion = saved.version;
     });
     await page.open({ kind: "inbox" }, () => page.frame().count === 0);
-    await page.open({ kind: "draft", draftId: id }, () => page.frame().title === "Ferretería Prueba Revisada");
+    await page.open({ kind: "draft", draftId: id }, () => page.frame().title === editedTitle);
     assert.doesNotMatch(page.host.querySelector('[data-testid="business-record-review"] header')?.textContent ?? "", /Revisión \d+/, "the revision number is not part of the top block");
     const after = await page.source.dossier(id);
     assert.equal(after.version, before.version + 1);
+    assert.equal(after.facts.counterparty.value, editedTitle);
     // Saving review details never approves: the record is still awaiting review.
     assert.equal(after.review_state, "open");
     assert.equal(after.approval_result, null);

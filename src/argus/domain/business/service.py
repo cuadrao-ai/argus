@@ -639,7 +639,7 @@ class BusinessService:
 
 def _summary_text(summary: Mapping[str, Any]) -> str:
     return " ".join(
-        filter(None, [summary["merchant"], summary["filename"], summary["amount"]])
+        filter(None, [summary["title"], summary["merchant"], summary["filename"], summary["amount"]])
     )
 
 

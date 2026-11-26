@@ -27,7 +27,7 @@ async function mount(prepared: boolean, width: number) {
   const summaries = await fixture.receipts("all");
   const seed = await fixture.receipt(prepared ? summaries.find(row => row.draft_id)!.id : "rcpt-blurry");
   const arrivals: ReceiptDetail[] = Array.from({ length: 28 }, (_, index) => ({
-    ...seed, id: `origin-${index}`, merchant: `Recibo sintético ${index}`, filename: `recibo-${index}.jpg`,
+    ...seed, id: `origin-${index}`, merchant: `Emisor ${index}`, title: `Recibo sintético ${index}`, filename: `recibo-${index}.jpg`,
     received_at: new Date(Date.UTC(2026, 9, 28, 12, 0, -index)).toISOString(), channel: "web",
     activity: { state: "ready", unread: false, completion_cursor: null },
     bandeja: { por_revisar: true, leyendo: false, con_problema: false },

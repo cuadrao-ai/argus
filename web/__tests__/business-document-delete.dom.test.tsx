@@ -36,11 +36,11 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez", shown_as: "name" }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
   let dossierDeleted = true;
   let items: ReceiptDetail[] = [
-    { ...blurry, id: "attention", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
-    { ...ready, id: "ready", merchant: "Documento listo", delete_available: true, bandeja_group: { group: "listo", reason: null, draft_id: ready.draft_id, version: 1 } },
-    { ...ready, id: "reading", merchant: "Documento leyendo", delete_available: false, bandeja_group: { group: "reading", reason: null, draft_id: null, version: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } },
-    { ...ready, id: "approved", merchant: "Documento aceptado", status: "confirmed", delete_available: false, bandeja_group: { group: null, reason: null, draft_id: null, version: null } },
-    { ...(deletedDossier ? ready : blurry), id: "deleted", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } },
+    { ...blurry, id: "attention", title: "Documento equivocado", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
+    { ...ready, id: "ready", title: "Documento listo", merchant: "Documento listo", delete_available: true, bandeja_group: { group: "listo", reason: null, draft_id: ready.draft_id, version: 1 } },
+    { ...ready, id: "reading", title: "Documento leyendo", merchant: "Documento leyendo", delete_available: false, bandeja_group: { group: "reading", reason: null, draft_id: null, version: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } },
+    { ...ready, id: "approved", title: "Documento aceptado", merchant: "Documento aceptado", status: "confirmed", delete_available: false, bandeja_group: { group: null, reason: null, draft_id: null, version: null } },
+    { ...(deletedDossier ? ready : blurry), id: "deleted", title: "Documento eliminado", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } },
     ...extra({ ready, blurry }),
   ];
   const listed = items.filter(item => !item.deleted).length;
@@ -160,8 +160,8 @@ test("a held receipt keeps the size button enabled and names its delete action i
 
 test("the row trash follows the server's delete_available: a read the limit holds keeps it, a read in progress and an approval in flight do not", async () => {
   await mount("owner", false, 0, false, ({ ready, blurry }) => [
-    { ...blurry, id: "held", merchant: "Documento retenido", filename: "Documento retenido", status: "needs_attention", attention: "read_budget_day", delete_available: true, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } },
-    { ...ready, id: "accepting", merchant: "Documento aceptandose", delete_available: false, bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } },
+    { ...blurry, id: "held", title: "Documento retenido", merchant: "Documento retenido", filename: "Documento retenido", status: "needs_attention", attention: "read_budget_day", delete_available: true, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } },
+    { ...ready, id: "accepting", title: "Documento aceptandose", merchant: "Documento aceptandose", delete_available: false, bandeja_group: { group: "listo", reason: null, draft_id: null, version: null } },
   ]);
   const trash = () => [...document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Eliminar "]')].map(node => node.getAttribute("aria-label"));
   assert.deepEqual(trash().sort(), ["Eliminar Documento equivocado", "Eliminar Documento retenido"]);
@@ -193,7 +193,7 @@ test("delete asks with facts, starts on Cancel and Escape returns to the row", a
 // The row's status and group are set against the label: the dialog reads the label alone.
 for (const [label, word] of [["reading", "Leyendo…"], ["cant_read", "No se pudo leer"], ["needs_attention", "Necesita atención"], ["ready", "Listo para aceptar"], ["accepted", "Aceptado"]] as const) {
   test(`the row's delete dialog names the server's Bandeja label: ${label}`, async () => {
-    const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "labelled", merchant: "Documento rotulado", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: null, version: null } }]);
+    const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "labelled", title: "Documento rotulado", merchant: "Documento rotulado", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: null, version: null } }]);
     await page.click(document.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Documento rotulado"]'));
     await page.wait(() => !!document.querySelector('[role="alertdialog"]'));
     const state = [...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dl > div')].find(row => row.querySelector("dt")?.textContent === "Estado");
@@ -202,14 +202,14 @@ for (const [label, word] of [["reading", "Leyendo…"], ["cant_read", "No se pud
 }
 
 test("a row the server gave no label has no Estado line: the web makes up no word", async () => {
-  const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "unlabelled", merchant: "Documento sin rótulo", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label: null, draft_id: null, version: null } }]);
+  const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "unlabelled", title: "Documento sin rótulo", merchant: "Documento sin rótulo", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label: null, draft_id: null, version: null } }]);
   await page.click(document.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Documento sin rótulo"]'));
   await page.wait(() => !!document.querySelector('[role="alertdialog"]'));
   assert.deepEqual([...document.querySelectorAll('[role="alertdialog"] [data-testid="document-delete-facts"] dt')].map(term => term.textContent), ["Contraparte", "Fecha", "Total", "Archivo"]);
 });
 
 test("a nameless document's delete dialog renders absent facts with the empty value", async () => {
-  const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, merchant: null, occurred_on: null, amount: null, filename: null, delete_available: true }]);
+  const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, title: null, merchant: null, occurred_on: null, amount: null, filename: null, delete_available: true }]);
   await page.click(document.querySelector('button[aria-label="Eliminar Documento"]'));
   const facts = document.querySelector('[role="alertdialog"] [data-testid="document-delete-facts"]')!;
   assert.deepEqual([...facts.querySelectorAll("dd")].slice(0, 4).map(value => value.textContent), ["Sin dato", "Sin dato", "-Sin dato", "Sin dato"]);
@@ -416,7 +416,7 @@ for (const kind of ["draft", "receipt"] as const) {
   for (const [label, terms, word] of [["needs_attention", ["Emisor", "Fecha", "Total", "Archivo", "Estado"], "Necesita atención"], [null, ["Emisor", "Fecha", "Total", "Archivo"], undefined]] as const) {
     test(`the ${kind} dossier delete dialog reads the server's Bandeja label alone: ${label ?? "none sent"}`, async () => {
       dossierLabel = label;
-      const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "labelled", merchant: "Documento rotulado", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: ready.draft_id, version: 1 } }]);
+      const page = await mount("owner", false, 0, false, ({ ready }) => [{ ...ready, id: "labelled", title: "Documento rotulado", merchant: "Documento rotulado", status: "needs_attention", delete_available: true, bandeja_group: { group: "attention", reason: "missing_ncf", label, draft_id: ready.draft_id, version: 1 } }]);
       const ready = await page.source.receipt("labelled");
       await page.act(async () => page.api().openPanel(kind === "receipt"
         ? { kind: "receipt", receiptId: ready.id, list: "inbox" }
@@ -433,7 +433,7 @@ for (const kind of ["draft", "receipt"] as const) {
 
 for (const [label, word] of [["cant_read", "No se pudo leer"], [null, undefined]] as const) {
   test(`a receipt with no draft opens its delete dialog on the server's Bandeja label alone: ${label ?? "none sent"}`, async () => {
-    const page = await mount("owner", false, 0, false, ({ blurry }) => [{ ...blurry, id: "undrafted", merchant: "Documento sin borrador", filename: "Documento sin borrador", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", label, draft_id: null, version: null } }]);
+    const page = await mount("owner", false, 0, false, ({ blurry }) => [{ ...blurry, id: "undrafted", title: "Documento sin borrador", merchant: "Documento sin borrador", filename: "Documento sin borrador", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", label, draft_id: null, version: null } }]);
     await page.act(async () => page.api().openPanel({ kind: "receipt", receiptId: "undrafted", list: "inbox" }));
     const footerDelete = () => document.querySelector<HTMLButtonElement>('button[aria-label="Eliminar documento"]');
     await page.wait(() => !!footerDelete());
@@ -508,7 +508,7 @@ test("Eliminados counts down on the server's calendar day and shows the date aft
     { id: "future", purgeAt: deadlineIn(2), label: "Borrado definitivo en 2 días", restore: true, lastDay: false },
   ];
   const page = await mount("owner", false, 0, false, ({ blurry }) => entries.map(({ id, purgeAt, restore }) => ({
-    ...blurry, id, merchant: id, status: "dismissed", delete_available: false, restore_available: restore,
+    ...blurry, id, title: id, merchant: id, status: "dismissed", delete_available: false, restore_available: restore,
     deleted: { actor: { actor_id: "ana", display_name: "Ana Peña", shown_as: "name" }, at: "2026-10-25T10:00:00Z", purge_at: purgeAt, key: id, previous_state: { state: "open", group: "attention" } },
     bandeja_group: { group: "eliminados", reason: null, label: null, draft_id: null, version: null },
   })));

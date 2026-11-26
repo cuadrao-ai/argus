@@ -55,7 +55,7 @@ export default function BusinessSearchDossier({ record, source, accounts }: { re
   const summary = record.kind === "receipt" ? record.receipt : record.expense;
   const receiptId = record.kind === "receipt" ? record.receipt.id : record.expense.receipt_id;
   return <section aria-label={t("business.search.region", "Business records")} className="space-y-5">
-    <h2 className="font-display text-2xl font-medium">{summary.merchant ?? (record.kind === "receipt" ? record.receipt.filename : null) ?? t(record.kind === "receipt" ? "business.document_delete.unnamed" : "business.expenses.no_merchant")}</h2>
+    <h2 className="font-display text-2xl font-medium">{record.kind === "receipt" ? record.receipt.title ?? t("business.document_delete.unnamed") : record.expense.merchant ?? t("business.expenses.no_merchant")}</h2>
     {record.kind === "receipt" ? <DocumentStatus document={record.receipt} /> : null}
     {summary.amount ? <p className="text-3xl font-medium tabular-nums">{formatMoney(summary.amount, summary.currency, locale)}</p> : null}
     <Field label={t("business.review.date", "Date")}>{summary.occurred_on ? formatDay(summary.occurred_on, locale) : t("business.dossier.row.no_data")}</Field>

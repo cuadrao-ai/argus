@@ -17,6 +17,7 @@ const REMOVED_KEYS = [
   "business.receipt.untitled",
   "business.reception_preview.sent_by_unknown",
   "business.reception_preview.source_web",
+  "business.review.title",
   "business.transactions.layout.annotations.received_document",
   "business.transactions.unknown",
   "business.dgii.recorded_income",
@@ -67,8 +68,11 @@ describe("Dossier old paths", () => {
     }
   });
 
-  test("no source keeps the web's own fact standing, RNC check or currency list", () => {
+  test("no app source references a retired locale key or implementation", () => {
     const text = sources.map((path) => readFileSync(path, "utf8")).join("\n");
-    for (const name of REMOVED_NAMES) assert.equal(new RegExp(`(?<![\\w-])${name}(?![\\w-])`).test(text), false, name);
+    for (const name of [...REMOVED_KEYS, ...REMOVED_NAMES]) {
+      const pattern = new RegExp(`(?<![\\w-])${name.replaceAll(".", "\\.")}(?![\\w-])`);
+      assert.equal(pattern.test(text), false, name);
+    }
   });
 });

@@ -48,7 +48,7 @@ test("a Bandeja refresh that started before an approval never overwrites the cou
   const ready = await fixture.dossier(dossierFixtureIds.ready);
   const capabilities: ("read" | "prepare" | "approve")[] = ["read", "prepare", "approve"];
   let receipts: ReceiptDetail[] = ["Uno", "Dos", "Tres"].map((merchant) => ({
-    ...template, id: `rcpt-${merchant}`, merchant, draft_id: `draft-${merchant}`, version: 2, missing_fields: [],
+    ...template, id: `rcpt-${merchant}`, title: merchant, merchant, draft_id: `draft-${merchant}`, version: 2, missing_fields: [],
     record_context: { ...template.record_context!, capabilities },
   }));
   const dossiers = new Map<string, BusinessDossier>(receipts.map((item) => [item.draft_id!, {

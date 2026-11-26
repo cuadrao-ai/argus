@@ -119,7 +119,7 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
       items.map((receipt) => ({
         id: receipt.id,
         icon: receipt.media_type === "application/pdf" ? FileText : ImageIcon,
-        title: receipt.merchant ?? receipt.filename ?? t("business.document_delete.unnamed"),
+        title: receipt.title ?? t("business.document_delete.unnamed"),
         detail: line(receiptStatusWord(t, receipt), formatDay(receipt.occurred_on ?? receipt.received_at, locale)),
         amount: money(receipt.amount, receipt.currency),
         badge: t("business.search.badge_receipt", "Receipt"),
