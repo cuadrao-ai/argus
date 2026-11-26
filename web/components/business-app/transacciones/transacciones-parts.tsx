@@ -31,13 +31,13 @@ export function StateIcon({ state }: { state: MatchState }) {
   );
 }
 
-/** Unknown is a plain dash on screen and its meaning ("sin dato" unless a cell says better) to a screen reader; never a zero. */
+/** Unknown is a plain dash on screen and its meaning ("Sin dato" unless a cell says better) to a screen reader; never a zero. */
 export function Unknown({ meaning }: { meaning?: string }) {
   const { t } = useTransaccionesWords();
   return (
     <span>
       <span aria-hidden="true">{UNKNOWN_VALUE}</span>
-      <span className="sr-only">{meaning ?? t("business.transactions.unknown", "sin dato")}</span>
+      <span className="sr-only">{meaning ?? t("business.dossier.row.no_data")}</span>
     </span>
   );
 }

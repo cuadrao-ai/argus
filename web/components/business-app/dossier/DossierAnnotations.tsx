@@ -219,7 +219,7 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
       <div ref={landing} className={`rounded-item ${annotation.supportBody}`} data-landing={added ? (added % 2 ? "a" : "b") : undefined}>
         {canAdd ? <input ref={picker} type="file" hidden accept={receiptLimits ? receiptFileAccept(receiptLimits) : undefined} disabled={pending || busy} onChange={pickFile} /> : null}
         {files.length ? <ul className={styles.rows}>{files.map(({ file, purge }) => {
-          const name = file.filename ?? t("business.dossier.row.no_data");
+          const name = file.filename ?? t("business.document_delete.unnamed");
           const selected = !purge && selectedSupportingSourceId === file.source_id;
           const action = purge ? "restore" : "unlink";
           const linkChange = purge ? onRestore : file.unlink_available ? onUnlink : undefined;
@@ -233,7 +233,7 @@ export function DossierSupportingCard({ busy, dossier, detailsCard, entryVisit =
               <span className={annotation.filename} title={name}>{name}</span>
               {file.size_bytes != null ? <span className={annotation.status}>{dossierFileSize(file.size_bytes, locale)}</span> : null}
               <span className={purge ? annotation.fileActions : `${annotation.fileActions} ${pointer.rowActions}`}>
-                {!purge && onViewFile ? <button type="button" className={styles.pen} title={t("business.dossier.supporting.view")} aria-label={t("business.dossier.supporting.view_named", { name })} aria-pressed={selected} onClick={() => onViewFile(file.source_id)}><Eye size={16} aria-hidden="true" /></button> : null}
+                {dossier?.retained_source_ids.includes(file.source_id) && onViewFile ? <button type="button" className={styles.pen} title={t("business.dossier.supporting.view")} aria-label={t("business.dossier.supporting.view_named", { name })} aria-pressed={selected} onClick={() => onViewFile(file.source_id)}><Eye size={16} aria-hidden="true" /></button> : null}
                 {linkChange ? <Tooltip content={t(`business.dossier.supporting.${action}`)} side="top">
                   <button type="button" className={styles.pen} aria-label={t(`business.dossier.supporting.${action}_named`, { name })} aria-disabled={pending || busy} onClick={() => {
                     if (purge && purge.getTime() <= Date.now()) {

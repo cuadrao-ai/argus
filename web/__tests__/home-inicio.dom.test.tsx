@@ -31,12 +31,12 @@ const arrived = (minutesAgo: number) => new Date(Date.UTC(2026, 10, 9, 17) - min
 async function receipts(): Promise<ReceiptSummary[]> {
   const source = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource({ chatAvailable: false });
   const seed = (await source.receipts("all"))[0];
-  const listo = (index: number): ReceiptSummary => ({ ...seed, id: `listo-${index}`, channel: "web", merchant: `Ferretería ${index}`, amount: "1180.00", currency: "DOP", status: "review_ready", attention: null, received_at: arrived(index), email_original: false, expense_id: null, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo", reason: null, label: "ready", draft_id: `d${index}`, version: 1 } });
+  const listo = (index: number): ReceiptSummary => ({ ...seed, id: `listo-${index}`, channel: "web", title: `Ferretería ${index}`, merchant: `Ferretería ${index}`, amount: "1180.00", currency: "DOP", status: "review_ready", attention: null, received_at: arrived(index), email_original: false, expense_id: null, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo", reason: null, label: "ready", draft_id: `d${index}`, version: 1 } });
   return [
     ...[1, 2, 3, 4].map(listo),
-    { ...listo(9), id: "unreadable", merchant: null, filename: "factura-escaneada.pdf", status: "needs_attention", attention: "unreadable", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
-    { ...listo(8), id: "itbis", merchant: "Colmado Esquina", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "missing_itbis", label: "needs_attention", draft_id: "dx", version: 2 } },
-    { ...listo(7), id: "photo", merchant: null, filename: null, channel: "whatsapp", status: "review_ready", received_at: arrived(0) },
+    { ...listo(9), id: "unreadable", title: "factura-escaneada.pdf", merchant: null, filename: "factura-escaneada.pdf", status: "needs_attention", attention: "unreadable", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
+    { ...listo(8), id: "itbis", title: "Colmado Esquina", merchant: "Colmado Esquina", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "missing_itbis", label: "needs_attention", draft_id: "dx", version: 2 } },
+    { ...listo(7), id: "photo", title: null, merchant: null, filename: null, channel: "whatsapp", status: "review_ready", received_at: arrived(0) },
   ] as ReceiptSummary[];
 }
 
@@ -96,7 +96,7 @@ describe("Pendientes", () => {
       assert.match(rows[0].textContent ?? "", /Taxi al aeropuerto.*Necesita atención/);
       assert.match(rows[1].textContent ?? "", /Colmado Esquina.*Necesita atención/);
       assert.match(rows[2].textContent ?? "", /factura-escaneada\.pdf.*No se pudo leer/);
-      assert.match(rows[3].textContent ?? "", /Foto por WhatsApp.*Listo para aceptar/);
+      assert.match(rows[3].textContent ?? "", /Documento.*Listo para aceptar/);
       for (const row of rows) {
         assert.ok(row.querySelector('button > [aria-hidden="true"] > svg'), "a channel icon");
         assert.ok(row.querySelector('[data-testid="home-attention-time"]')?.textContent, "an arrival time");

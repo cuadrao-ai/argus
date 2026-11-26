@@ -3474,8 +3474,7 @@ WhatsApp receipt intake keeps three service-role-only tables (migration
 `20261008130000_whatsapp_intake.sql`). Phone numbers, provider message ids and
 link codes are stored only as HMAC-SHA256 digests under
 `CUADRAO_WHATSAPP_SENDER_KEY`. `destination_owner_id` references `auth.users`
-and is the person today; it becomes the business principal if the Business
-boundary proposal is approved.
+and identifies the person who linked the number.
 
 - `whatsapp_link_codes`: `destination_owner_id`, `code_digest` (unique),
   `reply_language` (`es-419` or `en`, from the web app when the code was
@@ -3484,8 +3483,9 @@ boundary proposal is approved.
 - `whatsapp_sender_links`: `destination_owner_id`, `wa_id_hash`, `last4`,
   `reply_language` (copied from the redeemed code; replies use it, not
   `profiles.language`), `status` (`active` or `revoked`), `linked_at`, `revoked_at`. Partial unique
-  indexes allow one active link per sender and one per destination; linking
-  revokes whichever active link it replaces.
+  indexes allow one active link per sender hash and one per person. Linking
+  revokes whichever active link it replaces. Closing or transferring a Business
+  leaves the person's link in place.
 - `whatsapp_inbound_messages`: one row per provider message, unique on
   `provider_message_key`, with `sender_hash`, `destination_owner_id`,
   `status` (`received`, `linked`, `rejected`, `captured`, `failed`),
@@ -3494,12 +3494,17 @@ boundary proposal is approved.
   are final. A received row whose claim lapsed, or a failed row, is reclaimed by
   a redelivery of the same message. The webhook renews its lease during the
   bounded save. Only the holder of the current lease can settle the claim.
+  A captured document retains the active `sender_link_id` from settlement.
+  Pre-W4 captures use the signed sender hash and the person's link active at
+  settlement. A historical capture with no provable link stays unattributed.
   The captured row points to the draft in `financial_document_extractions`.
   If the file is eligible for a read, the bound read job and the captured
   claim become visible in the same transaction.
-  The legacy `claim_envelope` and `recovery_attempts` columns remain in the
-  schema. New claims use neither column. The platform retries an unfinished
-  delivery after its lease expires.
+  Claims store no recovery payload. The platform retries an unfinished delivery
+  after its lease expires. When an account is erased, a link referenced by a
+  surviving document retains only its last four digits as contact information.
+  The revoked link and the receipt lose the person and sender hash. Removing
+  the last such document removes the masked link.
 
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
@@ -3863,13 +3868,16 @@ same rule for memory mode.
 ### Business WhatsApp AI permission
 
 `business_whatsapp_ai_consents` is server-only, with RLS and no client grants.
-Migration `20261011100000_business_whatsapp_ai_consent.sql` binds each receipt
-through the existing sender-link composite identity to one Business owner and
-sender generation. It stores the consenting owner, actual grant/issuer, versioned
-purpose/disclosure, selected provider-route snapshot/hash, database timestamp,
-idempotency key/input hash and monotonic owner revocation. Identity and disclosure
-cannot be rewritten or directly erased; parent link/space/account deletion
-cascades without a retention exception. Service-role TRUNCATE is denied.
+Each consent receipt belongs to one sender link. Its Business, person, grant and
+issuer record the authority used to give permission. The grant must hold
+`prepare` for that Business when the receipt is written. The receipt also stores
+the versioned purpose and disclosure, selected route and hash, database
+timestamp, idempotency key, input hash and irreversible revocation. Existing
+scope-1 receipts retain their original disclosure. New consent uses scope 2.
+Removing the parent link or erasing the account removes its consent receipts.
+Erasing a different grant issuer preserves the consent and replaces the issuer
+with their Business departure alias, or clears the issuer when no alias survives.
+Service-role TRUNCATE is denied.
 
 The nullable immutable `whatsapp_inbound_messages.ai_consent_id` references the
 same consent/link/Business/owner/sender composite. Existing and unconsented rows

@@ -7,15 +7,27 @@ agrees with the action it describes."""
 
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from argus.api import whatsapp as whatsapp_api
+from argus.api.documents import documents_service
+from argus.api.email_intake import configure_email_intake
+from argus.domain.business.contracts.actions import ProposeActivity
+from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.contracts.dossier import AttachmentSource
+from argus.domain.business.contracts.facts import BusinessFactPatch
+from faker import Faker
+from psycopg import Connection
 
 from tests.business.receipt_stub import receipt_details, receipt_purchase
 from tests.business.test_business_api import RECEIPT
 from tests.business_accept_support import accepting
-from tests.document_reads_support import leave_reads_waiting
+from tests.document_reads_support import leave_reads_waiting, read_receipt
+from tests.ingestion.whatsapp_support import ALICE_PHONE
+from tests.test_business_actions_postgres import prepare
 from tests.test_business_approval_fiscal_postgres import (
     EDITED_SUPPLIER,
     SUPPLIER,
@@ -27,11 +39,16 @@ from tests.test_business_reading_setting_postgres import (  # noqa: F401
     _upload,
     web,
 )
+from tests.test_business_receipt_uploader_routes_postgres import (  # noqa: F401
+    _emailed,
+    phone,
+)
 from tests.test_business_review_counts_routes_postgres import EXPENSE, _review
 from tests.test_business_scope_switch_routes_postgres import API, _as, _note
 from tests.test_business_scope_switch_routes_postgres import (
     pytestmark as _local_supabase,
 )
+from tests.test_financial_accounts_postgres import DSN
 
 pytestmark = _local_supabase
 NONE = {"por_revisar": False, "con_problema": False, "leyendo": False}
@@ -95,6 +112,161 @@ def _review_with(rig, draft: str, facts: dict, dgii: dict | None, headers: dict)
     )
     assert answer.status_code == 200, answer.text
     return answer.json()
+
+
+@pytest.mark.parametrize(("channel", "file_before_message"), [
+    ("web", False), ("email", False), ("whatsapp", False), ("whatsapp", True),
+])
+def test_receipt_summary_and_dossier_report_one_origin(
+    web,  # noqa: ANN001, F811
+    faker: Faker,
+    channel: str,
+    file_before_message: bool,
+    phone,  # noqa: ANN001, F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert _reading(web, True).status_code == 200
+    content = RECEIPT + faker.binary(length=16)
+    if channel == "web" or file_before_message:
+        uploaded = _upload(web, content)
+        assert uploaded.status_code == 200, uploaded.text
+        if file_before_message:
+            _capture_stored_file(web.alice.id, uploaded.json()["id"], faker)
+    elif channel == "email":
+        _emailed(web, monkeypatch, content)
+        configure_email_intake(None)
+    else:
+        phone(ALICE_PHONE, content)
+        [saved] = _get(web, "/business/receipts", web.alice.headers, view="all")["items"]
+        asyncio.run(read_receipt(web.documents, web.alice.id, saved["id"]))
+        whatsapp_api.configure_whatsapp(None)
+
+    headers = web.alice.headers
+    page = _get(web, "/business/receipts", headers, view="all")
+    [summary] = [item for item in page["items"] if item["media_type"] == "image/png"]
+    receipt_id = summary["id"]
+    detail = _get(web, f"/business/receipts/{receipt_id}", headers)
+    draft = detail["draft_id"]
+    dossier = _get(web, f"/business/drafts/{draft}/dossier", headers)
+    assert dossier["original_connection_id"] == receipt_id
+    expected_sender = (
+        "email:proveedor@example.test" if channel == "email" else f"member:{web.alice.id}"
+    )
+    filename = "whatsapp-image" if channel == "whatsapp" and not file_before_message else "recibo.png"
+    origin = {
+        key: summary[key]
+        for key in ("channel", "sent_by", "received_at", "filename", "size_bytes")
+    }
+    assert (
+        origin["channel"],
+        origin["sent_by"]["id"],
+        origin["filename"],
+        origin["size_bytes"],
+    ) == (channel, expected_sender, filename, len(content))
+    assert origin["received_at"]
+    if file_before_message:
+        assert origin["received_at"] == uploaded.json()["received_at"]
+    assert dossier["origin"] == origin == {key: detail[key] for key in origin}
+    title = dossier["facts"]["counterparty"]["value"]
+    assert summary["title"] == detail["title"] == dossier["title"] == title
+
+    _check_annotated_origin(web, draft, dossier, headers, faker, channel)
+
+
+def _capture_stored_file(owner: UUID, receipt: str, faker: Faker) -> None:
+    """A stored capture can identify the sender after the file was saved."""
+    sender = uuid4().bytes + uuid4().bytes
+    with Connection.connect(DSN) as db:
+        link, = db.execute(
+            "insert into public.whatsapp_sender_links"
+            "(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
+            " values(%s,%s,%s,'es-419','active',now()) returning id",
+            (owner, sender, faker.numerify("####")),
+        ).fetchone()
+        db.execute(
+            "insert into public.whatsapp_inbound_messages"
+            "(provider_message_key,sender_hash,destination_owner_id,status,connection_id,"
+            "sender_link_id,received_at,updated_at) values(%s,%s,%s,'captured',%s,%s,now(),now())",
+            (uuid4().bytes + uuid4().bytes, sender, owner, receipt, link),
+        )
+
+
+def _check_annotated_origin(
+    rig, draft: str, dossier: dict, headers: dict, faker: Faker, channel: str
+) -> None:  # noqa: ANN001
+    note = rig.client.put(
+        f"{API}/business/drafts/{draft}/current-note",
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+        json={"expected_version": dossier["version"], "note": faker.sentence()},
+    )
+    assert note.status_code == 200, note.text
+    edited = note.json()["dossier"]
+    capture = rig.client.post(
+        f"{API}/business/captures",
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+        json={
+            "draft": {"draft_id": draft, "version": edited["version"]},
+            "text": faker.sentence(),
+        },
+    )
+    assert capture.status_code == 200, capture.text
+    for response in (edited, capture.json()):
+        assert (response["origin"], response["title"]) == (
+            dossier["origin"],
+            dossier["title"],
+        )
+        file = next(
+            s
+            for s in response["sources"]
+            if s.get("connection_id") == dossier["original_connection_id"]
+        )
+        assert file["channel"] == response["origin"]["channel"] == channel
+
+
+def test_a_granted_member_sees_the_stored_attachment_channel_without_a_webhook_row(
+    world,  # noqa: ANN001, F811
+    faker: Faker,
+) -> None:
+    """A stored attachment can identify its channel even without a capture ledger entry."""
+    saved = _upload(world, RECEIPT + faker.binary(length=16))
+    assert saved.status_code == 200, saved.text
+    file = saved.json()
+    service = documents_service().business_actions
+    actor = service.resolve_actor(
+        TrustedActor(
+            space_id=world.alice.space_id, actor_id=world.alice.id, actor_kind="member"
+        )
+    )
+    source = service.record_source(
+        actor,
+        f"attachment:{file['id']}",
+        AttachmentSource(
+            id=uuid4(),
+            connection_id=UUID(file["id"]),
+            channel="whatsapp",
+            filename=file["filename"],
+            media_type=file["media_type"],
+            received_at=file["received_at"],
+        ),
+    )
+    command = ProposeActivity(
+        source_ids=(source,),
+        facts=BusinessFactPatch(
+            counterparty={"state": "known", "value": faker.company()}
+        ),
+    )
+    key, lease = prepare(service, actor, [command])
+    result = service.execute(actor, key, 0, lease=lease)
+    assert result.outcome == "applied", result
+    draft = str(result.draft_id)
+    headers = _as(world.bob, world.grant)
+    page = _get(world, "/business/receipts", headers, view="all")
+    [row] = page["items"]
+    dossier = _get(world, f"/business/drafts/{draft}/dossier", headers)
+    assert row["channel"] == dossier["origin"]["channel"] == "whatsapp"
+    assert row["id"] == dossier["original_connection_id"] == file["id"]
+    assert dossier["sources"][0]["channel"] == "whatsapp"
+    _check_annotated_origin(world, draft, dossier, headers, faker, "whatsapp")
 
 
 def test_each_receipt_says_which_bandeja_buckets_it_sits_in_and_the_counts_agree(

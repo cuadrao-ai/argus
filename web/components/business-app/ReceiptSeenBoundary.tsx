@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { ReceiptDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 
-export default function ReceiptSeenBoundary({ receipt, hydrated }: { receipt: ReceiptDetail; hydrated: boolean }) {
+export default function ReceiptSeenBoundary({ receipt, hydrated }: { receipt: Pick<ReceiptDetail, "id" | "activity">; hydrated: boolean }) {
   const { source, reload } = useBusiness();
   const sentinel = useRef<HTMLDivElement>(null);
   const acknowledged = useRef<string | null>(null);
@@ -13,7 +13,7 @@ export default function ReceiptSeenBoundary({ receipt, hydrated }: { receipt: Re
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const identity = useRef({ id: receipt.id, cursor: receipt.activity?.completion_cursor });
   useLayoutEffect(() => { identity.current = { id: receipt.id, cursor: receipt.activity?.completion_cursor }; }, [receipt.id, receipt.activity?.completion_cursor]);
-  const cursor = receipt.activity?.state === "ready" ? receipt.activity.completion_cursor : null;
+  const cursor = receipt.activity?.completion_cursor;
   const mark = useCallback(async () => {
     if (!hydrated || !cursor || !source.markReceiptRead || (inFlight.current?.id === receipt.id && inFlight.current?.cursor === cursor) || acknowledged.current === cursor) return;
     const request = { id: receipt.id, cursor };

@@ -39,7 +39,7 @@ test("an accepted record can be deleted, undone, and restored from Eliminados", 
         reason: null, label: deleted ? null : "accepted", draft_id: draftId, version: 4,
       };
       const receipt = source.receipt(receiptId).then((item) => ({
-        ...item, draft_id: draftId, merchant, status: deleted ? "dismissed" : "confirmed",
+        ...item, draft_id: draftId, merchant, title: merchant, status: deleted ? "dismissed" : "confirmed",
         deleted: deleted ? deletion : null, delete_available: !deleted, restore_available: deleted, bandeja_group: group,
       }));
       if (parts[1] === receiptId && parts.length === 2) return receipt;
@@ -54,7 +54,7 @@ test("an accepted record can be deleted, undone, and restored from Eliminados", 
     if (parts[0] === "drafts" && [draftId, receiptId].includes(parts[1])) {
       const [, id, action] = parts;
       if (action === "dossier") return source.dossier(dossierFixtureIds.recordedThenMarked).then((dossier) => ({
-        ...dossier, draft_id: id, review_state: deleted ? "dismissed" : "accepted", personal: false,
+        ...dossier, draft_id: id, title: merchant, review_state: deleted ? "dismissed" : "accepted", personal: false,
         deleted: deleted ? deletion : null, delete_available: !deleted, restore_available: deleted,
         facts: { ...dossier.facts, counterparty: { ...dossier.facts.counterparty, value: merchant } },
       }));

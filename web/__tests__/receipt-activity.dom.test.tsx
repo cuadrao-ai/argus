@@ -14,6 +14,8 @@ import ReceiptReadingControl from "@/components/business-app/ReceiptReadingContr
 import { BusinessConsentTestProvider } from "@/components/business-app/business-consent-context";
 import ReceiptDossierReview from "@/components/business-app/ReceiptDossierReview";
 import { dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
+import BusinessInboxPanel from "@/components/business-app/BusinessInboxPanel";
+import ReceiptReviewPanel from "@/components/business-app/ReceiptReviewPanel";
 import ReceiptSeenBoundary from "@/components/business-app/ReceiptSeenBoundary";
 import { afterListCheck, useReceiptInboxRefresh } from "@/components/business-app/useReceiptInboxRefresh";
 import type { ReceiptActivityCounts, ReceiptDetail, ReceiptReading } from "@/lib/business-api";
@@ -404,6 +406,58 @@ test("an unread receipt has no manual read button and is marked automatically wh
   }
 });
 
+test("opening a saved receipt clears its Bandeja dot after the server acknowledges it", async () => {
+  const fixture = createFixtureBusinessDataSource();
+  const saved = await fixture.receipt("rcpt-saved");
+  const cursor = "c".repeat(64);
+  let activity = { state: "saved_unread" as const, unread: true, completion_cursor: cursor };
+  const detail = () => ({ ...saved, email_original: false, activity });
+  const requests: string[][] = [];
+  let respond!: () => void;
+  const source: BusinessDataSource = {
+    ...fixture,
+    receipt: async () => detail(),
+    receiptPage: async () => ({ items: [detail()], activity: counts }),
+    markReceiptRead: (id, current) => {
+      requests.push([id, current]);
+      return new Promise(resolve => {
+        respond = () => { activity = { ...activity, unread: false }; resolve(activity); };
+      });
+    },
+  };
+  const initial = context(source, () => {});
+  function Workspace() {
+    const [revision, setRevision] = useState(0);
+    const [panel, openPanel] = useState<BusinessContextValue["panel"]>({ kind: "inbox" });
+    return <BusinessContext.Provider value={{ ...initial, panel, openPanel, revision, reload: () => setRevision(n => n + 1) }}>
+      <BusinessInboxPanel />
+      {panel.kind === "receipt" && <ReceiptReviewPanel target={{ kind: "receipt", id: panel.receiptId }} />}
+    </BusinessContext.Provider>;
+  }
+  const page = await host();
+  const row = () => page.element.querySelector<HTMLElement>('[data-testid="reception-row"]');
+  try {
+    await act(async () => page.root.render(
+      <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><Workspace /></BusinessConsentTestProvider></I18nextProvider>,
+    ));
+    assert.equal(row()?.dataset.unseen, "true");
+    await act(async () => row()!.click());
+    const record = page.element.querySelector('[data-testid="business-record-review"]');
+    assert.ok(record);
+    const visibleRecord = [...observed].find(element => element.contains(record));
+    assert.ok(visibleRecord, "the seen boundary observes the open record");
+    assert.deepEqual(requests, []);
+    await act(async () => intersect(visibleRecord));
+    assert.deepEqual(requests, [[saved.id, cursor]]);
+    assert.equal(row()?.dataset.unseen, "true");
+    await act(async () => respond());
+    assert.equal(row()?.dataset.unseen, "false");
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+  }
+});
+
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {
   const detail = await receipt();
   let marked = 0;
@@ -448,7 +502,7 @@ test("an unpaid NCF due notice shows Factura por pagar on the dossier", async ()
   const detail = { ...await receipt(), draft_id: marked.draft_id, version: marked.version };
   const source: BusinessDataSource = { ...fixture, dossier: async () => marked };
   const page = await host();
-  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={marked.draft_id} receipt={detail} /></BusinessContext.Provider></I18nextProvider>));
+  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={marked.draft_id} receipt={{ id: detail.id, activity: detail.activity, draftVersion: detail.version }} /></BusinessContext.Provider></I18nextProvider>));
   assert.equal(page.element.querySelector('[data-testid="bill-mark"]')?.textContent, "Factura por pagar");
   await act(async () => page.root.unmount());
 });
@@ -461,7 +515,7 @@ test("old dossier hydration cannot consume a newer receipt completion", async ()
   let marked = 0;
   const source: BusinessDataSource = { ...fixture, markReceiptRead: async (_id, cursor) => { marked++; return { state: "ready", unread: false, completion_cursor: cursor }; } };
   const page = await host();
-  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={dossier.draft_id} receipt={detail} /></BusinessContext.Provider></I18nextProvider>));
+  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={dossier.draft_id} receipt={{ id: detail.id, activity: detail.activity, draftVersion: detail.version }} /></BusinessContext.Provider></I18nextProvider>));
   await act(async () => intersect(page.element));
   assert.equal(marked, 0);
   await act(async () => page.root.unmount());

@@ -12,7 +12,7 @@ import type { BusinessDataSource } from "./business-data";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
-import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
+import { formatDay, formatMoney, formatTimestamp } from "./business-format";
 import { cardClass, secondaryButtonClass } from "./business-ui";
 import { DgiiAnswer } from "./transacciones/RecordDgiiCell";
 import { BandejaLabelPill } from "./dossier/DossierHeader";
@@ -33,20 +33,21 @@ export type BusinessSearchRecord =
 export default function BusinessSearchDossier({ record, source, accounts }: { record: BusinessSearchRecord; source: BusinessDataSource; accounts: readonly BusinessAccount[] }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
+  const empty = t("business.dossier.row.no_data");
   if (record.kind === "note") return <NotePreview note={record.note} source={source} accounts={accounts} />;
   if (record.kind === "email") {
     const { email } = record;
     return <section aria-label={t("business.search.region", "Business records")} className="space-y-5">
-      <h2 className="font-display text-2xl font-medium">{email.subject ?? UNKNOWN_VALUE}</h2>
-      <Field label={t("business.search.email_from", "From")}>{email.sender ?? UNKNOWN_VALUE}</Field>
-      <Field label={t("business.search.email_received", "Received")}>{email.received_at ? formatTimestamp(email.received_at, locale) : UNKNOWN_VALUE}</Field>
+      <h2 className="font-display text-2xl font-medium">{email.subject ?? empty}</h2>
+      <Field label={t("business.search.email_from", "From")}>{email.sender ?? empty}</Field>
+      <Field label={t("business.search.email_received", "Received")}>{email.received_at ? formatTimestamp(email.received_at, locale) : empty}</Field>
       <Field label={t("business.search.email_state", "Status")}>{t(`business.email.state.${email.state}`, email.state)}</Field>
     </section>;
   }
   if (record.kind === "sender") {
     const { sender } = record;
     return <section aria-label={t("business.search.region", "Business records")} className="space-y-5">
-      <h2 className="font-display text-2xl font-medium break-all">{sender.value || UNKNOWN_VALUE}</h2>
+      <h2 className="font-display text-2xl font-medium break-all">{sender.value || empty}</h2>
       <Field label={t("business.search.sender_type", "Type")}>{t(`business.search.sender_kind.${sender.kind}`, sender.kind)}</Field>
       <Field label={t("business.search.email_state", "Status")}>{t(`business.search.sender_status.${sender.status}`, sender.status)}</Field>
     </section>;
@@ -54,10 +55,10 @@ export default function BusinessSearchDossier({ record, source, accounts }: { re
   const summary = record.kind === "receipt" ? record.receipt : record.expense;
   const receiptId = record.kind === "receipt" ? record.receipt.id : record.expense.receipt_id;
   return <section aria-label={t("business.search.region", "Business records")} className="space-y-5">
-    <h2 className="font-display text-2xl font-medium">{summary.merchant ?? (record.kind === "receipt" ? record.receipt.filename : null) ?? t(record.kind === "receipt" ? "business.receipt.untitled" : "business.expenses.no_merchant", record.kind === "receipt" ? "Receipt" : "Expense")}</h2>
+    <h2 className="font-display text-2xl font-medium">{record.kind === "receipt" ? record.receipt.title ?? t("business.document_delete.unnamed") : record.expense.merchant ?? t("business.expenses.no_merchant")}</h2>
     {record.kind === "receipt" ? <DocumentStatus document={record.receipt} /> : null}
     {summary.amount ? <p className="text-3xl font-medium tabular-nums">{formatMoney(summary.amount, summary.currency, locale)}</p> : null}
-    <Field label={t("business.review.date", "Date")}>{summary.occurred_on ? formatDay(summary.occurred_on, locale) : t("business.dossier.unknown", "Unknown")}</Field>
+    <Field label={t("business.review.date", "Date")}>{summary.occurred_on ? formatDay(summary.occurred_on, locale) : t("business.dossier.row.no_data")}</Field>
     {record.kind === "expense" || record.receipt.expense_id ? <Field label={t("business.dossier.placeholder.expense_type")}><DgiiAnswer purchase={summary.dgii_606} field="expense_type" /></Field> : null}
     {receiptId ? <ReceiptPreview receiptId={receiptId} source={source} /> : <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</p>}
   </section>;
@@ -103,7 +104,7 @@ function ReceiptPreview({ receiptId, source }: { receiptId: string; source: Busi
   if (failure) return <LoadRetry reference={failure.reference} onRetry={() => setAttempt((value) => value + 1)} />;
   if (!detail) return <Settle pending layout="rows" rows={3} />;
   return <>
-    <Field label={t("business.review.source", "Original receipt")}><span className="break-all">{detail.filename ?? detail.media_type}</span></Field>
+    <Field label={t("business.review.source", "Original receipt")}><span className="break-all">{detail.filename ?? t("business.document_delete.unnamed")}</span></Field>
     {detail.evidence?.lines.length ? <div className={cardClass}><h3 className="mb-3 text-sm font-medium">{t("business.review.evidence", "What the receipt says")}</h3><ul className="space-y-2 text-sm">{detail.evidence.lines.map((line, index) => <li key={index} className="flex justify-between gap-3"><span>{line.description}</span><span>{formatMoney(line.amount, detail.evidence?.currency ?? null, i18n.resolvedLanguage ?? resolveLanguage({}))}</span></li>)}</ul></div> : null}
     <ReceiptSourcePreview detail={detail} />
   </>;

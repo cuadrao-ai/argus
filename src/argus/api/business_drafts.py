@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from types import SimpleNamespace
 from typing import Annotated
@@ -43,7 +43,11 @@ from argus.domain.business.bandeja_group import confirmable_gaps
 from argus.domain.business.contracts.actions import Refused
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.deletion import DeletedDocument, deletion
-from argus.domain.business.contracts.dossier import AccountChoice, RecordContext
+from argus.domain.business.contracts.dossier import (
+    AccountChoice,
+    BusinessDossier,
+    RecordContext,
+)
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessResolution,
@@ -52,7 +56,13 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.people import named_deletion, people
 from argus.domain.business.receipt_consent import RECEIPT_READING_PERMISSION
-from argus.domain.business.receipts import draft_row
+from argus.domain.business.receipts import Receipt, draft_row, record_title
+from argus.domain.business.record_origin import (
+    OriginUpload,
+    UploadIntake,
+    draft_arrivals,
+    record_origins,
+)
 from argus.domain.business.roles import Permission, legacy_capabilities, legacy_role
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
@@ -421,7 +431,9 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
     )
     found: dict[str, list[dict]] = {}
     markers = marker_people(tx, rows)
+    arrivals = draft_arrivals(tx, list({row["id"] for row in rows}))
     for row in rows:
+        row["arrival"] = arrivals.get(row["id"])
         if not duplicate_warning(
             row["attention"], row["possible_duplicates"], partial(_pending, tx, row)
         ):
@@ -471,6 +483,14 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     summary = {**summary, "deleted": deletion(row["state"], row["resolution"])}
     type_editable = row["state"] in ("open", "accepted")
     resolution = BusinessResolution.model_validate(row["resolution"]["business"])
+    counterparty = resolution.facts.counterparty.value
+    if "merchant" in summary:
+        summary["merchant"] = counterparty
+    arrival = row.get("arrival")
+    if arrival and "received_at" in summary:
+        summary["received_at"] = arrival.received_at
+    if "title" in summary:
+        summary["title"] = record_title(counterparty, arrival.filename if arrival else summary.get("filename"))
     if legacy == str(row["id"]):
         if "document_type_editable" in summary:
             summary["document_type_editable"] = type_editable
@@ -492,7 +512,6 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         "preparable": False,
         "enterable": False,
         "expense_id": str(row["activity_id"]) if row["activity_id"] else None,
-        "merchant": value(facts.counterparty),
         "amount": value(facts.amount),
         "currency": value(facts.currency),
         "occurred_on": (value(facts.occurred_on) or None)
@@ -593,17 +612,45 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
     ]
 
 
+def _receipt_views(
+    context: BusinessContext, receipts: list[Receipt], *, detail: bool = False
+) -> list[dict]:
+    from argus.api.email_intake import email_receipt_flags
+
+    if not receipts:
+        return []
+    uploads = [OriginUpload.model_validate(receipt.draft) for receipt in receipts]
+    store = context.service.imports.store
+    if isinstance(store, GrantImportStore):
+        with transaction(store.authority, store.context) as tx:
+            intake = UploadIntake.stored(tx)
+            origins = record_origins(tx, uploads, intake)
+    else:
+        intake = UploadIntake(
+            frozenset(r.id for r in receipts if r.captured),
+            email_receipt_flags(str(context.scope.owner.space_id)),
+        )
+        origins = record_origins(None, uploads, intake)
+    views = []
+    for receipt in receipts:
+        if receipt.id in intake.emails:
+            delivery_ids, original, _ = intake.emails[receipt.id]
+            receipt = replace(receipt, email_delivery_ids=delivery_ids, email_original=original)
+        origin = origins[receipt.id]
+        views.append(receipt.detail(origin) if detail else receipt.summary(origin))
+    return bridged(context, views)
+
+
 def receipt_summaries(context: BusinessContext, view: str) -> list[dict]:
     """The receipt list, overlaid; the inbox leaves out what is saved or dismissed."""
 
-    from argus.api.routers.business import _email_flagged
     from argus.domain.business.receipts import CLOSED
 
-    receipts = _email_flagged(context, context.service.receipts(context.scope))
-    items = bridged(context, [receipt.summary() for receipt in receipts])
+    receipts = context.service.receipts(context.scope)
+    items = _receipt_views(context, receipts)
     if view == "inbox":
         items = [item for item in items if item["status"] not in CLOSED]
-    return items
+    return sorted(items, key=lambda row: row["received_at"], reverse=True)
 
 
 def receipt_read_dates(context: BusinessContext) -> dict[str, str]:
@@ -624,11 +671,12 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     projection over the overlaid views: an approved draft is a saved expense
     and the email itself is not a receipt, the same as in the Bandeja."""
 
-    from argus.api.business_receipt_activity import counts_now
+    from argus.api.business_receipt_activity import receipts_now
     from argus.domain.business import ledger
 
     data = context.service.overview(context.scope, start, end)
-    counts = counts_now(context)
+    views, counts = receipts_now(context)
+    data["last_received_at"] = max((view["received_at"] for view in views), default=None)
     data["ready_to_review_count"] = counts["ready_to_review_count"]
     data["bandeja_listo_count"] = counts["bandeja_listo_count"]
     data["bandeja_attention_count"] = counts["bandeja_attention_count"]
@@ -657,7 +705,7 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
 def receipt_summary(context: BusinessContext, receipt) -> dict:  # noqa: ANN001
     """One receipt's summary, overlaid: what upload and prepare answer with."""
 
-    return bridged(context, [receipt.summary()])[0]
+    return _receipt_views(context, [receipt])[0]
 
 
 def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | None]]:  # noqa: ANN001
@@ -679,7 +727,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
         + " where e.owner_space_id=%s and e.user_id=%s and e.activity_id = any(%s)"
         " and e.resolution ? 'business'"
         # The latest revised draft speaks for its activity, whatever order the rows come in.
-        " order by e.updated_at desc, e.id desc",
+        " order by e.updated_at desc, e.id desc, s.received_at, s.id",
         (
             tx.context.actor.space_id,
             tx.context.owner_id,
@@ -689,6 +737,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
     drafts: dict[str, set[str]] = {}
     receipts: dict[str, set[str]] = {}
     marks: dict[str, dict] = {}
+    arrivals = draft_arrivals(tx, list({row["draft_id"] for row in rows}))
     markers = marker_people(tx, rows)
     for row in rows:
         activity = str(row["activity_id"])
@@ -698,7 +747,11 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
         typed = (row.get("resolution") or {}).get("business")
         if typed and activity not in marks:
             facts = BusinessResolution.model_validate(typed).facts
-            marks[activity] = record_marks(facts, row, markers)
+            arrival = arrivals.get(row["draft_id"])
+            marks[activity] = {
+                **record_marks(facts, row, markers),
+                "merchant": record_title(facts.counterparty.value, arrival.filename if arrival else None),
+            }
     return {
         activity: {
             "draft_id": ids.pop() if len(ids) == 1 else None,
@@ -728,7 +781,7 @@ def _with_records(context: BusinessContext, expenses: list[dict]) -> list[dict]:
             **{
                 key: value
                 for key, value in found.get(item["id"], {}).items()
-                if item.get(key) is None and value is not None
+                if key == "merchant" or (item.get(key) is None and value is not None)
             },
         }
         for item in expenses
@@ -799,33 +852,30 @@ def search_with_drafts(
     """Every match, unpaged: receipts overlaid and email-flagged as the Bandeja
     lists them, expenses and ventas linked to their receipts, accounts as found."""
 
-    from argus.api.routers.business import _email_flagged
 
-    receipts = _email_flagged(context, context.service.receipts(context.scope))
+    receipts = context.service.receipts(context.scope)
     views = {
-        item["id"]: item for item in bridged(context, [r.summary() for r in receipts])
+        item["id"]: item for item in _receipt_views(context, receipts)
     }
-    found = context.service.search(context.scope, query, views, numbers)
-    found["expenses"] = _with_records(context, found["expenses"])
-    found["ventas"] = _with_records(context, found["ventas"])
-    return found
+    return context.service.search(
+        context.scope, query, views, numbers, with_records=partial(_with_records, context)
+    )
 
 
 def updates_with_drafts(context: BusinessContext) -> list[dict]:
     """The updates feed built from the overlaid receipt views, so a linked draft's
     state (ready, needs attention, saved) is the one the feed reports."""
 
-    from argus.api.routers.business import _email_flagged
 
-    receipts = _email_flagged(context, context.service.receipts(context.scope))
+    receipts = context.service.receipts(context.scope)
     views = {
-        item["id"]: item for item in bridged(context, [r.summary() for r in receipts])
+        item["id"]: item for item in _receipt_views(context, receipts)
     }
     return context.service.updates(context.scope, views)
 
 
 def receipt_detail(context: BusinessContext, receipt) -> dict:
-    [detail] = bridged(context, [receipt.detail()])
+    [detail] = _receipt_views(context, [receipt], detail=True)
     store = context.service.imports.store
     if isinstance(store, GrantImportStore):
         with transaction(store.authority, store.context) as tx:
@@ -836,146 +886,35 @@ def receipt_detail(context: BusinessContext, receipt) -> dict:
     return detail
 
 
-def _compared_files(dossier, channel):  # noqa: ANN001, ANN202
-    """The duplicate candidates, each compared document's file with the channel
-    ``channel`` gives it by the same rule as the dossier's attachment sources."""
-
-    def document(item):  # noqa: ANN001, ANN202
-        if item.file is None:
-            return item
-        file = item.file.model_copy(update={"channel": channel(item.file)})
-        return item.model_copy(update={"file": file})
-
-    return tuple(
-        candidate.model_copy(
-            update={
-                "comparison": candidate.comparison.model_copy(
-                    update={
-                        "document": document(candidate.comparison.document),
-                        "other": document(candidate.comparison.other),
-                    }
-                )
-            }
-        )
-        for candidate in dossier.duplicate_candidates
-    )
-
-
-def with_whatsapp_sources(dossier, captured: frozenset[str]):  # noqa: ANN001, ANN201
-    """The dossier's attachment sources and compared files that arrived by
-    WhatsApp say so, from the intake store's captured connections, the fact
-    /business/receipts reads; the stored source row says web for every
-    attachment and is never written back."""
-
-    if not captured:
-        return dossier
-
-    def channel(item):  # noqa: ANN001, ANN202
-        return "whatsapp" if str(item.connection_id) in captured else item.channel
-
-    sources = tuple(
-        source.model_copy(update={"channel": channel(source)})
-        if source.kind == "attachment"
-        else source
-        for source in dossier.sources
-    )
-    return dossier.model_copy(
-        update={
-            "sources": sources,
-            "duplicate_candidates": _compared_files(dossier, channel),
-        }
-    )
-
-
-def with_source_channels(dossier, *, space_id: str, owner_id: str, service=None):  # noqa: ANN001, ANN201
-    """Every dossier the drafts API returns passes here: WhatsApp first, then
-    email, the same order the receipt list decides a channel. ``service`` lends
-    its database for the review note when email receiving is off."""
-
-    pool = getattr(getattr(service, "authority", None), "pool", None)
-    return with_email_sources(
-        with_whatsapp_sources(dossier, _captured(owner_id)), space_id, pool=pool
-    )
-
-
-def _stored_review_note(dossier, space_id: str, pool):  # noqa: ANN001, ANN202
-    """With email receiving off, the note still comes from the stored deliveries,
-    the same rows the approve gate falls back to."""
-
-    from argus.api.email_intake import email_review_note
+def with_review_note(
+    dossier: BusinessDossier, *, space_id: str, service: BusinessActions
+) -> BusinessDossier:
+    """The first saved delivery note, including while email receiving is off."""
     from argus.domain.ingestion.email_intake.store import PostgresEmailStore
 
-    store = PostgresEmailStore(pool)
-    membership = store.membership(space_id)
-    delivery_ids = {
-        delivery_id
-        for source in dossier.sources
-        if source.kind == "attachment" and str(source.connection_id) in membership
-        for delivery_id in membership[str(source.connection_id)]["delivery_ids"]
+    deliveries = {
+        delivery for source in dossier.sources if source.kind == "attachment"
+        for delivery in source.email_delivery_ids
     }
-    note = email_review_note(space_id, delivery_ids, store=store)
-    return dossier.model_copy(update={"review_note": note})
-
-
-def with_email_sources(dossier, space_id: str, pool=None):  # noqa: ANN001, ANN201
-    """The dossier's attachment sources and compared files that arrived by
-    email say so, the sources with their deliveries, from the email queue; the
-    stored source row says web for every attachment, so this is decided here
-    and never written back."""
-
-    from argus.api.email_intake import (
-        arrived_by_email,
-        email_receipt_flags,
-        email_review_note,
-    )
-
-    flags = email_receipt_flags(space_id)
-    if not flags:
-        return dossier if pool is None else _stored_review_note(dossier, space_id, pool)
-    delivery_ids = {
-        delivery_id
-        for source in dossier.sources
-        if source.kind == "attachment" and str(source.connection_id) in flags
-        for delivery_id in flags[str(source.connection_id)][0]
-    }
-
-    def channel(item):  # noqa: ANN001, ANN202
-        flag = flags.get(str(item.connection_id))
-        return (
-            "email"
-            if flag is not None and arrived_by_email(item.received_at, flag[2])
-            else item.channel
-        )
-
-    sources = tuple(
-        source.model_copy(
-            update={
-                "channel": channel(source),
-                "email_delivery_ids": flags[str(source.connection_id)][0],
-            }
-        )
-        if source.kind == "attachment" and str(source.connection_id) in flags
-        else source
-        for source in dossier.sources
-    )
-    return dossier.model_copy(
-        update={
-            "sources": sources,
-            "duplicate_candidates": _compared_files(dossier, channel),
-            "review_note": email_review_note(space_id, delivery_ids),
-        }
-    )
+    if deliveries:
+        store = PostgresEmailStore(service.authority.pool)
+        for delivery_id in sorted(deliveries):
+            delivery = store.get(delivery_id, space_id)
+            if delivery and delivery.review_note:
+                return dossier.model_copy(update={"review_note": delivery.review_note})
+    return dossier
 
 
 def unread_backlog(context: BusinessContext) -> list[str]:
-    from argus.api.routers.business import _email_flagged
+    from argus.api.email_intake import email_receipt_flags
 
+    flags = email_receipt_flags(str(context.scope.owner.space_id))
     documents = context.service.documents
-    receipts = _email_flagged(context, context.service.receipts(context.scope))
+    receipts = context.service.receipts(context.scope)
     ids = []
     for receipt in receipts:
         if (
-            receipt.email_original
+            (receipt.id in flags and flags[receipt.id][1])
             or receipt.draft.status != "saved"
             or receipt.draft.error_code is not None
             or not receipt.draft.source_available

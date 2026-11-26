@@ -22,6 +22,7 @@ import pytest
 import pytest_asyncio
 from argus.api import whatsapp
 from argus.api.main import app
+from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.jobs import PreparationJobs
@@ -142,6 +143,7 @@ async def webhook(actions, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Web
     monkeypatch.setattr(whatsapp, "documents_service", lambda: documents)
     monkeypatch.setattr(whatsapp, "ingestion_hub", lambda: hub)
     monkeypatch.setattr(whatsapp, "business_spaces", lambda: PostgresSpaceStore(pool))
+    monkeypatch.setattr(whatsapp, "business_access", lambda: PostgresAccessStore(pool))
     previous = whatsapp.whatsapp_runtime()
     async with (
         httpx.AsyncClient(transport=httpx.MockTransport(fake_graph)) as provider,

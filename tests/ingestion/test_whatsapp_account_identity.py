@@ -20,9 +20,9 @@ from tests.ingestion.test_whatsapp_api import (  # noqa: F401
 )
 
 
-@pytest.mark.parametrize("supported_destination,selected", [(False, True), (True, True), (True, False)])
+@pytest.mark.parametrize("is_default_destination,selected", [(False, True), (True, True), (True, False)])
 def test_transferred_business_never_uses_creators_channel_account(
-    wa_client, consent_reads, identities, supported_destination, selected, monkeypatch  # noqa: F811
+    wa_client, consent_reads, identities, is_default_destination, selected, monkeypatch  # noqa: F811
 ):
     fake = Faker()
     creator, caller = identities[ALICE]["id"], identities[BOB]["id"]
@@ -32,7 +32,7 @@ def test_transferred_business_never_uses_creators_channel_account(
     # Owner membership belongs to the recipient.
     access._live(transferred.id, creator)["revoked_at"] = access._now()
     grant = access._insert_grant(transferred.id, caller, caller, BusinessRole.OWNER)
-    if supported_destination:
+    if is_default_destination:
         spaces._defaults[caller] = transferred.id
     link_alice(wa_client)
     runtime = whatsapp_runtime()
@@ -41,12 +41,12 @@ def test_transferred_business_never_uses_creators_channel_account(
     assert creator_link is not None
     status = runtime.receipts.status
     configure_whatsapp(replace(runtime, receipts=SimpleNamespace(
-        status=status, enable=lambda owner, body, key: status(owner, None)
+        status=status, enable=lambda owner, space, body, key: status(owner, space, None)
     )))
     headers = {**bearer(BOB), **({"X-Business-Grant": grant["id"]} if selected else {})}
     availability = wa_client.get("/api/v1/business/workspace", headers=headers)
     assert availability.status_code == 200, availability.text
-    assert availability.json()["receiving_channels"]["whatsapp"]["available"] is supported_destination
+    assert availability.json()["receiving_channels"]["whatsapp"]["available"] is True
     responses = [
         wa_client.get(LINK, headers=headers),
         wa_client.post(CODES, headers=headers),
@@ -54,14 +54,11 @@ def test_transferred_business_never_uses_creators_channel_account(
         wa_client.post("/api/v1/whatsapp/ai-consent", headers={**headers, "Idempotency-Key": fake.uuid4()},
                        json={"action": "enable", "disclosure_token": "a" * 64}),
     ]
-    if supported_destination:
-        assert [r.status_code for r in responses] == [200, 201, 200, 200]
-        assert responses[0].json() == {"linked": False, "last4": None, "linked_at": None, "reply_language": None}
-        assert [str(owner) for owner, _ in consent_reads] == [caller, caller]
-        assert {code.owner for code in store._codes.values() if not code.consumed} == {caller}
-    else:
-        assert [r.status_code for r in responses] == [404] * 4
-        assert consent_reads == []
+    assert [r.status_code for r in responses] == [200, 201, 200, 200]
+    assert responses[0].json() == {"linked": False, "last4": None, "linked_at": None, "reply_language": None}
+    assert [str(owner) for owner, _ in consent_reads] == [caller, caller]
+    assert {code.owner for code in store._codes.values() if not code.consumed} == {caller}
+
     from argus.api.routers import whatsapp as routes
 
     revoked = []

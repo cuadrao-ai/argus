@@ -156,7 +156,7 @@ def test_append_uses_existing_draft_authority_without_owner_workspace(capture_ap
 
 
 def test_note_added_to_a_whatsapp_record_keeps_the_whatsapp_channel(
-    capture_api, monkeypatch
+    capture_api, stored_whatsapp_dossier
 ):
     """The dossier a note answers with reads the same captured set the receipt
     list reads, keyed on the Business owner, so the original stays WhatsApp."""
@@ -171,14 +171,7 @@ def test_note_added_to_a_whatsapp_record_keeps_the_whatsapp_channel(
         media_type="image/jpeg",
     )
     api.service.view = api.service.view.model_copy(update={"sources": (original,)})
-    asked = []
-
-    def captured(owner_id):
-        asked.append(owner_id)
-        return frozenset({str(original.connection_id)})
-
-    monkeypatch.setattr("argus.api.business_drafts._captured", captured)
-    monkeypatch.setattr("argus.api.email_intake.email_receipt_flags", lambda space_id: {})
+    asked = stored_whatsapp_dossier(CaptureService, api.actor, original.connection_id)
     response = api.client.post(
         "/business/captures",
         json={

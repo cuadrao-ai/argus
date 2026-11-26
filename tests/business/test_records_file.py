@@ -98,7 +98,9 @@ def row(fake: Faker, **changes) -> ReportRecord:
         counterparty=fake.company(),
         counterparty_key=fake.numerify("1########"),
     )
-    return ReportRecord(**(values | changes))
+    values.update(changes)
+    values.setdefault("title", values["counterparty"])
+    return ReportRecord(**values)
 
 
 def source(*records: ReportRecord, approved=None) -> ExportSource:

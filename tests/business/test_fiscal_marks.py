@@ -371,6 +371,7 @@ def test_every_wire_that_carries_marks_declares_every_mark_and_answers_200():
     }
     receipt = {
         "id": str(uuid4()),
+        "title": "recibo.png",
         "channel": "web",
         "filename": "recibo.png",
         "media_type": "image/png",

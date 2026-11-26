@@ -9,32 +9,36 @@ from datetime import datetime
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.transactions import lock_owner
 from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
 from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
 from argus.domain.ingestion.whatsapp.store import (
     UNLINKED_REPLY_RESERVED,
+    CapturePermissionLost,
     Claim,
     InboundRecord,
     PrepareCapture,
     SenderLink,
     Settlement,
+    can_redeem_link,
     dominican_day,
     revoked,
     settlement_seconds,
     settlement_time,
     unlinked_reply_key,
 )
+from argus.domain.postgres_connection import BorrowedConnection
 
 _INBOUND_COLUMNS = (
     "provider_message_key, sender_hash, status, destination_owner_id::text, "
-    "connection_id::text, error_code, claim_until, received_at, updated_at"
+    "connection_id::text, error_code, claim_until, received_at, updated_at, sender_link_id::text"
 )
 
 
 def _record(row: tuple) -> InboundRecord:
     key, sender, *rest = row
-    return InboundRecord(bytes(key), bytes(sender), *rest)
+    return InboundRecord(bytes(key), bytes(sender) if sender is not None else None, *rest)
 
 
 def _limit_statement_time(
@@ -120,7 +124,7 @@ class PostgresWhatsAppStore:
             if settlement.status == "captured" and owner is not None:
                 # Document purge takes the owner lock before deleting receipts and
                 # their inbound rows. Use the same order when publishing a receipt.
-                lock_owner(connection, owner)
+                lock_owner(connection, settlement.storage_user_id or owner)
                 if _limit_statement_time(connection, claim_until, now, deadline) is None:
                     return None
             holder = connection.execute(
@@ -131,28 +135,47 @@ class PostgresWhatsAppStore:
             ).fetchone()
             if holder is None:
                 return None
-            # Held until commit, so a revoke cannot land between this read and
-            # the write; whatsapp_capture_same_space checks the same fact.
+            # Hold the exact link through publication so revoke and capture serialize.
+            link_id = None
             if settlement.connection_id is not None:
                 if _limit_statement_time(connection, claim_until, now, deadline) is None:
                     return None
                 link = connection.execute(
-                    "select 1 from public.whatsapp_sender_links "
-                    "where wa_id_hash = %s and destination_owner_id = %s "
-                    "and status = 'active' for share",
-                    (holder[0], settlement.destination_owner_id),
+                    "select l.id from public.whatsapp_sender_links l"
+                    " join public.financial_source_connections c on c.id=%s"
+                    " and c.user_id=%s and c.owner_space_id=%s"
+                    " where l.wa_id_hash=%s and l.destination_owner_id=%s"
+                    " and l.status='active' for share of l,c",
+                    (
+                        settlement.connection_id,
+                        settlement.storage_user_id,
+                        settlement.space_id,
+                        holder[0],
+                        owner,
+                    ),
                 ).fetchone()
                 if link is None:
                     settlement = revoked(settlement)
+                else:
+                    (link_id,) = link
             # Check expiry after acquiring the locks. The inbound row remains
             # unavailable to another claimant through publication and commit.
             settled_at = _limit_statement_time(connection, claim_until, now, deadline)
             if settled_at is None:
                 return None
+            if prepare is not None and settlement.status == "captured":
+                try:
+                    with connection.transaction():
+                        settlement = replace(
+                            settlement, reading=prepare(connection, settlement)
+                        )
+                except CapturePermissionLost:
+                    settlement = revoked(settlement)
+                    link_id = None
             connection.execute(
                 "update public.whatsapp_inbound_messages set status = %s, "
                 "destination_owner_id = %s, connection_id = %s, error_code = %s, "
-                "claim_until = null, updated_at = %s "
+                "claim_until = null, updated_at = %s, sender_link_id = %s "
                 "where provider_message_key = %s",
                 (
                     settlement.status,
@@ -160,13 +183,10 @@ class PostgresWhatsAppStore:
                     settlement.connection_id,
                     settlement.error_code,
                     settled_at,
+                    link_id,
                     provider_message_key,
                 ),
             )
-            if prepare is not None and settlement.status == "captured":
-                if _limit_statement_time(connection, claim_until, now, deadline) is None:
-                    raise TimeoutError("whatsapp_settlement_timeout")
-                settlement = replace(settlement, reading=prepare(connection, settlement))
             if reply_failure is not None:
                 self.reply_groups.enqueue_on(connection, reply_failure)
             if settlement_seconds(claim_until, settlement_time(now), deadline) <= 0:
@@ -222,9 +242,9 @@ class PostgresWhatsAppStore:
     def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
         with self._pool.connection() as connection:
             rows = connection.execute(
-                "select distinct connection_id::text from public.whatsapp_inbound_messages "
-                "where destination_owner_id = %s and status = 'captured' "
-                "and connection_id is not null",
+                "select distinct m.connection_id::text from public.whatsapp_inbound_messages m"
+                " join public.financial_source_connections c on c.id=m.connection_id"
+                " where c.user_id=%s and m.status='captured'",
                 (destination_owner_id,),
             ).fetchall()
         return frozenset(row[0] for row in rows)
@@ -256,14 +276,20 @@ class PostgresWhatsAppStore:
     ) -> SenderLink | None:
         with self._pool.connection() as connection, connection.transaction():
             row = connection.execute(
-                "update public.whatsapp_link_codes set consumed_at = %s "
-                "where code_digest = %s and consumed_at is null and expires_at > %s "
-                "returning destination_owner_id::text, reply_language",
-                (now, code_digest, now),
+                "select destination_owner_id::text, reply_language from public.whatsapp_link_codes "
+                "where code_digest=%s and consumed_at is null and expires_at>%s for update",
+                (code_digest, now),
             ).fetchone()
             if row is None:
                 return None
             owner, reply_language = row
+            access = PostgresAccessStore(BorrowedConnection(connection))
+            if not can_redeem_link(access, owner):
+                return None
+            connection.execute(
+                "update public.whatsapp_link_codes set consumed_at=%s where code_digest=%s",
+                (now, code_digest),
+            )
             connection.execute(
                 "update public.whatsapp_sender_links "
                 "set status = 'revoked', revoked_at = %s "

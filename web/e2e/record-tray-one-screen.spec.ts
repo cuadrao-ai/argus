@@ -31,7 +31,7 @@ async function installBusiness(page: Page) {
     if (parts[0] === "drafts" && parts[2] === "dossier") {
       const row = reports.records.find((record) => record.draft_id === parts[1]);
       if (!row) return undefined;
-      return source.dossier(dossierFixtureIds.ready).then((dossier) => ({ ...dossier, draft_id: row.draft_id, facts: { ...dossier.facts, counterparty: { ...dossier.facts.counterparty, value: row.counterparty } } }));
+      return source.dossier(dossierFixtureIds.ready).then((dossier) => ({ ...dossier, draft_id: row.draft_id, title: row.counterparty, facts: { ...dossier.facts, counterparty: { ...dossier.facts.counterparty, value: row.counterparty } } }));
     }
     if (parts[0] === "activity") return Promise.resolve({ items: [{ id: "activity-1", occurred_at: "2026-10-20T15:00:00Z", actor: null, action: "approve_expense", object: { kind: "receipt", id: APPROVED.id, label: APPROVED.merchant } }], next_cursor: null });
     return undefined;

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timezone
 from uuid import uuid4
 
 import pytest
@@ -9,6 +9,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
     canonical_input_hash,
 )
+from faker import Faker
 from pydantic import ValidationError
 
 
@@ -68,7 +69,33 @@ def test_a_receipt_whose_own_event_is_the_draft_shows_the_draft_due_date():
             },
         }
     ]
-    detail = {"id": "receipt", "draft_id": draft_id, "due_on": None}
-    assert draft_overlay(detail, drafts) == {**detail, "deleted": None, "due_on": date(2026, 11, 4)}
-    summary = {"id": "receipt", "draft_id": draft_id, "status": "review_ready"}
+    detail = {"id": "receipt", "draft_id": draft_id, "due_on": None, "title": "obsolete read title", "filename": "nota.pdf"}
+    assert draft_overlay(detail, drafts) == {**detail, "title": "nota.pdf", "deleted": None, "due_on": date(2026, 11, 4)}
+    summary = {"id": "receipt", "draft_id": draft_id, "status": "review_ready", "title": None}
     assert draft_overlay(summary, drafts) == {**summary, "deleted": None}
+
+
+def test_own_draft_overlay_preserves_the_selected_receipt_fields(faker: Faker) -> None:
+    from argus.api.business_drafts import draft_overlay
+    from argus.domain.business.contracts.facts import (
+        BusinessFacts,
+        BusinessResolution,
+        Known,
+    )
+    from argus.domain.business.record_origin import DraftArrival
+
+    draft = uuid4()
+    name = faker.company()
+    source = uuid4()
+    arrival = DraftArrival(faker.date_time(tzinfo=timezone.utc), source, None, None)
+    counterparty = Known[str](value=name, origin="owner_stated", source_ids=(source,))
+    resolution = BusinessResolution(facts=BusinessFacts(counterparty=counterparty))
+    stored = {"id": draft, "state": "open", "arrival": arrival,
+              "resolution": {"business": resolution.model_dump(mode="json")}}
+    receipt = {"id": str(uuid4()), "draft_id": str(draft)}
+    assert draft_overlay(receipt, [stored]) == {**receipt, "deleted": None}
+    selected = dict.fromkeys(("merchant", "title", "received_at", "due_on"))
+    assert draft_overlay({**receipt, **selected}, [stored]) == {
+        **receipt, "deleted": None, "merchant": name, "title": name,
+        "received_at": arrival.received_at, "due_on": None,
+    }

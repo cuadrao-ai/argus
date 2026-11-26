@@ -8,6 +8,10 @@ import { bandejaEmails, openNotesByDraft, type BandejaEmail, type OpenNote } fro
 
 export type ReceptionView = "all" | "attention" | "listos" | "eliminados";
 export type ReceptionSource = ReceiptChannel | "note";
+export function receptionChannelKey(channel: string): string {
+  return channel === "web" ? "business.dossier.web" : `business.reception_preview.source_${channel}`;
+}
+
 export type ReceptionRow =
   | { kind: "receipt"; id: string; receivedAt: string; source: ReceiptChannel; receipt: ReceiptSummary }
   | { kind: "note"; id: string; receivedAt: string; source: "note"; note: OpenNote }
@@ -52,7 +56,7 @@ export function receptionSearchText(row: ReceptionRow): string {
   if (row.kind === "note") return row.note.text;
   if (row.kind === "email") return [row.email.delivery.sender, row.email.delivery.subject].filter(Boolean).join(" ");
   const sender = row.receipt.sent_by;
-  return [row.receipt.merchant, row.receipt.filename, sender?.person?.display_name, sender?.person?.email, sender?.address, sender?.phone_last4].filter(Boolean).join(" ");
+  return [row.receipt.title, row.receipt.merchant, row.receipt.filename, sender?.person?.display_name, sender?.person?.email, sender?.address, sender?.phone_last4].filter(Boolean).join(" ");
 }
 
 /** What a Listos row names to approval, or null for any other row. */
@@ -80,9 +84,7 @@ export function receptionDocumentTitle(row: ReceptionRow, labels: { untitled: st
     const text = row.note.text.trim().split(/\r?\n/)[0].replace(/\s+/g, " ");
     return text ? text.length > 90 ? `${text.slice(0, 89).trimEnd()}…` : text : labels.text;
   }
-  const receipt = row.receipt;
-  if (receipt.attention === "unreadable") return receipt.filename?.trim() || labels.untitled;
-  return receipt.merchant?.trim() || receipt.filename?.trim() || labels.untitled;
+  return row.receipt.title ?? labels.untitled;
 }
 
 /** What the delete and purge dialogs show of a receipt or a note row. */

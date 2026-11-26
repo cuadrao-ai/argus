@@ -123,14 +123,14 @@ def _review(world, draft: str, body: dict, headers: dict):  # noqa: ANN001, ANN2
     )
 
 
-def registros_export(world, family: str, mode: str, columns: list[str]):  # noqa: ANN001, ANN201
+def registros_export(world, family: str, mode: str, columns: list[str], *, fmt: str = "csv"):  # noqa: ANN001, ANN201
     return world.client.post(
         f"{API}/business/reports/export",
         json={
             "report": {"schema_version": 2, "filters": {"record_families": [family]}},
             "mode": mode,
             "columns": columns,
-            "format": "csv",
+            "format": fmt,
         },
         headers=world.alice.headers,
     )

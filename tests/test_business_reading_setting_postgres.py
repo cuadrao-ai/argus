@@ -267,6 +267,8 @@ def test_an_emailed_receipt_is_read_only_while_the_owners_reading_is_on(
 
     assert asyncio.run(runtime.next())
 
+    configure_email_intake(None)
+    monkeypatch.setattr("argus.api.email_intake.email_history", lambda: None)
     receipts = web.client.get(
         f"{API}/business/receipts", params={"view": "all"}, headers=web.alice.headers
     ).json()["items"]
@@ -275,7 +277,16 @@ def test_an_emailed_receipt_is_read_only_while_the_owners_reading_is_on(
     assert (attachment["channel"], original["channel"]) == ("email", "email")
     if reading:
         assert web.stub.calls == [attachment["id"]]
-        assert _receipt(web, attachment["id"])["status"] == "review_ready"
+        detail = _receipt(web, attachment["id"])
+        assert detail["status"] == "review_ready"
+        dossier = web.client.get(
+            f"{API}/business/drafts/{detail['draft_id']}/dossier", headers=web.alice.headers
+        )
+        assert dossier.status_code == 200, dossier.text
+        origin = dossier.json()["origin"]
+        assert origin["sent_by"]["address"] == "proveedor@example.test"
+        assert origin == {key: attachment[key] for key in origin} == {key: detail[key] for key in origin}
+        assert attachment["email_delivery_ids"] == detail["email_delivery_ids"] != []
     else:
         assert web.stub.calls == []
         assert _receipt(web, attachment["id"])["status"] == "saved"

@@ -1,7 +1,7 @@
 // Synthetic contract transport only. Local paired evidence separately runs the frozen backend reducer.
 declare const Bun: { serve(options: { hostname: string; port: number; fetch(request: Request): Promise<Response> }): { stop(): void } };
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
-import { createBusinessReportHttpFixture, fixtureId } from "@/__tests__/fixtures/business-report-http-fixture";
+import { createBusinessReportHttpFixture, fixtureId, reportReasons } from "@/__tests__/fixtures/business-report-http-fixture";
 import { dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 
 
@@ -11,7 +11,8 @@ fixture.records[0].recorded_amount = "9007199254740993.01";
 const fixtureSource = createFixtureBusinessDataSource({ chatAvailable: false });
 const workspace = await fixtureSource.workspace();
 const sampleDossier = await fixtureSource.dossier(dossierFixtureIds.ready);
-const sourceObjects = sampleDossier.sources;
+const originalFiles = new Map(fixture.records.map(row => [row.draft_id, row.attachment_sources?.[0]]));
+const arrived = "2026-10-26T12:00:00Z";
 const origin = process.env.EVIDENCE_WEB_BASE_URL ?? "http://127.0.0.1:4395";
 if (new URL(origin).hostname !== "127.0.0.1" || process.env.NEXT_PUBLIC_MOCK_AUTH !== "true") throw new Error("Synthetic loopback fixture only");
 const space = { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: "owner", name: "Colmado sintético", capabilities: ["read", "prepare", "approve"], access_seen: true };
@@ -40,7 +41,9 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: Number(process.env.EVIDE
     if (dossier) {
       const row = fixture.records.find((row) => row.draft_id === dossier[1]);
       if (!row) return json({ code: "business_record_not_found" }, 404);
-      return json({ ...sampleDossier, facts: { ...sampleDossier.facts, amount: { state: row.gross_amount === null ? "unknown" : "known", value: row.gross_amount, origin: "owner_stated", verified: false, source_ids: [] }, currency: { state: row.currency === null ? "unknown" : "known", value: row.currency, origin: "owner_stated", verified: false, source_ids: [] }, counterparty: { state: row.counterparty === null ? "unknown" : "known", value: row.counterparty, origin: "owner_stated", verified: false, source_ids: [] }, occurred_on: { state: row.report_date === null ? "unknown" : "known", value: row.report_date, origin: "owner_stated", verified: false, source_ids: [] } }, draft_id: row.draft_id, space_id: space.space_id, space_name: space.name, version: row.revision, current_note: row.note, note_edit_available: true, supporting_append_available: true, annotation_unavailable_reason: null, sources: row.attachment_sources?.map((source) => ({ id: source.source_id, connection_id: source.receipt_id, kind: "attachment", channel: "web", received_at: "2026-10-26T12:00:00Z", filename: source.filename, media_type: source.media_type })) ?? sourceObjects });
+      const original = originalFiles.get(row.draft_id);
+      const origin = original ? { channel: "web", sent_by: null, received_at: arrived, filename: original.filename, size_bytes: null } : null;
+      return json({ ...sampleDossier, missing: row.missing, reasons: reportReasons(...row.missing), title: row.title, retained_source_ids: row.attachment_sources?.filter(source => source.source_available).map(source => source.source_id) ?? [], original_connection_id: original?.source_available ? original.receipt_id : null, origin, facts: { ...sampleDossier.facts, amount: { state: row.gross_amount === null ? "unknown" : "known", value: row.gross_amount, origin: "owner_stated", verified: false, source_ids: [] }, currency: { state: row.currency === null ? "unknown" : "known", value: row.currency, origin: "owner_stated", verified: false, source_ids: [] }, counterparty: { state: row.counterparty === null ? "unknown" : "known", value: row.counterparty, origin: "owner_stated", verified: false, source_ids: [] }, occurred_on: { state: row.report_date === null ? "unknown" : "known", value: row.report_date, origin: "owner_stated", verified: false, source_ids: [] } }, draft_id: row.draft_id, space_id: space.space_id, space_name: space.name, version: row.revision, current_note: row.note, note_edit_available: true, supporting_append_available: true, annotation_unavailable_reason: null, sources: row.attachment_sources?.map((source) => ({ id: source.source_id, connection_id: source.receipt_id, kind: "attachment", channel: "web", received_at: arrived, filename: source.filename, media_type: source.media_type })) ?? [] });
     }
     const response = await fixture.request(request.url, { method, headers: request.headers, body: body instanceof File ? body : body === undefined ? undefined : JSON.stringify(body) });
     const headers = new Headers(response.headers); headers.set("Access-Control-Allow-Origin", origin); headers.set("Cache-Control", "no-store");

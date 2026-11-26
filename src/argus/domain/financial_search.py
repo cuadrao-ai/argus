@@ -110,6 +110,12 @@ def query_text(q: str) -> str:
     return " ".join(fold(q).split())
 
 
+def activity_text(
+    name: str | None, kind: str, category_id: str | None, source_id: str | None,
+) -> str:
+    return " ".join(filter(None, (name, kind, category_id, source_id)))
+
+
 def hits(
     service: FinancialAccountService,
     owner: str,
@@ -145,13 +151,11 @@ def hits(
             item.id,
             item.currency,
         )
-    for item in current_activities(accounts):
+    activities = current_activities(accounts) if kind in (None, "activity") else ()
+    for item in activities:
         activity = MoneyActivityResponse.model_validate(item)
-        title = " ".join(
-            filter(
-                None,
-                [activity.note, activity.kind, activity.category_id, activity.source_id],
-            )
+        title = activity_text(
+            activity.note, activity.kind, activity.category_id, activity.source_id
         )
         add(
             ActivityHit(

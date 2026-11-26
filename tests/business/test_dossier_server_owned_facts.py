@@ -256,3 +256,25 @@ def test_a_typed_subtotal_taken_back_is_the_calculated_one_again():
     )
     assert net_amount(restored) == NetAmount(amount="1000.00", source="calculated", calculated="1000.00")
     assert amounts_check(restored).state == "adds_up"
+
+
+def test_dossier_carries_origin_and_title_outside_the_model_prompt() -> None:
+    assert {"origin", "title", "original_connection_id"} <= BusinessDossier.model_fields.keys()
+    assert all(_UNMEASURED_DOSSIER_FIELDS[name] is True for name in ("origin", "title", "original_connection_id"))
+
+
+@pytest.mark.parametrize(("kind", "channel", "expected"), [
+    ("message", "web", "note"),
+    ("web_action", "web", "note"),
+    ("message", "whatsapp", "whatsapp"),
+])
+def test_a_note_origin_keeps_its_channel_separate_from_web_uploads(kind, channel, expected):
+    from datetime import timezone
+
+    from argus.domain.business.contracts.dossier import MessageSource, WebActionSource
+    from argus.domain.business.record_origin import UploadIntake, record_origins
+
+    source_type = WebActionSource if kind == "web_action" else MessageSource
+    note = source_type(id=uuid4(), kind=kind, channel=channel, received_at=fake.date_time(tzinfo=timezone.utc), text=fake.sentence())
+    origin = record_origins(None, [note], UploadIntake(frozenset(), {}))[str(note.id)]
+    assert (origin.channel, origin.received_at, origin.filename, origin.size_bytes) == (expected, note.received_at, None, None)

@@ -20,9 +20,11 @@ describe("Business report controller", () => {
     expect(reportFailure(problem(503, "document_storage_unavailable"), true).kind).toBe("uncertain");
   });
   test("canonical row facts keep unknowns and exact amounts without deriving payment or readiness", () => {
-    const report = { row_id: "draft:one", draft_id: "one", linked_activity_ids: ["activity-one"], revision: 4, report_date: null, date_basis: "document_issue" as const, family: null, stage: null, technical_state: "processing", ready: false, missing: ["detail_missing"], workflow_blockers: ["waiting_for_evidence"], currency: "DOP", gross_amount: "9007199254740.01", recorded_amount: null, recorded_currency: null, proposed_amount: null, money_kind: "unknown", money_effect: "unknown" as const, adjustment_effect: null, counterparty: null, counterparty_key: null, category_key: "uncategorized", funding_key: null, funding_label: null, funding_kind: null, has_document: true, document_kind: "unknown" as const, fiscal_classification: "unknown", fiscal_number: null, note: "Current note", settlement_status: "paid", dependency_fingerprint: "dependency" };
+    const report = { row_id: "draft:one", draft_id: "one", linked_activity_ids: ["activity-one"], revision: 4, report_date: null, date_basis: "document_issue" as const, family: null, stage: null, technical_state: "processing", ready: false, missing: ["detail_missing"], reasons: { detail_missing: { field: null, words: "business.transactions.layout.workflow.missing.detail_missing" } }, workflow_blockers: ["waiting_for_evidence"], currency: "DOP", gross_amount: "9007199254740.01", recorded_amount: null, recorded_currency: null, proposed_amount: null, money_kind: "unknown", money_effect: "unknown" as const, adjustment_effect: null, title: "recibo.png", counterparty: null, counterparty_key: null, category_key: "uncategorized", funding_key: null, funding_label: null, funding_kind: null, attachment_count: 1, has_document: true, document_kind: "unknown" as const, fiscal_classification: "unknown", fiscal_number: null, note: "Current note", settlement_status: "paid", dependency_fingerprint: "dependency" };
     const row = businessReportRow(report);
     expect(row.report).toBe(report);
+    expect(row.counterparty).toBe("recibo.png");
+    expect(row.report?.counterparty).toBeNull();
     expect(row.money).toEqual({ amount: "9007199254740.01", currency: "DOP" });
     expect(row.occurredOn).toBe("");
     expect(row.opens).toEqual({ kind: "draft", draftId: "one", list: "transactions" });

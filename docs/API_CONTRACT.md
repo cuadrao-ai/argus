@@ -8102,14 +8102,13 @@ uncertain fields, and more than 18 digits leaves the amount unresolved.
 Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` is true, its credentials are set and
 the document surface above is on. While off, every route below except
 `DELETE /api/v1/whatsapp/link` and `DELETE /api/v1/whatsapp/ai-consent` answers
-404 `whatsapp_unavailable`. Selected client Businesses are also unavailable for
-WhatsApp setup and consent reads or enables. A WhatsApp receipt becomes a document draft with
+404 `whatsapp_unavailable`. Link setup and consent reads or enables require
+`prepare` in the selected Business. The link belongs to the signed-in person. A WhatsApp receipt becomes a document draft with
 `consent: false` and `status: saved`; AI preparation still waits for the
 owner's consent on the web. Spec and activation:
 [cuadrao-whatsapp-intake](specs/lanes/cuadrao-whatsapp-intake.md).
 
-Owners send or forward receipts from their own WhatsApp number to the one
-receiving number, and only those owner-initiated messages are processed. A
+People send or forward receipts from their linked number to the receiving number. A
 forwarded message (`context.forwarded` or `context.frequently_forwarded`) or
 one with a caption is captured exactly like a direct send. A caption is kept
 verbatim (at most 1024 characters) as the document's `source_text`, returned on
@@ -8119,9 +8118,10 @@ a third kind, and they are off by default. It never reads message history,
 contacts or profiles.
 
 Intake is on only while the Business pilot (below) is on too. A receipt lands
-in the owner's Business space, read through `resolve_business_scope`; it never
-appears in Personal documents or imports. Link codes and link status answer
-404 `business_space_missing` until the person starts their space. A capture whose
+in the sender's default Business, resolved through `resolve_business_scope`.
+The sender needs a live `prepare` permission there at capture and publication.
+Link codes and link status answer 404 `business_space_missing` without a selected
+or default Business. A capture whose
 sender link ended before settlement is recorded as `rejected` with
 `sender_link_revoked`. The claim has no document connection, and the sender gets no reply.
 
@@ -8142,7 +8142,7 @@ Santo Domingo day. Other unlinked text is silent.
   a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. With
   intake off, the route answers 404 `whatsapp_unavailable` before a claim.
   The request claims each message, checks its sender link and saves accepted
-  media in the owner's default Business. When the sender is still linked and
+  media in the sender's default Business. When the sender is still linked and
   Business reading is on, the read job and captured claim commit together.
   The webhook then acknowledges the sender. With reading off, the file waits
   saved and unread. Media and ordinary text from an unlinked sender settle
@@ -8159,7 +8159,9 @@ Santo Domingo day. Other unlinked text is silent.
   `es-419`; anything else is 422), and returns 201
   `{code, message_text, expires_at, wa_me_url}`. The link the code creates keeps
   that language for every WhatsApp reply. The code is single use, lives
-  10 minutes and replaces any unused code for the same destination.
+  10 minutes and replaces any unused code for that person. When they send
+  the code, they must still hold `prepare` in an open Business. The signed
+  sender number replaces the person's previous number only after that check.
   `message_text` is `CUADRAO <code>`; `wa_me_url` is null until
   `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
   429 `whatsapp_link_code_rate_limited`.
@@ -8187,13 +8189,13 @@ nothing is sent outside the service window.
 
 This channel-specific permission remains historical compatibility state. The new Business receipt-reading opt-in above governs Business automatic reading across every channel. It does not inherit this permission. The web now links to the Business setting rather than presenting the old switch as effective reading authority.
 
-The one WhatsApp AI switch (`/api/v1/whatsapp/ai-consent`) is the owner's
+The WhatsApp AI switch (`/api/v1/whatsapp/ai-consent`) records the linked person's
 permission to read the receipts they send by WhatsApp: scope version 2, purpose
 `business_whatsapp_receipt_reading`, route `document_extraction`. `GET` takes an
 optional `language`; a Spanish language returns the Spanish disclosure text for
 display. The stored and hashed disclosure is the text shown. One active
 permission exists per linked number: turning receipt reading on replaces an
-agent permission (scope 1) and the reverse, never a second row. The read also
+historical agent permission (scope 1). New consent records use scope 2. The read also
 returns `active_scope_version`, the scope of any active permission, so a screen
 can say another permission is on. `POST` takes an optional `language`; the text
 shown in that language is the one stored and hashed, and the token binds it.
@@ -8219,29 +8221,28 @@ behind the same channel availability and selected-Business eligibility check as
 link setup. It answers 404 `whatsapp_unavailable` when that check fails. It returns
 `linked`, `available`, `reason`, `last4`, `scope_version`, `purpose`,
 `disclosure`, `route`, `disclosure_token`, `enabled`, `consented_at` and
-`revoked_at`. The server derives the current link, owner, Business and effective
+`revoked_at`. The server derives the person's current link, selected Business and effective
 provider routes. `route` contains the gateway and interpretation/reply route
 lists, each with the actual model and provider-routing payload; a null provider
-means automatic routing, not a promised fixed vendor. The owner is always the
-authenticated caller; accountant grants cannot select another owner's link.
+means automatic routing. Each caller can access only their own link.
 No link is explicit (`linked=false`, `reason="whatsapp_link_required"`), while
 unreachable storage returns 503. `last4`, `route` and `disclosure_token` may be
-null. A token exists only when `available=true`: the current owner, Business,
-prepare grant, link, route and runtime are eligible. Unavailable reasons are
+null. A token exists only when `available=true`: the person's link, selected Business,
+prepare grant, route and runtime are eligible. Unavailable reasons are
 `whatsapp_unavailable`, `whatsapp_ai_route_unavailable`, `business_unavailable`
 or `business_permission_denied`. `enabled` reflects valid original consent,
 independently of temporary intake availability. This read creates nothing.
 
 `POST /api/v1/whatsapp/ai-consent` takes an `Idempotency-Key` of 1–80 characters
 and `{action: "enable", disclosure_token}`. Extra identity or route fields are
-rejected. The current registered Business owner needs live read/prepare access
-and an active linked sender. The token binds the displayed scope, route and
+rejected. The registered person needs live `prepare` permission
+in the selected Business and their own active sender link. The token binds the displayed scope, route and
 link generation. A stale disclosure, changed idempotent input or already-active
 consent returns 409. Replay preserves the original consent and never clears its
 revocation. A new affirmative action after revocation requires a new key and
 current disclosure. Enable requires the existing WhatsApp surface.
 
-`DELETE /api/v1/whatsapp/ai-consent` revokes the authenticated owner's permissions
+`DELETE /api/v1/whatsapp/ai-consent` revokes the authenticated person's linked-number permissions
 idempotently and returns 204. It remains reachable with intake/pilot/provider
 flags off and does not unlink the phone or erase canonical sources. Unavailable
 permission storage returns 503; it never acts as implicit consent.
@@ -8425,7 +8426,7 @@ A member with `approve` can enable or disable scope version 3 `business_receipt_
 
 The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
-Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `ready_to_review_count`, `bandeja_listo_count`, `bandeja_attention_count`, `bandeja_eliminados_count` and `por_igualar_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
+Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `ready_to_review_count`, `bandeja_listo_count`, `bandeja_attention_count`, `bandeja_eliminados_count` and `por_igualar_count`. A saved receipt counts as unread until this person opens it. A completed read has a new cursor and counts as unread until opened. Security-blocked receipts and context originals do not count. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
 
 The Bandeja's counts each have one meaning and one name. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists), plus each email whose `standing` is not null (see email deliveries). `reading_count` also counts each email whose `standing` is `reading`, and `presentation` is `working` while any receipt or email is being read. An email's `standing` is `null` when it is no row of its own: it saved a new file (one no earlier email and no earlier upload brought), so that receipt is the row; it saved its own text as the original and no attachment, so that original is the row; or it settled with every saved file a repeat and nothing refused. Otherwise it is `reading` while the delivery is `received` or `processing` or any part is `pending`, and `no_receipt` once it settled and it is `rejected`, has no parts, or has a refused part. Mail from a blocked sender is `no_receipt`. Once a retry saves a new file, the email stops counting and that receipt counts instead, so nothing counts twice. `ready_to_review_count` is the "por revisar" number, the web's `porRevisar` rule: each receipt that is not `confirmed`, not `dismissed`, not an email original, not still being read (`queued`, `preparing`, `read_pending`, or `activity.state` `reading`) and whose `attention` is not `unreadable`, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source, one per draft. An email never counts here, whatever its `standing`. `por_igualar_count` is the Transacciones "Por igualar" number: every bank movement whose state is `sugerencia` or `falta_comprobante` plus every `sin_movimiento` document, from any period, by the movements read rule (`docs/contracts/business-bank-matching.md`). It is null while bank matching is off. `GET /business/email/deliveries`, `/{id}` and `/inbox` return `standing` on each delivery. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` returns the same `ready_to_review_count` from the same server projection. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja: {por_revisar, con_problema, leyendo}`, its membership in three buckets: `por_revisar` is the `ready_to_review_count` rule for that receipt, `con_problema` is true while the receipt is `needs_attention` and no count sums it, `leyendo` is the `reading_count` rule (its `activity.state` is `reading`). A `confirmed` or `dismissed` receipt and an email original have all three false. So `ready_to_review_count` equals the receipts flagged `por_revisar` plus the notes, and `reading_count` the receipts flagged `leyendo` plus the `reading` emails. The web renders the flags; it does not recompute them. `ReceiptActivityCounts` also carries `confirmed_count` and `dismissed_count`, the receipts that left the Bandeja each way (never the email original), counted over every receipt of the Business whichever `view` is read, so `view=inbox` says what it does not list and the web needs no second fetch of `view=all`.
 
@@ -8462,7 +8463,7 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | Nothing else blocks approval | `blocked`, such as an open question. A possible repeat is `duplicate` alone |
 | A verified sender, if it came by email | `unverified_sender` |
 
-The upload year is the year, on the Business calendar (America/Santo_Domingo), of the `received_at` of the draft's first source. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
+The upload year is the year, on the Business calendar (America/Santo_Domingo), when the record's first file or message reached the Business. A date from the QR (`qr_decoded`) or from a person is never a year to check, so a person's edit of the date ends it. `bandeja_group.year_to_check` owns the rule. The dossier carries its two answers, `upload_year` (null with no source) and `year_to_check`. The review calendar offers the date in the upload year exactly when `year_to_check` is true and the date field holds no edit; the web compares no years. Both fields are excluded from the model-facing dossier.
 
 `BusinessDossier` carries the same standing for its one record. `bandeja_group: {group, reason, label}` holds the three values the rule above gives the row of a receipt linked to this draft alone; the dossier's own `draft_id` and `version` name the record. An `accepted` record has a null `group` and `reason` and the `label` `accepted`. A record being approved is `listo` with `ready`, a deleted record is `eliminados` with a null `label`, and a record whose receipt is being read is `reading`. `listo_gaps` lists each distinct reason once, in the rule's order, when `group` is `attention`, and is empty for every other record. `confirmable` lists the subset the person may accept over, in that same order, as defined by `bandeja_group.RULE`. For a record in attention, `reason` is always one of its gaps: it is the first gap, except that a possible repeat no person settled shows `duplicate` before an earlier gap, as the list does. `bandeja_group.group_of` and `bandeja_group.listo_gaps` own both values, and the web renders them without a rule of its own. The dossier's `blockers` still decide `approval_available`; they are not the Listos gaps.
 
@@ -8495,7 +8496,7 @@ A single accept (`POST /business/drafts/{draft_id}/approve`, every action) follo
 
 `ReceiptActivityCounts` also carries `bandeja_listo_count` and `bandeja_attention_count`, the Bandeja's Listos and Por resolver tabs. `bandeja_listo_count` equals the rows whose `bandeja_group.group` is `listo`, a note being approved included. `bandeja_attention_count` is every other row the Bandeja lists outside the `reading` group: receipts in `attention`, open notes, and emails whose `standing` is `no_receipt`. A receipt with `bandeja_group.group` `reading` (and `reason` `reading`) and an email whose `standing` is `reading` are in neither number and show only on Todos. `reading_count` counts those being read now. A receipt the read limit holds is in the `reading` group and nothing is reading it, so `reading_count` and `presentation` leave it out and only `pending_review_count` counts it: the two tabs plus `reading_count` plus the held receipts sum to `pending_review_count`. `ready_to_review_count` keeps its own rule and still counts a held receipt. A failed read is in `attention`. `GET /business/receipt-activity`, the `activity` of `GET /business/receipts` and `GET /business/overview` return the same pair, from one function. Bandeja, Inicio and the sidebar render this pair and no other count for these two tabs. `ready_to_review_count` stays the "por revisar" number. `overview.needs_review` of `POST /business/reports/query` is a different count: the records of a period that have an approval blocker, for the Registros card.
 
-`POST /business/receipts/{receipt_id}/read` takes `{completion_cursor}` and returns current activity under the caller's live read grant. Only the current server cursor advances that person's boundary. A stale cursor leaves newer content unread. Seeing is separate for each person and Business. GET, opening a panel and seen mutations never change financial records or list ordering. Automatic web acknowledgement requires hydrated canonical ready content intersecting the visible, focused record viewport. Explicit mark read is also supported.
+`POST /business/receipts/{receipt_id}/read` takes `{completion_cursor}` and returns current activity under the caller's live read grant. Only the current server cursor advances that person's boundary. A stale cursor leaves newer content unread. Seeing is separate for each person and Business. GET, opening a panel and seen mutations never change financial records or list ordering. Automatic web acknowledgement requires hydrated saved or ready content intersecting the visible, focused record viewport. Explicit mark read is also supported.
 
 The web discovers arrivals every 15 seconds while Inbox is visible and polls every 5 seconds while reading is known. Hidden and unmounted views stop polling. Requests are scoped to the selected Business. One row marker shows a reading ring or an unread dot. The sidebar badge and collapsed icon share the server projection.
 
@@ -8682,6 +8683,20 @@ immutable before/after `history`, live `capabilities`, `blockers`,
 approve action this draft takes, by its kind (`record_expense`,
 `record_income`, `record_refund`, the `action` the approve route's body
 discriminates on), and null while `approval_available` is false.
+The dossier's `origin` gives the original upload's `channel`, `sent_by`, `received_at`,
+`filename` and `size_bytes`. The receipt summary carries the same five fields directly.
+`record_origins` reads both from the saved upload and its intake history for the current
+viewer. Arrival is the time the first file or message reached the Business. A later
+file save or a repeat delivery keeps the original arrival.
+`original_connection_id` names the retained original upload. It is null for a
+message or when the stored copies are missing. The record keeps its origin.
+`retained_source_ids` lists the evidence files with stored content, including supporting files.
+A disconnected source can retain its file identity in the dossier. Opening it returns HTTP 410.
+Supporting files cannot supply the record's origin. For a message written on the web,
+`origin.channel` is `note`. A WhatsApp message keeps `whatsapp`. A message has no filename
+or size, and a record without a source has a null origin. The dossier, receipt and saved record responses share `record_title`. It takes a linked draft's
+known counterparty, or the stored read's merchant when the receipt has no draft. It uses
+the original filename when the merchant is absent and returns null when both are absent.
 The dossier exposes `facts_editable` for review writes. Open drafts require
 `prepare`. Accepted records also require `approve`. `document_type_editable` follows
 the same permission. `declaration_editable` also requires a purchase eligible
@@ -9350,7 +9365,7 @@ recorded (null) keeps the fill its export has always had: each blank amount
 from the approved facts, and a blank `paid_on` from `occurred_on` when the
 stored bill mark is `Factura pagada`.
 
-An accepted expense saved with no declaration is the one exception. The
+An accepted expense can have no saved declaration. The
 dossier and the 606 read the declaration its facts state, the one an open
 review builds: `id_type` from the RNC, the payment form of the stated Business
 account (archived or not), each linked field at the value it follows, and every answer a person
@@ -9358,6 +9373,12 @@ never gave blank. The dossier carries the `inheritance` entries of an open
 draft for it. It is built on each read and never stored; the first 606 write
 on the record starts from it and saves it. A saved 606 declaration whose
 `id_type` is null reads the Tipo Id its RNC states.
+
+An accepted sale with no saved declaration shows a 607 line on read. Its
+`billed_amount`, `itbis` and `legal_tip` follow their approved sources.
+Unanswered fields stay blank. Full 607 validation reports the specific fields
+it still needs. Reading the dossier or export summary does not save the line.
+A purchase refund belongs to the 606 and requires its original purchase link.
 
 `amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
 false`, `computed_sum`, `difference` and `includes_extra_charges`. The exact
@@ -9424,7 +9445,7 @@ the caller's own), newest first. It is read-only and additive: no existing route
 changes. The page is `{items: [...], next_cursor: string|null, actors: [...]|null}`;
 `limit` defaults to 25 and accepts only 25, 50 and 100 (any other value is 422
 `validation_error`). Each item is
-`{id, occurred_at, actor, action, object, area, restricted, role, personal, include}`.
+`{id, occurred_at, actor, action, object, area, group, restricted, role, personal, include, decision}`.
 `id` is an opaque, stable string per row. `occurred_at` is the row's server
 timestamp.
 
@@ -9471,9 +9492,11 @@ does not list yet: the consent table records when, not who.
 `business_ask`), `business` (`set_business_rnc`, `set_business_legal_name`,
 the access changes,
 `ownership_transferred`, `receipt_reading_enabled`); `invoicing` is reserved
-and empty until invoice events carry an actor. `other` has `area: null`.
-`restricted` is `true` on a row only a reader who may manage sees (the access
-changes, the two derived events and `other`), so the client can mark it.
+and empty until invoice events carry an actor. `group` is the server catalog's
+value for the `action_group` filter below. Both fields are `null` on `other`.
+`restricted` is `true` for access changes, Business settings changes and
+`other`. Only owners and admins receive these rows, and the client marks them
+with a lock.
 
 `object` is `{kind: draft|receipt|grant|invite, id, label, purged}` when the action names one
 and the server knows its id, else `null`. It is the one thing the row is about,
@@ -9544,11 +9567,12 @@ are not changes and never list, and neither does `email_ai_consent_declined`,
 the owner's own answer to the one-time email AI notice, which changes no
 Business record. `business_ask` lists, because an applied Ask opens a question
 on the draft it names. A member whose live grant allows `read` sees only the
-listed actions that are not access changes; an action the feed does not list
+listed actions with a member audience; an action the feed does not list
 never reaches a member, so a new ledger action stays hidden from members until
 the feed names it. The access changes (`owner_grant`, `grant_access`,
 `invite_access`, `accept_invite`, `revoke_grant`, `revoke_invite`,
-`change_role`), `ownership_transferred`, `receipt_reading_enabled` and
+`change_role`), `ownership_transferred`, the Business settings changes
+(`set_business_rnc`, `set_business_legal_name`, `receipt_reading_enabled`) and
 `other` list only for a reader whose live grant allows `manage`, the same rule
 as `GET /business/access`, in rows, in `actors` and under every filter. The
 page is scoped to one Business; a cursor from another Business positions
@@ -10132,8 +10156,8 @@ person starts their space, every route below except POST `/space` answers 404
     in scope: the Business routes answer 404 `business_space_missing`, record
     ids included. `GET /business/spaces` reports effective capabilities:
     `approve` appears on Dueño and Admin grants. Creating or stopping a receiving
-    email address and retrying a delivery require `manage`. WhatsApp link routes
-    retain their own checks. GET `/business/workspace` under a grant reads the
+    email address and retrying a delivery require `manage`. WhatsApp link setup requires the selected grant's
+    `prepare` permission. A person can always revoke their own link. GET `/business/workspace` under a grant reads the
     selected Business and never heals an owner grant. Accepted memberships
     survive loss of the issuer's access. Each legacy receipt write (upload, review,
     confirm) leaves one `business_action_receipts` row naming the grant,
@@ -10416,8 +10440,7 @@ accept path recorded.
   Email requires current capture and receiving readiness, a runtime with its
   receiving adapter, and a configured domain. It does not require an existing
   address. WhatsApp uses current intake readiness and the selected Business's
-  owner eligibility and requires that Business to be the authenticated person's
-  supported intake destination. Link status, link codes and consent always use
+  live `prepare` permission for the authenticated person. Link status, link codes and consent always use
   the authenticated person's identity, including after a Business transfer.
   A missing address or linked number is setup state, not channel availability.
   The Business web context treats unknown or false as unavailable for channel
@@ -10634,20 +10657,22 @@ accept path recorded.
   and each delivery of `GET /business/email/deliveries`, `/{id}` and `/inbox`
   carries `sent_by`, who brought the row in, as
   `{id, kind, person, address, phone_last4}`. One server module, `sent_by`,
-  builds it. `kind` names the one field that is set:
-  - `member`: a web upload or a typed note. `person` is
-    `{display_name, email, shown_as}`, named live for the reader by the same
-    rule as `personal_marked_by`, so another member's email shows only to a
-    reader who manages the Business. A web upload reads the first applied
-    `receipt_upload` ledger row of the receipt; a note reads who typed it.
-  - `email`: `address` is the bare lowercase address the email came from. A
-    receipt reads the earliest delivery that brought it, however old.
-  - `whatsapp`: `phone_last4` is the last digits of the linked number, the
-    only part stored.
-  `id` is `member:<user id>`, `email:<address>` or `whatsapp:<link id>`: the
-  same sender has the same `id` on every row, and a number linked again keeps
-  the id of its first link to the Business. The web filters by `id` and
-  works out no sender of its own. `sent_by` is null when nothing stored says
+  builds it. Each kind carries one value.
+
+  - `member` carries `person` with `{display_name, email, shown_as}`. Web
+    uploads read the actor of the first applied `receipt_upload`. Notes read
+    their author. WhatsApp receipts read the person on the link recorded at
+    capture, using the earliest capture of a duplicate file. All members see
+    profile names. The people rule limits email visibility to the person and
+    members with `manage`.
+  - `email` carries the bare lowercase `address` of the earliest delivery.
+  - `whatsapp` carries only `phone_last4` when the linked person has no
+    visible profile name. The receipt channel remains `whatsapp` in either case.
+
+  The web filters by `id`. A person has one `member:<user id>` across uploads,
+  notes, and WhatsApp captures. An erased WhatsApp sender uses
+  `whatsapp:<link id>` and an email sender uses `email:<address>`.
+  `sent_by` is null when nothing stored says
   who sent the row, and for receipts where no ledger is kept (the in-memory
   app).
 - Duplicates never record money twice. Uploading the same bytes again, from
@@ -10858,7 +10883,8 @@ accept path recorded.
   Registros both follow that one check. The in-memory app keeps no change
   marks and derives the version from the answer itself. `ETag` is in the CORS
   exposed headers.
-- GET `/api/v1/business/receipts/{id}` returns a `ReceiptDetail`. `version` is
+- GET `/api/v1/business/receipts/{id}` returns a `ReceiptDetail`. The summary, detail and
+  search hit include the same nullable `title`, including before a draft exists. `version` is
   the import event's version, and `0` while there is no purchase to review.
   `evidence` is what the receipt says, and corrections never change it.
   `missing_fields` lists the review fields still needed. A receipt nobody has
@@ -10938,7 +10964,9 @@ accept path recorded.
   draft is linked to several receipts or to none still opens its record.
   Optional `kind` is `expense` (default) or `income`: `income` lists the
   period's ventas in the same shape, `merchant` being the client, each item in
-  its own currency. Any other value is 422.
+  its own currency. For a draft-backed record, the list, detail and search use the full
+  reviewed title, including when the counterparty exceeds 200 characters. Any other
+  value of `kind` is 422.
 - GET `/api/v1/business/expenses/{expense_id}` returns that expense with
   `recorded_at` and `revision` from the money read; 404 `expense_not_found`
   for any other id, including another Business's. An expense entered by hand
@@ -10959,7 +10987,8 @@ accept path recorded.
   `{currency, amount, count}`, with no conversion. Beside the totals it returns
   the Business `country` and `currency`; the Business currency does not filter
   or convert the totals. It also returns `ready_to_review_count`,
-  `last_received_at` and `last_confirmed_at`.
+  `last_received_at` and `last_confirmed_at`. The former is the latest receipt arrival
+  shown in Bandeja.
   `ready_to_review_count` is the Bandeja's `ready_to_review_count` (see
   receipt activity). `bandeja_listo_count` and `bandeja_attention_count` are
   the same pair receipt activity returns. `por_igualar_count` is the same number
@@ -10980,7 +11009,9 @@ accept path recorded.
   become one row, anchored as `draft:<id>` with `linked_activity_ids`; a
   standalone activity uses `activity:<id>`. These IDs do not define a future
   invoice/payment allocation. Disconnected originals never remove the financial
-  row. A deleted record leaves until it is restored.
+  row. A deleted record leaves until it is restored. Each row carries its display
+  `title` from the dossier's title rule. A filename can name a record whose
+  `counterparty` and fiscal export supplier are empty.
   Recorded amounts and document facts use current Money and the actual approved
   fact revision; current workflow blockers may still require review. Sources,
   account legs, approval receipts and payment annotations are not extra rows.
@@ -11007,7 +11038,9 @@ accept path recorded.
   Old requests, stored tabs and saved views with `ready: true` read as null.
   It reads each row's `ready` verdict from `readiness` in
   `reporting_projection.py`; `overview.not_ready` counts false verdicts over
-  the same filtered rows before pagination. Search, period, family, currency
+  the same filtered rows before pagination. Each row supplies the same ordered
+  `missing` codes and `reasons` map as its dossier. The web renders the locale key
+  in each reason. Search, period, family, currency
   and every other filter apply to that count too.
   The nullable `fiscal_data` filter accepts `complete`, `missing` or null (all).
   Each row's `fiscal_data` comes from its current 606/607 verdict, independently
@@ -11023,8 +11056,7 @@ accept path recorded.
   `currencies`, `counterparties`, `categories` and `expense_types`.
   The server drops `funding_sources`, `document_kinds` and `fiscal_classifications`
   on read and logs each retired field name. `expense_types` takes 606 tipo de
-  gasto codes (`01` to `11`) and `missing`, a purchase that still needs one. `has_document` is a live linked attachment, separate
-  from download availability and fiscal number. Each row carries `personal`, the
+  gasto codes (`01` to `11`) and `missing`, a purchase that still needs one. `has_document` requires a live linked attachment with stored content. Each row carries `personal`, the
   owner's Personal mark, and `include_606`, the accountant's 606 answer (`null`
   while no answer applies), both read from the draft as it stands now, after
   approval too, the same source month close and the export handoff read.
@@ -11229,7 +11261,7 @@ accept path recorded.
   name, `required` says every file holds it (the name and Moneda), and `shown`
   says the modal offers it checked. The registry gives each column a file rule.
   `as_shown` follows the table's visibility. `always` is the name
-  (`counterparty`): the file holds it even while the table hides it. `default` is
+  (`counterparty`): the file writes the row’s `title` even while the table hides the column. `default` is
   Forma de pago on Compras: it is offered checked while the table hides it, and
   then it is the last column. The modal renders this list.
   `dgii` is null on Ventas, which offers only Lo que ves. On Compras it
@@ -11414,7 +11446,8 @@ accept path recorded.
   `annotation_unavailable_reason`; standalone activities cannot be annotated.
   `revision` is the exact draft version for these commands. `attachment_sources`
   carries source/receipt IDs, filename, media type, nullable source availability
-  and current download permission. Missing storage is distinct from no evidence.
+  and `download_available` for the current viewer. `attachment_count` counts linked
+  files with retained content. Evidence stays linked when its stored content is missing.
 
 - PUT `/api/v1/business/drafts/{draft_id}/current-note` accepts
   `{expected_version, note}` and `Idempotency-Key` (1..80 characters). A current
@@ -11537,11 +11570,10 @@ accept path recorded.
   shows no Tipo de gasto for it. `q` is
   1 to 512 characters and `limit` is 1 to 20 (default 5), applied to each
   list. There is no index of its own: every request reads the records from
-  their owners. Expenses, ventas and accounts are the space's hits from the
-  canonical financial search (`financial_search.hits` with the Business scope)
-  and match as `/financial-search` matches: an expense or a venta on its note
-  (the merchant or the client), kind and category, an account on its nickname,
-  type and currency. A Business space has no plans, so no plan hits. Ventas are
+  their owners. Expenses and ventas match the reviewed record title, kind, category
+  and source ID. Standalone activities use their activity note for the name. Accounts
+  match nickname, type and currency. Both use the financial search text matcher.
+  A Business space has no plans, so no plan hits. Ventas are
   saved income (an approved Venta); `merchant` is the client, as on a Venta's
   receipt. Receipts match by the same rule on the reviewed merchant, the
   filename and the reviewed amount as written.

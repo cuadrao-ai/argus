@@ -40,6 +40,13 @@ class _Environment(BaseSettings):
     app_env: str = ""
     render: str = ""
     render_service_id: str = ""
+    local_reader_fixtures: bool = Field(
+        default=False, validation_alias="CUADRAO_LOCAL_READER_FIXTURES"
+    )
+
+
+def local_reader_fixtures_enabled() -> bool:
+    return _Environment().local_reader_fixtures
 
 
 _Credentials = create_model(  # type: ignore[call-overload]
@@ -79,6 +86,8 @@ def _selected() -> tuple[str, dict[str, str]]:
     on_host = settings.render.strip().lower() == "true" or bool(
         settings.render_service_id.strip()
     )
+    if settings.local_reader_fixtures and (on_host or name != _LOCAL_NAME):
+        _refuse("CUADRAO_LOCAL_READER_FIXTURES is local only. Disable it on this service.")
     if name == _LOCAL_NAME and on_host:
         raise RuntimeError("A hosted APP_ENV is required on a hosted service.")
     held = {

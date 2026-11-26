@@ -63,6 +63,7 @@ from argus.domain.business.contracts.dgii import (
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
     ApprovalResult,
+    AttachmentSource,
     BandejaStanding,
     Blocker,
     BusinessDossier,
@@ -88,7 +89,13 @@ from argus.domain.business.document_type import DocumentType, direction, kind_di
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers, record_note
 from argus.domain.business.fiscal_identity import identity_digits
-from argus.domain.business.people import actor_ids, actor_view, named_deletion, people
+from argus.domain.business.people import (
+    actor_ids,
+    actor_view,
+    named,
+    named_deletion,
+    people,
+)
 from argus.domain.business.purchase_review import (
     blank_answer,
     declaration_from_facts,
@@ -99,13 +106,22 @@ from argus.domain.business.purchase_review import (
     takes_payment_split,
     takes_purchase_declaration,
 )
-from argus.domain.business.receipts import draft_row
+from argus.domain.business.receipts import draft_row, record_title
+from argus.domain.business.record_attachments import retained_source_ids
+from argus.domain.business.record_origin import (
+    OriginUpload,
+    UploadIntake,
+    draft_arrivals,
+    record_origins,
+    with_source_channels,
+)
 from argus.domain.business.review_flags import amounts_check, review_flags
 from argus.domain.business.rnc_registry import (
     DgiiRncRegistry,
     RncRegistrySnapshot,
     RncRegistryStatus,
 )
+from argus.domain.business.sent_by import member_sender
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.receipt_review import duplicate_warning
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
@@ -418,8 +434,10 @@ def review_sources(
         if reviewing or unsaved
         else None
     )
+    if state == "accepted":
+        return replace(APPROVED, built=built, approved_type=document_type)
     if links_of(state) is APPROVED:
-        return APPROVED if built is None else replace(APPROVED, built=built)
+        return APPROVED
     purchase = stored if isinstance(stored, PurchaseDeclaration) else None
     # A suggestion shows only where the approval saves it: on a declaration
     # the person saved, or on the one built from the facts.
@@ -595,6 +613,7 @@ def dossier(
     )
     source_rows = tx.rows(
         "select s.id,s.kind,s.channel,s.received_at,s.text_content,s.connection_id,d.draft,c.lease_until,"
+        f" {OWN_SOURCE_SQL} as own,"
         " exists (select 1 from public.business_draft_sources l2"
         " join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
         " where l2.space_id=l.space_id and s2.connection_id=s.connection_id and l2.draft_id<>l.draft_id"
@@ -618,6 +637,7 @@ def dossier(
                 connection_id=row["connection_id"],
                 filename=metadata.get("filename"),
                 media_type=metadata["media_type"],
+                received_at=metadata["created_at"],
             )
         else:
             value["text"] = row["text_content"]
@@ -711,14 +731,22 @@ def dossier(
             )
         )
     )
-    uploaded = upload_year(source_rows[0]["received_at"] if source_rows else None)
-    from argus.domain.business.actions.listos import attachment_reads, draft_standing
-
-    flags = review_flags(facts, registry, declaration=resolution.dgii)
     repeated = (
         repeated_comprobantes(tx, [event]).get(draft_id, ())
         if event.state == "open" else ()
     )
+    retained = retained_source_ids(tx, [draft_id])
+    has_files = any(isinstance(item, AttachmentSource) for item in evidence)
+    intake = (
+        UploadIntake.stored(tx)
+        if has_files or duplicate_ids or repeated
+        else UploadIntake(frozenset(), {})
+    )
+    arrival = draft_arrivals(tx, [draft_id], intake).get(draft_id)
+    uploaded = upload_year(arrival.received_at if arrival else None)
+    from argus.domain.business.actions.listos import attachment_reads, draft_standing
+
+    flags = review_flags(facts, registry, declaration=resolution.dgii)
     standing = None
     if event.state == "open" and not reading:
         standing = draft_standing(
@@ -751,8 +779,31 @@ def dossier(
         if event.state == "accepted" and event.activity_id
         else None
     )
-    return BusinessDossier(
+    primary = next((row for row in source_rows if arrival and row["id"] == arrival.file_source_id), None)
+    source = None
+    message_senders = {}
+    if primary:
+        source = OriginUpload.model_validate(primary["draft"])
+    elif evidence:
+        source = next((item for item in evidence if arrival and item.id == arrival.first_source_id), None)
+        if source:
+            actor = next(
+                (entry["actor"] for entry in history if source.id in entry["source_ids"]),
+                None,
+            )
+            if actor and actor["actor_kind"] == "member":
+                actor_id = actor["actor_id"]
+                message_senders[str(source.id)] = member_sender(actor_id, named(found, actor_id))
+    origin = None
+    if source:
+        [origin] = record_origins(tx, [source], intake, message_senders).values()
+        origin = origin.model_copy(update={"received_at": arrival.received_at})
+    dossier = BusinessDossier(
         **DetailReadiness.from_codes(row.missing if row else (), gaps).model_dump(),
+        origin=origin,
+        title=record_title(facts.counterparty.value, origin.filename if origin else None),
+        original_connection_id=(primary["connection_id"] if primary and str(primary["id"]) in retained else None),
+        retained_source_ids=tuple(item.id for item in evidence if str(item.id) in retained),
         deleted=deleted,
         delete_available=delete_available,
         restore_available=deleted is not None
@@ -828,3 +879,4 @@ def dossier(
         rnc_registry_status=registry_status,
         **draft_marks(tx, draft_id, facts),
     )
+    return with_source_channels(dossier, intake)

@@ -131,7 +131,7 @@ test("each tab lists the server's group, and a row says only what the server sai
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const ready = await fixture.receipt("rcpt-ferreteria");
   const group = (kind: "listo" | "attention", reason: string | null, label: BandejaLabel) => ({ group: kind, reason, label, draft_id: "draft", version: 1 });
-  const listed = (id: string, merchant: string, bandeja_group: ReceiptSummary["bandeja_group"], status: ReceiptSummary["status"] = "review_ready"): ReceiptSummary => ({ ...ready, id, merchant, status, sin_comprobante: false, bandeja_group, activity: { state: "ready", unread: false, completion_cursor: null } });
+  const listed = (id: string, merchant: string, bandeja_group: ReceiptSummary["bandeja_group"], status: ReceiptSummary["status"] = "review_ready"): ReceiptSummary => ({ ...ready, id, title: merchant, merchant, status, sin_comprobante: false, bandeja_group, activity: { state: "ready", unread: false, completion_cursor: null } });
   const items = [
     listed("r-listo", "Lista", group("listo", null, "ready")),
     listed("r-rnc", "Sin RNC", group("attention", "missing_rnc", "needs_attention")),
@@ -168,7 +168,7 @@ test("each tab lists the server's group, and a row says only what the server sai
 test("a read past its deadline and a stopped read both say only that they could not be read", async () => {
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const blurry = await fixture.receipt("rcpt-blurry");
-  const failed = (id: string, filename: string, reason: string): ReceiptSummary => ({ ...blurry, id, filename, preparable: true, bandeja_group: { group: "attention", reason, label: "cant_read", draft_id: null, version: null }, activity: { state: "read_failed", unread: false, completion_cursor: null } });
+  const failed = (id: string, filename: string, reason: string): ReceiptSummary => ({ ...blurry, id, title: filename, filename, preparable: true, bandeja_group: { group: "attention", reason, label: "cant_read", draft_id: null, version: null }, activity: { state: "read_failed", unread: false, completion_cursor: null } });
   const items = [failed("r-deadline", "sin-terminar.jpg", "read_deadline_passed"), failed("r-stopped", "detenida.jpg", "interrupted")];
   const page = await mount({ receiptPage: async () => ({ items, activity: none }) });
   const row = (name: string) => receptionRows(page.host).find((item) => item.textContent?.includes(name))!;

@@ -13,6 +13,7 @@ for (const width of [1280, 390]) {
         ...template,
         id: `navigation-${index}`,
         merchant: `Recibo de prueba ${index}`,
+        title: `Recibo de prueba ${index}`,
         draft_id: null,
         status: "needs_attention",
         enterable: false,

@@ -8,7 +8,6 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
-from argus.api import business_drafts as api
 from argus.domain.business.contracts.dossier import (
     AttachmentSource,
     BusinessDossier,
@@ -17,6 +16,7 @@ from argus.domain.business.contracts.dossier import (
     DuplicateCandidate,
     DuplicateComparison,
 )
+from argus.domain.business.record_origin import UploadIntake, with_source_channels
 
 NOW = datetime(2026, 11, 3, 15, 0, tzinfo=timezone.utc)
 
@@ -68,23 +68,38 @@ def _channels(dossier: BusinessDossier) -> tuple[str, str]:
 
 def test_a_compared_file_that_arrived_by_whatsapp_says_so(dossier) -> None:  # noqa: ANN001
     other = str(dossier.duplicate_candidates[0].comparison.other.file.connection_id)
-    seen = api.with_whatsapp_sources(dossier, frozenset({other}))
+    seen = with_source_channels(dossier, UploadIntake(frozenset({other}), {}))
     assert _channels(seen) == ("web", "whatsapp")
     assert [s.channel for s in seen.sources] == ["web"]
 
 
-def test_a_compared_file_that_arrived_by_email_says_so(dossier, monkeypatch) -> None:  # noqa: ANN001
+def test_a_compared_file_that_arrived_by_email_says_so(dossier) -> None:  # noqa: ANN001
     document = str(dossier.duplicate_candidates[0].comparison.document.file.connection_id)
     other = str(dossier.duplicate_candidates[0].comparison.other.file.connection_id)
-    monkeypatch.setattr(
-        "argus.api.email_intake.email_receipt_flags",
-        lambda space_id: {
+    emails = {
             document: (("d1",), False, NOW - timedelta(minutes=1)),
             # The email came after the file was saved, so it is a repeat of a web upload.
             other: (("d2",), False, NOW + timedelta(minutes=1)),
-        },
-    )
-    monkeypatch.setattr("argus.api.email_intake.email_review_note", lambda *_: None)
-    seen = api.with_email_sources(dossier, "space")
+    }
+    seen = with_source_channels(dossier, UploadIntake(frozenset(), emails))
     assert _channels(seen) == ("email", "web")
     assert [s.channel for s in seen.sources] == ["email"]
+
+
+def test_every_file_projection_uses_the_record_origin(dossier, monkeypatch):
+    from argus.domain.business import record_origin
+
+    owner = record_origin.record_origins
+    earlier = NOW - timedelta(days=3)
+
+    def email_origins(*args, **kwargs):
+        return {
+            key: origin.model_copy(update={"channel": "email", "received_at": earlier})
+            for key, origin in owner(*args, **kwargs).items()
+        }
+
+    monkeypatch.setattr(record_origin, "record_origins", email_origins)
+    seen = with_source_channels(dossier, UploadIntake(frozenset(), {}))
+    pair = seen.duplicate_candidates[0].comparison
+    for file in (*seen.sources, pair.document.file, pair.other.file):
+        assert (file.channel, file.received_at) == ("email", earlier)

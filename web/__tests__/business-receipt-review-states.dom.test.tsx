@@ -157,7 +157,7 @@ test("a server-blocked action keeps the reason beside the pill and opens its fie
 
 function notReceipt(): ReceiptSummary {
   return {
-    id: "20000000-0000-4000-8000-000000000001", channel: "web", filename: "foto-perro.jpg", media_type: "image/jpeg", size_bytes: 2048,
+    id: "20000000-0000-4000-8000-000000000001", channel: "web", title: "foto-perro.jpg", filename: "foto-perro.jpg", media_type: "image/jpeg", size_bytes: 2048,
     received_at: "2026-10-19T12:00:00Z", status: "needs_attention", error_code: "not_a_receipt", attention: "not_a_receipt",
     preparable: false, enterable: true, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null,
     category_id: null, account_id: null,
@@ -454,13 +454,14 @@ for (const errorCode of ["unreadable_document", "encrypted_document"]) {
 }
 
 test("Eliminar documento on an unreadable read confirms, deletes it and returns to the Bandeja", async () => {
-  const { page, deleted, id, reloads } = await openFailed({ attention: "unreadable", error_code: "unreadable_document" });
+  const { page, deleted, id, reloads } = await openFailed({ attention: "unreadable", error_code: "unreadable_document", title: "Documento archivado", filename: "archivo.jpg", merchant: "Anterior" });
   try {
     const discard = page.host.querySelector<HTMLButtonElement>('[data-testid="receipt-review-footer"] button[aria-label="Eliminar documento"]');
     assert.ok(discard, "the footer offers it");
     await page.act(async () => discard.click());
     const confirm = document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]');
     assert.equal(confirm?.textContent, "Eliminar", "a confirm step names the delete");
+    assert.equal(document.querySelector('[role="alertdialog"] [data-testid="document-delete-facts"]')?.getAttribute("aria-label"), "Documento archivado");
     assert.deepEqual(deleted, [], "nothing leaves before the person confirms");
     await page.act(async () => confirm!.click());
     await page.settle();
@@ -470,6 +471,13 @@ test("Eliminar documento on an unreadable read confirms, deletes it and returns 
   } finally {
     await page.close();
   }
+});
+
+test("an unprepared receipt with a null server title shows Documento even when its file is named", async () => {
+  const { page } = await openFailed({ attention: "unreadable", title: null, merchant: "Nombre anterior", filename: "archivo.pdf" });
+  try {
+    assert.equal(page.host.querySelector("#receipt-review-title")?.textContent, "Documento");
+  } finally { await page.close(); }
 });
 
 test("an unreadable read offers no Eliminar the server or the grant did not allow", async () => {
@@ -494,11 +502,11 @@ for (const [reason, title, body, preparable] of [
 ] as const) {
   test(`the failed read shows the server's ${reason} and its one action`, async () => {
     const { page, notice, labels } = await openFailed({
-      attention: reason, preparable, merchant: "Nombre antiguo", filename: "recibo.jpg",
+      attention: reason, preparable, merchant: "Nombre antiguo", filename: "recibo.jpg", title: "Recibo sin leer",
       bandeja_group: { group: "attention", reason, label: "cant_read", draft_id: null, version: null },
     });
     try {
-      assert.equal(page.host.querySelector("#receipt-review-title")?.textContent, "recibo.jpg");
+      assert.equal(page.host.querySelector("#receipt-review-title")?.textContent, "Recibo sin leer");
       assert.equal(page.host.querySelector('[data-testid="status-pill"]')?.textContent, "No se pudo leer");
       assert.equal(page.host.querySelector('[data-tab="fiscal"]'), null);
       assert.equal(notice().querySelector("h3")?.textContent, title);

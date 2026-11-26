@@ -44,27 +44,31 @@ def test_auth_user_trigger_conditions_need_no_private_schema() -> None:
     argus_private: no WHEN clause on any auth.users trigger may call into it.
     Every trigger that acts on a new or changed user skips placeholders by
     their email too, since GoTrue sets app_metadata only after the INSERT."""
+    delete_triggers = {
+        "business_auth_retention_guard": "BEFORE",
+        "business_fiscal_actor_retained": "BEFORE",
+        "business_invitation_auth_retention": "BEFORE",
+        "erase_whatsapp_receipt_sender": "BEFORE",
+        "erase_whatsapp_consent_issuer": "AFTER",
+    }
     with psycopg.connect(DSN) as c:
         rows = c.execute(
-            "select tgname, pg_get_triggerdef(oid) from pg_trigger"
-            " where tgrelid = 'auth.users'::regclass and not tgisinternal"
+            "select t.tgname, pg_get_triggerdef(t.oid), p.prosecdef"
+            " from pg_trigger t join pg_proc p on p.oid=t.tgfoid"
+            " where t.tgrelid = 'auth.users'::regclass and not t.tgisinternal"
         ).fetchall()
-    assert {name for name, _ in rows} == {
+    assert {name for name, _, _ in rows} == {
         "bind_guest_signup_handoff",
         "finalize_linked_guest_identity",
         "refuse_placeholder_email",
-        "business_auth_retention_guard",
-        "business_fiscal_actor_retained",
-        "business_invitation_auth_retention",
+        *delete_triggers,
     }
-    for name, definition in rows:
-        if name in {"business_auth_retention_guard", "business_fiscal_actor_retained", "business_invitation_auth_retention"}:
-            assert "BEFORE DELETE" in definition and " WHEN " not in definition
-            with psycopg.connect(DSN) as c:
-                assert c.execute(
-                    "select prosecdef from pg_proc where oid=%s::regprocedure",
-                    (f"argus_private.{name}()",),
-                ).fetchone() == (True,)
+    for name, definition, security_definer in rows:
+        if name in delete_triggers:
+            assert f"{delete_triggers[name]} DELETE ON auth.users FOR EACH ROW" in definition
+            assert " WHEN " not in definition
+            assert definition.endswith(f"EXECUTE FUNCTION argus_private.{name}()")
+            assert security_definer, name
             continue
         condition = definition.split(" WHEN ", 1)[1].split(" EXECUTE ", 1)[0]
         assert "argus_private" not in condition, name

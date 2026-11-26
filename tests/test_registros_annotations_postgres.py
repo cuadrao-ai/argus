@@ -54,9 +54,13 @@ class NoExtraction(StubPreparation):
 
 
 @pytest.fixture
-def documents(actions, tmp_path):
+def documents(actions, tmp_path, monkeypatch):
     service, _, _ = actions
     objects = FileObjects(tmp_path)
+    monkeypatch.setattr(
+        "argus.domain.business.record_attachments.stored_paths",
+        lambda tx, paths: {path for path in paths if (tmp_path / path).is_file()},
+    )
     hub = IngestionHub(
         PostgresConnectionRepository(service.authority.pool),
         box=None,

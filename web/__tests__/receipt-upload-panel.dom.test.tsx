@@ -17,7 +17,7 @@ const MB = 1024 * 1024;
 const limits = { max_bytes: 10 * MB, media_types: ["image/jpeg", "application/pdf"] };
 const photo = (name: string, bytes = 7) => new File(["x".repeat(bytes)], name, { type: "image/jpeg" });
 const savedReceipt = (id: string, extra: Partial<ReceiptSummary> = {}): ReceiptSummary => ({
-  id, channel: "web", filename: null, media_type: "image/jpeg", size_bytes: 7,
+  id, channel: "web", title: null, filename: null, media_type: "image/jpeg", size_bytes: 7,
   received_at: "2026-11-22T12:00:00Z", status: "saved", error_code: null,
   attention: null, preparable: true, enterable: true, expense_id: null,
   merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, ...extra,

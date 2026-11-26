@@ -175,10 +175,10 @@ def test_a_read_with_an_issue_says_check_details_first(rig) -> None:  # noqa: AN
 
 #: What a supporting file changes on its record's dossier: one more version
 #: with its history entry, the file as a source, and the file in its own list.
-SUPPORTING_FILE_FIELDS = {"version", "history", "sources", "supporting_files"}
+SUPPORTING_FILE_FIELDS = {"version", "history", "sources", "supporting_files", "retained_source_ids"}
 
 
-def _append_supporting_file(rig, draft_id: str, version: int) -> None:  # noqa: ANN001
+def _append_supporting_file(rig, draft_id: str, version: int) -> str:  # noqa: ANN001
     answer = rig.client.post(
         f"{API}/business/drafts/{draft_id}/supporting-files",
         content=fake.paragraph().encode(),
@@ -191,6 +191,7 @@ def _append_supporting_file(rig, draft_id: str, version: int) -> None:  # noqa: 
         },
     )
     assert answer.status_code == 200, answer.text
+    return answer.json()["result"]["source_id"]
 
 
 def test_a_supporting_file_leaves_a_clean_record_in_listos(rig) -> None:  # noqa: ANN001
@@ -199,7 +200,7 @@ def test_a_supporting_file_leaves_a_clean_record_in_listos(rig) -> None:  # noqa
     assert before["listo_gaps"] == []
     counts = listos._counts(rig)
 
-    _append_supporting_file(rig, _named(rig, receipt)["draft_id"], before["version"])
+    added = _append_supporting_file(rig, _named(rig, receipt)["draft_id"], before["version"])
     after = _same_as_the_list(rig, receipt)
 
     assert after["listo_gaps"] == []
@@ -207,6 +208,8 @@ def test_a_supporting_file_leaves_a_clean_record_in_listos(rig) -> None:  # noqa
     assert {
         name for name in after if after[name] != before[name]
     } == SUPPORTING_FILE_FIELDS
+    assert set(after["retained_source_ids"]) == {*before["retained_source_ids"], added}
+    assert added not in before["retained_source_ids"]
     assert listos._counts(rig) == counts
 
 

@@ -18,7 +18,7 @@ function receipt(merchant: string, label: BandejaLabel | null, day = 13): Receip
     id: merchant,
     merchant,
     channel: "web",
-    filename: "recibo.pdf",
+    title: merchant, filename: "recibo.pdf",
     media_type: "application/pdf",
     size_bytes: 70,
     received_at: `2026-10-${day}T17:14:00Z`,

@@ -71,7 +71,7 @@ def _app(owner: UUID, space: UUID, view: BusinessDossier) -> FastAPI:
     return app
 
 
-def test_current_note_answers_the_dossier_with_its_channels(monkeypatch) -> None:
+def test_current_note_answers_the_dossier_with_its_channels(monkeypatch, stored_whatsapp_dossier) -> None:
     """The note's answer reads the captured set keyed on the Business owner, as
     every other dossier answer does, so a WhatsApp original stays WhatsApp."""
 
@@ -85,14 +85,7 @@ def test_current_note_answers_the_dossier_with_its_channels(monkeypatch) -> None
         media_type="image/jpeg",
     )
     view = _view(space, original)
-    asked = []
-
-    def captured(owner_id):
-        asked.append(owner_id)
-        return frozenset({str(original.connection_id)})
-
-    monkeypatch.setattr("argus.api.business_drafts._captured", captured)
-    monkeypatch.setattr("argus.api.email_intake.email_receipt_flags", lambda space_id: {})
+    asked = stored_whatsapp_dossier(NoteService, owner, original.connection_id)
     monkeypatch.setattr(
         business_annotations,
         "edit_note",
@@ -136,8 +129,6 @@ def test_supporting_file_link_routes_send_one_command_and_answer_the_dossier(
             source_id=command.source_id,
         )
 
-    monkeypatch.setattr("argus.api.business_drafts._captured", lambda owner_id: frozenset())
-    monkeypatch.setattr("argus.api.email_intake.email_receipt_flags", lambda space_id: {})
     monkeypatch.setattr(business_annotations, "change_file_link", change)
     path = f"/drafts/{view.draft_id}/supporting-files/{source_id}{suffix}"
     with TestClient(_app(owner, space, view)) as client:

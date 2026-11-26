@@ -1,4 +1,4 @@
-import type { BandejaGroup, BusinessAccount, DocumentDeleteAccess, ReceiptAttention } from "./business-api";
+import type { BandejaGroup, BusinessAccount, DocumentDeleteAccess, ReceiptAttention, ReceiptSummary } from "./business-api";
 import type { DgiiDeclaration, SalePayment, SuggestedField, SuggestionSource } from "./business-dgii";
 import type { PersonName, PersonShown } from "./person-name";
 
@@ -197,6 +197,11 @@ export type RecordReadiness = {
   reasons?: Readonly<Record<string, { field: string | null; words: string }>>;
 };
 
+export type RecordOrigin = Required<Pick<ReceiptSummary, "sent_by" | "received_at" | "filename">> & {
+  channel: ReceiptSummary["channel"] | "note";
+  size_bytes: number | null;
+};
+
 export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & RecordReadiness & {
   /** Where the record stands in the Bandeja, by the rule the receipt list reads. An accepted record has the label `accepted`; a deleted one has none. */
   bandeja_group?: Pick<BandejaGroup, "group" | "reason" | "label"> | null;
@@ -274,6 +279,10 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & Rec
   version: number;
   review_state: "open" | "accepting" | "accepted" | "dismissed";
   facts: BusinessFacts;
+  retained_source_ids: string[];
+  original_connection_id: string | null;
+  origin: RecordOrigin | null;
+  title: string | null;
   sources: BusinessSourceEvidence[];
   questions: BusinessReviewQuestion[];
   history: BusinessDraftRevision[];

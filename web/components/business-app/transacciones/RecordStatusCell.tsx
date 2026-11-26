@@ -17,7 +17,7 @@ function useRecordStatus(row: RecordRow) {
   const { chosen } = useBusiness();
   const { t } = useTransaccionesWords();
   const record = row.report ?? previewRecordMetadata(row, chosen?.space_id ?? null);
-  const words = useMissingWords(record?.ready === false ? record.missing : []);
+  const words = useMissingWords(record?.ready === false ? record : null);
   return { record, words, t };
 }
 

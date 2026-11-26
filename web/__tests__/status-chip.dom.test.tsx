@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { reportReasons } from "./fixtures/business-report-http-fixture";
 import type { ReactNode } from "react";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
@@ -32,7 +33,7 @@ async function render(node: ReactNode) {
 
 const badge = async (ready: boolean) => {
   const RecordStatusCell = (await import("@/components/business-app/transacciones/RecordStatusCell")).default;
-  const cell = await render(<RecordStatusCell row={{ id: "r", report: { ready, missing: ["missing_rnc"], stage: "needs_review" } } as unknown as RecordRow} />);
+  const cell = await render(<RecordStatusCell row={{ id: "r", report: { ready, missing: ["missing_rnc"], reasons: reportReasons("missing_rnc"), stage: "needs_review" } } as unknown as RecordRow} />);
   return cell.querySelector<HTMLElement>("[data-record-status]") ?? cell;
 };
 

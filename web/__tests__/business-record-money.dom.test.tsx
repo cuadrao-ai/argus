@@ -110,7 +110,7 @@ describe("the original purchase picker in the tax details", () => {
       assert.equal(rows().length, 2);
       assert.match(rows()[0].textContent ?? "", /Ferretería.*US\$ 1,234\.50/);
       assert.doesNotMatch(rows()[0].textContent ?? "", /1234\.5 USD/);
-      assert.match(rows()[1].textContent ?? "", /^-/, "a candidate with no merchant names none");
+      assert.match(rows()[1].textContent ?? "", /^Sin dato/, "a candidate with no merchant names none");
       assert.match(rows()[1].textContent ?? "", /RD\$ 980\.00/);
       assert.deepEqual(asked, [], "no expenses request picks purchases in the browser");
     } finally { await view.dispose(); }

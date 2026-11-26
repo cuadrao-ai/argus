@@ -14,7 +14,7 @@ import type { ReceiptDetail } from "@/lib/business-api";
 const apiDetail: ReceiptDetail = {
   id: "7c366e61-5dd7-42ff-8a58-97605f52d4b3",
   channel: "web",
-  filename: "image.png",
+  title: "image.png", filename: "image.png",
   source_text: null,
   media_type: "image/png",
   size_bytes: 70,

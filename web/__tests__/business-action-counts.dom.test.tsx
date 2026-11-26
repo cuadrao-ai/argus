@@ -44,9 +44,9 @@ async function mount() {
   const capabilities: ("read" | "prepare" | "approve")[] = ["read", "prepare", "approve"];
   const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez", shown_as: "name" as const }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
   let items: ReceiptDetail[] = [
-    { ...blurry, id: "attention", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
-    { ...ready, id: "ready", merchant: "Documento listo", draft_id: dossierFixtureIds.ready, version: readyDossier.version, missing_fields: [], delete_available: true, record_context: { ...ready.record_context!, capabilities }, bandeja_group: { group: "listo", reason: null, label: "ready", draft_id: dossierFixtureIds.ready, version: readyDossier.version } },
-    { ...blurry, id: "deleted", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, label: null, draft_id: null, version: null } },
+    { ...blurry, id: "attention", title: "Documento equivocado", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", label: "cant_read", draft_id: null, version: null } },
+    { ...ready, id: "ready", title: "Documento listo", merchant: "Documento listo", draft_id: dossierFixtureIds.ready, version: readyDossier.version, missing_fields: [], delete_available: true, record_context: { ...ready.record_context!, capabilities }, bandeja_group: { group: "listo", reason: null, label: "ready", draft_id: dossierFixtureIds.ready, version: readyDossier.version } },
+    { ...blurry, id: "deleted", title: "Documento eliminado", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, label: null, draft_id: null, version: null } },
   ];
   let silent = false;
   let held: Promise<void> | null = null;
@@ -111,7 +111,7 @@ async function mount() {
     assert.deepEqual(api!.records.receiptActivity, ANSWERED);
     assert.ok(reads > before, "the lists were asked again, and none of those reads answered");
   };
-  const server = { arrives: (id: string) => { items = [{ ...items[0], id, merchant: `Documento ${id}`, filename: `Documento ${id}` }, ...items]; }, loses: (id: string) => { items = items.filter(item => item.id !== id); }, unlists: (id: string) => { unlisted.add(id); } };
+  const server = { arrives: (id: string) => { items = [{ ...items[0], id, title: `Documento ${id}`, merchant: `Documento ${id}`, filename: `Documento ${id}` }, ...items]; }, loses: (id: string) => { items = items.filter(item => item.id !== id); }, unlists: (id: string) => { unlisted.add(id); } };
   const holdAnswers = () => { silent = true; const answer = Promise.withResolvers<void>(); held = answer.promise; return answer.resolve; };
   return { act, wait, click, confirm, acted, server, shown, holdAnswers, api: () => api! };
 }

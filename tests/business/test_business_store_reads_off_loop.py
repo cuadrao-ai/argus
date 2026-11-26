@@ -32,7 +32,7 @@ def bank_enabled(ingestion_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
         ("prepare", "_refuse_email_original"),
         ("prepare", "require_legacy_receipt_write"),
         ("prepare", "queue"),
-        ("prepare", "_email_flagged"),
+        ("prepare", "receipt_summary"),
         ("bank", "_scope"),
         ("bank", "_capabilities"),
         ("bank", "import_statement"),

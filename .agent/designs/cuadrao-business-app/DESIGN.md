@@ -288,7 +288,7 @@ The preview demonstrates them; this section does not certify backend wiring.
 - Finished steps sit last in the dossier as muted cards with a check.
 - Each step is a card: its icon and title on one line, its description below.
 - The dossier is the side panel, a full sheet on a phone, with no header bar: a
-  close X at the top right, a large centered ring with `done/total`, the centered
+  close X at the top right, a large centered ring with the completed and total step counts, the centered
   title "Configurar negocio" and one lead line, then the step cards. On the closed
   rail the sidebar card is the ring alone, named "Configurar negocio, n de n pasos
   listos" for screen readers.
@@ -1255,7 +1255,7 @@ table only.
   80ms; every transition stays under 150ms, with no bounce.
 - The header pins on vertical scroll. The first column pins on horizontal
   scroll, and a column that is the point of the screen may pin right.
-- An empty cell is "-" when missing (read as "sin dato", or as what it means,
+- An empty cell is "-" when missing (read as "Sin dato", or as what it means,
   such as "Sin recibo" in Comprobante), a real 0.00 only when zero is known,
   and a skeleton only while loading. A blank cell is a question, so no cell is
   left empty.
@@ -1315,11 +1315,11 @@ Inicio redesign, approved by Lucas on November 9, 2026. The header stays: date, 
 
 The month is a control in the month card's header band, "‹ Mes Año ›" at the card-title size. On desktop the greeting lives only in the top bar; a phone shows it above the cards. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
 
-Order: Necesita atención, then the month card. While settlement is on, Cobros y pagos (Por cobrar and Por pagar) follows below the two cards; those cover every month, so they sit apart from the month card.
+Pendientes comes first, then the month card. While settlement is on, Cobros y pagos (Por cobrar and Por pagar) follows below the two cards; those cover every month, so they sit apart from the month card.
 
-Two columns once the canvas is 56rem or wider: Necesita atención on the left, flexible, and the month card on the right at a fixed 440px, 24px apart. Both cards have a 57px header band in the same tint over one divider, so their tops and dividers line up; their bottoms keep their natural heights. Narrower, one column in the order above.
+Two columns once the canvas is 56rem or wider: Pendientes on the left, flexible, and the month card on the right at a fixed 440px, 24px apart. Both cards have a 57px header band in the same tint over one divider, so their tops and dividers line up; their bottoms keep their natural heights. Narrower, one column in the order above.
 
-Necesita atención shows the server's Bandeja count (the sidebar's), "Ver todo", and up to six rows of about 62px, problems first: the source's icon, the supplier or the source, the Bandeja's reason as a tag with when it arrived, and Resolver or Revisar for someone who may prepare. A row never shows an amount. The month card shows Ingresos and Gastos, then Resultado neto (the largest figure, right-aligned), then ITBIS en ventas and ITBIS en compras, and a footer: "Incluye n de total documentos", "n en la Bandeja · Revisar" and "Faltan datos en n registros · Ver", which names compras or ventas when both tabs hold documents. Each label has a dotted-underline definition on hover and focus. The currency pill shows the ISO code whenever the Business holds documents in more than one currency in some month; its list holds this month's currencies, and the choice holds per Business for the session. There is no month close on Inicio.
+Pendientes shows the server's count of waiting rows and up to six rows from Bandeja. Rows with a failed read or a problem come first. Each row opens its record and shows its channel icon, name, Bandeja label and arrival time. A person who can prepare sees Resolver on a problem or Revisar on a ready row. Ver todo opens Bandeja. The month card shows Ingresos and Gastos, then Resultado neto (the largest figure, right-aligned), then ITBIS en ventas and ITBIS en compras, and a footer: "Documentos incluidos: n de total", "n en la Bandeja · Revisar" and "Faltan datos en n registros · Ver", which names compras or ventas when both tabs hold documents. Each label has a dotted-underline definition on hover and focus. The currency pill shows the ISO code whenever the Business holds documents in more than one currency in some month; its list holds this month's currencies, and the choice holds per Business for the session. There is no month close on Inicio.
 
 - A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
 - A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
@@ -1374,8 +1374,8 @@ of its own (`receptionMatches` in
 | **Listos** | The `listo` group | One server count |
 | **Eliminados** | The documents the owner deleted | One server count |
 
-- Inicio's Necesita atención and the sidebar both count every waiting row
-  (`pending_review_count`), so that number is larger than Por resolver's. The
+- Pendientes on Inicio and the sidebar both count every waiting row
+  (`pending_review_count`), including rows outside Por resolver. The
   tabs own status. Filtros has only Canal and Enviado por, and picking a tab
   adds no chip.
 - A row in the `reading` group shows only on Todos, as Leyendo…, and no tab
@@ -1423,14 +1423,13 @@ the label to a tone in `ReceptionStatus.tsx` and decides no label of its own.
 #### Enviado por
 
 - Enviado por names who brought the row in. It is the member who uploaded the
-  file or typed the note, the address an email came from, or the WhatsApp
-  number as "WhatsApp ···" and its last 4 digits. The server sends it as
+  file or typed the note, the address an email came from, or the person linked
+  to the sending phone number. An unnamed number shows its last four digits. The server sends it as
   `sent_by` for every channel. `sentByName` in `web/lib/sent-by.ts` is the one
   place that words it.
 - The Enviado por filter lists those senders, so a Business that only uploads
   can filter by who uploaded.
-- With no sender, the cell shows the word for unknown
-  (`reception_preview.sent_by_unknown`), never a dash or a tooltip. A phone card
+- With no sender, the cell reads "Sin dato" (`business.dossier.row.no_data`). A phone card
   leaves it out.
 - The email allowlist keeps the word "Remitente".
 
@@ -1629,8 +1628,8 @@ this date. The server decides every value, every editable field and every
 link, as
 [the dossier architecture](../../../docs/ARCHITECTURE.md#the-record-dossier) says.
 
-**Frame.** The header shows the name of who issued the document, or the file
-name while nobody is named. Line two shows the Bandeja label that the server
+**Frame.** The header uses the server’s title, including when a receipt has no draft. A nameless document reads
+"Documento" (`business.document_delete.unnamed`). Line two shows the Bandeja label that the server
 gives, and the reasons the record is not in Listos. One reason sits beside the
 pill and jumps to its row. Several reasons open a list. An accepted record has
 no pill. Beside the name sit "N de M" with the jump card, the previous and next
@@ -1748,7 +1747,9 @@ name still shows, under Otros impuestos. The tab has no picker for the form:
 the record's type decides whether it declares on the 606 or the 607.
 
 **Detalles.** Origen holds Canal, Enviado por and Llegada. Then come Nota and
-Archivos de respaldo. Archivo holds Nombre and Tamaño.
+Archivos de respaldo. Archivo holds Nombre and Tamaño. Both cards use the
+origin in the dossier wherever the record was opened. A web upload reads
+"Carga web" (`business.dossier.web`) in the record, document pane, history, Bandeja and its channel filter.
 
 **Historial.** `ReceiptHistory.tsx` draws one card for each day, newest first.
 The cards are titled "Hoy", "Ayer", and then the date. Every event shows a
@@ -1789,7 +1790,8 @@ the actions sit on the right.
 - A document that is being read, is held for tomorrow, or could not be read
   has no Más. It shows a red "Eliminar documento" button with its label on the
   left, and the recovery action on the right. In the narrow size the button
-  shows only its icon.
+  shows only its icon. The delete confirmation shows "Sin dato" for a missing
+  counterparty, date, total or file name.
 
 **Accepting over a problem.** Aceptar on a record with reasons opens one
 confirm that lists every reason. "Corregir" is the primary button and jumps to
@@ -1904,26 +1906,23 @@ approved copy:
 
 In the development mock preview, phone Filters uses the full-height sheet: a group list opens one group editor, Back keeps the draft, Apply commits, and close/Escape discards. Navigation rows are buttons with chevrons; the desktop rail keeps tabs. Date format belongs in the input placeholder, with the message slot reserved for validation.
 
-Desktop preview table preferences are local memory only, including saved views. They do not invoke the production `/me` density persistence described above. Contraparte stays visible and fixed first; Monto and Moneda stay visible but can move independently. Other columns may hide or reorder. Column movement preserves focus; Space grabs/drops, arrows move, and Escape cancels the grabbed order. A picked-up column has a full-row outline and tint plus a filled handle, in both themes. The instruction area keeps its height while showing pickup feedback. A visible drop marker shows the actual insertion edge. Changing columns or row height preserves the current page. Phone list composition does not change with desktop column preferences.
+Desktop preview table preferences are local memory only, including saved views. They do not invoke the production `/me` density persistence described above. The fixed Contraparte, Monto and Moneda columns are historical. The first shown column stays pinned. Columns can hide or move as long as each tab keeps one shown, as the [field dictionary](../../../docs/specs/field-dictionary.md#registros-columns) describes. Column movement preserves focus; Space grabs/drops, arrows move, and Escape cancels the grabbed order. A picked-up column has a full-row outline and tint plus a filled handle, in both themes. The instruction area keeps its height while showing pickup feedback. A visible drop marker shows the actual insertion edge. Changing columns or row height preserves the current page. Phone list composition does not change with desktop column preferences.
 
 ### Registros local preview: record cells and annotations
 
 Activity dates in the Registros preview show the year in the selected language, for example `25 oct 2026` or `Oct 25, 2026`. A calendar day does not shift with the device time zone. Missing or invalid dates show a dash. This rule applies to the table, narrow list and loaded-record glance; other recent-time displays keep their existing wording.
 
-Estado uses a fixed-width, non-clickable chip with exactly one label: Listo or Faltan datos (Ready or Missing data in English), read directly from the server's `ready` field. Registros keeps its exception to the status-dot rule: no inner dot. Listo uses the existing soft-sage and green palette; Faltan datos shares the missing-data overview palette, with corresponding dark colors. The separate Motivo column shows the first item of the server's ordered `missing` list as plain text and a non-truncating +N for the remaining items. The existing tooltip and the open record show the full list. Listo rows have no Motivo. The chip and reason stay on one line at all three row heights (40, 48 and 56 px), owned by `table-density.ts`; column and chip widths belong to `RECORDS_COLUMN_LAYOUT`. Phone cards show only the chip. The overview says Faltan datos, with Complétalos antes de declarar below it; its count reads `not_ready` and its click selects `ready: false`. Workflow does not describe payment state.
+The always-visible Listo or Faltan datos chip and the separate Motivo column are historical. Estado is empty for a ready record. For a record with missing data, it shows the count of reasons with the ordered reasons in a tooltip. A row with unknown readiness shows a dash. The Faltan datos overview card still reads `not_ready` and selects `ready: false`.
 
-The desktop table shows separate Monto and Moneda columns, adjacent by default. Monto shows the exact original-currency number, aligned right with tabular digits and the shared privacy mask. Moneda shows RD$ or US$ through `currencySymbol`; filters retain DOP and USD. Both columns remain visible. Each column moves independently through its own drag handle or keyboard controls. Narrow rows keep the amount and currency together at the upper right.
+Separate Monto and Moneda columns are historical. The desktop table groups amounts under the selected currency. Narrow rows keep the amount with its currency at the upper right.
 
-Notas shows only the current note on one line, with a tooltip for the full text. Empty notes use a quiet dash at rest on desktop. Hovering or focusing any part of the row reveals a pencil in the same slot; touch keeps the pencil visible. Clicking a note opens a compact editor on desktop or the shared sheet on a phone. Notes allow 500 characters with the same quiet, right-aligned current/limit counter as feedback. The counter describes the field without announcing each keystroke. Existing longer local notes stay intact on open and must be shortened before saving. Save applies the local value; Cancel, close and Escape discard the draft. There are no author, history, edited or activity indicators. Adjunto replaces Comprobante in preview table/settings/filter/glance labels. A known missing attachment uses a dash at rest on desktop and reveals a quiet plus when any part of the row is hovered or focused. Touch keeps the plus visible. The action retains a 44px target without shifting content; unknown remains a dash. Existing evidence opens its original record path. A local file can be selected, validated and previewed for that record, without uploading it.
-
-One in-memory annotation map is keyed by Business and stable record kind plus ID. Saved local values survive filtering, paging, viewport changes and the loaded-record glance. They do not persist across refresh or reach the backend. Permissions use the existing prepare capability. Narrow rows offer visible Notes and Attachment icon buttons with 44px targets, stacked in the right-side action slot and separate from the row-open button. Related-record grouping and a new writing flow remain deferred.
-
+The preview's in-memory annotation map, note editor and file picker are historical. Notas shows the current note. When the record allows a note or supporting document action, its cell opens the matching card in Detalles. Narrow rows keep these actions separate from the row-open button. `RecordDetailsLinks.tsx` uses the permissions in the record to offer each action.
 
 ### Registros preview sorting
 
 Fecha, Monto and Contraparte are sortable through full header buttons. Only the active column shows an arrow and aria-sort. Fecha starts newest first, Monto starts largest magnitude first, and Contraparte starts locale-aware A–Z. Clicking the active header reverses it. The phone sort picker offers the same six orders and shares the selected sort. Local named views keep that sort with their column and summary preferences.
 
-Sort the whole filtered loaded set before slicing a page. Changing sort returns to page one, without changing result counts or financial totals. Missing or invalid sort values remain last in both directions. Equal values use stable record kind and ID. Monto compares exact original-currency magnitudes and is available only when the entire filtered set has one known currency. With mixed currencies, its header and phone options explain how to choose a currency in Filtros. If filters make an active amount sort unavailable, show an explicit date-order fallback notice and the date arrow. Retain the intended amount order so it resumes when the results again have one currency. No conversion or mixed-currency numeric comparison is implied.
+Sort the whole filtered loaded set before slicing a page. Changing sort returns to page one, without changing result counts or financial totals. Missing or invalid sort values remain last in both directions. Equal values use stable record kind and ID. Monto compares exact original-currency magnitudes and is available only when the entire filtered set has one known currency. With mixed currencies, the header and phone options explain that sorting by amount needs one currency. If filters make an active amount sort unavailable, show an explicit date-order fallback notice and the date arrow. Retain the intended amount order so it resumes when the results again have one currency. No conversion or mixed-currency numeric comparison is implied.
 
 ### Registros evidence and payment relationships, 26 October 2026
 
@@ -1931,20 +1930,20 @@ Keep three intents separate: add a new document through the existing intake; add
 
 The approved evidence design allows several attachments per activity. Add appends; it never replaces an existing attachment. Preserve the original file and its Business. A document already linked elsewhere needs an explicit conflict explanation; never move it automatically. No unlink action is available until its contract, permissions and any payment effects are defined. Existing evidence stays linked when a download is temporarily unavailable.
 
-Con documento means linked evidence only, not verified, approved, fiscally accepted or paid. Sin documento and Sin movimiento vinculado are separate conditions. The local attachment filter reads only the loaded record's known evidence state: Con documento includes true, Sin documento includes false, and neither includes unknown. A selected local File is a preview that disappears on refresh, not a durable link, and must say so in the editor and its saved local presentation. It never changes that filter state or fiscal completeness.
+Con documento means linked evidence only, not verified, approved, fiscally accepted or paid. Sin documento and Sin movimiento vinculado are separate conditions. The local attachment filter reads only the loaded record's known evidence state: Con documento includes true, Sin documento includes false, and neither includes unknown. The former local file preview was temporary and did not change that filter or fiscal completeness.
 
 Reuse of an already received document is a backend-dependent design path. Keep its selector unavailable until a complete authorized candidate list and link eligibility are supplied; the current inbox omits confirmed and dismissed documents. Device selection does not bypass that missing link contract or start a second ingestion flow. Editing follows the existing prepare capability; read-only access offers only authorized reads. Matching remains behind its existing default-off gate and needs the shared partial-payment contract before release. Future checkpoint notes and acceptance cases live in the Registros report; this rule records design intent, not a backend handoff or activation.
 
 
 ### Registros attachment form and loading alignment, 26 October 2026
 
-The annotation footer follows the collaborator invitation form: one full-width
+Historical local annotation form. Its footer followed the collaborator invitation form: one full-width
 primary action with the item radius (8px), separated by one hairline. The X closes;
 no duplicate Cancel button. This full-width form action is an exception to the pill
 shape used for toolbar and file-picker buttons. On phone the sheet owns the footer
 divider and safe-area padding, without a second inner divider.
 
-Attachment selection uses the receipt intake's dashed inset, file-upload icon,
+The former local file picker used the receipt intake's dashed inset, file-upload icon,
 format/size guidance, pill file-picker action, and desktop drag/paste affordances.
 Phone wording offers file selection. Supporting evidence selection must not start
 new-document intake or claim a durable upload/link while it remains local-only.

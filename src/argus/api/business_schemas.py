@@ -373,6 +373,7 @@ class ReceiptSummary(_Wire):
     delete_available: bool = False
     restore_available: bool = False
     id: str
+    title: str | None
     activity: ReceiptActivity | None = None
     bandeja: BandejaMembership | None = None
     bandeja_group: BandejaGroup | None = None

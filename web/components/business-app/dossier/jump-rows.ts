@@ -28,7 +28,7 @@ export function useJumpRows(receiptIds: readonly string[]): { rows: JumpRow[] | 
     const receipt = byId.get(id);
     return receipt ? [{
       id,
-      name: receipt.merchant || receipt.filename || t("business.document_delete.unnamed"),
+      name: receipt.title ?? t("business.document_delete.unnamed"),
       label: receipt.bandeja_group?.label ?? null,
       unopened: receipt.activity?.unread === true,
       wait: formatRelativeTime(receipt.received_at, locale),

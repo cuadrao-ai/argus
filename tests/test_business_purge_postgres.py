@@ -206,13 +206,16 @@ def test_existing_sweep_purges_complete_expired_graph_and_originals(
             ).fetchone()[0]
             == 0
         )
-        assert (
-            db.execute(
-                "select count(*) from public.whatsapp_reply_days where sender_hash=%s",
-                (w["transport"]["sender"],),
-            ).fetchone()[0]
-            == 0
-        )
+        # A Business can expire while its members still receive replies elsewhere.
+        for table, key, value in (
+            ("whatsapp_sender_links", "id", w["transport"]["link"]),
+            ("whatsapp_reply_attempts", "link_id", w["transport"]["link"]),
+            ("whatsapp_reply_groups", "link_id", w["transport"]["link"]),
+            ("whatsapp_reply_days", "sender_hash", w["transport"]["sender"]),
+        ):
+            assert db.execute(
+                f"select count(*) from public.{table} where {key}=%s", (value,)
+            ).fetchone()[0] == (0 if owner_deleted else 1)
     assert deletion.Auth().user_exists(w["old"]) is not owner_deleted
     assert deletion.command(w).resume_pending(idle_seconds=0)["resumed"] == 0
 
@@ -610,7 +613,10 @@ def test_a_pending_document_erase_goes_with_the_business(
     assert path not in w["objects"].rows
     assert f"{prefix}original.pdf" not in w["objects"].rows
     with w["pool"].connection() as db:
-        assert db.execute(
-            "select count(*) from argus_private.business_document_purges where space_id=%s",
-            (w["space"],),
-        ).fetchone()[0] == 0
+        assert (
+            db.execute(
+                "select count(*) from argus_private.business_document_purges where space_id=%s",
+                (w["space"],),
+            ).fetchone()[0]
+            == 0
+        )

@@ -15925,6 +15925,20 @@ components:
             - invoicing
             - business
           - type: 'null'
+        group:
+          anyOf:
+          - type: string
+            enum:
+            - uploads
+            - reading
+            - reviews
+            - approvals
+            - edits
+            - files
+            - invoices
+            - access
+            - settings
+          - type: 'null'
         restricted:
           type: boolean
           default: false
@@ -18144,6 +18158,25 @@ components:
             - approve
           type: array
           uniqueItems: true
+        retained_source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          default: []
+        original_connection_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        origin:
+          anyOf:
+          - $ref: '#/components/schemas/RecordOrigin'
+          - type: 'null'
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         deleted:
           anyOf:
           - $ref: '#/components/schemas/DeletedDocument'
@@ -21477,6 +21510,25 @@ components:
             - approve
           type: array
           uniqueItems: true
+        retained_source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          default: []
+        original_connection_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        origin:
+          anyOf:
+          - $ref: '#/components/schemas/RecordOrigin'
+          - type: 'null'
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         deleted:
           anyOf:
           - $ref: '#/components/schemas/DeletedDocument'
@@ -30050,6 +30102,8 @@ components:
         unread:
           type: boolean
         completion_cursor:
+          description: The cursor for opening this saved receipt or completed read. A later
+            completed read has a new cursor. Acknowledgements apply only to the caller.
           anyOf:
           - type: string
           - type: 'null'
@@ -30117,6 +30171,10 @@ components:
           default: false
         id:
           type: string
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         activity:
           anyOf:
           - $ref: '#/components/schemas/ReceiptActivity'
@@ -30318,6 +30376,7 @@ components:
       type: object
       required:
       - id
+      - title
       - channel
       - filename
       - media_type
@@ -30414,6 +30473,10 @@ components:
           default: false
         id:
           type: string
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         activity:
           anyOf:
           - $ref: '#/components/schemas/ReceiptActivity'
@@ -30584,6 +30647,7 @@ components:
       type: object
       required:
       - id
+      - title
       - channel
       - filename
       - media_type
@@ -30737,6 +30801,10 @@ components:
           default: false
         id:
           type: string
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         activity:
           anyOf:
           - $ref: '#/components/schemas/ReceiptActivity'
@@ -30907,6 +30975,7 @@ components:
       type: object
       required:
       - id
+      - title
       - channel
       - filename
       - media_type
@@ -31101,6 +31170,38 @@ components:
       - space_name
       - accounts
       - capabilities
+    RecordOrigin:
+      properties:
+        channel:
+          type: string
+          enum:
+          - web
+          - whatsapp
+          - email
+          - note
+        sent_by:
+          anyOf:
+          - $ref: '#/components/schemas/SentBy'
+          - type: 'null'
+        received_at:
+          type: string
+          format: date-time
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        size_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - channel
+      - sent_by
+      - received_at
+      - filename
+      - size_bytes
     RecordedApproval:
       properties:
         status:
@@ -31927,6 +32028,10 @@ components:
             type: string
           type: array
           default: []
+        reasons:
+          additionalProperties:
+            $ref: '#/components/schemas/ReasonDetails'
+          type: object
         missing_fields:
           items:
             type: string
@@ -32051,6 +32156,10 @@ components:
             - unknown
             - unsupported
           - type: 'null'
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
         counterparty:
           anyOf:
           - type: string
@@ -32074,6 +32183,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        attachment_count:
+          type: integer
+          minimum: 0.0
+          default: 0
         has_document:
           type: boolean
           default: false
@@ -33119,6 +33232,8 @@ components:
       required:
       - id
       - kind
+      description: A person's sender id is shared across channels. An unnamed WhatsApp
+        sender shows only the last four digits.
     SentInvite:
       properties:
         id:

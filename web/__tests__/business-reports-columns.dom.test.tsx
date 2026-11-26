@@ -181,9 +181,9 @@ for (const family of ["purchase", "sale"] as const) {
       for (const row of rows) {
         const source = page.fixture.records.find((record) => record.row_id === row.getAttribute("data-record-key"))!;
         assert.ok(source);
-        assert.equal(row.querySelector('[data-col="fiscal_number"]')?.textContent, source.fiscal_number ?? "-sin dato");
+        assert.equal(row.querySelector('[data-col="fiscal_number"]')?.textContent, source.fiscal_number ?? "-Sin dato");
         const itbis = row.querySelector('[data-col="itbis_amount"]')!;
-        if (source.itbis_amount === null) assert.equal(itbis.textContent, "-sin dato");
+        if (source.itbis_amount === null) assert.equal(itbis.textContent, "-Sin dato");
         else {
           const value = source.itbis_amount === "0.00" ? "0.00" : source.itbis_amount === "18.25" ? "18.25" : "9,007,199,254,740,993.01";
           assert.equal(itbis.textContent, value);
@@ -200,7 +200,7 @@ test("selected ITBIS stays unknown when row currency is missing", async () => {
   await mount({ presentation: { ...recordedReportAnswer.presentation, hidden: recordedReportAnswer.presentation.hidden.filter((key) => key !== "itbis_amount") }, queryAnswer: (_request, answer) => ({ ...answer, items: answer.items.map((row) => ({ ...row, currency: null, itbis_amount: "18.25" })) }) });
   const amounts = [...document.querySelectorAll('tbody [data-col="itbis_amount"]')];
   assert.equal(amounts.length, 25);
-  assert.ok(amounts.every((cell) => cell.textContent === "-sin dato"));
+  assert.ok(amounts.every((cell) => cell.textContent === "-Sin dato"));
 });
 
 test("column up and down buttons move any column to the first place, where it freezes, and the last shown column cannot hide", async () => {

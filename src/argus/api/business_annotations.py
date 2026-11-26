@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request, Response
 
 from argus.api.business import require_business_surface
-from argus.api.business_drafts import with_source_channels
+from argus.api.business_drafts import with_review_note
 from argus.api.business_reports import Context, ReportingRoute, _run
 from argus.api.dependencies import problem
 from argus.api.documents import (
@@ -58,10 +58,9 @@ class SupportingLinkResponse(Contract):
 
 
 def _dossier(context, actor, draft_id: UUID) -> BusinessDossier:  # noqa: ANN001
-    return with_source_channels(
+    return with_review_note(
         context.service.dossier(actor, draft_id),
         space_id=str(actor.actor.space_id),
-        owner_id=actor.owner_id,
         service=context.service,
     )
 

@@ -83,7 +83,8 @@ export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layo
 export function useChannelLabel() {
   const { t } = useTranslation();
   return (channel: "web" | "whatsapp" | "email" | string) =>
-    channel === "whatsapp" ? "WhatsApp" : channel === "email" ? t("business.dossier.email", "Email") : t("business.dossier.web", "Web upload");
+    channel === "note" ? t("business.reception_preview.source_note")
+      : channel === "whatsapp" ? "WhatsApp" : channel === "email" ? t("business.dossier.email", "Email") : t("business.dossier.web");
 }
 
 /** The person may add receipts and notes to the Business they are in: the server's prepare capability, the owner's included. */

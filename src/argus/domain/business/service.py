@@ -214,7 +214,7 @@ class BusinessService:
             draft,
             self.documents.store.get(user_id=person, connection_id=receipt_id),
             events,
-            "whatsapp" if receipt_id in whatsapp else "web",
+            captured=receipt_id in whatsapp,
             read_pending=read_pending,
         )
 
@@ -491,8 +491,10 @@ class BusinessService:
         self,
         scope: BusinessScope,
         query: business_search.SearchQuery,
-        views: Mapping[str, dict[str, Any]] | None = None,
+        views: Mapping[str, dict[str, Any]],
         numbers: Mapping[str, tuple[str, ...]] | None = None,
+        *,
+        with_records: Callable[[list[dict]], list[dict]] = list,
     ) -> dict[str, list[dict[str, Any]]]:
         """Every match, unpaged: expenses, ventas (saved income) and accounts
         through the canonical financial search, an expense or a venta also by
@@ -509,32 +511,30 @@ class BusinessService:
 
         known = numbers or {}
         found = financial_search.hits(
-            self.accounts, scope.person_id, scope=scope.owner, query=query.text
+            self.accounts, scope.person_id, scope=scope.owner, query=query.text, kind="account"
         )
-        worded = {
-            hit.activity.activity_id
-            for hit in found
-            if isinstance(hit, financial_search.ActivityHit)
-        }
-        activities = [
-            item
-            for item in self._activities(scope)
-            if item["activity_id"] in worded
-            or business_search.exact(
-                query,
-                amount=item["amount"],
-                currency=item["currency"],
-                numbers=known.get(item["activity_id"], ()),
+        activities = self._activities(scope)
+        by_id = {row["activity_id"]: row for row in activities}
+        records = with_records(
+            self._expenses(scope, activities, date.min, date.max)
+            + self._expenses(scope, activities, date.min, date.max, kind="income")
+        )
+        matches: dict[str, list[dict]] = {"expense": [], "income": []}
+        for row in records:
+            activity = by_id[row["id"]]
+            words = financial_search.activity_text(
+                row["merchant"], activity["kind"], row["category_id"], activity.get("source_id")
             )
-        ]
-        expenses = self._expenses(scope, activities, date.min, date.max)
-        ventas = self._expenses(scope, activities, date.min, date.max, kind="income")
+            if business_search.matches(
+                query, words, amount=row["amount"], currency=row["currency"],
+                numbers=known.get(row["id"], ()),
+            ):
+                matches[activity["kind"]].append(row)
+        expenses, ventas = matches["expense"], matches["income"]
         listed = {item["id"] for item in [*expenses, *ventas]}
-        shown = views or {}
         receipts = [
             summary
-            for receipt in self.receipts(scope)
-            for summary in [shown.get(receipt.id) or receipt.summary()]
+            for summary in views.values()
             if summary["expense_id"] not in listed
             and not summary["email_original"]
             and business_search.matches(
@@ -542,7 +542,7 @@ class BusinessService:
                 _summary_text(summary),
                 amount=summary["amount"],
                 currency=summary["currency"],
-                numbers=known.get(receipt.id, ()),
+                numbers=known.get(summary["id"], ()),
             )
         ]
         accounts = [
@@ -602,7 +602,6 @@ class BusinessService:
     ) -> dict[str, Any]:
         today = ledger.today()
         end = end if end is not None else today
-        receipts = self.receipts(scope)
         activities = self._activities(scope)
         recorded = ledger.recorded_at(activities)
         outside = [
@@ -619,12 +618,11 @@ class BusinessService:
             "outside_period_latest_on": max(
                 (item["occurred_on"] for item in outside), default=None
             ),
-            "last_received_at": max((r.draft.created_at for r in receipts), default=None),
             "last_confirmed_at": max(recorded.values(), default=None),
         }
 
     def updates(
-        self, scope: BusinessScope, views: Mapping[str, dict[str, Any]] | None = None
+        self, scope: BusinessScope, views: Mapping[str, dict[str, Any]]
     ) -> list[dict[str, Any]]:
         return updates(
             self.receipts(scope), ledger.recorded_at(self._activities(scope)), views
@@ -641,7 +639,7 @@ class BusinessService:
 
 def _summary_text(summary: Mapping[str, Any]) -> str:
     return " ".join(
-        filter(None, [summary["merchant"], summary["filename"], summary["amount"]])
+        filter(None, [summary["title"], summary["merchant"], summary["filename"], summary["amount"]])
     )
 
 

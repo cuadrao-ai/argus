@@ -173,7 +173,7 @@ def _prepare(checked, monkeypatch, batch, draft):  # noqa: ANN001, F811
 def _assert_refused(checked, monkeypatch, draft, batch) -> None:  # noqa: ANN001, F811
     with pytest.raises(ActionError, match="not_a_receipt"):
         _prepare(checked, monkeypatch, batch, draft)
-    shown = compose(_refused(draft), batch, [], "web", read_pending=False)
+    shown = compose(_refused(draft), batch, [], read_pending=False)
     assert (shown.attention, shown.preparable) == ("not_a_receipt", False)
 
 
@@ -187,7 +187,7 @@ def _assert_unverified_draft(  # noqa: ANN001
     flagged: bool = False,
     currency: str = "USD",
 ) -> None:
-    shown = compose(_refused(draft), batch, [], "web", read_pending=False)
+    shown = compose(_refused(draft), batch, [], read_pending=False)
     assert shown.attention != "not_a_receipt"
     assert shown.preparable is True
     result, resolution, saved = _prepare(checked, monkeypatch, batch, draft)
@@ -520,7 +520,7 @@ def test_a_purchase_row_with_no_currency_and_no_receipt_is_a_review_draft(
         [_row("500.00", currency=None, evidence="transaction", row=1)],
         receipt=None,
     )
-    shown = compose(_refused(draft), batch, [], "web", read_pending=False)
+    shown = compose(_refused(draft), batch, [], read_pending=False)
     assert (shown.attention, shown.preparable) == ("interrupted", True)
     _, resolution, saved = _prepare(checked, monkeypatch, batch, draft)
     assert saved.state == "open"
@@ -615,7 +615,7 @@ def test_an_unreadable_read_stays_unreadable(
     held = draft.model_copy(
         update={"status": "needs_attention", "error_code": "unreadable_document"}
     )
-    shown = compose(held, batch, [], "web", read_pending=False)
+    shown = compose(held, batch, [], read_pending=False)
     assert (shown.attention, shown.preparable) == ("unreadable", False)
 
 
@@ -684,7 +684,7 @@ async def test_reprepare_of_a_stored_refusal_builds_the_draft_without_a_new_read
     assert calls == [uploaded.connection_id]
     stored = service.store.get(user_id=owner, connection_id=uploaded.connection_id)
     held = service.get(user_id=owner, connection_id=uploaded.connection_id, scope=scope)
-    shown = compose(held, stored, [], "web", read_pending=False)
+    shown = compose(held, stored, [], read_pending=False)
     assert shown.attention != "not_a_receipt"
     assert shown.preparable is True
     outcome = await service.resume(

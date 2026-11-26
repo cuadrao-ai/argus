@@ -12,7 +12,7 @@ from argus.api.business_drafts import (
     DraftContext,
     action_problem,
     require_drafts,
-    with_source_channels,
+    with_review_note,
 )
 from argus.api.business_receipt_activity import counts_now
 from argus.api.business_schemas import (
@@ -148,10 +148,9 @@ def _run(request, response, context, draft_id, command=None, key=None):
             or dossier.approval_result.activity_id != result.activity_id
         ):
             raise ActionError("stale_version", "stale_version")
-        return with_source_channels(
+        return with_review_note(
             dossier,
             space_id=str(actor.actor.space_id),
-            owner_id=actor.owner_id,
             service=context.service,
         )
     except ActionError as error:

@@ -7,7 +7,6 @@ Default-off. Each person's Business records live in their own space (see
 
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -109,7 +108,6 @@ from argus.api.documents import (
     read_document_upload,
 )
 from argus.api.email_intake import (
-    arrived_by_email,
     email_receipt_flags,
     email_receiving_available,
 )
@@ -201,28 +199,6 @@ _CONFLICTS = frozenset(
         "possible_duplicate",
     }
 )
-
-
-def _email_flagged(context: BusinessContext, receipts: list) -> list:  # noqa: ANN001
-    """Receipts that arrived by email carry their deliveries; a grouped original
-    is context for its attachment and loses prepare and enter."""
-
-    flags = email_receipt_flags(context.scope.owner.space_id)
-    if not flags:
-        return receipts
-    return [
-        replace(
-            receipt,
-            channel="email"
-            if arrived_by_email(receipt.draft.created_at, flags[receipt.id][2])
-            else receipt.channel,
-            email_delivery_ids=flags[receipt.id][0],
-            email_original=flags[receipt.id][1],
-        )
-        if receipt.id in flags
-        else receipt
-        for receipt in receipts
-    ]
 
 
 def _refuse_email_original(
@@ -1102,9 +1078,7 @@ def get_receipt(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        [receipt] = _email_flagged(
-            context, [context.service.receipt(context.scope, receipt_id)]
-        )
+        receipt = context.service.receipt(context.scope, receipt_id)
         return receipt_detail(context, receipt)
     except Exception as error:
         raise _problem(request, error) from None
@@ -1167,7 +1141,6 @@ async def prepare_receipt(
         receipt = await run_in_threadpool(
             context.service.receipt, context.scope, receipt_id
         )
-        [receipt] = await run_in_threadpool(_email_flagged, context, [receipt])
         return await run_in_threadpool(receipt_summary, context, receipt)
     except Exception as error:
         raise _problem(request, error) from None

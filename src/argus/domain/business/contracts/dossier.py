@@ -19,7 +19,7 @@ from argus.domain.business.rnc_registry import RncRegistryStatus
 from argus.domain.business.space_name import GivenName
 
 from .actions import SUPPORTING_FILE_LIMIT, ApprovalAction, DuplicateDecision
-from .authority import ActorView, Capability, PersonName
+from .authority import ActorView, Capability, PersonName, SentBy
 from .checks import DgiiQr, EcfVerification
 from .dgii import (
     DeclarationSuggestions,
@@ -62,9 +62,7 @@ def web_action_text(command: dict[str, Any]) -> str:
 class AttachmentSource(Contract):
     id: UUID
     kind: Literal["attachment"] = "attachment"
-    #: The stored row says ``web`` for every attachment. ``whatsapp`` comes from
-    #: the intake store and ``email`` (with its deliveries) from the email queue,
-    #: both set at the API boundary.
+    #: The upload channel resolved from the stored intake history.
     channel: Literal["web", "whatsapp", "email"]
     received_at: datetime
     connection_id: UUID
@@ -368,7 +366,19 @@ class DetailReadiness(Contract):
         )
 
 
+class RecordOrigin(Contract):
+    channel: Literal["web", "whatsapp", "email", "note"]
+    sent_by: SentBy | None
+    received_at: datetime
+    filename: str | None
+    size_bytes: int | None
+
+
 class BusinessDossier(RecordContext, DetailReadiness):
+    retained_source_ids: tuple[UUID, ...] = ()
+    original_connection_id: UUID | None = None
+    origin: RecordOrigin | None = None
+    title: str | None = None
     deleted: DeletedDocument | None = None
     delete_available: bool = False
     restore_available: bool = False
@@ -514,6 +524,10 @@ class BusinessDossier(RecordContext, DetailReadiness):
 
 #: The due date a person sets in review, wherever the dossier carries it.
 _UNMEASURED_DOSSIER_FIELDS = {
+    "retained_source_ids": True,
+    "original_connection_id": True,
+    "origin": True,
+    "title": True,
     "net_amount": True,
     "inheritance": True,
     "facts": set(HUMAN_AMOUNT_FIELDS),

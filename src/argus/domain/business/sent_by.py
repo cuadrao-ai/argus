@@ -1,40 +1,12 @@
-"""Who brought a document into the Bandeja, one answer for every channel: the
-member who uploaded a file or typed a note, the address an email came from, or
-the linked WhatsApp number by its last four digits, all that is stored of it.
-``id`` is the same for the same sender on every row and never collides across
-kinds."""
+"""Who brought a document into the Bandeja, with a stable sender filter id."""
 
 from __future__ import annotations
 
-from typing import Literal
 from uuid import UUID
 
-from pydantic import model_validator
-
-from argus.domain.business.contracts.authority import PersonName
-from argus.domain.business.contracts.facts import Contract
+from argus.domain.business.contracts.authority import PersonName, SentBy
 from argus.domain.business.people import named, people
 from argus.domain.ingestion.email_intake.alignment import bare_address
-
-
-class SentBy(Contract):
-    id: str
-    kind: Literal["member", "email", "whatsapp"]
-    #: The member, named for the viewer as ``people`` reads them.
-    person: PersonName | None = None
-    address: str | None = None
-    phone_last4: str | None = None
-
-    @model_validator(mode="after")
-    def _one_sender(self) -> SentBy:
-        shown = {
-            "member": self.person,
-            "email": self.address,
-            "whatsapp": self.phone_last4,
-        }
-        if [kind for kind, value in shown.items() if value is not None] != [self.kind]:
-            raise ValueError("a sender carries exactly what its kind names")
-        return self
 
 
 def member_sender(actor_id: UUID | str, person: PersonName) -> SentBy:
@@ -49,11 +21,7 @@ def email_sender(sender: str | None) -> SentBy | None:
 
 
 def receipt_senders(tx, views: list[dict]) -> dict[str, SentBy]:  # noqa: ANN001
-    """Who sent each receipt, by its channel. A web upload: the member on the
-    first ledger row its upload wrote. An email: the sender of the earliest
-    delivery that brought it. WhatsApp: the number of the earliest message that
-    brought it, by that number's first link to this Business, so a number
-    linked again keeps one id."""
+    """Read the uploader, earliest email delivery, or earliest WhatsApp capture."""
 
     space_id = tx.context.actor.space_id
     by_channel: dict[str, list[dict]] = {}
@@ -92,18 +60,26 @@ def receipt_senders(tx, views: list[dict]) -> dict[str, SentBy]:  # noqa: ANN001
             if sender := senders.get(delivery):
                 sent[receipt] = sender
     if messages := by_channel.get("whatsapp"):
-        for row in tx.rows(
-            "select m.receipt, l.id::text as link, l.last4"
-            " from (select distinct on (connection_id) connection_id::text as receipt,"
-            " sender_hash from public.whatsapp_inbound_messages"
-            " where status='captured' and connection_id::text = any(%s)"
-            " order by connection_id, received_at, id) m"
-            " join lateral (select id, last4 from public.whatsapp_sender_links"
-            " where wa_id_hash=m.sender_hash and destination_space_id=%s"
-            " order by linked_at, id limit 1) l on true",
-            ([view["id"] for view in messages], space_id),
-        ):
-            sent[row["receipt"]] = SentBy(
-                id=f"whatsapp:{row['link']}", kind="whatsapp", phone_last4=row["last4"]
-            )
+        rows = tx.rows(
+            "select m.receipt, l.id as link, l.destination_owner_id as actor, l.last4"
+            " from (select distinct on (i.connection_id) i.connection_id::text as receipt,"
+            " i.sender_link_id from public.whatsapp_inbound_messages i"
+            " join public.financial_source_connections c on c.id=i.connection_id"
+            " where c.owner_space_id=%s and i.status='captured' and c.id=any(%s::uuid[])"
+            " order by i.connection_id, i.received_at, i.id) m"
+            " join public.whatsapp_sender_links l on l.id=m.sender_link_id",
+            (space_id, [view["id"] for view in messages]),
+        )
+        found = people(tx.connection, tx.authorization, (row["actor"] for row in rows))
+        for row in rows:
+            actor = row["actor"]
+            person = found.get(str(actor))
+            if person and person.display_name:
+                sent[row["receipt"]] = member_sender(actor, person)
+            else:
+                sent[row["receipt"]] = SentBy(
+                    id=f"member:{actor}" if actor else f"whatsapp:{row['link']}",
+                    kind="whatsapp",
+                    phone_last4=row["last4"],
+                )
     return sent

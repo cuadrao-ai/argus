@@ -220,7 +220,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
               <li key={part.id} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 py-2">
                 <FileText className="h-4 w-4 shrink-0 text-[#56635e] dark:text-white/60" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
-                  <span className="block break-words text-[14px] text-[#172b26] dark:text-white">{part.filename || t("business.email.no_filename", "Unnamed attachment")}</span>
+                  <span className="block break-words text-[14px] text-[#172b26] dark:text-white">{part.filename || t("business.document_delete.unnamed")}</span>
                   <span className="flex flex-wrap items-center gap-x-2 text-[13px] text-[#56635e] dark:text-white/65">
                     <StateWord tone={PART_TONE[part.state]}>{t(`business.email.part_state.${part.state}`, part.state)}</StateWord>
                     {part.state === "rejected" && part.error_code ? <span>{t(`business.email.part_error.${part.error_code}`, t("business.email.part_error.other", "It isn't a file we can save as a receipt."))}</span> : null}
