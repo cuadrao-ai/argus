@@ -79,7 +79,8 @@ async def test_intake_case_on_postgres(case, pool, users) -> None:  # noqa: ANN0
 
 def test_redeeming_without_a_live_grant_preserves_the_existing_link(pool, users) -> None:  # noqa: ANN001
     owner, other = users["owner"], users["other"]
-    PostgresSpaceStore(pool).create(owner, "Mi negocio")
+    space, _ = PostgresSpaceStore(pool).create(owner, "Mi negocio")
+    cases.prepare_phone_business(pool, space.id, owner)
     store = PostgresWhatsAppStore(pool)
     now, sender = cases.Clock()(), uuid4().bytes + uuid4().bytes
 
@@ -89,6 +90,7 @@ def test_redeeming_without_a_live_grant_preserves_the_existing_link(pool, users)
             destination_owner_id=person,
             code_digest=code,
             reply_language="es-419",
+            disclosure=cases.NOTICE,
             now=now,
             expires_at=now + timedelta(minutes=10),
         )

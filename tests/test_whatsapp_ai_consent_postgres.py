@@ -6,7 +6,6 @@ import pytest
 from argus.domain.business.authority import ActionError
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.whatsapp.ai_consent import (
-    RECEIPT_SCOPE,
     AIConsentStore,
     ConsentError,
     EnableAIConsent,
@@ -17,6 +16,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_whatsapp_intake_postgres as shared
 from tests.business_cleanup import delete_spaces
+from tests.ingestion.test_whatsapp_ai_consent import HISTORICAL_SCOPE
 
 users, pool, pytestmark = shared.users, shared.pool, shared.pytestmark
 
@@ -49,7 +49,7 @@ def consent(world):
         "interpretation": [{"model": "scripted-fixture", "provider": None}],
         "reply": [],
     }
-    store = AIConsentStore(world.pool, lambda: route)
+    store = AIConsentStore(world.pool, lambda: route, HISTORICAL_SCOPE)
     return store, route
 
 
@@ -369,7 +369,7 @@ def test_new_consent_is_only_for_receipt_reading(world, consent):
     historical = AIConsentStore(
         world.pool,
         receipts.route,
-        replace(RECEIPT_SCOPE, version=1, purpose="business_whatsapp_draft_assistance"),
+        replace(HISTORICAL_SCOPE, version=1, purpose="business_whatsapp_draft_assistance"),
     )
     with pytest.raises(errors.CheckViolation, match="whatsapp_consent_scope_retired"):
         enable(world, historical)
@@ -383,7 +383,7 @@ def test_the_text_shown_is_the_text_stored_and_either_change_asks_again(
 ):
     receipts, _ = consent
     shown = receipts.status(world.owner, world.space, language=language)
-    assert shown["disclosure"] == RECEIPT_SCOPE.text(language)
+    assert shown["disclosure"] == HISTORICAL_SCOPE.text(language)
     receipts.enable(
         world.owner,
         world.space,
@@ -398,7 +398,7 @@ def test_the_text_shown_is_the_text_stored_and_either_change_asks_again(
             " where owner_id=%s and revoked_at is null",
             (world.owner,),
         ).fetchall()
-    assert stored == RECEIPT_SCOPE.text(language)
+    assert stored == HISTORICAL_SCOPE.text(language)
     assert receipts.status(world.owner, world.space)["enabled"]
     # Changing the words the owner saw asks again; the other language's words
     # were never shown to this owner.
@@ -407,16 +407,16 @@ def test_the_text_shown_is_the_text_stored_and_either_change_asks_again(
     monkeypatch.setattr(
         receipts,
         "scope",
-        replace(RECEIPT_SCOPE, **{field: getattr(RECEIPT_SCOPE, field) + " "}),
+        replace(HISTORICAL_SCOPE, **{field: getattr(HISTORICAL_SCOPE, field) + " "}),
     )
     assert not receipts.status(world.owner, world.space)["enabled"]
     monkeypatch.setattr(
         receipts,
         "scope",
-        replace(RECEIPT_SCOPE, **{other: getattr(RECEIPT_SCOPE, other) + " "}),
+        replace(HISTORICAL_SCOPE, **{other: getattr(HISTORICAL_SCOPE, other) + " "}),
     )
     assert receipts.status(world.owner, world.space)["enabled"]
-    monkeypatch.setattr(receipts, "scope", RECEIPT_SCOPE)
+    monkeypatch.setattr(receipts, "scope", HISTORICAL_SCOPE)
     receipts.revoke(world.owner)
 
 

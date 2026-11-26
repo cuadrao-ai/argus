@@ -2,9 +2,7 @@
 
 import logging
 from collections.abc import Iterator
-from dataclasses import replace
 from datetime import timedelta
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
@@ -17,16 +15,17 @@ from argus.api.whatsapp import (
     WEBHOOK_PATH,
     build_whatsapp,
     configure_whatsapp,
+    eligible_sender_businesses,
     whatsapp_runtime,
 )
 from argus.domain.business.scope import resolve_business_scope
-from argus.domain.ingestion.whatsapp.ai_consent import RECEIPT_SCOPE
 from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 from argus.domain.owner_scope import PERSONAL
 from fastapi.testclient import TestClient
 from loguru import logger
 
+from tests.business_reading_support import ROUTE, turn_reading
 from tests.ingestion.conftest import ALICE, BOB, GUEST, bearer
 from tests.ingestion.whatsapp_support import (
     ALICE_PHONE,
@@ -45,40 +44,7 @@ LINK = "/api/v1/whatsapp/link"
 CODES = "/api/v1/whatsapp/link-codes"
 
 
-@pytest.fixture
-def consent_reads(wa_client):
-    calls = []
-
-    def status(owner, space, reason, language=None):
-        calls.append((owner, reason))
-        return {
-            "linked": True,
-            "available": reason is None,
-            "reason": reason,
-            "last4": "1234",
-            "scope_version": RECEIPT_SCOPE.version,
-            "purpose": RECEIPT_SCOPE.purpose,
-            "disclosure": "Synthetic disclosure",
-            "route": {"gateway": "synthetic-offline"},
-            "disclosure_token": "a" * 64 if reason is None else None,
-            "enabled": False,
-            "consented_at": None,
-            "revoked_at": None,
-        }
-
-    configure_whatsapp(
-        replace(whatsapp_runtime(), receipts=SimpleNamespace(status=status))
-    )
-    return calls
-
-
-def test_registered_consent_read_is_absent_when_receiving_is_off(
-    wa_client, consent_reads, monkeypatch, identities
-):
-    monkeypatch.setenv("CUADRAO_WHATSAPP_INTAKE_ENABLED", "false")
-    response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
-    assert response.status_code == 404
-    assert consent_reads == []
+LINK_BODY = {"language": "es-419", "disclosure": "Al vincular tu número, aceptas que la foto o el PDF que envíes se lea con IA para saber a qué negocio va."}
 
 
 def test_workspace_reports_whatsapp_availability_without_a_link(
@@ -95,70 +61,22 @@ def test_workspace_reports_whatsapp_availability_without_a_link(
     ] == {"available": False}
 
 
-def test_receipt_permission_is_available(wa_client, consent_reads):
-    response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
-    assert response.status_code == 200
-    body = response.json()
-    assert body["available"] and body["reason"] is None
-    assert body["disclosure_token"] is not None
+def test_person_can_see_their_existing_link_after_losing_prepare(wa_client, monkeypatch):
+    from argus.api import whatsapp
+
+    link_alice(wa_client)
+    from argus.domain.business.access import InMemoryAccessStore
+
+    monkeypatch.setattr(whatsapp, "business_access", InMemoryAccessStore)
+    answer = wa_client.get(LINK, headers=bearer(ALICE))
+    assert answer.status_code == 200
+    assert answer.json()["linked"] is True
 
 
-def test_guest_and_anonymous_cannot_read_owner_consent(wa_client, consent_reads):
-    assert wa_client.get("/api/v1/whatsapp/ai-consent").status_code == 401
-    assert (
-        wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(GUEST)).status_code
-        == 403
-    )
-    assert consent_reads == []
-
-
-def test_status_uses_authenticated_owner_not_foreign_query(
-    wa_client, consent_reads, identities
-):
-    for token in (ALICE, BOB):
-        response = wa_client.get(
-            "/api/v1/whatsapp/ai-consent",
-            headers=bearer(token),
-            params={"owner_id": identities[ALICE]["id"]},
-        )
-        assert response.status_code == 200
-    assert [str(owner) for owner, _ in consent_reads] == [
-        identities[ALICE]["id"],
-        identities[BOB]["id"],
-    ]
-
-
-def test_status_storage_failure_is_not_unlinked(wa_client, consent_reads):
-    from psycopg import OperationalError
-
-    def unavailable(*args, **kwargs):
-        raise OperationalError("synthetic unavailable")
-
-    configure_whatsapp(
-        replace(whatsapp_runtime(), receipts=SimpleNamespace(status=unavailable))
-    )
-    response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
-    assert response.status_code == 503
-    assert response.json()["code"] == "whatsapp_ai_consent_unavailable"
-
-
-@pytest.mark.parametrize("extra", ["owner_id", "space_id", "sender_link_id", "route"])
-def test_ai_consent_rejects_browser_authority(wa_client, extra):
-    response = wa_client.post(
-        "/api/v1/whatsapp/ai-consent",
-        headers={**bearer(ALICE), "Idempotency-Key": "fixture-consent"},
-        json={"action": "enable", "disclosure_token": "a" * 64, extra: "foreign"},
-    )
-    assert response.status_code == 422
-
-
-def test_ai_consent_missing_persistence_does_not_enable(wa_client):
-    response = wa_client.post(
-        "/api/v1/whatsapp/ai-consent",
-        headers={**bearer(ALICE), "Idempotency-Key": "fixture-consent"},
-        json={"action": "enable", "disclosure_token": "a" * 64},
-    )
-    assert response.status_code == 503
+def test_standalone_consent_cannot_enable_a_read(wa_client: TestClient) -> None:
+    for method in ("GET", "POST"):
+        response = wa_client.request(method, "/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
+        assert response.status_code == 405
 
 
 def test_ai_consent_revoke_remains_reachable_with_intake_disabled(wa_client, monkeypatch):
@@ -182,6 +100,7 @@ def graph() -> FakeGraph:
 def wa_client(
     ingestion_env, gateway, identities, monkeypatch, graph
 ) -> Iterator[TestClient]:  # noqa: ANN001
+    monkeypatch.setattr("argus.api.whatsapp._memory_has_tax_id", lambda _space: True)
     for name, value in ENV.items():
         monkeypatch.setenv(name, value)
     with (
@@ -197,7 +116,9 @@ def wa_client(
                 documents=documents_service(),
                 spaces=business_spaces(),
                 access=business_access(),
-                store=InMemoryWhatsAppStore(documents_service().hub.connections, business_access()),
+                store=InMemoryWhatsAppStore(
+                    documents_service().hub.connections, business_access(), eligible_sender_businesses
+                ),
                 client=graph.client(),
                 app_origin="https://app.test",
             )
@@ -208,6 +129,9 @@ def wa_client(
                 "/api/v1/business/space", json={"name": "Mi negocio"}, headers=bearer(token)
             )
             assert response.status_code == 201, response.text
+            reading = documents_service().business_receipt_consent
+            reading.route_resolver = lambda: ROUTE
+            turn_reading(reading, response.json()["id"], identities[token]["id"])
         yield test_client
 
 
@@ -224,7 +148,7 @@ def post(client: TestClient, body: dict, signature: str | None = None) -> httpx.
 
 
 def link_alice(client: TestClient) -> None:
-    issued = client.post(CODES, headers=bearer(ALICE))
+    issued = client.post(CODES, json=LINK_BODY, headers=bearer(ALICE))
     assert issued.status_code == 201, issued.text
     text = issued.json()["message_text"]
     assert post(client, fixture("text_link_code.json", text=text)).status_code == 200
@@ -235,16 +159,10 @@ def test_flag_off_answers_404_everywhere(client: TestClient) -> None:
     responses = [
         client.get(WEBHOOK, params={"hub.mode": "subscribe"}),
         client.post(WEBHOOK, content=raw, headers={"X-Hub-Signature-256": sign(raw)}),
-        client.post(CODES, headers=bearer(ALICE)),
+        client.post(CODES, json=LINK_BODY, headers=bearer(ALICE)),
         client.get(LINK, headers=bearer(ALICE)),
-        client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE)),
-        client.post(
-            "/api/v1/whatsapp/ai-consent",
-            headers={**bearer(ALICE), "Idempotency-Key": "fixture-consent"},
-            json={"action": "enable", "disclosure_token": "a" * 64},
-        ),
     ]
-    assert [r.status_code for r in responses] == [404] * 6
+    assert [r.status_code for r in responses] == [404] * 4
     assert {r.json()["code"] for r in responses} == {"whatsapp_unavailable"}
     # Unlinking is never gated; with intake off nothing here holds a link.
     assert client.delete(LINK, headers=bearer(ALICE)).status_code == 204
@@ -257,11 +175,11 @@ def test_unlink_ends_the_link_and_unused_codes_while_off(
     wa_client: TestClient, monkeypatch, flag: str
 ) -> None:
     link_alice(wa_client)
-    unused = wa_client.post(CODES, headers=bearer(ALICE)).json()["message_text"]
+    unused = wa_client.post(CODES, json=LINK_BODY, headers=bearer(ALICE)).json()["message_text"]
     monkeypatch.setenv(flag, "false")
     raw = encode(fixture("image_message.json"))
     gated = [
-        wa_client.post(CODES, headers=bearer(ALICE)),
+        wa_client.post(CODES, json=LINK_BODY, headers=bearer(ALICE)),
         wa_client.get(LINK, headers=bearer(ALICE)),
         wa_client.post(WEBHOOK, content=raw, headers={"X-Hub-Signature-256": sign(raw)}),
     ]
@@ -338,12 +256,16 @@ def test_link_capture_status_and_revoke_over_http(
     graph,
     identities,  # noqa: ANN001
 ) -> None:
-    issued = wa_client.post(CODES, headers=bearer(ALICE)).json()
+    owner = identities[ALICE]["id"]
+    business = resolve_business_scope(business_spaces(), owner).owner
+    issued = wa_client.post(CODES, json=LINK_BODY, headers=bearer(ALICE)).json()
     assert issued["message_text"] == f"CUADRAO {issued['code']}"
     assert issued["wa_me_url"] == (
         f"https://wa.me/15550009999?text=CUADRAO%20{issued['code']}"
     )
     assert wa_client.get(LINK, headers=bearer(ALICE)).json() == {
+        "receiving_businesses": [{"space_id": business.space_id, "name": "Mi negocio"}],
+        "held_count": 0,
         "linked": False,
         "last4": None,
         "linked_at": None,
@@ -355,11 +277,10 @@ def test_link_capture_status_and_revoke_over_http(
     status = wa_client.get(LINK, headers=bearer(ALICE)).json()
     assert (status["linked"], status["last4"]) == (True, "1234")
 
+    turn_reading(documents_service().business_receipt_consent, business.space_id, owner, enabled=False)
     graph.media["700000000000001"] = Media(RECEIPT_PNG, "image/png")
     assert post(wa_client, fixture("image_message.json")).status_code == 200
     assert post(wa_client, fixture("image_message.json")).status_code == 200
-    owner = identities[ALICE]["id"]
-    business = resolve_business_scope(business_spaces(), owner).owner
     connections = documents_service().hub.connections
     assert connections.list(user_id=owner, scope=PERSONAL) == []
     [connection] = connections.list(user_id=owner, scope=business)
@@ -513,17 +434,11 @@ def test_access_log_redacts_only_the_webhook_query() -> None:
 def test_link_code_carries_the_web_language_to_the_link(wa_client: TestClient) -> None:
     refused = wa_client.post(CODES, json={"language": "fr"}, headers=bearer(ALICE))
     assert refused.status_code == 422
-    issued = wa_client.post(CODES, json={"language": "en"}, headers=bearer(ALICE))
+    wrong_language = wa_client.post(CODES, json={**LINK_BODY, "language": "en"}, headers=bearer(ALICE))
+    assert wrong_language.status_code == 409
+    issued = wa_client.post(CODES, json=LINK_BODY, headers=bearer(ALICE))
     assert issued.status_code == 201
     post(wa_client, fixture("text_link_code.json", text=issued.json()["message_text"]))
-    assert wa_client.get(LINK, headers=bearer(ALICE)).json()["reply_language"] == "en"
-
-    relink = wa_client.post(CODES, headers=bearer(ALICE)).json()["message_text"]
-    post(wa_client, fixture("text_link_code.json", id="wamid.STILL-LINKED", text=relink))
-    assert wa_client.get(LINK, headers=bearer(ALICE)).json()["reply_language"] == "en"
-    assert wa_client.delete(LINK, headers=bearer(ALICE)).status_code == 204
-    relink = wa_client.post(CODES, headers=bearer(ALICE)).json()["message_text"]
-    post(wa_client, fixture("text_link_code.json", id="wamid.RELINK", text=relink))
     assert wa_client.get(LINK, headers=bearer(ALICE)).json()["reply_language"] == "es-419"
 
 

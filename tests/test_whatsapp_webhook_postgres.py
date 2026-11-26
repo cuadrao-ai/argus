@@ -42,7 +42,13 @@ from psycopg_pool import ConnectionPool
 from tests import test_business_actions_postgres as shared
 from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_sources_support import source_objects
-from tests.ingestion.whatsapp_cases import ALICE_PHONE, Clock, image
+from tests.ingestion.whatsapp_cases import (
+    ALICE_PHONE,
+    NOTICE,
+    Clock,
+    image,
+    prepare_phone_business,
+)
 from tests.ingestion.whatsapp_support import (
     ENV,
     PHONE_NUMBER_ID,
@@ -123,7 +129,7 @@ async def webhook(actions, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Web
         business_preparation_required=True,
     )
     documents.business_receipt_consent = reading_setting(pool)
-    turn_reading(documents.business_receipt_consent, space, owner)
+    prepare_phone_business(pool, space, owner)
     graph, replies = FakeGraph(), []
 
     def fake_graph(request: httpx.Request) -> httpx.Response:
@@ -163,7 +169,7 @@ async def webhook(actions, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Web
             assert isinstance(store, PostgresWhatsAppStore)
             keys = runtime.intake.keys
             issued = runtime.intake.issue_code(
-                destination_owner_id=owner, reply_language="es-419"
+                destination_owner_id=owner, reply_language="es-419", disclosure=NOTICE
             )
             assert (
                 store.redeem_code(

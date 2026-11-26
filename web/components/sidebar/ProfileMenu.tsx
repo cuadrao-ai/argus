@@ -20,6 +20,7 @@ import ProfileSettingsPanels, {
   type SidebarPreference,
 } from "./ProfileSettingsPanels";
 import { useReceivingChannels } from "@/components/business-app/business-context";
+import { getWhatsAppLink } from "@/lib/whatsapp-link-api";
 import SettingsWindow from "@/components/settings/SettingsWindow";
 import {
   SHEET_SUBMENU_CLASS,
@@ -127,7 +128,6 @@ export default function ProfileMenu({
 }: ProfileMenuProps) {
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
-  const receivingChannels = useReceivingChannels();
   const invitationPreviewAvailable = isBusiness && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const [localInvitations, setLocalInvitations] = useState<LocalInvitation[]>([]);
   const previousInvitationRequest = useRef(invitationOpenRequest?.id);
@@ -161,9 +161,21 @@ export default function ProfileMenu({
   const [memoryControlsAvailable, setMemoryControlsAvailable] = useState(false);
   // A country is a registered-account setting; a guest has nowhere to keep one.
   const homeCountryAvailable = !isBusiness && accountKind === "registered";
-  const whatsappLinkAvailable =
-    accountKind === "registered" &&
-    (!isBusiness || receivingChannels.whatsapp.available);
+  // A changed workspace answer triggers a fresh account check while Ajustes is open.
+  const receivingAvailable = useReceivingChannels().whatsapp.available;
+  const [whatsappAccount, setWhatsAppAccount] = useState<string | null>(null);
+  const settingsAccount = activeModal === "settings-window" && accountKind === "registered" ? profile?.id : null;
+  const whatsappLinkAvailable = Boolean(settingsAccount && whatsappAccount === settingsAccount);
+
+  useEffect(() => {
+    if (!settingsAccount) return;
+    const request = new AbortController();
+    void getWhatsAppLink(request.signal).then(
+      () => { if (!request.signal.aborted) setWhatsAppAccount(settingsAccount); },
+      () => { if (!request.signal.aborted) setWhatsAppAccount(null); },
+    );
+    return () => request.abort();
+  }, [settingsAccount, receivingAvailable]);
   // What Ajustes lists for this account, in its order.
   const windowSections = SETTINGS_WINDOW_ORDER.filter((panel) => ({
     appearance: true,
@@ -440,6 +452,7 @@ export default function ProfileMenu({
   const openModal = useCallback(
     (modal: ActiveModal) => {
       if (modal === "invite-cuadrao") invitationReturnFocusRef.current = anchorRef.current;
+      if (modal === "settings-window") setWhatsAppAccount(null);
       setActiveModal(modal);
       // Ajustes has its own way back, so on a phone the menu sheet closes under it too.
       if (asSheet && modal !== "settings-window") return;

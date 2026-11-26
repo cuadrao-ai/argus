@@ -80,11 +80,13 @@ def _team(context: BusinessContext) -> bool | None:
 
 def _whatsapp(context: BusinessContext) -> bool | None:
     runtime = whatsapp_runtime()
-    if runtime is None or not whatsapp_receiving_available(context.scope):
+    if runtime is None or not whatsapp_receiving_available():
         return None
     link = runtime.intake.store.destination_link(
         destination_owner_id=context.scope.acting_person_id
     )
+    if not whatsapp_receiving_available(context.scope.acting_person_id):
+        return None
     return link is not None
 
 

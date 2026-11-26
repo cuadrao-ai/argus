@@ -7,11 +7,13 @@ from dataclasses import dataclass
 from typing import Any, Literal
 from uuid import UUID
 
+from psycopg import Connection
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import Field
 
-from argus.domain.business.authority import ActionError, authorize
+from argus.domain.business.access import GrantedSpace
+from argus.domain.business.authority import ActionError, Authorization, authorize
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.facts import Contract
 
@@ -23,10 +25,10 @@ class ConsentScope:
 
     version: int
     purpose: str
-    disclosure: str
+    disclosure: str | None = None
     disclosure_es: str | None = None
 
-    def text(self, language: str | None) -> str:
+    def text(self, language: str | None) -> str | None:
         spanish = bool(language) and language.lower().startswith("es")
         return self.disclosure_es if spanish and self.disclosure_es else self.disclosure
 
@@ -34,20 +36,9 @@ class ConsentScope:
         return tuple(t for t in (self.disclosure, self.disclosure_es) if t)
 
 
-# The one short disclosure for reading receipts. The legal wording pass changes
-# only these two sentences.
-RECEIPT_SCOPE = ConsentScope(
-    2,
-    "business_whatsapp_receipt_reading",
-    "Cuadrao reads the receipts you send by WhatsApp with AI: the photo or PDF "
-    "goes to OpenRouter and the model below, only to read the merchant, amount "
-    "and date. You can turn this off at any time. Recording money always needs "
-    "your approval.",
-    "Cuadrao lee con IA los recibos que envías por WhatsApp: la foto o el PDF va "
-    "a OpenRouter y al modelo de abajo, solo para leer comercio, monto y fecha. "
-    "Puedes desactivarlo cuando quieras. Registrar dinero siempre necesita tu "
-    "aprobación.",
-)
+# The link step supplies the text the person actually saw. A historical row
+# retains its original text even after a different notice is approved.
+RECEIPT_SCOPE = ConsentScope(2, "business_whatsapp_receipt_reading")
 
 
 class EnableAIConsent(Contract):
@@ -60,6 +51,24 @@ class ConsentError(PermissionError):
     def __init__(self, code: str, status: int = 403) -> None:
         self.code, self.status = code, status
         super().__init__(code)
+
+
+# Fingerprints of the approved settings.whatsapp.consent_notice translations.
+_LINK_NOTICE_HASHES = {
+    "en": "cbe68f34f1eca83dfd5d2a2e2ea1a574fe8bc32a1e800d2a7ed5a0b678a9f82c",
+    "es-419": "9b8f38b1006ed9f0db35f4a59bb35f5951d169717f2fb0ae93567d4575f396ad"
+}
+
+
+def matches_link_disclosure(language: str, disclosure: str | None) -> bool:
+    if disclosure is None:
+        return False
+    return hashlib.sha256(disclosure.encode()).hexdigest() == _LINK_NOTICE_HASHES.get(language)
+
+
+def require_link_disclosure(language: str, disclosure: str) -> None:
+    if not matches_link_disclosure(language, disclosure):
+        raise ConsentError("whatsapp_consent_disclosure_stale", 409)
 
 
 def digest(value: Any) -> str:
@@ -108,11 +117,12 @@ class AIConsentStore:
             return cursor.fetchone()
 
     def _view(self, link, latest, route, language: str | None = None):
+        disclosure = self.scope.text(language)
         token = digest(
             {
                 "link": str(link[0]),
                 "scope": self.scope.version,
-                "disclosure": self.scope.text(language),
+                "disclosure": disclosure,
                 "route": route,
                 "previous": str(latest["id"]) if latest else None,
                 "revoked": str(latest["revoked_at"]) if latest else None,
@@ -128,9 +138,9 @@ class AIConsentStore:
             "active_scope_version": latest["scope_version"]
             if latest and latest["revoked_at"] is None
             else None,
-            "disclosure": self.scope.text(language),
+            "disclosure": disclosure or (latest and latest["disclosure"]),
             "route": route,
-            "disclosure_token": token,
+            "disclosure_token": token if disclosure else None,
             "enabled": bool(
                 latest
                 and latest["revoked_at"] is None
@@ -143,7 +153,12 @@ class AIConsentStore:
     def _matches_disclosure(self, row, route) -> bool:
         return (
             row["scope_version"] == self.scope.version
-            and row["disclosure"] in self.scope.texts()
+            and (
+                row["disclosure"] in self.scope.texts()
+                if self.scope.texts()
+                else hashlib.sha256(row["disclosure"].encode()).hexdigest()
+                in _LINK_NOTICE_HASHES.values()
+            )
             and row["route_hash"] == digest(route)
         )
 
@@ -224,14 +239,14 @@ class AIConsentStore:
         route = self._route()
         input_hash = digest(request.model_dump(mode="json"))
         with self.pool.connection() as connection, connection.transaction():
+            link = self._link(connection, owner_id, lock=True)
+            if link is None:
+                raise ConsentError("whatsapp_link_required", 409)
             auth = authorize(
                 connection,
                 TrustedActor(actor_id=owner_id, space_id=space_id, actor_kind="member"),
             )
             auth.require("prepare")
-            link = self._link(connection, owner_id, lock=True)
-            if link is None:
-                raise ConsentError("whatsapp_link_required", 409)
             with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(
                     "select * from public.business_whatsapp_ai_consents"
@@ -261,27 +276,16 @@ class AIConsentStore:
                     " set revoked_at=clock_timestamp(),revoked_by=%s where id=%s",
                     (owner_id, latest["id"]),
                 )
-            connection.execute(
-                "insert into public.business_whatsapp_ai_consents"
-                " (sender_link_id,space_id,owner_id,sender_hash,consenting_actor_id,grant_id,issuer_id,"
-                " scope_version,purpose,disclosure,route,route_hash,idempotency_key,input_hash)"
-                " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                (
-                    link[0],
-                    space_id,
-                    owner_id,
-                    link[1],
-                    owner_id,
-                    auth.context.grant_id,
-                    auth.provenance.issuer_id,
-                    self.scope.version,
-                    self.scope.purpose,
-                    self.scope.text(request.language),
-                    Jsonb(route),
-                    digest(route),
-                    key,
-                    input_hash,
-                ),
+            _insert_consent(
+                connection,
+                link[0],
+                link[1],
+                auth,
+                self.scope,
+                self.scope.text(request.language),
+                route,
+                key,
+                input_hash,
             )
             return self._view(link, self._latest(connection, link[0]), route)
 
@@ -296,3 +300,85 @@ class AIConsentStore:
                 " where owner_id=%s and revoked_at is null",
                 (owner_id, owner_id),
             )
+
+
+def _insert_consent(
+    connection: Connection,
+    link_id: UUID,
+    sender_hash: bytes,
+    auth: Authorization,
+    scope: ConsentScope,
+    disclosure: str,
+    route: dict[str, Any],
+    key: str,
+    input_hash: str,
+) -> None:
+    connection.execute(
+        "insert into public.business_whatsapp_ai_consents"
+        " (sender_link_id,space_id,owner_id,sender_hash,consenting_actor_id,grant_id,issuer_id,"
+        " scope_version,purpose,disclosure,route,route_hash,idempotency_key,input_hash)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        (
+            link_id,
+            auth.context.actor.space_id,
+            auth.context.actor.actor_id,
+            sender_hash,
+            auth.context.actor.actor_id,
+            auth.context.grant_id,
+            auth.provenance.issuer_id,
+            scope.version,
+            scope.purpose,
+            disclosure,
+            Jsonb(route),
+            digest(route),
+            key,
+            input_hash,
+        ),
+    )
+
+
+def record_link_consent(
+    connection: Connection,
+    *,
+    grant: GrantedSpace,
+    link_id: UUID,
+    sender_hash: bytes,
+    language: str,
+    disclosure: str,
+) -> None:
+    """Write the notice accepted at issuance inside the new link's transaction."""
+    from argus.domain.ingestion.whatsapp.receipt_consent import receipt_provider_route
+
+    require_link_disclosure(language, disclosure)
+    actor = TrustedActor(
+        actor_id=UUID(grant.grantee_id),
+        space_id=UUID(grant.space_id),
+        actor_kind="member",
+    )
+    auth = authorize(connection, actor, UUID(grant.grant_id))
+    auth.require("prepare")
+    try:
+        route = receipt_provider_route()
+    except ValueError:
+        # The Business can still have reading on during a routing outage.
+        # Bind this notice to its last approved route. The status reader requires
+        # an available, matching route before allowing any held-file read.
+        row = connection.execute(
+            "select route from public.business_receipt_reading_consents"
+            " where space_id=%s and revoked_at is null",
+            (grant.space_id,),
+        ).fetchone()
+        if row is None:
+            raise ConsentError("whatsapp_ai_route_unavailable", 503) from None
+        route = row[0]
+    _insert_consent(
+        connection,
+        link_id,
+        sender_hash,
+        auth,
+        RECEIPT_SCOPE,
+        disclosure,
+        route,
+        str(link_id),
+        digest([language, disclosure]),
+    )

@@ -89,6 +89,32 @@ describe("Configurar negocio lives in the sidebar, from the server's steps", () 
     } finally { await page.close(); }
   });
 
+  test("Conecta WhatsApp opens the phone-link panel from the setup card", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+    process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+    const calls: string[] = [];
+    globalThis.fetch = (async (input) => {
+      calls.push(new URL(String(input), "http://localhost").pathname);
+      return Response.json({ linked: false, last4: null, linked_at: null, reply_language: null, receiving_businesses: [{ space_id: "space-setup", name: "Taller Nuevo" }], held_count: 0 });
+    }) as typeof fetch;
+    const page = await mount([step("fiscal_identity", false), step("whatsapp", false, false)]);
+    try {
+      await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="sidebar-setup"]')!.click());
+      await page.act(async () => document.querySelector<HTMLButtonElement>('[data-testid="home-setup-step-whatsapp"]')!.click());
+      assert.deepEqual(calls, ["/api/v1/whatsapp/link"]);
+      const panel = document.querySelector('[role="dialog"]');
+      assert.ok([...panel!.querySelectorAll("button")].some((button) => button.textContent === "Vincular mi WhatsApp"));
+      assert.equal(document.querySelector('[data-testid="home-setup-panel"]'), null);
+      assert.deepEqual(page.opened, []);
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalMockAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+      else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMockAuth;
+      await page.close();
+    }
+  });
+
   test("the first document step starts the upload Agregar already offers", async () => {
     const page = await mount([step("created", true), step("fiscal_identity", false), step("first_document", false, false)]);
     try {

@@ -68,6 +68,7 @@ test.each([1280, 390])("Cuenta stays selected when the delayed profile enables W
       profileReads += 1;
       return profile.promise;
     }
+    if (path === "/api/v1/whatsapp/link") return Response.json({ linked: false, receiving_businesses: [], held_count: 0 });
     if (path === "/api/v1/account/deletion") return Response.json({ allowed: true, blockers: [], notices: [] });
     if (path === "/api/v1/memory/availability") return Response.json({ available: false });
     unexpected.push(path);

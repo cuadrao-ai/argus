@@ -13,8 +13,10 @@ from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
 from argus.domain.ingestion.whatsapp.payload import Delivery, TextMessage
 from argus.domain.ingestion.whatsapp.replies import compose_reply
+from argus.domain.ingestion.whatsapp.senders import SenderBusinesses
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
+from tests.ingestion.test_whatsapp_link_disclosure import ENGLISH_NOTICE
 from tests.ingestion.whatsapp_support import ALICE_PHONE, ENV
 
 
@@ -39,7 +41,10 @@ async def test_linked_text_uses_the_ordinary_webhook_reply(
 
     access, person = InMemoryAccessStore(), str(uuid4())
     access.ensure_owner_grant(str(uuid4()), person)
-    store = InMemoryWhatsAppStore(Mock(), access)
+    store = InMemoryWhatsAppStore(
+            Mock(), access,
+            SenderBusinesses(access, lambda _: True, lambda _: {"enabled": True}).eligible_businesses,
+        )
     pool = Mock()
     pool.connection.side_effect = AssertionError(
         "Linked text must only use the intake store"
@@ -56,7 +61,7 @@ async def test_linked_text_uses_the_ordinary_webhook_reply(
             pool=pool,
         )
         issued = runtime.intake.issue_code(
-            destination_owner_id=person, reply_language="en"
+            destination_owner_id=person, reply_language="en", disclosure=ENGLISH_NOTICE
         )
         keys = runtime.intake.keys
         store.redeem_code(

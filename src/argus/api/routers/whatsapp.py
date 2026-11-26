@@ -8,31 +8,37 @@ from typing import Annotated
 from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request, Response
+import segno
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse
 from loguru import logger
 from psycopg import OperationalError
 from psycopg_pool import PoolTimeout
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from argus.api import state as api_state
 from argus.api.dependencies import current_user, problem
+from argus.api.documents import documents_service
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import User
 from argus.api.whatsapp import (
     WhatsAppRuntime,
     WhatsAppSenderContext,
+    eligible_sender_businesses,
     link_store,
     require_whatsapp_sender,
     require_whatsapp_surface,
+    unavailable_problem,
+    whatsapp_receiving_available,
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.ingestion.whatsapp.ai_consent import (
     AIConsentStore,
     ConsentError,
-    EnableAIConsent,
+    require_link_disclosure,
 )
+from argus.domain.ingestion.whatsapp.held import held_files
 from argus.domain.ingestion.whatsapp.identity import link_message, signature_matches
 from argus.domain.ingestion.whatsapp.payload import PayloadInvalid, parse_delivery
 from argus.domain.ingestion.whatsapp.store import ReplyLanguage
@@ -40,7 +46,7 @@ from argus.domain.ingestion.whatsapp.store import ReplyLanguage
 MAX_WEBHOOK_BYTES = 512 * 1024
 
 _UNAVAILABLE = {
-    404: {"description": "whatsapp_unavailable: receiving is off or the selected Business is ineligible."}
+    404: {"description": "whatsapp_unavailable: receiving is unavailable."}
 }
 webhook_router = APIRouter(
     prefix="/webhooks/whatsapp", tags=["whatsapp"], responses=_UNAVAILABLE
@@ -60,6 +66,7 @@ class LinkCodeRequest(BaseModel):
 
     # The web app's current i18n language; WhatsApp replies use it.
     language: ReplyLanguage = "es-419"
+    disclosure: str = Field(min_length=1, max_length=2048)
 
 
 class LinkCodeResponse(BaseModel):
@@ -69,33 +76,23 @@ class LinkCodeResponse(BaseModel):
     message_text: str
     expires_at: datetime
     wa_me_url: str | None
+    qr_data_url: str | None
+
+
+class ReceivingBusiness(BaseModel):
+    space_id: str
+    name: str
 
 
 class LinkStatusResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    receiving_businesses: list[ReceivingBusiness]
+    held_count: int
     linked: bool
     last4: str | None = None
     linked_at: datetime | None = None
     reply_language: ReplyLanguage | None = None
-
-
-class AIConsentResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    linked: bool
-    available: bool
-    reason: str | None
-    last4: str | None
-    scope_version: int
-    purpose: str
-    active_scope_version: int | None = None
-    disclosure: str
-    route: dict | None
-    disclosure_token: str | None
-    enabled: bool
-    consented_at: datetime | None
-    revoked_at: datetime | None
 
 
 async def _consent_call(request: Request, callback, *args):
@@ -117,52 +114,6 @@ async def _consent_call(request: Request, callback, *args):
             title="Service Unavailable",
             detail="The AI permission could not be reached. Retry.",
         ) from None
-
-
-def _consent_store(request: Request, context: WhatsAppSenderContext) -> AIConsentStore:
-    store = context.runtime.receipts
-    if store is None:
-        raise problem(
-            request,
-            status_code=503,
-            code="whatsapp_ai_consent_unavailable",
-            title="Service Unavailable",
-            detail="WhatsApp AI permission is unavailable.",
-        )
-    return store
-
-
-@link_router.get("/ai-consent", response_model=AIConsentResponse, responses=_UNAVAILABLE)
-async def get_whatsapp_ai_consent(
-    request: Request,
-    context: Annotated[WhatsAppSenderContext, Depends(require_whatsapp_sender)],
-    language: str | None = Query(default=None, max_length=16),
-) -> AIConsentResponse:
-    return await _consent_call(
-        request,
-        _consent_store(request, context).status,
-        UUID(context.person_id),
-        UUID(context.space_id),
-        None,
-        language,
-    )
-
-
-@link_router.post("/ai-consent", response_model=AIConsentResponse, responses=_UNAVAILABLE)
-async def enable_whatsapp_ai_consent(
-    request: Request,
-    body: EnableAIConsent,
-    context: Annotated[WhatsAppSenderContext, Depends(require_whatsapp_sender)],
-    idempotency_key: str = Header(min_length=1, max_length=80),
-) -> AIConsentResponse:
-    return await _consent_call(
-        request,
-        _consent_store(request, context).enable,
-        UUID(context.person_id),
-        UUID(context.space_id),
-        body,
-        idempotency_key,
-    )
 
 
 @link_router.delete("/ai-consent", status_code=204)
@@ -280,14 +231,28 @@ async def receive_whatsapp_webhook(
     return WebhookAck(received=True)
 
 
+def require_link_setup(
+    request: Request,
+    context: WhatsAppSenderContext = Depends(require_whatsapp_sender),  # noqa: B008
+) -> WhatsAppSenderContext:
+    if not eligible_sender_businesses(context.person_id):
+        raise problem(
+            request, status_code=409, code="whatsapp_setup_required",
+            title="Conflict", detail="WhatsApp setup is required.",
+        )
+    return context
+
+
 @link_router.post(
-    "/link-codes", response_model=LinkCodeResponse, status_code=201, responses=_UNAVAILABLE
+    "/link-codes", response_model=LinkCodeResponse, status_code=201,
+    responses={**_UNAVAILABLE, 409: {"description": "Setup is incomplete or the consent notice changed."}},
 )
 async def create_whatsapp_link_code(
     request: Request,
-    body: LinkCodeRequest | None = None,
-    context: WhatsAppSenderContext = Depends(require_whatsapp_sender),  # noqa: B008
+    body: LinkCodeRequest,
+    context: WhatsAppSenderContext = Depends(require_link_setup),  # noqa: B008
 ) -> LinkCodeResponse:
+    await _consent_call(request, require_link_disclosure, body.language, body.disclosure)
     retry = _code_limiter.record_or_retry_after(
         keys=(context.person_id,), limit=5, window_seconds=600
     )
@@ -303,33 +268,45 @@ async def create_whatsapp_link_code(
     issued = await run_in_threadpool(
         context.runtime.intake.issue_code,
         destination_owner_id=context.person_id,
-        reply_language=(body or LinkCodeRequest()).language,
+        reply_language=body.language,
+        disclosure=body.disclosure,
     )
     text = link_message(issued.code)
     number = context.runtime.settings.wa_me_number
+    url = f"https://wa.me/{number}?text={quote(text)}" if number else None
     return LinkCodeResponse(
         code=issued.code,
         message_text=text,
         expires_at=issued.expires_at,
-        wa_me_url=f"https://wa.me/{number}?text={quote(text)}" if number else None,
+        wa_me_url=url,
+        qr_data_url=segno.make_qr(url).png_data_uri(scale=5) if url else None,
     )
 
 
 @link_router.get("/link", response_model=LinkStatusResponse, responses=_UNAVAILABLE)
-async def get_whatsapp_link(
+def get_whatsapp_link(
+    request: Request,
+    response: Response,
     context: WhatsAppSenderContext = Depends(require_whatsapp_sender),  # noqa: B008
 ) -> LinkStatusResponse:
-    link = await run_in_threadpool(
-        context.runtime.intake.store.destination_link,
-        destination_owner_id=context.person_id,
-    )
-    if link is None:
-        return LinkStatusResponse(linked=False)
+    response.headers["Cache-Control"] = "no-store"
+    documents = documents_service()
+    assert documents is not None
+    held = held_files(documents.store).list_for_user(context.person_id)
+    held_count = sum(item.state == "held" for item in held)
+    link = context.link
+    if not link and not held_count and not whatsapp_receiving_available(context.person_id):
+        raise unavailable_problem(request)
+    businesses = eligible_sender_businesses(context.person_id)
     return LinkStatusResponse(
-        linked=True,
-        last4=link.last4,
-        linked_at=link.linked_at,
-        reply_language=link.reply_language,
+        linked=link is not None,
+        last4=link.last4 if link else None,
+        linked_at=link.linked_at if link else None,
+        reply_language=link.reply_language if link else None,
+        receiving_businesses=[
+            ReceivingBusiness(space_id=g.space_id, name=g.name) for g in businesses
+        ],
+        held_count=held_count,
     )
 
 

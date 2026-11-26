@@ -1,15 +1,17 @@
+import english from "../public/locales/en/common.json";
+import spanish from "../public/locales/es-419/common.json";
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
-async function setup(page: Page, available: boolean, history = false) {
+async function setup(page: Page, available: boolean, history = false, language: "es-419" | "en" = "es-419") {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const requests: string[] = [];
   const historyRequests: string[] = [];
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
-  await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
+  await installBreakpointFixture(page, { language, theme: "light", emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { can_change: false } });
   await page.route("**/api/v1/whatsapp/**", route => {
     requests.push(new URL(route.request().url()).pathname);
@@ -93,5 +95,42 @@ for (const width of [1440, 390]) {
     expect(observed.requests.filter(path => path.includes("whatsapp"))).toEqual([]);
     expect(observed.errors).toEqual([]);
     await page.screenshot({ path: info.outputPath(`channels-setup-${width}.png`), fullPage: true });
+  });
+}
+
+for (const { width, language } of [
+  { width: 1440, language: "es-419" }, { width: 390, language: "es-419" },
+  { width: 1440, language: "en" }, { width: 390, language: "en" },
+] as const) {
+  test(`link a number from account settings in ${language} at ${width}px`, async ({ page }, info) => {
+    const words = (language === "en" ? english : spanish).settings.whatsapp;
+    await setup(page, false, false, language);
+    await page.route("**/api/v1/whatsapp/link", route => route.fulfill({
+      json: { linked: false, receiving_businesses: [{ space_id: "elsewhere", name: "Negocio de prueba" }], held_count: 0 },
+    }));
+    const message = "CUADRAO K7P2M9XQ";
+    const url = "https://wa.me/15550100000?text=" + encodeURIComponent(message);
+    // QR image for this synthetic one-tap link.
+    const qr = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEoAAABKAQAAAAA0q//cAAAAw0lEQVR42rWSMWqFQQiEJdsueBXBVvDqC7bCXkWw/cH3UoQQTZlYLR/DMI4L9TUH/vYJK+AS6PmA7ylN08xqlLg4cw2qar9Q3DKoZtn0hcXMI0NVMn+G/EHxXDfFRl1vPkKNnmBi0U4LOf02SnmDTk9meHOH9C0iHdOagzhy7WzaMHfErgUNFqOmxXcCN+xNSj2JfQulTRdodMYWox1Yawuv7pD7fTnpPbDnA3tc08nrDHohAoYvahwbN8bAp2f4n1/9AjM6QEty097jAAAAAElFTkSuQmCC";
+    await page.route("**/api/v1/whatsapp/link-codes", route => route.fulfill({
+      status: 201,
+      json: {
+        code: "K7P2M9XQ", message_text: message, expires_at: new Date(Date.now() + 600000).toISOString(),
+        wa_me_url: url, qr_data_url: qr,
+      },
+    }));
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/biz?view=inbox");
+    await page.getByTestId("header-profile-trigger").click();
+    await page.getByTestId("profile-menu-settings").click();
+    await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
+    const link = page.getByRole("button", { name: words.link_phone });
+    await expect(link).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`whatsapp-ready-${language}-${width}.png`) });
+    await link.click();
+    await expect(page.getByText(width < 720 ? words.mobile_title : words.scan_title, { exact: true })).toBeVisible();
+    await expect(page.getByText(message, { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: words.open })).toHaveAttribute("href", url);
+    await page.screenshot({ path: info.outputPath(`whatsapp-waiting-${language}-${width}.png`) });
   });
 }

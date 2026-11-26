@@ -61,6 +61,7 @@ from tests.business_cleanup import delete_spaces
 from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_reads_support import TakenAtOnce
 from tests.document_sources_support import LOCAL_STORAGE, source_objects
+from tests.ingestion.whatsapp_cases import NOTICE, prepare_phone_business
 
 pytestmark = pytest.mark.skipif(
     not (shared.DSN and LOCAL_STORAGE),
@@ -481,12 +482,14 @@ def test_import_matching_never_crosses_spaces(world: World) -> None:
 
 def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> None:
     person, business = world.people["a"], world.biz["a"].owner
+    prepare_phone_business(world.pool, business.space_id, person)
     store = PostgresWhatsAppStore(world.pool)
     sender, code, now = bytes(range(32)), hashlib.sha256(uuid4().bytes).digest(), _now()
     store.issue_code(
         destination_owner_id=person,
         code_digest=code,
         reply_language="es-419",
+        disclosure=NOTICE,
         now=now,
         expires_at=now + timedelta(minutes=10),
     )
