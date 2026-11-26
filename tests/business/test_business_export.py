@@ -387,6 +387,7 @@ def export_client(monkeypatch):
     from argus.api.business_drafts import DraftContext, require_drafts
     from argus.api.documents import require_saved_documents
     from argus.api.routers import business_export
+    from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
     from argus.domain.business.spaces import Space
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -394,7 +395,8 @@ def export_client(monkeypatch):
     calls = []
     actor_id, space_id = uuid4(), uuid4()
     resolved = SimpleNamespace(
-        actor=SimpleNamespace(actor_id=actor_id, space_id=space_id), owner_id=actor_id
+        actor=SimpleNamespace(actor_id=actor_id, space_id=space_id),
+        permissions=ROLE_PERMISSIONS[BusinessRole.OWNER],
     )
 
     class Service:
@@ -406,7 +408,7 @@ def export_client(monkeypatch):
 
         def context_for_draft(self, actor, draft, **_pin):
             calls.append(("draft", actor, draft))
-            resolved.owner_id = uuid4()
+            resolved.permissions = ROLE_PERMISSIONS[BusinessRole.EDITOR]
             return resolved
 
     class Spaces:

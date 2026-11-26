@@ -24,6 +24,7 @@ from argus.domain.business.contracts.facts import (
     is_personal,
 )
 from argus.domain.business.export import _marks
+from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
 
 SOURCE = uuid4()
 
@@ -151,12 +152,12 @@ def test_the_606_answer_applies_only_to_a_personal_receipt_with_a_fiscal_number(
     )
 
 
-def _tx(actor_id, owner_id, kind="member", capabilities=("read", "prepare")):  # noqa: ANN001
+def _tx(actor_id, creator_id, role=BusinessRole.EDITOR, kind="member"):  # noqa: ANN001
     return SimpleNamespace(
         context=SimpleNamespace(
-            actor=SimpleNamespace(actor_id=actor_id, actor_kind=kind), owner_id=owner_id
+            actor=SimpleNamespace(actor_id=actor_id, actor_kind=kind), owner_id=creator_id
         ),
-        authorization=SimpleNamespace(capabilities=frozenset(capabilities)),
+        authorization=SimpleNamespace(permissions=ROLE_PERMISSIONS[role]),
     )
 
 
@@ -175,13 +176,18 @@ def test_the_606_gate_opens_only_on_an_open_or_accepted_draft(
         business_share=known(WholeBusinessShare(kind="none")),
         fiscal=FiscalFacts(ncf=known("B0100000001")),
     )
-    accountant_tx = _tx(accountant, owner)
+    accountant_tx = _tx(owner, owner, BusinessRole.EDITOR)  # The creator after transfer.
     assert fiscal_inclusion_available(accountant_tx, personal, state) is (
         open_to_the_accountant
     )
     # The owner, a non-member, a read-only grant, or a draft the question
     # does not apply to: closed whatever the state.
-    assert fiscal_inclusion_available(_tx(owner, owner), personal, state) is False
+    assert (
+        fiscal_inclusion_available(
+            _tx(accountant, owner, BusinessRole.OWNER), personal, state
+        )
+        is False
+    )
     assert (
         fiscal_inclusion_available(
             _tx(accountant, owner, kind="extractor"), personal, state
@@ -190,7 +196,7 @@ def test_the_606_gate_opens_only_on_an_open_or_accepted_draft(
     )
     assert (
         fiscal_inclusion_available(
-            _tx(accountant, owner, capabilities=("read",)), personal, state
+            _tx(accountant, owner, BusinessRole.VIEWER), personal, state
         )
         is False
     )
@@ -301,7 +307,7 @@ def test_a_receipt_says_no_fiscal_number_only_once_its_facts_exist():
         "activity_id": None,
         "attention": None,
         "resolution": {"business": {"facts": read.model_dump(mode="json")}},
-        "marks": record_marks(read, {}, str(uuid4()), {}),
+        "marks": record_marks(read, {}, {}),
     }
     overlaid = draft_overlay({**summary, "status": "review_ready"}, [row])
     assert overlaid["fiscal_known"] is True and overlaid["fiscal_value"] is None
@@ -338,7 +344,6 @@ def test_every_wire_that_carries_marks_declares_every_mark_and_answers_200():
     marks = record_marks(
         marked,
         {"marker_id": lia, "answer_id": lia},
-        str(uuid4()),
         {lia: PersonName(display_name="Lía", shown_as="name")},
     )
     assert marks["fiscal_known"]

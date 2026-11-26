@@ -123,7 +123,7 @@ def download_export(
             if draft_id is not None
             else context.for_space(request, person.spaces)
         )
-        if str(actor.actor.actor_id) == str(actor.owner_id):
+        if "assign_owner" in actor.permissions:
             require_business_name(request, person.spaces, str(actor.actor.space_id))
         objects = getattr(documents.store, "objects", None)
         if objects is None:

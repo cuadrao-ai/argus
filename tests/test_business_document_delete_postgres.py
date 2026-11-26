@@ -15,7 +15,6 @@ from argus.api.business_receipt_activity import counts, unreviewed_days
 from argus.api.routers.business_drafts import router
 from argus.domain.business.activity.queries import read_activity
 from argus.domain.business.contracts.activity import ActivityFilters
-from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.transactions import transaction
 from fastapi import FastAPI
@@ -25,7 +24,7 @@ from tests import test_business_actions_postgres as shared
 from tests import test_business_receipt_activity_postgres as receipts
 from tests.business.action_counts import NO_ROWS, count_no_rows
 from tests.business.test_business_api import RECEIPT
-from tests.business_accept_support import seen_gaps
+from tests.business_accept_support import grant_member, seen_gaps
 
 users = shared.users
 actions = shared.actions
@@ -224,38 +223,30 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
 
 @pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
 @pytest.mark.parametrize("state", ["unread", "open", "accepted"])
-def test_only_owner_can_delete_or_restore(actions, users, role, state):
-    service, context, cid, draft_id, web = (_ready if state == "open" else _unread)(actions)
+def test_member_delete_and_restore_follow_approval_permission(
+    actions, users, role, state
+):
+    service, context, cid, draft_id, web = (_ready if state == "open" else _unread)(
+        actions
+    )
     if state == "accepted":
         draft_id = _captured_purchase(service, context, approve=True)
-    capabilities = ["read"] if role == "viewer" else ["read", "prepare"]
-    with service.authority.pool.connection() as db:
-        db.execute(
-            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,%s,%s)",
-            (
-                context.actor.space_id,
-                users["other"],
-                context.owner_id,
-                role,
-                capabilities,
-            ),
-        )
-    other = service.resolve_actor(
-        TrustedActor(
-            actor_id=users["other"], actor_kind="member", space_id=context.actor.space_id
-        )
-    )
+    other = grant_member(service, context, users["other"], role)
     client = _client(service, other)
-    for action in ("delete", "restore"):
-        refused = _act(client, draft_id or cid, action)
-        assert (refused.status_code, refused.json()["code"]) == (
-            403,
-            "business_permission_denied",
-        )
-    assert receipt_detail(web, web.service.receipt(web.scope, cid))["deleted"] is None
+    target = draft_id or cid
     if draft_id:
-        view = service.dossier(other, draft_id)
-        assert not view.delete_available and not view.restore_available
+        assert service.dossier(other, draft_id).delete_available is (role == "admin")
+    for action in ("delete", "restore"):
+        response = _act(client, target, action)
+        if role == "admin":
+            assert response.status_code == 200, response.text
+            assert response.json()["deleted"] is (action == "delete")
+        else:
+            assert (response.status_code, response.json()["code"]) == (
+                403,
+                "business_permission_denied",
+            )
+    assert receipt_detail(web, web.service.receipt(web.scope, cid))["deleted"] is None
 
 
 @pytest.mark.parametrize("status", ["preparing"])

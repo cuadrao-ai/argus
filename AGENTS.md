@@ -91,7 +91,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
   `.agent/interpreter_prompt_fingerprint.json`. Unchanged scopes keep their hashes
   and evidence. Retired investing prompt rules do not restore investing chat.
 - The backend owns truth; the frontend renders its state and never invents progress,
-  totals, statuses or options. Money is exact. Business approval is the owner's alone.
+  totals, statuses or options. Money is exact. Business approval belongs to the Dueño and Admin roles.
 - A schema change updates `docs/API_CONTRACT.md` and `docs/api/openapi.yaml` in the
   same PR. Data changes update `docs/DATA_MODEL.md`.
 - Shared hot files (locales, `docs/api/openapi.yaml`, `docs/API_CONTRACT.md`, `docs/DATA_MODEL.md`,

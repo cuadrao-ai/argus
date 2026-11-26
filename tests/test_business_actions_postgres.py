@@ -12,6 +12,7 @@ from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.dossier import MessageSource
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.contracts.recovery import SenderLease
+from argus.domain.business.roles import BusinessRole, legacy_capabilities
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.ingestion.reconcile.store_postgres import PostgresImportStore
 from argus.domain.recording.money_service import MoneyService
@@ -31,25 +32,23 @@ pytestmark = pytest.mark.skipif(not shared.DSN, reason="Disposable database requ
 @pytest.fixture
 def actions(users, request):
     """An accountant (``other``) acting in the owner's Business through the
-    grant the owner issued, as before. Approval is the owner's alone, so a test
-    marked ``owner_acts`` runs the same flow as the owner through the owner's
-    own grant."""
+    grant the owner issued. A test marked ``owner_acts`` runs the same flow
+    through the owner's own grant."""
 
     owner_acts = request.node.get_closest_marker("owner_acts") is not None
     acting = users["owner"] if owner_acts else users["other"]
-    # The database refuses approve on anyone's grant but the owner's.
-    capabilities = ["read", "prepare", "approve"] if owner_acts else ["read", "prepare"]
+    role = BusinessRole.OWNER if owner_acts else BusinessRole.EDITOR
     with Connection.connect(shared.DSN) as db:
         space_id = space(db, users["owner"])
         if not owner_acts:
             db.execute(
-                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role) values(%s,%s,%s,'owner')",
                 (space_id, users["owner"], users["owner"]),
             )
         grant = db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
             " values (%s,%s,%s,%s) returning id",
-            (space_id, acting, users["owner"], capabilities),
+            (space_id, acting, users["owner"], list(legacy_capabilities(role))),
         ).fetchone()[0]
     with ConnectionPool(shared.DSN, min_size=0, max_size=4) as pool:
         money = MoneyService(

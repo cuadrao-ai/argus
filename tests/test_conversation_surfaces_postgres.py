@@ -20,9 +20,15 @@ from unittest.mock import patch
 import psycopg
 import pytest
 from argus.api import state as api_state
-from argus.api.business_spaces import business_spaces, configure_business_spaces
+from argus.api.business_spaces import (
+    business_access,
+    business_spaces,
+    configure_business_access,
+    configure_business_spaces,
+)
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
+from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.spaces import PostgresSpaceStore
 from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
@@ -101,6 +107,7 @@ def rig(monkeypatch: pytest.MonkeyPatch) -> Iterator[Rig]:
     gateway = local_supabase_gateway()
     created: list[str] = []
     previous_spaces = business_spaces()
+    previous_access = business_access()
     with ConnectionPool(DSN, min_size=0, max_size=4) as pool:
         try:
             with (
@@ -110,6 +117,7 @@ def rig(monkeypatch: pytest.MonkeyPatch) -> Iterator[Rig]:
                 TestClient(app, base_url="http://localhost:3000") as client,
             ):
                 configure_business_spaces(PostgresSpaceStore(pool))
+                configure_business_access(PostgresAccessStore(pool))
                 alice_headers = {**_login(client, gateway, "chats-a", created), **ORIGIN}
                 bob_headers = {**_login(client, gateway, "chats-b", created), **ORIGIN}
                 alice = Person(created[0], alice_headers)
@@ -130,6 +138,7 @@ def rig(monkeypatch: pytest.MonkeyPatch) -> Iterator[Rig]:
                 yield Rig(client, alice, bob)
         finally:
             configure_business_spaces(previous_spaces)
+            configure_business_access(previous_access)
             for user_id in created:
                 with suppress(Exception):
                     gateway.delete_auth_user(user_id)

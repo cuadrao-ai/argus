@@ -24,16 +24,19 @@ from fastapi import Depends, HTTPException, Request
 from argus.api import state as api_state
 from argus.api.business import (
     chosen_scope,
-    own_business_only,
     owner_required_problem,
     unavailable_problem,
 )
-from argus.api.business_spaces import business_spaces, space_missing_problem
+from argus.api.business_spaces import (
+    business_access,
+    business_spaces,
+    space_missing_problem,
+)
 from argus.api.dependencies import current_user, problem
 from argus.api.schemas import ConversationSurface, User
 from argus.domain.business.config import business_chat_enabled
 from argus.domain.business.scope import resolve_business_scope
-from argus.domain.owner_scope import PERSONAL, OwnerScope, holds, scope_of
+from argus.domain.owner_scope import PERSONAL, BusinessSpace, OwnerScope, holds, scope_of
 
 
 def refuse_closed_chat(request: Request, surface: ConversationSurface) -> None:
@@ -48,6 +51,17 @@ def refuse_closed_chat(request: Request, surface: ConversationSurface) -> None:
         )
 
 
+def _require_chat_owner(request: Request, user_id: str, space_id: str) -> None:
+    access = business_access()
+    if access is None:
+        raise unavailable_problem(request)
+    if not any(
+        grant.space_id == space_id and "assign_owner" in grant.permissions
+        for grant in access.spaces_for(user_id)
+    ):
+        raise owner_required_problem(request)
+
+
 def surface_scope(
     request: Request, *, user_id: str, surface: ConversationSurface
 ) -> OwnerScope:
@@ -56,15 +70,14 @@ def surface_scope(
     spaces = business_spaces()
     if spaces is None:
         raise unavailable_problem(request)
-    # A stored conversation belongs to its space's creator
-    # (conversations_owner_space_fkey pins owner_space_id to spaces.created_by),
-    # so Business chat is the owner's: a chosen client grant is refused rather
-    # than silently run in the caller's own Business. A grantee's chat in a
-    # client's Business needs that constraint changed first.
-    own_business_only(request, user_id)
+    selected = chosen_scope(request, user_id)
+    if selected is not None and "assign_owner" not in selected.permissions:
+        raise owner_required_problem(request)
+    # Existing chats live in the caller's default Business.
     resolved = resolve_business_scope(spaces, user_id)
     if resolved is None:
         raise space_missing_problem(request)
+    _require_chat_owner(request, user_id, resolved.owner.space_id)
     return resolved.owner
 
 
@@ -108,11 +121,14 @@ def refuse_business_under_grant(
     """A chosen client grant refuses a Business conversation (chat is the
     owner's); the person's own Personal chat is theirs whatever is chosen."""
 
-    scope = chosen_scope(request, user_id)
-    if scope is None or scope.acting_as_owner:
+    selected = chosen_scope(request, user_id)
+    if conversation_id is None:
         return
-    if is_business_conversation(user_id=user_id, conversation_id=conversation_id):
-        raise owner_required_problem(request)
+    stored = conversation_scope(user_id=user_id, conversation_id=conversation_id)
+    if isinstance(stored, BusinessSpace):
+        if selected is not None and "assign_owner" not in selected.permissions:
+            raise owner_required_problem(request)
+        _require_chat_owner(request, user_id, stored.space_id)
 
 
 def conversation_not_found(request: Request) -> HTTPException:

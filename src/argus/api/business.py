@@ -133,7 +133,7 @@ def owner_required_problem(request: Request) -> HTTPException:
 def owner_only(request: Request, context: BusinessContext) -> None:
     """A route that only the Business owner may call; a grantee is told so."""
 
-    if not context.scope.acting_as_owner:
+    if "assign_owner" not in context.scope.permissions:
         raise owner_required_problem(request)
 
 
@@ -160,15 +160,6 @@ class MembershipRoute(APIRoute):
                 ) from None
 
         return handler
-
-
-def own_business_only(request: Request, user_id: str) -> None:
-    """A route about the caller's own Business: under a chosen client grant it
-    is refused (a dead grant is refused first, the same way as everywhere)."""
-
-    scope = chosen_scope(request, user_id)
-    if scope is not None and not scope.acting_as_owner:
-        raise owner_required_problem(request)
 
 
 def working_scope(

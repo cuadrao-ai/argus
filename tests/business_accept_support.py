@@ -3,9 +3,29 @@ Listos gap the dossier shows. A record with no gap names none."""
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from argus.domain.business.contracts.actions import ApproveExpense
+from argus.domain.business.contracts.authority import TrustedActor
+
+if TYPE_CHECKING:
+    from argus.domain.business.actions import BusinessActions
+    from argus.domain.business.authority import ActionContext
+
+
+def grant_member(
+    service: BusinessActions, owner: ActionContext, member_id: str, role: str
+) -> ActionContext:
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role)"
+            " values (%s,%s,%s,%s)",
+            (owner.actor.space_id, member_id, owner.actor.actor_id, role),
+        )
+    return service.resolve_actor(
+        TrustedActor(actor_id=member_id, actor_kind="member", space_id=owner.actor.space_id)
+    )
 
 
 def seen_gaps(service, context, draft_id: UUID | str) -> tuple[str, ...]:  # noqa: ANN001

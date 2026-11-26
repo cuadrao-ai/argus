@@ -35,8 +35,6 @@ from argus.domain.business.roles import (
     promotion_requires_acceptance,
 )
 
-OWNER_CAPABILITIES = ("read", "prepare", "approve")
-MEMBER_CAPABILITIES = ("read", "prepare")
 INVITE_LIFETIME = timedelta(days=7)
 MAX_EMAIL_LENGTH = 254
 
@@ -319,13 +317,13 @@ def ensure_owner_grant(
 
     _lock(connection, space_id)
     row = connection.execute(
-        "insert into public.business_client_grants (space_id, grantee_id, issuer_id, capabilities)"
-        " select s.id, s.current_owner_id, s.current_owner_id, %s::text[] from public.spaces s"
+        "insert into public.business_client_grants (space_id, grantee_id, issuer_id, business_role, capabilities)"
+        " select s.id, s.current_owner_id, s.current_owner_id, 'owner', %s::text[] from public.spaces s"
         " where s.id=%s and s.current_owner_id=%s and s.kind='business' and s.closed_at is null"
         " and not exists (select 1 from public.business_client_grants g"
         "   where g.space_id=s.id)"
         " returning id::text",
-        (list(OWNER_CAPABILITIES), space_id, owner_id),
+        (list(legacy_capabilities(BusinessRole.OWNER)), space_id, owner_id),
     ).fetchone()
     if row is None:
         return None
@@ -773,9 +771,8 @@ class InMemoryAccessStore:
         self, space_id: str, actor_id: str, role: BusinessRole | None = None
     ) -> dict:
         grant = self._live(space_id, actor_id)
-        if grant is None or "manage" not in ROLE_PERMISSIONS[grant["business_role"]]:
-            raise MembershipError("business_permission_denied")
-        if role == BusinessRole.OWNER and grant["business_role"] != BusinessRole.OWNER:
+        required = "assign_owner" if role == BusinessRole.OWNER else "manage"
+        if grant is None or required not in ROLE_PERMISSIONS[grant["business_role"]]:
             raise MembershipError("business_permission_denied")
         return grant
 

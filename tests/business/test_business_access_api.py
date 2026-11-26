@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 from argus.api.business_spaces import accept_business_invites, business_access
+from faker import Faker
 from fastapi.testclient import TestClient
 
 from tests.business.conftest import ALICE, BOB
@@ -140,6 +141,26 @@ def test_a_confirmed_account_gets_read_and_prepare_and_loses_it_at_once(
     assert store.capabilities(space_id, bob.person) == ()
     assert [g["owner"] for g in alice.get("/access").json()["grants"]] == [True]
     assert [c.action for c in store.ledger][-2:] == ["accept_invite", "revoke_grant"]
+
+
+def test_admin_invitation_gives_approval_without_ownership(
+    alice: Owner, bob: Owner, invitations_configured: None, faker: Faker  # noqa: F811
+) -> None:
+    email = faker.ascii_safe_email()
+    business_access().confirm(bob.person, email)
+    space_id = alice.scope().owner.space_id
+    given = alice.post("/access", {"email": email, "role": "admin"})
+    assert given.status_code == 201, given.text
+    invite = given.json()["invites"][0]
+    accepted = bob.post(f"/invitations/{invite['id']}/accept", {"space_id": space_id})
+    assert accepted.status_code == 200, accepted.text
+    grant = next(
+        g for g in bob.get("/spaces").json()["spaces"] if g["space_id"] == space_id
+    )
+    assert grant["business_role"] == "admin"
+    assert "approve" in grant["permissions"]
+    assert "approve" in grant["capabilities"]
+    assert "assign_owner" not in grant["permissions"]
 
 
 def test_the_owner_cannot_revoke_their_own_grant(alice: Owner) -> None:  # noqa: F811

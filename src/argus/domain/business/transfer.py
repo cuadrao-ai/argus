@@ -10,7 +10,7 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
-from argus.domain.business.access import MEMBER_CAPABILITIES, OWNER_CAPABILITIES, _lock
+from argus.domain.business.access import _lock
 from argus.domain.business.authority import ActionError, authorize
 from argus.domain.business.contracts.authority import PersonShown, TrustedActor
 from argus.domain.business.lifecycle import (
@@ -19,6 +19,11 @@ from argus.domain.business.lifecycle import (
 )
 from argus.domain.business.notifications.events import invitation_changed
 from argus.domain.business.people import named, people
+from argus.domain.business.roles import (
+    ROLE_PERMISSIONS,
+    BusinessRole,
+    legacy_capabilities,
+)
 from argus.domain.business.space_name import typed_name
 from argus.domain.business.transfer_mail import (
     deliver_transfer_mail,
@@ -105,12 +110,6 @@ class PostgresBusinessTransfer:
             )
             confirmation = typed_name(name, confirmation)
             if closed_at is not None:
-                raise BusinessLifecycleError("business_record_not_found")
-            _lock(db, space_id)
-            if not db.execute(
-                "select 1 from public.spaces where id=%s and current_owner_id=%s",
-                (space_id, owner_id),
-            ).fetchone():
                 raise BusinessLifecycleError("business_record_not_found")
             db.execute(
                 "update public.business_ownership_transfers set status='expired',resolved_at=clock_timestamp()"
@@ -246,10 +245,6 @@ class PostgresBusinessTransfer:
                     if accept
                     else "business_record_not_found"
                 )
-            space = db.execute(
-                "select current_owner_id::text,closed_at from public.spaces where id=%s for update",
-                (command[1],),
-            ).fetchone()
             _lock(db, command[1])
             command = db.execute(
                 f"select {_COLUMNS},target_grant_id::text from public.business_ownership_transfers where id=%s for update",
@@ -265,9 +260,11 @@ class PostgresBusinessTransfer:
             resolved_at = db.execute("select clock_timestamp()").fetchone()[0]
             if resolved_at >= command[5]:
                 raise BusinessLifecycleError("business_transfer_expired")
-            if not space or space != (command[2], None):
+            _, closed_at = PostgresBusinessLifecycle._owned_space(
+                db, command[2], command[1]
+            )
+            if closed_at is not None:
                 raise BusinessLifecycleError("business_record_not_found")
-            PostgresBusinessLifecycle._owned_space(db, command[2], command[1])
             if recipient:
                 try:
                     authorize(
@@ -295,7 +292,7 @@ class PostgresBusinessTransfer:
                 )
                 db.execute(
                     "update public.business_client_grants set capabilities=%s::text[],business_role='editor' where space_id=%s and grantee_id=%s and revoked_at is null",
-                    (list(MEMBER_CAPABILITIES), command[1], command[2]),
+                    (list(legacy_capabilities(BusinessRole.EDITOR)), command[1], command[2]),
                 )
                 db.execute(
                     "update public.spaces set current_owner_id=%s where id=%s",
@@ -307,7 +304,7 @@ class PostgresBusinessTransfer:
                 )
                 db.execute(
                     "update public.business_client_grants set capabilities=%s::text[],business_role='owner',expires_at=null where id=%s",
-                    (list(OWNER_CAPABILITIES), command[6]),
+                    (list(legacy_capabilities(BusinessRole.OWNER)), command[6]),
                 )
                 revoked = db.execute(
                     "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and issuer_id=%s and accepted_at is null and revoked_at is null returning id::text",
@@ -339,7 +336,7 @@ class PostgresBusinessTransfer:
             "select g.grantee_id::text,"
             " not coalesce(u.is_anonymous,false) and (u.banned_until is null or u.banned_until<=clock_timestamp())"
             "  and not exists(select 1 from argus_private.account_deletion_runs d where d.user_id=g.grantee_id),"
-            " 'prepare'=any(g.capabilities) and not 'approve'=any(g.capabilities),"
+            " g.business_role,"
             " u.email_confirmed_at is not null,"
             " not exists(select 1 from public.spaces s where s.current_owner_id=g.grantee_id and s.kind='business' and s.closed_at is null)"
             " from public.business_client_grants g join auth.users u on u.id=g.grantee_id"
@@ -350,7 +347,14 @@ class PostgresBusinessTransfer:
         ).fetchone()
         if not row:
             return None
-        grantee, *facts = row
+        grantee, active, role, confirmed, eligible_space = row
+        permissions = ROLE_PERMISSIONS[BusinessRole(role)]
+        facts = (
+            active,
+            "prepare" in permissions and "assign_owner" not in permissions,
+            confirmed,
+            eligible_space,
+        )
         reasons: tuple[TransferIneligible, ...] = (
             "account_unavailable",
             "not_editor",

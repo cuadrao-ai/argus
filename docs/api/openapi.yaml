@@ -2296,7 +2296,8 @@ paths:
       tags:
       - financial-accounts
       - business
-      description: 'The owner approves a named list of Listos receipts. Each one runs alone
+      description: 'A member with approve can accept a named list of Listos receipts. Each
+        one runs alone
 
         on the approval path, and the answer holds one result per item in the order
 
@@ -5961,6 +5962,7 @@ paths:
       tags:
       - financial-accounts
       - business
+      description: A member with approve can turn automatic reading on or off.
       parameters:
       - name: Idempotency-Key
         in: header
@@ -6087,7 +6089,7 @@ paths:
       - business
       description: 'The receipt''s identity is its bytes, so a retry returns the same receipt.
 
-        The owner''s stored receipt-reading setting decides whether it is read.'
+        The Business receipt-reading setting decides whether it is read.'
       parameters:
       - name: X-Document-Filename
         in: header

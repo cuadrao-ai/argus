@@ -18,7 +18,6 @@ from argus.api.business import (
     working_scope,
 )
 from argus.api.business_spaces import (
-    business_access,
     business_spaces,
     space_missing_problem,
 )
@@ -56,6 +55,7 @@ from argus.domain.business.contracts.facts import (
     personal_mark_admits,
 )
 from argus.domain.business.people import named_deletion, people
+from argus.domain.business.receipt_consent import RECEIPT_READING_PERMISSION
 from argus.domain.business.receipts import Receipt, draft_row, record_title
 from argus.domain.business.record_origin import (
     OriginUpload,
@@ -63,6 +63,7 @@ from argus.domain.business.record_origin import (
     draft_arrivals,
     record_origins,
 )
+from argus.domain.business.roles import Permission, legacy_capabilities, legacy_role
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
@@ -232,6 +233,19 @@ def _needs_only_read(request) -> bool:
     )
 
 
+def _legacy_permission(request: Request) -> Permission:
+    path = request.url.path
+    if path.endswith("/source"):
+        return "download"
+    if request.method == "GET" or _needs_only_read(request):
+        return "read"
+    if path.endswith("/receipt-reading"):
+        return RECEIPT_READING_PERMISSION
+    if path.endswith("/confirm"):
+        return "approve"
+    return "prepare"
+
+
 def scoped_legacy(request, documents, hub, user_id, scope):
     pool = getattr(request.app.state, "financial_accounts_pool", None)
     if pool is None:
@@ -241,35 +255,11 @@ def scoped_legacy(request, documents, hub, user_id, scope):
             user_id=scope.person_id, scope=scope.owner
         )
         space = business_spaces().get(scope.owner.space_id)
-        capabilities = {"read", "prepare"}
-        if scope.actor_id is not None:
-            # A chosen grant: its own capabilities, never approve for a member.
-            held = business_access().capabilities(scope.owner.space_id, scope.actor_id)
-            capabilities = set(held)
-            if not scope.acting_as_owner:
-                needed = (
-                    "read"
-                    if (
-                        request.method == "GET"
-                        and not request.url.path.endswith("/source")
-                    )
-                    or _needs_only_read(request)
-                    else (
-                        "download"
-                        if request.url.path.endswith("/source")
-                        else "approve"
-                        if request.url.path.endswith("/confirm")
-                        else "prepare"
-                    )
-                )
-                if needed not in scope.permissions:
-                    raise action_problem(
-                        request,
-                        Refused(
-                            outcome="permission_denied",
-                            code="business_permission_denied",
-                        ),
-                    )
+        if _legacy_permission(request) not in scope.permissions:
+            raise action_problem(
+                request,
+                Refused(outcome="permission_denied", code="business_permission_denied"),
+            )
         record = RecordContext(
             space_id=scope.owner.space_id,
             space_name=space.name if space else "",
@@ -282,7 +272,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
                 )
                 for row in account_rows
             ),
-            capabilities=capabilities,
+            capabilities=legacy_capabilities(scope.business_role),
         )
         return BusinessContext(
             scope, BusinessService(documents, hub.sink, _captured), record
@@ -309,21 +299,8 @@ def scoped_legacy(request, documents, hub, user_id, scope):
             )
         )
         record = actions.record_context(context)
-        capability = (
-            "read"
-            if (request.method == "GET" and not request.url.path.endswith("/source"))
-            or _needs_only_read(request)
-            else (
-                "download"
-                if request.url.path.endswith("/source")
-                else "approve"
-                if request.url.path.endswith("/confirm")
-                else "prepare"
-            )
-        )
-        from argus.domain.business.roles import ROLE_PERMISSIONS
-
-        if capability not in ROLE_PERMISSIONS[context.business_role]:
+        capability = _legacy_permission(request)
+        if capability not in context.permissions:
             raise ActionError("permission_denied", "business_permission_denied")
     except ValueError:
         raise action_problem(
@@ -356,7 +333,7 @@ def _granted(  # noqa: ANN202
             context.scope,
             actor_id=str(context.actor.actor_id),
             grant_id=str(context.grant_id),
-            role="owner" if context.is_current_owner else "accountant",
+            role=legacy_role(context.business_role),
             business_role=context.business_role,
             **({"country": scope.country, "currency": scope.currency} if scope else {}),
         ),
@@ -462,7 +439,7 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
         ):
             row["attention"] = None
         facts = BusinessResolution.model_validate(row["resolution"]["business"]).facts
-        row["marks"] = record_marks(facts, row, tx.context.owner_id, markers)
+        row["marks"] = record_marks(facts, row, markers)
         found.setdefault(str(row["connection_id"]), []).append(row)
     return found
 
@@ -620,7 +597,7 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
         context.record_context.capabilities if context.record_context else ()
     )
     # The overlay names "personal" only for a receipt one draft owns: nothing else to mark.
-    # Accepted drafts can only be corrected by their owner.
+    # An accepted draft also requires approval permission for correction.
     return [
         {
             **view,
@@ -772,7 +749,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
             facts = BusinessResolution.model_validate(typed).facts
             arrival = arrivals.get(row["draft_id"])
             marks[activity] = {
-                **record_marks(facts, row, tx.context.owner_id, markers),
+                **record_marks(facts, row, markers),
                 "merchant": record_title(facts.counterparty.value, arrival.filename if arrival else None),
             }
     return {

@@ -567,10 +567,11 @@ def test_pending_admin_upgrade_cannot_restore_membership_after_immediate_role_ch
     assert access.granted(users["other"], grant).business_role == BusinessRole.EDITOR
 
 
-def test_coowner_consent_has_actual_actor_and_is_invalidated_by_role_loss(pool, users):
+@pytest.mark.parametrize("role", [BusinessRole.OWNER, BusinessRole.ADMIN])
+def test_reading_consent_records_the_approver_and_stops_on_role_loss(pool, users, role):
     from tests.business_reading_support import reading_setting
 
-    access, space, invitation = invite_member(pool, users, BusinessRole.OWNER)
+    access, space, invitation = invite_member(pool, users, role)
     setting = reading_setting(pool)
     assert not setting.status(space.id, users["owner"])["enabled"]
     grant = access.accept_invite(users["other"], space.id, invitation.id)
@@ -600,6 +601,55 @@ def test_coowner_consent_has_actual_actor_and_is_invalidated_by_role_loss(pool, 
             (space.id,),
         ).fetchone()
         assert after[:3] == before[:3] and after[3] is not None
+
+
+def test_expired_admin_grant_and_its_replacement_need_fresh_consent(pool, users, faker):
+    from tests.business_reading_support import reading_setting
+
+    access, space, invite = invite_member(pool, users, BusinessRole.ADMIN)
+    grant = access.accept_invite(users["other"], space.id, invite.id)
+    with pool.connection() as db:
+        db.execute(
+            "update public.business_client_grants set expires_at=now()+interval '1 day' where id=%s",
+            (grant,),
+        )
+    setting = reading_setting(pool)
+    before = setting.status(space.id, users["owner"])
+    arguments = dict(
+        actor_id=users["other"],
+        enabled=True,
+        version=SCOPE_VERSION,
+        disclosure_token=before["disclosure_token"],
+        idempotency_key=faker.uuid4(),
+    )
+    agreed = setting.set(space.id, users["owner"], **arguments)
+    assert agreed["enabled"]
+    with pool.connection() as db:
+        deadline = db.execute(
+            "update public.business_client_grants set expires_at=clock_timestamp()+interval '1 second'"
+            " where id=%s returning expires_at",
+            (grant,),
+        ).fetchone()[0]
+    with pool.connection() as db:
+        db.execute("select pg_sleep_until(%s)", (deadline,))
+        assert db.execute(
+            "select revoked_at from public.business_receipt_reading_consents where id=%s",
+            (agreed["consent_id"],),
+        ).fetchone() == (None,)
+    assert not setting.enabled(space.id, users["owner"], agreed["consent_id"])
+    with pytest.raises(ActionError, match="business_permission_denied"):
+        setting.set(space.id, users["owner"], **arguments)
+
+    _, _, next_invite = invite_member(pool, users, BusinessRole.ADMIN)
+    replacement = access.accept_invite(users["other"], space.id, next_invite.id)
+    assert replacement != grant
+    assert not setting.enabled(space.id, users["owner"], agreed["consent_id"])
+    assert not setting.set(space.id, users["owner"], **arguments)["enabled"]
+    fresh = setting.set(
+        space.id, users["owner"], **{**arguments, "idempotency_key": faker.uuid4()}
+    )
+    assert fresh["enabled"] and fresh["consent_id"] != agreed["consent_id"]
+    assert not setting.enabled(space.id, users["owner"], agreed["consent_id"])
 
 
 def test_pending_invitation_issuer_and_recipient_cannot_be_rebound(pool, users):

@@ -75,7 +75,7 @@ def test_accept_changes_authority_and_preserves_storage_and_other_access(world):
     assert access.spaces_for(people["owner"])[0].role == "accountant"
     assert access.spaces_for(people["owner"])[0].capabilities == ("read", "prepare")
     scope = resolve_business_scope(PostgresSpaceStore(pool), people["other"])
-    assert scope.person_id == people["owner"] and scope.acting_as_owner
+    assert scope.person_id == people["owner"] and "assign_owner" in scope.permissions
     assert PostgresSpaceStore(pool).open_space(people["owner"]) is None
     access.give(space.id, people["other"], "new-member@example.test")
     with pytest.raises(LookupError):
@@ -97,6 +97,27 @@ def test_request_name_and_target_are_checked(world):
         _request(world, owner_id=people["other"])
     with pytest.raises(BusinessLifecycleError, match="business_transfer_target_invalid"):
         _request(world, target_grant_id=str(UUID(int=1)))
+
+
+def test_admin_can_receive_ownership_but_cannot_transfer_or_close(world):
+    from argus.domain.business.roles import BusinessRole
+
+    pool, space, people, access, member = world
+    upgrade = access.change_role(space.id, people["owner"], member.id, BusinessRole.ADMIN)
+    access.accept_invite(people["other"], space.id, upgrade.invites[0].id)
+    with pytest.raises(BusinessLifecycleError, match="business_record_not_found"):
+        _request(world, owner_id=people["other"])
+    with pytest.raises(BusinessLifecycleError, match="business_record_not_found"):
+        PostgresBusinessLifecycle(pool).close(
+            owner_id=people["other"], space_id=space.id,
+            confirmation=space.name, idempotency_key="admin-close",
+        )
+    transfer = _request(world)
+    accepted = PostgresBusinessTransfer(pool).accept(
+        actor_id=people["other"], transfer_id=transfer.id
+    )
+    assert accepted.status == "accepted"
+    assert access.granted(people["other"], member.id).business_role == BusinessRole.OWNER
 
 
 def test_cancel_and_late_accept_do_not_change_owner(world):
@@ -312,7 +333,7 @@ def test_transferred_receipt_reads_reviews_history_and_original_are_scoped(
     )
     assert service.dossier(current, finished.draft_id).version == finished.version
     base = views._web(service, old)
-    assert not base.scope.acting_as_owner
+    assert "assign_owner" not in base.scope.permissions
     app = FastAPI()
     app.state.financial_accounts_pool = pool
     request = Request(
@@ -332,7 +353,7 @@ def test_transferred_receipt_reads_reviews_history_and_original_are_scoped(
     web = scoped_legacy(
         request, base.service.documents, base.service.documents.hub, users["other"], scope
     )
-    assert web.scope.acting_as_owner and web.scope.person_id == old.owner_id
+    assert "assign_owner" in web.scope.permissions and web.scope.person_id == old.owner_id
     detail = receipt_detail(web, web.service.receipt(web.scope, cid))
     assert detail["id"] == cid
     result = service.review(
@@ -716,53 +737,60 @@ def test_ownership_acquired_during_reauthorization_refuses_fresh_deletion(world)
         )
 
 
-def test_transfer_cancels_only_demoted_issuers_pending_invitations(world):
+def join_coowner(world, email):
+    from argus.domain.business.roles import BusinessRole
+
+    pool, space, people, access, _ = world
+    with pool.connection() as db:
+        db.execute(
+            "update auth.users set email=%s,is_anonymous=false,email_confirmed_at=now() where id=%s",
+            (email, people["guest"]),
+        )
+    _, listing = access.give(space.id, people["owner"], email, BusinessRole.OWNER)
+    access.accept_invite(people["guest"], space.id, listing.invites[0].id)
+
+
+@pytest.mark.parametrize("sender,retained_owner", [("owner", "guest"), ("guest", "owner")])
+def test_transfer_cancels_only_demoted_issuers_pending_invitations(world, sender, retained_owner, faker):
     from argus.domain.business.memberships import MembershipError
     from argus.domain.business.roles import BusinessRole
 
-    pool, space, people, access, member = world
-    with pool.connection() as db:
-        email = db.execute(
-            "update auth.users set email='coowner@example.test',is_anonymous=false,email_confirmed_at=now() where id=%s returning email",
-            (people["guest"],),
-        ).fetchone()[0]
-    _, listing = access.give(space.id, people["owner"], email, BusinessRole.OWNER)
-    coowner = access.accept_invite(people["guest"], space.id, listing.invites[0].id)
+    pool, space, people, access, _ = world
+    join_coowner(world, faker.ascii_safe_email())
+    retained_grant = access.spaces_for(people[retained_owner])[0].grant_id
     _, listing = access.give(
         space.id,
-        people["owner"],
+        people[sender],
         "original-issuer@example.test",
         BusinessRole.VIEWER,
         "original-key",
     )
     old = next(i for i in listing.invites if i.email == "original-issuer@example.test")
     _, listing = access.give(
-        space.id, people["guest"], "coowner-issuer@example.test", BusinessRole.OWNER
+        space.id, people[retained_owner], "coowner-issuer@example.test", BusinessRole.OWNER
     )
     retained = next(
         i for i in listing.invites if i.email == "coowner-issuer@example.test"
     )
-    with pytest.raises(BusinessLifecycleError, match="business_record_not_found"):
-        _request(world, owner_id=people["guest"], key="coowner-not-anchor")
-    transfer = _request(world)
+    transfer = _request(world, owner_id=people[sender])
     PostgresBusinessTransfer(pool).accept(
         actor_id=people["other"], transfer_id=transfer.id
     )
     assert access.resend(space.id, people["other"], old.id) is None
     assert retained.id in {
-        i.id for i in access.resend(space.id, people["guest"], retained.id).invites
+        i.id for i in access.resend(space.id, people[retained_owner], retained.id).invites
     }
-    assert access.granted(people["guest"], coowner).business_role == BusinessRole.OWNER
+    assert access.granted(people[retained_owner], retained_grant).business_role == BusinessRole.OWNER
     with pytest.raises(MembershipError):
         access.give(
-            space.id, people["owner"], old.email, BusinessRole.VIEWER, "original-key"
+            space.id, people[sender], old.email, BusinessRole.VIEWER, "original-key"
         )
     with pool.connection() as db:
         assert db.execute(
             "select issuer_id::text,revoked_at is null from public.business_access_invites where id=%s",
             (retained.id,),
-        ).fetchone() == (people["guest"], True)
+        ).fetchone() == (people[retained_owner], True)
         assert db.execute(
             "select issuer_id::text,revoked_at is not null from public.business_access_invites where id=%s",
             (old.id,),
-        ).fetchone() == (people["owner"], True)
+        ).fetchone() == (people[sender], True)
