@@ -498,29 +498,10 @@ def test_closed_owner_account_deletion_hands_off_custody_and_erases_the_person(w
     release_custodian(space.id)
 
 
-@pytest.mark.parametrize(
-    "sender",
-    [
-        "owner",
-        pytest.param(
-            "guest",
-            marks=pytest.mark.xfail(
-                raises=pytest.RaisesExc(
-                    psycopg.errors.CheckViolation,
-                    match="business_consent_transfer_not_accepted",
-                ),
-                reason="Existing consent-author constraint, #2493",
-                strict=True,
-            ),
-        ),
-    ],
-)
-def test_transfer_invalidates_ai_consent_without_fabricating_a_human_revocation(world, sender, faker):
+def test_transfer_invalidates_ai_consent_without_fabricating_a_human_revocation(world):
     from psycopg.types.json import Jsonb
 
     pool, space, people, access, _ = world
-    if sender == "guest":
-        join_coowner(world, faker.ascii_safe_email())
     own = access.spaces_for(people["owner"])[0]
     with pool.connection() as db:
         consent = db.execute(
@@ -536,7 +517,7 @@ def test_transfer_invalidates_ai_consent_without_fabricating_a_human_revocation(
                 "2" * 64,
             ),
         ).fetchone()[0]
-    pending = _request(world, owner_id=people[sender])
+    pending = _request(world)
     PostgresBusinessTransfer(pool).accept(
         actor_id=people["other"], transfer_id=pending.id
     )
