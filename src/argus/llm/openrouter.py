@@ -19,7 +19,10 @@ from argus.env import load_project_dotenv
 from argus.llm import openrouter_model_env as model_policy
 from argus.llm import openrouter_transport as transport
 from argus.llm import provider_permit
-from argus.llm.openrouter_key_policy import resolve_openrouter_api_key
+from argus.llm.openrouter_key_policy import (
+    local_reader_fixtures_enabled,
+    resolve_openrouter_api_key,
+)
 from argus.llm.openrouter_langchain import ChatOpenRouter
 from argus.llm.openrouter_request_policy import (
     guard_openrouter_request as _guard_request,  # noqa: F401
@@ -440,6 +443,7 @@ async def invoke_openrouter_json_schema(
     model_name: str | None = None,
     context_packet_ids: list[str] | None = None,
     before_request: Callable[[], Awaitable[None]] | None = None,
+    document_sha256: str | None = None,
 ) -> SchemaModelT | None:
     started_at = time.perf_counter()
     api_key = resolve_openrouter_api_key()
@@ -488,7 +492,14 @@ async def invoke_openrouter_json_schema(
         )
         data: dict[str, object] = {}
         try:
-            async with httpx.AsyncClient(timeout=permit.timeout_seconds) as client:
+            transport_options: dict[str, httpx.AsyncBaseTransport] = {}
+            if task == "document_extraction" and local_reader_fixtures_enabled():
+                from argus.llm.local_reader_fixtures import response_body
+
+                transport_options["transport"] = httpx.MockTransport(
+                    lambda _: httpx.Response(200, json=response_body(document_sha256))
+                )
+            async with httpx.AsyncClient(timeout=permit.timeout_seconds, **transport_options) as client:
                 request_args = {}
                 if before_request is not None:
                     request_args["prepared_request"] = transport.prepare_json_schema_request(
