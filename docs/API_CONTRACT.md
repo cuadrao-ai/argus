@@ -9686,6 +9686,20 @@ match the stored profile. `previous_name` is null for a Business that keeps a de
 header and file name use the stored digits. The switcher reads the stored name on the
 next space list.
 
+Only one open Business can hold a given RNC or cédula. A changed number held by
+another open Business returns 409 `business_rnc_registered`. The attempted
+profile change is discarded. When the caller has a live grant there, the problem
+includes `context.existing_grant_id` so the app can switch to that Business.
+The refusal omits the holder's space id, name and owner. A closed Business
+releases its number for reuse.
+
+A person can make five registration checks in ten minutes across their Businesses.
+A check occurs when a valid save claims a changed, non-null number. Clearing the
+number, editing only the name and replaying an accepted save consume no checks.
+The sixth check returns 429 `too_many_requests` with `Retry-After` in seconds
+before the server checks who holds the number. The window is per API process
+and resets on restart.
+
 Validation failures are 422 and the problem `code` says what to fix.
 
 - `tax_id_type` means the type is not `rnc` or `cedula`.

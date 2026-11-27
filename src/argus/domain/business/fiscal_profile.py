@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Literal
 
+from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.actions import plans
 from argus.domain.business.actions.dossier import rnc_registry
 from argus.domain.business.actions.type_recheck import recheck_open_drafts
-from argus.domain.business.authority import ActionError
+from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
 from argus.domain.business.contracts.actions import Applied
 from argus.domain.business.contracts.dgii import TaxId
 from argus.domain.business.fiscal_identity import normalized_filer_tax_id
@@ -315,7 +318,13 @@ def set_legal_name(authority, context, command: LegalNameChange, key: str):
     return read_profile(authority, context)
 
 
-def set_profile(authority, context, command: FiscalProfileChange, key: str):
+def _write_profile(
+    authority: BusinessAuthority,
+    context: ActionContext,
+    command: FiscalProfileChange,
+    key: str,
+    check_registration: Callable[[], None] | None,
+) -> int:
     with transaction(authority, context, "manage") as tx:
         _require_manager(context)
         saved = plans.receipt(tx, key, command)
@@ -328,10 +337,12 @@ def set_profile(authority, context, command: FiscalProfileChange, key: str):
                 or _stored_tax_id(row) != command.previous_tax_id
             ):
                 raise ActionError("stale_version", "stale_version")
-            plans.start_receipt(tx, key, command)
             tax_id = command.tax_id
             # A legal name was confirmed for one tax id; another one clears it.
-            keep_legal_name = _stored_tax_id(row) == tax_id
+            keep_legal_name = command.previous_tax_id == tax_id
+            if tax_id is not None and not keep_legal_name and check_registration is not None:
+                check_registration()
+            plans.start_receipt(tx, key, command)
             tx.rows(
                 "update public.spaces"
                 " set name=%s, business_rnc=%s, business_tax_id_type=%s,"
@@ -357,4 +368,33 @@ def set_profile(authority, context, command: FiscalProfileChange, key: str):
             plans.finish_receipt(
                 tx, key, ProfileSaved(outcome="applied", retyped_drafts=moved)
             )
+    return moved
+
+
+def set_profile(
+    authority: BusinessAuthority,
+    context: ActionContext,
+    command: FiscalProfileChange,
+    key: str,
+    *,
+    check_registration: Callable[[], None] | None = None,
+) -> dict:
+    try:
+        moved = _write_profile(authority, context, command, key, check_registration)
+    except UniqueViolation as error:
+        if error.diag.constraint_name != "spaces_open_business_rnc_uidx" or command.tax_id is None:
+            raise
+        # The refused write and its receipt rolled back. Only the caller's live
+        # grant on the indexed number may leave this boundary.
+        with authority.pool.connection() as connection:
+            grant = connection.execute(
+                PostgresAccessStore._GRANTED
+                + " and s.business_rnc is not null"
+                " and argus_private.business_rnc_digits(s.business_rnc)=%s",
+                (context.actor.actor_id, command.tax_id.value),
+            ).fetchone()
+        raise ActionError(
+            "stale_version", "business_rnc_registered",
+            context={"existing_grant_id": grant[0]} if grant else None,
+        ) from None
     return {**read_profile(authority, context), "retyped_drafts": moved}

@@ -1,6 +1,6 @@
 import {afterAll,afterEach,beforeAll,expect,test} from "bun:test";
 import {GlobalRegistrator} from "@happy-dom/global-registrator";
-import {act} from "react";
+import {act, useState} from "react";
 import {createRoot} from "react-dom/client";
 import i18next from "i18next";
 import {I18nextProvider} from "react-i18next";
@@ -10,6 +10,8 @@ import type {BusinessContextValue} from "../components/business-app/BusinessWork
 import type {FiscalProfile,RegistryAnswer} from "../lib/business-dgii";
 
 const SPACE="55555555-5555-4555-8555-555555555555";
+const EXISTING_GRANT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const EXISTING_SPACE = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const LONG_NAME="ASOCIACION DOMINICANA DE PRODUCTORES Y DISTRIBUIDORES DE MATERIALES DE CONSTRUCCION Y FERRETERIA DEL CIBAO ORIENTAL Y LA REGION NORDESTE SRL";
 type Call={method:string;path:string;body:unknown;key:string|null};
 type Reply=(call:Call)=>Response;
@@ -32,6 +34,8 @@ function server(saved:FiscalProfile,registry:(value:string)=>Response,overrides:
     const body=init?.body?JSON.parse(String(init.body)):null;
     const key=new Headers(init?.headers).get("Idempotency-Key");
     const call={method,path,body,key};
+    if(path.endsWith(`/spaces/${EXISTING_SPACE}/profile`))return Response.json({space_id:EXISTING_SPACE,name:"Taller Sol",country:"DO",currency:"DOP",revision:1,details:{},appearance:{kind:"default"},image:null});
+    if(new Headers(init?.headers).get("X-Business-Grant")===EXISTING_GRANT&&path==="/business/fiscal-profile"&&method==="GET")return Response.json({...profile,name:"Taller Sol",tax_id:{type:"rnc",value:"131000014"}});
     if(path.endsWith("/profile"))return Response.json({space_id:SPACE,name:"La Palma",country:"DO",currency:"DOP",revision:1,details:{},appearance:{kind:"default"},image:null});
     calls.push(call);
     if(path==="/business/fiscal-profile/registry")return registry(body.tax_id.value);
@@ -62,7 +66,20 @@ async function mount(locale:"es-419"|"en"="es-419"){
   const fixture=createFixtureBusinessDataSource({chatAvailable:true});
   const context={invoicing:"sample" as const,source:{...fixture,mode:"live",lookupRegistry,saveLegalName:setLegalName},chosen:{space_id:SPACE,name:"La Palma",role:"owner",permissions:["read","manage"]},records:{workspace:{country:"DO"}},reload:()=>{},actions:{create:[]}} as unknown as BusinessContextValue;
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
-  await act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Profile/></BusinessContext.Provider></I18nextProvider>));
+  const {setChosenGrant} = await import("../lib/business-grant");
+  const chosenGrants: (string | null)[] = [];
+  function Workspace() {
+    const [chosen, setChosen] = useState(context.chosen);
+    const [panel, setPanel] = useState<BusinessContextValue["panel"]>({kind:"business",tab:"datos"});
+    const chooseBusiness = (grant: string | null) => {
+      chosenGrants.push(grant);
+      setChosenGrant(grant);
+      setPanel({kind:"overview"});
+      if(grant===EXISTING_GRANT)setChosen({...context.chosen!,space_id:EXISTING_SPACE,grant_id:grant,name:"Taller Sol"});
+    };
+    return <BusinessContext.Provider value={{...context,chosen,panel,chooseBusiness,openPanel:setPanel}}>{panel.kind==="business" ? <Profile key={chosen?.space_id}/> : null}</BusinessContext.Provider>;
+  }
+  await act(async()=>root.render(<I18nextProvider i18n={i18n}><Workspace/></I18nextProvider>));
   await flush();
   const button=(text:string)=>[...document.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent?.includes(text))!;
   const open=async()=>{await act(async()=>button(locale==="en"?"Identity and tax details":"Identidad y datos fiscales").click());await flush();};
@@ -70,7 +87,7 @@ async function mount(locale:"es-419"|"en"="es-419"){
   const block=()=>document.querySelector<HTMLElement>('[data-testid="legal-name"]');
   const type=async(value:string)=>{await act(async()=>{const field=document.querySelector<HTMLInputElement>('[name="tax-id-value"]')!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(field,value);field.dispatchEvent(new Event("input",{bubbles:true}));});await flush();};
   const save=async()=>{await act(async()=>{document.querySelector<HTMLFormElement>('[data-testid="business-fiscal-profile"] form')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));});await flush();};
-  return {block,type,save,button,reopen:open,close:()=>act(async()=>root.unmount())};
+  return {block,type,save,button,chosenGrants,reopen:open,close:()=>act(async()=>{root.unmount();setChosenGrant(null);})};
 }
 
 const empty:FiscalProfile={name:"La Palma",tax_id:null,legal_name:null,can_edit:true};
@@ -276,4 +293,62 @@ test("someone who cannot manage the Business sees no Razón social block and nev
     expect(page.block()).toBeNull();
     expect(calls.some(call=>call.path==="/business/fiscal-profile/registry")).toBe(false);
   }finally{await page.close();}
+});
+
+test.each([
+  ["es-419", "Este RNC ya está registrado en Cuadrao."],
+  ["en", "This RNC is already registered in Cuadrao."],
+] as const)("a registered number stays in the editor with the refusal under Número until the person changes it (%s)", async (locale, message) => {
+  const calls = server(empty, value => Response.json(answer(value,"verificado")), {
+    patch: () => Response.json({code:"business_rnc_registered"},{status:409}),
+  });
+  const page = await mount(locale);
+  try {
+    await page.type("131-00001-4");
+    await page.save();
+    const number = document.querySelector<HTMLInputElement>('[name="tax-id-value"]')!;
+    expect(number.value).toBe("131-00001-4");
+    expect(number.getAttribute("aria-invalid")).toBe("true");
+    expect(document.getElementById(number.getAttribute("aria-describedby")!)?.textContent).toBe(message);
+    expect(page.block()?.dataset.legalNameStatus).toBe("pending");
+    expect(document.body.textContent).not.toMatch(/Solicitar acceso|Pedir acceso/);
+    expect(writes(calls)).toEqual(["PATCH /business/fiscal-profile"]);
+    await page.type("131000022");
+    expect(number.getAttribute("aria-invalid")).toBeNull();
+  } finally { await page.close(); }
+});
+
+test("a grant returned on fiscal save selects the existing Business and closes the editor without confirming its legal name", async () => {
+  const calls = server(empty, value => Response.json(answer(value,"verificado")), {
+    patch: () => Response.json({code:"business_rnc_registered",context:{existing_grant_id:EXISTING_GRANT}},{status:409}),
+  });
+  const page = await mount();
+  try {
+    await page.type("131-00001-4");
+    await page.save();
+    expect(page.chosenGrants).toEqual([EXISTING_GRANT]);
+    expect(document.querySelector('[name="tax-id-value"]')).toBeNull();
+    const identity = page.button("Identidad y datos fiscales");
+    expect(identity.textContent).toContain("131000014");
+    expect(document.activeElement === identity).toBe(true);
+    expect(document.querySelector('[data-testid="business-profile-preview"] h2')?.textContent).toBe("Taller Sol");
+    expect(document.body.textContent).not.toContain("Este RNC ya está registrado");
+    expect(document.body.textContent).not.toContain("Datos guardados.");
+    expect(writes(calls)).toEqual(["PATCH /business/fiscal-profile"]);
+  } finally { await page.close(); }
+});
+
+test("a rate-limited save uses the existing alert and leaves Número editable", async () => {
+  server(empty, value => Response.json(answer(value,"verificado")), {
+    patch: () => Response.json({code:"too_many_requests"},{status:429}),
+  });
+  const page = await mount();
+  try {
+    await page.type("131-00001-4");
+    await page.save();
+    const number = document.querySelector<HTMLInputElement>('[name="tax-id-value"]')!;
+    expect(document.querySelector('[data-testid="business-fiscal-profile"] [role="alert"]')?.textContent).toBe(spanish.auth.errors.too_many_requests);
+    expect(number.value).toBe("131-00001-4");
+    expect(number.getAttribute("aria-invalid")).toBeNull();
+  } finally { await page.close(); }
 });

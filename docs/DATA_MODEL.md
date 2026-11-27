@@ -4058,6 +4058,16 @@ actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
 
+`spaces_open_business_rnc_uidx` enforces one open Business per RNC or cédula
+where `kind = 'business'`, `closed_at is null` and `business_rnc is not null`.
+The index, the migration's duplicate check and the fiscal save's holder lookup
+use `argus_private.business_rnc_digits(text)`. It removes ASCII spaces and
+hyphens, retains leading zeros and accepts 9 or 11 ASCII digits with at least
+one nonzero digit. The migration checks for duplicate open holders in the same
+transaction as index creation. A duplicate aborts the migration and leaves
+every row intact. Closing a Business frees the number. Reopening it is subject
+to the same uniqueness constraint.
+
 `after_dgii` is the declaration stored once the revision is written, or null
 with none. `before_dgii` is the declaration the history compares against. It
 is the stored one when one exists. On a revision that writes the first

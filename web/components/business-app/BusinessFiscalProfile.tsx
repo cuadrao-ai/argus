@@ -30,7 +30,7 @@ type Field = "name" | "number";
 const NAME_LIMIT = 80;
 export type FiscalProfileDraft = {name:string;kind:TaxIdType;value:string};
 /** A refusal the server explains; retrying the same values cannot help. */
-type Problem = { text: string; retry: boolean; reference?: string };
+type Problem = { field?: "number"; text: string; retry: boolean; reference?: string };
 /** What the Razón social block shows for the typed number. */
 /** `stored` is true when the name shown is the one confirmed for this number; only an unstored match asks to confirm. */
 type LegalNameState = Exclude<RegistryStatusState, { status: "inactive" }> | { status: "inactive"; name: string; registryStatus: string; stored: boolean };
@@ -161,7 +161,22 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
       setSaved(true);
       onSaved?.();
     } catch (error) {
-      const code = (error as { code?: string }).code;
+      if (!mounted.current) return;
+      const { code, context, status } = error as { code?: string; context?: { existing_grant_id?: unknown }; status?: number };
+      if (code === "business_rnc_registered") {
+        const grant = context?.existing_grant_id;
+        if (typeof grant === "string" && grant && workspace) {
+          workspace.chooseBusiness(grant);
+          workspace.openPanel({ kind: "business", tab: "datos" });
+        } else {
+          setProblem({ field: "number", text: t("business.dgii.error.business_rnc_registered"), retry: false });
+        }
+        return;
+      }
+      if (status === 429) {
+        setProblem({ text: t("auth.errors.too_many_requests"), retry: false });
+        return;
+      }
       const known = Boolean(code) && i18n.exists(`business.dgii.error.${code}`);
       setProblem({
         text: known ? t(`business.dgii.error.${code}`) : t("business.dgii.profile_failed"),
@@ -186,7 +201,8 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
     name: t("business.dgii.business_name", "Business name"),
     number: t("business.dgii.tax_id_value", "Number"),
   };
-  const changeKind = (next:TaxIdType)=>{setKind(next);setSaved(false);};
+  const clearNumberError = () => setProblem(current => current?.field === "number" ? null : current);
+  const changeKind = (next:TaxIdType)=>{setKind(next);setSaved(false);clearNumberError();};
   const numberHint = t(kind === "rnc" ? "business.dgii.tax_id_hint_rnc" : "business.dgii.tax_id_hint_cedula");
   const taxIdTitle = profile?.tax_id?.type === "cedula" ? t("business.dgii.tax_id_cedula", "Cédula") : t("business.dgii.tax_id_rnc", "RNC");
   const saveButton = <button type="submit" form={`${base}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full rounded-item`} disabled={busy || nameMissing || (unchanged && !confirming)}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
@@ -248,7 +264,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
               placeholder={t(`business.dgii.tax_id_example_${kind}`)}
               hint={numberHint}
               reserveMessages={[numberHint,t("business.dgii.error.tax_id_not_digits"),t(`business.dgii.tax_id_length_${kind}`),t("business.dgii.error.tax_id_all_zero")]}
-              error={checks.errorOf("number")}
+              error={problem?.field === "number" ? problem.text : checks.errorOf("number")}
               inputMode="numeric"
               autoComplete="off"
               spellCheck={false}
@@ -256,12 +272,12 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
               value={value}
               disabled={busy}
               onBlur={() => checks.blur("number")}
-              onChange={(event) => {setValue(event.target.value);setSaved(false);}}
+              onChange={(event) => {setValue(event.target.value);setSaved(false);clearNumberError();}}
             />
           </div>
           {legal ? <DgiiRegistryStatus state={legal} onRetry={retryLookup} testId="legal-name" label={t("business.dgii.legal_name.label")} /> : null}
           {footerTarget === undefined ? actions : footerTarget ? createPortal(actions,footerTarget) : null}
-          {problem ? (
+          {problem && !problem.field ? (
             <div role="alert" className="flex items-start gap-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
               <AlertCircle className="mt-[3px] h-4 w-4 shrink-0" aria-hidden="true" />
               <div className="min-w-0">
