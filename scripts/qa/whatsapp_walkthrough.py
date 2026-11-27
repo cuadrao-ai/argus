@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -22,11 +21,28 @@ from urllib.parse import urlsplit
 import httpx
 from argus.domain.ingestion.whatsapp.media import DOWNLOAD_HOSTS, GRAPH_HOST
 from PIL import Image, ImageDraw
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings
+
+
+class LocalStack(BaseSettings):
+    database: SecretStr = Field(
+        default=SecretStr(""), validation_alias="ARGUS_DISPOSABLE_DATABASE_URL"
+    )
+    api: str = Field(default="", validation_alias="ARGUS_LOCAL_SUPABASE_URL")
+    anon: SecretStr = Field(
+        default=SecretStr(""), validation_alias="ARGUS_LOCAL_SUPABASE_ANON_KEY"
+    )
+    service_role: SecretStr = Field(
+        default=SecretStr(""), validation_alias="ARGUS_LOCAL_SUPABASE_SERVICE_ROLE_KEY"
+    )
+    host_override: str = Field(default="", validation_alias="PGHOSTADDR")
+    service_override: str = Field(default="", validation_alias="PGSERVICE")
 
 
 def local_targets() -> tuple[str, str]:
-    dsn = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "")
-    api = os.getenv("ARGUS_LOCAL_SUPABASE_URL", "")
+    stack = LocalStack()
+    dsn, api = stack.database.get_secret_value(), stack.api
     db, storage = urlsplit(dsn), urlsplit(api)
     if (
         db.scheme not in {"postgres", "postgresql"}
@@ -34,7 +50,7 @@ def local_targets() -> tuple[str, str]:
         or db.hostname not in {"localhost", "127.0.0.1", "::1"}
         or storage.hostname != db.hostname
         or not db.port
-        or (5432 == db.port or 54320 <= db.port <= 54339)
+        or (db.port == 5432 or 54320 <= db.port <= 54339)
         or storage.port != db.port - 1
         or db.query
         or db.fragment
@@ -43,16 +59,13 @@ def local_targets() -> tuple[str, str]:
         or storage.username
         or storage.password
         or storage.path.rstrip("/")
-        or os.getenv("PGHOSTADDR")
-        or os.getenv("PGSERVICE")
+        or stack.host_override
+        or stack.service_override
     ):
         raise ValueError(
             "Set both URLs to the same disposable loopback stack on a dedicated port block."
         )
-    if not all(
-        os.getenv("ARGUS_LOCAL_SUPABASE_" + key)
-        for key in ("ANON_KEY", "SERVICE_ROLE_KEY")
-    ):
+    if not stack.anon.get_secret_value() or not stack.service_role.get_secret_value():
         raise ValueError("Set the local stack's anon and service-role keys.")
     return dsn, api
 

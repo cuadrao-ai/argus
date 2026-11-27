@@ -91,7 +91,10 @@ class WalkthroughDesk:
 
 @pytest.fixture
 def desk(monkeypatch: pytest.MonkeyPatch) -> Iterator[WalkthroughDesk]:
-    dsn, url = local_targets()
+    try:
+        dsn, url = local_targets()
+    except ValueError as error:
+        pytest.skip(str(error))
     for key, value in {
         **ENV,
         "CUADRAO_DOCUMENT_EXTRACTION_ENABLED": "true",
@@ -474,10 +477,12 @@ async def run_cases(w: SignedForward) -> None:
 
     assigned = assign("Sin-comprador.png", "A")
     assert (await w.inbox("A"))["Sin-comprador.png"]["id"] == assigned.connection_id
+    assert await w.read(assigned.connection_id) is None
     assert len(w.held()) == 2
     w.evidence("2 | assigned to A with room | channel=whatsapp", (7, 3, 2, 2))
     assigned = assign("Compra-3.png", "A")
     assert (await w.inbox("A"))["Compra-3.png"]["id"] == assigned.connection_id
+    assert await w.read(assigned.connection_id) is None
     assert len(w.held()) == 1
     w.evidence("2 | assigned at A's cap | channel=whatsapp", (7, 3, 2, 2))
 
