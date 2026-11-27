@@ -1,21 +1,14 @@
 """Synthetic phone-link setup and the notices used in both language fixtures."""
 
 from argus.domain.business.access import PostgresAccessStore
+from argus.domain.ingestion.whatsapp.ai_consent import LINK_DISCLOSURES
 from faker import Faker
 from psycopg_pool import ConnectionPool
 
 from tests.business_reading_support import reading_setting
 
-NOTICE = (
-    "Al vincular tu número, aceptas que la foto o el PDF que envíes se lea con IA "
-    "para saber a qué negocio va."
-)
-
-
-ENGLISH_NOTICE = (
-    "By linking your number, you agree that the photo or PDF you send is read by AI "
-    "to find which business it belongs to."
-)
+NOTICE = LINK_DISCLOSURES["es-419"]
+ENGLISH_NOTICE = LINK_DISCLOSURES["en"]
 
 
 def prepare_phone_business(pool: ConnectionPool, space_id: str, person: str) -> None:
