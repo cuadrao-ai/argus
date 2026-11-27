@@ -308,7 +308,7 @@ def test_the_email_link_carries_the_invite_and_the_right_door() -> None:
     assert f"{link}&amp;auth=signup" in message.html
 
 
-def test_a_business_without_a_name_sends_and_resends_no_invite(
+def test_a_business_without_a_name_sends_no_invite_by_any_route(
     biz: TestClient, identities, gateway, invites_on
 ) -> None:  # noqa: ANN001
     alice = Owner(biz, ALICE, identities[ALICE]["id"])
@@ -322,6 +322,8 @@ def test_a_business_without_a_name_sends_and_resends_no_invite(
         409,
         "business_name_required",
     )
+    single = alice.post("/access", {"email": recipient["email"], "role": "viewer"})
+    assert (single.status_code, single.json()["code"]) == (409, "business_name_required")
     assert alice.get("/access").json()["invites"] == []
     _, listed = business_access().give(
         alice.scope().owner.space_id,
