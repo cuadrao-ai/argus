@@ -256,7 +256,7 @@ async def test_preparation_stays_invisible_until_the_capture_commits(
 
 
 @pytest.mark.asyncio
-async def test_reading_withdrawn_before_settlement_leaves_the_receipt_unread(
+async def test_reading_withdrawn_before_settlement_holds_the_receipt_unread(
     webhook: Webhook, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     upload = webhook.documents.upload

@@ -22,7 +22,6 @@ import psycopg
 import pytest
 from argus.api.whatsapp import DocumentsDestination
 from argus.domain import financial_search
-from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.service import BusinessService
 from argus.domain.business.spaces import PostgresSpaceStore
@@ -500,7 +499,7 @@ def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> No
         == person
     )
     destination = DocumentsDestination(
-        world.documents, world.spaces, PostgresAccessStore(world.pool)
+        world.documents, store
     )
     captured = asyncio.run(
         destination.capture(
@@ -529,6 +528,7 @@ def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> No
         person,
         captured.connection_id,
         storage_user_id=person,
+        sender_link_id=store.sender_link(sender_hash=sender).id,
         space_id=business.space_id,
     )
     settled = store.settle(
@@ -546,14 +546,14 @@ def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> No
         now=now,
         claim_until=now + timedelta(seconds=90),
     )
-    refused = store.settle(
-        provider_message_key=forged,
-        claim_until=claim.record.claim_until,
-        settlement=replace(capture, connection_id=world.receipt[("a", "personal")]),
-        now=now,
-    )
-    assert refused is not None and refused.status == "rejected"
-    assert refused.connection_id is None
+    with pytest.raises(LookupError, match="whatsapp_staged_source_missing"):
+        store.settle(
+            provider_message_key=forged,
+            claim_until=claim.record.claim_until,
+            settlement=replace(capture, connection_id=world.receipt[("a", "personal")]),
+            now=now,
+        )
+    assert store.inbound(forged).status == "received"
     assert store.inbound(forged).sender_link_id is None
 
 

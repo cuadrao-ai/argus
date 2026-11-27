@@ -61,7 +61,7 @@ def _second_worker(world: World) -> World:
     documents = copy.copy(world.documents)
     documents._capture_slot = asyncio.Semaphore(1)
     second = copy.copy(world.intake)
-    second.destination = DocumentsDestination(documents, world.spaces, world.intake.destination.access)
+    second.destination = DocumentsDestination(documents, world.store)
     second.processing_seconds = PROCESSING_SECONDS
     return replace(world, intake=second)
 
@@ -278,7 +278,29 @@ async def a_renewal_error_after_redelivery_sends_nothing(world: World) -> None:
     assert len(world.captures(world.alice)) == 1
 
 
+async def a_mismatched_staged_scope_remains_retryable(world: World) -> None:
+    await world.link(world.alice, ALICE_PHONE)
+    media, message_id = "700000000000177", "wamid.SCOPE-CHANGED"
+    world.graph.media[media] = Media(RECEIPT_PNG, "image/png")
+    capture = world.intake.destination.capture
+
+    async def stale_binding(**kwargs):
+        return replace(await capture(**kwargs), space_id=None)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(world.intake.destination, "capture", stale_binding)
+        with pytest.raises(LookupError, match="whatsapp_staged_source_missing"):
+            await world.deliver(image(media, message_id))
+    pending = world.record(message_id)
+    assert pending.status == "received" and pending.connection_id is None
+    world.clock.now = pending.claim_until + timedelta(seconds=1)
+    await world.deliver(image(media, message_id))
+    assert world.record(message_id).status == "captured"
+    assert len(world.captures(world.alice)) == 1
+
+
 HEARTBEAT_CASES = (
+    a_mismatched_staged_scope_remains_retryable,
     a_heartbeat_holds_the_claim_through_a_cancelled_capture,
     a_worker_that_lost_its_claim_sends_nothing,
     a_cancelled_worker_keeps_its_claim_until_the_capture_ends,
