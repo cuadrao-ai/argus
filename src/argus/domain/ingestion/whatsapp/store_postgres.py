@@ -311,6 +311,8 @@ class PostgresWhatsAppStore:
                 "linked_at) values (%s, %s, %s, %s, 'active', %s) returning id",
                 (owner, sender_hash, last4, reply_language, now),
             ).fetchone()
+            # Keep one reproducible grant as evidence of authority at redemption.
+            # Consent belongs to the link and checks current eligibility at read time.
             record_link_consent(
                 connection, grant=min(grants, key=lambda grant: grant.grant_id),
                 link_id=link[0], sender_hash=sender_hash,

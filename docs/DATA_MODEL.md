@@ -3878,7 +3878,10 @@ held reads records the exact notice accepted when requesting a link code.
 The pending challenge holds the notice in `whatsapp_link_codes.disclosure` until
 redemption clears it. Codes issued before this column existed require a fresh
 request. The receipt’s sender-link ID identifies the verified number. The Business and grant
-record authority at redemption. Business automatic reading has its own
+record authority at redemption. While the link remains active, held reads require a
+current eligible Business for the sender, an unrevoked receipt, and the matching
+disclosure and route. Losing the recorded grant preserves the original receipt.
+Business automatic reading has its own
 consent in `business_receipt_reading_consents`.
 Removing the parent link or erasing the account removes its consent receipts.
 Erasing a different grant issuer preserves the consent and replaces the issuer

@@ -146,3 +146,51 @@ def test_unverified_notice_cannot_replace_an_active_link(
         assert db.execute(
             "select count(*) from public.business_whatsapp_ai_consents where owner_id=%s", (person,),
         ).fetchone() == (0,)
+
+
+def test_link_consent_survives_loss_of_the_recorded_grant_until_the_last_eligible_business(
+    pool: ConnectionPool, users: dict[str, str], monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from argus.domain.business.access import PostgresAccessStore
+    from argus.domain.ingestion.whatsapp.receipt_consent import receipt_reading_enabled
+
+    owner, editor = users["owner"], users["other"]
+    monkeypatch.setattr(
+        "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route", lambda: ROUTE
+    )
+    spaces = PostgresSpaceStore(pool)
+    first, _ = spaces.create(owner, Faker().company())
+    second, _ = spaces.create_additional(owner, Faker().company(), "DO", str(uuid4()))
+    access = PostgresAccessStore(pool)
+    with pool.connection() as db:
+        email = db.execute(
+            "update auth.users set email_confirmed_at=now() where id=%s returning email", (editor,)
+        ).fetchone()[0]
+    for space in (first, second):
+        prepare_phone_business(pool, space.id, owner)
+        _, listing = access.give(space.id, owner, email)
+        access.accept_invite(editor, space.id, listing.invites[0].id)
+    store = PostgresWhatsAppStore(pool)
+    now, code, sender = Clock()(), uuid4().bytes * 2, uuid4().bytes * 2
+    store.issue_code(
+        destination_owner_id=editor, code_digest=code, reply_language="es-419",
+        disclosure=NOTICE, now=now, expires_at=now + timedelta(minutes=10),
+    )
+    assert store.redeem_code(code_digest=code, sender_hash=sender, last4="4321", now=now)
+    permission = AIConsentStore(pool, lambda: ROUTE)
+    assert receipt_reading_enabled(permission, editor)
+    with pool.connection() as db:
+        original_space, original_grant = db.execute(
+            "select space_id::text,grant_id::text from public.business_whatsapp_ai_consents"
+            " where owner_id=%s", (editor,),
+        ).fetchone()
+    access.revoke_grant(original_space, owner, original_grant)
+    assert receipt_reading_enabled(permission, editor)
+    [remaining] = access.spaces_for(editor)
+    access.revoke_grant(remaining.space_id, owner, remaining.grant_id)
+    assert not receipt_reading_enabled(permission, editor)
+    with pool.connection() as db:
+        assert db.execute(
+            "select space_id::text,grant_id::text,revoked_at from public.business_whatsapp_ai_consents"
+            " where owner_id=%s", (editor,),
+        ).fetchall() == [(original_space, original_grant, None)]

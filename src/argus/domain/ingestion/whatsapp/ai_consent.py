@@ -4,36 +4,23 @@ import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from psycopg import Connection
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
-from pydantic import Field
 
 from argus.domain.business.access import GrantedSpace
-from argus.domain.business.authority import ActionError, Authorization, authorize
+from argus.domain.business.authority import authorize
 from argus.domain.business.contracts.authority import TrustedActor
-from argus.domain.business.contracts.facts import Contract
+from argus.domain.ingestion.whatsapp.senders import postgres_senders
 
 
 @dataclass(frozen=True)
 class ConsentScope:
-    """What a permission covers. The text the owner was shown, in their language,
-    is the one stored and hashed; a change to either text asks for consent again."""
-
     version: int
     purpose: str
-    disclosure: str | None = None
-    disclosure_es: str | None = None
-
-    def text(self, language: str | None) -> str | None:
-        spanish = bool(language) and language.lower().startswith("es")
-        return self.disclosure_es if spanish and self.disclosure_es else self.disclosure
-
-    def texts(self) -> tuple[str, ...]:
-        return tuple(t for t in (self.disclosure, self.disclosure_es) if t)
 
 
 RECEIPT_SCOPE = ConsentScope(2, "business_whatsapp_receipt_reading")
@@ -48,12 +35,6 @@ LINK_DISCLOSURES = {
         "to find which business it belongs to."
     ),
 }
-
-
-class EnableAIConsent(Contract):
-    action: Literal["enable"]
-    disclosure_token: str = Field(pattern=r"^[0-9a-f]{64}$")
-    language: str | None = Field(default=None, max_length=16)
 
 
 class ConsentError(PermissionError):
@@ -92,213 +73,60 @@ def digest(value: Any) -> str:
 
 
 class AIConsentStore:
-    def __init__(
-        self,
-        pool,
-        route: Callable[[], dict[str, Any]],
-        scope: ConsentScope = RECEIPT_SCOPE,
-    ) -> None:
-        self.pool, self.route, self.scope = pool, route, scope
+    def __init__(self, pool, route: Callable[[], dict[str, Any]]) -> None:
+        self.pool, self.route = pool, route
 
-    def _route(self) -> dict[str, Any]:
-        try:
-            route = self.route()
-        except ValueError as error:
-            raise ConsentError("whatsapp_ai_route_unavailable", 503) from error
-        if not route:
-            raise ConsentError("whatsapp_ai_route_unavailable", 503)
-        return route
-
-    @staticmethod
-    def _link(connection, person_id: UUID, *, lock: bool = False):
-        return connection.execute(
-            "select id,wa_id_hash,last4 from public.whatsapp_sender_links"
-            " where destination_owner_id=%s and status='active'"
-            + (" for update" if lock else ""),
-            (person_id,),
-        ).fetchone()
-
-    @staticmethod
-    def _latest(connection, link_id):
-        with connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(
-                "select * from public.business_whatsapp_ai_consents where sender_link_id=%s"
-                " order by consented_at desc,id desc limit 1",
-                (link_id,),
-            )
-            return cursor.fetchone()
-
-    def _view(self, link, latest, route, language: str | None = None):
-        disclosure = self.scope.text(language)
-        token = digest(
-            {
-                "link": str(link[0]),
-                "scope": self.scope.version,
-                "disclosure": disclosure,
-                "route": route,
-                "previous": str(latest["id"]) if latest else None,
-                "revoked": str(latest["revoked_at"]) if latest else None,
-            }
-        )
-        return {
-            "linked": True,
-            "available": True,
-            "reason": None,
-            "last4": link[2],
-            "scope_version": self.scope.version,
-            "purpose": self.scope.purpose,
-            "active_scope_version": latest["scope_version"]
-            if latest and latest["revoked_at"] is None
-            else None,
-            "disclosure": disclosure or (latest and latest["disclosure"]),
-            "route": route,
-            "disclosure_token": token if disclosure else None,
-            "enabled": bool(
-                latest
-                and latest["revoked_at"] is None
-                and self._matches_disclosure(latest, route)
-            ),
-            "consented_at": latest["consented_at"] if latest else None,
-            "revoked_at": latest["revoked_at"] if latest else None,
-        }
-
-    def _matches_disclosure(self, row, route) -> bool:
-        return (
-            row["scope_version"] == self.scope.version
-            and (
-                row["disclosure"] in self.scope.texts()
-                if self.scope.texts()
-                else row["disclosure"] in LINK_DISCLOSURES.values()
-            )
-            and row["route_hash"] == digest(route)
-        )
-
-    def status(
-        self,
-        owner_id: UUID,
-        space_id: UUID | None = None,
-        unavailable_reason: str | None = None,
-        language: str | None = None,
-    ) -> dict:
-        with self.pool.connection() as connection, connection.transaction():
-            link = self._link(connection, owner_id)
-            if link is None:
-                return {
-                    "linked": False,
-                    "available": False,
-                    "reason": "whatsapp_link_required",
-                    "last4": None,
-                    "scope_version": self.scope.version,
-                    "purpose": self.scope.purpose,
-                    "active_scope_version": None,
-                    "disclosure": self.scope.text(language),
-                    "route": None,
-                    "disclosure_token": None,
-                    "enabled": False,
-                    "consented_at": None,
-                    "revoked_at": None,
-                }
-            try:
-                route = self._route()
-            except ConsentError:
-                route = None
-                unavailable_reason = "whatsapp_ai_route_unavailable"
-            latest = self._latest(connection, link[0])
-            view = self._view(link, latest, route, language)
-            view["enabled"] = view["enabled"] and self._valid_grant(connection, latest)
-            selected = space_id or (latest and latest["space_id"])
-            if selected is None:
-                unavailable_reason = "business_unavailable"
-            else:
+    def status(self, owner_id: UUID) -> dict:
+        with self.pool.connection() as db, db.transaction():
+            link = db.execute(
+                "select l.id,l.last4,l.reply_language from public.whatsapp_sender_links l"
+                " join auth.users u on u.id=l.destination_owner_id"
+                " where u.id=%s and not coalesce(u.is_anonymous,false) and l.status='active'"
+                " for share of l",
+                (owner_id,),
+            ).fetchone()
+            latest = None
+            route = None
+            reason = "whatsapp_link_required"
+            if link:
+                with db.cursor(row_factory=dict_row) as cursor:
+                    latest = cursor.execute(
+                        "select scope_version,disclosure,route_hash,consented_at,revoked_at"
+                        " from public.business_whatsapp_ai_consents where sender_link_id=%s"
+                        " order by consented_at desc,id desc limit 1 for share",
+                        (link[0],),
+                    ).fetchone()
                 try:
-                    authorize(
-                        connection,
-                        TrustedActor(
-                            actor_id=owner_id, space_id=selected, actor_kind="member"
-                        ),
-                    ).require("prepare")
-                except ActionError:
-                    unavailable_reason = "business_permission_denied"
-            if unavailable_reason:
-                view.update(
-                    available=False, reason=unavailable_reason, disclosure_token=None
-                )
-            return view
+                    route = self.route()
+                except ValueError:
+                    route = None
+                if not route:
+                    reason = "whatsapp_ai_route_unavailable"
+                elif not postgres_senders(db).eligible_businesses(str(owner_id)):
+                    reason = "whatsapp_setup_required"
+                else:
+                    reason = None
 
-    @staticmethod
-    def _valid_grant(connection, row) -> bool:
-        try:
-            auth = authorize(
-                connection,
-                TrustedActor(
-                    actor_id=row["owner_id"],
-                    space_id=row["space_id"],
-                    actor_kind="member",
+            active = bool(latest and latest["revoked_at"] is None)
+            return {
+                "linked": link is not None,
+                "available": reason is None,
+                "reason": reason,
+                "last4": link[1] if link else None,
+                "scope_version": RECEIPT_SCOPE.version,
+                "purpose": RECEIPT_SCOPE.purpose,
+                "active_scope_version": latest["scope_version"] if active else None,
+                "disclosure": latest["disclosure"] if latest else None,
+                "route": route,
+                "enabled": bool(
+                    reason is None and active
+                    and latest["scope_version"] == RECEIPT_SCOPE.version
+                    and matches_link_disclosure(link[2], latest["disclosure"])
+                    and latest["route_hash"] == digest(route)
                 ),
-                row["grant_id"],
-            )
-            auth.require("prepare")
-            return auth.provenance.issuer_id == row["issuer_id"]
-        except ActionError:
-            return False
-
-    def enable(
-        self, owner_id: UUID, space_id: UUID, request: EnableAIConsent, key: str
-    ) -> dict:
-        if not 1 <= len(key) <= 80 or "\x00" in key:
-            raise ConsentError("invalid_idempotency_key", 422)
-        route = self._route()
-        input_hash = digest(request.model_dump(mode="json"))
-        with self.pool.connection() as connection, connection.transaction():
-            link = self._link(connection, owner_id, lock=True)
-            if link is None:
-                raise ConsentError("whatsapp_link_required", 409)
-            auth = authorize(
-                connection,
-                TrustedActor(actor_id=owner_id, space_id=space_id, actor_kind="member"),
-            )
-            auth.require("prepare")
-            with connection.cursor(row_factory=dict_row) as cursor:
-                cursor.execute(
-                    "select * from public.business_whatsapp_ai_consents"
-                    " where owner_id=%s and idempotency_key=%s",
-                    (owner_id, key),
-                )
-                prior = cursor.fetchone()
-            if prior:
-                if (
-                    prior["input_hash"] != input_hash
-                    or prior["sender_link_id"] != link[0]
-                ):
-                    raise ConsentError("whatsapp_consent_idempotency_conflict", 409)
-                if not self._valid_grant(connection, prior):
-                    raise ConsentError("whatsapp_ai_consent_authority_changed")
-                return self._view(link, prior, route)
-            latest = self._latest(connection, link[0])
-            view = self._view(link, latest, route, request.language)
-            if request.disclosure_token != view["disclosure_token"]:
-                raise ConsentError("whatsapp_consent_disclosure_stale", 409)
-            if latest and latest["revoked_at"] is None:
-                if view["enabled"] and self._valid_grant(connection, latest):
-                    raise ConsentError("whatsapp_consent_already_enabled", 409)
-                # Keep the prior consent as history when its grant or disclosure changed.
-                connection.execute(
-                    "update public.business_whatsapp_ai_consents"
-                    " set revoked_at=clock_timestamp(),revoked_by=%s where id=%s",
-                    (owner_id, latest["id"]),
-                )
-            _insert_consent(
-                connection,
-                link[0],
-                link[1],
-                auth,
-                self.scope,
-                self.scope.text(request.language),
-                route,
-                key,
-                input_hash,
-            )
-            return self._view(link, self._latest(connection, link[0]), route)
+                "consented_at": latest["consented_at"] if latest else None,
+                "revoked_at": latest["revoked_at"] if latest else None,
+            }
 
     def revoke(self, owner_id: UUID) -> None:
         with self.pool.connection() as connection, connection.transaction():
@@ -311,41 +139,6 @@ class AIConsentStore:
                 " where owner_id=%s and revoked_at is null",
                 (owner_id, owner_id),
             )
-
-
-def _insert_consent(
-    connection: Connection,
-    link_id: UUID,
-    sender_hash: bytes,
-    auth: Authorization,
-    scope: ConsentScope,
-    disclosure: str,
-    route: dict[str, Any],
-    key: str,
-    input_hash: str,
-) -> None:
-    connection.execute(
-        "insert into public.business_whatsapp_ai_consents"
-        " (sender_link_id,space_id,owner_id,sender_hash,consenting_actor_id,grant_id,issuer_id,"
-        " scope_version,purpose,disclosure,route,route_hash,idempotency_key,input_hash)"
-        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-        (
-            link_id,
-            auth.context.actor.space_id,
-            auth.context.actor.actor_id,
-            sender_hash,
-            auth.context.actor.actor_id,
-            auth.context.grant_id,
-            auth.provenance.issuer_id,
-            scope.version,
-            scope.purpose,
-            disclosure,
-            Jsonb(route),
-            digest(route),
-            key,
-            input_hash,
-        ),
-    )
 
 
 def record_link_consent(
@@ -382,14 +175,25 @@ def record_link_consent(
         if row is None:
             raise ConsentError("whatsapp_ai_route_unavailable", 503) from None
         route = row[0]
-    _insert_consent(
-        connection,
-        link_id,
-        sender_hash,
-        auth,
-        RECEIPT_SCOPE,
-        disclosure,
-        route,
-        str(link_id),
-        digest([language, disclosure]),
+    connection.execute(
+        "insert into public.business_whatsapp_ai_consents"
+        " (sender_link_id,space_id,owner_id,sender_hash,consenting_actor_id,grant_id,issuer_id,"
+        " scope_version,purpose,disclosure,route,route_hash,idempotency_key,input_hash)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        (
+            link_id,
+            auth.context.actor.space_id,
+            auth.context.actor.actor_id,
+            sender_hash,
+            auth.context.actor.actor_id,
+            auth.context.grant_id,
+            auth.provenance.issuer_id,
+            RECEIPT_SCOPE.version,
+            RECEIPT_SCOPE.purpose,
+            disclosure,
+            Jsonb(route),
+            digest(route),
+            str(link_id),
+            digest([language, disclosure]),
+        ),
     )
