@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import timedelta
-from uuid import uuid4
+from uuid import UUID
 
 import pytest
 from argus.domain.business.read_budget import ReadBudgetSettings
@@ -26,26 +26,21 @@ def sender(desk, actions):
     desk.custodian, desk.owner = desk.owner, desk.other
     desk.space = str(actions[1].actor.space_id)
     desk.grant = str(actions[2])
+    enable(desk)
+    held.link_sender(desk)
     return desk
 
 
 def capture(sender):
     row = held.upload(sender)
-    sender_hash = uuid4().bytes * 2
     with sender.pool.connection() as db:
-        db.execute(
-            "insert into public.whatsapp_sender_links"
-            "(id,destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
-            " values (%s,%s,%s,'0123','es-419','active',%s)",
-            (row.sender_link_id, sender.owner, sender_hash, sender.now),
-        )
         db.execute(
             "insert into public.whatsapp_inbound_messages"
             "(provider_message_key,sender_hash,status,destination_owner_id,sender_link_id,"
             "connection_id,received_at,updated_at) values (%s,%s,'captured',%s,%s,%s,%s,%s)",
             (
                 row.provider_message_key,
-                sender_hash,
+                sender.sender_hash,
                 sender.owner,
                 row.sender_link_id,
                 row.connection_id,
@@ -325,3 +320,131 @@ def test_arrival_event_names_only_the_receiving_business(sender, monkeypatch, au
     assert [
         (event["business_id"], event["user_id"], event["channel"]) for event in received
     ] == [(sender.space, sender.owner, "whatsapp")]
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["disconnected", "relinked", "consent_revoked", "no_eligible", "changed_route"],
+)
+def test_queued_held_file_rechecks_original_authority_at_provider_admission(
+    sender, monkeypatch, change
+):
+    from argus.domain.ingestion.whatsapp.receipt_consent import receipt_consent_store
+    from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
+
+    row = capture(sender)
+    if change in ("disconnected", "relinked"):
+        assert PostgresWhatsAppStore(sender.pool).revoke(
+            destination_owner_id=sender.owner, now=sender.now
+        )
+        if change == "relinked":
+            # The replacement is fully authorized for its own new deliveries.
+            held.link_sender(sender)
+            assert receipt_consent_store(sender.pool).status(UUID(sender.owner))[
+                "enabled"
+            ]
+    elif change == "consent_revoked":
+        receipt_consent_store(sender.pool).revoke(UUID(sender.owner))
+    elif change == "no_eligible":
+        with sender.pool.connection() as db:
+            db.execute(
+                "update public.business_client_grants set revoked_at=now() where id=%s",
+                (sender.grant,),
+            )
+    else:
+        monkeypatch.setattr(
+            "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route",
+            lambda: {"gateway": "another-test-route"},
+        )
+    assert held.read(sender, row) == "document_reading_not_allowed"
+    assert counts(sender) == (0, 0) and sender.extractor.calls == 0
+    [private] = sender.files.list_for_user(sender.owner)
+    assert private.state == "held"
+    assert private.reason == (
+        "no_eligible_business" if change == "no_eligible" else "read_failed"
+    )
+    assert (
+        sender.service.store.job(
+            user_id=sender.owner, connection_id=row.connection_id
+        ).provider_calls
+        == 0
+    )
+
+
+def test_next_day_held_retry_checks_consent_again(sender):
+    from argus.domain.ingestion.email_intake.budget import next_business_day
+    from argus.domain.ingestion.whatsapp.receipt_consent import receipt_consent_store
+
+    from workflows.read_resume import ReadResume
+
+    row = capture(sender)
+    sender.files.budget().charge(sender.owner, sender.now)
+    assert held.read(sender, row) == "whatsapp_held_read_budget_day"
+    receipt_consent_store(sender.pool).revoke(UUID(sender.owner))
+    sender.now = next_business_day(sender.now) + timedelta(seconds=1)
+    ReadResume(sender.service).run(sender.now)
+    assert held.read(sender, row) == "document_reading_not_allowed"
+    assert sender.extractor.calls == 0 and counts(sender) == (0, 1)
+
+
+def test_already_admitted_held_read_finishes_after_disconnect(sender, monkeypatch):
+    from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
+
+    row = capture(sender)
+    extract_for_business(sender, monkeypatch)
+    extract = sender.extractor.extract
+
+    async def disconnect_after_call(**kwargs):
+        result = await extract(**kwargs)
+        assert PostgresWhatsAppStore(sender.pool).revoke(
+            destination_owner_id=sender.owner, now=sender.now
+        )
+        return result
+
+    monkeypatch.setattr(sender.extractor, "extract", disconnect_after_call)
+    assert held.read(sender, row) == "prepared"
+    assert sender.files.list_for_user(sender.owner)[0].state == "assigned"
+    assert sender.extractor.calls == 1 and counts(sender) == (1, 0)
+
+
+def test_second_provider_request_checks_the_original_consent_again(sender, monkeypatch):
+    from argus.domain.ingestion.whatsapp.receipt_consent import receipt_consent_store
+
+    row = capture(sender)
+
+    async def retry_after_revocation(**kwargs):
+        await kwargs["before_request"]()
+        sender.extractor.calls += 1
+        receipt_consent_store(sender.pool).revoke(UUID(sender.owner))
+        await kwargs["before_request"]()
+        pytest.fail("a second provider request passed after revocation")
+
+    monkeypatch.setattr(sender.extractor, "extract", retry_after_revocation)
+    assert held.read(sender, row) == "document_reading_not_allowed"
+    assert sender.extractor.calls == 1 and counts(sender) == (0, 1)
+    job = sender.service.store.job(user_id=sender.owner, connection_id=row.connection_id)
+    assert job.provider_calls == 1
+
+
+def test_business_read_rechecks_the_senders_grant_before_provider_admission(
+    sender, monkeypatch
+):
+    row = capture(sender)
+    result = assign(sender, row)
+    assert result.status == "queued"
+    original = sender.extractor.extract
+
+    async def revoke_before_admission(**kwargs):
+        with sender.pool.connection() as db:
+            db.execute(
+                "update public.business_client_grants set revoked_at=now() where id=%s",
+                (sender.grant,),
+            )
+        return await original(**kwargs)
+
+    monkeypatch.setattr(sender.extractor, "extract", revoke_before_admission)
+    assert (
+        asyncio.run(read_receipt(sender.service, sender.custodian, result.connection_id))
+        != "prepared"
+    )
+    assert counts(sender) == (0, 0) and sender.extractor.calls == 0

@@ -66,6 +66,12 @@ def desk(pool, users, monkeypatch):
         "HELD_READS_PER_DAY": "1",
     }.items():
         monkeypatch.setenv("CUADRAO_WHATSAPP_" + key, value)
+    from tests.business_reading_support import ROUTE
+
+    monkeypatch.setattr(
+        "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route",
+        lambda: ROUTE,
+    )
     objects = InMemorySourceObjects()
     extractor = Extractor()
     service = postgres_documents_service(pool, objects, extractor)
@@ -83,6 +89,42 @@ def desk(pool, users, monkeypatch):
     return desk
 
 
+def link_sender(desk):
+    """Accept the read notice on the real link that accompanies the held draft."""
+    from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
+
+    from tests.ingestion.whatsapp_link_support import NOTICE
+
+    store = PostgresWhatsAppStore(desk.pool)
+    code = uuid4().bytes * 2
+    desk.sender_hash = uuid4().bytes * 2
+    store.issue_code(
+        destination_owner_id=desk.owner,
+        code_digest=code,
+        reply_language="es-419",
+        disclosure=NOTICE,
+        now=desk.now,
+        expires_at=desk.now + timedelta(minutes=10),
+    )
+    link = store.redeem_code(
+        code_digest=code, sender_hash=desk.sender_hash, last4="0123", now=desk.now
+    )
+    assert link is not None
+    desk.sender_link_id = link.id
+
+
+@pytest.fixture
+def linked_desk(desk):
+    from tests.ingestion.whatsapp_link_support import prepare_phone_business
+    from tests.test_business_spaces_migration_postgres import owned_space
+
+    with desk.pool.connection() as db:
+        business = owned_space(db, desk.owner)
+    prepare_phone_business(desk.pool, business, desk.owner)
+    link_sender(desk)
+    return desk
+
+
 def upload(desk, *, content=None):
     message = uuid4().bytes * 2
 
@@ -96,7 +138,7 @@ def upload(desk, *, content=None):
             scope=PERSONAL,
             on_capture=desk.files.capture(
                 user_id=desk.owner,
-                sender_link_id=str(uuid4()),
+                sender_link_id=getattr(desk, "sender_link_id", str(uuid4())),
                 provider_message_key=message,
                 reason="no_match",
                 now=desk.now,
@@ -118,7 +160,8 @@ def read(desk, row):
     return asyncio.run(read_receipt(desk.service, desk.owner, row.connection_id))
 
 
-def test_one_read_no_business_charge_import_event_or_record(desk):
+def test_one_read_no_business_charge_import_event_or_record(linked_desk):
+    desk = linked_desk
     row = upload(desk)
     assert read(desk, row) == "prepared"
     assert desk.extractor.calls == 1
@@ -141,7 +184,8 @@ def test_one_read_no_business_charge_import_event_or_record(desk):
         ).fetchone() == (0,)
 
 
-def test_cap_resumes_next_santo_domingo_day(desk):
+def test_cap_resumes_next_santo_domingo_day(linked_desk):
+    desk = linked_desk
     from argus.domain.ingestion.email_intake.budget import next_business_day
 
     first, waiting = upload(desk), upload(desk)

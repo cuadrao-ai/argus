@@ -839,16 +839,15 @@ class DocumentsService:
                         )
                     # From here to the end of ``extract`` the call is out.
                     call = AdmittedCall(self.read_breaker, admission)
-                    if attempt_id is not None and not self.store.mark_provider_call(
-                        user_id=user_id,
-                        connection_id=connection_id,
-                        attempt_id=attempt_id,
-                        holder=holder,
-                        now=self.hub.clock(),
+                    if is_held(draft):
+                        draft = await asyncio.to_thread(
+                            self._charge_held_read, user_id, draft, holder, attempt_id
+                        )
+                    elif attempt_id is not None and not self.store.mark_provider_call(
+                        user_id=user_id, connection_id=connection_id,
+                        attempt_id=attempt_id, holder=holder, now=self.hub.clock(),
                     ):
                         raise DocumentServiceError("document_lease_lost", retryable=True)
-                    if is_held(draft):
-                        draft = await asyncio.to_thread(self._charge_held_read, user_id, draft, holder)
                     business_id = space_id(scope)
                     if not is_held(draft) and business_id is not None and self.read_budget is not None:
                         refused = await asyncio.to_thread(
@@ -1077,12 +1076,20 @@ class DocumentsService:
         return draft, attached
 
     def _charge_held_read(
-        self, user_id: str, draft: DocumentDraft, holder: str
+        self, user_id: str, draft: DocumentDraft, holder: str, attempt_id: str | None
     ) -> DocumentDraft:
         from argus.domain.ingestion.whatsapp.held import charge_read
 
         def charge(store: DocumentStore) -> DocumentDraft:
             charged_at = self.hub.clock()
+            if attempt_id is not None and not store.mark_provider_call(
+                user_id=user_id,
+                connection_id=draft.connection_id,
+                attempt_id=attempt_id,
+                holder=holder,
+                now=charged_at,
+            ):
+                raise DocumentServiceError("document_lease_lost", retryable=True)
             refused = charge_read(
                 store, user_id, draft.connection_id, charged_at, self.read_budget
             )
@@ -1107,10 +1114,36 @@ class DocumentsService:
                 raise DocumentServiceError("document_lease_lost", retryable=True)
             return marked
 
-        if isinstance(self.store, PostgresDocumentStore):
-            with PostgresHeldFiles(self.store).pool.connection() as db, db.transaction():
-                return charge(self.on_connection(db).store)
-        return charge(self.store)
+        if not load_whatsapp_settings().intake_ready:
+            raise DocumentServiceError("document_reading_not_allowed")
+        if not isinstance(self.store, PostgresDocumentStore):
+            return charge(self.store)
+        from argus.domain.ingestion.whatsapp.receipt_consent import receipt_consent_store
+        from argus.domain.postgres_connection import BorrowedConnection
+
+        with PostgresHeldFiles(self.store).pool.connection() as db, db.transaction():
+            original = db.execute(
+                "select sender_link_id::text from public.whatsapp_held_files where user_id=%s"
+                " and connection_id=%s and state='held' order by held_at,id limit 1",
+                (user_id, draft.connection_id),
+            ).fetchone()
+            if original is not None:
+                consent = receipt_consent_store(BorrowedConnection(db)).status(
+                    uuid.UUID(user_id), expected_link_id=original[0]
+                )
+                if consent["enabled"]:
+                    return charge(self.on_connection(db).store)
+                reason = (
+                    "no_eligible_business"
+                    if consent["reason"] == "whatsapp_setup_required"
+                    else "read_failed"
+                )
+                db.execute(
+                    "update public.whatsapp_held_files set reason=%s where user_id=%s"
+                    " and connection_id=%s and state='held'",
+                    (reason, user_id, draft.connection_id),
+                )
+        raise DocumentServiceError("document_reading_not_allowed")
 
     def _finish_held_read(
         self,
