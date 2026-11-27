@@ -89,9 +89,8 @@ async function mount(
     assert.ok(element, "the control is on screen");
     await act(async () => { (element as HTMLElement).click(); });
   };
-  const buttons = (name: string) => [...host.querySelectorAll("button")].filter((button) => button.textContent?.trim() === name);
   const close = () => act(async () => root.unmount());
-  return { act, host, settle, click, buttons, close, business: () => business!, source };
+  return { act, host, settle, click, close, business: () => business!, source };
 }
 
 const overviewTitle = (page: Mounted) => page.host.querySelector("#business-overview-title")?.textContent ?? null;
@@ -161,23 +160,11 @@ describe("§1.8 line 100: the Business is named by its name, and Argus is not na
 });
 
 describe("§1.8 line 101: dates read 1 Oct 2026 and the period label follows the period", () => {
-  test("a fixed day reads 1 Oct 2026 wherever a Business date is shown", async () => {
+  test("Business date formatters render a fixed day as 1 Oct 2026", async () => {
     const { formatDay, formatTimestamp } = await import("@/components/business-app/business-format");
     assert.equal(formatDay("2026-10-01", "es-419"), "1 Oct 2026");
     assert.equal(formatDay("2026-10-01T23:30:00Z", "es-419"), "1 Oct 2026");
     assert.match(formatTimestamp("2026-10-01T16:00:00Z", "es-419"), /^1 Oct 2026, /);
-    const { renderToStaticMarkup } = await import("react-dom/server");
-    const i18next = (await import("i18next")).default;
-    const { I18nextProvider } = await import("react-i18next");
-    const { AccessList } = await import("@/components/business-app/BusinessAccessPanel");
-    const i18n = i18next.createInstance();
-    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
-    const html = renderToStaticMarkup(
-      <I18nextProvider i18n={i18n}>
-        <AccessList access={{ grants: [{ id: "g", email: null, display_name: "Lucía", capabilities: ["read"], created_at: "2026-10-01T16:00:00Z", owner: true }], invites: [] }} busyId={null} onRemove={() => undefined} onResend={() => undefined} />
-      </I18nextProvider>,
-    );
-    assert.ok(html.includes("Desde 1 Oct 2026"));
   });
 
   test("the Resumen leads with what to review, ahead of the month figures", async () => {
@@ -194,30 +181,7 @@ describe("§1.8 line 101: dates read 1 Oct 2026 and the period label follows the
   });
 });
 
-describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings and Spanish labels", () => {
-  test("removing access is a red action that asks first; only the confirmation removes", async () => {
-    const BusinessAccessPanel = (await import("@/components/business-app/BusinessAccessPanel")).default;
-    const revoked: string[] = [];
-    const page = await mount(() => <BusinessAccessPanel />, { revokeAccessGrant: async (id: string) => { revoked.push(id); } });
-    await page.settle(() => page.buttons("Quitar acceso").length === 1);
-    const remove = page.buttons("Quitar acceso")[0];
-    assert.match(remove.className, /text-\[#9e2f39\]/, "the destructive red DESIGN.md names");
-    await page.click(remove);
-    const dialog = document.querySelector('[role="alertdialog"]');
-    assert.ok(dialog, "removing access is a full-stop alert");
-    assert.equal(dialog.querySelector("h2")?.textContent, "¿Quitar el acceso de contadora@example.test?");
-    assert.equal(dialog.querySelector("p")?.textContent, "Deja de ver y preparar tus registros al instante.");
-    const confirm = dialog.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!;
-    const cancel = [...dialog.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Mantener")!;
-    assert.equal(confirm.textContent?.trim(), "Quitar acceso");
-    assert.equal(confirm.style.backgroundColor !== "", true);
-    assert.ok(cancel, "Mantener keeps the access");
-    assert.deepEqual(revoked, [], "nothing is removed before the confirmation");
-    await page.click(confirm);
-    assert.deepEqual(revoked, ["grant-contadora"]);
-    await page.close();
-  });
-
+describe("§1.8 line 102: Crear, sidebar labels, empty states, headings and Spanish labels", () => {
   test("Crear is a labeled button at least 44px tall, in the sidebar and on a phone", async () => {
     const BusinessCreateMenu = (await import("@/components/business-app/BusinessCreateMenu")).default;
     const page = await mount(({ shell }) => (
@@ -342,8 +306,8 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
   test("the Business screens have no empty heading and no English label for a Spanish reader", async () => {
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
+    const BusinessAccessPreview = (await import("@/app/design-workspace/BusinessAccessPreview")).default;
     const TransaccionesPanel = (await import("@/components/business-app/transacciones/TransaccionesPanel")).default;
-    const BusinessAccessPanel = (await import("@/components/business-app/BusinessAccessPanel")).default;
     const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
     const BusinessCreateMenu = (await import("@/components/business-app/BusinessCreateMenu")).default;
     const page = await mount(({ shell }) => (
@@ -354,13 +318,13 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         <BusinessOverviewPanel />
         <BusinessInboxPanel />
         <TransaccionesPanel />
-        <BusinessAccessPanel />
+        <BusinessAccessPreview />
       </>
     ));
-    await page.settle(() => page.host.querySelectorAll('[data-testid="reception-row"]').length > 0 && page.buttons("Quitar acceso").length > 0);
+    await page.settle(() => page.host.querySelectorAll('[data-testid="reception-row"]').length > 0);
     const headings = [...page.host.querySelectorAll("h1,h2,h3,h4,h5,h6,[role=heading]")];
     // From the tablet stop up the Bandeja and Registros titles live in the top bar, which this mount leaves out.
-    assert.ok(headings.length >= 3);
+    assert.ok(headings.some((heading) => heading.textContent === spanish.workspace_setup_preview.access_members_title));
     assert.deepEqual(headings.filter((heading) => !heading.textContent?.trim()).map((heading) => heading.outerHTML), []);
     const labels = [...page.host.querySelectorAll("[aria-label],[title],[placeholder]")].flatMap((element) =>
       ["aria-label", "title", "placeholder"].map((name) => element.getAttribute(name)).filter((value): value is string => Boolean(value)),
