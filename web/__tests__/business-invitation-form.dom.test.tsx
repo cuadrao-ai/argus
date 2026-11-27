@@ -67,12 +67,12 @@ async function render(tree:(close:()=>void)=>ReactNode,language:Language="en"){
  return {host,settle,emails,typeEmail,submit,button,click,addRow,trash,sendButton,closed:()=>closed,unmount:()=>act(async()=>root.unmount())};
 }
 
-async function mountForm({permissions=OWNER,live=true,language="en"}:{permissions?:string[];live?:boolean;language?:Language}={}){
+async function mountForm({permissions=OWNER,live=true,language="en",name="La Palma"}:{permissions?:string[];live?:boolean;language?:Language;name?:string|null}={}){
  const {BusinessContext}=await import("@/components/business-app/BusinessWorkspace");
  const {createFixtureBusinessDataSource}=await import("@/components/business-app/fixture-data");
  const {default:Form}=await import("@/components/business-app/BusinessInvitationForm");
  const fixture=createFixtureBusinessDataSource({chatAvailable:false});
- const context={source:live?{...fixture,mode:"live"}:fixture,chosen:space(permissions),reload:()=>{}} as unknown as BusinessContextValue;
+ const context={source:live?{...fixture,mode:"live"}:fixture,chosen:{...space(permissions),name},reload:()=>{}} as unknown as BusinessContextValue;
  const form=(close:()=>void,onRefused?:(error:unknown)=>void)=><BusinessContext.Provider value={context}><Form onClose={close} onRefused={onRefused}/></BusinessContext.Provider>;
  const refusals:unknown[]=[];
  const page=await render(close=>form(close,error=>refusals.push(error)),language);
@@ -144,6 +144,34 @@ test("a manager who is not an owner is offered Administrador, Editor and Lector,
   await page.typeEmail(0,"lector@example.test");await page.submit();
   await page.settle(()=>sent.length===1);
   expect(sent[0]![0]!.role).toBe("viewer");
+ }finally{await page.unmount();}
+});
+
+test.each([null,"","  "])("a Business with no name cannot send invites and says to name it: %p",async name=>{
+ const sent=serve();
+ const page=await mountForm({name,language:"es-419"});
+ try{
+  await page.typeEmail(0,"persona@example.test");
+  expect(page.sendButton().disabled).toBe(true);
+  expect(document.querySelector('form [role="alert"]')?.textContent).toBe(spanish.workspace_setup_preview.name_required);
+  await page.submit();
+  await act(async()=>new Promise(resolve=>setTimeout(resolve,30)));
+  expect(sent).toHaveLength(0);
+ }finally{await page.unmount();}
+});
+
+test("when the server says the Business needs a name, the form shows the same line and stops sending",async()=>{
+ const sent=serve({send:()=>Response.json({code:"business_name_required"},{status:409})});
+ const page=await mountForm();
+ try{
+  expect(document.querySelector('form [role="alert"]')).toBeNull();
+  await page.typeEmail(0,"persona@example.test");await page.submit();
+  await page.settle(()=>document.querySelector('form [role="alert"]')!==null);
+  expect([...document.querySelectorAll('form [role="alert"]')].map(item=>item.textContent)).toEqual([copy.name_required]);
+  expect(page.sendButton().disabled).toBe(true);
+  expect(page.emails()[0]!.value).toBe("persona@example.test");
+  await page.submit();
+  expect(sent).toHaveLength(1);
  }finally{await page.unmount();}
 });
 

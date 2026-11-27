@@ -21,7 +21,7 @@ import { useBusiness } from "./BusinessWorkspace";
 type Row = BusinessInvitationCommand & { id: string; touched: boolean; result?: BusinessInvitationResult };
 type KnownPeople = { members: string[]; pending: string[] };
 type Feedback = { tone: "neutral" | "valid" } | { tone: "error"; key: string };
-type Failure = { kind: "access" | "availability" | "send"; reference: string };
+type Failure = { kind: "access" | "availability" | "name" | "send"; reference: string };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ROWS = 50;
@@ -40,9 +40,9 @@ const isRefusal = (error: unknown) => {
   const status = error && typeof error === "object" && "status" in error ? error.status : null;
   return status === 403 || status === 404;
 };
-const isInvitationUnavailable = (error: unknown) => error !== null && typeof error === "object"
+const refusedAs = (error: unknown, code: string) => error !== null && typeof error === "object"
   && "status" in error && error.status === 409
-  && "code" in error && error.code === "business_invitations_unavailable";
+  && "code" in error && error.code === code;
 
 /** The X keeps the draft for this Business until the page reloads; emails stay out of browser storage. */
 const drafts = new Map<string, Row[]>();
@@ -150,6 +150,8 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
 
   const refused = failure?.kind === "access";
   const unavailable = failure?.kind === "availability";
+  // Invitations name the Business, so one with no name sends none; the server refuses it the same way.
+  const unnamed = !chosen?.name?.trim() || failure?.kind === "name";
   const blocked = refused || unavailable;
   const known = live ? serverKnown : sampleKnownPeople(businessId, bridge?.memberEmail);
   const doneCount = rows.filter(isDone).length;
@@ -176,7 +178,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     if (sends > 0) window.dispatchEvent(new Event(businessAccessChangedEvent));
   };
   const submit = async () => {
-    if (busy || blocked) return;
+    if (busy || blocked || unnamed) return;
     const filled = rows.some(row => row.email.trim()) ? rows.filter(row => row.email.trim()) : rows.slice(0, 1);
     const marked = filled.map(row => isDone(row) ? row : { ...row, touched: true });
     setRows(marked);
@@ -198,7 +200,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
       requestAnimationFrame(() => summary.current?.focus());
     } catch (error) {
       if (isRefusal(error)) refuse(error);
-      else setFailure({ kind: isInvitationUnavailable(error) ? "availability" : "send", reference: referenceCode(error) });
+      else setFailure({ kind: refusedAs(error, "business_invitations_unavailable") ? "availability" : refusedAs(error, "business_name_required") ? "name" : "send", reference: referenceCode(error) });
     } finally {
       setBusy(false);
     }
@@ -246,7 +248,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
       {rows.map((row, index) => <li key={row.id} className={isBelowDesktop ? "py-2.5" : "py-1.5"}>{isDone(row) ? sentRow(row) : draftRow(row, index)}</li>)}
     </ul>
     {!finished ? <div className="flex justify-start"><button type="button" className={`${quietButtonClass} -ml-1`} disabled={busy || blocked || rows.length >= MAX_ROWS} onClick={() => { setRows(current => [...current, emptyRow()]); focusLastEmail(); }}><Plus className="h-4 w-4" aria-hidden="true" />{t(copy("batch_add_short"))}</button></div> : null}
-    {failure ? <div role="alert" className={`mt-3 space-y-1 ${fieldErrorClass}`}>
+    {unnamed ? <p role="alert" className={`mt-3 ${fieldErrorClass}`}>{t(copy("name_required"))}</p> : failure ? <div role="alert" className={`mt-3 space-y-1 ${fieldErrorClass}`}>
       <p>{t(unavailable ? copy("batch_unavailable") : refused ? "business.lifecycle.errors.business_unavailable" : copy("batch_send_error"))}</p>
       {refused ? <p>{t("auth.business_unavailable.body", { supportEmail })}</p> : null}
       <ReferenceCode reference={failure.reference} />
@@ -257,7 +259,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
             <button type="button" className={`${secondaryButtonClass} ${footerButtonShape} w-full sm:w-auto`} onClick={() => { setRows([emptyRow()]); requestAnimationFrame(() => firstField.current?.focus()); }}>{t(copy("batch_more"))}</button>
             <button type="button" className={`${primaryButtonClass} ${footerButtonShape} w-full sm:w-auto`} onClick={close}>{t(copy("batch_done"))}</button>
           </div>
-        : <button type="submit" className={`${primaryButtonClass} ${footerButtonShape} w-full`} disabled={busy || blocked}>{sendLabel}</button>}
+        : <button type="submit" className={`${primaryButtonClass} ${footerButtonShape} w-full`} disabled={busy || blocked || unnamed}>{sendLabel}</button>}
     </div>
   </form>;
 
