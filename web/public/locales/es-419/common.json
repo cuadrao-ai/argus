@@ -3191,7 +3191,6 @@
       "upload_another": "Subir otro documento"
     },
     "empty": {
-      "access_error": "No pudimos cargar el acceso",
       "email_error": "No pudimos cargar tus correos",
       "error_body": "Tus datos siguen guardados. Revisa tu conexión e inténtalo otra vez.",
       "overview_error": "No pudimos cargar tu negocio"
@@ -4735,31 +4734,11 @@
     "invitation_pending_acceptance": "Pendiente de aceptación",
     "invitations_title": "Invitaciones",
     "nav": "Acceso",
-    "title": "Acceso",
-    "subtitle": "Quién puede ver y preparar los registros de tu negocio. Solo tú los aceptas.",
-    "owner": "Dueño",
     "member": "Miembro",
-    "since": "Desde {{date}}",
-    "pending_title": "Invitaciones pendientes",
     "pending_until": "Vence {{date}}",
-    "pending_note": "Recibe acceso la primera vez que inicie sesión con este correo confirmado.",
-    "give_title": "Dar acceso a tu contador",
-    "give_body": "Escribe su correo. Podrá ver y preparar recibos. Nunca podrá aceptarlos.",
-    "email_label": "Correo electrónico",
-    "give": "Dar acceso",
-    "giving": "Dando acceso...",
-    "remove": "Quitar acceso",
-    "remove_title": "¿Quitar el acceso de {{who}}?",
-    "remove_body": "Deja de ver y preparar tus registros al instante.",
-    "remove_invite": "Cancelar invitación",
-    "remove_invite_title": "¿Cancelar la invitación a {{who}}?",
-    "remove_invite_body": "Puedes invitarle de nuevo cuando quieras.",
-    "keep": "Mantener",
     "error": "No pudimos cargar el acceso. Inténtalo de nuevo.",
-    "invalid_email": "Escribe un correo electrónico.",
     "give_error": "No pudimos dar el acceso. Inténtalo de nuevo.",
-    "remove_error": "No pudimos quitar el acceso. Inténtalo de nuevo.",
-    "owner_locked": "Tu propio acceso no se puede quitar."
+    "remove_error": "No pudimos quitar el acceso. Inténtalo de nuevo."
   },
   "workspace_setup_preview": {
     "access_cancel": "Cancelar invitación",

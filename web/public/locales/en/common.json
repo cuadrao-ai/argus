@@ -3157,7 +3157,6 @@
       }
     },
     "empty": {
-      "access_error": "We couldn't load access",
       "email_error": "We couldn't load your emails",
       "error_body": "Your data is still saved. Check your connection and try again.",
       "overview_error": "We couldn't load your business"
@@ -4735,31 +4734,11 @@
     "invitation_pending_acceptance": "Awaiting acceptance",
     "invitations_title": "Invitations",
     "nav": "Access",
-    "title": "Access",
-    "subtitle": "Who can see and prepare your business records. Only you accept them.",
-    "owner": "Owner",
     "member": "Member",
-    "since": "Since {{date}}",
-    "pending_title": "Pending invites",
     "pending_until": "Expires {{date}}",
-    "pending_note": "Gets access the first time they sign in with this confirmed email.",
-    "give_title": "Give access to your accountant",
-    "give_body": "Enter their email. They can see and prepare receipts. They can never accept them.",
-    "email_label": "Email address",
-    "give": "Give access",
-    "giving": "Giving access...",
-    "remove": "Remove access",
-    "remove_title": "Remove access for {{who}}?",
-    "remove_body": "They stop seeing and preparing your records at once.",
-    "remove_invite": "Cancel invite",
-    "remove_invite_title": "Cancel the invite for {{who}}?",
-    "remove_invite_body": "You can invite them again at any time.",
-    "keep": "Keep",
     "error": "We couldn't load access. Try again.",
-    "invalid_email": "Enter an email address.",
     "give_error": "We couldn't give access. Try again.",
-    "remove_error": "We couldn't remove access. Try again.",
-    "owner_locked": "Your own access cannot be removed."
+    "remove_error": "We couldn't remove access. Try again."
   },
   "workspace_setup_preview": {
     "access_cancel": "Cancel invitation",
