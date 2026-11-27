@@ -6,14 +6,14 @@ import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { FREEZE_CSS, fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
-async function setup(page: Page, available: boolean, history = false, language: "es-419" | "en" = "es-419") {
+async function setup(page: Page, available: boolean, history = false, language: "es-419" | "en" = "es-419", theme: "light" | "dark" = "light") {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const requests: string[] = [];
   const historyRequests: string[] = [];
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
-  await installBreakpointFixture(page, { language, theme: "light", emptyChat: true });
+  await installBreakpointFixture(page, { language, theme, emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { can_change: false } });
   await page.route("**/api/v1/whatsapp/**", route => {
     requests.push(new URL(route.request().url()).pathname);
@@ -45,30 +45,86 @@ async function setup(page: Page, available: boolean, history = false, language: 
 }
 
 for (const width of [1440, 390]) {
-  test(`linked WhatsApp settings show the sender’s destinations at ${width}px`, async ({ page }, info) => {
-    const observed = await setup(page, false);
-    const businesses = [
-      { space_id: "ferreteria", name: "Ferretería Los Pinos", tax_id: { type: "rnc", value: "131456782" } },
-      { space_id: "colmado", name: "Colmado Doña Fefa", tax_id: { type: "cedula", value: "00112345678" } },
-      { space_id: "clinica", name: "Clínica Dental Sonrisa", tax_id: { type: "rnc", value: "130987654" } },
-    ];
-    await page.route(url => url.pathname.endsWith("/api/v1/whatsapp/link"), route => route.fulfill({
-      json: { ...whatsappDisclosure["es-419"], linked: true, last4: "4821", linked_at: "2026-11-12T12:00:00Z",
-        reply_language: "es-419", receiving_businesses: businesses, held_count: 3 },
-    }));
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-    await page.goto("/biz?view=inbox");
-    await page.getByTestId("header-profile-trigger").click();
-    await page.getByTestId("profile-menu-settings").click();
-    await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
-    const rows = page.getByRole("list", { name: "Negocios que reciben" }).getByRole("listitem");
-    await expect(rows).toHaveCount(3);
-    await expect(rows.nth(1)).toContainText("Cédula 001-1234567-8");
-    await expect(page.getByRole("region", { name: "Archivos sin negocio" })).toContainText("3");
-    await expect(page.getByRole("button", { name: "Desvincular número" })).toBeVisible();
-    expect(observed.errors).toEqual([]);
-    await page.screenshot({ path: info.outputPath(`whatsapp-linked-es-419-${width}.png`), style: FREEZE_CSS });
-  });
+  for (const theme of ["light", "dark"] as const) {
+    test(`linked WhatsApp settings and unlink at ${width}px in ${theme}`, async ({ page }, info) => {
+      const observed = await setup(page, false, false, "es-419", theme);
+      await page.clock.setFixedTime(new Date("2026-11-23T12:00:00Z"));
+      let count = 3;
+      let linked = true;
+      const businesses = [
+        { space_id: "ferreteria", name: "Ferretería Los Pinos", tax_id: { type: "rnc", value: "131456782" } },
+        { space_id: "colmado", name: "Colmado Doña Fefa", tax_id: { type: "cedula", value: "00112345678" } },
+        { space_id: "clinica", name: "Clínica Dental Sonrisa", tax_id: { type: "rnc", value: "130987654" } },
+      ];
+      await page.route(url => url.pathname.endsWith("/api/v1/whatsapp/link"), route => {
+        if (route.request().method() === "DELETE") {
+          linked = false;
+          return route.fulfill({ status: 204 });
+        }
+        return route.fulfill({ json: { ...whatsappDisclosure["es-419"], linked, last4: "4821", linked_at: "2026-11-12T12:00:00Z",
+          reply_language: "es-419", receiving_businesses: businesses, held_count: count } });
+      });
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      async function openSettings() {
+        await page.goto("/biz?view=inbox");
+        await page.getByTestId("header-profile-trigger").click();
+        await page.getByTestId("profile-menu-settings").click();
+        await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
+      }
+      await openSettings();
+      const rows = page.getByRole("list", { name: "Negocios que reciben" }).getByRole("listitem");
+      await expect(rows).toHaveCount(3);
+      await expect(rows.nth(1)).toContainText("Cédula 001-1234567-8");
+      await expect(page.getByRole("region", { name: "Archivos sin negocio" })).toContainText("3");
+      await expect(page.getByRole("button", { name: "Desvincular número" })).toBeVisible();
+      await expect(page.locator("time").filter({ hasText: "Vinculado el 12 nov" })).toBeVisible();
+      const trigger = page.getByRole("button", { name: "Qué pasa con lo que envías" });
+      await expect(trigger).toHaveCSS("width", "44px");
+      await expect(trigger.locator("svg")).toHaveCSS("width", "24px");
+      const held = page.getByRole("region", { name: "Archivos sin negocio" });
+      const original = await held.boundingBox();
+      const capture = async (state: string) => {
+        const clip = await page.getByTestId("settings-window").boundingBox();
+        return page.screenshot({ path: info.outputPath(`whatsapp-${state}-${width}-${theme}.png`), style: FREEZE_CSS,
+          ...(width === 1440 && clip ? { clip } : {}) });
+      };
+      if (width !== 1440 || theme !== "light") await capture("linked");
+      if (width === 1440) await trigger.hover();
+      else await trigger.click();
+      await expect(page.getByRole("tooltip")).toHaveText(spanish.settings.whatsapp.reading_info);
+      expect(await held.boundingBox()).toEqual(original);
+      if (width === 1440 && theme === "light") await capture("linked");
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("tooltip")).toHaveCount(0);
+      const unlink = page.getByRole("button", { name: "Desvincular número" });
+      await trigger.focus();
+      await trigger.press("Tab");
+      await page.keyboard.press("Shift+Tab");
+      await expect(trigger).toBeFocused();
+      await expect(page.getByRole("tooltip")).toBeVisible();
+      await held.click();
+      await expect(page.getByRole("tooltip")).toHaveCount(0);
+      await unlink.click();
+      const confirm = page.getByRole("alertdialog");
+      await expect(confirm.getByRole("button", { name: "Cancelar" })).toBeFocused();
+      await expect(confirm.getByRole("listitem")).toHaveCount(4);
+      await capture("held-confirm");
+      await page.keyboard.press("Escape");
+      await expect(unlink).toBeFocused();
+      await unlink.click();
+      await confirm.getByRole("button", { name: "Desvincular", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Vincular mi WhatsApp" })).toBeVisible();
+      await expect(held).toContainText("3");
+      linked = true;
+      count = 0;
+      await openSettings();
+      await unlink.click();
+      await expect(confirm).toContainText(spanish.settings.whatsapp.unlink_empty);
+      await expect(confirm.getByRole("listitem")).toHaveCount(0);
+      await confirm.screenshot({ path: info.outputPath(`whatsapp-empty-confirm-${width}-${theme}.png`), style: FREEZE_CSS });
+      expect(observed.errors).toEqual([]);
+    });
+  }
 
   test(`unavailable channels have no intake offers or requests at ${width}px`, async ({ page }, info) => {
     const observed = await setup(page, false);

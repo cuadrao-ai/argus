@@ -40,11 +40,11 @@ afterEach(async () => {
 });
 afterAll(() => GlobalRegistrator.unregister());
 
-async function open({ blocked = false, seconds = 581, withUrl = true, linked = false, heldCount = 0 } = {}) {
+async function open({ blocked = false, seconds = 581, withUrl = true, linked = false, heldCount = 0, linkedAt = "" } = {}) {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   const issued: unknown[] = [];
   const requests = { linked, reads: 0, deletes: 0, limited: false, closes: 0,
-    languages: [] as (string | null)[], nextRead: null as Promise<Response> | null,
+    nextDelete: null as Promise<Response> | null, languages: [] as (string | null)[], nextRead: null as Promise<Response> | null,
   };
   globalThis.fetch = (async (input, init) => {
     const path = new URL(String(input)).pathname;
@@ -56,6 +56,7 @@ async function open({ blocked = false, seconds = 581, withUrl = true, linked = f
     if (!path.endsWith("/whatsapp/link")) throw new Error(path);
     if (init?.method === "DELETE") {
       requests.deletes++;
+      if (requests.nextDelete) return requests.nextDelete;
       requests.linked = false;
       return new Response(null, { status: 204 });
     }
@@ -63,14 +64,14 @@ async function open({ blocked = false, seconds = 581, withUrl = true, linked = f
     const language = new URL(String(input)).searchParams.get("language");
     requests.languages.push(language);
     if (requests.nextRead) return requests.nextRead;
-    return Response.json({ ...whatsappDisclosure[language === "en" ? "en" : "es-419"], linked: requests.linked, last4: requests.linked ? "4821" : null, linked_at: null, reply_language: null, receiving_businesses: blocked ? [] : eligible, held_count: heldCount });
+    return Response.json({ ...whatsappDisclosure[language === "en" ? "en" : "es-419"], linked: requests.linked, last4: requests.linked ? "4821" : null, linked_at: linkedAt || null, reply_language: null, receiving_businesses: blocked ? [] : eligible, held_count: heldCount });
   }) as typeof fetch;
   const host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
   await act(async () => root?.render(<I18nextProvider i18n={i18n}><SettingsWindowSection><WhatsAppLinkModal onClose={() => { requests.closes++; }} /></SettingsWindowSection></I18nextProvider>));
   async function click(label: string) {
-    const button = [...host.querySelectorAll("button")].find((node) => node.textContent === label);
+    const button = [...document.querySelectorAll("button")].find((node) => node.textContent === label);
     expect(button).toBeDefined();
     await act(async () => button!.click());
   }
@@ -189,8 +190,8 @@ test("the live status poll sees redemption and stops; unlink requires confirmati
   expect(host.textContent).not.toContain("Esperando tu mensaje…");
   await click("Desvincular número");
   expect(requests.deletes).toBe(0);
-  expect(host.textContent).toContain(spanish.settings.whatsapp.confirm_unlink);
-  await click("Confirmar");
+  expect(document.querySelector("[role=alertdialog]")?.textContent).toContain("Ya no se aceptarán mensajes nuevos de ese número. Los recibos que ya llegaron siguen en la Bandeja de cada negocio.");
+  await click("Desvincular");
   expect(requests.deletes).toBe(1);
   expect(host.textContent).toContain(notice);
 });
@@ -275,7 +276,7 @@ test("changing language fetches the new disclosure before it can be accepted", a
   await act(async () => { await i18n.changeLanguage("en"); });
   expect(requests.languages).toEqual(["es-419", "en"]);
   expect(host.textContent).not.toContain(notice);
-  expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Link my WhatsApp" && !b.disabled)).toBe(false);
+  expect([...document.querySelectorAll("button")].some((b) => b.textContent === "Link my WhatsApp" && !b.disabled)).toBe(false);
   await act(async () => {
     pending.resolve(Response.json({ ...whatsappDisclosure.en, linked: false, receiving_businesses: eligible, held_count: 0 }));
   });
@@ -291,7 +292,7 @@ test("successful unlink clears the number before refresh and closes quietly when
   const pending = Promise.withResolvers<Response>();
   requests.nextRead = pending.promise;
   await click("Desvincular número");
-  await click("Confirmar");
+  await click("Desvincular");
   expect(requests.deletes).toBe(1);
   expect(requests.reads).toBe(2);
   expect(host.textContent).not.toContain("4821");
@@ -299,4 +300,76 @@ test("successful unlink clears the number before refresh and closes quietly when
   await act(async () => { pending.resolve(Response.json({ code: "whatsapp_unavailable" }, { status: 404 })); });
   expect(requests.closes).toBe(1);
   expect(host.querySelector('[role="alert"]')).toBeNull();
+});
+
+test.each([
+  ["2026-11-16", "Vinculado hace 3 días"],
+  ["2026-11-12", "Vinculado el 12 nov"],
+])("the number uses its link timestamp from %s", async (day, expected) => {
+  setSystemTime(new Date("2026-11-19T12:00:00Z"));
+  const { host } = await open({ linked: true, linkedAt: day + "T12:00:00Z" });
+  expect(host.querySelector("time")?.textContent).toBe(expected);
+  expect(host.textContent).not.toContain("Número vinculado");
+});
+
+test("the number's info button explains automatic reading on tap", async () => {
+  const { host } = await open({ linked: true });
+  const trigger = host.querySelector<HTMLButtonElement>('button[aria-label="Qué pasa con lo que envías"]');
+  expect(trigger).toBeTruthy();
+  await act(async () => trigger!.click());
+  const bubble = document.getElementById(trigger!.getAttribute("aria-describedby") ?? "");
+  expect(bubble?.textContent).toBe("Mientras esté vinculado, la foto o el PDF que envíes se lee con IA para saber a qué negocio va.");
+  await act(async () => trigger!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(document.querySelector('[role="tooltip"]')).toBeNull();
+});
+
+test.each([true, false])("held files survive unlink with setup blocked = %s", async blocked => {
+  const { host, click, requests } = await open({ linked: true, heldCount: 3, blocked });
+  await click("Desvincular número");
+  const dialog = document.querySelector('[role="alertdialog"]');
+  expect(dialog?.querySelector("h2")?.textContent).toBe("¿Desvincular el número que termina en 4821?");
+  expect([...dialog!.querySelectorAll("li")].map(item => item.textContent)).toEqual([
+    "Ya no recibiremos archivos de ese número.",
+    "Los 3 archivos sin negocio se quedan aquí hasta que los asignes o venzan.",
+    "Los que se están leyendo terminan y llegan a su negocio o se quedan aquí.",
+    "No le enviaremos ningún mensaje a ese número.",
+  ]);
+  await click("Cancelar");
+  expect(requests.deletes).toBe(0);
+  expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+  await click("Desvincular número");
+  await click("Desvincular");
+  expect(requests.deletes).toBe(1);
+  expect(host.textContent).not.toContain("4821");
+  const held = host.querySelector('[aria-label="Archivos sin negocio"]');
+  expect(held?.textContent).toContain("3");
+  expect(held?.querySelector("a,button,[tabindex]")).toBeNull();
+});
+
+test.each([
+  ["es-419", "Desvincular número", "El archivo sin negocio se queda aquí hasta que lo asignes o venza."],
+  ["en", english.settings.whatsapp.unlink, "The file with no business stays here until you assign it or it expires."],
+])("one held file uses the approved singular in %s", async (language, label, sentence) => {
+  await i18n.changeLanguage(language);
+  const { click } = await open({ linked: true, heldCount: 1 });
+  await click(label);
+  expect(document.querySelectorAll('[role="alertdialog"] li')[1]?.textContent).toBe(sentence);
+});
+
+test("a failed unlink stays in the dialog and retries once", async () => {
+  const { click, requests } = await open({ linked: true, heldCount: 2 });
+  await click("Desvincular número");
+  const pending = Promise.withResolvers<Response>();
+  requests.nextDelete = pending.promise;
+  await click("Desvincular");
+  await click("Desvincular");
+  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(requests.deletes).toBe(1);
+  expect(document.querySelector('[role="alertdialog"]')).toBeTruthy();
+  await act(async () => pending.resolve(new Response(null, { status: 503 })));
+  expect(document.querySelector('[role="alertdialog"] [role="alert"]')?.textContent).toBe(spanish.settings.whatsapp.problem_failed);
+  requests.nextDelete = null;
+  await click("Desvincular");
+  expect(requests.deletes).toBe(2);
+  expect(document.querySelector('[role="alertdialog"]')).toBeNull();
 });

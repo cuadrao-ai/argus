@@ -1,16 +1,17 @@
 "use client";
 
 import { useContext, useEffect, useEffectEvent, useId, useState, type ReactNode } from "react";
-import { BriefcaseBusiness, Clock, ExternalLink, Inbox, Info, LoaderCircle, MessageCirclePlus } from "lucide-react";
+import { Clock, ExternalLink, Info, LoaderCircle, MessageCirclePlus } from "lucide-react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { BusinessContext } from "@/components/business-app/business-context";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
 import { CHANNEL_ICON } from "@/components/business-app/foundation/channel-icons";
-import SettingsSurface from "@/components/settings/SettingsSurface";
+import SettingsSurface, { useInSettingsWindow } from "@/components/settings/SettingsSurface";
 import CopyCodeButton from "@/components/settings/CopyCodeButton";
 import { normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
-import { formatRnc } from "@/lib/rnc-status";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { HeldFiles, WhatsAppLinkedDetails } from "@/components/settings/WhatsAppLinkedDetails";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
   createWhatsAppLinkCode, getWhatsAppLink, unlinkWhatsApp, whatsAppLinkProblem,
@@ -98,40 +99,13 @@ function Waiting({ code, seconds }: { code: WhatsAppLinkCode; seconds: number })
   </>;
 }
 
-function LinkedDestinations({ status }: { status: WhatsAppLinkStatus }) {
-  const { t } = useTranslation();
-  const receivingTitle = t(key("receiving_title"));
-  const heldTitle = t(key("held_title"));
-  return <>
-    <section aria-label={heldTitle} className="flex min-h-14 items-center gap-3 rounded-surface border border-dashed border-[var(--surface-divider)] px-4 py-2">
-      <Inbox size={18} aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p>{heldTitle}</p>
-        {status.held_count > 0 && <p className={muted}>{t(key("held_help"))}</p>}
-      </div>
-      <span className="rounded px-2 text-sm tabular-nums bg-[#f2e8c9] text-[#735c14] dark:bg-[#f6e7c1]/15 dark:text-[#f6e7c1]">{status.held_count}</span>
-    </section>
-    <section className="space-y-2">
-      <div><h3 className={title}>{receivingTitle}</h3><p className={`${muted} mt-1`}>{t(key("routing_help"))}</p></div>
-      {status.receiving_businesses.length > 0 && <ul aria-label={receivingTitle} className="divide-y divide-[var(--surface-divider)] rounded-surface bg-[#F7F5EE] px-4 dark:bg-[#1f2225]">
-        {status.receiving_businesses.map(({ space_id, name, tax_id }) => (
-          <li key={space_id} className="flex min-h-14 items-center gap-3 py-2">
-            <span className="grid size-8 shrink-0 place-items-center rounded-item bg-black/5 dark:bg-white/10"><BriefcaseBusiness size={16} aria-hidden="true" /></span>
-            <div className="min-w-0 break-words"><p>{name}</p><p className={`${muted} tabular-nums`}>{t(`business.dgii.tax_id_${tax_id.type}`)} {formatRnc(tax_id.value)}</p></div>
-          </li>
-        ))}
-      </ul>}
-      <p className={muted}>{t(key("receiving_hint"))}</p>
-    </section>
-  </>;
-}
-
 type Frame = { onClose: () => void; onBack?: () => void; backLabel?: string };
 type Issued = { code: WhatsAppLinkCode; seconds: number; expired: boolean; language: ArgusLanguage; token: string };
 const remaining = (expires: string) => Math.max(0, Math.ceil((Date.parse(expires) - Date.now()) / 1000));
 
 export default function WhatsAppLinkModal(frame: Frame) {
   const { t, i18n } = useTranslation();
+  const inWindow = useInSettingsWindow();
   const business = useContext(BusinessContext);
   const language = normalizeEnabledLanguage(i18n.resolvedLanguage);
   const [answer, setAnswer] = useState<{ language: ArgusLanguage; status: WhatsAppLinkStatus } | null>(null);
@@ -241,15 +215,11 @@ export default function WhatsAppLinkModal(frame: Frame) {
   let body: ReactNode;
   let footer: ReactNode;
   if (status?.linked) {
-    body = <>
-      <section className={box}><div><h3 className={title}>{t(key("number"))}</h3><p>{t(key("linked"), { last4: status.last4 })}</p></div></section>
-      <LinkedDestinations status={status} />
-      {confirmUnlink && <p>{t(key("confirm_unlink"))}</p>}
+    body = <WhatsAppLinkedDetails status={status} confirming={confirmUnlink} />;
+    footer = <>
+      {confirmUnlink && <p className={`${muted} flex-1`}>{t(key("reading_info"))}</p>}
+      <button type="button" className="min-h-11 shrink-0 rounded-full border border-[#7d8a84]/60 bg-white px-5 font-medium text-[#172b26] hover:bg-[#F7F5EE] dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/10" onClick={() => setConfirmUnlink(true)}>{t(key("unlink"))}</button>
     </>;
-    footer = confirmUnlink ? <>
-      <button className={secondaryButtonClass} disabled={busy} onClick={unlink}>{t(key("confirm"))}</button>
-      <button className={secondaryButtonClass} onClick={() => setConfirmUnlink(false)}>{t(key("cancel"))}</button>
-    </> : <button className={secondaryButtonClass} onClick={() => setConfirmUnlink(true)}>{t(key("unlink"))}</button>;
   } else if (issued && !issued.expired) {
     body = <Waiting code={issued.code} seconds={issued.seconds} />;
     footer = <>{issued.code.wa_me_url && <><p className={`${muted} min-w-0 flex-1 max-tablet:hidden`}>{t(key("desktop_prompt"))}</p>
@@ -279,10 +249,27 @@ export default function WhatsAppLinkModal(frame: Frame) {
     body = <p role="status">{t(key("loading"))}</p>;
   }
   return <SettingsSurface {...frame} title={t(key("title"))} closeLabel={t("common.close")} width="md"
-    footer={footer && <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-end">{footer}</div>}>
-    <div className="space-y-[21px] px-4 py-5 text-base text-[#172b26] tablet:px-6 dark:text-white">
-      {problem && problem !== "setup_required" && <p role="alert" className={inlineFailureTextClass}>{t(key(`problem_${problem}`))}</p>}
+    footer={footer && <div className={`flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-end ${inWindow && status?.linked ? "max-tablet:-mx-1 max-tablet:pb-3" : ""}`}>{footer}</div>}>
+    <div className={`space-y-[21px] px-4 py-5 text-base text-[#172b26] dark:text-white ${status?.linked ? "max-tablet:pb-4 tablet:px-5 tablet:pt-4" : "tablet:px-6"}`}>
+      {!confirmUnlink && problem && problem !== "setup_required" && <p role="alert" className={inlineFailureTextClass}>{t(key(`problem_${problem}`))}</p>}
+      {status && !status.linked && status.held_count > 0 && <HeldFiles count={status.held_count} />}
       {body}
+      {status?.linked && confirmUnlink && <ConfirmDialog isOpen detailed tone="primary"
+        title={t(key("unlink_title"), { last4: status.last4 })}
+        description={status.held_count === 0 ? <p>{t(key("unlink_empty"))}</p> : (
+          <ul className="space-y-2.5">
+            {["unlink_stop", "unlink_held", "unlink_reading", "unlink_no_message"].map(name => (
+              <li key={name} className="flex gap-2.5 before:mt-[9px] before:size-1.5 before:shrink-0 before:rounded-full before:bg-[#7d8a84] dark:before:bg-white/50">
+                {t(key(name), { count: status.held_count })}
+              </li>
+            ))}
+          </ul>
+        )}
+        confirmLabel={t("workspace_setup_preview.unlink")} cancelLabel={t(key("cancel"))}
+        isBusy={busy} error={problem && t(key(`problem_${problem}`))}
+        onCancel={() => { if (!busy) { setConfirmUnlink(false); setProblem(null); } }}
+        onConfirm={unlink}
+      />}
     </div>
   </SettingsSurface>;
 }

@@ -10,7 +10,8 @@ import { CONFIRM_ACTION, FOCUS_RING } from "@/components/business-app/foundation
 type ConfirmDialogProps = {
   isOpen: boolean;
   title: string;
-  description: string;
+  description: ReactNode;
+  detailed?: boolean;
   confirmLabel: string;
   cancelLabel: string;
   isBusy?: boolean;
@@ -54,6 +55,7 @@ function ConfirmDialogSurface({
   isOpen,
   title,
   description,
+  detailed = false,
   confirmLabel,
   cancelLabel,
   isBusy = false,
@@ -147,34 +149,34 @@ function ConfirmDialogSurface({
         aria-modal="true"
         aria-labelledby="argus-confirm-title"
         aria-describedby="argus-confirm-description"
-        className="relative w-full max-w-sm rounded-surface border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-[#1f2225]"
+        className={`relative w-full rounded-surface border bg-white p-5 dark:border-white/10 dark:bg-[#1f2225] ${detailed ? "max-w-[350px] border-[#DCE0DA] text-[#172b26] tablet:max-w-[440px] tablet:p-6 dark:text-white" : "max-w-sm border-black/10"}`}
       >
         <h2
           id="argus-confirm-title"
-          className="font-display text-[17px] font-medium tracking-tight text-black dark:text-white"
+          className={`font-display font-medium ${detailed ? "text-[21px] leading-7" : "text-[17px] tracking-tight text-black dark:text-white"}`}
         >
           {title}
         </h2>
         {children}
-        <p
+        <div
           id="argus-confirm-description"
-          className="mt-2 text-[13px] leading-relaxed text-black/55 dark:text-white/55"
+          className={detailed ? "mt-4" : "mt-2 text-[13px] leading-relaxed text-black/55 dark:text-white/55"}
         >
           {description}
-        </p>
+        </div>
         {error ? (
           <p role="alert" data-testid="confirm-dialog-error" className="mt-3 text-[13px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
             {error}
           </p>
         ) : null}
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <div className={detailed ? "mt-4 flex justify-end gap-3 max-tablet:[&>button]:flex-1 [&>button]:px-5" : "mt-5 flex flex-wrap justify-end gap-2"}>
           {leadingAction ? <div className="mr-auto">{leadingAction}</div> : null}
           <button
             ref={cancelRef}
             type="button"
             onClick={onCancel}
             disabled={isBusy}
-            className={`min-h-11 rounded-full border border-black/10 px-4 text-[16px] font-medium text-black hover:bg-black/5 disabled:opacity-50 ${FOCUS_RING} dark:border-[var(--segment-thumb-border)] dark:text-white dark:hover:bg-white/5`}
+            className={`min-h-11 rounded-full border px-4 text-[16px] font-medium hover:bg-black/5 disabled:opacity-50 ${FOCUS_RING} ${detailed ? "border-[#7d8a84]/60 dark:border-white/20" : "border-black/10 text-black dark:border-[var(--segment-thumb-border)]"} dark:text-white dark:hover:bg-white/5`}
           >
             <span className="inline-flex items-center gap-2">
               {cancelLabel}
