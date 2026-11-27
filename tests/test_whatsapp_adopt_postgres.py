@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from argus.domain.business.read_budget import ReadBudgetSettings
@@ -33,6 +33,11 @@ def sender(desk, actions):
 
 def capture(sender):
     row = held.upload(sender)
+    inbound(sender, row)
+    return row
+
+
+def inbound(sender, row):
     with sender.pool.connection() as db:
         db.execute(
             "insert into public.whatsapp_inbound_messages"
@@ -48,7 +53,6 @@ def capture(sender):
                 sender.now,
             ),
         )
-    return row
 
 
 def enable(sender):
@@ -448,3 +452,158 @@ def test_business_read_rechecks_the_senders_grant_before_provider_admission(
         != "prepared"
     )
     assert counts(sender) == (0, 0) and sender.extractor.calls == 0
+
+
+def hold_resend(sender, original):
+    row = sender.files.hold(
+        user_id=sender.owner,
+        sender_link_id=sender.sender_link_id,
+        provider_message_key=uuid4().bytes * 2,
+        connection_id=original.connection_id,
+        reason="no_match",
+        now=sender.now,
+    )
+    inbound(sender, row)
+    return row
+
+
+def change_receiving_business(sender):
+    from tests.test_business_spaces_migration_postgres import owned_space
+
+    with sender.pool.connection() as db:
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where id=%s",
+            (sender.grant,),
+        )
+        new_space = owned_space(db, sender.owner)
+    prepare_phone_business(sender.pool, new_space, sender.owner)
+    return new_space
+
+
+@pytest.mark.parametrize("full", [False, True])
+def test_resend_after_access_loss_reuses_only_original_private_read(
+    sender, monkeypatch, full
+):
+    monkeypatch.setenv("CUADRAO_WHATSAPP_HELD_READS_PER_DAY", "3")
+    original, unrelated = capture(sender), capture(sender)
+    for row in (original, unrelated):
+        assert held.read(sender, row) == "prepared"
+    if full:
+        sender.service.read_budget.settings = ReadBudgetSettings(per_day=1)
+        sender.service.read_budget.charge(sender.space, sender.now)
+    first = assign(sender, original)
+    before = counts(sender)
+    assert before == (1, 1 + int(full))
+
+    business = change_receiving_business(sender)
+    resent = hold_resend(sender, original)
+    result = sender.service.adopt(
+        user_id=sender.owner, held_id=resent.id, business_id=business
+    )
+    assert result.connection_id != first.connection_id and result.status == "review_ready"
+    assert sender.extractor.calls == 2
+    assert counts(sender) == before
+    with sender.pool.connection() as db:
+        assert db.execute(
+            "select coalesce(sum(reads),0) from public.business_read_daily_usage"
+            " where business_id=%s",
+            (business,),
+        ).fetchone() == (0,)
+        messages = dict(
+            db.execute(
+                "select provider_message_key,connection_id::text from public.whatsapp_inbound_messages"
+                " where destination_owner_id=%s",
+                (sender.owner,),
+            ).fetchall()
+        )
+    assert messages[original.provider_message_key] == first.connection_id
+    assert messages[resent.provider_message_key] == result.connection_id
+    assert messages[unrelated.provider_message_key] == unrelated.connection_id
+
+
+def test_resend_after_unread_assignment_settles_its_own_later_read(sender):
+    from argus.domain.ingestion.documents.jobs import PreparationJobs
+    from argus.domain.owner_scope import PERSONAL
+
+    original = capture(sender)
+    assert assign(sender, original).status == "queued"
+    business = change_receiving_business(sender)
+    resent = hold_resend(sender, original)
+    sender.service.queue(
+        user_id=sender.owner,
+        connection_id=resent.connection_id,
+        consent=True,
+        scope=PERSONAL,
+    )
+    PreparationJobs(sender.service).start(
+        user_id=sender.owner, connection_id=resent.connection_id
+    )
+    assert held.read(sender, resent) == "prepared"
+    assert counts(sender) == (0, 1)
+
+    routed = sender.service.route_saved_hold(user_id=sender.owner, held_id=resent.id)
+    assert routed[0] == business and routed[1].status == "review_ready"
+    assert sender.extractor.calls == 1
+    assert counts(sender) == (0, 0)
+    with sender.pool.connection() as db:
+        assert db.execute(
+            "select sum(reads) from public.business_read_daily_usage"
+            " where business_id=%s",
+            (business,),
+        ).fetchone() == (1,)
+
+
+def test_new_delivery_matches_saved_buyer_against_only_current_grants(
+    sender, monkeypatch
+):
+    from argus.domain.business.spaces import PostgresSpaceStore
+    from faker import Faker
+
+    from tests.test_business_spaces_migration_postgres import owned_space
+
+    buyer = Faker().numerify("1########")
+    extract = sender.extractor.extract
+
+    async def read_buyer(**kwargs):
+        batch = await extract(**kwargs)
+        return batch.model_copy(
+            update={"receipt": batch.receipt.model_copy(update={"buyer_rnc": buyer})}
+        )
+
+    monkeypatch.setattr(sender.extractor, "extract", read_buyer)
+    original = capture(sender)
+    assert held.read(sender, original) == "prepared"
+    assign(sender, original)
+    with sender.pool.connection() as db:
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where id=%s",
+            (sender.grant,),
+        )
+    resent = hold_resend(sender, original)
+    assert (
+        sender.service.route_saved_hold(user_id=sender.owner, held_id=resent.id) is None
+    )
+    assert (
+        next(
+            r.reason
+            for r in sender.files.list_for_user(sender.owner)
+            if r.id == resent.id
+        )
+        == "no_eligible_business"
+    )
+    with sender.pool.connection() as db:
+        b = owned_space(db, sender.owner)
+        db.execute(
+            "update public.spaces set business_rnc=%s,business_tax_id_type='rnc' where id=%s",
+            (buyer, b),
+        )
+    c, _ = PostgresSpaceStore(sender.pool).create_additional(
+        sender.owner, Faker().company(), "DO", str(uuid4())
+    )
+    for eligible in (b, c.id):
+        prepare_phone_business(sender.pool, eligible, sender.owner)
+    destination, result = sender.service.route_saved_hold(
+        user_id=sender.owner, held_id=resent.id
+    )
+    assert destination == b and result.status == "review_ready"
+    assert sender.extractor.calls == 1 and counts(sender) == (1, 0)

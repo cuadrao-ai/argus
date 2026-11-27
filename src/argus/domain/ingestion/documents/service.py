@@ -1080,7 +1080,7 @@ class DocumentsService:
     ) -> DocumentDraft:
         from argus.domain.ingestion.whatsapp.held import charge_read
 
-        def charge(store: DocumentStore) -> DocumentDraft:
+        def charge(store: DocumentStore, held_id: str | None = None) -> DocumentDraft:
             charged_at = self.hub.clock()
             if attempt_id is not None and not store.mark_provider_call(
                 user_id=user_id,
@@ -1100,6 +1100,7 @@ class DocumentsService:
                     "resolution": {
                         **draft.resolution,
                         "held_read_charged_at": charged_at.isoformat(),
+                        **({"held_read_id": held_id} if held_id else {}),
                     }
                 }
             )
@@ -1123,7 +1124,7 @@ class DocumentsService:
 
         with PostgresHeldFiles(self.store).pool.connection() as db, db.transaction():
             original = db.execute(
-                "select sender_link_id::text from public.whatsapp_held_files where user_id=%s"
+                "select sender_link_id::text,id::text from public.whatsapp_held_files where user_id=%s"
                 " and connection_id=%s and state='held' order by held_at,id limit 1",
                 (user_id, draft.connection_id),
             ).fetchone()
@@ -1132,7 +1133,7 @@ class DocumentsService:
                     uuid.UUID(user_id), expected_link_id=original[0]
                 )
                 if consent["enabled"]:
-                    return charge(self.on_connection(db).store)
+                    return charge(self.on_connection(db).store, original[1])
                 reason = (
                     "no_eligible_business"
                     if consent["reason"] == "whatsapp_setup_required"
@@ -1153,10 +1154,6 @@ class DocumentsService:
         holder: str,
         replayed: bool,
     ) -> DocumentOutcome:
-        from argus.domain.business.document_type import buyer_tax_id, issuer_tax_id
-        from argus.domain.ingestion.whatsapp.routing import route_document
-        from argus.domain.ingestion.whatsapp.senders import postgres_senders
-
         files = PostgresHeldFiles(self.store)
         user_id = connection.user_id
         with files.pool.connection() as db, db.transaction():
@@ -1178,37 +1175,70 @@ class DocumentsService:
                     connection, draft, batch, holder, None, False
                 )
                 scoped.hub.connections.release(connection_id=connection.id, holder=holder)
-                grants = {
-                    g.space_id: g
-                    for g in postgres_senders(db).eligible_businesses(user_id)
-                }
-                identities = dict(
-                    db.execute(
-                        "select id::text,business_rnc from public.spaces where id=any(%s::uuid[])",
-                        (list(grants),),
-                    ).fetchall()
-                )
-                receipt = batch.receipt
-                route = route_document(
-                    identities,
-                    issuer=issuer_tax_id(batch.dgii_qr, receipt.rnc if receipt else None),
-                    buyer=buyer_tax_id(
-                        batch.dgii_qr, receipt.buyer_rnc if receipt else None
-                    ),
-                )
-                if isinstance(route, BusinessSpace):
-                    assigned, _ = scoped._adopt_locked(db, row, grants[route.space_id])
-                else:
-                    db.execute(
-                        "update public.whatsapp_held_files set reason=%s where user_id=%s"
-                        " and connection_id=%s and state='held'",
-                        (route, user_id, connection.id),
-                    )
-        if isinstance(route, BusinessSpace) and not assigned.replayed:
-            self._report_whatsapp_arrival(draft, user_id, route.space_id)
+                routed = scoped._route_held(db, row, batch, new_delivery=False)
+        if routed and not routed[1].replayed:
+            self._report_whatsapp_arrival(draft, user_id, routed[0])
         return DocumentOutcome(
             connection.id, replayed, len(batch.candidates), draft.status
         )
+
+    def route_saved_hold(
+        self, *, user_id: str, held_id: str
+    ) -> tuple[str, DocumentOutcome] | None:
+        """Route a new delivery of retained bytes inside its publication transaction."""
+        if not load_whatsapp_settings().intake_ready or not isinstance(
+            self.store, PostgresDocumentStore
+        ):
+            raise DocumentServiceError("whatsapp_unavailable")
+        with PostgresHeldFiles(self.store).assignment(user_id, held_id) as (db, row):
+            if row is None or row.state != "held":
+                return None
+            scoped = self.on_connection(db)
+            batch = scoped.store.get(user_id=user_id, connection_id=row.connection_id)
+            return scoped._route_held(db, row, batch, new_delivery=True)
+
+    def _route_held(
+        self,
+        db: Connection,
+        row: HeldFile,
+        batch: ExtractionBatch | None,
+        *,
+        new_delivery: bool,
+    ) -> tuple[str, DocumentOutcome] | None:
+        from argus.domain.business.document_type import buyer_tax_id, issuer_tax_id
+        from argus.domain.ingestion.whatsapp.routing import route_document
+        from argus.domain.ingestion.whatsapp.senders import postgres_senders
+
+        grants = {
+            g.space_id: g for g in postgres_senders(db).eligible_businesses(row.user_id)
+        }
+        if new_delivery and len(grants) == 1:
+            route = BusinessSpace(next(iter(grants)))
+        else:
+            # A file held for a read must still match a fiscal party if another
+            # grant disappears while the provider is reading.
+            identities = dict(
+                db.execute(
+                    "select id::text,business_rnc from public.spaces where id=any(%s::uuid[])",
+                    (list(grants),),
+                ).fetchall()
+            )
+            receipt = batch.receipt if batch else None
+            qr = batch.dgii_qr if batch else None
+            route = route_document(
+                identities,
+                issuer=issuer_tax_id(qr, receipt.rnc if receipt else None),
+                buyer=buyer_tax_id(qr, receipt.buyer_rnc if receipt else None),
+            )
+        if isinstance(route, BusinessSpace):
+            assigned, _ = self._adopt_locked(db, row, grants[route.space_id])
+            return route.space_id, assigned
+        db.execute(
+            "update public.whatsapp_held_files set reason=%s where user_id=%s"
+            " and connection_id=%s and state='held'",
+            (route, row.user_id, row.connection_id),
+        )
+        return None
 
     def adopt(self, *, user_id: str, held_id: str, business_id: str) -> DocumentOutcome:
         """Assign a sender's retained file under their current Business grant."""
@@ -1283,15 +1313,7 @@ class DocumentsService:
         try:
             with db.transaction():
                 if batch is not None:
-                    instant = self._held_charge_time(connection, draft)
-                    if (
-                        instant is None
-                        or files.budget(self.read_budget).hand_over(
-                            user, grant.space_id, now, charged_at=instant
-                        )
-                        == "no_held_read"
-                    ):
-                        raise DocumentServiceError("held_read_charge_missing")
+                    self._settle_held_charge(db, connection, draft, grant.space_id, now)
                 destination = self.for_sender(user, scope)
                 result = destination._receive_held(grant, draft, source, rebuilt, batch)
                 # Older captures can share one Personal connection. The assignment
@@ -1336,6 +1358,50 @@ class DocumentsService:
                     self.store.objects.remove(path)
             raise
         return result, draft
+
+    def _settle_held_charge(
+        self,
+        db: Connection,
+        connection: SourceConnection,
+        draft: DocumentDraft,
+        business_id: str,
+        now: datetime,
+    ) -> None:
+        instant = self._held_charge_time(connection, draft)
+        if instant is None:
+            raise DocumentServiceError("held_read_charge_missing")
+        origin = draft.resolution.get("held_read_id")
+        if origin:
+            row = db.execute(
+                "select state from public.whatsapp_held_files where id=%s"
+                " and connection_id=%s and user_id=%s",
+                (origin, connection.id, connection.user_id),
+            ).fetchone()
+            if row is None or row[0] == "expired":
+                raise DocumentServiceError("held_read_charge_missing")
+            if row[0] == "assigned":
+                return
+        else:
+            # Older charge records have a time but no held-row ID. A previous
+            # assignment after that charge has already settled it under the lock.
+            if db.execute(
+                "select 1 from public.whatsapp_held_files where user_id=%s and connection_id=%s"
+                " and state='assigned' and held_at<=%s and settled_at>=%s",
+                (connection.user_id, connection.id, instant, instant),
+            ).fetchone():
+                return
+        transfer = (
+            PostgresHeldFiles(self.store)
+            .budget(self.read_budget)
+            .hand_over(
+                connection.user_id,
+                business_id,
+                now,
+                charged_at=instant,
+            )
+        )
+        if transfer == "no_held_read":
+            raise DocumentServiceError("held_read_charge_missing")
 
     def _held_charge_time(
         self, connection: SourceConnection, draft: DocumentDraft
