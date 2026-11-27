@@ -287,6 +287,19 @@ test("the server refuses a request because another Dueño holds the Business: th
   } finally { await view.close(); }
 });
 
+test("the server refuses the accept because another Dueño holds the Business: the dialog says the same sentence and drops the question", async () => {
+  const view = await mount({ transferId: id }, { refused: "business_transfer_other_owner" });
+  try {
+    await view.press("Aceptar transferencia");
+    assert.deepEqual(view.posts().map(call => call.path), [`/ownership-transfers/${id}/accept`]);
+    assert.equal(document.querySelectorAll('[role="dialog"]').length, 1);
+    assert.equal(view.dialog()?.querySelector('[role="alert"]')?.textContent, NO_TRANSFER);
+    assert.deepEqual(view.labels(), []);
+    assert.equal(view.toast(), null);
+    assert.deepEqual(view.workspace, [], "the person stays where they were");
+  } finally { await view.close(); }
+});
+
 test("closing the owner's dialog while it loads ignores the late answer: no Business switch, no panel", async () => {
   let release = () => {};
   const hold = new Promise<void>(resolve => { release = resolve; });

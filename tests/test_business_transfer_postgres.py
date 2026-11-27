@@ -137,6 +137,59 @@ def test_a_business_another_owner_holds_takes_no_transfer_request(world, coowner
             db.execute("delete from auth.users where id=%s", (person,))
 
 
+@pytest.fixture
+def join_as_owner(world):
+    _, space, people, _, _ = world
+    joined = []
+
+    def join() -> None:
+        with psycopg.connect(shared.DSN) as db:
+            joined.append(lifecycle._person(db))
+            lifecycle._member(
+                db, space.id, people["owner"], joined[-1], BusinessRole.OWNER
+            )
+
+    yield join
+    with psycopg.connect(shared.DSN) as db:
+        db.execute(
+            "delete from public.business_client_grants where grantee_id=any(%s::uuid[])",
+            (joined,),
+        )
+        db.execute("delete from auth.users where id=any(%s::uuid[])", (joined,))
+
+
+@pytest.mark.parametrize("clear", ["cancel", "decline"])
+def test_a_waiting_request_cannot_be_accepted_once_another_owner_holds_the_business(
+    world, join_as_owner, clear
+):
+    pool, space, people, access, member = world
+    transfer = _request(world)
+    join_as_owner()
+    service = PostgresBusinessTransfer(pool)
+
+    def stored() -> tuple:
+        with psycopg.connect(shared.DSN) as db:
+            return db.execute(
+                "select t.status,t.resolved_at,t.owner_id::text,t.target_id::text,s.current_owner_id::text"
+                " from public.business_ownership_transfers t join public.spaces s on s.id=t.space_id"
+                " where t.id=%s",
+                (transfer.id,),
+            ).fetchone()
+
+    before = stored()
+    with pytest.raises(BusinessLifecycleError, match="business_transfer_other_owner"):
+        service.accept(actor_id=people["other"], transfer_id=transfer.id)
+    assert stored() == before == (
+        "pending", None, people["owner"], people["other"], people["owner"]
+    )
+    assert access.granted(people["other"], member.id).business_role == BusinessRole.ADMIN
+    if clear == "cancel":
+        cleared = service.cancel(owner_id=people["owner"], transfer_id=transfer.id)
+    else:
+        cleared = service.decline(actor_id=people["other"], transfer_id=transfer.id)
+    assert cleared.status == {"cancel": "cancelled", "decline": "declined"}[clear]
+
+
 def test_admin_can_receive_ownership_but_cannot_transfer_or_close(world):
     pool, space, people, access, member = world
     upgrade = access.change_role(space.id, people["owner"], member.id, BusinessRole.ADMIN)
@@ -773,25 +826,24 @@ def test_ownership_acquired_during_reauthorization_refuses_fresh_deletion(world)
         )
 
 
-def join_coowner(world, email):
+def join_admin(world, email):
     pool, space, people, access, _ = world
     with pool.connection() as db:
         db.execute(
             "update auth.users set email=%s,is_anonymous=false,email_confirmed_at=now() where id=%s",
             (email, people["guest"]),
         )
-    _, listing = access.give(space.id, people["owner"], email, BusinessRole.OWNER)
+    _, listing = access.give(space.id, people["owner"], email, BusinessRole.ADMIN)
     access.accept_invite(people["guest"], space.id, listing.invites[0].id)
 
 
 def test_transfer_cancels_only_demoted_issuers_pending_invitations(world, faker):
     from argus.domain.business.memberships import MembershipError
     pool, space, people, access, _ = world
-    sender, retained_owner = "owner", "guest"
-    # A Business with two Dueños takes no request, so the second joins while it waits.
+    sender, retained_issuer = "owner", "guest"
     transfer = _request(world)
-    join_coowner(world, faker.ascii_safe_email())
-    retained_grant = access.spaces_for(people[retained_owner])[0].grant_id
+    join_admin(world, faker.ascii_safe_email())
+    retained_grant = access.spaces_for(people[retained_issuer])[0].grant_id
     _, listing = access.give(
         space.id,
         people[sender],
@@ -801,19 +853,19 @@ def test_transfer_cancels_only_demoted_issuers_pending_invitations(world, faker)
     )
     old = next(i for i in listing.invites if i.email == "original-issuer@example.test")
     _, listing = access.give(
-        space.id, people[retained_owner], "coowner-issuer@example.test", BusinessRole.OWNER
+        space.id, people[retained_issuer], "admin-issuer@example.test", BusinessRole.VIEWER
     )
     retained = next(
-        i for i in listing.invites if i.email == "coowner-issuer@example.test"
+        i for i in listing.invites if i.email == "admin-issuer@example.test"
     )
     PostgresBusinessTransfer(pool).accept(
         actor_id=people["other"], transfer_id=transfer.id
     )
     assert access.resend(space.id, people["other"], old.id) is None
     assert retained.id in {
-        i.id for i in access.resend(space.id, people[retained_owner], retained.id).invites
+        i.id for i in access.resend(space.id, people[retained_issuer], retained.id).invites
     }
-    assert access.granted(people[retained_owner], retained_grant).business_role == BusinessRole.OWNER
+    assert access.granted(people[retained_issuer], retained_grant).business_role == BusinessRole.ADMIN
     with pytest.raises(MembershipError):
         access.give(
             space.id, people[sender], old.email, BusinessRole.VIEWER, "original-key"
@@ -822,7 +874,7 @@ def test_transfer_cancels_only_demoted_issuers_pending_invitations(world, faker)
         assert db.execute(
             "select issuer_id::text,revoked_at is null from public.business_access_invites where id=%s",
             (retained.id,),
-        ).fetchone() == (people[retained_owner], True)
+        ).fetchone() == (people[retained_issuer], True)
         assert db.execute(
             "select issuer_id::text,revoked_at is not null from public.business_access_invites where id=%s",
             (old.id,),

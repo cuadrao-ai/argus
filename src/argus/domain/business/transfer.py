@@ -282,6 +282,10 @@ class PostgresBusinessTransfer:
                         "business_transfer_target_invalid"
                     ) from None
             if accept:
+                if PostgresBusinessLifecycle.other_owner_holds(
+                    db, command[1], command[2]
+                ):
+                    raise BusinessLifecycleError("business_transfer_other_owner")
                 self._target(db, command[1], command[6], command[2])
                 db.execute(
                     "update public.business_receipt_reading_consents set revoked_at=clock_timestamp() where space_id=%s and revoked_at is null",

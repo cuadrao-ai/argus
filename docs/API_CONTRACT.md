@@ -11842,7 +11842,10 @@ needs no transfer and the owner card offers none. The transfer request reads the
 same check: `POST /business/spaces/{space_id}/ownership-transfers` for such a
 Business answers `409 business_transfer_other_owner`, whoever the target is, and
 creates no transfer. A replay of a request made earlier still returns that
-request, and a pending request can still be accepted, declined or withdrawn.
+request. Accepting reads the check too: if another Owner joined while a request
+waited, `POST /business/ownership-transfers/{transfer_id}/accept` answers the
+same `409 business_transfer_other_owner` and changes nothing. That request can
+still be declined or withdrawn.
 `members` lists every live member as `{grant_id, name, email, shown_as, eligible, reason}`;
 `name` is the profile name or `null`, and `email` stands in only without one
 (only the owner reads this list, so `shown_as` is `name`, `email`, or `member`

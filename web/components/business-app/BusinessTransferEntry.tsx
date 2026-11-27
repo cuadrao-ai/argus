@@ -173,8 +173,10 @@ function BusinessTransfer({ transferId, startSpaceId }: Target) {
       finish(action, transfer);
     } catch (error) {
       if (browserAuthGeneration() !== generation) return;
+      const sentence = businessLifecycleErrorKey(error, `${action}_uncertain`);
+      if (sentence.endsWith(".transfer_unavailable")) { setCommand({ kind: "idle" }); setEntry({ kind: "unavailable", of: "transfer" }); return; }
       // The answer may have landed: the only next step reads the server, never sends it twice.
-      setCommand({ kind: "error", message: t(businessLifecycleErrorKey(error, `${action}_uncertain`)), reference: serverRequestReference(error) });
+      setCommand({ kind: "error", message: t(sentence), reference: serverRequestReference(error) });
       setUnconfirmed(action);
     }
   };
