@@ -36,10 +36,11 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-type Setup = { spaces?: GrantedSpace[]; notices?: BusinessNotice[]; link?: string; listFails?: boolean; acceptStatus?: number; width?: number };
+type Setup = { spaces?: GrantedSpace[]; notices?: BusinessNotice[]; link?: string; reload?: boolean; listFails?: boolean; acceptStatus?: number; width?: number };
 
 /** The live workspace over a server double: it lists Businesses and notices, marks them read and accepts. */
-async function open({ spaces = [], notices = [], link, listFails = false, acceptStatus = 200, width = 1280 }: Setup) {
+/** `link` arrives by the email link; `reload` loads the page again at the address and with the storage the last one left. */
+async function open({ spaces = [], notices = [], link, reload = false, listFails = false, acceptStatus = 200, width = 1280 }: Setup) {
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
   const { BusinessContextCue } = await import("@/components/business-app/BusinessPanel");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
@@ -51,9 +52,12 @@ async function open({ spaces = [], notices = [], link, listFails = false, accept
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   synchronizeBusinessAccount("bell-person");
   setChosenGrant(null);
-  forgetPendingInvite();
   clearToasts();
-  if (link) capturePendingInvite("/biz", `?invite=${link}`);
+  if (!reload) {
+    forgetPendingInvite();
+    window.history.replaceState(null, "", link ? `/biz?invite=${link}` : "/biz");
+  }
+  capturePendingInvite();
   const server = { spaces: [...spaces], notices: [...notices], listFails, read: [] as string[][], accepted: [] as { invite: string; space_id: string }[] };
   const requests: string[] = [];
   const businessLoads: string[] = [];
@@ -107,7 +111,9 @@ async function open({ spaces = [], notices = [], link, listFails = false, accept
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  cleanups.push(async () => { await act(async () => root.unmount()); forgetPendingInvite(); clearToasts(); synchronizeBusinessAccount(null); });
+  let left = false;
+  const leave = async () => { if (!left) await act(async () => root.unmount()); left = true; };
+  cleanups.push(async () => { await leave(); forgetPendingInvite(); clearToasts(); synchronizeBusinessAccount(null); });
   await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source as never} userId="bell-person"><Probe /></BusinessWorkspaceProvider></BusinessConsentTestProvider></I18nextProvider>));
   const until = async (ready: () => boolean, what: string) => {
     for (let turn = 0; turn < 200 && !ready(); turn += 1) await act(async () => new Promise((resolve) => setTimeout(resolve, 5)));
@@ -120,7 +126,8 @@ async function open({ spaces = [], notices = [], link, listFails = false, accept
   await until(() => bell() !== null && requests.includes("GET /business/notifications"), "the bell and its first list");
   await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
   return {
-    host, server, requests, businessLoads, until, bell, panel, rows, button,
+    host, server, requests, businessLoads, until, bell, panel, rows, button, leave,
+    addressNamesAnInvite: () => new URLSearchParams(window.location.search).has("invite"),
     business: () => business!,
     chosen: getChosenGrant,
     pending: pendingInviteId,
@@ -207,9 +214,33 @@ test("a link to an invitation that is withdrawn or dead says so, once", { timeou
   expect(page.panel()!.querySelector('[role="status"]')!.textContent).toBe(`${copy.invitation_gone_title}${copy.invitation_gone_body}`);
   expect(page.panel()!.textContent).toContain(copy.empty_all_title);
   expect(page.pending()).toBeNull();
+  expect(page.addressNamesAnInvite()).toBe(false);
   await page.press(page.button("Cerrar", page.panel()!) ?? page.panel()!.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]'));
   await page.press(page.bell());
   expect(page.panel()!.querySelector('[role="status"]')).toBeNull();
+
+  await page.leave();
+  const again = await open({ spaces: page.server.spaces, notices: [], reload: true });
+  await again.until(() => again.chosen() !== null, "the Business after the reload");
+  expect(again.panel()).toBeNull();
+  expect(again.pending()).toBeNull();
+});
+
+test("after accepting from the link, a reload leaves the bell closed and the address names no invitation", { timeout: 15000 }, async () => {
+  const mine = invitation(1, "Panadería La Espiga", "viewer");
+  const page = await open({ spaces: [space(1, "Colmado Doña Rosa")], notices: [mine], link: mine.id });
+  await page.until(() => page.rows().length === 1, "the invitation");
+  expect(page.addressNamesAnInvite()).toBe(false);
+  await page.press(page.button("Aceptar invitación", page.rows()[0]));
+  await page.until(() => page.chosen() === page.server.spaces[1].grant_id, "entering the invited Business");
+  expect(page.addressNamesAnInvite()).toBe(false);
+
+  await page.leave();
+  const again = await open({ spaces: page.server.spaces, notices: page.server.notices, reload: true });
+  await again.until(() => again.chosen() !== null, "the Business after the reload");
+  expect(again.panel()).toBeNull();
+  expect(again.pending()).toBeNull();
+  expect(document.querySelector('[role="status"]')).toBeNull();
 });
 
 test("a list that does not load says so with Reintentar, and the retry shows it", { timeout: 15000 }, async () => {

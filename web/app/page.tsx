@@ -74,7 +74,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     captureLandingIntentFromLocation();
-    capturePendingInvite(window.location.pathname, window.location.search);
+    capturePendingInvite();
     const nextAuthMode = authModeFromLocation();
     setAuthMode(nextAuthMode);
     setSessionEnded(sessionEndedNotice(window.location.search));
