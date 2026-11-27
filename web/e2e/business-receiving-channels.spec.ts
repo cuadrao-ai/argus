@@ -1,9 +1,10 @@
+import { readFileSync } from "node:fs";
 import { whatsappDisclosure } from "../__tests__/fixtures/whatsapp-disclosure";
 import english from "../public/locales/en/common.json";
 import spanish from "../public/locales/es-419/common.json";
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
+import { FREEZE_CSS, fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
 async function setup(page: Page, available: boolean, history = false, language: "es-419" | "en" = "es-419") {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -106,8 +107,13 @@ for (const { width, language } of [
   test(`link a number from account settings in ${language} at ${width}px`, async ({ page }, info) => {
     const words = (language === "en" ? english : spanish).settings.whatsapp;
     await setup(page, false, false, language);
+    await page.clock.install();
+    // Local design captures use the disclosures exported by the running backend version.
+    const source = process.env.WHATSAPP_CAPTURE_DISCLOSURES;
+    const disclosure = source ? JSON.parse(readFileSync(source, "utf8"))[language] as typeof whatsappDisclosure.en : whatsappDisclosure[language];
+    let ready = true;
     await page.route((url) => url.pathname.endsWith("/api/v1/whatsapp/link") && url.searchParams.get("language") === language, route => route.fulfill({
-      json: { ...whatsappDisclosure[language], linked: false, receiving_businesses: [{ space_id: "elsewhere", name: "Negocio de prueba" }], held_count: 0 },
+      json: { ...disclosure, linked: false, receiving_businesses: ready ? [{ space_id: "elsewhere", name: "Negocio de prueba" }] : [], held_count: 0 },
     }));
     const message = "CUADRAO K7P2M9XQ";
     const url = "https://wa.me/15550100000?text=" + encodeURIComponent(message);
@@ -121,20 +127,49 @@ for (const { width, language } of [
       },
     }));
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/biz?view=inbox");
-    await page.getByTestId("header-profile-trigger").click();
-    await page.getByTestId("profile-menu-settings").click();
-    await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
+    const capture = (state: string) => page.screenshot({
+      path: info.outputPath(`whatsapp-${state}-${language}-${width}.png`), style: FREEZE_CSS,
+    });
+    const openSettings = async () => {
+      await page.goto("/biz?view=inbox");
+      await page.getByTestId("header-profile-trigger").click();
+      await page.getByTestId("profile-menu-settings").click();
+      await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
+    };
+    await openSettings();
     const link = page.getByRole("button", { name: words.link_phone });
     await expect(link).toBeVisible();
-    await expect(page.getByText(whatsappDisclosure[language].disclosure, { exact: true })).toBeVisible();
-    await page.screenshot({ path: info.outputPath(`whatsapp-ready-${language}-${width}.png`) });
+    await expect(page.getByText(disclosure.disclosure, { exact: true })).toBeVisible();
+    await capture("ready");
     const issued = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith("/whatsapp/link-codes") && request.method() === "POST");
     await link.click();
-    expect((await issued).postDataJSON()).toEqual({ language, disclosure_token: whatsappDisclosure[language].disclosure_token });
+    expect((await issued).postDataJSON()).toEqual({ language, disclosure_token: disclosure.disclosure_token });
     await expect(page.getByText(width < 720 ? words.mobile_title : words.scan_title, { exact: true })).toBeVisible();
     await expect(page.getByText(message, { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: words.open })).toHaveAttribute("href", url);
-    await page.screenshot({ path: info.outputPath(`whatsapp-waiting-${language}-${width}.png`) });
+    if (width < 720) {
+      const description = page.getByText(words.send_steps, { exact: true });
+      expect(await description.evaluate(node => getComputedStyle(node.parentElement!).borderTopWidth)).toBe("0px");
+      const gap = await description.evaluate(node => {
+        const waiting = document.querySelector('[role="timer"]')!;
+        return node.getBoundingClientRect().top - waiting.getBoundingClientRect().bottom;
+      });
+      expect(gap).toBeGreaterThan(0);
+    } else {
+      for (const label of [words.scan_camera, words.scan_send, words.scan_return]) {
+        await expect(page.getByRole("listitem").filter({ hasText: label })).toHaveCSS("font-size", "14px");
+      }
+    }
+    await capture("waiting");
+    await page.clock.fastForward(11 * 60 * 1000);
+    await expect(page.getByText(words.expired_title, { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: words.new_code })).toBeVisible();
+    await capture("expired");
+
+    ready = false;
+    await openSettings();
+    await expect(page.getByText(words.setup_title, { exact: true })).toBeVisible();
+    await expect(link).toHaveCount(0);
+    await capture("setup");
   });
 }

@@ -81,7 +81,7 @@ function Waiting({ code, seconds }: { code: WhatsAppLinkCode; seconds: number })
     </>}
     <div className="flex gap-6">
       <QR code={code} /><div className="min-w-0 flex-1 space-y-4">
-        {code.qr_data_url && <ol className="hidden space-y-3 tablet:block">
+        {code.qr_data_url && <ol className="hidden space-y-3 text-sm tablet:block">
           {["scan_camera", "scan_send", "scan_return"].map((step, i) => <li key={step} className="flex gap-3">
             <span className={number} aria-hidden="true">{i + 1}</span>{t(key(step))}
           </li>)}
@@ -91,7 +91,7 @@ function Waiting({ code, seconds }: { code: WhatsAppLinkCode; seconds: number })
         </div>
       </div>
     </div>
-    <div className="space-y-2 max-tablet:border-t max-tablet:border-[var(--surface-divider)] max-tablet:pt-5">
+    <div className="space-y-2">
       <p className={muted}>{t(key("send_steps"))}</p><CodeMessage code={code} />
     </div>
   </>;
