@@ -41,8 +41,8 @@ import { TransaccionesTable } from "./TransaccionesTable";
 import { TransaccionesTray } from "./TransaccionesTray";
 import { useTransaccionesWords } from "./transacciones-words";
 import BusinessReportsPanel, { ConnectedBusinessReports, RecordsWorkspaceUnavailable, reportFiltersFromUi, reportPeriodFromUi } from "./BusinessReportsPanel";
-import RecordsExportPanel, { type RecordsExportProps } from "./RecordsExportPanel";
-import { useRecordsExportJob } from "./records-export-job";
+import RecordsExportPanel from "./RecordsExportPanel";
+import { useRecordsExportJob, type ExportReview } from "./records-export-job";
 import { RecordsExportButton } from "./RecordsExportButton";
 import { clearRecordsExportRequest, useRecordsExportRequested } from "./records-export-request";
 import { useTransacciones } from "./useTransacciones";
@@ -139,7 +139,7 @@ function LegacyTransaccionesPanel() {
     localPaging ? matchesPreviewSearch(row) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) ?? null;
   const sampleOverview = localPaging && visibleRecords ? sampleRecordsOverview({ sourceMode: source.mode, businessId: chosen?.space_id ?? null, rows: visibleRecords, kind: filter.kind }) : undefined;
   const { job: exportJob, panel: exporting } = useRecordsExportJob();
-  const [reviewing, setReviewing] = useState<Pick<RecordsExportProps, "scope" | "request"> | null>(null);
+  const [reviewing, setReviewing] = useState<ExportReview | null>(null);
   const exportRequested = useRecordsExportRequested();
   const canExport = chosen?.permissions?.includes("export") === true && list.kind === "ready" && (source.mode === "fixture" || Boolean(userId) && records.workspaceGrant === getChosenGrant());
   const openExport = () => {
@@ -264,7 +264,7 @@ function LegacyTransaccionesPanel() {
           </>
         )}
         {saved && !localPaging ? <p data-testid="records-count" aria-live="polite" className="mt-4 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.count", { count: visibleRecords?.length ?? 0 })}</p> : null}
-        {exporting && chosen?.permissions?.includes("export") ? <RecordsExportPanel {...exporting} transport={source.mode === "fixture" ? sampleExportTransport : liveReportingTransport} onClose={() => exportJob.close()} onReviewFiscal={(currency) => setReviewing({ scope: exporting.scope, request: reportRequestSchema.parse({ filters: { period: exporting.request.filters.period, record_families: exporting.request.filters.record_families, currencies: [currency], fiscal_data: "missing" } }) })} /> : null}
+        {exporting && chosen?.permissions?.includes("export") ? <RecordsExportPanel panel={exporting} transport={source.mode === "fixture" ? sampleExportTransport : liveReportingTransport} onClose={() => exportJob.close()} onReviewFiscal={setReviewing} /> : null}
         {trayMovement ? <TransaccionesTray key={tray?.run ? "run" : trayMovement.id} controller={controller} movement={trayMovement} phone={phone} returnFocusRef={trayRow} /> : null}
       </section>
     </PullToRefresh>

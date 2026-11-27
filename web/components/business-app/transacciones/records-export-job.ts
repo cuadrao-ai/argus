@@ -3,11 +3,20 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { TFunction } from "i18next";
 import { reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
-import type { RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
+import { reportRequestSchema, type RecordsExportChoice, type RecordsExportFile, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
 import { chooseSavePlace, saveToPlace, type SaveAsPlace } from "@/lib/save-file-as";
 
 /** What Exportar was opened on: the table's request as it stood, and how the screen names it. */
 export type ExportPanelRequest = { scope: ReportScope; request: ReportRequest; periodLabel: string; filterCount: number };
+
+/** Records an action inside Exportar asks the screen to show. */
+export type ExportReview = Pick<ExportPanelRequest, "scope" | "request">;
+
+/** The purchases a 606 holds back for fiscal data: the panel's own period and family in the form's currency, with no other filter. */
+export function pendingFiscalReview({ scope, request }: ExportPanelRequest, currency: string): ExportReview {
+  const { period, record_families } = request.filters;
+  return { scope, request: reportRequestSchema.parse({ filters: { period, record_families, currencies: [currency], fiscal_data: "missing" } }) };
+}
 
 /** One file to build and save. Reintentar runs the same one again. */
 export type ExportRun = {

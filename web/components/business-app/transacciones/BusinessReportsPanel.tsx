@@ -235,8 +235,6 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   // The export works on the table's request as it stood when Exportar was pressed.
   const { job: exportJob, panel: exporting } = useRecordsExportJob();
   const exportRequested = useRecordsExportRequested();
-  // Revisar restores the DGII fiscal scope and clears the other table filters.
-  const reviewDgiiPending = (currency: string) => recipe({ filters: reportFiltersSchema.parse({ period: state.request.filters.period, record_families: state.request.filters.record_families, currencies: [currency], fiscal_data: "missing" }) });
   const openExport = () => { if (presentation) exportJob.open({ scope: { userId, businessId, grantId }, request: reportRequestSchema.parse({ ...state.request, schema_version: 2, presentation }), periodLabel: periodLabel(selectedPeriod, state.request.filters.period), filterCount: activeFilterGroups(filters).length + (filter.query.trim() ? 1 : 0) }); };
   const views = state.views.kind === "ready" ? state.views.items : [];
   const viewProblem = state.viewOperation.kind === "failed" ? state.viewOperation.problem : state.views.kind === "failed" ? state.views.problem : null;
@@ -386,6 +384,6 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
         <RecordsPagePreview records={rows} preferences={table.preferences} onSortChange={() => undefined} density={table.preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: table.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
       </RecordGlanceContext.Provider></RecordArrivalsContext.Provider>}
     </section>
-    {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={reviewDgiiPending} onOpenBandeja={chosen?.capabilities.includes("prepare") ? () => openPanel({ kind: "inbox" }) : undefined} onClose={() => exportJob.close()} /> : null}
+    {exporting ? <RecordsExportPanel panel={exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={(review) => recipe({ filters: review.request.filters })} onOpenBandeja={chosen?.capabilities.includes("prepare") ? () => openPanel({ kind: "inbox" }) : undefined} onClose={() => exportJob.close()} /> : null}
   </PullToRefresh>;
 }
