@@ -32,7 +32,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-type Server = { role?: "owner" | "target" | "nonmember"; status?: string; uncertain?: boolean; failReads?: number; owns?: boolean; requested?: boolean; hold?: Promise<void> };
+type Server = { role?: "owner" | "target" | "nonmember"; status?: string; uncertain?: boolean; failReads?: number; owns?: boolean; otherOwner?: boolean; refused?: string; requested?: boolean; hold?: Promise<void> };
 
 async function mount(target: { transferId?: string; startSpaceId?: string }, server: Server = {}) {
   window.history.replaceState(null, "", target.startSpaceId ? `/biz?lifecycle=transfer&business=${target.startSpaceId}` : `/biz?transfer=${target.transferId}`);
@@ -46,13 +46,14 @@ async function mount(target: { transferId?: string; startSpaceId?: string }, ser
     const method = init?.method ?? "GET";
     calls.push({ path, method, key: new Headers(init?.headers).get("Idempotency-Key"), body: init?.body ? JSON.parse(String(init.body)) : undefined });
     if (method === "POST") {
+      if (server.refused) return Response.json({ code: server.refused }, { status: 409 });
       if (path.endsWith("/ownership-transfers")) listed = true;
       else status = ANSWER[path.split("/").pop() as keyof typeof ANSWER];
       return server.uncertain ? Response.json({ code: "unavailable" }, { status: 503 }) : Response.json({ id, space_id: space, status });
     }
     if (server.hold) await server.hold;
     if (failReads > 0) { failReads -= 1; return Response.json({ code: "unavailable" }, { status: 500 }); }
-    if (path === "/owned-spaces") return Response.json({ spaces: server.owns === false ? [] : [owned] });
+    if (path === "/owned-spaces") return Response.json({ spaces: server.owns === false ? [] : [{ ...owned, has_other_owner: Boolean(server.otherOwner) }] });
     return Response.json({ transfers: role === "nonmember" || !listed ? [] : [{ ...transfer, role: target.startSpaceId ? "owner" : role, status }] });
   };
   const workspace: string[] = [];
@@ -255,6 +256,35 @@ test("starting while a request is pending opens that request; a Business that is
     assert.equal(document.body.textContent?.includes("Colmado Rosa"), false);
     assert.deepEqual(outsider.labels(), []);
   } finally { await outsider.close(); }
+});
+
+const NO_TRANSFER = "Esta transferencia no está disponible con tu acceso actual.";
+
+test("a Business another Dueño holds opens no picker and sends no request; a request already waiting still opens", async () => {
+  const view = await mount({ startSpaceId: space }, { otherOwner: true });
+  try {
+    assert.equal(view.dialog()?.querySelector('[role="alert"]')?.textContent, NO_TRANSFER);
+    assert.equal(document.querySelector('input[type="radio"]'), null);
+    assert.equal(document.body.textContent?.includes("Colmado Rosa"), false);
+    assert.deepEqual(view.labels(), []);
+    assert.deepEqual(view.posts(), []);
+  } finally { await view.close(); }
+  const pending = await mount({ startSpaceId: space }, { otherOwner: true, requested: true });
+  try { assert.deepEqual(pending.labels(), ["Retirar solicitud"]); } finally { await pending.close(); }
+});
+
+test("the server refuses a request because another Dueño holds the Business: the dialog says the same sentence and drops the picker", async () => {
+  const view = await mount({ startSpaceId: space }, { refused: "business_transfer_other_owner" });
+  try {
+    await act(async () => document.querySelector<HTMLInputElement>('input[type="radio"]')!.click());
+    const field = document.querySelector<HTMLInputElement>('input:not([type="radio"])')!;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, "Colmado Rosa"); field.dispatchEvent(new Event("input", { bubbles: true })); });
+    await view.press("Solicitar transferencia");
+    assert.equal(view.posts().length, 1);
+    assert.equal(view.dialog()?.querySelector('[role="alert"]')?.textContent, NO_TRANSFER);
+    assert.equal(document.querySelector('input[type="radio"]'), null);
+    assert.deepEqual(view.labels(), []);
+  } finally { await view.close(); }
 });
 
 test("closing the owner's dialog while it loads ignores the late answer: no Business switch, no panel", async () => {

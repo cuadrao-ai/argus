@@ -113,7 +113,9 @@ function BusinessTransfer({ transferId, startSpaceId }: Target) {
       const business = (await getOwnedBusinessSpaces(controller.signal)).find(space => space.space_id === startSpaceId);
       if (!business) return { kind: "unavailable", of };
       const pending = (await discoverBusinessTransfers(controller.signal)).find(item => item.space_id === startSpaceId && item.status === "pending");
-      return pending ? { kind: "transfer", transfer: pending } : { kind: "request", business };
+      if (pending) return { kind: "transfer", transfer: pending };
+      // The server's: another Dueño holds this Business, so it takes no request.
+      return business.has_other_owner ? { kind: "unavailable", of: "transfer" } : { kind: "request", business };
     };
     void load().then(next => {
       requireBrowserAuthGeneration(generation);
@@ -148,7 +150,9 @@ function BusinessTransfer({ transferId, startSpaceId }: Target) {
     } catch (error) {
       if (browserAuthGeneration() !== generation) return;
       busy.current = false;
-      setCommand({ kind: "error", message: t(businessLifecycleErrorKey(error, "request_uncertain")), reference: serverRequestReference(error), field: errorCode(error) === "business_name_mismatch" ? "confirmation" : undefined });
+      const sentence = businessLifecycleErrorKey(error, "request_uncertain");
+      if (sentence.endsWith(".transfer_unavailable")) { setCommand({ kind: "idle" }); setEntry({ kind: "unavailable", of: "transfer" }); return; }
+      setCommand({ kind: "error", message: t(sentence), reference: serverRequestReference(error), field: errorCode(error) === "business_name_mismatch" ? "confirmation" : undefined });
       if (errorCode(error) === "business_transfer_target_invalid") {
         void getOwnedBusinessSpaces().then(spaces => {
           requireBrowserAuthGeneration(generation);

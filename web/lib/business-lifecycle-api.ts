@@ -37,7 +37,7 @@ const transferMember = z.discriminatedUnion("eligible", [
 ]);
 const ownedBusiness = z.object({
   space_id: z.uuid(), name: z.string().nullable(), grant_id: z.uuid(),
-  // The server's: another Dueño already holds this Business, so the card offers no transfer.
+  // The server's: another Dueño already holds this Business, so it offers and takes no transfer.
   has_other_owner: z.boolean(),
   member_count: z.number().int().nonnegative(),
   reopen_until: z.iso.datetime({ offset: true }),
@@ -75,6 +75,7 @@ export function businessLifecycleErrorKey(error: unknown, fallback: string): str
     business_reopen_expired: "reopen_expired",
     business_transfer_pending: "transfer_pending",
     business_transfer_target_invalid: "target_invalid",
+    business_transfer_other_owner: "transfer_unavailable",
     business_transfer_expired: "transfer_expired",
     business_transfer_not_pending: "transfer_not_pending",
     business_transfer_confirmation_required: "refresh_required",

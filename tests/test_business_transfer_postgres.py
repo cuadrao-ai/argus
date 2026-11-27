@@ -101,6 +101,42 @@ def test_request_name_and_target_are_checked(world):
         _request(world, target_grant_id=str(UUID(int=1)))
 
 
+@pytest.mark.parametrize("coowner", ["live", "revoked"])
+def test_a_business_another_owner_holds_takes_no_transfer_request(world, coowner):
+    pool, space, people, _, _ = world
+    owner = people["owner"]
+    with psycopg.connect(shared.DSN) as db:
+        person = lifecycle._person(db)
+        grant = lifecycle._member(db, space.id, owner, person, BusinessRole.OWNER)
+        if coowner == "revoked":
+            db.execute(
+                "update public.business_client_grants set revoked_at=now() where id=%s",
+                (grant,),
+            )
+    try:
+        [preview] = PostgresBusinessLifecycle(pool).owned_spaces(owner)
+        assert preview["has_other_owner"] is (coowner == "live")
+        if coowner == "live":
+            with pytest.raises(
+                BusinessLifecycleError, match="business_transfer_other_owner"
+            ):
+                _request(world)
+        else:
+            assert _request(world).status == "pending"
+        with psycopg.connect(shared.DSN) as db:
+            assert db.execute(
+                "select count(*) from public.business_ownership_transfers where space_id=%s",
+                (space.id,),
+            ).fetchone() == (0 if coowner == "live" else 1,)
+    finally:
+        with psycopg.connect(shared.DSN) as db:
+            db.execute(
+                "delete from public.business_client_grants where grantee_id=%s",
+                (person,),
+            )
+            db.execute("delete from auth.users where id=%s", (person,))
+
+
 def test_admin_can_receive_ownership_but_cannot_transfer_or_close(world):
     pool, space, people, access, member = world
     upgrade = access.change_role(space.id, people["owner"], member.id, BusinessRole.ADMIN)
@@ -748,10 +784,12 @@ def join_coowner(world, email):
     access.accept_invite(people["guest"], space.id, listing.invites[0].id)
 
 
-@pytest.mark.parametrize("sender,retained_owner", [("owner", "guest"), ("guest", "owner")])
-def test_transfer_cancels_only_demoted_issuers_pending_invitations(world, sender, retained_owner, faker):
+def test_transfer_cancels_only_demoted_issuers_pending_invitations(world, faker):
     from argus.domain.business.memberships import MembershipError
     pool, space, people, access, _ = world
+    sender, retained_owner = "owner", "guest"
+    # A Business with two Dueños takes no request, so the second joins while it waits.
+    transfer = _request(world)
     join_coowner(world, faker.ascii_safe_email())
     retained_grant = access.spaces_for(people[retained_owner])[0].grant_id
     _, listing = access.give(
@@ -768,7 +806,6 @@ def test_transfer_cancels_only_demoted_issuers_pending_invitations(world, sender
     retained = next(
         i for i in listing.invites if i.email == "coowner-issuer@example.test"
     )
-    transfer = _request(world, owner_id=people[sender])
     PostgresBusinessTransfer(pool).accept(
         actor_id=people["other"], transfer_id=transfer.id
     )

@@ -125,6 +125,8 @@ class PostgresBusinessTransfer:
                 return TransferResult(*old[:6])
             if confirmation != name:
                 raise BusinessLifecycleError("business_name_mismatch")
+            if PostgresBusinessLifecycle.other_owner_holds(db, space_id, owner_id):
+                raise BusinessLifecycleError("business_transfer_other_owner")
             target = self._target(db, space_id, target_grant_id, owner_id)
             if db.execute(
                 "select 1 from public.business_ownership_transfers where space_id=%s and status='pending'",

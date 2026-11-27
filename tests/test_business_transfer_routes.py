@@ -122,6 +122,7 @@ def test_terminal_commands_derive_authenticated_actor(client, action):
         ("business_transfer_target_invalid", 409),
         ("business_transfer_not_pending", 409),
         ("business_transfer_pending", 409),
+        ("business_transfer_other_owner", 409),
         ("business_transfer_expired", 409),
         ("business_record_not_found", 404),
     ],

@@ -430,18 +430,16 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
     extra: list[str] = []
     try:
         with psycopg.connect(shared.DSN) as db:
-            admin, coowner, viewer, unconfirmed, owning, leaving = (
-                _person(db),
+            admin, viewer, unconfirmed, owning, leaving = (
                 _person(db),
                 _person(db),
                 _person(db, confirmed=False),
                 _person(db),
                 _person(db),
             )
-            extra += [admin, coowner, viewer, unconfirmed, owning, leaving]
+            extra += [admin, viewer, unconfirmed, owning, leaving]
             people = {
                 "admin": (admin, BusinessRole.ADMIN),
-                "coowner": (coowner, BusinessRole.OWNER),
                 "viewer": (viewer, BusinessRole.VIEWER),
                 "unconfirmed": (unconfirmed, BusinessRole.ADMIN),
                 "owning": (owning, BusinessRole.ADMIN),
@@ -467,7 +465,7 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
             )
             now = db.execute("select clock_timestamp()").fetchone()[0]
         [preview] = PostgresBusinessLifecycle(pool).owned_spaces(owner)
-        assert preview["has_other_owner"] is True
+        assert preview["has_other_owner"] is False
         assert preview["member_count"] == 6
         assert abs(preview["reopen_until"] - (now + timedelta(days=30))) < timedelta(
             minutes=1
@@ -477,8 +475,7 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
             m["grant_id"]: (m["eligible"], m["reason"]) for m in preview["members"]
         }
         assert member.business_role == BusinessRole.EDITOR
-        owners = {"owner": owner_grant, "coowner": grants.pop("coowner")}
-        assert not set(owners.values()) & reasons.keys()
+        assert owner_grant not in reasons
         assert reasons == {
             grants["admin"]: (True, None),
             member.id: (False, "not_admin"),
@@ -488,7 +485,7 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
             grants["leaving"]: (False, "account_unavailable"),
         }
         transfers = PostgresBusinessTransfer(pool)
-        refused = {**grants, **owners, "editor": member.id}
+        refused = {**grants, "owner": owner_grant, "editor": member.id}
         del refused["admin"]
         for ineligible, grant_id in refused.items():
             with pytest.raises(
@@ -506,6 +503,13 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
                 "select count(*) from public.business_ownership_transfers where space_id=%s",
                 (space.id,),
             ).fetchone() == (0,)
+            coowner = _person(db)
+            extra.append(coowner)
+            coowner_grant = _member(db, space.id, owner, coowner, BusinessRole.OWNER)
+        [held] = PostgresBusinessLifecycle(pool).owned_spaces(owner)
+        assert held["has_other_owner"] is True
+        assert held["member_count"] == 6
+        assert coowner_grant not in {m["grant_id"] for m in held["members"]}
     finally:
         with psycopg.connect(shared.DSN) as db:
             db.execute(

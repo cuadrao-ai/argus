@@ -81,6 +81,7 @@ def _invoke(
             "business_transfer_target_invalid",
             "business_transfer_not_pending",
             "business_transfer_pending",
+            "business_transfer_other_owner",
             "business_transfer_expired",
         ):
             raise problem(

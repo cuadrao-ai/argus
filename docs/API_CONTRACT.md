@@ -11833,7 +11833,11 @@ Global account deletion keeps its own switch and is unchanged.
 `member_count` (the live members who lose access on close), `reopen_until` (the
 deadline a close now would set, from the database clock) and `export_windows`.
 `has_other_owner` is true when another live Owner holds the Business; it then
-needs no transfer and the owner card offers none.
+needs no transfer and the owner card offers none. The transfer request reads the
+same check: `POST /business/spaces/{space_id}/ownership-transfers` for such a
+Business answers `409 business_transfer_other_owner`, whoever the target is, and
+creates no transfer. A replay of a request made earlier still returns that
+request, and a pending request can still be accepted, declined or withdrawn.
 `members` lists every live member as `{grant_id, name, email, shown_as, eligible, reason}`;
 `name` is the profile name or `null`, and `email` stands in only without one
 (only the owner reads this list, so `shown_as` is `name`, `email`, or `member`
