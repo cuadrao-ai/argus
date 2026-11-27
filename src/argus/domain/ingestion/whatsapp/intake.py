@@ -56,7 +56,8 @@ from argus.domain.ingestion.whatsapp.reply_groups import (
 )
 from argus.domain.ingestion.whatsapp.store import (
     RETRYABLE,
-    SENDER_LINK_REVOKED,
+    CapturePublisher,
+    CaptureSource,
     ReplyLanguage,
     Settlement,
     WhatsAppStore,
@@ -85,9 +86,10 @@ class CaptureRejected(Exception):
 
 
 class CaptureFailed(Exception):
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, *, retry_delivery: bool = False) -> None:
         super().__init__(code)
         self.code = code
+        self.retry_delivery = retry_delivery
 
 
 @dataclass(frozen=True)
@@ -95,13 +97,16 @@ class Captured:
     connection_id: str
     already_held: bool
     storage_user_id: str
-    space_id: str
+    space_id: str | None
     # The receipt was queued for reading; the destination decides at capture.
     reading: bool = False
+    previous_business_copy: bool = False
 
 
-class IntakeDestination(Protocol):
-    """Where a linked sender's receipt lands: the owner's Business space."""
+class IntakeDestination(CapturePublisher, Protocol):
+    """Stage and publish receipts for the sender of a signed delivery."""
+
+    def report_arrival(self, settled: Settlement) -> None: ...
 
     async def capture(
         self,
@@ -113,7 +118,7 @@ class IntakeDestination(Protocol):
         source_text: str | None,
     ) -> Captured: ...
 
-    async def discard(self, *, owner_id: str, space_id: str, connection_id: str) -> None: ...
+
 
 
 class MediaSource(Protocol):
@@ -359,10 +364,7 @@ class WhatsAppIntake:
             if self.reply_codec is None:
                 raise RuntimeError("whatsapp_reply_grouping_unavailable")
             link = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
-            if (
-                link is not None
-                and link.destination_owner_id == settlement.destination_owner_id
-            ):
+            if link is not None and link.authorizes(settlement):
                 failure = self.reply_codec.failure(
                     message, link, now=self.clock(), wait=self.reply_group_wait_seconds
                 )
@@ -372,13 +374,9 @@ class WhatsAppIntake:
         if settled is None:
             log.warning("WhatsApp message claim lost before settling")
             return False
-        if (
-            settled.error_code == SENDER_LINK_REVOKED
-            and settlement.connection_id is not None
-            and not settlement.duplicate
-        ):
-            await self._discard(settlement, log)
         settlement = settled
+        if settlement.report_arrival:
+            self.destination.report_arrival(settlement)
         log.info(
             "WhatsApp message settled",
             status=settlement.status,
@@ -392,23 +390,6 @@ class WhatsAppIntake:
             )
         await self._reply(message, settlement, log)
         return True
-
-    async def _discard(self, captured: Settlement, log) -> None:  # noqa: ANN001
-        """Remove a new draft saved while its sender link was ending."""
-
-        try:
-            assert captured.storage_user_id and captured.space_id and captured.connection_id
-            await self.destination.discard(
-                owner_id=captured.storage_user_id,
-                space_id=captured.space_id,
-                connection_id=captured.connection_id,
-            )
-            log.info("WhatsApp capture discarded after the link ended")
-        except Exception as error:
-            log.warning(
-                "WhatsApp capture could not be discarded after the link ended",
-                failure_mode=type(error).__name__,
-            )
 
     async def _renew(self, key: bytes, lease: _Lease) -> bool:
         assert lease.held is not None
@@ -452,11 +433,6 @@ class WhatsAppIntake:
         reply_failure: PendingFailure | None = None,
         deadline: float | None = None,
     ) -> Settlement | None:
-        prepare = (
-            getattr(self.destination, "prepare", None)
-            if settlement.status == "captured"
-            else None
-        )
         return await _finish(
             asyncio.create_task(
                 asyncio.to_thread(
@@ -466,7 +442,7 @@ class WhatsAppIntake:
                     settlement=settlement,
                     now=self.clock,
                     reply_failure=reply_failure,
-                    prepare=prepare,
+                    publisher=self.destination if settlement.status == "captured" else None,
                     deadline=deadline,
                 )
             )
@@ -483,6 +459,7 @@ class WhatsAppIntake:
                 owner,
                 error_code="whatsapp_receipt_missing",
                 reply_language=language,
+                sender_link_id=link.id,
             )
         if isinstance(message, UnsupportedMessage):
             return Settlement(
@@ -490,9 +467,10 @@ class WhatsAppIntake:
                 owner,
                 error_code="whatsapp_message_unsupported",
                 reply_language=language,
+                sender_link_id=link.id,
             )
         settlement = await self._capture(message, owner)
-        return replace(settlement, reply_language=language)
+        return replace(settlement, reply_language=language, sender_link_id=link.id)
 
     async def _unlinked(self, message: InboundMessage, sender: bytes) -> Settlement:
         """A sender with no active link can only link: no word is read for
@@ -514,6 +492,7 @@ class WhatsAppIntake:
                         "linked",
                         destination_owner_id=linked.destination_owner_id,
                         reply_language=linked.reply_language,
+                        sender_link_id=linked.id,
                     )
         return Settlement(
             "rejected",
@@ -537,21 +516,25 @@ class WhatsAppIntake:
                         source_text=message.caption,
                     )
                     break
-                except CaptureFailed:
+                except CaptureFailed as error:
                     if attempt:
+                        if error.retry_delivery:
+                            raise
                         return Settlement(
                             "rejected", owner, error_code="whatsapp_capture_failed"
                         )
                     await asyncio.sleep(0.25)
         except (MediaRejected, CaptureRejected) as error:
             return Settlement("rejected", owner, error_code=error.code)
-        except (MediaUnavailable, CaptureFailed) as error:
+        except MediaUnavailable as error:
             return Settlement("failed", owner, error_code=error.code)
         return Settlement(
             "captured",
             owner,
             captured.connection_id,
             duplicate=captured.already_held,
+            previous_business_copy=captured.previous_business_copy,
+            original=CaptureSource(fetched.content, message.filename, fetched.mime_type, message.caption),
             reading=captured.reading,
             storage_user_id=captured.storage_user_id,
             space_id=captured.space_id,
@@ -572,13 +555,11 @@ class WhatsAppIntake:
         if resolved_key == "whatsapp_sender_not_linked":
             return
         sender = self.keys.sender(message.sender)
-        if (
-            resolved_key != "whatsapp_link_code_invalid"
-            and await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
-            is None
-        ):
-            suppressed("unknown_sender", sender)
-            return
+        if resolved_key != "whatsapp_link_code_invalid":
+            current = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
+            if current is None or not current.authorizes(settlement):
+                suppressed("unknown_sender", sender)
+                return
         if settlement.error_code in FAILURE_REASONS:
             return
         if self.transport is None or not self.send_enabled():

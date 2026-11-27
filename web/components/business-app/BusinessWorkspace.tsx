@@ -789,18 +789,17 @@ function BusinessWorkspaceContent({
   const composerPlaceholder = records.workspace?.assistant_available
     ? t("business.composer.placeholder_ask", "Ask about your saved expenses")
     : t("business.composer.placeholder", "Write a message");
-  // From the email link the person goes straight into that Business. From the bell they stay where they are
-  // and the confirmation offers the way in. A person with no Business has nowhere to stay, so they go in too.
+  // From the email link the person goes straight into that Business, and its access line is the one confirmation.
+  // From the bell they stay where they are and the toast offers the way in. A person with no Business has nowhere
+  // to stay, so they go in too.
   const acceptedInvitation = useCallback((grantId: string, via: AcceptedVia) => {
-    const text = t("business_access.invitation_accepted");
     if (via === "link" || !chosen) {
       chooseBusiness(grantId);
       reload();
-      showToast({ kind: "success", text });
       return;
     }
     reload();
-    showToast({ kind: "success", text, action: { label: t("business.notifications.go_to_business"), run: () => enterBusiness.current(grantId) } });
+    showToast({ kind: "success", text: t("business_access.invitation_accepted"), action: { label: t("business.notifications.go_to_business"), run: () => enterBusiness.current(grantId) } });
   }, [chosen, chooseBusiness, reload, t]);
   const workspace = useMemo<ChatWorkspace>(() => {
     const island = (phone = false) => closedAccessName ? null : <ReceiptUploadIsland key={chosenGrant} phone={phone} drawer={recordDrawer}

@@ -36,6 +36,7 @@ ALLOWLIST_ONLY = {
     **ENV,
     "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "false",
     "CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED": "true",
+    "CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED": "true",
 }
 CAPTCHA = "local-captcha-proof"
 GRANT = "X-Business-Grant"
@@ -112,6 +113,16 @@ def _invite(world, email: str) -> None:  # noqa: ANN001
     )
     assert given.status_code == 201, given.text
     assert [i["email"] for i in given.json()["invites"]][-1] == email
+
+
+def _waiting(world, account: Account) -> dict:  # noqa: ANN001
+    """The one invitation the person's bell lists."""
+
+    listed = world.client.get(f"{API}/business/notifications", headers=account.headers)
+    assert listed.status_code == 200, listed.text
+    [invitation] = listed.json()["items"]
+    assert invitation["business_id"] == world.space_id
+    return invitation
 
 
 def _invite_state(email: str) -> list[bool]:
@@ -289,9 +300,7 @@ def test_an_invited_accountant_is_admitted_by_the_invite_and_works_from_the_firs
     assert first.status_code == 200, first.text
     assert first.json()["spaces"] == []
     assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
-    [invitation] = client.get(
-        f"{API}/business/invitations", headers=accountant.headers
-    ).json()
+    invitation = _waiting(world, accountant)
     accepted = client.post(
         f"{API}/business/invitations/{invitation['id']}/accept",
         headers=accountant.headers,
@@ -470,9 +479,7 @@ def test_an_invited_person_starts_no_business_and_invites_by_role(world) -> None
     assert _code(start_additional(invitee)) == refused
 
     # Accepted as an editor, then promoted to admin by the owner: still nothing.
-    [invitation] = client.get(
-        f"{API}/business/invitations", headers=invitee.headers
-    ).json()
+    invitation = _waiting(world, invitee)
     accepted = client.post(
         f"{API}/business/invitations/{invitation['id']}/accept",
         headers=invitee.headers,
@@ -490,7 +497,7 @@ def test_an_invited_person_starts_no_business_and_invites_by_role(world) -> None
         headers=owner.headers,
     )
     assert promoted.status_code == 200, promoted.text
-    [upgrade] = client.get(f"{API}/business/invitations", headers=invitee.headers).json()
+    upgrade = _waiting(world, invitee)
     assert (
         client.post(
             f"{API}/business/invitations/{upgrade['id']}/accept",
@@ -616,9 +623,7 @@ def test_with_the_switch_off_only_the_allowlist_admits_the_invited_accountant(
     first = client.get(f"{API}/business/spaces", headers=accountant.headers)
     assert first.status_code == 200, first.text
     assert first.json()["spaces"] == []
-    [invitation] = client.get(
-        f"{API}/business/invitations", headers=accountant.headers
-    ).json()
+    invitation = _waiting(world, accountant)
     accepted = client.post(
         f"{API}/business/invitations/{invitation['id']}/accept",
         headers=accountant.headers,
@@ -665,9 +670,7 @@ def test_with_the_switch_off_only_the_allowlist_admits_the_invited_accountant(
         headers=owner.headers,
     )
     assert promoted.status_code == 200, promoted.text
-    [upgrade] = client.get(
-        f"{API}/business/invitations", headers=accountant.headers
-    ).json()
+    upgrade = _waiting(world, accountant)
     assert (
         client.post(
             f"{API}/business/invitations/{upgrade['id']}/accept",
