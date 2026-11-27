@@ -30,7 +30,10 @@ SWITCH = "CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED"
 
 @pytest.fixture
 def closed_signup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Sign-up is closed and the bell is on: it is where an invitee reads invitations."""
+
     monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED", "true")
 
 
 @pytest.fixture
@@ -160,7 +163,7 @@ def test_an_invited_person_signs_in_accepts_and_loses_access_on_revoke(
         "captcha_token": "captcha-proof",
     }
 
-    refused = bob.get("/invitations")
+    refused = bob.get("/notifications")
     assert refused.status_code == 403, refused.text
     assert refused.json()["code"] == "private_alpha_access_required"
     refused_login = biz.post("/api/v1/auth/login", json=login)
@@ -177,22 +180,23 @@ def test_an_invited_person_signs_in_accepts_and_loses_access_on_revoke(
     assert invited.status_code == 201, invited.text
     assert biz.post("/api/v1/auth/login", json=login).status_code == 200
     business_access().confirm(bob.person, identities[BOB]["email"])
-    seen = bob.get("/invitations")
+    seen = bob.get("/notifications")
     assert seen.status_code == 200, seen.text
-    assert [i["space_id"] for i in seen.json()] == [alice.scope().owner.space_id]
+    waiting = seen.json()["items"]
+    assert [i["business_id"] for i in waiting] == [alice.scope().owner.space_id]
 
     accepted = bob.post(
-        f"/invitations/{seen.json()[0]['id']}/accept",
+        f"/invitations/{waiting[0]['id']}/accept",
         {"space_id": alice.scope().owner.space_id},
     )
     assert accepted.status_code == 200, accepted.text
-    assert bob.get("/invitations").json() == []
+    assert bob.get("/notifications").json()["items"] == []
 
     grants = alice.get("/access").json()["grants"]
     member = next(g for g in grants if not g["owner"])
     gone = biz.delete(f"{BASE}/access/grants/{member['id']}", headers=alice.auth)
     assert gone.status_code == 204, gone.text
-    assert bob.get("/invitations").status_code == 403
+    assert bob.get("/notifications").status_code == 403
     assert biz.post("/api/v1/auth/login", json=login).status_code == 401
 
 
@@ -233,7 +237,7 @@ def test_an_invited_person_starts_no_business_and_invites_by_role(
         assert response.json()["code"] == "private_alpha_access_required"
 
     refused(bob.start({"name": "Mi Negocio"}))
-    [invitation] = bob.get("/invitations").json()
+    [invitation] = bob.get("/notifications").json()["items"]
     accepted = bob.post(
         f"/invitations/{invitation['id']}/accept",
         {"space_id": alice.scope().owner.space_id},
@@ -249,7 +253,7 @@ def test_an_invited_person_starts_no_business_and_invites_by_role(
         headers=alice.auth,
     )
     assert promoted.status_code == 200, promoted.text
-    [upgrade] = bob.get("/invitations").json()
+    [upgrade] = bob.get("/notifications").json()["items"]
     assert (
         bob.post(
             f"/invitations/{upgrade['id']}/accept",
@@ -370,7 +374,7 @@ def test_with_the_switch_off_an_invitation_admits_no_one_and_the_owner_keeps_eve
         password=login["password"],
         captcha_token=login["captcha_token"],
     )
-    refused = bob.get("/invitations")
+    refused = bob.get("/notifications")
     assert refused.status_code == 403, refused.text
     assert refused.json()["code"] == "private_alpha_access_required"
     assert bob.start({"name": "Mi Negocio"}).status_code == 403
