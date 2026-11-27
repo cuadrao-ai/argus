@@ -121,7 +121,7 @@ def _sends(space_id: str) -> list[tuple[bool]]:
         ).fetchall()
 
 
-def _age_sends(space_id: str, interval: str) -> None:
+def age_sends(space_id: str, interval: str) -> None:
     with psycopg.connect(shared.DSN) as db:
         db.execute(
             "update argus_private.business_invite_sends set sent_at=sent_at-%s::interval"
@@ -165,10 +165,10 @@ def test_reenviar_is_limited_by_cooldown_invite_cap_and_daily_cap(
     assert waiting.expires_at == invite.expires_at
 
     for _ in range(2):
-        _age_sends(space_id, "2 minutes")
+        age_sends(space_id, "2 minutes")
         assert deliver(invite.id, resend=True) == "accepted"
     assert numbers == [1, 2, 3]
-    _age_sends(space_id, "2 minutes")
+    age_sends(space_id, "2 minutes")
     with pytest.raises(InviteSendRefused, match="business_invite_send_cap_reached"):
         deliver(invite.id, resend=True)
     [same] = access.list(space_id, users["owner"]).invites
@@ -179,14 +179,14 @@ def test_reenviar_is_limited_by_cooldown_invite_cap_and_daily_cap(
     )
     second = next(i for i in listed.invites if i.id != invite.id)
     assert deliver(second.id, resend=False) == "accepted"
-    _age_sends(space_id, "2 minutes")
+    age_sends(space_id, "2 minutes")
     assert deliver(second.id, resend=True) == "accepted"
-    _age_sends(space_id, "2 minutes")
+    age_sends(space_id, "2 minutes")
     with pytest.raises(InviteSendRefused, match="business_invite_daily_cap_reached"):
         deliver(second.id, resend=True)
     assert _sends(space_id) == [(False,), (True,), (True,), (False,), (True,)]
 
-    _age_sends(space_id, "1 day")
+    age_sends(space_id, "1 day")
     assert deliver(second.id, resend=True) == "accepted"
 
 
@@ -238,7 +238,7 @@ def test_two_resends_at_once_with_one_send_left_send_once(
         access.deliver_invitation(
             space_id, users["owner"], invite_id, lambda db, number: "accepted"
         )
-    _age_sends(space_id, "2 minutes")
+    age_sends(space_id, "2 minutes")
 
     def resend(invite_id: str) -> str:
         try:
