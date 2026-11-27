@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, expect, setSystemTime, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, expect, jest, setSystemTime, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import i18next from "i18next";
 import { act } from "react";
@@ -119,9 +119,17 @@ test("blocked shows both setup requirements and a route to the chosen Business s
   expect(host.textContent).not.toContain("Vincular mi WhatsApp");
 });
 
-test("expired retires the old message and offers a fresh code", async () => {
-  const { host, click, issued } = await open({ seconds: 0 });
+test("expired retires the old message and offers a fresh code once the final read returns unlinked", async () => {
+  const { host, click, issued, requests } = await open({ seconds: 0 });
+  const pending = Promise.withResolvers<Response>();
+  requests.nextRead = pending.promise;
   await click("Vincular mi WhatsApp");
+  expect(requests.reads).toBe(2);
+  expect(host.textContent).not.toContain("Obtener otro código");
+  await act(async () => {
+    pending.resolve(Response.json({ ...whatsappDisclosure["es-419"], linked: false, receiving_businesses: eligible, held_count: 0 }));
+  });
+  requests.nextRead = null;
   for (const line of ["El código venció", "Cada código sirve 10 minutos. Pide otro y envíalo desde tu WhatsApp.", "Este mensaje ya no sirve.", message, "Cancelar"]) {
     expect(host.textContent).toContain(line);
   }
@@ -147,6 +155,56 @@ test("the live status poll sees redemption and stops; unlink requires confirmati
   await click("Confirmar");
   expect(requests.deletes).toBe(1);
   expect(host.textContent).toContain(notice);
+});
+
+async function advance(ms: number) {
+  await act(async () => { jest.advanceTimersByTime(ms); });
+}
+
+test("a redemption in the final second wins over the local expiry", async () => {
+  const { host, click, requests } = await open({ seconds: 4 });
+  jest.useFakeTimers();
+  try {
+    await click("Vincular mi WhatsApp");
+    await advance(3000);
+    expect(requests.reads).toBe(2);
+    await advance(500);
+    requests.linked = true;
+    await advance(500);
+    expect(requests.reads).toBe(3);
+    expect(host.textContent).toContain("Número que termina en 4821");
+    expect(host.textContent).not.toContain("El código venció");
+    await advance(6000);
+    expect(requests.reads).toBe(3);
+  } finally { jest.useRealTimers(); }
+});
+
+test.each([
+  ["linked", true],
+  ["still unlinked", false],
+] as const)("a pre-expiry read resolving after zero reports %s", async (_, linked) => {
+  const { host, click, requests } = await open({ seconds: 4 });
+  jest.useFakeTimers();
+  try {
+    await click("Vincular mi WhatsApp");
+    const pending = Promise.withResolvers<Response>();
+    requests.nextRead = pending.promise;
+    await advance(3000);
+    await advance(1000);
+    expect(requests.reads).toBe(2);
+    expect(host.textContent).not.toContain("Obtener otro código");
+    expect(host.textContent).not.toContain("El código venció");
+    requests.nextRead = null;
+    requests.linked = true;
+    await act(async () => {
+      pending.resolve(Response.json({ ...whatsappDisclosure["es-419"], linked, last4: linked ? "4821" : null,
+        receiving_businesses: eligible, held_count: 0 }));
+    });
+    if (!linked) await advance(1000);
+    expect(host.textContent).toContain("Número que termina en 4821");
+    await advance(6000);
+    expect(requests.reads).toBe(linked ? 2 : 3);
+  } finally { jest.useRealTimers(); }
 });
 
 test("a missing receiving number still allows copying the message", async () => {

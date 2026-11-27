@@ -98,7 +98,7 @@ function Waiting({ code, seconds }: { code: WhatsAppLinkCode; seconds: number })
 }
 
 type Frame = { onClose: () => void; onBack?: () => void; backLabel?: string };
-type Issued = { code: WhatsAppLinkCode; seconds: number; language: ArgusLanguage; token: string };
+type Issued = { code: WhatsAppLinkCode; seconds: number; expired: boolean; language: ArgusLanguage; token: string };
 const remaining = (expires: string) => Math.max(0, Math.ceil((Date.parse(expires) - Date.now()) / 1000));
 
 export default function WhatsAppLinkModal(frame: Frame) {
@@ -131,19 +131,16 @@ export default function WhatsAppLinkModal(frame: Frame) {
   }, [language, refresh]);
 
   useEffect(() => {
-    if (!code || !remaining(code.expires_at)) return;
+    if (!code) return;
     const request = new AbortController();
     let nextPoll = Date.now() + 3000;
     let reading = false;
-    const timer = setInterval(async () => {
+    const tick = async () => {
       const seconds = remaining(code.expires_at);
-      setIssued((current) => current?.code === code ? { ...current, seconds } : current);
-      if (!seconds) {
-        clearInterval(timer);
-        request.abort();
-        return;
-      }
-      if (Date.now() < nextPoll || reading) return;
+      setIssued((current) => current?.code === code && current.seconds !== seconds ? { ...current, seconds } : current);
+      const finalRead = seconds === 0;
+      if (reading || (!finalRead && Date.now() < nextPoll)) return;
+      if (finalRead) clearInterval(timer);
       reading = true;
       nextPoll = Date.now() + 3000;
       try {
@@ -164,8 +161,13 @@ export default function WhatsAppLinkModal(frame: Frame) {
         }
       } finally {
         reading = false;
+        if (finalRead && !request.signal.aborted) {
+          setIssued((current) => current?.code === code ? { ...current, expired: true } : current);
+        }
       }
-    }, 1000);
+    };
+    const timer = setInterval(tick, 1000);
+    if (!remaining(code.expires_at)) void tick();
     return () => { clearInterval(timer); request.abort(); };
   }, [code, language, acceptedToken]);
 
@@ -174,7 +176,7 @@ export default function WhatsAppLinkModal(frame: Frame) {
     setBusy(true);
     try {
       const next = await createWhatsAppLinkCode(language, status.disclosure_token);
-      setIssued({ code: next, seconds: remaining(next.expires_at), language, token: status.disclosure_token });
+      setIssued({ code: next, seconds: remaining(next.expires_at), expired: false, language, token: status.disclosure_token });
       setProblem(null);
     } catch (error) {
       setIssued(null);
@@ -221,7 +223,7 @@ export default function WhatsAppLinkModal(frame: Frame) {
       <button className={secondaryButtonClass} disabled={busy} onClick={unlink}>{t(key("confirm"))}</button>
       <button className={secondaryButtonClass} onClick={() => setConfirmUnlink(false)}>{t(key("cancel"))}</button>
     </> : <button className={secondaryButtonClass} onClick={() => setConfirmUnlink(true)}>{t(key("unlink"))}</button>;
-  } else if (issued && issued.seconds > 0) {
+  } else if (issued && !issued.expired) {
     body = <Waiting code={issued.code} seconds={issued.seconds} />;
     footer = <>{issued.code.wa_me_url && <><p className={`${muted} min-w-0 flex-1 max-tablet:hidden`}>{t(key("desktop_prompt"))}</p>
       <OpenWhatsApp url={issued.code.wa_me_url} /></>}{cancel}</>;
