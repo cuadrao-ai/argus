@@ -322,16 +322,14 @@ def test_link_capture_status_and_revoke_over_http(
     assert post(wa_client, fixture("image_message.json")).status_code == 200
     assert post(wa_client, fixture("image_message.json")).status_code == 200
     connections = documents_service().hub.connections
-    assert connections.list(user_id=owner, scope=PERSONAL) == []
-    [connection] = connections.list(user_id=owner, scope=business)
+    assert connections.list(user_id=owner, scope=business) == []
+    [connection] = connections.list(user_id=owner, scope=PERSONAL)
     document = documents_service().get(
-        user_id=owner, connection_id=connection.id, scope=business
+        user_id=owner, connection_id=connection.id, scope=PERSONAL
     )
     assert (document.status, document.consent) == ("saved", False)
-    personal = wa_client.get(
-        f"/api/v1/financial-documents/{connection.id}", headers=bearer(ALICE)
-    )
-    assert personal.status_code == 404
+    status = wa_client.get(LINK, headers=bearer(ALICE)).json()
+    assert status["linked"] and status["held_count"] == 1
 
     assert wa_client.delete(LINK, headers=bearer(ALICE)).status_code == 204
     assert wa_client.get(LINK, headers=bearer(ALICE)).json()["linked"] is False

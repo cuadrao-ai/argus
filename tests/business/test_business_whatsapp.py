@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import Iterator
 from unittest.mock import patch
@@ -26,6 +27,7 @@ from fastapi.testclient import TestClient
 from tests.business.conftest import ALICE, BOB
 from tests.business.receipt_stub import ReceiptStub, receipt_date
 from tests.business.test_business_api import Owner, started
+from tests.document_reads_support import read_receipt
 from tests.ingestion.test_whatsapp_api import UNSHOWN_LINK, link_alice, post
 from tests.ingestion.whatsapp_cases import FORWARDED
 from tests.ingestion.whatsapp_support import (
@@ -113,12 +115,11 @@ def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(
     bob = started(Owner(client, BOB))
     assert alice.reading(True).status_code == 200
     link_alice(client)
-    assert alice.reading(False).status_code == 200
     assert post(client, fixture("image_message.json")).status_code == 200
     [captured] = alice.get("/receipts", view="inbox").json()["items"]
     assert (captured["channel"], captured["status"], captured["size_bytes"]) == (
         "whatsapp",
-        "saved",
+        "queued",
         len(RECEIPT_PNG),
     )
     assert stub.calls == []
@@ -127,11 +128,7 @@ def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(
     assert [r["id"] for r in alice.get("/receipts", view="all").json()["items"]] == [
         receipt_id
     ]
-    assert alice.reading(True).status_code == 200
-    prepared = alice.post(
-        f"/receipts/{receipt_id}/prepare", **{"X-Extraction-Consent": "true"}
-    )
-    assert prepared.status_code == 200, prepared.text
+    assert asyncio.run(read_receipt(documents_service(), identities[ALICE]["id"], receipt_id)) == "prepared"
     detail = alice.detail(receipt_id)
     assert (detail["channel"], detail["status"]) == ("whatsapp", "review_ready")
     account = alice.account()
@@ -157,7 +154,6 @@ def test_forwards_and_captions_reach_the_inbox_like_a_direct_send(wa_biz) -> Non
     alice = started(Owner(client, ALICE))
     assert alice.reading(True).status_code == 200
     link_alice(client)
-    assert alice.reading(False).status_code == 200
     for name, source, media_type, _filename in FORWARDED:
         body = fixture(name)
         message = body["entry"][0]["changes"][0]["value"]["messages"][0]
@@ -167,10 +163,10 @@ def test_forwards_and_captions_reach_the_inbox_like_a_direct_send(wa_biz) -> Non
         assert post(client, body).status_code == 200
     inbox = alice.get("/receipts", view="inbox").json()["items"]
     assert sorted((r["channel"], r["status"], r["media_type"]) for r in inbox) == [
-        ("whatsapp", "saved", "application/pdf"),
-        ("whatsapp", "saved", "image/jpeg"),
-        ("whatsapp", "saved", "image/jpeg"),
-        ("whatsapp", "saved", "image/png"),
+        ("whatsapp", "queued", "application/pdf"),
+        ("whatsapp", "queued", "image/jpeg"),
+        ("whatsapp", "queued", "image/jpeg"),
+        ("whatsapp", "queued", "image/png"),
     ]
     assert stub.calls == []
 
@@ -236,7 +232,6 @@ def test_saved_whatsapp_provenance_survives_receiving_off(
     bob = started(Owner(client, BOB))
     assert alice.reading(True).status_code == 200
     link_alice(client)
-    assert alice.reading(False).status_code == 200
     assert post(client, fixture("image_message.json")).status_code == 200
     [saved] = alice.get("/receipts", view="all").json()["items"]
     store = whatsapp_runtime().intake.store

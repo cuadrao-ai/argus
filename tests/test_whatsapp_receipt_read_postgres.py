@@ -217,7 +217,7 @@ async def test_only_the_receiving_owner_can_be_the_actor(actions, users):  # noq
 
 
 @pytest.mark.asyncio
-async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: ANN201
+async def test_authority_refusal_after_eligibility_keeps_the_original_private(  # noqa: ANN201
     actions,
     users,
     monkeypatch,  # noqa: ANN001
@@ -228,14 +228,20 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
         raise ActionError("permission_denied", "business_permission_denied")
 
     monkeypatch.setattr(BusinessActions, "resolve_actor", refused)
-    connection_id = await _capture(world)
-    draft = _draft(world, connection_id)
-    assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
+    from argus.domain.ingestion.whatsapp.held import held_files
+
+    await world.link(world.alice, ALICE_PHONE)
+    media = "700000000000201"
+    world.graph.media[media] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(cases.image(media, "wamid.LATE-REFUSAL"))
+    [held] = held_files(world.documents.store).list_for_user(world.alice)
+    assert held.reason == "no_eligible_business"
+    assert held.connection_id == world.record("wamid.LATE-REFUSAL").connection_id
     assert extractor.calls == 0
 
 
 @pytest.mark.asyncio
-async def test_loss_of_prepare_while_staging_discards_the_receipt(
+async def test_loss_of_prepare_while_staging_holds_the_receipt_privately(
     actions, users, monkeypatch
 ):  # noqa: ANN001
     world, extractor = _rig(actions, users)
@@ -265,14 +271,14 @@ async def test_loss_of_prepare_while_staging_discards_the_receipt(
     world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(cases.image(media_id, "wamid.READ-DEMOTED"))
     record = world.record("wamid.READ-DEMOTED")
-    assert (record.status, record.connection_id) == ("rejected", None)
-    [staged] = world.captures(world.alice)
-    assert (
-        documents.hub.connections.get_any_scope(
-            user_id=world.alice, connection_id=staged
-        ).status
-        == "disconnected"
-    )
+    from argus.domain.ingestion.whatsapp.held import held_files
+
+    [held] = held_files(documents.store).list_for_user(world.alice)
+    assert (record.status, record.connection_id) == ("captured", held.connection_id)
+    assert held.reason == "no_eligible_business"
+    row = documents.hub.connections.get_any_scope(user_id=world.alice, connection_id=held.connection_id)
+    assert row.scope == cases.PERSONAL
+    assert not documents.store.job(user_id=world.alice, connection_id=held.connection_id)
     assert extractor.calls == 0
 
 
