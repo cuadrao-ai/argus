@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable
+from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from time import monotonic
@@ -119,7 +120,12 @@ class Settlement:
 
 class CapturePublisher(Protocol):
     def prepare(
-        self, connection: Connection | None, settlement: Settlement, message_key: bytes
+        self,
+        connection: Connection | None,
+        settlement: Settlement,
+        message_key: bytes,
+        *,
+        rollback: ExitStack | None = None,
     ) -> Settlement: ...
     def discard(self, db: Connection | None, staged: Settlement) -> None: ...
     def route_saved(self, db: Connection, staged: Settlement) -> Settlement: ...

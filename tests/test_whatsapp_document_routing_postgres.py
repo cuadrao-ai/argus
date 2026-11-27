@@ -17,9 +17,10 @@ from faker import Faker
 from tests.business_reading_support import ROUTE, turn_reading
 from tests.ingestion.whatsapp_cases import image
 from tests.ingestion.whatsapp_link_support import prepare_phone_business
-from tests.ingestion.whatsapp_support import RECEIPT_PNG, encode
+from tests.ingestion.whatsapp_support import RECEIPT_PNG, Media, encode, fixture
 from tests.test_whatsapp_webhook_postgres import (
     MEDIA_ID,
+    MESSAGE_ID,
     Webhook,
     _assert_interrupted,
     actions,
@@ -411,9 +412,13 @@ async def test_revoked_sender_keeps_a_shared_receipt_another_sender_already_publ
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("sole_business", [False, True], ids=["private", "sole_business"])
+@pytest.mark.parametrize(
+    ("sole_business", "caption"),
+    [(False, "private note"), (True, "new note"), (True, None)],
+    ids=["private", "sole_business", "sole_business_no_caption"],
+)
 async def test_resend_after_assigned_business_loses_eligibility_reuses_the_receipt(
-    webhook: Webhook, monkeypatch, sole_business: bool
+    webhook: Webhook, monkeypatch, sole_business: bool, caption: str | None
 ):
     from argus.api.whatsapp import whatsapp_runtime
 
@@ -433,7 +438,20 @@ async def test_resend_after_assigned_business_loses_eligibility_reuses_the_recei
         webhook.owner, Faker().company(), "DO", str(uuid4())
     )
     prepare_phone_business(webhook.pool, b.id, webhook.owner)
-    assert (await webhook.post(webhook.signed_receipt(RECEIPT_PNG))).status_code == 200
+    webhook.graph.media[MEDIA_ID] = Media(RECEIPT_PNG, "image/png")
+
+    def delivery(message_id, filename, note):
+        document = {"id": MEDIA_ID, "filename": filename, "mime_type": "image/png"}
+        if note is not None:
+            document["caption"] = note
+        return encode(
+            fixture("document_message.json", id=message_id, document=document),
+            webhook.clock.now,
+        )
+
+    assert (
+        await webhook.post(delivery(MESSAGE_ID, "a.png", "A only"))
+    ).status_code == 200
     files = held_files(docs.store)
     [original] = files.list_for_user(webhook.owner)
     assert await read_receipt(docs, webhook.owner, original.connection_id) == "prepared"
@@ -462,11 +480,33 @@ async def test_resend_after_assigned_business_loses_eligibility_reuses_the_recei
         turn_reading(docs.business_receipt_consent, b.id, webhook.owner, False)
     webhook.clock.now += timedelta(seconds=1)
     message_id = "wamid.AFTER-A-ACCESS-LOSS"
-    raw = encode(image(MEDIA_ID, message_id), webhook.clock.now)
+    raw = delivery(message_id, "resent.png", caption)
+    if not sole_business:
+        created = []
+        objects = docs.store.objects
+        put = objects.put
+
+        def record_put(path, content, media_type):
+            put(path, content, media_type)
+            created.append(path)
+
+        def fail_publication(*args, **kwargs):
+            raise ConnectionError("temporary persistence failure")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(objects, "put", record_put)
+            patch.setattr(type(files), "hold", fail_publication)
+            assert (await webhook.post(raw)).status_code == 503
+        assert created and all(objects.get(path) is None for path in created)
+        assert [row.id for row in files.list_for_user(webhook.owner)] == [original.id]
+        pending = webhook.store.inbound(
+            whatsapp_runtime().intake.keys.message(message_id)
+        )
+        webhook.clock.now = pending.claim_until + timedelta(seconds=1)
     assert (await webhook.post(raw)).status_code == 200
     first, second = files.list_for_user(webhook.owner)
     assert first.id == original.id and first.assigned_space_id == a.space_id
-    assert first.connection_id == second.connection_id
+    assert first.connection_id != second.connection_id
     inbound = webhook.store.inbound(whatsapp_runtime().intake.keys.message(message_id))
     if sole_business:
         assert second.state == "assigned" and second.assigned_space_id == b.id
@@ -482,4 +522,61 @@ async def test_resend_after_assigned_business_loses_eligibility_reuses_the_recei
             docs.store.source(user_id=webhook.owner, connection_id=inbound.connection_id)
             == RECEIPT_PNG
         )
+    received = docs.store.draft(
+        user_id=webhook.owner, connection_id=inbound.connection_id
+    )
+    assert (received.filename, received.source_text) == ("resent.png", caption)
+    resent = delivery("wamid.DUPLICATE-AFTER-A-LOSS", "duplicate.png", None)
+    assert (await webhook.post(resent)).status_code == 200
+    assert len(files.list_for_user(webhook.owner)) == 2
+    assert webhook.replies[-1]["text"]["body"].startswith("Ya lo teníamos.")
+
+    if not sole_business:
+        from argus.api import whatsapp
+        from argus.api.routers import whatsapp as link_routes
+        from argus.domain.business.contracts.deletion import PURGE_AFTER
+        from argus.domain.ingestion.whatsapp.held import HeldFileExpiry
+
+        context = whatsapp.WhatsAppSenderContext(
+            whatsapp_runtime(),
+            webhook.owner,
+            webhook.store.destination_link(destination_owner_id=webhook.owner),
+        )
+        monkeypatch.setitem(
+            app.dependency_overrides, whatsapp.require_whatsapp_sender, lambda: context
+        )
+        monkeypatch.setattr(link_routes, "documents_service", lambda: docs)
+
+        async def held_count():
+            response = await webhook.client.get("/api/v1/whatsapp/link")
+            assert response.status_code == 200
+            return response.json()["held_count"]
+
+        assert await held_count() == 1
+        with webhook.pool.connection() as db:
+            db.execute(
+                "update public.whatsapp_held_files set held_at=%s where id=%s",
+                (webhook.clock.now - PURGE_AFTER - timedelta(seconds=1), second.id),
+            )
+        expiry = HeldFileExpiry(webhook.pool, docs.store.objects, clock=webhook.clock)
+        for _ in range(2):
+            expiry.tick()
+            assert await held_count() == 0
+            webhook.clock.now += timedelta(hours=1)
+        assert (
+            docs.store.draft(user_id=webhook.owner, connection_id=second.connection_id)
+            is None
+        )
+        assert (
+            docs.store.source(user_id=webhook.owner, connection_id=second.connection_id)
+            is None
+        )
+    assert (
+        docs.store.source(user_id=webhook.owner, connection_id=assigned.connection_id)
+        == RECEIPT_PNG
+    )
+    a_receipt = docs.store.draft(
+        user_id=webhook.owner, connection_id=assigned.connection_id
+    )
+    assert (a_receipt.filename, a_receipt.source_text) == ("a.png", "A only")
     assert usage() == before and extractor.calls == 1

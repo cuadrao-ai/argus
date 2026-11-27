@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import ExitStack, contextmanager
 from datetime import datetime
 
 from psycopg import Connection, sql
@@ -43,6 +44,17 @@ _INBOUND_COLUMNS = (
 def _record(row: tuple) -> InboundRecord:
     key, sender, *rest = row
     return InboundRecord(bytes(key), bytes(sender) if sender is not None else None, *rest)
+
+
+@contextmanager
+def _on_publication_failure() -> Iterator[ExitStack]:
+    """Clean uncommitted object writes after releasing the claim transaction."""
+    callbacks = ExitStack()
+    try:
+        yield callbacks
+    except BaseException:
+        callbacks.close()
+        raise
 
 
 def _limit_statement_time(
@@ -134,6 +146,7 @@ class PostgresWhatsAppStore:
         if seconds <= 0:
             return None
         with (
+            _on_publication_failure() as rollback,
             self._pool.connection(timeout=seconds) as connection,
             connection.transaction(),
         ):
@@ -188,7 +201,9 @@ class PostgresWhatsAppStore:
             if settled_at is None:
                 return None
             if publisher is not None and settlement.status == "captured":
-                settlement = publisher.prepare(connection, settlement, provider_message_key)
+                settlement = publisher.prepare(
+                    connection, settlement, provider_message_key, rollback=rollback
+                )
             connection.execute(
                 "update public.whatsapp_inbound_messages set status = %s, "
                 "destination_owner_id = %s, connection_id = %s, error_code = %s, "

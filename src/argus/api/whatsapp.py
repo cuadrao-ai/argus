@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import nullcontext
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass, replace
 from hashlib import sha256
 
@@ -42,7 +42,7 @@ from argus.domain.ingestion.whatsapp.config import (
     WhatsAppSettings,
     load_whatsapp_settings,
 )
-from argus.domain.ingestion.whatsapp.held import MARK, held_files
+from argus.domain.ingestion.whatsapp.held import MARK, PostgresHeldFiles, held_files
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
 from argus.domain.ingestion.whatsapp.intake import (
     Captured,
@@ -100,6 +100,41 @@ _REJECTED_CAPTURE = {
 }
 
 
+@dataclass(frozen=True)
+class _PrivateCopy:
+    held_id: str
+    connection_id: str
+    active: bool
+
+
+def _private_copy(
+    documents: DocumentsService, person: str, digest: str
+) -> _PrivateCopy | None:
+    files = held_files(documents.store)
+    if isinstance(files, PostgresHeldFiles):
+        with files.pool.connection() as db:
+            found = db.execute(
+                "select h.id::text, h.connection_id::text, h.state='held' "
+                "from public.whatsapp_held_files h join public.financial_document_extractions d "
+                "on d.user_id=h.user_id and d.connection_id=h.connection_id "
+                "where h.user_id=%s and d.source_sha256=%s and h.state in ('held','assigned') "
+                "order by (h.state='held') desc, h.held_at desc, h.id desc limit 1",
+                (person, digest),
+            ).fetchone()
+        return _PrivateCopy(*found) if found else None
+    recent = sorted(
+        files.list_for_user(person),
+        key=lambda h: (h.state == "held", h.held_at, h.id),
+        reverse=True,
+    )
+    for row in recent:
+        if row.state != "expired":
+            draft = documents.store.draft(user_id=person, connection_id=row.connection_id)
+            if draft and draft.sha256 == digest:
+                return _PrivateCopy(row.id, row.connection_id, row.state == "held")
+    return None
+
+
 class _BusinessAuthorizationLost(Exception):
     pass
 
@@ -125,6 +160,11 @@ class DocumentsDestination:
     ) -> Captured:
         grants = await asyncio.to_thread(self.store.eligible_businesses, owner_id)
         digest = sha256(content).hexdigest()
+        previous = await asyncio.to_thread(
+            _private_copy, self.documents, owner_id, digest
+        )
+        if previous and previous.active:
+            return Captured(previous.connection_id, True, owner_id, None)
         if grants:
             refs = [
                 document_ref(g.owner_id, BusinessSpace(g.space_id), digest)
@@ -141,6 +181,8 @@ class DocumentsDestination:
                     existing.space_id,
                     previous_business_copy=True,
                 )
+        if previous:
+            return Captured(previous.connection_id, True, owner_id, None)
         grant = grants[0] if len(grants) == 1 else None
         if grant is not None:
             private_ref = document_ref(owner_id, PERSONAL, digest, MARK)
@@ -182,7 +224,12 @@ class DocumentsDestination:
         )
 
     def prepare(
-        self, connection: Connection | None, settlement: Settlement, message_key: bytes
+        self,
+        connection: Connection | None,
+        settlement: Settlement,
+        message_key: bytes,
+        *,
+        rollback: ExitStack | None = None,
     ) -> Settlement:
         person, custodian = settlement.destination_owner_id, settlement.storage_user_id
         connection_id = settlement.connection_id
@@ -240,21 +287,33 @@ class DocumentsDestination:
                 connection_id=connection_id,
             )
 
-        files = held_files(documents.store)
-        if connection is not None:
-            existing = connection.execute(
-                "select 1 from public.whatsapp_held_files where user_id=%s and connection_id=%s "
-                "and state='held' limit 1",
-                (person, connection_id),
-            ).fetchone()
-        else:
-            existing = any(
-                row.connection_id == connection_id and row.state == "held"
-                for row in files.list_for_user(person)
+        previous = _private_copy(documents, person, draft.sha256)
+        if previous is not None:
+            if previous.active:
+                return replace(
+                    settlement, connection_id=previous.connection_id, duplicate=True
+                )
+            original = settlement.original
+            assert original is not None
+            if rollback is not None:
+                rollback.callback(
+                    self.documents.discard_unpublished_held_copy,
+                    user_id=person,
+                    message_key=message_key,
+                    digest=draft.sha256,
+                )
+            reopened = documents.reopen_held_delivery(
+                user_id=person,
+                previous_id=previous.held_id,
+                message_key=message_key,
+                content=original.content,
+                filename=original.filename,
+                media_type=original.media_type,
+                source_text=original.caption,
             )
-        if existing:
-            return replace(settlement, duplicate=True)
-        held = files.hold(
+            connection_id = reopened.connection_id
+            settlement = replace(settlement, connection_id=connection_id)
+        held = held_files(documents.store).hold(
             user_id=person,
             sender_link_id=settlement.sender_link_id,
             provider_message_key=message_key,
