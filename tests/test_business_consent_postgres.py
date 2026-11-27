@@ -64,17 +64,18 @@ def test_an_owner_accepts_once_per_wording_and_later_reads_see_it(web) -> None: 
 
 def test_an_accountant_records_the_business_they_work_in(web) -> None:  # noqa: ANN001, F811
     dave = web.dave
-    missing = web.client.post(
+    joined = web.client.post(
         f"{API}/business/consent", json={"version": WORDING}, headers=dave.headers
     )
-    assert missing.status_code == 404, missing.text
-    assert missing.json()["code"] == "business_space_missing"
+    assert joined.status_code == 200, "no Business of their own: the one they joined"
+    assert _rows(dave.id) == [(web.alice.space_id, WORDING)]
 
     under_grant = {**dave.headers, GRANT: web.grant_d}
     accepted = web.client.post(
         f"{API}/business/consent", json={"version": WORDING}, headers=under_grant
     )
     assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["accepted_at"] == joined.json()["accepted_at"]
     assert _rows(dave.id) == [(web.alice.space_id, WORDING)]
     assert _read(web, dave.headers) == accepted.json()["accepted_at"]
     assert _rows(web.alice.id) == [], "the owner's own acceptance is still theirs to give"
