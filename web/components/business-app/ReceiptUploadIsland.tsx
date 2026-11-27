@@ -8,7 +8,7 @@ import { enteredIn } from "@/lib/business-grant";
 import { prefersReducedMotion } from "@/components/ui/spring";
 import type { IntakeTarget, ReceiptUploadQueue } from "./receipt-upload-queue";
 import { uploadBatchView, uploadSummaryText } from "./receipt-upload-view";
-import { exportFailureText, useRecordsExportJob } from "./transacciones/records-export-job";
+import { exportFailureText, failureOn, useRecordsExportJob } from "./transacciones/records-export-job";
 import styles from "./receipt-upload-island.module.css";
 
 export type RecordDrawer = { node: HTMLElement; narrow: boolean };
@@ -87,7 +87,7 @@ export default function ReceiptUploadIsland({ queue, grant, panelOpen, drawer, p
   const batch = uploadBatchView(entries, queue.retryWaiting, queue.attempts);
   const exporting = useRecordsExportJob();
   // The open export panel shows its own failure. An export of another Business stays out, as its uploads do.
-  const exported = exporting.state.kind === "idle" || (exporting.state.run.panel.scope.grantId ?? null) !== grant || (exporting.state.kind === "failed" && exporting.panel) ? null : exporting.state;
+  const exported = exporting.state.kind === "idle" || (exporting.state.run.panel.scope.grantId ?? null) !== grant || failureOn(exporting.state, exporting.panel) ? null : exporting.state;
   // Of two jobs the one that runs shows, and of two that run, the newer.
   const exportInFront = exported !== null && (ORDER[exported.kind] < ORDER[batch.state] || (ORDER[exported.kind] === ORDER[batch.state] && exported.at >= (batch.state === "saved" ? batch.lastSavedAt : batch.lastAddedAt)));
   const state = exportInFront ? exported.kind : batch.state;

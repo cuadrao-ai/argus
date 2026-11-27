@@ -17,7 +17,7 @@ import DgiiRegistryTag from "../DgiiRegistryTag";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import GuideCard from "../foundation/GuideCard";
 import { showToast } from "../foundation/toasts";
-import { exportFailureText, useRecordsExportJob, type ExportPanelRequest } from "./records-export-job";
+import { exportFailureText, failureOn, useRecordsExportJob, type ExportPanelRequest } from "./records-export-job";
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-filter-preview.module.css";
 
@@ -64,9 +64,8 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const { job, state } = useRecordsExportJob();
-  const failed = state.kind === "failed" ? state : null;
   // Opened on a file that failed, the panel starts on that file's choices.
-  const [seed] = useState(() => failed?.run.choice);
+  const [seed] = useState(() => failureOn(state, { scope, request })?.run.choice);
   const [selectedMode, setMode] = useState<Mode>(seed?.mode ?? "table");
   const [chosen, setChosen] = useState<string[] | null>(seed?.mode === "table" ? seed.columns : null);
   const [editing, setEditing] = useState(false);
@@ -103,9 +102,12 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
       : [periodLabel, t("business.transactions.reporting.export.summary_dgii_purchases"), t("business.transactions.reporting.export.summary_records", { count })]
     : [periodLabel, filterCount ? t("business.transactions.reporting.export.summary_filters", { count: filterCount }) : null, t("business.transactions.reporting.export.summary_records", { count }), (selection?.currencies.length ?? 0) > 1 ? t("business.transactions.reporting.export.summary_currencies", { count: selection?.currencies.length }) : null];
 
+  // The file this panel would download now. Until the preview answers, nothing in it can have changed.
+  const choice: RecordsExportChoice | null = !preview || !selection ? null : mode === "dgii" ? { mode, format } : { mode, format, columns, currencies: everyCurrency ? "all" : "current" };
+  const failed = failureOn(state, { scope, request }, choice);
+
   const download = () => {
-    if (!preview || !count || !selection) return;
-    const choice: RecordsExportChoice = mode === "dgii" ? { mode, format } : { mode, format, columns, currencies: everyCurrency ? "all" : "current" };
+    if (!choice || !count || !selection) return;
     const filename = (mode === "dgii" && dgii ? dgii : selection).filenames[format];
     void job.start({ panel: { scope, request, periodLabel, filterCount }, choice, filename, exportFile: transport.exportFile, onSaved: (result, file) => sayExported(t, result, file) });
   };

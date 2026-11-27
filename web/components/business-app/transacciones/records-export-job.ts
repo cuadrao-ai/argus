@@ -27,6 +27,20 @@ export type ExportJobState =
   | { kind: "failed"; run: ExportRun; at: number; problem: ReportFailure; toPlace: boolean };
 
 type Snapshot = { state: ExportJobState; panel: ExportPanelRequest | null };
+type ExportFailure = Extract<ExportJobState, { kind: "failed" }>;
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * The failure, when it is this request's own: the same Business and table
+ * request and, once the panel has its choices, the same file. A failure never
+ * shows on another request.
+ */
+export function failureOn(state: ExportJobState, panel: Pick<ExportPanelRequest, "scope" | "request"> | null, choice?: RecordsExportChoice | null): ExportFailure | null {
+  if (state.kind !== "failed" || !panel) return null;
+  const { run } = state;
+  return same(run.panel.scope, panel.scope) && same(run.panel.request, panel.request) && (!choice || same(run.choice, choice)) ? state : null;
+}
 
 const LIMIT_CODES = new Set(["business_report_too_large"]);
 
@@ -70,9 +84,9 @@ export class RecordsExportJob {
     if (state.kind === "failed") this.set({ panel: state.run.panel });
   }
 
-  /** Closing never stops a file being prepared. Closing on a failure lets it go, with the empty file Save As made. */
+  /** Closing never stops a file being prepared. Closing the panel of a file that failed lets the failure go, with the empty file Save As made. */
   close() {
-    if (this.current.state.kind !== "failed") return this.set({ panel: null });
+    if (!failureOn(this.current.state, this.current.panel)) return this.set({ panel: null });
     void this.place?.discard();
     this.place = null;
     this.set({ panel: null, state: { kind: "idle" } });
