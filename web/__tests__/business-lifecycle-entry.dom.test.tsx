@@ -48,7 +48,7 @@ function button(label: string) { const found = [...document.querySelectorAll("bu
 async function enter(value: string) { const input = document.querySelector('input:not([type="date"])'); assert.ok(input); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }); }
 
 test("close entry binds server export windows and stable retry key without nested forms", async () => {
-  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} action="close" />, true);
+  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} />, true);
   try {
     assert.equal(getChosenGrant(), businesses[0].grant_id);
     assert.equal(document.querySelectorAll("form form").length, 0);
@@ -68,11 +68,6 @@ test("close entry binds server export windows and stable retry key without neste
   } finally { await view.close(); }
 });
 
-test("transfer entry preserves approved empty-target copy and GET has no effects", async () => {
-  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[1].space_id} action="transfer" />);
-  try { assert.ok(document.body.textContent?.includes("Para transferir el negocio, primero invita a un miembro.")); assert.equal(button("Solicitar transferencia").disabled, true); assert.ok(view.calls.every(call => call.method === "GET")); } finally { await view.close(); }
-});
-
 test("closed listing reopens the selected Business once", async () => {
   const reload = spyOn(window.location, "assign").mockImplementation(() => undefined);
   const view = await mount(<BusinessLifecycleControls />);
@@ -84,7 +79,7 @@ test("closed listing reopens the selected Business once", async () => {
 });
 
 test("readiness denial reveals no names or mutation controls", async () => {
-  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} action="close" />, false, true);
+  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} />, false, true);
   try { assert.equal(document.body.textContent?.includes(businesses[0].name), false); assert.equal(document.body.textContent?.includes("Cerrar negocio"), false); assert.ok(view.calls.every(call => call.method === "GET")); } finally { await view.close(); }
 });
 
@@ -94,7 +89,7 @@ test("close export uses only server windows for the selected Business and resume
   const saved: string[] = [];
   URL.createObjectURL = () => "blob:synthetic"; URL.revokeObjectURL = () => undefined;
   const save = spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) { saved.push(this.download); });
-  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[1].space_id} action="close" />, false, false, true);
+  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[1].space_id} />, false, false, true);
   try {
     assert.equal(document.querySelectorAll('input[type="date"]').length, 0);
     await act(async () => { button("Descargar copia").click(); button("Descargar copia").click(); });
@@ -126,7 +121,7 @@ test("close export uses only server windows for the selected Business and resume
 test("empty export history stays empty and never invents an export request", async () => {
   const windows = businesses[1].export_windows;
   businesses[1].export_windows = [];
-  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[1].space_id} action="close" />);
+  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[1].space_id} />);
   try {
     assert.ok(document.body.textContent?.includes("No hay registros ni comprobantes para descargar."));
     assert.equal([...document.querySelectorAll("button")].some(item => item.textContent === "Descargar copia"), false);
@@ -143,7 +138,7 @@ for (const boundary of ["unmount", "account change"] as const) {
     let saved = 0;
     URL.createObjectURL = () => "blob:synthetic"; URL.revokeObjectURL = () => undefined;
     const save = spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => { saved += 1; });
-    const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} action="close" />);
+    const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} />);
     let release: (response: Response) => void = () => undefined;
     let signal: AbortSignal | null | undefined;
     let closed = false;

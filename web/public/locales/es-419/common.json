@@ -4158,7 +4158,6 @@
         "records_other": "{{n}} registros"
       },
       "member_closed": "{{businessName}} está cerrado. Para pedir copias de los comprobantes, contacta al dueño del negocio.",
-      "name_confirmation": "Escribe el nombre del negocio para confirmar.",
       "owner_title": "Dueño del negocio",
       "purge_consequence": "Si sigue cerrado al vencer ese plazo, sus datos y comprobantes se borrarán y no se podrán recuperar.",
       "refresh": "Actualizar",
@@ -4172,7 +4171,6 @@
         "accept_title": "¿Aceptar {{businessName}}?",
         "accepted": "Transferencia completada",
         "cancelled": "Transferencia retirada",
-        "choose_reason": "Elige a una persona y escribe el nombre del negocio.",
         "decline": "Rechazar",
         "declined": "{{targetName}} rechazó la transferencia. {{businessName}} sigue siendo tuyo.",
         "declined_recipient": "Transferencia rechazada",
@@ -4188,7 +4186,6 @@
         "member": "Nuevo dueño",
         "none_eligible": "Ningún miembro puede recibir el negocio ahora. Revisa el motivo junto a cada persona.",
         "pending": "Esperando que {{targetName}} acepte.",
-        "recipient": "{{ownerName}} quiere transferirte {{businessName}}. Si aceptas, serás su dueño y {{ownerName}} podrá seguir editando.",
         "request": "Solicitar transferencia",
         "title": "Transferir este negocio",
         "withdraw": "Retirar solicitud"

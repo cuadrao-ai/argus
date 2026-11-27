@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Check, Download, Loader2 } from "lucide-react";
 import spanish from "@/public/locales/es-419/common.json";
 import { FormField } from "@/components/ui/FormField";
@@ -60,18 +60,18 @@ type CloseProps = {
 const mutedTextClass = "text-[#56635e] dark:text-white/70";
 
 // The name is escaped going into the copy and unescaped after its <strong> is parsed, so any name reads exactly as typed.
-function NamedCopy({ i18nKey, businessName }: { i18nKey: string; businessName: string }) {
+export function NamedCopy({ i18nKey, businessName }: { i18nKey: string; businessName: string }) {
   return <Trans i18nKey={i18nKey} values={{ businessName }} components={{ strong: <strong className="font-bold" /> }} tOptions={{ interpolation: { escapeValue: true } }} shouldUnescape />;
 }
 
 /**
- * Closing a Business is one short task: a centered dialog on desktop and the
- * shared bottom sheet below the desktop stop, as Exportar registros.
+ * Closing or transferring a Business is one short task: a centered dialog on
+ * desktop and the shared bottom sheet below the desktop stop, as Exportar registros.
  */
-export function BusinessCloseShell({ title, closeLabel, onClose, locked = false, footer, children }: { title: ReactNode; closeLabel: string; onClose: () => void; locked?: boolean; footer?: ReactNode; children: ReactNode }) {
+export function BusinessCloseShell({ title, closeLabel, onClose, locked = false, initialFocusRef, footer, children }: { title: ReactNode; closeLabel: string; onClose: () => void; locked?: boolean; initialFocusRef?: RefObject<HTMLElement | null>; footer?: ReactNode; children: ReactNode }) {
   const { isBelowDesktop } = useResponsiveLayout();
-  if (isBelowDesktop) return <BottomSheet isOpen onClose={onClose} dismissible={!locked} title={title} closeLabel={closeLabel} snaps={["full"]} initialSnap="full" footer={footer}><div className="pb-5 pt-1">{children}</div></BottomSheet>;
-  return <CenteredDialog title={title} closeLabel={closeLabel} onClose={onClose} dismissible={!locked} footer={footer} testId="business-close-dialog"><div className="px-6 pb-5 pt-1">{children}</div></CenteredDialog>;
+  if (isBelowDesktop) return <BottomSheet isOpen onClose={onClose} dismissible={!locked} initialFocusRef={initialFocusRef} title={title} closeLabel={closeLabel} snaps={["full"]} initialSnap="full" footer={footer}><div className="pb-5 pt-1">{children}</div></BottomSheet>;
+  return <CenteredDialog title={title} closeLabel={closeLabel} onClose={onClose} dismissible={!locked} initialFocusRef={initialFocusRef} footer={footer} testId="business-close-dialog"><div className="px-6 pb-5 pt-1">{children}</div></CenteredDialog>;
 }
 
 function PeriodRow({ item, busy, onStart }: { item: CloseDownload; busy: boolean; onStart: () => void }) {

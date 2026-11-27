@@ -24,40 +24,35 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-for (const action of ["close", "transfer"] as const) {
-  for (const denied of [false, true]) {
-    test(`cancel routed ${action} navigates to Business without a blank page${denied ? " when readiness is denied" : ""}`, async () => {
-      window.history.replaceState(null, "", `/biz?lifecycle=${action}&business=${spaceId}`);
-      const methods: string[] = [];
-      globalThis.fetch = async (url, init) => {
-        methods.push(init?.method ?? "GET");
-        if (denied) return Response.json({ detail: { code: "business_unavailable" } }, { status: 404 });
-        if (String(url).includes("ownership-transfers")) return Response.json({ transfers: [] });
-        return Response.json({ spaces: [{
-          space_id: spaceId,
-          name: "Colmado Rosa",
-          grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0",
-          member_count: 0, reopen_until: "2026-11-20T17:45:00Z", export_windows: [], members: [],
-        }] });
-      };
-      const navigate = spyOn(window.location, "assign").mockImplementation(() => undefined);
-      const host = document.createElement("div");
-      document.body.append(host);
-      const root = createRoot(host);
-      try {
-        await act(async () => root.render(<BusinessApp lifecycle={{ spaceId, action }} />));
-        const cancel = [...document.querySelectorAll("button")].find(button => button.textContent === "Cancelar" || button.getAttribute("aria-label") === "Cancelar");
-        assert.ok(cancel);
-        await act(async () => cancel.click());
-        assert.notEqual(document.body.textContent?.trim(), "", "cancel leaves the entire Business page empty");
-        assert.deepEqual(navigate.mock.calls.map(call => call[0]), ["/biz"]);
-        assert.ok(methods.length > 0);
-        assert.ok(methods.every(method => method === "GET"));
-      } finally {
-        await act(async () => root.unmount());
-        host.remove();
-        navigate.mockRestore();
-      }
-    });
-  }
+const owned = { space_id: spaceId, name: "Colmado Rosa", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", member_count: 0, reopen_until: "2026-11-20T17:45:00Z", export_windows: [], members: [] };
+
+// A routed transfer opens over the workspace and closing it stays there: business-transfer-entry.dom.test.tsx.
+for (const denied of [false, true]) {
+  test(`cancel routed close navigates to Business without a blank page${denied ? " when readiness is denied" : ""}`, async () => {
+    window.history.replaceState(null, "", `/biz?lifecycle=close&business=${spaceId}`);
+    const methods: string[] = [];
+    globalThis.fetch = async (_url, init) => {
+      methods.push(init?.method ?? "GET");
+      if (denied) return Response.json({ detail: { code: "business_unavailable" } }, { status: 404 });
+      return Response.json({ spaces: [owned] });
+    };
+    const navigate = spyOn(window.location, "assign").mockImplementation(() => undefined);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    try {
+      await act(async () => root.render(<BusinessApp lifecycle={{ spaceId, action: "close" }} />));
+      const cancel = [...document.querySelectorAll("button")].find(button => button.textContent === "Cancelar" || button.getAttribute("aria-label") === "Cancelar");
+      assert.ok(cancel);
+      await act(async () => cancel.click());
+      assert.notEqual(document.body.textContent?.trim(), "", "cancel leaves the entire Business page empty");
+      assert.deepEqual(navigate.mock.calls.map(call => call[0]), ["/biz"]);
+      assert.ok(methods.length > 0);
+      assert.ok(methods.every(method => method === "GET"));
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+      navigate.mockRestore();
+    }
+  });
 }

@@ -88,12 +88,16 @@ try {
           if (state === "close-uncertain") { await dialog.getByRole("textbox").fill(owner.name); await dialog.getByRole("button", { name: "Cerrar negocio", exact: true }).click(); await expect(dialog.getByRole("alert")).toBeVisible(); }
         }
       }
-      if (state === "transfer-picker") { await expect(page.getByRole("radio", { name: /Rosa Pérez/ })).toBeVisible(); await expect(page.getByRole("radio", { name: /Ana López/ })).toBeDisabled(); }
+      // Transfer is one dialog over the app: no drawer and no second confirm.
+      if (state === "transfer-picker" || state.startsWith("accept-")) { await expect(page.getByRole("dialog")).toHaveCount(1); await expect(page.getByRole("alertdialog")).toHaveCount(0); await expect(page.getByTestId("side-drawer")).toHaveCount(0); }
+      if (state === "transfer-picker") { await expect(page.getByTestId("business-settings")).toBeAttached(); await expect(page.getByRole("radio", { name: /Rosa Pérez/ })).toBeVisible(); await expect(page.getByRole("radio", { name: /Ana López/ })).toBeDisabled(); }
       if (state.startsWith("accept-")) {
-        await page.getByRole("button", { name: "Aceptar transferencia", exact: true }).click();
-        await expect(page.getByRole("alertdialog")).toContainText("La lectura automática de documentos se apaga");
-        expect(calls.filter(call => call.path.endsWith("/accept"))).toHaveLength(0);
-        if (state === "accept-uncertain") { await page.getByRole("alertdialog").getByRole("button", { name: "Aceptar transferencia", exact: true }).click(); await expect(page.getByRole("button", { name: "Actualizar", exact: true })).toBeVisible(); await expect(page.getByRole("button", { name: "Aceptar transferencia", exact: true })).toHaveCount(0); }
+        const dialog = page.getByRole("dialog");
+        await expect(dialog.getByRole("heading", { name: `¿Aceptar ${owner.name}?`, exact: true })).toBeVisible();
+        await expect(dialog).toContainText("La lectura automática de documentos se apaga");
+        await expect(dialog.getByRole("button", { name: "Rechazar", exact: true })).toBeVisible();
+        expect(calls.filter(call => call.method === "POST")).toHaveLength(0);
+        if (state === "accept-uncertain") { await dialog.getByRole("button", { name: "Aceptar transferencia", exact: true }).click(); await expect(dialog.getByRole("alert")).toContainText("No pudimos confirmar la aceptación."); await expect(dialog.getByRole("button", { name: "Actualizar", exact: true })).toBeVisible(); await expect(page.getByRole("button", { name: "Aceptar transferencia", exact: true })).toHaveCount(0); }
       }
       if (state === "owner-closed") { await expect(page.getByRole("button", { name: "Reabrir negocio", exact: true })).toBeVisible(); await expect(page.getByText("Para descargar comprobantes, primero debes reabrir el negocio.")).toBeVisible(); }
       if (state === "member-closed") { await expect(page.getByTestId("business-member-closed")).toBeVisible(); expect(calls.every(call => call.method === "GET")).toBe(true); }
@@ -118,8 +122,8 @@ try {
       await page.screenshot({ path: resolve(output, file), fullPage: true });
       if (state === "transfer-picker") {
         await page.getByRole("radio", { name: /Rosa Pérez/ }).check();
-        await page.getByRole("textbox").fill(owner.name);
-        const submit = page.getByRole("button", { name: "Solicitar transferencia", exact: true });
+        await page.getByRole("dialog").getByRole("textbox").fill(owner.name);
+        const submit = page.getByRole("dialog").getByRole("button", { name: "Solicitar transferencia", exact: true });
         await expect(submit).toBeEnabled(); await submit.scrollIntoViewIfNeeded();
         const detail = `${state}-${width}-${theme}-confirmation.png`;
         await page.screenshot({ path: resolve(output, detail), fullPage: true });
