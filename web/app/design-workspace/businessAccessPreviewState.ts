@@ -5,7 +5,7 @@ import type { AccessRoleOption } from "./AccessRolePicker";
 export const accessRoles = ["owner", "admin", "editor", "viewer"] as const;
 export type AccessRole = typeof accessRoles[number];
 export const defaultInvitationRole: AccessRole = "viewer";
-/** The server permission a person needs to give each role (src/argus/domain/business/memberships.py). */
+/** The permission the server asks of a person who gives each role. */
 const grantedWith: Record<AccessRole, BusinessPermission> = { owner: "assign_owner", admin: "manage", editor: "manage", viewer: "manage" };
 /** The roles this person may give, read from the server's permissions for the Business. */
 export function accessRoleOptions(t: TFunction, permissions: readonly BusinessPermission[] | undefined): AccessRoleOption[] {
