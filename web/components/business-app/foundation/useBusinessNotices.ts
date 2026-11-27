@@ -28,21 +28,30 @@ export function useBusinessNotices(enabled: boolean): BusinessNotices {
   const known = useRef<ReadonlySet<string> | null>(null);
   // Readings sent to the server: an answer that left before one of them landed must not turn it unread again.
   const sent = useRef(new Set<string>());
+  // Rows taken out here. An answer or failure that left before the latest one is stale: it is dropped and the list asked again.
+  const removals = useRef(0);
+  const refresh = useCallback(() => setAttempt((value) => value + 1), []);
   useEffect(() => {
     if (!enabled) return undefined;
     const controller = new AbortController();
+    const leftAt = removals.current;
+    const stale = () => {
+      if (controller.signal.aborted) return true;
+      if (leftAt === removals.current) return false;
+      refresh();
+      return true;
+    };
     getBusinessNotices(controller.signal).then((items) => {
-      if (controller.signal.aborted) return;
+      if (stale()) return;
       const before = known.current;
       if (before && items.some((item) => item.unread && !before.has(item.id))) setArrivals((value) => value + 1);
       known.current = new Set(items.map((item) => item.id));
       setState({ load: "ready", items: items.map((item) => (sent.current.has(item.id) ? { ...item, unread: false } : item)) });
     }, () => {
-      if (!controller.signal.aborted) setState({ load: "failed", items: [] });
+      if (!stale()) setState({ load: "failed", items: [] });
     });
     return () => controller.abort();
-  }, [enabled, attempt]);
-  const refresh = useCallback(() => setAttempt((value) => value + 1), []);
+  }, [enabled, attempt, refresh]);
   useEffect(() => {
     if (!enabled) return undefined;
     const back = () => { if (document.visibilityState === "visible") refresh(); };
@@ -60,6 +69,7 @@ export function useBusinessNotices(enabled: boolean): BusinessNotices {
     markBusinessNoticesRead(ids).catch(() => ids.forEach((id) => sent.current.delete(id)));
   }, []);
   const remove = useCallback((id: string) => {
+    removals.current += 1;
     setState((current) => ({ ...current, items: current.items.filter((item) => item.id !== id) }));
   }, []);
   return { ...state, arrivals, refresh, retry, markRead, remove };
