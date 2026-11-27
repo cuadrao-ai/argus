@@ -159,7 +159,7 @@ export default function RecordsExportPanel({ panel, transport, onReviewFiscal, o
   ) : (
     <div className="space-y-2">
       {problem ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
-        {exportFailureText(t, problem, failed?.toPlace ?? false)}
+        {exportFailureText(t, problem, Boolean(failed?.place))}
         {problem.kind !== "access" ? <> <button type="button" className={quietButtonClass} onClick={() => { if (failed) void job.start(failed.run); else setAttempt((value) => value + 1); }}>{t("common.retry")}</button></> : null}
         {problem.requestId ? <ReferenceCode reference={problem.requestId} /> : null}
       </p> : null}

@@ -95,7 +95,7 @@ export default function ReceiptUploadIsland({ queue, grant, panelOpen, drawer, p
   const words = !exportInFront ? uploadSummaryText(t, batch, "island")
     : exported.kind === "preparing" ? t("business.transactions.reporting.export.preparing") : "";
   const label = !exportInFront ? batch.progress ? t("business.intake.chip_uploading", batch.progress) : words
-    : exported.kind === "failed" ? exportFailureText(t, exported.problem, exported.toPlace) : words;
+    : exported.kind === "failed" ? exportFailureText(t, exported.problem, exported.place !== null) : words;
   const open = exportInFront ? exported.kind === "failed" ? onOpenExport : null : () => batch.target && onOpen(batch.target);
   const expires = exportInFront ? exported.kind === "done" ? exported.at + EXPORTED_MS : 0 : batch.state === "saved" ? batch.lastSavedAt + SAVED_MS : 0;
   const subscribeExpiry = useCallback((notify: () => void) => {

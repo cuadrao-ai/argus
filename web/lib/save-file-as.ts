@@ -12,9 +12,8 @@ const TYPES: Record<SaveAsFormat, { id: string; accept: Record<string, string[]>
   csv: { id: "cuadrao-export-csv", accept: { "text/csv": [".csv"] } },
 };
 
-/** A place the person chose in the system Save As window, for the file named `filename`. */
+/** A place the person chose in the system Save As window. It carries no name to match on: only the file it was chosen for writes there. */
 export type SaveAsPlace = {
-  filename: string;
   write(blob: Blob): Promise<void>;
   /** Removes the file the window made on the pick, only while it is still empty and no write landed in it. */
   discard(): Promise<void>;
@@ -52,7 +51,6 @@ export async function chooseSavePlace(filename: string, format: SaveAsFormat): P
   }
   let settled = false;
   return {
-    filename,
     async write(blob) {
       const writable = await handle.createWritable();
       // The browser commits the file only on close; abort leaves no partial file.

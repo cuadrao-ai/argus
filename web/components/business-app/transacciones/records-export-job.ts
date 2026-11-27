@@ -32,8 +32,8 @@ export type ExportJobState =
   | { kind: "idle" }
   | { kind: "preparing"; run: ExportRun; at: number }
   | { kind: "done"; run: ExportRun; at: number }
-  /** `toPlace`: the person had chosen a Save As place for the file that failed. */
-  | { kind: "failed"; run: ExportRun; at: number; problem: ReportFailure; toPlace: boolean };
+  /** `place`: the Save As place chosen for the file that failed. Only that same file's Reintentar writes there. */
+  | { kind: "failed"; run: ExportRun; at: number; problem: ReportFailure; place: SaveAsPlace | null };
 
 type Snapshot = { state: ExportJobState; panel: ExportPanelRequest | null };
 type ExportFailure = Extract<ExportJobState, { kind: "failed" }>;
@@ -68,8 +68,6 @@ export function exportFailureText(t: TFunction, problem: ReportFailure, toPlace:
 export class RecordsExportJob {
   private current: Snapshot = { state: { kind: "idle" }, panel: null };
   private listeners = new Set<() => void>();
-  /** The Save As place of a file that failed, kept so Reintentar does not ask where again. */
-  private place: SaveAsPlace | null = null;
   private picking = false;
 
   subscribe = (listener: () => void) => {
@@ -93,34 +91,38 @@ export class RecordsExportJob {
     if (state.kind === "failed") this.set({ panel: state.run.panel });
   }
 
-  /** Closing never stops a file being prepared. Closing the panel of a file that failed lets the failure go, with the empty file Save As made. */
+  /** A failed file that is let go takes the empty file its Save As made with it. */
+  private letGo(failed: ExportFailure, next: Partial<Snapshot> = {}) {
+    void failed.place?.discard();
+    this.set({ ...next, state: { kind: "idle" } });
+  }
+
+  /** Closing never stops a file being prepared. Closing the panel of a file that failed lets the failure go. */
   close() {
-    if (!failureOn(this.current.state, this.current.panel)) return this.set({ panel: null });
-    void this.place?.discard();
-    this.place = null;
-    this.set({ panel: null, state: { kind: "idle" } });
+    const failed = failureOn(this.current.state, this.current.panel);
+    if (failed) this.letGo(failed, { panel: null });
+    else this.set({ panel: null });
   }
 
   /** Call it in the click itself: the browser opens Save As only during the click, before the server builds the file. */
   async start(run: ExportRun) {
     if (this.picking || this.current.state.kind === "preparing") return;
+    const { state } = this.current;
+    const own = failureOn(state, run.panel, run.choice);
+    // Another file replaces the failed one before Save As opens: the person may pick the same name for it.
+    if (!own && state.kind === "failed") this.letGo(state);
     this.picking = true;
-    const kept = this.place?.filename === run.filename ? this.place : null;
-    if (!kept) void this.place?.discard();
-    const chosen = kept ?? await chooseSavePlace(run.filename, run.choice.format);
+    const place = own?.place ?? await chooseSavePlace(run.filename, run.choice.format);
     this.picking = false;
-    const place = chosen === "cancelled" ? null : chosen;
-    this.place = place;
-    if (chosen === "cancelled") return;
+    if (place === "cancelled") return;
     this.set({ panel: null, state: { kind: "preparing", run, at: Date.now() } });
     let file: RecordsExportFile;
     try {
       file = await run.exportFile(run.panel.scope, run.panel.request, run.choice);
     } catch (error) {
-      this.set({ state: { kind: "failed", run, at: Date.now(), problem: reportFailure(error), toPlace: place !== null } });
+      this.set({ state: { kind: "failed", run, at: Date.now(), problem: reportFailure(error), place } });
       return;
     }
-    this.place = null;
     const result = await saveToPlace(place, file.blob, file.filename);
     this.set({ state: { kind: "done", run, at: Date.now() } });
     run.onSaved(result, file);
