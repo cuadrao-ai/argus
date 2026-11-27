@@ -56,7 +56,7 @@ test("reviewing what one Business saved keeps another Business's failed upload, 
   assert.deepEqual(page.uploadRows(), ["saved"]);
 });
 
-test("closing Agregar keeps each Business's finished uploads, and only its own", async () => {
+test("closing Agregar clears only the selected Business's saved files", async () => {
   page = await mountIntakeWorkspace([ownSpace, clientSpace], ["ok", "ok"]);
   await page.openAgregar();
   await page.pickFile("factura.png");
@@ -68,7 +68,7 @@ test("closing Agregar keeps each Business's finished uploads, and only its own",
   assert.deepEqual(page.uploadRows(), ["saved"]);
   await page.closeAgregar();
   await page.openAgregar();
-  assert.deepEqual(page.uploadRows(), ["saved"], "closing kept B's finished upload");
+  assert.deepEqual(page.uploadRows(), [], "closing cleared B's finished upload");
   await page.closeAgregar();
 
   await page.choose(A);

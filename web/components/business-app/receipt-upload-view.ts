@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { FailureClass } from "@/lib/failure-screen";
-import type { ReceiptUpload, UploadProgress, UploadRejection } from "./receipt-upload-queue";
+import type { ReceiptUpload, UploadRejection } from "./receipt-upload-queue";
 
 /**
  * What one row shows. Every stage is read from the queue's own item, and every number in it is bytes the
@@ -57,7 +57,11 @@ function receiptsOf(items: readonly { receipt: ReceiptSummary }[]): ReceiptSumma
  * `savedReceipts` and `deletedReceipts` are the documents they became, which
  * every count and the review list read.
  */
-export function uploadBatchView(entries: readonly ReceiptUpload[], retryWaiting: (key: string) => boolean) {
+export function uploadBatchView(
+  entries: readonly ReceiptUpload[],
+  retryWaiting: (key: string) => boolean,
+  attempts: Iterable<Pick<ReceiptUpload, "key" | "target" | "grant">> = [],
+) {
   const attention = entries.filter((item) => item.status === "rejected" || (item.status === "failed" && !retryWaiting(item.key)));
   const active = entries.filter((item) => item.status === "uploading");
   const waiting = entries.filter((item) => item.status === "queued" || (item.status === "failed" && retryWaiting(item.key)));
@@ -70,16 +74,36 @@ export function uploadBatchView(entries: readonly ReceiptUpload[], retryWaiting:
   const done = bytesOf(completed) + sending;
   const rate = active.flatMap((item) => (item.status === "uploading" && item.bytes?.bytesPerSecond ? [item.bytes.bytesPerSecond] : []))[0] ?? null;
   const remaining = total - done;
+  const busy = active.length > 0 || waiting.length > 0;
+  const targets = new Set(entries.map(item => item.target));
+  // A retry keeps its key. A file can already have been attempted and be waiting again.
+  const tried = new Set(active.map(item => item.key));
+  for (const item of attempts) {
+    if (item.grant === entries[0]?.grant && targets.has(item.target)) tried.add(item.key);
+  }
+  const next = active[0] ?? waiting[0];
+  const position = tried.size + (next && !tried.has(next.key) ? 1 : 0);
+  const progress = busy ? { position, total: new Set([...tried, ...waiting.map(item => item.key)]).size } : null;
+  const bytes = active[0]?.bytes;
+  const fileShare = progress ? (position - 1 + (bytes?.total ? Math.min(1, bytes.sent / bytes.total) : 0)) / progress.total : 0;
+  const savedReceipts = receiptsOf(saved);
+  const first = attention[0] ?? active[0] ?? waiting[0] ?? saved[0];
+  const state: "uploading" | "failed" | "saved" | "idle" = progress ? "uploading" : attention.length ? "failed" : savedReceipts.length ? "saved" : "idle";
   return {
     attention,
     active,
     waiting,
     saved,
     deleted,
-    savedReceipts: receiptsOf(saved),
+    savedReceipts,
+    lastSavedAt: saved.reduce((latest, item) => Math.max(latest, item.savedAt ?? 0), 0),
+    state,
+    target: first?.target,
+    progress,
+    fileShare,
     deletedReceipts: receiptsOf(deleted),
     /** Something is being sent or waits its turn; a failed file that nobody retried is not busy. */
-    busy: active.length > 0 || waiting.length > 0,
+    busy,
     share: total > 0 && done > 0 ? Math.min(1, done / total) : null,
     secondsLeft: rate ? Math.ceil(remaining / rate) : null,
   };
@@ -87,16 +111,18 @@ export function uploadBatchView(entries: readonly ReceiptUpload[], retryWaiting:
 
 export type UploadBatch = ReturnType<typeof uploadBatchView>;
 
-/**
- * The batch in one line, for the panel's header and for the chip that stands in for the closed panel. Both read
- * the same counts; only the words for the running and the saved part differ.
- */
-export function uploadSummaryText(t: TFunction, batch: UploadBatch, progress: UploadProgress | null, place: "panel" | "chip"): string {
-  const running = place === "panel" ? "business.intake.uploading_progress" : "business.intake.chip_uploading";
-  const saved = place === "panel" ? "business.intake.summary_saved" : "business.intake.chip_saved";
+/** The panel lists each outcome. The island names the batch's current state. */
+export function uploadSummaryText(t: TFunction, batch: UploadBatch, place: "panel" | "composer" | "island"): string {
+  const progress = place === "composer" ? null : batch.progress;
+  if (place === "island") {
+    if (progress) return t("business.intake.island_uploading", progress);
+    if (batch.state === "failed") return t("business.intake.summary_failed", { count: batch.attention.length });
+    if (batch.state === "saved") return t("business.intake.chip_saved", { count: batch.savedReceipts.length });
+    return "";
+  }
   return [
-    progress ? t(running, { position: progress.position, total: progress.total }) : null,
-    !progress && batch.savedReceipts.length > 0 ? t(saved, { count: batch.savedReceipts.length }) : null,
+    progress ? t("business.intake.uploading_progress", progress) : null,
+    !progress && batch.savedReceipts.length > 0 ? t("business.intake.summary_saved", { count: batch.savedReceipts.length }) : null,
     batch.deletedReceipts.length > 0 ? t("business.document_delete.upload_deleted_count", { count: batch.deletedReceipts.length }) : null,
     batch.attention.length > 0 ? t("business.intake.summary_failed", { count: batch.attention.length }) : null,
   ].filter(Boolean).join(" · ");
