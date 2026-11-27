@@ -221,9 +221,7 @@ def test_cancel_and_late_accept_do_not_change_owner(world):
     assert PostgresSpaceStore(pool).open_space(people["owner"]).id == space.id
 
 
-@pytest.mark.parametrize(
-    "bad_target", ["revoked", "expired", "anonymous", "banned", "owns_business"]
-)
+@pytest.mark.parametrize("bad_target", ["revoked", "expired", "anonymous", "banned"])
 def test_target_rechecked_at_acceptance(world, bad_target):
     pool, space, people, _, member = world
     command = _request(world)
@@ -247,13 +245,26 @@ def test_target_rechecked_at_acceptance(world, bad_target):
                 "update auth.users set banned_until=now()+interval '1 day' where id=%s",
                 (people["other"],),
             )
-    if bad_target == "owns_business":
-        PostgresSpaceStore(pool).create(people["other"], "Another business")
     with pytest.raises(BusinessLifecycleError, match="business_transfer_target_invalid"):
         PostgresBusinessTransfer(pool).accept(
             actor_id=people["other"], transfer_id=command.id
         )
     assert PostgresSpaceStore(pool).open_space(people["owner"]).id == space.id
+
+
+def test_a_person_who_owns_an_open_business_can_receive_a_transfer(world):
+    pool, space, people, access, member = world
+    own, _ = PostgresSpaceStore(pool).create(people["other"], "Negocio propio")
+    command = _request(world)
+    accepted = PostgresBusinessTransfer(pool).accept(
+        actor_id=people["other"], transfer_id=command.id
+    )
+    assert accepted.status == "accepted"
+    owned = {
+        s.space_id for s in access.spaces_for(people["other"]) if s.role == "owner"
+    }
+    assert owned == {own.id, space.id}
+    assert PostgresSpaceStore(pool).open_space(people["other"]).id == own.id
 
 
 def test_replay_and_accept_race_converge(world):

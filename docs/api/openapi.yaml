@@ -34057,7 +34057,6 @@ components:
             - account_unavailable
             - not_admin
             - email_unconfirmed
-            - owns_open_business
           - type: 'null'
       type: object
       required:

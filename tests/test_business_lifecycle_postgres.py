@@ -242,16 +242,15 @@ def test_reopen_just_before_deadline_and_revoked_grants_stay_revoked(world):  # 
     assert access.spaces_for(users["owner"])
 
 
-def test_another_open_business_prevents_reopen_without_changing_either(world):  # noqa: ANN001
-    pool, space, users, _, _ = world
+def test_an_owner_reopens_a_business_while_owning_another_open_one(world):  # noqa: ANN001
+    pool, space, users, access, _ = world
     _close(world)
     other, _ = PostgresSpaceStore(pool).create(users["owner"], "Otro negocio")
-    with pytest.raises(BusinessLifecycleError, match="business_already_open"):
-        _reopen(world)
-    assert PostgresSpaceStore(pool).open_space(users["owner"]).id == other.id
-    assert [
-        s.space_id for s in PostgresBusinessLifecycle(pool).closed_spaces(users["owner"])
-    ] == [space.id]
+    assert _reopen(world).closed_at is None
+    owned = {s.space_id for s in access.spaces_for(users["owner"]) if s.role == "owner"}
+    assert owned == {space.id, other.id}
+    assert PostgresBusinessLifecycle(pool).closed_spaces(users["owner"]) == ()
+    assert PostgresSpaceStore(pool).open_space(users["owner"]).id == space.id
 
 
 def test_reopening_keeps_expired_grants_expired(world):  # noqa: ANN001
@@ -481,12 +480,12 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
             member.id: (False, "not_admin"),
             grants["viewer"]: (False, "not_admin"),
             grants["unconfirmed"]: (False, "email_unconfirmed"),
-            grants["owning"]: (False, "owns_open_business"),
+            grants["owning"]: (True, None),
             grants["leaving"]: (False, "account_unavailable"),
         }
         transfers = PostgresBusinessTransfer(pool)
         refused = {**grants, "owner": owner_grant, "editor": member.id}
-        del refused["admin"]
+        del refused["admin"], refused["owning"]
         for ineligible, grant_id in refused.items():
             with pytest.raises(
                 BusinessLifecycleError, match="business_transfer_target_invalid"

@@ -55,10 +55,8 @@ class TransferDetails(TransferResult):
 
 
 #: Why a live member cannot take ownership: the account is unusable, the
-#: role is not Administrador, the email is unconfirmed, or they own an open Business.
-TransferIneligible = Literal[
-    "account_unavailable", "not_admin", "email_unconfirmed", "owns_open_business"
-]
+#: role is not Administrador, or the email is unconfirmed.
+TransferIneligible = Literal["account_unavailable", "not_admin", "email_unconfirmed"]
 
 _COLUMNS = "id::text,space_id::text,owner_id::text,target_id::text,case when status='pending' and expires_at<=clock_timestamp() then 'expired' else status end,expires_at"
 
@@ -342,8 +340,7 @@ class PostgresBusinessTransfer:
             " not coalesce(u.is_anonymous,false) and (u.banned_until is null or u.banned_until<=clock_timestamp())"
             "  and not exists(select 1 from argus_private.account_deletion_runs d where d.user_id=g.grantee_id),"
             " g.business_role,"
-            " u.email_confirmed_at is not null,"
-            " not exists(select 1 from public.spaces s where s.current_owner_id=g.grantee_id and s.kind='business' and s.closed_at is null)"
+            " u.email_confirmed_at is not null"
             " from public.business_client_grants g join auth.users u on u.id=g.grantee_id"
             " where g.id=%s and g.space_id=%s and g.grantee_id<>%s and g.revoked_at is null"
             " and (g.expires_at is null or g.expires_at>clock_timestamp()) and 'read'=any(g.capabilities)"
@@ -352,18 +349,12 @@ class PostgresBusinessTransfer:
         ).fetchone()
         if not row:
             return None
-        grantee, active, role, confirmed, eligible_space = row
-        facts = (
-            active,
-            BusinessRole(role) is BusinessRole.ADMIN,
-            confirmed,
-            eligible_space,
-        )
+        grantee, active, role, confirmed = row
+        facts = (active, BusinessRole(role) is BusinessRole.ADMIN, confirmed)
         reasons: tuple[TransferIneligible, ...] = (
             "account_unavailable",
             "not_admin",
             "email_unconfirmed",
-            "owns_open_business",
         )
         return grantee, next(
             (r for r, ok in zip(reasons, facts, strict=True) if not ok), None
