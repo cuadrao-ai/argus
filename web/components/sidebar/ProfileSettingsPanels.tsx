@@ -1,8 +1,9 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { Archive, Brain, CircleUser, Globe, History, MapPin, MessageCircle, Palette, PanelLeft, type LucideIcon } from "lucide-react";
+import { Archive, Brain, CircleUser, Globe, History, MapPin, Palette, PanelLeft, type LucideIcon } from "lucide-react";
 
+import { CHANNEL_ICON } from "@/components/business-app/foundation/channel-icons";
 import AccountSettings, { type AccountActions } from "@/components/settings/AccountSettings";
 import BusinessNameSettings from "@/components/settings/BusinessNameSettings";
 import AppearanceModal from "@/components/settings/AppearanceModal";
@@ -58,7 +59,7 @@ const SETTINGS_PANELS = {
   },
   whatsapp: {
     parent: "settings",
-    nav: { label: ["settings.whatsapp.title", "WhatsApp"], icon: MessageCircle },
+    nav: { label: ["settings.whatsapp.title", "WhatsApp"], icon: CHANNEL_ICON.whatsapp },
     render: ({ onClose, onBack, backLabel }) => (
       <WhatsAppLinkModal onClose={onClose} onBack={onBack} backLabel={backLabel} />
     ),

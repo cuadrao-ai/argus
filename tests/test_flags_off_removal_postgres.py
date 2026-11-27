@@ -29,6 +29,7 @@ from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
 
 from tests.document_sources_support import stored_paths
+from tests.ingestion.whatsapp_link_support import NOTICE, prepare_phone_business
 from tests.ingestion.whatsapp_support import ENV as WHATSAPP_TEST_ENV
 from tests.local_supabase_support import local_supabase_gateway
 from tests.test_conversation_surfaces_postgres import DSN
@@ -211,13 +212,15 @@ def test_unlink_with_ingestion_or_intake_off_ends_the_link_and_codes(
         document = _upload(api, client)
     now = datetime.now(timezone.utc)
     with ConnectionPool(DSN, min_size=0, max_size=2) as pool:
-        PostgresSpaceStore(pool).create(api.person, "Mi negocio")
+        space, _ = PostgresSpaceStore(pool).create(api.person, "Mi negocio")
+        prepare_phone_business(pool, space.id, api.person)
         store = PostgresWhatsAppStore(pool)
         for digest in (b"used-code", b"unused-code"):
             store.issue_code(
                 destination_owner_id=api.person,
                 code_digest=hashlib.sha256(digest + api.person.encode()).digest(),
                 reply_language="es-419",
+                disclosure=NOTICE,
                 now=now,
                 expires_at=now + timedelta(minutes=10),
             )

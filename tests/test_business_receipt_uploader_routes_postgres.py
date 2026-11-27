@@ -23,9 +23,16 @@ from tests import test_business_scope_switch_routes_postgres as scope
 from tests import test_financial_accounts_postgres as shared
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
+from tests.business_reading_support import ROUTE
 from tests.ingestion import whatsapp_support as wa
+from tests.ingestion.test_whatsapp_api import UNSHOWN_LINK, link_body
 from tests.ingestion.whatsapp_cases import image
-from tests.test_business_reading_setting_postgres import _email, _email_runtime
+from tests.test_business_reading_setting_postgres import (
+    _email,
+    _email_runtime,
+    _reading,
+    _workspace_reading,
+)
 from tests.test_business_scope_switch_routes_postgres import API, _as, _note, _upload
 
 fake = Faker()
@@ -180,6 +187,16 @@ def test_a_typed_note_names_its_author_by_the_people_rule(web, named: bool) -> N
         assert deleted.status_code == 200, deleted.text
 
 
+def _post_phone_message(web, payload: dict) -> None:  # noqa: ANN001
+    body = wa.encode(payload)
+    answer = web.client.post(
+        whatsapp_api.WEBHOOK_PATH,
+        content=body,
+        headers={"X-Hub-Signature-256": wa.sign(body)},
+    )
+    assert answer.status_code == 200, answer.text
+
+
 @pytest.fixture
 def phone(web, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
     """Send signed messages through the webhook using local media and test numbers."""
@@ -192,40 +209,94 @@ def phone(web, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
     monkeypatch.setattr(
         whatsapp_api, "httpx", SimpleNamespace(AsyncClient=lambda: client)
     )
+    monkeypatch.setattr(documents_service().business_receipt_consent, "route_resolver", lambda: ROUTE)
+    monkeypatch.setattr("argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route", lambda: ROUTE)
     previous = whatsapp_api.whatsapp_runtime()
     whatsapp_api.start_whatsapp(scope.app)
 
-    def post(payload: dict) -> None:
-        body = wa.encode(payload)
-        answer = web.client.post(
-            whatsapp_api.WEBHOOK_PATH,
-            content=body,
-            headers={"X-Hub-Signature-256": wa.sign(body)},
-        )
-        assert answer.status_code == 200, answer.text
-
     def send(number: str, content: bytes) -> None:
+        _set_whatsapp_tax_id(web)
+        enable_for_link = not _workspace_reading(web)["enabled"]
+        if enable_for_link:
+            assert _reading(web, True).status_code == 200
         issued = web.client.post(
-            f"{API}/whatsapp/link-codes", json={}, headers=web.alice.headers
+            f"{API}/whatsapp/link-codes",
+            json=link_body(web.client, web.alice.headers),
+            headers=web.alice.headers,
         )
         assert issued.status_code == 201, issued.text
-        post(
-            wa.fixture(
+        _post_phone_message(
+            web, wa.fixture(
                 "text_link_code.json",
                 sender=number,
                 id=str(uuid4()),
                 text=issued.json()["message_text"],
             )
         )
+        if enable_for_link:
+            assert _reading(web, False).status_code == 200
         media_id = str(fake.random_number(digits=14, fix_len=True))
         graph.media[media_id] = wa.Media(content, "image/png")
-        post(image(media_id, str(uuid4()), number))
+        _post_phone_message(web, image(media_id, str(uuid4()), number))
 
     try:
         yield send
     finally:
         whatsapp_api.configure_whatsapp(previous)
         asyncio.run(client.aclose())
+
+
+def _set_whatsapp_tax_id(world) -> None:
+    path = f"{API}/business/fiscal-profile"
+    profile = world.client.get(path, headers=world.alice.headers).json()
+    if profile["tax_id"]:
+        return
+    saved = world.client.patch(
+        path,
+        json={"name": profile["name"] or fake.company(), "previous_name": profile["name"],
+              "tax_id": {"type": "rnc", "value": "131234567"}, "previous_tax_id": None},
+        headers={**world.alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert saved.status_code == 200, saved.text
+
+
+@pytest.mark.parametrize(
+    "role,tax_id,reading,eligible",
+    [("viewer", True, True, False), ("editor", True, True, True),
+     ("editor", False, True, False), ("editor", True, False, False)],
+    ids=["lector", "editor", "missing-rnc", "reading-off"],
+)
+def test_link_code_checks_persisted_membership_and_setup(
+    web, phone, role, tax_id, reading, eligible,
+) -> None:
+    _role(web, web.dave, role)
+    if tax_id:
+        _set_whatsapp_tax_id(web)
+    if reading:
+        assert _reading(web, True).status_code == 200
+    shown = web.client.get(f"{API}/whatsapp/link", headers=web.dave.headers)
+    body = {"disclosure_token": shown.json()["disclosure_token"]} if eligible else UNSHOWN_LINK
+    answer = web.client.post(f"{API}/whatsapp/link-codes", json=body, headers=web.dave.headers)
+    if eligible:
+        assert answer.status_code == 201, answer.text
+        _post_phone_message(web, wa.fixture(
+            "text_link_code.json", sender=wa.BOB_PHONE, id=str(uuid4()),
+            text=answer.json()["message_text"],
+        ))
+        status = web.client.get(f"{API}/whatsapp/link", headers=web.dave.headers)
+        assert status.json()["linked"] is True
+        assert [item["space_id"] for item in status.json()["receiving_businesses"]] == [web.alice.space_id]
+        with Connection.connect(shared.DSN) as db:
+            receipt = db.execute(
+                "select c.disclosure, c.grant_id::text, c.consenting_actor_id::text"
+                " from public.business_whatsapp_ai_consents c"
+                " join public.whatsapp_sender_links l on l.id=c.sender_link_id and l.wa_id_hash=c.sender_hash"
+                " where l.destination_owner_id=%s and l.status='active' and c.revoked_at is null",
+                (web.dave.id,),
+            ).fetchall()
+        assert receipt == [(shown.json()["disclosure"], web.grant_d, web.dave.id)]
+    else:
+        assert (answer.status_code, answer.json().get("code")) == (409, "whatsapp_setup_required")
 
 
 def test_a_whatsapp_capture_names_the_web_uploader_for_every_member(web, phone) -> None:  # noqa: ANN001

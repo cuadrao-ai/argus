@@ -222,7 +222,7 @@ class WhatsAppIntake:
         self.reply_group_wait_seconds = reply_group_wait_seconds
 
     def issue_code(
-        self, *, destination_owner_id: str, reply_language: ReplyLanguage
+        self, *, destination_owner_id: str, reply_language: ReplyLanguage, disclosure: str
     ) -> IssuedCode:
         """A new single-use code; any earlier unused code for this owner stops working.
 
@@ -237,6 +237,7 @@ class WhatsAppIntake:
             destination_owner_id=destination_owner_id,
             code_digest=self.keys.code(code),
             reply_language=reply_language,
+            disclosure=disclosure,
             now=now,
             expires_at=expires_at,
         )

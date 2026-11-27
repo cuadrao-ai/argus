@@ -1,15 +1,19 @@
+import { readFileSync } from "node:fs";
+import { whatsappDisclosure } from "../__tests__/fixtures/whatsapp-disclosure";
+import english from "../public/locales/en/common.json";
+import spanish from "../public/locales/es-419/common.json";
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
+import { FREEZE_CSS, fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
-async function setup(page: Page, available: boolean, history = false) {
+async function setup(page: Page, available: boolean, history = false, language: "es-419" | "en" = "es-419") {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const requests: string[] = [];
   const historyRequests: string[] = [];
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
-  await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
+  await installBreakpointFixture(page, { language, theme: "light", emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { can_change: false } });
   await page.route("**/api/v1/whatsapp/**", route => {
     requests.push(new URL(route.request().url()).pathname);
@@ -93,5 +97,79 @@ for (const width of [1440, 390]) {
     expect(observed.requests.filter(path => path.includes("whatsapp"))).toEqual([]);
     expect(observed.errors).toEqual([]);
     await page.screenshot({ path: info.outputPath(`channels-setup-${width}.png`), fullPage: true });
+  });
+}
+
+for (const { width, language } of [
+  { width: 1440, language: "es-419" }, { width: 390, language: "es-419" },
+  { width: 1440, language: "en" }, { width: 390, language: "en" },
+] as const) {
+  test(`link a number from account settings in ${language} at ${width}px`, async ({ page }, info) => {
+    const words = (language === "en" ? english : spanish).settings.whatsapp;
+    await setup(page, false, false, language);
+    await page.clock.install();
+    // Local design captures use the disclosures exported by the running backend version.
+    const source = process.env.WHATSAPP_CAPTURE_DISCLOSURES;
+    const disclosure = source ? JSON.parse(readFileSync(source, "utf8"))[language] as typeof whatsappDisclosure.en : whatsappDisclosure[language];
+    let ready = true;
+    await page.route((url) => url.pathname.endsWith("/api/v1/whatsapp/link") && url.searchParams.get("language") === language, route => route.fulfill({
+      json: { ...disclosure, linked: false, receiving_businesses: ready ? [{ space_id: "elsewhere", name: "Negocio de prueba" }] : [], held_count: 0 },
+    }));
+    const message = "CUADRAO K7P2M9XQ";
+    const url = "https://wa.me/15550100000?text=" + encodeURIComponent(message);
+    // QR image for this synthetic one-tap link.
+    const qr = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEoAAABKAQAAAAA0q//cAAAAw0lEQVR42rWSMWqFQQiEJdsueBXBVvDqC7bCXkWw/cH3UoQQTZlYLR/DMI4L9TUH/vYJK+AS6PmA7ylN08xqlLg4cw2qar9Q3DKoZtn0hcXMI0NVMn+G/EHxXDfFRl1vPkKNnmBi0U4LOf02SnmDTk9meHOH9C0iHdOagzhy7WzaMHfErgUNFqOmxXcCN+xNSj2JfQulTRdodMYWox1Yawuv7pD7fTnpPbDnA3tc08nrDHohAoYvahwbN8bAp2f4n1/9AjM6QEty097jAAAAAElFTkSuQmCC";
+    await page.route("**/api/v1/whatsapp/link-codes", route => route.fulfill({
+      status: 201,
+      json: {
+        code: "K7P2M9XQ", message_text: message, expires_at: new Date(Date.now() + 600000).toISOString(),
+        wa_me_url: url, qr_data_url: qr,
+      },
+    }));
+    await page.setViewportSize({ width, height: 900 });
+    const capture = (state: string) => page.screenshot({
+      path: info.outputPath(`whatsapp-${state}-${language}-${width}.png`), style: FREEZE_CSS,
+    });
+    const openSettings = async () => {
+      await page.goto("/biz?view=inbox");
+      await page.getByTestId("header-profile-trigger").click();
+      await page.getByTestId("profile-menu-settings").click();
+      await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
+    };
+    await openSettings();
+    const link = page.getByRole("button", { name: words.link_phone });
+    await expect(link).toBeVisible();
+    await expect(page.getByText(disclosure.disclosure, { exact: true })).toBeVisible();
+    await capture("ready");
+    const issued = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith("/whatsapp/link-codes") && request.method() === "POST");
+    await link.click();
+    expect((await issued).postDataJSON()).toEqual({ language, disclosure_token: disclosure.disclosure_token });
+    await expect(page.getByText(width < 720 ? words.mobile_title : words.scan_title, { exact: true })).toBeVisible();
+    await expect(page.getByText(message, { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: words.open })).toHaveAttribute("href", url);
+    if (width < 720) {
+      const description = page.getByText(words.send_steps, { exact: true });
+      expect(await description.evaluate(node => getComputedStyle(node.parentElement!).borderTopWidth)).toBe("0px");
+      const gap = await description.evaluate(node => {
+        const waiting = document.querySelector('[role="timer"]')!;
+        return node.getBoundingClientRect().top - waiting.getBoundingClientRect().bottom;
+      });
+      expect(gap).toBeGreaterThan(0);
+    } else {
+      for (const label of [words.scan_camera, words.scan_send, words.scan_return]) {
+        await expect(page.getByRole("listitem").filter({ hasText: label })).toHaveCSS("font-size", "14px");
+      }
+    }
+    await capture("waiting");
+    await page.clock.fastForward(11 * 60 * 1000);
+    await expect(page.getByText(words.expired_title, { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: words.new_code })).toBeVisible();
+    await capture("expired");
+
+    ready = false;
+    await openSettings();
+    await expect(page.getByText(words.setup_title, { exact: true })).toBeVisible();
+    await expect(link).toHaveCount(0);
+    await capture("setup");
   });
 }

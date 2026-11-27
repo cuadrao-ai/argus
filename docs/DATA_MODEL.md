@@ -3479,7 +3479,7 @@ and identifies the person who linked the number.
 
 - `whatsapp_link_codes`: `destination_owner_id`, `code_digest` (unique),
   `reply_language` (`es-419` or `en`, from the web app when the code was
-  issued), `created_at`, `expires_at`, `consumed_at`. Single use; issuing a new code or
+  issued), the pending `disclosure`, `created_at`, `expires_at`, `consumed_at`. Issuing a new code or
   revoking the link deletes the owner's unused ones.
 - `whatsapp_sender_links`: `destination_owner_id`, `wa_id_hash`, `last4`,
   `reply_language` (copied from the redeemed code; replies use it, not
@@ -3874,7 +3874,16 @@ issuer record the authority used to give permission. The grant must hold
 `prepare` for that Business when the receipt is written. The receipt also stores
 the versioned purpose and disclosure, selected route and hash, database
 timestamp, idempotency key, input hash and irreversible revocation. Existing
-scope-1 receipts retain their original disclosure. New consent uses scope 2.
+scope-1 receipts retain their original disclosure. The scope-2 receipt for
+held reads records the exact notice accepted when requesting a link code.
+The pending challenge holds the notice in `whatsapp_link_codes.disclosure` until
+redemption clears it. Codes issued before this column existed require a fresh
+request. The receipt’s sender-link ID identifies the verified number. The Business and grant
+record authority at redemption. While the link remains active, held reads require a
+current eligible Business for the sender, an unrevoked receipt, and the matching
+disclosure and route. Losing the recorded grant preserves the original receipt.
+Business automatic reading has its own
+consent in `business_receipt_reading_consents`.
 Removing the parent link or erasing the account removes its consent receipts.
 Erasing a different grant issuer preserves the consent and replaces the issuer
 with their Business departure alias, or clears the issuer when no alias survives.
@@ -3885,7 +3894,7 @@ same consent/link/Business/owner/sender composite. Existing and unconsented rows
 remain null. A revoked receipt cannot be attached to a new capture, and an old
 capture cannot switch to a fresh opt-in. This keeps permission separate from
 financial facts, original evidence, action receipts, document extraction and
-Personal memory. No permission is created by migration or link establishment.
+Personal memory. Existing links retain their consent history.
 
 ## Import reconciliation
 

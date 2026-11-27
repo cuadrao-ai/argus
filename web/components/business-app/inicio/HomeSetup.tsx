@@ -7,6 +7,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Briefcase, Check, FileArrowUp, IdentificationCard, Scan, UsersThree, type Icon } from "@phosphor-icons/react";
+import WhatsAppLinkModal from "@/components/settings/WhatsAppLinkModal";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { prefersReducedMotion } from "@/components/ui/spring";
 import type { BusinessSetupStep, BusinessSetupStepKey } from "@/lib/business-setup-api";
@@ -17,10 +18,10 @@ import { canAddRecords } from "../business-ui";
 import { setupOpen, useBusinessSetup } from "./useBusinessSetup";
 
 const STEP_ICON: Record<BusinessSetupStepKey, Icon> = { created: Briefcase, fiscal_identity: IdentificationCard, receiving_address: CHANNEL_ICON.email, receipt_reading: Scan, first_document: FileArrowUp, team: UsersThree, whatsapp: CHANNEL_ICON.whatsapp };
-// The first document opens Agregar's own upload, not a Negocio tab.
-const STEP_TARGET: Record<Exclude<BusinessSetupStepKey, "first_document">, BusinessPanelState> = {
+// Negocio owns these steps. The other two open the upload and phone-link panels.
+const STEP_TARGET: Record<Exclude<BusinessSetupStepKey, "first_document" | "whatsapp">, BusinessPanelState> = {
   created: { kind: "business", tab: "datos" }, fiscal_identity: { kind: "business", tab: "datos" }, receiving_address: { kind: "business", tab: "correo" },
-  receipt_reading: { kind: "business", tab: "correo" }, team: { kind: "business", tab: "equipo" }, whatsapp: { kind: "business", tab: "correo" },
+  receipt_reading: { kind: "business", tab: "correo" }, team: { kind: "business", tab: "equipo" },
 };
 const MUTED = "text-[#56635e] dark:text-white/70";
 
@@ -76,6 +77,7 @@ function StepCard({ step, onOpen }: { step: BusinessSetupStep; onOpen: (step: Bu
  */
 export function SetupDossier({ steps, onClose }: { steps: readonly BusinessSetupStep[]; onClose: () => void }) {
   const { openPanel, actions, chosen } = useBusiness();
+  const [linkOpen, setLinkOpen] = useState(false);
   const { t } = useTranslation();
   const required = steps.filter((step) => step.required);
   const done = required.filter((step) => step.done).length;
@@ -83,7 +85,12 @@ export function SetupDossier({ steps, onClose }: { steps: readonly BusinessSetup
   const optional = open.filter((step) => !step.required);
   const finished = steps.filter((step) => step.done);
   const upload = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
+  if (linkOpen) return <WhatsAppLinkModal onClose={onClose} />;
   const go = (step: BusinessSetupStep) => {
+    if (step.key === "whatsapp") {
+      setLinkOpen(true);
+      return;
+    }
     onClose();
     if (step.key === "first_document") upload?.run();
     else openPanel(STEP_TARGET[step.key]);

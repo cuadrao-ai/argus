@@ -844,7 +844,9 @@ def get_workspace(
         "typed_notes_available": business_typed_notes_enabled(),
         "receiving_channels": {
             "email": {"available": email_receiving_available()},
-            "whatsapp": {"available": whatsapp_receiving_available(context.scope)},
+            "whatsapp": {
+                "available": whatsapp_receiving_available(context.scope.acting_person_id, space_id),
+            },
         },
         "logo_url": picture_urls("business", [space_id])[space_id],
         "receipt_reading": (

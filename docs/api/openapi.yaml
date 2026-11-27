@@ -6775,7 +6775,7 @@ paths:
               $ref: '#/components/schemas/RecordsExport'
       responses:
         '200':
-          description: 'One Excel or CSV file: the table''s records or the purchase 606 lines.'
+          description: 'One Excel or CSV file: the table''s records or the 606/607 lines.'
           content:
             application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: {}
             text/csv: {}
@@ -6789,7 +6789,7 @@ paths:
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
         '422':
-          description: 'Validation Error; business_export_dgii_sales_unavailable when a sale requests mode dgii.'
+          description: Validation Error
           content:
             application/json:
               schema:
@@ -15210,8 +15210,7 @@ paths:
               schema:
                 type: string
         '404':
-          description: 'whatsapp_unavailable: receiving is off or the selected Business is
-            ineligible.'
+          description: 'whatsapp_unavailable: receiving is unavailable.'
         '422':
           description: Validation Error
           content:
@@ -15241,8 +15240,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WebhookAck'
         '404':
-          description: 'whatsapp_unavailable: receiving is off or the selected Business is
-            ineligible.'
+          description: 'whatsapp_unavailable: receiving is unavailable.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -15252,85 +15250,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /api/v1/whatsapp/ai-consent:
-    get:
-      tags:
-      - financial-accounts
-      - whatsapp
-      parameters:
-      - name: language
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-            maxLength: 16
-          - type: 'null'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AIConsentResponse'
-        '404':
-          description: 'whatsapp_unavailable: receiving is off or the selected Business is
-            ineligible.'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    post:
-      tags:
-      - financial-accounts
-      - whatsapp
-      parameters:
-      - name: idempotency-key
-        in: header
-        required: true
-        schema:
-          type: string
-          minLength: 1
-          maxLength: 80
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EnableAIConsent'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AIConsentResponse'
-        '404':
-          description: 'whatsapp_unavailable: receiving is off or the selected Business is
-            ineligible.'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
     delete:
       tags:
       - financial-accounts
@@ -15351,6 +15270,16 @@ paths:
       tags:
       - financial-accounts
       - whatsapp
+      parameters:
+      - name: language
+        in: query
+        required: false
+        schema:
+          enum:
+          - en
+          - es-419
+          type: string
+          default: es-419
       responses:
         '200':
           description: Successful Response
@@ -15359,8 +15288,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/LinkStatusResponse'
         '404':
-          description: 'whatsapp_unavailable: receiving is off or the selected Business is
-            ineligible.'
+          description: 'whatsapp_unavailable: receiving is unavailable.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -15396,9 +15330,8 @@ paths:
         content:
           application/json:
             schema:
-              anyOf:
-              - $ref: '#/components/schemas/LinkCodeRequest'
-              - type: 'null'
+              $ref: '#/components/schemas/LinkCodeRequest'
+        required: true
       responses:
         '201':
           description: Successful Response
@@ -15407,8 +15340,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/LinkCodeResponse'
         '404':
-          description: 'whatsapp_unavailable: receiving is off or the selected Business is
-            ineligible.'
+          description: 'whatsapp_unavailable: receiving is unavailable.'
+        '409':
+          description: Setup is incomplete or the consent notice changed.
         '422':
           description: Validation Error
           content:
@@ -15425,66 +15359,6 @@ paths:
                 $ref: '#/components/schemas/Error'
 components:
   schemas:
-    AIConsentResponse:
-      properties:
-        linked:
-          type: boolean
-        available:
-          type: boolean
-        reason:
-          anyOf:
-          - type: string
-          - type: 'null'
-        last4:
-          anyOf:
-          - type: string
-          - type: 'null'
-        scope_version:
-          type: integer
-        purpose:
-          type: string
-        active_scope_version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-        disclosure:
-          type: string
-        route:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-        disclosure_token:
-          anyOf:
-          - type: string
-          - type: 'null'
-        enabled:
-          type: boolean
-        consented_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-        revoked_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - linked
-      - available
-      - reason
-      - last4
-      - scope_version
-      - purpose
-      - disclosure
-      - route
-      - disclosure_token
-      - enabled
-      - consented_at
-      - revoked_at
     AcceptBatchBody:
       properties:
         items:
@@ -22400,24 +22274,6 @@ components:
       - value
       - status
       description: One sender rule, as ``/business/email/senders`` lists it.
-    EnableAIConsent:
-      properties:
-        action:
-          type: string
-          const: enable
-        disclosure_token:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        language:
-          anyOf:
-          - type: string
-            maxLength: 16
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - action
-      - disclosure_token
     Error:
       type: object
       description: RFC 9457 Problem Details with code and request_id.
@@ -22956,11 +22812,8 @@ components:
           anyOf:
           - $ref: '#/components/schemas/DgiiExport'
           - type: 'null'
-          description: Null for sales, which offer only the table file.
         bandeja_count:
           type: integer
-          description: Documents the Bandeja still holds in the export's resolved
-            period, purchases and sales together.
       additionalProperties: false
       type: object
       required:
@@ -26518,8 +26371,13 @@ components:
           - en
           - es-419
           default: es-419
+        disclosure_token:
+          type: string
+          pattern: ^[0-9a-f]{64}$
       additionalProperties: false
       type: object
+      required:
+      - disclosure_token
     LinkCodeResponse:
       properties:
         code:
@@ -26533,6 +26391,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        qr_data_url:
+          anyOf:
+          - type: string
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -26540,6 +26402,7 @@ components:
       - message_text
       - expires_at
       - wa_me_url
+      - qr_data_url
     LinkReceipt:
       properties:
         occurrence:
@@ -26552,6 +26415,16 @@ components:
       - replayed
     LinkStatusResponse:
       properties:
+        receiving_businesses:
+          items:
+            $ref: '#/components/schemas/ReceivingBusiness'
+          type: array
+        held_count:
+          type: integer
+        disclosure:
+          type: string
+        disclosure_token:
+          type: string
         linked:
           type: boolean
         last4:
@@ -26573,6 +26446,10 @@ components:
       additionalProperties: false
       type: object
       required:
+      - receiving_businesses
+      - held_count
+      - disclosure
+      - disclosure_token
       - linked
     LinkTokenRequest:
       properties:
@@ -30110,8 +29987,6 @@ components:
         unread:
           type: boolean
         completion_cursor:
-          description: The cursor for opening this saved receipt or completed read. A later
-            completed read has a new cursor. Acknowledgements apply only to the caller.
           anyOf:
           - type: string
           - type: 'null'
@@ -31001,6 +30876,16 @@ components:
       - currency
       - category_id
       - account_id
+    ReceivingBusiness:
+      properties:
+        space_id:
+          type: string
+        name:
+          type: string
+      type: object
+      required:
+      - space_id
+      - name
     ReceivingChannel:
       properties:
         available:
@@ -31979,6 +31864,15 @@ components:
       type: object
     ReportRecord:
       properties:
+        missing:
+          items:
+            type: string
+          type: array
+          default: []
+        reasons:
+          additionalProperties:
+            $ref: '#/components/schemas/ReasonDetails'
+          type: object
         can_edit_note:
           type: boolean
           default: false
@@ -32028,18 +31922,6 @@ components:
         ready:
           type: boolean
           default: false
-          description: Sales require date and NCF, plus customer RNC for B01 or E31.
-            Total is required by approval and accepted edits. Sales ignore 607 issues,
-            workflow blockers and technical state for this verdict; purchase rules are unchanged.
-        missing:
-          items:
-            type: string
-          type: array
-          default: []
-        reasons:
-          additionalProperties:
-            $ref: '#/components/schemas/ReasonDetails'
-          type: object
         missing_fields:
           items:
             type: string
@@ -32191,13 +32073,13 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        has_document:
+          type: boolean
+          default: false
         attachment_count:
           type: integer
           minimum: 0.0
           default: 0
-        has_document:
-          type: boolean
-          default: false
         personal:
           type: boolean
           default: false
@@ -33240,8 +33122,8 @@ components:
       required:
       - id
       - kind
-      description: A person's sender id is shared across channels. An unnamed WhatsApp
-        sender shows only the last four digits.
+      description: A person's sender id is shared across channels. An unnamed WhatsApp sender
+        shows only the last four digits.
     SentInvite:
       properties:
         id:

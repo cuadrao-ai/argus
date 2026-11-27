@@ -14,6 +14,7 @@ from argus.api.main import app
 from argus.api.whatsapp import (
     build_whatsapp,
     configure_whatsapp,
+    eligible_sender_businesses,
     whatsapp_runtime,
 )
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
@@ -25,7 +26,7 @@ from fastapi.testclient import TestClient
 from tests.business.conftest import ALICE, BOB
 from tests.business.receipt_stub import ReceiptStub, receipt_date
 from tests.business.test_business_api import Owner, started
-from tests.ingestion.test_whatsapp_api import link_alice, post
+from tests.ingestion.test_whatsapp_api import UNSHOWN_LINK, link_alice, post
 from tests.ingestion.whatsapp_cases import FORWARDED
 from tests.ingestion.whatsapp_support import (
     DOCUMENT_FIXTURES,
@@ -48,6 +49,7 @@ def wa_biz(
         monkeypatch.setenv(name, value)
         if name.startswith("ARGUS_"):
             monkeypatch.delenv(name.replace("ARGUS_", "CUADRAO_", 1), raising=False)
+    monkeypatch.setattr("argus.api.whatsapp._memory_has_tax_id", lambda _space: True)
     graph = FakeGraph({"700000000000001": Media(RECEIPT_PNG, "image/png")})
     with (
         patch.object(api_state, "supabase_gateway", gateway),
@@ -62,7 +64,9 @@ def wa_biz(
                 documents=documents_service(),
                 spaces=business_spaces(),
                 access=business_access(),
-                store=InMemoryWhatsAppStore(documents_service().hub.connections, business_access()),
+                store=InMemoryWhatsAppStore(
+                    documents_service().hub.connections, business_access(), eligible_sender_businesses
+                ),
                 client=graph.client(),
                 app_origin="https://app.test",
             )
@@ -92,12 +96,12 @@ def test_linking_waits_for_the_space(wa_biz) -> None:  # noqa: ANN001
     client, _ = wa_biz
     alice = Owner(client, ALICE)
     calls = [
-        client.post("/api/v1/whatsapp/link-codes", headers=alice.auth),
+        client.post("/api/v1/whatsapp/link-codes", json=UNSHOWN_LINK, headers=alice.auth),
         client.get("/api/v1/whatsapp/link", headers=alice.auth),
     ]
     assert [(r.status_code, r.json()["code"]) for r in calls] == [
-        (404, "business_space_missing")
-    ] * 2
+        (409, "whatsapp_setup_required"), (404, "whatsapp_unavailable")
+    ]
     assert client.delete("/api/v1/whatsapp/link", headers=alice.auth).status_code == 204
 
 
@@ -107,7 +111,9 @@ def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(
     client, stub = wa_biz
     alice = started(Owner(client, ALICE, identities[ALICE]["id"]))
     bob = started(Owner(client, BOB))
+    assert alice.reading(True).status_code == 200
     link_alice(client)
+    assert alice.reading(False).status_code == 200
     assert post(client, fixture("image_message.json")).status_code == 200
     [captured] = alice.get("/receipts", view="inbox").json()["items"]
     assert (captured["channel"], captured["status"], captured["size_bytes"]) == (
@@ -149,7 +155,9 @@ def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(
 def test_forwards_and_captions_reach_the_inbox_like_a_direct_send(wa_biz) -> None:  # noqa: ANN001
     client, stub = wa_biz
     alice = started(Owner(client, ALICE))
+    assert alice.reading(True).status_code == 200
     link_alice(client)
+    assert alice.reading(False).status_code == 200
     for name, source, media_type, _filename in FORWARDED:
         body = fixture(name)
         message = body["entry"][0]["changes"][0]["value"]["messages"][0]
@@ -226,7 +234,9 @@ def test_saved_whatsapp_provenance_survives_receiving_off(
     client, _ = wa_biz
     alice = started(Owner(client, ALICE, identities[ALICE]["id"]))
     bob = started(Owner(client, BOB))
+    assert alice.reading(True).status_code == 200
     link_alice(client)
+    assert alice.reading(False).status_code == 200
     assert post(client, fixture("image_message.json")).status_code == 200
     [saved] = alice.get("/receipts", view="all").json()["items"]
     store = whatsapp_runtime().intake.store

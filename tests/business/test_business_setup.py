@@ -83,7 +83,7 @@ def _wire(monkeypatch, *, email: bool | None, invitations: bool, whatsapp_linked
         link = object() if whatsapp_linked else None
         store = SimpleNamespace(destination_link=lambda **_: link)
         monkeypatch.setattr(business_setup, "whatsapp_runtime", lambda: SimpleNamespace(intake=SimpleNamespace(store=store)))
-        monkeypatch.setattr(business_setup, "whatsapp_receiving_available", lambda scope: True)
+        monkeypatch.setattr(business_setup, "whatsapp_receiving_available", lambda person=None: True)
     monkeypatch.setattr(
         business_setup,
         "read_profile",

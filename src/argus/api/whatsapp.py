@@ -12,7 +12,7 @@ import asyncio
 import logging
 from contextlib import nullcontext
 from copy import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import httpx
 from fastapi import Depends, HTTPException, Request
@@ -23,16 +23,15 @@ from argus.api import state as api_state
 from argus.api.business_spaces import (
     business_access,
     business_spaces,
-    space_missing_problem,
 )
 from argus.api.dependencies import problem
 from argus.api.documents import documents_service, record_dispatch_preparation
 from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingestion_context
 from argus.domain.business import analytics as business_analytics
-from argus.domain.business.access import AccessStore, PostgresAccessStore
+from argus.domain.business.access import AccessStore, GrantedSpace, PostgresAccessStore
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
-from argus.domain.business.scope import BusinessScope, resolve_business_scope
+from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
@@ -58,10 +57,16 @@ from argus.domain.ingestion.whatsapp.media import GraphMedia
 from argus.domain.ingestion.whatsapp.receipt_consent import receipt_consent_store
 from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
 from argus.domain.ingestion.whatsapp.reply_groups import ReplyGroupCodec
+from argus.domain.ingestion.whatsapp.senders import (
+    SenderBusinesses,
+    postgres_senders,
+    preparing_businesses,
+)
 from argus.domain.ingestion.whatsapp.store import (
     SENDER_LINK_REVOKED,
     CapturePermissionLost,
     InMemoryWhatsAppStore,
+    SenderLink,
     Settlement,
     WhatsAppStore,
 )
@@ -374,7 +379,7 @@ def start_whatsapp(app: object) -> None:
 
             store = PostgresWhatsAppStore(pool)
         else:
-            store = InMemoryWhatsAppStore(documents.hub.connections, access)
+            store = InMemoryWhatsAppStore(documents.hub.connections, access, eligible_sender_businesses)
         configure_whatsapp(
             build_whatsapp(
                 settings,
@@ -405,8 +410,8 @@ def unavailable_problem(request: Request) -> HTTPException:
     )
 
 
-def whatsapp_receiving_available(scope: BusinessScope | None = None) -> bool:
-    """Receiving readiness and eligibility for the selected Business."""
+def whatsapp_receiving_available(person_id: str | None = None, space_id: str | None = None) -> bool:
+    """A preparer may open settings even while their Business setup is incomplete."""
     documents = documents_service()
     ready = bool(
         whatsapp_runtime() is not None
@@ -415,7 +420,12 @@ def whatsapp_receiving_available(scope: BusinessScope | None = None) -> bool:
         and documents is not None
         and documents.hub is ingestion_hub()
     )
-    return ready and (scope is None or "prepare" in scope.permissions)
+    if not ready or person_id is None:
+        return ready
+    if space_id is not None:
+        return any(g.space_id == space_id for g in eligible_sender_businesses(person_id))
+    access = business_access()
+    return bool(access and preparing_businesses(access, person_id))
 
 
 def require_whatsapp_surface(request: Request) -> WhatsAppRuntime:
@@ -466,22 +476,37 @@ def link_store() -> WhatsAppStore | None:
 class WhatsAppSenderContext:
     runtime: WhatsAppRuntime
     person_id: str
-    space_id: str
+    link: SenderLink | None
+
+
+def _memory_has_tax_id(space_id: str) -> bool:
+    # Fiscal profiles are stored only in Postgres.
+    return False
+
+
+def eligible_sender_businesses(person_id: str) -> tuple[GrantedSpace, ...]:
+    access = business_access()
+    documents = documents_service()
+    if access is None or documents is None:
+        return ()
+    if isinstance(access, PostgresAccessStore):
+        with access.pool.connection() as db:
+            return postgres_senders(db).eligible_businesses(person_id)
+    reading = documents.business_receipt_consent
+    if reading is None:
+        return ()
+    grants = SenderBusinesses(
+        access, _memory_has_tax_id, lambda g: reading.status(g.space_id, g.owner_id)
+    ).eligible_businesses(person_id)
+    spaces = business_spaces()
+    return tuple(
+        replace(g, name=space.name) for g in grants if spaces and (space := spaces.get(g.space_id))
+    )
 
 
 def require_whatsapp_sender(
-    request: Request,
     runtime: WhatsAppRuntime = Depends(require_whatsapp_surface),  # noqa: B008
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
 ) -> WhatsAppSenderContext:
-    """Authorize the signed-in sender in the selected Business."""
-
-    from argus.api.business import working_scope
-
-    spaces = business_spaces()
-    scope = working_scope(request, spaces, context.user_id) if spaces else None
-    if scope is None:
-        raise space_missing_problem(request)
-    if not whatsapp_receiving_available(scope):
-        raise unavailable_problem(request)
-    return WhatsAppSenderContext(runtime, context.user_id, scope.owner.space_id)
+    link = runtime.intake.store.destination_link(destination_owner_id=context.user_id)
+    return WhatsAppSenderContext(runtime, context.user_id, link)
