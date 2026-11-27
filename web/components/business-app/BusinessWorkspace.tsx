@@ -62,6 +62,7 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
+import { RecordsExportJob, RecordsExportJobContext } from "./transacciones/records-export-job";
 import ReceiptUploadIsland, { morphUploadPanel, ReportRecordDrawer, type RecordDrawer } from "./ReceiptUploadIsland";
 import { intakeWork } from "./intake-work";
 import { openRecordsExport } from "./transacciones/records-export-request";
@@ -536,6 +537,8 @@ function BusinessWorkspaceContent({
     setAttachedReceipt(null);
   }, [conversationId]);
 
+  // One export job outlives its panel: the island and the panel read the same run.
+  const [exportJob] = useState(() => new RecordsExportJob());
   // One queue outlives the dialog: closing it never drops a running upload.
   const [uploadQueue] = useState(() => new ReceiptUploadQueue(
     (file, consent, key, documentType, onProgress, grant) => runQuietRetries(() => source.uploadReceipt(file, consent, key, documentType, onProgress, grant)),
@@ -803,7 +806,7 @@ function BusinessWorkspaceContent({
     const island = (phone = false) => closedAccessName ? null : <ReceiptUploadIsland key={chosenGrant} phone={phone} drawer={recordDrawer}
       queue={uploadQueue} grant={chosenGrant} panelOpen={Boolean(intakeTarget)} onOpen={target => {
         morphUploadPanel(true, () => setIntake({ target, fromIsland: true }));
-      }} />;
+      }} onOpenExport={() => { exportJob.reopen(); openPanel({ kind: "transactions" }); }} />;
     const draftKeyFor = (shell: ChatShellBridge) => shell.conversationId ?? "new";
     return {
       id: "business",
@@ -860,10 +863,11 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [notificationsAvailable, noBusiness, consent.accepted, acceptedInvitation, canStartBusiness, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, chosenGrant, intakeTarget, recordDrawer, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,source.mode,userId,canInvite,openInvitation]);
+  }, [notificationsAvailable, noBusiness, consent.accepted, acceptedInvitation, canStartBusiness, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, exportJob, chosenGrant, intakeTarget, recordDrawer, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>
+      <RecordsExportJobContext.Provider value={exportJob}>
       <ChatWorkspaceProvider value={workspace}>
         <ReportRecordDrawer.Provider value={setRecordDrawer}>{children}</ReportRecordDrawer.Provider>
         {creatingBusiness?<CreateBusinessPreview accountKey={source.mode==="live"?userId??"":"preview"} live={source.mode==="live"} onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.grant_id??business.id);reload();openPanel({kind:"overview"});showToast({kind:"success",text:t("identity.business_created",{name:formatBusinessName(business.name,t("business.overview.title","My business"))})});}}/>:null}
@@ -894,6 +898,7 @@ function BusinessWorkspaceContent({
         />
         <ToastViewport />
       </ChatWorkspaceProvider>
+      </RecordsExportJobContext.Provider>
     </BusinessContext.Provider>
   );
 }

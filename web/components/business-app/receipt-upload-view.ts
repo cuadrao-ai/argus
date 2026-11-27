@@ -97,6 +97,8 @@ export function uploadBatchView(
     deleted,
     savedReceipts,
     lastSavedAt: saved.reduce((latest, item) => Math.max(latest, item.savedAt ?? 0), 0),
+    /** When the newest file of the batch was added. */
+    lastAddedAt: entries.reduce((latest, item) => Math.max(latest, item.addedAt ?? 0), 0),
     state,
     target: first?.target,
     progress,

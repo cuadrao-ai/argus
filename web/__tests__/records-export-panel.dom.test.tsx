@@ -283,28 +283,6 @@ test("no records disables the export and sends no request", async () => {
   assert.equal(exports(page).length, 0);
 });
 
-test("a double click prepares one file, and closing while preparing cancels it", async () => {
-  const page = await mount();
-  const live = globalThis.fetch;
-  let release: () => void = () => undefined;
-  const held = new Promise<void>((resolve) => { release = resolve; });
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).endsWith("/reports/export")) await held;
-    return live(input, init);
-  }) as typeof fetch;
-  await open(page);
-  await act(async () => { downloadButton()!.click(); downloadButton()!.click(); });
-  await page.settle(() => downloadButton()!.textContent!.trim() === "Preparando…");
-  assert.equal(downloadButton()!.disabled, true);
-  await page.click(downloadButton());
-  await page.click(page.button("Cerrar"));
-  await page.settle(() => panel() === null);
-  release();
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).length, 1);
-  assert.equal(page.downloads.length, 0, "no download arrives after the panel closed");
-});
-
 test("Descargar de nuevo saves the same file without another request", async () => {
   const page = await mount();
   const { createRoot } = await import("react-dom/client");
@@ -330,7 +308,10 @@ test("a failed file keeps the choices and offers Reintentar with the server's re
   await open(page);
   await page.click(page.button("CSV"));
   await page.click(downloadButton());
-  await page.settle(() => document.querySelector('[role="dialog"] [role="alert"]') !== null);
+  await page.settle(() => page.exportJob.snapshot().state.kind === "failed");
+  assert.equal(panel(), null, "the island carries the failure once the panel has closed");
+  await open(page);
+  assert.equal(page.button("CSV")!.getAttribute("aria-checked"), "true", "the reopened panel keeps the failed file's choices");
   assert.match(document.querySelector('[role="dialog"] [role="alert"]')!.textContent!, /No pudimos preparar el archivo\. Inténtalo de nuevo\./);
   page.fixture.controls.exportFails = false;
   await page.click(page.button("Reintentar"));
