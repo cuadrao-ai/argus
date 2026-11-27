@@ -711,7 +711,11 @@ Sheet rules:
 1. **Snap points.** Below 1024px a sheet is a bottom sheet that rests at peek
    (a summary), half (a form) or full (long content), never in between. Each
    sheet names the snaps it allows. Let go between two and it springs to the
-   nearest. Menus and pickers are the only sheets that hug their content.
+   nearest. Menus, pickers and dialogs that become sheets hug their content
+   and rest on no snap. A menu or a picker stops at 70% of the screen. A
+   dialog that becomes a sheet is as tall as its content and grows with it up
+   to the full snap, 94% of the screen; past that the title and the actions
+   stay in place and the body scrolls (Lucas, November 27, 2026).
 2. **Speed before distance.** A quick downward flick closes a sheet from any
    height; a quick upward flick lifts it one snap. A slow drag closes it only
    below half of its lowest snap.
@@ -738,7 +742,8 @@ Which container, screen by screen (Lucas, October 20, 2026):
   This reverses settings as sheets for user settings only; Business settings
   stay on Negocio. See [Ajustes](#ajustes-approved-november-2-2026).
 - **Centered dialog, sheet on a phone:** Comentarios, Exportar registros
-  (Lucas, November 8, 2026).
+  (Lucas, November 8, 2026), Cerrar negocio and Transferir negocio. The phone
+  sheet hugs its content, as rule 1 says.
 - **Popovers:** pickers (a date, a month, a menu, the period's Personalizado
   range, which opens under its segment and in a sheet on a phone).
 - **Alerts:** closing a month, deleting, removing someone's access.

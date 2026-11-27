@@ -83,6 +83,11 @@ def test_transferred_creator_can_mark_and_answer_as_editor(world):
             " on g.space_id=s.id where s.id=%s and g.grantee_id=%s",
             (space, world.alice.id),
         ).fetchone()
+        # Only an Administrador may take ownership.
+        db.execute(
+            "update public.business_client_grants set business_role='admin' where id=%s",
+            (world.grant,),
+        )
     pending = _post(
         world,
         f"/business/spaces/{space}/ownership-transfers",

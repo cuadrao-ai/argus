@@ -45,6 +45,7 @@ class Service:
                 "name": "Taller Luna",
                 "grant_id": str(uuid4()),
                 "member_count": 1,
+                "has_other_owner": True,
                 "reopen_until": CLOSED,
                 "export_windows": [
                     {
@@ -59,7 +60,7 @@ class Service:
                         "name": "Rosa",
                         "shown_as": "name",
                         "eligible": False,
-                        "reason": "not_editor",
+                        "reason": "not_admin",
                     }
                 ],
             },
@@ -219,6 +220,7 @@ def test_preview_carries_member_count_reopen_deadline_and_eligibility(client):
     browser, _, _ = client
     [owned] = browser.get("/api/v1/business/owned-spaces").json()["spaces"]
     assert owned["member_count"] == 1
+    assert owned["has_other_owner"] is True
     assert owned["reopen_until"] == "2026-10-18T00:00:00Z"
     assert owned["export_windows"] == [
         {
@@ -228,7 +230,7 @@ def test_preview_carries_member_count_reopen_deadline_and_eligibility(client):
         }
     ]
     assert owned["members"][0]["eligible"] is False
-    assert owned["members"][0]["reason"] == "not_editor"
+    assert owned["members"][0]["reason"] == "not_admin"
 
 
 def test_actual_application_mounts_lifecycle_and_transfer_behind_the_surface_gate():

@@ -400,18 +400,16 @@ def test_a_transfer_shows_an_unnamed_persons_email_to_a_manager_or_them(world, v
     for person in (owner, target):
         _name(person, None)
     transfer_mail.request(world)
-    manages = viewer == "owner"
 
     client = _transfer_client(pool, team[viewer])
     response = client.get("/api/v1/business/ownership-transfers")
     assert response.status_code == 200, response.text
     assert "Member" not in response.text
     (found,) = response.json()["transfers"]
-    assert _person(found, "owner_", "name") == _shown(owner, manages)
-    # The target, an editor, reads their own email; the owner manages.
+    # The owner and the target, an Administrador, both manage and read emails.
+    assert _person(found, "owner_", "name") == _shown(owner, True)
     assert _person(found, "target_", "name") == _shown(target, True)
-    if not manages:
-        assert _email(owner) not in response.text
+    if viewer != "owner":
         return
     owned = client.get("/api/v1/business/owned-spaces")
     assert owned.status_code == 200, owned.text
