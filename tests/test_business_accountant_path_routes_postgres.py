@@ -439,11 +439,10 @@ def test_profile_and_listing_reads_leave_invitation_pending(world) -> None:  # n
     assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
 
 
-def test_an_invited_person_cannot_start_a_business_or_admit_anyone(world) -> None:  # noqa: ANN001
-    """Admission does not chain. A person the gate admits only through a
-    Business invitation or grant works in that Business and nowhere else: no
-    Business of their own, no invitation issued, no ownership accepted. The
-    hand-listed owner keeps every one of those powers."""
+def test_an_invited_person_starts_no_business_and_invites_by_role(world) -> None:  # noqa: ANN001
+    """A person the gate admits only through a Business invitation or grant
+    starts no Business of their own and accepts no ownership. Inside the
+    Business that admitted them they act by their role: an Admin invites."""
 
     client, owner = world.client, world.owner
     refused = (403, "private_alpha_access_required")
@@ -503,11 +502,11 @@ def test_an_invited_person_cannot_start_a_business_or_admit_anyone(world) -> Non
     acting = {**invitee.headers, GRANT: membership["grant_id"]}
     assert client.get(f"{API}/business/access", headers=acting).status_code == 200
 
-    # An admin admitted only by the Business issues no invitation of any kind.
+    # An Admin admitted only by the Business invites, as the role allows.
     invite_one = client.post(
         f"{API}/business/access", json={"email": outsider.email}, headers=acting
     )
-    assert _code(invite_one) == refused
+    assert invite_one.status_code == 201, invite_one.text
     invite_many = client.post(
         f"{API}/business/access/invitations",
         json={
@@ -517,7 +516,8 @@ def test_an_invited_person_cannot_start_a_business_or_admit_anyone(world) -> Non
         },
         headers=acting,
     )
-    assert _code(invite_many) == refused
+    assert invite_many.status_code == 200, invite_many.text
+    assert invite_many.json()["results"][0]["state"] == "pending"
     pending = _credentials(world, "pendiente")
     _invite(world, pending.email)
     pending_id = next(
@@ -530,14 +530,15 @@ def test_an_invited_person_cannot_start_a_business_or_admit_anyone(world) -> Non
     resent = client.post(
         f"{API}/business/access/invites/{pending_id}/resend", headers=acting
     )
-    assert _code(resent) == refused
-    assert _code(_signup(world, outsider)) == (400, "auth_signup_failed")
+    # The role allows the resend; the cooldown after the first send holds it.
+    assert _code(resent) == (429, "business_invite_resend_cooldown")
+    assert _signup(world, outsider).status_code == 200
     assert [
         i["email"]
         for i in client.get(f"{API}/business/access", headers=owner.headers).json()[
             "invites"
         ]
-    ] == [pending.email]
+    ] == [outsider.email, pending.email]
 
     # Nor can such a person take a Business over.
     transfer = _post(

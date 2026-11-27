@@ -345,7 +345,7 @@ def test_pending_inviter_losing_owner_cannot_add_owner(pool, users):
     )
     pending = listing.invites[0]
     access.change_role(space.id, users["owner"], other, BusinessRole.EDITOR)
-    with pytest.raises(MembershipError, match="business_permission_denied"):
+    with pytest.raises(MembershipError, match="business_invite_not_available"):
         access.accept_invite(users["guest"], space.id, pending.id)
 
 
@@ -392,7 +392,7 @@ def test_delivery_claim_survives_crash_and_does_not_send_again(pool, users):
     class SyntheticCrash(BaseException):
         pass
 
-    def crash(_connection):
+    def crash(_connection, _number):
         calls.append(invite.id)
         raise SyntheticCrash()
 
@@ -409,11 +409,11 @@ def test_concurrent_delivery_claims_converge_and_failed_send_retries(pool, users
     access, space, invite = invite_member(pool, users, BusinessRole.VIEWER)
     calls = []
     assert (
-        access.deliver_invitation(space.id, users["owner"], invite.id, lambda _connection: "failed")
+        access.deliver_invitation(space.id, users["owner"], invite.id, lambda _connection, _number: "failed")
         == "failed"
     )
 
-    def send(_connection):
+    def send(_connection, _number):
         calls.append(invite.id)
         return "accepted"
 

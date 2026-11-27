@@ -102,7 +102,7 @@ def test_santo_domingo_date_boundary():
         spanish_expiry_date(EXPIRY.replace(tzinfo=None))
 
 
-def test_actual_transport_mime_recipient_and_window_idempotency(monkeypatch):
+def test_actual_transport_mime_recipient_and_send_idempotency(monkeypatch):
     from argus.domain import resend_email
 
     smtp = MagicMock()
@@ -119,11 +119,13 @@ def test_actual_transport_mime_recipient_and_window_idempotency(monkeypatch):
         business_name="Colmado",
         sign_in_origin="https://app.example.test",
     )
-    assert send_invite_email(**kwargs) == "synthetic-receipt"
-    assert send_invite_email(**kwargs) == "synthetic-receipt"
-    first, second = [
+    assert send_invite_email(**kwargs, send_number=1) == "synthetic-receipt"
+    assert send_invite_email(**kwargs, send_number=1) == "synthetic-receipt"
+    assert send_invite_email(**kwargs, send_number=2) == "synthetic-receipt"
+    first, second, resent = [
         message_from_string(call.args[0]) for call in smtp.data.call_args_list
     ]
+    assert first["Resend-Idempotency-Key"] != resent["Resend-Idempotency-Key"]
     assert first["To"] == "person@example.test"
     assert first["From"] == "Cuadrao <no-responder@mail.cuadrao.ai>"
     assert first["Reply-To"] == "hola@cuadrao.ai"
@@ -144,6 +146,7 @@ def test_missing_transport_configuration_is_an_error(monkeypatch):
             owner_name="Lucía",
             business_name="Colmado",
             sign_in_origin="https://app.example.test",
+            send_number=1,
         )
 
 
