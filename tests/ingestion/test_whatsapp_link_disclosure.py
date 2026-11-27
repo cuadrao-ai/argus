@@ -1,21 +1,10 @@
-import json
-
 import pytest
 from argus.domain.ingestion.whatsapp.ai_consent import (
     ConsentError,
     require_link_disclosure,
 )
 
-from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE, NOTICE
-from tests.test_i18n_coverage import LOCALES_DIR
-
-
-@pytest.mark.parametrize(("language", "notice"), [("en", ENGLISH_NOTICE), ("es-419", NOTICE)])
-def test_link_accepts_the_exact_notice(language: str, notice: str) -> None:
-    catalog = LOCALES_DIR / language / "common.json"
-    displayed = json.loads(catalog.read_text())["settings"]["whatsapp"]["consent_notice"]
-    assert displayed == notice
-    require_link_disclosure(language, displayed)
+from tests.ingestion.whatsapp_link_support import NOTICE
 
 
 @pytest.mark.parametrize(

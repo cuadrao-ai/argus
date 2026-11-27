@@ -26,7 +26,7 @@ from fastapi.testclient import TestClient
 from tests.business.conftest import ALICE, BOB
 from tests.business.receipt_stub import ReceiptStub, receipt_date
 from tests.business.test_business_api import Owner, started
-from tests.ingestion.test_whatsapp_api import LINK_BODY, link_alice, post
+from tests.ingestion.test_whatsapp_api import UNSHOWN_LINK, link_alice, post
 from tests.ingestion.whatsapp_cases import FORWARDED
 from tests.ingestion.whatsapp_support import (
     DOCUMENT_FIXTURES,
@@ -96,7 +96,7 @@ def test_linking_waits_for_the_space(wa_biz) -> None:  # noqa: ANN001
     client, _ = wa_biz
     alice = Owner(client, ALICE)
     calls = [
-        client.post("/api/v1/whatsapp/link-codes", json=LINK_BODY, headers=alice.auth),
+        client.post("/api/v1/whatsapp/link-codes", json=UNSHOWN_LINK, headers=alice.auth),
         client.get("/api/v1/whatsapp/link", headers=alice.auth),
     ]
     assert [(r.status_code, r.json()["code"]) for r in calls] == [

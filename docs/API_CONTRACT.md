@@ -8155,8 +8155,8 @@ Santo Domingo day. Other unlinked text is silent.
   The document worker reads queued files and sends due grouped failure replies.
   Post-read replies are off until W11. The webhook query string is redacted
   from access logs.
-- POST `/api/v1/whatsapp/link-codes` (registered-only) takes `{language, disclosure}`.
-  The disclosure must match the notice displayed in that language. A stale
+- POST `/api/v1/whatsapp/link-codes` (registered-only) takes `{language, disclosure_token}`.
+  The token must match the notice returned for this person and language. A stale
   notice returns 409 `whatsapp_consent_disclosure_stale`. Success returns 201
   `{code, message_text, expires_at, wa_me_url, qr_data_url}`. The PNG data URL
   encodes the same one-tap link. Both URLs are null without a display number. The link the code creates keeps
@@ -8167,7 +8167,11 @@ Santo Domingo day. Other unlinked text is silent.
   `message_text` is `CUADRAO <code>`; `wa_me_url` is null until
   `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
   429 `whatsapp_link_code_rate_limited`.
-- GET `/api/v1/whatsapp/link` returns `linked`, `last4`, `linked_at`,
+- GET `/api/v1/whatsapp/link` takes a `language` query parameter (`es-419` by
+  default, or `en`). It returns the localized consent notice in `disclosure` and
+  its `disclosure_token`. The panel shows the returned text and sends the token
+  when the person requests a code. Redeeming the code records that exact text
+  on the new link's consent row. The response also includes `linked`, `last4`, `linked_at`,
   `reply_language`, `receiving_businesses` (each with `space_id` and `name`),
   and `held_count` for the signed-in person. An active link or held file keeps this account panel available
   after the person loses their last prepare grant. A preparer whose Businesses still

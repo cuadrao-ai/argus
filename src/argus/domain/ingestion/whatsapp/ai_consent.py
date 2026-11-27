@@ -36,9 +36,18 @@ class ConsentScope:
         return tuple(t for t in (self.disclosure, self.disclosure_es) if t)
 
 
-# The link step supplies the text the person actually saw. A historical row
-# retains its original text even after a different notice is approved.
 RECEIPT_SCOPE = ConsentScope(2, "business_whatsapp_receipt_reading")
+
+LINK_DISCLOSURES = {
+    "es-419": (
+        "Al vincular tu número, aceptas que la foto o el PDF que envíes se lea con IA "
+        "para saber a qué negocio va."
+    ),
+    "en": (
+        "By linking your number, you agree that the photo or PDF you send is read by AI "
+        "to find which business it belongs to."
+    ),
+}
 
 
 class EnableAIConsent(Contract):
@@ -53,17 +62,20 @@ class ConsentError(PermissionError):
         super().__init__(code)
 
 
-# Fingerprints of the approved settings.whatsapp.consent_notice translations.
-_LINK_NOTICE_HASHES = {
-    "en": "cbe68f34f1eca83dfd5d2a2e2ea1a574fe8bc32a1e800d2a7ed5a0b678a9f82c",
-    "es-419": "9b8f38b1006ed9f0db35f4a59bb35f5951d169717f2fb0ae93567d4575f396ad"
-}
+def link_disclosure(person_id: str, language: str) -> tuple[str, str]:
+    notice = LINK_DISCLOSURES[language]
+    return notice, digest([person_id, RECEIPT_SCOPE.version, language, notice])
+
+
+def accepted_link_disclosure(person_id: str, language: str, token: str) -> str:
+    notice, current_token = link_disclosure(person_id, language)
+    if token != current_token:
+        raise ConsentError("whatsapp_consent_disclosure_stale", 409)
+    return notice
 
 
 def matches_link_disclosure(language: str, disclosure: str | None) -> bool:
-    if disclosure is None:
-        return False
-    return hashlib.sha256(disclosure.encode()).hexdigest() == _LINK_NOTICE_HASHES.get(language)
+    return disclosure is not None and disclosure == LINK_DISCLOSURES.get(language)
 
 
 def require_link_disclosure(language: str, disclosure: str) -> None:
@@ -156,8 +168,7 @@ class AIConsentStore:
             and (
                 row["disclosure"] in self.scope.texts()
                 if self.scope.texts()
-                else hashlib.sha256(row["disclosure"].encode()).hexdigest()
-                in _LINK_NOTICE_HASHES.values()
+                else row["disclosure"] in LINK_DISCLOSURES.values()
             )
             and row["route_hash"] == digest(route)
         )

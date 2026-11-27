@@ -1,3 +1,4 @@
+import type { ArgusLanguage } from "./language-features";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { CUADRAO_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
@@ -13,6 +14,8 @@ export type WhatsAppLinkCode = {
 };
 
 export type WhatsAppLinkStatus = {
+  disclosure: string;
+  disclosure_token: string;
   linked: boolean;
   last4: string | null;
   linked_at: string | null;
@@ -45,12 +48,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
 
-export function getWhatsAppLink(signal?: AbortSignal): Promise<WhatsAppLinkStatus> {
-  return request("/whatsapp/link", { signal });
+export function getWhatsAppLink(language: ArgusLanguage, signal?: AbortSignal): Promise<WhatsAppLinkStatus> {
+  return request(`/whatsapp/link?language=${language}`, { signal });
 }
 
-export function createWhatsAppLinkCode(language: "en" | "es-419", disclosure: string): Promise<WhatsAppLinkCode> {
-  return request("/whatsapp/link-codes", { method: "POST", body: JSON.stringify({ language, disclosure }) });
+export function createWhatsAppLinkCode(language: ArgusLanguage, disclosureToken: string): Promise<WhatsAppLinkCode> {
+  return request("/whatsapp/link-codes", { method: "POST", body: JSON.stringify({ language, disclosure_token: disclosureToken }) });
 }
 
 export function unlinkWhatsApp(): Promise<void> {

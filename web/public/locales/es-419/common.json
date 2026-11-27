@@ -895,7 +895,6 @@
   },
   "settings": {
     "whatsapp": {
-      "consent_notice": "Al vincular tu número, aceptas que la foto o el PDF que envíes se lea con IA para saber a qué negocio va.",
       "desktop_prompt": "¿Tienes WhatsApp en esta computadora?",
       "expired_body": "Cada código sirve 10 minutos. Pide otro y envíalo desde tu WhatsApp.",
       "expired_message": "Este mensaje ya no sirve.",

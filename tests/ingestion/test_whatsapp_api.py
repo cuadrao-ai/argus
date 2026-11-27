@@ -27,6 +27,7 @@ from loguru import logger
 
 from tests.business_reading_support import ROUTE, turn_reading
 from tests.ingestion.conftest import ALICE, BOB, GUEST, bearer
+from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE, NOTICE
 from tests.ingestion.whatsapp_support import (
     ALICE_PHONE,
     ENV,
@@ -44,7 +45,43 @@ LINK = "/api/v1/whatsapp/link"
 CODES = "/api/v1/whatsapp/link-codes"
 
 
-LINK_BODY = {"language": "es-419", "disclosure": "Al vincular tu número, aceptas que la foto o el PDF que envíes se lea con IA para saber a qué negocio va."}
+# For requests refused before the caller may see or accept the notice.
+UNSHOWN_LINK = {"language": "es-419", "disclosure_token": "0" * 64}
+
+
+def link_body(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
+    shown = client.get(LINK, headers=headers)
+    assert shown.status_code == 200, shown.text
+    return {"language": "es-419", "disclosure_token": shown.json()["disclosure_token"]}
+
+
+@pytest.mark.parametrize(("language", "expected"), [("es-419", NOTICE), ("en", ENGLISH_NOTICE)], ids=["spanish", "english"])
+def test_link_code_accepts_only_the_token_for_the_shown_notice(wa_client, language, expected):
+    headers = bearer(ALICE)
+    status = wa_client.get(LINK, params={"language": language}, headers=headers)
+    assert status.status_code == 200
+    assert status.json()["disclosure"] == expected
+    body = {"language": language, "disclosure_token": status.json()["disclosure_token"]}
+    assert wa_client.post(CODES, json=body, headers=headers).status_code == 201
+    wrong_language = "en" if language == "es-419" else "es-419"
+    refused = wa_client.post(CODES, json={**body, "language": wrong_language}, headers=headers)
+    assert (refused.status_code, refused.json()["code"]) == (409, "whatsapp_consent_disclosure_stale")
+    assert wa_client.post(CODES, json={**body, "disclosure": expected}, headers=headers).status_code == 422
+
+
+def test_changed_server_notice_invalidates_only_the_previous_token(wa_client, monkeypatch):
+    from argus.domain.ingestion.whatsapp.ai_consent import LINK_DISCLOSURES
+
+    headers = bearer(ALICE)
+    old_body = link_body(wa_client, headers)
+    revised = NOTICE + " (v2)"
+    monkeypatch.setitem(LINK_DISCLOSURES, "es-419", revised)
+    refused = wa_client.post(CODES, json=old_body, headers=headers)
+    assert (refused.status_code, refused.json()["code"]) == (409, "whatsapp_consent_disclosure_stale")
+    shown = wa_client.get(LINK, headers=headers).json()
+    assert shown["disclosure"] == revised
+    accepted = wa_client.post(CODES, json={"disclosure_token": shown["disclosure_token"]}, headers=headers)
+    assert accepted.status_code == 201, accepted.text
 
 
 def test_workspace_reports_whatsapp_availability_without_a_link(
@@ -148,7 +185,7 @@ def post(client: TestClient, body: dict, signature: str | None = None) -> httpx.
 
 
 def link_alice(client: TestClient) -> None:
-    issued = client.post(CODES, json=LINK_BODY, headers=bearer(ALICE))
+    issued = client.post(CODES, json=link_body(client, bearer(ALICE)), headers=bearer(ALICE))
     assert issued.status_code == 201, issued.text
     text = issued.json()["message_text"]
     assert post(client, fixture("text_link_code.json", text=text)).status_code == 200
@@ -159,7 +196,7 @@ def test_flag_off_answers_404_everywhere(client: TestClient) -> None:
     responses = [
         client.get(WEBHOOK, params={"hub.mode": "subscribe"}),
         client.post(WEBHOOK, content=raw, headers={"X-Hub-Signature-256": sign(raw)}),
-        client.post(CODES, json=LINK_BODY, headers=bearer(ALICE)),
+        client.post(CODES, json=UNSHOWN_LINK, headers=bearer(ALICE)),
         client.get(LINK, headers=bearer(ALICE)),
     ]
     assert [r.status_code for r in responses] == [404] * 4
@@ -175,11 +212,11 @@ def test_unlink_ends_the_link_and_unused_codes_while_off(
     wa_client: TestClient, monkeypatch, flag: str
 ) -> None:
     link_alice(wa_client)
-    unused = wa_client.post(CODES, json=LINK_BODY, headers=bearer(ALICE)).json()["message_text"]
+    unused = wa_client.post(CODES, json=link_body(wa_client, bearer(ALICE)), headers=bearer(ALICE)).json()["message_text"]
     monkeypatch.setenv(flag, "false")
     raw = encode(fixture("image_message.json"))
     gated = [
-        wa_client.post(CODES, json=LINK_BODY, headers=bearer(ALICE)),
+        wa_client.post(CODES, json=UNSHOWN_LINK, headers=bearer(ALICE)),
         wa_client.get(LINK, headers=bearer(ALICE)),
         wa_client.post(WEBHOOK, content=raw, headers={"X-Hub-Signature-256": sign(raw)}),
     ]
@@ -258,7 +295,8 @@ def test_link_capture_status_and_revoke_over_http(
 ) -> None:
     owner = identities[ALICE]["id"]
     business = resolve_business_scope(business_spaces(), owner).owner
-    issued = wa_client.post(CODES, json=LINK_BODY, headers=bearer(ALICE)).json()
+    body = link_body(wa_client, bearer(ALICE))
+    issued = wa_client.post(CODES, json=body, headers=bearer(ALICE)).json()
     assert issued["message_text"] == f"CUADRAO {issued['code']}"
     assert issued["wa_me_url"] == (
         f"https://wa.me/15550009999?text=CUADRAO%20{issued['code']}"
@@ -266,6 +304,8 @@ def test_link_capture_status_and_revoke_over_http(
     assert wa_client.get(LINK, headers=bearer(ALICE)).json() == {
         "receiving_businesses": [{"space_id": business.space_id, "name": "Mi negocio"}],
         "held_count": 0,
+        "disclosure": NOTICE,
+        "disclosure_token": body["disclosure_token"],
         "linked": False,
         "last4": None,
         "linked_at": None,
@@ -434,9 +474,10 @@ def test_access_log_redacts_only_the_webhook_query() -> None:
 def test_link_code_carries_the_web_language_to_the_link(wa_client: TestClient) -> None:
     refused = wa_client.post(CODES, json={"language": "fr"}, headers=bearer(ALICE))
     assert refused.status_code == 422
-    wrong_language = wa_client.post(CODES, json={**LINK_BODY, "language": "en"}, headers=bearer(ALICE))
+    body = link_body(wa_client, bearer(ALICE))
+    wrong_language = wa_client.post(CODES, json={**body, "language": "en"}, headers=bearer(ALICE))
     assert wrong_language.status_code == 409
-    issued = wa_client.post(CODES, json=LINK_BODY, headers=bearer(ALICE))
+    issued = wa_client.post(CODES, json=body, headers=bearer(ALICE))
     assert issued.status_code == 201
     post(wa_client, fixture("text_link_code.json", text=issued.json()["message_text"]))
     assert wa_client.get(LINK, headers=bearer(ALICE)).json()["reply_language"] == "es-419"

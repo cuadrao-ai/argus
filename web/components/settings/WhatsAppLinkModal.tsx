@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useId, useState, type ReactNode } from "react";
+import { useContext, useEffect, useEffectEvent, useId, useState, type ReactNode } from "react";
 import { Clock, ExternalLink, Info, LoaderCircle, MessageCirclePlus } from "lucide-react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
@@ -9,6 +9,7 @@ import { primaryButtonClass, secondaryButtonClass } from "@/components/business-
 import { CHANNEL_ICON } from "@/components/business-app/foundation/channel-icons";
 import SettingsSurface from "@/components/settings/SettingsSurface";
 import CopyCodeButton from "@/components/settings/CopyCodeButton";
+import { normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
   createWhatsAppLinkCode, getWhatsAppLink, unlinkWhatsApp, whatsAppLinkProblem,
@@ -21,7 +22,7 @@ const title = "text-base font-medium";
 const number = "inline-grid h-6 w-6 shrink-0 place-items-center rounded-full border border-[var(--surface-divider)] text-[13px] tabular-nums";
 const key = (name: string) => `settings.whatsapp.${name}`;
 
-function Intro({ blocked }: { blocked: boolean }) {
+function Intro({ blocked, disclosure }: { blocked: boolean; disclosure?: string }) {
   const { t } = useTranslation();
   const setupHeading = useId();
   const WhatsApp = CHANNEL_ICON.whatsapp;
@@ -41,7 +42,7 @@ function Intro({ blocked }: { blocked: boolean }) {
           <span className={number} aria-hidden="true">{i + 1}</span>{t(`business.home_setup.steps.${step}.title`)}
         </li>)}
       </ol>
-    </> : <div className={box}><MessageCirclePlus size={20} className="shrink-0" aria-hidden="true" /><p className={muted}>{t(key("consent_notice"))}</p></div>}
+    </> : <div className={box}><MessageCirclePlus size={20} className="shrink-0" aria-hidden="true" /><p className={muted}>{disclosure}</p></div>}
   </>;
 }
 
@@ -97,30 +98,37 @@ function Waiting({ code, seconds }: { code: WhatsAppLinkCode; seconds: number })
 }
 
 type Frame = { onClose: () => void; onBack?: () => void; backLabel?: string };
-type Issued = { code: WhatsAppLinkCode; seconds: number };
+type Issued = { code: WhatsAppLinkCode; seconds: number; language: ArgusLanguage; token: string };
 const remaining = (expires: string) => Math.max(0, Math.ceil((Date.parse(expires) - Date.now()) / 1000));
 
 export default function WhatsAppLinkModal(frame: Frame) {
   const { t, i18n } = useTranslation();
   const business = useContext(BusinessContext);
-  const [status, setStatus] = useState<WhatsAppLinkStatus | null>(null);
-  const [issued, setIssued] = useState<Issued | null>(null);
+  const language = normalizeEnabledLanguage(i18n.resolvedLanguage);
+  const [answer, setAnswer] = useState<{ language: ArgusLanguage; status: WhatsAppLinkStatus } | null>(null);
+  const status = answer?.language === language ? answer.status : null;
+  const [refresh, setRefresh] = useState(0);
+  const [lastIssued, setIssued] = useState<Issued | null>(null);
+  const issued = lastIssued?.language === language ? lastIssued : null;
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<WhatsAppLinkProblem | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const code = issued?.code;
-  const language = i18n.resolvedLanguage?.startsWith("es") ? "es-419" : "en";
-  const notice: unknown = i18n.getResource(language, "common", key("consent_notice"));
+  const acceptedToken = issued?.token;
+  const closeUnavailable = useEffectEvent(frame.onClose);
 
   useEffect(() => {
     const request = new AbortController();
-    getWhatsAppLink(request.signal).then((next) => {
-      if (!request.signal.aborted) setStatus(next);
+    getWhatsAppLink(language, request.signal).then((next) => {
+      if (!request.signal.aborted) setAnswer({ language, status: next });
     }).catch((error) => {
-      if (!request.signal.aborted) setProblem(whatsAppLinkProblem(error));
+      if (request.signal.aborted) return;
+      const failure = whatsAppLinkProblem(error);
+      if (failure === "unavailable") closeUnavailable();
+      else setProblem(failure);
     });
     return () => request.abort();
-  }, []);
+  }, [language, refresh]);
 
   useEffect(() => {
     if (!code || !remaining(code.expires_at)) return;
@@ -129,7 +137,7 @@ export default function WhatsAppLinkModal(frame: Frame) {
     let reading = false;
     const timer = setInterval(async () => {
       const seconds = remaining(code.expires_at);
-      setIssued((current) => current?.code === code ? { code, seconds } : current);
+      setIssued((current) => current?.code === code ? { ...current, seconds } : current);
       if (!seconds) {
         clearInterval(timer);
         request.abort();
@@ -139,33 +147,43 @@ export default function WhatsAppLinkModal(frame: Frame) {
       reading = true;
       nextPoll = Date.now() + 3000;
       try {
-        const next = await getWhatsAppLink(request.signal);
+        const next = await getWhatsAppLink(language, request.signal);
         if (request.signal.aborted) return;
-        setStatus(next);
+        setAnswer({ language, status: next });
         setProblem(null);
-        if (next.linked || !next.receiving_businesses.length) setIssued(null);
+        if (next.linked || !next.receiving_businesses.length || next.disclosure_token !== acceptedToken) setIssued(null);
       } catch (error) {
         if (request.signal.aborted) return;
         const failure = whatsAppLinkProblem(error);
-        setProblem(failure);
-        if (failure === "unavailable" || failure === "setup_required") setIssued(null);
+        if (failure === "unavailable") {
+          setIssued(null);
+          closeUnavailable();
+        } else {
+          setProblem(failure);
+          if (failure === "setup_required") setIssued(null);
+        }
       } finally {
         reading = false;
       }
     }, 1000);
     return () => { clearInterval(timer); request.abort(); };
-  }, [code]);
+  }, [code, language, acceptedToken]);
 
   async function createCode() {
-    if (typeof notice !== "string" || !notice) return;
+    if (!status?.disclosure || !status.disclosure_token) return;
     setBusy(true);
     try {
-      const next = await createWhatsAppLinkCode(language, notice);
-      setIssued({ code: next, seconds: remaining(next.expires_at) });
+      const next = await createWhatsAppLinkCode(language, status.disclosure_token);
+      setIssued({ code: next, seconds: remaining(next.expires_at), language, token: status.disclosure_token });
       setProblem(null);
     } catch (error) {
       setIssued(null);
-      setProblem(whatsAppLinkProblem(error));
+      const failure = whatsAppLinkProblem(error);
+      setProblem(failure);
+      if (failure === "stale") {
+        setAnswer(null);
+        setRefresh((value) => value + 1);
+      }
     } finally {
       setBusy(false);
     }
@@ -176,7 +194,8 @@ export default function WhatsAppLinkModal(frame: Frame) {
     try {
       await unlinkWhatsApp();
       setConfirmUnlink(false);
-      setStatus(await getWhatsAppLink());
+      setAnswer(null);
+      setRefresh((value) => value + 1);
       setProblem(null);
     } catch (error) {
       setProblem(whatsAppLinkProblem(error));
@@ -186,7 +205,7 @@ export default function WhatsAppLinkModal(frame: Frame) {
   }
 
   const cancel = <button type="button" className={secondaryButtonClass} onClick={() => { setIssued(null); setProblem(null); }}>{t(key("cancel"))}</button>;
-  const create = (label: string) => <button type="button" disabled={busy || !notice} className={primaryButtonClass} onClick={createCode}>{t(key(label))}</button>;
+  const create = (label: string) => <button type="button" disabled={busy || !status?.disclosure || !status.disclosure_token} className={primaryButtonClass} onClick={createCode}>{t(key(label))}</button>;
   const blocked = problem === "setup_required" || status?.receiving_businesses.length === 0;
   let body: ReactNode;
   let footer: ReactNode;
@@ -225,7 +244,7 @@ export default function WhatsAppLinkModal(frame: Frame) {
       business.openPanel({ kind: "business", tab: "datos" });
     }}>{t("business.switcher.settings")}</a>;
   } else if (status && problem !== "unavailable") {
-    body = <Intro blocked={false} />;
+    body = <Intro blocked={false} disclosure={status.disclosure} />;
     footer = create("link_phone");
   } else if (!problem) {
     body = <p role="status">{t(key("loading"))}</p>;

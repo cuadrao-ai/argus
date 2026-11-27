@@ -14,7 +14,6 @@ from tests.ingestion.conftest import ALICE, BOB, bearer
 from tests.ingestion.test_whatsapp_api import (  # noqa: F401
     CODES,
     LINK,
-    LINK_BODY,
     graph,
     link_alice,
     wa_client,
@@ -50,13 +49,14 @@ def test_transferred_business_never_uses_creators_channel_account(
     availability = wa_client.get("/api/v1/business/workspace", headers=headers)
     assert availability.status_code == 200, availability.text
     assert availability.json()["receiving_channels"]["whatsapp"]["available"] is True
-    responses = [
-        wa_client.get(LINK, headers=headers),
-        wa_client.post(CODES, json=LINK_BODY, headers=headers),
-    ]
-    assert [r.status_code for r in responses] == [200, 201]
-    assert responses[0].json()["linked"] is False
-    assert responses[0].json()["last4"] is None
+    shown = wa_client.get(LINK, headers=headers)
+    assert shown.status_code == 200
+    assert shown.json()["linked"] is False
+    assert shown.json()["last4"] is None
+    issued = wa_client.post(
+        CODES, json={"disclosure_token": shown.json()["disclosure_token"]}, headers=headers
+    )
+    assert issued.status_code == 201
     assert {code.owner for code in store._codes.values()} == {caller}
 
     from argus.api.routers import whatsapp as routes

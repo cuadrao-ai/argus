@@ -1,3 +1,4 @@
+import { whatsappDisclosure } from "./fixtures/whatsapp-disclosure";
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
@@ -151,9 +152,9 @@ async function openWhatsAppPreferences(business: boolean, canPrepare: boolean) {
   const { useState } = await import("react");
   const profileFetch = globalThis.fetch;
   globalThis.fetch = (async (input, init) => {
-    if (!String(input).endsWith("/whatsapp/link")) return profileFetch(input, init);
+    if (!new URL(String(input), "http://localhost").pathname.endsWith("/whatsapp/link")) return profileFetch(input, init);
     return canPrepare
-      ? Response.json({ linked: false, last4: null, linked_at: null, reply_language: null, receiving_businesses: [{ space_id: "eligible", name: "Taller" }], held_count: 0 })
+      ? Response.json({ ...whatsappDisclosure["es-419"], linked: false, last4: null, linked_at: null, reply_language: null, receiving_businesses: [{ space_id: "eligible", name: "Taller" }], held_count: 0 })
       : Response.json({ code: "whatsapp_unavailable" }, { status: 404 });
   }) as typeof fetch;
   cleanups.push(async () => { globalThis.fetch = profileFetch; });

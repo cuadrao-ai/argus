@@ -1,3 +1,4 @@
+import { whatsappDisclosure } from "../__tests__/fixtures/whatsapp-disclosure";
 import english from "../public/locales/en/common.json";
 import spanish from "../public/locales/es-419/common.json";
 import { expect, test, type Page } from "@playwright/test";
@@ -105,8 +106,8 @@ for (const { width, language } of [
   test(`link a number from account settings in ${language} at ${width}px`, async ({ page }, info) => {
     const words = (language === "en" ? english : spanish).settings.whatsapp;
     await setup(page, false, false, language);
-    await page.route("**/api/v1/whatsapp/link", route => route.fulfill({
-      json: { linked: false, receiving_businesses: [{ space_id: "elsewhere", name: "Negocio de prueba" }], held_count: 0 },
+    await page.route((url) => url.pathname.endsWith("/api/v1/whatsapp/link") && url.searchParams.get("language") === language, route => route.fulfill({
+      json: { ...whatsappDisclosure[language], linked: false, receiving_businesses: [{ space_id: "elsewhere", name: "Negocio de prueba" }], held_count: 0 },
     }));
     const message = "CUADRAO K7P2M9XQ";
     const url = "https://wa.me/15550100000?text=" + encodeURIComponent(message);
@@ -126,8 +127,11 @@ for (const { width, language } of [
     await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
     const link = page.getByRole("button", { name: words.link_phone });
     await expect(link).toBeVisible();
+    await expect(page.getByText(whatsappDisclosure[language].disclosure, { exact: true })).toBeVisible();
     await page.screenshot({ path: info.outputPath(`whatsapp-ready-${language}-${width}.png`) });
+    const issued = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith("/whatsapp/link-codes") && request.method() === "POST");
     await link.click();
+    expect((await issued).postDataJSON()).toEqual({ language, disclosure_token: whatsappDisclosure[language].disclosure_token });
     await expect(page.getByText(width < 720 ? words.mobile_title : words.scan_title, { exact: true })).toBeVisible();
     await expect(page.getByText(message, { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: words.open })).toHaveAttribute("href", url);

@@ -25,7 +25,7 @@ from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
 from tests.business_reading_support import ROUTE
 from tests.ingestion import whatsapp_support as wa
-from tests.ingestion.test_whatsapp_api import LINK_BODY
+from tests.ingestion.test_whatsapp_api import UNSHOWN_LINK, link_body
 from tests.ingestion.whatsapp_cases import image
 from tests.test_business_reading_setting_postgres import (
     _email,
@@ -220,7 +220,9 @@ def phone(web, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
         if enable_for_link:
             assert _reading(web, True).status_code == 200
         issued = web.client.post(
-            f"{API}/whatsapp/link-codes", json=LINK_BODY, headers=web.alice.headers
+            f"{API}/whatsapp/link-codes",
+            json=link_body(web.client, web.alice.headers),
+            headers=web.alice.headers,
         )
         assert issued.status_code == 201, issued.text
         _post_phone_message(
@@ -272,7 +274,9 @@ def test_link_code_checks_persisted_membership_and_setup(
         _set_whatsapp_tax_id(web)
     if reading:
         assert _reading(web, True).status_code == 200
-    answer = web.client.post(f"{API}/whatsapp/link-codes", json=LINK_BODY, headers=web.dave.headers)
+    shown = web.client.get(f"{API}/whatsapp/link", headers=web.dave.headers)
+    body = {"disclosure_token": shown.json()["disclosure_token"]} if eligible else UNSHOWN_LINK
+    answer = web.client.post(f"{API}/whatsapp/link-codes", json=body, headers=web.dave.headers)
     if eligible:
         assert answer.status_code == 201, answer.text
         _post_phone_message(web, wa.fixture(
@@ -290,7 +294,7 @@ def test_link_code_checks_persisted_membership_and_setup(
                 " where l.destination_owner_id=%s and l.status='active' and c.revoked_at is null",
                 (web.dave.id,),
             ).fetchall()
-        assert receipt == [(LINK_BODY["disclosure"], web.grant_d, web.dave.id)]
+        assert receipt == [(shown.json()["disclosure"], web.grant_d, web.dave.id)]
     else:
         assert (answer.status_code, answer.json().get("code")) == (409, "whatsapp_setup_required")
 

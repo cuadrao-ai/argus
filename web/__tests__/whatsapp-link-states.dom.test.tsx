@@ -6,12 +6,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
 import WhatsAppLinkModal from "../components/settings/WhatsAppLinkModal";
 import { SettingsWindowSection } from "../components/settings/SettingsSurface";
+import { whatsappDisclosure } from "./fixtures/whatsapp-disclosure";
 import spanish from "../public/locales/es-419/common.json";
 
 import english from "../public/locales/en/common.json";
 
 const eligible = [{ space_id: "synthetic-business", name: "Taller de prueba" }];
-const notice = "Al vincular tu número, aceptas que la foto o el PDF que envíes se lea con IA para saber a qué negocio va.";
+const notice = whatsappDisclosure["es-419"].disclosure;
 const message = "CUADRAO K7P2M9XQ";
 const url = "https://wa.me/18095550100?text=CUADRAO%20K7P2M9XQ";
 const originalFetch = globalThis.fetch;
@@ -36,10 +37,12 @@ afterEach(async () => {
 });
 afterAll(() => GlobalRegistrator.unregister());
 
-async function open(blocked = false, seconds = 581, withUrl = true) {
+async function open({ blocked = false, seconds = 581, withUrl = true, linked = false } = {}) {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   const issued: unknown[] = [];
-  const requests = { linked: false, reads: 0, deletes: 0, limited: false };
+  const requests = { linked, reads: 0, deletes: 0, limited: false, closes: 0,
+    languages: [] as (string | null)[], nextRead: null as Promise<Response> | null,
+  };
   globalThis.fetch = (async (input, init) => {
     const path = new URL(String(input)).pathname;
     if (path.endsWith("/whatsapp/link-codes") && init?.method === "POST") {
@@ -54,12 +57,15 @@ async function open(blocked = false, seconds = 581, withUrl = true) {
       return new Response(null, { status: 204 });
     }
     requests.reads++;
-    return Response.json({ linked: requests.linked, last4: requests.linked ? "4821" : null, linked_at: null, reply_language: null, receiving_businesses: blocked ? [] : eligible, held_count: 0 });
+    const language = new URL(String(input)).searchParams.get("language");
+    requests.languages.push(language);
+    if (requests.nextRead) return requests.nextRead;
+    return Response.json({ ...whatsappDisclosure[language === "en" ? "en" : "es-419"], linked: requests.linked, last4: requests.linked ? "4821" : null, linked_at: null, reply_language: null, receiving_businesses: blocked ? [] : eligible, held_count: 0 });
   }) as typeof fetch;
   const host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
-  await act(async () => root?.render(<I18nextProvider i18n={i18n}><SettingsWindowSection><WhatsAppLinkModal onClose={() => {}} /></SettingsWindowSection></I18nextProvider>));
+  await act(async () => root?.render(<I18nextProvider i18n={i18n}><SettingsWindowSection><WhatsAppLinkModal onClose={() => { requests.closes++; }} /></SettingsWindowSection></I18nextProvider>));
   async function click(label: string) {
     const button = [...host.querySelectorAll("button")].find((node) => node.textContent === label);
     expect(button).toBeDefined();
@@ -69,7 +75,8 @@ async function open(blocked = false, seconds = 581, withUrl = true) {
 }
 
 test("ready shows what linking does and the notice accepted by its one button", async () => {
-  const { host, click, issued } = await open();
+  const { host, click, issued, requests } = await open();
+  expect(requests.languages).toEqual(["es-419"]);
   for (const line of [
     "Envía tus documentos por WhatsApp",
     "Vincula tu número y envía fotos o PDF de facturas y recibos al número de Cuadrao. Cada archivo va al negocio cuyo RNC o cédula sale en el documento.",
@@ -77,7 +84,7 @@ test("ready shows what linking does and the notice accepted by its one button", 
     notice,
   ]) expect(host.textContent).toContain(line);
   await click("Vincular mi WhatsApp");
-  expect(issued).toEqual([{ language: "es-419", disclosure: notice }]);
+  expect(issued).toEqual([{ language: "es-419", disclosure_token: whatsappDisclosure["es-419"].disclosure_token }]);
 });
 
 test("waiting shows the camera steps, mobile send action, expiring message and copy alternative", async () => {
@@ -99,7 +106,7 @@ test("waiting shows the camera steps, mobile send action, expiring message and c
 });
 
 test("blocked shows both setup requirements and a route to the chosen Business settings", async () => {
-  const { host } = await open(true);
+  const { host } = await open({ blocked: true });
   for (const line of [
     "Completa el RNC y activa la lectura automática en un negocio",
     "WhatsApp ubica cada archivo por el RNC o la cédula del negocio y lo lee al llegar. Hace falta en al menos un negocio donde puedas subir documentos.",
@@ -113,7 +120,7 @@ test("blocked shows both setup requirements and a route to the chosen Business s
 });
 
 test("expired retires the old message and offers a fresh code", async () => {
-  const { host, click, issued } = await open(false, 0);
+  const { host, click, issued } = await open({ seconds: 0 });
   await click("Vincular mi WhatsApp");
   for (const line of ["El código venció", "Cada código sirve 10 minutos. Pide otro y envíalo desde tu WhatsApp.", "Este mensaje ya no sirve.", message, "Cancelar"]) {
     expect(host.textContent).toContain(line);
@@ -143,7 +150,7 @@ test("the live status poll sees redemption and stops; unlink requires confirmati
 });
 
 test("a missing receiving number still allows copying the message", async () => {
-  const { host, click } = await open(false, 581, false);
+  const { host, click } = await open({ withUrl: false });
   await click("Vincular mi WhatsApp");
   expect(host.textContent).toContain(spanish.settings.whatsapp.send_steps);
   expect(host.textContent).toContain(message);
@@ -153,7 +160,7 @@ test("a missing receiving number still allows copying the message", async () => 
 });
 
 test("a rate limit replaces the expired message and permits retry", async () => {
-  const { host, click, requests } = await open(false, 0);
+  const { host, click, requests } = await open({ seconds: 0 });
   await click("Vincular mi WhatsApp");
   requests.limited = true;
   await click("Obtener otro código");
@@ -165,12 +172,35 @@ test("a rate limit replaces the expired message and permits retry", async () => 
 });
 
 
-test("an English account submits the displayed English notice", async () => {
-  await i18n.changeLanguage("en");
-  const { host, click, issued } = await open();
-  const notice = "By linking your number, you agree that the photo or PDF you send is read by AI to find which business it belongs to.";
-  expect(host.textContent).toContain(notice);
+test("changing language fetches the new disclosure before it can be accepted", async () => {
+  const { host, click, issued, requests } = await open();
+  const pending = Promise.withResolvers<Response>();
+  requests.nextRead = pending.promise;
+  await act(async () => { await i18n.changeLanguage("en"); });
+  expect(requests.languages).toEqual(["es-419", "en"]);
+  expect(host.textContent).not.toContain(notice);
+  expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Link my WhatsApp" && !b.disabled)).toBe(false);
+  await act(async () => {
+    pending.resolve(Response.json({ ...whatsappDisclosure.en, linked: false, receiving_businesses: eligible, held_count: 0 }));
+  });
+  expect(host.textContent).toContain(whatsappDisclosure.en.disclosure);
   await click("Link my WhatsApp");
-  expect(issued).toEqual([{ language: "en", disclosure: notice }]);
+  expect(issued).toEqual([{ language: "en", disclosure_token: whatsappDisclosure.en.disclosure_token }]);
   expect(host.textContent).toContain("Waiting for your message…");
+});
+
+test("successful unlink clears the number before refresh and closes quietly when prepare access is gone", async () => {
+  const { host, click, requests } = await open({ linked: true });
+  expect(host.textContent).toContain("Número que termina en 4821");
+  const pending = Promise.withResolvers<Response>();
+  requests.nextRead = pending.promise;
+  await click("Desvincular número");
+  await click("Confirmar");
+  expect(requests.deletes).toBe(1);
+  expect(requests.reads).toBe(2);
+  expect(host.textContent).not.toContain("4821");
+  expect(host.textContent).not.toContain("Desvincular número");
+  await act(async () => { pending.resolve(Response.json({ code: "whatsapp_unavailable" }, { status: 404 })); });
+  expect(requests.closes).toBe(1);
+  expect(host.querySelector('[role="alert"]')).toBeNull();
 });

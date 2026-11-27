@@ -36,7 +36,8 @@ from argus.domain.business.authority import ActionError
 from argus.domain.ingestion.whatsapp.ai_consent import (
     AIConsentStore,
     ConsentError,
-    require_link_disclosure,
+    accepted_link_disclosure,
+    link_disclosure,
 )
 from argus.domain.ingestion.whatsapp.held import held_files
 from argus.domain.ingestion.whatsapp.identity import link_message, signature_matches
@@ -66,7 +67,7 @@ class LinkCodeRequest(BaseModel):
 
     # The web app's current i18n language; WhatsApp replies use it.
     language: ReplyLanguage = "es-419"
-    disclosure: str = Field(min_length=1, max_length=2048)
+    disclosure_token: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class LinkCodeResponse(BaseModel):
@@ -89,6 +90,8 @@ class LinkStatusResponse(BaseModel):
 
     receiving_businesses: list[ReceivingBusiness]
     held_count: int
+    disclosure: str
+    disclosure_token: str
     linked: bool
     last4: str | None = None
     linked_at: datetime | None = None
@@ -252,7 +255,9 @@ async def create_whatsapp_link_code(
     body: LinkCodeRequest,
     context: WhatsAppSenderContext = Depends(require_link_setup),  # noqa: B008
 ) -> LinkCodeResponse:
-    await _consent_call(request, require_link_disclosure, body.language, body.disclosure)
+    disclosure = await _consent_call(
+        request, accepted_link_disclosure, context.person_id, body.language, body.disclosure_token
+    )
     retry = _code_limiter.record_or_retry_after(
         keys=(context.person_id,), limit=5, window_seconds=600
     )
@@ -269,7 +274,7 @@ async def create_whatsapp_link_code(
         context.runtime.intake.issue_code,
         destination_owner_id=context.person_id,
         reply_language=body.language,
-        disclosure=body.disclosure,
+        disclosure=disclosure,
     )
     text = link_message(issued.code)
     number = context.runtime.settings.wa_me_number
@@ -287,6 +292,7 @@ async def create_whatsapp_link_code(
 def get_whatsapp_link(
     request: Request,
     response: Response,
+    language: ReplyLanguage = "es-419",
     context: WhatsAppSenderContext = Depends(require_whatsapp_sender),  # noqa: B008
 ) -> LinkStatusResponse:
     response.headers["Cache-Control"] = "no-store"
@@ -298,7 +304,10 @@ def get_whatsapp_link(
     if not link and not held_count and not whatsapp_receiving_available(context.person_id):
         raise unavailable_problem(request)
     businesses = eligible_sender_businesses(context.person_id)
+    disclosure, disclosure_token = link_disclosure(context.person_id, language)
     return LinkStatusResponse(
+        disclosure=disclosure,
+        disclosure_token=disclosure_token,
         linked=link is not None,
         last4=link.last4 if link else None,
         linked_at=link.linked_at if link else None,

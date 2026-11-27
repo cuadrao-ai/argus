@@ -165,17 +165,18 @@ export default function ProfileMenu({
   const receivingAvailable = useReceivingChannels().whatsapp.available;
   const [whatsappAccount, setWhatsAppAccount] = useState<string | null>(null);
   const settingsAccount = activeModal === "settings-window" && accountKind === "registered" ? profile?.id : null;
+  const settingsLanguage = normalizeEnabledLanguage(i18n.resolvedLanguage);
   const whatsappLinkAvailable = Boolean(settingsAccount && whatsappAccount === settingsAccount);
 
   useEffect(() => {
     if (!settingsAccount) return;
     const request = new AbortController();
-    void getWhatsAppLink(request.signal).then(
+    void getWhatsAppLink(settingsLanguage, request.signal).then(
       () => { if (!request.signal.aborted) setWhatsAppAccount(settingsAccount); },
       () => { if (!request.signal.aborted) setWhatsAppAccount(null); },
     );
     return () => request.abort();
-  }, [settingsAccount, receivingAvailable]);
+  }, [settingsAccount, settingsLanguage, receivingAvailable]);
   // What Ajustes lists for this account, in its order.
   const windowSections = SETTINGS_WINDOW_ORDER.filter((panel) => ({
     appearance: true,
@@ -749,7 +750,7 @@ export default function ProfileMenu({
 
   if (!isOpen && !activeModal) return null;
 
-  const locale = localeForLanguage(normalizeEnabledLanguage(i18n.resolvedLanguage));
+  const locale = localeForLanguage(settingsLanguage);
 
   if (activeModal === "settings-window") {
     return (

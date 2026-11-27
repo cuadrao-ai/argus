@@ -15268,6 +15268,16 @@ paths:
       tags:
       - financial-accounts
       - whatsapp
+      parameters:
+      - name: language
+        in: query
+        required: false
+        schema:
+          enum:
+          - en
+          - es-419
+          type: string
+          default: es-419
       responses:
         '200':
           description: Successful Response
@@ -15277,6 +15287,12 @@ paths:
                 $ref: '#/components/schemas/LinkStatusResponse'
         '404':
           description: 'whatsapp_unavailable: receiving is unavailable.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -26347,14 +26363,13 @@ components:
           - en
           - es-419
           default: es-419
-        disclosure:
+        disclosure_token:
           type: string
-          maxLength: 2048
-          minLength: 1
+          pattern: ^[0-9a-f]{64}$
       additionalProperties: false
       type: object
       required:
-      - disclosure
+      - disclosure_token
     LinkCodeResponse:
       properties:
         code:
@@ -26398,6 +26413,10 @@ components:
           type: array
         held_count:
           type: integer
+        disclosure:
+          type: string
+        disclosure_token:
+          type: string
         linked:
           type: boolean
         last4:
@@ -26421,6 +26440,8 @@ components:
       required:
       - receiving_businesses
       - held_count
+      - disclosure
+      - disclosure_token
       - linked
     LinkTokenRequest:
       properties:
