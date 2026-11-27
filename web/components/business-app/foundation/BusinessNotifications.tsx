@@ -143,13 +143,14 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const waiting = preview ? unread.length : live.load === "ready" ? live.items.filter((item) => item.unread).length : 0;
   const visible = filter === "unread" ? unread : notices;
   const state = !notices.length ? "empty-all" : !visible.length ? "empty-unread" : "populated";
-  const close = () => { setOpen(false); setFresh([]); setLinked(null); setGone(false); triggerRef.current?.focus(); };
+  const dismiss = () => { setOpen(false); setFresh([]); setLinked(null); setGone(false); };
+  const close = () => { dismiss(); triggerRef.current?.focus(); };
   useOverlayLayer({
     isOpen: open && !isBelowTablet,
     overlayId: panelId,
     containerRef: rootRef,
     onEscape: close,
-    onOutsidePointerDown: close,
+    onOutsidePointerDown: dismiss,
   });
   useEffect(() => { if (open && !isBelowTablet && !linked) closeRef.current?.focus(); }, [open, isBelowTablet, linked]);
 
@@ -208,7 +209,7 @@ export default function BusinessNotifications({ businessId, businessName, previe
   </div>;
 
   return <div ref={rootRef} className="relative flex items-center" onBlur={(event) => {
-    if (!isBelowTablet && event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) close();
+    if (!isBelowTablet && event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) dismiss();
   }}>
     <Tooltip content={title} side="bottom">
       <button ref={triggerRef} type="button" data-testid="business-notifications-trigger" aria-label={title} aria-describedby={waiting ? unreadId : undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={open && !isBelowTablet ? panelId : undefined} onClick={() => { if (open) { close(); return; } if (!preview) live.refresh(); setOpen(true); }} className={`relative flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0] ${open ? "bg-[#e3ebe1] dark:bg-white/10" : ""}`}>
