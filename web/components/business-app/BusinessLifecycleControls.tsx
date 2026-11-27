@@ -68,7 +68,7 @@ export default function BusinessLifecycleControls({ spaceId }: { spaceId?: strin
       <h2 className="font-display text-[17px] font-medium">{t("business.lifecycle.owner_title")}</h2>
       {open.map(business => <div key={business.space_id} className="mt-5 space-y-3">
         {!spaceId ? <p className="break-words text-[15px] font-medium">{formatBusinessName(business.name, t("business.overview.title", "My business"))}</p> : null}
-        <div className="flex flex-wrap gap-3"><a className={secondaryButtonClass} href={businessLifecycleHref(business.space_id, "transfer")}>{copy.transfer}</a><a className={dangerButtonClass} href={businessLifecycleHref(business.space_id, "close")}>{copy.close}</a></div>
+        <div className="flex flex-wrap gap-3">{business.has_other_owner ? null : <a className={secondaryButtonClass} href={businessLifecycleHref(business.space_id, "transfer")}>{copy.transfer}</a>}<a className={dangerButtonClass} href={businessLifecycleHref(business.space_id, "close")}>{copy.close}</a></div>
       </div>)}
     </div> : null}
     {closed.map(business => <article key={business.space_id} className={`${SURFACE_CARD} space-y-4`}>

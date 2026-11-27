@@ -273,6 +273,7 @@ def _leaked(seen: Mapping[str, set[str]], business: Mapping[str, set[str]]) -> s
 def _transfer_then_revoke(world) -> None:  # noqa: ANN001
     pool, space, people, access, member = world
     transfers = PostgresBusinessTransfer(pool)
+    lifecycle.make_admin(member.id)
     pending = transfers.request(
         owner_id=people["owner"],
         space_id=space.id,

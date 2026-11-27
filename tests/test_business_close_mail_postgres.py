@@ -134,6 +134,7 @@ def test_discovery_uses_current_owner_and_existing_target_authority(world):
     assert owned[0]["space_id"] == space.id
     assert owned[0]["members"][0]["grant_id"] == member.id
     assert not service.owned_spaces(people["other"])
+    lifecycle.make_admin(member.id)
     transfer = PostgresBusinessTransfer(pool).request(
         owner_id=people["owner"],
         space_id=space.id,

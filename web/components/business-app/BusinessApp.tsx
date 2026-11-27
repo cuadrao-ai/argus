@@ -77,7 +77,7 @@ function BusinessAppContent({ sample, transferId, lifecycle, manageLifecycle }: 
     if (isLeavingSession()) return null;
     return <SessionRecoveryScreen state={session.kind} busy={session.busy} onRetry={recovery.retry} continueDisabled={session.kind === "different-owner" && !session.canContinue} onContinue={() => recovery.continueTo(() => window.location.replace("/biz"))} />;
   }
-  if (lifecycle) return <BusinessLifecycleEntry key={`${scopeKey}/${lifecycle.action}/${lifecycle.spaceId}`} {...lifecycle} />;
+  if (lifecycle?.action === "close") return <BusinessLifecycleEntry key={`${scopeKey}/${lifecycle.spaceId}`} spaceId={lifecycle.spaceId} />;
   const currentDirectory = directory?.scope === session && directory.attempt === attempt ? directory : null;
   const lifecycleHome = discoverDirectory ? currentDirectory?.home ?? "loading" : "workspace";
   if (currentDirectory?.home === "member_closed") return <BusinessClosedAccess returnHome businessName={formatBusinessName(currentDirectory.closed[0].name, t("business.overview.title", "My business"))} onReturn={() => window.location.assign("/")} />;
@@ -92,7 +92,7 @@ function BusinessAppContent({ sample, transferId, lifecycle, manageLifecycle }: 
           <ConversationShellGuard />
           <ConversationUnavailableNotice />
           <ChatInterface />
-          {!sample && transferId ? <BusinessTransferEntry transferId={transferId} /> : null}
+          {!sample && (transferId || lifecycle) ? <BusinessTransferEntry transferId={transferId} startSpaceId={lifecycle?.spaceId} /> : null}
         </BusinessNamingProvider>
       </BusinessWorkspaceProvider>
     </SessionRecoveryContext.Provider>

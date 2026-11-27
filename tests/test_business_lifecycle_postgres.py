@@ -15,6 +15,7 @@ from argus.domain.business.lifecycle import (
     BusinessLifecycleError,
     PostgresBusinessLifecycle,
 )
+from argus.domain.business.roles import BusinessRole, legacy_capabilities
 from argus.domain.business.spaces import PostgresSpaceStore
 from psycopg_pool import ConnectionPool
 
@@ -43,6 +44,16 @@ def world(users):  # noqa: ANN001
             g for g in access.list(space.id, users["owner"]).grants if not g.owner
         )
         yield pool, space, users, access, member
+
+
+def make_admin(grant_id: str) -> None:
+    """Only an Administrador may take ownership; `world` gives an Editor."""
+    with psycopg.connect(shared.DSN) as db:
+        db.execute(
+            "update public.business_client_grants set business_role='admin'"
+            " where id=%s and business_role<>'admin'",
+            (grant_id,),
+        )
 
 
 def _actor(user_id: str, space_id: str) -> TrustedActor:
@@ -397,12 +408,18 @@ def _person(db, *, confirmed: bool = True) -> str:  # noqa: ANN001
     return person
 
 
-def _member(db, space_id: str, owner: str, person: str, *caps: str) -> str:  # noqa: ANN001
+def _member(db, space_id: str, owner: str, person: str, role: BusinessRole) -> str:  # noqa: ANN001
     return db.execute(
-        "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
-        " values(%s,%s,%s,%s) returning id::text",
-        (space_id, person, owner, list(caps)),
+        "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities,business_role)"
+        " values(%s,%s,%s,%s,%s) returning id::text",
+        (space_id, person, owner, list(legacy_capabilities(role)), role.value),
     ).fetchone()[0]
+
+
+def test_close_preview_says_no_other_owner_holds_the_business(world):  # noqa: ANN001
+    pool, _, users, _, _ = world
+    [preview] = PostgresBusinessLifecycle(pool).owned_spaces(users["owner"])
+    assert preview["has_other_owner"] is False
 
 
 def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  # noqa: ANN001
@@ -413,21 +430,30 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
     extra: list[str] = []
     try:
         with psycopg.connect(shared.DSN) as db:
-            viewer, unconfirmed, owning, leaving = (
+            admin, viewer, unconfirmed, owning, leaving = (
+                _person(db),
                 _person(db),
                 _person(db, confirmed=False),
                 _person(db),
                 _person(db),
             )
-            extra += [viewer, unconfirmed, owning, leaving]
-            grants = {
-                "viewer": _member(db, space.id, owner, viewer, "read"),
-                "unconfirmed": _member(
-                    db, space.id, owner, unconfirmed, "read", "prepare"
-                ),
-                "owning": _member(db, space.id, owner, owning, "read", "prepare"),
-                "leaving": _member(db, space.id, owner, leaving, "read", "prepare"),
+            extra += [admin, viewer, unconfirmed, owning, leaving]
+            people = {
+                "admin": (admin, BusinessRole.ADMIN),
+                "viewer": (viewer, BusinessRole.VIEWER),
+                "unconfirmed": (unconfirmed, BusinessRole.ADMIN),
+                "owning": (owning, BusinessRole.ADMIN),
+                "leaving": (leaving, BusinessRole.ADMIN),
             }
+            grants = {
+                name: _member(db, space.id, owner, person, role)
+                for name, (person, role) in people.items()
+            }
+            owner_grant = db.execute(
+                "select id::text from public.business_client_grants"
+                " where space_id=%s and grantee_id=%s",
+                (space.id, owner),
+            ).fetchone()[0]
             db.execute(
                 "insert into public.spaces (kind, name, created_by) values ('business', 'Propio', %s)",
                 (owning,),
@@ -439,7 +465,8 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
             )
             now = db.execute("select clock_timestamp()").fetchone()[0]
         [preview] = PostgresBusinessLifecycle(pool).owned_spaces(owner)
-        assert preview["member_count"] == 5
+        assert preview["has_other_owner"] is False
+        assert preview["member_count"] == 6
         assert abs(preview["reopen_until"] - (now + timedelta(days=30))) < timedelta(
             minutes=1
         )
@@ -447,22 +474,27 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
         reasons = {
             m["grant_id"]: (m["eligible"], m["reason"]) for m in preview["members"]
         }
+        assert member.business_role == BusinessRole.EDITOR
+        assert owner_grant not in reasons
         assert reasons == {
-            member.id: (True, None),
-            grants["viewer"]: (False, "not_editor"),
+            grants["admin"]: (True, None),
+            member.id: (False, "not_admin"),
+            grants["viewer"]: (False, "not_admin"),
             grants["unconfirmed"]: (False, "email_unconfirmed"),
             grants["owning"]: (False, "owns_open_business"),
             grants["leaving"]: (False, "account_unavailable"),
         }
         transfers = PostgresBusinessTransfer(pool)
-        for ineligible in ("viewer", "unconfirmed", "owning", "leaving"):
+        refused = {**grants, "owner": owner_grant, "editor": member.id}
+        del refused["admin"]
+        for ineligible, grant_id in refused.items():
             with pytest.raises(
                 BusinessLifecycleError, match="business_transfer_target_invalid"
             ):
                 transfers.request(
                     owner_id=owner,
                     space_id=space.id,
-                    target_grant_id=grants[ineligible],
+                    target_grant_id=grant_id,
                     confirmation=space.name,
                     idempotency_key=f"ineligible-{ineligible}",
                 )
@@ -471,6 +503,13 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
                 "select count(*) from public.business_ownership_transfers where space_id=%s",
                 (space.id,),
             ).fetchone() == (0,)
+            coowner = _person(db)
+            extra.append(coowner)
+            coowner_grant = _member(db, space.id, owner, coowner, BusinessRole.OWNER)
+        [held] = PostgresBusinessLifecycle(pool).owned_spaces(owner)
+        assert held["has_other_owner"] is True
+        assert held["member_count"] == 6
+        assert coowner_grant not in {m["grant_id"] for m in held["members"]}
     finally:
         with psycopg.connect(shared.DSN) as db:
             db.execute(

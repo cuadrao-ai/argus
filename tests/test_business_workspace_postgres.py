@@ -315,7 +315,7 @@ def test_transfer_preserves_default_marker_and_original_custody(
             "update auth.users set email_confirmed_at=now() where id=%s returning email",
             (other,),
         ).fetchone()[0]
-    _, listing = access.give(target.id, actor, email, BusinessRole.EDITOR)
+    _, listing = access.give(target.id, actor, email, BusinessRole.ADMIN)
     grant = access.accept_invite(other, target.id, listing.invites[0].id)
     transfer = PostgresBusinessTransfer(pool)
     requested = transfer._request(

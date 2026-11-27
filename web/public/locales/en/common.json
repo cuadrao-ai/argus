@@ -3815,7 +3815,6 @@
         "records_other": "{{n}} records"
       },
       "member_closed": "{{businessName}} is closed. To request copies of receipts, contact the business owner.",
-      "name_confirmation": "Enter the business name to confirm.",
       "owner_title": "Business owner",
       "purge_consequence": "If it remains closed when that deadline passes, its data and receipts will be deleted and cannot be recovered.",
       "refresh": "Refresh",
@@ -3829,7 +3828,6 @@
         "accept_title": "Accept {{businessName}}?",
         "accepted": "Transfer completed",
         "cancelled": "Transfer withdrawn",
-        "choose_reason": "Choose a person and enter the business name.",
         "decline": "Decline",
         "declined": "{{targetName}} declined the transfer. You still own {{businessName}}.",
         "declined_recipient": "Transfer declined",
@@ -3839,13 +3837,12 @@
         "ineligible": {
           "account_unavailable": "This account cannot take ownership of the business.",
           "email_unconfirmed": "Their email needs confirmation.",
-          "not_editor": "Does not have access to edit.",
+          "not_admin": "Change their access to Administrador first.",
           "owns_open_business": "Already owns another open business."
         },
         "member": "New owner",
         "none_eligible": "No members can take ownership now. Check the reason beside each person.",
         "pending": "Waiting for {{targetName}} to accept.",
-        "recipient": "{{ownerName}} wants to transfer {{businessName}} to you. If you accept, you will become its owner and {{ownerName}} can keep editing.",
         "request": "Request transfer",
         "title": "Transfer this business",
         "withdraw": "Withdraw request"
@@ -4671,7 +4668,6 @@
       "change": "Switch Business",
       "choose": "Choose a Business",
       "client": "Client",
-      "role_editor": "Can edit",
       "role_owner": "Owner",
       "role_accountant": "Accountant",
       "role_viewer": "Can view",

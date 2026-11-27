@@ -18,7 +18,8 @@ import { useSheetStack } from "@/components/ui/sheetStack";
 /**
  * A sheet rests at one of three snap points and nowhere in between: peek shows
  * a summary, half holds a form, full takes long content. Each sheet names the
- * snaps it allows. `fit` is only for menus and pickers, which hug their content.
+ * snaps it allows. `fit` hugs the content: a menu or a picker, and a dialog
+ * that becomes a sheet on a phone.
  */
 export type SheetSnap = "peek" | "half" | "full";
 export type SheetSnaps = readonly SheetSnap[] | "fit";
@@ -99,6 +100,8 @@ type BottomSheetProps = {
   backLabel?: string;
   dismissible?: boolean;
   snaps?: SheetSnaps;
+  /** How tall a `fit` sheet may grow before its body scrolls: 70% of the screen unless it names a snap. */
+  fitUpTo?: SheetSnap;
   /** Where the sheet opens; the first allowed snap by default. */
   initialSnap?: SheetSnap;
   /** Use the whole viewport for a focused full-height task. Other snaps are unchanged. */
@@ -123,6 +126,7 @@ export function BottomSheetSurface({
   backLabel,
   dismissible = true,
   snaps = ["half", "full"],
+  fitUpTo,
   initialSnap,
   fullScreen = false,
   titleHidden = false,
@@ -230,7 +234,7 @@ export function BottomSheetSurface({
         aria-describedby={description ? descriptionId : undefined}
         data-snap={snap}
         data-full-screen={fullScreen && snap === "full" ? "true" : undefined}
-        style={height === null ? { maxHeight: `${Math.round(viewport * FIT_MAX_SHARE)}px` } : { height: `${height}px`, ...(fullScreen && snap === "full" ? { borderRadius: 0, paddingTop: "env(safe-area-inset-top)" } : {}) }}
+        style={height === null ? { maxHeight: `${Math.round(viewport * (fitUpTo ? SHEET_SNAP_SHARE[fitUpTo] : FIT_MAX_SHARE))}px` } : { height: `${height}px`, ...(fullScreen && snap === "full" ? { borderRadius: 0, paddingTop: "env(safe-area-inset-top)" } : {}) }}
         className={`argus-sheet relative flex w-full max-w-[720px] flex-col overflow-hidden rounded-t-surface border-t border-black/[0.06] bg-white dark:border-white/10 dark:bg-[#1f2225] ${dragging ? "" : "transition-[height] duration-300 ease-[cubic-bezier(0.2,0.9,0.3,1.08)] motion-reduce:transition-none"} ${hasBelow ? "" : "argus-sheet-enter"}`}
       >
         <div

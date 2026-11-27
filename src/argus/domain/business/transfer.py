@@ -20,7 +20,6 @@ from argus.domain.business.lifecycle import (
 from argus.domain.business.notifications.events import invitation_changed
 from argus.domain.business.people import named, people
 from argus.domain.business.roles import (
-    ROLE_PERMISSIONS,
     BusinessRole,
     legacy_capabilities,
 )
@@ -56,9 +55,9 @@ class TransferDetails(TransferResult):
 
 
 #: Why a live member cannot take ownership: the account is unusable, the
-#: grant is not Editar, the email is unconfirmed, or they own an open Business.
+#: role is not Administrador, the email is unconfirmed, or they own an open Business.
 TransferIneligible = Literal[
-    "account_unavailable", "not_editor", "email_unconfirmed", "owns_open_business"
+    "account_unavailable", "not_admin", "email_unconfirmed", "owns_open_business"
 ]
 
 _COLUMNS = "id::text,space_id::text,owner_id::text,target_id::text,case when status='pending' and expires_at<=clock_timestamp() then 'expired' else status end,expires_at"
@@ -126,6 +125,8 @@ class PostgresBusinessTransfer:
                 return TransferResult(*old[:6])
             if confirmation != name:
                 raise BusinessLifecycleError("business_name_mismatch")
+            if PostgresBusinessLifecycle.other_owner_holds(db, space_id, owner_id):
+                raise BusinessLifecycleError("business_transfer_other_owner")
             target = self._target(db, space_id, target_grant_id, owner_id)
             if db.execute(
                 "select 1 from public.business_ownership_transfers where space_id=%s and status='pending'",
@@ -281,6 +282,10 @@ class PostgresBusinessTransfer:
                         "business_transfer_target_invalid"
                     ) from None
             if accept:
+                if PostgresBusinessLifecycle.other_owner_holds(
+                    db, command[1], command[2]
+                ):
+                    raise BusinessLifecycleError("business_transfer_other_owner")
                 self._target(db, command[1], command[6], command[2])
                 db.execute(
                     "update public.business_receipt_reading_consents set revoked_at=clock_timestamp() where space_id=%s and revoked_at is null",
@@ -348,16 +353,15 @@ class PostgresBusinessTransfer:
         if not row:
             return None
         grantee, active, role, confirmed, eligible_space = row
-        permissions = ROLE_PERMISSIONS[BusinessRole(role)]
         facts = (
             active,
-            "prepare" in permissions and "assign_owner" not in permissions,
+            BusinessRole(role) is BusinessRole.ADMIN,
             confirmed,
             eligible_space,
         )
         reasons: tuple[TransferIneligible, ...] = (
             "account_unavailable",
-            "not_editor",
+            "not_admin",
             "email_unconfirmed",
             "owns_open_business",
         )
