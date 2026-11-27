@@ -51,7 +51,11 @@ from argus.domain.ingestion.documents.models import (
     ExtractionBatch,
     ReceiptDetails,
 )
-from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+from argus.domain.ingestion.documents.objects import (
+    IMAGE_MEDIA_TYPES,
+    SourceStorageUnavailable,
+    connection_prefix,
+)
 from argus.domain.ingestion.documents.preparation import PreparedDocument, validate_source
 from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
 from argus.domain.ingestion.documents.storage_text import clean_extracted_text
@@ -254,6 +258,28 @@ class DocumentsService:
             raise DocumentServiceError("document_source_unavailable")
         return content
 
+    def _rebuilt_copy(
+        self,
+        user_id: str,
+        draft: DocumentDraft,
+        *,
+        ensure: bool = False,
+    ) -> tuple[str, bytes] | None:
+        connection_id = draft.connection_id
+        previous = draft.resolution.get("held_image_source")
+        if previous is not None and is_held(draft):
+            # The rebuilt image is keyed by sender and digest. Keep its original
+            # owner so an independently expiring resend never pins that path.
+            origin = self.get(user_id=user_id, connection_id=previous, scope=PERSONAL)
+            if not is_held(origin) or origin.sha256 != draft.sha256:
+                raise DocumentServiceError("document_source_changed")
+            connection_id = origin.connection_id
+        if ensure:
+            ensure_rebuilt_image(
+                store=self.store, user_id=user_id, connection_id=connection_id
+            )
+        return self.store.rebuilt(user_id=user_id, connection_id=connection_id)
+
     def source_bytes(
         self, *, user_id: str, connection_id: str, scope: OwnerScope
     ) -> bytes:
@@ -263,13 +289,14 @@ class DocumentsService:
         self._connection(user_id, connection_id, scope=scope)
         try:
             try:
-                ensure_rebuilt_image(
-                    store=self.store, user_id=user_id, connection_id=connection_id
-                )
+                draft = self.store.draft(user_id=user_id, connection_id=connection_id)
+                if draft is not None and draft.media_type in IMAGE_MEDIA_TYPES:
+                    source = self._rebuilt_copy(user_id, draft, ensure=True)
+                else:
+                    source = download_source(
+                        self.store, user_id=user_id, connection_id=connection_id
+                    )
                 self._connection(user_id, connection_id, scope=scope)
-                source = download_source(
-                    self.store, user_id=user_id, connection_id=connection_id
-                )
             except SourceStorageUnavailable:
                 raise DocumentServiceError(
                     "document_storage_unavailable", retryable=True
@@ -787,18 +814,10 @@ class DocumentsService:
                 if hashlib.sha256(content).hexdigest() != draft.sha256:
                     raise DocumentServiceError("document_source_changed")
                 rebuilt_image = None
-                if draft.media_type in ("image/png", "image/jpeg"):
+                if draft.media_type in IMAGE_MEDIA_TYPES:
                     try:
-                        await asyncio.to_thread(
-                            ensure_rebuilt_image,
-                            store=self.store,
-                            user_id=user_id,
-                            connection_id=connection_id,
-                        )
                         image = await asyncio.to_thread(
-                            self.store.rebuilt,
-                            user_id=user_id,
-                            connection_id=connection_id,
+                            self._rebuilt_copy, user_id, draft, ensure=True
                         )
                     except SourceStorageUnavailable:
                         raise DocumentServiceError(
@@ -1189,6 +1208,162 @@ class DocumentsService:
             connection.id, replayed, len(batch.candidates), draft.status
         )
 
+    @staticmethod
+    def _resent_connection(user_id: str, message_key: bytes) -> str:
+        return str(uuid.uuid5(uuid.UUID(user_id), message_key.hex()))
+
+    def discard_unpublished_held_copy(
+        self, *, user_id: str, message_key: bytes, digest: str
+    ) -> None:
+        """Clean a scoped copy after a failed publication, including an uncertain commit."""
+        from argus.domain.ingestion.documents.store_postgres import lock_sources
+
+        target = self._resent_connection(user_id, message_key)
+        path = (
+            connection_prefix(user_id=user_id, connection_id=target)
+            + bytes.fromhex(digest).hex()
+        )
+        with PostgresHeldFiles(self.store).pool.connection() as db, db.transaction():
+            lock_sources(db, user_id)
+            if not db.execute(
+                "select 1 from public.financial_document_extractions where user_id=%s and source_path=%s",
+                (user_id, path),
+            ).fetchone():
+                self.store.objects.remove(path)
+
+    def reopen_held_delivery(
+        self,
+        *,
+        user_id: str,
+        previous_id: str,
+        message_key: bytes,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        source_text: str | None,
+    ) -> DocumentOutcome:
+        """Stage a resend independently of the retained receipt's expiry and original inbound."""
+        from psycopg.types.json import Jsonb
+
+        validate_source(content, media_type)
+        digest = hashlib.sha256(content).hexdigest()
+        files = PostgresHeldFiles(self.store)
+        with files.assignment(user_id, previous_id) as (db, previous):
+            if previous is None or previous.state != "assigned":
+                raise DocumentServiceError("held_file_unavailable")
+            scoped = self.on_connection(db)
+            original = scoped.get(
+                user_id=user_id, connection_id=previous.connection_id, scope=PERSONAL
+            )
+            if not is_held(original) or original.sha256 != digest:
+                raise DocumentServiceError("document_source_changed")
+            batch = scoped.store.get(
+                user_id=user_id, connection_id=previous.connection_id
+            )
+            target = self._resent_connection(user_id, message_key)
+            namespace = f"{MARK}:{message_key.hex()}"
+            try:
+                scoped.hub.connections.create(
+                    connection_id=target,
+                    user_id=user_id,
+                    source=self.source,
+                    external_ref=document_ref(user_id, PERSONAL, digest, namespace),
+                    label="Document",
+                    now=self.hub.clock(),
+                    scope=PERSONAL,
+                )
+            except DuplicateConnection as duplicate:
+                if duplicate.elsewhere or duplicate.existing_id != target:
+                    raise DocumentServiceError("document_source_changed") from None
+                return scoped.outcome(
+                    user_id=user_id, connection_id=target, scope=PERSONAL, replayed=True
+                )
+            # A repeat owns the new delivery's caption and filename. Only the
+            # private sender's same-byte read and sanitized image may carry over.
+            provenance = {
+                MARK: True,
+                "held_image_source": original.resolution.get(
+                    "held_image_source", original.connection_id
+                ),
+            }
+            status: DraftStatus = "saved"
+            if batch is not None:
+                self._validate(batch, original.connection_id)
+                provenance["held_read_id"] = original.resolution.get(
+                    "held_read_id", previous_id
+                )
+                batch = self._rebind_batch(
+                    batch,
+                    target,
+                    filename=stored_filename(filename),
+                    media_type=media_type,
+                )
+                status = "needs_attention" if batch.issues else "review_ready"
+            now = self.hub.clock()
+            draft = DocumentDraft(
+                connection_id=target,
+                filename=stored_filename(filename),
+                media_type=media_type,
+                sha256=digest,
+                size_bytes=len(content),
+                source_text=source_text,
+                resolution=provenance,
+                created_at=now,
+                updated_at=now,
+                status=status,
+                error_code=batch.issues[0].code if batch and batch.issues else None,
+            )
+            path = connection_prefix(user_id=user_id, connection_id=target) + digest
+            db.execute(
+                "insert into public.financial_document_extractions(connection_id,user_id,draft,batch,"
+                "created_at,source_bucket,source_path,source_media_type,source_size_bytes,source_sha256)"
+                " values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    target,
+                    user_id,
+                    Jsonb(draft.model_dump(mode="json")),
+                    Jsonb(batch.model_dump(mode="json")) if batch else None,
+                    now,
+                    scoped.store.objects.bucket,
+                    path,
+                    media_type,
+                    len(content),
+                    digest,
+                ),
+            )
+            try:
+                scoped.store.objects.put(path, content, media_type)
+            except Exception:
+                # The scoped path belongs exclusively to the rolled-back draft.
+                scoped.store.objects.remove(path)
+                raise
+            return DocumentOutcome(
+                target, False, len(batch.candidates) if batch else 0, draft.status
+            )
+
+    @staticmethod
+    def _rebind_batch(
+        batch: ExtractionBatch,
+        target: str,
+        *,
+        filename: str | None = None,
+        media_type: str | None = None,
+    ) -> ExtractionBatch:
+        candidates = []
+        for candidate in batch.candidates:
+            changes = {
+                "source": candidate.source.model_copy(update={"connection_id": target})
+            }
+            if filename is not None:
+                changes["attachments"] = tuple(
+                    attachment.model_copy(
+                        update={"filename": filename, "media_type": media_type}
+                    )
+                    for attachment in candidate.attachments
+                )
+            candidates.append(candidate.model_copy(update=changes))
+        return batch.model_copy(update={"candidates": tuple(candidates)})
+
     def route_saved_hold(
         self, *, user_id: str, held_id: str
     ) -> tuple[str, DocumentOutcome] | None:
@@ -1310,7 +1485,7 @@ class DocumentsService:
         lock_owner(db, grant.owner_id)
         lock_sources(db, grant.owner_id)
         source = self._read_source(user, original)
-        rebuilt = self.store.rebuilt(user_id=user, connection_id=original)
+        rebuilt = self._rebuilt_copy(user, draft)
         paths = [source_path(user_id=grant.owner_id, sha256=draft.sha256)]
         if rebuilt:
             paths.append(
@@ -1374,21 +1549,23 @@ class DocumentsService:
         business_id: str,
         now: datetime,
     ) -> None:
-        instant = self._held_charge_time(connection, draft)
-        if instant is None:
-            raise DocumentServiceError("held_read_charge_missing")
         origin = draft.resolution.get("held_read_id")
         if origin:
             row = db.execute(
-                "select state from public.whatsapp_held_files where id=%s"
-                " and connection_id=%s and user_id=%s",
-                (origin, connection.id, connection.user_id),
+                "select h.state from public.whatsapp_held_files h"
+                " join public.financial_source_connections c on c.id=h.connection_id and c.user_id=h.user_id"
+                " join public.financial_document_extractions d on d.connection_id=c.id and d.user_id=c.user_id"
+                " where h.id=%s and h.user_id=%s and c.owner_space_id is null and d.draft->>'sha256'=%s",
+                (origin, connection.user_id, draft.sha256),
             ).fetchone()
             if row is None or row[0] == "expired":
                 raise DocumentServiceError("held_read_charge_missing")
             if row[0] == "assigned":
                 return
-        else:
+        instant = self._held_charge_time(connection, draft)
+        if instant is None:
+            raise DocumentServiceError("held_read_charge_missing")
+        if not origin:
             # Older charge records have a time but no held-row ID. A previous
             # assignment after that charge has already settled it under the lock.
             if db.execute(
@@ -1480,20 +1657,7 @@ class DocumentsService:
             return self.outcome(
                 user_id=owner, connection_id=target, scope=scope, replayed=result.replayed
             )
-        rebound = batch.model_copy(
-            update={
-                "candidates": tuple(
-                    candidate.model_copy(
-                        update={
-                            "source": candidate.source.model_copy(
-                                update={"connection_id": target}
-                            )
-                        }
-                    )
-                    for candidate in batch.candidates
-                )
-            }
-        )
+        rebound = self._rebind_batch(batch, target)
         connection = self._connection(owner, target, scope=scope)
         holder = str(uuid.uuid4())
         if not self.hub.connections.lease(

@@ -454,12 +454,25 @@ def test_business_read_rechecks_the_senders_grant_before_provider_admission(
     assert counts(sender) == (0, 0) and sender.extractor.calls == 0
 
 
-def hold_resend(sender, original):
+def hold_resend(sender, original, *, filename="recent.pdf", media_type="application/pdf"):
+    key = uuid4().bytes * 2
+    data = sender.service.store.source(
+        user_id=sender.owner, connection_id=original.connection_id
+    )
+    fresh = sender.service.reopen_held_delivery(
+        user_id=sender.owner,
+        previous_id=original.id,
+        message_key=key,
+        content=data,
+        filename=filename,
+        media_type=media_type,
+        source_text="recent caption",
+    )
     row = sender.files.hold(
         user_id=sender.owner,
         sender_link_id=sender.sender_link_id,
-        provider_message_key=uuid4().bytes * 2,
-        connection_id=original.connection_id,
+        provider_message_key=key,
+        connection_id=fresh.connection_id,
         reason="no_match",
         now=sender.now,
     )
@@ -501,6 +514,15 @@ def test_resend_after_access_loss_reuses_only_original_private_read(
         user_id=sender.owner, held_id=resent.id, business_id=business
     )
     assert result.connection_id != first.connection_id and result.status == "review_ready"
+    destination = dict(user_id=sender.owner, connection_id=result.connection_id)
+    draft = sender.service.store.draft(**destination)
+    assert (draft.filename, draft.source_text) == ("recent.pdf", "recent caption")
+    batch = sender.service.store.get(**destination)
+    for candidate in batch.candidates:
+        assert candidate.source.connection_id == result.connection_id
+        assert all(
+            attachment.filename == "recent.pdf" for attachment in candidate.attachments
+        )
     assert sender.extractor.calls == 2
     assert counts(sender) == before
     with sender.pool.connection() as db:
@@ -607,3 +629,143 @@ def test_new_delivery_matches_saved_buyer_against_only_current_grants(
     )
     assert destination == b and result.status == "review_ready"
     assert sender.extractor.calls == 1 and counts(sender) == (1, 0)
+
+
+def test_resent_private_hold_expires_without_erasing_assigned_receipt(sender):
+    from argus.domain.business.contracts.deletion import PURGE_AFTER
+
+    row = capture(sender)
+    assert held.read(sender, row) == "prepared"
+    assert sender.service.store.save_rebuilt(
+        user_id=sender.owner,
+        connection_id=row.connection_id,
+        content=b"prior rebuilt",
+        media_type="image/jpeg",
+    )
+    result = assign(sender, row)
+    target = dict(user_id=sender.custodian, connection_id=result.connection_id)
+    retained = (
+        sender.service.store.source(**target),
+        sender.service.store.rebuilt(**target),
+    )
+    with sender.pool.connection() as db:
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where id=%s",
+            (sender.grant,),
+        )
+    before = counts(sender)
+    resent = hold_resend(sender, row)
+    sender.now += PURGE_AFTER + timedelta(seconds=1)
+    with sender.pool.connection() as db:
+        private_path, image_path = db.execute(
+            "select source_path,rebuilt_path from public.financial_document_extractions where connection_id=%s",
+            (resent.connection_id,),
+        ).fetchone()
+    assert resent.connection_id in private_path and image_path is None
+    assert sender.service.store.objects.get(private_path) == retained[0]
+    assert sender.files.expire(resent.id, sender.now, sender.owner)
+    assert sender.service.store.objects.get(private_path) is None
+    assert (
+        sender.service.store.draft(
+            user_id=sender.owner, connection_id=resent.connection_id
+        )
+        is None
+    )
+    assert (
+        sender.service.store.source(**target),
+        sender.service.store.rebuilt(**target),
+    ) == retained
+    assert counts(sender) == before
+    assert sender.extractor.calls == 1
+
+
+def test_reopened_image_previews_the_senders_rebuilt_copy_without_pinning_it(sender):
+    from argus.domain.business.contracts.deletion import PURGE_AFTER
+    from argus.domain.owner_scope import PERSONAL
+
+    from tests.ingestion.whatsapp_support import RECEIPT_PNG
+
+    key = uuid4().bytes * 2
+    asyncio.run(
+        sender.service.upload(
+            user_id=sender.owner,
+            content=RECEIPT_PNG,
+            media_type="image/png",
+            filename="original.png",
+            consent=True,
+            scope=PERSONAL,
+            on_capture=sender.files.capture(
+                user_id=sender.owner,
+                sender_link_id=sender.sender_link_id,
+                provider_message_key=key,
+                reason="no_match",
+                now=sender.now,
+            ),
+        )
+    )
+    [original] = sender.files.list_for_user(sender.owner)
+    inbound(sender, original)
+    image = sender.service.source_bytes(
+        user_id=sender.owner, connection_id=original.connection_id, scope=PERSONAL
+    )
+    assert image.startswith(b"\xff\xd8")
+    assigned = assign(sender, original)
+    resent = hold_resend(sender, original, filename="resent.png", media_type="image/png")
+    assert (
+        sender.service.source_bytes(
+            user_id=sender.owner, connection_id=resent.connection_id, scope=PERSONAL
+        )
+        == image
+    )
+    assert sender.files.expire(
+        resent.id, sender.now + PURGE_AFTER + timedelta(seconds=1), sender.owner
+    )
+    assert sender.service.store.rebuilt(
+        user_id=sender.custodian, connection_id=assigned.connection_id
+    ) == ("image/jpeg", image)
+    assert sender.extractor.calls == 0
+
+
+def test_failed_resent_capture_discards_only_unpublished_objects(sender):
+    import hashlib
+
+    from argus.domain.ingestion.documents.objects import connection_prefix
+    from argus.domain.owner_scope import PERSONAL
+
+    original = capture(sender)
+    assign(sender, original)
+    content = sender.service.source_bytes(
+        user_id=sender.owner, connection_id=original.connection_id, scope=PERSONAL
+    )
+    key = uuid4().bytes * 2
+    digest = hashlib.sha256(content).hexdigest()
+    args = dict(
+        user_id=sender.owner,
+        previous_id=original.id,
+        message_key=key,
+        content=content,
+        filename="recent.pdf",
+        media_type="application/pdf",
+        source_text=None,
+    )
+    with pytest.raises(DocumentServiceError, match="held_file_unavailable"):
+        sender.service.reopen_held_delivery(**{**args, "user_id": sender.custodian})
+    with pytest.raises(DocumentServiceError, match="document_source_changed"):
+        sender.service.reopen_held_delivery(**{**args, "content": content + b"different"})
+    with pytest.raises(RuntimeError, match="delivery interrupted"):
+        with sender.pool.connection() as db, db.transaction():
+            saved = sender.service.on_connection(db).reopen_held_delivery(**args)
+            path = (
+                connection_prefix(user_id=sender.owner, connection_id=saved.connection_id)
+                + digest
+            )
+            assert sender.service.store.objects.get(path) == content
+            raise RuntimeError("delivery interrupted")
+    cleanup = dict(user_id=sender.owner, message_key=key, digest=digest)
+    sender.service.discard_unpublished_held_copy(**cleanup)
+    assert sender.service.store.objects.get(path) is None
+    retry = sender.service.reopen_held_delivery(**args)
+    assert retry.connection_id == saved.connection_id
+    sender.service.discard_unpublished_held_copy(**cleanup)
+    assert sender.service.store.objects.get(path) == content
+    assert sender.service.reopen_held_delivery(**args).replayed
