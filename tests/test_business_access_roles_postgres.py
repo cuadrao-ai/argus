@@ -124,6 +124,98 @@ def test_a_member_reads_every_delivery_only_when_they_manage(
     assert uncounted == (0 if manages else 1)
 
 
+@pytest.fixture
+def long_history(web, mail) -> dict[str, list[str]]:  # noqa: ANN001
+    """More mail than any read's limit, newest first: every delivery of the
+    Business, and the ones Dave sent. His and the supplier's alternate."""
+
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "insert into public.business_email_deliveries(provider,external_id,"
+            "recipients,route_id,space_id,principal_id,sender,subject,state,"
+            "inbox_group,received_at)"
+            " select provider,gen_random_uuid()::text,recipients,route_id,space_id,"
+            "principal_id,case when n%%2=0 then %s else %s end,subject,state,"
+            "inbox_group,received_at+make_interval(secs=>2+n)"
+            " from public.business_email_deliveries, generate_series(0,409) n"
+            " where id=%s",
+            (web.dave.email, SUPPLIER, mail["supplier"]),
+        )
+        rows = db.execute(
+            "select id::text,sender from public.business_email_deliveries"
+            " where space_id=%s order by received_at desc,id",
+            (web.alice.space_id,),
+        ).fetchall()
+    return {
+        "all": [row[0] for row in rows],
+        "own": [row[0] for row in rows if row[1] == web.dave.email],
+    }
+
+
+@pytest.fixture
+def loaded(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """The id of every delivery row the store reads out of the database."""
+
+    from argus.domain.ingestion.email_intake import store
+
+    rows: list[str] = []
+    read = store._delivery
+
+    def counted(row):  # noqa: ANN001, ANN202
+        rows.append(str(row["id"]))
+        return read(row)
+
+    monkeypatch.setattr(store, "_delivery", counted)
+    return rows
+
+
+@pytest.mark.parametrize("role", ["editor", "viewer"])
+def test_a_long_history_costs_a_non_manager_only_their_own_mail(
+    web,  # noqa: ANN001
+    long_history: dict[str, list[str]],
+    loaded: list[str],
+    role: str,
+) -> None:
+    _role(web, web.dave, role)
+    own = long_history["own"]
+    assert len(own) > 200
+
+    listed = _read(web, web.dave, web.grant_d, "/business/email/deliveries")
+    assert [item["id"] for item in listed.json()["items"]] == own[:50]
+    assert loaded == own[:50]
+
+    loaded.clear()
+    inbox = _read(web, web.dave, web.grant_d, "/business/email/inbox")
+    shown = [item["id"] for group in inbox.json()["groups"] for item in group["items"]]
+    assert shown == own[:200]
+    assert loaded == own[:200]
+
+    loaded.clear()
+    found = _read(web, web.dave, web.grant_d, "/business/search", q="example.test", limit=20)
+    assert found.status_code == 200, found.text
+    assert {item["id"] for item in found.json()["email_deliveries"]} <= set(own[:200])
+    assert loaded == own[:200]
+
+    loaded.clear()
+    other = next(item for item in long_history["all"] if item not in own)
+    detail = _read(web, web.dave, web.grant_d, f"/business/email/deliveries/{other}")
+    assert _code(detail) == (404, "email_delivery_not_found")
+    assert loaded == []
+
+    _pending(web, web.dave, web.grant_d)
+    assert set(loaded) == set(own)
+
+
+def test_a_long_history_gives_a_manager_the_newest_of_everyone(
+    web,  # noqa: ANN001
+    long_history: dict[str, list[str]],
+    loaded: list[str],
+) -> None:
+    listed = _read(web, web.alice, None, "/business/email/deliveries")
+    assert [item["id"] for item in listed.json()["items"]] == long_history["all"][:50]
+    assert loaded == long_history["all"][:50]
+
+
 @pytest.mark.parametrize(("role", "manages"), MANAGES.items())
 def test_only_a_manager_reads_the_senders_list(
     web,  # noqa: ANN001

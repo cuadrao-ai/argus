@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
@@ -20,7 +19,6 @@ from argus.api.ingestion import ingestion_enabled
 from argus.domain.business.scope import BusinessScope
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.documents.service import DocumentsService
-from argus.domain.ingestion.email_intake.alignment import bare_address
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 from argus.domain.ingestion.email_intake.models import EmailDelivery, EmailDeliveryPart
 from argus.domain.ingestion.email_intake.provider import ResendReceivingClient
@@ -272,16 +270,17 @@ async def stop_email_intake(app) -> None:  # noqa: ANN001
     configure_email_intake(None)
 
 
-def _reads_delivery(
+def _readable_sender(
     runtime: EmailHistory, scope: BusinessScope
-) -> Callable[[EmailDelivery], bool]:
-    """Who reads which delivery. A person who manages the Business reads every
-    one; anyone else reads only the mail sent from their own account address."""
+) -> dict[str, str] | None:
+    """Who reads which delivery, as the store's own filter. A person who
+    manages the Business reads every one; anyone else reads only the mail sent
+    from their own account address, and nothing when they have none."""
 
     if "manage" in scope.permissions:
-        return lambda delivery: True
+        return {}
     own = runtime.store.account_address(scope.acting_person_id)
-    return lambda delivery: own is not None and bare_address(delivery.sender) == own
+    return {"sender": own} if own else None
 
 
 def readable_deliveries(
@@ -289,11 +288,10 @@ def readable_deliveries(
 ) -> list[EmailDelivery]:
     """The newest deliveries this person may read, at most ``limit`` of them."""
 
-    space_id = scope.owner.space_id
-    if "manage" in scope.permissions:
-        return runtime.store.list(space_id, limit=limit)
-    reads = _reads_delivery(runtime, scope)
-    return [d for d in runtime.store.list(space_id, limit=None) if reads(d)][:limit]
+    readable = _readable_sender(runtime, scope)
+    if readable is None:
+        return []
+    return runtime.store.list(scope.owner.space_id, limit=limit, **readable)
 
 
 def readable_delivery(
@@ -301,10 +299,10 @@ def readable_delivery(
 ) -> EmailDelivery | None:
     """One delivery of this Business, or none when this person may not read it."""
 
-    delivery = runtime.store.get(delivery_id, scope.owner.space_id)
-    if delivery is None or not _reads_delivery(runtime, scope)(delivery):
+    readable = _readable_sender(runtime, scope)
+    if readable is None:
         return None
-    return delivery
+    return runtime.store.get(delivery_id, scope.owner.space_id, **readable)
 
 
 def email_receipt_flags(
