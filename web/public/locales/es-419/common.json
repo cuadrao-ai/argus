@@ -3601,6 +3601,7 @@
       "unsupported": "Este archivo no es compatible. Prueba con {{formats}}.",
       "uploading_progress": "Subiendo {{position}} de {{total}}…",
       "panel_title": "Agregar documentos",
+      "island_uploading": "{{position}} de {{total}}",
       "chip_uploading": "Subiendo {{position}} de {{total}}",
       "chip_saved_one": "{{count}} subido",
       "chip_saved_other": "{{count}} subidos",

@@ -93,8 +93,8 @@ test("identical bytes under two names are one saved document, in every count and
   assert.deepEqual(batch.saved.map((item) => item.file.name), ["a.txt", "a-copia.txt", "b.txt"], "each file keeps its row");
   assert.deepEqual(batch.savedReceipts.map((receipt) => receipt.id), ["a", "b"], "first order, once each");
   assert.equal(batch.savedReceipts[0].replayed, undefined, "the first answer for a document is the one kept");
-  assert.equal(uploadSummaryText(t, batch, null, "panel"), 'business.intake.summary_saved{"count":2}');
-  assert.equal(uploadSummaryText(t, batch, null, "chip"), 'business.intake.chip_saved{"count":2}');
+  assert.equal(uploadSummaryText(t, batch, "panel"), 'business.intake.summary_saved{"count":2}');
+  assert.equal(uploadSummaryText(t, batch, "island"), 'business.intake.chip_saved{"count":2}');
 });
 
 test("a file the upload limit makes send again starts over with no number, not at the share of the attempt that was refused", async () => {
@@ -166,20 +166,20 @@ test("a waiting, stopped or refused file can leave the list during a drain; the 
   assert.deepEqual(queue.snapshot().map((item) => item.file.name), ["a.txt"]);
 });
 
-test("the panel and the chip read one count and differ only in their words", async () => {
+test("the panel and island share progress, and only the panel lists the full summary", async () => {
   const { queue, attempts, start } = heldQueue();
   start("a.txt", "b.txt");
   const view = () => uploadBatchView(queue.snapshot(), queue.retryWaiting);
   assert.equal(view().busy, true);
-  assert.equal(uploadSummaryText(t, view(), queue.progress, "panel"), 'business.intake.uploading_progress{"position":1,"total":2}');
-  assert.equal(uploadSummaryText(t, view(), queue.progress, "chip"), 'business.intake.chip_uploading{"position":1,"total":2}');
+  assert.equal(uploadSummaryText(t, view(), "panel"), 'business.intake.uploading_progress{"position":1,"total":2}');
+  assert.equal(uploadSummaryText(t, view(), "island"), 'business.intake.island_uploading{"position":1,"total":2}');
   attempts[0].finish(savedReceipt("a"));
   await settle(() => attempts.length === 2);
   attempts[1].fail(new TypeError("Failed to fetch"));
   await settle(() => !queue.uploading);
   assert.equal(view().busy, false, "a stopped file that nobody retried is not busy");
-  assert.equal(uploadSummaryText(t, view(), queue.progress, "panel"), 'business.intake.summary_saved{"count":1} · business.intake.summary_failed{"count":1}');
-  assert.equal(uploadSummaryText(t, view(), queue.progress, "chip"), 'business.intake.chip_saved{"count":1} · business.intake.summary_failed{"count":1}');
+  assert.equal(uploadSummaryText(t, view(), "panel"), 'business.intake.summary_saved{"count":1} · business.intake.summary_failed{"count":1}');
+  assert.equal(uploadSummaryText(t, view(), "island"), 'business.intake.summary_failed{"count":1}');
 });
 
 test("the time left is said in round words, and not at all before there is an honest rate", () => {
