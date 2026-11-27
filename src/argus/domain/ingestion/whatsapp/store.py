@@ -17,11 +17,15 @@ from typing import TYPE_CHECKING, Literal, Protocol
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from argus.domain.business.access import AccessStore, InMemoryAccessStore
+from argus.domain.business.access import GrantedSpace, InMemoryAccessStore
 from argus.domain.ingestion.connections import (
     ConnectionNotFound,
     ConnectionRepository,
     SourceConnection,
+)
+from argus.domain.ingestion.whatsapp.ai_consent import (
+    matches_link_disclosure,
+    require_link_disclosure,
 )
 from argus.domain.owner_scope import BusinessSpace
 
@@ -130,15 +134,6 @@ class SenderLink:
     reply_language: ReplyLanguage
 
 
-def can_redeem_link(access: AccessStore, person_id: str) -> bool:
-    """A current prepare grant in any open Business allows a personal link."""
-    return any(
-        "prepare" in grant.permissions
-        and "prepare" in access.capabilities(grant.space_id, person_id)
-        for grant in access.spaces_for(person_id)
-    )
-
-
 class WhatsAppStore(Protocol):
     def claim(
         self,
@@ -192,6 +187,7 @@ class WhatsAppStore(Protocol):
         destination_owner_id: str,
         code_digest: bytes,
         reply_language: ReplyLanguage,
+        disclosure: str,
         now: datetime,
         expires_at: datetime,
     ) -> None: ...
@@ -224,10 +220,10 @@ class WhatsAppStore(Protocol):
 
 @dataclass
 class _Code:
+    disclosure: str
     owner: str
     reply_language: ReplyLanguage
     expires_at: datetime
-    consumed: bool = False
 
 
 @dataclass
@@ -243,10 +239,11 @@ class _Link:
 
 class InMemoryWhatsAppStore:
     def __init__(
-        self, connections: ConnectionRepository, access: InMemoryAccessStore
+        self, connections: ConnectionRepository, access: InMemoryAccessStore,
+        eligible_businesses: Callable[[str], tuple[GrantedSpace, ...]],
     ) -> None:
         self._connections = connections
-        self._access = access
+        self._eligible_businesses = eligible_businesses
         self._lock = access._lock
         self._inbound: dict[bytes, InboundRecord] = {}
         self._codes: dict[bytes, _Code] = {}
@@ -427,30 +424,33 @@ class InMemoryWhatsAppStore:
         destination_owner_id: str,
         code_digest: bytes,
         reply_language: ReplyLanguage,
+        disclosure: str,
         now: datetime,
         expires_at: datetime,
     ) -> None:
+        require_link_disclosure(reply_language, disclosure)
         with self._lock:
             for digest in [
                 d
                 for d, c in self._codes.items()
-                if c.owner == destination_owner_id and not c.consumed
+                if c.owner == destination_owner_id
             ]:
                 del self._codes[digest]
             self._codes[code_digest] = _Code(
-                destination_owner_id, reply_language, expires_at
+                disclosure, destination_owner_id, reply_language, expires_at
             )
 
     def redeem_code(
         self, *, code_digest: bytes, sender_hash: bytes, last4: str, now: datetime
     ) -> SenderLink | None:
         with self._lock:
-            code = self._codes.get(code_digest)
-            if code is None or code.consumed or code.expires_at <= now:
+            code = self._codes.pop(code_digest, None)
+            if code is None or code.expires_at <= now:
                 return None
-            if not can_redeem_link(self._access, code.owner):
+            if not matches_link_disclosure(code.reply_language, code.disclosure):
                 return None
-            code.consumed = True
+            if not self._eligible_businesses(code.owner):
+                return None
             for link in self._links:
                 if link.active and (
                     link.sender == sender_hash or link.owner == code.owner
@@ -479,7 +479,7 @@ class InMemoryWhatsAppStore:
             for digest in [
                 d
                 for d, c in self._codes.items()
-                if c.owner == destination_owner_id and not c.consumed
+                if c.owner == destination_owner_id
             ]:
                 del self._codes[digest]
             revoked = False

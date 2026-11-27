@@ -8102,8 +8102,9 @@ uncertain fields, and more than 18 digits leaves the amount unresolved.
 Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` is true, its credentials are set and
 the document surface above is on. While off, every route below except
 `DELETE /api/v1/whatsapp/link` and `DELETE /api/v1/whatsapp/ai-consent` answers
-404 `whatsapp_unavailable`. Link setup and consent reads or enables require
-`prepare` in the selected Business. The link belongs to the signed-in person. A WhatsApp receipt becomes a document draft with
+404 `whatsapp_unavailable`. The link belongs to the registered person. Linking
+requires at least one open Business where the person has current `prepare`
+permission, the Business has an RNC or cédula, and automatic reading is on. A WhatsApp receipt becomes a document draft with
 `consent: false` and `status: saved`; AI preparation still waits for the
 owner's consent on the web. Spec and activation:
 [cuadrao-whatsapp-intake](specs/lanes/cuadrao-whatsapp-intake.md).
@@ -8120,8 +8121,8 @@ contacts or profiles.
 Intake is on only while the Business pilot (below) is on too. A receipt lands
 in the sender's default Business, resolved through `resolve_business_scope`.
 The sender needs a live `prepare` permission there at capture and publication.
-Link codes and link status answer 404 `business_space_missing` without a selected
-or default Business. A capture whose
+Link setup considers the person's Businesses across grants. The Business selected
+in the app does not change the result. A capture whose
 sender link ended before settlement is recorded as `rejected` with
 `sender_link_revoked`. The claim has no document connection, and the sender gets no reply.
 
@@ -8154,10 +8155,11 @@ Santo Domingo day. Other unlinked text is silent.
   The document worker reads queued files and sends due grouped failure replies.
   Post-read replies are off until W11. The webhook query string is redacted
   from access logs.
-- POST `/api/v1/whatsapp/link-codes` (registered-only) takes an optional
-  `{language}`, the web app's current language (`es-419` or `en`, default
-  `es-419`; anything else is 422), and returns 201
-  `{code, message_text, expires_at, wa_me_url}`. The link the code creates keeps
+- POST `/api/v1/whatsapp/link-codes` (registered-only) takes `{language, disclosure_token}`.
+  The token must match the notice returned for this person and language. A stale
+  notice returns 409 `whatsapp_consent_disclosure_stale`. Success returns 201
+  `{code, message_text, expires_at, wa_me_url, qr_data_url}`. The PNG data URL
+  encodes the same one-tap link. Both URLs are null without a display number. The link the code creates keeps
   that language for every WhatsApp reply. The code is single use, lives
   10 minutes and replaces any unused code for that person. When they send
   the code, they must still hold `prepare` in an open Business. The signed
@@ -8165,7 +8167,16 @@ Santo Domingo day. Other unlinked text is silent.
   `message_text` is `CUADRAO <code>`; `wa_me_url` is null until
   `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
   429 `whatsapp_link_code_rate_limited`.
-- GET `/api/v1/whatsapp/link` returns `{linked, last4, linked_at, reply_language}`.
+- GET `/api/v1/whatsapp/link` takes a `language` query parameter (`es-419` by
+  default, or `en`). It returns the localized consent notice in `disclosure` and
+  its `disclosure_token`. The panel shows the returned text and sends the token
+  when the person requests a code. Redeeming the code records that exact text
+  on the new link's consent row. The response also includes `linked`, `last4`, `linked_at`,
+  `reply_language`, `receiving_businesses` (each with `space_id` and `name`),
+  and `held_count` for the signed-in person. An active link or held file keeps this account panel available
+  after the person loses their last prepare grant. A preparer whose Businesses still
+  need setup receives an empty list. A link-code request with no eligible
+  Business returns 409 `whatsapp_setup_required`.
 - DELETE `/api/v1/whatsapp/link` revokes the signed-in person's active link and
   every unused code, and answers 204, also when nothing was linked. It is never
   gated: it works with the Business pilot, intake or the document surface off,
@@ -8185,75 +8196,16 @@ whose bytes the owner's inbox already holds gets the duplicate reply. A message 
 timestamp is more than 24 hours old is still captured but gets no reply, so
 nothing is sent outside the service window.
 
-#### Linked-number receipt reading permission
+#### Linked-number consent for held reads
 
-This channel-specific permission remains historical compatibility state. The new Business receipt-reading opt-in above governs Business automatic reading across every channel. It does not inherit this permission. The web now links to the Business setting rather than presenting the old switch as effective reading authority.
-
-The WhatsApp AI switch (`/api/v1/whatsapp/ai-consent`) records the linked person's
-permission to read the receipts they send by WhatsApp: scope version 2, purpose
-`business_whatsapp_receipt_reading`, route `document_extraction`. `GET` takes an
-optional `language`; a Spanish language returns the Spanish disclosure text for
-display. The stored and hashed disclosure is the text shown. One active
-permission exists per linked number: turning receipt reading on replaces an
-historical agent permission (scope 1). New consent records use scope 2. The read also
-returns `active_scope_version`, the scope of any active permission, so a screen
-can say another permission is on. `POST` takes an optional `language`; the text
-shown in that language is the one stored and hashed, and the token binds it.
-Changing the words an owner was shown asks for consent again. With the
-Business receipt-reading setting off, a received receipt is saved unread, and
-`POST /api/v1/business/receipts/{id}/prepare` returns 422
-`business_receipt_reading_off`. When the webhook queues a new receipt for
-reading, its acknowledgement says the receipt is being read and carries no
-link. The webhook then returns. The document worker checks the owner's
-reading setting again before the provider call. The read outcome is available
-in the Business inbox. Completing the read sends no follow-up, review link or
-summary to WhatsApp.
-
-#### Linked-number Business AI permission
-
-The owner must explicitly opt in before WhatsApp text and necessary authorized
-Business draft context can be sent to AI providers. Phone linking, document
-consent and a prepare grant do not imply this permission. Recording remains a
-separate exact-version human approval.
-
-`GET /api/v1/whatsapp/ai-consent` is an authenticated registered-account read
-behind the same channel availability and selected-Business eligibility check as
-link setup. It answers 404 `whatsapp_unavailable` when that check fails. It returns
-`linked`, `available`, `reason`, `last4`, `scope_version`, `purpose`,
-`disclosure`, `route`, `disclosure_token`, `enabled`, `consented_at` and
-`revoked_at`. The server derives the person's current link, selected Business and effective
-provider routes. `route` contains the gateway and interpretation/reply route
-lists, each with the actual model and provider-routing payload; a null provider
-means automatic routing. Each caller can access only their own link.
-No link is explicit (`linked=false`, `reason="whatsapp_link_required"`), while
-unreachable storage returns 503. `last4`, `route` and `disclosure_token` may be
-null. A token exists only when `available=true`: the person's link, selected Business,
-prepare grant, route and runtime are eligible. Unavailable reasons are
-`whatsapp_unavailable`, `whatsapp_ai_route_unavailable`, `business_unavailable`
-or `business_permission_denied`. `enabled` reflects valid original consent,
-independently of temporary intake availability. This read creates nothing.
-
-`POST /api/v1/whatsapp/ai-consent` takes an `Idempotency-Key` of 1–80 characters
-and `{action: "enable", disclosure_token}`. Extra identity or route fields are
-rejected. The registered person needs live `prepare` permission
-in the selected Business and their own active sender link. The token binds the displayed scope, route and
-link generation. A stale disclosure, changed idempotent input or already-active
-consent returns 409. Replay preserves the original consent and never clears its
-revocation. A new affirmative action after revocation requires a new key and
-current disclosure. Enable requires the existing WhatsApp surface.
+Pressing the link button accepts the notice displayed for the current language.
+The durable receipt belongs to the verified phone link. Business automatic
+reading continues to use the Business’s own receipt-reading consent.
 
 `DELETE /api/v1/whatsapp/ai-consent` revokes the authenticated person's linked-number permissions
 idempotently and returns 204. It remains reachable with intake/pilot/provider
 flags off and does not unlink the phone or erase canonical sources. Unavailable
 permission storage returns 503; it never acts as implicit consent.
-
-New encrypted captures bind the consent in effect at capture. Old/unconsented
-captures never adopt later permission. Every provider attempt, resumed/retried
-call and agent reply send rechecks that original consent, link, route, grant,
-issuer and lease. Revocation blocks subsequent dispatches; it cannot retract an
-HTTP request already sent. Model/composition/send unknown outcomes retain the
-existing no-blind-retry rule. Business checkpoint persistence remains disabled
-pending proof of its authorization and deletion lifecycle.
 
 ### Business accepted dates (#2175, part 1)
 
@@ -10156,8 +10108,8 @@ person starts their space, every route below except POST `/space` answers 404
     in scope: the Business routes answer 404 `business_space_missing`, record
     ids included. `GET /business/spaces` reports effective capabilities:
     `approve` appears on Dueño and Admin grants. Creating or stopping a receiving
-    email address and retrying a delivery require `manage`. WhatsApp link setup requires the selected grant's
-    `prepare` permission. A person can always revoke their own link. GET `/business/workspace` under a grant reads the
+    email address and retrying a delivery require `manage`. WhatsApp link setup
+    requires an eligible Business as defined under WhatsApp receipt intake. A person can always revoke their own link. GET `/business/workspace` under a grant reads the
     selected Business and never heals an owner grant. Accepted memberships
     survive loss of the issuer's access. Each legacy receipt write (upload, review,
     confirm) leaves one `business_action_receipts` row naming the grant,
@@ -10439,8 +10391,8 @@ accept path recorded.
   Each channel has one predicate shared by this response and its API dependency.
   Email requires current capture and receiving readiness, a runtime with its
   receiving adapter, and a configured domain. It does not require an existing
-  address. WhatsApp uses current intake readiness and the selected Business's
-  live `prepare` permission for the authenticated person. Link status, link codes and consent always use
+  address. WhatsApp requires current intake readiness and an eligible selected
+  Business (live `prepare`, tax ID and automatic reading). Link status, link codes and consent always use
   the authenticated person's identity, including after a Business transfer.
   A missing address or linked number is setup state, not channel availability.
   The Business web context treats unknown or false as unavailable for channel

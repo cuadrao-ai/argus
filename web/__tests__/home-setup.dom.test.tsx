@@ -1,3 +1,4 @@
+import { whatsappDisclosure } from "./fixtures/whatsapp-disclosure";
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, jest, test } from "bun:test";
 import { SETUP_DONE_MS, SETUP_FADE_MS } from "@/components/business-app/inicio/HomeSetup";
@@ -87,6 +88,33 @@ describe("Configurar negocio lives in the sidebar, from the server's steps", () 
       assert.deepEqual(page.opened, [{ kind: "business", tab: "datos" }]);
       assert.equal(document.querySelector('[data-testid="home-setup-panel"]'), null);
     } finally { await page.close(); }
+  });
+
+  test("Conecta WhatsApp opens the phone-link panel from the setup card", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+    process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+    const calls: string[] = [];
+    globalThis.fetch = (async (input) => {
+      const url = new URL(String(input), "http://localhost");
+      calls.push(url.pathname + url.search);
+      return Response.json({ ...whatsappDisclosure["es-419"], linked: false, last4: null, linked_at: null, reply_language: null, receiving_businesses: [{ space_id: "space-setup", name: "Taller Nuevo" }], held_count: 0 });
+    }) as typeof fetch;
+    const page = await mount([step("fiscal_identity", false), step("whatsapp", false, false)]);
+    try {
+      await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="sidebar-setup"]')!.click());
+      await page.act(async () => document.querySelector<HTMLButtonElement>('[data-testid="home-setup-step-whatsapp"]')!.click());
+      assert.deepEqual(calls, ["/api/v1/whatsapp/link?language=es-419"]);
+      const panel = document.querySelector('[role="dialog"]');
+      assert.ok([...panel!.querySelectorAll("button")].some((button) => button.textContent === "Vincular mi WhatsApp"));
+      assert.equal(document.querySelector('[data-testid="home-setup-panel"]'), null);
+      assert.deepEqual(page.opened, []);
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalMockAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+      else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMockAuth;
+      await page.close();
+    }
   });
 
   test("the first document step starts the upload Agregar already offers", async () => {

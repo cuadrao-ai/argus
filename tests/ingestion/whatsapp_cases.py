@@ -15,7 +15,7 @@ from uuid import uuid4
 
 import pytest
 from argus.api.whatsapp import DocumentsDestination
-from argus.domain.business.access import AccessStore
+from argus.domain.business.access import AccessStore, PostgresAccessStore
 from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.service import DocumentsService
@@ -34,6 +34,11 @@ from argus.domain.ingestion.whatsapp.reply_groups import ReplyGroupCodec
 from argus.domain.ingestion.whatsapp.store import Settlement
 from argus.domain.owner_scope import PERSONAL, BusinessSpace
 
+from tests.ingestion.whatsapp_link_support import (
+    ENGLISH_NOTICE,
+    NOTICE,
+    prepare_phone_business,
+)
 from tests.ingestion.whatsapp_support import (
     ALICE_PHONE,
     BOB_PHONE,
@@ -90,7 +95,10 @@ class World:
         await self.intake.handle(parse_delivery(raw, phone_number_id=PHONE_NUMBER_ID))
 
     def issue(self, owner: str, language: str = "es-419"):  # noqa: ANN201
-        return self.intake.issue_code(destination_owner_id=owner, reply_language=language)
+        return self.intake.issue_code(
+            destination_owner_id=owner, reply_language=language,
+            disclosure=NOTICE if language == "es-419" else ENGLISH_NOTICE,
+        )
 
     async def link(self, owner: str, phone: str, language: str = "es-419") -> None:
         issued = self.issue(owner, language)
@@ -133,6 +141,8 @@ def build_world(
     for owner in (alice, bob):
         space, _ = spaces.create(owner, "Mi negocio")
         access.ensure_owner_grant(space.id, owner)
+        if isinstance(access, PostgresAccessStore):
+            prepare_phone_business(access.pool, space.id, owner)
     graph, transport = FakeGraph(), RecordingTransport()
     # A key per world keeps message digests unique across runs on a shared database.
     keys = WhatsAppKeys(f"{SENDER_KEY}-{uuid4()}")

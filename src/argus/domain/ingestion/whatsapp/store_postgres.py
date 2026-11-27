@@ -9,10 +9,15 @@ from datetime import datetime
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
-from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.transactions import lock_owner
+from argus.domain.ingestion.whatsapp.ai_consent import (
+    matches_link_disclosure,
+    record_link_consent,
+    require_link_disclosure,
+)
 from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
 from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
+from argus.domain.ingestion.whatsapp.senders import postgres_senders
 from argus.domain.ingestion.whatsapp.store import (
     UNLINKED_REPLY_RESERVED,
     CapturePermissionLost,
@@ -21,14 +26,12 @@ from argus.domain.ingestion.whatsapp.store import (
     PrepareCapture,
     SenderLink,
     Settlement,
-    can_redeem_link,
     dominican_day,
     revoked,
     settlement_seconds,
     settlement_time,
     unlinked_reply_key,
 )
-from argus.domain.postgres_connection import BorrowedConnection
 
 _INBOUND_COLUMNS = (
     "provider_message_key, sender_hash, status, destination_owner_id::text, "
@@ -255,10 +258,13 @@ class PostgresWhatsAppStore:
         destination_owner_id: str,
         code_digest: bytes,
         reply_language: str,
+        disclosure: str,
         now: datetime,
         expires_at: datetime,
     ) -> None:
+        require_link_disclosure(reply_language, disclosure)
         with self._pool.connection() as connection, connection.transaction():
+            lock_owner(connection, destination_owner_id)
             connection.execute(
                 "delete from public.whatsapp_link_codes "
                 "where destination_owner_id = %s and consumed_at is null",
@@ -267,8 +273,8 @@ class PostgresWhatsAppStore:
             connection.execute(
                 "insert into public.whatsapp_link_codes "
                 "(destination_owner_id, code_digest, reply_language, created_at, "
-                "expires_at) values (%s, %s, %s, %s, %s)",
-                (destination_owner_id, code_digest, reply_language, now, expires_at),
+                "expires_at, disclosure) values (%s, %s, %s, %s, %s, %s)",
+                (destination_owner_id, code_digest, reply_language, now, expires_at, disclosure),
             )
 
     def redeem_code(
@@ -276,31 +282,41 @@ class PostgresWhatsAppStore:
     ) -> SenderLink | None:
         with self._pool.connection() as connection, connection.transaction():
             row = connection.execute(
-                "select destination_owner_id::text, reply_language from public.whatsapp_link_codes "
-                "where code_digest=%s and consumed_at is null and expires_at>%s for update",
+                "select destination_owner_id::text, reply_language, disclosure"
+                " from public.whatsapp_link_codes"
+                " where code_digest=%s and consumed_at is null and expires_at>%s for update",
                 (code_digest, now),
             ).fetchone()
             if row is None:
                 return None
-            owner, reply_language = row
-            access = PostgresAccessStore(BorrowedConnection(connection))
-            if not can_redeem_link(access, owner):
-                return None
+            owner, reply_language, disclosure = row
             connection.execute(
-                "update public.whatsapp_link_codes set consumed_at=%s where code_digest=%s",
+                "update public.whatsapp_link_codes set consumed_at=%s, disclosure=null where code_digest=%s",
                 (now, code_digest),
             )
+            if not matches_link_disclosure(reply_language, disclosure):
+                return None
+            grants = postgres_senders(connection).eligible_businesses(owner)
+            if not grants:
+                return None
             connection.execute(
                 "update public.whatsapp_sender_links "
                 "set status = 'revoked', revoked_at = %s "
                 "where status = 'active' and (wa_id_hash = %s or destination_owner_id = %s)",
                 (now, sender_hash, owner),
             )
-            connection.execute(
+            link = connection.execute(
                 "insert into public.whatsapp_sender_links "
                 "(destination_owner_id, wa_id_hash, last4, reply_language, status, "
-                "linked_at) values (%s, %s, %s, %s, 'active', %s)",
+                "linked_at) values (%s, %s, %s, %s, 'active', %s) returning id",
                 (owner, sender_hash, last4, reply_language, now),
+            ).fetchone()
+            # Keep one reproducible grant as evidence of authority at redemption.
+            # Consent belongs to the link and checks current eligibility at read time.
+            record_link_consent(
+                connection, grant=min(grants, key=lambda grant: grant.grant_id),
+                link_id=link[0], sender_hash=sender_hash,
+                language=reply_language, disclosure=disclosure,
             )
         return SenderLink(owner, last4, now, reply_language)
 

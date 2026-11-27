@@ -1,163 +1,191 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useContext, useEffect, useEffectEvent, useId, useState, type ReactNode } from "react";
+import { Clock, ExternalLink, Info, LoaderCircle, MessageCirclePlus } from "lucide-react";
+import Image from "next/image";
 import { useTranslation } from "react-i18next";
+import { BusinessContext } from "@/components/business-app/business-context";
+import { primaryButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
+import { CHANNEL_ICON } from "@/components/business-app/foundation/channel-icons";
 import SettingsSurface from "@/components/settings/SettingsSurface";
 import CopyCodeButton from "@/components/settings/CopyCodeButton";
+import { normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
-  createWhatsAppLinkCode,
-  getWhatsAppLink,
-  unlinkWhatsApp,
-  whatsAppLinkProblem,
-  type WhatsAppAIConsent,
-  type WhatsAppLinkCode,
-  type WhatsAppLinkProblem,
-  type WhatsAppLinkStatus,
+  createWhatsAppLinkCode, getWhatsAppLink, unlinkWhatsApp, whatsAppLinkProblem,
+  type WhatsAppLinkCode, type WhatsAppLinkProblem, type WhatsAppLinkStatus,
 } from "@/lib/whatsapp-link-api";
 
-const button =
-  "min-h-11 rounded-xl border border-black/10 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15";
-const primary = `${button} bg-black text-white dark:bg-white dark:text-black`;
+const muted = "text-sm leading-5 text-[#56635e] dark:text-white/70";
+const box = "flex items-start gap-3 rounded-surface bg-[#F7F5EE] p-4 dark:bg-[#1f2225]";
+const title = "text-base font-medium";
+const number = "inline-grid h-6 w-6 shrink-0 place-items-center rounded-full border border-[var(--surface-divider)] text-[13px] tabular-nums";
+const key = (name: string) => `settings.whatsapp.${name}`;
 
-export type WhatsAppLinkViewProps = {
-  status: WhatsAppLinkStatus | null;
-  code: WhatsAppLinkCode | null;
-  loading: boolean;
-  busy: boolean;
-  problem: WhatsAppLinkProblem | null;
-  confirmingUnlink: boolean;
-  consent?: WhatsAppAIConsent | null;
-  onToggleAI?: () => void;
-  onCreateCode: () => void;
-  onAskUnlink: (ask: boolean) => void;
-  onUnlink: () => void;
-  onRefresh: () => void;
-};
-
-export function WhatsAppLinkView({
-  status,
-  code,
-  loading,
-  busy,
-  problem,
-  confirmingUnlink,
-  onCreateCode,
-  onAskUnlink,
-  onUnlink,
-  onRefresh,
-}: WhatsAppLinkViewProps) {
+function Intro({ blocked, disclosure }: { blocked: boolean; disclosure?: string }) {
   const { t } = useTranslation();
-  const blocked = problem === "unavailable" || problem === "space_missing";
-  return (
-    <div className="space-y-5 p-5 text-sm text-black dark:text-white">
-      <section className="rounded-2xl bg-black/5 p-4 dark:bg-white/5">
-        <h3 className="font-medium">{t("settings.whatsapp.number", "Linked number")}</h3>
-        {loading ? (
-          <p role="status" className="mt-2">{t("settings.whatsapp.loading", "Reading your link…")}</p>
-        ) : status?.linked ? (
-          <p className="mt-2">{t("settings.whatsapp.linked", "Number ending in {{last4}}", { last4: status.last4 ?? "••••" })}</p>
-        ) : (
-          <p className="mt-2">{t("settings.whatsapp.unlinked", "No number is linked.")}</p>
-        )}
-      </section>
-      {problem ? (
-        <p role="alert" className={inlineFailureTextClass}>
-          {t(`settings.whatsapp.problem_${problem}`, "WhatsApp could not be reached. Try again.")}
-        </p>
-      ) : null}
-      {code ? (
-        <section className="space-y-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
-          <p>{t("settings.whatsapp.send_steps", "Send this message from your own WhatsApp to the Cuadrao number. The code works once and expires soon.")}</p>
-          <div className="flex items-start gap-2">
-            <p className="min-w-0 flex-1 select-all break-all font-mono text-base" data-testid="whatsapp-link-message">{code.message_text}</p>
-            <CopyCodeButton text={code.message_text} />
-          </div>
-          {code.wa_me_url ? (
-            <a className={`${primary} inline-flex items-center`} href={code.wa_me_url} target="_blank" rel="noopener noreferrer">
-              {t("settings.whatsapp.open", "Open WhatsApp")}
-            </a>
-          ) : (
-            <p className="text-black/60 dark:text-white/60">{t("settings.whatsapp.no_link", "Open WhatsApp and send the message above to the Cuadrao number.")}</p>
-          )}
-          <button type="button" className={button} onClick={onRefresh} disabled={loading || busy}>
-            {t("settings.whatsapp.check", "I sent it, check")}
-          </button>
-        </section>
-      ) : null}
-      {status?.linked ? <section className="rounded-xl border border-black/10 p-4 dark:border-white/10">
-        <p>{t("business.activity.all_channels")}</p>
-        <a href="/biz?view=inbox" className={`${button} mt-3 inline-flex items-center`}>{t("business.activity.open_settings")}</a>
-      </section> : null}
-      <div className="flex flex-wrap gap-2">
-        {!status?.linked ? (
-          <button type="button" className={primary} onClick={onCreateCode} disabled={loading || busy || blocked}>
-            {t(code ? "settings.whatsapp.new_code" : "settings.whatsapp.create", code ? "Get a new code" : "Get a link code")}
-          </button>
-        ) : null}
-        {status?.linked ? (
-          <button type="button" className={button} onClick={() => onAskUnlink(true)} disabled={busy}>
-            {t("settings.whatsapp.unlink", "Unlink number")}
-          </button>
-        ) : null}
+  const setupHeading = useId();
+  const WhatsApp = CHANNEL_ICON.whatsapp;
+  return <>
+    <div className="flex items-start gap-4">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#F7F5EE] dark:bg-[#1f2225]"><WhatsApp size={24} aria-hidden="true" /></span>
+      <div className="space-y-1"><h3 className={title}>{t(key("intro_title"))}</h3><p className={muted}>{t(key("intro_body"))}</p>
+        {!blocked && <p className={muted}>{t(key("intro_held"))}</p>}
       </div>
-      {confirmingUnlink ? (
-        <div className="space-y-3 rounded-xl border border-black/10 p-3 dark:border-white/10">
-          <p>{t("settings.whatsapp.confirm_unlink", "Unlink your number? New messages will no longer be accepted from it. Receipts already received stay in your Inbox.")}</p>
-          <div className="flex gap-2">
-            <button type="button" className={button} onClick={onUnlink} disabled={busy}>{t("settings.whatsapp.confirm", "Confirm")}</button>
-            <button type="button" className={button} onClick={() => onAskUnlink(false)}>{t("settings.whatsapp.cancel", "Cancel")}</button>
-          </div>
-        </div>
-      ) : null}
     </div>
-  );
+    {blocked ? <>
+      <div className={box} role="status"><Info size={20} className="shrink-0" aria-hidden="true" /><div>
+        <h3 id={setupHeading} className={title}>{t(key("setup_title"))}</h3><p className={`${muted} mt-1`}>{t(key("setup_body"))}</p>
+      </div></div>
+      <ol aria-labelledby={setupHeading} className="divide-y divide-[var(--surface-divider)] rounded-surface bg-[#F7F5EE] px-4 dark:bg-[#1f2225]">
+        {["fiscal_identity", "receipt_reading"].map((step, i) => <li key={step} className="flex items-center gap-3 py-3">
+          <span className={number} aria-hidden="true">{i + 1}</span>{t(`business.home_setup.steps.${step}.title`)}
+        </li>)}
+      </ol>
+    </> : <div className={box}><MessageCirclePlus size={20} className="shrink-0" aria-hidden="true" /><p className={muted}>{disclosure}</p></div>}
+  </>;
 }
 
-export default function WhatsAppLinkModal({
-  onClose,
-  onBack,
-  backLabel,
-}: {
-  onClose: () => void;
-  onBack?: () => void;
-  backLabel?: string;
-}) {
+function QR({ code, expired = false }: { code: WhatsAppLinkCode; expired?: boolean }) {
+  const { t } = useTranslation();
+  if (!code.qr_data_url) return null;
+  return <div className="relative hidden shrink-0 self-start overflow-hidden rounded-item border border-[var(--surface-divider)] bg-white tablet:block">
+    <Image src={code.qr_data_url} unoptimized width={148} height={148} alt={expired ? "" : t(key("scan_title"))} className={expired ? "opacity-20" : undefined}/>
+    {expired && <Clock aria-hidden="true" className="absolute top-1/2 left-1/2 h-10 w-10 -translate-1/2 rounded-full border bg-white p-2 text-[#56635e]" />}
+  </div>;
+}
+
+function CodeMessage({ code, expired = false }: { code: WhatsAppLinkCode; expired?: boolean }) {
+  return <div className="flex min-h-11 items-center gap-2 rounded-item border border-[var(--surface-divider)] py-1 pr-1 pl-3">
+    <code data-testid="whatsapp-link-message" className={`min-w-0 flex-1 break-all font-mono tracking-wide ${expired ? "text-[#85918c] line-through" : "select-all"}`}>{code.message_text}</code>
+    {!expired && <CopyCodeButton text={code.message_text} />}
+  </div>;
+}
+
+function OpenWhatsApp({ url, mobile = false }: { url: string; mobile?: boolean }) {
+  const { t } = useTranslation();
+  return <a href={url} target="_blank" rel="noopener noreferrer" className={mobile ? `${primaryButtonClass} w-full tablet:hidden` : `${secondaryButtonClass} shrink-0 whitespace-nowrap max-tablet:hidden`}>
+    {t(key("open"))}<ExternalLink size={16} aria-hidden="true" />
+  </a>;
+}
+
+function Waiting({ code, seconds }: { code: WhatsAppLinkCode; seconds: number }) {
+  const { t } = useTranslation();
+  const time = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  return <>
+    {code.wa_me_url && <>
+      <div className="space-y-3 tablet:hidden"><h3 className={title}>{t(key("mobile_title"))}</h3>
+        <p className={muted}>{t(key("mobile_steps"))}</p><OpenWhatsApp url={code.wa_me_url} mobile />
+      </div>
+      <h3 className={`${title} hidden tablet:block`}>{t(key("scan_title"))}</h3>
+    </>}
+    <div className="flex gap-6">
+      <QR code={code} /><div className="min-w-0 flex-1 space-y-4">
+        {code.qr_data_url && <ol className="hidden space-y-3 text-sm tablet:block">
+          {["scan_camera", "scan_send", "scan_return"].map((step, i) => <li key={step} className="flex gap-3">
+            <span className={number} aria-hidden="true">{i + 1}</span>{t(key(step))}
+          </li>)}
+        </ol>}
+        <div className="flex items-center gap-2 text-sm"><LoaderCircle size={18} aria-hidden="true" className="text-[var(--cuadrao-green)] motion-safe:animate-spin" />
+          <span role="status">{t(key("waiting"))}</span><span role="timer" className={`${muted} ml-auto tabular-nums`}>{t(key("expires_in"), { time })}</span>
+        </div>
+      </div>
+    </div>
+    <div className="space-y-2">
+      <p className={muted}>{t(key("send_steps"))}</p><CodeMessage code={code} />
+    </div>
+  </>;
+}
+
+type Frame = { onClose: () => void; onBack?: () => void; backLabel?: string };
+type Issued = { code: WhatsAppLinkCode; seconds: number; expired: boolean; language: ArgusLanguage; token: string };
+const remaining = (expires: string) => Math.max(0, Math.ceil((Date.parse(expires) - Date.now()) / 1000));
+
+export default function WhatsAppLinkModal(frame: Frame) {
   const { t, i18n } = useTranslation();
-  const [status, setStatus] = useState<WhatsAppLinkStatus | null>(null);
-  const [code, setCode] = useState<WhatsAppLinkCode | null>(null);
-  const [loading, setLoading] = useState(true);
+  const business = useContext(BusinessContext);
+  const language = normalizeEnabledLanguage(i18n.resolvedLanguage);
+  const [answer, setAnswer] = useState<{ language: ArgusLanguage; status: WhatsAppLinkStatus } | null>(null);
+  const status = answer?.language === language ? answer.status : null;
+  const [refresh, setRefresh] = useState(0);
+  const [lastIssued, setIssued] = useState<Issued | null>(null);
+  const issued = lastIssued?.language === language ? lastIssued : null;
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<WhatsAppLinkProblem | null>(null);
-  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const next = await getWhatsAppLink();
-      setStatus(next);
-      setProblem(null);
-      if (next.linked) {
-        setCode(null);
-      }
-    } catch (error) {
-      setProblem(whatsAppLinkProblem(error));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [confirmUnlink, setConfirmUnlink] = useState(false);
+  const code = issued?.code;
+  const acceptedToken = issued?.token;
+  const closeUnavailable = useEffectEvent(frame.onClose);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    const request = new AbortController();
+    getWhatsAppLink(language, request.signal).then((next) => {
+      if (!request.signal.aborted) setAnswer({ language, status: next });
+    }).catch((error) => {
+      if (request.signal.aborted) return;
+      const failure = whatsAppLinkProblem(error);
+      if (failure === "unavailable") closeUnavailable();
+      else setProblem(failure);
+    });
+    return () => request.abort();
+  }, [language, refresh]);
+
+  useEffect(() => {
+    if (!code) return;
+    const request = new AbortController();
+    let nextPoll = Date.now() + 3000;
+    let reading = false;
+    const tick = async () => {
+      const seconds = remaining(code.expires_at);
+      setIssued((current) => current?.code === code && current.seconds !== seconds ? { ...current, seconds } : current);
+      const finalRead = seconds === 0;
+      if (reading || (!finalRead && Date.now() < nextPoll)) return;
+      if (finalRead) clearInterval(timer);
+      reading = true;
+      nextPoll = Date.now() + 3000;
+      try {
+        const next = await getWhatsAppLink(language, request.signal);
+        if (request.signal.aborted) return;
+        setAnswer({ language, status: next });
+        setProblem(null);
+        if (next.linked || !next.receiving_businesses.length || next.disclosure_token !== acceptedToken) setIssued(null);
+      } catch (error) {
+        if (request.signal.aborted) return;
+        const failure = whatsAppLinkProblem(error);
+        if (failure === "unavailable") {
+          setIssued(null);
+          closeUnavailable();
+        } else {
+          setProblem(failure);
+          if (failure === "setup_required") setIssued(null);
+        }
+      } finally {
+        reading = false;
+        if (finalRead && !request.signal.aborted) {
+          setIssued((current) => current?.code === code ? { ...current, expired: true } : current);
+        }
+      }
+    };
+    const timer = setInterval(tick, 1000);
+    if (!remaining(code.expires_at)) void tick();
+    return () => { clearInterval(timer); request.abort(); };
+  }, [code, language, acceptedToken]);
 
   async function createCode() {
+    if (!status?.disclosure || !status.disclosure_token) return;
     setBusy(true);
     try {
-      setCode(await createWhatsAppLinkCode(i18n.resolvedLanguage?.startsWith("es") ? "es-419" : "en"));
+      const next = await createWhatsAppLinkCode(language, status.disclosure_token);
+      setIssued({ code: next, seconds: remaining(next.expires_at), expired: false, language, token: status.disclosure_token });
       setProblem(null);
     } catch (error) {
-      setProblem(whatsAppLinkProblem(error));
+      setIssued(null);
+      const failure = whatsAppLinkProblem(error);
+      setProblem(failure);
+      if (failure === "stale") {
+        setAnswer(null);
+        setRefresh((value) => value + 1);
+      }
     } finally {
       setBusy(false);
     }
@@ -167,8 +195,10 @@ export default function WhatsAppLinkModal({
     setBusy(true);
     try {
       await unlinkWhatsApp();
-      setConfirmingUnlink(false);
-      await refresh();
+      setConfirmUnlink(false);
+      setAnswer(null);
+      setRefresh((value) => value + 1);
+      setProblem(null);
     } catch (error) {
       setProblem(whatsAppLinkProblem(error));
     } finally {
@@ -176,22 +206,56 @@ export default function WhatsAppLinkModal({
     }
   }
 
-  return (
-    <SettingsSurface
-      title={t("settings.whatsapp.title", "WhatsApp")}
-      closeLabel={t("common.close", "Close")}
-      onClose={onClose}
-      onBack={onBack}
-      backLabel={backLabel}
-      width="md"
-    >
-      <WhatsAppLinkView
-        {...{ status, code, loading, busy, problem, confirmingUnlink }}
-        onCreateCode={() => void createCode()}
-        onAskUnlink={setConfirmingUnlink}
-        onUnlink={() => void unlink()}
-        onRefresh={() => void refresh()}
-      />
-    </SettingsSurface>
-  );
+  const cancel = <button type="button" className={secondaryButtonClass} onClick={() => { setIssued(null); setProblem(null); }}>{t(key("cancel"))}</button>;
+  const create = (label: string) => <button type="button" disabled={busy || !status?.disclosure || !status.disclosure_token} className={primaryButtonClass} onClick={createCode}>{t(key(label))}</button>;
+  const blocked = problem === "setup_required" || status?.receiving_businesses.length === 0;
+  let body: ReactNode;
+  let footer: ReactNode;
+  if (status?.linked) {
+    body = <>
+      <section className={box}><div><h3 className={title}>{t(key("number"))}</h3><p>{t(key("linked"), { last4: status.last4 })}</p></div></section>
+      <section className="space-y-2 rounded-surface border border-[var(--surface-divider)] p-4">
+        <p>{t("business.activity.all_channels")}</p><a href="/biz?view=inbox" className={secondaryButtonClass}>{t("business.activity.open_settings")}</a>
+      </section>
+      {confirmUnlink && <p>{t(key("confirm_unlink"))}</p>}
+    </>;
+    footer = confirmUnlink ? <>
+      <button className={secondaryButtonClass} disabled={busy} onClick={unlink}>{t(key("confirm"))}</button>
+      <button className={secondaryButtonClass} onClick={() => setConfirmUnlink(false)}>{t(key("cancel"))}</button>
+    </> : <button className={secondaryButtonClass} onClick={() => setConfirmUnlink(true)}>{t(key("unlink"))}</button>;
+  } else if (issued && !issued.expired) {
+    body = <Waiting code={issued.code} seconds={issued.seconds} />;
+    footer = <>{issued.code.wa_me_url && <><p className={`${muted} min-w-0 flex-1 max-tablet:hidden`}>{t(key("desktop_prompt"))}</p>
+      <OpenWhatsApp url={issued.code.wa_me_url} /></>}{cancel}</>;
+  } else if (issued) {
+    body = <>
+      <div className={box} role="status"><Clock className="shrink-0" size={20} aria-hidden="true" /><div><h3 className={title}>{t(key("expired_title"))}</h3><p className={muted}>{t(key("expired_body"))}</p></div></div>
+      <div className="flex items-center gap-6"><QR code={issued.code} expired /><div className="min-w-0 flex-1 space-y-3"><p className={muted}>{t(key("expired_message"))}</p><CodeMessage code={issued.code} expired />
+        <div className="hidden tablet:block">{create("new_code")}</div>
+      </div></div>
+    </>;
+    footer = <><div className="grid tablet:hidden">{create("new_code")}</div>{cancel}</>;
+  } else if (problem === "rate_limited") {
+    footer = <>{create("new_code")}{cancel}</>;
+  } else if (blocked) {
+    body = <Intro blocked />;
+    footer = <a href="/biz?view=business&tab=datos" className={primaryButtonClass} onClick={(event) => {
+      if (!business) return;
+      event.preventDefault();
+      frame.onClose();
+      business.openPanel({ kind: "business", tab: "datos" });
+    }}>{t("business.switcher.settings")}</a>;
+  } else if (status && problem !== "unavailable") {
+    body = <Intro blocked={false} disclosure={status.disclosure} />;
+    footer = create("link_phone");
+  } else if (!problem) {
+    body = <p role="status">{t(key("loading"))}</p>;
+  }
+  return <SettingsSurface {...frame} title={t(key("title"))} closeLabel={t("common.close")} width="md"
+    footer={footer && <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-end">{footer}</div>}>
+    <div className="space-y-[21px] px-4 py-5 text-base text-[#172b26] tablet:px-6 dark:text-white">
+      {problem && problem !== "setup_required" && <p role="alert" className={inlineFailureTextClass}>{t(key(`problem_${problem}`))}</p>}
+      {body}
+    </div>
+  </SettingsSurface>;
 }
