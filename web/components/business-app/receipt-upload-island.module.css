@@ -30,9 +30,7 @@
   animation: emerge .6s both;
 }
 .island:focus-visible { outline: 2px solid var(--cuadrao-green); outline-offset: 2px; }
-.content { display: flex; align-items: center; gap: 8px; width: max-content; max-width: calc(var(--island-room, 100vw) - 2px); padding: 0 14px 0 9px; }
-.content > svg { flex: none; }
-.words { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.content { display: flex; align-items: center; gap: 8px; width: max-content; padding: 0 14px 0 9px; }
 .icon { width: 20px; height: 20px; color: #2f5a49; }
 :global(.dark) .icon { color: #8fcbb0; }
 .track { stroke: #e4e2da; }

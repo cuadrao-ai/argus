@@ -155,7 +155,7 @@ test("done without Save As: the toast offers Descargar de nuevo and the island n
   assert.equal(page.exportCalls(), 1, "never a second request");
 });
 
-test("failed: the island turns red with the panel's sentence, a click reopens the panel at that error, and Reintentar reuses the place", async () => {
+test("failed: the island turns red with the alert icon and no words, its name is the panel's sentence, a click reopens the panel at that error, and Reintentar reuses the place", async () => {
   const page = await registros();
   const save = savePicker();
   page.fixture.controls.exportFails = true;
@@ -166,7 +166,7 @@ test("failed: the island turns red with the panel's sentence, a click reopens th
   await page.answer();
   await page.settle(() => island()?.dataset.state === "failed");
   assert.equal(panel(), null, "the panel stays closed");
-  assert.equal(island()!.textContent, SAVE_FAILED);
+  assert.equal(island()!.textContent, "", "the alert icon alone, at every width");
   assert.equal(island()!.getAttribute("aria-label"), SAVE_FAILED);
   assert.match(island()!.className, /text-\[#9e2f39\]/);
   assert.equal(page.toasts().textContent, "", "a failure is never a toast");
@@ -189,14 +189,15 @@ test("failed: the island turns red with the panel's sentence, a click reopens th
   assert.match(page.toasts().textContent!, /Guardado/);
 });
 
-test("failed without Save As: the island and the panel both say the file could not be prepared, and closing the panel lets the failure go", async () => {
+test("failed without Save As: the island's name and the panel both say the file could not be prepared, and closing the panel lets the failure go", async () => {
   const page = await registros();
   page.fixture.controls.exportFails = true;
   await page.open();
   await page.click(downloadButton());
   await page.answer();
   await page.settle(() => island()?.dataset.state === "failed");
-  assert.equal(island()!.textContent, BUILD_FAILED);
+  assert.equal(island()!.textContent, "");
+  assert.equal(island()!.getAttribute("aria-label"), BUILD_FAILED);
   await page.click(island());
   await page.settle(() => alert() !== null);
   assert.ok(alert()!.textContent!.startsWith(BUILD_FAILED));

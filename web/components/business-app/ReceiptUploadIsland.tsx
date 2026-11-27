@@ -91,10 +91,11 @@ export default function ReceiptUploadIsland({ queue, grant, panelOpen, drawer, p
   // Of two jobs the one that runs shows, and of two that run, the newer.
   const exportInFront = exported !== null && (ORDER[exported.kind] < ORDER[batch.state] || (ORDER[exported.kind] === ORDER[batch.state] && exported.at >= (batch.state === "saved" ? batch.lastSavedAt : batch.lastAddedAt)));
   const state = exportInFront ? exported.kind : batch.state;
+  // A failed export shows the alert icon alone. Its sentence is the name, and Exportar says it in full.
   const words = !exportInFront ? uploadSummaryText(t, batch, "island")
-    : exported.kind === "preparing" ? t("business.transactions.reporting.export.preparing")
-    : exported.kind === "failed" ? exportFailureText(t, exported.problem, exported.toPlace) : "";
-  const label = !exportInFront && batch.progress ? t("business.intake.chip_uploading", batch.progress) : words;
+    : exported.kind === "preparing" ? t("business.transactions.reporting.export.preparing") : "";
+  const label = !exportInFront ? batch.progress ? t("business.intake.chip_uploading", batch.progress) : words
+    : exported.kind === "failed" ? exportFailureText(t, exported.problem, exported.toPlace) : words;
   const open = exportInFront ? exported.kind === "failed" ? onOpenExport : null : () => batch.target && onOpen(batch.target);
   const expires = exportInFront ? exported.kind === "done" ? exported.at + EXPORTED_MS : 0 : batch.state === "saved" ? batch.lastSavedAt + SAVED_MS : 0;
   const subscribeExpiry = useCallback((notify: () => void) => {
@@ -118,17 +119,9 @@ export default function ReceiptUploadIsland({ queue, grant, panelOpen, drawer, p
     const node = anchor.current;
     const search = node?.parentElement;
     if (!node || !search) return;
-    const bar = search.closest("[data-business-search-anchor]");
     const fit = () => {
       const shift = drawer?.narrow ? Math.max(0, search.getBoundingClientRect().left - 8 - drawer.node.getBoundingClientRect().left + 12) : 0;
       node.style.setProperty("--record-shift", `${shift}px`);
-      // A sentence longer than the room beside the heading is cut short, never laid over the heading.
-      const title = bar?.querySelector("h1");
-      const text = document.createRange();
-      if (title) text.selectNodeContents(title);
-      const titleEnd = title ? text.getBoundingClientRect().right : 0;
-      if (titleEnd > 0) node.style.setProperty("--island-room", `${Math.max(40, search.getBoundingClientRect().left - 8 - shift - titleEnd - 16)}px`);
-      else node.style.removeProperty("--island-room");
       if (content.current) node.style.setProperty("--island-width", `${content.current.offsetWidth + 2}px`);
     };
     fit();
@@ -137,11 +130,8 @@ export default function ReceiptUploadIsland({ queue, grant, panelOpen, drawer, p
     if (search.parentElement) observer.observe(search.parentElement);
     if (drawer) observer.observe(drawer.node);
     if (content.current) observer.observe(content.current);
-    // The heading changes with the screen, and it is not this component's to watch for size.
-    const headings = new MutationObserver(fit);
-    if (bar) headings.observe(bar, { childList: true, subtree: true, characterData: true });
     window.addEventListener("resize", fit);
-    return () => { observer.disconnect(); headings.disconnect(); window.removeEventListener("resize", fit); };
+    return () => { observer.disconnect(); window.removeEventListener("resize", fit); };
   }, [drawer, shown, words]);
 
   return <div ref={anchor} data-upload-anchor="" className={`${styles.anchor} rounded-full`} data-phone={phone || undefined}>
@@ -165,7 +155,7 @@ export default function ReceiptUploadIsland({ queue, grant, panelOpen, drawer, p
         </svg> : state === "failed" ? <CircleAlert size={20} strokeWidth={2.2} /> : <svg className={styles.icon} viewBox="0 0 24 24" fill="none">
           <path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className={styles.check} />
         </svg>}
-        {phone || !words ? null : <span className={styles.words}>{words}</span>}
+        {phone || !words ? null : <span>{words}</span>}
       </span>
     </Surface> : null}
   </div>;

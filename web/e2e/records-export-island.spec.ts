@@ -82,12 +82,11 @@ for (const theme of ["light", "dark"] as const) {
       const island = page.getByTestId("receipt-upload-island");
       await expect(island).toHaveAttribute("data-state", "failed");
       await expect(island).toHaveAttribute("aria-label", "No pudimos preparar el archivo. Inténtalo de nuevo.");
-      await expect(island).toHaveText(phone ? "" : "No pudimos preparar el archivo. Inténtalo de nuevo.");
+      await expect(island).toHaveText("");
       await expect(page.getByTestId("records-export-panel")).toHaveCount(0);
       await page.waitForTimeout(700);
       await evidence(page, `3-fallo-${tag}`);
-      const bar = await island.boundingBox();
-      expect(bar!.x).toBeGreaterThanOrEqual(0);
+      expect((await island.boundingBox())!.width).toBe(40);
 
       await page.getByTestId(phone ? "business-bottom-tabs" : "business-sidebar-nav").getByText("Inicio", { exact: true }).click();
       await expect(page.getByTestId("records-export")).toHaveCount(0);
