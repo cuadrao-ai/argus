@@ -30,6 +30,8 @@ from argus.api.email_intake import (
     email_intake,
     email_receiving_available,
     part_repeat,
+    readable_deliveries,
+    readable_delivery,
     require_email_receiving,
 )
 from argus.api.ingestion import ingestion_hub
@@ -499,6 +501,7 @@ def list_senders(
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business)],
 ) -> dict[str, Any]:
+    manager_only(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request, context)
     space_id = context.scope.owner.space_id
@@ -607,7 +610,7 @@ def inbox(
     space_id = context.scope.owner.space_id
     relations = runtime.store.membership(space_id) if runtime else {}
     grouped = {"remitentes_nuevos": [], "bandeja": []}
-    for item in runtime.store.list(space_id, limit=200) if runtime else []:
+    for item in readable_deliveries(runtime, context.scope, limit=200) if runtime else []:
         if item.inbox_group not in grouped:
             continue
         view = _group(runtime, item, relations=relations)
@@ -715,7 +718,7 @@ def deliveries(
     return {
         "items": [
             _group(runtime, item, relations=relations)
-            for item in runtime.store.list(space_id)
+            for item in readable_deliveries(runtime, context.scope, limit=50)
         ]
     }
 
@@ -729,7 +732,7 @@ def delivery(
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
     runtime = _stored_history(request)
-    item = runtime.store.get(str(delivery_id), context.scope.owner.space_id) if runtime else None
+    item = readable_delivery(runtime, context.scope, str(delivery_id)) if runtime else None
     if item is None:
         raise _problem(
             request, 404, "email_delivery_not_found", "This email is not available."

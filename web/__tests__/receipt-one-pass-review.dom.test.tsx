@@ -943,7 +943,7 @@ describe("the receipt dossier on an open draft", () => {
     for (const capabilities of [["read", "prepare"], ["read"]] as const) {
       const page = await setup("fiscal", (dossier) => { dossier.capabilities = [...capabilities]; dossier.declaration_editable = capabilities.length === 2; if (!dossier.declaration_editable) { dossier.facts_editable = false; dossier.editable_fields = []; } });
       try {
-        assert.equal(page.host.textContent?.includes("Puedes revisar y preparar este recibo. El dueño lo acepta."), capabilities.length === 2);
+        assert.equal(page.host.textContent?.includes("Puedes revisar y preparar este recibo. Lo acepta el dueño o un administrador."), capabilities.length === 2);
         // The footer keeps Más; it offers no approval.
         assert.ok(![...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button')].some((item) => item.textContent?.startsWith("Aceptar")));
         if (capabilities.length === 1) {

@@ -134,15 +134,21 @@ class EmailStore(Protocol):
 
     def parts_by_delivery(self, space_id: str) -> dict[str, list[EmailDeliveryPart]]: ...
 
+    # ``sender`` narrows a read to the mail one address sent. A delivery keeps
+    # its sender as the bare lower-case address ``from_address`` gives.
     def list(
-        self, space_id: str, *, limit: int | None = 50
+        self, space_id: str, *, limit: int | None = 50, sender: str | None = None
     ) -> list[EmailDelivery]: ...
 
-    def get(self, delivery_id: str, space_id: str) -> EmailDelivery | None: ...
+    def get(
+        self, delivery_id: str, space_id: str, *, sender: str | None = None
+    ) -> EmailDelivery | None: ...
 
     def retry(self, delivery_id: str, space_id: str) -> bool: ...
 
     def membership(self, space_id: str) -> dict[str, EmailRelation]: ...
+
+    def account_address(self, person_id: str) -> str | None: ...
 
 
 _UPDATABLE = {"original_document_id", "subject", "sender", "sent_at", "text_body"}
@@ -643,25 +649,31 @@ class PostgresEmailStore(PostgresSenderSeen, PostgresAddressing):
             found.setdefault(row.pop("delivery_id"), []).append(EmailDeliveryPart(**row))
         return found
 
-    def list(self, space_id: str, *, limit: int | None = 50) -> list[EmailDelivery]:
+    def list(
+        self, space_id: str, *, limit: int | None = 50, sender: str | None = None
+    ) -> list[EmailDelivery]:
         with (
             self.pool.connection() as connection,
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             rows = cursor.execute(
-                "select * from public.business_email_deliveries where space_id=%s order by received_at desc,id limit %s",
-                (space_id, limit),
+                "select * from public.business_email_deliveries where space_id=%s"
+                " and (%s::text is null or sender=%s) order by received_at desc,id limit %s",
+                (space_id, sender, sender, limit),
             ).fetchall()
             return [_delivery(row) for row in rows]
 
-    def get(self, delivery_id: str, space_id: str) -> EmailDelivery | None:
+    def get(
+        self, delivery_id: str, space_id: str, *, sender: str | None = None
+    ) -> EmailDelivery | None:
         with (
             self.pool.connection() as connection,
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             row = cursor.execute(
-                "select * from public.business_email_deliveries where id=%s and space_id=%s",
-                (delivery_id, space_id),
+                "select * from public.business_email_deliveries where id=%s and space_id=%s"
+                " and (%s::text is null or sender=%s)",
+                (delivery_id, space_id, sender, sender),
             ).fetchone()
             return _delivery(row) if row else None
 
@@ -1237,20 +1249,22 @@ class InMemoryEmailStore(MemorySenderSeen, MemoryAddressing):
         }
 
     @_synchronized
-    def list(self, space_id, *, limit=50):
+    def list(self, space_id, *, limit=50, sender=None):
         rows = [
             replace(d, available_at=self._available[d.id])
             for d in self._deliveries.values()
-            if d.space_id == space_id
+            if d.space_id == space_id and sender in (None, d.sender)
         ]
         return sorted(rows, key=lambda d: (d.received_at, d.id), reverse=True)[:limit]
 
     @_synchronized
-    def get(self, delivery_id, space_id):
+    def get(self, delivery_id, space_id, *, sender=None):
         delivery = self._deliveries.get(delivery_id)
         return (
             replace(delivery, available_at=self._available[delivery.id])
-            if delivery is not None and delivery.space_id == space_id
+            if delivery is not None
+            and delivery.space_id == space_id
+            and sender in (None, delivery.sender)
             else None
         )
 

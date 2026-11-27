@@ -1,13 +1,15 @@
 import type { TFunction } from "i18next";
+import type { BusinessPermission } from "@/lib/business-api";
 import type { AccessRoleOption } from "./AccessRolePicker";
 
 export const accessRoles = ["owner", "admin", "editor", "viewer"] as const;
 export type AccessRole = typeof accessRoles[number];
 export const defaultInvitationRole: AccessRole = "viewer";
-const offeredRoles: readonly AccessRole[] = ["owner", "viewer"];
-/** Every role stays visible; only the ones the pilot offers can be picked. */
-export function accessRoleOptions(t: TFunction, canAssignOwner: boolean): AccessRoleOption[] {
-  return accessRoles.map(role => ({value:role,label:t(`workspace_setup_preview.permission_${role}`),description:t(`workspace_setup_preview.permission_${role}_detail`),disabled:!offeredRoles.includes(role)||(role === "owner"&&!canAssignOwner)}));
+/** The permission the server asks of a person who gives each role. */
+const grantedWith: Record<AccessRole, BusinessPermission> = { owner: "assign_owner", admin: "manage", editor: "manage", viewer: "manage" };
+/** The roles this person may give, read from the server's permissions for the Business. */
+export function accessRoleOptions(t: TFunction, permissions: readonly BusinessPermission[] | undefined): AccessRoleOption[] {
+  return accessRoles.filter(role => permissions?.includes(grantedWith[role])).map(role => ({value:role,label:t(`workspace_setup_preview.permission_${role}`),description:t(`workspace_setup_preview.permission_${role}_detail`)}));
 }
 /** Who has access changed: the open Acceso list reads it again, live or in the sample. */
 export const businessAccessChangedEvent = "business-access-changed";

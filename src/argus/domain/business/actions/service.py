@@ -60,6 +60,7 @@ from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
 from argus.domain.business.history_review import review_evidence
 from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
+from argus.domain.business.roles import Permission
 from argus.domain.business.transactions import (
     ActionTransaction,
     GrantImportStore,
@@ -480,10 +481,11 @@ class BusinessActions:
         request: MarkPersonal,
         key: str,
     ) -> ActionOutcome:
-        """The owner or anyone holding prepare through a live grant marks a
-        receipt as personal (business_share none) or takes the mark back; on an
-        open or an approved draft, a new revision each way and one ledger row
-        naming the actor, the grant used and its issuer. The owner's mark is
+        """Anyone holding prepare through a live grant marks an open receipt as
+        personal (business_share none) or takes the mark back. An approved draft
+        leaves the Business totals with the mark, so there it needs approve. A
+        new revision each way and one ledger row naming the actor, the grant
+        used and its issuer. The owner's mark is
         owner_stated, anyone else's member_set, so the record says who."""
 
         from argus.domain.business.contracts.facts import (
@@ -509,7 +511,14 @@ class BusinessActions:
             )
 
         return self._mark(
-            context, draft_id, request.version, key, command, change, owner=None
+            context,
+            draft_id,
+            request.version,
+            key,
+            command,
+            change,
+            owner=None,
+            accepted_needs="approve",
         )
 
     def decide_606(
@@ -564,11 +573,13 @@ class BusinessActions:
         change,  # noqa: ANN001
         *,
         owner: bool | None,
+        accepted_needs: Permission = "prepare",
     ) -> ActionOutcome:
         """One person's fact on a draft, open or approved: a revision row that
         says who, through which grant, and a ledger row for the command.
         ``owner`` True admits only the owner, False only someone else, None
-        anyone; every one of them needs prepare."""
+        anyone; every one of them needs prepare, and ``accepted_needs`` on an
+        approved draft."""
 
         from dataclasses import replace
 
@@ -603,6 +614,8 @@ class BusinessActions:
                             raise ActionError("stale_version", "stale_version")
                         if event.state not in ("open", "accepted"):
                             raise ActionError("invalid_input", "business_draft_not_open")
+                        if event.state == "accepted":
+                            tx.authorization.require(accepted_needs)
                         evidence = WebActionSource(
                             id=uuid4(),
                             received_at=datetime.now(timezone.utc),

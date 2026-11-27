@@ -231,8 +231,8 @@ def mark_personal(
     context: Annotated[DraftContext, Depends(require_drafts)],
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    """The owner or anyone holding prepare marks the receipt as personal or
-    takes the mark back; a read-only grant is refused."""
+    """Anyone holding prepare marks an open receipt as personal or takes the
+    mark back. On an accepted record the mark needs approve."""
 
     return _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)

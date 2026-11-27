@@ -166,7 +166,7 @@ def inbox(
 
             por_igualar = por_igualar_count(store.authority.pool, store.context)
     if emails is None:
-        emails = email_standings(str(context.scope.owner.space_id))
+        emails = email_standings(context.scope)
     result = inbox_counts(views, notes, emails, por_igualar, accepting_notes)
     result["bandeja_eliminados_count"] += eliminated_notes
     return result
@@ -226,7 +226,7 @@ def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
 
     from argus.api.email_intake import email_standings
 
-    emails = email_standings(str(context.scope.owner.space_id))
+    emails = email_standings(context.scope)
     return {
         **aggregate_activity(views, reading_emails=emails.count("reading")),
         **inbox(context, views, emails),

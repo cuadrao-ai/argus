@@ -12,7 +12,11 @@ from typing import Any
 from argus.api.business import BusinessContext
 from argus.api.business_drafts import answers_606, search_with_drafts
 from argus.api.business_spaces import business_search_memory
-from argus.api.email_intake import email_history, email_receiving_available
+from argus.api.email_intake import (
+    email_history,
+    email_receiving_available,
+    readable_deliveries,
+)
 from argus.domain import financial_search
 from argus.domain.business import search as business_search
 from argus.domain.business.contracts.facts import BusinessResolution, Known
@@ -84,7 +88,7 @@ def _email_hits(
             "state": item.state,
             "inbox_group": item.inbox_group,
         }
-        for item in runtime.store.list(space_id, limit=DELIVERY_WINDOW)
+        for item in readable_deliveries(runtime, context.scope, limit=DELIVERY_WINDOW)
         if business_search.matches(
             query, " ".join(filter(None, [item.sender, item.subject]))
         )
@@ -93,7 +97,7 @@ def _email_hits(
         {"id": rule.id, "kind": rule.kind, "value": rule.value, "status": rule.status}
         for rule in runtime.store.list_senders(space_id)
         if business_search.matches(query, rule.value)
-    ] if email_receiving_available() else []
+    ] if email_receiving_available() and "manage" in context.scope.permissions else []
     return deliveries, senders
 
 

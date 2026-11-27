@@ -3826,7 +3826,7 @@
       "reopen_access": "Reopening restores access for members whose permissions are still valid.",
       "transfer": {
         "accept": "Accept transfer",
-        "accept_body": "You will become the owner. Only you can accept records, close the business, and grant or remove access. {{ownerName}} can keep editing. Automatic document reading turns off until you activate it. This cannot be undone.",
+        "accept_body": "You will become the owner. Only you can close or transfer the business. {{ownerName}} can keep editing. Automatic document reading turns off until you or an admin turn it on. This cannot be undone.",
         "accept_title": "Accept {{businessName}}?",
         "accepted": "Transfer completed",
         "cancelled": "Transfer withdrawn",
@@ -4672,7 +4672,7 @@
       "role_owner": "Owner",
       "role_accountant": "Accountant",
       "role_viewer": "Can view",
-      "access_line": "You now have access to {{name}} · View and prepare",
+      "access_line": "You now have access to {{name}} · {{role}}",
       "got_it": "Got it",
       "settings": "Business settings"
     },
@@ -4892,7 +4892,7 @@
     "permission_owner": "Owner",
     "permission_owner_detail": "Full access to the business. Can accept records and invite other owners.",
     "permission_admin": "Admin",
-    "permission_admin_detail": "Sets up the business and manages collaborators. Cannot accept records.",
+    "permission_admin_detail": "Sets up the business, manages collaborators and accepts records.",
     "permission_editor": "Editor",
     "permission_editor_detail": "Adds documents and prepares records. Cannot accept them or manage the business.",
     "permission_viewer": "Viewer",
