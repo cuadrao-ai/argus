@@ -10,6 +10,11 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.invite_sends import (
+    DAILY_WINDOW,
+    InviteSendLimits,
+    resend_refusal,
+)
 from argus.domain.business.notifications.events import invitation_changed
 from argus.domain.business.roles import (
     ROLE_PERMISSIONS,
@@ -46,6 +51,37 @@ class MembershipError(ValueError):
         super().__init__(code)
 
 
+class InviteSendRefused(MembershipError):
+    def __init__(self, code: str, retry_after_seconds: int) -> None:
+        self.retry_after_seconds = retry_after_seconds
+        super().__init__(code)
+
+
+def _roles_holding(permission: str) -> str:
+    held = (f"'{role.value}'" for role, has in ROLE_PERMISSIONS.items() if permission in has)
+    return f"array[{','.join(held)}]::text[]"
+
+
+# A grant g that works now: its Business s is open and its person u may act.
+_ACTIVE_MEMBER = (
+    "g.revoked_at is null and (g.expires_at is null or g.expires_at>clock_timestamp())"
+    " and s.closed_at is null and s.kind='business' and not coalesce(u.is_anonymous,false)"
+    " and (u.banned_until is null or u.banned_until<=clock_timestamp())"
+    " and not exists(select 1 from argus_private.account_deletion_runs d where d.user_id=u.id)"
+)
+
+# The one rule for "invite i can still be accepted": open, in time, and issued by
+# someone who may still grant that role in an open Business. Every reader uses it.
+LIVE_INVITE = (
+    "(i.accepted_at is null and i.revoked_at is null and i.expires_at>clock_timestamp()"
+    " and exists(select 1 from public.business_client_grants g"
+    " join public.spaces s on s.id=g.space_id join auth.users u on u.id=g.grantee_id"
+    f" where g.space_id=i.space_id and g.grantee_id=i.issuer_id and {_ACTIVE_MEMBER}"
+    " and g.business_role=any(case when i.requested_role='owner'"
+    f" then {_roles_holding('assign_owner')} else {_roles_holding('manage')} end)))"
+)
+
+
 def require_manager(
     connection: Connection, space_id: str, actor_id: str, role: BusinessRole | None = None
 ) -> str:
@@ -55,11 +91,7 @@ def require_manager(
     row = connection.execute(
         "select g.id::text,g.business_role from public.business_client_grants g"
         " join public.spaces s on s.id=g.space_id join auth.users u on u.id=g.grantee_id"
-        " where g.space_id=%s and g.grantee_id=%s and g.revoked_at is null"
-        " and (g.expires_at is null or g.expires_at>clock_timestamp())"
-        " and s.closed_at is null and s.kind='business' and not coalesce(u.is_anonymous,false)"
-        " and (u.banned_until is null or u.banned_until<=clock_timestamp())"
-        " and not exists(select 1 from argus_private.account_deletion_runs d where d.user_id=u.id)"
+        f" where g.space_id=%s and g.grantee_id=%s and {_ACTIVE_MEMBER}"
         " order by g.created_at limit 1",
         (space_id, actor_id),
     ).fetchone()
@@ -148,8 +180,8 @@ class PostgresMembershipCommands:
             if not promotion_requires_acceptance(BusinessRole(existing[1]), role):
                 raise MembershipError("business_role_change_requires_member_command")
         pending = db.execute(
-            "select id::text,requested_role,expires_at>clock_timestamp() from public.business_access_invites"
-            " where space_id=%s and email=%s and revoked_at is null and accepted_at is null for update",
+            f"select i.id::text,i.requested_role,{LIVE_INVITE} from public.business_access_invites i"
+            " where i.space_id=%s and i.email=%s and i.revoked_at is null and i.accepted_at is null for update",
             (space_id, email),
         ).fetchone()
         if pending and pending[2]:
@@ -201,16 +233,17 @@ class PostgresMembershipCommands:
         with self.pool.connection() as db, db.transaction():
             require_manager(db, space_id, owner_id)
             replacement = db.execute(
-                "select requested_role from public.business_access_invites where supersedes_id=%s and space_id=%s"
-                " and accepted_at is null and revoked_at is null and expires_at>clock_timestamp()",
+                "select i.requested_role from public.business_access_invites i"
+                f" where i.supersedes_id=%s and i.space_id=%s and {LIVE_INVITE}",
                 (invite_id, space_id),
             ).fetchone()
             if replacement:
                 require_manager(db, space_id, owner_id, BusinessRole(replacement[0]))
                 return self._list(db, space_id, owner_id)
             row = db.execute(
-                "select email,requested_role,expires_at>clock_timestamp(),target_grant_id,target_version,recipient_id from public.business_access_invites"
-                " where id=%s and space_id=%s and accepted_at is null and revoked_at is null for update",
+                f"select i.email,i.requested_role,{LIVE_INVITE},i.target_grant_id,i.target_version,i.recipient_id"
+                " from public.business_access_invites i"
+                " where i.id=%s and i.space_id=%s and i.accepted_at is null and i.revoked_at is null for update",
                 (invite_id, space_id),
             ).fetchone()
             if row is None:
@@ -396,7 +429,7 @@ class PostgresMembershipCommands:
             _lock(db, space_id)
             row = db.execute(
                 "select i.issuer_id::text,i.email,i.requested_role,i.accepted_grant_id::text,i.accepted_at,"
-                " i.revoked_at,i.expires_at>clock_timestamp(),i.target_grant_id::text,i.target_version from public.business_access_invites i"
+                f" i.revoked_at,{LIVE_INVITE},i.target_grant_id::text,i.target_version from public.business_access_invites i"
                 " join public.spaces s on s.id=i.space_id where i.id=%s and i.space_id=%s and i.email=%s"
                 " and (i.recipient_id is null or i.recipient_id=%s) and s.kind='business' and s.closed_at is null for update of i",
                 (invite_id, space_id, person[0], user_id),
@@ -415,7 +448,6 @@ class PostgresMembershipCommands:
             if row[5] is not None or not row[6]:
                 raise MembershipError("business_invite_not_available")
             role = BusinessRole(row[2])
-            require_manager(db, space_id, row[0], role)
             if row[7] is not None:
                 updated = db.execute(
                     "update public.business_client_grants set business_role=%s,expires_at=case when %s='owner' then null else expires_at end where id=%s and space_id=%s and grantee_id=%s"
@@ -473,9 +505,7 @@ class PostgresMembershipCommands:
         with self.pool.connection() as db:
             return db.execute(
                 "select exists(select 1 from public.business_access_invites i"
-                " join public.spaces s on s.id=i.space_id where i.email=%s"
-                " and i.accepted_at is null and i.revoked_at is null and i.expires_at>clock_timestamp()"
-                " and s.kind='business' and s.closed_at is null)"
+                f" where i.email=%s and {LIVE_INVITE})"
                 " or exists(select 1 from public.business_client_grants g"
                 " join public.spaces s on s.id=g.space_id"
                 " join auth.users u on u.id=g.grantee_id where lower(u.email)=%s"
@@ -499,7 +529,7 @@ class PostgresMembershipCommands:
                     " from public.business_access_invites i join public.spaces s on s.id=i.space_id"
                     " join auth.users u on lower(u.email)=i.email where u.id=%s and not coalesce(u.is_anonymous,false)"
                     " and (i.recipient_id is null or i.recipient_id=u.id) and u.email_confirmed_at is not null"
-                    " and i.accepted_at is null and i.revoked_at is null and i.expires_at>clock_timestamp() and s.closed_at is null",
+                    f" and {LIVE_INVITE}",
                     (user_id,),
                 ).fetchall()
             )
@@ -509,23 +539,43 @@ class PostgresMembershipCommands:
         space_id: str,
         actor_id: str,
         invite_id: str,
-        send: Callable[[Connection | None], DeliveryState],
+        send: Callable[[Connection | None, int], DeliveryState],
+        resend: bool = False,
     ) -> DeliveryState:
         with self.pool.connection() as db, db.transaction():
             require_manager(db, space_id, actor_id)
             row = db.execute(
-                "select requested_role,delivery_state from public.business_access_invites"
-                " where id=%s and space_id=%s and accepted_at is null and revoked_at is null"
-                " and expires_at>clock_timestamp() for update",
+                "select i.requested_role,i.delivery_state from public.business_access_invites i"
+                f" where i.id=%s and i.space_id=%s and {LIVE_INVITE} for update",
                 (invite_id, space_id),
             ).fetchone()
             if row is None:
                 raise MembershipError("business_invite_not_available")
             require_manager(db, space_id, actor_id, BusinessRole(row[0]))
-            if row[1] == "accepted":
+            sends, last_sent_at, resends_today, now = db.execute(
+                "select count(*) filter (where invite_id=%s),max(sent_at) filter (where invite_id=%s),"
+                " count(*) filter (where resend and sent_at>clock_timestamp()-%s),clock_timestamp()"
+                " from argus_private.business_invite_sends where space_id=%s",
+                (invite_id, invite_id, DAILY_WINDOW, space_id),
+            ).fetchone()
+            if resend:
+                refused = resend_refusal(
+                    invite_sends=sends,
+                    last_sent_at=last_sent_at,
+                    business_resends_today=resends_today,
+                    now=now,
+                    limits=InviteSendLimits(),
+                )
+                if refused:
+                    raise InviteSendRefused(*refused)
+            elif row[1] == "accepted":
                 return "accepted"
-            if row[1] in ("sending", "uncertain"):
+            elif row[1] in ("sending", "uncertain"):
                 return "uncertain"
+            db.execute(
+                "insert into argus_private.business_invite_sends(invite_id,space_id,resend) values(%s,%s,%s)",
+                (invite_id, space_id, resend),
+            )
             db.execute(
                 "update public.business_access_invites set delivery_state='sending' where id=%s",
                 (invite_id,),
@@ -533,14 +583,13 @@ class PostgresMembershipCommands:
         with self.pool.connection() as db, db.transaction():
             require_manager(db, space_id, actor_id, BusinessRole(row[0]))
             pending = db.execute(
-                "select 1 from public.business_access_invites where id=%s and accepted_at is null and revoked_at is null"
-                " and expires_at>clock_timestamp() for update",
+                f"select 1 from public.business_access_invites i where i.id=%s and {LIVE_INVITE} for update",
                 (invite_id,),
             ).fetchone()
             if pending is None:
                 raise MembershipError("business_invite_not_available")
             try:
-                status = send(db)
+                status = send(db, sends + 1)
             except Exception:
                 status = "uncertain"
             db.execute(
@@ -555,7 +604,7 @@ class PostgresMembershipCommands:
         with self.pool.connection() as db, db.transaction():
             require_manager(db, space_id, actor_id)
             row = db.execute(
-                "select c.invite_id::text,i.accepted_at,i.revoked_at,i.expires_at>clock_timestamp(),i.delivery_state"
+                f"select c.invite_id::text,i.accepted_at,i.revoked_at,{LIVE_INVITE},i.delivery_state"
                 " from argus_private.business_invitation_commands c left join public.business_access_invites i on i.id=c.invite_id"
                 " where c.space_id=%s and c.actor_id=%s and c.command_key=%s",
                 (space_id, actor_id, command_key),

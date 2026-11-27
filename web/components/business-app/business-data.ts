@@ -203,9 +203,8 @@ export function withBusinessSpace(
   source: BusinessDataSource,
   language: () => ArgusLanguage,
 ): BusinessDataSource {
-  // One bootstrap per Business the person works in: the own space is started
-  // once; a client's Business exists already and is never started by its
-  // accountant, so under a chosen grant the calls go straight through.
+  // The person's own Business is started at most once per account; a client's
+  // Business exists already and is never started by its accountant.
   let started: Promise<BusinessSpace> | null = null;
   let startedFor: string | null = null;
   let generation = browserAuthGeneration();
@@ -227,81 +226,9 @@ export function withBusinessSpace(
     });
     return started;
   };
-  const after =
-    <A extends unknown[], R>(call: (...args: A) => Promise<R>) =>
-    async (...args: A): Promise<R> => {
-      const requestGeneration = browserAuthGeneration();
-      await ready();
-      requireBrowserAuthGeneration(requestGeneration);
-      return call(...args);
-    };
-  return {
-    mode: source.mode,
-    ensureSpace: ready,
-    consent: source.consent,
-    acceptConsent: source.acceptConsent,
-    workspace: after(source.workspace),
-    receiptActivity: source.receiptActivity ? after(source.receiptActivity) : undefined,
-    receiptPage: source.receiptPage ? after(source.receiptPage) : undefined,
-    receiptChanges: source.receiptChanges ? after(source.receiptChanges) : undefined,
-    setup: source.setup ? after(source.setup) : undefined,
-    setReceiptReading: source.setReceiptReading,
-    markReceiptRead: source.markReceiptRead,
-    overview: after(source.overview),
-    receipts: after(source.receipts),
-    receipt: source.receipt,
-    expense: source.expense,
-    dossier: source.dossier,
-    reviewDraft: source.reviewDraft,
-    reviewMontos: source.reviewMontos,
-    previewAmounts: source.previewAmounts,
-    dgiiFields: source.dgiiFields,
-    reviewFiscal: source.reviewFiscal,
-    reviewPurchase: source.reviewPurchase,
-    reviewSalePayment: source.reviewSalePayment,
-    setDocumentType: source.setDocumentType,
-    approveDraft: source.approveDraft,
-    settleRemainder: source.settleRemainder,
-    deleteDocument: source.deleteDocument,
-    restoreDocument: source.restoreDocument,
-    purgeDocument: source.purgeDocument,
-    approveListos: source.approveListos,
-    markPersonal: source.markPersonal,
-    decideFiscalInclusion: source.decideFiscalInclusion,
-    receiptSource: source.receiptSource,
-    expenses: after(source.expenses),
-    search: after(source.search),
-    searchMore: source.searchMore ? after(source.searchMore) : undefined,
-    searchRecents: source.searchRecents ? after(source.searchRecents) : undefined,
-    addSearchRecent: source.addSearchRecent ? after(source.addSearchRecent) : undefined,
-    removeSearchRecent: source.removeSearchRecent ? after(source.removeSearchRecent) : undefined,
-    clearSearchRecents: source.clearSearchRecents ? after(source.clearSearchRecents) : undefined,
-    searchActivity: source.searchActivity ? after(source.searchActivity) : undefined,
-    recordSearchOpen: source.recordSearchOpen ? after(source.recordSearchOpen) : undefined,
-    captureNote: source.captureNote,
-    captures: source.captures,
-    uploadReceipt: after(source.uploadReceipt),
-    prepareReceipt: source.prepareReceipt,
-    rebindReceipt: source.rebindReceipt,
-    confirmReceipt: source.confirmReceipt,
-    emailIntake: after(source.emailIntake),
-    fiscalProfile: after(source.fiscalProfile),
-    saveFiscalProfile: source.saveFiscalProfile,
-    lookupRegistry: source.lookupRegistry,
-    saveLegalName: source.saveLegalName,
-    createEmailAddress: after(source.createEmailAddress),
-    emailDeliveries: after(source.emailDeliveries),
-    emailDelivery: source.emailDelivery,
-    retryEmailDelivery: source.retryEmailDelivery,
-    access: after(source.access),
-    giveAccess: after(source.giveAccess),
-    resendAccessInvite: after(source.resendAccessInvite),
-    revokeAccessGrant: source.revokeAccessGrant,
-    revokeAccessInvite: source.revokeAccessInvite,
-    spaces: after(source.spaces),
-    spaceDirectory: source.spaceDirectory,
-    markAccessSeen: source.markAccessSeen,
-  };
+  // No read or write starts a Business on its own. The consent screen starts
+  // one, and only for a person the server finds with no Business and no invitation.
+  return { ...source, ensureSpace: ready };
 }
 
 /** The type most of the Business's accounts have, so a new one starts there; none on a tie. */

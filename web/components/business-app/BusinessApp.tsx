@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { isLeavingSession } from "@/lib/logout-flow";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { synchronizeBusinessAccount } from "@/lib/business-grant";
+import { capturePendingInvite } from "@/lib/business-pending-invite";
 import { classifyBusinessIdentity, createSessionRecovery, type SessionRecoveryState } from "@/lib/session-recovery";
 import FullscreenLoading, { FullscreenLoadingBoundary } from "@/components/FullscreenLoading";
 import { SessionRecoveryScreen } from "@/components/status/SessionRecoveryScreen";
@@ -55,6 +56,7 @@ function BusinessAppContent({ sample, transferId, lifecycle, manageLifecycle }: 
   const discoverDirectory = source.mode === "live" && !lifecycle && !transferId && !manageLifecycle;
   const [directory, setDirectory] = useState<DirectoryState | null>(null);
   const [attempt, setAttempt] = useState(0);
+  useEffect(() => { capturePendingInvite(window.location.pathname, window.location.search); }, []);
   useEffect(() => {
     if (!discoverDirectory || (checkSession && !owner)) return;
     const controller = new AbortController();

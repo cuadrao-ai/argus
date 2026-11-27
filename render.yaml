@@ -106,6 +106,12 @@ services:
         sync: false
       - key: CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_INVITE_RESEND_COOLDOWN_SECONDS
+        value: "60"
+      - key: CUADRAO_BUSINESS_INVITE_SENDS_PER_INVITE
+        value: "5"
+      - key: CUADRAO_BUSINESS_INVITE_RESENDS_PER_DAY
+        value: "20"
       - key: CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED
@@ -316,6 +322,12 @@ services:
         sync: false
       - key: CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_INVITE_RESEND_COOLDOWN_SECONDS
+        value: "60"
+      - key: CUADRAO_BUSINESS_INVITE_SENDS_PER_INVITE
+        value: "5"
+      - key: CUADRAO_BUSINESS_INVITE_RESENDS_PER_DAY
+        value: "20"
       - key: CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED
         value: "true"
       - key: CUADRAO_BUSINESS_EMAIL_DOMAIN

@@ -2415,13 +2415,13 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   the access a live Business grant gives, so an owner is offboarded by setting
   `disabled_at`, never by deleting the row. No allowlist row is written: the
   invitation and grant tables own the fact. With the flag on, nothing changes.
-- Admission does not chain, under the same switch. Starting a Business
-  (`POST /business/space`, `POST /business/spaces`), inviting people to one
-  (`POST /business/access`, `POST /business/access/invitations`, an invite
-  resend) and accepting an ownership transfer need an account the allowlist
-  or open sign-up admits on its own; an account admitted only by a Business
-  invitation or grant gets `403 private_alpha_access_required` there and works
-  inside the Businesses that admitted it. With the switch off, no account is
+- Under the same switch, starting a Business (`POST /business/space`,
+  `POST /business/spaces`) and accepting an ownership transfer need an account
+  the allowlist or open sign-up admits on its own; an account admitted only by
+  a Business invitation or grant gets `403 private_alpha_access_required`
+  there. Inside the Businesses that admitted it, what it may do follows its
+  role alone: an Admin who joined by invitation invites and resends like any
+  other Admin, and those invitations die with the Admin's role. With the switch off, no account is
   admitted only by a Business, and these routes add no check.
 - `POST /auth/signup` must apply that gate before calling Supabase Auth signup, so denied emails do not create auth users or profiles.
 - `POST /auth/login` must also apply it before creating a browser session, so denied emails cannot enter the app.
@@ -10099,7 +10099,11 @@ person starts their space, every route below except POST `/space` answers 404
   answer. POST `/api/v1/business/consent` takes `{version}` and answers the same
   shape with the first acceptance time. It is idempotent per person and
   wording, and names the Business the caller works in: the chosen grant's, else
-  their own, or 404 `business_space_missing` with neither. The web derives the
+  their own, else the first Business they joined, else the Business of their
+  live invitation that expires first, or 404 `business_space_missing` with
+  none of these. A member's or an invitee's consent therefore saves without a
+  Business of their own; the web starts one (`POST
+  /business/space`) only after that 404. The web derives the
   version from the words the screen shows in both languages, so an edited
   wording asks everyone again. A version that is not 16 lowercase hex
   characters is 422.
@@ -10118,8 +10122,12 @@ person starts their space, every route below except POST `/space` answers 404
     GET `/api/v1/business/spaces` lists every Business the caller may enter
     through a live grant, their own first: `{spaces: [{space_id, name,
     logo_url, grant_id, role: owner|accountant, capabilities, business_role,
-    permissions, access_seen}], closed_spaces, invitations_available}`; names
-    come from the spaces. `invitations_available` is the server's pure readiness
+    permissions, access_seen}], closed_spaces, invitations_available,
+    can_start_business}`; names come from the spaces. `can_start_business` is
+    the server's answer to "may this account start a Business of its own" (the
+    standing check `POST /business/space` and `POST /business/spaces` apply),
+    and the web offers a new Business only when it is true.
+    `invitations_available` is the server's pure readiness
     for owner invitation actions: Business invite email on, invitation admission
     on, and a configured app origin. It is false while any prerequisite is off. Listing, profile
     reads and sign-in never accept invitations. `access_seen` is the server's memory of the one-time
@@ -10229,8 +10237,16 @@ person starts their space, every route below except POST `/space` answers 404
     and POST `/api/v1/business/access/invites/{id}/resend` answer 409
     `business_invitations_unavailable` with `Cache-Control: no-store` while
     `invitations_available` is false, before any invitation, idempotency,
-    expiry, supersedes, or delivery mutation. Auth, standing, tenant, and
-    manager checks still run first.
+    expiry, supersedes, or delivery mutation. Auth, tenant, and manager checks
+    still run first. The three routes then answer 409 `business_name_required`
+    while the Business has no name of its own, before any invitation or email.
+    One rule says whether an invitation is alive, and every reader uses it:
+    not accepted, not revoked, not expired, its Business open, and its inviter
+    still holding the permission to grant that role (`manage`, or
+    `assign_owner` for Owner). An invitation that is not alive is not listed to
+    its recipient, admits no sign-up, cannot be accepted or delivered, and does
+    not block a new invitation to the same email; `GET /business/access` lists
+    it with `state: "expired"`.
   - POST `/api/v1/business/access` takes `{email, role?}`; omitted `role` is
     `editor` for old clients. Every new invitation remains pending for seven
     days, including confirmed accounts. It confers no access until explicit
@@ -10253,15 +10269,35 @@ person starts their space, every route below except POST `/space` answers 404
     Wrong recipient, Business, revoked or expired generation is refused.
     An accepted replay returns the existing live grant; removal cannot be undone
     by replay. Acceptance does not record document-reading or AI consent.
-  - POST `/api/v1/business/access/invites/{id}/resend` retries an unaccepted,
-    unrevoked invitation. A live generation keeps its ID and expiry; successful
-    delivery is not repeated. An expired generation becomes terminal and a new
+  - POST `/api/v1/business/access/invites/{id}/resend` sends an unaccepted,
+    unrevoked invitation again. A live invitation keeps its ID, link and expiry,
+    and the email goes out again, also after a delivered or uncertain send.
+    Resends are limited on the server, counted in
+    `argus_private.business_invite_sends`: a cooldown after the last send of
+    that invitation (`CUADRAO_BUSINESS_INVITE_RESEND_COOLDOWN_SECONDS`, 60), a
+    total of sends per invitation (`CUADRAO_BUSINESS_INVITE_SENDS_PER_INVITE`,
+    5, the first send included) and resends per Business in 24 hours
+    (`CUADRAO_BUSINESS_INVITE_RESENDS_PER_DAY`, 20). A refused resend is 429
+    with `business_invite_resend_cooldown`, `business_invite_send_cap_reached`
+    or `business_invite_daily_cap_reached`, `context.retry_after_seconds` and a
+    `Retry-After` header (0 when waiting does not help), and sends nothing.
+    Each invitation in `GET /business/access` and in the answers of these
+    routes carries `resend_wait_seconds`, the cooldown left when the answer was
+    made; the web counts down from it and never invents it. Each send writes
+    one `business_invite_email_send` log line with the invitation and Business
+    ids, the send number and the outcome, and no address or link. An
+    invitation that is not alive becomes terminal and a new
     seven-day generation gets a new ID. Repeating the old resend converges on
     that replacement; the old ID can never accept. Missing, canceled and
     accepted invitations return 404 `business_access_not_found`.
   - Email activation remains separate and off unless configured. Delivery is
     `not_configured`, `accepted`, `failed`, or `uncertain`. `accepted` means
-    transport acceptance, not recipient receipt. Known rejection can retry;
+    transport acceptance, not recipient receipt. The email links to
+    `<app origin>/biz?invite=<invitation id>`, with `&auth=signup` when the
+    address had no account at send time: signed out, that opens sign-up, any
+    other link opens sign-in, and both return to `/biz?invite=<id>`. The link
+    carries no token; the server still checks the recipient on acceptance.
+    Known rejection can retry;
     timeout, crash or unknown send outcome cannot automatically retry. A durable
     send claim precedes transport. This avoids automatic duplicates after an
     uncertain result but may conservatively leave an unsent message uncertain;

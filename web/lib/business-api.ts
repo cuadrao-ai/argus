@@ -580,12 +580,15 @@ const businessDirectory = z.object({
   spaces: z.array(directorySpace),
   closed_spaces: z.array(closedDirectorySpace).default([]),
   invitations_available: z.boolean().optional().default(false),
+  can_start_business: z.boolean().optional(),
 });
 export type ClosedGrantedSpace = z.infer<typeof closedDirectorySpace>;
 export type BusinessDirectory = {
   spaces: GrantedSpace[];
   closed_spaces: ClosedGrantedSpace[];
   invitations_available?: boolean;
+  /** Whether the server lets this person start a Business of their own. */
+  can_start_business?: boolean;
 };
 
 /** Live and held-closed grants, distinguished by the server. */
@@ -850,7 +853,9 @@ export type BusinessAccessGrant = {
   business_role?: BusinessRole;
   permissions?: BusinessPermission[];
 };
-export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string; state: "pending" | "expired"; requested_role?: BusinessRole };
+export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string; state: "pending" | "expired"; requested_role?: BusinessRole;
+  /** Seconds the server asks to wait before Reenviar, counted from its answer. */
+  resend_wait_seconds?: number };
 export type BusinessAccess = {
   grants: BusinessAccessGrant[];
   invites: BusinessAccessInvite[];
@@ -861,7 +866,7 @@ const businessRole = z.enum(["owner","admin","editor","viewer"]);
 const permission = z.enum(["read","prepare","approve","manage","download","export","assign_owner"]);
 const accessProjection = z.object({
   grants:z.array(z.object({id:z.string(),email:z.string().nullable(),display_name:z.string().nullable(),capabilities:z.array(z.enum(["read","prepare","approve"])),created_at:z.string(),owner:z.boolean(),business_role:businessRole.optional(),permissions:z.array(permission).optional()}).passthrough()),
-  invites:z.array(z.object({id:z.string(),email:z.string(),created_at:z.string(),expires_at:z.string(),state:z.enum(["pending","expired"]),requested_role:businessRole.optional()})),
+  invites:z.array(z.object({id:z.string(),email:z.string(),created_at:z.string(),expires_at:z.string(),state:z.enum(["pending","expired"]),requested_role:businessRole.optional(),resend_wait_seconds:z.number().int().nonnegative().optional()})),
   invite_delivery:z.enum(["not_configured","accepted","failed","uncertain"]).nullable().optional(),
   invitations_available: z.boolean().optional().default(false),
 });

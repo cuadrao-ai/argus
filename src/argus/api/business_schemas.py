@@ -98,6 +98,8 @@ class GrantedSpaceInfo(_Wire):
 class BusinessSpaces(_Wire):
     spaces: list[GrantedSpaceInfo]
     invitations_available: bool = False
+    # Whether the caller may start a Business of their own.
+    can_start_business: bool = False
 
 
 class StartBusinessSpace(_Wire):
@@ -206,6 +208,7 @@ class BusinessAccessInvite(_Wire):
     expires_at: datetime
     state: Literal["pending", "expired"]
     requested_role: BusinessRole = BusinessRole.EDITOR
+    resend_wait_seconds: int = 0
 
 
 class BusinessAccess(_Wire):

@@ -2016,9 +2016,11 @@ paths:
       - business
       description: 'Idempotent: one acceptance per person and wording, naming the Business
 
-        they work in (the chosen grant''s, else their own), answered with the first
+        they work in (the chosen grant''s, else their own), else one they joined,
 
-        acceptance time. No Business yet is a 404.'
+        else the one that invited them, answered with the first acceptance time.
+
+        None of these is a 404.'
       parameters:
       - name: X-Business-Grant
         in: header
@@ -18004,6 +18006,9 @@ components:
         requested_role:
           $ref: '#/components/schemas/BusinessRole'
           default: editor
+        resend_wait_seconds:
+          type: integer
+          default: 0
       additionalProperties: false
       type: object
       required:
@@ -19132,6 +19137,9 @@ components:
             $ref: '#/components/schemas/GrantedSpaceInfo'
           type: array
         invitations_available:
+          type: boolean
+          default: false
+        can_start_business:
           type: boolean
           default: false
         closed_spaces:

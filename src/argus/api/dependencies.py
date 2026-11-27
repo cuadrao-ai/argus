@@ -457,15 +457,12 @@ def current_user(request: Request) -> User:
     return user
 
 
-def require_standing_account(
-    request: Request,
-    user: User = Depends(current_user),  # noqa: B008
-) -> None:
+def standing_account(user: User) -> bool:
     """The caller is admitted by the allowlist or by open sign-up, not only by a
-    Business invitation or grant. Starting a Business, inviting people to one and
-    taking one over need this, so admission never chains from one invited person
-    to the next. Inert while ``CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED`` is
-    off, when a Business admits no one and the gate alone decides."""
+    Business invitation or grant. Starting a Business and taking one over need
+    this; what a member does inside a Business follows their role alone. True
+    while ``CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED`` is off, when a Business
+    admits no one and the gate alone decides."""
 
     from argus.domain.business.config import business_invite_admission_enabled
 
@@ -474,8 +471,15 @@ def require_standing_account(
         or mock_auth_enabled()
         or api_state.supabase_gateway is None
     ):
-        return
-    if not permanent_account_access_allowed(
+        return True
+    return permanent_account_access_allowed(
         api_state.supabase_gateway, user.email or "", None
-    ):
+    )
+
+
+def require_standing_account(
+    request: Request,
+    user: User = Depends(current_user),  # noqa: B008
+) -> None:
+    if not standing_account(user):
         raise private_alpha_access_problem(request)

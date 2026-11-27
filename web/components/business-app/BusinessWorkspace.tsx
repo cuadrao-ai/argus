@@ -377,6 +377,7 @@ function BusinessWorkspaceContent({
   const clearLostAccess = useCallback(() => setLostAccess(false), []);
   const [invitationBusiness, setInvitationBusiness] = useState<string | null>(null);
   const [invitationsAvailable, setInvitationsAvailable] = useState(false);
+  const [canStartBusiness, setCanStartBusiness] = useState(false);
   const [previewNames, setPreviewNames] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!localPreview) return;
@@ -415,11 +416,12 @@ function BusinessWorkspaceContent({
     let cancelled = false;
     setDirectoryStatus("loading");
     setDirectoryReference(null);
-    const directory = source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false }));
+    const directory = source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false, can_start_business: false }));
     directory.then(
-      ({ spaces: listed, closed_spaces: closed, invitations_available: capability }) => {
+      ({ spaces: listed, closed_spaces: closed, invitations_available: capability, can_start_business: mayStart }) => {
         if (cancelled) return;
         setSpaces(listed);
+        setCanStartBusiness(mayStart === true);
         setDirectoryStatus("ready");
         setClosedSpaces(closed);
         setInvitationsAvailable(capability === true);
@@ -431,14 +433,15 @@ function BusinessWorkspaceContent({
           setChosenGrant(null);
           setLostAccess(true);
         } else if (!grant) {
-          const defaultGrant = source.mode === "live" ? listed.find(space => space.role === "owner")?.grant_id ?? soleClientGrantId(listed) : soleClientGrantId(listed);
+          // Live, a person always works in a Business the server listed: their own, else the first they were given.
+          const defaultGrant = source.mode === "live" ? listed.find(space => space.role === "owner")?.grant_id ?? listed[0]?.grant_id : soleClientGrantId(listed);
           if (defaultGrant) {
             setChosenGrant(defaultGrant);
             setRevision((value) => value + 1);
           }
         }
       },
-      (error: unknown) => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); setDirectoryReference(referenceCode(error)); setInvitationsAvailable(false); } },
+      (error: unknown) => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); setDirectoryReference(referenceCode(error)); setInvitationsAvailable(false); setCanStartBusiness(false); } },
     );
     return () => { cancelled = true; };
   }, [source, revision, accessRevision]);
@@ -640,10 +643,7 @@ function BusinessWorkspaceContent({
   useEffect(() => {
     let cancelled = false;
     if (onRecord) return;
-    source.ensureSpace(normalizeEnabledLanguage(i18n.language)).then(() => {
-      if (cancelled) return { items: [] };
-      return source.captures("", NOTES_PAGE, "inbox");
-    }).then(
+    source.captures("", NOTES_PAGE, "inbox").then(
       (page) => {
         if (cancelled) return;
         setRecords((current) => ({ ...current, notes: page.items, notesFailure: null, notesTruncated: page.has_more === true }));
@@ -658,7 +658,7 @@ function BusinessWorkspaceContent({
     return () => {
       cancelled = true;
     };
-  }, [onRecord, revision, notesAttempt, source, i18n, reloadWaits]);
+  }, [onRecord, revision, notesAttempt, source, reloadWaits]);
 
   const retryEmails = emailDeliveries.refresh;
   const retrySources = useCallback((sources: readonly BandejaSource[]) => {
@@ -795,10 +795,10 @@ function BusinessWorkspaceContent({
       bottomNavigation: (shell) => !closedAccessName && shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview" && !closedAccessName,
       sidebarNav: (shell) => closedAccessName ? null : <BusinessSidebarNav shell={shell} />,
-      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
+      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId)&&canStartBusiness:Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
       sidebarMark: () => <BusinessMark businessId={chosen?.space_id} name={businessTitle} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId)&&canStartBusiness:Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
         {shell.isBelowTablet && shell.openSearch ? <div className="relative isolate">
           {island(true)}
@@ -837,7 +837,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, chosenGrant, intakeTarget, recordDrawer, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
+  }, [notificationsAvailable, canStartBusiness, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, chosenGrant, intakeTarget, recordDrawer, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>
