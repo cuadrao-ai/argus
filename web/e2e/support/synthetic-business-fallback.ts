@@ -84,7 +84,7 @@ export async function fulfillSyntheticBusinessFallback(
 
   if (path === "spaces") {
     if (method !== "GET") throw new Error("Synthetic spaces requires GET");
-    return route.fulfill({ json: { spaces: [owner], closed_spaces: [] } });
+    return route.fulfill({ json: { spaces: [owner], closed_spaces: [], can_start_business: true } });
   }
   if (path === `spaces/${owner.space_id}/profile`) {
     if (method !== "GET") throw new Error("Synthetic space profile requires GET");

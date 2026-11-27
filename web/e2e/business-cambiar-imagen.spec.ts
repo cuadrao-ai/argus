@@ -17,7 +17,7 @@ async function liveProfile(page: Page, theme: "light" | "dark") {
     const request = route.request();
     const path = new URL(request.url()).pathname.split("/business/")[1];
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
-    if (path === "spaces") return route.fulfill({ json: { spaces: [{ space_id: SPACE, name: "La Palma", grant_id: "owner-grant", role: "owner", business_role: "owner", permissions: ["read", "manage"], capabilities: ["read", "prepare", "approve"], access_seen: true }] } });
+    if (path === "spaces") return route.fulfill({ json: { spaces: [{ space_id: SPACE, name: "La Palma", grant_id: "owner-grant", role: "owner", business_role: "owner", permissions: ["read", "manage"], capabilities: ["read", "prepare", "approve"], access_seen: true }], can_start_business: true } });
     if (path === "space") return route.fulfill({ json: { id: SPACE, name: "La Palma" } });
     if (path === "workspace") return route.fulfill({ json: await source.workspace() });
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
