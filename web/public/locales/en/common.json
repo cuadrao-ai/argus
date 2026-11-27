@@ -4421,6 +4421,7 @@
       "formats": "{{formats}}, up to {{size}} MB. The original stays private to you.",
       "choose_another": "Choose another file",
       "panel_title": "Add documents",
+      "island_uploading": "{{position}} of {{total}}",
       "chip_uploading": "Uploading {{position}} of {{total}}",
       "chip_saved_one": "{{count}} uploaded",
       "chip_saved_other": "{{count}} uploaded",

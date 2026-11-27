@@ -37,6 +37,7 @@ export type { IntakeTarget } from "./receipt-upload-queue";
 
 type IntakeProps = {
   target: IntakeTarget;
+  focusAttention?: boolean;
   queue: ReceiptUploadQueue;
   onClose: () => void;
   /** Every saved receipt of this target, in the order the dossier walks them. */
@@ -92,7 +93,7 @@ function useOnlyShrinks(value: number | null, active: boolean): number | null {
   return next;
 }
 
-function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & { limits: ReceiptLimits }) {
+function IntakeForm({ limits, target, queue, onClose, onReview, focusAttention }: IntakeProps & { limits: ReceiptLimits }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const capabilities = useInputCapabilities();
@@ -116,7 +117,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const [copyFailed, setCopyFailed] = useState(false);
   const addressRef = useRef<HTMLParagraphElement>(null);
   const copyLabels = useCopyLabels(forwardAddress ?? "");
-  const batch = uploadBatchView(entries, queue.retryWaiting);
+  const batch = uploadBatchView(entries, queue.retryWaiting, queue.attempts);
   const saved = batch.savedReceipts;
   const [deletedOpen, setDeletedOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -170,8 +171,8 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   };
   const [savedOpen, setSavedOpen] = useState(false);
   const many = target === "inbox";
-  const progress = many && queue.progress?.target === target ? queue.progress : null;
-  const batchSummary = uploadSummaryText(t, batch, progress, "panel");
+  const batchSummary = uploadSummaryText(t, batch, many ? "panel" : "composer");
+  const firstAttention = useRef<HTMLElement | null>(null);
   const timeLeft = uploadTimeLeftText(t, batch, useOnlyShrinks(batch.secondsLeft, batch.busy));
   const failed = entries.find((item) => item.status === "failed");
   const failure: FailureClass | null = failed?.status === "failed" ? failed.failure : null;
@@ -284,6 +285,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       closeLabel={t("common.close")}
       onClose={onClose}
       width="record"
+      initialFocusRef={focusAttention ? firstAttention : undefined}
       summary={batchSummary || undefined}
       snaps={["peek", "half", "full"]}
       initialSnap={isBelowTablet ? "full" : "half"}
@@ -302,7 +304,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
         </div>
       ) : undefined}
     >
-      <div className="flex flex-col gap-4 px-4 pb-6 pt-5 desktop:px-6">
+      <div data-upload-form="" className="flex flex-col gap-4 px-4 pb-6 pt-5 desktop:px-6">
         <ReceiptDropZone
           compact={hasFiles}
           drag={drag}
@@ -389,7 +391,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                 {timeLeft ? <span data-testid="receipt-upload-time-left" aria-live="polite" className={`shrink-0 text-[12.5px] font-medium tabular-nums ${MUTED}`}>{timeLeft}</span> : null}
               </div>
             ) : null}
-            <ul className="py-1" data-testid="receipt-upload-queue">
+            <ul className="py-1" data-testid="receipt-upload-queue" ref={list => {
+              firstAttention.current = list?.querySelector<HTMLElement>('[data-status="failed"] button, [data-status="rejected"] button') ?? null;
+            }}>
               {[...batch.attention, ...batch.active, ...batch.waiting].map(renderRow)}
             </ul>
             {batch.saved.length > 0 ? (

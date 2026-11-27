@@ -25,7 +25,7 @@ export type ReceiptUpload = UploadFile & (
   | { status: "queued" }
   | { status: "uploading"; consent: boolean; bytes: UploadBytes | null }
   | { status: "failed"; consent: boolean; failure: FailureClass; share: number }
-  | { status: "saved"; consent: boolean; receipt: ReceiptSummary }
+  | { status: "saved"; consent: boolean; receipt: ReceiptSummary; savedAt?: number }
   | { status: "rejected"; reason: UploadRejection }
 );
 
@@ -47,9 +47,6 @@ export function uploadSecondsLeft(sent: number, total: number, elapsedMs: number
 function bytesPerSecond(sent: number, elapsedMs: number): number | null {
   return elapsedMs < 1_000 || sent <= 0 ? null : (sent * 1_000) / elapsedMs;
 }
-/** Where the file stands among its target's files in the running drain: "Subiendo 6 de 9". */
-export type UploadProgress = { target: IntakeTarget; position: number; total: number };
-
 /** The wait after a 429 that names no Retry-After. */
 const UPLOAD_LIMIT_FALLBACK_MS = 5_000;
 
@@ -83,7 +80,7 @@ export class ReceiptUploadQueue {
   private items: readonly ReceiptUpload[] = [];
   private listeners = new Set<() => void>();
   private running = false;
-  private current: UploadProgress | null = null;
+  private attempted = new Map<string, Pick<ReceiptUpload, "key" | "target" | "grant">>();
   /** Files asked to upload and not yet taken by the drain, with the consent they were asked with. */
   private asked = new Map<string, boolean>();
 
@@ -97,7 +94,7 @@ export class ReceiptUploadQueue {
     return () => { this.listeners.delete(listener); };
   };
   get uploading() { return this.running; }
-  get progress() { return this.current; }
+  get attempts() { return this.attempted.values(); }
   get unfinished() { return this.items.some(isUnfinishedUpload); }
   /** Whether this failed file's retry waits for the running drain. */
   retryWaiting = (key: string) => this.asked.has(key) && this.items.some((item) => item.key === key && item.status === "failed");
@@ -171,9 +168,9 @@ export class ReceiptUploadQueue {
   }
 
   /** Forgets what is finished, once it is reviewed; queued, running and failed files stay. */
-  clearSettled(target: IntakeTarget, grant: string | null) {
+  clearSettled(target: IntakeTarget, grant: string | null, keepRejected = false) {
     const own = this.within(target, grant);
-    if (!this.running) this.publish(this.items.filter((item) => !own(item) || isUnfinishedUpload(item)));
+    this.publish(this.items.filter((item) => !own(item) || isUnfinishedUpload(item) || (keepRejected && item.status === "rejected")));
   }
 
   /** A file that waits, failed or was refused leaves the list, during a drain too; the one being sent stays. */
@@ -202,17 +199,14 @@ export class ReceiptUploadQueue {
   private async drain() {
     if (this.running) return;
     this.running = true;
-    const sentBy = new Map<IntakeTarget, number>();
+    this.attempted.clear();
     try {
       await runFifo(
         () => this.items.find(this.waiting),
         async (item) => {
           const consent = this.asked.get(item.key) ?? false;
           this.asked.delete(item.key);
-          const position = (sentBy.get(item.target) ?? 0) + 1;
-          sentBy.set(item.target, position);
-          const remaining = this.items.filter((other) => other.key !== item.key && other.target === item.target && this.waiting(other)).length;
-          this.current = { target: item.target, position, total: position + remaining };
+          this.attempted.set(item.key, { key: item.key, target: item.target, grant: item.grant });
           const attempt = { ...item, consent };
           const uploading = { ...attempt, status: "uploading" as const };
           this.replace({ ...uploading, bytes: null });
@@ -243,13 +237,13 @@ export class ReceiptUploadQueue {
             }
             return;
           }
-          this.replace({ ...attempt, status: "saved", receipt });
+          this.replace({ ...attempt, status: "saved", receipt, savedAt: Date.now() });
           this.onSaved(receipt, item);
         },
       );
     } finally {
       this.running = false;
-      this.current = null;
+      this.attempted.clear();
       this.publish([...this.items]);
     }
     // Something asked to upload in the moment between the last file and the end of the drain still goes.

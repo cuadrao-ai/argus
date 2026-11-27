@@ -1,0 +1,63 @@
+.anchor {
+  --spring: cubic-bezier(.3,1.25,.5,1);
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px + var(--record-shift, 0px));
+  width: 40px;
+  height: 40px;
+  transform: translateY(-50%);
+  transition: right .38s var(--spring);
+  pointer-events: none;
+}
+
+.island {
+  position: absolute;
+  right: 0;
+  width: max(40px, var(--island-width, 40px));
+  height: 40px;
+  overflow: hidden;
+  border-width: 1px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: auto;
+  transform-origin: right center;
+  transition: width .32s var(--spring), transform .3s var(--spring), opacity .12s;
+  animation: emerge .6s both;
+}
+.island:focus-visible { outline: 2px solid var(--cuadrao-green); outline-offset: 2px; }
+.content { display: flex; align-items: center; gap: 8px; width: max-content; padding: 0 14px 0 9px; }
+.icon { width: 20px; height: 20px; color: #2f5a49; }
+:global(.dark) .icon { color: #8fcbb0; }
+.track { stroke: #e4e2da; }
+:global(.dark) .track { stroke: rgb(255 255 255 / 10%); }
+.arc { transition: stroke-dashoffset .45s cubic-bezier(.3,.7,.4,1); }
+.arrow { animation: bob 1s cubic-bezier(.5,0,.5,1) infinite; }
+@keyframes bob { 0%,100% { transform: translateY(1.5px); opacity: .55; } 50% { transform: translateY(-1.5px); } }
+.check { stroke-dasharray: 1; animation: draw .28s cubic-bezier(.3,.7,.4,1) .05s backwards; }
+@keyframes draw { from { stroke-dashoffset: 1; } }
+@keyframes emerge {
+  0% { width: 40px; transform: translateX(52px) scale(.86); opacity: 0; animation-timing-function: var(--spring); }
+  46% { width: 40px; transform: none; opacity: 1; animation-timing-function: var(--spring); }
+}
+.island[data-phase="closing"] {
+  animation: none;
+  width: 40px;
+  transform: translateX(52px) scale(.86);
+  opacity: 0;
+  pointer-events: none;
+  transition: width .3s var(--spring), transform .3s .3s cubic-bezier(.5,0,.75,0), opacity .22s .38s;
+}
+.anchor[data-phone] .island { width: 40px; }
+.morph {
+  position: fixed; z-index: 121; pointer-events: none;
+  background: white; border: 1px solid #c9cfc9; border-radius: 16px 0 0 16px;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 16%);
+}
+:global(.dark) .morph { background: #1f2225; border-color: rgb(255 255 255 / 18%); }
+@media (prefers-reduced-motion: reduce) {
+  .anchor, .island, .island[data-phase="closing"], .arc, .arrow, .check { animation: none; transition: none; }
+  .island[data-phase="closing"] { visibility: hidden; transform: none; }
+}
