@@ -546,14 +546,14 @@ def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> No
         now=now,
         claim_until=now + timedelta(seconds=90),
     )
-    refused = store.settle(
-        provider_message_key=forged,
-        claim_until=claim.record.claim_until,
-        settlement=replace(capture, connection_id=world.receipt[("a", "personal")]),
-        now=now,
-    )
-    assert refused is not None and refused.status == "rejected"
-    assert refused.connection_id is None
+    with pytest.raises(LookupError, match="whatsapp_staged_source_missing"):
+        store.settle(
+            provider_message_key=forged,
+            claim_until=claim.record.claim_until,
+            settlement=replace(capture, connection_id=world.receipt[("a", "personal")]),
+            now=now,
+        )
+    assert store.inbound(forged).status == "received"
     assert store.inbound(forged).sender_link_id is None
 
 

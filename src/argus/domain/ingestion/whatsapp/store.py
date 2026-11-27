@@ -107,6 +107,8 @@ class Settlement:
     duplicate: bool = False
     previous_business_copy: bool = False
     reading: bool = False
+    route_held_id: str | None = None
+    report_arrival: bool = False
     reply_language: str | None = None
     # The sender link observed before the download, and the staged document location.
     sender_link_id: str | None = None
@@ -115,8 +117,12 @@ class Settlement:
     space_id: str | None = None
 
 
-PrepareCapture = Callable[["Connection | None", Settlement, bytes], Settlement]
-DiscardCapture = Callable[["Connection | None", Settlement], None]
+class CapturePublisher(Protocol):
+    def prepare(
+        self, connection: Connection | None, settlement: Settlement, message_key: bytes
+    ) -> Settlement: ...
+    def discard(self, db: Connection | None, staged: Settlement) -> None: ...
+    def route_saved(self, db: Connection, staged: Settlement) -> Settlement: ...
 
 
 def settlement_time(now: datetime | Callable[[], datetime]) -> datetime:
@@ -187,8 +193,7 @@ class WhatsAppStore(Protocol):
         settlement: Settlement,
         now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
-        prepare: PrepareCapture | None = None,
-        discard: DiscardCapture | None = None,
+        publisher: CapturePublisher | None = None,
         deadline: float | None = None,
     ) -> Settlement | None:
         """Settle only while the caller holds a live claim; None when it does not.
@@ -335,8 +340,7 @@ class InMemoryWhatsAppStore:
         settlement: Settlement,
         now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
-        prepare: PrepareCapture | None = None,
-        discard: DiscardCapture | None = None,
+        publisher: CapturePublisher | None = None,
         deadline: float | None = None,
     ) -> Settlement | None:
         with self._lock:
@@ -363,26 +367,18 @@ class InMemoryWhatsAppStore:
                         and row.connection_id == settlement.connection_id
                         for row in self._inbound.values()
                     )
-                    if discard is not None and not settlement.duplicate and not accepted:
-                        discard(None, settlement)
+                    if publisher is not None and not settlement.duplicate and not accepted:
+                        publisher.discard(None, settlement)
                     settlement = revoked(settlement)
                 else:
                     document = self._connection(
                         settlement.storage_user_id, settlement.connection_id
                     )
-                    if document is None:
+                    if document is None or document.scope != scope_of(settlement.space_id):
                         raise LookupError("whatsapp_staged_source_missing")
-                    if document.scope != scope_of(settlement.space_id):
-                        settlement = replace(
-                            settlement,
-                            status="rejected",
-                            connection_id=None,
-                            error_code="whatsapp_media_invalid",
-                        )
-                    else:
-                        link_id = link.id
-            if prepare is not None and settlement.status == "captured":
-                settlement = prepare(None, settlement, provider_message_key)
+                    link_id = link.id
+            if publisher is not None and settlement.status == "captured":
+                settlement = publisher.prepare(None, settlement, provider_message_key)
             self._inbound[provider_message_key] = replace(
                 current,
                 status=settlement.status,

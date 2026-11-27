@@ -243,16 +243,18 @@ class DocumentsDestination:
         files = held_files(documents.store)
         if connection is not None:
             existing = connection.execute(
-                "select 1 from public.whatsapp_held_files where user_id=%s and connection_id=%s limit 1",
+                "select 1 from public.whatsapp_held_files where user_id=%s and connection_id=%s "
+                "and state='held' limit 1",
                 (person, connection_id),
             ).fetchone()
         else:
             existing = any(
-                row.connection_id == connection_id for row in files.list_for_user(person)
+                row.connection_id == connection_id and row.state == "held"
+                for row in files.list_for_user(person)
             )
         if existing:
             return replace(settlement, duplicate=True)
-        files.hold(
+        held = files.hold(
             user_id=person,
             sender_link_id=settlement.sender_link_id,
             provider_message_key=message_key,
@@ -263,6 +265,16 @@ class DocumentsDestination:
         published = documents.publish_capture(
             user_id=person, connection_id=connection_id, scope=PERSONAL
         )
+        if (
+            grants
+            and connection is not None
+            and (
+                len(grants) == 1
+                or documents.store.get(user_id=person, connection_id=connection_id)
+                is not None
+            )
+        ):
+            return replace(settlement, duplicate=False, route_held_id=held.id)
         reading = bool(
             grants
             and connection is not None
@@ -308,15 +320,36 @@ class DocumentsDestination:
             documents.publish_capture(
                 user_id=custodian, connection_id=connection_id, scope=scope
             )
-        if staged:
-            business_analytics.document_received(
-                channel="whatsapp",
-                business_id=scope.space_id,
-                user_id=person,
-                media_type=draft.media_type,
-                size_bytes=draft.size_bytes,
-            )
-        return replace(settlement, reading=reading)
+        return replace(settlement, reading=reading, report_arrival=staged)
+
+    def route_saved(self, db: Connection, staged: Settlement) -> Settlement:
+        person, held_id = staged.destination_owner_id, staged.route_held_id
+        assert person and held_id
+        documents = self.documents.on_connection(db)
+        routed = documents.route_saved_hold(user_id=person, held_id=held_id)
+        if routed is None:
+            return staged
+        business, outcome = routed
+        return replace(
+            staged,
+            connection_id=outcome.connection_id,
+            space_id=business,
+            storage_user_id=documents.store.owner(connection_id=outcome.connection_id),
+            report_arrival=not outcome.replayed,
+            reading=outcome.status == "queued",
+        )
+
+    @staticmethod
+    def report_arrival(settled: Settlement) -> None:
+        original = settled.original
+        assert original and settled.space_id and settled.destination_owner_id
+        business_analytics.document_received(
+            channel="whatsapp",
+            business_id=settled.space_id,
+            user_id=settled.destination_owner_id,
+            media_type=original.media_type,
+            size_bytes=len(original.content),
+        )
 
     def _prepare_read(
         self,

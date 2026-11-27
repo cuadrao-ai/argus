@@ -457,3 +457,33 @@ async def test_any_text_from_a_linked_owner_gets_the_same_one_reply(text: str) -
 @pytest.mark.parametrize("case", UNLINKED_CASES, ids=lambda case: case.__name__)
 async def test_unlinked_case(case) -> None:  # noqa: ANN001
     await case(_world())
+
+
+@pytest.mark.asyncio
+async def test_relinked_number_does_not_receive_an_acknowledgement_for_the_previous_link(
+    monkeypatch,
+):
+    from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
+
+    world = _world()
+    await world.link(world.alice, ALICE_PHONE)
+    settle = world.store.settle
+    before = world.transport.bodies()
+    issued = world.issue(world.bob)
+
+    def reassign_after_capture(**kwargs):
+        settlement = settle(**kwargs)
+        if settlement and settlement.status == "captured":
+            assert world.store.redeem_code(
+                code_digest=world.keys.code(issued.code),
+                sender_hash=world.keys.sender(ALICE_PHONE),
+                last4=ALICE_PHONE[-4:],
+                now=world.clock.now,
+            )
+        return settlement
+
+    monkeypatch.setattr(world.store, "settle", reassign_after_capture)
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(cases.image("700000000000201", "wamid.AFTER-TRANSFER-ACK"))
+    assert world.record("wamid.AFTER-TRANSFER-ACK").status == "captured"
+    assert world.transport.bodies() == before

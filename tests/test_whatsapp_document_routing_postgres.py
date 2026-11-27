@@ -1,7 +1,7 @@
 """Routing proof on the signed webhook and the migrated disposable database."""
 
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
@@ -408,3 +408,78 @@ async def test_revoked_sender_keeps_a_shared_receipt_another_sender_already_publ
         user_id=webhook.owner, connection_id=receipt
     )
     assert connection.status != "disconnected"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sole_business", [False, True], ids=["private", "sole_business"])
+async def test_resend_after_assigned_business_loses_eligibility_reuses_the_receipt(
+    webhook: Webhook, monkeypatch, sole_business: bool
+):
+    from argus.api.whatsapp import whatsapp_runtime
+
+    from tests.document_reads_support import read_receipt
+    from tests.test_whatsapp_receipt_read_postgres import Extractor
+
+    monkeypatch.setattr(
+        "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route",
+        lambda: ROUTE,
+    )
+    webhook.clock.now = datetime.now(timezone.utc)
+    docs = webhook.documents
+    extractor = Extractor()
+    monkeypatch.setattr(docs, "extractor", extractor)
+    [a] = webhook.store.eligible_businesses(webhook.owner)
+    b, _ = PostgresSpaceStore(webhook.pool).create_additional(
+        webhook.owner, Faker().company(), "DO", str(uuid4())
+    )
+    prepare_phone_business(webhook.pool, b.id, webhook.owner)
+    assert (await webhook.post(webhook.signed_receipt(RECEIPT_PNG))).status_code == 200
+    files = held_files(docs.store)
+    [original] = files.list_for_user(webhook.owner)
+    assert await read_receipt(docs, webhook.owner, original.connection_id) == "prepared"
+    assert extractor.calls == 1
+    assigned = docs.adopt(
+        user_id=webhook.owner, held_id=original.id, business_id=a.space_id
+    )
+    assert webhook.store.inbound(webhook.key).connection_id == assigned.connection_id
+
+    def usage():
+        with webhook.pool.connection() as db:
+            return (
+                db.execute(
+                    "select business_id::text,reads from public.business_read_daily_usage where business_id=any(%s::uuid[]) order by 1",
+                    ([a.space_id, b.id],),
+                ).fetchall(),
+                db.execute(
+                    "select reads from public.whatsapp_held_read_usage where user_id=%s order by day",
+                    (webhook.owner,),
+                ).fetchall(),
+            )
+
+    before = usage()
+    turn_reading(docs.business_receipt_consent, a.space_id, webhook.owner, False)
+    if not sole_business:
+        turn_reading(docs.business_receipt_consent, b.id, webhook.owner, False)
+    webhook.clock.now += timedelta(seconds=1)
+    message_id = "wamid.AFTER-A-ACCESS-LOSS"
+    raw = encode(image(MEDIA_ID, message_id), webhook.clock.now)
+    assert (await webhook.post(raw)).status_code == 200
+    first, second = files.list_for_user(webhook.owner)
+    assert first.id == original.id and first.assigned_space_id == a.space_id
+    assert first.connection_id == second.connection_id
+    inbound = webhook.store.inbound(whatsapp_runtime().intake.keys.message(message_id))
+    if sole_business:
+        assert second.state == "assigned" and second.assigned_space_id == b.id
+        assert inbound.connection_id == second.assigned_connection_id
+        assert (
+            docs.store.get(user_id=webhook.owner, connection_id=inbound.connection_id)
+            is not None
+        )
+    else:
+        assert second.state == "held" and second.reason == "no_eligible_business"
+        assert inbound.connection_id == second.connection_id
+        assert (
+            docs.store.source(user_id=webhook.owner, connection_id=inbound.connection_id)
+            == RECEIPT_PNG
+        )
+    assert usage() == before and extractor.calls == 1

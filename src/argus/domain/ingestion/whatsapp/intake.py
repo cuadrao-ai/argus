@@ -56,6 +56,7 @@ from argus.domain.ingestion.whatsapp.reply_groups import (
 )
 from argus.domain.ingestion.whatsapp.store import (
     RETRYABLE,
+    CapturePublisher,
     CaptureSource,
     ReplyLanguage,
     Settlement,
@@ -102,8 +103,10 @@ class Captured:
     previous_business_copy: bool = False
 
 
-class IntakeDestination(Protocol):
-    """Where a linked sender's receipt lands: the owner's Business space."""
+class IntakeDestination(CapturePublisher, Protocol):
+    """Stage and publish receipts for the sender of a signed delivery."""
+
+    def report_arrival(self, settled: Settlement) -> None: ...
 
     async def capture(
         self,
@@ -361,10 +364,7 @@ class WhatsAppIntake:
             if self.reply_codec is None:
                 raise RuntimeError("whatsapp_reply_grouping_unavailable")
             link = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
-            if (
-                link is not None
-                and link.destination_owner_id == settlement.destination_owner_id
-            ):
+            if link is not None and link.authorizes(settlement):
                 failure = self.reply_codec.failure(
                     message, link, now=self.clock(), wait=self.reply_group_wait_seconds
                 )
@@ -375,6 +375,8 @@ class WhatsAppIntake:
             log.warning("WhatsApp message claim lost before settling")
             return False
         settlement = settled
+        if settlement.report_arrival:
+            self.destination.report_arrival(settlement)
         log.info(
             "WhatsApp message settled",
             status=settlement.status,
@@ -431,11 +433,6 @@ class WhatsAppIntake:
         reply_failure: PendingFailure | None = None,
         deadline: float | None = None,
     ) -> Settlement | None:
-        prepare = (
-            getattr(self.destination, "prepare", None)
-            if settlement.status == "captured"
-            else None
-        )
         return await _finish(
             asyncio.create_task(
                 asyncio.to_thread(
@@ -445,8 +442,7 @@ class WhatsAppIntake:
                     settlement=settlement,
                     now=self.clock,
                     reply_failure=reply_failure,
-                    prepare=prepare,
-                    discard=getattr(self.destination, "discard", None),
+                    publisher=self.destination if settlement.status == "captured" else None,
                     deadline=deadline,
                 )
             )
@@ -463,6 +459,7 @@ class WhatsAppIntake:
                 owner,
                 error_code="whatsapp_receipt_missing",
                 reply_language=language,
+                sender_link_id=link.id,
             )
         if isinstance(message, UnsupportedMessage):
             return Settlement(
@@ -470,6 +467,7 @@ class WhatsAppIntake:
                 owner,
                 error_code="whatsapp_message_unsupported",
                 reply_language=language,
+                sender_link_id=link.id,
             )
         settlement = await self._capture(message, owner)
         return replace(settlement, reply_language=language, sender_link_id=link.id)
@@ -494,6 +492,7 @@ class WhatsAppIntake:
                         "linked",
                         destination_owner_id=linked.destination_owner_id,
                         reply_language=linked.reply_language,
+                        sender_link_id=linked.id,
                     )
         return Settlement(
             "rejected",
@@ -556,13 +555,11 @@ class WhatsAppIntake:
         if resolved_key == "whatsapp_sender_not_linked":
             return
         sender = self.keys.sender(message.sender)
-        if (
-            resolved_key != "whatsapp_link_code_invalid"
-            and await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
-            is None
-        ):
-            suppressed("unknown_sender", sender)
-            return
+        if resolved_key != "whatsapp_link_code_invalid":
+            current = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
+            if current is None or not current.authorizes(settlement):
+                suppressed("unknown_sender", sender)
+                return
         if settlement.error_code in FAILURE_REASONS:
             return
         if self.transport is None or not self.send_enabled():

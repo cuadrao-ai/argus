@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import replace
 from datetime import datetime
 
 from psycopg import Connection, sql
@@ -22,10 +21,9 @@ from argus.domain.ingestion.whatsapp.senders import postgres_senders
 from argus.domain.ingestion.whatsapp.store import (
     UNLINKED_REPLY_RESERVED,
     BusinessCopy,
+    CapturePublisher,
     Claim,
-    DiscardCapture,
     InboundRecord,
-    PrepareCapture,
     SenderLink,
     Settlement,
     dominican_day,
@@ -127,8 +125,7 @@ class PostgresWhatsAppStore:
         settlement: Settlement,
         now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
-        prepare: PrepareCapture | None = None,
-        discard: DiscardCapture | None = None,
+        publisher: CapturePublisher | None = None,
         deadline: float | None = None,
     ) -> Settlement | None:
         if claim_until is None:
@@ -166,7 +163,7 @@ class PostgresWhatsAppStore:
                 link = self._active(connection, "wa_id_hash", holder[0])
                 if link is None or not link.authorizes(settlement):
                     if (
-                        discard is not None
+                        publisher is not None
                         and not settlement.duplicate
                         and not connection.execute(
                             "select 1 from public.whatsapp_inbound_messages where connection_id=%s "
@@ -174,7 +171,7 @@ class PostgresWhatsAppStore:
                             (settlement.connection_id,),
                         ).fetchone()
                     ):
-                        discard(connection, settlement)
+                        publisher.discard(connection, settlement)
                     settlement = revoked(settlement)
                 else:
                     staged = connection.execute(
@@ -182,24 +179,16 @@ class PostgresWhatsAppStore:
                         "where id=%s and user_id=%s for share",
                         (settlement.connection_id, settlement.storage_user_id),
                     ).fetchone()
-                    if staged is None:
+                    if staged is None or scope_of(staged[0]) != scope_of(settlement.space_id):
                         raise LookupError("whatsapp_staged_source_missing")
-                    if scope_of(staged[0]) != scope_of(settlement.space_id):
-                        settlement = replace(
-                            settlement,
-                            status="rejected",
-                            connection_id=None,
-                            error_code="whatsapp_media_invalid",
-                        )
-                    else:
-                        link_id = link.id
+                    link_id = link.id
             # Check expiry after acquiring the locks. The inbound row remains
             # unavailable to another claimant through publication and commit.
             settled_at = _limit_statement_time(connection, claim_until, now, deadline)
             if settled_at is None:
                 return None
-            if prepare is not None and settlement.status == "captured":
-                settlement = prepare(connection, settlement, provider_message_key)
+            if publisher is not None and settlement.status == "captured":
+                settlement = publisher.prepare(connection, settlement, provider_message_key)
             connection.execute(
                 "update public.whatsapp_inbound_messages set status = %s, "
                 "destination_owner_id = %s, connection_id = %s, error_code = %s, "
@@ -215,6 +204,8 @@ class PostgresWhatsAppStore:
                     provider_message_key,
                 ),
             )
+            if publisher is not None and settlement.route_held_id is not None:
+                settlement = publisher.route_saved(connection, settlement)
             if reply_failure is not None:
                 self.reply_groups.enqueue_on(connection, reply_failure)
             if settlement_seconds(claim_until, settlement_time(now), deadline) <= 0:
