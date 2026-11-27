@@ -41,6 +41,7 @@ type Setup = { spaces?: GrantedSpace[]; notices?: BusinessNotice[]; link?: strin
 /** The live workspace over a server double: it lists Businesses and notices, marks them read and accepts. */
 async function open({ spaces = [], notices = [], link, listFails = false, acceptStatus = 200, width = 1280 }: Setup) {
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessContextCue } = await import("@/components/business-app/BusinessPanel");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
@@ -74,7 +75,7 @@ async function open({ spaces = [], notices = [], link, listFails = false, accept
       const body = JSON.parse(String(init?.body)) as { space_id: string };
       server.accepted.push({ invite: accept[1], space_id: body.space_id });
       server.notices = server.notices.filter((item) => item !== found);
-      const joined = { ...space(90 + server.spaces.length, found.business_name ?? "", found.requested_role), space_id: found.business_id };
+      const joined = { ...space(90 + server.spaces.length, found.business_name ?? "", found.requested_role), space_id: found.business_id, access_seen: false };
       server.spaces = [...server.spaces, joined];
       return Response.json({ space_id: found.business_id, grant_id: joined.grant_id });
     }
@@ -99,7 +100,7 @@ async function open({ spaces = [], notices = [], link, listFails = false, accept
     business = useBusiness();
     const workspace = useChatWorkspace();
     useEffect(() => { workspace?.onShellChange?.(shell); }, [workspace]);
-    return <><header>{workspace?.headerActions(shell)}</header><nav>{workspace?.sidebarNav?.(shell)}</nav><main>{business.spaces?.length ? null : workspace?.panel(shell)}</main></>;
+    return <><header>{workspace?.headerActions(shell)}</header><nav>{workspace?.sidebarNav?.(shell)}</nav><main>{business.spaces?.length ? null : workspace?.panel(shell)}</main><aside><BusinessContextCue /></aside></>;
   }
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
@@ -125,6 +126,7 @@ async function open({ spaces = [], notices = [], link, listFails = false, accept
     pending: pendingInviteId,
     dot: () => host.querySelector<HTMLElement>('[data-testid="business-notifications-dot"]'),
     toast: () => document.querySelector<HTMLElement>('[data-testid="toast"]'),
+    accessLine: () => host.querySelector<HTMLElement>('[data-testid="business-access-line"]'),
     lists: () => requests.filter((request) => request === "GET /business/notifications").length,
     press: async (target: HTMLElement | null | undefined) => { expect(target).toBeTruthy(); await act(async () => target!.click()); },
   };
@@ -150,8 +152,10 @@ test("a new invitee from the link lands on the bell, open on that invitation, wi
   expect(page.chosen()).toBe(page.server.spaces[0].grant_id);
   expect(page.pending()).toBeNull();
   expect(page.panel()).toBeNull();
-  expect(page.toast()!.textContent).toContain("Invitación aceptada.");
-  expect(page.button(copy.go_to_business)).toBeUndefined();
+  await page.until(() => page.accessLine() !== null, "the access line");
+  expect(page.accessLine()!.textContent).toContain("Ahora tienes acceso a Panadería La Espiga · Administrador");
+  expect(page.button("Entendido", page.accessLine()!)).toBeTruthy();
+  expect(page.toast()).toBeNull();
 });
 
 test("an existing person from the link gets the bell open on that invitation, and accepting enters that Business", { timeout: 15000 }, async () => {
@@ -164,7 +168,9 @@ test("an existing person from the link gets the bell open on that invitation, an
   await page.press(page.button("Aceptar invitación", page.rows()[0]));
   await page.until(() => page.chosen() === page.server.spaces[1].grant_id, "entering the invited Business");
   expect(page.pending()).toBeNull();
-  expect(page.button(copy.go_to_business)).toBeUndefined();
+  await page.until(() => page.accessLine() !== null, "the access line");
+  expect(page.accessLine()!.textContent).toContain("Ahora tienes acceso a Panadería La Espiga · Lector");
+  expect(page.toast()).toBeNull();
 });
 
 test("with no link the dot waits, opening marks it read on the server, and accepting stays put and offers the way in", { timeout: 15000 }, async () => {
@@ -188,6 +194,8 @@ test("with no link the dot waits, opening marks it read on the server, and accep
   await page.until(() => page.toast() !== null, "the confirmation");
   expect(page.chosen()).toBe(own.grant_id);
   expect(page.toast()!.textContent).toContain("Invitación aceptada.");
+  expect(page.button(copy.go_to_business, page.toast()!)).toBeTruthy();
+  expect(page.accessLine()).toBeNull();
   expect(page.panel()!.textContent).toContain(copy.empty_all_title);
   await page.press(page.button(copy.go_to_business, page.toast()!));
   await page.until(() => page.chosen() === page.server.spaces[1].grant_id, "going to the Business");
