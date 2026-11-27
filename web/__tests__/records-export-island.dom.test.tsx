@@ -208,6 +208,65 @@ test("failed without Save As: the island's name and the panel both say the file 
   assert.equal(alert(), null);
 });
 
+/** What each export request asked the server for. */
+const exported = (page: { fixture: { calls: { path: string; body: unknown }[] } }) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).map((call) => call.body as { format: string; report: { filters: { q: string } } });
+/** Fails an export of the whole table as CSV, then searches the table, so the table's request is no longer the failed file's. */
+async function failThenSearch() {
+  const page = await registros();
+  page.fixture.controls.exportFails = true;
+  await page.open();
+  await page.click(page.button("CSV"));
+  await page.click(downloadButton());
+  await page.answer();
+  await page.settle(() => island()?.dataset.state === "failed");
+  page.fixture.controls.exportFails = false;
+  await page.type(document.querySelector('input[type="search"]')!, "proveedor");
+  await page.settle(() => page.fixture.calls.some((call) => call.path.endsWith("/reports/query") && JSON.stringify(call.body).includes('"q":"proveedor"')));
+  return page;
+}
+
+test("a failure never shows on another request: Exportar on a changed table opens clean and exports the new request, and the failed file stays in the island", async () => {
+  const page = await failThenSearch();
+  await page.open();
+  assert.match(panel()!.textContent!, /1 filtro/, "the panel is on the table's new request");
+  assert.equal(alert(), null, "the other file's failure is not this request's");
+  assert.equal(page.button("Reintentar"), undefined);
+  assert.equal(page.button("CSV")!.getAttribute("aria-checked"), "false", "the panel does not take the failed file's choices");
+  assert.equal(island()?.dataset.state, "failed", "the failed file is still in the island");
+
+  await page.click(page.button("Cerrar"));
+  await page.settle(() => panel() === null);
+  assert.equal(island()?.dataset.state, "failed", "closing another request's panel does not let the failure go");
+
+  await page.open();
+  await page.click(downloadButton());
+  await page.settle(() => island()?.dataset.state === "preparing");
+  await page.answer();
+  await page.settle(() => page.downloads.length === 1);
+  assert.deepEqual(exported(page).map((sent) => [sent.format, sent.report.filters.q]), [["csv", ""], ["xlsx", "proveedor"]], "Descargar exports the new request");
+});
+
+test("a click on the red island opens the panel on the failed file's own request, whatever the table shows now, and Reintentar downloads that same file", async () => {
+  const page = await failThenSearch();
+  await page.click(island());
+  await page.settle(() => alert() !== null);
+  assert.ok(alert()!.textContent!.startsWith(BUILD_FAILED));
+  assert.doesNotMatch(panel()!.textContent!, /1 filtro/, "the panel is on the failed file's request, not the table's");
+  assert.equal(page.button("CSV")!.getAttribute("aria-checked"), "true");
+  assert.equal(island(), null, "the open panel says it");
+
+  await page.click(page.button("Excel"));
+  assert.equal(alert(), null, "another format is another file: the failure is not its own");
+  await page.click(page.button("CSV"));
+  assert.ok(alert(), "back on the failed file, its failure shows again");
+
+  await page.click(page.button("Reintentar"));
+  await page.settle(() => island()?.dataset.state === "preparing");
+  await page.answer();
+  await page.settle(() => page.downloads.length === 1);
+  assert.deepEqual(exported(page).map((sent) => [sent.format, sent.report.filters.q]), [["csv", ""], ["csv", ""]], "the same request again");
+});
+
 test("closing the panel while a file is prepared does not cancel it, and Descargar is off until it ends", async () => {
   const page = await registros();
   await page.open();
