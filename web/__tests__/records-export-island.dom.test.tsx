@@ -79,23 +79,24 @@ async function registros(options: Parameters<typeof mount>[0] = {}) {
   };
 }
 
-/** A Save As window that stays open until the test picks a place. */
+/** A Save As window that stays open until the test picks a place. `written` and `removed` name each place by its window, counted from 1. */
 function savePicker() {
   const asked: string[] = [];
-  const written: Blob[] = [];
-  const removed: string[] = [];
+  const written: number[] = [];
+  const removed: number[] = [];
   let pick = () => {};
+  let cancel = () => {};
   (window as unknown as { showSaveFilePicker: (options: { suggestedName: string }) => Promise<unknown> }).showSaveFilePicker = async (options) => {
-    asked.push(options.suggestedName);
-    await new Promise<void>((resolve) => { pick = resolve; });
+    const place = asked.push(options.suggestedName);
+    await new Promise<void>((resolve, reject) => { pick = resolve; cancel = () => reject(new DOMException("closed", "AbortError")); });
     let size = 0;
     return {
       getFile: async () => new File([new Uint8Array(size)], options.suggestedName),
-      remove: async () => { removed.push(options.suggestedName); },
-      createWritable: async () => ({ write: async (blob: Blob) => { written.push(blob); size = blob.size; }, close: async () => {}, abort: async () => {} }),
+      remove: async () => { removed.push(place); },
+      createWritable: async () => ({ write: async (blob: Blob) => { written.push(place); size = blob.size; }, close: async () => {}, abort: async () => {} }),
     };
   };
-  return { asked, written, removed, pick: () => act(async () => pick()) };
+  return { asked, written, removed, pick: () => act(async () => pick()), cancel: () => act(async () => cancel()) };
 }
 
 test("Descargar asks where to save, then the panel closes and the island shows the export; the button never spins", async () => {
@@ -212,12 +213,13 @@ test("failed without Save As: the island's name and the panel both say the file 
 /** What each export request asked the server for. */
 const exported = (page: { fixture: { calls: { path: string; body: unknown }[] } }) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).map((call) => call.body as { format: string; report: { filters: { q: string } } });
 /** Fails an export of the whole table as CSV, then searches the table, so the table's request is no longer the failed file's. */
-async function failThenSearch() {
+async function failThenSearch(save?: ReturnType<typeof savePicker>) {
   const page = await registros();
   page.fixture.controls.exportFails = true;
   await page.open();
   await page.click(page.button("CSV"));
   await page.click(downloadButton());
+  if (save) await save.pick();
   await page.answer();
   await page.settle(() => island()?.dataset.state === "failed");
   page.fixture.controls.exportFails = false;
@@ -266,6 +268,57 @@ test("a click on the red island opens the panel on the failed file's own request
   await page.answer();
   await page.settle(() => page.downloads.length === 1);
   assert.deepEqual(exported(page).map((sent) => [sent.format, sent.report.filters.q]), [["csv", ""], ["csv", ""]], "the same request again");
+});
+
+const CSV = "Compras todas las monedas.csv";
+
+test("after a failed file, another request with the same file name asks Save As again and writes to its own place", async () => {
+  const save = savePicker();
+  const page = await failThenSearch(save);
+  await page.open();
+  await page.click(page.button("CSV"));
+  await page.click(downloadButton());
+  await page.settle(() => save.asked.length === 2 || island()?.dataset.state === "preparing");
+  assert.deepEqual(save.asked, [CSV, CSV], "the same file name is another file: Save As asks again");
+  await save.pick();
+  await page.answer();
+  await page.settle(() => save.written.length === 1);
+  assert.deepEqual(save.written, [2], "the new file goes to the place chosen for it");
+  assert.deepEqual(save.removed, [1], "the failed file's empty place goes");
+  assert.deepEqual(exported(page).map((sent) => [sent.format, sent.report.filters.q]), [["csv", ""], ["csv", "proveedor"]]);
+});
+
+test("after a failed file, cancelling Save As for another request lets the failed file go and exports nothing", async () => {
+  const save = savePicker();
+  const page = await failThenSearch(save);
+  await page.open();
+  await page.click(page.button("CSV"));
+  await page.click(downloadButton());
+  await page.settle(() => save.asked.length === 2);
+  await save.cancel();
+  await page.settle(() => save.removed.length === 1);
+  assert.deepEqual(save.removed, [1], "the failed file's empty place goes");
+  assert.equal(alert(), null, "no error on the panel's own request");
+  assert.equal(page.exportCalls(), 1, "no request for the cancelled file");
+  await page.click(page.button("Cerrar"));
+  await page.settle(() => panel() === null);
+  assert.equal(island(), null, "the failed file is no longer in the island");
+});
+
+test("after the table changes, Reintentar on the failed file reopened from the island writes to its own place without asking", async () => {
+  const save = savePicker();
+  const page = await failThenSearch(save);
+  await page.click(island());
+  await page.settle(() => alert() !== null);
+  assert.ok(alert()!.textContent!.startsWith(SAVE_FAILED));
+  await page.click(page.button("Reintentar"));
+  await page.settle(() => island()?.dataset.state === "preparing");
+  await page.answer();
+  await page.settle(() => save.written.length === 1);
+  assert.deepEqual(save.asked, [CSV], "its own place is not asked again");
+  assert.deepEqual(save.written, [1]);
+  assert.deepEqual(save.removed, []);
+  assert.deepEqual(exported(page).map((sent) => [sent.format, sent.report.filters.q]), [["csv", ""], ["csv", ""]]);
 });
 
 test("closing the panel while a file is prepared does not cancel it, and Descargar is off until it ends", async () => {
