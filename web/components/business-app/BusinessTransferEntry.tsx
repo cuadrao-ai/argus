@@ -100,6 +100,7 @@ function BusinessTransfer({ transferId, startSpaceId }: Target) {
 
   useEffect(() => {
     const controller = new AbortController();
+    if (!open) return () => controller.abort();
     const generation = browserAuthGeneration();
     const of: Subject = followed.current ? "transfer" : "business";
     if (!z.uuid().safeParse(followed.current ?? startSpaceId).success) { setEntry({ kind: "unavailable", of }); return () => controller.abort(); }
@@ -123,7 +124,7 @@ function BusinessTransfer({ transferId, startSpaceId }: Target) {
       setEntry(gone ? { kind: "unavailable", of } : { kind: "failed", of, reference: serverRequestReference(error) });
     });
     return () => controller.abort();
-  }, [startSpaceId, read]);
+  }, [startSpaceId, read, open]);
 
   if (!open) return null;
 

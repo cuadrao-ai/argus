@@ -32,7 +32,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-type Server = { role?: "owner" | "target" | "nonmember"; status?: string; uncertain?: boolean; failReads?: number; owns?: boolean; requested?: boolean };
+type Server = { role?: "owner" | "target" | "nonmember"; status?: string; uncertain?: boolean; failReads?: number; owns?: boolean; requested?: boolean; hold?: Promise<void> };
 
 async function mount(target: { transferId?: string; startSpaceId?: string }, server: Server = {}) {
   window.history.replaceState(null, "", target.startSpaceId ? `/biz?lifecycle=transfer&business=${target.startSpaceId}` : `/biz?transfer=${target.transferId}`);
@@ -50,6 +50,7 @@ async function mount(target: { transferId?: string; startSpaceId?: string }, ser
       else status = ANSWER[path.split("/").pop() as keyof typeof ANSWER];
       return server.uncertain ? Response.json({ code: "unavailable" }, { status: 503 }) : Response.json({ id, space_id: space, status });
     }
+    if (server.hold) await server.hold;
     if (failReads > 0) { failReads -= 1; return Response.json({ code: "unavailable" }, { status: 500 }); }
     if (path === "/owned-spaces") return Response.json({ spaces: server.owns === false ? [] : [owned] });
     return Response.json({ transfers: role === "nonmember" || !listed ? [] : [{ ...transfer, role: target.startSpaceId ? "owner" : role, status }] });
@@ -254,4 +255,20 @@ test("starting while a request is pending opens that request; a Business that is
     assert.equal(document.body.textContent?.includes("Colmado Rosa"), false);
     assert.deepEqual(outsider.labels(), []);
   } finally { await outsider.close(); }
+});
+
+test("closing the owner's dialog while it loads ignores the late answer: no Business switch, no panel", async () => {
+  let release = () => {};
+  const hold = new Promise<void>(resolve => { release = resolve; });
+  const view = await mount({ startSpaceId: space }, { hold });
+  try {
+    assert.ok(document.querySelector('[data-view="loading"]'), "still loading");
+    const x = view.dialog()?.querySelector<HTMLButtonElement>("button[aria-label]");
+    assert.ok(x, "the dialog's close button");
+    await act(async () => x!.click());
+    await act(async () => { release(); });
+    for (let turn = 0; turn < 10; turn += 1) await act(async () => new Promise(resolve => setTimeout(resolve, 2)));
+    assert.deepEqual(view.workspace, [], "the late answer changes nothing the person sees");
+    assert.equal(view.dialog(), null);
+  } finally { release(); await view.close(); }
 });
