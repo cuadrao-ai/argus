@@ -7,7 +7,9 @@ import hashlib
 import time
 import unicodedata
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
+from contextlib import contextmanager
+from copy import copy
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
@@ -16,7 +18,7 @@ from typing import TYPE_CHECKING, Protocol
 from loguru import logger
 
 from argus.domain.business.document_type import DocumentType
-from argus.domain.business.read_budget import READ_BUDGET_REFUSALS
+from argus.domain.business.read_budget import HELD_READ_REFUSAL, READ_BUDGET_REFUSALS
 from argus.domain.ingestion.connections import (
     LIVE,
     ConnectionNotFound,
@@ -58,11 +60,19 @@ from argus.domain.ingestion.documents.store import (
     DocumentStore,
     download_source,
 )
+from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
-from argus.domain.owner_scope import OwnerScope, space_id
+from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
+from argus.domain.ingestion.whatsapp.held import MARK, PostgresHeldFiles, is_held
+from argus.domain.owner_scope import PERSONAL, BusinessSpace, OwnerScope, space_id
 
 if TYPE_CHECKING:
+    from psycopg import Connection
+
+    from argus.domain.business.access import GrantedSpace
     from argus.domain.business.actions import BusinessActions
+    from argus.domain.business.contracts.actions import Applied
+    from argus.domain.ingestion.whatsapp.held import HeldFile
 
 # Marks a batch the owner entered by hand: one purchase, nothing read.
 ENTERED_BY_OWNER = {"entered_by": "owner"}
@@ -326,6 +336,49 @@ class DocumentsService:
             raise DocumentServiceError("document_version_conflict", retryable=True)
         return self._update(user_id, draft, proposal=proposal)
 
+    def on_connection(self, db: Connection) -> DocumentsService:
+        """Use the caller's transaction for publication, preparation and settlement."""
+        from argus.domain.business.actions import BusinessActions
+        from argus.domain.ingestion.connections_postgres import (
+            PostgresConnectionRepository,
+        )
+        from argus.domain.postgres_connection import BorrowedConnection
+
+        class Savepoints(BorrowedConnection):
+            @contextmanager
+            def connection(self, timeout: float | None = None) -> Iterator[Connection]:
+                # Repository calls can recover a duplicate-key error inside this transaction.
+                with db.transaction():
+                    yield db
+
+        pool = Savepoints(db)
+        assert isinstance(self.store, PostgresDocumentStore)
+        scoped = copy(self)
+        scoped.hub = copy(self.hub)
+        scoped.hub.connections = PostgresConnectionRepository(pool)
+        scoped.store = PostgresDocumentStore(pool, self.store.objects)
+        if self.business_actions is not None:
+            scoped.business_actions = BusinessActions(pool, self.business_actions.imports)
+        if self.business_receipt_consent is not None:
+            scoped.business_receipt_consent = copy(self.business_receipt_consent)
+            scoped.business_receipt_consent.pool = pool
+        return scoped
+
+    def for_sender(self, person_id: str, scope: BusinessSpace) -> DocumentsService:
+        """Bind a delivery to the sender's current grant."""
+        from argus.api.business_drafts import bind_to_grant
+        from argus.domain.business.contracts.authority import TrustedActor
+        from argus.domain.ingestion.reconcile.service import ReconciliationService
+
+        if self.business_actions is None or not isinstance(
+            self.hub.sink, ReconciliationService
+        ):
+            return self
+        context = self.business_actions.resolve_actor(
+            TrustedActor(actor_id=person_id, actor_kind="member", space_id=scope.space_id)
+        )
+        return bind_to_grant(self, self.hub, self.business_actions, context, "prepare")[0]
+
     async def upload(
         self,
         *,
@@ -341,6 +394,7 @@ class DocumentsService:
         context_only: bool = False,
         document_type: DocumentType | None = None,
         defer_capture: bool = False,
+        namespace: str | None = None,
     ) -> DocumentOutcome:
         """Save the bytes, or leave publication to a delivery's settlement."""
         consent_id = None
@@ -366,6 +420,7 @@ class DocumentsService:
                     consent_id=consent_id,
                     document_type=document_type,
                     defer_capture=defer_capture,
+                    namespace=namespace,
                 )
             except BaseException as error:
                 # SystemExit/KeyboardInterrupt must travel as data: raising
@@ -443,6 +498,7 @@ class DocumentsService:
             media_type=media_type,
             proposal=proposal or DraftProposal(),
             sha256=digest,
+            resolution={MARK: True} if namespace == MARK and scope == PERSONAL else {},
             size_bytes=len(content),
             consent=queue_read,
             business_reading_consent_id=consent_id,
@@ -703,6 +759,7 @@ class DocumentsService:
             if call is not None:
                 await asyncio.to_thread(call.end, self.hub.clock(), answered)
 
+        finishing_held = False
         read_started = read_ms = None
         try:
             business = self._canonical_business(connection_id, scope)
@@ -758,7 +815,7 @@ class DocumentsService:
                 )
 
                 async def before_request() -> None:
-                    nonlocal provider_called, calls_left, call
+                    nonlocal provider_called, calls_left, call, draft
                     # Asked again in the same take: the call before timed out.
                     await ended(False)
                     if calls_left <= 0:
@@ -790,15 +847,8 @@ class DocumentsService:
                         now=self.hub.clock(),
                     ):
                         raise DocumentServiceError("document_lease_lost", retryable=True)
-                    from argus.domain.ingestion.whatsapp.held import charge_read, is_held
-
                     if is_held(draft):
-                        refused = await asyncio.to_thread(
-                            charge_read, self.store, user_id, connection_id,
-                            self.hub.clock(), self.read_budget,
-                        )
-                        if refused is not None:
-                            raise DocumentServiceError(refused)
+                        draft = await asyncio.to_thread(self._charge_held_read, user_id, draft, holder)
                     business_id = space_id(scope)
                     if not is_held(draft) and business_id is not None and self.read_budget is not None:
                         refused = await asyncio.to_thread(
@@ -846,46 +896,13 @@ class DocumentsService:
                 connection_id=connection_id, holder=holder, now=self.hub.clock()
             ):
                 raise DocumentServiceError("document_lease_lost", retryable=True)
-            from argus.domain.ingestion.whatsapp.held import is_held
-
-            attached = None
-            if business:
-                from argus.domain.business.contracts.actions import canonical_input_hash
-
-                attached = self.business_actions.prepare_attachment(
-                    expected_batch_sha256=canonical_input_hash(batch),
-                    user_id=user_id,
-                    connection_id=connection_id,
-                    scope=scope,
-                    holder=holder,
-                    attempt_id=attempt_id,
-                )
-            elif batch.candidates and not is_held(draft):
-                self._deliver(user_id, connection_id, batch.candidates, scope)
-                if space_id(scope) is not None:
-                    self._flag_business_duplicates(user_id, connection_id, scope)
-            if draft.source_available:
-                draft = self._update(
-                    user_id,
-                    draft,
-                    holder=holder,
-                    status="needs_attention" if batch.issues else "review_ready",
-                    error_code=batch.issues[0].code if batch.issues else None,
-                )
-            if attached is not None:
-                self.business_actions.complete_attachment_read(
-                    user_id=user_id, connection_id=connection_id, scope=scope,
-                    holder=holder, attempt_id=attempt_id,
-                    document_version=draft.version, prepared=attached,
-                )
-            if not repo.record_success(
-                connection_id=connection_id,
-                holder=holder,
-                expected_cursor=connection.cursor,
-                cursor="delivered",
-                now=self.hub.clock(),
-            ):
-                raise DocumentServiceError("document_lease_lost", retryable=True)
+            if is_held(draft):
+                if not load_whatsapp_settings().intake_ready:
+                    raise DocumentServiceError("document_reading_not_allowed")
+                if isinstance(self.store, PostgresDocumentStore):
+                    finishing_held = True
+                    return self._finish_held_read(connection, draft, batch, holder, replayed)
+            draft, attached = self._finish_read(connection, draft, batch, holder, attempt_id, business)
             business_id = space_id(scope)
             if provider_called and business_id is not None:
                 business_analytics.document_read(
@@ -915,6 +932,9 @@ class DocumentsService:
             from argus.domain.business.authority import ActionError
             from argus.domain.ingestion.documents.models import DocumentExtractionError
 
+            if finishing_held:
+                # Its batch is durable and its draft is still recoverable by the sweep.
+                raise
             code = (
                 error.code
                 if isinstance(
@@ -965,6 +985,15 @@ class DocumentsService:
                             **({"consent": False} if unread else {}),
                             source_available=code != "document_source_unavailable",
                         )
+                    if is_held(draft) and not withdrawn and load_whatsapp_settings().intake_ready:
+                        if isinstance(self.store, PostgresDocumentStore):
+                            with PostgresHeldFiles(self.store).pool.connection() as db:
+                                db.execute(
+                                    "update public.whatsapp_held_files set reason=%s where user_id=%s"
+                                    " and connection_id=%s and state='held'",
+                                    ("held_read_cap" if code == HELD_READ_REFUSAL else "read_failed",
+                                     user_id, connection_id),
+                                )
                     repo.record_failure(
                         connection_id=connection_id,
                         holder=holder,
@@ -987,6 +1016,405 @@ class DocumentsService:
             raise
         finally:
             repo.release(connection_id=connection_id, holder=holder)
+
+    def _finish_read(
+        self,
+        connection: SourceConnection,
+        draft: DocumentDraft,
+        batch: ExtractionBatch,
+        holder: str,
+        attempt_id: str | None,
+        business: bool,
+    ) -> tuple[DocumentDraft, Applied | None]:
+        user_id, connection_id, scope = (
+            connection.user_id,
+            connection.id,
+            connection.scope,
+        )
+        repo = self.hub.connections
+        attached = None
+        if business:
+            from argus.domain.business.contracts.actions import canonical_input_hash
+
+            attached = self.business_actions.prepare_attachment(
+                expected_batch_sha256=canonical_input_hash(batch),
+                user_id=user_id,
+                connection_id=connection_id,
+                scope=scope,
+                holder=holder,
+                attempt_id=attempt_id,
+            )
+        elif batch.candidates and not is_held(draft):
+            self._deliver(user_id, connection_id, batch.candidates, scope)
+            if space_id(scope) is not None:
+                self._flag_business_duplicates(user_id, connection_id, scope)
+        if draft.source_available:
+            draft = self._update(
+                user_id,
+                draft,
+                holder=holder,
+                status="needs_attention" if batch.issues else "review_ready",
+                error_code=batch.issues[0].code if batch.issues else None,
+            )
+        if attached is not None:
+            self.business_actions.complete_attachment_read(
+                user_id=user_id,
+                connection_id=connection_id,
+                scope=scope,
+                holder=holder,
+                attempt_id=attempt_id,
+                document_version=draft.version,
+                prepared=attached,
+            )
+        if not repo.record_success(
+            connection_id=connection_id,
+            holder=holder,
+            expected_cursor=connection.cursor,
+            cursor="delivered",
+            now=self.hub.clock(),
+        ):
+            raise DocumentServiceError("document_lease_lost", retryable=True)
+        return draft, attached
+
+    def _charge_held_read(
+        self, user_id: str, draft: DocumentDraft, holder: str
+    ) -> DocumentDraft:
+        from argus.domain.ingestion.whatsapp.held import charge_read
+
+        def charge(store: DocumentStore) -> DocumentDraft:
+            charged_at = self.hub.clock()
+            refused = charge_read(
+                store, user_id, draft.connection_id, charged_at, self.read_budget
+            )
+            if refused is not None:
+                raise DocumentServiceError(refused)
+            marked = draft.model_copy(
+                update={
+                    "resolution": {
+                        **draft.resolution,
+                        "held_read_charged_at": charged_at.isoformat(),
+                    }
+                }
+            )
+            # The job still owns this version. Replacing its attempt after a
+            # crash must not replace the day its provider call actually cost.
+            if not store.update(
+                user_id=user_id,
+                draft=marked,
+                holder=holder,
+                expected_version=draft.version,
+            ):
+                raise DocumentServiceError("document_lease_lost", retryable=True)
+            return marked
+
+        if isinstance(self.store, PostgresDocumentStore):
+            with PostgresHeldFiles(self.store).pool.connection() as db, db.transaction():
+                return charge(self.on_connection(db).store)
+        return charge(self.store)
+
+    def _finish_held_read(
+        self,
+        connection: SourceConnection,
+        draft: DocumentDraft,
+        batch: ExtractionBatch,
+        holder: str,
+        replayed: bool,
+    ) -> DocumentOutcome:
+        from argus.domain.business.document_type import buyer_tax_id, issuer_tax_id
+        from argus.domain.ingestion.whatsapp.routing import route_document
+        from argus.domain.ingestion.whatsapp.senders import postgres_senders
+
+        files = PostgresHeldFiles(self.store)
+        user_id = connection.user_id
+        with files.pool.connection() as db, db.transaction():
+            record = db.execute(
+                "select id::text from public.whatsapp_held_files where user_id=%s"
+                " and connection_id=%s and state='held' order by held_at,id limit 1",
+                (user_id, connection.id),
+            ).fetchone()
+            if record is None:
+                raise DocumentServiceError("held_file_unavailable")
+            scoped = self.on_connection(db)
+            with PostgresHeldFiles(scoped.store).assignment(user_id, record[0]) as (
+                _,
+                row,
+            ):
+                if row is None or row.state != "held":
+                    raise DocumentServiceError("held_file_unavailable")
+                draft, _ = scoped._finish_read(
+                    connection, draft, batch, holder, None, False
+                )
+                scoped.hub.connections.release(connection_id=connection.id, holder=holder)
+                grants = {
+                    g.space_id: g
+                    for g in postgres_senders(db).eligible_businesses(user_id)
+                }
+                identities = dict(
+                    db.execute(
+                        "select id::text,business_rnc from public.spaces where id=any(%s::uuid[])",
+                        (list(grants),),
+                    ).fetchall()
+                )
+                receipt = batch.receipt
+                route = route_document(
+                    identities,
+                    issuer=issuer_tax_id(batch.dgii_qr, receipt.rnc if receipt else None),
+                    buyer=buyer_tax_id(
+                        batch.dgii_qr, receipt.buyer_rnc if receipt else None
+                    ),
+                )
+                if isinstance(route, BusinessSpace):
+                    assigned, _ = scoped._adopt_locked(db, row, grants[route.space_id])
+                else:
+                    db.execute(
+                        "update public.whatsapp_held_files set reason=%s where user_id=%s"
+                        " and connection_id=%s and state='held'",
+                        (route, user_id, connection.id),
+                    )
+        if isinstance(route, BusinessSpace) and not assigned.replayed:
+            self._report_whatsapp_arrival(draft, user_id, route.space_id)
+        return DocumentOutcome(
+            connection.id, replayed, len(batch.candidates), draft.status
+        )
+
+    def adopt(self, *, user_id: str, held_id: str, business_id: str) -> DocumentOutcome:
+        """Assign a sender's retained file under their current Business grant."""
+        from argus.domain.ingestion.whatsapp.senders import postgres_senders
+
+        if not load_whatsapp_settings().intake_ready or not isinstance(
+            self.store, PostgresDocumentStore
+        ):
+            raise DocumentServiceError("whatsapp_unavailable")
+        with PostgresHeldFiles(self.store).assignment(user_id, held_id) as (db, row):
+            grants = postgres_senders(db).eligible_businesses(user_id)
+            grant = next((g for g in grants if g.space_id == business_id), None)
+            if grant is None:
+                raise DocumentServiceError("business_permission_denied")
+            if row is None or row.state == "expired":
+                raise DocumentServiceError("held_file_unavailable")
+            scoped = self.on_connection(db)
+            if row.state == "assigned":
+                if row.assigned_space_id != business_id:
+                    raise DocumentServiceError("held_file_already_assigned")
+                return scoped.outcome(
+                    user_id=grant.owner_id,
+                    connection_id=row.assigned_connection_id,
+                    scope=BusinessSpace(business_id),
+                    replayed=True,
+                )
+            result, draft = scoped._adopt_locked(db, row, grant)
+        if not result.replayed:
+            self._report_whatsapp_arrival(draft, user_id, business_id)
+        return result
+
+    @staticmethod
+    def _report_whatsapp_arrival(
+        draft: DocumentDraft, person: str, business: str
+    ) -> None:
+        from argus.domain.business.analytics import document_received
+
+        document_received(
+            channel="whatsapp",
+            business_id=business,
+            user_id=person,
+            media_type=draft.media_type,
+            size_bytes=draft.size_bytes,
+        )
+
+    def _adopt_locked(
+        self, db: Connection, row: HeldFile, grant: GrantedSpace
+    ) -> tuple[DocumentOutcome, DocumentDraft]:
+        from argus.domain.business.transactions import lock_owner
+        from argus.domain.ingestion.documents.objects import source_path
+        from argus.domain.ingestion.documents.store_postgres import lock_sources
+
+        user, original = row.user_id, row.connection_id
+        connection = self._connection(user, original, scope=PERSONAL)
+        now = self.hub.clock()
+        if lease_live(connection, now):
+            raise DocumentServiceError("document_busy", retryable=True)
+        draft = self._stored_draft(connection)
+        batch = self.store.get(user_id=user, connection_id=original)
+        files = PostgresHeldFiles(self.store)
+        scope = BusinessSpace(grant.space_id)
+        lock_owner(db, grant.owner_id)
+        lock_sources(db, grant.owner_id)
+        source = self._read_source(user, original)
+        rebuilt = self.store.rebuilt(user_id=user, connection_id=original)
+        paths = [source_path(user_id=grant.owner_id, sha256=draft.sha256)]
+        if rebuilt:
+            paths.append(
+                source_path(user_id=grant.owner_id, sha256=draft.sha256, kind="rebuilt")
+            )
+        new_paths = [path for path in paths if self.store.objects.get(path) is None]
+        try:
+            with db.transaction():
+                if batch is not None:
+                    instant = self._held_charge_time(connection, draft)
+                    if (
+                        instant is None
+                        or files.budget(self.read_budget).hand_over(
+                            user, grant.space_id, now, charged_at=instant
+                        )
+                        == "no_held_read"
+                    ):
+                        raise DocumentServiceError("held_read_charge_missing")
+                destination = self.for_sender(user, scope)
+                result = destination._receive_held(grant, draft, source, rebuilt, batch)
+                # Older captures can share one Personal connection. The assignment
+                # lock settles all its original messages with the same single read.
+                siblings = db.execute(
+                    "select id::text,provider_message_key,sender_link_id from public.whatsapp_held_files"
+                    " where user_id=%s and connection_id=%s and state='held' for update",
+                    (user, original),
+                ).fetchall()
+                for held_id, message, link in siblings:
+                    if not files.settle(
+                        user_id=user,
+                        held_id=held_id,
+                        business_id=scope.space_id,
+                        connection_id=result.connection_id,
+                        now=now,
+                    ):
+                        raise DocumentServiceError("held_file_unavailable")
+                    moved = db.execute(
+                        "update public.whatsapp_inbound_messages set connection_id=%s"
+                        " where provider_message_key=%s and sender_link_id=%s and destination_owner_id=%s"
+                        " and connection_id=%s and status='captured'",
+                        (result.connection_id, message, link, user, original),
+                    )
+                    if moved.rowcount != 1:
+                        raise DocumentServiceError("held_message_unavailable")
+                if batch is None:
+                    self._update(
+                        user, draft, status="saved", consent=False, error_code=None
+                    )
+        except Exception:
+            # The SQL savepoint rolled back. Only remove unpublished copies while
+            # still holding the custodian's object lock. Other receipts can share them.
+            for path in new_paths:
+                referenced = db.execute(
+                    "select 1 from public.financial_document_extractions where source_path=%s"
+                    " or rebuilt_path=%s union all select 1 from argus_private.business_custody_objects"
+                    " where source_path=%s or destination_path=%s limit 1",
+                    (path,) * 4,
+                ).fetchone()
+                if not referenced:
+                    self.store.objects.remove(path)
+            raise
+        return result, draft
+
+    def _held_charge_time(
+        self, connection: SourceConnection, draft: DocumentDraft
+    ) -> datetime | None:
+        charged_at = draft.resolution.get("held_read_charged_at")
+        if isinstance(charged_at, str):
+            return datetime.fromisoformat(charged_at)
+        # A pre-marker read proves its debit day only if the entire call
+        # fits within one billing day.
+        from argus.domain.ingestion.email_intake.budget import business_day
+
+        job = self.store.job(user_id=connection.user_id, connection_id=connection.id)
+        admission = job.provider_call_started_at if job else None
+        end = connection.last_success_at
+        if (
+            admission
+            and end
+            and admission <= end
+            and business_day(admission) == business_day(end)
+        ):
+            return admission
+        return None
+
+    def _receive_held(
+        self,
+        grant: GrantedSpace,
+        original: DocumentDraft,
+        source: bytes,
+        rebuilt: tuple[str, bytes] | None,
+        batch: ExtractionBatch | None,
+    ) -> DocumentOutcome:
+        from argus.api.documents import record_dispatch_preparation
+
+        scope, owner = BusinessSpace(grant.space_id), grant.owner_id
+        permission = self._business_permission(scope, owner)
+        if not permission["enabled"]:
+            raise DocumentServiceError("business_permission_denied")
+        result = self._upload(
+            user_id=owner,
+            content=source,
+            filename=original.filename,
+            media_type=original.media_type,
+            consent=True,
+            consent_id=permission["consent_id"],
+            proposal=None,
+            source_text=original.source_text,
+            scope=scope,
+            on_capture=None,
+        )
+        target = result.connection_id
+        if result.replayed and result.status in (
+            "review_ready",
+            "needs_attention",
+            "dismissed",
+        ):
+            if (
+                self.store.get(user_id=owner, connection_id=target) is not None
+                or result.status == "dismissed"
+            ):
+                return result
+        if rebuilt and not self.store.save_rebuilt(
+            user_id=owner, connection_id=target, media_type=rebuilt[0], content=rebuilt[1]
+        ):
+            raise DocumentServiceError("document_source_unavailable")
+        if result.replayed and result.status != "queued":
+            self.queue(user_id=owner, connection_id=target, scope=scope, consent=True)
+        record_dispatch_preparation(self, owner, target, scope=scope)
+        if batch is None:
+            return self.outcome(
+                user_id=owner, connection_id=target, scope=scope, replayed=result.replayed
+            )
+        rebound = batch.model_copy(
+            update={
+                "candidates": tuple(
+                    candidate.model_copy(
+                        update={
+                            "source": candidate.source.model_copy(
+                                update={"connection_id": target}
+                            )
+                        }
+                    )
+                    for candidate in batch.candidates
+                )
+            }
+        )
+        connection = self._connection(owner, target, scope=scope)
+        holder = str(uuid.uuid4())
+        if not self.hub.connections.lease(
+            connection_id=target, holder=holder, now=self.hub.clock()
+        ):
+            raise DocumentServiceError("document_busy", retryable=True)
+        if not self.store.save(
+            user_id=owner,
+            connection_id=target,
+            holder=holder,
+            now=self.hub.clock(),
+            batch=rebound,
+        ):
+            raise DocumentServiceError("document_lease_lost", retryable=True)
+        job = self.store.job(user_id=owner, connection_id=target)
+        draft, _ = self._finish_read(
+            connection,
+            self._stored_draft(connection),
+            rebound,
+            holder,
+            job.attempt_id,
+            True,
+        )
+        self.hub.connections.release(connection_id=target, holder=holder)
+        return DocumentOutcome(
+            target, result.replayed, len(rebound.candidates), draft.status
+        )
 
     async def _admit(self) -> Admission:
         return (

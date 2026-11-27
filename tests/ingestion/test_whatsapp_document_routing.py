@@ -39,8 +39,8 @@ def test_route_against_only_the_senders_businesses(issuer, buyer, expected):
     assert route_document(ELIGIBLE, issuer=issuer, buyer=buyer) == expected
 
 
-def test_direct_or_unread_before_extraction():
-    assert route_document({"a": A}, issuer=None, buyer=None) == BusinessSpace("a")
+def test_held_read_requires_a_match_after_other_grants_are_lost():
+    assert route_document({"a": A}, issuer=None, buyer=None) == "no_buyer_rnc"
     assert route_document({}, issuer=None, buyer=None) == "no_eligible_business"
 
 

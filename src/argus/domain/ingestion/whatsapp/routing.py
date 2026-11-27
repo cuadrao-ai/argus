@@ -15,11 +15,9 @@ if TYPE_CHECKING:
 def route_document(
     eligible: Mapping[str, str], *, issuer: str | None, buyer: str | None
 ) -> BusinessSpace | Reason:
-    """A single eligible space receives even unread files. Otherwise match the read."""
+    """A held read must match a fiscal party even if the sender lost another grant."""
     if not eligible:
         return "no_eligible_business"
-    if len(eligible) == 1:
-        return BusinessSpace(next(iter(eligible)))
 
     buyer_id = normalized_taxpayer_id(buyer)
     parties = {normalized_taxpayer_id(issuer), buyer_id} - {None}
