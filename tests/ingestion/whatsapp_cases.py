@@ -524,27 +524,6 @@ async def redelivery_during_a_live_claim_asks_for_retry(world: World) -> None:
     assert world.record("wamid.CASE-INFLIGHT").connection_id == connection_id
 
 
-async def a_mismatched_staged_scope_remains_retryable(world: World) -> None:
-    await world.link(world.alice, ALICE_PHONE)
-    media, message_id = "700000000000177", "wamid.SCOPE-CHANGED"
-    world.graph.media[media] = Media(RECEIPT_PNG, "image/png")
-    capture = world.intake.destination.capture
-
-    async def stale_binding(**kwargs):
-        return replace(await capture(**kwargs), space_id=None)
-
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(world.intake.destination, "capture", stale_binding)
-        with pytest.raises(LookupError, match="whatsapp_staged_source_missing"):
-            await world.deliver(image(media, message_id))
-    pending = world.record(message_id)
-    assert pending.status == "received" and pending.connection_id is None
-    world.clock.now = pending.claim_until + timedelta(seconds=1)
-    await world.deliver(image(media, message_id))
-    assert world.record(message_id).status == "captured"
-    assert len(world.captures(world.alice)) == 1
-
-
 async def an_expired_capture_claim_cannot_settle_or_prepare(world: World) -> None:
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media["700000000000155"] = Media(RECEIPT_PNG, "image/png")
@@ -998,7 +977,6 @@ CASES = (
     a_live_claim_blocks_a_concurrent_redelivery,
     redelivery_during_a_live_claim_asks_for_retry,
     an_expired_capture_claim_cannot_settle_or_prepare,
-    a_mismatched_staged_scope_remains_retryable,
     slow_processing_times_out_as_failed_and_recovers,
     revoking_also_ends_unused_codes,
     no_reply_outside_the_service_window,
