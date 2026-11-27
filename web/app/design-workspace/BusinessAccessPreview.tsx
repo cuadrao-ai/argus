@@ -49,7 +49,7 @@ function BusinessAccessLive(){
   const [resendAt,setResendAt]=useState<Record<string,number>>({});
   const [failed,setFailed]=useState(false);
   const [reference,setReference]=useState<string|null>(null);
-  const [actionFailed,setActionFailed]=useState(false);
+  const [actionError,setActionError]=useState<string|null>(null);
   const [refused,setRefused]=useState(false);
   const [busy,setBusy]=useState(false);
   const [inviting,setInviting]=useState(false);
@@ -80,7 +80,7 @@ function BusinessAccessLive(){
       if(!mounted.current||generation!==loadGeneration.current)return;
       receive(value);
       setFailed(false);
-    },error=>{if(mounted.current&&generation===loadGeneration.current){setActionFailed(false);failure(error);}});
+    },error=>{if(mounted.current&&generation===loadGeneration.current){setActionError(null);failure(error);}});
     return()=>{};
   },[attempt,failure,receive]);
   useEffect(()=>()=>{mounted.current=false;},[]);
@@ -95,14 +95,14 @@ function BusinessAccessLive(){
     window.addEventListener(businessAccessChangedEvent,reread);
     return()=>window.removeEventListener(businessAccessChangedEvent,reread);
   },[]);
-  const act=async(work:()=>Promise<unknown>)=>{
+  const act=async(work:()=>Promise<unknown>,errorKey:string)=>{
     if(busy||refused)return;
     setBusy(true);setFailed(false);setNotice(null);
     try{
       await work();
-    }catch(error){if(mounted.current){setActionFailed(true);failure(error);setBusy(false);}return;}
+    }catch(error){if(mounted.current){setActionError(errorKey);failure(error);setBusy(false);}return;}
     if(!mounted.current)return;
-    setAccess(null);setInvitationsReady(false);setActionFailed(false);
+    setAccess(null);setInvitationsReady(false);setActionError(null);
     try{
       const saved=await getBusinessAccess();
       if(mounted.current){
@@ -122,7 +122,7 @@ function BusinessAccessLive(){
     }catch(error){
       if(!mounted.current)return;
       const wait=refusedResendWait(error);
-      if(wait===null){setActionFailed(true);failure(error);}
+      if(wait===null){setActionError("business_access.delivery_uncertain");failure(error);}
       else if(wait>0)setResendAt(times=>({...times,[id]:Date.now()+wait*1000}));
       else setNotice("business_access.delivery_failed");
     }finally{if(mounted.current)setBusy(false);}
@@ -134,17 +134,17 @@ function BusinessAccessLive(){
     const restricted=self||refused||!chosen?.permissions?.includes("manage")||(person.role==="owner"&&!chosen.permissions.includes("assign_owner"));
     const email=person.email??"-";
     return <li key={person.id} className="flex min-h-16 flex-col gap-1 rounded-lg px-2 py-2 hover:bg-black/[0.025] focus-within:bg-black/[0.025] sm:flex-row sm:items-center sm:gap-4 dark:hover:bg-white/[0.035] dark:focus-within:bg-white/[0.035]">
-      <div className="flex min-w-0 flex-1 items-center gap-3"><Avatar size={32} status={person.pending?"pending":null}/><div className="min-w-0 flex-1"><p className="break-all text-[16px]">{email}{self?<span className="ml-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_you")}</span>:null}</p>{person.pending?<div className="flex flex-wrap items-center gap-x-3 text-[14px] text-[#56635e] dark:text-white/70"><span>{t(person.expired?"business_access.invitation_expired":"workspace_setup_preview.invite_pending")}</span></div>:null}</div></div>
-      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">{person.pending&&!person.expired&&canInvite?<ResendAction availableAtMs={resendAt[person.id]} disabled={busy||restricted} onResend={()=>void resend(person.id)}/>:null}<div className={roleColumn}>{!roleOptions.some(option=>option.value===person.role)?<p className="flex min-h-11 items-center text-[16px] text-[#56635e] dark:text-white/70">{person.role?t(`workspace_setup_preview.permission_${person.role}`):null}</p>:<AccessRolePicker variant="quiet" compact value={person.role??""} disabled={busy||restricted||person.pending||!person.role} label={t("workspace_setup_preview.access_role_for",{email})} options={roleOptions} onChange={role=>void act(async()=>{const result=await changeBusinessRole(person.id,role as AccessRole);if(mounted.current&&result.invites.some(invite=>invite.email===person.email&&invite.requested_role===role))setNotice("workspace_setup_preview.invite_pending_detail");})}/>}</div><button type="button" className={trashButtonClass} disabled={busy||restricted} aria-label={t(person.pending?"workspace_setup_preview.access_cancel_for":"workspace_setup_preview.access_remove_for",{email})} onClick={()=>setConfirmation({id:person.id,email,pending:person.pending})}><Trash2 className="h-4 w-4"/></button></div>
+      <div className="flex min-w-0 flex-1 items-center gap-3"><Avatar size={32} status={person.pending?"pending":null}/><div className="min-w-0 flex-1"><p className="flex min-w-0 items-baseline text-[16px]"><span className="truncate" title={email??undefined}>{email}</span>{self?<span className="ml-2 shrink-0 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_you")}</span>:null}</p>{person.pending?<div className="flex flex-wrap items-center gap-x-3 text-[14px] text-[#56635e] dark:text-white/70"><span>{t(person.expired?"business_access.invitation_expired":"workspace_setup_preview.invite_pending")}</span></div>:null}</div></div>
+      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">{person.pending&&!person.expired&&canInvite?<ResendAction availableAtMs={resendAt[person.id]} disabled={busy||restricted} onResend={()=>void resend(person.id)}/>:null}<div className={roleColumn}>{!roleOptions.some(option=>option.value===person.role)?<p className="flex min-h-11 items-center text-[16px] text-[#56635e] dark:text-white/70">{person.role?t(`workspace_setup_preview.permission_${person.role}`):null}</p>:<AccessRolePicker variant="quiet" compact value={person.role??""} disabled={busy||restricted||person.pending||!person.role} label={t("workspace_setup_preview.access_role_for",{email})} options={roleOptions} onChange={role=>void act(async()=>{const result=await changeBusinessRole(person.id,role as AccessRole);if(mounted.current&&result.invites.some(invite=>invite.email===person.email&&invite.requested_role===role))setNotice("workspace_setup_preview.invite_pending_detail");},"business_access.give_error")}/>}</div><button type="button" className={trashButtonClass} disabled={busy||restricted} aria-label={t(person.pending?"workspace_setup_preview.access_cancel_for":"workspace_setup_preview.access_remove_for",{email})} onClick={()=>setConfirmation({id:person.id,email,pending:person.pending})}><Trash2 className="h-4 w-4"/></button></div>
     </li>;
   };
   return <section data-testid="business-access-preview" className={`${SURFACE_CARD} space-y-4`}>
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-[21px] font-medium">{t("workspace_setup_preview.access_members_title")}</h2>{canInvite?<button type="button" className={primaryButtonClass} disabled={busy||refused} onClick={()=>setInviting(true)}><UserPlus className="h-4 w-4"/>{t("workspace_setup_preview.batch_title")}</button>:null}</div>
     <ul>{access.grants.map(person=>personRow({...person,role:person.business_role,pending:false}))}</ul>
     {access.invites.length?<details className="border-t border-black/10 pt-1 dark:border-white/10"><summary className="min-h-11 cursor-pointer content-center rounded-md px-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_pending_title")} · {access.invites.length}</summary><ul>{access.invites.map(person=>personRow({...person,role:person.requested_role,pending:true,expired:person.state==="expired"}))}</ul></details>:null}
-    {failed?<div role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]"><p>{t(actionFailed?"business_access.remove_error":"business_access.error")}</p>{reference?<ReferenceCode reference={reference}/>:null}</div>:null}
+    {failed?<div role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]"><p>{t(actionError??"business_access.error")}</p>{reference?<ReferenceCode reference={reference}/>:null}</div>:null}
     {notice?<p role="status" className="text-[14px] text-[#56635e] dark:text-white/70">{t(notice)}</p>:null}
-    <ConfirmDialog isOpen={confirmation!==null} title={t(confirmation?.pending?"workspace_setup_preview.access_cancel_title":"workspace_setup_preview.access_remove_title",{email:confirmation?.email})} description={t(confirmation?.pending?"workspace_setup_preview.access_cancel_detail":"workspace_setup_preview.access_remove_detail")} confirmLabel={t(confirmation?.pending?"workspace_setup_preview.access_cancel":"workspace_setup_preview.access_remove")} cancelLabel={t("common.cancel")} onCancel={()=>setConfirmation(null)} onConfirm={()=>{if(confirmation){const target=confirmation;setConfirmation(null);void act(()=>target.pending?revokeBusinessAccessInvite(target.id):revokeBusinessAccessGrant(target.id));}}}/>
+    <ConfirmDialog isOpen={confirmation!==null} title={t(confirmation?.pending?"workspace_setup_preview.access_cancel_title":"workspace_setup_preview.access_remove_title",{email:confirmation?.email})} description={t(confirmation?.pending?"workspace_setup_preview.access_cancel_detail":"workspace_setup_preview.access_remove_detail")} confirmLabel={t(confirmation?.pending?"workspace_setup_preview.access_cancel":"workspace_setup_preview.access_remove")} cancelLabel={t("common.cancel")} onCancel={()=>setConfirmation(null)} onConfirm={()=>{if(confirmation){const target=confirmation;setConfirmation(null);void act(()=>target.pending?revokeBusinessAccessInvite(target.id):revokeBusinessAccessGrant(target.id),"business_access.remove_error");}}}/>
     {inviting&&canInvite?<BusinessInvitationForm onRefused={failure} onClose={()=>setInviting(false)}/>:null}
   </section>;
 }
@@ -188,7 +188,7 @@ function BusinessAccessSketch() {
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Avatar size={32} status={pending ? "pending" : null} />
         <div className="min-w-0 flex-1">
-          <p className="break-all text-[16px] text-[#172b26] dark:text-white">{person.email}{person.current ? <span className="ml-2 text-[14px] text-black/55 dark:text-white/65">{t("workspace_setup_preview.access_you")}</span> : null}</p>
+          <p className="flex min-w-0 items-baseline text-[16px] text-[#172b26] dark:text-white"><span className="truncate" title={person.email}>{person.email}</span>{person.current ? <span className="ml-2 shrink-0 text-[14px] text-black/55 dark:text-white/65">{t("workspace_setup_preview.access_you")}</span> : null}</p>
           {pending ? <p className="text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.invite_pending")}</p> : null}
           {protectedReason ? <span id={`${id}-guard-${person.email}`} className="sr-only">{t(`workspace_setup_preview.access_guard_${protectedReason}`)}</span> : null}
         </div>

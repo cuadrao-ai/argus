@@ -104,3 +104,14 @@ test("a 429 with no wait says the email was not sent and starts no countdown",as
   expect(page.host.querySelector('[role="alert"]')).toBeNull();
  }finally{await page.unmount();}
 });
+
+test("a Reenviar that fails for another reason says the email was not confirmed, not that access was removed",async()=>{
+ const page=await mountAcceso(list(invite("libre",0)),()=>new Response(null,{status:500}));
+ try{
+  await act(async()=>page.reenviar("libre").click());
+  await page.settle(()=>Boolean(page.host.querySelector('[role="alert"]')));
+  const alert=page.host.querySelector('[role="alert"]')?.textContent??"";
+  expect(alert).toContain(spanish.business_access.delivery_uncertain);
+  expect(alert).not.toContain(spanish.business_access.remove_error);
+ }finally{await page.unmount();}
+});
