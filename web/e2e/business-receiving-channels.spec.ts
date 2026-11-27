@@ -45,6 +45,31 @@ async function setup(page: Page, available: boolean, history = false, language: 
 }
 
 for (const width of [1440, 390]) {
+  test(`linked WhatsApp settings show the sender’s destinations at ${width}px`, async ({ page }, info) => {
+    const observed = await setup(page, false);
+    const businesses = [
+      { space_id: "ferreteria", name: "Ferretería Los Pinos", tax_id: { type: "rnc", value: "131456782" } },
+      { space_id: "colmado", name: "Colmado Doña Fefa", tax_id: { type: "cedula", value: "00112345678" } },
+      { space_id: "clinica", name: "Clínica Dental Sonrisa", tax_id: { type: "rnc", value: "130987654" } },
+    ];
+    await page.route(url => url.pathname.endsWith("/api/v1/whatsapp/link"), route => route.fulfill({
+      json: { ...whatsappDisclosure["es-419"], linked: true, last4: "4821", linked_at: "2026-11-12T12:00:00Z",
+        reply_language: "es-419", receiving_businesses: businesses, held_count: 3 },
+    }));
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.goto("/biz?view=inbox");
+    await page.getByTestId("header-profile-trigger").click();
+    await page.getByTestId("profile-menu-settings").click();
+    await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
+    const rows = page.getByRole("list", { name: "Negocios que reciben" }).getByRole("listitem");
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(1)).toContainText("Cédula 001-1234567-8");
+    await expect(page.getByRole("region", { name: "Archivos sin negocio" })).toContainText("3");
+    await expect(page.getByRole("button", { name: "Desvincular número" })).toBeVisible();
+    expect(observed.errors).toEqual([]);
+    await page.screenshot({ path: info.outputPath(`whatsapp-linked-es-419-${width}.png`), style: FREEZE_CSS });
+  });
+
   test(`unavailable channels have no intake offers or requests at ${width}px`, async ({ page }, info) => {
     const observed = await setup(page, false);
     await page.setViewportSize({ width, height: 900 });

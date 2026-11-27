@@ -30750,10 +30750,13 @@ components:
           type: string
         name:
           type: string
+        tax_id:
+          $ref: '#/components/schemas/TaxId'
       type: object
       required:
       - space_id
       - name
+      - tax_id
     ReceivingChannel:
       properties:
         available:

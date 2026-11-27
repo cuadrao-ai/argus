@@ -11,7 +11,10 @@ import spanish from "../public/locales/es-419/common.json";
 
 import english from "../public/locales/en/common.json";
 
-const eligible = [{ space_id: "synthetic-business", name: "Taller de prueba" }];
+const eligible = [
+  { space_id: "synthetic-business", name: "Taller de prueba", tax_id: { type: "rnc", value: "131456782" } },
+  { space_id: "synthetic-cedula", name: "Colmado de prueba", tax_id: { type: "cedula", value: "00112345678" } },
+];
 const notice = whatsappDisclosure["es-419"].disclosure;
 const message = "CUADRAO K7P2M9XQ";
 const url = "https://wa.me/18095550100?text=CUADRAO%20K7P2M9XQ";
@@ -37,7 +40,7 @@ afterEach(async () => {
 });
 afterAll(() => GlobalRegistrator.unregister());
 
-async function open({ blocked = false, seconds = 581, withUrl = true, linked = false } = {}) {
+async function open({ blocked = false, seconds = 581, withUrl = true, linked = false, heldCount = 0 } = {}) {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   const issued: unknown[] = [];
   const requests = { linked, reads: 0, deletes: 0, limited: false, closes: 0,
@@ -60,7 +63,7 @@ async function open({ blocked = false, seconds = 581, withUrl = true, linked = f
     const language = new URL(String(input)).searchParams.get("language");
     requests.languages.push(language);
     if (requests.nextRead) return requests.nextRead;
-    return Response.json({ ...whatsappDisclosure[language === "en" ? "en" : "es-419"], linked: requests.linked, last4: requests.linked ? "4821" : null, linked_at: null, reply_language: null, receiving_businesses: blocked ? [] : eligible, held_count: 0 });
+    return Response.json({ ...whatsappDisclosure[language === "en" ? "en" : "es-419"], linked: requests.linked, last4: requests.linked ? "4821" : null, linked_at: null, reply_language: null, receiving_businesses: blocked ? [] : eligible, held_count: heldCount });
   }) as typeof fetch;
   const host = document.createElement("div");
   document.body.append(host);
@@ -139,6 +142,40 @@ test("expired retires the old message and offers a fresh code once the final rea
   expect(issued).toHaveLength(2);
 });
 
+test("linked settings show the held count and the fiscal ID for each receiving business", async () => {
+  const { host } = await open({ linked: true, heldCount: 7 });
+  expect(host.querySelector("ul")?.getAttribute("aria-label")).toBe("Negocios que reciben");
+  expect([...host.querySelectorAll("li")].map(row => row.textContent)).toEqual([
+    "Taller de pruebaRNC 1-31-45678-2", "Colmado de pruebaCédula 001-1234567-8",
+  ]);
+  expect(host.textContent).toContain("Cada archivo va al negocio cuyo RNC o cédula sale en el documento.");
+  expect(host.textContent).toContain("¿Falta un negocio? Necesita su RNC o cédula y la lectura automática activa.");
+  const held = host.querySelector('[aria-label="Archivos sin negocio"]');
+  expect(held?.textContent).toBe("Archivos sin negocioEsperan que elijas a qué negocio van7");
+});
+
+test("the linked panel shows the approved English for receiving businesses and held files", async () => {
+  await i18n.changeLanguage("en");
+  const { host } = await open({ linked: true, heldCount: 2 });
+  expect(host.querySelector("ul")?.getAttribute("aria-label")).toBe("Businesses that receive");
+  expect(host.textContent).toContain("Each file goes to the business whose RNC or cédula appears on the document.");
+  expect(host.textContent).toContain("Missing a business? It needs its RNC or cédula and automatic reading turned on.");
+  expect(host.querySelector('[aria-label="Files with no business"]')?.textContent)
+    .toBe("Files with no businessWaiting for you to choose which business they go to2");
+});
+
+test("linked settings preserve the held count after the last eligible business is lost", async () => {
+  const { host } = await open({ linked: true, blocked: true, heldCount: 3 });
+  expect(host.querySelectorAll("li")).toHaveLength(0);
+  expect(host.querySelector('[aria-label="Archivos sin negocio"]')?.textContent).toContain("3");
+  expect(host.textContent).toContain("Desvincular número");
+});
+
+test("an empty held queue shows zero without saying that files are waiting", async () => {
+  const { host } = await open({ linked: true, heldCount: 0 });
+  expect(host.querySelector('[aria-label="Archivos sin negocio"]')?.textContent).toBe("Archivos sin negocio0");
+});
+
 test("the live status poll sees redemption and stops; unlink requires confirmation", async () => {
   const { host, click, requests } = await open();
   await click("Vincular mi WhatsApp");
@@ -147,7 +184,8 @@ test("the live status poll sees redemption and stops; unlink requires confirmati
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1050)); });
   expect(requests.reads).toBe(2);
   expect(host.textContent).toContain("Número que termina en 4821");
-  expect(host.querySelector("a")?.getAttribute("href")).toBe("/biz?view=inbox");
+  expect(host.querySelector('a[href="/biz?view=inbox"]')).toBeNull();
+  expect(host.textContent).not.toContain(spanish.business.activity.open_settings);
   expect(host.textContent).not.toContain("Esperando tu mensaje…");
   await click("Desvincular número");
   expect(requests.deletes).toBe(0);

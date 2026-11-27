@@ -1,3 +1,4 @@
+import type { TaxId } from "./business-dgii";
 import type { ArgusLanguage } from "./language-features";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { CUADRAO_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
@@ -19,7 +20,7 @@ export type WhatsAppLinkStatus = {
   linked: boolean;
   last4: string | null;
   linked_at: string | null;
-  receiving_businesses: { space_id: string; name: string }[];
+  receiving_businesses: { space_id: string; name: string; tax_id: TaxId }[];
   held_count: number;
   reply_language: "en" | "es-419" | null;
 };

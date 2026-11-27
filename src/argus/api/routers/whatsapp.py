@@ -29,10 +29,12 @@ from argus.api.whatsapp import (
     link_store,
     require_whatsapp_sender,
     require_whatsapp_surface,
+    sender_businesses_with_tax_ids,
     unavailable_problem,
     whatsapp_receiving_available,
 )
 from argus.domain.business.authority import ActionError
+from argus.domain.business.contracts.dgii import TaxId
 from argus.domain.ingestion.whatsapp.ai_consent import (
     AIConsentStore,
     ConsentError,
@@ -83,6 +85,7 @@ class LinkCodeResponse(BaseModel):
 class ReceivingBusiness(BaseModel):
     space_id: str
     name: str
+    tax_id: TaxId
 
 
 class LinkStatusResponse(BaseModel):
@@ -303,7 +306,7 @@ def get_whatsapp_link(
     link = context.link
     if not link and not held_count and not whatsapp_receiving_available(context.person_id):
         raise unavailable_problem(request)
-    businesses = eligible_sender_businesses(context.person_id)
+    businesses = sender_businesses_with_tax_ids(context.person_id)
     disclosure, disclosure_token = link_disclosure(context.person_id, language)
     return LinkStatusResponse(
         disclosure=disclosure,
@@ -313,7 +316,8 @@ def get_whatsapp_link(
         linked_at=link.linked_at if link else None,
         reply_language=link.reply_language if link else None,
         receiving_businesses=[
-            ReceivingBusiness(space_id=g.space_id, name=g.name) for g in businesses
+            ReceivingBusiness(space_id=grant.space_id, name=grant.name, tax_id=tax_id)
+            for grant, tax_id in businesses
         ],
         held_count=held_count,
     )

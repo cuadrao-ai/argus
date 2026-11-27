@@ -39,6 +39,7 @@ from loguru import logger
 
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion import whatsapp_heartbeat_cases as heartbeat
+from tests.ingestion.whatsapp_link_support import SYNTHETIC_TAX_ID
 from tests.ingestion.whatsapp_support import (
     FIXTURES,
     PHONE_NUMBER_ID,
@@ -62,7 +63,7 @@ def _world() -> cases.World:
         documents=documents,
         store=InMemoryWhatsAppStore(
             connections, access,
-            SenderBusinesses(access, lambda _: True, lambda _: {"enabled": True}).eligible_businesses,
+            SenderBusinesses(access, lambda _: SYNTHETIC_TAX_ID, lambda _: {"enabled": True}).eligible_businesses,
         ),
         clock=clock,
         alice=str(uuid4()),

@@ -27,7 +27,7 @@ from loguru import logger
 
 from tests.business_reading_support import ROUTE, turn_reading
 from tests.ingestion.conftest import ALICE, BOB, GUEST, bearer
-from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE, NOTICE
+from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE, NOTICE, SYNTHETIC_TAX_ID
 from tests.ingestion.whatsapp_support import (
     ALICE_PHONE,
     ENV,
@@ -110,6 +110,21 @@ def test_person_can_see_their_existing_link_after_losing_prepare(wa_client, monk
     assert answer.json()["linked"] is True
 
 
+def test_link_returns_fiscal_ids_only_for_the_senders_eligible_businesses(wa_client, identities):
+    link_alice(wa_client)
+    alice = identities[ALICE]["id"]
+    own = resolve_business_scope(business_spaces(), alice).owner.space_id
+    other = resolve_business_scope(business_spaces(), identities[BOB]["id"]).owner.space_id
+    assert own != other
+    response = wa_client.get(LINK, headers=bearer(ALICE))
+    assert response.status_code == 200
+    assert response.json()["receiving_businesses"] == [
+        {"space_id": own, "name": "Mi negocio", "tax_id": {"type": "rnc", "value": "131456782"}}
+    ]
+    turn_reading(documents_service().business_receipt_consent, own, alice, enabled=False)
+    assert wa_client.get(LINK, headers=bearer(ALICE)).json()["receiving_businesses"] == []
+
+
 def test_standalone_consent_cannot_enable_a_read(wa_client: TestClient) -> None:
     for method in ("GET", "POST"):
         response = wa_client.request(method, "/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
@@ -137,7 +152,7 @@ def graph() -> FakeGraph:
 def wa_client(
     ingestion_env, gateway, identities, monkeypatch, graph
 ) -> Iterator[TestClient]:  # noqa: ANN001
-    monkeypatch.setattr("argus.api.whatsapp._memory_has_tax_id", lambda _space: True)
+    monkeypatch.setattr("argus.api.whatsapp._memory_tax_id", lambda _space: SYNTHETIC_TAX_ID)
     for name, value in ENV.items():
         monkeypatch.setenv(name, value)
     with (
@@ -302,7 +317,7 @@ def test_link_capture_status_and_revoke_over_http(
         f"https://wa.me/15550009999?text=CUADRAO%20{issued['code']}"
     )
     assert wa_client.get(LINK, headers=bearer(ALICE)).json() == {
-        "receiving_businesses": [{"space_id": business.space_id, "name": "Mi negocio"}],
+        "receiving_businesses": [{"space_id": business.space_id, "name": "Mi negocio", "tax_id": SYNTHETIC_TAX_ID.model_dump()}],
         "held_count": 0,
         "disclosure": NOTICE,
         "disclosure_token": body["disclosure_token"],

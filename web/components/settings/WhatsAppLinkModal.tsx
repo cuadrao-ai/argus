@@ -1,7 +1,7 @@
 "use client";
 
 import { useContext, useEffect, useEffectEvent, useId, useState, type ReactNode } from "react";
-import { Clock, ExternalLink, Info, LoaderCircle, MessageCirclePlus } from "lucide-react";
+import { BriefcaseBusiness, Clock, ExternalLink, Inbox, Info, LoaderCircle, MessageCirclePlus } from "lucide-react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { BusinessContext } from "@/components/business-app/business-context";
@@ -10,6 +10,7 @@ import { CHANNEL_ICON } from "@/components/business-app/foundation/channel-icons
 import SettingsSurface from "@/components/settings/SettingsSurface";
 import CopyCodeButton from "@/components/settings/CopyCodeButton";
 import { normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
+import { formatRnc } from "@/lib/rnc-status";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
   createWhatsAppLinkCode, getWhatsAppLink, unlinkWhatsApp, whatsAppLinkProblem,
@@ -94,6 +95,34 @@ function Waiting({ code, seconds }: { code: WhatsAppLinkCode; seconds: number })
     <div className="space-y-2">
       <p className={muted}>{t(key("send_steps"))}</p><CodeMessage code={code} />
     </div>
+  </>;
+}
+
+function LinkedDestinations({ status }: { status: WhatsAppLinkStatus }) {
+  const { t } = useTranslation();
+  const receivingTitle = t(key("receiving_title"));
+  const heldTitle = t(key("held_title"));
+  return <>
+    <section aria-label={heldTitle} className="flex min-h-14 items-center gap-3 rounded-surface border border-dashed border-[var(--surface-divider)] px-4 py-2">
+      <Inbox size={18} aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p>{heldTitle}</p>
+        {status.held_count > 0 && <p className={muted}>{t(key("held_help"))}</p>}
+      </div>
+      <span className="rounded px-2 text-sm tabular-nums bg-[#f2e8c9] text-[#735c14] dark:bg-[#f6e7c1]/15 dark:text-[#f6e7c1]">{status.held_count}</span>
+    </section>
+    <section className="space-y-2">
+      <div><h3 className={title}>{receivingTitle}</h3><p className={`${muted} mt-1`}>{t(key("routing_help"))}</p></div>
+      {status.receiving_businesses.length > 0 && <ul aria-label={receivingTitle} className="divide-y divide-[var(--surface-divider)] rounded-surface bg-[#F7F5EE] px-4 dark:bg-[#1f2225]">
+        {status.receiving_businesses.map(({ space_id, name, tax_id }) => (
+          <li key={space_id} className="flex min-h-14 items-center gap-3 py-2">
+            <span className="grid size-8 shrink-0 place-items-center rounded-item bg-black/5 dark:bg-white/10"><BriefcaseBusiness size={16} aria-hidden="true" /></span>
+            <div className="min-w-0 break-words"><p>{name}</p><p className={`${muted} tabular-nums`}>{t(`business.dgii.tax_id_${tax_id.type}`)} {formatRnc(tax_id.value)}</p></div>
+          </li>
+        ))}
+      </ul>}
+      <p className={muted}>{t(key("receiving_hint"))}</p>
+    </section>
   </>;
 }
 
@@ -214,9 +243,7 @@ export default function WhatsAppLinkModal(frame: Frame) {
   if (status?.linked) {
     body = <>
       <section className={box}><div><h3 className={title}>{t(key("number"))}</h3><p>{t(key("linked"), { last4: status.last4 })}</p></div></section>
-      <section className="space-y-2 rounded-surface border border-[var(--surface-divider)] p-4">
-        <p>{t("business.activity.all_channels")}</p><a href="/biz?view=inbox" className={secondaryButtonClass}>{t("business.activity.open_settings")}</a>
-      </section>
+      <LinkedDestinations status={status} />
       {confirmUnlink && <p>{t(key("confirm_unlink"))}</p>}
     </>;
     footer = confirmUnlink ? <>
