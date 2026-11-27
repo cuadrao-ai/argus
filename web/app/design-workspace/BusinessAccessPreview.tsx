@@ -15,6 +15,7 @@ import { accessActionGuard, accessRoleOptions, businessAccessChangedEvent, chang
 import { changeBusinessRole, getBusinessAccess, resendBusinessAccessInvite, revokeBusinessAccessGrant, revokeBusinessAccessInvite, type BusinessAccess } from "@/lib/business-api";
 import { referenceCode } from "@/lib/failure-screen";
 import { supportEmail } from "@/lib/support-email";
+import { useRetryAfterCountdown } from "@/lib/use-retry-after-countdown";
 import BusinessInvitationForm, { clearInvitationDraft } from "@/components/business-app/BusinessInvitationForm";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 
@@ -24,6 +25,17 @@ const storage = () => typeof window === "undefined" ? emptyStorage : window.loca
 const announceChange = () => window.dispatchEvent(new Event(businessAccessChangedEvent));
 /** Roles line up across rows because every row gives the picker the same width. */
 const roleColumn = "w-36 shrink-0";
+/** When each invitation may be sent again, from the seconds the server listed with it. */
+const resendTimes = (access: BusinessAccess, now = Date.now()): Record<string, number> => Object.fromEntries(access.invites.flatMap(invite => invite.resend_wait_seconds ? [[invite.id, now + invite.resend_wait_seconds * 1000]] : []));
+/** The seconds a refused resend asks to wait; null when the failure is not that refusal. */
+const refusedResendWait = (error: unknown): number | null => error && typeof error === "object" && "status" in error && error.status === 429 ? Number("retryAfterSeconds" in error && error.retryAfterSeconds) || 0 : null;
+
+/** Reenviar, counting down the server's wait in the words of the sign-up resend. */
+function ResendAction({availableAtMs,disabled,onResend}:{availableAtMs?:number;disabled:boolean;onResend:()=>void}){
+  const {t}=useTranslation();
+  const seconds=useRetryAfterCountdown(availableAtMs);
+  return <RowAction className="mr-2" disabled={disabled||seconds>0} onClick={onResend}>{seconds>0?t("auth.signup.confirmation_resend_wait",{seconds}):t("workspace_setup_preview.access_resend")}</RowAction>;
+}
 
 export default function BusinessAccessPreview() {
   const {source}=useBusiness();
@@ -34,6 +46,7 @@ function BusinessAccessLive(){
   const {t}=useTranslation();
   const {chosen,reload}=useBusiness();
   const [access,setAccess]=useState<BusinessAccess|null>(null);
+  const [resendAt,setResendAt]=useState<Record<string,number>>({});
   const [failed,setFailed]=useState(false);
   const [reference,setReference]=useState<string|null>(null);
   const [actionFailed,setActionFailed]=useState(false);
@@ -56,6 +69,7 @@ function BusinessAccessLive(){
       if(chosen?.space_id)clearInvitationDraft(chosen.space_id);
     }
   },[chosen]);
+  const receive=useCallback((value:BusinessAccess)=>{setAccess(value);setResendAt(resendTimes(value));setInvitationsReady(value.invitations_available===true);},[]);
   const canInvite=invitationsReady&&chosen?.permissions?.includes("manage")===true;
   useEffect(()=>{
     mounted.current=true;
@@ -64,12 +78,11 @@ function BusinessAccessLive(){
     setInviting(false);
     getBusinessAccess().then(value=>{
       if(!mounted.current||generation!==loadGeneration.current)return;
-      setAccess(value);
+      receive(value);
       setFailed(false);
-      setInvitationsReady(value.invitations_available===true);
     },error=>{if(mounted.current&&generation===loadGeneration.current){setActionFailed(false);failure(error);}});
     return()=>{};
-  },[attempt,failure]);
+  },[attempt,failure,receive]);
   useEffect(()=>()=>{mounted.current=false;},[]);
   useEffect(()=>{
     if(!canInvite){
@@ -93,13 +106,26 @@ function BusinessAccessLive(){
     try{
       const saved=await getBusinessAccess();
       if(mounted.current){
-        setAccess(saved);
-        setInvitationsReady(saved.invitations_available===true);
+        receive(saved);
         reload();
       }
     }
     catch(error){if(mounted.current)failure(error);}
     finally{if(mounted.current)setBusy(false);}
+  };
+  const resend=async(id:string)=>{
+    if(busy||refused)return;
+    setBusy(true);setFailed(false);setNotice(null);
+    try{
+      const sent=await resendBusinessAccessInvite(id);
+      if(mounted.current)receive(sent);
+    }catch(error){
+      if(!mounted.current)return;
+      const wait=refusedResendWait(error);
+      if(wait===null){setActionFailed(true);failure(error);}
+      else if(wait>0)setResendAt(times=>({...times,[id]:Date.now()+wait*1000}));
+      else setNotice("business_access.delivery_failed");
+    }finally{if(mounted.current)setBusy(false);}
   };
   if(refused||!access)return <section className={SURFACE_CARD}>{failed?<div role="alert" className="space-y-2"><p>{t(refused?"business.lifecycle.errors.business_unavailable":"business_access.error")}</p>{refused?<p className="text-[14px] text-[#56635e] dark:text-white/70">{t("auth.business_unavailable.body", { supportEmail })}</p>:null}{reference?<p><ReferenceCode reference={reference}/></p>:null}{!refused?<button className={primaryButtonClass} onClick={()=>setAttempt(value=>value+1)}>{t("common.retry")}</button>:null}</div>:<div className="h-40 animate-pulse rounded-item bg-black/5 dark:bg-white/10" aria-busy="true"/>}</section>;
   const roleOptions=accessRoleOptions(t,chosen?.permissions);
@@ -109,7 +135,7 @@ function BusinessAccessLive(){
     const email=person.email??"-";
     return <li key={person.id} className="flex min-h-16 flex-col gap-1 rounded-lg px-2 py-2 hover:bg-black/[0.025] focus-within:bg-black/[0.025] sm:flex-row sm:items-center sm:gap-4 dark:hover:bg-white/[0.035] dark:focus-within:bg-white/[0.035]">
       <div className="flex min-w-0 flex-1 items-center gap-3"><Avatar size={32} status={person.pending?"pending":null}/><div className="min-w-0 flex-1"><p className="break-all text-[16px]">{email}{self?<span className="ml-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_you")}</span>:null}</p>{person.pending?<div className="flex flex-wrap items-center gap-x-3 text-[14px] text-[#56635e] dark:text-white/70"><span>{t(person.expired?"business_access.invitation_expired":"workspace_setup_preview.invite_pending")}</span></div>:null}</div></div>
-      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">{person.pending&&!person.expired&&canInvite?<RowAction className="mr-2" disabled={busy||restricted} onClick={()=>void act(()=>resendBusinessAccessInvite(person.id))}>{t("workspace_setup_preview.access_resend")}</RowAction>:null}<div className={roleColumn}>{!roleOptions.some(option=>option.value===person.role)?<p className="flex min-h-11 items-center text-[16px] text-[#56635e] dark:text-white/70">{person.role?t(`workspace_setup_preview.permission_${person.role}`):null}</p>:<AccessRolePicker variant="quiet" compact value={person.role??""} disabled={busy||restricted||person.pending||!person.role} label={t("workspace_setup_preview.access_role_for",{email})} options={roleOptions} onChange={role=>void act(async()=>{const result=await changeBusinessRole(person.id,role as AccessRole);if(mounted.current&&result.invites.some(invite=>invite.email===person.email&&invite.requested_role===role))setNotice("workspace_setup_preview.invite_pending_detail");})}/>}</div><button type="button" className={trashButtonClass} disabled={busy||restricted} aria-label={t(person.pending?"workspace_setup_preview.access_cancel_for":"workspace_setup_preview.access_remove_for",{email})} onClick={()=>setConfirmation({id:person.id,email,pending:person.pending})}><Trash2 className="h-4 w-4"/></button></div>
+      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">{person.pending&&!person.expired&&canInvite?<ResendAction availableAtMs={resendAt[person.id]} disabled={busy||restricted} onResend={()=>void resend(person.id)}/>:null}<div className={roleColumn}>{!roleOptions.some(option=>option.value===person.role)?<p className="flex min-h-11 items-center text-[16px] text-[#56635e] dark:text-white/70">{person.role?t(`workspace_setup_preview.permission_${person.role}`):null}</p>:<AccessRolePicker variant="quiet" compact value={person.role??""} disabled={busy||restricted||person.pending||!person.role} label={t("workspace_setup_preview.access_role_for",{email})} options={roleOptions} onChange={role=>void act(async()=>{const result=await changeBusinessRole(person.id,role as AccessRole);if(mounted.current&&result.invites.some(invite=>invite.email===person.email&&invite.requested_role===role))setNotice("workspace_setup_preview.invite_pending_detail");})}/>}</div><button type="button" className={trashButtonClass} disabled={busy||restricted} aria-label={t(person.pending?"workspace_setup_preview.access_cancel_for":"workspace_setup_preview.access_remove_for",{email})} onClick={()=>setConfirmation({id:person.id,email,pending:person.pending})}><Trash2 className="h-4 w-4"/></button></div>
     </li>;
   };
   return <section data-testid="business-access-preview" className={`${SURFACE_CARD} space-y-4`}>
