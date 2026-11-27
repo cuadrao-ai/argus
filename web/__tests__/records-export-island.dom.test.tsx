@@ -4,6 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { I18nextProvider } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
+import { reportFiltersSchema, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
 import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 
@@ -29,8 +30,8 @@ const alert = () => document.querySelector('[role="dialog"] [role="alert"]');
 const island = () => document.querySelector<HTMLElement>('[data-testid="receipt-upload-island"]');
 
 /** Registros with its real export panel, and the top bar's island and toasts on the same export job. Every export request and upload waits for the test. */
-async function registros() {
-  const page = await mount();
+async function registros(options: Parameters<typeof mount>[0] = {}) {
+  const page = await mount(options);
   const { createRoot } = await import("react-dom/client");
   const { default: ReceiptUploadIsland } = await import("@/components/business-app/ReceiptUploadIsland");
   const { ReceiptUploadQueue } = await import("@/components/business-app/receipt-upload-queue");
@@ -313,4 +314,80 @@ test("an upload and an export together: the island shows the newer job, then the
   await page.finishUpload();
   await page.settle(() => island()?.dataset.state === "preparing");
   assert.equal(island()!.textContent, "Preparando…", "the export is still being prepared");
+});
+
+/** Purchases with pending fiscal data in pesos, so the 606 has its Revisar notice. */
+function fiscalBooks(rows: ReportRecord[]) {
+  const purchases = rows.filter((row) => row.family === "purchase");
+  purchases.slice(0, 4).forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.ready = true; row.missing = []; });
+  purchases.slice(4, 7).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.currency = "DOP"; });
+}
+const tableFilters = (page: { fixture: { calls: { path: string; body: unknown }[] } }) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).map((call) => (call.body as ReportRequest).filters);
+const dgiiMode = () => document.querySelector<HTMLInputElement>('[data-testid="records-export-mode-dgii"] input');
+const pickPeriod = async (page: Awaited<ReturnType<typeof registros>>, preset: string, kind: string) => {
+  await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]')].find((button) => /\d{4}/.test(button.textContent ?? "")));
+  await page.click(page.button(preset));
+  if (page.button("Confirmar período")) await page.click(page.button("Confirmar período"));
+  await page.settle(() => tableFilters(page).at(-1)!.period.kind === kind);
+};
+/** Fails a 606 of the purchases, with documents still in the Bandeja. Returns the table's filters the failed file was asked on. */
+async function failPurchases606() {
+  const page = await registros({ edit: fiscalBooks });
+  page.fixture.controls.bandejaCount = 2;
+  page.fixture.controls.exportFails = true;
+  await page.open();
+  await page.click(dgiiMode());
+  await page.settle(() => page.button("Revisar") !== undefined);
+  await page.click(downloadButton());
+  await page.answer();
+  await page.settle(() => island()?.dataset.state === "failed");
+  page.fixture.controls.exportFails = false;
+  return { page, failedOn: tableFilters(page).at(-1)! };
+}
+const pendingOf = (filters: ReportRequest["filters"]) => reportFiltersSchema.parse({ period: filters.period, record_families: filters.record_families, currencies: ["DOP"], fiscal_data: "missing" });
+
+test("Revisar in a failed export reopened from the island opens the purchases of the failed period, not the table's Ventas of another period", async () => {
+  const { page, failedOn } = await failPurchases606();
+  await page.click(document.querySelector("#records-type-venta"));
+  await page.settle(() => tableFilters(page).at(-1)!.record_families[0] === "sale");
+  await pickPeriod(page, "Este año", "this_year");
+
+  await page.click(island());
+  await page.settle(() => page.button("Revisar") !== undefined);
+  assert.ok(alert(), "the panel is on the failed file");
+  await page.click(page.button("Revisar"));
+  await page.settle(() => panel() === null && tableFilters(page).at(-1)!.fiscal_data === "missing");
+  assert.deepEqual(tableFilters(page).at(-1), pendingOf(failedOn));
+  assert.deepEqual(failedOn.record_families, ["purchase"]);
+  assert.equal(document.querySelector("#records-type-gasto")?.getAttribute("aria-selected"), "true", "the screen is back on Compras");
+});
+
+test("Ver en Bandeja in a failed export reopened from the island counts the failed file's period and opens the Bandeja", async () => {
+  const { page, failedOn } = await failPurchases606();
+  await page.click(document.querySelector("#records-type-venta"));
+  await page.settle(() => tableFilters(page).at(-1)!.record_families[0] === "sale");
+  await pickPeriod(page, "Este año", "this_year");
+
+  await page.click(island());
+  await page.settle(() => page.button("Ver en Bandeja") !== undefined);
+  const counted = page.fixture.calls.filter((call) => call.path.endsWith("/reports/export/preview")).at(-1)!.body as { report: ReportRequest };
+  assert.deepEqual([counted.report.filters.period, counted.report.filters.record_families], [failedOn.period, ["purchase"]], "the count is the failed file's");
+  await page.click(page.button("Ver en Bandeja"));
+  await page.settle(() => panel() === null);
+  assert.deepEqual(page.opened.at(-1), { kind: "inbox" });
+});
+
+test("with a failed file in the island, Revisar in Exportar opened on the table opens the table's own period", async () => {
+  const { page, failedOn } = await failPurchases606();
+  await pickPeriod(page, "Este año", "this_year");
+  const current = tableFilters(page).at(-1)!;
+  assert.notDeepEqual(current.period, failedOn.period);
+
+  await page.open();
+  await page.click(dgiiMode());
+  await page.settle(() => page.button("Revisar") !== undefined);
+  assert.equal(alert(), null);
+  await page.click(page.button("Revisar"));
+  await page.settle(() => panel() === null && tableFilters(page).at(-1)!.fiscal_data === "missing");
+  assert.deepEqual(tableFilters(page).at(-1), pendingOf(current));
 });
