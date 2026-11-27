@@ -21,10 +21,10 @@ if (!cases.length) throw new Error("Unknown evidence case");
 const owner = { space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", name: "Colmado Rosa", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true };
 const client = { ...owner, space_id: "49767c9c-9f8a-4af7-82e3-bcc065e09a19", grant_id: "b3acd38c-2e99-49aa-888f-4ee3a6268066", name: "Taller Sol", role: "accountant", capabilities: ["read", "prepare"] };
 const closed = { ...owner, closed_at: "2026-10-21T17:45:00Z", reopen_until: "2026-11-20T17:45:00Z" };
-const owned = { ...owner, member_count: 3, reopen_until: closed.reopen_until, export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 1204 }, { start: "2026-01-01", end: "2026-10-21", record_count: 310 }], members: [
+const owned = { ...owner, has_other_owner: false, member_count: 3, reopen_until: closed.reopen_until, export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 1204 }, { start: "2026-01-01", end: "2026-10-21", record_count: 310 }], members: [
   { grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa Pérez", shown_as: "name", eligible: true, reason: null },
-  { grant_id: "3200626b-f480-4249-97bd-04bdc03f1a15", name: "Ana López", shown_as: "name", eligible: false, reason: "email_unconfirmed" },
-  { grant_id: "2100626b-f480-4249-97bd-04bdc03f1a15", name: "Luis Díaz", shown_as: "name", eligible: false, reason: "owns_open_business" },
+  { grant_id: "3200626b-f480-4249-97bd-04bdc03f1a15", name: "Ana López", shown_as: "name", eligible: false, reason: "not_admin" },
+  { grant_id: "2100626b-f480-4249-97bd-04bdc03f1a15", name: "Luis Díaz", shown_as: "name", eligible: false, reason: "not_admin" },
 ] };
 const transfer = { id: "14ed5edb-9a72-428e-9a4a-52f5ab77c342", space_id: owner.space_id, grant_id: client.grant_id, business_name: owner.name, owner_name: "María Rosa", owner_shown_as: "name", target_name: "Rosa Pérez", target_shown_as: "name", role: "target", status: "pending", expires_at: "2026-10-24T17:45:00Z" };
 const evidence: { file: string; sha256: string; state: string; width: number; theme: string; posts: number; retryKeys?: string[] }[] = [];
@@ -88,12 +88,18 @@ try {
           if (state === "close-uncertain") { await dialog.getByRole("textbox").fill(owner.name); await dialog.getByRole("button", { name: "Cerrar negocio", exact: true }).click(); await expect(dialog.getByRole("alert")).toBeVisible(); }
         }
       }
-      if (state === "transfer-picker") { await expect(page.getByRole("radio", { name: /Rosa Pérez/ })).toBeVisible(); await expect(page.getByRole("radio", { name: /Ana López/ })).toBeDisabled(); }
+      // Transfer is one dialog over the app: no drawer and no second confirm.
+      if (state === "transfer-picker" || state.startsWith("accept-")) { await expect(page.getByRole("dialog")).toHaveCount(1); await expect(page.getByRole("alertdialog")).toHaveCount(0); await expect(page.getByTestId("side-drawer")).toHaveCount(0); }
+      if (state === "transfer-picker") { await expect(page.getByTestId("business-settings")).toBeAttached(); await expect(page.getByRole("radio", { name: /Rosa Pérez/ })).toBeVisible(); await expect(page.getByRole("radio", { name: /Ana López/ })).toBeDisabled(); await expect(page.getByRole("dialog").locator("label", { hasText: "Rosa Pérez" })).toHaveText(/Rosa Pérez$/); await expect(page.getByRole("dialog").locator("label", { hasText: "Ana López" })).toContainText("Primero cambia su acceso a Administrador."); }
       if (state.startsWith("accept-")) {
-        await page.getByRole("button", { name: "Aceptar transferencia", exact: true }).click();
-        await expect(page.getByRole("alertdialog")).toContainText("La lectura automática de documentos se apaga");
-        expect(calls.filter(call => call.path.endsWith("/accept"))).toHaveLength(0);
-        if (state === "accept-uncertain") { await page.getByRole("alertdialog").getByRole("button", { name: "Aceptar transferencia", exact: true }).click(); await expect(page.getByRole("button", { name: "Actualizar", exact: true })).toBeVisible(); await expect(page.getByRole("button", { name: "Aceptar transferencia", exact: true })).toHaveCount(0); }
+        const dialog = page.getByRole("dialog");
+        await expect(dialog.getByRole("heading", { name: `¿Aceptar ${owner.name}?`, exact: true })).toBeVisible();
+        await expect(dialog).toContainText("La lectura automática de documentos se apaga");
+        await expect(dialog.getByRole("button", { name: "Rechazar", exact: true })).toBeVisible();
+        expect(calls.filter(call => call.method === "POST")).toHaveLength(0);
+        // On a phone the sheet is as tall as the question, not the screen.
+        if (width === 390) expect((await dialog.boundingBox())!.height).toBeLessThan(844 * 0.6);
+        if (state === "accept-uncertain") { await dialog.getByRole("button", { name: "Aceptar transferencia", exact: true }).click(); await expect(dialog.getByRole("alert")).toContainText("No pudimos confirmar la aceptación."); await expect(dialog.getByRole("button", { name: "Actualizar", exact: true })).toBeVisible(); await expect(page.getByRole("button", { name: "Aceptar transferencia", exact: true })).toHaveCount(0); }
       }
       if (state === "owner-closed") { await expect(page.getByRole("button", { name: "Reabrir negocio", exact: true })).toBeVisible(); await expect(page.getByText("Para descargar comprobantes, primero debes reabrir el negocio.")).toBeVisible(); }
       if (state === "member-closed") { await expect(page.getByTestId("business-member-closed")).toBeVisible(); expect(calls.every(call => call.method === "GET")).toBe(true); }
@@ -118,8 +124,8 @@ try {
       await page.screenshot({ path: resolve(output, file), fullPage: true });
       if (state === "transfer-picker") {
         await page.getByRole("radio", { name: /Rosa Pérez/ }).check();
-        await page.getByRole("textbox").fill(owner.name);
-        const submit = page.getByRole("button", { name: "Solicitar transferencia", exact: true });
+        await page.getByRole("dialog").getByRole("textbox").fill(owner.name);
+        const submit = page.getByRole("dialog").getByRole("button", { name: "Solicitar transferencia", exact: true });
         await expect(submit).toBeEnabled(); await submit.scrollIntoViewIfNeeded();
         const detail = `${state}-${width}-${theme}-confirmation.png`;
         await page.screenshot({ path: resolve(output, detail), fullPage: true });

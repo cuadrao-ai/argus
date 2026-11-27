@@ -284,6 +284,7 @@ def test_transferred_active_business_can_prepare_departed_custodian_copies(world
     objects = InMemorySourceObjects()
     _, original, content = _seed(world, objects)
     transfer = PostgresBusinessTransfer(pool)
+    lifecycle.make_admin(member.id)
     pending = transfer.request(
         owner_id=people["owner"],
         space_id=space.id,

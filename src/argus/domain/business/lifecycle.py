@@ -157,6 +157,7 @@ class PostgresBusinessLifecycle:
                             "reason": found[1],
                         }
                     )
+                has_other_owner = self.other_owner_holds(db, space.space_id, owner_id)
                 now = db.execute("select clock_timestamp()").fetchone()[0]
             # History loads outside the owner and Business locks above.
             with self._pool.connection() as db:
@@ -166,6 +167,7 @@ class PostgresBusinessLifecycle:
                     "space_id": space.space_id,
                     "name": space.name,
                     "grant_id": space.grant_id,
+                    "has_other_owner": has_other_owner,
                     "member_count": len(members),
                     "reopen_until": now + REOPEN_WINDOW,
                     "export_windows": export_windows(*history),
@@ -173,6 +175,17 @@ class PostgresBusinessLifecycle:
                 }
             )
         return tuple(result)
+
+    @staticmethod
+    def other_owner_holds(db: Connection, space_id: str, owner_id: str) -> bool:
+        """Another live Dueño holds the Business, so it needs no transfer."""
+        return db.execute(
+            "select exists(select 1 from public.business_client_grants g"
+            " where g.space_id=%s and g.grantee_id<>%s and g.business_role='owner'"
+            " and g.revoked_at is null"
+            " and (g.expires_at is null or g.expires_at>clock_timestamp()))",
+            (space_id, owner_id),
+        ).fetchone()[0]
 
     def _export_history(
         self, db: Connection, space_id: str

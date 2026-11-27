@@ -1,144 +1,139 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
-import spanish from "@/public/locales/es-419/common.json";
+import { useId, useRef, useState, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { FormField } from "@/components/ui/FormField";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import { Avatar } from "@/components/ui/Avatar";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
-import { businessDeadlineParts } from "@/lib/business-lifecycle-api";
+import { businessDeadlineParts, type OwnedBusiness } from "@/lib/business-lifecycle-api";
 import { resolveLanguage } from "@/lib/language-features";
 import { personName } from "@/lib/person-name";
-import { useTranslation } from "react-i18next";
-import type { OwnedBusiness } from "@/lib/business-lifecycle-api";
-import { Avatar } from "@/components/ui/Avatar";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { BusinessCloseShell, NamedCopy, type BusinessCloseState } from "./BusinessCloseDialog";
 import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
-import type { BusinessCloseState } from "./BusinessCloseDialog";
 
-export const businessTransferCopyEs = {
-  title: spanish.business.lifecycle.transfer.title,
-  member: spanish.business.lifecycle.transfer.member,
-  help: spanish.business.lifecycle.transfer.help,
-  request: spanish.business.lifecycle.transfer.request,
-  pending: spanish.business.lifecycle.transfer.pending,
-  withdraw: spanish.business.lifecycle.transfer.withdraw,
-  recipient: spanish.business.lifecycle.transfer.recipient,
-  accept: spanish.business.lifecycle.transfer.accept,
-  decline: spanish.business.lifecycle.transfer.decline,
-  declined: spanish.business.lifecycle.transfer.declined,
-  expired: spanish.business.lifecycle.transfer.expired,
-  empty: spanish.business.lifecycle.transfer.empty,
-  accepted: spanish.business.lifecycle.transfer.accepted,
-  cancelled: spanish.business.lifecycle.transfer.cancelled,
-  declinedRecipient: spanish.business.lifecycle.transfer.declined_recipient,
-  confirmation: spanish.business.lifecycle.name_confirmation,
-  cancel: spanish.common.cancel,
-};
-
-export function useBusinessTransferCopy() {
-  const { t } = useTranslation();
-  return {
-    title: t("business.lifecycle.transfer.title", businessTransferCopyEs.title),
-    member: t("business.lifecycle.transfer.member", businessTransferCopyEs.member),
-    help: t("business.lifecycle.transfer.help", businessTransferCopyEs.help),
-    request: t("business.lifecycle.transfer.request", businessTransferCopyEs.request),
-    pending: t("business.lifecycle.transfer.pending", businessTransferCopyEs.pending),
-    withdraw: t("business.lifecycle.transfer.withdraw", businessTransferCopyEs.withdraw),
-    recipient: t("business.lifecycle.transfer.recipient", businessTransferCopyEs.recipient),
-    accept: t("business.lifecycle.transfer.accept", businessTransferCopyEs.accept),
-    decline: t("business.lifecycle.transfer.decline", businessTransferCopyEs.decline),
-    declined: t("business.lifecycle.transfer.declined", businessTransferCopyEs.declined),
-    expired: t("business.lifecycle.transfer.expired", businessTransferCopyEs.expired),
-    empty: t("business.lifecycle.transfer.empty", businessTransferCopyEs.empty),
-    accepted: t("business.lifecycle.transfer.accepted", businessTransferCopyEs.accepted),
-    cancelled: t("business.lifecycle.transfer.cancelled", businessTransferCopyEs.cancelled),
-    declinedRecipient: t("business.lifecycle.transfer.declined_recipient", businessTransferCopyEs.declinedRecipient),
-    confirmation: t("business.lifecycle.name_confirmation", businessTransferCopyEs.confirmation),
-    cancel: t("common.cancel", businessTransferCopyEs.cancel),
-  };
-}
-
-type TransferCopy = { [Key in keyof typeof businessTransferCopyEs]: string };
+/** Every state a transfer can show. Each one is the same dialog. */
 export type BusinessTransferView =
-  | { kind: "request"; members: OwnedBusiness["members"]; onRequest: (grantId: string, confirmation: string) => void }
+  | { kind: "loading" }
+  | { kind: "unavailable"; of: "business" | "transfer" }
+  | { kind: "failed"; of: "business" | "transfer"; reference: string | null; onRetry: () => void }
+  | { kind: "request"; businessName: string; members: OwnedBusiness["members"]; onRequest: (grantId: string, confirmation: string) => void }
   | { kind: "pending"; expiresAt?: string | null; targetName: string; onWithdraw: () => void }
-  | { kind: "recipient"; expiresAt?: string | null; ownerName: string; onAccept: () => void; onDecline: () => void }
-  | { kind: "declined"; targetName: string }
+  | { kind: "recipient"; businessName: string; expiresAt?: string | null; ownerName: string; onAccept: () => void; onDecline: () => void }
+  | { kind: "declined"; businessName: string; targetName: string }
   | { kind: "expired"; targetName: string }
-  | { kind: "accepted" | "cancelled" | "declinedRecipient" };
+  | { kind: "expiredLink" | "accepted" | "cancelled" | "declinedRecipient" };
 
-function text(template: string, values: Record<string, string>): string {
-  return template.replace(/\{\{([^}]+)\}\}/g, (token: string, key: string) => values[key] ?? token);
+const NAME_SLOT = "\u0000";
+const mutedTextClass = "text-[#56635e] dark:text-white/70";
+const bodyTextClass = "text-black/75 dark:text-white/75";
+const alertTextClass = "text-[#9e2f39] dark:text-[#ec9aa0]";
+
+/** The accept question with the Business name in bold; the sentence itself carries no markup. One element, so a sheet's title row cannot space its words apart. */
+function AcceptTitle({ businessName }: { businessName: string }) {
+  const { t } = useTranslation();
+  const [before, after = ""] = t("business.lifecycle.transfer.accept_title", { businessName: NAME_SLOT }).split(NAME_SLOT);
+  return <span>{before}<strong className="font-bold">{businessName}</strong>{after}</span>;
 }
 
-export default function BusinessTransferDialog({ businessName, copy, view, state, onDismiss }: {
-  businessName: string;
-  copy: TransferCopy;
+function Spinner() {
+  return <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />;
+}
+
+/**
+ * Transferring a Business is one dialog, the one Cerrar negocio uses: the owner
+ * picks a member and types the name, the recipient answers one question, and
+ * every notice, wait and failure shows in that same dialog.
+ */
+export default function BusinessTransferDialog({ view, state, onDismiss, onRefresh }: {
   view: BusinessTransferView;
   state: BusinessCloseState;
   onDismiss: () => void;
+  /** Set when an answer's outcome is unknown: the only next step reads the server again. */
+  onRefresh?: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { isBelowDesktop } = useResponsiveLayout();
-  const [confirming, setConfirming] = useState(false);
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const nameId = useId();
   const memberId = useId();
   const helpId = useId();
   const memberRef = useRef<HTMLInputElement>(null);
   const [confirmation, setConfirmation] = useState("");
   const [grantId, setGrantId] = useState("");
+  const [pressed, setPressed] = useState<"accept" | "decline" | null>(null);
   const submitting = state.kind === "submitting";
-  const dismiss = () => { if (!submitting) onDismiss(); };
-  const firstEligible = view.kind === "request" ? view.members.findIndex(member => member.eligible) : -1;
-  const canRequest = view.kind === "request" && view.members.some((member) => member.grant_id === grantId && member.eligible) && businessName.length > 0 && confirmation === businessName && !submitting;
+  const failed = state.kind === "error";
+  const members = view.kind === "request" ? view.members : [];
+  const firstEligible = members.findIndex((member) => member.eligible);
+  const canRequest = view.kind === "request" && members.some((member) => member.grant_id === grantId && member.eligible) && view.businessName.length > 0 && confirmation === view.businessName && !submitting;
+  const request = () => { if (view.kind === "request" && canRequest) view.onRequest(grantId, confirmation); };
+  const expiry = (view.kind === "pending" || view.kind === "recipient") && view.expiresAt
+    ? <p className={mutedTextClass}>{t("business_access.pending_until", { date: Object.values(businessDeadlineParts(view.expiresAt, locale)).join(", ") })}</p>
+    : null;
+  const notice = (role: "status" | "alert", message: string) => <p role={role} className={role === "alert" ? alertTextClass : bodyTextClass}>{message}</p>;
 
-  if (confirming && !isBelowDesktop && view.kind === "request") return <ConfirmDialog isOpen title={copy.title} description={copy.help} confirmLabel={copy.request} cancelLabel={copy.cancel} tone="primary" isBusy={submitting} error={state.kind === "error" ? <>{state.message}{state.reference ? <> <ReferenceCode reference={state.reference} /></> : null}</> : null} onCancel={() => { if (!submitting) setConfirming(false); }} onConfirm={() => { if (canRequest) view.onRequest(grantId, confirmation); }} />;
-  if (confirming && view.kind === "recipient") return <ConfirmDialog isOpen title={t("business.lifecycle.transfer.accept_title", { businessName })} description={t("business.lifecycle.transfer.accept_body", { ownerName: view.ownerName })} confirmLabel={copy.accept} cancelLabel={copy.cancel} tone="primary" isBusy={submitting} error={state.kind === "error" ? state.message : null} onCancel={() => { if (!submitting) setConfirming(false); }} onConfirm={view.onAccept} />;
-  return <AdaptivePanel title={copy.title} closeLabel={copy.cancel} onClose={dismiss} width="md" initialFocusRef={view.kind === "request" ? memberRef : undefined}>
-    <div className="space-y-5 p-5" aria-busy={submitting}>
-      {view.kind === "request" ? <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); if (canRequest) { if (isBelowDesktop) view.onRequest(grantId, confirmation); else setConfirming(true); } }}>
-        {view.members.length === 0 ? <p className="text-[14px] leading-relaxed">{copy.empty}</p> : null}
-        <fieldset aria-describedby={helpId}>
-          <legend className="block text-[14px]">{copy.member}</legend>
-          <div className="mt-2 space-y-2" role="radiogroup" aria-label={copy.member}>
-            {view.members.map((member, index) => <label key={member.grant_id} className="flex min-h-14 items-center gap-3 rounded-item border border-black/15 px-3 py-2 dark:border-white/20">
-              <input ref={index === firstEligible ? memberRef : undefined} type="radio" name={memberId} value={member.grant_id} checked={grantId === member.grant_id && member.eligible} disabled={submitting || !member.eligible} onChange={() => setGrantId(member.grant_id)} aria-describedby={!member.eligible ? `${memberId}-${member.grant_id}` : undefined} />
-              <Avatar name={personName(t, { display_name: member.name, email: member.email, shown_as: member.shown_as })} size={32} />
-              <span className="min-w-0 text-[14px]">
-                <span className="block break-words">{personName(t, { display_name: member.name, email: member.email, shown_as: member.shown_as })}</span>
-                {member.eligible ? <span className="block text-black/60 dark:text-white/60">{t("business.switcher.role_editor")}</span> : <span id={`${memberId}-${member.grant_id}`} className="block text-black/60 dark:text-white/60">{t(`business.lifecycle.transfer.ineligible.${member.reason}`)}</span>}
-              </span>
-            </label>)}
-          </div>
-          <p id={helpId} className="mt-2 text-[14px] leading-relaxed text-black/75 dark:text-white/75">{copy.help}</p>
-          {view.members.length && !view.members.some(member => member.eligible) ? <p className="mt-2 text-[14px]">{t("business.lifecycle.transfer.none_eligible")}</p> : null}
-        </fieldset>
-        <div>
-          <p className="mb-2 break-words text-[16px] font-semibold">{businessName}</p>
-          <FormField id={nameId} label={copy.confirmation} value={confirmation} disabled={submitting} onChange={event => setConfirmation(event.target.value)} error={state.kind === "error" && state.field ? state.message : undefined} autoComplete="off" autoCapitalize="off" spellCheck={false} />
-        </div>
-        {!canRequest && !submitting ? <p className="text-[14px] text-black/60 dark:text-white/60">{t("business.lifecycle.transfer.choose_reason")}</p> : null}
-        <div className="flex flex-wrap justify-end gap-2">
-          <button type="submit" className={primaryButtonClass} disabled={!canRequest}>{copy.request}</button>
-        </div>
-      </form> : null}
-      {(view.kind === "pending" || view.kind === "recipient") && view.expiresAt ? <p className="text-[14px] text-black/60 dark:text-white/60">{t("business_access.pending_until", { date: Object.values(businessDeadlineParts(view.expiresAt, i18n.resolvedLanguage ?? resolveLanguage({}))).join(", ") })}</p> : null}
-      {view.kind === "pending" ? <>
-        <p className="text-[14px] leading-relaxed">{text(copy.pending, { targetName: view.targetName })}</p>
-        <div className="flex justify-end"><button type="button" className={secondaryButtonClass} disabled={submitting} onClick={view.onWithdraw}>{copy.withdraw}</button></div>
-      </> : null}
-      {view.kind === "recipient" ? <>
-        <p className="text-[14px] leading-relaxed">{text(copy.recipient, { ownerName: view.ownerName, businessName })}</p>
-        <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" className={secondaryButtonClass} disabled={submitting} onClick={view.onDecline}>{copy.decline}</button>
-          <button type="button" className={primaryButtonClass} disabled={submitting} onClick={() => setConfirming(true)}>{copy.accept}</button>
-        </div>
-      </> : null}
-      {view.kind === "declined" ? <p className="text-[14px] leading-relaxed">{text(copy.declined, { targetName: view.targetName, businessName })}</p> : null}
-      {view.kind === "expired" ? <p className="text-[14px] leading-relaxed">{text(copy.expired, { targetName: view.targetName })}</p> : null}
-      {view.kind === "accepted" || view.kind === "cancelled" || view.kind === "declinedRecipient" ? <p className="text-[14px] leading-relaxed">{copy[view.kind]}</p> : null}
-      {state.kind === "error" ? <div role="alert" className="space-y-2 text-[14px] leading-relaxed">{!state.field ? <p>{state.message}</p> : null}{state.reference ? <ReferenceCode reference={state.reference} /> : null}</div> : null}
-    </div>
-  </AdaptivePanel>;
+  let footer: ReactNode = null;
+  if (onRefresh && failed) footer = <button type="button" className={primaryButtonClass} onClick={onRefresh}>{t("business.lifecycle.refresh")}</button>;
+  else if (view.kind === "request" && firstEligible >= 0) footer = <>
+    <button type="button" className={secondaryButtonClass} disabled={submitting} onClick={onDismiss}>{t("common.cancel")}</button>
+    <button type="button" className={primaryButtonClass} disabled={!canRequest} aria-busy={submitting || undefined} onClick={request}>{submitting ? <Spinner /> : null}{t("business.lifecycle.transfer.request")}</button>
+  </>;
+  else if (view.kind === "pending") footer = <button type="button" className={secondaryButtonClass} disabled={submitting} aria-busy={submitting || undefined} onClick={view.onWithdraw}>{submitting ? <Spinner /> : null}{t("business.lifecycle.transfer.withdraw")}</button>;
+  else if (view.kind === "recipient") footer = <>
+    <button type="button" className={secondaryButtonClass} disabled={submitting} aria-busy={(submitting && pressed === "decline") || undefined} onClick={() => { setPressed("decline"); view.onDecline(); }}>{submitting && pressed === "decline" ? <Spinner /> : null}{t("business.lifecycle.transfer.decline")}</button>
+    <button type="button" className={primaryButtonClass} disabled={submitting} aria-busy={(submitting && pressed === "accept") || undefined} onClick={() => { setPressed("accept"); view.onAccept(); }}>{submitting && pressed === "accept" ? <Spinner /> : null}{t("business.lifecycle.transfer.accept")}</button>
+  </>;
+  else if (view.kind === "failed") footer = <button type="button" className={secondaryButtonClass} onClick={view.onRetry}>{t("common.retry")}</button>;
+
+  return (
+    <BusinessCloseShell
+      title={view.kind === "recipient" ? <AcceptTitle businessName={view.businessName} /> : t("business.lifecycle.transfer.title")}
+      closeLabel={t("common.close")}
+      onClose={onDismiss}
+      locked={submitting}
+      initialFocusRef={view.kind === "request" && firstEligible >= 0 ? memberRef : undefined}
+      footer={footer ? <div className="flex flex-wrap justify-end gap-2">{footer}</div> : undefined}
+    >
+      <div data-testid="business-transfer" data-view={view.kind} className="text-[14px] leading-relaxed" aria-busy={submitting || undefined}>
+        {view.kind === "loading" ? <p role="status" className={`flex min-h-16 items-center gap-2.5 ${mutedTextClass}`}><Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("common.loading")}</p> : null}
+        {view.kind === "unavailable" ? notice("alert", t(view.of === "business" ? "business.lifecycle.errors.business_unavailable" : "business.lifecycle.errors.transfer_unavailable")) : null}
+        {view.kind === "failed" ? <div className={`space-y-2 ${alertTextClass}`}>{notice("alert", t(view.of === "business" ? "business.lifecycle.errors.discovery" : "business.lifecycle.errors.transfer_load"))}{view.reference ? <ReferenceCode reference={view.reference} /> : null}</div> : null}
+        {view.kind === "expiredLink" ? notice("alert", t("business.lifecycle.errors.transfer_expired")) : null}
+        {view.kind === "declined" ? notice("status", t("business.lifecycle.transfer.declined", { targetName: view.targetName, businessName: view.businessName })) : null}
+        {view.kind === "expired" ? notice("status", t("business.lifecycle.transfer.expired", { targetName: view.targetName })) : null}
+        {view.kind === "accepted" ? notice("status", t("business.lifecycle.transfer.accepted")) : null}
+        {view.kind === "cancelled" ? notice("status", t("business.lifecycle.transfer.cancelled")) : null}
+        {view.kind === "declinedRecipient" ? notice("status", t("business.lifecycle.transfer.declined_recipient")) : null}
+        {view.kind === "request" && members.length === 0 ? notice("status", t("business.lifecycle.transfer.empty")) : null}
+        {view.kind === "request" && members.length > 0 ? <>
+          <fieldset aria-describedby={helpId}>
+            <legend className="mb-2.5 block font-medium">{t("business.lifecycle.transfer.member")}</legend>
+            <div className="space-y-2" role="radiogroup" aria-label={t("business.lifecycle.transfer.member")}>
+              {members.map((member, index) => {
+                const name = personName(t, { display_name: member.name, email: member.email, shown_as: member.shown_as });
+                const reasonId = `${memberId}-${member.grant_id}`;
+                return (
+                  <label key={member.grant_id} className={`flex min-h-[60px] items-center gap-3 rounded-item border border-black/15 px-3 py-2.5 dark:border-white/20 ${member.eligible ? "cursor-pointer hover:bg-[#172b26]/[0.06] has-[:checked]:border-[var(--cuadrao-green)] has-[:checked]:shadow-[0_0_0_1px_var(--cuadrao-green)] dark:hover:bg-white/[0.06]" : "opacity-55"}`}>
+                    <input ref={index === firstEligible ? memberRef : undefined} type="radio" name={memberId} value={member.grant_id} checked={grantId === member.grant_id && member.eligible} disabled={submitting || !member.eligible} onChange={() => setGrantId(member.grant_id)} aria-describedby={!member.eligible ? reasonId : undefined} className="h-[18px] w-[18px] shrink-0 rounded-full accent-[var(--cuadrao-green)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]" />
+                    <Avatar name={name} size={32} />
+                    <span className="min-w-0">
+                      <span className="block break-words text-[15px] font-medium">{name}</span>
+                      {member.eligible ? null : <span id={reasonId} className={`block ${mutedTextClass}`}>{t(`business.lifecycle.transfer.ineligible.${member.reason}`)}</span>}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <p id={helpId} className={`mt-3 ${mutedTextClass}`}>{t(firstEligible >= 0 ? "business.lifecycle.transfer.help" : "business.lifecycle.transfer.none_eligible")}</p>
+          </fieldset>
+          {firstEligible >= 0 ? <form className="mt-5" onSubmit={(event) => { event.preventDefault(); request(); }}>
+            <FormField id={nameId} label={<NamedCopy i18nKey="business.lifecycle.close.confirmation" businessName={view.businessName} />} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={submitting} error={failed && state.field ? state.message : undefined} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+          </form> : null}
+        </> : null}
+        {view.kind === "pending" ? <div className="space-y-1.5"><p>{t("business.lifecycle.transfer.pending", { targetName: view.targetName })}</p>{expiry}</div> : null}
+        {view.kind === "recipient" ? <div className="space-y-2.5"><p className={bodyTextClass}>{t("business.lifecycle.transfer.accept_body", { ownerName: view.ownerName })}</p>{expiry}</div> : null}
+        {failed ? <div role="alert" className={`mt-4 space-y-2 ${alertTextClass}`}>{!state.field ? <p>{state.message}</p> : null}{state.reference ? <ReferenceCode reference={state.reference} /> : null}</div> : null}
+      </div>
+    </BusinessCloseShell>
+  );
 }

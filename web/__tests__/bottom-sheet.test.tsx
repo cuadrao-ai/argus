@@ -55,6 +55,14 @@ describe("bottom sheet snap points", () => {
   test("a menu hugs its content instead of resting on a snap", () => {
     expect(renderSheet({ snaps: "fit" })).toContain('data-snap="fit"');
   });
+
+  test("a sheet that hugs its content stops at 70% of the screen, or at the snap it names", () => {
+    expect(renderSheet({ snaps: "fit" })).toContain(`max-height:${Math.round(VIEWPORT * 0.7)}px`);
+    const dialog = renderSheet({ snaps: "fit", fitUpTo: "full" });
+    expect(dialog).toContain('data-snap="fit"');
+    expect(dialog).toContain(`max-height:${Math.round(px("full"))}px`);
+    expect(dialog).not.toMatch(/style="[^"]*(?<!max-)height:/);
+  });
 });
 
 describe("bottom sheet release", () => {

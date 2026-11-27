@@ -122,6 +122,7 @@ def test_terminal_commands_derive_authenticated_actor(client, action):
         ("business_transfer_target_invalid", 409),
         ("business_transfer_not_pending", 409),
         ("business_transfer_pending", 409),
+        ("business_transfer_other_owner", 409),
         ("business_transfer_expired", 409),
         ("business_record_not_found", 404),
     ],
@@ -157,6 +158,7 @@ def test_expired_get_discovery_does_not_change_history_or_send_email(client, wor
 
     transport, _, person, app = client
     pool, space, people, _, member = world
+    lifecycle.make_admin(member.id)
     service = PostgresBusinessTransfer(pool)
     pending = service.request(
         owner_id=people["owner"],
@@ -191,6 +193,7 @@ def test_transfer_http_accept_saves_current_owner_and_preserves_custody(client, 
 
     transport, _, person, app = client
     pool, space, people, _, member = world
+    lifecycle.make_admin(member.id)
     app.dependency_overrides[require_transfer] = lambda: PostgresBusinessTransfer(pool)
     person.person_id = people["owner"]
     pending = transport.post(
@@ -217,6 +220,7 @@ def test_transfer_http_wrong_recipient_leaves_request_pending(client, world):
 
     transport, _, person, app = client
     pool, space, people, _, member = world
+    lifecycle.make_admin(member.id)
     app.dependency_overrides[require_transfer] = lambda: PostgresBusinessTransfer(pool)
     person.person_id = people["owner"]
     pending = transport.post(

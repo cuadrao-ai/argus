@@ -121,7 +121,7 @@ def transfer(w, *, accept=True):
             (w["users"]["other"],),
         )
         target = db.execute(
-            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,array['read','prepare']) returning id::text",
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities,business_role) values(%s,%s,%s,array['read','prepare','approve'],'admin') returning id::text",
             (w["space"], w["users"]["other"], w["old"]),
         ).fetchone()[0]
     service = PostgresBusinessTransfer(w["pool"])
@@ -278,7 +278,7 @@ def test_departing_pending_target_removes_personal_mail_without_moving_custody(c
     with w["pool"].connection() as db:
         db.execute("update auth.users set email_confirmed_at=now() where id=%s", (other,))
         grant = db.execute(
-            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,array['read','prepare']) returning id::text",
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities,business_role) values(%s,%s,%s,array['read','prepare','approve'],'admin') returning id::text",
             (w["space"], other, w["old"]),
         ).fetchone()[0]
     pending = PostgresBusinessTransfer(w["pool"]).request(
