@@ -100,6 +100,12 @@ def issuer_tax_id(qr: DgiiQr | None, read_rnc: str | None) -> str | None:
     return qr.rnc_emisor if qr is not None else read_rnc
 
 
+def buyer_tax_id(qr: DgiiQr | None, read_rnc: str | None) -> str | None:
+    """Use the QR's buyer when supplied, otherwise the printed buyer from the read."""
+
+    return (qr.rnc_comprador if qr else None) or read_rnc
+
+
 def kind_disagrees(document_type: DocumentType, facts: BusinessFacts) -> bool:
     from argus.domain.business.contracts.facts import Known
 

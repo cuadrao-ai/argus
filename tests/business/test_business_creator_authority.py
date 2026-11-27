@@ -41,6 +41,7 @@ OTHER_OWNERS = {
 RECORD_USES = set(
     # Storage partitions, indexing, provenance and first-grant initialization.
     """
+api/whatsapp.py:prepare g.owner_id == custodian
 domain/business/access.py:<module> SQL select s.created_by, select s.current_owner_id
 domain/business/access.py:ensure_owner_grant SQL select s.current_owner_id, select s.current_owner_id, where s.current_owner_id=%s with (list(legacy_capabilities(BusinessRole.OWNER)), space_id, owner_id)
 domain/business/access.py:spaces_for SQL order by s.current_owner_id=%s
