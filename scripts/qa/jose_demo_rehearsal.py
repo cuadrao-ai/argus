@@ -1397,11 +1397,17 @@ class Rehearsal:
             "phone-linked",
             "link code sent from the phone; /whatsapp/link linked:true",
         ) as obs:
-            link = api.get("/whatsapp/link")
+            language = "es-419"
+            link = api.get("/whatsapp/link", params={"language": language})
             if not link["linked"]:
                 if not local:
                     raise Untested("phone not linked; staging link is Lucas's action")
-                code = api.send("POST", "/whatsapp/link-codes", {"language": "es-419"})
+                obs["disclosure"] = link["disclosure"]
+                code = api.send(
+                    "POST",
+                    "/whatsapp/link-codes",
+                    {"language": language, "disclosure_token": link["disclosure_token"]},
+                )
                 sent = wa.deliver(
                     {"type": "text", "text": {"body": code["message_text"]}}
                 )
@@ -3417,18 +3423,21 @@ def run(args: argparse.Namespace) -> None:
             return result["token"]
 
     api.token = sign_in()
+    new_local_space_id = None
     spaces = api.get("/business/spaces")["spaces"]
     if not spaces and local:
         # Seed meets an unnamed Business, as on staging, so its name step is exercised.
-        api.send(
+        created = api.call(
             "POST",
-            "/business/space",
-            {
+            "/api/v1/business/space",
+            json={
                 "name": "Ensayo José Demo" if args.mode == "rehearse" else None,
                 "language": "es-419",
                 "country": "DO",
             },
         )
+        if fresh and created.status == 201:
+            new_local_space_id = created.body["id"]
         spaces = api.get("/business/spaces")["spaces"]
     prefix = args.expect_business or ""
     chosen = [
@@ -3525,6 +3534,19 @@ def run(args: argparse.Namespace) -> None:
         )
         (out / "calls.json").write_text(json.dumps(api.log, indent=1))
         return
+    if new_local_space_id == space_id and "1" in args.cases:
+        # This disposable Business needs its own fiscal ID, distinct from the seller on the receipt.
+        api.send(
+            "PATCH",
+            "/business/fiscal-profile",
+            {
+                "name": space["name"],
+                "previous_name": space["name"],
+                "tax_id": {"type": "rnc", "value": f"9{secrets.randbelow(10**8):08d}"},
+                "previous_tax_id": None,
+            },
+            key=rehearsal.key("local-rnc"),
+        )
     rehearsal.setup()
     for case in args.cases:
         print(f"case {case}")
