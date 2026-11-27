@@ -67,7 +67,6 @@ from argus.api.business_schemas import (
     BusinessInvitationBatchResult,
     BusinessNamingState,
     BusinessOverview,
-    BusinessRecipientInvitation,
     BusinessSearch,
     BusinessSpaceInfo,
     BusinessSpaces,
@@ -381,6 +380,7 @@ def list_spaces(
         ],
         "invitations_available": invitations_available(),
         "can_start_business": standing_account(user),
+        "notifications_available": notifications_available(),
     }
 
 
@@ -602,13 +602,6 @@ def invite_recipients(
                 }
             )
     return {"results": results}
-
-
-@router.get("/invitations", response_model=list[BusinessRecipientInvitation])
-def list_invitations(
-    request: Request, person: Annotated[BusinessPerson, Depends(require_business_person)]
-) -> list[dict]:
-    return list(_access_store(request).invitations_for(person.person_id))
 
 
 @router.post(
@@ -839,7 +832,6 @@ def get_workspace(
         **context.service.workspace(context.scope),
         "records_default_currency": context.scope.records_default_currency,
         "invoicing_available": invoicing_available(request),
-        "notifications_available": notifications_available(),
         "settlement_available": business_settlement_enabled(),
         "typed_notes_available": business_typed_notes_enabled(),
         "receiving_channels": {

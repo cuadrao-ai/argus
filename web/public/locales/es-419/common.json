@@ -3401,6 +3401,10 @@
       "empty_unread_body": "No tienes avisos sin leer.",
       "empty_unread_title": "Estás al día",
       "filter": "Filtrar notificaciones",
+      "go_to_business": "Ir al negocio",
+      "invitation_gone_body": "Pídele a quien te invitó que te envíe una nueva.",
+      "invitation_gone_title": "Esta invitación ya no está disponible",
+      "load_failed": "No pudimos cargar tus avisos. Inténtalo de nuevo.",
       "mark_all": "Marcar todas como leídas",
       "samples": {
         "access": {

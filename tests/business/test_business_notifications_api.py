@@ -1,126 +1,176 @@
+"""The bell is the person's: one notice per live invitation addressed to
+them, from any Business, with the read state on the server."""
+
+from __future__ import annotations
+
 from uuid import uuid4
 
 import pytest
 from argus.api.business_spaces import business_access
 
 from tests.business.conftest import BOB
-from tests.business.test_business_api import BASE, Owner, alice, bob  # noqa: F401
+from tests.business.test_business_access_invites_work import (  # noqa: F401
+    _invite,
+    invites_on,
+    people,
+)
+from tests.business.test_business_api import BASE, Owner
 
 
 @pytest.fixture
-def enabled(monkeypatch):
+def bell_on(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED", "true")
 
 
-def test_disabled_routes_refuse_before_auth_and_workspace_says_false(alice, monkeypatch):  # noqa: F811
+def _bell(person: Owner, **headers: str) -> dict:
+    response = person.client.get(
+        BASE + "/notifications", headers={**person.auth, **headers}
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    return response.json()
+
+
+def test_switch_off_refuses_the_routes_and_the_directory_says_so(
+    people: tuple[Owner, Owner],  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    alice, _ = people
     monkeypatch.setenv("CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED", "false")
-    business = alice.scope().owner.space_id
-    paths = [
-        "/notifications",
-        "/notifications/read-all",
-        f"/notifications/{uuid4()}/read",
-    ]
-    for index, path in enumerate(paths):
-        call = alice.client.get if index == 0 else alice.client.post
-        response = call(BASE + path, params={"business_id": business})
+    for response in (
+        alice.client.get(BASE + "/notifications"),
+        alice.client.post(BASE + "/notifications/read", json={"ids": []}),
+    ):
         assert response.status_code == 404, response.text
         assert response.headers["cache-control"] == "no-store"
-    assert alice.get("/workspace").json()["notifications_available"] is False
+    assert alice.get("/spaces").json()["notifications_available"] is False
+    assert "notifications_available" not in alice.get("/workspace").json()
 
 
-def test_read_state_survives_requests_and_is_scoped(alice, bob, enabled):  # noqa: F811
-    store = business_access().notifications
-    business, other_business = alice.scope().owner.space_id, bob.scope().owner.space_id
-    for space, recipient in [
-        (business, alice.person),
-        (business, alice.person),
-        (business, bob.person),
-        (other_business, alice.person),
-    ]:
-        store.put(space, recipient, "new_sender_waiting", str(uuid4()))
-    assert alice.get("/workspace").json()["notifications_available"] is True
-    first = alice.get("/notifications", business_id=business)
-    assert first.status_code == 200, first.text
-    assert first.headers["cache-control"] == "no-store"
-    rows = first.json()["items"]
-    assert len(rows) == first.json()["unread_count"] == 2
-    assert all(row["recipient_user_id"] == alice.person for row in rows)
-    path = BASE + f"/notifications/{rows[0]['id']}/read"
-    for _ in range(2):
-        assert (
-            alice.client.post(
-                path, params={"business_id": business}, headers=alice.auth
-            ).status_code
-            == 200
-        )
-    again = alice.get("/notifications", business_id=business).json()
-    assert again["unread_count"] == 1
-    assert again["items"][0]["read_at"] is not None
-    alice.client.post(
-        BASE + "/notifications/read-all",
-        params={"business_id": business},
-        headers=alice.auth,
-    )
-    assert alice.get("/notifications", business_id=business).json()["unread_count"] == 0
-    assert bob.get("/notifications", business_id=business).json()["unread_count"] == 1
-    assert (
-        alice.get("/notifications", business_id=other_business).json()["unread_count"]
-        == 1
-    )
-    assert (
-        bob.client.post(
-            path, params={"business_id": business}, headers=bob.auth
-        ).status_code
-        == 404
-    )
-
-
-def test_invited_person_can_read_without_membership(alice, biz, identities, enabled):  # noqa: F811
-    recipient = Owner(biz, BOB, identities[BOB]["id"])
-    access = business_access()
-    access.confirm(recipient.person, "recipient@example.test")
-    business = alice.scope().owner.space_id
-    _, listing = access.give(business, alice.person, "recipient@example.test")
-    assert access.capabilities(business, recipient.person) == ()
-    response = recipient.get("/notifications", business_id=business)
-    assert response.status_code == 200, response.text
-    assert response.json()["items"][0]["subject_id"] == listing.invites[0].id
-    assert recipient.get("/notifications", business_id=str(uuid4())).json() == {
-        "items": [],
-        "unread_count": 0,
+def test_an_invitee_with_no_business_sees_the_invitation_naming_its_business(
+    people: tuple[Owner, Owner],  # noqa: F811
+    invites_on: list[dict],  # noqa: F811
+    identities,  # noqa: ANN001
+    bell_on: None,
+) -> None:
+    alice, bob = people
+    invite = _invite(alice, identities[BOB]["email"], "admin")
+    directory = bob.get("/spaces").json()
+    assert directory["spaces"] == []
+    assert directory["notifications_available"] is True
+    assert _bell(bob) == {
+        "items": [
+            {
+                "id": invite["invite_id"],
+                "kind": "invitation_received",
+                "business_id": alice.scope().owner.space_id,
+                "business_name": "Colmado La Esquina",
+                "requested_role": "admin",
+                "unread": True,
+            }
+        ],
+        "unread_count": 1,
     }
 
 
-@pytest.mark.parametrize("days_later", [8, 40])
-def test_expiration_clears_unread_without_an_invitation_action(
-    alice,  # noqa: F811
-    biz,
-    identities,
-    enabled,
-    monkeypatch,
-    days_later,
-):  # noqa: F811
-    from datetime import timedelta
+def test_opening_marks_read_on_the_server_once_and_only_what_was_shown(
+    people: tuple[Owner, Owner],  # noqa: F811
+    invites_on: list[dict],  # noqa: F811
+    identities,  # noqa: ANN001
+    bell_on: None,
+) -> None:
+    alice, bob = people
+    invite = _invite(alice, identities[BOB]["email"], "viewer")
+    stranger = bob.post("/notifications/read", {"ids": [str(uuid4())]})
+    assert stranger.json() == {"updated": 0}
+    assert alice.post("/notifications/read", {"ids": [invite["invite_id"]]}).json() == {
+        "updated": 0
+    }
+    assert _bell(bob)["unread_count"] == 1
+    for updated in (1, 0):
+        read = bob.post("/notifications/read", {"ids": [invite["invite_id"]]})
+        assert read.status_code == 200, read.text
+        assert read.json() == {"updated": updated}
+    shown = _bell(bob)
+    assert shown["unread_count"] == 0
+    assert [item["unread"] for item in shown["items"]] == [False]
 
-    recipient = Owner(biz, BOB, identities[BOB]["id"])
+
+def test_the_list_is_the_same_whichever_business_the_person_works_in(
+    people: tuple[Owner, Owner],  # noqa: F811
+    invites_on: list[dict],  # noqa: F811
+    identities,  # noqa: ANN001
+    bell_on: None,
+) -> None:
+    alice, bob = people
     access = business_access()
-    access.confirm(recipient.person, "recipient@example.test")
-    business = alice.scope().owner.space_id
-    _, listing = access.give(business, alice.person, "recipient@example.test")
-    assert (
-        recipient.get("/notifications", business_id=business).json()["unread_count"] == 1
+    other = str(uuid4())
+    access.ensure_owner_grant(other, alice.person)
+    _, listing = access.give(other, alice.person, identities[BOB]["email"])
+    first = _invite(alice, identities[BOB]["email"], "editor")
+    ids = {first["invite_id"], listing.invites[0].id}
+    plain = _bell(bob)
+    assert {item["id"] for item in plain["items"]} == ids
+    assert {item["business_id"] for item in plain["items"]} == {
+        alice.scope().owner.space_id,
+        other,
+    }
+    accepted = bob.post(
+        f"/invitations/{first['invite_id']}/accept",
+        {"space_id": alice.scope().owner.space_id},
     )
-    now = access._now() + timedelta(days=days_later)
-    monkeypatch.setattr(access, "_now", lambda: now)
-    monkeypatch.setattr(access.notifications, "clock", lambda: now)
-    response = recipient.get("/notifications", business_id=business).json()
-    assert response["unread_count"] == 0
-    if days_later == 40:
-        assert response["items"] == []
-    else:
-        from datetime import datetime
+    assert accepted.status_code == 200, accepted.text
+    inside = _bell(bob, **{"X-Business-Grant": accepted.json()["grant_id"]})
+    assert [item["id"] for item in inside["items"]] == [listing.invites[0].id]
+    assert _bell(bob) == inside
 
-        resolved = datetime.fromisoformat(
-            response["items"][0]["resolved_at"].replace("Z", "+00:00")
-        )
-        assert resolved == listing.invites[0].expires_at
+
+def test_a_withdrawn_invitation_leaves_the_list(
+    people: tuple[Owner, Owner],  # noqa: F811
+    invites_on: list[dict],  # noqa: F811
+    identities,  # noqa: ANN001
+    gateway,  # noqa: ANN001
+    bell_on: None,
+) -> None:
+    """Bob keeps his account's standing, so the door still lets him in."""
+
+    alice, bob = people
+    gateway.private_alpha_email_allowed.side_effect = lambda email: True
+    invite = _invite(alice, identities[BOB]["email"], "viewer")
+    assert _bell(bob)["unread_count"] == 1
+    assert business_access().revoke_invite(
+        alice.scope().owner.space_id, alice.person, invite["invite_id"]
+    )
+    assert _bell(bob) == {"items": [], "unread_count": 0}
+
+
+def test_the_older_list_route_is_gone(
+    people: tuple[Owner, Owner],  # noqa: F811
+    bell_on: None,
+) -> None:
+    _, bob = people
+    assert bob.get("/invitations").status_code in (404, 405)
+
+
+@pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
+def test_accepting_the_notice_gives_exactly_the_invited_role_and_empties_the_bell(
+    people: tuple[Owner, Owner],  # noqa: F811
+    invites_on: list[dict],  # noqa: F811
+    identities,  # noqa: ANN001
+    bell_on: None,
+    role: str,
+) -> None:
+    alice, bob = people
+    _invite(alice, identities[BOB]["email"], role)
+    [notice] = _bell(bob)["items"]
+    accepted = bob.post(
+        f"/invitations/{notice['id']}/accept", {"space_id": notice["business_id"]}
+    )
+    assert accepted.status_code == 200, accepted.text
+    [joined] = bob.get("/spaces").json()["spaces"]
+    assert (joined["space_id"], joined["grant_id"], joined["business_role"]) == (
+        notice["business_id"],
+        accepted.json()["grant_id"],
+        role,
+    )
+    assert _bell(bob) == {"items": [], "unread_count": 0}

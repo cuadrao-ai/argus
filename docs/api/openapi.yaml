@@ -4742,52 +4742,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/business/invitations:
-    get:
-      tags:
-      - financial-accounts
-      - business
-      parameters:
-      - name: X-Business-Grant
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for
-            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
-            a live grant on a closed Business answers 403 business_closed.
-        description: The caller's own live grant on the Business to work in; absent for the
-          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
-          a live grant on a closed Business answers 403 business_closed.
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/BusinessRecipientInvitation'
-        '403':
-          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
-            missing, someone else''s, revoked or expired; `business_permission_denied`: the
-            live grant does not allow this.'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/business/invitations/{invite_id}/accept:
     post:
       tags:
@@ -5378,12 +5332,6 @@ paths:
       - financial-accounts
       - business
       parameters:
-      - name: business_id
-        in: query
-        required: true
-        schema:
-          type: string
-          format: uuid
       - name: X-Business-Grant
         in: header
         required: false
@@ -5424,18 +5372,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/business/notifications/read-all:
+  /api/v1/business/notifications/read:
     post:
       tags:
       - financial-accounts
       - business
       parameters:
-      - name: business_id
-        in: query
-        required: true
-        schema:
-          type: string
-          format: uuid
       - name: X-Business-Grant
         in: header
         required: false
@@ -5449,64 +5391,12 @@ paths:
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
           a live grant on a closed Business answers 403 business_closed.
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BusinessNotificationRead'
-        '403':
-          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
-            missing, someone else''s, revoked or expired; `business_permission_denied`: the
-            live grant does not allow this.'
-        '404':
-          description: Unavailable
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/business/notifications/{notification_id}/read:
-    post:
-      tags:
-      - financial-accounts
-      - business
-      parameters:
-      - name: notification_id
-        in: path
+      requestBody:
         required: true
-        schema:
-          type: string
-          format: uuid
-      - name: business_id
-        in: query
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: X-Business-Grant
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for
-            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
-            a live grant on a closed Business answers 403 business_closed.
-        description: The caller's own live grant on the Business to work in; absent for the
-          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
-          a live grant on a closed Business answers 403 business_closed.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReadNotifications'
       responses:
         '200':
           description: Successful Response
@@ -18743,7 +18633,7 @@ components:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/Notification'
+            $ref: '#/components/schemas/InvitationNotice'
           type: array
         unread_count:
           type: integer
@@ -18878,29 +18768,6 @@ components:
       - currency
       - revision
       - details
-    BusinessRecipientInvitation:
-      properties:
-        id:
-          type: string
-        space_id:
-          type: string
-        name:
-          anyOf:
-          - type: string
-          - type: 'null'
-        requested_role:
-          $ref: '#/components/schemas/BusinessRole'
-        expires_at:
-          type: string
-          format: date-time
-      additionalProperties: false
-      type: object
-      required:
-      - id
-      - space_id
-      - name
-      - requested_role
-      - expires_at
     BusinessRole:
       type: string
       enum:
@@ -19016,6 +18883,9 @@ components:
         can_start_business:
           type: boolean
           default: false
+        notifications_available:
+          type: boolean
+          default: false
         closed_spaces:
           items:
             $ref: '#/components/schemas/ClosedSpaceInfo'
@@ -19104,8 +18974,6 @@ components:
           type: boolean
         invoicing_available:
           type: boolean
-        notifications_available:
-          type: boolean
         settlement_available:
           type: boolean
         typed_notes_available:
@@ -19138,7 +19006,6 @@ components:
       - assistant_available
       - chat_available
       - invoicing_available
-      - notifications_available
       - settlement_available
       - typed_notes_available
       - receiving_channels
@@ -25401,6 +25268,32 @@ components:
       - id
       - expires_at
       - state
+    InvitationNotice:
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          const: invitation_received
+          default: invitation_received
+        business_id:
+          type: string
+        business_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        requested_role:
+          $ref: '#/components/schemas/BusinessRole'
+        unread:
+          type: boolean
+      type: object
+      required:
+      - id
+      - business_id
+      - business_name
+      - requested_role
+      - unread
+      description: '``id`` is the invitation''s id: the same one the email link carries.'
     InvitationPreview:
       properties:
         name:
@@ -28214,42 +28107,6 @@ components:
       - draft_id
       - version
       - note
-    Notification:
-      properties:
-        id:
-          type: string
-        business_id:
-          type: string
-        recipient_user_id:
-          type: string
-        kind:
-          type: string
-          enum:
-          - invitation_received
-          - new_sender_waiting
-        subject_id:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-        read_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-        resolved_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-      type: object
-      required:
-      - id
-      - business_id
-      - recipient_user_id
-      - kind
-      - subject_id
-      - created_at
     ObservationQuestion:
       properties:
         observation_id:
@@ -29916,6 +29773,17 @@ components:
       - id
       - user_id
       - extra
+    ReadNotifications:
+      properties:
+        ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          maxItems: 200
+      type: object
+      required:
+      - ids
     ReadPurchase:
       properties:
         index:

@@ -587,14 +587,6 @@ class InMemoryAccessStore:
                 and g["business_role"] == BusinessRole.OWNER
             )
 
-    def refresh_notifications(self, business_id: str, user_id: str) -> None:
-        with self._lock:
-            subjects = {n.subject_id for n in self.notifications.list(business_id, user_id)
-                        if n.kind == "invitation_received" and n.resolved_at is None}
-            for invite in self._invites:
-                if invite["space_id"] == business_id and invite["id"] in subjects:
-                    memory_invitation(self.notifications, invite, self._now())
-
     def confirm(self, user_id: str, email: str) -> None:
         with self._lock:
             self._accounts[normalize_email(email)] = user_id

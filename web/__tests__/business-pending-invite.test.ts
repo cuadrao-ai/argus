@@ -29,31 +29,52 @@ test("an existing person's link opens sign-in and returns to the app with that i
   expect(readReturnPath(searchOf(door))).toBe(`/biz?invite=${INVITE}`);
 });
 
+/** The person arrives at this address, and the page takes the invite it names. */
+function arrive(address: string) {
+  window.history.replaceState(null, "", address);
+  capturePendingInvite();
+}
+const address = () => `${window.location.pathname}${window.location.search}`;
+
 test.each(["login", "signup"] as const)("the invite is kept from the front door through %s", (entry) => {
-  capturePendingInvite("/", searchOf(frontDoor(`?invite=${INVITE}`, entry)));
+  const door = frontDoor(`?invite=${INVITE}`, entry);
+  arrive(door);
+  expect(address()).toBe(door);
 
   // A confirmation email opens the app in a new tab with no return address.
-  capturePendingInvite("/", "");
-  capturePendingInvite("/biz", "");
+  arrive("/");
+  arrive("/biz");
   expect(pendingInviteId()).toBe(INVITE);
 });
 
-test("a signed-in person's link is kept from the Business address", () => {
-  capturePendingInvite("/biz", `?invite=${INVITE.toUpperCase()}&view=inbox`);
+test("a signed-in person's link moves from the Business address into the store", () => {
+  arrive(`/biz?invite=${INVITE.toUpperCase()}&view=inbox#top`);
 
   expect(pendingInviteId()).toBe(INVITE);
+  expect(address()).toBe("/biz?view=inbox");
+  expect(window.location.hash).toBe("#top");
   forgetPendingInvite();
   expect(pendingInviteId()).toBeNull();
 });
 
-test.each([
-  ["/biz", "?invite=not-an-id"],
-  ["/biz", "?invite=<script>"],
-  ["/", `?return_to=${encodeURIComponent(`//evil.example/biz?invite=${INVITE}`)}`],
-  ["/", `?return_to=${encodeURIComponent(`/account?invite=${INVITE}`)}`],
-  ["/", `?invite=${INVITE}`],
-])("%s%s names no invite", (pathname, search) => {
-  capturePendingInvite(pathname, search);
+test("an answered invite does not come back when the page loads again", () => {
+  arrive(`/biz?invite=${INVITE}`);
+  forgetPendingInvite();
+  capturePendingInvite();
 
   expect(pendingInviteId()).toBeNull();
+  expect(address()).toBe("/biz");
+});
+
+test.each([
+  ["/biz?invite=not-an-id", "/biz"],
+  ["/biz?invite=<script>&view=inbox", "/biz?view=inbox"],
+  [`/?return_to=${encodeURIComponent(`//evil.example/biz?invite=${INVITE}`)}`, null],
+  [`/?return_to=${encodeURIComponent(`/account?invite=${INVITE}`)}`, null],
+  [`/?invite=${INVITE}`, null],
+])("%s names no invite", (arrival, left) => {
+  arrive(arrival);
+
+  expect(pendingInviteId()).toBeNull();
+  expect(address()).toBe(left ?? arrival);
 });

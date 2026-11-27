@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { BusinessWorkspaceInfo } from "@/lib/business-api";
+import type { BusinessDirectory } from "@/lib/business-api";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 
 mock.module("next/navigation", () => ({
@@ -42,19 +42,22 @@ async function mount(width: number, initial: boolean | undefined | "hold") {
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
   const requests: string[] = [];
-  globalThis.fetch = async (url) => { requests.push(String(url)); return Response.json([]); };
+  globalThis.fetch = async (url) => { requests.push(String(url)); return Response.json({ items: [], unread_count: 0 }); };
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   let answer = initial;
-  let release: ((value: BusinessWorkspaceInfo) => void) | undefined;
+  let asked = 0;
+  let release: ((value: BusinessDirectory) => void) | undefined;
+  // The person's directory read carries the switch: the bell is theirs, not a Business's.
+  const directory = async (available: boolean | undefined): Promise<BusinessDirectory> => ({ spaces: await fixture.spaces(), closed_spaces: [], ...(available === undefined ? {} : { notifications_available: available }) });
   const source = {
     ...fixture,
-    workspace: async (): Promise<BusinessWorkspaceInfo> => {
-      const workspace = await fixture.workspace();
+    spaceDirectory: async (): Promise<BusinessDirectory> => {
+      asked += 1;
       if (answer === "hold") return new Promise((resolve) => { release = resolve; });
-      return { ...workspace, ...(answer === undefined ? {} : { notifications_available: answer }) };
+      return directory(answer);
     },
   };
   let business: ReturnType<typeof useBusiness> | undefined;
@@ -72,13 +75,13 @@ async function mount(width: number, initial: boolean | undefined | "hold") {
     for (let i = 0; i < 40 && !ready(); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     assert.ok(ready(), "workspace did not settle");
   };
-  await settle(() => initial === "hold" ? release !== undefined : business?.records.workspace !== null && business?.records.workspace !== undefined);
+  await settle(() => initial === "hold" ? release !== undefined : business?.directoryStatus === "ready" && business.records.workspace != null);
   return {
     act, host, settle,
     bell: () => host.querySelector<HTMLButtonElement>('[aria-label="Notificaciones"]'),
-    notificationRequests: () => requests.filter((url) => /\/business\/(?:invitations|email\/senders)/.test(url)),
-    release: async (available: boolean) => { await act(async () => release!({ ...(await fixture.workspace()), notifications_available: available })); },
-    reload: async (available: boolean) => { answer = available; await act(async () => business!.reload()); await settle(() => business!.records.workspace?.notifications_available === available); },
+    notificationRequests: () => requests.filter((url) => /\/business\/(?:notifications|invitations|email\/senders)/.test(url)),
+    release: async (available: boolean) => { const value = await directory(available); await act(async () => release!(value)); await settle(() => business?.directoryStatus === "ready"); },
+    reload: async (available: boolean) => { answer = available; const before = asked; await act(async () => business!.reload()); await settle(() => asked > before && business?.directoryStatus === "ready"); },
   };
 }
 
@@ -98,7 +101,7 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("the bell stays absent until the workspace answers, then follows refreshed availability", async () => {
+test("the bell stays absent until the directory answers, then follows refreshed availability", async () => {
   const page = await mount(1440, "hold");
   assert.equal(page.bell() !== null, false);
   assert.deepEqual(page.notificationRequests(), []);

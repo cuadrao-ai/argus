@@ -10075,7 +10075,9 @@ person starts their space, every route below except POST `/space` answers 404
     through a live grant, their own first: `{spaces: [{space_id, name,
     logo_url, grant_id, role: owner|accountant, capabilities, business_role,
     permissions, access_seen}], closed_spaces, invitations_available,
-    can_start_business}`; names come from the spaces. `can_start_business` is
+    can_start_business, notifications_available}`; names come from the spaces.
+    `notifications_available` says whether the person's bell is on; the web
+    shows the bell and asks for notices only when it is true. `can_start_business` is
     the server's answer to "may this account start a Business of its own" (the
     standing check `POST /business/space` and `POST /business/spaces` apply),
     and the web offers a new Business only when it is true.
@@ -10212,9 +10214,9 @@ person starts their space, every route below except POST `/space` answers 404
     code. Successful entries are not rolled back by another person's failure.
     A canceled/expired/accepted command replay cannot create another membership
     or invitation. Clients retry the same key for the same intent.
-  - GET `/api/v1/business/invitations` lists current pending invitations for the
-    verified recipient, bound to the known account ID when one existed at
-    invitation creation and to the current email. POST
+  - GET `/api/v1/business/notifications` is the one list of the invitations
+    waiting for the verified recipient, bound to the known account ID when one
+    existed at invitation creation and to the current email. POST
     `/api/v1/business/invitations/{invite_id}/accept` takes `{space_id}` and
     activates that exact invitation for that recipient. The database checks
     expiry after acquiring the Business lock and checks the actual inviter's
@@ -10309,28 +10311,31 @@ connection id). Its review is the import event its purchase created, composed
 by `receipt_review`. Its expense is the canonical activity that the import
 accept path recorded.
 
-- GET `/api/v1/business/notifications?business_id=<uuid>` returns `{items,
-  unread_count}` for the authenticated recipient in that Business. A pending
-  invite recipient needs no existing membership. Items contain `id`, `business_id`,
-  `recipient_user_id`, `kind`, `subject_id`, `created_at`, `read_at`, `resolved_at`.
-  Unresolved items and items resolved within 30 days sort by creation time and ID,
-  newest first. Unread count includes only unresolved, unread items.
-- POST `/api/v1/business/notifications/{notification_id}/read?business_id=<uuid>`
-  marks the caller's one item read; POST `/api/v1/business/notifications/read-all?business_id=<uuid>`
-  marks their items in that Business read. Both return `{updated: <count>}`.
-  Replays preserve the first read time.
-  Neither action changes another recipient or Business.
+- GET `/api/v1/business/notifications` returns `{items, unread_count}` for the
+  authenticated person. The bell belongs to the person, not to a Business: the
+  route takes no Business id and `X-Business-Grant` does not change the answer.
+  One item per live invitation addressed to the person, from any Business,
+  newest first: `{id, kind: invitation_received, business_id, business_name,
+  requested_role, unread}`. `id` is the invitation's id, the same one the email
+  link carries and `POST /api/v1/business/invitations/{invite_id}/accept` takes.
+  Which invitations are alive is the access store's one rule (`LIVE_INVITE`);
+  an accepted, withdrawn or dead invitation is not listed. A person with no
+  Business of their own may read it.
+- POST `/api/v1/business/notifications/read` takes `{ids: [<invitation id>]}`
+  and marks those of the caller's live invitations read. It returns
+  `{updated: <count newly read>}`. A replay keeps the first reading time. An id
+  that is not one of the caller's live invitations changes nothing.
 - `CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED` defaults false. One availability function
-  owns `notifications_available` in the workspace, route guards and event writers.
-  Disabled routes answer 404 before authentication and writers perform no writes.
-  Responses use `Cache-Control: no-store`. Enabled writes mirror invitations for
-  known recipients and pending senders for every active owner, resolving when the
-  source action clears them. Reads resolve expired invitation items using the original
-  invitation expiry time, preserving the 30-day history window. Notification failure logs a safe classification and
-  never fails the source action. This backend slice enables no hosted setting.
+  owns `notifications_available` in `GET /api/v1/business/spaces`, the route
+  guards and the event writers. Disabled routes answer 404 before authentication
+  and writers perform no writes. Responses use `Cache-Control: no-store`. The
+  read state is a `business_notifications` row per person and invitation.
+  Enabled writers still mirror invitations for known recipients and pending
+  senders for every active owner into that table; no route lists those rows.
+  A writer failure logs a safe classification and never fails the source action.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
-  currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
+  currencies, assistant_available: false, chat_available, invoicing_available,
   settlement_available, typed_notes_available, receipt_limits: {max_bytes, media_types}, receipt_reading, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result

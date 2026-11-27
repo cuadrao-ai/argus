@@ -10,7 +10,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-async function mount(width: number, language = "es-419", preview = false, mock = true, respond: typeof fetch = async () => Response.json([]), emailAvailable = true) {
+async function mount(width: number, language = "es-419", preview = false, mock = true, respond: typeof fetch = async () => Response.json({ items: [], unread_count: 0 }), emailAvailable = true) {
   const originalFetch=globalThis.fetch;
   globalThis.fetch=respond;
   const originalEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
@@ -48,7 +48,7 @@ test("desktop notifications open from the bell, dismiss with Escape, and return 
     const panel = page.host.querySelector('[role="dialog"]')!;
     assert.ok(panel);
     assert.equal(page.trigger.getAttribute("aria-controls"), panel.id);
-    assert.match(panel.textContent ?? "", /Aquí aparecerán los avisos de tu cuenta y de Colmado Luna/);
+    assert.match(panel.textContent ?? "", /Aquí aparecerán los avisos de tu cuenta\.$/);
     assert.equal(document.activeElement?.getAttribute("aria-label"), "Cerrar");
     assert.equal(panel.querySelectorAll("[data-notice]").length, 0);
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
@@ -63,89 +63,106 @@ test("desktop notifications close on an outside pointer without stealing focus",
   try {
     assert.equal(page.trigger.getAttribute("aria-label"), "Notifications");
     await act(async () => page.trigger.click());
-    assert.match(page.host.textContent ?? "", /Updates for your account and Colmado Luna will appear here/);
+    assert.match(page.host.textContent ?? "", /Updates for your account will appear here/);
     await act(async () => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
     assert.equal(page.host.querySelector('[role="dialog"]'), null);
   } finally { await page.close(); }
 });
-test("a recipient accepts the exact server invitation before its grant becomes selected",async()=>{
- const page=await mount(1280,"en");
- const invitation={id:"invite-1",space_id:"business-b",name:"Taller Sol",requested_role:"admin",expires_at:"2026-11-02T12:00:00Z"};
- const calls:{url:string;body:unknown}[]=[];
- globalThis.fetch=async(url,init)=>{calls.push({url:String(url),body:init?.body?JSON.parse(String(init.body)):null});return Response.json(init?.method==="POST"?{space_id:"business-b",grant_id:"accepted-grant"}:[invitation]);};
- try{
-  await act(async()=>page.trigger.click());
-  assert.match(page.host.textContent??"",/Taller Sol/);assert.match(page.host.textContent??"",/Pending acceptance/);assert.deepEqual(page.accepted,[]);
-  const accept=[...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="Accept invitation")!;
-  await act(async()=>accept.click());
-  const posted=calls.find((call)=>call.body!==null&&typeof call.body==="object"&&"space_id" in call.body);
-  assert.deepEqual(posted?.body,{space_id:"business-b"});assert.deepEqual(page.accepted,["accepted-grant"]);
- }finally{await page.close();}
-});
-test("an expired acceptance is refused and the same invitation has no blind retry",async()=>{
- const page=await mount(1280,"en");
- let writes=0;
- globalThis.fetch=async(_url,init)=>{if(init?.method==="POST"){writes++;return Response.json({code:"business_invitation_expired"},{status:409});}return Response.json([{id:"expired",space_id:"business-b",name:"Taller Sol",requested_role:"viewer",expires_at:"2026-10-25T12:00:00Z"}]);};
- try{
-  await act(async()=>page.trigger.click());
-  const accept=[...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="Accept invitation")!;
-  await act(async()=>accept.click());assert.equal(accept.disabled,true);assert.equal(writes,1);assert.deepEqual(page.accepted,[]);assert.match(page.host.textContent??"",/This invitation could not be accepted/);
- }finally{await page.close();}
-});
+const pendingInvitation = { id: "11111111-1111-4111-8111-111111111111", kind: "invitation_received", business_id: "business-b", business_name: "Taller Sol", requested_role: "admin", unread: true };
+const listed = (...items: unknown[]) => Response.json({ items, unread_count: items.length });
+const settle = async () => { for (let i = 0; i < 5; i++) await act(async () => { await Promise.resolve(); }); };
+const bellDot = (trigger: HTMLElement) => trigger.querySelector('[data-testid="business-notifications-dot"]');
+const acceptButton = (host: HTMLElement) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((found) => found.textContent === "Accept invitation")!;
 
-const pendingInvitation={id:"invite-1",space_id:"business-b",name:"Taller Sol",requested_role:"admin",expires_at:"2026-11-02T12:00:00Z"};
-const settle=async()=>{for(let i=0;i<5;i++)await act(async()=>{await Promise.resolve();});};
-const bellDot=(trigger:HTMLElement)=>trigger.querySelector('[aria-hidden="true"][class*="bellDot"]');
-
-test("a pending invitation lights the bell dot before the bell is opened",async()=>{
-  const calls:string[]=[];
-  const page=await mount(1280,"en",false,true,async(url)=>{calls.push(String(url));return Response.json([pendingInvitation]);});
-  try{
+test("a recipient accepts the exact server invitation before its grant becomes selected", async () => {
+  const calls: { url: string; body: unknown }[] = [];
+  const page = await mount(1280, "en", false, true, async (url, init) => {
+    calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : null });
+    if (String(url).endsWith("/accept")) return Response.json({ space_id: "business-b", grant_id: "accepted-grant" });
+    return init?.method === "POST" ? Response.json({ updated: 1 }) : listed(pendingInvitation);
+  });
+  try {
     await settle();
-    assert.ok(calls.some(url=>url.endsWith("/business/invitations")),"the invitations were read on mount: "+JSON.stringify(calls));
-    assert.equal(page.trigger.getAttribute("aria-expanded"),"false");
-    assert.ok(bellDot(page.trigger),"the dot shows without opening");
-    assert.match(document.getElementById(page.trigger.getAttribute("aria-describedby")!)?.textContent??"",/1 unread notification/);
-  }finally{await page.close();}
+    await act(async () => page.trigger.click());
+    await settle();
+    assert.match(page.host.textContent ?? "", /Taller Sol/);
+    assert.match(page.host.textContent ?? "", /Admin.* · Pending acceptance/);
+    assert.deepEqual(page.accepted, []);
+    await act(async () => acceptButton(page.host).click());
+    for (let turn = 0; turn < 60 && !page.accepted.length; turn += 1) await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+    const posted = calls.find((call) => call.url.endsWith(`/business/invitations/${pendingInvitation.id}/accept`));
+    assert.deepEqual(posted?.body, { space_id: "business-b" });
+    assert.deepEqual(page.accepted, ["accepted-grant"]);
+  } finally { await page.close(); }
 });
 
-test("no invitations shows no dot, and a failed read shows no dot either",async()=>{
-  const none=await mount(1280,"en",false,true,async()=>Response.json([]));
-  try{
+test("an expired acceptance is refused and the same invitation has no blind retry", async () => {
+  let writes = 0;
+  const page = await mount(1280, "en", false, true, async (url, init) => {
+    if (String(url).endsWith("/accept")) { writes += 1; return Response.json({ code: "business_invitation_expired" }, { status: 409 }); }
+    return init?.method === "POST" ? Response.json({ updated: 1 }) : listed({ ...pendingInvitation, requested_role: "viewer" });
+  });
+  try {
     await settle();
-    assert.equal(bellDot(none.trigger),null);
-    assert.equal(none.trigger.getAttribute("aria-describedby"),null);
-  }finally{await none.close();}
-  const failed=await mount(1280,"en",false,true,async()=>Response.json({code:"unavailable"},{status:503}));
-  try{
+    await act(async () => page.trigger.click());
     await settle();
-    assert.equal(bellDot(failed.trigger),null);
-    assert.equal(failed.trigger.getAttribute("aria-describedby"),null);
-    await act(async()=>failed.trigger.click());
+    const accept = acceptButton(page.host);
+    await act(async () => accept.click());
     await settle();
-    assert.equal(failed.host.querySelector('[role="alert"]')?.textContent,"We couldn't load access. Try again.");
-    assert.equal(bellDot(failed.trigger),null);
-  }finally{await failed.close();}
+    assert.equal(accept.disabled, true);
+    assert.equal(writes, 1);
+    assert.deepEqual(page.accepted, []);
+    assert.match(page.host.textContent ?? "", /This invitation could not be accepted/);
+  } finally { await page.close(); }
 });
 
-test("the dot waits while the invitations load and clears once the invitation is accepted",async()=>{
+test("a pending invitation lights the bell dot before the bell is opened", async () => {
+  const calls: string[] = [];
+  const page = await mount(1280, "en", false, true, async (url) => { calls.push(String(url)); return listed(pendingInvitation); });
+  try {
+    await settle();
+    assert.ok(calls.some((url) => url.endsWith("/business/notifications")), "the notices were read on mount: " + JSON.stringify(calls));
+    assert.equal(page.trigger.getAttribute("aria-expanded"), "false");
+    assert.ok(bellDot(page.trigger), "the dot shows without opening");
+    assert.match(document.getElementById(page.trigger.getAttribute("aria-describedby")!)?.textContent ?? "", /1 unread notification/);
+  } finally { await page.close(); }
+});
+
+test("no invitations shows no dot, and a failed read shows no dot either", async () => {
+  const none = await mount(1280, "en");
+  try {
+    await settle();
+    assert.equal(bellDot(none.trigger), null);
+    assert.equal(none.trigger.getAttribute("aria-describedby"), null);
+  } finally { await none.close(); }
+  const failed = await mount(1280, "en", false, true, async () => Response.json({ code: "unavailable" }, { status: 503 }));
+  try {
+    await settle();
+    assert.equal(bellDot(failed.trigger), null);
+    assert.equal(failed.trigger.getAttribute("aria-describedby"), null);
+    await act(async () => failed.trigger.click());
+    await settle();
+    assert.equal(failed.host.querySelector('[role="alert"]')?.textContent, "We couldn't load your notices. Try again.");
+    assert.equal(bellDot(failed.trigger), null);
+  } finally { await failed.close(); }
+});
+
+test("the dot waits while the notices load and goes off once the bell is opened", async () => {
   const waiting: Array<(value: Response) => void> = [];
-  const page=await mount(1280,"en",false,true,(_url,init)=>init?.method==="POST"?Promise.resolve(Response.json({space_id:"business-b",grant_id:"accepted-grant"})):new Promise<Response>(resolve=>{waiting.push(resolve);}));
-  const release=(body: unknown) => { for (const resolve of waiting.splice(0)) resolve(Response.json(body)); };
-  try{
-    assert.equal(bellDot(page.trigger),null,"loading is not a pending invitation");
-    await act(async()=>release([pendingInvitation]));
+  const page = await mount(1280, "en", false, true, (_url, init) => init?.method === "POST" ? Promise.resolve(Response.json({ updated: 1 })) : new Promise<Response>((resolve) => { waiting.push(resolve); }));
+  const release = () => { for (const resolve of waiting.splice(0)) resolve(listed(pendingInvitation)); };
+  try {
+    assert.equal(bellDot(page.trigger), null, "loading is not a waiting notice");
+    await act(async () => release());
     await settle();
     assert.ok(bellDot(page.trigger));
-    await act(async()=>page.trigger.click());
-    const accept=[...page.host.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent==="Accept invitation")!;
-    await act(async()=>release([pendingInvitation]));
+    await act(async () => page.trigger.click());
     await settle();
-    await act(async()=>accept.click());
+    assert.equal(bellDot(page.trigger), null);
+    await act(async () => release());
     await settle();
-    assert.deepEqual(page.accepted,["accepted-grant"]);
-    assert.equal(bellDot(page.trigger),null);
-  }finally{await page.close();}
+    assert.equal(bellDot(page.trigger), null, "an answer that left before the reading landed keeps it read");
+  } finally { await page.close(); }
 });
 
 test("phone notifications use the shared bottom sheet", async () => {
@@ -287,36 +304,6 @@ for (const width of [1280, 390]) {
   });
 }
 
-test("a pending sender opens Reception from Nuevo remitente, and an empty list does not", async () => {
-  const pending = { id: "s1", kind: "address", value: "facturas@ferreteria.example", status: "pending", tag: null, last_auth_result: null, last_seen_at: null };
-  const withSender = await mount(1280, "es-419", false, true, async (url) => {
-    if (String(url).includes("/business/email/senders")) return Response.json({ items: [pending, { ...pending, id: "s2", status: "authorized", value: "dueno@negocio.example" }] });
-    return Response.json([]);
-  });
-  try {
-    await settle();
-    assert.ok(bellDot(withSender.trigger));
-    await act(async () => withSender.trigger.click());
-    await settle();
-    const open = button("Revisar");
-    assert.equal(open?.closest("[data-notice]")?.getAttribute("data-notice"), "sender");
-    assert.match(withSender.host.textContent ?? "", /Nuevo remitente/);
-    await click(open);
-    assert.deepEqual(withSender.actions, ["correo"]);
-  } finally { await withSender.close(); }
-  const none = await mount(1280, "es-419", false, true, async (url) => {
-    if (String(url).includes("/business/email/senders")) return Response.json({ items: [{ id: "s2", kind: "address", value: "dueno@negocio.example", status: "authorized" }] });
-    return Response.json([]);
-  });
-  try {
-    await settle();
-    assert.equal(bellDot(none.trigger), null);
-    await act(async () => none.trigger.click());
-    await settle();
-    assert.equal(none.host.textContent?.includes("Nuevo remitente"), false);
-  } finally { await none.close(); }
-});
-
 test("empty notifications without a Business name use generic account copy", async () => {
   const page = await mount(1280, "en");
   try {
@@ -329,13 +316,14 @@ test("empty notifications without a Business name use generic account copy", asy
 });
 
 
-test("email off never asks for pending senders while account invitations still load", async () => {
+test("the bell asks for the person's notices and never for a sender list", async () => {
   const requests: string[] = [];
-  const page = await mount(1280, "es-419", false, true, async input => { requests.push(String(input)); return Response.json([]); }, false);
+  const page = await mount(1280, "es-419", false, true, async (input) => { requests.push(String(input)); return Response.json({ items: [], unread_count: 0 }); });
   try {
-    assert.ok(requests.some(url => url.includes("invitations")));
-    assert.equal(requests.filter(url => url.includes("email-intake")).length, 0);
+    await settle();
     await act(async () => page.trigger.click());
+    await settle();
+    assert.ok(requests.every((url) => url.endsWith("/business/notifications")), JSON.stringify(requests));
     assert.equal(page.host.querySelector('[data-notice="sender"]'), null);
   } finally { await page.close(); }
 });

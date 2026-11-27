@@ -56,7 +56,7 @@ function BusinessAppContent({ sample, transferId, lifecycle, manageLifecycle }: 
   const discoverDirectory = source.mode === "live" && !lifecycle && !transferId && !manageLifecycle;
   const [directory, setDirectory] = useState<DirectoryState | null>(null);
   const [attempt, setAttempt] = useState(0);
-  useEffect(() => { capturePendingInvite(window.location.pathname, window.location.search); }, []);
+  useEffect(() => { capturePendingInvite(); }, []);
   useEffect(() => {
     if (!discoverDirectory || (checkSession && !owner)) return;
     const controller = new AbortController();
