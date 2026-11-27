@@ -133,6 +133,7 @@ function ConfirmDialogSurface({
   });
 
   if (!isOpen) return null;
+  const Description = detailed ? "div" : "p";
 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
@@ -158,12 +159,12 @@ function ConfirmDialogSurface({
           {title}
         </h2>
         {children}
-        <div
+        <Description
           id="argus-confirm-description"
           className={detailed ? "mt-4" : "mt-2 text-[13px] leading-relaxed text-black/55 dark:text-white/55"}
         >
           {description}
-        </div>
+        </Description>
         {error ? (
           <p role="alert" data-testid="confirm-dialog-error" className="mt-3 text-[13px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
             {error}
