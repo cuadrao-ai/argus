@@ -275,8 +275,8 @@ def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
     runtime,  # noqa: ANN001, F811
 ) -> None:
     """The own space's name and the receiving address are the owner's: under a
-    client grant the space routes and the address writes refuse; the address
-    itself is view-only."""
+    client grant the space routes, the address writes and the senders list
+    refuse; the address itself is view-only."""
 
     grant = _grant(alice, bob)
     headers = {GRANT: grant}
@@ -304,7 +304,11 @@ def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
         403,
         "business_permission_denied",
     )
-    assert get_as(bob, "/email/senders", grant).status_code == 200
+    listed = get_as(bob, "/email/senders", grant)
+    assert (listed.status_code, listed.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
     posted = bob.post(
         "/email/senders",
         {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},

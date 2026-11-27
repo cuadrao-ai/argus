@@ -14,9 +14,9 @@ import { Switch } from "@/components/ui/Switch";
 
 /**
  * What the record is marked as, and the two decisions that are people's:
- * the owner or anyone holding prepare marks a receipt as personal or takes
- * the mark back (a new revision each way), so the owner can always undo
- * someone else's mark in one tap; a prepare-holder who is not the owner
+ * whoever the server lets change the record's facts marks a receipt as
+ * personal or takes the mark back (a new revision each way), so the owner
+ * can always undo someone else's mark in one tap; a prepare-holder who is not the owner
  * answers whether a personal receipt with a fiscal number goes into the 606,
  * when the server says the caller may. The owner reads that answer; the app never gives it.
  * In Más a third switch says whether the record is a sale, when the server allows that change.
@@ -37,6 +37,8 @@ export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, 
   const [problem, setProblem] = useState<string | null>(null);
   const [retry, setRetry] = useState<(() => void) | null>(null);
   const canPrepare = dossier.capabilities.includes("prepare");
+  // Personal changes a fact of the record: prepare on a draft, approve once accepted. The server says which holds.
+  const canMarkPersonal = dossier.facts_editable === true;
   const owner = !chosen || chosen.role === "owner";
   // The server reads the marks; the card shows them as given.
   const personal = dossier.personal === true;
@@ -129,7 +131,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, 
     };
     return (
       <>
-        <MenuCheckItem icon={UserRound} testId="receipt-mark-personal" label={t("business.marks.mark_personal", "Personal")} hint={t("business.marks.personal_help", "It does not count in the Business totals.")} checked={personal} disabled={disabled || !canPrepare} onChange={once(markPersonal)} />
+        <MenuCheckItem icon={UserRound} testId="receipt-mark-personal" label={t("business.marks.mark_personal", "Personal")} hint={t("business.marks.personal_help", "It does not count in the Business totals.")} checked={personal} disabled={disabled || !canMarkPersonal} onChange={once(markPersonal)} />
         {personal && dossier.fiscal_question_applies === true ? (
           <MenuCheckItem icon={ReceiptText} testId="receipt-606" label={sale ? t("business.marks.include_607") : t("business.marks.include_606", "Include in the 606")} checked={inclusion === true} disabled={disabled || !canPrepare || !dossier.fiscal_inclusion_available} onChange={once(decide606)} />
         ) : null}
@@ -141,7 +143,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onBusyChange, 
 
   return (
     <div className={SURFACE_CARD} data-testid="receipt-marks-card">
-      {canPrepare ? (
+      {canMarkPersonal ? (
         <div className="flex items-center justify-between gap-4 mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">
           <span className="min-w-0">
             <span className="block text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.marks.mark_personal", "Personal")}</span>

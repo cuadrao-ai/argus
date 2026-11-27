@@ -97,6 +97,16 @@ test("Recepción opens on Correo then Remitentes and names no channel it cannot 
     assert.equal(host.textContent?.includes(connect(OWN.name)), false);
     assert.equal(host.textContent?.includes("WhatsApp"), false);
     assert.deepEqual(headings().slice(0, 2), [spanish.business.reception.email_title, spanish.business.reception.senders.list_title]);
+    for (const [business_role, permissions] of [["editor", ["read", "prepare", "download", "export"]], ["viewer", ["read"]]] as const) {
+      await render({ ...OWN, role: "accountant", business_role, permissions: [...permissions] });
+      await settle();
+      assert.deepEqual(headings().slice(0, 1), [spanish.business.reception.email_title]);
+      assert.equal(host.querySelector("[data-testid='email-senders']"), null, `${business_role} sees no senders section`);
+      assert.equal(host.textContent?.includes(spanish.business.reception.senders.block), false);
+    }
+    await render({ ...OWN, role: "accountant", business_role: "admin", permissions: ["read", "prepare", "approve", "manage", "download", "export"] });
+    await settle();
+    assert.ok(host.querySelector("[data-testid='email-senders']"), "an admin manages senders");
   } finally {
     await act(async () => root.unmount());
     host.remove();

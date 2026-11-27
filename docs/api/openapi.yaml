@@ -2799,9 +2799,9 @@ paths:
       tags:
       - financial-accounts
       - business
-      description: 'The owner or anyone holding prepare marks the receipt as personal or
+      description: 'Anyone holding prepare marks an open receipt as personal or takes the
 
-        takes the mark back; a read-only grant is refused.'
+        mark back. On an accepted record the mark needs approve.'
       parameters:
       - name: draft_id
         in: path

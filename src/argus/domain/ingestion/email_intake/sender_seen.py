@@ -52,6 +52,13 @@ class PostgresSenderSeen:
             ).fetchall()
         return frozenset(row[0] for row in rows)
 
+    def account_address(self, person_id: str) -> str | None:
+        with self.pool.connection() as connection:
+            row = connection.execute(
+                "select lower(email) from auth.users where id=%s", (person_id,)
+            ).fetchone()
+        return row[0] if row else None
+
     def add_default_sender(self, space_id: str, address: str | None) -> None:
         full = _full(address)
         if full is None:
@@ -83,6 +90,11 @@ class MemorySenderSeen:
     def member_addresses(self, space_id: str) -> frozenset[str]:
         with self._lock:
             return frozenset(self.__dict__.get("_members", {}).get(space_id, ()))
+
+    def account_address(self, person_id: str) -> str | None:
+        """This store keeps no accounts, so it names nobody's address."""
+
+        return None
 
     def add_default_sender(self, space_id: str, address: str | None) -> None:
         full = _full(address)

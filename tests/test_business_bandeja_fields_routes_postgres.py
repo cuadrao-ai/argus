@@ -447,13 +447,14 @@ def test_the_dossier_names_its_approve_action_and_the_606_gate_agrees_with_the_a
         world,
         f"/business/drafts/{draft}/personal",
         {"version": approved.json()["version"], "personal": True},
-        accountant,
+        alice.headers,
     )
     assert marked.status_code == 200, marked.text
     # Personal with a fiscal number: the accountant may answer, the owner may not.
-    assert marked.json()["fiscal_inclusion_available"] is True
-    owners = _get(world, f"/business/drafts/{draft}/dossier", alice.headers)
+    owners = marked.json()
     assert owners["fiscal_inclusion_available"] is False
+    theirs = _get(world, f"/business/drafts/{draft}/dossier", accountant)
+    assert theirs["fiscal_inclusion_available"] is True
     denied = _post(
         world,
         f"/business/drafts/{draft}/fiscal-inclusion",

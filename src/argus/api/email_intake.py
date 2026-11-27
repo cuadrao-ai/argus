@@ -16,6 +16,7 @@ from argus.api import state as api_state
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE, documents_service
 from argus.api.ingestion import ingestion_enabled
+from argus.domain.business.scope import BusinessScope
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
@@ -269,6 +270,41 @@ async def stop_email_intake(app) -> None:  # noqa: ANN001
     configure_email_intake(None)
 
 
+def _readable_sender(
+    runtime: EmailHistory, scope: BusinessScope
+) -> dict[str, str] | None:
+    """Who reads which delivery, as the store's own filter. A person who
+    manages the Business reads every one; anyone else reads only the mail sent
+    from their own account address, and nothing when they have none."""
+
+    if "manage" in scope.permissions:
+        return {}
+    own = runtime.store.account_address(scope.acting_person_id)
+    return {"sender": own} if own else None
+
+
+def readable_deliveries(
+    runtime: EmailHistory, scope: BusinessScope, *, limit: int | None
+) -> list[EmailDelivery]:
+    """The newest deliveries this person may read, at most ``limit`` of them."""
+
+    readable = _readable_sender(runtime, scope)
+    if readable is None:
+        return []
+    return runtime.store.list(scope.owner.space_id, limit=limit, **readable)
+
+
+def readable_delivery(
+    runtime: EmailHistory, scope: BusinessScope, delivery_id: str
+) -> EmailDelivery | None:
+    """One delivery of this Business, or none when this person may not read it."""
+
+    readable = _readable_sender(runtime, scope)
+    if readable is None:
+        return None
+    return runtime.store.get(delivery_id, scope.owner.space_id, **readable)
+
+
 def email_receipt_flags(
     space_id: str,
 ) -> dict[str, tuple[tuple[str, ...], bool, datetime | None]]:
@@ -314,13 +350,14 @@ def part_repeat(
     return None, earliest is not None and earliest < delivery.received_at
 
 
-def email_standings(space_id: str) -> list[EmailStanding]:
-    """The standing of every email in this Business that is a Bandeja row of its
-    own, independent of receiving availability."""
+def email_standings(scope: BusinessScope) -> list[EmailStanding]:
+    """The standing of every email this person may read that is a Bandeja row of
+    its own, independent of receiving availability."""
 
     runtime = email_history()
     if runtime is None:
         return []
+    space_id = scope.owner.space_id
     relations = runtime.store.membership(space_id)
     parts = runtime.store.parts_by_delivery(space_id)
     standings = (
@@ -331,6 +368,6 @@ def email_standings(space_id: str) -> list[EmailStanding]:
                 part_repeat(runtime, delivery, part, relations)
             ),
         )
-        for delivery in runtime.store.list(space_id, limit=None)
+        for delivery in readable_deliveries(runtime, scope, limit=None)
     )
     return [standing for standing in standings if standing is not None]

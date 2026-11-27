@@ -56,6 +56,7 @@ describe("the receipt page's marks card", () => {
       draft_id: "d-1",
       version: 3,
       capabilities: ["read", "prepare"],
+      facts_editable: true,
       history: [
         { version: 2, actor: markedBy === "owner" ? OWNER : ACCOUNTANT, before: { business_share: share("all", "extracted") }, after: { business_share: share(personal ? "none" : "all", markedBy === "owner" ? "owner_stated" : "member_set") }, source_ids: [], created_at: "2026-10-13T09:00:00Z" },
         { version: 3, actor: ACCOUNTANT, before: null, after: {}, source_ids: [], created_at: "2026-10-13T10:00:00Z" },
@@ -219,8 +220,18 @@ describe("the receipt page's marks card", () => {
     clearToasts();
   });
 
+  test("an accepted record gives a prepare-only person no Personal control, on the card or in Más", async () => {
+    const accepted = dossier({ facts_editable: false }, false, true, null, "accountant");
+    const card = await mountCard(accepted, "accountant");
+    assert.equal(card.host.querySelector('[data-testid="receipt-mark-personal"]'), null);
+    await card.act(async () => card.root.unmount());
+    const menu = await mountCard(accepted, "accountant", { bare: true });
+    assert.equal(menu.host.querySelector<HTMLButtonElement>('[data-testid="receipt-mark-personal"]')?.disabled, true);
+    await menu.act(async () => menu.root.unmount());
+  });
+
   test("a read-only grant has no control", async () => {
-    const page = await mountCard(dossier({ capabilities: ["read"] } as Partial<BusinessDossier>, true, true, null, "accountant"), "accountant");
+    const page = await mountCard(dossier({ capabilities: ["read"], facts_editable: false } as Partial<BusinessDossier>, true, true, null, "accountant"), "accountant");
     assert.equal(page.host.querySelector('[data-testid="receipt-mark-personal"]'), null);
     assert.equal(page.host.querySelector('[data-testid="receipt-606-yes"]'), null);
     await page.act(async () => page.root.unmount());
@@ -321,7 +332,7 @@ describe("the receipt page's marks card", () => {
     test("someone who cannot answer sees the 606 switch locked, with no words", async () => {
       for (const [who, record] of [
         ["the owner", dossier({ fiscal_inclusion_available: false }, true, true, true)],
-        ["a read-only grant", dossier({ capabilities: ["read"], fiscal_inclusion_available: true } as Partial<BusinessDossier>, true, true, null, "accountant")],
+        ["a read-only grant", dossier({ capabilities: ["read"], facts_editable: false, fiscal_inclusion_available: true } as Partial<BusinessDossier>, true, true, null, "accountant")],
       ] as const) {
         const page = await mountCard(record, who === "the owner" ? "owner" : "accountant", { bare: true });
         const row = row606(page.host)!;
