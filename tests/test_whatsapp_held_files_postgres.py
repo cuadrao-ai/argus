@@ -340,8 +340,12 @@ def test_rls_own_select_and_no_client_writes(desk, table):
 def test_account_deletion_removes_held_rows_drafts_objects(desk, lane):
     row = upload(desk)
     desk.files.budget().charge(desk.owner, desk.now)
+    # The run's claim is checked against the database clock, so it starts now.
     service = deletion._service(
-        lane, deletion.SqlAuthAdmin(), source_objects=desk.objects
+        lane,
+        deletion.SqlAuthAdmin(),
+        source_objects=desk.objects,
+        clock=lambda: desk.now,
     )
     assert service.delete_account(user_id=desk.owner).status == "done"
     with desk.pool.connection() as db:
