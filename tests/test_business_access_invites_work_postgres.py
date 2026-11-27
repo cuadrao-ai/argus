@@ -3,6 +3,9 @@ send log limits Reenviar."""
 
 from __future__ import annotations
 
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 import psycopg
 import pytest
 from argus.domain.business.access import PostgresAccessStore
@@ -185,6 +188,75 @@ def test_reenviar_is_limited_by_cooldown_invite_cap_and_daily_cap(
 
     _age_sends(space_id, "1 day")
     assert deliver(second.id, resend=True) == "accepted"
+
+
+def _wait_for_two_on_the_business_row() -> None:
+    """Activity is read outside any transaction: inside one, Postgres keeps the first answer."""
+
+    deadline = time.monotonic() + 15
+    with psycopg.connect(shared.DSN, autocommit=True) as watcher:
+        while time.monotonic() < deadline:
+            waiting = watcher.execute(
+                "select count(*) from pg_stat_activity where wait_event_type='Lock'"
+                " and query like 'select id from public.spaces where id=%'"
+            ).fetchone()[0]
+            if waiting == 2:
+                return
+            time.sleep(0.05)
+    raise AssertionError("both resends must wait on the Business row before counting")
+
+
+@pytest.mark.parametrize(
+    ("limits", "same_invite", "refusal"),
+    [
+        pytest.param(
+            {"CUADRAO_BUSINESS_INVITE_RESENDS_PER_DAY": "1"},
+            False,
+            "business_invite_daily_cap_reached",
+            id="daily-cap-of-the-business",
+        ),
+        pytest.param(
+            {"CUADRAO_BUSINESS_INVITE_SENDS_PER_INVITE": "2"},
+            True,
+            "business_invite_send_cap_reached",
+            id="send-cap-of-one-invite",
+        ),
+        pytest.param({}, True, "business_invite_resend_cooldown", id="cooldown-of-one-invite"),
+    ],
+)
+def test_two_resends_at_once_with_one_send_left_send_once(
+    business, users, monkeypatch, limits, same_invite, refusal
+) -> None:  # noqa: ANN001
+    for name, value in limits.items():
+        monkeypatch.setenv(name, value)
+    access, space_id, _ = business
+    emails = ["uno@example.test"] if same_invite else ["uno@example.test", "dos@example.test"]
+    for email in emails:
+        access.give(space_id, users["owner"], email, BusinessRole.VIEWER)
+    invites = [i.id for i in access.list(space_id, users["owner"]).invites]
+    for invite_id in invites:
+        access.deliver_invitation(
+            space_id, users["owner"], invite_id, lambda db, number: "accepted"
+        )
+    _age_sends(space_id, "2 minutes")
+
+    def resend(invite_id: str) -> str:
+        try:
+            return access.deliver_invitation(
+                space_id, users["owner"], invite_id, lambda db, number: "accepted", True
+            )
+        except InviteSendRefused as refused:
+            return refused.code
+
+    with ThreadPoolExecutor(2) as threads, psycopg.connect(shared.DSN) as holder:
+        with holder.transaction():
+            holder.execute("select id from public.spaces where id=%s for update", (space_id,))
+            racing = [threads.submit(resend, invite_id) for invite_id in (invites * 2)[:2]]
+            _wait_for_two_on_the_business_row()
+        outcomes = sorted(future.result(timeout=30) for future in racing)
+
+    assert outcomes == sorted(["accepted", refusal])
+    assert _sends(space_id).count((True,)) == 1
 
 
 def test_the_send_log_is_closed_to_signed_in_people(business, users) -> None:  # noqa: ANN001

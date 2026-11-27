@@ -543,6 +543,8 @@ class PostgresMembershipCommands:
         resend: bool = False,
     ) -> DeliveryState:
         with self.pool.connection() as db, db.transaction():
+            # Locks the Business row, then the invite row below: each count is
+            # read and reserved under the row that owns its limit.
             require_manager(db, space_id, actor_id)
             row = db.execute(
                 "select i.requested_role,i.delivery_state from public.business_access_invites i"
