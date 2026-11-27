@@ -806,7 +806,7 @@ briefcase icon. Nested sections, trays and dialogs have no intro sentence.
   bar's controls end on the content's right edge. The bar is opaque for its own
   height, so scrolled content never shows behind the heading. Owner:
   `body[data-workspace-bounded]` in `globals.css`, set by `BusinessHeader.tsx`.
-- **One bar, one order:** heading · Buscar ⌘K · Agregar · invitation, privacy,
+- **One bar, one order:** heading · upload island · Buscar ⌘K · Agregar · invitation, privacy,
   notifications · avatar. The title takes the 44px line of the controls, so all sit on
   one center line. Agregar appears once per screen, in the bar, never on Negocio. A
   screen's toolbar keeps only its own tools (Registros: views, period, currency, filters,

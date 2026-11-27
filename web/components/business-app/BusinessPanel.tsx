@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
@@ -20,6 +20,7 @@ import { EmailRecord } from "./BusinessEmailDeliveries";
 import PanelErrorBoundary from "./PanelErrorBoundary";
 import { formatBusinessName } from "./business-format";
 import { RecordTrayContext, isRecordPanel, recordInTray, recordList, shownScreen, type RecordPanel } from "./record-tray";
+import { ReportRecordDrawer } from "./ReceiptUploadIsland";
 import { primaryButtonClass } from "./business-ui";
 
 /**
@@ -84,6 +85,13 @@ function RecordTray({ panel, list, listRef, returnFocusRef }: { panel: RecordPan
   // A dossier opens wide over the Bandeja and narrow beside Registros; its size button switches between the two.
   const [resized, setResized] = useState<boolean | null>(null);
   const narrow = resized ?? list === "transactions";
+  const reportDrawer = useContext(ReportRecordDrawer);
+  useLayoutEffect(() => {
+    const node = footer?.closest<HTMLElement>('[role="region"]');
+    if (!node) return;
+    reportDrawer({ node, narrow: dossier && narrow });
+    return () => reportDrawer(null);
+  }, [footer, dossier, narrow, reportDrawer]);
   const toggleNarrow = useCallback(() => setResized((current) => !(current ?? list === "transactions")), [list]);
   const tray = useMemo(() => ({ footer, summary: dossier ? summary : null, headerActions: dossier ? headerActions : null, setTitle, settleList, ...(dossier ? { narrow, toggleNarrow } : {}) }), [footer, summary, headerActions, dossier, settleList, narrow, toggleNarrow]);
   const close = () => {

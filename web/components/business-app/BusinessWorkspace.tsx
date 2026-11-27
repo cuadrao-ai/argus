@@ -62,7 +62,7 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
-import ReceiptUploadChip from "./ReceiptUploadChip";
+import ReceiptUploadIsland, { morphUploadPanel, ReportRecordDrawer, type RecordDrawer } from "./ReceiptUploadIsland";
 import { intakeWork } from "./intake-work";
 import { openRecordsExport } from "./transacciones/records-export-request";
 import { HandHeart } from "lucide-react";
@@ -449,7 +449,9 @@ function BusinessWorkspaceContent({
     setSpaces((current) => current?.map((space) => (space.grant_id === chosen.grant_id ? { ...space, access_seen: true } : space)) ?? current);
   }, [chosen, source]);
   const [bridge, setBridge] = useState<ChatShellBridge | null>(null);
-  const [intakeTarget, setIntakeTarget] = useState<IntakeTarget | null>(null);
+  const [recordDrawer, setRecordDrawer] = useState<RecordDrawer | null>(null);
+  const [intake, setIntake] = useState<{ target: IntakeTarget; fromIsland: boolean } | null>(null);
+  const intakeTarget = intake?.target ?? null;
   const [attachedReceipt, setAttachedReceipt] = useState<ReceiptSummary | null>(null);
   // Switching Business closes whatever was open in the old one before the new
   // one loads: the open record and its address, the dialogs and their typed
@@ -492,7 +494,7 @@ function BusinessWorkspaceContent({
       setPanel({ kind: "overview" });
       writePanelToUrl("workspace", { kind: "overview" });
       setDirectRecord(false);
-      setIntakeTarget(null);
+      setIntake(null);
       clearToasts();
       setAttachedReceipt(null);
       setRecords(EMPTY_RECORDS);
@@ -532,7 +534,7 @@ function BusinessWorkspaceContent({
       reload();
       const disposition = composerUploadDisposition(origin, { conversationId, intakeTarget });
       if (disposition !== "inbox") setAttachedReceipt(receipt);
-      if (disposition === "attach_and_close") setIntakeTarget(null);
+      if (disposition === "attach_and_close") setIntake(null);
     });
   }, [uploadQueue, reload, conversationId, intakeTarget]);
   // A lost connection stops a file where it was; when the browser is back online each one goes again by itself.
@@ -553,7 +555,7 @@ function BusinessWorkspaceContent({
   const openIntake = useCallback((target: IntakeTarget) => {
     // A new composer upload starts clean unless one of this Business's is still in flight.
     if (target === "composer" && !uploadQueue.snapshot().filter(enteredIn(chosenGrant)).some((item) => item.target === target && item.status !== "saved" && item.status !== "rejected")) uploadQueue.clear(target, chosenGrant);
-    setIntakeTarget(target);
+    setIntake({ target, fromIsland: false });
   }, [uploadQueue, chosenGrant]);
 
   useEffect(() => {
@@ -777,6 +779,10 @@ function BusinessWorkspaceContent({
     ? t("business.composer.placeholder_ask", "Ask about your saved expenses")
     : t("business.composer.placeholder", "Write a message");
   const workspace = useMemo<ChatWorkspace>(() => {
+    const island = (phone = false) => closedAccessName ? null : <ReceiptUploadIsland key={chosenGrant} phone={phone} drawer={recordDrawer}
+      queue={uploadQueue} grant={chosenGrant} panelOpen={Boolean(intakeTarget)} onOpen={target => {
+        morphUploadPanel(true, () => setIntake({ target, fromIsland: true }));
+      }} />;
     const draftKeyFor = (shell: ChatShellBridge) => shell.conversationId ?? "new";
     return {
       id: "business",
@@ -794,8 +800,10 @@ function BusinessWorkspaceContent({
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
       headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
-        {intakeTarget ? null : <ReceiptUploadChip queue={uploadQueue} grant={chosenGrant} onOpen={setIntakeTarget} />}
-        {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
+        {shell.isBelowTablet && shell.openSearch ? <div className="relative isolate">
+          {island(true)}
+          <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} />
+        </div> : null}
         {localPreview && !shell.isBelowTablet && shell.openPersonalInvitation ? <Tooltip content={t("cuadrao_invitation.title")} side="bottom">
           <button type="button" data-testid="personal-invitation-shortcut" aria-label={t("cuadrao_invitation.title")} aria-haspopup="dialog" onClick={(event) => shell.openPersonalInvitation?.(event.currentTarget)} className="flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0]">
             <HandHeart className="h-5 w-5" aria-hidden="true" />
@@ -804,7 +812,7 @@ function BusinessWorkspaceContent({
         <AmountsToggle />
         {notificationsAvailable ? <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen ? businessTitle : undefined} emailAvailable={receivingChannels.email.available} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} /> : null}
       </>,
-      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={businessTitle} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
+      headerSearch: (shell) => <BusinessHeader island={shell.isBelowTablet ? null : island()} home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={businessTitle} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
       // The screens read the bridge this render was given: the stored `bridge` arrives one commit later.
       panel: (shell) => <PanelShellProvider value={shell}>{closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>}</PanelShellProvider>,
       starterEntries: () => actions.starterEntries,
@@ -829,24 +837,29 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, chosenGrant, intakeTarget, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
+  }, [notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, chosenGrant, intakeTarget, recordDrawer, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>
       <ChatWorkspaceProvider value={workspace}>
-        {children}
+        <ReportRecordDrawer.Provider value={setRecordDrawer}>{children}</ReportRecordDrawer.Provider>
         {creatingBusiness?<CreateBusinessPreview accountKey={source.mode==="live"?userId??"":"preview"} live={source.mode==="live"} onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.grant_id??business.id);reload();openPanel({kind:"overview"});showToast({kind:"success",text:t("identity.business_created",{name:formatBusinessName(business.name,t("business.overview.title","My business"))})});}}/>:null}
         {canInvite && invitationBusiness === chosen?.space_id ? <BusinessInvitationForm onClose={() => setInvitationBusiness(null)} /> : null}
         <ReceiptIntakeDialog
           target={intakeTarget}
+          focusAttention={intake?.fromIsland}
           queue={uploadQueue}
           onClose={() => {
-            // The Bandeja batch stays for its chip; a composer upload is one file and is forgotten once it is done.
-            if (intakeTarget === "composer") uploadQueue.clearSettled(intakeTarget, chosenGrant);
-            setIntakeTarget(null);
+            const close = () => {
+              if (intakeTarget) uploadQueue.clearSettled(intakeTarget, chosenGrant, true);
+              setIntake(null);
+            };
+            const hasFiles = uploadQueue.snapshot().filter(enteredIn(chosenGrant)).some(item => item.target === intakeTarget);
+            if (intake?.fromIsland || hasFiles) morphUploadPanel(false, close, intake?.fromIsland);
+            else close();
           }}
           onReview={(saved) => {
-            setIntakeTarget(null);
+            setIntake(null);
             // The dossier opens on the first one and walks only this batch: "1 de N".
             if (saved.length > 0) openPanel({
               kind: "receipt",
