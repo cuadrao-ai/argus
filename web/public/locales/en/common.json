@@ -4035,6 +4035,10 @@
       "empty_unread_body": "You have no unread notifications.",
       "empty_unread_title": "You're all caught up",
       "filter": "Filter notifications",
+      "go_to_business": "Go to the business",
+      "invitation_gone_body": "Ask the person who invited you to send a new one.",
+      "invitation_gone_title": "This invitation is no longer available",
+      "load_failed": "We couldn't load your notices. Try again.",
       "mark_all": "Mark all read",
       "samples": {
         "access": {

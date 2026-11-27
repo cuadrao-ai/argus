@@ -136,10 +136,6 @@ export function groupSenders(items: readonly EmailSenderView[]): Record<EmailSen
   return groups;
 }
 
-export function pendingSenderCount(items: readonly EmailSender[]): number {
-  return items.filter((item) => item.status === "pending").length;
-}
-
 /** Dev preview only. Production never takes this path. */
 export function emailSendersUseStub(): boolean {
   return process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";

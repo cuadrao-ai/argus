@@ -69,6 +69,7 @@ import { HandHeart } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AmountsToggle } from "./foundation/AmountsToggle";
 import BusinessNotifications from "./foundation/BusinessNotifications";
+import type { AcceptedVia } from "./foundation/BusinessInvitationNotices";
 import BusinessHeader from "./foundation/BusinessHeader";
 import { afterListCheck, useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
@@ -378,6 +379,7 @@ function BusinessWorkspaceContent({
   const [invitationBusiness, setInvitationBusiness] = useState<string | null>(null);
   const [invitationsAvailable, setInvitationsAvailable] = useState(false);
   const [canStartBusiness, setCanStartBusiness] = useState(false);
+  const [notificationsAvailable, setNotificationsAvailable] = useState(false);
   const [previewNames, setPreviewNames] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!localPreview) return;
@@ -416,12 +418,13 @@ function BusinessWorkspaceContent({
     let cancelled = false;
     setDirectoryStatus("loading");
     setDirectoryReference(null);
-    const directory = source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false, can_start_business: false }));
+    const directory = source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false, can_start_business: false, notifications_available: false }));
     directory.then(
-      ({ spaces: listed, closed_spaces: closed, invitations_available: capability, can_start_business: mayStart }) => {
+      ({ spaces: listed, closed_spaces: closed, invitations_available: capability, can_start_business: mayStart, notifications_available: bell }) => {
         if (cancelled) return;
         setSpaces(listed);
         setCanStartBusiness(mayStart === true);
+        setNotificationsAvailable(bell === true);
         setDirectoryStatus("ready");
         setClosedSpaces(closed);
         setInvitationsAvailable(capability === true);
@@ -441,7 +444,7 @@ function BusinessWorkspaceContent({
           }
         }
       },
-      (error: unknown) => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); setDirectoryReference(referenceCode(error)); setInvitationsAvailable(false); setCanStartBusiness(false); } },
+      (error: unknown) => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); setDirectoryReference(referenceCode(error)); setInvitationsAvailable(false); setCanStartBusiness(false); setNotificationsAvailable(false); } },
     );
     return () => { cancelled = true; };
   }, [source, revision, accessRevision]);
@@ -506,8 +509,14 @@ function BusinessWorkspaceContent({
     if (panelGuard.current) panelGuard.current({ kind: "overview" }, choose);
     else choose();
   }, [consent, chosen, invitationBusiness]);
+  const enterBusiness = useRef(chooseBusiness);
+  useEffect(() => { enterBusiness.current = chooseBusiness; }, [chooseBusiness]);
   const drafts = useRef(new Map<string, string>());
   const [draftRevision, setDraftRevision] = useState(0);
+  // A person the server lists no Business for (their access is an invitation not yet accepted) gets no Business
+  // screen: only the bar with their bell. Nothing that needs a Business is asked for, also while the listing loads.
+  const noBusiness = source.mode === "live" && directoryStatus === "ready" && spaces?.length === 0 && closedSpaces.length === 0 && !lostAccess && !closedAccess;
+  const awaitsBusiness = noBusiness || (source.mode === "live" && !chosenGrant && directoryStatus === "loading");
 
   const reload = useCallback(() => {
     setDirectoryStatus("loading");
@@ -563,7 +572,7 @@ function BusinessWorkspaceContent({
 
   useEffect(() => {
     let cancelled = false;
-    if (onRecord) return;
+    if (onRecord || awaitsBusiness) return;
     runQuietRetries(() => Promise.all([
       source.workspace(normalizeEnabledLanguage(i18n.language)),
       source.overview(period.from, period.to),
@@ -610,11 +619,10 @@ function BusinessWorkspaceContent({
     return () => {
       cancelled = true;
     };
-  }, [chosenGrant, i18n.language, onRecord, period.from, period.to, revision, source, reloadWaits]);
+  }, [chosenGrant, i18n.language, onRecord, awaitsBusiness, period.from, period.to, revision, source, reloadWaits]);
 
-  const notificationsAvailable = records.workspaceGrant === chosenGrant && records.workspace?.notifications_available === true;
   const receivingChannels = useMemo(() => businessReceivingChannels(records.workspaceGrant === chosenGrant ? records.workspace : null), [chosenGrant, records.workspace, records.workspaceGrant]);
-  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant, onAnswered: emailsAnswered });
+  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord && !awaitsBusiness, revision, businessKey: chosenGrant, onAnswered: emailsAnswered });
   const workspaceRecords = useMemo<Records>(
     () => ({ ...records, emails: emailDeliveries.items, emailsFailure: emailDeliveries.failure }),
     [records, emailDeliveries.items, emailDeliveries.failure],
@@ -642,7 +650,7 @@ function BusinessWorkspaceContent({
 
   useEffect(() => {
     let cancelled = false;
-    if (onRecord) return;
+    if (onRecord || awaitsBusiness) return;
     source.captures("", NOTES_PAGE, "inbox").then(
       (page) => {
         if (cancelled) return;
@@ -658,7 +666,7 @@ function BusinessWorkspaceContent({
     return () => {
       cancelled = true;
     };
-  }, [onRecord, revision, notesAttempt, source, reloadWaits]);
+  }, [onRecord, awaitsBusiness, revision, notesAttempt, source, reloadWaits]);
 
   const retryEmails = emailDeliveries.refresh;
   const retrySources = useCallback((sources: readonly BandejaSource[]) => {
@@ -778,6 +786,19 @@ function BusinessWorkspaceContent({
   const composerPlaceholder = records.workspace?.assistant_available
     ? t("business.composer.placeholder_ask", "Ask about your saved expenses")
     : t("business.composer.placeholder", "Write a message");
+  // From the email link the person goes straight into that Business. From the bell they stay where they are
+  // and the confirmation offers the way in. A person with no Business has nowhere to stay, so they go in too.
+  const acceptedInvitation = useCallback((grantId: string, via: AcceptedVia) => {
+    const text = t("business_access.invitation_accepted");
+    if (via === "link" || !chosen) {
+      chooseBusiness(grantId);
+      reload();
+      showToast({ kind: "success", text });
+      return;
+    }
+    reload();
+    showToast({ kind: "success", text, action: { label: t("business.notifications.go_to_business"), run: () => enterBusiness.current(grantId) } });
+  }, [chosen, chooseBusiness, reload, t]);
   const workspace = useMemo<ChatWorkspace>(() => {
     const island = (phone = false) => closedAccessName ? null : <ReceiptUploadIsland key={chosenGrant} phone={phone} drawer={recordDrawer}
       queue={uploadQueue} grant={chosenGrant} panelOpen={Boolean(intakeTarget)} onOpen={target => {
@@ -792,29 +813,31 @@ function BusinessWorkspaceContent({
       // The person's account sits at the top right on a desktop; the rail keeps the business and its screens.
       profileInHeader: true,
       keyboardShortcuts,
-      bottomNavigation: (shell) => !closedAccessName && shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
-      panelHasComposer: panel.kind === "overview" && !closedAccessName,
-      sidebarNav: (shell) => closedAccessName ? null : <BusinessSidebarNav shell={shell} />,
-      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId)&&canStartBusiness:Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
-      sidebarMark: () => <BusinessMark businessId={chosen?.space_id} name={businessTitle} />,
+      bottomNavigation: (shell) => !closedAccessName && !noBusiness && shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
+      panelHasComposer: panel.kind === "overview" && !closedAccessName && !noBusiness,
+      sidebarNav: (shell) => closedAccessName || noBusiness ? null : <BusinessSidebarNav shell={shell} />,
+      sidebarHeader: (shell) => shell.isBelowTablet || noBusiness ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId)&&canStartBusiness:Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
+      sidebarMark: () => noBusiness ? null : <BusinessMark businessId={chosen?.space_id} name={businessTitle} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId)&&canStartBusiness:Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet && !noBusiness ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId)&&canStartBusiness:Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
-        {shell.isBelowTablet && shell.openSearch ? <div className="relative isolate">
-          {island(true)}
-          <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} />
-        </div> : null}
-        {localPreview && !shell.isBelowTablet && shell.openPersonalInvitation ? <Tooltip content={t("cuadrao_invitation.title")} side="bottom">
-          <button type="button" data-testid="personal-invitation-shortcut" aria-label={t("cuadrao_invitation.title")} aria-haspopup="dialog" onClick={(event) => shell.openPersonalInvitation?.(event.currentTarget)} className="flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0]">
-            <HandHeart className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </Tooltip> : null}
-        <AmountsToggle />
-        {notificationsAvailable ? <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen ? businessTitle : undefined} emailAvailable={receivingChannels.email.available} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} /> : null}
+        {noBusiness ? null : <>
+          {shell.isBelowTablet && shell.openSearch ? <div className="relative isolate">
+            {island(true)}
+            <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} />
+          </div> : null}
+          {localPreview && !shell.isBelowTablet && shell.openPersonalInvitation ? <Tooltip content={t("cuadrao_invitation.title")} side="bottom">
+            <button type="button" data-testid="personal-invitation-shortcut" aria-label={t("cuadrao_invitation.title")} aria-haspopup="dialog" onClick={(event) => shell.openPersonalInvitation?.(event.currentTarget)} className="flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0]">
+              <HandHeart className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </Tooltip> : null}
+          <AmountsToggle />
+        </>}
+        {notificationsAvailable && (localPreview || consent.accepted) ? <BusinessNotifications businessId={chosen?.space_id} businessName={chosen ? businessTitle : undefined} emailAvailable={receivingChannels.email.available} preview={localPreview} openWhenWaiting={noBusiness} onInvitationAccepted={acceptedInvitation} onAction={(tab) => openPanel({ kind: "business", tab })} /> : null}
       </>,
-      headerSearch: (shell) => <BusinessHeader island={shell.isBelowTablet ? null : island()} home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={businessTitle} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
+      headerSearch: (shell) => noBusiness ? <BusinessHeader home name={shell.greetingName} /> : <BusinessHeader island={shell.isBelowTablet ? null : island()} home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={businessTitle} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
       // The screens read the bridge this render was given: the stored `bridge` arrives one commit later.
-      panel: (shell) => <PanelShellProvider value={shell}>{closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>}</PanelShellProvider>,
+      panel: (shell) => <PanelShellProvider value={shell}>{closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : noBusiness ? null : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>}</PanelShellProvider>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
       search: businessSearch,
@@ -837,7 +860,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [notificationsAvailable, canStartBusiness, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, chosenGrant, intakeTarget, recordDrawer, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
+  }, [notificationsAvailable, noBusiness, consent.accepted, acceptedInvitation, canStartBusiness, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploadQueue, chosenGrant, intakeTarget, recordDrawer, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>
