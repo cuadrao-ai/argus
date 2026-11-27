@@ -14,13 +14,22 @@ import { randomId } from "@/lib/random-id";
 import { referenceCode } from "@/lib/failure-screen";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { ErrorSummary, FormField, SelectField, useFieldChecks, type FieldRules } from "@/components/ui/FormField";
-import { BusinessContext } from "./BusinessWorkspace";
+import { BusinessContext, type BusinessPanelState } from "./BusinessWorkspace";
 import { formatBusinessName } from "./business-format";
 import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import DgiiRegistryStatus, { registryStatusOf, useRegistryLookup, type RegistryLookup, type RegistryStatusState } from "./DgiiRegistryStatus";
 
 const LENGTH = { rnc: 9, cedula: 11 } as const;
+
+// A late profile load may take focus once, only for the switch that opened it.
+const identityFocus = new WeakMap<BusinessPanelState, string>();
+
+export function focusIdentityAfterSwitch(row: HTMLButtonElement | null, panel: BusinessPanelState, grant?: string): void {
+  if (!row || !grant || identityFocus.get(panel) !== grant) return;
+  identityFocus.delete(panel);
+  if (row.ownerDocument.activeElement === row.ownerDocument.body) row.focus();
+}
 
 function digitsOf(raw: string): string {
   return raw.replace(/[ -]/g, "");
@@ -166,8 +175,10 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
       if (code === "business_rnc_registered") {
         const grant = context?.existing_grant_id;
         if (typeof grant === "string" && grant && workspace) {
+          const destination: BusinessPanelState = { kind: "business", tab: "datos" };
+          identityFocus.set(destination, grant);
           workspace.chooseBusiness(grant);
-          workspace.openPanel({ kind: "business", tab: "datos" });
+          workspace.openPanel(destination);
         } else {
           setProblem({ field: "number", text: t("business.dgii.error.business_rnc_registered"), retry: false });
         }
@@ -265,6 +276,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
               hint={numberHint}
               reserveMessages={[numberHint,t("business.dgii.error.tax_id_not_digits"),t(`business.dgii.tax_id_length_${kind}`),t("business.dgii.error.tax_id_all_zero")]}
               error={problem?.field === "number" ? problem.text : checks.errorOf("number")}
+              alertOnError={problem?.field === "number"}
               inputMode="numeric"
               autoComplete="off"
               spellCheck={false}

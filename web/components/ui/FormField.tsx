@@ -72,7 +72,8 @@ type FrameProps = {
 };
 
 /** The label above, the control, and one reserved line under it that holds the hint or the error. */
-function FieldFrame({ id, label, hint, error, success, reserveMessages, children, coach }: FrameProps & { children: ReactNode; coach?: ReactNode }) {
+function FieldFrame({ id, label, hint, error, success, reserveMessages, children, coach, alertOnError }: FrameProps & { children: ReactNode; coach?: ReactNode; alertOnError?: boolean }) {
+  const alert = Boolean(error && alertOnError);
   return (
     <div>
       <label htmlFor={id} className={fieldLabelClass}>
@@ -86,7 +87,7 @@ function FieldFrame({ id, label, hint, error, success, reserveMessages, children
             <span className="h-4 w-4 shrink-0" />{message}
           </p>
         ))}
-        <p id={noteId(id)} aria-live="polite" className={`${fieldNoteClass} col-start-1 row-start-1 ${error ? fieldNoteTone.error : success ? fieldNoteTone.success : fieldNoteTone.hint}`}>
+        <p id={noteId(id)} role={alert ? "alert" : undefined} aria-live={alert ? undefined : "polite"} className={`${fieldNoteClass} col-start-1 row-start-1 ${error ? fieldNoteTone.error : success ? fieldNoteTone.success : fieldNoteTone.hint}`}>
           {error ? <AlertCircle className="mt-[3px] h-4 w-4 shrink-0" aria-hidden="true" /> : null}
           {error || success || hint}
         </p>
@@ -113,9 +114,9 @@ type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type" | "c
 };
 
 /** A text field. Codes and numbers that are not quantities pass inputMode="numeric" and stay text. */
-export function FormField({ id, label, hint, error, success, reserveMessages, inputSuffix, ...input }: FrameProps & InputProps) {
+export function FormField({ id, label, hint, error, success, reserveMessages, inputSuffix, alertOnError, ...input }: FrameProps & InputProps & { alertOnError?: boolean }) {
   return (
-    <FieldFrame id={id} label={label} hint={hint} error={error} success={success} reserveMessages={reserveMessages}>
+    <FieldFrame id={id} label={label} hint={hint} error={error} success={success} reserveMessages={reserveMessages} alertOnError={alertOnError}>
       {inputSuffix ? <div data-input-suffix aria-invalid={error ? true : undefined} className={`${fieldClass} flex flex-wrap items-center focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--cuadrao-green)]`} style={{height:"auto",padding:0}}>
         <div className="relative min-w-0" style={{flex:"1 1 10rem"}}>
           <input type="text" {...input} {...controlProps(id, success || hint, error)} aria-describedby={[`${id}-suffix`,error || success || hint ? noteId(id) : null].filter(Boolean).join(" ")} className={`${fieldClass}${success && !error ? " pr-11" : ""}`} style={{marginTop:0,borderWidth:0,outline:"none",boxShadow:"none",background:"transparent"}} />

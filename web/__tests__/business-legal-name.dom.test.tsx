@@ -309,7 +309,10 @@ test.each([
     const number = document.querySelector<HTMLInputElement>('[name="tax-id-value"]')!;
     expect(number.value).toBe("131-00001-4");
     expect(number.getAttribute("aria-invalid")).toBe("true");
-    expect(document.getElementById(number.getAttribute("aria-describedby")!)?.textContent).toBe(message);
+    const note = document.getElementById(number.getAttribute("aria-describedby")!);
+    expect(note?.textContent).toBe(message);
+    expect(note?.getAttribute("role")).toBe("alert");
+    expect(note?.getAttribute("aria-live")).not.toBe("polite");
     expect(page.block()?.dataset.legalNameStatus).toBe("pending");
     expect(document.body.textContent).not.toMatch(/Solicitar acceso|Pedir acceso/);
     expect(writes(calls)).toEqual(["PATCH /business/fiscal-profile"]);
