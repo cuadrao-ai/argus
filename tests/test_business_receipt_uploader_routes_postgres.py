@@ -216,8 +216,7 @@ def phone(web, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
 
     def send(number: str, content: bytes) -> None:
         _set_whatsapp_tax_id(web)
-        enable_for_link = not _workspace_reading(web)["enabled"]
-        if enable_for_link:
+        if not _workspace_reading(web)["enabled"]:
             assert _reading(web, True).status_code == 200
         issued = web.client.post(
             f"{API}/whatsapp/link-codes",
@@ -233,8 +232,6 @@ def phone(web, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
                 text=issued.json()["message_text"],
             )
         )
-        if enable_for_link:
-            assert _reading(web, False).status_code == 200
         media_id = str(fake.random_number(digits=14, fix_len=True))
         graph.media[media_id] = wa.Media(content, "image/png")
         _post_phone_message(web, image(media_id, str(uuid4()), number))
