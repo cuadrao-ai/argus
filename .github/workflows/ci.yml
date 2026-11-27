@@ -325,6 +325,7 @@ jobs:
             e2e/reception-phone-width.spec.ts \
             e2e/reception-tab-url.spec.ts \
             e2e/record-tray-one-screen.spec.ts \
+            e2e/records-export-island.spec.ts \
             e2e/records-export-notices.spec.ts \
             e2e/records-table-hugs-rows.spec.ts
           PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
