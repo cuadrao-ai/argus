@@ -98,7 +98,7 @@ test("batch invitations keep selected roles and recipient acceptance targets the
  globalThis.fetch=async(url,init)=>{calls.push({url:String(url),body:JSON.parse(String(init?.body))});return Response.json(String(url).endsWith("/accept")?{space_id:"second",grant_id:"accepted-grant"}:{results:[{command_key:"member-key",email:"team@example.test",invite_id:"invite-one",state:"pending",delivery:"uncertain",code:null}]});};
  const result=await inviteBusinessMembers([{email:"team@example.test",role:"viewer",command_key:"member-key"}]);
  expect(calls[0].body).toEqual({recipients:[{email:"team@example.test",role:"viewer",command_key:"member-key"}]});expect(result.results[0].delivery).toBe("uncertain");
- const accepted=await acceptBusinessInvitation({id:"invite-one",space_id:"second",name:"Taller Luna",requested_role:"viewer",expires_at:"2026-11-02"});expect(calls[1].body).toEqual({space_id:"second"});expect(accepted.grant_id).toBe("accepted-grant");
+ const accepted=await acceptBusinessInvitation({id:"invite-one",business_id:"second"});expect(calls[1].body).toEqual({space_id:"second"});expect(accepted.grant_id).toBe("accepted-grant");
 });
 test("reload after a lost appearance reply reuses the committed Business and exact save command",async()=>{
  process.env.NEXT_PUBLIC_MOCK_AUTH="true";

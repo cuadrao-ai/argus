@@ -9,7 +9,6 @@ import {
   listEmailSenders,
   liveEmailSenderClient,
   parseEmailSenderList,
-  pendingSenderCount,
   senderCheckFailed,
   senderForView,
   senderMoves,
@@ -75,8 +74,6 @@ test("senders group by status and keep the order they arrived in", () => {
   assert.deepEqual(grouped.pending.map((item) => item.value), ["second@negocio.example", "first@negocio.example"]);
   assert.deepEqual(grouped.authorized.map((item) => item.value), ["owner@negocio.example"]);
   assert.deepEqual(grouped.blocked.map((item) => item.value), ["blocked@negocio.example"]);
-  assert.equal(pendingSenderCount(items), 2);
-  assert.equal(pendingSenderCount([{ ...items[2] }]), 0);
 });
 
 test("a list without the sender envelope is refused", () => {

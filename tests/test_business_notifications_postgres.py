@@ -87,7 +87,10 @@ def test_clients_cannot_read_or_update_any_notification(pool, identities, role):
                     db.execute(statement)
 
 
-def test_server_api_returns_and_updates_only_callers_items(pool, identities, monkeypatch):
+def test_the_bell_lists_live_invitations_and_keeps_read_state(pool, identities, monkeypatch):
+    """On Postgres the list is the access store's live invitations, each naming
+    its Business, and a reading survives a new store."""
+
     from argus.api import business_notifications as api
     from argus.api.business import BusinessPerson, require_business_person
     from argus.api.routers.business_notifications import router
@@ -97,30 +100,64 @@ def test_server_api_returns_and_updates_only_callers_items(pool, identities, mon
 
     monkeypatch.setenv("CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED", "true")
     monkeypatch.setattr(api, "business_access", lambda: PostgresAccessStore(pool))
-    business, recipient, other, subject = identities
-    store = PostgresNotificationStore(pool)
-    for person in (recipient, other):
-        store.put(business, person, "new_sender_waiting", subject)
-    own, foreign = store.list(business, recipient)[0], store.list(business, other)[0]
+    business, owner, invitee, _ = identities
+    alive, withdrawn = str(uuid4()), str(uuid4())
+    with pool.connection() as db:
+        db.execute(
+            "update auth.users set email=%s,email_confirmed_at=now() where id=%s",
+            (f"{invitee}@example.test", invitee),
+        )
+        for invite, revoked in ((alive, False), (withdrawn, True)):
+            db.execute(
+                "insert into public.business_access_invites"
+                "(id,space_id,issuer_id,email,requested_role,expires_at,revoked_at)"
+                " values(%s,%s,%s,%s,'editor',now()+interval '7 days',"
+                "case when %s then now() end)",
+                (invite, business, owner, f"{invitee}@example.test", revoked),
+            )
     app = FastAPI()
     app.include_router(router)
+    person = {"id": invitee}
     app.dependency_overrides[require_business_person] = lambda: BusinessPerson(
-        recipient, None
+        person["id"], None
     )
-    with TestClient(app) as client:
-        params = {"business_id": business}
-        response = client.get("/notifications", params=params)
-        assert response.status_code == 200
-        assert [row["id"] for row in response.json()["items"]] == [own.id]
-        assert (
-            client.post(f"/notifications/{foreign.id}/read", params=params).status_code
-            == 404
-        )
-        assert client.post("/notifications/read-all", params=params).json() == {
-            "updated": 1
-        }
-        assert client.get("/notifications", params=params).json()["unread_count"] == 0
-    assert store.list(business, other)[0].read_at is None
+    try:
+        with TestClient(app) as client:
+            assert client.get("/notifications").json() == {
+                "items": [
+                    {
+                        "id": alive,
+                        "kind": "invitation_received",
+                        "business_id": business,
+                        "business_name": "Test",
+                        "requested_role": "editor",
+                        "unread": True,
+                    }
+                ],
+                "unread_count": 1,
+            }
+            for updated in (1, 0):
+                assert client.post(
+                    "/notifications/read", json={"ids": [alive, withdrawn]}
+                ).json() == {"updated": updated}
+            assert client.get("/notifications").json()["unread_count"] == 0
+            person["id"] = owner
+            assert client.post("/notifications/read", json={"ids": [alive]}).json() == {
+                "updated": 0
+            }
+            assert client.get("/notifications").json() == {
+                "items": [],
+                "unread_count": 0,
+            }
+        assert PostgresNotificationStore(pool).read_subjects(
+            invitee, "invitation_received", [alive, withdrawn]
+        ) == {alive}
+    finally:
+        with pool.connection() as db:
+            db.execute(
+                "delete from public.business_access_invites where space_id=%s",
+                (business,),
+            )
 
 
 def test_partial_unique_index_and_resolution(pool, identities):
@@ -144,43 +181,36 @@ def test_partial_unique_index_and_resolution(pool, identities):
         )
 
 
-def test_concurrent_replay_and_read_state_on_new_store(pool, identities):
+def test_concurrent_readings_keep_one_row_and_the_writer_row_is_reused(pool, identities):
     business, recipient, other, subject = identities
     store = PostgresNotificationStore(pool)
+    store.put(business, recipient, "invitation_received", subject)
     with ThreadPoolExecutor(max_workers=4) as executor:
         list(
             executor.map(
-                lambda _: store.put(business, recipient, "new_sender_waiting", subject),
+                lambda _: store.mark_read(
+                    recipient, "invitation_received", [(business, subject)]
+                ),
                 range(12),
             )
         )
-    (row,) = store.list(business, recipient)
-    assert store.mark_read(business, other, row.id) == 0
-    assert store.mark_read(str(uuid4()), recipient, row.id) == 0
-    assert store.mark_read(business, recipient, row.id) == 1
-    second = PostgresNotificationStore(pool)
-    assert second.list(business, recipient)[0].read_at is not None
-    assert second.list(business, other) == []
-    assert second.mark_read(business, recipient) == 0
-
-
-def test_recent_resolved_rows_and_order_match_memory(pool, identities):
-    business, recipient, _, subject = identities
-    store = PostgresNotificationStore(pool)
-    store.put(business, recipient, "new_sender_waiting", subject)
-    store.resolve(business, "new_sender_waiting", subject)
     with pool.connection() as db:
-        db.execute(
-            "update public.business_notifications set resolved_at=now()-interval '31 days' where business_id=%s",
-            (business,),
-        )
-    assert store.list(business, recipient) == []
-    first, second = str(uuid4()), str(uuid4())
-    store.put(business, recipient, "invitation_received", first)
-    store.put(business, recipient, "invitation_received", second)
-    store.resolve(business, "invitation_received", second)
-    assert [row.subject_id for row in store.list(business, recipient)] == [second, first]
-    assert store.mark_read(business, recipient) == 3
+        rows = db.execute(
+            "select read_at from public.business_notifications"
+            " where business_id=%s and recipient_user_id=%s",
+            (business, recipient),
+        ).fetchall()
+    assert len(rows) == 1 and rows[0][0] is not None
+    second = PostgresNotificationStore(pool)
+    assert second.read_subjects(recipient, "invitation_received", [subject]) == {subject}
+    assert second.read_subjects(other, "invitation_received", [subject]) == set()
+    second.mark_read(recipient, "invitation_received", [(business, subject)])
+    with pool.connection() as db:
+        assert db.execute(
+            "select read_at from public.business_notifications"
+            " where business_id=%s and recipient_user_id=%s",
+            (business, recipient),
+        ).fetchall() == rows
 
 
 def test_deleting_recipient_cascades_only_their_personal_notifications(pool, identities):

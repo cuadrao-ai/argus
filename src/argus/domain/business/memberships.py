@@ -396,19 +396,6 @@ class PostgresMembershipCommands:
             invitation_changed(db, space_id, invite_id)
             return True
 
-    def refresh_notifications(self, business_id: str, user_id: str) -> None:
-        with self.pool.connection() as db:
-            rows = db.execute(
-                "select i.id::text from public.business_access_invites i"
-                " join public.business_notifications n on n.subject_id=i.id and n.business_id=i.space_id"
-                " where n.business_id=%s and n.recipient_user_id=%s"
-                " and n.kind='invitation_received' and n.resolved_at is null"
-                " and (i.accepted_at is not null or i.revoked_at is not null or i.expires_at<=clock_timestamp())",
-                (business_id, user_id),
-            ).fetchall()
-            for (invite_id,) in rows:
-                invitation_changed(db, business_id, invite_id)
-
     def accept_invites(self, user_id: str) -> int:
         return 0
 

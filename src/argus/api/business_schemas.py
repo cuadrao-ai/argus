@@ -100,6 +100,8 @@ class BusinessSpaces(_Wire):
     invitations_available: bool = False
     # Whether the caller may start a Business of their own.
     can_start_business: bool = False
+    # Whether the caller's bell is on: the notices addressed to them by name.
+    notifications_available: bool = False
 
 
 class StartBusinessSpace(_Wire):
@@ -172,7 +174,6 @@ class BusinessWorkspace(_Wire):
     chat_available: bool
     #: The server's one answer on Facturación; the client shows no entry point while false.
     invoicing_available: bool
-    notifications_available: bool
     #: The server's one answer on Por cobrar and Por pagar; the client shows none of it while false.
     settlement_available: bool
     #: The server's one answer on starting a draft from a typed note; the client offers no entry while false.
@@ -218,14 +219,6 @@ class BusinessAccess(_Wire):
         Literal["not_configured", "accepted", "failed", "uncertain"] | None
     ) = None
     invitations_available: bool = False
-
-
-class BusinessRecipientInvitation(_Wire):
-    id: str
-    space_id: str
-    name: GivenName
-    requested_role: BusinessRole
-    expires_at: datetime
 
 
 class BusinessInvitationAcceptance(_Wire):

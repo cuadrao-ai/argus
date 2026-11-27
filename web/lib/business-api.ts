@@ -372,7 +372,6 @@ export type BusinessWorkspaceInfo = {
   chat_available: boolean;
   /** Whether the server offers Facturación to this person; the one switch. */
   invoicing_available: boolean;
-  notifications_available?: boolean;
   /** Whether the server offers Por cobrar and Por pagar; the one switch. Absent in older payloads. */
   settlement_available?: boolean;
   /** Whether the server lets a typed note start a draft; the one switch. Absent in older payloads. */
@@ -581,6 +580,7 @@ const businessDirectory = z.object({
   closed_spaces: z.array(closedDirectorySpace).default([]),
   invitations_available: z.boolean().optional().default(false),
   can_start_business: z.boolean().optional(),
+  notifications_available: z.boolean().optional(),
 });
 export type ClosedGrantedSpace = z.infer<typeof closedDirectorySpace>;
 export type BusinessDirectory = {
@@ -589,6 +589,8 @@ export type BusinessDirectory = {
   invitations_available?: boolean;
   /** Whether the server lets this person start a Business of their own. */
   can_start_business?: boolean;
+  /** Whether the server offers this person the bell. */
+  notifications_available?: boolean;
 };
 
 /** Live and held-closed grants, distinguished by the server. */
@@ -897,10 +899,8 @@ export async function revokeBusinessAccessInvite(id: string): Promise<void> {
 }
 
 export const changeBusinessRole = async (id: string, role: BusinessRole): Promise<BusinessAccess> => accessProjection.parse(await businessSettingsRequest(`/business/access/grants/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ role }) }));
-export type RecipientInvitation = { id: string; space_id: string; name: string | null; requested_role: BusinessRole; expires_at: string };
-const recipientInvitation=z.object({id:z.string(),space_id:z.string(),name:z.string().nullable(),requested_role:businessRole,expires_at:z.string()});
-export const getBusinessInvitations = async (): Promise<RecipientInvitation[]> => z.array(recipientInvitation).parse(await businessSettingsRequest("/business/invitations"));
-export const acceptBusinessInvitation = async (invitation: RecipientInvitation): Promise<{ space_id: string; grant_id: string }> => z.object({space_id:z.string(),grant_id:z.string()}).parse(await businessSettingsRequest(`/business/invitations/${encodeURIComponent(invitation.id)}/accept`, { method: "POST", body: JSON.stringify({ space_id: invitation.space_id }) }));
+/** Accepts the invitation `id` to the Business `business_id`; the server checks it is this person's and alive. */
+export const acceptBusinessInvitation = async (invitation: { id: string; business_id: string }): Promise<{ space_id: string; grant_id: string }> => z.object({space_id:z.string(),grant_id:z.string()}).parse(await businessSettingsRequest(`/business/invitations/${encodeURIComponent(invitation.id)}/accept`, { method: "POST", body: JSON.stringify({ space_id: invitation.business_id }) }));
 export type BusinessInvitationCommand = { email: string; role: BusinessRole; command_key: string };
 export type BusinessInvitationResult = { command_key:string; email:string; invite_id:string|null; state:"already_member"|"accepted"|"revoked"|"pending"|"expired"|"refused"; delivery:"pending"|"accepted"|"failed"|"not_configured"|"uncertain"|null; code:string|null };
 const invitationResult=z.object({command_key:z.string(),email:z.string(),invite_id:z.string().nullable(),state:z.enum(["already_member","accepted","revoked","pending","expired","refused"]),delivery:z.enum(["pending","accepted","failed","not_configured","uncertain"]).nullable(),code:z.string().nullable()});

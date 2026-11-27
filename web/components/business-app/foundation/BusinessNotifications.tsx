@@ -9,10 +9,10 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { quietButtonClass } from "../business-ui";
-import { formatBusinessName } from "../business-format";
 import styles from "./business-notifications.module.css";
-import { acceptBusinessInvitation, getBusinessInvitations, type RecipientInvitation } from "@/lib/business-api";
-import { listEmailSenders, pendingSenderCount } from "@/lib/business-email";
+import { forgetPendingInvite, pendingInviteId } from "@/lib/business-pending-invite";
+import BusinessInvitationNotices, { type AcceptedVia } from "./BusinessInvitationNotices";
+import { useBusinessNotices } from "./useBusinessNotices";
 
 type Filter = "all" | "unread";
 export type NotificationTarget = "equipo" | "correo" | "datos";
@@ -30,12 +30,15 @@ const SAMPLE_NOTICES: readonly Notice[] = [
 ];
 
 type Props = {
+  /** The local design preview: sample notices of the chosen Business, no server. */
+  preview?: boolean;
   businessId?: string;
   businessName?: string;
-  preview?: boolean;
   emailAvailable?: boolean;
   onAction?: (target: NotificationTarget) => void;
-  onInvitationAccepted?: (grantId:string)=>void;
+  /** Opens by itself when the person has a notice waiting: they have no Business to work in yet. */
+  openWhenWaiting?: boolean;
+  onInvitationAccepted?: (grantId: string, via: AcceptedVia) => void;
 };
 
 function NotificationFilter({ value, onChange }: { value: Filter; onChange: (value: Filter) => void }) {
@@ -79,45 +82,49 @@ function NotificationFilter({ value, onChange }: { value: Filter; onChange: (val
   </div>;
 }
 
-export default function BusinessNotifications({ businessId, businessName, preview = false, emailAvailable = false, onAction, onInvitationAccepted }: Props) {
+/**
+ * The bell is the person's, not the Business's: live, it shows the notices the
+ * server holds for them from any Business, and the server keeps what was read.
+ */
+export default function BusinessNotifications({ businessId, businessName, preview = false, emailAvailable = false, onAction, openWhenWaiting = false, onInvitationAccepted }: Props) {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [read, setRead] = useState<Record<string, boolean>>({});
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
-  const [invitations,setInvitations]=useState<RecipientInvitation[]|null>(null);
-  const [invitationError,setInvitationError]=useState(false);
-  const [accepting,setAccepting]=useState<string|null>(null);
-  const [acceptFailed,setAcceptFailed]=useState(false);
-  const [acceptRefused,setAcceptRefused]=useState<Set<string>>(new Set());
-  const [invitationAttempt,setInvitationAttempt]=useState(0);
-  const [pendingSenders,setPendingSenders]=useState(0);
-  const invitationLive=useRef(true);
-  useEffect(()=>{
-    setPendingSenders(0);
-    if(preview || !emailAvailable)return undefined;
-    let current=true;
-    const controller=new AbortController();
-    listEmailSenders(controller.signal).then((items)=>{if(current)setPendingSenders(pendingSenderCount(items));},()=>{if(current)setPendingSenders(0);});
-    return()=>{current=false;controller.abort();};
-  },[preview,emailAvailable,businessId,invitationAttempt]);
-  useEffect(()=>{
-    invitationLive.current=true;
-    if(!preview){setInvitationError(false);getBusinessInvitations().then(value=>{if(invitationLive.current)setInvitations(value);},()=>{if(invitationLive.current)setInvitationError(true);});}
-    return()=>{invitationLive.current=false;};
-  },[preview,businessId,invitationAttempt]);
-  const acceptInvitation=async(invitation:RecipientInvitation)=>{
-    if(accepting||acceptRefused.has(invitation.id))return;
-    setAccepting(invitation.id);setAcceptFailed(false);
-    try{
-      const accepted=await acceptBusinessInvitation(invitation);
-      if(!invitationLive.current)return;
-      setInvitations(current=>current?.filter(item=>item.id!==invitation.id)??null);
-      close();onInvitationAccepted?.(accepted.grant_id);
-    }catch(error){if(invitationLive.current){setAcceptFailed(true);const status=error&&typeof error==="object"&&"status" in error?error.status:null;if(status===403||status===404||status===409)setAcceptRefused(current=>new Set([...current,invitation.id]));}}
-    finally{if(invitationLive.current)setAccepting(null);}
-  };
+  const live = useBusinessNotices(!preview);
+  const [fresh, setFresh] = useState<readonly string[]>([]);
+  const [linked, setLinked] = useState<string | null>(null);
+  const [gone, setGone] = useState(false);
+  const answeredLink = useRef<string | null>(null);
+  const openedByItself = useRef(false);
+  // The email link's invitation opens the bell on its row; one the server no longer lists says so, once.
+  useEffect(() => {
+    if (preview || live.load === "loading") return;
+    const pending = pendingInviteId();
+    if (pending && pending !== answeredLink.current) {
+      if (live.load === "ready") {
+        answeredLink.current = pending;
+        if (live.items.some((item) => item.id === pending)) setLinked(pending);
+        else { setGone(true); forgetPendingInvite(); }
+      }
+      if (live.load === "ready" || !openedByItself.current) setOpen(true);
+      openedByItself.current = true;
+    } else if (openWhenWaiting && live.load === "ready" && live.items.length && !openedByItself.current) {
+      openedByItself.current = true;
+      setOpen(true);
+    }
+  }, [preview, live.load, live.items, openWhenWaiting]);
+  // Opening is reading: the server marks what the panel shows, and those rows keep their dot until it closes.
+  const { markRead } = live;
+  useEffect(() => {
+    if (!open || live.load !== "ready") return;
+    const unreadIds = live.items.filter((item) => item.unread).map((item) => item.id);
+    if (!unreadIds.length) return;
+    setFresh((current) => [...current, ...unreadIds]);
+    markRead(unreadIds);
+  }, [open, live.load, live.items, markRead]);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -130,24 +137,22 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const title = t("business.notifications.title");
   const keyFor = (notice: Notice) => JSON.stringify([businessId, notice.id]);
   const samples = preview && businessId && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? SAMPLE_NOTICES.filter((notice) => (emailAvailable || notice.target !== "correo") && !dismissed[keyFor(notice)]) : [];
-  const senderNotice: Notice = { id: "sender", target: "correo", unread: true };
-  const liveSender = emailAvailable && !preview && pendingSenders > 0 && !dismissed[keyFor(senderNotice)] ? [senderNotice] : [];
-  const notices = [...liveSender, ...samples];
+  const notices = samples;
   const isUnread = (notice: Notice) => notice.unread && !read[keyFor(notice)];
   const unread = notices.filter(isUnread);
-  const pendingInvitations = !preview && !invitationError ? invitations?.length ?? 0 : 0;
-  const waiting = unread.length + pendingInvitations;
+  const waiting = preview ? unread.length : live.load === "ready" ? live.items.filter((item) => item.unread).length : 0;
   const visible = filter === "unread" ? unread : notices;
   const state = !notices.length ? "empty-all" : !visible.length ? "empty-unread" : "populated";
-  const close = () => { setOpen(false); triggerRef.current?.focus(); };
+  const dismiss = () => { setOpen(false); setFresh([]); setLinked(null); setGone(false); };
+  const close = () => { dismiss(); triggerRef.current?.focus(); };
   useOverlayLayer({
     isOpen: open && !isBelowTablet,
     overlayId: panelId,
     containerRef: rootRef,
     onEscape: close,
-    onOutsidePointerDown: () => setOpen(false),
+    onOutsidePointerDown: dismiss,
   });
-  useEffect(() => { if (open && !isBelowTablet) closeRef.current?.focus(); }, [open, isBelowTablet]);
+  useEffect(() => { if (open && !isBelowTablet && !linked) closeRef.current?.focus(); }, [open, isBelowTablet, linked]);
 
   useEffect(() => {
     if (state === "empty-all" && focusEmptyRef.current) {
@@ -162,22 +167,16 @@ export default function BusinessNotifications({ businessId, businessName, previe
     setRead((current) => ({ ...current, ...Object.fromEntries(unread.map((notice) => [keyFor(notice), true])) }));
   }}><CheckCheck aria-hidden="true" size={17} /></button></Tooltip>;
   const body = <div ref={bodyRef} className={styles.body}>
-    <div className={styles.toolbar}>
+    {preview ? <div className={styles.toolbar}>
       {businessName ? <p className={styles.businessName}>{businessName}</p> : null}
       {notices.length ? <NotificationFilter value={filter} onChange={setFilter} /> : null}
       {isBelowTablet && notices.length ? markAll : null}
-    </div>
+    </div> : null}
     <div className={styles.list}>
-      {!preview&&invitationError?<div className={styles.empty}><p role="alert">{t("business_access.error")}</p><button type="button" className={quietButtonClass} onClick={()=>setInvitationAttempt(value=>value+1)}>{t("common.retry")}</button></div>:!preview&&invitations===null?<div className="m-5 h-24 animate-pulse rounded-item bg-black/5" aria-busy="true"/>:null}
-      {!preview&&!invitationError&&invitations?.length?<ul aria-label={t("business_access.invitations_title")}>
-        {invitations.map(invitation=><li key={invitation.id} className={styles.row}>
-          <div className={styles.rowHeading}><h3 className={styles.unreadTitle}>{formatBusinessName(invitation.name, t("business.overview.title", "My business"))}</h3></div>
-          <p className={styles.description}>{t(`workspace_setup_preview.permission_${invitation.requested_role}`)} · {t("workspace_setup_preview.invite_pending")}</p>
-          <div className={styles.rowActions}><button type="button" className={`${quietButtonClass} ${styles.rowAction}`} disabled={Boolean(accepting)||acceptRefused.has(invitation.id)} onClick={()=>void acceptInvitation(invitation)}>{t("business_access.accept_invitation")}</button></div>
-        </li>)}
-      </ul>:null}
-      {acceptFailed?<p role="alert" className="px-5 pb-3 text-[14px] text-[#9e2f39]">{t("business_access.invitation_accept_failed")}</p>:null}
-      {visible.length ? <ul>
+      {!preview ? <BusinessInvitationNotices notices={live} fresh={fresh} linked={linked} gone={gone} listRef={bodyRef} onAccepted={(grantId, via) => {
+        if (via === "link") close();
+        onInvitationAccepted?.(grantId, via);
+      }} /> : visible.length ? <ul>
         {visible.map((notice) => <li key={notice.id} data-notice={notice.id} className={`${styles.row} ${notice.id === "profile" ? styles.productUpdate : ""}`}>
           <div className={styles.rowHeading}>
             <span className={styles.dotSlot}>{isUnread(notice) ? <span role="img" aria-label={t("business.notifications.unread_label")} className={styles.dot} /> : null}</span>
@@ -198,24 +197,24 @@ export default function BusinessNotifications({ businessId, businessName, previe
             }}><X aria-hidden="true" size={14} /></button>
           </div>
         </li>)}
-      </ul> : (preview||invitations!==null)&&!invitationError&&!invitations?.length ? <div className={styles.empty} data-notification-state={state}>
+      </ul> : <div className={styles.empty} data-notification-state={state}>
         <div className={styles.emptyArt}><Image src="/images/notifications/quiet-bell.png" alt="" width={88} height={88} sizes="88px" /></div>
         <h3 ref={emptyHeadingRef} tabIndex={-1} className={styles.emptyTitle}>{t(state === "empty-all" ? "business.notifications.empty_all_title" : "business.notifications.empty_unread_title")}</h3>
         <p className={styles.emptyDescription}>{state === "empty-unread"
           ? t("business.notifications.empty_unread_body")
           : t(businessName ? "business.notifications.empty_all_body_business" : "business.notifications.empty_all_body", { business: businessName })}</p>
         <div className={styles.emptyAction}>{state === "empty-unread" ? <button type="button" className={`${quietButtonClass} ${styles.rowAction}`} onClick={() => { focusFilter(); setFilter("all"); }}>{t("business.notifications.view_all")}</button> : null}</div>
-      </div>:null}
+      </div>}
     </div>
   </div>;
 
   return <div ref={rootRef} className="relative flex items-center" onBlur={(event) => {
-    if (!isBelowTablet && event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false);
+    if (!isBelowTablet && event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) dismiss();
   }}>
     <Tooltip content={title} side="bottom">
-      <button ref={triggerRef} type="button" data-testid="business-notifications-trigger" aria-label={title} aria-describedby={waiting ? unreadId : undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={open && !isBelowTablet ? panelId : undefined} onClick={() => { if (!open) setInvitationAttempt((value) => value + 1); setOpen(!open); }} className={`relative flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0] ${open ? "bg-[#e3ebe1] dark:bg-white/10" : ""}`}>
+      <button ref={triggerRef} type="button" data-testid="business-notifications-trigger" aria-label={title} aria-describedby={waiting ? unreadId : undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={open && !isBelowTablet ? panelId : undefined} onClick={() => { if (open) { close(); return; } if (!preview) live.refresh(); setOpen(true); }} className={`relative flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0] ${open ? "bg-[#e3ebe1] dark:bg-white/10" : ""}`}>
         <Bell className="h-5 w-5" aria-hidden="true" />
-        {waiting ? <><span aria-hidden="true" className={styles.bellDot} /><span id={unreadId} className="sr-only">{t("business.notifications.unread_count", { count: waiting })}</span></> : null}
+        {waiting ? <><span key={live.arrivals} aria-hidden="true" data-testid="business-notifications-dot" data-arrived={live.arrivals ? "" : undefined} className={styles.bellDot} /><span id={unreadId} className="sr-only">{t("business.notifications.unread_count", { count: waiting })}</span></> : null}
       </button>
     </Tooltip>
     {open && !isBelowTablet ? <div id={panelId} role="dialog" aria-labelledby={titleId} data-testid="business-notifications-popover" className={`${styles.popover} absolute right-0 top-full z-[70] mt-2 rounded-surface border border-[#DCE0DA] bg-[var(--cuadrao-menu-surface)] text-[#172b26] dark:border-white/10 dark:text-white`}>

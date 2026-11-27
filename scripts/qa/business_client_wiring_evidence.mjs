@@ -35,7 +35,7 @@ const grants = ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb
 const permissions = ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"];
 const profiles = new Map(ids.map((id, index) => [id, { space_id: id, name: index ? "Taller Sol" : "Colmado Luna", country: "DO", currency: "DOP", revision: 1, details: { address: index ? "Calle Sol 8" : "Calle Luna 12", province: "Distrito Nacional", municipality: "Santo Domingo", email: "contacto@example.test", phone: "809 555 0100", website: "https://negocio.example.test", description: "Negocio de muestra" }, appearance: { kind: "avatar", token: index ? "gold" : "teal", mark: "initials" }, image: null }]));
 const access = { grants: [{ id: grants[0], email: "pilot@example.test", display_name: "José de muestra", business_role: "owner", permissions, owner: true, capabilities: ["read", "prepare", "approve"], created_at: "2026-10-01T12:00:00Z" }, { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", email: "equipo@example.test", display_name: "Persona de muestra", business_role: "editor", permissions: ["read", "prepare", "download", "export"], owner: false, capabilities: ["read", "prepare"], created_at: "2026-10-02T12:00:00Z" }], invites: [] };
-let invitations = [{ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", space_id: "44444444-4444-4444-8444-444444444444", name: "Taller Invitado", requested_role: "admin", expires_at: "2026-11-02T12:00:00Z" }];
+let invitations = [{ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", kind: "invitation_received", business_id: "44444444-4444-4444-8444-444444444444", business_name: "Taller Invitado", requested_role: "admin", unread: true }];
 let config = { profileRefused:false,refuseInvitation:false,accessRefreshFailure:false, profileFailure: false, conflict: false, appearanceFailure: false, role: "owner", acceptFailure: false };
 let creates = 0;
 const history = [];
@@ -171,8 +171,12 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: fixturePort, async fetch
     access.invites = access.invites.filter((invite) => invite.id !== target);
     return new Response(null, { status: 204, headers });
   }
-  if (path === "/business/invitations")
-    return json(invitations);
+  if (path === "/business/notifications")
+    return json({ items: invitations, unread_count: invitations.filter((item) => item.unread).length });
+  if (path === "/business/notifications/read") {
+    invitations = invitations.map((item) => ({ ...item, unread: false }));
+    return json({ updated: invitations.length });
+  }
   if (path.endsWith("/accept")) {
     if (config.acceptFailure)
       return json({ code: "business_invitation_expired" }, 409);
