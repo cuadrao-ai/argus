@@ -105,7 +105,7 @@ describe("synthetic Business fallback", () => {
     const route = syntheticRoute("spaces?include_closed=false", "GET");
     await fulfillSyntheticBusinessFallback(route, { source, owner });
 
-    expect(route.responses).toEqual([{ spaces: [owner], closed_spaces: [] }]);
+    expect(route.responses).toEqual([{ spaces: [owner], closed_spaces: [], can_start_business: true }]);
   });
 
   test("returns the fixture month-close response for the app query string", async () => {
