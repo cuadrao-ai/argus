@@ -150,3 +150,27 @@ def test_the_older_list_route_is_gone(
 ) -> None:
     _, bob = people
     assert bob.get("/invitations").status_code in (404, 405)
+
+
+@pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
+def test_accepting_the_notice_gives_exactly_the_invited_role_and_empties_the_bell(
+    people: tuple[Owner, Owner],  # noqa: F811
+    invites_on: list[dict],  # noqa: F811
+    identities,  # noqa: ANN001
+    bell_on: None,
+    role: str,
+) -> None:
+    alice, bob = people
+    _invite(alice, identities[BOB]["email"], role)
+    [notice] = _bell(bob)["items"]
+    accepted = bob.post(
+        f"/invitations/{notice['id']}/accept", {"space_id": notice["business_id"]}
+    )
+    assert accepted.status_code == 200, accepted.text
+    [joined] = bob.get("/spaces").json()["spaces"]
+    assert (joined["space_id"], joined["grant_id"], joined["business_role"]) == (
+        notice["business_id"],
+        accepted.json()["grant_id"],
+        role,
+    )
+    assert _bell(bob) == {"items": [], "unread_count": 0}
