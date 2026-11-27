@@ -607,7 +607,7 @@ class InMemoryAccessStore:
         return datetime.now(timezone.utc)
 
     def _invite_alive(self, invite: dict) -> bool:
-        """The memory twin of ``LIVE_INVITE``."""
+        """The memory twin of ``LIVE_INVITE``; one test table runs every case on both."""
 
         if (
             invite["accepted_at"] is not None
