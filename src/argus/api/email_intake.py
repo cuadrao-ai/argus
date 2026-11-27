@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,8 +17,10 @@ from argus.api import state as api_state
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE, documents_service
 from argus.api.ingestion import ingestion_enabled
+from argus.domain.business.scope import BusinessScope
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.email_intake.alignment import bare_address
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 from argus.domain.ingestion.email_intake.models import EmailDelivery, EmailDeliveryPart
 from argus.domain.ingestion.email_intake.provider import ResendReceivingClient
@@ -269,6 +272,41 @@ async def stop_email_intake(app) -> None:  # noqa: ANN001
     configure_email_intake(None)
 
 
+def _reads_delivery(
+    runtime: EmailHistory, scope: BusinessScope
+) -> Callable[[EmailDelivery], bool]:
+    """Who reads which delivery. A person who manages the Business reads every
+    one; anyone else reads only the mail sent from their own account address."""
+
+    if "manage" in scope.permissions:
+        return lambda delivery: True
+    own = runtime.store.account_address(scope.acting_person_id)
+    return lambda delivery: own is not None and bare_address(delivery.sender) == own
+
+
+def readable_deliveries(
+    runtime: EmailHistory, scope: BusinessScope, *, limit: int | None
+) -> list[EmailDelivery]:
+    """The newest deliveries this person may read, at most ``limit`` of them."""
+
+    space_id = scope.owner.space_id
+    if "manage" in scope.permissions:
+        return runtime.store.list(space_id, limit=limit)
+    reads = _reads_delivery(runtime, scope)
+    return [d for d in runtime.store.list(space_id, limit=None) if reads(d)][:limit]
+
+
+def readable_delivery(
+    runtime: EmailHistory, scope: BusinessScope, delivery_id: str
+) -> EmailDelivery | None:
+    """One delivery of this Business, or none when this person may not read it."""
+
+    delivery = runtime.store.get(delivery_id, scope.owner.space_id)
+    if delivery is None or not _reads_delivery(runtime, scope)(delivery):
+        return None
+    return delivery
+
+
 def email_receipt_flags(
     space_id: str,
 ) -> dict[str, tuple[tuple[str, ...], bool, datetime | None]]:
@@ -314,13 +352,14 @@ def part_repeat(
     return None, earliest is not None and earliest < delivery.received_at
 
 
-def email_standings(space_id: str) -> list[EmailStanding]:
-    """The standing of every email in this Business that is a Bandeja row of its
-    own, independent of receiving availability."""
+def email_standings(scope: BusinessScope) -> list[EmailStanding]:
+    """The standing of every email this person may read that is a Bandeja row of
+    its own, independent of receiving availability."""
 
     runtime = email_history()
     if runtime is None:
         return []
+    space_id = scope.owner.space_id
     relations = runtime.store.membership(space_id)
     parts = runtime.store.parts_by_delivery(space_id)
     standings = (
@@ -331,6 +370,6 @@ def email_standings(space_id: str) -> list[EmailStanding]:
                 part_repeat(runtime, delivery, part, relations)
             ),
         )
-        for delivery in runtime.store.list(space_id, limit=None)
+        for delivery in readable_deliveries(runtime, scope, limit=None)
     )
     return [standing for standing in standings if standing is not None]

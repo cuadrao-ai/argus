@@ -240,7 +240,7 @@ describe("the one-time access line belongs to invitations", () => {
     assert.doesNotMatch(page.host.textContent ?? "", /Cliente:/, "the switcher already names the Business");
     const line = page.host.querySelector('[data-testid="business-access-line"]')!;
     assert.equal(line.getAttribute("role"), "status");
-    assert.ok(line.textContent?.includes("Ahora tienes acceso a Colmado Peña · Ver y preparar"));
+    assert.ok(line.textContent?.includes("Ahora tienes acceso a Colmado Peña · Editor"));
     const got = line.querySelector("button") as HTMLButtonElement;
     assert.equal(got.textContent, "Entendido");
     await page.act(async () => { got.click(); });
@@ -256,6 +256,15 @@ describe("the one-time access line belongs to invitations", () => {
     assert.equal(page.host.textContent, "");
     await page.act(async () => page.root.unmount());
   });
+
+  for (const [role, label] of [["admin", "Administrador"], ["editor", "Editor"], ["viewer", "Lector"]] as const) {
+    test(`the access line names the role the server gave: ${role}`, async () => {
+      const page = await mountCue({ ...CLIENT, business_role: role });
+      const line = page.host.querySelector('[data-testid="business-access-line"] span');
+      assert.equal(line?.textContent, `Ahora tienes acceso a Colmado Peña · ${label}`);
+      await page.act(async () => page.root.unmount());
+    });
+  }
 
   test("with invitations off a new client Business shows no access line", async () => {
     const page = await mountCue(CLIENT, false, false);

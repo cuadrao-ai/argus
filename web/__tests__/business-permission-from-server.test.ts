@@ -29,9 +29,6 @@ const ALLOWED: Record<string, Record<string, string>> = {
     'person.role==="owner"&&!chosen.permissions.includes("assign_owner")': "the listed person's own role; changing an owner is gated on the server's assign_owner",
     'memberEmail && memberRole === "owner" ?': "the local sketch, never live, seeds its preview owner from the person's own Business",
   },
-  "app/design-workspace/businessAccessPreviewState.ts": {
-    'role === "owner"&&!canAssignOwner': "an option in the role picker, gated on the server's assign_owner",
-  },
   "app/design-workspace/ReceiptReadingPreview.tsx": {
     'canChange=chosen?.role === "owner"': "local preview only; the live control reads the server's can_change, which is the owner's alone",
   },

@@ -548,6 +548,12 @@ def test_every_route_carrying_marks_answers_200_with_the_same_marks(world) -> No
     version = client.get(
         f"{API}/business/drafts/{draft}/dossier", headers=alice.headers
     ).json()["version"]
+    # Personal takes an accepted record out of the totals, so it needs approve.
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "update public.business_client_grants set business_role='admin' where id=%s",
+            (world.grant,),
+        )
     marked = _post(
         world,
         f"/business/drafts/{draft}/personal",
@@ -591,7 +597,7 @@ def test_every_route_carrying_marks_answers_200_with_the_same_marks(world) -> No
     # Left out of Gastos reales, kept in the list with its mark.
     assert overview.json()["totals"] == []
 
-    # The owner takes the accountant's mark back in one action; every view follows.
+    # The owner takes the admin's mark back in one action; every view follows.
     back = _post(
         world,
         f"/business/drafts/{draft}/personal",

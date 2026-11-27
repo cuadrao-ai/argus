@@ -115,31 +115,31 @@ test("sample mode fakes the success and never reaches the API",async()=>{
  }finally{await page.unmount();}
 });
 
-test("Lector is the default, and an owner can pick only Dueño and Lector while every role stays visible",async()=>{
- serve();
+const offered=()=>[...document.querySelectorAll<HTMLButtonElement>('[role="option"]')].map(option=>[option.querySelector("span span")?.textContent,option.getAttribute("aria-disabled")==="true"]);
+
+test("Lector is the default, and an owner can invite as any of the four roles",async()=>{
+ const sent=serve();
  const page=await mountForm();
  try{
   const picker=document.querySelector<HTMLButtonElement>('[role="combobox"]')!;
   expect(picker.textContent).toContain(copy.permission_viewer);
   await page.click(picker);
-  const options=[...document.querySelectorAll<HTMLButtonElement>('[role="option"]')];
-  expect(options.map(option=>[option.querySelector("span span")?.textContent,option.getAttribute("aria-disabled")==="true"])).toEqual([[copy.permission_owner,false],[copy.permission_admin,true],[copy.permission_editor,true],[copy.permission_viewer,false]]);
-  await page.click(options[1]);
-  expect(document.querySelector('[role="listbox"]')).not.toBeNull();
-  expect(picker.textContent).toContain(copy.permission_viewer);
+  expect(offered()).toEqual([[copy.permission_owner,false],[copy.permission_admin,false],[copy.permission_editor,false],[copy.permission_viewer,false]]);
+  await page.click(document.querySelectorAll<HTMLButtonElement>('[role="option"]')[1]);
+  expect(picker.textContent).toContain(copy.permission_admin);
+  await page.typeEmail(0,"admin@example.test");await page.submit();
+  await page.settle(()=>sent.length===1);
+  expect(sent[0]![0]!.role).toBe("admin");
  }finally{await page.unmount();}
 });
 
-test("a manager who is not an owner cannot reach an enabled Dueño choice",async()=>{
+test("a manager who is not an owner is offered Administrador, Editor and Lector, never Dueño",async()=>{
  const sent=serve();
  const page=await mountForm({permissions:MANAGER});
  try{
   const picker=document.querySelector<HTMLButtonElement>('[role="combobox"]')!;
   await page.click(picker);
-  const owner=[...document.querySelectorAll<HTMLButtonElement>('[role="option"]')][0]!;
-  expect(owner.textContent).toContain(copy.permission_owner);expect(owner.getAttribute("aria-disabled")).toBe("true");
-  await page.click(owner);
-  expect(picker.textContent).toContain(copy.permission_viewer);
+  expect(offered()).toEqual([[copy.permission_admin,false],[copy.permission_editor,false],[copy.permission_viewer,false]]);
   await page.click(picker);
   await page.typeEmail(0,"lector@example.test");await page.submit();
   await page.settle(()=>sent.length===1);

@@ -310,6 +310,28 @@ describe("daily question limit copy", () => {
     expect(catalog.chat).not.toHaveProperty("rate_limit_error");
   });
 });
+describe("Business access copy", () => {
+  test.each([
+    ["workspace_setup_preview.permission_admin_detail", "Configura el negocio, gestiona colaboradores y acepta registros.", "Sets up the business, manages collaborators and accepts records."],
+    ["business.dossier.prepare_only", "Puedes revisar y preparar este recibo. Lo acepta el dueño o un administrador.", "Your permission allows preparing this record. A person with acceptance permission must accept it."],
+    ["business.switcher.access_line", "Ahora tienes acceso a {{name}} · {{role}}", "You now have access to {{name}} · {{role}}"],
+    ["business.lifecycle.transfer.accept_body", "Serás el dueño. Solo tú podrás cerrar o transferir el negocio. {{ownerName}} podrá seguir editando. La lectura automática de documentos se apaga hasta que tú o un administrador la activen. No se puede deshacer.", "You will become the owner. Only you can close or transfer the business. {{ownerName}} can keep editing. Automatic document reading turns off until you or an admin turn it on. This cannot be undone."],
+  ])("%s carries the approved words", (key, spanish, english) => {
+    expect(translationAt(es419, key)).toBe(spanish);
+    expect(translationAt(en, key)).toBe(english);
+  });
+
+  test.each([
+    ["owner", "Dueño", "Owner"],
+    ["admin", "Administrador", "Admin"],
+    ["editor", "Editor", "Editor"],
+    ["viewer", "Lector", "Viewer"],
+  ])("the access line has a role label for %s", (role, spanish, english) => {
+    expect(translationAt(es419, `workspace_setup_preview.permission_${role}`)).toBe(spanish);
+    expect(translationAt(en, `workspace_setup_preview.permission_${role}`)).toBe(english);
+  });
+});
+
 test("Spanish period words carry their accent throughout the locale", () => {
   const text = JSON.stringify(es419);
   expect(text.match(/periodo/gi) ?? []).toEqual([]);

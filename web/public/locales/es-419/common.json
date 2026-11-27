@@ -2934,7 +2934,7 @@
       "approve_next": "Aceptar y siguiente",
       "approving": "Aceptando…",
       "approval_effect": "Aceptar registra esta revisión como un gasto. Guardar los detalles de revisión no lo registra.",
-      "prepare_only": "Puedes revisar y preparar este recibo. El dueño lo acepta.",
+      "prepare_only": "Puedes revisar y preparar este recibo. Lo acepta el dueño o un administrador.",
       "read_only": "Tu permiso permite ver este registro.",
       "confirm": {
         "accept_anyway": "Aceptar de todos modos",
@@ -4165,7 +4165,7 @@
       "reopen_access": "Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes.",
       "transfer": {
         "accept": "Aceptar transferencia",
-        "accept_body": "Serás el dueño. Solo tú podrás aceptar registros, cerrar el negocio y dar o quitar accesos. {{ownerName}} podrá seguir editando. La lectura automática de documentos se apaga hasta que tú la actives. No se puede deshacer.",
+        "accept_body": "Serás el dueño. Solo tú podrás cerrar o transferir el negocio. {{ownerName}} podrá seguir editando. La lectura automática de documentos se apaga hasta que tú o un administrador la activen. No se puede deshacer.",
         "accept_title": "¿Aceptar {{businessName}}?",
         "accepted": "Transferencia completada",
         "cancelled": "Transferencia retirada",
@@ -4669,7 +4669,7 @@
       "role_owner": "Dueño",
       "role_accountant": "Contador",
       "role_viewer": "Ver",
-      "access_line": "Ahora tienes acceso a {{name}} · Ver y preparar",
+      "access_line": "Ahora tienes acceso a {{name}} · {{role}}",
       "got_it": "Entendido",
       "settings": "Configurar negocio"
     },
@@ -4889,7 +4889,7 @@
     "permission_owner": "Dueño",
     "permission_owner_detail": "Acceso completo al negocio. Puede aceptar registros e invitar a otros dueños.",
     "permission_admin": "Administrador",
-    "permission_admin_detail": "Configura el negocio y gestiona colaboradores. No puede aceptar registros.",
+    "permission_admin_detail": "Configura el negocio, gestiona colaboradores y acepta registros.",
     "permission_editor": "Editor",
     "permission_editor_detail": "Agrega documentos y prepara registros. No puede aceptarlos ni administrar el negocio.",
     "permission_viewer": "Lector",

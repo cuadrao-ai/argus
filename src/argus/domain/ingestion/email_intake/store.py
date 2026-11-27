@@ -144,6 +144,8 @@ class EmailStore(Protocol):
 
     def membership(self, space_id: str) -> dict[str, EmailRelation]: ...
 
+    def account_address(self, person_id: str) -> str | None: ...
+
 
 _UPDATABLE = {"original_document_id", "subject", "sender", "sent_at", "text_body"}
 

@@ -162,7 +162,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     : sentCount < createdCount ? t(copy("invite_pending_detail"))
     : sentCount === 1 ? t(copy("batch_success_one")) : t(copy("batch_success"), { count: sentCount });
   const removable = rows.length > 1;
-  const roleOptions = accessRoleOptions(t, Boolean(chosen?.permissions?.includes("assign_owner")));
+  const roleOptions = accessRoleOptions(t, chosen?.permissions);
   const changeRow = (id: string, patch: Partial<Row>) => setRows(current => current.map(row => row.id === id ? { ...row, ...patch } : row));
   const focusLastEmail = () => requestAnimationFrame(() => {
     const fields = form.current?.querySelectorAll<HTMLInputElement>("[data-recipient-email]");
