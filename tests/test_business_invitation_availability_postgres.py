@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from tests import test_financial_accounts_postgres as shared
 from tests.business_cleanup import delete_spaces
 from tests.local_supabase_support import local_supabase_gateway
+from tests.test_business_access_invites_work_postgres import age_sends
 from tests.test_financial_accounts_api_postgres import ORIGIN
 
 pytestmark = pytest.mark.skipif(
@@ -318,6 +319,7 @@ def test_configured_on_create_and_resend_persist(world) -> None:
     assert created.status_code == 201, created.text
     assert created.json()["invite_delivery"] == "accepted"
     [invite] = created.json()["invites"]
+    age_sends(space_id, "2 minutes")
     resent = world.client.post(
         f"{API}/business/access/invites/{invite['id']}/resend",
         headers=world.owner_a["headers"],
