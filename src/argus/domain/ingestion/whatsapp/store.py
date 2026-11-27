@@ -27,7 +27,7 @@ from argus.domain.ingestion.whatsapp.ai_consent import (
     matches_link_disclosure,
     require_link_disclosure,
 )
-from argus.domain.owner_scope import BusinessSpace
+from argus.domain.owner_scope import BusinessSpace, scope_of
 
 if TYPE_CHECKING:
     from psycopg import Connection
@@ -81,6 +81,14 @@ class Claim:
 
 
 @dataclass(frozen=True)
+class CaptureSource:
+    content: bytes = field(repr=False)
+    filename: str
+    media_type: str
+    caption: str | None
+
+
+@dataclass(frozen=True)
 class Settlement:
     status: SettledStatus
     destination_owner_id: str | None = None
@@ -92,16 +100,14 @@ class Settlement:
     duplicate: bool = False
     reading: bool = False
     reply_language: str | None = None
-    # The staged document stays in this location if access changes during capture.
+    # The sender link observed before the download, and the staged document location.
+    sender_link_id: str | None = None
+    original: CaptureSource | None = field(default=None, repr=False, compare=False)
     storage_user_id: str | None = None
     space_id: str | None = None
 
 
-class CapturePermissionLost(Exception):
-    """The sender lost permission before the staged receipt was published."""
-
-
-PrepareCapture = Callable[["Connection | None", Settlement], bool]
+PrepareCapture = Callable[["Connection | None", Settlement, bytes], Settlement]
 
 
 def settlement_time(now: datetime | Callable[[], datetime]) -> datetime:
@@ -132,6 +138,10 @@ class SenderLink:
     last4: str
     linked_at: datetime
     reply_language: ReplyLanguage
+    id: str
+
+    def authorizes(self, settlement: Settlement) -> bool:
+        return self.id == settlement.sender_link_id and self.destination_owner_id == settlement.destination_owner_id
 
 
 class WhatsAppStore(Protocol):
@@ -198,6 +208,8 @@ class WhatsAppStore(Protocol):
         """Consume the code and make its sender link active, carrying its language."""
         ...
 
+    def eligible_businesses(self, person_id: str) -> tuple[GrantedSpace, ...]: ...
+
     def sender_link(self, *, sender_hash: bytes) -> SenderLink | None: ...
 
     def destination_link(self, *, destination_owner_id: str) -> SenderLink | None: ...
@@ -243,7 +255,7 @@ class InMemoryWhatsAppStore:
         eligible_businesses: Callable[[str], tuple[GrantedSpace, ...]],
     ) -> None:
         self._connections = connections
-        self._eligible_businesses = eligible_businesses
+        self.eligible_businesses = eligible_businesses
         self._lock = access._lock
         self._inbound: dict[bytes, InboundRecord] = {}
         self._codes: dict[bytes, _Code] = {}
@@ -310,35 +322,30 @@ class InMemoryWhatsAppStore:
                 return None
             link_id = None
             if settlement.connection_id is not None:
-                link = next(
-                    (
-                        link
-                        for link in self._links
-                        if link.active
-                        and link.owner == settlement.destination_owner_id
-                        and link.sender == current.sender_hash
-                    ),
-                    None,
+                link = (
+                    self.sender_link(sender_hash=current.sender_hash)
+                    if current.sender_hash
+                    else None
                 )
-                document = self._business_connection(
-                    settlement.storage_user_id,
-                    settlement.connection_id,
-                )
-                if (
-                    link is None
-                    or document is None
-                    or settlement.space_id is None
-                    or document.scope != BusinessSpace(settlement.space_id)
-                ):
+                if link is None or not link.authorizes(settlement):
                     settlement = revoked(settlement)
                 else:
-                    link_id = link.id
+                    document = self._connection(
+                        settlement.storage_user_id, settlement.connection_id
+                    )
+                    if document is None or document.scope != scope_of(
+                        settlement.space_id
+                    ):
+                        settlement = replace(
+                            settlement,
+                            status="rejected",
+                            connection_id=None,
+                            error_code="whatsapp_media_invalid",
+                        )
+                    else:
+                        link_id = link.id
             if prepare is not None and settlement.status == "captured":
-                try:
-                    settlement = replace(settlement, reading=prepare(None, settlement))
-                except CapturePermissionLost:
-                    settlement = revoked(settlement)
-                    link_id = None
+                settlement = prepare(None, settlement, provider_message_key)
             self._inbound[provider_message_key] = replace(
                 current,
                 status=settlement.status,
@@ -394,18 +401,17 @@ class InMemoryWhatsAppStore:
             )
             return True
 
-    def _business_connection(
+    def _connection(
         self, user_id: str | None, connection_id: str
     ) -> SourceConnection | None:
         if user_id is None:
             return None
         try:
-            row = self._connections.get_any_scope(
+            return self._connections.get_any_scope(
                 user_id=user_id, connection_id=connection_id
             )
         except ConnectionNotFound:
             return None
-        return row if isinstance(row.scope, BusinessSpace) else None
 
     def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
         with self._lock:
@@ -414,8 +420,8 @@ class InMemoryWhatsAppStore:
                 for record in self._inbound.values()
                 if record.status == "captured"
                 and record.connection_id is not None
-                and self._business_connection(destination_owner_id, record.connection_id)
-                is not None
+                and (row := self._connection(destination_owner_id, record.connection_id)) is not None
+                and isinstance(row.scope, BusinessSpace)
             )
 
     def issue_code(
@@ -449,7 +455,7 @@ class InMemoryWhatsAppStore:
                 return None
             if not matches_link_disclosure(code.reply_language, code.disclosure):
                 return None
-            if not self._eligible_businesses(code.owner):
+            if not self.eligible_businesses(code.owner):
                 return None
             for link in self._links:
                 if link.active and (
@@ -458,13 +464,13 @@ class InMemoryWhatsAppStore:
                     link.active = False
             link = _Link(code.owner, sender_hash, last4, now, code.reply_language)
             self._links.append(link)
-            return SenderLink(link.owner, link.last4, link.linked_at, link.reply_language)
+            return SenderLink(link.owner, link.last4, link.linked_at, link.reply_language, link.id)
 
     def _active(self, predicate) -> SenderLink | None:  # noqa: ANN001
         for link in self._links:
             if link.active and predicate(link):
                 return SenderLink(
-                    link.owner, link.last4, link.linked_at, link.reply_language
+                    link.owner, link.last4, link.linked_at, link.reply_language, link.id
                 )
         return None
 

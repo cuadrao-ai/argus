@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from contextlib import nullcontext
-from copy import copy
 from dataclasses import dataclass, replace
+from hashlib import sha256
 
 import httpx
 from fastapi import Depends, HTTPException, Request
@@ -29,23 +30,21 @@ from argus.api.documents import documents_service, record_dispatch_preparation
 from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingestion_context
 from argus.domain.business import analytics as business_analytics
 from argus.domain.business.access import AccessStore, GrantedSpace, PostgresAccessStore
-from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
-from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
-from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.documents.models import DocumentDraft, DocumentExtractionError
 from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
+    document_ref,
 )
-from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.whatsapp.ai_consent import AIConsentStore
 from argus.domain.ingestion.whatsapp.config import (
     WhatsAppSettings,
     load_whatsapp_settings,
 )
+from argus.domain.ingestion.whatsapp.held import MARK, held_files
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
 from argus.domain.ingestion.whatsapp.intake import (
     Captured,
@@ -54,7 +53,10 @@ from argus.domain.ingestion.whatsapp.intake import (
     WhatsAppIntake,
 )
 from argus.domain.ingestion.whatsapp.media import GraphMedia
-from argus.domain.ingestion.whatsapp.receipt_consent import receipt_consent_store
+from argus.domain.ingestion.whatsapp.receipt_consent import (
+    receipt_consent_store,
+    receipt_reading_enabled,
+)
 from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
 from argus.domain.ingestion.whatsapp.reply_groups import ReplyGroupCodec
 from argus.domain.ingestion.whatsapp.senders import (
@@ -63,14 +65,12 @@ from argus.domain.ingestion.whatsapp.senders import (
     preparing_businesses,
 )
 from argus.domain.ingestion.whatsapp.store import (
-    SENDER_LINK_REVOKED,
-    CapturePermissionLost,
     InMemoryWhatsAppStore,
     SenderLink,
     Settlement,
     WhatsAppStore,
 )
-from argus.domain.owner_scope import BusinessSpace
+from argus.domain.owner_scope import PERSONAL, BusinessSpace, scope_of, space_id
 from argus.domain.postgres_connection import BorrowedConnection
 
 WEBHOOK_PATH = "/api/v1/webhooks/whatsapp"
@@ -103,15 +103,14 @@ _REJECTED_CAPTURE = {
 
 
 class DocumentsDestination:
-    """Stages a receipt in the current landing Business under the sender's grant."""
+    """Stage one eligible Business directly, or keep the sender's original private."""
 
     def __init__(
         self,
         documents: DocumentsService,
-        spaces: SpaceStore,
-        access: AccessStore,
+        eligible_businesses: Callable[[str], tuple[GrantedSpace, ...]],
     ) -> None:
-        self.documents, self.spaces, self.access = documents, spaces, access
+        self.documents, self.eligible_businesses = documents, eligible_businesses
 
     async def capture(
         self,
@@ -122,73 +121,180 @@ class DocumentsDestination:
         media_type: str,
         source_text: str | None = None,
     ) -> Captured:
-        # Keep the existing landing Business. The sender acts under their own grant.
-        scope = await asyncio.to_thread(resolve_business_scope, self.spaces, owner_id)
-        if scope is None:
-            raise CaptureRejected(SENDER_LINK_REVOKED)
-        capabilities = await asyncio.to_thread(
-            self.access.capabilities, scope.owner.space_id, owner_id
-        )
-        if "prepare" not in capabilities:
-            raise CaptureRejected("business_permission_denied")
+        grants = await asyncio.to_thread(self.eligible_businesses, owner_id)
+        grant = grants[0] if len(grants) == 1 else None
+        if grant is not None:
+            private_ref = document_ref(
+                owner_id, PERSONAL, sha256(content).hexdigest(), MARK
+            )
+            private = await asyncio.to_thread(
+                self.documents.hub.connections.find_live,
+                source=self.documents.source,
+                external_ref=private_ref,
+            )
+            if private:
+                grant = None
+        scope = BusinessSpace(grant.space_id) if grant else PERSONAL
+        custodian = grant.owner_id if grant else owner_id
         try:
             outcome = await self.documents.upload(
-                user_id=scope.person_id,
+                user_id=custodian,
                 content=content,
                 filename=filename,
                 media_type=media_type,
                 source_text=source_text,
-                scope=scope.owner,
+                scope=scope,
+                namespace=None if grant else MARK,
                 defer_capture=True,
             )
         except DocumentExtractionError as error:
             raise CaptureRejected(
                 _REJECTED_CAPTURE.get(error.code, "whatsapp_media_invalid")
             ) from None
-        except DocumentServiceError:
-            raise CaptureFailed("whatsapp_capture_failed") from None
-        if not outcome.replayed:
-            business_analytics.document_received(
-                channel="whatsapp",
-                business_id=scope.owner.space_id,
-                user_id=owner_id,
-                media_type=media_type,
-                size_bytes=len(content),
-            )
+        except DocumentServiceError as error:
+            if grant is None:
+                raise
+            raise CaptureFailed(
+                "whatsapp_capture_failed", retry_delivery=error.retryable
+            ) from None
         return Captured(
             outcome.connection_id,
             already_held=outcome.replayed,
-            storage_user_id=scope.person_id,
-            space_id=scope.owner.space_id,
+            storage_user_id=custodian,
+            space_id=space_id(scope),
         )
 
-    def prepare(self, connection: Connection | None, settlement: Settlement) -> bool:
-        """Publish the source and record its read on the fenced claim's transaction."""
-        person_id, owner_id = settlement.destination_owner_id, settlement.storage_user_id
+    def prepare(
+        self, connection: Connection | None, settlement: Settlement, message_key: bytes
+    ) -> Settlement:
+        person, custodian = settlement.destination_owner_id, settlement.storage_user_id
         connection_id = settlement.connection_id
-        assert person_id and owner_id and connection_id and settlement.space_id
-        scope = BusinessSpace(settlement.space_id)
-        documents, access = self.documents, self.access
+        assert person and custodian and connection_id and settlement.sender_link_id
+        if connection is None:
+            documents = self.documents
+            grants = self.eligible_businesses(person)
+        else:
+            documents = self.documents.on_connection(connection)
+            grants = postgres_senders(connection).eligible_businesses(person)
+        scope = scope_of(settlement.space_id)
+        draft = documents.get(user_id=custodian, connection_id=connection_id, scope=scope)
+        if isinstance(scope, BusinessSpace):
+            if len(grants) == 1 and (grants[0].space_id, grants[0].owner_id) == (
+                scope.space_id,
+                custodian,
+            ):
+                return self._publish_business(
+                    documents, connection, settlement, draft, scope
+                )
+            # The staged Business is no longer the sole destination. Preserve the
+            # original bytes in the sender's partition under this same claim.
+            original = settlement.original
+            assert original is not None
+            private = documents._upload(
+                user_id=person,
+                content=original.content,
+                filename=original.filename,
+                media_type=original.media_type,
+                source_text=original.caption,
+                scope=PERSONAL,
+                consent=False,
+                proposal=None,
+                on_capture=None,
+                defer_capture=True,
+                namespace=MARK,
+            )
+            if not draft.source_available:
+                documents.hub.connections.disconnect(
+                    user_id=custodian,
+                    connection_id=connection_id,
+                    now=documents.hub.clock(),
+                )
+                documents.store.forget(user_id=custodian, connection_id=connection_id)
+            connection_id = private.connection_id
+            settlement = replace(
+                settlement,
+                storage_user_id=person,
+                space_id=None,
+                connection_id=connection_id,
+            )
+
+        files = held_files(documents.store)
         if connection is not None:
-            documents = _documents_on_connection(documents, connection)
-            access = PostgresAccessStore(BorrowedConnection(connection))
-        if "prepare" not in access.capabilities(scope.space_id, person_id):
-            raise CapturePermissionLost()
-        draft = documents.get(user_id=owner_id, connection_id=connection_id, scope=scope)
+            existing = connection.execute(
+                "select 1 from public.whatsapp_held_files where user_id=%s and connection_id=%s limit 1",
+                (person, connection_id),
+            ).fetchone()
+        else:
+            existing = any(
+                row.connection_id == connection_id for row in files.list_for_user(person)
+            )
+        if existing:
+            return replace(settlement, duplicate=True)
+        files.hold(
+            user_id=person,
+            sender_link_id=settlement.sender_link_id,
+            provider_message_key=message_key,
+            connection_id=connection_id,
+            reason="no_match" if grants else "no_eligible_business",
+            now=documents.hub.clock(),
+        )
+        published = documents.publish_capture(
+            user_id=person, connection_id=connection_id, scope=PERSONAL
+        )
+        reading = bool(
+            grants
+            and connection is not None
+            and receipt_reading_enabled(
+                receipt_consent_store(BorrowedConnection(connection)), person
+            )
+        )
+        if reading:
+            documents.queue(
+                user_id=person,
+                connection_id=connection_id,
+                consent=True,
+                expected_version=published.version,
+                scope=PERSONAL,
+            )
+            record_dispatch_preparation(documents, person, connection_id, scope=PERSONAL)
+        return replace(settlement, duplicate=False, reading=reading)
+
+    def _publish_business(
+        self,
+        documents: DocumentsService,
+        connection: Connection | None,
+        settlement: Settlement,
+        draft: DocumentDraft,
+        scope: BusinessSpace,
+    ) -> Settlement:
+        person, custodian = settlement.destination_owner_id, settlement.storage_user_id
+        assert person and custodian
+        connection_id = draft.connection_id
         staged = draft.status == "saved" and not draft.source_available
         queued = (
             draft.status == "queued"
             and draft.consent
-            and documents.store.job(user_id=owner_id, connection_id=connection_id) is None
+            and documents.store.job(user_id=custodian, connection_id=connection_id)
+            is None
         )
+        reading = False
         if draft.business_reading_consent_id is not None and (staged or queued):
-            return self._prepare_read(
-                documents, connection, person_id, owner_id, draft, scope
+            reading = self._prepare_read(
+                documents, connection, person, custodian, draft, scope
             )
-        documents.publish_capture(
-            user_id=owner_id, connection_id=connection_id, scope=scope
-        )
-        return False
+        else:
+            documents.publish_capture(
+                user_id=custodian, connection_id=connection_id, scope=scope
+            )
+        if staged:
+            business_analytics.document_received(
+                channel="whatsapp",
+                business_id=scope.space_id,
+                user_id=person,
+                media_type=draft.media_type,
+                size_bytes=draft.size_bytes,
+            )
+        return replace(settlement, reading=reading)
 
     def _prepare_read(
         self,
@@ -204,7 +310,7 @@ class DocumentsDestination:
         connection_id = draft.connection_id
         try:
             with connection.transaction() if connection is not None else nullcontext():
-                owned = _as_sender(documents, person_id, scope)
+                owned = documents.for_sender(person_id, scope)
                 consent = owned.business_receipt_consent
                 if (
                     consent is None
@@ -249,51 +355,13 @@ class DocumentsDestination:
             return False
         return True
 
-    async def discard(self, *, owner_id: str, space_id: str, connection_id: str) -> None:
+    async def discard(self, *, owner_id: str, space_id: str | None, connection_id: str) -> None:
         await asyncio.to_thread(
             self.documents.hub.disconnect,
             user_id=owner_id,
             connection_id=connection_id,
-            scope=BusinessSpace(space_id),
+            scope=scope_of(space_id),
         )
-
-
-def _documents_on_connection(
-    documents: DocumentsService, connection: Connection
-) -> DocumentsService:
-    pool = BorrowedConnection(connection)
-    store = documents.store
-    assert isinstance(store, PostgresDocumentStore)
-    scoped = copy(documents)
-    scoped.hub = copy(documents.hub)
-    scoped.hub.connections = PostgresConnectionRepository(pool)
-    scoped.store = PostgresDocumentStore(pool, store.objects)
-    if documents.business_actions is not None:
-        scoped.business_actions = BusinessActions(
-            pool, documents.business_actions.imports
-        )
-    if documents.business_receipt_consent is not None:
-        scoped.business_receipt_consent = copy(documents.business_receipt_consent)
-        scoped.business_receipt_consent.pool = pool
-    return scoped
-
-
-def _as_sender(
-    documents: DocumentsService, person_id: str, scope: BusinessSpace
-) -> DocumentsService:
-    """Bind the import sink to the sender's live grant in the receipt's Business."""
-
-    from argus.api.business_drafts import bind_to_grant
-    from argus.domain.business.contracts.authority import TrustedActor
-    from argus.domain.ingestion.reconcile.service import ReconciliationService
-
-    actions, sink = documents.business_actions, documents.hub.sink
-    if actions is None or not isinstance(sink, ReconciliationService):
-        return documents
-    context = actions.resolve_actor(
-        TrustedActor(actor_id=person_id, actor_kind="member", space_id=scope.space_id)
-    )
-    return bind_to_grant(documents, documents.hub, actions, context, "prepare")[0]
 
 
 @dataclass(frozen=True)
@@ -346,7 +414,7 @@ def build_whatsapp(
             graph_api_version=settings.graph_api_version,
             max_bytes=max_bytes,
         ),
-        destination=DocumentsDestination(documents, spaces, access),
+        destination=DocumentsDestination(documents, store.eligible_businesses),
         clock=documents.hub.clock,
         transport=transport,
         app_origin=app_origin,

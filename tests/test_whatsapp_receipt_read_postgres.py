@@ -235,7 +235,7 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
 
 
 @pytest.mark.asyncio
-async def test_loss_of_prepare_while_staging_discards_the_receipt(
+async def test_loss_of_prepare_while_staging_holds_the_receipt_privately(
     actions, users, monkeypatch
 ):  # noqa: ANN001
     world, extractor = _rig(actions, users)
@@ -265,14 +265,14 @@ async def test_loss_of_prepare_while_staging_discards_the_receipt(
     world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(cases.image(media_id, "wamid.READ-DEMOTED"))
     record = world.record("wamid.READ-DEMOTED")
-    assert (record.status, record.connection_id) == ("rejected", None)
-    [staged] = world.captures(world.alice)
-    assert (
-        documents.hub.connections.get_any_scope(
-            user_id=world.alice, connection_id=staged
-        ).status
-        == "disconnected"
-    )
+    from argus.domain.ingestion.whatsapp.held import held_files
+
+    [held] = held_files(documents.store).list_for_user(world.alice)
+    assert (record.status, record.connection_id) == ("captured", held.connection_id)
+    assert held.reason == "no_eligible_business"
+    row = documents.hub.connections.get_any_scope(user_id=world.alice, connection_id=held.connection_id)
+    assert row.scope == cases.PERSONAL
+    assert not documents.store.job(user_id=world.alice, connection_id=held.connection_id)
     assert extractor.calls == 0
 
 

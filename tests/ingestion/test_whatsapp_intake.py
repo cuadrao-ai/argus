@@ -161,7 +161,7 @@ def test_grouped_copy_quotes_one_and_lists_earliest_three(count: int) -> None:
     world = _world()
     codec = ReplyGroupCodec(SecretBox(b"r" * 32), world.keys)
     at = datetime(2026, 10, 16, 19, 42, tzinfo=timezone.utc)
-    link = SenderLink(world.alice, "1234", at, "es-419")
+    link = SenderLink(world.alice, "1234", at, "es-419", str(uuid4()))
     samples = []
     for index in range(count):
         message = MediaMessage(

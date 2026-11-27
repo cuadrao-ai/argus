@@ -57,6 +57,7 @@ from argus.domain.ingestion.whatsapp.reply_groups import (
 from argus.domain.ingestion.whatsapp.store import (
     RETRYABLE,
     SENDER_LINK_REVOKED,
+    CaptureSource,
     ReplyLanguage,
     Settlement,
     WhatsAppStore,
@@ -85,9 +86,10 @@ class CaptureRejected(Exception):
 
 
 class CaptureFailed(Exception):
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, *, retry_delivery: bool = False) -> None:
         super().__init__(code)
         self.code = code
+        self.retry_delivery = retry_delivery
 
 
 @dataclass(frozen=True)
@@ -95,7 +97,7 @@ class Captured:
     connection_id: str
     already_held: bool
     storage_user_id: str
-    space_id: str
+    space_id: str | None
     # The receipt was queued for reading; the destination decides at capture.
     reading: bool = False
 
@@ -113,7 +115,7 @@ class IntakeDestination(Protocol):
         source_text: str | None,
     ) -> Captured: ...
 
-    async def discard(self, *, owner_id: str, space_id: str, connection_id: str) -> None: ...
+    async def discard(self, *, owner_id: str, space_id: str | None, connection_id: str) -> None: ...
 
 
 class MediaSource(Protocol):
@@ -397,7 +399,7 @@ class WhatsAppIntake:
         """Remove a new draft saved while its sender link was ending."""
 
         try:
-            assert captured.storage_user_id and captured.space_id and captured.connection_id
+            assert captured.storage_user_id and captured.connection_id
             await self.destination.discard(
                 owner_id=captured.storage_user_id,
                 space_id=captured.space_id,
@@ -492,7 +494,7 @@ class WhatsAppIntake:
                 reply_language=language,
             )
         settlement = await self._capture(message, owner)
-        return replace(settlement, reply_language=language)
+        return replace(settlement, reply_language=language, sender_link_id=link.id)
 
     async def _unlinked(self, message: InboundMessage, sender: bytes) -> Settlement:
         """A sender with no active link can only link: no word is read for
@@ -537,21 +539,24 @@ class WhatsAppIntake:
                         source_text=message.caption,
                     )
                     break
-                except CaptureFailed:
+                except CaptureFailed as error:
                     if attempt:
+                        if error.retry_delivery:
+                            raise
                         return Settlement(
                             "rejected", owner, error_code="whatsapp_capture_failed"
                         )
                     await asyncio.sleep(0.25)
         except (MediaRejected, CaptureRejected) as error:
             return Settlement("rejected", owner, error_code=error.code)
-        except (MediaUnavailable, CaptureFailed) as error:
+        except MediaUnavailable as error:
             return Settlement("failed", owner, error_code=error.code)
         return Settlement(
             "captured",
             owner,
             captured.connection_id,
             duplicate=captured.already_held,
+            original=CaptureSource(fetched.content, message.filename, fetched.mime_type, message.caption),
             reading=captured.reading,
             storage_user_id=captured.storage_user_id,
             space_id=captured.space_id,

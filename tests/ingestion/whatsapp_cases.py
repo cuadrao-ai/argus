@@ -155,7 +155,7 @@ def build_world(
             graph_api_version="v23.0",
             max_bytes=MAX_BYTES,
         ),
-        destination=DocumentsDestination(documents, spaces, access),
+        destination=DocumentsDestination(documents, store.eligible_businesses),
         clock=clock,
         transport=transport,
         app_origin=ORIGIN,
@@ -801,6 +801,12 @@ async def a_number_linked_after_the_revoke_keeps_no_capture(world: World) -> Non
     )
 
 
+async def the_same_number_relinked_mid_capture_cannot_settle_the_old_delivery(world: World) -> None:
+    await _revoke_while_capturing(
+        world, "es-419", "700000000000143", "wamid.SAME-NUMBER-NEW-LINK", ALICE_PHONE
+    )
+
+
 async def a_linked_sender_text_is_never_a_link_attempt(world: World) -> None:
     await world.link(world.alice, ALICE_PHONE, "en")
     other = world.issue(world.bob)
@@ -979,6 +985,7 @@ CASES = (
     voice_audio_and_stickers_get_one_unsupported_reply,
     a_caption_is_kept_verbatim_as_source_text,
     a_link_revoked_before_settling_keeps_no_capture,
+    the_same_number_relinked_mid_capture_cannot_settle_the_old_delivery,
     a_link_revoked_before_settling_stays_silent_in_english,
     a_number_linked_after_the_revoke_keeps_no_capture,
     a_linked_sender_text_is_never_a_link_attempt,

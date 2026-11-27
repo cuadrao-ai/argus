@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 from argus.api import whatsapp as module
+from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.ingestion.reconcile.store import InMemoryImportStore
 from argus.domain.ingestion.whatsapp.intake import CaptureFailed
@@ -37,7 +38,7 @@ def test_the_read_binds_to_the_sender_when_storage_belongs_to_another_person(mon
         ),
     )
     documents = _documents(other)
-    assert module._as_sender(documents, owner, scope) is documents
+    assert DocumentsService.for_sender(documents, owner, scope) is documents
     assert len(bound) == 1
     (actor,) = documents.business_actions.resolve_actor.call_args.args
     assert str(actor.actor_id) == owner
@@ -55,20 +56,27 @@ def test_a_read_refused_before_dispatch_waits_saved(
         business_reading_consent_id=str(uuid4()),
         connection_id=connection,
     )
-    access = Mock()
-    access.capabilities.return_value = ("read", "prepare")
-    destination = module.DocumentsDestination(documents, Mock(), access)
+    grants = (SimpleNamespace(space_id=scope.space_id, owner_id=owner),)
+    destination = module.DocumentsDestination(documents, lambda _: grants)
+    documents.get.return_value.media_type = "image/png"
+    documents.get.return_value.size_bytes = 15
 
-    def refused(documents, owner_id, scope):  # noqa: ANN001, ANN202
+    def refused(owner_id, scope):  # noqa: ANN001, ANN202
         raise CaptureFailed("business_permission_denied")
 
-    monkeypatch.setattr(module, "_as_sender", refused)
+    monkeypatch.setattr(documents, "for_sender", refused)
     assert not destination.prepare(
         None,
         Settlement(
-            "captured", owner, connection, storage_user_id=owner, space_id=scope.space_id
+            "captured",
+            owner,
+            connection,
+            storage_user_id=owner,
+            space_id=scope.space_id,
+            sender_link_id=str(uuid4()),
         ),
-    )
+        b"message",
+    ).reading
     documents.publish_capture.assert_called_once_with(
         user_id=owner,
         connection_id=connection,

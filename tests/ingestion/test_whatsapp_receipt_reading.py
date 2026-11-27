@@ -97,8 +97,7 @@ async def _world(*, on: bool) -> tuple[cases.World, Extractor, Callable[[bool], 
 async def _deliver(world: cases.World, message_id: str) -> str:
     world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(cases.image("700000000000201", message_id))
-    [connection_id] = world.captures(world.alice)
-    return connection_id
+    return world.record(message_id).connection_id
 
 
 async def _send(world: cases.World, message_id: str) -> str:
@@ -112,7 +111,9 @@ def _status(world: cases.World, connection_id: str) -> str:
     return world.documents.get(
         user_id=world.alice,
         connection_id=connection_id,
-        scope=world.business(world.alice),
+        scope=world.documents.hub.connections.get_any_scope(
+            user_id=world.alice, connection_id=connection_id
+        ).scope,
     ).status
 
 
@@ -174,8 +175,10 @@ async def test_with_outbound_off_the_receipt_is_read_and_nothing_is_sent() -> No
 
 @pytest.mark.asyncio
 async def test_prepare_from_the_web_with_the_switch_off_is_refused_not_queued() -> None:
-    world, extractor, _ = await _world(on=False)
+    world, extractor, turn = await _world(on=True)
     connection_id = await _deliver(world, "wamid.READ-WEB")
+    turn(False)
+    await read_receipt(world.documents, world.alice, connection_id)
     scope = world.business(world.alice)
     with pytest.raises(DocumentServiceError) as refused:
         world.documents.queue(
