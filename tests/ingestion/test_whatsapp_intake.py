@@ -29,6 +29,7 @@ from argus.domain.ingestion.whatsapp.replies import (
     reply_key,
     reply_payload,
 )
+from argus.domain.ingestion.whatsapp.senders import SenderBusinesses
 from argus.domain.ingestion.whatsapp.store import (
     InMemoryWhatsAppStore,
     dominican_day,
@@ -59,7 +60,10 @@ def _world() -> cases.World:
     access = InMemoryAccessStore()
     return cases.build_world(
         documents=documents,
-        store=InMemoryWhatsAppStore(connections, access),
+        store=InMemoryWhatsAppStore(
+            connections, access,
+            SenderBusinesses(access, lambda _: True, lambda _: {"enabled": True}).eligible_businesses,
+        ),
         clock=clock,
         alice=str(uuid4()),
         bob=str(uuid4()),

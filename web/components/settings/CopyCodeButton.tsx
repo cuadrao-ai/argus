@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
+import { Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { copyText } from "@/lib/copy-text";
@@ -40,11 +40,13 @@ export default function CopyCodeButton({ text, showCheckMs = SHOW_CHECK_MS }: { 
         aria-label={t("settings.whatsapp.copy_code", "Copy code")}
         data-testid="whatsapp-copy-code"
         data-state={state}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-black/10 text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 motion-reduce:transition-none dark:border-white/15 dark:text-white/70 dark:hover:bg-white/10 dark:focus-visible:ring-white/30"
+        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-black/10 text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 motion-reduce:transition-none dark:border-white/15 dark:text-white/70 dark:hover:bg-white/10 dark:focus-visible:ring-white/30"
       >
-        <span className={`inline-flex transition-transform duration-200 ease-out motion-reduce:transition-none motion-reduce:scale-100 ${copied ? "scale-110" : "scale-100"}`}>
-          {copied ? <Check className="h-4 w-4 text-[var(--rui-color-teal)]" aria-hidden="true" data-icon="check" /> : <Copy className="h-4 w-4" aria-hidden="true" data-icon="copy" />}
-        </span>
+        <Copy aria-hidden="true" data-icon="copy" className={`h-4 w-4 transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none ${copied ? "scale-75 opacity-0" : "scale-100 opacity-100"}`}/>
+        <svg aria-hidden="true" data-icon={copied ? "check" : undefined} viewBox="0 0 24 24" className="absolute h-4 w-4 text-[var(--cuadrao-green)]">
+          <path d="m5 12 4 4 10-10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" pathLength="1" strokeDasharray="1" strokeDashoffset={copied ? 0 : 1}
+            className={copied ? "transition-[stroke-dashoffset] duration-[250ms] ease-out motion-reduce:transition-none" : "opacity-0"} />
+        </svg>
       </button>
       <span key={presses} role="status" aria-live="polite" data-presses={presses} className="sr-only">
         {copied ? t("settings.whatsapp.copied", "Copied") : state === "failed" ? t("settings.whatsapp.copy_failed", "Could not copy. Select the text to copy it.") : ""}

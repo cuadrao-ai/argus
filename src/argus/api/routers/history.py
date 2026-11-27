@@ -23,7 +23,6 @@ from argus.api.schemas import (
     User,
 )
 from argus.api.search_utils import search_type_rank
-from argus.domain.owner_scope import holds
 from argus.domain.postgres_history_reader import HistoryCursorError
 
 router = APIRouter(prefix="/api/v1", tags=["history"])
@@ -74,8 +73,6 @@ def history(
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedHistory:
     scope = surface_scope(request, user_id=user.id, surface=surface)
-    # Strategies and collections store no space, so they are Personal.
-    spaceless_in_scope = holds(scope, None)
     context = account_context(request)
     if context.kind == "guest":
         if api_state.supabase_gateway is None:
@@ -179,28 +176,6 @@ def history(
                     created_at=conversation_row["updated_at"],
                 )
             )
-        for strategy_row in raw["strategies"]:
-            items.append(
-                HistoryItem(
-                    type="strategy",
-                    id=strategy_row["id"],
-                    title=strategy_row["name"],
-                    subtitle=", ".join(strategy_row["symbols"]),
-                    pinned=strategy_row["pinned"],
-                    created_at=strategy_row["updated_at"],
-                )
-            )
-        for collection_row in raw["collections"]:
-            items.append(
-                HistoryItem(
-                    type="collection",
-                    id=collection_row["id"],
-                    title=collection_row["name"],
-                    subtitle=(f"{collection_row.get('strategy_count', 0)} strategies"),
-                    pinned=collection_row["pinned"],
-                    created_at=collection_row["updated_at"],
-                )
-            )
     else:
         items = []
         for run_id, run in api_state.store.backtest_runs.items():
@@ -247,56 +222,6 @@ def history(
                         subtitle="",
                         pinned=stored_conversation.pinned,
                         created_at=stored_conversation.updated_at,
-                    )
-                )
-        for stored_strategy in api_state.store.strategies.values():
-            if (
-                not memory_object_visible(
-                    owner_map=api_state.store.strategy_owners,
-                    object_id=stored_strategy.id,
-                    user_id=user.id,
-                )
-                or not spaceless_in_scope
-            ):
-                continue
-            if (
-                stored_strategy.deleted_at is not None
-                if deleted
-                else stored_strategy.deleted_at is None
-            ):
-                items.append(
-                    HistoryItem(
-                        type="strategy",
-                        id=stored_strategy.id,
-                        title=stored_strategy.name,
-                        subtitle=", ".join(stored_strategy.symbols),
-                        pinned=stored_strategy.pinned,
-                        created_at=stored_strategy.updated_at,
-                    )
-                )
-        for stored_collection in api_state.store.collections.values():
-            if (
-                not memory_object_visible(
-                    owner_map=api_state.store.collection_owners,
-                    object_id=stored_collection.id,
-                    user_id=user.id,
-                )
-                or not spaceless_in_scope
-            ):
-                continue
-            if (
-                stored_collection.deleted_at is not None
-                if deleted
-                else stored_collection.deleted_at is None
-            ):
-                items.append(
-                    HistoryItem(
-                        type="collection",
-                        id=stored_collection.id,
-                        title=stored_collection.name,
-                        subtitle=f"{stored_collection.strategy_count} strategies",
-                        pinned=stored_collection.pinned,
-                        created_at=stored_collection.updated_at,
                     )
                 )
 

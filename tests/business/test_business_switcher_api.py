@@ -24,6 +24,7 @@ from tests.business.test_business_api import (  # noqa: F401
 )
 from tests.business.test_business_email_api import runtime  # noqa: F401
 from tests.business.test_business_whatsapp import wa_biz  # noqa: F401
+from tests.ingestion.test_whatsapp_api import UNSHOWN_LINK, link_body
 from tests.test_conversation_surfaces import client as chat_client  # noqa: F401
 
 GRANT = "X-Business-Grant"
@@ -338,28 +339,66 @@ def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
         ), path
 
 
-def test_whatsapp_linking_follows_the_selected_grant(wa_biz, identities) -> None:  # noqa: ANN001, F811
+@pytest.mark.parametrize(
+    ("role", "rnc", "reading", "expected"),
+    [
+        pytest.param("viewer", True, True, False, id="lector-only"),
+        pytest.param("editor", True, True, True, id="eligible-editor"),
+        pytest.param("editor", False, True, False, id="missing-rnc"),
+        pytest.param("editor", True, False, False, id="reading-off"),
+    ],
+)
+def test_whatsapp_linking_uses_all_current_businesses(
+    wa_biz, identities, monkeypatch, role, rnc, reading, expected  # noqa: F811
+) -> None:
+    from argus.api import whatsapp
+
     client, _ = wa_biz
     owner = Owner(client, ALICE, identities[ALICE]["id"])
     editor = Owner(client, BOB, identities[BOB]["id"])
     assert owner.start().status_code == 201
     grant = _grant(owner, editor)
-    headers = {**editor.auth, GRANT: grant}
-    assert get_as(editor, "/workspace", grant).json()["receiving_channels"][
-        "whatsapp"
-    ] == {"available": True}
-    assert client.post("/api/v1/whatsapp/link-codes", headers=headers).status_code == 201
-    assert client.get("/api/v1/whatsapp/link", headers=headers).status_code == 200
-    business_access().change_role(
-        owner.scope().owner.space_id, owner.person, grant, "viewer"
+    business_access().change_role(owner.scope().owner.space_id, owner.person, grant, role)
+    monkeypatch.setattr(whatsapp, "_memory_has_tax_id", lambda _space: rnc, raising=False)
+    if reading:
+        assert owner.reading(True).status_code == 200
+    answer = client.post(
+        "/api/v1/whatsapp/link-codes",
+        headers=editor.auth,
+        json=link_body(client, editor.auth) if expected else UNSHOWN_LINK,
     )
-    for method, path in (("post", "link-codes"), ("get", "link"), ("get", "ai-consent")):
-        answer = client.request(method, f"/api/v1/whatsapp/{path}", headers=headers)
-        assert (answer.status_code, answer.json()["code"]) == (
-            404,
-            "whatsapp_unavailable",
-        )
-    assert client.delete("/api/v1/whatsapp/link", headers=headers).status_code == 204
+    status = client.get("/api/v1/whatsapp/link", headers=editor.auth)
+    if expected:
+        assert answer.status_code == 201, answer.text
+        assert answer.json()["qr_data_url"].startswith("data:image/png;base64,")
+        assert status.json()["receiving_businesses"] == [
+            {"space_id": owner.scope().owner.space_id, "name": "Ferretería Prueba"}
+        ]
+        assert status.json()["held_count"] == 0
+    else:
+        assert (answer.status_code, answer.json().get("code")) == (409, "whatsapp_setup_required")
+        if role == "viewer":
+            assert status.status_code == 404
+        else:
+            assert status.json()["receiving_businesses"] == []
+
+
+def test_account_link_and_receiving_in_the_selected_business_are_independent(
+    wa_biz, identities,  # noqa: ANN001, F811
+) -> None:
+    client, _ = wa_biz
+    owner = Owner(client, ALICE, identities[ALICE]["id"])
+    editor = Owner(client, BOB, identities[BOB]["id"])
+    assert owner.start().status_code == 201
+    assert editor.start().status_code == 201
+    grant = _grant(owner, editor)
+    assert owner.reading(True).status_code == 200
+    assert get_as(editor, "/workspace", grant).json()["receiving_channels"]["whatsapp"]["available"]
+    assert not get_as(editor, "/workspace", None).json()["receiving_channels"]["whatsapp"]["available"]
+    issued = client.post(
+        "/api/v1/whatsapp/link-codes", json=link_body(client, editor.auth), headers=editor.auth
+    )
+    assert issued.status_code == 201
 
 
 @pytest.mark.parametrize("another_business", [False, True])
@@ -378,7 +417,13 @@ def test_whatsapp_code_rechecks_the_persons_live_prepare_at_redemption(
     if another_business:
         assert editor.start().status_code == 201
     grant = _grant(owner, editor)
-    issued = client.post("/api/v1/whatsapp/link-codes", headers={**editor.auth, GRANT: grant})
+    assert owner.reading(True).status_code == 200
+    if another_business:
+        assert editor.reading(True).status_code == 200
+    headers = {**editor.auth, GRANT: grant}
+    issued = client.post(
+        "/api/v1/whatsapp/link-codes", json=link_body(client, headers), headers=headers
+    )
     assert issued.status_code == 201
     business_access().change_role(owner.scope().owner.space_id, owner.person, grant, "viewer")
     reply = post(client, fixture("text_link_code.json", text=issued.json()["message_text"]))
