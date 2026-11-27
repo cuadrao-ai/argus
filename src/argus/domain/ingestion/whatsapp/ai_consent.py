@@ -76,21 +76,15 @@ class AIConsentStore:
     def __init__(self, pool, route: Callable[[], dict[str, Any]]) -> None:
         self.pool, self.route = pool, route
 
-    def status(self, owner_id: UUID, *, expected_link_id: str | None = None) -> dict:
-        from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
-        from argus.domain.postgres_connection import BorrowedConnection
-
+    def status(self, owner_id: UUID) -> dict:
         with self.pool.connection() as db, db.transaction():
-            current = PostgresWhatsAppStore(BorrowedConnection(db)).destination_link(
-                destination_owner_id=str(owner_id)
-            )
-            link = None
-            if current and (expected_link_id is None or current.id == expected_link_id):
-                if db.execute(
-                    "select 1 from auth.users where id=%s and not coalesce(is_anonymous,false)",
-                    (owner_id,),
-                ).fetchone():
-                    link = current
+            link = db.execute(
+                "select l.id,l.last4,l.reply_language from public.whatsapp_sender_links l"
+                " join auth.users u on u.id=l.destination_owner_id"
+                " where u.id=%s and not coalesce(u.is_anonymous,false) and l.status='active'"
+                " for share of l",
+                (owner_id,),
+            ).fetchone()
             latest = None
             route = None
             reason = "whatsapp_link_required"
@@ -100,7 +94,7 @@ class AIConsentStore:
                         "select scope_version,disclosure,route_hash,consented_at,revoked_at"
                         " from public.business_whatsapp_ai_consents where sender_link_id=%s"
                         " order by consented_at desc,id desc limit 1 for share",
-                        (link.id,),
+                        (link[0],),
                     ).fetchone()
                 try:
                     route = self.route()
@@ -118,7 +112,7 @@ class AIConsentStore:
                 "linked": link is not None,
                 "available": reason is None,
                 "reason": reason,
-                "last4": link.last4 if link else None,
+                "last4": link[1] if link else None,
                 "scope_version": RECEIPT_SCOPE.version,
                 "purpose": RECEIPT_SCOPE.purpose,
                 "active_scope_version": latest["scope_version"] if active else None,
@@ -127,7 +121,7 @@ class AIConsentStore:
                 "enabled": bool(
                     reason is None and active
                     and latest["scope_version"] == RECEIPT_SCOPE.version
-                    and matches_link_disclosure(link.reply_language, latest["disclosure"])
+                    and matches_link_disclosure(link[2], latest["disclosure"])
                     and latest["route_hash"] == digest(route)
                 ),
                 "consented_at": latest["consented_at"] if latest else None,

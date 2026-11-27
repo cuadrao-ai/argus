@@ -1120,6 +1120,7 @@ class DocumentsService:
         if not isinstance(self.store, PostgresDocumentStore):
             return charge(self.store)
         from argus.domain.ingestion.whatsapp.receipt_consent import receipt_consent_store
+        from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
         from argus.domain.postgres_connection import BorrowedConnection
 
         with PostgresHeldFiles(self.store).pool.connection() as db, db.transaction():
@@ -1129,14 +1130,20 @@ class DocumentsService:
                 (user_id, draft.connection_id),
             ).fetchone()
             if original is not None:
-                consent = receipt_consent_store(BorrowedConnection(db)).status(
-                    uuid.UUID(user_id), expected_link_id=original[0]
+                pool = BorrowedConnection(db)
+                active = PostgresWhatsAppStore(pool).destination_link(
+                    destination_owner_id=user_id
                 )
-                if consent["enabled"]:
+                consent = (
+                    receipt_consent_store(pool).status(uuid.UUID(user_id))
+                    if active is not None and active.id == original[0]
+                    else None
+                )
+                if consent and consent["enabled"]:
                     return charge(self.on_connection(db).store, original[1])
                 reason = (
                     "no_eligible_business"
-                    if consent["reason"] == "whatsapp_setup_required"
+                    if consent and consent["reason"] == "whatsapp_setup_required"
                     else "read_failed"
                 )
                 db.execute(
