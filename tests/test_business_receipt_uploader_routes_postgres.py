@@ -27,7 +27,12 @@ from tests.business_reading_support import ROUTE
 from tests.ingestion import whatsapp_support as wa
 from tests.ingestion.test_whatsapp_api import LINK_BODY
 from tests.ingestion.whatsapp_cases import image
-from tests.test_business_reading_setting_postgres import _email, _email_runtime, _reading
+from tests.test_business_reading_setting_postgres import (
+    _email,
+    _email_runtime,
+    _reading,
+    _workspace_reading,
+)
 from tests.test_business_scope_switch_routes_postgres import API, _as, _note, _upload
 
 fake = Faker()
@@ -211,7 +216,9 @@ def phone(web, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
 
     def send(number: str, content: bytes) -> None:
         _set_whatsapp_tax_id(web)
-        assert _reading(web, True).status_code == 200
+        enable_for_link = not _workspace_reading(web)["enabled"]
+        if enable_for_link:
+            assert _reading(web, True).status_code == 200
         issued = web.client.post(
             f"{API}/whatsapp/link-codes", json=LINK_BODY, headers=web.alice.headers
         )
@@ -224,7 +231,8 @@ def phone(web, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
                 text=issued.json()["message_text"],
             )
         )
-        assert _reading(web, False).status_code == 200
+        if enable_for_link:
+            assert _reading(web, False).status_code == 200
         media_id = str(fake.random_number(digits=14, fix_len=True))
         graph.media[media_id] = wa.Media(content, "image/png")
         _post_phone_message(web, image(media_id, str(uuid4()), number))
@@ -243,7 +251,7 @@ def _set_whatsapp_tax_id(world) -> None:
         return
     saved = world.client.patch(
         path,
-        json={"name": profile["name"], "previous_name": profile["name"],
+        json={"name": profile["name"] or fake.company(), "previous_name": profile["name"],
               "tax_id": {"type": "rnc", "value": "131234567"}, "previous_tax_id": None},
         headers={**world.alice.headers, "Idempotency-Key": str(uuid4())},
     )
