@@ -2267,11 +2267,10 @@
     },
     "consent": {
       "title": "Antes de empezar",
-      "body": "Cuadrao guarda los recibos, facturas y datos que subes para leerlos, organizarlos y preparar tus reportes. Solo tú y las personas que invites a tu negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
-      "opt_in": "Entiendo y acepto que Cuadrao use mis datos para esto.",
+      "body": "Cuadrao guarda los recibos, facturas y datos que se suben para leerlos, organizarlos y preparar los reportes. Solo las personas con acceso al negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
+      "opt_in": "Entiendo y acepto que Cuadrao use los datos para esto.",
       "continue": "Continuar",
       "privacy_link": "Ver aviso de privacidad",
-      "one_time": "Te lo pedimos una sola vez, para los datos de tu negocio.",
       "save_failed": "No pudimos guardar tu aceptación. No cambió nada."
     },
     "export": {

@@ -39,7 +39,6 @@ export function BusinessConsentScreen({ save, onContinue }: { save: ConsentSave;
         <h1 ref={headingRef} tabIndex={-1} className="mt-10 font-display text-[28px] font-medium tracking-tight text-black outline-none dark:text-white">
           {t("business.consent.title")}
         </h1>
-        <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/65">{t("business.consent.one_time")}</p>
         <p className="mt-4 text-[16px] leading-relaxed text-black dark:text-white">{t("business.consent.body")}</p>
         <label htmlFor={checkboxId} className="mt-8 flex min-h-11 cursor-pointer items-start gap-3 text-[16px] leading-relaxed text-black dark:text-white">
           <input
