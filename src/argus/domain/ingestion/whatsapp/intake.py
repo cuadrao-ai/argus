@@ -56,7 +56,6 @@ from argus.domain.ingestion.whatsapp.reply_groups import (
 )
 from argus.domain.ingestion.whatsapp.store import (
     RETRYABLE,
-    SENDER_LINK_REVOKED,
     CaptureSource,
     ReplyLanguage,
     Settlement,
@@ -100,6 +99,7 @@ class Captured:
     space_id: str | None
     # The receipt was queued for reading; the destination decides at capture.
     reading: bool = False
+    previous_business_copy: bool = False
 
 
 class IntakeDestination(Protocol):
@@ -115,7 +115,7 @@ class IntakeDestination(Protocol):
         source_text: str | None,
     ) -> Captured: ...
 
-    async def discard(self, *, owner_id: str, space_id: str | None, connection_id: str) -> None: ...
+
 
 
 class MediaSource(Protocol):
@@ -374,12 +374,6 @@ class WhatsAppIntake:
         if settled is None:
             log.warning("WhatsApp message claim lost before settling")
             return False
-        if (
-            settled.error_code == SENDER_LINK_REVOKED
-            and settlement.connection_id is not None
-            and not settlement.duplicate
-        ):
-            await self._discard(settlement, log)
         settlement = settled
         log.info(
             "WhatsApp message settled",
@@ -394,23 +388,6 @@ class WhatsAppIntake:
             )
         await self._reply(message, settlement, log)
         return True
-
-    async def _discard(self, captured: Settlement, log) -> None:  # noqa: ANN001
-        """Remove a new draft saved while its sender link was ending."""
-
-        try:
-            assert captured.storage_user_id and captured.connection_id
-            await self.destination.discard(
-                owner_id=captured.storage_user_id,
-                space_id=captured.space_id,
-                connection_id=captured.connection_id,
-            )
-            log.info("WhatsApp capture discarded after the link ended")
-        except Exception as error:
-            log.warning(
-                "WhatsApp capture could not be discarded after the link ended",
-                failure_mode=type(error).__name__,
-            )
 
     async def _renew(self, key: bytes, lease: _Lease) -> bool:
         assert lease.held is not None
@@ -469,6 +446,7 @@ class WhatsAppIntake:
                     now=self.clock,
                     reply_failure=reply_failure,
                     prepare=prepare,
+                    discard=getattr(self.destination, "discard", None),
                     deadline=deadline,
                 )
             )
@@ -556,6 +534,7 @@ class WhatsAppIntake:
             owner,
             captured.connection_id,
             duplicate=captured.already_held,
+            previous_business_copy=captured.previous_business_copy,
             original=CaptureSource(fetched.content, message.filename, fetched.mime_type, message.caption),
             reading=captured.reading,
             storage_user_id=captured.storage_user_id,

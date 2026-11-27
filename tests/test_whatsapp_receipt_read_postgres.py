@@ -217,7 +217,7 @@ async def test_only_the_receiving_owner_can_be_the_actor(actions, users):  # noq
 
 
 @pytest.mark.asyncio
-async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: ANN201
+async def test_authority_refusal_after_eligibility_keeps_the_original_private(  # noqa: ANN201
     actions,
     users,
     monkeypatch,  # noqa: ANN001
@@ -228,9 +228,15 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
         raise ActionError("permission_denied", "business_permission_denied")
 
     monkeypatch.setattr(BusinessActions, "resolve_actor", refused)
-    connection_id = await _capture(world)
-    draft = _draft(world, connection_id)
-    assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
+    from argus.domain.ingestion.whatsapp.held import held_files
+
+    await world.link(world.alice, ALICE_PHONE)
+    media = "700000000000201"
+    world.graph.media[media] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(cases.image(media, "wamid.LATE-REFUSAL"))
+    [held] = held_files(world.documents.store).list_for_user(world.alice)
+    assert held.reason == "no_eligible_business"
+    assert held.connection_id == world.record("wamid.LATE-REFUSAL").connection_id
     assert extractor.calls == 0
 
 

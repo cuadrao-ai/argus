@@ -295,3 +295,116 @@ async def test_fallback_of_a_business_duplicate_keeps_only_the_senders_caption(
         user_id=grant.owner_id, connection_id=original.connection_id, scope=scope
     )
     assert business.source_text == "Business-only annotation"
+
+
+@pytest.mark.asyncio
+async def test_second_grant_does_not_reread_a_previous_direct_receipt(webhook: Webhook):
+    raw = webhook.signed_receipt(RECEIPT_PNG)
+    assert (await webhook.post(raw)).status_code == 200
+    [before] = webhook.drafts()
+    original = webhook.store.inbound(webhook.key).connection_id
+    space, _ = PostgresSpaceStore(webhook.pool).create_additional(
+        webhook.owner, Faker().company(), "DO", str(uuid4())
+    )
+    prepare_phone_business(webhook.pool, space.id, webhook.owner)
+    resent = encode(image(MEDIA_ID, "wamid.SECOND-GRANT"), webhook.clock.now)
+    assert (await webhook.post(resent)).status_code == 200
+    assert webhook.drafts() == [before]
+    assert held_files(webhook.documents.store).list_for_user(webhook.owner) == []
+    assert webhook.replies[-1]["text"]["body"].startswith("Ya lo teníamos.")
+    assert original in webhook.replies[-1]["text"]["body"]
+
+
+@pytest.mark.asyncio
+async def test_vanished_private_stage_redelivers_instead_of_acknowledging(
+    webhook: Webhook, monkeypatch
+):
+    with webhook.pool.connection() as db:
+        db.execute(
+            "update public.spaces set business_rnc=null where created_by=%s",
+            (webhook.owner,),
+        )
+    raw = webhook.signed_receipt(RECEIPT_PNG)
+    upload = webhook.documents.upload
+
+    async def remove_stage(**kwargs):
+        staged = await upload(**kwargs)
+        with webhook.pool.connection() as db:
+            db.execute(
+                "delete from public.financial_source_connections where id=%s",
+                (staged.connection_id,),
+            )
+        return staged
+
+    with monkeypatch.context() as patch:
+        patch.setattr(webhook.documents, "upload", remove_stage)
+        assert (await webhook.post(raw)).status_code == 503
+    assert not held_files(webhook.documents.store).list_for_user(webhook.owner)
+    webhook.clock.now = webhook.store.inbound(webhook.key).claim_until + timedelta(
+        seconds=1
+    )
+    assert (await webhook.post(raw)).status_code == 200
+    [held] = held_files(webhook.documents.store).list_for_user(webhook.owner)
+    assert webhook.store.inbound(webhook.key).connection_id == held.connection_id
+
+
+@pytest.mark.asyncio
+async def test_revoked_sender_keeps_a_shared_receipt_another_sender_already_published(
+    webhook: Webhook, users, monkeypatch
+):
+    from argus.api.whatsapp import whatsapp_runtime
+
+    from tests.ingestion.whatsapp_link_support import NOTICE
+    from tests.ingestion.whatsapp_support import BOB_PHONE
+
+    [business] = webhook.store.eligible_businesses(webhook.owner)
+    editor = users["other"]
+    with webhook.pool.connection() as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role)"
+            " values(%s,%s,%s,'editor')",
+            (business.space_id, editor, webhook.owner),
+        )
+    intake = whatsapp_runtime().intake
+    issued = intake.issue_code(
+        destination_owner_id=editor, reply_language="es-419", disclosure=NOTICE
+    )
+    assert webhook.store.redeem_code(
+        code_digest=intake.keys.code(issued.code),
+        sender_hash=intake.keys.sender(BOB_PHONE),
+        last4=BOB_PHONE[-4:],
+        now=webhook.clock.now,
+    )
+    first = webhook.signed_receipt(RECEIPT_PNG)
+    second_id = "wamid.SECOND-SENDER"
+    second = encode(image(MEDIA_ID, second_id, BOB_PHONE), webhook.clock.now)
+    upload = webhook.documents.upload
+    first_saved = asyncio.Event()
+    release = asyncio.Event()
+
+    async def pause_first(**kwargs):
+        result = await upload(**kwargs)
+        if not first_saved.is_set():
+            first_saved.set()
+            await release.wait()
+        return result
+
+    monkeypatch.setattr(webhook.documents, "upload", pause_first)
+    task = asyncio.create_task(webhook.post(first))
+    try:
+        await asyncio.wait_for(first_saved.wait(), 5)
+        assert (await webhook.post(second)).status_code == 200
+        webhook.store.revoke(destination_owner_id=webhook.owner, now=webhook.clock.now)
+    finally:
+        release.set()
+    assert (await task).status_code == 200
+    assert webhook.store.inbound(webhook.key).error_code == "sender_link_revoked"
+    receipt = webhook.store.inbound(intake.keys.message(second_id)).connection_id
+    assert (
+        webhook.documents.store.source(user_id=webhook.owner, connection_id=receipt)
+        == RECEIPT_PNG
+    )
+    connection = webhook.documents.hub.connections.get_any_scope(
+        user_id=webhook.owner, connection_id=receipt
+    )
+    assert connection.status != "disconnected"

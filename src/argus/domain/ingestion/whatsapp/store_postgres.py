@@ -21,7 +21,9 @@ from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyG
 from argus.domain.ingestion.whatsapp.senders import postgres_senders
 from argus.domain.ingestion.whatsapp.store import (
     UNLINKED_REPLY_RESERVED,
+    BusinessCopy,
     Claim,
+    DiscardCapture,
     InboundRecord,
     PrepareCapture,
     SenderLink,
@@ -32,7 +34,7 @@ from argus.domain.ingestion.whatsapp.store import (
     settlement_time,
     unlinked_reply_key,
 )
-from argus.domain.owner_scope import scope_of, sql_predicate
+from argus.domain.owner_scope import scope_of
 
 _INBOUND_COLUMNS = (
     "provider_message_key, sender_hash, status, destination_owner_id::text, "
@@ -102,6 +104,21 @@ class PostgresWhatsAppStore:
             ).fetchone()
         return Claim(_record(row), False)
 
+    def previous_business_copy(
+        self, person_id: str, refs: list[str]
+    ) -> BusinessCopy | None:
+        with self._pool.connection() as db:
+            row = db.execute(
+                "select c.id::text, c.user_id::text, c.owner_space_id::text "
+                "from public.financial_source_connections c "
+                "join public.whatsapp_inbound_messages m on m.connection_id=c.id "
+                "where c.external_ref=any(%s) and c.source='statement' and c.status<>'disconnected' "
+                "and c.owner_space_id is not null and m.status='captured' and m.destination_owner_id=%s "
+                "order by m.received_at, m.id limit 1",
+                (refs, person_id),
+            ).fetchone()
+        return BusinessCopy(*row) if row else None
+
     def settle(
         self,
         *,
@@ -111,6 +128,7 @@ class PostgresWhatsAppStore:
         now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
         prepare: PrepareCapture | None = None,
+        discard: DiscardCapture | None = None,
         deadline: float | None = None,
     ) -> Settlement | None:
         if claim_until is None:
@@ -147,19 +165,32 @@ class PostgresWhatsAppStore:
                     return None
                 link = self._active(connection, "wa_id_hash", holder[0])
                 if link is None or not link.authorizes(settlement):
+                    if (
+                        discard is not None
+                        and not settlement.duplicate
+                        and not connection.execute(
+                            "select 1 from public.whatsapp_inbound_messages where connection_id=%s "
+                            "and status='captured' limit 1",
+                            (settlement.connection_id,),
+                        ).fetchone()
+                    ):
+                        discard(connection, settlement)
                     settlement = revoked(settlement)
                 else:
-                    predicate, args = sql_predicate(
-                        scope_of(settlement.space_id), "owner_space_id"
-                    )
                     staged = connection.execute(
-                        "select 1 from public.financial_source_connections "
-                        f"where id=%s and user_id=%s and {predicate} for share",
-                        (settlement.connection_id, settlement.storage_user_id, *args),
+                        "select owner_space_id from public.financial_source_connections "
+                        "where id=%s and user_id=%s for share",
+                        (settlement.connection_id, settlement.storage_user_id),
                     ).fetchone()
                     if staged is None:
-                        settlement = replace(settlement, status="rejected", connection_id=None,
-                                             error_code="whatsapp_media_invalid")
+                        raise LookupError("whatsapp_staged_source_missing")
+                    if scope_of(staged[0]) != scope_of(settlement.space_id):
+                        settlement = replace(
+                            settlement,
+                            status="rejected",
+                            connection_id=None,
+                            error_code="whatsapp_media_invalid",
+                        )
                     else:
                         link_id = link.id
             # Check expiry after acquiring the locks. The inbound row remains

@@ -499,7 +499,7 @@ def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> No
         == person
     )
     destination = DocumentsDestination(
-        world.documents, store.eligible_businesses
+        world.documents, store
     )
     captured = asyncio.run(
         destination.capture(

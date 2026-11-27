@@ -81,6 +81,13 @@ class Claim:
 
 
 @dataclass(frozen=True)
+class BusinessCopy:
+    connection_id: str
+    custodian: str
+    space_id: str
+
+
+@dataclass(frozen=True)
 class CaptureSource:
     content: bytes = field(repr=False)
     filename: str
@@ -98,6 +105,7 @@ class Settlement:
     # held these bytes. ``reading``: the receipt was queued for reading.
     # ``reply_language``: the sender link's, if any.
     duplicate: bool = False
+    previous_business_copy: bool = False
     reading: bool = False
     reply_language: str | None = None
     # The sender link observed before the download, and the staged document location.
@@ -108,6 +116,7 @@ class Settlement:
 
 
 PrepareCapture = Callable[["Connection | None", Settlement, bytes], Settlement]
+DiscardCapture = Callable[["Connection | None", Settlement], None]
 
 
 def settlement_time(now: datetime | Callable[[], datetime]) -> datetime:
@@ -179,6 +188,7 @@ class WhatsAppStore(Protocol):
         now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
         prepare: PrepareCapture | None = None,
+        discard: DiscardCapture | None = None,
         deadline: float | None = None,
     ) -> Settlement | None:
         """Settle only while the caller holds a live claim; None when it does not.
@@ -207,6 +217,8 @@ class WhatsAppStore(Protocol):
     ) -> SenderLink | None:
         """Consume the code and make its sender link active, carrying its language."""
         ...
+
+    def previous_business_copy(self, person_id: str, refs: list[str]) -> BusinessCopy | None: ...
 
     def eligible_businesses(self, person_id: str) -> tuple[GrantedSpace, ...]: ...
 
@@ -298,6 +310,23 @@ class InMemoryWhatsAppStore:
                 return Claim(record, True)
             return Claim(current, False)
 
+    def previous_business_copy(
+        self, person_id: str, refs: list[str]
+    ) -> BusinessCopy | None:
+        with self._lock:
+            accepted = {
+                row.connection_id
+                for row in self._inbound.values()
+                if row.status == "captured" and row.destination_owner_id == person_id
+            }
+            for ref in refs:
+                for row in self._connections.find_live(
+                    source="statement", external_ref=ref
+                ):
+                    if row.id in accepted and isinstance(row.scope, BusinessSpace):
+                        return BusinessCopy(row.id, row.user_id, row.scope.space_id)
+        return None
+
     def settle(
         self,
         *,
@@ -307,6 +336,7 @@ class InMemoryWhatsAppStore:
         now: datetime | Callable[[], datetime],
         reply_failure: PendingFailure | None = None,
         prepare: PrepareCapture | None = None,
+        discard: DiscardCapture | None = None,
         deadline: float | None = None,
     ) -> Settlement | None:
         with self._lock:
@@ -328,14 +358,21 @@ class InMemoryWhatsAppStore:
                     else None
                 )
                 if link is None or not link.authorizes(settlement):
+                    accepted = any(
+                        row.status == "captured"
+                        and row.connection_id == settlement.connection_id
+                        for row in self._inbound.values()
+                    )
+                    if discard is not None and not settlement.duplicate and not accepted:
+                        discard(None, settlement)
                     settlement = revoked(settlement)
                 else:
                     document = self._connection(
                         settlement.storage_user_id, settlement.connection_id
                     )
-                    if document is None or document.scope != scope_of(
-                        settlement.space_id
-                    ):
+                    if document is None:
+                        raise LookupError("whatsapp_staged_source_missing")
+                    if document.scope != scope_of(settlement.space_id):
                         settlement = replace(
                             settlement,
                             status="rejected",

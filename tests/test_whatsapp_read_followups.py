@@ -57,12 +57,12 @@ def test_a_read_refused_before_dispatch_waits_saved(
         connection_id=connection,
     )
     grants = (SimpleNamespace(space_id=scope.space_id, owner_id=owner),)
-    destination = module.DocumentsDestination(documents, lambda _: grants)
+    destination = module.DocumentsDestination(documents, SimpleNamespace(eligible_businesses=lambda _: grants))
     documents.get.return_value.media_type = "image/png"
     documents.get.return_value.size_bytes = 15
 
     def refused(owner_id, scope):  # noqa: ANN001, ANN202
-        raise CaptureFailed("business_permission_denied")
+        raise CaptureFailed("business_preparation_unavailable")
 
     monkeypatch.setattr(documents, "for_sender", refused)
     assert not destination.prepare(
@@ -81,11 +81,11 @@ def test_a_read_refused_before_dispatch_waits_saved(
         user_id=owner,
         connection_id=connection,
         scope=scope,
-        error_code="business_permission_denied",
+        error_code="business_preparation_unavailable",
     )
     documents.release_queued.assert_called_once_with(
         user_id=owner,
         connection_id=connection,
         scope=scope,
-        code="business_permission_denied",
+        code="business_preparation_unavailable",
     )

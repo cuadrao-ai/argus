@@ -155,7 +155,7 @@ def build_world(
             graph_api_version="v23.0",
             max_bytes=MAX_BYTES,
         ),
-        destination=DocumentsDestination(documents, store.eligible_businesses),
+        destination=DocumentsDestination(documents, store),
         clock=clock,
         transport=transport,
         app_origin=ORIGIN,

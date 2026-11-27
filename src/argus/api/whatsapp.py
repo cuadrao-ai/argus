@@ -1,16 +1,14 @@
 """WhatsApp intake wiring, exposure gate and the Business destination.
 
 Default-off behind ``CUADRAO_WHATSAPP_INTAKE_ENABLED`` and nested inside the
-document surface and the Business pilot: a WhatsApp receipt is a saved document
-draft in the owner's Business space, so intake cannot be on while either is
-off. Every route but unlinking and consent revocation answers 404 when off.
+document surface and the Business pilot. Receipts go to an eligible Business
+or wait privately for the linked sender. Every route but unlinking and consent revocation answers 404 when off.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from hashlib import sha256
@@ -102,15 +100,19 @@ _REJECTED_CAPTURE = {
 }
 
 
+class _BusinessAuthorizationLost(Exception):
+    pass
+
+
 class DocumentsDestination:
     """Stage one eligible Business directly, or keep the sender's original private."""
 
     def __init__(
         self,
         documents: DocumentsService,
-        eligible_businesses: Callable[[str], tuple[GrantedSpace, ...]],
+        store: WhatsAppStore,
     ) -> None:
-        self.documents, self.eligible_businesses = documents, eligible_businesses
+        self.documents, self.store = documents, store
 
     async def capture(
         self,
@@ -121,12 +123,27 @@ class DocumentsDestination:
         media_type: str,
         source_text: str | None = None,
     ) -> Captured:
-        grants = await asyncio.to_thread(self.eligible_businesses, owner_id)
+        grants = await asyncio.to_thread(self.store.eligible_businesses, owner_id)
+        digest = sha256(content).hexdigest()
+        if grants:
+            refs = [
+                document_ref(g.owner_id, BusinessSpace(g.space_id), digest)
+                for g in grants
+            ]
+            existing = await asyncio.to_thread(
+                self.store.previous_business_copy, owner_id, refs
+            )
+            if existing:
+                return Captured(
+                    existing.connection_id,
+                    True,
+                    existing.custodian,
+                    existing.space_id,
+                    previous_business_copy=True,
+                )
         grant = grants[0] if len(grants) == 1 else None
         if grant is not None:
-            private_ref = document_ref(
-                owner_id, PERSONAL, sha256(content).hexdigest(), MARK
-            )
+            private_ref = document_ref(owner_id, PERSONAL, digest, MARK)
             private = await asyncio.to_thread(
                 self.documents.hub.connections.find_live,
                 source=self.documents.source,
@@ -172,20 +189,25 @@ class DocumentsDestination:
         assert person and custodian and connection_id and settlement.sender_link_id
         if connection is None:
             documents = self.documents
-            grants = self.eligible_businesses(person)
+            grants = self.store.eligible_businesses(person)
         else:
             documents = self.documents.on_connection(connection)
             grants = postgres_senders(connection).eligible_businesses(person)
         scope = scope_of(settlement.space_id)
         draft = documents.get(user_id=custodian, connection_id=connection_id, scope=scope)
         if isinstance(scope, BusinessSpace):
-            if len(grants) == 1 and (grants[0].space_id, grants[0].owner_id) == (
-                scope.space_id,
-                custodian,
-            ):
-                return self._publish_business(
-                    documents, connection, settlement, draft, scope
-                )
+            reachable = any(
+                g.space_id == scope.space_id and g.owner_id == custodian for g in grants
+            )
+            if reachable and settlement.previous_business_copy:
+                return settlement
+            if reachable and len(grants) == 1:
+                try:
+                    return self._publish_business(
+                        documents, connection, settlement, draft, scope
+                    )
+                except _BusinessAuthorizationLost:
+                    grants = ()
             # The staged Business is no longer the sole destination. Preserve the
             # original bytes in the sender's partition under this same claim.
             original = settlement.original
@@ -337,6 +359,14 @@ class DocumentsDestination:
                 record_dispatch_preparation(owned, owner_id, connection_id, scope=scope)
         except (ActionError, CaptureFailed, DocumentServiceError) as error:
             code = error.code
+            if code in {
+                "business_permission_denied",
+                "business_record_not_found",
+                "business_closed",
+                "document_reading_not_allowed",
+                "business_receipt_reading_off",
+            }:
+                raise _BusinessAuthorizationLost() from error
             documents.publish_capture(
                 user_id=owner_id,
                 connection_id=connection_id,
@@ -355,13 +385,17 @@ class DocumentsDestination:
             return False
         return True
 
-    async def discard(self, *, owner_id: str, space_id: str | None, connection_id: str) -> None:
-        await asyncio.to_thread(
-            self.documents.hub.disconnect,
-            user_id=owner_id,
-            connection_id=connection_id,
-            scope=scope_of(space_id),
-        )
+    def discard(self, db: Connection | None, staged: Settlement) -> None:
+        """Remove an unpublished draft while the settlement still holds its owner lock."""
+        user, connection_id = staged.storage_user_id, staged.connection_id
+        assert user and connection_id
+        documents = self.documents.on_connection(db) if db is not None else self.documents
+        draft = documents.store.draft(user_id=user, connection_id=connection_id)
+        if draft is not None and not draft.source_available:
+            documents.hub.connections.disconnect(
+                user_id=user, connection_id=connection_id, now=documents.hub.clock()
+            )
+            documents.store.forget(user_id=user, connection_id=connection_id)
 
 
 @dataclass(frozen=True)
@@ -414,7 +448,7 @@ def build_whatsapp(
             graph_api_version=settings.graph_api_version,
             max_bytes=max_bytes,
         ),
-        destination=DocumentsDestination(documents, store.eligible_businesses),
+        destination=DocumentsDestination(documents, store),
         clock=documents.hub.clock,
         transport=transport,
         app_origin=app_origin,
