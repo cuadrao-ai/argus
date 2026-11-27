@@ -8,6 +8,7 @@ import spanish from "@/public/locales/es-419/common.json";
 import { createRoot } from "react-dom/client";
 import type { BusinessCloseState } from "@/components/business-app/BusinessCloseDialog";
 import BusinessTransferDialog, { type BusinessTransferView } from "@/components/business-app/BusinessTransferDialog";
+import { SHEET_SNAP_SHARE } from "@/components/ui/BottomSheet";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
@@ -16,11 +17,12 @@ beforeAll(() => {
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 const WIDTHS = [1440, 390] as const;
+const VIEWPORT_HEIGHT = 844;
 const rosa = { grant_id: "editar-1", name: "Rosa", shown_as: "name" as const, eligible: true as const, reason: null };
 const sol = { grant_id: "blocked", name: "Sol", shown_as: "name" as const, eligible: false as const, reason: "owns_open_business" as const };
 
 async function mount(width: number) {
-  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 844 });
+  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: VIEWPORT_HEIGHT });
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
@@ -106,6 +108,37 @@ test("a member who cannot receive the Business shows the reason and cannot be pi
     assert.deepEqual(view.calls, []);
   } finally { await view.close(); }
 });
+
+test("a member who can receive the Business shows the name alone; one who cannot keeps the reason line", async () => {
+  const view = await mount(1440);
+  try {
+    const lines = (grant: string) => [...document.querySelector(`input[value="${grant}"]`)!.closest("label")!.querySelectorAll("span > span")].map((item) => item.textContent);
+    assert.deepEqual(lines("editar-1"), ["Rosa"]);
+    assert.deepEqual(lines("blocked"), ["Sol", "Ya es dueño de otro negocio abierto."]);
+    assert.equal(document.body.textContent?.includes("Editar"), false);
+  } finally { await view.close(); }
+});
+
+const SHORT_VIEWS: [string, BusinessTransferView][] = [
+  ["Pendiente", { kind: "pending", targetName: "Rosa", expiresAt: "2026-12-04T17:45:00Z", onWithdraw: () => undefined }],
+  ["the recipient question", { kind: "recipient", businessName: "Taller Luna", ownerName: "Lucas", expiresAt: "2026-12-04T17:45:00Z", onAccept: () => undefined, onDecline: () => undefined }],
+  ["the declined notice", { kind: "declined", businessName: "Taller Luna", targetName: "Rosa" }],
+  ["the expired notice", { kind: "expired", targetName: "Rosa" }],
+  ["the completed notice", { kind: "accepted" }],
+  ["the link that did not load", { kind: "failed", of: "transfer", reference: null, onRetry: () => undefined }],
+];
+for (const [name, short] of SHORT_VIEWS) {
+  test(`at 390 ${name} is a sheet as tall as its content, never a fixed full height`, async () => {
+    const view = await mount(390);
+    try {
+      await view.render(short);
+      const sheet = view.oneDialog() as HTMLElement;
+      assert.equal(sheet.getAttribute("data-snap"), "fit", "the sheet hugs its content");
+      assert.equal(sheet.style.height, "", "no fixed height");
+      assert.equal(sheet.style.maxHeight, `${Math.round(VIEWPORT_HEIGHT * SHEET_SNAP_SHARE.full)}px`, "it grows only as far as the full snap, then its body scrolls");
+    } finally { await view.close(); }
+  });
+}
 
 test("no members says so with no picker; no eligible member lists each reason and offers no request", async () => {
   const view = await mount(1440);

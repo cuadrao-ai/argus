@@ -66,11 +66,12 @@ export function NamedCopy({ i18nKey, businessName }: { i18nKey: string; business
 
 /**
  * Closing or transferring a Business is one short task: a centered dialog on
- * desktop and the shared bottom sheet below the desktop stop, as Exportar registros.
+ * desktop and the shared bottom sheet below the desktop stop. The sheet is as
+ * tall as its content and stops at the full snap, where its body scrolls.
  */
 export function BusinessCloseShell({ title, closeLabel, onClose, locked = false, initialFocusRef, footer, children }: { title: ReactNode; closeLabel: string; onClose: () => void; locked?: boolean; initialFocusRef?: RefObject<HTMLElement | null>; footer?: ReactNode; children: ReactNode }) {
   const { isBelowDesktop } = useResponsiveLayout();
-  if (isBelowDesktop) return <BottomSheet isOpen onClose={onClose} dismissible={!locked} initialFocusRef={initialFocusRef} title={title} closeLabel={closeLabel} snaps={["full"]} initialSnap="full" footer={footer}><div className="pb-5 pt-1">{children}</div></BottomSheet>;
+  if (isBelowDesktop) return <BottomSheet isOpen onClose={onClose} dismissible={!locked} initialFocusRef={initialFocusRef} title={title} closeLabel={closeLabel} snaps="fit" fitUpTo="full" footer={footer}><div className="pb-5 pt-1">{children}</div></BottomSheet>;
   return <CenteredDialog title={title} closeLabel={closeLabel} onClose={onClose} dismissible={!locked} initialFocusRef={initialFocusRef} footer={footer} testId="business-close-dialog"><div className="px-6 pb-5 pt-1">{children}</div></CenteredDialog>;
 }
 

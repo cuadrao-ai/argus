@@ -118,7 +118,7 @@ export default function BusinessTransferDialog({ view, state, onDismiss, onRefre
                     <Avatar name={name} size={32} />
                     <span className="min-w-0">
                       <span className="block break-words text-[15px] font-medium">{name}</span>
-                      {member.eligible ? <span className={`block ${mutedTextClass}`}>{t("business.switcher.role_editor")}</span> : <span id={reasonId} className={`block ${mutedTextClass}`}>{t(`business.lifecycle.transfer.ineligible.${member.reason}`)}</span>}
+                      {member.eligible ? null : <span id={reasonId} className={`block ${mutedTextClass}`}>{t(`business.lifecycle.transfer.ineligible.${member.reason}`)}</span>}
                     </span>
                   </label>
                 );
