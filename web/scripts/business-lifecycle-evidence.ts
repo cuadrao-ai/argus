@@ -21,10 +21,10 @@ if (!cases.length) throw new Error("Unknown evidence case");
 const owner = { space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", name: "Colmado Rosa", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true };
 const client = { ...owner, space_id: "49767c9c-9f8a-4af7-82e3-bcc065e09a19", grant_id: "b3acd38c-2e99-49aa-888f-4ee3a6268066", name: "Taller Sol", role: "accountant", capabilities: ["read", "prepare"] };
 const closed = { ...owner, closed_at: "2026-10-21T17:45:00Z", reopen_until: "2026-11-20T17:45:00Z" };
-const owned = { ...owner, member_count: 3, reopen_until: closed.reopen_until, export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 1204 }, { start: "2026-01-01", end: "2026-10-21", record_count: 310 }], members: [
+const owned = { ...owner, has_other_owner: false, member_count: 3, reopen_until: closed.reopen_until, export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 1204 }, { start: "2026-01-01", end: "2026-10-21", record_count: 310 }], members: [
   { grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa Pérez", shown_as: "name", eligible: true, reason: null },
-  { grant_id: "3200626b-f480-4249-97bd-04bdc03f1a15", name: "Ana López", shown_as: "name", eligible: false, reason: "email_unconfirmed" },
-  { grant_id: "2100626b-f480-4249-97bd-04bdc03f1a15", name: "Luis Díaz", shown_as: "name", eligible: false, reason: "owns_open_business" },
+  { grant_id: "3200626b-f480-4249-97bd-04bdc03f1a15", name: "Ana López", shown_as: "name", eligible: false, reason: "not_admin" },
+  { grant_id: "2100626b-f480-4249-97bd-04bdc03f1a15", name: "Luis Díaz", shown_as: "name", eligible: false, reason: "not_admin" },
 ] };
 const transfer = { id: "14ed5edb-9a72-428e-9a4a-52f5ab77c342", space_id: owner.space_id, grant_id: client.grant_id, business_name: owner.name, owner_name: "María Rosa", owner_shown_as: "name", target_name: "Rosa Pérez", target_shown_as: "name", role: "target", status: "pending", expires_at: "2026-10-24T17:45:00Z" };
 const evidence: { file: string; sha256: string; state: string; width: number; theme: string; posts: number; retryKeys?: string[] }[] = [];
@@ -90,7 +90,7 @@ try {
       }
       // Transfer is one dialog over the app: no drawer and no second confirm.
       if (state === "transfer-picker" || state.startsWith("accept-")) { await expect(page.getByRole("dialog")).toHaveCount(1); await expect(page.getByRole("alertdialog")).toHaveCount(0); await expect(page.getByTestId("side-drawer")).toHaveCount(0); }
-      if (state === "transfer-picker") { await expect(page.getByTestId("business-settings")).toBeAttached(); await expect(page.getByRole("radio", { name: /Rosa Pérez/ })).toBeVisible(); await expect(page.getByRole("radio", { name: /Ana López/ })).toBeDisabled(); await expect(page.getByRole("dialog").locator("label", { hasText: "Rosa Pérez" })).toHaveText(/Rosa Pérez$/); await expect(page.getByRole("dialog").locator("label", { hasText: "Ana López" })).toContainText("Falta confirmar su correo."); }
+      if (state === "transfer-picker") { await expect(page.getByTestId("business-settings")).toBeAttached(); await expect(page.getByRole("radio", { name: /Rosa Pérez/ })).toBeVisible(); await expect(page.getByRole("radio", { name: /Ana López/ })).toBeDisabled(); await expect(page.getByRole("dialog").locator("label", { hasText: "Rosa Pérez" })).toHaveText(/Rosa Pérez$/); await expect(page.getByRole("dialog").locator("label", { hasText: "Ana López" })).toContainText("Primero cambia su acceso a Administrador."); }
       if (state.startsWith("accept-")) {
         const dialog = page.getByRole("dialog");
         await expect(dialog.getByRole("heading", { name: `¿Aceptar ${owner.name}?`, exact: true })).toBeVisible();

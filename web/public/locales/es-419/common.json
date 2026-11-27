@@ -4180,7 +4180,7 @@
         "ineligible": {
           "account_unavailable": "Esta cuenta no puede recibir el negocio.",
           "email_unconfirmed": "Falta confirmar su correo.",
-          "not_editor": "No tiene acceso para editar.",
+          "not_admin": "Primero cambia su acceso a Administrador.",
           "owns_open_business": "Ya es dueño de otro negocio abierto."
         },
         "member": "Nuevo dueño",

@@ -166,6 +166,9 @@ class PostgresBusinessLifecycle:
                     "space_id": space.space_id,
                     "name": space.name,
                     "grant_id": space.grant_id,
+                    "has_other_owner": any(
+                        g.owner and g.grantee_id != owner_id for g in grants
+                    ),
                     "member_count": len(members),
                     "reopen_until": now + REOPEN_WINDOW,
                     "export_windows": export_windows(*history),

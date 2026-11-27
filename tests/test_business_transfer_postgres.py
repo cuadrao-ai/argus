@@ -16,6 +16,7 @@ from argus.domain.business.receipt_consent import (
     SCOPE_VERSION,
     BusinessReceiptConsentStore,
 )
+from argus.domain.business.roles import BusinessRole
 from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.business.transfer import PostgresBusinessTransfer
@@ -42,6 +43,7 @@ def _request(world, key="transfer-1", **changes):
         idempotency_key=key,
     )
     args.update(changes)
+    lifecycle.make_admin(member.id)
     return PostgresBusinessTransfer(pool).request(**args)
 
 
@@ -100,8 +102,6 @@ def test_request_name_and_target_are_checked(world):
 
 
 def test_admin_can_receive_ownership_but_cannot_transfer_or_close(world):
-    from argus.domain.business.roles import BusinessRole
-
     pool, space, people, access, member = world
     upgrade = access.change_role(space.id, people["owner"], member.id, BusinessRole.ADMIN)
     access.accept_invite(people["other"], space.id, upgrade.invites[0].id)
@@ -309,7 +309,7 @@ def test_transferred_receipt_reads_reviews_history_and_original_are_scoped(
             (old.actor.space_id,),
         ).fetchall()
     _, listing = PostgresAccessStore(pool).give(
-        str(old.actor.space_id), old.owner_id, email
+        str(old.actor.space_id), old.owner_id, email, BusinessRole.ADMIN
     )
     access = PostgresAccessStore(pool)
     access.accept_invite(users["other"], str(old.actor.space_id), listing.invites[0].id)
@@ -738,8 +738,6 @@ def test_ownership_acquired_during_reauthorization_refuses_fresh_deletion(world)
 
 
 def join_coowner(world, email):
-    from argus.domain.business.roles import BusinessRole
-
     pool, space, people, access, _ = world
     with pool.connection() as db:
         db.execute(
@@ -753,8 +751,6 @@ def join_coowner(world, email):
 @pytest.mark.parametrize("sender,retained_owner", [("owner", "guest"), ("guest", "owner")])
 def test_transfer_cancels_only_demoted_issuers_pending_invitations(world, sender, retained_owner, faker):
     from argus.domain.business.memberships import MembershipError
-    from argus.domain.business.roles import BusinessRole
-
     pool, space, people, access, _ = world
     join_coowner(world, faker.ascii_safe_email())
     retained_grant = access.spaces_for(people[retained_owner])[0].grant_id

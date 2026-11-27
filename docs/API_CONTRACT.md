@@ -11697,7 +11697,7 @@ is changed by this checkpoint.
 This legacy domain slice separates the default/transfer anchor from record custody.
 `spaces.current_owner_id` owns that anchor; canonical active Owner membership
 now owns ordinary Business authority. Existing financial `user_id` and
-`spaces.created_by` keep custody. A transfer requests an existing live Editar
+`spaces.created_by` keep custody. A transfer requests an existing live Administrador
 member and exact current name. It changes no authority until that same member
 accepts. Acceptance serializes with close, rechecks the initiator's
 `assign_owner` permission and the recipient's live membership, promotes the
@@ -11832,12 +11832,15 @@ Global account deletion keeps its own switch and is unchanged.
 `GET /business/owned-spaces` is the close preview. Each Business now also carries
 `member_count` (the live members who lose access on close), `reopen_until` (the
 deadline a close now would set, from the database clock) and `export_windows`.
+`has_other_owner` is true when another live Owner holds the Business; it then
+needs no transfer and the owner card offers none.
 `members` lists every live member as `{grant_id, name, email, shown_as, eligible, reason}`;
 `name` is the profile name or `null`, and `email` stands in only without one
 (only the owner reads this list, so `shown_as` is `name`, `email`, or `member`
 for an account with no email).
 `reason` is null for an eligible member, otherwise `account_unavailable`,
-`not_editor`, `email_unconfirmed` or `owns_open_business`. Eligibility and the
+`not_admin`, `email_unconfirmed` or `owns_open_business`. Only an Administrador
+is eligible: an Editor or a Lector answers `not_admin`, and an Owner is not listed. Eligibility and the
 transfer request read one shared query, so a request naming an ineligible member
 still answers `409 business_transfer_target_invalid` and creates no transfer.
 

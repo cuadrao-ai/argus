@@ -28714,6 +28714,8 @@ components:
           - type: 'null'
         grant_id:
           type: string
+        has_other_owner:
+          type: boolean
         member_count:
           type: integer
         reopen_until:
@@ -28732,6 +28734,7 @@ components:
       - space_id
       - name
       - grant_id
+      - has_other_owner
       - member_count
       - reopen_until
       - export_windows
@@ -34184,7 +34187,7 @@ components:
           - type: string
             enum:
             - account_unavailable
-            - not_editor
+            - not_admin
             - email_unconfirmed
             - owns_open_business
           - type: 'null'

@@ -119,6 +119,18 @@ test("a member who can receive the Business shows the name alone; one who cannot
   } finally { await view.close(); }
 });
 
+test("only an Administrador can be picked: the name alone; an Editor or a Lector is told to change the access first", async () => {
+  const view = await mount(1440);
+  try {
+    const member = (grant_id: string, name: string, eligible: boolean) => ({ grant_id, name, shown_as: "name" as const, ...(eligible ? { eligible: true as const, reason: null } : { eligible: false as const, reason: "not_admin" as const }) });
+    await view.render({ kind: "request", businessName: "Taller Luna", members: [member("admin", "Ana", true), member("editor", "Luis", false), member("lector", "Carla", false)], onRequest: () => undefined });
+    const row = (grant: string) => { const input = document.querySelector(`input[value="${grant}"]`) as HTMLInputElement; return { disabled: input.disabled, lines: [...input.closest("label")!.querySelectorAll("span > span")].map((item) => item.textContent) }; };
+    assert.deepEqual(row("admin"), { disabled: false, lines: ["Ana"] });
+    assert.deepEqual(row("editor"), { disabled: true, lines: ["Luis", "Primero cambia su acceso a Administrador."] });
+    assert.deepEqual(row("lector"), { disabled: true, lines: ["Carla", "Primero cambia su acceso a Administrador."] });
+  } finally { await view.close(); }
+});
+
 const SHORT_VIEWS: [string, BusinessTransferView][] = [
   ["Pendiente", { kind: "pending", targetName: "Rosa", expiresAt: "2026-12-04T17:45:00Z", onWithdraw: () => undefined }],
   ["the recipient question", { kind: "recipient", businessName: "Taller Luna", ownerName: "Lucas", expiresAt: "2026-12-04T17:45:00Z", onAccept: () => undefined, onDecline: () => undefined }],

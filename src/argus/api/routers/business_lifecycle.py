@@ -65,6 +65,8 @@ class OwnedBusiness(BaseModel):
     space_id: str
     name: GivenName
     grant_id: str
+    #: Another live Owner holds this Business, so it needs no transfer.
+    has_other_owner: bool
     #: Live members who lose access when the Business closes.
     member_count: int
     #: The reopen deadline a close now would set.

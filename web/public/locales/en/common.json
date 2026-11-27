@@ -3838,7 +3838,7 @@
         "ineligible": {
           "account_unavailable": "This account cannot take ownership of the business.",
           "email_unconfirmed": "Their email needs confirmation.",
-          "not_editor": "Does not have access to edit.",
+          "not_admin": "Change their access to Administrador first.",
           "owns_open_business": "Already owns another open business."
         },
         "member": "New owner",

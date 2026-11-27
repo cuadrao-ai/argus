@@ -68,6 +68,7 @@ def request(world, key="mail-request"):
             "update auth.users set email_confirmed_at=now() where id=%s",
             (people["owner"],),
         )
+    lifecycle.make_admin(member.id)
     return PostgresBusinessTransfer(pool).request(
         owner_id=people["owner"],
         space_id=space.id,
@@ -272,6 +273,7 @@ def test_auth_deletion_cannot_leave_an_outbox_recipient_behind(world):
 
 
 def test_concurrent_duplicate_requests_send_one_recipient_message(world, provider):
+    lifecycle.make_admin(world[4].id)
     with ThreadPoolExecutor(max_workers=4) as workers:
         results = tuple(workers.map(lambda _: request(world), range(4)))
     assert len({row.id for row in results}) == 1

@@ -20,7 +20,7 @@ const space = "39d12d09-bebe-4992-b6dc-cb1a84d52438";
 const grant = "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0";
 const rosaGrant = "5200626b-f480-4249-97bd-04bdc03f1a15";
 const transfer = { id, space_id: space, status: "pending", expires_at: "2026-12-04T17:45:00+00:00", business_name: "Colmado Rosa", owner_name: "Ana", owner_shown_as: "name", target_name: "Rosa", target_shown_as: "name", role: "target", grant_id: grant };
-const owned = { space_id: space, name: "Colmado Rosa", grant_id: grant, member_count: 1, reopen_until: "2026-12-20T17:45:00Z", export_windows: [], members: [{ grant_id: rosaGrant, name: "Rosa", shown_as: "name", eligible: true, reason: null }] };
+const owned = { space_id: space, name: "Colmado Rosa", grant_id: grant, has_other_owner: false, member_count: 1, reopen_until: "2026-12-20T17:45:00Z", export_windows: [], members: [{ grant_id: rosaGrant, name: "Rosa", shown_as: "name", eligible: true, reason: null }] };
 const ANSWER = { accept: "accepted", decline: "declined", withdraw: "cancelled" } as const;
 
 beforeAll(() => { GlobalRegistrator.register({ url: `https://app.example.test/biz?transfer=${id}` }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; process.env[SWITCH] = "true"; });

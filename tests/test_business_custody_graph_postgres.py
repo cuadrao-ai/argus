@@ -455,7 +455,7 @@ def test_receipt_graph_survives_closed_or_transferred_custodian_deletion(
                 (w["users"]["other"],),
             )
             target = db.execute(
-                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,array['read','prepare']) returning id",
+                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities,business_role) values(%s,%s,%s,array['read','prepare','approve'],'admin') returning id",
                 (w["space"], w["users"]["other"], w["old"]),
             ).fetchone()[0]
             member = w["users"]["other"]
@@ -738,7 +738,7 @@ def test_transfer_outbox_pii_is_removed_before_canonical_history_is_anonymized(c
             ([w["old"], w["users"]["other"]],),
         )
         target = db.execute(
-            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,array['read','prepare']) returning id::text",
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities,business_role) values(%s,%s,%s,array['read','prepare','approve'],'admin') returning id::text",
             (w["space"], w["users"]["other"], w["old"]),
         ).fetchone()[0]
     service = PostgresBusinessTransfer(w["pool"])

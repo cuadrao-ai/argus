@@ -14,8 +14,8 @@ import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 const originalFetch = globalThis.fetch;
 const originalAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
 const businesses = [
-  { space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", name: "Colmado Rosa", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true, member_count: 1, reopen_until: "2026-11-20T17:45:00Z", export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 40 }, { start: "2026-01-01", end: "2026-10-21", record_count: 12 }], members: [{ grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa", shown_as: "name", eligible: true, reason: null }] },
-  { space_id: "49767c9c-9f8a-4af7-82e3-bcc065e09a19", name: "Taller Sol", grant_id: "b3acd38c-2e99-49aa-888f-4ee3a6268066", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true, member_count: 0, reopen_until: "2026-11-20T17:45:00Z", export_windows: [{ start: "2024-01-01", end: "2024-12-31", record_count: 3 }, { start: "2025-01-01", end: "2025-12-31", record_count: 5 }], members: [] },
+  { space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", name: "Colmado Rosa", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true, member_count: 1, reopen_until: "2026-11-20T17:45:00Z", has_other_owner: false, export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 40 }, { start: "2026-01-01", end: "2026-10-21", record_count: 12 }], members: [{ grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa", shown_as: "name", eligible: true, reason: null }] },
+  { space_id: "49767c9c-9f8a-4af7-82e3-bcc065e09a19", name: "Taller Sol", grant_id: "b3acd38c-2e99-49aa-888f-4ee3a6268066", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true, member_count: 0, reopen_until: "2026-11-20T17:45:00Z", has_other_owner: true, export_windows: [{ start: "2024-01-01", end: "2024-12-31", record_count: 3 }, { start: "2025-01-01", end: "2025-12-31", record_count: 5 }], members: [] },
 ];
 beforeAll(() => { GlobalRegistrator.register({ url: "https://app.example.test/biz" }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; });
 afterAll(async () => { globalThis.fetch = originalFetch; setChosenGrant(null); if (originalAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalAuth; await GlobalRegistrator.unregister(); });
@@ -76,6 +76,15 @@ test("closed listing reopens the selected Business once", async () => {
     await act(async () => { button("Reabrir negocio").click(); button("Reabrir negocio").click(); });
     const commands = view.calls.filter(call => call.method === "POST"); assert.equal(commands.length, 1); assert.ok(commands[0].path.endsWith(`/${businesses[1].space_id}/reopen`)); assert.equal(reload.mock.calls[0][0], "/biz");
   } finally { reload.mockRestore(); await view.close(); }
+});
+
+test("the Dueño card offers Transferir only when no other Dueño holds the Business", async () => {
+  const view = await mount(<BusinessLifecycleControls />);
+  try {
+    const [alone, shared] = businesses.map(business => (action: string) => document.querySelectorAll(`a[href*="lifecycle=${action}"][href*="${business.space_id}"]`).length);
+    assert.deepEqual([alone("transfer"), alone("close")], [1, 1]);
+    assert.deepEqual([shared("transfer"), shared("close")], [0, 1]);
+  } finally { await view.close(); }
 });
 
 test("readiness denial reveals no names or mutation controls", async () => {

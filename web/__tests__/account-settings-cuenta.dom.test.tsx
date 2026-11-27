@@ -33,7 +33,7 @@ beforeAll(() => {
     if (path.endsWith("/account/delete")) return deletionReply();
     if (path.endsWith("/feedback")) return feedbackReply();
     if (path.endsWith("/business/owned-spaces")) {
-      return Response.json({ spaces: owned(3).map((business, index) => ({ space_id: business.business_id, name: business.business_name, grant_id: `10000000-0000-4000-8000-00000000000${index}`, member_count: 0, reopen_until: "2026-12-20T17:45:00Z", export_windows: [], members: [] })) });
+      return Response.json({ spaces: owned(3).map((business, index) => ({ space_id: business.business_id, name: business.business_name, grant_id: `10000000-0000-4000-8000-00000000000${index}`, has_other_owner: false, member_count: 0, reopen_until: "2026-12-20T17:45:00Z", export_windows: [], members: [] })) });
     }
     return Response.json({ user: { id: "cuenta-owner", display_name: "Ana Morel", email: "ana@example.test", language: "es-419" }, account_kind: "registered", available: false });
   }) as typeof fetch;

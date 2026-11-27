@@ -43,10 +43,10 @@ test("closed spaces are server facts and malformed payloads are refused", async 
 
 
 test("owned preview preserves server counts, deadline, export windows and every eligibility reason", async () => {
-  const reasons = [null, "account_unavailable", "not_editor", "email_unconfirmed", "owns_open_business"];
+  const reasons = [null, "account_unavailable", "not_admin", "email_unconfirmed", "owns_open_business"];
   const business = {
     space_id: spaceId, name: "Taller Luna", grant_id: "ee9c4550-1fe4-4e95-8fc2-8984d11e50f2",
-    member_count: 5, reopen_until: "2026-11-20T17:45:00Z",
+    has_other_owner: false, member_count: 5, reopen_until: "2026-11-20T17:45:00Z",
     export_windows: [{ start: "2024-01-01", end: "2024-12-31", record_count: 12 }, { start: "2025-01-01", end: "2025-12-31", record_count: 0 }],
     members: reasons.map((reason) => ({ grant_id: crypto.randomUUID(), name: "Rosa", shown_as: "name", eligible: reason === null, reason })),
   };

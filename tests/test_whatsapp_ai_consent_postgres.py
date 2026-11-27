@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from argus.domain.business.access import PostgresAccessStore
+from argus.domain.business.roles import BusinessRole
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.business.transfer import PostgresBusinessTransfer
 from argus.domain.ingestion.whatsapp.ai_consent import LINK_DISCLOSURES, AIConsentStore
@@ -175,7 +176,7 @@ def test_transfer_keeps_the_phone_receipt_with_its_person_and_checks_todays_setu
         email = db.execute(
             "update auth.users set email_confirmed_at=now() where id=%s returning email", (other,),
         ).fetchone()[0]
-    _, listing = access.give(space, owner, email)
+    _, listing = access.give(space, owner, email, BusinessRole.ADMIN)
     access.accept_invite(other, space, listing.invites[0].id)
     member = next(row for row in access.list(space, owner).grants if not row.owner)
     offer = transfer.request(
