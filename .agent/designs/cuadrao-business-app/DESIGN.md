@@ -246,6 +246,9 @@ The preview demonstrates them; this section does not certify backend wiring.
 - Synthetic accepted-member fixtures are seeded once only for fixture-space. Other
   businesses receive no invented members. This panel is development-and-mock gated;
   the existing live access component and its API behavior remain unchanged.
+  Historical since November 27, 2026: the last sentence no longer holds. The
+  same panel draws the server's access list for a live Business. See
+  [Business roles in Acceso](#business-roles-in-acceso-built-november-27-2026-2494-2501).
 - Keep membership and access lists under Configurar in Business settings. The
   invitation dialog contains only the people being invited and their send results;
   do not add current-member or pending-invitation history disclosures here.
@@ -268,6 +271,88 @@ The preview demonstrates them; this section does not certify backend wiring.
   invitation and membership results from the backend before this UI is enabled.
 - Apply the same hierarchy, labels and validation behavior in EN and ES. Check both
   themes and phone/tablet/desktop widths. Do not reduce type to fit more content.
+
+### Business roles in Acceso, built November 27, 2026 (#2494, #2501)
+
+A Business has four roles. `ROLE_PERMISSIONS` in
+`src/argus/domain/business/roles.py` is the one owner of what each role may do.
+The web keeps no role table. It reads the person's `permissions` for the
+selected Business from the server and draws only what they allow.
+
+| Role (es-419) | Value | `read` | `prepare` | `approve` | `manage` | `download` | `export` | `assign_owner` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Dueño | `owner` | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Administrador | `admin` | Yes | Yes | Yes | Yes | Yes | Yes | No |
+| Editor | `editor` | Yes | Yes | No | No | Yes | Yes | No |
+| Lector | `viewer` | Yes | No | No | No | No | No | No |
+
+The role names are the `workspace_setup_preview.permission_owner`,
+`permission_admin`, `permission_editor` and `permission_viewer` keys. Each role
+option shows its name and one line under it:
+
+| Role | Line (es-419) | Key |
+| --- | --- | --- |
+| Dueño | "Acceso completo al negocio. Puede aceptar registros e invitar a otros dueños." | `workspace_setup_preview.permission_owner_detail` |
+| Administrador | "Configura el negocio, gestiona colaboradores y acepta registros." | `workspace_setup_preview.permission_admin_detail` |
+| Editor | "Agrega documentos y prepara registros. No puede aceptarlos ni administrar el negocio." | `workspace_setup_preview.permission_editor_detail` |
+| Lector | "Consulta documentos y registros. No puede editarlos ni descargarlos." | `workspace_setup_preview.permission_viewer_detail` |
+
+What a permission opens:
+
+- `approve`: Aceptar, an edit of an accepted record, the Personal mark on an
+  accepted record, and the switch for automatic reading.
+- `manage`: the Acceso tab, giving, changing and removing the Administrador,
+  Editor and Lector roles, every email the Business received, and the senders
+  list. A person without `manage` reads only the mail sent from their own
+  account address.
+- `assign_owner`: giving the Dueño role, changing or removing a Dueño, and the
+  Business chat.
+- `prepare`: one of the three conditions to send documents by WhatsApp. See
+  [WhatsApp](#whatsapp-built-november-27-2026-2495).
+
+**The Acceso tab.** Negocio shows the tab "Acceso"
+(`business.settings.tab_equipo`) only to a person with `manage`. Owner:
+`web/app/design-workspace/BusinessAccessPreview.tsx`. With a live Business it
+draws the server's access list. With sample data it keeps the local sketch
+described above, which grants nothing.
+
+- The card is headed "Colaboradores"
+  (`workspace_setup_preview.access_members_title`). A row is a 32px avatar, the
+  email, the role and a trash button. The person's own row says "Tú"
+  (`workspace_setup_preview.access_you`).
+- Every row gives the role the same 144px column, so the roles line up.
+- The role picker offers only the roles the person may give. Dueño needs
+  `assign_owner`. Administrador, Editor and Lector need `manage`. Owner:
+  `accessRoleOptions` in `businessAccessPreviewState.ts`.
+- A row whose role the person cannot give shows the role as text, with no
+  picker. An Administrador sees a Dueño this way, and that row's trash is
+  disabled.
+- The person's own row has a disabled picker and a disabled trash. The server
+  also refuses a change of one's own role and the removal of one's own access.
+- The server refuses to remove or demote the last Dueño.
+- A promotion to Administrador or to Dueño needs that person's acceptance, so
+  the server makes it an invitation. The card says "Invitación creada. Todavía
+  no tiene acceso; falta que acepte la invitación."
+  (`workspace_setup_preview.invite_pending_detail`).
+- The trash opens the alert "¿Quitar el acceso a {{email}}?"
+  (`workspace_setup_preview.access_remove_title`), which confirms with "Quitar
+  acceso" (`workspace_setup_preview.access_remove`).
+- After every change the card reads the access list again from the server.
+- A failed read says "No pudimos cargar el acceso. Inténtalo de nuevo."
+  (`business_access.error`) with its reference and Reintentar. When the server
+  answers 403 or 404, the card says "Este negocio no está disponible con tu
+  acceso actual." (`business.lifecycle.errors.business_unavailable`) and has no
+  Reintentar.
+- The invitation form offers the same role options and starts each row on
+  Lector. Invitations get their own section when they ship.
+
+**Words that name a role.**
+
+- The dossier tells a person who can prepare and cannot accept: "Puedes
+  revisar y preparar este recibo. Lo acepta el dueño o un administrador."
+  (`business.dossier.prepare_only`).
+- The access banner reads "Ahora tienes acceso a {{name}} · {{role}}"
+  (`business.switcher.access_line`), with the role name from the keys above.
 
 ### Guide readiness and progress
 
@@ -393,6 +478,9 @@ They extend Forms below, including email aliases, authorized senders and invoici
   setup steps, document method selection, email setup or the invoicing guide.
 - Keep the destination visible when linking a WhatsApp sender or inviting someone.
   A separate Business dossier may identify the Business once in its header.
+  Historical for WhatsApp since November 27, 2026: a number links to the
+  person, not to one Business, and the panel names no destination. See
+  [WhatsApp](#whatsapp-built-november-27-2026-2495).
 
 ### Business profile
 
@@ -727,6 +815,79 @@ block.
 Rows take hover black 4% (white 5% in dark), pressed black 8% (white 10%) and
 an inset focus ring. Secondary and both red buttons darken while pressed.
 
+#### WhatsApp, built November 27, 2026 (#2495)
+
+Owner: `components/settings/WhatsAppLinkModal.tsx`. A person links their own
+phone number here. The link belongs to the person, not to one Business, so the
+panel is the same whichever Business is selected.
+
+- `SETTINGS_WINDOW_ORDER` lists WhatsApp after Barra lateral. Ajustes shows it
+  only to a registered account, and only when `GET /whatsapp/link` answers.
+- The server answers when WhatsApp receiving is on and the person has a linked
+  number, a held file, or `prepare` in at least one Business. Otherwise it
+  answers 404 and Ajustes lists no WhatsApp section. A 404 while the panel is
+  open closes the panel, with no error.
+- The setup step "Conecta WhatsApp" (`business.home_setup.steps.whatsapp.title`)
+  opens the same panel in place of the setup dossier.
+- The panel is titled "WhatsApp" (`settings.whatsapp.title`) and draws through
+  `SettingsSurface`.
+
+The panel shows one state at a time. All keys below are under
+`settings.whatsapp` unless the row names another.
+
+| State | Body | Actions |
+| --- | --- | --- |
+| Loading | "Leyendo tu vínculo…" (`loading`) | None |
+| Ready | The channel icon, "Envía tus documentos por WhatsApp" (`intro_title`), the `intro_body` and `intro_held` lines, and a box with the consent notice | Primary "Vincular mi WhatsApp" (`link_phone`) |
+| Setup needed | The icon, `intro_title` and `intro_body`. An info box with "Completa el RNC y activa la lectura automática en un negocio" (`setup_title`) and `setup_body`. A numbered list of two steps: "Agrega el RNC o la cédula" and "Activar lectura de documentos", the titles of the setup steps `fiscal_identity` and `receipt_reading` | Primary "Configurar negocio" (`business.switcher.settings`), which closes the panel and opens Negocio on Perfil |
+| Waiting | The code, as described below | "Cancelar" (`cancel`) |
+| Expired | A box with "El código venció" (`expired_title`) and `expired_body`. From the tablet stop up, the QR code faded under a clock. "Este mensaje ya no sirve." (`expired_message`) over the message, struck through, with no copy button | Primary "Obtener otro código" (`new_code`) and "Cancelar" |
+| Linked | A box with "Número vinculado" (`number`) and "Número que termina en {{last4}}" (`linked`). A note on document reading (`business.activity.all_channels`) | Secondary "Desvincular número" (`unlink`) |
+
+**Setup needed.** The person has no Business that can receive. A Business can
+receive when the person has `prepare` in it, it has an RNC or a cédula, and
+automatic reading is on. `eligible_businesses` in
+`src/argus/domain/ingestion/whatsapp/senders.py` is the one owner of that rule.
+The web reads the server's `receiving_businesses` list and its
+`whatsapp_setup_required` refusal. It checks no role itself.
+
+**The consent notice.** The server owns the notice and its token
+(`LINK_DISCLOSURES` in `src/argus/domain/ingestion/whatsapp/ai_consent.py`),
+in the app's language. The web holds no copy of it. "Vincular mi WhatsApp" is
+disabled until both arrive, and it sends the token back. When the notice
+changed in between, the panel says "La permisión cambió desde la última vez.
+Lee el texto de nuevo y vuelve a intentarlo." (`problem_stale`) and reads the
+notice again.
+
+**Waiting.** A code lasts 10 minutes (`CODE_TTL` in `whatsapp/intake.py`).
+
+- From the tablet stop up: the heading "Escanea el código con tu teléfono"
+  (`scan_title`), the 148px QR code, and three numbered steps (`scan_camera`,
+  `scan_send`, `scan_return`). The footer asks "¿Tienes WhatsApp en esta
+  computadora?" (`desktop_prompt`) beside a secondary "Abrir WhatsApp" (`open`).
+- On a phone: the heading "Envía el código por WhatsApp" (`mobile_title`), the
+  `mobile_steps` line and a full-width primary "Abrir WhatsApp". There is no QR
+  code.
+- The QR code and "Abrir WhatsApp" show only when the server sends the link.
+- At every width: a spinner with "Esperando tu mensaje…" (`waiting`) and the
+  countdown "Vence en {{time}}" (`expires_in`) in minutes and seconds. Under
+  them, the `send_steps` line and the message in a monospace box with a copy
+  button named "Copiar código" (`copy_code`). Owner of the button:
+  `components/settings/CopyCodeButton.tsx`.
+- The panel reads the link every 3 seconds and changes to Linked by itself.
+  When the countdown ends it reads once more, then shows Expired.
+
+**Unlinking.** "Desvincular número" asks in the pane, not in an alert. The
+line `confirm_unlink` shows in the body, and the footer holds "Confirmar"
+(`confirm`) and "Cancelar", both secondary. After the unlink the panel reads
+the link again.
+
+**Problems.** A problem is one inline alert line above the body, never a
+toast. More than 5 codes in 10 minutes gets "Demasiados códigos. Espera unos
+minutos e inténtalo de nuevo." (`problem_rate_limited`) with "Obtener otro
+código" and "Cancelar". Any other failure gets "No pudimos conectar con
+WhatsApp. Inténtalo de nuevo." (`problem_failed`).
+
 ### Dossier gradient, approved October 24, 2026
 
 All web desktop dossiers use the same static pine gradient, including profile
@@ -829,6 +990,77 @@ briefcase icon. Nested sections, trays and dialogs have no intro sentence.
   the list and closes. Removing the chip, or Backspace in an empty field, searches the
   whole Business. Empty, the window lists recent searches, then actions; screens show
   only when typed text matches one. Chat search keeps its own window unchanged.
+
+### Upload island, built November 27, 2026 (#2496)
+
+The island is a 40px pill that says how this browser tab's uploads stand while
+Agregar documentos is closed. Owner:
+`web/components/business-app/ReceiptUploadIsland.tsx`, with its motion in
+`receipt-upload-island.module.css`. It replaces the upload chip of the top
+bar, which is deleted.
+
+**Place.** The island sits 8px left of Buscar, on the bar's center line, and
+grows to the left. It lies over the bar and takes no room in it, so the
+heading, Buscar and Agregar keep their place and their width. On a phone it
+sits left of the search button and shows its icon alone, at 40px.
+
+**States.** `uploadBatchView` in `receipt-upload-view.ts` owns the state and
+every count, for the island and for the panel. Uploading wins over failed, and
+failed wins over saved.
+
+| State | Icon | Words (es-419) | Colours |
+| --- | --- | --- | --- |
+| Uploading | A ring that fills as the files go up, with an up arrow inside | "3 de 7" (`business.intake.island_uploading`) | Neutral: `#172b26` on white with a `#C9CFC9` border. Dark: white on `#1f2225` with a border of white at 18% |
+| Saved | A check that draws itself | "7 subidos" (`business.intake.chip_saved`) | Neutral |
+| Failed | An alert circle | "1 sin subir" (`business.intake.summary_failed`) | `#9e2f39` on `#f6dfe0`. Dark: `#ec9aa0` on `#4a2a2f` |
+
+- The words are 14px, medium, with tabular digits. The ring and the check are
+  `#2f5a49`, and `#8fcbb0` in dark.
+- The total counts each file once, also after a retry. The saved count is
+  documents, so the same bytes under two file names count once. The failed
+  count is the files that failed plus the files the queue refused.
+- While files upload, the button's accessible name is "Subiendo 3 de 7"
+  (`business.intake.chip_uploading`). In the other states it is the visible
+  words. A status region speaks only when the state changes: uploading, saved
+  or failed. It does not speak for each file.
+
+**When it shows.**
+
+- It shows only the uploads entered in the selected Business.
+- It hides while Agregar documentos is open, and when nothing uploads, failed
+  or was just saved.
+- Saved shows for 2 seconds after the last file saved, then the island closes.
+- Failed stays until each failed file is retried or removed.
+
+**Click.** A click opens Agregar documentos on that batch, and the island
+grows into the panel. Opened this way, the panel puts focus on the first
+failed or refused file's button, when there is one. Closing the panel shrinks it back into the
+island. `clearSettled` in `receipt-upload-queue.ts` then forgets the saved
+files and keeps the files that wait, upload, failed or were refused. The
+island never opens a record. The panel's button "Revisar 7 documentos"
+(`business.intake.review_count`) opens the saved batch in the dossier.
+
+**Motion.**
+
+- Out: a 40px dot slides out from under Buscar, then widens to its words. The
+  whole entrance takes 600ms.
+- Between states only the width and the icon change.
+- Close: the words fold back to the dot, then the dot slides back under Buscar.
+- The grow into the panel and the shrink back take 380ms.
+- The entrance and the grow run longer than the 250ms of [Motion](#motion).
+- With reduced motion the island appears and disappears. Nothing slides,
+  grows, bobs or draws.
+
+**With a record open.** `BusinessPanel` reports the record drawer and its
+size to the island.
+
+- Beside the narrow drawer (640px, at most half the screen), the island slides
+  left only as far as it must to stay 12px clear of the drawer's left edge.
+- Behind the wide drawer (1040px, at most 80% of the screen), the island is
+  hidden. It comes back in its current state when the drawer narrows or closes.
+
+**Leaving the tab.** The browser asks first while any file waits, uploads or
+has failed.
 
 ### Sidebar and account
 
