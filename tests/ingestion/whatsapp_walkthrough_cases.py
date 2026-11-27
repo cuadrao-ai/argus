@@ -50,13 +50,6 @@ from tests.test_business_spaces_migration_postgres import owned_space
 from workflows.document_job import postgres_documents_service
 from workflows.read_resume import ReadResume
 
-pytestmark = pytest.mark.skipif(
-    not all(
-        os.getenv(key)
-        for key in ("ARGUS_DISPOSABLE_DATABASE_URL", "ARGUS_LOCAL_SUPABASE_URL")
-    ),
-    reason="Needs a disposable Postgres and Supabase Storage",
-)
 LINK = "/api/v1/whatsapp/link"
 RECEIPTS = "/api/v1/business/receipts"
 C_NAME = "Taller privado de prueba"
@@ -91,10 +84,7 @@ class WalkthroughDesk:
 
 @pytest.fixture
 def desk(monkeypatch: pytest.MonkeyPatch) -> Iterator[WalkthroughDesk]:
-    try:
-        dsn, url = local_targets()
-    except ValueError as error:
-        pytest.skip(str(error))
+    dsn, url = local_targets()
     for key, value in {
         **ENV,
         "CUADRAO_DOCUMENT_EXTRACTION_ENABLED": "true",
@@ -168,7 +158,6 @@ def desk(monkeypatch: pytest.MonkeyPatch) -> Iterator[WalkthroughDesk]:
                     "select 1 from public.spaces where business_rnc=%s", (rnc["X"],)
                 ).fetchone()
 
-            # Publish the same DB-backed dependencies startup gives the real HTTP routes.
             for module, name, value in (
                 (documents, "_service", service),
                 (ingestion, "_hub", service.hub),
@@ -460,14 +449,18 @@ async def run_cases(w: SignedForward) -> None:
     )
 
     before = w.row_counts()
-    [duplicate] = await w.forward(sales[0])
+    sale = sales[0]
+    original = (await w.inbox("A"))[sale.name + ".png"]["id"]
+    [duplicate] = await w.forward(sale)
+    assert duplicate == original, "Resending the file should refer to A's existing sale"
     assert w.replies[-1] == compose_reply(
-        "duplicate", language="es-419", link=review_url(APP_ORIGIN, duplicate)
+        "duplicate", language="es-419", link=review_url(APP_ORIGIN, original)
     )
     assert await w.read(duplicate) is None
     assert w.row_counts() == before
     w.evidence(
-        "6 | identical bytes, fresh delivery | new drafts=0 new held rows=0", (7, 2, 2, 3)
+        "6 | duplicate links to A’s original sale | new drafts=0 new held rows=0",
+        (7, 2, 2, 3),
     )
 
     def assign(name: str, key: str) -> DocumentOutcome:
@@ -536,7 +529,7 @@ async def run_cases(w: SignedForward) -> None:
             "src/argus/api/whatsapp.py",
             "src/argus/domain/ingestion/whatsapp",
         ],
-        cwd=Path(__file__).resolve().parents[1],
+        cwd=Path(__file__).resolve().parents[2],
         capture_output=True,
         check=False,
     )

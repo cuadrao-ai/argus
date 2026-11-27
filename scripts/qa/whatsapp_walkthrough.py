@@ -182,22 +182,27 @@ if __name__ == "__main__":
     root = Path(__file__).resolve().parents[2]
 
     class Evidence:
+        reported = False
+
         def pytest_terminal_summary(self, terminalreporter):
             for report in terminalreporter.stats.get("passed", ()):
                 for key, line in report.user_properties:
                     if key == "walkthrough":
+                        self.reported = True
                         terminalreporter.write_line(line)
 
-    sys.exit(
-        pytest.main(
-            [
-                "-o",
-                "addopts=",
-                "-q",
-                "--tb=short",
-                "--no-cov",
-                str(root / "tests/test_whatsapp_walkthrough_postgres.py"),
-            ],
-            plugins=[Evidence()],
-        )
+    evidence = Evidence()
+    result = pytest.main(
+        [
+            "-o",
+            "addopts=",
+            "-q",
+            "--tb=short",
+            "--no-cov",
+            str(root / "tests/ingestion/whatsapp_walkthrough_cases.py"),
+        ],
+        plugins=[evidence],
     )
+    if result == pytest.ExitCode.OK and not evidence.reported:
+        sys.exit("The walkthrough did not run to completion.")
+    sys.exit(result)
