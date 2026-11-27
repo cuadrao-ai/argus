@@ -3,6 +3,7 @@ import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import { getChosenGrant } from "./business-grant";
+import { parseRetryAfterDelaySeconds } from "./retry-after";
 import type { IdentityAppearance, IdentityCrop } from "./identity-appearance";
 
 const crop = z.object({ mode: z.enum(["fit", "fill"]), zoom: z.number().min(1).max(4), x: z.number().min(-1).max(1), y: z.number().min(-1).max(1) });
@@ -28,7 +29,7 @@ export async function businessSettingsRequest<T>(path: string, options: RequestI
   const body = text ? JSON.parse(text) : undefined;
   check();
   if (!response.ok) {
-    throw Object.assign(new Error("Business settings unavailable"), { status: response.status, code: body.code ?? "unknown", requestId: serverRequestId(response, body), fieldErrors: body.context?.field_errors });
+    throw Object.assign(new Error("Business settings unavailable"), { status: response.status, code: body.code ?? "unknown", requestId: serverRequestId(response, body), fieldErrors: body.context?.field_errors, retryAfterSeconds: parseRetryAfterDelaySeconds(response.headers.get("Retry-After")) });
   }
   return body;
 }

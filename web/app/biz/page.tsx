@@ -6,6 +6,9 @@ import { authLoginPathFromSearch } from "@/lib/landing-intent";
 import { classifyBusinessIdentity } from "@/lib/session-recovery";
 import { BusinessEntryRecovery } from "@/components/status/BusinessEntryRecovery";
 
+/** An invitation link for an address with no account yet opens sign-up. */
+const invitedToSignUp = (search: Record<string, string | string[] | undefined>) => typeof search.invite === "string" && search.auth === "signup";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -24,7 +27,7 @@ export default async function BusinessPage({
     });
     if (outcome === "error") return <BusinessEntryRecovery />;
     if (outcome === "missing") {
-      redirect(authLoginPathFromSearch(search, "/biz"));
+      redirect(authLoginPathFromSearch(search, "/biz", invitedToSignUp(search) ? "signup" : "login"));
     }
   }
   return (

@@ -495,7 +495,8 @@ and login; it should not be exposed as a frontend product surface.
   accepted grant admits it until it is revoked or its Business is closed. A
   row here with `disabled_at` set still refuses that email, and deleting a row
   does not end the access a live grant gives. An account admitted only this
-  way starts no Business and invites no one. Business admission writes
+  way starts no Business; inside the Business it acts by its role. A live
+  invitation is one whose inviter still may grant that role. Business admission writes
   nothing to this table.
 - For a denied email, `/auth/signup` and `/auth/login` check this table before
   provider signup/session work, but public auth responses are normalized to
@@ -4450,6 +4451,15 @@ The service locks the Business before rechecking actor permissions and executing
 membership/acceptance commands. The database's actual clock checks expiry after
 lock acquisition. Loss of approval authority ends the member's Business receipt-reading consent.
 Owner-specific AI consent ends on loss of the Owner role. New membership never creates consent.
+
+`argus_private.business_invite_sends` (migration
+`20261127074336_business_invite_sends.sql`) owns "which invitation emails a
+Business sent": one row per send with `invite_id`, `space_id`, `resend` (true for
+Reenviar, false for the first send) and `sent_at`. The Reenviar cooldown, the
+per-invitation send total and the per-Business daily resend total are counted
+from it and from nowhere else. RLS is enabled with no policy and browser roles
+have no table access; the service role selects and inserts. Deleting the
+invitation or the Business cascades its rows.
 
 `argus_private.business_invitation_commands` owns per-recipient idempotency:
 primary key `(space_id, actor_id, command_key)` binds email, requested role and

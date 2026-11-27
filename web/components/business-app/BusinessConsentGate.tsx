@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { getChosenGrant, grantNotLive, setChosenGrant } from "@/lib/business-grant";
+import type { BusinessConsent } from "@/lib/business-api";
 import { consentCopyVersion } from "@/lib/business-privacy-notice";
 import { classifyFailure, referenceCode } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
@@ -14,18 +15,24 @@ type Phase = { kind: "checking" } | { kind: "screen"; save: ConsentSave } | { ki
 
 type ConsentSource = Pick<BusinessDataSource, "consent" | "acceptConsent" | "ensureSpace">;
 
+const spaceMissing = (error: unknown) => (error as { code?: unknown } | null)?.code === "business_space_missing";
+
 /**
- * Saved in the Business the person works in: the chosen client's, else their
- * own, started first. A grant that died since it was chosen is dropped, and
- * the person's own Business takes it.
+ * Saved where the server finds the person working: the chosen client's
+ * Business, else their own, else the one that invited them. Only when the
+ * server finds none of these does the person's own Business start, so an
+ * invitee gets no Business of their own. A grant that died since it was
+ * chosen is dropped first.
  */
-async function acceptWhereWorking(source: ConsentSource, language: ArgusLanguage, version: string) {
+async function acceptWhereWorking(source: ConsentSource, language: ArgusLanguage, version: string): Promise<BusinessConsent> {
   try {
-    if (!getChosenGrant()) await source.ensureSpace(language);
     return await source.acceptConsent(version);
   } catch (error) {
-    if (!grantNotLive(error) || !getChosenGrant()) throw error;
-    setChosenGrant(null);
+    if (grantNotLive(error) && getChosenGrant()) {
+      setChosenGrant(null);
+      return acceptWhereWorking(source, language, version);
+    }
+    if (!spaceMissing(error)) throw error;
     await source.ensureSpace(language);
     return source.acceptConsent(version);
   }

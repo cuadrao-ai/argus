@@ -24,9 +24,14 @@ beforeAll(async () => {
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 afterEach(() => { setChosenGrant(null); });
 
-/** The server's memory of acceptances, outliving every mounted screen. */
-function server() {
+/**
+ * The server's memory of acceptances, outliving every mounted screen. It saves
+ * for a person it finds working somewhere: under a chosen grant, in their own
+ * Business once started, or invited to one. Anyone else has no Business yet.
+ */
+function server({ invited = false }: { invited?: boolean } = {}) {
   const accepted = new Map<string, string>();
+  let ownBusiness = false;
   const calls = { ensureSpace: 0, accept: [] as (string | null)[] };
   let failNext: unknown = null;
   let hold: Promise<void> | null = null;
@@ -49,11 +54,13 @@ function server() {
         failNext = null;
         throw error;
       }
+      if (!getChosenGrant() && !ownBusiness && !invited) throw Object.assign(new Error("API error 404"), { status: 404, code: "business_space_missing" });
       if (!accepted.has(version)) accepted.set(version, "2026-10-19T12:00:00.000Z");
       return { version, accepted_at: accepted.get(version) ?? null };
     },
     ensureSpace: async () => {
       calls.ensureSpace += 1;
+      ownBusiness = true;
       return { id: "own-space", name: "Mi negocio" };
     },
   };
@@ -113,7 +120,7 @@ test("Continuar waits for the box, locks with a spinner while saving, and goes s
   const screen = host.querySelector('[data-testid="business-consent-screen"]');
   assert.ok(screen);
   assert.equal(screen.querySelector("h1")?.textContent, "Antes de empezar");
-  assert.equal(screen.querySelector("h1 + p")?.textContent, spanish.business.consent.one_time);
+  assert.equal(screen.querySelector("h1 + p")?.textContent, spanish.business.consent.body);
   const privacy = host.querySelector('[data-testid="business-consent-privacy"]') as HTMLAnchorElement;
   assert.equal(privacy.getAttribute("href"), "https://cuadrao.ai/app/privacidad");
   assert.equal(privacy.getAttribute("target"), "_blank");
@@ -139,7 +146,7 @@ test("Continuar waits for the box, locks with a spinner while saving, and goes s
   release();
   await settle();
   assert.ok(host.querySelector('[data-testid="inicio"]'));
-  assert.equal(world.calls.ensureSpace, 1, "the own Business is started before it is named");
+  assert.equal(world.calls.ensureSpace, 1, "a person with no Business and no invitation starts their own");
   assert.equal(world.accepted.size, 1);
   await act(async () => root.unmount());
   host.remove();
@@ -213,11 +220,39 @@ test("under a chosen client the acceptance names it; a dead grant falls back to 
   await act(async () => { checkbox(host).click(); });
   await act(async () => { button(host).click(); });
   await settle();
-  assert.deepEqual(world.calls.accept, [GRANT, null]);
-  assert.equal(world.calls.ensureSpace, 1, "the own Business starts only once the grant is gone");
+  assert.deepEqual(world.calls.accept, [GRANT, null, null]);
+  assert.equal(world.calls.ensureSpace, 1, "the own Business starts only once the grant is gone and the server finds none");
   assert.equal(getChosenGrant(), null);
   assert.ok(host.querySelector('[data-testid="inicio"]'));
   await act(async () => root.unmount());
   host.remove();
   synchronizeBusinessAccount(null);
+});
+
+test("an invitee's consent saves and starts no Business of their own", async () => {
+  const world = server({ invited: true });
+  const { host, root } = await mount(world.source);
+  await settle();
+  await act(async () => { checkbox(host).click(); });
+  await act(async () => { button(host).click(); });
+  await settle();
+  assert.ok(host.querySelector('[data-testid="inicio"]'), "the invitee continues into the app");
+  assert.equal(world.accepted.size, 1);
+  assert.equal(world.calls.ensureSpace, 0);
+  await act(async () => root.unmount());
+  host.remove();
+});
+
+test("a refused start leaves the screen with its failure and saves nothing", async () => {
+  const world = server();
+  world.source.ensureSpace = async () => { throw Object.assign(new Error("API error 403"), { status: 403, code: "private_alpha_access_required" }); };
+  const { host, root } = await mount(world.source);
+  await settle();
+  await act(async () => { checkbox(host).click(); });
+  await act(async () => { button(host).click(); });
+  await settle();
+  assert.ok(alert(host));
+  assert.equal(world.accepted.size, 0);
+  await act(async () => root.unmount());
+  host.remove();
 });

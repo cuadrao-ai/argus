@@ -438,9 +438,11 @@ export function currentAuthLoginPath(): string {
   );
 }
 
+/** The front door for a signed-out visit: sign-in, or sign-up for a link that says its reader has no account yet. */
 export function authLoginPathFromSearch(
   search: URLSearchParams | SearchRecord | string,
   landingPath?: string,
+  entry: "login" | "signup" = "login",
 ): string {
   const source = toSearchParams(search);
   const params = new URLSearchParams();
@@ -456,6 +458,6 @@ export function authLoginPathFromSearch(
   }
   const returnTo = returnPathFor(sanitizeLandingPath(landingPath), source);
   if (returnTo) params.set("return_to", returnTo);
-  params.set("auth", "login");
+  params.set("auth", entry);
   return `/?${params.toString()}`;
 }

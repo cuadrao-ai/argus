@@ -105,6 +105,30 @@
           }
         },
         {
+          "name": "CUADRAO_BUSINESS_INVITE_RESEND_COOLDOWN_SECONDS",
+          "kind": "plain",
+          "value": "60",
+          "production": {
+            "value": "60"
+          }
+        },
+        {
+          "name": "CUADRAO_BUSINESS_INVITE_SENDS_PER_INVITE",
+          "kind": "plain",
+          "value": "5",
+          "production": {
+            "value": "5"
+          }
+        },
+        {
+          "name": "CUADRAO_BUSINESS_INVITE_RESENDS_PER_DAY",
+          "kind": "plain",
+          "value": "20",
+          "production": {
+            "value": "20"
+          }
+        },
+        {
           "name": "CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED",
           "kind": "plain",
           "value": "true",

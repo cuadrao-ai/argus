@@ -6,8 +6,8 @@ const evidence = process.env.CUADRAO_CONSENT_EVIDENCE_DIR;
 
 const COPY = {
   title: "Antes de empezar",
-  body: "Cuadrao guarda los recibos, facturas y datos que subes para leerlos, organizarlos y preparar tus reportes. Solo tú y las personas que invites a tu negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
-  optIn: "Entiendo y acepto que Cuadrao use mis datos para esto.",
+  body: "Cuadrao guarda los recibos, facturas y datos que se suben para leerlos, organizarlos y preparar los reportes. Solo las personas con acceso al negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
+  optIn: "Entiendo y acepto que Cuadrao use los datos para esto.",
   continue: "Continuar",
   privacy: "Ver aviso de privacidad",
 };

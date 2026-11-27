@@ -31,6 +31,7 @@ import {
   captureLandingIntentFromLocation,
   postAuthPath,
 } from "@/lib/landing-intent";
+import { capturePendingInvite } from "@/lib/business-pending-invite";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
 import { landingLanguageChoices, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { saveProfileLanguage } from "@/lib/profile-writes";
@@ -73,6 +74,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     captureLandingIntentFromLocation();
+    capturePendingInvite(window.location.pathname, window.location.search);
     const nextAuthMode = authModeFromLocation();
     setAuthMode(nextAuthMode);
     setSessionEnded(sessionEndedNotice(window.location.search));

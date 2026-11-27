@@ -2267,11 +2267,10 @@
     },
     "consent": {
       "title": "Before you start",
-      "body": "Cuadrao keeps the receipts, invoices and data you upload to read them, organize them and prepare your reports. Only you and the people you invite to your business can see them. You can ask us to delete your data whenever you want.",
-      "opt_in": "I understand and agree that Cuadrao uses my data for this.",
+      "body": "Cuadrao keeps the receipts, invoices and data that are uploaded so it can read them, organize them and prepare reports. Only people with access to the business can see them. You can ask us to delete your data at any time.",
+      "opt_in": "I understand and agree that Cuadrao uses the data for this.",
       "continue": "Continue",
       "privacy_link": "View privacy notice",
-      "one_time": "We ask this once, for your business's data.",
       "save_failed": "We couldn't save your acceptance. Nothing changed."
     },
     "export": {

@@ -57,6 +57,8 @@ export const STORAGE_REGISTRY = {
   // The last few Business searches that led to a record, per Business, on this device only.
   "cuadrao:business_recent_searches:v1": "layout",
   "cuadrao:business_creation:v1": "temporary",
+  // The Business invitation an email link pointed at, until it is answered.
+  "cuadrao:pending_invite:v1": "temporary",
   "cuadrao:invoice_commands:v1": "temporary",
   "cuadrao:receipt_rotations:v1": "layout",
   // Which Bandeja columns show, their order and the row height.

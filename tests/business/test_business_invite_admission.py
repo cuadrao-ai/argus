@@ -212,7 +212,7 @@ def test_a_closed_business_admits_no_invitee_and_no_grantee(switch_on) -> None: 
     assert not permanent_account_access_allowed(gateway, invited, store)
 
 
-def test_an_invited_person_cannot_start_a_business_or_admit_anyone(
+def test_an_invited_person_starts_no_business_and_invites_by_role(
     biz: TestClient,
     identities,
     gateway,
@@ -260,15 +260,14 @@ def test_an_invited_person_cannot_start_a_business_or_admit_anyone(
     acting = {"X-Business-Grant": membership["grant_id"]}
     assert biz.get(f"{BASE}/access", headers={**bob.auth, **acting}).status_code == 200
     stranger = fake.email().lower()
-    refused(bob.post("/access", {"email": stranger}, **acting))
-    refused(
-        bob.post(
-            "/access/invitations",
-            {"recipients": [{"email": stranger, "role": "editor", "command_key": "k1"}]},
-            **acting,
-        )
+    assert bob.post("/access", {"email": stranger}, **acting).status_code == 201
+    replay = bob.post(
+        "/access/invitations",
+        {"recipients": [{"email": stranger, "role": "editor", "command_key": "k1"}]},
+        **acting,
     )
-    assert not permanent_account_access_allowed(gateway, stranger, business_access())
+    assert replay.status_code == 200, replay.text
+    assert permanent_account_access_allowed(gateway, stranger, business_access())
     assert alice.start().status_code == 200
 
 

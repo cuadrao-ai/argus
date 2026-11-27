@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from zoneinfo import ZoneInfo
 
 from argus.domain.business.access import AccessInvite, normalize_email
@@ -70,6 +70,7 @@ def render_invite_email(
     expires_at: datetime,
     sign_in_origin: str,
     asset_origin: str | None = None,
+    path: str = "/",
 ) -> InviteEmail:
     for value in (owner_name, business_name):
         if not value.strip() or any(c in value for c in "\r\n"):
@@ -81,7 +82,7 @@ def render_invite_email(
         "ownerName": owner_name,
         "businessName": business_name,
         "expiresDate": spanish_expiry_date(expires_at),
-        "signInUrl": _origin(sign_in_origin) + "/",
+        "signInUrl": _origin(sign_in_origin) + path,
         "assetOrigin": _origin(
             asset_origin
             or os.getenv("CUADRAO_EMAIL_ASSET_ORIGIN")
@@ -104,19 +105,33 @@ def render_invite_email(
     )
 
 
+def invite_path(invite: AccessInvite) -> str:
+    """Where in the app this invite's email points: the same on every send.
+    An address with no account yet lands on sign-up, any other on sign-in."""
+
+    entry = "" if invite.has_account else "&auth=signup"
+    return f"/biz?invite={quote(invite.id, safe='')}{entry}"
+
+
 def send_invite_email(
-    *, invite: AccessInvite, owner_name: str, business_name: str, sign_in_origin: str
+    *,
+    invite: AccessInvite,
+    owner_name: str,
+    business_name: str,
+    sign_in_origin: str,
+    send_number: int,
 ) -> str:
     message = render_invite_email(
         owner_name=owner_name,
         business_name=business_name,
         expires_at=invite.expires_at,
         sign_in_origin=sign_in_origin,
+        path=invite_path(invite),
     )
     return send_resend_email(
         recipient=normalize_email(invite.email),
         subject=message.subject,
         plain_text=message.text,
         html=message.html,
-        idempotency_key=f"business-invite:{invite.id}:{invite.expires_at.isoformat()}",
+        idempotency_key=f"business-invite:{invite.id}:{send_number}",
     )

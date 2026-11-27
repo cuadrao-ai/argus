@@ -4,9 +4,9 @@ import esCatalog from "@/public/locales/es-419/common.json";
 export const MOCK_AUTH_CONSENT_USER_ID = "mock-auth-user";
 
 /**
- * The words that say what a person accepts, in screen order. The one-time
- * line, the privacy link and the failure line explain the screen; they are not
- * what is accepted, so editing them asks no one again.
+ * The words that say what a person accepts, in screen order. The privacy link
+ * and the failure line explain the screen; they are not what is accepted, so
+ * editing them asks no one again.
  */
 export const BUSINESS_CONSENT_WORDING_KEYS = [
   "business.consent.title",

@@ -99,7 +99,12 @@ from argus.api.business_spaces import (
 )
 from argus.api.business_workspace import router as business_workspace_router
 from argus.api.business_workspace_images import router as business_workspace_images_router
-from argus.api.dependencies import problem, require_standing_account
+from argus.api.dependencies import (
+    current_user,
+    problem,
+    require_standing_account,
+    standing_account,
+)
 from argus.api.documents import (
     NO_STORE,
     dispatch_preparation,
@@ -124,6 +129,7 @@ from argus.api.routers.business_notifications import (
 )
 from argus.api.routers.business_search import router as business_search_router
 from argus.api.routers.business_setup import router as business_setup_router
+from argus.api.schemas import User
 from argus.api.whatsapp import whatsapp_receiving_available
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
@@ -330,6 +336,7 @@ def list_spaces(
     request: Request,
     response: Response,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
+    user: User = Depends(current_user),  # noqa: B008
 ) -> dict[str, Any]:
     """Every Business the caller may enter through a live grant of theirs,
     their own first. Pending invites for the caller's confirmed email become
@@ -373,6 +380,7 @@ def list_spaces(
             for closed in access.closed_spaces_for(person.person_id)
         ],
         "invitations_available": invitations_available(),
+        "can_start_business": standing_account(user),
     }
 
 
@@ -410,15 +418,26 @@ def accept_consent(
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
     """Idempotent: one acceptance per person and wording, naming the Business
-    they work in (the chosen grant's, else their own), answered with the first
-    acceptance time. No Business yet is a 404."""
+    they work in (the chosen grant's, else their own), else one they joined,
+    else the one that invited them, answered with the first acceptance time.
+    None of these is a 404."""
 
     scope = working_scope(request, person.spaces, person.person_id)
-    if scope is None:
-        raise space_missing_problem(request)
-    accepted_at = person.spaces.accept_consent(
-        person.person_id, scope.owner.space_id, body.version
-    )
+    if scope is not None:
+        space_id = scope.owner.space_id
+    else:
+        access = _access_store(request)
+        joined = access.spaces_for(person.person_id)
+        invited = sorted(
+            access.invitations_for(person.person_id), key=lambda i: i["expires_at"]
+        )
+        if joined:
+            space_id = joined[0].space_id
+        elif invited:
+            space_id = invited[0]["space_id"]
+        else:
+            raise space_missing_problem(request)
+    accepted_at = person.spaces.accept_consent(person.person_id, space_id, body.version)
     return {"version": body.version, "accepted_at": accepted_at}
 
 
@@ -501,11 +520,22 @@ def _access(found: AccessList) -> dict[str, Any]:
                 "expires_at": invite.expires_at,
                 "state": invite.state,
                 "requested_role": invite.requested_role,
+                "resend_wait_seconds": invite.resend_wait_seconds,
             }
             for invite in found.invites
         ],
         "invitations_available": invitations_available(),
     }
+
+
+def _require_named_business(request: Request, space_id: str) -> None:
+    """No invitation leaves a Business that has no name of its own: the person
+    invited would read the fallback name, the same for every unnamed Business."""
+
+    spaces = business_spaces()
+    if spaces is None:
+        raise space_missing_problem(request)
+    require_business_name(request, spaces, space_id)
 
 
 class AcceptInvitationBody(BaseModel):
@@ -524,11 +554,7 @@ class InvitationBatch(BaseModel):
     recipients: list[InvitationRecipient] = Field(min_length=1, max_length=50)
 
 
-@router.post(
-    "/access/invitations",
-    response_model=BusinessInvitationBatchResult,
-    dependencies=[Depends(require_standing_account)],
-)
+@router.post("/access/invitations", response_model=BusinessInvitationBatchResult)
 def invite_recipients(
     body: InvitationBatch,
     request: Request,
@@ -543,6 +569,7 @@ def invite_recipients(
     manager_only(request, context)
     require_invitations_available(request)
     space_id, actor_id = context.scope.owner.space_id, context.scope.acting_person_id
+    _require_named_business(request, space_id)
     store = _access_store(request)
     results = []
     for recipient in body.recipients:
@@ -632,12 +659,7 @@ def list_access(
     )
 
 
-@router.post(
-    "/access",
-    response_model=BusinessAccess,
-    status_code=201,
-    dependencies=[Depends(require_standing_account)],
-)
+@router.post("/access", response_model=BusinessAccess, status_code=201)
 def give_access(
     request: Request,
     response: Response,
@@ -650,10 +672,7 @@ def give_access(
     response.headers.update(NO_STORE)
     store = _access_store(request)
     space_id, owner_id = context.scope.owner.space_id, context.scope.acting_person_id
-    spaces = business_spaces()
-    if spaces is None:
-        raise space_missing_problem(request)
-    require_business_name(request, spaces, space_id)
+    _require_named_business(request, space_id)
     from argus.api.business_invite_delivery import require_invitations_available
 
     require_invitations_available(request)
@@ -683,17 +702,13 @@ def give_access(
         if invite is not None:
             from argus.api.business_invite_delivery import deliver_invite
 
-            payload["invite_delivery"] = deliver_invite(
-                request, found, invite, space_id, owner_id
-            )
+            delivery = deliver_invite(request, found, invite, space_id, owner_id)
+            # Listed again so the wait before Reenviar starts at this send.
+            payload = {**_access(store.list(space_id, owner_id)), "invite_delivery": delivery}
     return payload
 
 
-@router.post(
-    "/access/invites/{invite_id}/resend",
-    response_model=BusinessAccess,
-    dependencies=[Depends(require_standing_account)],
-)
+@router.post("/access/invites/{invite_id}/resend", response_model=BusinessAccess)
 def resend_access_invite(
     invite_id: UUID,
     request: Request,
@@ -705,6 +720,7 @@ def resend_access_invite(
     manager_only(request, context)
     require_invitations_available(request)
     space_id, owner_id = context.scope.owner.space_id, context.scope.acting_person_id
+    _require_named_business(request, space_id)
     found = _access_store(request).resend(space_id, owner_id, str(invite_id))
     if found is None:
         raise problem(
@@ -717,13 +733,27 @@ def resend_access_invite(
         )
     response.headers.update(NO_STORE)
     from argus.api.business_invite_delivery import deliver_invite
+    from argus.domain.business.memberships import InviteSendRefused
 
     invite = next((i for i in found.invites if i.id == str(invite_id)), None)
     if invite is None:
         invite = next(i for i in found.invites if i.supersedes_id == str(invite_id))
+    try:
+        delivery = deliver_invite(request, found, invite, space_id, owner_id, resend=True)
+    except InviteSendRefused as refused:
+        raise problem(
+            request,
+            status_code=429,
+            code=refused.code,
+            title="Too Many Requests",
+            detail="This invitation cannot be sent again now.",
+            context={"retry_after_seconds": refused.retry_after_seconds},
+            headers={**NO_STORE, "Retry-After": str(refused.retry_after_seconds)},
+        ) from None
+    # Listed again so the wait the web counts down is the one this send started.
     return {
-        **_access(found),
-        "invite_delivery": deliver_invite(request, found, invite, space_id, owner_id),
+        **_access(_access_store(request).list(space_id, owner_id)),
+        "invite_delivery": delivery,
     }
 
 

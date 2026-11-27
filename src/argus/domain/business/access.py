@@ -17,9 +17,17 @@ from psycopg_pool import ConnectionPool
 from argus.domain.business.contracts.actions import canonical_input_hash
 from argus.domain.business.contracts.authority import ActorProvenance
 from argus.domain.business.contracts.facts import Contract
+from argus.domain.business.invite_sends import (
+    DAILY_WINDOW,
+    InviteSendLimits,
+    resend_refusal,
+    resend_wait_seconds,
+)
 from argus.domain.business.memberships import (
+    LIVE_INVITE,
     DeliveryState,
     InvitationCommandResult,
+    InviteSendRefused,
     MembershipError,
     PostgresMembershipCommands,
     RecipientInvitation,
@@ -127,6 +135,8 @@ class AccessInvite:
     state: Literal["pending", "expired"] = "pending"
     requested_role: BusinessRole = BusinessRole.EDITOR
     supersedes_id: str | None = None
+    resend_wait_seconds: int = 0
+    has_account: bool = False
 
 
 @dataclass(frozen=True)
@@ -205,7 +215,8 @@ class AccessStore(Protocol):
         space_id: str,
         actor_id: str,
         invite_id: str,
-        send: Callable[[Connection | None], DeliveryState],
+        send: Callable[[Connection | None, int], DeliveryState],
+        resend: bool = False,
     ) -> DeliveryState: ...
 
     def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
@@ -356,6 +367,7 @@ class PostgresAccessStore(PostgresMembershipCommands):
             return False
 
     def _list(self, connection: Connection, space_id: str, owner_id: str) -> AccessList:
+        limits = InviteSendLimits()
         with connection.cursor(row_factory=dict_row) as cursor:
             grants = cursor.execute(
                 "select g.id::text, g.grantee_id::text, u.email, p.display_name,"
@@ -372,11 +384,14 @@ class PostgresAccessStore(PostgresMembershipCommands):
                 (owner_id, space_id, owner_id),
             ).fetchall()
             invites = cursor.execute(
-                "select id::text, email, created_at, expires_at, requested_role, supersedes_id::text,"
-                " case when expires_at > clock_timestamp() then 'pending' else 'expired' end as state"
-                " from public.business_access_invites"
-                " where space_id=%s and revoked_at is null and accepted_at is null"
-                " order by created_at, id",
+                "select i.id::text, i.email, i.created_at, i.expires_at, i.requested_role, i.supersedes_id::text,"
+                f" case when {LIVE_INVITE} then 'pending' else 'expired' end as state,"
+                " (select max(sent_at) from argus_private.business_invite_sends where invite_id=i.id) as last_sent_at,"
+                " clock_timestamp() as now,"
+                " exists(select 1 from auth.users where lower(email)=i.email) as has_account"
+                " from public.business_access_invites i"
+                " where i.space_id=%s and i.revoked_at is null and i.accepted_at is null"
+                " order by i.created_at, i.id",
                 (space_id,),
             ).fetchall()
         return AccessList(
@@ -403,6 +418,8 @@ class PostgresAccessStore(PostgresMembershipCommands):
                     row["state"],
                     BusinessRole(row["requested_role"]),
                     row["supersedes_id"],
+                    resend_wait_seconds(row["last_sent_at"], row["now"], limits),
+                    row["has_account"],
                 )
                 for row in invites
             ),
@@ -558,6 +575,7 @@ class InMemoryAccessStore:
         self._accounts: dict[str, str] = {}
         self._closed: set[str] = set()
         self.ledger: list[AccessCommand] = []
+        self._sends: list[dict] = []
         self._commands: dict[tuple[str, str, str], tuple[str, BusinessRole]] = {}
         self._command_invites: dict[tuple[str, str, str], str | None] = {}
 
@@ -587,6 +605,22 @@ class InMemoryAccessStore:
 
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)
+
+    def _invite_alive(self, invite: dict) -> bool:
+        """The memory twin of ``LIVE_INVITE``; one test table runs every case on both."""
+
+        if (
+            invite["accepted_at"] is not None
+            or invite["revoked_at"] is not None
+            or invite["expires_at"] <= self._now()
+            or invite["space_id"] in self._closed
+        ):
+            return False
+        issuer = self._live(invite["space_id"], invite["issuer_id"])
+        required = (
+            "assign_owner" if invite["requested_role"] == BusinessRole.OWNER else "manage"
+        )
+        return issuer is not None and required in ROLE_PERMISSIONS[issuer["business_role"]]
 
     def _live(self, space_id: str, grantee_id: str) -> dict | None:
         return next(
@@ -712,7 +746,7 @@ class InMemoryAccessStore:
             )
 
     def _list(self, space_id: str, owner_id: str) -> AccessList:
-        now = self._now()
+        now, limits = self._now(), InviteSendLimits()
         emails = {user: email for email, user in self._accounts.items()}
         grants = sorted(
             (
@@ -754,9 +788,18 @@ class InMemoryAccessStore:
                     i["email"],
                     i["created_at"],
                     i["expires_at"],
-                    "pending" if i["expires_at"] > now else "expired",
+                    "pending" if self._invite_alive(i) else "expired",
                     i["requested_role"],
                     i.get("supersedes_id"),
+                    resend_wait_seconds(
+                        max(
+                            (s["sent_at"] for s in self._sends if s["invite_id"] == i["id"]),
+                            default=None,
+                        ),
+                        now,
+                        limits,
+                    ),
+                    i["email"] in self._accounts,
                 )
                 for i in invites
             ),
@@ -820,7 +863,7 @@ class InMemoryAccessStore:
                 ),
                 None,
             )
-            if pending and pending["expires_at"] > self._now():
+            if pending and self._invite_alive(pending):
                 if pending["requested_role"] != role:
                     raise MembershipError("business_invite_role_conflict")
                 if command_key:
@@ -870,9 +913,7 @@ class InMemoryAccessStore:
                     for i in self._invites
                     if i.get("supersedes_id") == invite_id
                     and i["space_id"] == space_id
-                    and i["accepted_at"] is None
-                    and i["revoked_at"] is None
-                    and i["expires_at"] > self._now()
+                    and self._invite_alive(i)
                 ),
                 None,
             )
@@ -893,7 +934,7 @@ class InMemoryAccessStore:
             if invite is None:
                 return None
             self._manager(space_id, owner_id, invite["requested_role"])
-            if invite["expires_at"] <= self._now():
+            if not self._invite_alive(invite):
                 if invite.get("target_grant_id"):
                     live = self._live(space_id, invite["recipient_id"])
                     if (
@@ -907,6 +948,7 @@ class InMemoryAccessStore:
                 replacement = dict(
                     invite,
                     id=str(uuid4()),
+                    issuer_id=owner_id,
                     created_at=created_at,
                     expires_at=created_at + INVITE_LIFETIME,
                     revoked_at=None,
@@ -1043,9 +1085,8 @@ class InMemoryAccessStore:
                 if grant is None or grant["id"] != invite["accepted_grant_id"]:
                     raise MembershipError("business_grant_not_live")
                 return grant["id"]
-            if invite["revoked_at"] is not None or invite["expires_at"] <= self._now():
+            if not self._invite_alive(invite):
                 raise MembershipError("business_invite_not_available")
-            self._manager(space_id, invite["issuer_id"], invite["requested_role"])
             live = self._live(space_id, user_id)
             if invite.get("target_grant_id"):
                 if (
@@ -1082,15 +1123,7 @@ class InMemoryAccessStore:
         except InvalidEmail:
             return False
         with self._lock:
-            now = self._now()
-            if any(
-                i["email"] == email
-                and i["space_id"] not in self._closed
-                and i["revoked_at"] is None
-                and i["accepted_at"] is None
-                and i["expires_at"] > now
-                for i in self._invites
-            ):
+            if any(i["email"] == email and self._invite_alive(i) for i in self._invites):
                 return True
             person = self._accounts.get(email)
             return person is not None and any(
@@ -1114,9 +1147,7 @@ class InMemoryAccessStore:
                 for i in self._invites
                 if i["email"] == email
                 and i.get("recipient_id") in (None, user_id)
-                and i["revoked_at"] is None
-                and i["accepted_at"] is None
-                and i["expires_at"] > self._now()
+                and self._invite_alive(i)
             )
 
     def deliver_invitation(
@@ -1124,7 +1155,8 @@ class InMemoryAccessStore:
         space_id: str,
         actor_id: str,
         invite_id: str,
-        send: Callable[[Connection | None], DeliveryState],
+        send: Callable[[Connection | None, int], DeliveryState],
+        resend: bool = False,
     ) -> DeliveryState:
         with self._lock:
             self._manager(space_id, actor_id)
@@ -1134,22 +1166,40 @@ class InMemoryAccessStore:
                     for i in self._invites
                     if i["id"] == invite_id
                     and i["space_id"] == space_id
-                    and i["revoked_at"] is None
-                    and i["accepted_at"] is None
-                    and i["expires_at"] > self._now()
+                    and self._invite_alive(i)
                 ),
                 None,
             )
             if invite is None:
                 raise MembershipError("business_invite_not_available")
             self._manager(space_id, actor_id, invite["requested_role"])
-            if invite.get("delivery_state") == "accepted":
+            now = self._now()
+            sent = [s["sent_at"] for s in self._sends if s["invite_id"] == invite_id]
+            if resend:
+                refused = resend_refusal(
+                    invite_sends=len(sent),
+                    last_sent_at=max(sent, default=None),
+                    business_resends_today=sum(
+                        s["space_id"] == space_id
+                        and s["resend"]
+                        and s["sent_at"] > now - DAILY_WINDOW
+                        for s in self._sends
+                    ),
+                    now=now,
+                    limits=InviteSendLimits(),
+                )
+                if refused:
+                    raise InviteSendRefused(*refused)
+            elif invite.get("delivery_state") == "accepted":
                 return "accepted"
-            if invite.get("delivery_state") in ("sending", "uncertain"):
+            elif invite.get("delivery_state") in ("sending", "uncertain"):
                 return "uncertain"
+            self._sends.append(
+                {"invite_id": invite_id, "space_id": space_id, "resend": resend, "sent_at": now}
+            )
             invite["delivery_state"] = "sending"
             try:
-                invite["delivery_state"] = send(None)
+                invite["delivery_state"] = send(None, len(sent) + 1)
             except Exception:
                 invite["delivery_state"] = "uncertain"
             return invite["delivery_state"]
@@ -1179,7 +1229,7 @@ class InMemoryAccessStore:
                 else "revoked"
                 if invite["revoked_at"]
                 else "pending"
-                if invite["expires_at"] > self._now()
+                if self._invite_alive(invite)
                 else "expired"
             )
             return {

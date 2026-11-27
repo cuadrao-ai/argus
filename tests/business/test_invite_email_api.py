@@ -26,6 +26,12 @@ def invitations_admission_on(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
 
 
+def _after_the_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = business_access()
+    now = store._now() + timedelta(seconds=61)
+    monkeypatch.setattr(store, "_now", lambda: now)
+
+
 def test_configured_create_and_resend_call_actual_adapter_with_canonical_labels(
     alice: Owner, monkeypatch
 ):
@@ -49,10 +55,11 @@ def test_configured_create_and_resend_call_actual_adapter_with_canonical_labels(
     assert alice.post("/access", {"email": invite["email"]}).status_code == 200
     alice.get("/access")
     assert len(sent) == 1
+    _after_the_cooldown(monkeypatch)
     again = alice.post(f"/access/invites/{invite['id']}/resend")
     assert again.status_code == 200
     assert again.json()["invite_delivery"] == "accepted"
-    assert len(sent) == 1
+    assert len(sent) == 2
     expiry = datetime.fromisoformat(
         again.json()["invites"][0]["expires_at"].replace("Z", "+00:00")
     )
@@ -81,6 +88,7 @@ def test_transport_rejection_reports_failure_and_explicit_resend_can_retry(
         "argus.domain.business.invite_email.send_resend_email",
         lambda **message: "fake-receipt",
     )
+    _after_the_cooldown(monkeypatch)
     again = alice.post(f"/access/invites/{invite['id']}/resend")
     assert again.json()["invite_delivery"] == "accepted"
 
@@ -88,7 +96,9 @@ def test_transport_rejection_reports_failure_and_explicit_resend_can_retry(
 def test_foreign_and_revoked_invite_cannot_resend(alice: Owner, bob: Owner):
     first = alice.post("/access", {"email": "contadora@example.test"})
     invite = first.json()["invites"][0]
-    assert bob.post(f"/access/invites/{invite['id']}/resend").status_code == 404
+    # Bob's own Business has no name yet, which refuses before the invite is looked up.
+    foreign = bob.post(f"/access/invites/{invite['id']}/resend")
+    assert (foreign.status_code, foreign.json()["code"]) == (409, "business_name_required")
     alice.client.delete(
         f"/api/v1/business/access/invites/{invite['id']}", headers=alice.auth
     )
@@ -114,7 +124,7 @@ def test_enabled_delivery_sends_without_a_postal_address(alice: Owner, monkeypat
     assert "Salir de la lista" not in sent[0]["html"] + sent[0]["plain_text"]
 
 
-def test_transport_timeout_stays_uncertain_without_automatic_resend(alice, monkeypatch):
+def test_transport_timeout_stays_uncertain_until_an_explicit_resend(alice, monkeypatch):
     calls = []
     monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
     monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
@@ -127,6 +137,10 @@ def test_transport_timeout_stays_uncertain_without_automatic_resend(alice, monke
     first = alice.post("/access", {"email": "contadora@example.test"})
     assert first.json()["invite_delivery"] == "uncertain"
     invite = first.json()["invites"][0]
+    replay = alice.post("/access", {"email": invite["email"]})
+    assert replay.json()["invite_delivery"] == "uncertain"
+    assert len(calls) == 1
+    _after_the_cooldown(monkeypatch)
     again = alice.post(f"/access/invites/{invite['id']}/resend")
     assert again.json()["invite_delivery"] == "uncertain"
-    assert len(calls) == 1
+    assert len(calls) == 2

@@ -57,10 +57,34 @@ def _send_invite(
     invite: AccessInvite,
     space_id: str,
     owner_id: str,
-    connection: Connection | None = None,
+    connection: Connection | None,
+    send_number: int,
+    resend: bool,
 ) -> DeliveryState:
     if not invitations_available():
         return "not_configured"
+    status = _attempt(request, access, invite, space_id, owner_id, connection, send_number)
+    # One line per send. No address and no link: the ids name the invite.
+    logger.info(
+        "business_invite_email_send invite_id={} space_id={} send_number={} resend={} status={}",
+        invite.id,
+        space_id,
+        send_number,
+        resend,
+        status,
+    )
+    return status
+
+
+def _attempt(
+    request: Request,
+    access: AccessList,
+    invite: AccessInvite,
+    space_id: str,
+    owner_id: str,
+    connection: Connection | None,
+    send_number: int,
+) -> DeliveryState:
     origin = (setting_value("APP_ORIGIN") or "").strip()
     spaces = (
         PostgresSpaceStore(BorrowedConnection(connection))
@@ -77,12 +101,13 @@ def _send_invite(
             owner_name=mail_name(owner.display_name, owner.email or ""),
             business_name=spanish_name(space.name),
             sign_in_origin=origin,
+            send_number=send_number,
         )
     except Exception as error:
         logger.warning(
-            "business_invite_email_failed",
-            invite_id=invite.id,
-            error=type(error).__name__,
+            "business_invite_email_failed invite_id={} error={}",
+            invite.id,
+            type(error).__name__,
         )
         return (
             "failed"
@@ -108,14 +133,19 @@ def deliver_invite(
     invite: AccessInvite,
     space_id: str,
     owner_id: str,
+    resend: bool = False,
 ) -> DeliveryState:
+    """Send one invitation email. ``resend`` is the Reenviar button: the same
+    invite and link again, within the send limits."""
+
     store = business_access()
     assert store is not None
     return store.deliver_invitation(
         space_id,
         owner_id,
         invite.id,
-        lambda connection: _send_invite(
-            request, access, invite, space_id, owner_id, connection
+        lambda connection, send_number: _send_invite(
+            request, access, invite, space_id, owner_id, connection, send_number, resend
         ),
+        resend,
     )

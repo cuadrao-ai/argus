@@ -13,25 +13,23 @@ import {
 } from "../lib/business-privacy-notice";
 
 /** The version every acceptance saved so far carries; the same words must keep it. */
-const TODAYS_VERSION = "75cfe4cb3fa507c5";
+const TODAYS_VERSION = "40fb5f76ad5c59a1";
 
 const SPANISH = {
   title: "Antes de empezar",
-  body: "Cuadrao guarda los recibos, facturas y datos que subes para leerlos, organizarlos y preparar tus reportes. Solo tú y las personas que invites a tu negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
-  opt_in: "Entiendo y acepto que Cuadrao use mis datos para esto.",
+  body: "Cuadrao guarda los recibos, facturas y datos que se suben para leerlos, organizarlos y preparar los reportes. Solo las personas con acceso al negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
+  opt_in: "Entiendo y acepto que Cuadrao use los datos para esto.",
   continue: "Continuar",
   privacy_link: "Ver aviso de privacidad",
-  one_time: "Te lo pedimos una sola vez, para los datos de tu negocio.",
   save_failed: "No pudimos guardar tu aceptación. No cambió nada.",
 };
 
 const ENGLISH = {
   title: "Before you start",
-  body: "Cuadrao keeps the receipts, invoices and data you upload to read them, organize them and prepare your reports. Only you and the people you invite to your business can see them. You can ask us to delete your data whenever you want.",
-  opt_in: "I understand and agree that Cuadrao uses my data for this.",
+  body: "Cuadrao keeps the receipts, invoices and data that are uploaded so it can read them, organize them and prepare reports. Only people with access to the business can see them. You can ask us to delete your data at any time.",
+  opt_in: "I understand and agree that Cuadrao uses the data for this.",
   continue: "Continue",
   privacy_link: "View privacy notice",
-  one_time: "We ask this once, for your business's data.",
   save_failed: "We couldn't save your acceptance. Nothing changed.",
 };
 
