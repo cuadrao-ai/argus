@@ -13,36 +13,47 @@ import styles from "./receipt-upload-island.module.css";
 export type RecordDrawer = { node: HTMLElement; narrow: boolean };
 export const ReportRecordDrawer = createContext<(drawer: RecordDrawer | null) => void>(() => {});
 
+function surfaceFrame(node: HTMLElement) {
+  const rect = node.getBoundingClientRect();
+  const style = getComputedStyle(node);
+  // The used radius of a fully round pill is half its shorter edge.
+  const radius = (value: string) => `${Math.min(parseFloat(value) || 0, rect.width / 2, rect.height / 2)}px`;
+  return {
+    left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px`,
+    borderTopLeftRadius: radius(style.borderTopLeftRadius),
+    borderTopRightRadius: radius(style.borderTopRightRadius),
+    borderBottomLeftRadius: radius(style.borderBottomLeftRadius),
+    borderBottomRightRadius: radius(style.borderBottomRightRadius),
+  };
+}
+
 /** Measure both real surfaces across the same commit, including a phone's bottom sheet. */
 export function morphUploadPanel(opening: boolean, change: () => void, returnFocus = false) {
   const anchor = document.querySelector<HTMLElement>("[data-upload-anchor]");
   const panel = () => document.querySelector("[data-upload-form]")?.closest<HTMLElement>('[role="dialog"]');
   const island = () => anchor?.querySelector<HTMLElement>("button") ?? anchor;
-  const from = (opening ? island() : panel())?.getBoundingClientRect();
+  const origin = opening ? island() : panel();
+  const from = origin && surfaceFrame(origin);
   flushSync(change);
   if (returnFocus) {
     const opener = anchor?.querySelector<HTMLElement>("button:not([inert])") ?? document.querySelector<HTMLElement>("[data-add-primary], [data-testid='business-phone-search']");
     opener?.focus({ preventScroll: true });
   }
-  if (!anchor || !from?.width || prefersReducedMotion() || typeof anchor.animate !== "function") {
+  if (!anchor || !from || from.width === "0px" || prefersReducedMotion() || typeof anchor.animate !== "function") {
     return;
   }
   const surface = opening ? panel() : island();
   if (!surface) return;
   // The panel has its own slide when opened from Agregar. The island supplies its entrance here.
   surface.style.animation = "none";
-  const to = surface.getBoundingClientRect();
+  const to = surfaceFrame(surface);
   const ghost = document.createElement("div");
   ghost.className = styles.morph;
   ghost.dataset.uploadMorph = "";
   ghost.setAttribute("aria-hidden", "true");
   document.body.appendChild(ghost);
-  const frame = (rect: DOMRect, round: boolean) => ({
-    left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px`,
-    borderRadius: round ? "20px" : getComputedStyle(opening ? surface : ghost).borderRadius,
-  });
   const options = { duration: 380, easing: "cubic-bezier(.32,.9,.3,1)" };
-  const motion = ghost.animate([frame(from, opening), frame(to, !opening)], options);
+  const motion = ghost.animate([from, to], options);
   const reveal = surface.animate([{ opacity: 0 }, { opacity: 0, offset: 0.9 }, { opacity: 1 }], options);
   const clean = () => { ghost.remove(); reveal.cancel(); };
   motion.onfinish = clean;
@@ -99,12 +110,12 @@ export default function ReceiptUploadIsland({ queue, grant, panelOpen, drawer, p
     return () => { observer.disconnect(); window.removeEventListener("resize", fit); };
   }, [drawer, shown, words]);
 
-  return <div ref={anchor} data-upload-anchor="" className={styles.anchor} data-phone={phone || undefined}>
+  return <div ref={anchor} data-upload-anchor="" className={`${styles.anchor} rounded-full`} data-phone={phone || undefined}>
     <span data-upload-announcement="" role="status" className="sr-only">{announcement.text}</span>
     {shown ? <button type="button" data-testid={closing ? undefined : "receipt-upload-island"}
       data-state={batch.state} data-phase={closing ? "closing" : "open"} inert={closing || undefined}
       aria-label={label} onClick={() => batch.target && onOpen(batch.target)}
-      className={`${styles.island} ${batch.state === "failed"
+      className={`${styles.island} rounded-full ${batch.state === "failed"
         ? "border-[#e9c4c8] bg-[#f6dfe0] text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#4a2a2f] dark:text-[#ec9aa0]"
         : "border-[#C9CFC9] bg-white text-[#172b26] dark:border-white/[0.18] dark:bg-[#1f2225] dark:text-white"}`}>
       <span ref={content} className={styles.content} aria-hidden="true">

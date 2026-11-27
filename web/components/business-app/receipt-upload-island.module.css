@@ -17,7 +17,6 @@
   height: 40px;
   overflow: hidden;
   border-width: 1px;
-  border-radius: 999px;
   font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -53,7 +52,7 @@
 .anchor[data-phone] .island { width: 40px; }
 .morph {
   position: fixed; z-index: 121; pointer-events: none;
-  background: white; border: 1px solid #c9cfc9; border-radius: 16px 0 0 16px;
+  background: white; border: 1px solid #c9cfc9;
   box-shadow: 0 16px 48px rgb(0 0 0 / 16%);
 }
 :global(.dark) .morph { background: #1f2225; border-color: rgb(255 255 255 / 18%); }
