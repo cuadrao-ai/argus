@@ -1011,8 +1011,8 @@ failed wins over saved.
 | State | Icon | Words (es-419) | Colours |
 | --- | --- | --- | --- |
 | Uploading | A ring that fills as the files go up, with an up arrow inside | "3 de 7" (`business.intake.island_uploading`) | Neutral: `#172b26` on white with a `#C9CFC9` border. Dark: white on `#1f2225` with a border of white at 18% |
-| Saved | A check that draws itself | "7 subidos" (`business.intake.chip_saved`) | Neutral |
-| Failed | An alert circle | "1 sin subir" (`business.intake.summary_failed`) | `#9e2f39` on `#f6dfe0`. Dark: `#ec9aa0` on `#4a2a2f` |
+| Saved | A check that draws itself | "7 subidos" (`business.intake.chip_saved_other`) | Neutral |
+| Failed | An alert circle | "1 sin subir" (`business.intake.summary_failed_one`) | `#9e2f39` on `#f6dfe0`. Dark: `#ec9aa0` on `#4a2a2f` |
 
 - The words are 14px, medium, with tabular digits. The ring and the check are
   `#2f5a49`, and `#8fcbb0` in dark.
@@ -1038,7 +1038,7 @@ failed or refused file's button, when there is one. Closing the panel shrinks it
 island. `clearSettled` in `receipt-upload-queue.ts` then forgets the saved
 files and keeps the files that wait, upload, failed or were refused. The
 island never opens a record. The panel's button "Revisar 7 documentos"
-(`business.intake.review_count`) opens the saved batch in the dossier.
+(`business.intake.review_count_other`) opens the saved batch in the dossier.
 
 **Motion.**
 
