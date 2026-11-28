@@ -31,6 +31,7 @@ from argus.domain.ingestion.secrets import SecretBox
 from argus.observability.analytics_deletion import RecordingAnalyticsDeletion
 
 from tests.apple_sign_in_support import BUNDLE_ID, FakeApple, config, generated_key
+from tests.household.financial_fixtures import database_now
 from tests.test_account_deletion_postgres import SqlAuthAdmin
 from tests.test_apple_name_postgres import DSN, apple_profile, fake, pool  # noqa: F401
 
@@ -90,6 +91,7 @@ def deletion_service(pool, apple):
         analytics=RecordingAnalyticsDeletion(),
         apple=apple,
         allow_fake_analytics=True,
+        clock=database_now,
     )
 
 

@@ -22,7 +22,7 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from tests import apple_sign_in_support as apple
-from tests.household.financial_fixtures import DSN
+from tests.household.financial_fixtures import DSN, database_now
 
 pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required")
 
@@ -171,8 +171,7 @@ def test_force_refusal_and_dry_run_leave_postgres_and_providers_unchanged(
     credential_owner, age_days
 ):
     pool, user_id = credential_owner
-    now = datetime.now(timezone.utc)
-    pending = now - timedelta(days=age_days)
+    pending = database_now() - timedelta(days=age_days)
     steps = {
         "analytics": "pending",
         "pending_since": {"analytics": pending.isoformat()},
@@ -193,7 +192,7 @@ def test_force_refusal_and_dry_run_leave_postgres_and_providers_unchanged(
         auth_admin=auth,
         revoker=revoker,
         analytics=analytics,
-        clock=lambda: now,
+        clock=database_now,
     )
     request = dict(
         user_id=user_id,

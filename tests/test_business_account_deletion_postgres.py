@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,9 +16,12 @@ from argus.domain.business.lifecycle import PostgresBusinessLifecycle
 from argus.domain.business.transfer import PostgresBusinessTransfer
 from argus.observability.analytics_deletion import RecordingAnalyticsDeletion
 
+from tests import test_account_deletion_postgres as deletion
 from tests import test_business_custody_graph_postgres as graph
 from tests.business_cleanup import delete_spaces
+from tests.household.financial_fixtures import database_now
 
+lane = deletion.lane
 users = graph.users
 actions = graph.actions
 prepared = graph.prepared
@@ -42,7 +44,7 @@ def command(w, *, auth=None, images=None, apple=None):
         allow_fake_analytics=True,
         source_objects=w["objects"],
         profile_images=images,
-        clock=lambda: datetime.now(timezone.utc),
+        clock=database_now,
     )
 
 
@@ -134,6 +136,22 @@ def transfer(w, *, accept=True):
     )
     if accept:
         service.accept(actor_id=w["users"]["other"], transfer_id=pending.id)
+
+
+def test_closed_business_deletion_after_sixteen_minutes_since_collection(
+    custody, lane, monkeypatch
+):
+    close(custody)
+    with custody["pool"].connection() as db:
+        collected_at = db.execute(
+            "select clock_timestamp() - interval '16 minutes'"
+        ).fetchone()[0]
+    monkeypatch.setattr(deletion, "NOW", collected_at)
+    auth = Auth()
+    service = deletion._service(lane, auth, source_objects=custody["objects"])
+
+    assert service.delete_account(user_id=custody["old"]).status == "done"
+    assert not auth.user_exists(custody["old"])
 
 
 @pytest.mark.parametrize("transferred", [False, True])

@@ -30,6 +30,7 @@ from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
 
 from tests.business_cleanup import delete_spaces
+from tests.household.financial_fixtures import database_now
 
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "")
 pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required")
@@ -102,6 +103,7 @@ class World:
             analytics=RecordingAnalyticsDeletion(),
             allow_fake_analytics=True,
             source_objects=Objects(),
+            clock=database_now,
         )
         self.spaces: list[str] = []
 

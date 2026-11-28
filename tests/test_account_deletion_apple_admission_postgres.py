@@ -443,10 +443,7 @@ def test_legacy_unbound_pending_credential_revokes_with_receipt(lane, apple):
 def test_recovery_capture_rechecks_live_claim_after_waiting_for_auth_lock(
     lane, apple, monkeypatch
 ):
-    from datetime import timedelta
     from threading import Event
-
-    from tests.household.financial_fixtures import NOW
 
     user = lane[2][0]
     link(user)
@@ -474,8 +471,8 @@ def test_recovery_capture_rechecks_live_claim_after_waiting_for_auth_lock(
             )
             assert entered.wait(10)
             c.execute(
-                "update argus_private.account_deletion_runs set claimed_until=%s where id=%s",
-                (NOW + timedelta(microseconds=1), run["id"]),
+                "update argus_private.account_deletion_runs set claimed_until=clock_timestamp() where id=%s",
+                (run["id"],),
             )
         with pytest.raises(AppleCaptureNotStored):
             future.result(timeout=10)

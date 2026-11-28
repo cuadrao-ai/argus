@@ -31,7 +31,7 @@ from argus.observability.product_events import actor_hash_for_user
 from psycopg_pool import ConnectionPool
 
 from tests.account_deletion_census import sweep
-from tests.household.financial_fixtures import DSN, NOW, account, key
+from tests.household.financial_fixtures import DSN, NOW, account, database_now, key
 from tests.household.financial_fixtures import command as household_command
 from tests.household.financial_fixtures import lane as lane  # noqa: F401 - fixture
 from tests.household.shared_cleanup import cleanup
@@ -181,7 +181,6 @@ def _service(  # noqa: ANN201
     *,
     box=None,  # noqa: ANN001
     allow_fake=True,  # noqa: ANN001
-    clock=None,  # noqa: ANN001
     source_objects=None,  # noqa: ANN001
     profile_images=None,  # noqa: ANN001
 ):
@@ -196,7 +195,7 @@ def _service(  # noqa: ANN201
         allow_fake_analytics=allow_fake,
         source_objects=source_objects,
         profile_images=profile_images,
-        clock=clock or (lambda: NOW),
+        clock=database_now,
     )
 
 
@@ -664,13 +663,25 @@ def test_a_failed_provider_revoke_holds_the_account_delete(lane, world):  # noqa
         assert _rows_holding(conn, a) == []
 
 
-def _age(user_id: str) -> None:
-    with psycopg.connect(DSN, autocommit=True) as c:
+def _age(
+    user_id: str, age: timedelta = timedelta(hours=1), *, step: str | None = None
+) -> None:
+    """Backdate this run and its pending step without changing the claim clock."""
+    with psycopg.connect(DSN) as c:
         c.execute(
-            "update argus_private.account_deletion_runs set updated_at = %s"
+            "update argus_private.account_deletion_runs set updated_at = clock_timestamp() - %s"
             " where subject_hash=%s",
-            (NOW - timedelta(hours=1), subject_hash(user_id)),
+            (age, subject_hash(user_id)),
         )
+        if step is not None:
+            # Python 3.10 reads whole seconds or 3/6 fractional digits in ISO timestamps.
+            c.execute(
+                "update argus_private.account_deletion_runs set steps = "
+                "jsonb_set(steps, array['pending_since', %s], "
+                "to_jsonb(date_trunc('second', updated_at)), false)"
+                " where subject_hash=%s",
+                (step, subject_hash(user_id)),
+            )
 
 
 def test_failed_analytics_deletion_holds_the_account_delete(lane, world):  # noqa: F811
@@ -698,18 +709,10 @@ def test_the_sweep_resumes_idle_pending_runs(lane, world):  # noqa: F811
         _service(lane, admin, FakeRevoker(fail={"gmail"})).delete_account(user_id=a)
     world["placeholders"] += admin.created
 
-    def age() -> None:
-        with psycopg.connect(DSN, autocommit=True) as c:
-            c.execute(
-                "update argus_private.account_deletion_runs set updated_at = %s"
-                " where subject_hash=%s",
-                (NOW - timedelta(hours=1), subject_hash(a)),
-            )
-
     # A run a request touched just now is left to that request.
     failing = _service(lane, SqlAuthAdmin(), FakeRevoker(fail={"gmail"}))
     assert failing.resume_pending()["resumed"] == 0
-    age()
+    _age(a)
     # Still failing: counted pending, the account stays locked.
     assert failing.resume_pending() == {
         "resumed": 1,
@@ -719,7 +722,7 @@ def test_the_sweep_resumes_idle_pending_runs(lane, world):  # noqa: F811
         "busy": 0,
     }
     assert _locked(a) == (True, True)
-    age()
+    _age(a)
     run_id = _run_id(a)
     healthy = _service(lane, SqlAuthAdmin(), FakeRevoker())
     assert healthy.resume_pending() == {

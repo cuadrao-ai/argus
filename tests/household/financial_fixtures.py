@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import psycopg
 import pytest
 from argus.domain.household.financial import HouseholdFinancialService
 from argus.domain.household.postgres import PostgresHouseholdRepository
@@ -20,6 +21,11 @@ from psycopg_pool import ConnectionPool
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "")
 pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required")
 NOW = datetime.now(timezone.utc)
+
+
+def database_now() -> datetime:
+    with psycopg.connect(DSN) as db:
+        return db.execute("select clock_timestamp()").fetchone()[0]
 
 
 def key():

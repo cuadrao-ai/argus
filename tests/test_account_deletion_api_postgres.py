@@ -38,6 +38,7 @@ from tests.test_account_deletion_fk_census_postgres import (
 from tests.test_account_deletion_postgres import (  # noqa: F401 - fixtures
     BANNED,
     SqlAuthAdmin,
+    _age,
     _locked,
     _service,
     world,
@@ -487,6 +488,7 @@ def _operator_pass(lane, world):  # noqa: F811
         fake_analytics_allowed,
     )
 
+    _age(world["a"], timedelta(days=8), step="analytics")
     admin = SqlAuthAdmin()
     try:
         yield _service(
@@ -494,7 +496,6 @@ def _operator_pass(lane, world):  # noqa: F811
             admin,
             analytics=analytics_deletion_from_env(),
             allow_fake=fake_analytics_allowed(),
-            clock=lambda: NOW + timedelta(days=8),
         )
     finally:
         world["placeholders"] += admin.created
@@ -694,13 +695,13 @@ def test_sweep_with_adapter_records_origin_and_bounded_attempts(
             calls.append((distinct_id, submission_id, request_id))
             return EventDeletionResult(outcome=outcome)
 
+    _age(world["a"], timedelta(days=8), step="analytics")
     admin = SqlAuthAdmin()
     service = _service(
         lane,
         admin,
         analytics=Adapter(),
         allow_fake=False,
-        clock=lambda: NOW + timedelta(days=8),
     )
     try:
         first = service.resume_pending()
