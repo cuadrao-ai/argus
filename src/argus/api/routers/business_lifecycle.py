@@ -107,6 +107,7 @@ _PROBLEMS = {
     "invalid_idempotency_key": (422, "A command key is required."),
     "business_record_not_found": (404, "No such Business."),
     "business_reopen_expired": (409, "The reopening period has ended."),
+    "business_rnc_registered": (409, "business_rnc_registered"),
     "idempotency_conflict": (409, "This command key was already used."),
 }
 
@@ -166,7 +167,18 @@ def close_business(
         raise lifecycle_problem(request, error) from None
 
 
-@router.post("/spaces/{space_id}/reopen", response_model=BusinessLifecycleResponse)
+@router.post(
+    "/spaces/{space_id}/reopen",
+    response_model=BusinessLifecycleResponse,
+    responses={
+        409: {
+            "description": "`business_reopen_expired`, `idempotency_conflict`, or "
+            "`business_rnc_registered` when another open Business holds the number. "
+            "A registration conflict leaves the Business closed and returns no holder data.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+        },
+    },
+)
 def reopen_business(
     request: Request,
     space_id: UUID,

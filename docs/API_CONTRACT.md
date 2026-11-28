@@ -11688,8 +11688,13 @@ The service keeps existing grants and invitations unchanged.
 The owner may list their closed Businesses within 30 days, then reopen one
 strictly before `closed_at + 30 days`. Reopening clears `closed_at`; only grants
 that are still live regain access. Revoked and expired grants stay unavailable.
-No new invitation is required or generated. Another open Business does not
-prevent reopening: a person can own several open Businesses.
+No new invitation is required or generated. An owner with other open Businesses
+can reopen this one. If another open Business has claimed its RNC or cédula,
+the reopen returns
+`409 business_rnc_registered`. The refusal identifies neither the holder nor
+its owner and includes no grant. The original Business stays closed. If the
+number becomes available within the reopening period, the owner can retry
+with the same command key.
 
 Close and reopen commands retain their original result per Business/key. An
 identical delayed replay returns that result without reversing a later command.

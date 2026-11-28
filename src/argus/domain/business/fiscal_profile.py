@@ -29,6 +29,7 @@ _CODES = (
 )
 #: The longest legal name the profile stores; the registry's names fit.
 LEGAL_NAME_MAX = 250
+OPEN_BUSINESS_RNC_INDEX = "spaces_open_business_rnc_uidx"
 
 
 class ProfileSaved(Applied):
@@ -382,7 +383,7 @@ def set_profile(
     try:
         moved = _write_profile(authority, context, command, key, check_registration)
     except UniqueViolation as error:
-        if error.diag.constraint_name != "spaces_open_business_rnc_uidx" or command.tax_id is None:
+        if error.diag.constraint_name != OPEN_BUSINESS_RNC_INDEX or command.tax_id is None:
             raise
         # The refused write and its receipt rolled back. Only the caller's live
         # grant on the indexed number may leave this boundary.

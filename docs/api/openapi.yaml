@@ -7920,6 +7920,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessLifecycleResponse'
+        '409':
+          description: '`business_reopen_expired`, `idempotency_conflict`, or `business_rnc_registered`
+            when another open Business holds the number. A registration conflict leaves the
+            Business closed and returns no holder data.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:

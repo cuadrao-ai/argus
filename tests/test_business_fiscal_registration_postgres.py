@@ -150,3 +150,49 @@ def test_concurrent_registrations_have_one_winner(
     assert refused.status_code == 409
     assert refused.json()["code"] == "business_rnc_registered"
     assert "context" not in refused.json()
+
+
+@pytest.mark.parametrize("kind,length", [("rnc", 9), ("cedula", 11)])
+def test_reopen_refuses_reclaimed_number_and_preserves_closed_business(
+    web: SimpleNamespace, faker: Faker, monkeypatch: pytest.MonkeyPatch, kind: str, length: int
+) -> None:
+    owner, holder = web.carol, web.alice
+    number = str(faker.random_number(digits=length, fix_len=True))
+    registered = _save(web, owner, kind, number)
+    assert registered.status_code == 200, registered.text
+    monkeypatch.delenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD", raising=False)
+    route = f"{API}/business/spaces/{owner.space_id}"
+    closed = web.client.post(
+        f"{route}/close",
+        json={"confirmation": registered.json()["name"]},
+        headers={**owner.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert closed.status_code == 200, closed.text
+    reclaimed = _save(web, holder, kind, number)
+    assert reclaimed.status_code == 200, reclaimed.text
+
+    # Command failure is an HTTP response even if the server raises.
+    monkeypatch.setattr(web.client._transport, "raise_server_exceptions", False)
+    headers = {**owner.headers, "Idempotency-Key": str(uuid4())}
+    refused = web.client.post(f"{route}/reopen", headers=headers)
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["code"] == "business_rnc_registered"
+    assert "context" not in refused.json()
+    for private in (holder.id, holder.email, holder.space_id, reclaimed.json()["name"], number):
+        assert private not in refused.text
+    waiting = web.client.get(f"{API}/business/closed-spaces", headers=owner.headers)
+    assert waiting.json()["spaces"] == [closed.json()]
+
+    # After the holder releases the number, even an owner with another open
+    # Business can retry the same reopen command.
+    additional = web.client.post(
+        f"{API}/business/space", headers=owner.headers, json={"name": "Otro negocio"}
+    )
+    assert additional.status_code == 201, additional.text
+    replacement = str((int(number[0]) % 9) + 1) + number[1:]
+    assert _save(web, holder, kind, replacement).status_code == 200
+    reopened = web.client.post(f"{route}/reopen", headers=headers)
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["closed_at"] is None
+    spaces = web.client.get(f"{API}/business/spaces", headers=owner.headers).json()["spaces"]
+    assert {space["space_id"] for space in spaces} == {owner.space_id, additional.json()["id"]}
