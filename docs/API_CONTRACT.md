@@ -11674,8 +11674,8 @@ The service keeps existing grants and invitations unchanged.
 The owner may list their closed Businesses within 30 days, then reopen one
 strictly before `closed_at + 30 days`. Reopening clears `closed_at`; only grants
 that are still live regain access. Revoked and expired grants stay unavailable.
-No new invitation is required or generated. Another open Business prevents
-reopening under the existing one-open-Business-per-owner constraint.
+No new invitation is required or generated. Another open Business does not
+prevent reopening: a person can own several open Businesses.
 
 Close and reopen commands retain their original result per Business/key. An
 identical delayed replay returns that result without reversing a later command.
@@ -11705,7 +11705,7 @@ custody, account-deletion retention and full-purge work plus root acceptance.
   server owns the dates. Responses and domain refusals use `Cache-Control: no-store`.
 - Foreign, member, guest and missing-actor commands return the same
   `404 business_record_not_found`. Name mismatch and an invalid command key
-  return 422. Expired reopening, another open Business and conflicting command
+  return 422. Expired reopening and conflicting command
   replay return 409. Normal authentication and Business availability remain
   required when the gate is eventually opened.
 
@@ -11871,7 +11871,8 @@ still be declined or withdrawn.
 (only the owner reads this list, so `shown_as` is `name`, `email`, or `member`
 for an account with no email).
 `reason` is null for an eligible member, otherwise `account_unavailable`,
-`not_admin`, `email_unconfirmed` or `owns_open_business`. Only an Administrador
+`not_admin` or `email_unconfirmed`. Owning another open Business is no reason:
+a person can own several. Only an Administrador
 is eligible: an Editor or a Lector answers `not_admin`, and an Owner is not listed. Eligibility and the
 transfer request read one shared query, so a request naming an ineligible member
 still answers `409 business_transfer_target_invalid` and creates no transfer.

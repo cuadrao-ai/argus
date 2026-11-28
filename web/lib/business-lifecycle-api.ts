@@ -33,7 +33,7 @@ export async function getClosedBusinessSpaces(signal?: AbortSignal): Promise<Bus
 const memberIdentity = z.object({ grant_id: z.uuid(), name: z.string().nullable(), email: z.string().nullable().optional(), shown_as: personShown });
 const transferMember = z.discriminatedUnion("eligible", [
   memberIdentity.extend({ eligible: z.literal(true), reason: z.null() }),
-  memberIdentity.extend({ eligible: z.literal(false), reason: z.enum(["account_unavailable", "not_admin", "email_unconfirmed", "owns_open_business"]) }),
+  memberIdentity.extend({ eligible: z.literal(false), reason: z.enum(["account_unavailable", "not_admin", "email_unconfirmed"]) }),
 ]);
 const ownedBusiness = z.object({
   space_id: z.uuid(), name: z.string().nullable(), grant_id: z.uuid(),
@@ -71,7 +71,6 @@ export function businessLifecycleErrorKey(error: unknown, fallback: string): str
     business_record_not_found: "business_unavailable",
     business_unavailable: "business_unavailable",
     business_grant_not_live: "business_unavailable",
-    business_already_open: "already_open",
     business_reopen_expired: "reopen_expired",
     business_transfer_pending: "transfer_pending",
     business_transfer_target_invalid: "target_invalid",

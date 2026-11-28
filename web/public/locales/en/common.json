@@ -3810,7 +3810,6 @@
       },
       "errors": {
         "accept_uncertain": "We couldn't confirm acceptance. Refresh to check the result.",
-        "already_open": "You already own another open business. You can own only one open business at a time.",
         "business_unavailable": "This business is unavailable with your current access.",
         "close_uncertain": "We couldn't confirm the closure. Retry to check the result.",
         "decline_uncertain": "We couldn't confirm the decline. Refresh to check the result.",
@@ -3861,8 +3860,7 @@
         "ineligible": {
           "account_unavailable": "This account cannot take ownership of the business.",
           "email_unconfirmed": "Their email needs confirmation.",
-          "not_admin": "Change their access to Administrador first.",
-          "owns_open_business": "Already owns another open business."
+          "not_admin": "Change their access to Administrador first."
         },
         "member": "New owner",
         "none_eligible": "No members can take ownership now. Check the reason beside each person.",

@@ -19,7 +19,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const WIDTHS = [1440, 390] as const;
 const VIEWPORT_HEIGHT = 844;
 const rosa = { grant_id: "editar-1", name: "Rosa", shown_as: "name" as const, eligible: true as const, reason: null };
-const sol = { grant_id: "blocked", name: "Sol", shown_as: "name" as const, eligible: false as const, reason: "owns_open_business" as const };
+const sol = { grant_id: "blocked", name: "Sol", shown_as: "name" as const, eligible: false as const, reason: "not_admin" as const };
 
 async function mount(width: number) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: VIEWPORT_HEIGHT });
@@ -95,13 +95,23 @@ for (const width of WIDTHS) {
   });
 }
 
+test("owning another open Business is no reason: the picker has no such line and a member who owns one can be picked", async () => {
+  const view = await mount(1440);
+  try {
+    assert.deepEqual(Object.keys(spanish.business.lifecycle.transfer.ineligible).sort(), ["account_unavailable", "email_unconfirmed", "not_admin"]);
+    await view.render({ kind: "request", businessName: "Taller Luna", members: [rosa, sol], onRequest: (id) => { view.calls.push(id); } });
+    assert.equal(document.body.textContent?.includes("Ya es dueño de otro negocio abierto."), false);
+    assert.equal(document.querySelector<HTMLInputElement>('input[type="radio"][value="editar-1"]')!.disabled, false);
+  } finally { await view.close(); }
+});
+
 test("a member who cannot receive the Business shows the reason and cannot be picked", async () => {
   const view = await mount(1440);
   try {
     const blocked = document.querySelector<HTMLInputElement>('input[type="radio"][value="blocked"]');
     assert.ok(blocked);
     assert.equal(blocked.disabled, true);
-    assert.ok(document.body.textContent?.includes("Ya es dueño de otro negocio abierto."));
+    assert.ok(document.body.textContent?.includes("Primero cambia su acceso a Administrador."));
     await act(async () => blocked.click());
     await view.enter("Taller Luna");
     assert.equal(view.button("Solicitar transferencia").disabled, true);
@@ -114,7 +124,7 @@ test("a member who can receive the Business shows the name alone; one who cannot
   try {
     const lines = (grant: string) => [...document.querySelector(`input[value="${grant}"]`)!.closest("label")!.querySelectorAll("span > span")].map((item) => item.textContent);
     assert.deepEqual(lines("editar-1"), ["Rosa"]);
-    assert.deepEqual(lines("blocked"), ["Sol", "Ya es dueño de otro negocio abierto."]);
+    assert.deepEqual(lines("blocked"), ["Sol", "Primero cambia su acceso a Administrador."]);
     assert.equal(document.body.textContent?.includes("Editar"), false);
   } finally { await view.close(); }
 });
@@ -162,7 +172,7 @@ test("no members says so with no picker; no eligible member lists each reason an
     await view.render({ kind: "request", businessName: "Taller Luna", members: [sol], onRequest: () => { view.calls.push("request"); } });
     const dialog = view.oneDialog();
     assert.ok(dialog.textContent?.includes("Ningún miembro puede recibir el negocio ahora. Revisa el motivo junto a cada persona."));
-    assert.ok(dialog.textContent?.includes("Ya es dueño de otro negocio abierto."));
+    assert.ok(dialog.textContent?.includes("Primero cambia su acceso a Administrador."));
     assert.equal(document.querySelector('input:not([type="radio"])'), null);
     assert.deepEqual(view.buttons(), []);
   } finally { await view.close(); }
