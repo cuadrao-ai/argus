@@ -89,11 +89,11 @@ function BusinessPicker({ businesses, selected, disabled, onChoose }: {
     event.preventDefault();
     options[next]?.focus();
   }
-  const list = <ul id={id} role="listbox" aria-label={label} onKeyDown={navigate} style={isBelowTablet ? undefined : { maxHeight: menu.maxHeight }} className={isBelowTablet ? "" :
+  const list = <ul id={id} role="listbox" aria-label={label} onKeyDown={navigate} style={isBelowTablet ? undefined : { maxHeight: menu.maxHeight }} className={isBelowTablet ? "-mx-2" :
     `absolute left-0 z-10 w-[min(300px,100%)] overflow-y-auto rounded-surface border border-[var(--surface-divider)] bg-white p-1.5 dark:bg-[#1f2225] ${menu.above ? "bottom-full mb-1.5" : "top-full mt-1.5"}`}>
     {businesses.map(b => <li role="none" key={b.space_id}>
       <button ref={b.space_id === active?.space_id ? initial : undefined} type="button" role="option" aria-selected={b.space_id === selected?.space_id}
-        className={`flex w-full items-center gap-3 rounded-item px-2.5 text-left hover:bg-black/[.06] aria-selected:bg-black/[.06] dark:hover:bg-white/[.08] dark:aria-selected:bg-white/[.08] ${isBelowTablet ? "min-h-14" : "min-h-11"}`}
+        className={`flex w-full items-center gap-3 rounded-item text-left hover:bg-black/[.06] aria-selected:bg-black/[.06] dark:hover:bg-white/[.08] dark:aria-selected:bg-white/[.08] ${isBelowTablet ? "h-14 px-3" : "min-h-11 px-2.5"}`}
         onClick={() => { setOpen(false); onChoose(b); }}>
         {isBelowTablet && <BusinessIcon />}<span className="min-w-0 flex-1 truncate">{b.name}</span>
         {selected?.space_id === b.space_id && <Check size={18} aria-hidden="true" className="text-[var(--cuadrao-green)]" />}
