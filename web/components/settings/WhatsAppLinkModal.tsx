@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useEffectEvent, useId, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useEffectEvent, useId, useState, type ReactNode } from "react";
 import { Briefcase, ChevronRight, Clock, ExternalLink, Inbox, Info, LoaderCircle, MessageCirclePlus } from "lucide-react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
@@ -121,7 +121,6 @@ function WhatsAppLinkedDetails({ status, confirming }: { status: WhatsAppLinkSta
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage || i18n.language;
   const now = new Date();
-  const numberLabel = useRef<HTMLHeadingElement>(null);
   const stamp = formatRelativeTime(status.linked_at, locale, now);
   const WhatsApp = CHANNEL_ICON.whatsapp;
   const receivingTitle = t(key("receiving_title"));
@@ -129,10 +128,10 @@ function WhatsAppLinkedDetails({ status, confirming }: { status: WhatsAppLinkSta
     <section className="flex items-center gap-3.5 rounded-surface bg-[#F7F5EE] p-4 dark:bg-[#1f2225]">
       <span className="grid size-11 shrink-0 place-items-center"><WhatsApp size={24} aria-hidden="true" /></span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <h3 ref={numberLabel} className="text-base leading-6 font-medium tabular-nums">{t(key("linked"), { last4: status.last4 })}</h3>
-          {!confirming && <Tooltip explanation labelRef={numberLabel} side="bottom" content={t(key("reading_info"))}>
-            <button type="button" aria-label={t(key("reading_info_label"))} className="relative -my-2.5 -ml-2.5 grid size-11 shrink-0 place-items-center rounded-full text-[#56635e] dark:text-white/70">
+        <div className="leading-6">
+          <h3 className="inline text-base leading-6 font-medium tabular-nums">{t(key("linked"), { last4: status.last4 })}</h3>
+          {!confirming && <Tooltip inlineExplanation content={t(key("reading_info"))}>
+            <button type="button" aria-label={t(key("reading_info_label"))} className="relative -my-2.5 -ml-1 inline-flex size-11 items-center justify-center rounded-full align-top text-[#56635e] dark:text-white/70">
               <Info size={24} aria-hidden="true" />
             </button>
           </Tooltip>}

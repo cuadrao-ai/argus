@@ -13,10 +13,8 @@ type TooltipProps = {
     React.HTMLAttributes<HTMLElement> & React.RefAttributes<HTMLElement>
   >;
   side?: TooltipSide;
-  /** An explanation button also opens on tap and remains readable under the pointer. */
-  explanation?: boolean;
-  /** Align the bubble with the start of the label beside a compact info button. */
-  labelRef?: React.RefObject<HTMLElement | null>;
+  /** The tappable explanation opens in normal flow below its label and button. */
+  inlineExplanation?: boolean;
 };
 
 /** A passing cursor shows nothing; a hover that stays this long does. */
@@ -68,7 +66,7 @@ function passRef(ref: React.Ref<HTMLElement> | undefined, node: HTMLElement | nu
  * and shifts to stay on screen, and leaves on mouse leave, focus out, Escape,
  * a tap outside or a scroll. Keyboard focus shows it; a mouse click does not.
  */
-export function Tooltip({ content, children, side = "right", explanation = false, labelRef }: TooltipProps) {
+export function Tooltip({ content, children, side = "right", inlineExplanation = false }: TooltipProps) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<TooltipPlacement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,13 +81,13 @@ export function Tooltip({ content, children, side = "right", explanation = false
     setPlacement(null);
   }, []);
   useOverlayLayer({
-    isOpen: open && explanation, overlayId: tooltipId, containerRef: triggerRef,
+    isOpen: open && inlineExplanation, overlayId: tooltipId, containerRef: triggerRef,
     onEscape: hide, onOutsidePointerDown: event => {
       if (!tipRef.current?.contains(event.target as Node)) hide();
     },
   });
   const leave = () => {
-    if (explanation && open) {
+    if (inlineExplanation && open) {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(hide, TOOLTIP_DELAY_MS);
     } else hide();
@@ -105,20 +103,18 @@ export function Tooltip({ content, children, side = "right", explanation = false
 
   // Measure the real bubble, then place it; it renders hidden for that one frame.
   useLayoutEffect(() => {
-    if (!open || !triggerRef.current || !tipRef.current) return;
-    const rect = (labelRef?.current ?? triggerRef.current).getBoundingClientRect();
+    if (!open || inlineExplanation || !triggerRef.current || !tipRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
     const tip = tipRef.current.getBoundingClientRect();
     const viewport = { width: window.innerWidth, height: window.innerHeight };
-    const placed = placeTooltip(rect, tip, viewport, side);
-    if (labelRef?.current) placed.left = Math.max(EDGE_PX, Math.min(rect.left, viewport.width - tip.width - EDGE_PX));
-    setPlacement(placed);
-  }, [open, side, content, labelRef]);
+    setPlacement(placeTooltip(rect, tip, viewport, side));
+  }, [open, side, content, inlineExplanation]);
 
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") hide(); };
     const onPointer = (event: PointerEvent) => { if (!triggerRef.current?.contains(event.target as Node)) hide(); };
-    if (!explanation) {
+    if (!inlineExplanation) {
       document.addEventListener("keydown", onKey);
       document.addEventListener("pointerdown", onPointer, true);
     }
@@ -130,7 +126,7 @@ export function Tooltip({ content, children, side = "right", explanation = false
       window.removeEventListener("scroll", hide, true);
       window.removeEventListener("resize", hide);
     };
-  }, [open, hide, explanation]);
+  }, [open, hide, inlineExplanation]);
 
   const child = children;
   const childProps = child.props;
@@ -154,7 +150,7 @@ export function Tooltip({ content, children, side = "right", explanation = false
     },
     onClick: (event: React.MouseEvent<HTMLElement>) => {
       childProps.onClick?.(event);
-      if (explanation) {
+      if (inlineExplanation) {
         if (timer.current) clearTimeout(timer.current);
         setOpen(true);
       }
@@ -168,6 +164,16 @@ export function Tooltip({ content, children, side = "right", explanation = false
       hide();
     },
   });
+
+  if (inlineExplanation) return <>
+    {trigger}
+    {open && <div id={tooltipId} role="tooltip" ref={tipRef}
+      onMouseEnter={() => { if (timer.current) clearTimeout(timer.current); }}
+      onMouseLeave={leave}
+      className="mt-1.5 w-fit max-w-[324px] rounded-item bg-[#172b26] px-3 py-2 text-[13px] leading-[19px] text-[#F7F5EE] shadow-md">
+      {content}
+    </div>}
+  </>;
 
   const arrowSide = placement ? OPPOSITE[placement.side] : "bottom";
   const arrowStyle: React.CSSProperties = !placement ? {} : placement.side === "top" || placement.side === "bottom"
@@ -191,19 +197,17 @@ export function Tooltip({ content, children, side = "right", explanation = false
             visibility: placement ? "visible" : "hidden",
             zIndex: 9999,
           }}
-          onMouseEnter={explanation ? () => { if (timer.current) clearTimeout(timer.current); } : undefined}
-          onMouseLeave={explanation ? leave : undefined}
-          className={explanation ? "w-max rounded-item bg-[#172b26] px-3 py-2 text-[13px] leading-[19px] text-[#F7F5EE] shadow-md" : "pointer-events-none w-max rounded-item border border-[#DCE0DA] bg-white px-2.5 py-1.5 text-[13px] font-medium leading-[18px] text-[#172b26] dark:border-white/10 dark:bg-[#1f2225] dark:text-white"}
+          className="pointer-events-none w-max rounded-item border border-[#DCE0DA] bg-white px-2.5 py-1.5 text-[13px] font-medium leading-[18px] text-[#172b26] dark:border-white/10 dark:bg-[#1f2225] dark:text-white"
         >
           {content}
-          {!explanation && <span
+          <span
             aria-hidden="true"
             data-tooltip-arrow={arrowSide}
             style={arrowStyle}
             className={`absolute h-2 w-2 rotate-45 bg-white dark:bg-[#1f2225] ${
               arrowSide === "bottom" ? "border-b border-r" : arrowSide === "top" ? "border-l border-t" : arrowSide === "left" ? "border-b border-l" : "border-r border-t"
             } border-[#DCE0DA] dark:border-white/10`}
-          />}
+          />
         </div>,
         document.body,
       ) : null}

@@ -45,7 +45,8 @@ async function setup(page: Page, available: boolean, history = false, language: 
 }
 
 for (const width of [1440, 390]) {
-  for (const theme of ["light", "dark"] as const) {
+  for (const theme of ["light", "dark"] as const) test.describe(`linked number in ${theme} at ${width}px`, () => {
+    test.use({ hasTouch: width === 390 });
     test(`linked WhatsApp settings and unlink at ${width}px in ${theme}`, async ({ page }, info) => {
       const observed = await setup(page, false, false, "es-419", theme);
       await page.clock.setFixedTime(new Date("2026-11-23T12:00:00Z"));
@@ -82,20 +83,40 @@ for (const width of [1440, 390]) {
       await expect(trigger).toHaveCSS("width", "44px");
       await expect(trigger.locator("svg")).toHaveCSS("width", "24px");
       const held = page.getByRole("region", { name: "Archivos sin negocio" });
-      const original = await held.boundingBox();
+      const heading = page.getByRole("heading", { name: "Número que termina en 4821" });
+      const card = heading.locator("xpath=ancestor::section[1]");
+      const original = (await card.boundingBox())!;
+      const originalHeading = await heading.boundingBox();
+      const originalTrigger = await trigger.boundingBox();
       const capture = async (state: string) => {
         const clip = await page.getByTestId("settings-window").boundingBox();
         return page.screenshot({ path: info.outputPath(`whatsapp-${state}-${width}-${theme}.png`), style: FREEZE_CSS,
           ...(width === 1440 && clip ? { clip } : {}) });
       };
-      if (width !== 1440 || theme !== "light") await capture("linked");
+      await capture("linked-closed");
       if (width === 1440) await trigger.hover();
-      else await trigger.click();
+      else await trigger.tap();
       await expect(page.getByRole("tooltip")).toHaveText(spanish.settings.whatsapp.reading_info);
-      expect(await held.boundingBox()).toEqual(original);
-      if (width === 1440 && theme === "light") await capture("linked");
+      const explanation = card.getByRole("tooltip");
+      await expect(explanation).toBeVisible();
+      const bubble = (await explanation.boundingBox())!;
+      const expanded = (await card.boundingBox())!;
+      const number = (await heading.boundingBox())!;
+      expect(number).toEqual(originalHeading);
+      expect(await trigger.boundingBox()).toEqual(originalTrigger);
+      const date = (await card.locator("time").boundingBox())!;
+      const badge = (await card.locator("svg").first().boundingBox())!;
+      expect(expanded.height - original.height).toBeGreaterThanOrEqual(bubble.height);
+      expect(bubble.y).toBeGreaterThanOrEqual(number.y + number.height);
+      expect(bubble.y + bubble.height).toBeLessThanOrEqual(date.y);
+      expect(bubble.x).toBeGreaterThanOrEqual(badge.x + badge.width);
+      expect(bubble.x + bubble.width).toBeLessThanOrEqual(expanded.x + expanded.width);
+      expect(date.y + date.height).toBeLessThanOrEqual(expanded.y + expanded.height);
+      expect(expanded.y + expanded.height).toBeLessThanOrEqual((await held.boundingBox())!.y);
+      await capture("linked-open");
       await page.keyboard.press("Escape");
       await expect(page.getByRole("tooltip")).toHaveCount(0);
+      expect(await card.boundingBox()).toEqual(original);
       const unlink = page.getByRole("button", { name: "Desvincular número" });
       await trigger.focus();
       await trigger.press("Tab");
@@ -124,7 +145,7 @@ for (const width of [1440, 390]) {
       await confirm.screenshot({ path: info.outputPath(`whatsapp-empty-confirm-${width}-${theme}.png`), style: FREEZE_CSS });
       expect(observed.errors).toEqual([]);
     });
-  }
+  });
 
   test(`unavailable channels have no intake offers or requests at ${width}px`, async ({ page }, info) => {
     const observed = await setup(page, false);

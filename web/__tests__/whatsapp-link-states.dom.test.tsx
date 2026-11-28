@@ -312,13 +312,17 @@ test.each([
   expect(host.textContent).not.toContain("Número vinculado");
 });
 
-test("the number's info button explains automatic reading on tap", async () => {
-  const { host } = await open({ linked: true });
+test("tapping info puts the explanation between the linked number and date inside the card", async () => {
+  const { host } = await open({ linked: true, linkedAt: "2026-11-12T12:00:00Z" });
   const trigger = host.querySelector<HTMLButtonElement>('button[aria-label="Qué pasa con lo que envías"]');
   expect(trigger).toBeTruthy();
   await act(async () => trigger!.click());
   const bubble = document.getElementById(trigger!.getAttribute("aria-describedby") ?? "");
   expect(bubble?.textContent).toBe("Mientras esté vinculado, la foto o el PDF que envíes se lee con IA para saber a qué negocio va.");
+  const card = trigger!.closest("section")!;
+  expect(card.contains(bubble)).toBe(true);
+  expect([...card.querySelectorAll('h3, [role="tooltip"], time')].map(node => node.tagName))
+    .toEqual(["H3", "DIV", "TIME"]);
   await act(async () => trigger!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
   expect(document.querySelector('[role="tooltip"]')).toBeNull();
 });
