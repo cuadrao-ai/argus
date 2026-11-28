@@ -264,6 +264,16 @@ class WhatsAppIntake:
             )
         in_flight = False
         first_error: Exception | None = None
+        arrived_at = self.clock()
+        unlinked_files: dict[str, list[MediaMessage]] = {}
+        if len(delivery.messages) > 1 and isinstance(self.store, PostgresWhatsAppStore):
+            by_sender: dict[str, list[MediaMessage]] = {}
+            for message in delivery.messages:
+                if isinstance(message, MediaMessage):
+                    by_sender.setdefault(message.sender, []).append(message)
+            for sender, files in by_sender.items():
+                if not await asyncio.to_thread(self._admit_files, files, arrived_at):
+                    unlinked_files[sender] = files
         for message in delivery.messages:
             try:
                 claimed = await self._claim(message)
@@ -271,12 +281,30 @@ class WhatsAppIntake:
                     in_flight = not await self._process(claimed) or in_flight
                 else:
                     in_flight = not claimed or in_flight
+                if isinstance(message, TextMessage) and message.sender in unlinked_files:
+                    # A link code in this envelope can authorize the remaining files.
+                    if await asyncio.to_thread(
+                        self._admit_files, unlinked_files[message.sender], arrived_at
+                    ):
+                        del unlinked_files[message.sender]
             except Exception as error:
                 first_error = first_error or error
         if first_error is not None:
             raise first_error
         if in_flight:
             raise DeliveryInFlight()
+
+    def _admit_files(self, files: list[MediaMessage], arrived_at: datetime) -> bool:
+        assert isinstance(self.store, PostgresWhatsAppStore)
+        link = self.store.sender_link(sender_hash=self.keys.sender(files[0].sender))
+        if link is None:
+            return False
+        if self.reply_codec is None:
+            raise RuntimeError("whatsapp_reply_grouping_unavailable")
+        self.store.reply_groups.start_envelope(
+            [self.reply_codec.pending(file, link) for file in files], arrived_at
+        )
+        return True
 
     async def _claim(self, message: InboundMessage) -> _Held | bool:
         """Commit this message's claim. A ``_Held`` means this worker owns it;

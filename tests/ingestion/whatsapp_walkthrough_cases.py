@@ -35,12 +35,14 @@ from argus.domain.ingestion.documents.service import (
 )
 from argus.domain.ingestion.email_intake.budget import business_day, next_business_day
 from argus.domain.ingestion.secrets import SecretBox
-from argus.domain.ingestion.whatsapp import document_step
+from argus.domain.ingestion.whatsapp import document_step, reply_groups_postgres
 from argus.domain.ingestion.whatsapp.held import HeldFile, held_files
 from argus.domain.ingestion.whatsapp.media import FetchedMedia
+from argus.domain.ingestion.whatsapp.reply_groups import BatchOutcomes, ReplyGroup
 from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
 from faker import Faker
 from loguru import logger
+from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
 from scripts.qa.whatsapp_walkthrough import (
@@ -794,6 +796,108 @@ async def test_window_elapsed_before_worker_runs(signed: SignedForward) -> None:
     assert len(w.read_ids) == 1
     await w.sweep(24 * 60 * 60)
     assert w.replies == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("delay_seconds", [0.5, 1])
+async def test_window_during_final_database_authorization(
+    signed: SignedForward, monkeypatch: pytest.MonkeyPatch, delay_seconds: float
+) -> None:
+    w = signed
+    [cid] = await w.forward(Receipt("Último-segundo", w.desk.rnc["A"], None))
+    assert await w.read(cid) == "prepared"
+    checked_at = []
+    outcomes = reply_groups_postgres._outcomes
+
+    def read_outcomes(db: Connection, group: ReplyGroup) -> BatchOutcomes:
+        result = outcomes(db, group)
+        # Claim reads outcomes before inserting the attempt. Authorization reads them
+        # again with that committed attempt locked, immediately before dispatch.
+        if db.execute(
+            "select 1 from public.whatsapp_reply_attempts where sender_hash=%s",
+            (group.sender_hash,),
+        ).fetchone():
+            checked_at.append(w.desk.clock.now - group.last_sent_at)
+            w.desk.clock.now += timedelta(seconds=delay_seconds)
+        return result
+
+    monkeypatch.setattr(reply_groups_postgres, "_outcomes", read_outcomes)
+    await w.sweep(24 * 60 * 60 - 1)
+    assert checked_at == [timedelta(hours=24, seconds=-1)]
+    await w.sweep()
+    assert w.replies == (
+        ["Recibimos tu factura, gracias.\nYa está en la Bandeja:\n• Colmado Doña Rosa: 1"]
+        if delay_seconds < 1 else []
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("link_in_envelope", [False, True])
+async def test_same_envelope_files_share_arrival_before_second_claim(
+    signed: SignedForward, monkeypatch: pytest.MonkeyPatch, link_in_envelope: bool
+) -> None:
+    w = signed
+    intake = whatsapp.whatsapp_runtime().intake
+    send = intake.transport.send
+    first_saved, resume = asyncio.Event(), asyncio.Event()
+    first_id, second_id = (f"wamid.W9.{100000000000000 + i}" for i in range(2))
+    if link_in_envelope:
+        w.desk.clock.now += timedelta(days=1)  # A fresh daily linking-reply allowance.
+        assert (await w.client.delete(LINK, headers=w.desk.auth)).status_code == 204
+        status = await w.request("GET", LINK, headers=w.desk.auth)
+        code = await w.request(
+            "POST", LINK + "-codes", headers=w.desk.auth,
+            json={"disclosure_token": status["disclosure_token"]},
+        )
+        post = w.post
+
+        async def link_then_forward(body: dict) -> None:
+            link = fixture("text_link_code.json", id="wamid.SAME-LINK", text=code["message_text"])
+            body["entry"][0]["changes"][0]["value"]["messages"][:0] = (
+                link["entry"][0]["changes"][0]["value"]["messages"]
+            )
+            await post(body)
+
+        monkeypatch.setattr(w, "post", link_then_forward)
+
+    arrival = w.desk.clock.now
+
+    async def after_read_receipt(payload: dict[str, Any]) -> None:
+        await send(payload)
+        if payload.get("message_id") == first_id:
+            first_saved.set()
+            await resume.wait()
+
+    monkeypatch.setattr(intake.transport, "send", after_read_receipt)
+    delivery = asyncio.create_task(
+        w.forward(
+            Receipt("Primera-en-sobre", w.desk.rnc["A"], None),
+            Receipt("Segunda-en-sobre", w.desk.rnc["B"], None),
+        )
+    )
+    try:
+        await asyncio.wait_for(first_saved.wait(), timeout=5)
+        if link_in_envelope:
+            assert w.replies == [w.link_reply]
+            w.replies.clear()
+        first = intake.store.inbound(intake.keys.message(first_id))
+        second = intake.store.inbound(intake.keys.message(second_id))
+        assert await w.read(first.connection_id) == "prepared"
+        await w.sweep(60)
+        early = list(w.replies)
+    finally:
+        resume.set()
+        connections = await delivery
+    assert await w.read(connections[1]) == "prepared"
+    await w.sweep(60)
+    await w.sweep(60)
+    assert early == []
+    assert w.replies == [
+        "Recibimos 2 facturas, gracias.\nYa están en la Bandeja:\n• Colmado Doña Rosa: 1\n• Taller Hermanos Peña: 1"
+    ]
+    assert second is not None and second.received_at == first.received_at == arrival
+    assert second.status == "received" and second.claim_until is None
+    assert second.connection_id is None and w.read_ids == [first_id, second_id]
 
 
 @pytest.mark.asyncio

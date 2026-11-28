@@ -180,6 +180,26 @@ class PostgresReplyGroups:
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool = pool
 
+    def start_envelope(self, files: list[PendingFailure], arrived_at: datetime) -> None:
+        """Persist a sender's file arrivals together. Processing claims each file in turn."""
+        keys = sorted({bytes.fromhex(file.sample["key"]) for file in files})
+        with self.pool.connection() as db, db.transaction():
+            db.execute(
+                "insert into public.whatsapp_inbound_messages "
+                "(provider_message_key,sender_hash,status,received_at,updated_at) "
+                "select key,%s,'received',%s,%s from unnest(%s::bytea[]) as f(key)"
+                " order by key on conflict(provider_message_key) do nothing",
+                (files[0].sender_hash, arrived_at, arrived_at, keys),
+            )
+            # Lock replayed rows as well as new ones before taking group locks.
+            db.execute(
+                "select provider_message_key from public.whatsapp_inbound_messages"
+                " where provider_message_key=any(%s) order by provider_message_key for update",
+                (keys,),
+            )
+            for file in files:
+                self._enroll(db, file, starting=True)
+
     def start_file(self, pending: PendingFailure) -> None:
         """Bind the incoming file before the download starts, without declaring an outcome."""
         with self.pool.connection() as db, db.transaction():
@@ -197,7 +217,7 @@ class PostgresReplyGroups:
             " join public.whatsapp_inbound_messages m on m.sender_hash=l.wa_id_hash"
             " and m.provider_message_key=%s"
             " where l.wa_id_hash=%s and l.destination_owner_id=%s and l.linked_at=%s"
-            " and l.status='active' and (case when %s then m.claim_until is not null and m.status in ('received','failed')"
+            " and l.status='active' and (case when %s then m.status in ('received','failed')"
             " else m.destination_owner_id=l.destination_owner_id end)"
             " for share of l for update of m",
             (
