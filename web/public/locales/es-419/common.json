@@ -900,6 +900,15 @@
       "expired_message": "Este mensaje ya no sirve.",
       "expired_title": "El código venció",
       "expires_in": "Vence en {{time}}",
+      "held": {
+        "assign": "Asignar",
+        "assigned": "Archivo asignado a {{business}}.",
+        "reason": {
+          "no_buyer_rnc": "Sin RNC del comprador",
+          "no_match": "El RNC no es de ninguno de tus negocios que reciben",
+          "two_matches": "Coincide con más de uno de tus negocios"
+        }
+      },
       "held_help": "Esperan que elijas a qué negocio van",
       "held_title": "Archivos sin negocio",
       "intro_body": "Vincula tu número y envía fotos o PDF de facturas y recibos al número de Cuadrao. $t(settings.whatsapp.routing_help)",

@@ -267,7 +267,7 @@ function PhoneSection({ panel, renderSection, onBack, onClose, returnFocusRef, d
   );
 }
 
-function PhoneHeader({ titleId, title, closes = false, exitLabel, onExit, exitRef }: { titleId: string; title: string; closes?: boolean; exitLabel: string; onExit: () => void; exitRef?: RefObject<HTMLButtonElement | null> }) {
+function PhoneHeader({ titleId, title, closes = false, exitLabel, onExit, exitRef }: { titleId: string; title: ReactNode; closes?: boolean; exitLabel: string; onExit: () => void; exitRef?: RefObject<HTMLButtonElement | null> }) {
   const Icon = closes ? X : ArrowLeft;
   return (
     <header className={`flex shrink-0 items-center gap-1 border-b px-2 pb-2 pt-[max(8px,env(safe-area-inset-top))] ${hairline}`}>

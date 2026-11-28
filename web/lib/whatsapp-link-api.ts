@@ -27,7 +27,7 @@ export type WhatsAppLinkStatus = {
 
 export type WhatsAppLinkError = Error & { status: number; code: string };
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function requestResponse(path: string, options?: RequestInit) {
   const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders();
   requireBrowserAuthGeneration(generation);
@@ -46,7 +46,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       code: typeof problem.code === "string" ? problem.code : "unknown",
     }) as WhatsAppLinkError;
   }
-  return (response.status === 204 ? undefined : await response.json()) as T;
+  return { response, generation };
+}
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const { response, generation } = await requestResponse(path, options);
+  const result = response.status === 204 ? undefined : await response.json();
+  requireBrowserAuthGeneration(generation);
+  return result as T;
 }
 
 export function getWhatsAppLink(language: ArgusLanguage, signal?: AbortSignal): Promise<WhatsAppLinkStatus> {
@@ -74,4 +81,39 @@ export function whatsAppLinkProblem(error: unknown): WhatsAppLinkProblem {
 
 export function revokeWhatsAppAI(): Promise<void> {
   return request("/whatsapp/ai-consent", { method: "DELETE" });
+}
+
+export type WhatsAppHeldFile = {
+  id: string;
+  reason: "no_buyer_rnc" | "no_match" | "two_matches" | "held_read_cap" | "read_failed" | "no_eligible_business";
+  reading: boolean;
+  held_at: string;
+  expires_at: string;
+  media_type: string;
+  preview_url: string;
+};
+
+export type WhatsAppHeldFilesResponse = {
+  files: WhatsAppHeldFile[];
+  receiving_businesses: { space_id: string; name: string }[];
+};
+
+export function getWhatsAppHeldFiles(signal: AbortSignal): Promise<WhatsAppHeldFilesResponse> {
+  return request("/whatsapp/held-files", { signal });
+}
+
+export function assignWhatsAppHeldFile(id: string, business_id: string, signal: AbortSignal): Promise<void> {
+  return request(`/whatsapp/held-files/${encodeURIComponent(id)}/assign`, {
+    method: "POST", body: JSON.stringify({ business_id }), signal,
+  });
+}
+
+export async function readWhatsAppHeldPreview(url: string, signal: AbortSignal): Promise<Blob> {
+  // Keep sender credentials on the configured API and within the sender's preview route.
+  const match = /^\/api\/v1(\/whatsapp\/held-files\/[A-Za-z0-9_-]+\/preview)$/.exec(url);
+  if (!match) throw new Error("Invalid held file preview path");
+  const { response, generation } = await requestResponse(match[1], { signal, redirect: "error" });
+  const blob = await response.blob();
+  requireBrowserAuthGeneration(generation);
+  return blob;
 }

@@ -53,6 +53,7 @@ async function open({ blocked = false, seconds = 581, withUrl = true, linked = f
       if (requests.limited) return Response.json({ code: "whatsapp_link_code_rate_limited" }, { status: 429 });
       return Response.json({ code: "K7P2M9XQ", message_text: message, wa_me_url: withUrl ? url : null, qr_data_url: withUrl ? "data:image/png;base64,AA==" : null, expires_at: new Date(Date.now() + seconds * 1000).toISOString() });
     }
+    if (path.endsWith("/whatsapp/held-files")) return Response.json({ files: [], receiving_businesses: [] });
     if (!path.endsWith("/whatsapp/link")) throw new Error(path);
     if (init?.method === "DELETE") {
       requests.deletes++;
@@ -172,9 +173,26 @@ test("linked settings preserve the held count after the last eligible business i
   expect(host.textContent).toContain("Desvincular número");
 });
 
-test("an empty held queue shows zero without saying that files are waiting", async () => {
+test("an empty held queue hides the settings row", async () => {
   const { host } = await open({ linked: true, heldCount: 0 });
-  expect(host.querySelector('[aria-label="Archivos sin negocio"]')?.textContent).toBe("Archivos sin negocio0");
+  expect(host.querySelector('[aria-label="Archivos sin negocio"]')).toBeNull();
+});
+
+test("back from an emptied queue keeps focus in WhatsApp while its status refreshes", async () => {
+  const { host, click, requests } = await open({ linked: true, heldCount: 1 });
+  const row = host.querySelector<HTMLButtonElement>('button[aria-label="Archivos sin negocio"]')!;
+  await act(async () => row.click());
+  const pending = Promise.withResolvers<Response>();
+  requests.nextRead = pending.promise;
+  await click(spanish.common.back);
+  await act(async () => { await new Promise(resolve => requestAnimationFrame(resolve)); });
+  expect(host.querySelector('button[aria-label="Archivos sin negocio"]')).toBeNull();
+  const focused = document.activeElement;
+  expect(host.contains(focused)).toBe(true);
+  await act(async () => {
+    pending.resolve(Response.json({ ...whatsappDisclosure["es-419"], linked: true, last4: "4821", receiving_businesses: eligible, held_count: 0 }));
+  });
+  expect(document.activeElement === focused).toBe(true);
 });
 
 test("the live status poll sees redemption and stops; unlink requires confirmation", async () => {
@@ -354,7 +372,11 @@ test.each([true, false])("held files survive unlink with setup blocked = %s", as
   expect(host.textContent).not.toContain("4821");
   const held = host.querySelector('[aria-label="Archivos sin negocio"]');
   expect(held?.textContent).toContain("3");
-  expect(held?.querySelector("a,button,[tabindex]")).toBeNull();
+  expect(held?.tagName).toBe("BUTTON");
+  await act(async () => (held as HTMLButtonElement).click());
+  expect(host.textContent).toContain(spanish.business.inicio.attention.clear_title);
+  await click(spanish.common.back);
+  expect(requests.reads).toBe(3);
 });
 
 test.each([

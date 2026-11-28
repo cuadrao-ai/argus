@@ -12,7 +12,7 @@ const SettingsWindowContext = createContext(false);
 
 /** A second step inside a section: the window titles it and, with onBack, draws the arrow back.
  * Without onBack the step holds the window: closing Ajustes is its only way out, on every layout. */
-export type SettingsStep = { title: string; onBack?: () => void };
+export type SettingsStep = { title: ReactNode; onBack?: () => void };
 
 const SettingsStepContext = createContext<(step: SettingsStep | null) => void>(() => undefined);
 
@@ -30,7 +30,7 @@ export function useInSettingsWindow(): boolean {
 }
 
 /** Shows a step's title in the window header while `title` is set; Escape and the arrow run onBack, or close Ajustes without it. */
-export function useSettingsStep(title: string | null, onBack?: () => void): void {
+export function useSettingsStep(title: ReactNode, onBack?: () => void): void {
   const show = useContext(SettingsStepContext);
   const back = useRef(onBack);
   useLayoutEffect(() => {
