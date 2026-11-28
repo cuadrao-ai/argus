@@ -25,7 +25,7 @@ from argus.api import business_spaces, documents, financial_accounts, ingestion,
 from argus.api.main import app
 from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.spaces import PostgresSpaceStore
-from argus.domain.ingestion.documents import extractor
+from argus.domain.ingestion.documents import extractor, jobs
 from argus.domain.ingestion.documents.models import ExtractionResult
 from argus.domain.ingestion.documents.objects import SupabaseSourceObjects, owner_prefix
 from argus.domain.ingestion.documents.service import (
@@ -37,6 +37,7 @@ from argus.domain.ingestion.email_intake.budget import business_day, next_busine
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp import document_step, reply_groups_postgres
 from argus.domain.ingestion.whatsapp.held import HeldFile, held_files
+from argus.domain.ingestion.whatsapp.intake import MediaSource
 from argus.domain.ingestion.whatsapp.media import FetchedMedia
 from argus.domain.ingestion.whatsapp.reply_groups import (
     BatchOutcomes,
@@ -62,6 +63,7 @@ from tests.document_reads_support import read_receipt
 from tests.ingestion.whatsapp_support import ENV, encode, fixture, sign
 from tests.local_supabase_support import local_supabase_gateway
 from tests.test_business_spaces_migration_postgres import owned_space
+from workflows import document_worker
 from workflows.document_job import postgres_documents_service
 from workflows.read_resume import ReadResume
 
@@ -261,13 +263,13 @@ class SignedForward:
         )
         assert result == {"received": True}
 
-    async def link(self) -> None:
-        status = await self.request("GET", LINK, headers=self.desk.auth)
+    async def link(self, language: str) -> None:
+        status = await self.request("GET", LINK, headers=self.desk.auth, params={"language": language})
         code = await self.request(
             "POST",
             LINK + "-codes",
             headers=self.desk.auth,
-            json={"disclosure_token": status["disclosure_token"]},
+            json={"disclosure_token": status["disclosure_token"], "language": language},
         )
         await self.post(fixture("text_link_code.json", text=code["message_text"]))
         linked = await self.request("GET", LINK, headers=self.desk.auth)
@@ -418,9 +420,14 @@ class SignedForward:
         ]
 
 
+@pytest.fixture
+def reply_language() -> str:
+    return "es-419"
+
+
 @pytest_asyncio.fixture
 async def signed(
-    desk: WalkthroughDesk, monkeypatch: pytest.MonkeyPatch
+    desk: WalkthroughDesk, monkeypatch: pytest.MonkeyPatch, reply_language: str
 ) -> AsyncIterator[SignedForward]:
     replies, downloads = [], []
     async with httpx.AsyncClient(
@@ -452,7 +459,7 @@ async def signed(
                 )
                 monkeypatch.setattr(whatsapp, "_runtime", None)
                 whatsapp.start_whatsapp(app)
-                await w.link()
+                await w.link(reply_language)
                 [w.link_reply] = replies
                 replies.clear()
                 yield w
@@ -498,7 +505,11 @@ async def run_cases(w: SignedForward) -> None:
         Receipt("Compra-3", r["vendor"], r["C"]),
         Receipt("Compra-4", r["vendor"], r["X"]),
     ]
-    connections = await w.forward(*sales, *purchases, *unplaced)
+    connections = await w.forward(*sales)
+    d.clock.now += timedelta(seconds=10)
+    connections.extend(await w.forward(*purchases))
+    d.clock.now += timedelta(seconds=10)
+    connections.extend(await w.forward(*unplaced))
     assert w.read_ids == [f"wamid.W9.{100000000000000+n}" for n in range(7)]
     assert w.replies == []
     for cid in connections:
@@ -509,7 +520,8 @@ async def run_cases(w: SignedForward) -> None:
         "• Colmado Doña Rosa: 2\n• Taller Hermanos Peña: 2\n"
         "3 quedaron sin negocio. Te esperan en Cuadrao."
     ]
-    w.proof.append("1 | 7 read receipts after save | one exact reply after 1 minute")
+    w.proof.append("1 | 3 signed deliveries | 7 read receipts after save | one reply after 1 quiet minute")
+    w.proof.append(w.replies[0])
     assert w.reads == Counter(receipt.name for receipt in [*sales, *purchases, *unplaced])
     for key, expected, kind in (("A", sales, "venta"), ("B", purchases, "recibo")):
         rows = await w.inbox(key)
@@ -706,14 +718,55 @@ async def test_slow_reads_close_at_three_minutes_without_followup(
     assert w.replies == expected
 
 
+async def interrupt_download(
+    fetcher: MediaSource,
+    deliver: Callable[[], Awaitable[httpx.Response]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def interrupted(media_id: str) -> FetchedMedia:
+        raise asyncio.CancelledError
+
+    with monkeypatch.context() as patch:
+        patch.setattr(fetcher, "fetch", interrupted)
+        try:
+            response = await deliver()
+        except asyncio.CancelledError:
+            return
+        assert response.status_code >= 500
+
+
 @pytest.mark.asyncio
+@pytest.mark.parametrize("redeliver", [False, True])
 async def test_failed_capture_commit_sends_no_status_or_reply(
-    signed: SignedForward, monkeypatch: pytest.MonkeyPatch
+    signed: SignedForward,
+    scheduler: ScheduledSweeps,
+    monkeypatch: pytest.MonkeyPatch,
+    redeliver: bool,
 ) -> None:
     w = signed
-    destination = whatsapp.whatsapp_runtime().intake.destination
-    prepare = destination.prepare
-    deferred = []
+    intake = whatsapp.whatsapp_runtime().intake
+    prepare = intake.destination.prepare
+    media_id, message_id = "100000000000000", "wamid.ROLLBACK"
+    key = intake.keys.message(message_id)
+    w.media[media_id] = Receipt("Sin-commit", w.desk.rnc["A"], None).png()
+    body = fixture(
+        "image_message.json",
+        id=message_id,
+        image={"id": media_id, "mime_type": "image/png"},
+    )
+    raw = encode(body, w.desk.clock.now)
+    leases = []
+
+    async def deliver() -> httpx.Response:
+        return await w.client.post(
+            whatsapp.WEBHOOK_PATH, content=raw, headers={"X-Hub-Signature-256": sign(raw)}
+        )
+
+    if redeliver:
+        await interrupt_download(intake.media, deliver, monkeypatch)
+        await scheduler.advance(175)
+        assert intake.store.inbound(key).claim_until < w.desk.clock.now
+        assert w.read_ids == w.replies == []
 
     def fail_at_commit(connection, *args, **kwargs):
         result = prepare(connection, *args, **kwargs)
@@ -722,34 +775,38 @@ async def test_failed_capture_commit_sends_no_status_or_reply(
             "references failed_commit(id) deferrable initially deferred) on commit drop"
         )
         connection.execute("insert into failed_commit values (1, 2)")
-        deferred.append(True)
+        leases.append(intake.store.inbound(key).claim_until)
         return result
 
-    monkeypatch.setattr(destination, "prepare", fail_at_commit)
-    key = "100000000000000"
-    w.media[key] = Receipt("Sin-commit", w.desk.rnc["A"], None).png()
-    message_id = "wamid.ROLLBACK"
-    body = fixture(
-        "image_message.json", id=message_id, image={"id": key, "mime_type": "image/png"}
-    )
-    raw = encode(body, w.desk.clock.now)
+    monkeypatch.setattr(intake.destination, "prepare", fail_at_commit)
     errors = []
     sink = logger.add(
         lambda message: errors.append(message.record["extra"].get("failure_mode"))
     )
     try:
-        response = await w.client.post(
-            whatsapp.WEBHOOK_PATH, content=raw, headers={"X-Hub-Signature-256": sign(raw)}
-        )
+        response = await deliver()
     finally:
         logger.remove(sink)
     assert response.status_code == 503 and "ForeignKeyViolation" in errors
-    assert deferred == [True]
-    intake = whatsapp.whatsapp_runtime().intake
-    inbound = intake.store.inbound(intake.keys.message(message_id))
-    assert inbound.status == "received" and inbound.connection_id is None
-    await w.sweep(180)
+    [lease] = leases
+    if redeliver:
+        assert lease > scheduler.start + timedelta(seconds=180)
+    await scheduler.advance(180)
+    await scheduler.advance(300)
     assert w.read_ids == w.replies == []
+    inbound = intake.store.inbound(key)
+    assert (inbound.status, inbound.claim_until, inbound.connection_id) == (
+        "failed",
+        None,
+        None,
+    )
+    assert await w.inbox("A") == await w.inbox("B") == {}
+    assert w.held() == []
+    assert w.usage() == (0, 0, 0, 0)
+    with w.desk.pool.connection() as db:
+        assert not db.execute(
+            "select 1 from public.whatsapp_reply_days where owner_id=%s", (w.desk.ana,)
+        ).fetchone()
 
 
 @pytest.mark.asyncio
@@ -820,8 +877,8 @@ async def test_window_during_final_database_authorization(
     checked_at = []
     outcomes = reply_groups_postgres._outcomes
 
-    def read_outcomes(db: Connection, group: ReplyGroup) -> BatchOutcomes:
-        result = outcomes(db, group)
+    def read_outcomes(db: Connection, group: ReplyGroup, *, now: datetime) -> BatchOutcomes:
+        result = outcomes(db, group, now=now)
         # Claim reads outcomes before inserting the attempt. Authorization reads them
         # again with that committed attempt locked, immediately before dispatch.
         reservation = db.execute(
@@ -1106,99 +1163,176 @@ async def test_inflight_second_file_extends_first_files_deadline(
     assert (early, completed, w.replies) == ([], [summary], [summary])
 
 
+class ScheduledSweeps:
+    """Advance time through each sleep requested by the production worker."""
+
+    def __init__(self, clock: Clock) -> None:
+        self.clock, self.start = clock, clock()
+        self.sleeps: asyncio.Queue[tuple[datetime, asyncio.Event]] = asyncio.Queue()
+
+    async def sleep(self, seconds: float) -> None:
+        wake = asyncio.Event()
+        self.sleeps.put_nowait((self.clock() + timedelta(seconds=seconds), wake))
+        await wake.wait()
+
+    async def wait_for_sleep(self) -> None:
+        self.wake_at, self.release = await asyncio.wait_for(self.sleeps.get(), timeout=10)
+        assert self.wake_at > self.clock()
+
+    async def advance(self, second: float) -> None:
+        target = self.start + timedelta(seconds=second)
+        assert self.clock() <= target
+        while self.wake_at <= target:
+            self.clock.now = self.wake_at
+            self.release.set()
+            await self.wait_for_sleep()
+        self.clock.now = target
+
+
+@pytest.fixture
+def sweep_interval() -> int:
+    return 30
+
+
+@pytest_asyncio.fixture
+async def scheduler(
+    signed: SignedForward, sweep_interval: int, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[ScheduledSweeps]:
+    desk = signed.desk
+    driver = ScheduledSweeps(desk.clock)
+    monkeypatch.setenv("CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS", str(sweep_interval))
+    clocked_asyncio = SimpleNamespace(**vars(asyncio))
+    clocked_asyncio.sleep = driver.sleep
+    clocked_asyncio.get_running_loop = lambda: SimpleNamespace(
+        time=lambda: (desk.clock() - driver.start).total_seconds()
+    )
+    monkeypatch.setattr(jobs, "asyncio", clocked_asyncio)
+    dsn, _ = local_targets()
+    monkeypatch.setattr(document_worker, "require_database_url", lambda: dsn)
+    monkeypatch.setattr(
+        document_worker, "storage_source_objects", lambda: desk.service.store.objects
+    )
+    monkeypatch.setattr(
+        document_worker, "postgres_documents_service", lambda *_: desk.service
+    )
+    # Each scenario takes the queued read at its specified time through read_receipt.
+    monkeypatch.setattr(desk.service.store, "pull", lambda **_: None)
+    stops = []
+    monkeypatch.setattr(
+        asyncio.get_running_loop(),
+        "add_signal_handler",
+        lambda _signal, stop: stops.append(stop),
+    )
+    worker = asyncio.create_task(document_worker.serve())
+    try:
+        await driver.wait_for_sleep()
+        yield driver
+    finally:
+        if stops:
+            stops[0]()
+        else:
+            worker.cancel()
+        await worker
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("finish_second", [179, 180.5])
-async def test_off_phase_read_finishes_either_side_of_last_worker_tick(
-    signed: SignedForward, finish_second: float
+async def test_off_phase_read_finishes_before_deadline(
+    signed: SignedForward, scheduler: ScheduledSweeps, finish_second: float
 ) -> None:
-    w, clock = signed, signed.desk.clock
-    start = clock.now
-    await w.sweep(0)
-    clock.now = start + timedelta(seconds=1)
+    w = signed
+    await scheduler.advance(1)
     first, second = await w.forward(
-        Receipt("Lista", w.desk.rnc["A"], None),
-        Receipt("Ultima", w.desk.rnc["B"], None),
+        Receipt("Lista", w.desk.rnc["A"], None), Receipt("Ultima", w.desk.rnc["B"], None)
     )
     assert await w.read(first) == "prepared"
-    await w.sweep(59)  # t=60, less than one minute quiet
+    await scheduler.advance(finish_second)
     assert w.replies == []
-    await w.sweep(60)  # t=120, second file still reading
-    assert w.replies == []
-    if finish_second < 180:
-        clock.now = start + timedelta(seconds=finish_second)
-        assert await w.read(second) == "prepared"
-    clock.now = start + timedelta(seconds=180)
-    await w.sweep(0)
-    at_last_tick = list(w.replies)
-    if finish_second > 180:
-        clock.now = start + timedelta(seconds=finish_second)
-        assert await w.read(second) == "prepared"
-    clock.now = start + timedelta(seconds=181)  # the sender's exact three-minute cutoff
-    at_deadline = list(w.replies)
-    await w.sweep(59)
-    w.upkeep = document_step.FailureReplyUpkeep(
-        PostgresReplyGroups(w.desk.pool), clock=clock
-    )
-    await w.sweep(60)
-    summary = "Recibimos 2 facturas, gracias.\nYa están en la Bandeja:\n• Colmado Doña Rosa: 1\n• Taller Hermanos Peña: 1"
-    assert (at_last_tick, at_deadline, w.replies) == (
-        [summary] if finish_second < 180 else [],
-        [summary],
-        [summary],
-    )
+    assert await w.read(second) == "prepared"
+    await scheduler.advance(181)
+    expected = [
+        "Recibimos 2 facturas, gracias.\nYa están en la Bandeja:\n• Colmado Doña Rosa: 1\n• Taller Hermanos Peña: 1"
+    ]
+    assert w.replies == expected
+    await scheduler.advance(301)
+    assert w.replies == expected
 
 
 @pytest.mark.asyncio
-async def test_off_phase_slow_reply_stays_within_quiet_and_deadline_bounds(
-    signed: SignedForward,
+@pytest.mark.parametrize("sweep_interval", [30, 600])
+async def test_off_phase_slow_reply_waits_until_exact_deadline(
+    signed: SignedForward, scheduler: ScheduledSweeps
 ) -> None:
-    w, clock = signed, signed.desk.clock
-    await w.sweep(0)
-    clock.now += timedelta(seconds=1)
-    arrival = clock.now
+    w = signed
+    await scheduler.advance(1)
     [slow] = await w.forward(Receipt("Lectura-lenta", w.desk.rnc["B"], None))
-    observations = []
-    for seconds in (59, 60, 60, 60):
-        await w.sweep(seconds)
-        if w.replies:
-            observations.append(((clock.now - arrival).total_seconds(), list(w.replies)))
-    sent_at, sent = observations[0]
-    assert 60 <= sent_at <= 180
-    assert sent == [
+    await scheduler.advance(180.999)
+    assert w.replies == []
+    await scheduler.advance(181)
+    expected = [
         "Recibimos tu factura, gracias.\nLa otra se está leyendo. Puedes seguirla en Cuadrao."
     ]
+    assert w.replies == expected
     assert await w.read(slow) == "prepared"
-    w.upkeep = document_step.FailureReplyUpkeep(
-        PostgresReplyGroups(w.desk.pool), clock=clock
-    )
-    await w.sweep()
-    assert w.replies == sent
+    await scheduler.advance(301)
+    assert w.replies == expected
 
 
 @pytest.mark.asyncio
-async def test_delayed_worker_pass_still_sends_by_the_three_minute_deadline(
-    signed: SignedForward,
+@pytest.mark.parametrize("sweep_interval", [600])
+async def test_long_document_sleep_still_closes_at_quiet_after_new_file(
+    signed: SignedForward, scheduler: ScheduledSweeps
 ) -> None:
-    w, clock = signed, signed.desk.clock
-    arrival = clock.now
-    [slow] = await w.forward(Receipt("Barrido-tardío", w.desk.rnc["A"], None))
-    await w.sweep(60)
-    await w.sweep(60)
+    w = signed
+    await scheduler.advance(1)
+    [first] = await w.forward(Receipt("Anterior", w.desk.rnc["A"], None))
+    await scheduler.advance(90)
     assert w.replies == []
-    clock.now += timedelta(seconds=60)
-    by_deadline = list(w.replies)  # The worker's next pass is five seconds late.
-    await w.sweep(5)
-    assert (clock.now - arrival).total_seconds() == 185
-    [reply] = w.replies
-    assert reply.endswith("La otra se está leyendo. Puedes seguirla en Cuadrao.")
-    assert await w.read(slow) == "prepared"
-    await w.sweep()
-    assert by_deadline == w.replies == [reply]
+    [second] = await w.forward(Receipt("Nueva", w.desk.rnc["B"], None))
+    assert await w.read(first) == await w.read(second) == "prepared"
+    await scheduler.advance(149.999)
+    assert w.replies == []
+    await scheduler.advance(150)
+    assert w.replies == [
+        "Recibimos 2 facturas, gracias.\nYa están en la Bandeja:\n• Colmado Doña Rosa: 1\n• Taller Hermanos Peña: 1"
+    ]
 
 
 @pytest.mark.asyncio
+async def test_blocked_worker_resumes_one_late_send(
+    signed: SignedForward, scheduler: ScheduledSweeps
+) -> None:
+    w = signed
+    await scheduler.advance(1)
+    [slow] = await w.forward(Receipt("Barrido-tardío", w.desk.rnc["A"], None))
+    await scheduler.advance(179)
+    assert not w.replies
+    # Simulate a stopped CPU. Only this test intentionally releases a requested sleep late.
+    w.desk.clock.now = scheduler.start + timedelta(seconds=186)
+    assert scheduler.wake_at <= w.desk.clock.now
+    scheduler.release.set()
+    await scheduler.wait_for_sleep()
+    expected = [
+        "Recibimos tu factura, gracias.\nLa otra se está leyendo. Puedes seguirla en Cuadrao."
+    ]
+    assert w.replies == expected
+    assert await w.read(slow) == "prepared"
+    await scheduler.advance(301)
+    assert w.replies == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("reply_language", "retry_active"),
+    [("es-419", True), ("en", True), ("es-419", False)],
+)
 async def test_file_saved_after_its_own_deadline_never_starts_another_reply(
-    signed: SignedForward, monkeypatch: pytest.MonkeyPatch, record_property
+    signed: SignedForward,
+    scheduler: ScheduledSweeps,
+    monkeypatch: pytest.MonkeyPatch,
+    reply_language: str,
+    retry_active: bool,
+    record_property,
 ) -> None:
     w, clock = signed, signed.desk.clock
     [first] = await w.forward(Receipt("Ya-guardada", w.desk.rnc["A"], None))
@@ -1225,58 +1359,61 @@ async def test_file_saved_after_its_own_deadline_never_starts_another_reply(
     intake = whatsapp.whatsapp_runtime().intake
     fetch = intake.media.fetch
 
-    async def interrupted(media_id: str) -> FetchedMedia:
-        raise asyncio.CancelledError
-
-    with monkeypatch.context() as patch:
-        patch.setattr(intake.media, "fetch", interrupted)
-        try:
-            failed = await deliver()
-        except asyncio.CancelledError:
-            pass
-        else:
-            assert failed.status_code >= 500
-
+    await interrupt_download(intake.media, deliver, monkeypatch)
     key = intake.keys.message(message_id)
     inbound = intake.store.inbound(key)
     assert inbound.status == "received" and inbound.connection_id is None
-    await w.sweep(60)
+    await scheduler.advance(60)
     assert w.replies == []
-    clock.now += timedelta(seconds=55)
+    await scheduler.advance(115)
     assert clock.now > inbound.claim_until
-    fetching, release = asyncio.Event(), asyncio.Event()
 
-    async def retry_download(media_id: str) -> FetchedMedia:
-        fetching.set()
-        await release.wait()
-        return await fetch(media_id)
+    async def reach_cutoff() -> list[str]:
+        await scheduler.advance(179.999)
+        assert w.replies == []
+        await scheduler.advance(180)
+        before_save = list(w.replies)
+        assert (clock.now - inbound.received_at).total_seconds() == 180
+        waiting = intake.store.inbound(key)
+        assert waiting.status == "received" and waiting.connection_id is None
+        assert (clock.now < waiting.claim_until) == retry_active
+        assert w.read_ids == ["wamid.W9.100000000000000"]
+        await scheduler.advance(185)
+        return before_save
 
-    with monkeypatch.context() as patch:
-        patch.setattr(intake.media, "fetch", retry_download)
-        retry = asyncio.create_task(deliver())
-        try:
-            await asyncio.wait_for(fetching.wait(), timeout=5)
-            await w.sweep(5)
-            await w.sweep(60)
-            before_save = list(w.replies)
-            assert (clock.now - inbound.received_at).total_seconds() == 180
-            assert intake.store.inbound(key).connection_id is None
-            clock.now += timedelta(seconds=5)
-            assert clock.now < intake.store.inbound(key).claim_until
-        finally:
-            release.set()
-            result = await retry
+    if retry_active:
+        fetching, release = asyncio.Event(), asyncio.Event()
+
+        async def retry_download(media_id: str) -> FetchedMedia:
+            fetching.set()
+            await release.wait()
+            return await fetch(media_id)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(intake.media, "fetch", retry_download)
+            retry = asyncio.create_task(deliver())
+            try:
+                await asyncio.wait_for(fetching.wait(), timeout=5)
+                before_save = await reach_cutoff()
+            finally:
+                release.set()
+                result = await retry
+    else:
+        before_save = await reach_cutoff()
+        result = await deliver()
     assert result.status_code == 200
-    assert w.read_ids[-1] == message_id
+    assert w.read_ids == ["wamid.W9.100000000000000", message_id]
+    assert (clock.now - inbound.received_at).total_seconds() == 185
     assert await w.read(intake.store.inbound(key).connection_id) == "prepared"
-    w.upkeep = document_step.FailureReplyUpkeep(
-        PostgresReplyGroups(w.desk.pool), clock=clock
+    await scheduler.advance(300)
+    expected = (
+        "Recibimos 2 facturas, gracias.\nYa está en la Bandeja:\n• Colmado Doña Rosa: 1\nLa otra se está leyendo. Puedes seguirla en Cuadrao."
+        if reply_language == "es-419"
+        else "We received 2 invoices, thank you.\nIt's in your Inbox:\n• Colmado Doña Rosa: 1\nThe other one is still being read. You can follow it in Cuadrao."
     )
-    await w.sweep(55)
-    await w.sweep(60)
-    assert w.replies == before_save
-    assert len(before_save) == 1
+    assert before_save == w.replies == [expected]
     record_property(
         "walkthrough",
-        f"Uncommitted at 180 s, saved at 185 s | replies by deadline={len(before_save)} | follow-ups=0",
+        f"{reply_language} | uncommitted at 180 s, saved and marked read at 185 s | "
+        f"retry active={retry_active} | replies by deadline={len(before_save)} | follow-ups=0",
     )

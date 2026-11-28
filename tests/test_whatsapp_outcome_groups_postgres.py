@@ -95,7 +95,7 @@ async def test_business_closes_between_claim_and_send(pool, users):
 
 
 @pytest.mark.asyncio
-async def test_slow_read_uses_last_pass_before_non_aligned_deadline(pool, users):
+async def test_slow_read_schedules_its_non_aligned_deadline(pool, users):
     from tests.ingestion.whatsapp_cases import image
     from tests.ingestion.whatsapp_support import RECEIPT_PNG, Media
 
@@ -114,11 +114,46 @@ async def test_slow_read_uses_last_pass_before_non_aligned_deadline(pool, users)
     world.clock.now += timedelta(seconds=95)
     assert groups.claim(now=world.clock.now, limit=10) is True
     world.clock.now += timedelta(seconds=60)
+    assert groups.claim(now=world.clock.now, limit=10) is True
+    cutoff = world.clock.now + timedelta(seconds=25)
+    assert groups.claim(now=world.clock.now, limit=10) == cutoff
+    world.clock.now = cutoff
     attempt = groups.claim(now=world.clock.now, limit=10)
     assert attempt.outcomes.reading == 1
     groups.finish(attempt, now=world.clock.now, outcome="sent")
     world.clock.now += timedelta(seconds=60)
     assert groups.claim(now=world.clock.now, limit=10) is None
+
+
+@pytest.mark.asyncio
+async def test_terminal_forward_stays_separate_after_its_quiet_minute(pool, users):
+    from tests.ingestion.whatsapp_cases import image
+    from tests.ingestion.whatsapp_support import RECEIPT_PNG, Media
+
+    world = await _linked(pool, users)
+    media_id = "700000000000062"
+    world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(image(media_id, "wamid.BETWEEN-PASSES"))
+    [cid] = world.captures(world.alice)
+    with pool.connection() as db:
+        db.execute(
+            """update public.financial_document_extractions set
+               draft=jsonb_set(draft,'{status}','"preparing"') where connection_id=%s""", (cid,),
+        )
+    world.clock.now += timedelta(seconds=60)
+    groups = world.store.reply_groups
+    assert groups.claim(now=world.clock.now, limit=10) is True
+    with pool.connection() as db:
+        db.execute(
+            """update public.financial_document_extractions set
+               draft=jsonb_set(draft,'{status}','"prepared"') where connection_id=%s""", (cid,),
+        )
+    world.clock.now += timedelta(seconds=10)
+    await _failed(world, 1)
+    world.clock.now += timedelta(seconds=60)
+    worker = _worker(world)
+    assert await worker.run_once() and await worker.run_once()
+    assert len(world.transport.bodies()) == 2
 
 
 @pytest.mark.asyncio
@@ -147,7 +182,7 @@ async def test_download_in_progress_keeps_its_original_forward(pool, users, monk
         await asyncio.wait_for(started.wait(), timeout=5)
         groups = world.store.reply_groups
         world.clock.now += timedelta(seconds=10)
-        assert groups.claim(now=world.clock.now, limit=10) is None
+        assert groups.claim(now=world.clock.now, limit=10) == world.clock.now + timedelta(seconds=50)
     finally:
         release.set()
         await delivery

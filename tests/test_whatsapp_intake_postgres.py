@@ -620,7 +620,8 @@ async def test_group_enqueue_rolls_back_with_settlement_and_replay_counts_once(
     monkeypatch.setattr(world.store.reply_groups, "enqueue_on", fail_after_enqueue)
     with pytest.raises(RuntimeError, match="synthetic_transaction_failure"):
         await _failed(world, 0)
-    assert world.record("wamid.GROUP-0").status == "received"
+    assert world.record("wamid.GROUP-0").status == "failed"
+    assert world.record("wamid.GROUP-0").claim_until is None
     with pool.connection() as connection:
         assert connection.execute(
             "select member_count,samples->0->>'failure' from public.whatsapp_reply_groups where owner_id=%s",

@@ -385,9 +385,22 @@ class WhatsAppIntake:
             raise
         await _stop(lease, heartbeat)
         held = lease.held
-        settled = await self._settle(
-            key, held, settlement, reply_failure=pending, deadline=deadline
-        )
+        try:
+            settled = await self._settle(
+                key, held, settlement, reply_failure=pending, deadline=deadline
+            )
+        except Exception:
+            # A rolled-back capture is no longer running. Release only this attempt's
+            # lease; a concurrent settlement or redelivery keeps its own outcome.
+            if pending is not None:
+                try:
+                    await self._settle(
+                        key, held, Settlement("failed", error_code="whatsapp_settlement_failed"),
+                        deadline=deadline,
+                    )
+                except Exception as error:
+                    log.warning("WhatsApp claim release failed", failure_mode=type(error).__name__)
+            raise
         if settled is None:
             log.warning("WhatsApp message claim lost before settling")
             return False

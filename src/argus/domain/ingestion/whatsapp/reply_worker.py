@@ -15,13 +15,13 @@ from argus.domain.ingestion.whatsapp.reply_groups import (
     suppressed,
 )
 
-ReplyClaim = ReplyAttempt | Literal[True] | None
+ReplyClaim = ReplyAttempt | datetime | Literal[True] | None
 
 
 class ReplyGroupStore(Protocol):
     def recover(self, *, now: datetime) -> None: ...
     def claim(self, *, now: datetime, limit: int) -> ReplyClaim:
-        """Return an attempt, True if a group was dropped, or None if idle."""
+        """Return an attempt, a future due time, True for work consumed, or None if idle."""
         ...
 
     def authorized(self, attempt: ReplyAttempt, *, now: datetime) -> bool: ...
@@ -47,6 +47,7 @@ class FailureReplyWorker:
     ) -> None:
         self.store, self.codec, self.transport = store, codec, transport
         self.clock, self.enabled, self.limit = clock, enabled, limit
+        self.next_due: datetime | None = None
 
     async def run_once(self) -> bool:
         """Return whether this step consumed or settled a due group."""
@@ -55,6 +56,9 @@ class FailureReplyWorker:
         attempt = await asyncio.to_thread(
             self.store.claim, now=self.clock(), limit=self.limit
         )
+        if isinstance(attempt, datetime):
+            self.next_due = attempt
+            return False
         if attempt is None:
             return False
         if attempt is True:

@@ -347,9 +347,8 @@ async def test_vanished_private_stage_redelivers_instead_of_acknowledging(
         patch.setattr(webhook.documents, "upload", remove_stage)
         assert (await webhook.post(raw)).status_code == 503
     assert not held_files(webhook.documents.store).list_for_user(webhook.owner)
-    webhook.clock.now = webhook.store.inbound(webhook.key).claim_until + timedelta(
-        seconds=1
-    )
+    retryable = webhook.store.inbound(webhook.key)
+    assert retryable.status == "failed" and retryable.claim_until is None
     assert (await webhook.post(raw)).status_code == 200
     [held] = held_files(webhook.documents.store).list_for_user(webhook.owner)
     assert webhook.store.inbound(webhook.key).connection_id == held.connection_id
@@ -504,7 +503,7 @@ async def test_resend_after_assigned_business_loses_eligibility_reuses_the_recei
         pending = webhook.store.inbound(
             whatsapp_runtime().intake.keys.message(message_id)
         )
-        webhook.clock.now = pending.claim_until + timedelta(seconds=1)
+        assert pending.status == "failed" and pending.claim_until is None
     assert (await webhook.post(raw)).status_code == 200
     first, second = files.list_for_user(webhook.owner)
     assert first.id == original.id and first.assigned_space_id == a.space_id

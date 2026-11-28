@@ -33,6 +33,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import TypeVar
 
 from loguru import logger
 
@@ -368,28 +369,39 @@ async def sweep_forever(
     jobs: PreparationJobs,
     interval: float,
     upkeep: Callable[[], object] | None = None,
+    scheduled_upkeep: Callable[[], datetime | None] | None = None,
 ) -> None:
-    """Waits while extraction is off: a queued draft is then neither sent to
-    the model nor failed. When extraction is back it resumes, or ends on its
-    read deadline when that passed meanwhile. ``upkeep`` runs on every pass,
-    extraction on or off, and paces itself."""
-
+    """Run maintenance at its usual pace and wake this same sweep for known deadlines."""
+    loop = asyncio.get_running_loop()
+    next_regular = loop.time()
     while True:
-        if upkeep is not None:
-            await _to_end(upkeep, "Document upkeep")
-        if load_document_extraction_settings().enabled:
-            await _to_end(jobs.sweep, "Document preparation sweep")
-        await asyncio.sleep(interval)
+        wake_at = None
+        if scheduled_upkeep is not None:
+            wake_at = await _to_end(scheduled_upkeep, "Scheduled document upkeep")
+        if loop.time() >= next_regular:
+            if upkeep is not None:
+                await _to_end(upkeep, "Document upkeep")
+            if load_document_extraction_settings().enabled:
+                await _to_end(jobs.sweep, "Document preparation sweep")
+            next_regular = loop.time() + interval
+        delay = next_regular - loop.time()
+        if wake_at is not None:
+            # Subtract work already done on this pass from the absolute deadline.
+            delay = min(delay, (wake_at - jobs.service.hub.clock()).total_seconds())
+        await asyncio.sleep(max(0.0, delay))
 
 
-async def _to_end(work: Callable[[], object], name: str) -> None:
+_Result = TypeVar("_Result")
+
+
+async def _to_end(work: Callable[[], _Result], name: str) -> _Result | None:
     """Runs ``work`` on a thread and logs its failure. A cancel cannot stop the
     thread, so a stopping process waits for it to return before it drains
     reads. The cancel wins over whatever the work raises."""
 
     running = asyncio.ensure_future(asyncio.to_thread(work))
     try:
-        await asyncio.shield(running)
+        return await asyncio.shield(running)
     except asyncio.CancelledError:
         await asyncio.wait({running})
         if not running.cancelled() and running.exception() is not None:

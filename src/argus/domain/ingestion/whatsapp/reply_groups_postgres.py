@@ -43,7 +43,7 @@ def _group(row: tuple) -> ReplyGroup:
     return ReplyGroup(bytes(row[1]), *row[2:10], last_arrival=row[10], group_id=row[0])
 
 
-def _outcomes(db: Connection, group: ReplyGroup) -> BatchOutcomes:
+def _outcomes(db: Connection, group: ReplyGroup, *, now: datetime) -> BatchOutcomes:
     # Existing failure-only batches have no durable inbound membership.
     if "kind" not in group.samples[0]:
         return BatchOutcomes(
@@ -51,12 +51,15 @@ def _outcomes(db: Connection, group: ReplyGroup) -> BatchOutcomes:
         )
     rows = db.execute(
         "select m.provider_message_key,m.status,m.capture_duplicate,c.owner_space_id::text,"
-        "d.draft->>'status',d.draft->>'error_code',h.state from public.whatsapp_inbound_messages m "
+        "d.draft->>'status',d.draft->>'error_code',h.state,m.destination_owner_id is null "
+        "from public.whatsapp_inbound_messages m "
         "left join public.financial_source_connections c on c.id=m.connection_id "
         "left join public.financial_document_extractions d on d.connection_id=m.connection_id and d.user_id=c.user_id "
         "left join public.whatsapp_held_files h on h.provider_message_key=m.provider_message_key "
-        "where m.reply_group_id=%s and m.sender_hash=%s and m.destination_owner_id=%s",
-        (group.group_id, group.sender_hash, group.owner_id),
+        "where m.reply_group_id=%s and m.sender_hash=%s and (m.destination_owner_id=%s or "
+        "(m.destination_owner_id is null and (m.status='received' or "
+        "(m.status='failed' and m.claim_until>%s))))",
+        (group.group_id, group.sender_hash, group.owner_id, now),
     ).fetchall()
     names = {}
     if any(row[3] for row in rows):
@@ -69,8 +72,10 @@ def _outcomes(db: Connection, group: ReplyGroup) -> BatchOutcomes:
     duplicates = held = reading = tomorrow = 0
     failed = set()
     businesses: Counter[str] = Counter()
-    for key, status, duplicate, space, draft_status, code, held_state in rows:
-        if status != "captured":
+    for key, status, duplicate, space, draft_status, code, held_state, pending in rows:
+        if pending:
+            reading += 1
+        elif status != "captured":
             failed.add(key.hex())
         elif draft_status is None or held_state == "expired":
             continue
@@ -96,15 +101,6 @@ def _outcomes(db: Connection, group: ReplyGroup) -> BatchOutcomes:
         read_tomorrow=tomorrow,
         failure_keys=tuple(s["key"] for s in group.samples if s["key"] in failed),
     )
-
-
-def _awaiting_capture(db: Connection, group: ReplyGroup) -> bool:
-    pending = db.execute(
-        "select 1 from public.whatsapp_inbound_messages where reply_group_id=%s"
-        " and destination_owner_id is null and status in ('received','failed') limit 1",
-        (group.group_id,),
-    ).fetchone()
-    return pending is not None
 
 
 def _represented(outcomes: BatchOutcomes) -> int:
@@ -274,14 +270,13 @@ class PostgresReplyGroups:
         if row is not None:
             prior = _group(row)
             gap = arrival - prior.last_arrival
-            # A deferred due pass keeps the forward open for claims that arrived
-            # during the wait, even if its last read finished before settlement.
+            # The next scheduled check can be later than the end of the quiet minute.
             if "kind" in prior.samples[0] and (
-                arrival <= prior.send_after
+                gap <= QUIET
                 or (
                     kind == "files"
                     and gap < DEADLINE
-                    and (_awaiting_capture(db, prior) or _outcomes(db, prior).reading)
+                    and _outcomes(db, prior, now=arrival).reading
                 )
             ):
                 new = replace(
@@ -302,16 +297,17 @@ class PostgresReplyGroups:
         with self.pool.connection() as db, db.transaction():
             row = db.execute(
                 f"select {_GROUP_COLUMNS} from public.whatsapp_reply_groups g"
-                " where send_after<=%s and not exists"
+                " where not exists"
                 " (select 1 from public.whatsapp_reply_attempts a where a.sender_hash=g.sender_hash)"
                 " and not exists (select 1 from public.whatsapp_reply_groups first_group where"
                 " first_group.sender_hash=g.sender_hash and (first_group.send_after,first_group.id)<(g.send_after,g.id))"
                 " order by send_after,g.id limit 1 for update of g skip locked",
-                (now,),
             ).fetchone()
             if row is None:
                 return None
             group = _group(row)
+            if group.send_after > now:
+                return group.send_after
             linked = db.execute(
                 "select 1 from public.whatsapp_sender_links where id=%s and wa_id_hash=%s"
                 " and destination_owner_id=%s and status='active'",
@@ -330,19 +326,18 @@ class PostgresReplyGroups:
                 )
                 suppressed(reason, group.sender_hash)
                 return True
-            outcomes = _outcomes(db, group) if group.kind == "files" else BatchOutcomes()
+            outcomes = _outcomes(db, group, now=now) if group.kind == "files" else BatchOutcomes()
             if group.kind == "files":
-                if (
-                    _awaiting_capture(db, group) or outcomes.reading
-                ) and now + DUE_EVERY <= group.last_arrival + DEADLINE:
+                cutoff = group.last_arrival + DEADLINE
+                total = _represented(outcomes)
+                if now < cutoff and (outcomes.reading or total != group.count):
                     db.execute(
                         "update public.whatsapp_reply_groups set send_after=%s where id=%s",
-                        (now + DUE_EVERY, group.group_id),
+                        (min(now + DUE_EVERY, cutoff), group.group_id),
                     )
                     return True
-                total = _represented(outcomes)
                 if total != group.count:
-                    # An uncommitted or purged file has no outcome the worker can report.
+                    # A lost claim or purged receipt supplies no reportable outcome.
                     db.execute(
                         "delete from public.whatsapp_reply_groups where id=%s",
                         (group.group_id,),
@@ -408,7 +403,7 @@ class PostgresReplyGroups:
                 return False
             if (
                 attempt.group.kind == "files"
-                and _outcomes(db, attempt.group) != attempt.outcomes
+                and _outcomes(db, attempt.group, now=now) != attempt.outcomes
             ):
                 # A stale name or read result must never leave the worker. Return this
                 # forward to the same due pass with its previous reservation released.

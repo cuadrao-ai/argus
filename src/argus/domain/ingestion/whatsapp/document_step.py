@@ -44,16 +44,21 @@ class FailureReplyUpkeep:
         if load_whatsapp_settings().intake_enabled:
             self.store.recover(now=now)
 
-    def send_due(self) -> None:
+    def send_due(self) -> datetime | None:
         now = self.clock()
         if self._next_due is not None and now < self._next_due:
-            return
-        self._next_due = now + DUE_EVERY
+            return self._next_due
         settings = load_whatsapp_settings()
-        if settings.replies_ready:
-            asyncio.run(self._send(settings))
+        if not settings.replies_ready:
+            return None
+        # A new forward can first be due one quiet minute after this check.
+        self._next_due = now + DUE_EVERY
+        upcoming = asyncio.run(self._send(settings))
+        if upcoming is not None:
+            self._next_due = min(self._next_due, upcoming)
+        return self._next_due
 
-    async def _send(self, settings: WhatsAppSettings) -> None:
+    async def _send(self, settings: WhatsAppSettings) -> datetime | None:
         assert settings.access_token and settings.sender_key and settings.phone_number_id
         codec = ReplyGroupCodec(
             SecretBox.from_env(), WhatsAppKeys(settings.sender_key.get_secret_value())
@@ -77,4 +82,5 @@ class FailureReplyUpkeep:
             )
             while loop.time() < stop_claiming_at:
                 if not await worker.run_once():
-                    return
+                    return worker.next_due
+            return self.clock()
