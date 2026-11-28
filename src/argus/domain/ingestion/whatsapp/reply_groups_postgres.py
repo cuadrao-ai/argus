@@ -98,6 +98,15 @@ def _outcomes(db: Connection, group: ReplyGroup) -> BatchOutcomes:
     )
 
 
+def _awaiting_capture(db: Connection, group: ReplyGroup) -> bool:
+    pending = db.execute(
+        "select 1 from public.whatsapp_inbound_messages where reply_group_id=%s"
+        " and destination_owner_id is null and status in ('received','failed') limit 1",
+        (group.group_id,),
+    ).fetchone()
+    return pending is not None
+
+
 def _represented(outcomes: BatchOutcomes) -> int:
     return (
         sum(n for _, n in outcomes.businesses)
@@ -171,37 +180,62 @@ class PostgresReplyGroups:
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool = pool
 
+    def start_file(self, pending: PendingFailure) -> None:
+        """Bind the incoming file before the download starts, without declaring an outcome."""
+        with self.pool.connection() as db, db.transaction():
+            self._enroll(db, pending, starting=True)
+
     @staticmethod
-    def enqueue_on(db: Connection, failure: PendingFailure) -> None:
-        key = failure.sample["key"]
+    def enqueue_on(db: Connection, pending: PendingFailure) -> None:
+        PostgresReplyGroups._enroll(db, pending, starting=False)
+
+    @staticmethod
+    def _enroll(db: Connection, pending: PendingFailure, *, starting: bool) -> None:
+        key = pending.sample["key"]
         inbound = db.execute(
             "select l.id::text,m.status,m.received_at,m.reply_group_id from public.whatsapp_sender_links l"
             " join public.whatsapp_inbound_messages m on m.sender_hash=l.wa_id_hash"
-            " and m.destination_owner_id=l.destination_owner_id and m.provider_message_key=%s"
+            " and m.provider_message_key=%s"
             " where l.wa_id_hash=%s and l.destination_owner_id=%s and l.linked_at=%s"
-            " and l.status='active' for share of l",
+            " and l.status='active' and (case when %s then m.claim_until is not null and m.status in ('received','failed')"
+            " else m.destination_owner_id=l.destination_owner_id end)"
+            " for share of l for update of m",
             (
                 bytes.fromhex(key),
-                failure.sender_hash,
-                failure.owner_id,
-                failure.linked_at,
+                pending.sender_hash,
+                pending.owner_id,
+                pending.linked_at,
+                starting,
             ),
         ).fetchone()
         if inbound is None:
-            suppressed("unknown_sender", failure.sender_hash)
+            suppressed("unknown_sender", pending.sender_hash)
             return
         link_id, status, arrival, previous_group = inbound
+        kind = pending.sample["kind"]
+        failed_file = not starting and kind == "files" and status != "captured"
+        sample = {**pending.sample, "failure": failed_file}
         if previous_group is not None:
+            if failed_file:
+                row = db.execute(
+                    "select samples from public.whatsapp_reply_groups"
+                    " where id=%s and link_id=%s for update",
+                    (previous_group, link_id),
+                ).fetchone()
+                if row:
+                    others = [item for item in row[0] if item["key"] != key]
+                    db.execute(
+                        "update public.whatsapp_reply_groups set samples=%s where id=%s",
+                        (Jsonb(_samples([*others, sample])), previous_group),
+                    )
             return
-        kind = failure.sample.get("kind", "files")
-        sample = {**failure.sample, "failure": kind == "files" and status != "captured"}
         new = ReplyGroup(
-            failure.sender_hash,
-            failure.owner_id,
+            pending.sender_hash,
+            pending.owner_id,
             link_id,
             1,
             [sample],
-            failure.sent_at,
+            pending.sent_at,
             arrival + QUIET,
             kind=kind,
             group_id=uuid4(),
@@ -210,7 +244,7 @@ class PostgresReplyGroups:
         # Serialize admissions even when neither transaction can see a first group yet.
         db.execute(
             "select pg_advisory_xact_lock(%s)",
-            (int.from_bytes(failure.sender_hash[:8], "big", signed=True),),
+            (int.from_bytes(pending.sender_hash[:8], "big", signed=True),),
         )
         row = db.execute(
             f"select {_GROUP_COLUMNS} from public.whatsapp_reply_groups g where g.sender_hash=%s "
@@ -224,7 +258,11 @@ class PostgresReplyGroups:
             # during the wait, even if its last read finished before settlement.
             if "kind" in prior.samples[0] and (
                 arrival <= prior.send_after
-                or (kind == "files" and gap < DEADLINE and _outcomes(db, prior).reading)
+                or (
+                    kind == "files"
+                    and gap < DEADLINE
+                    and (_awaiting_capture(db, prior) or _outcomes(db, prior).reading)
+                )
             ):
                 new = replace(
                     prior,
@@ -274,19 +312,8 @@ class PostgresReplyGroups:
                 return True
             outcomes = _outcomes(db, group) if group.kind == "files" else BatchOutcomes()
             if group.kind == "files":
-                # A sender may already be downloading the next file when we wake.
-                pending = db.execute(
-                    "select 1 from public.whatsapp_inbound_messages where sender_hash=%s and claim_until>%s"
-                    " and received_at between %s and %s and reply_group_id is null limit 1",
-                    (
-                        group.sender_hash,
-                        now,
-                        group.last_arrival - QUIET,
-                        group.send_after,
-                    ),
-                ).fetchone()
                 if (
-                    pending or outcomes.reading
+                    _awaiting_capture(db, group) or outcomes.reading
                 ) and now + DUE_EVERY <= group.last_arrival + DEADLINE:
                     db.execute(
                         "update public.whatsapp_reply_groups set send_after=%s where id=%s",
@@ -295,7 +322,7 @@ class PostgresReplyGroups:
                     return True
                 total = _represented(outcomes)
                 if total != group.count:
-                    # A member was purged before sending. Avoid quoting a stale total or context.
+                    # An uncommitted or purged file has no outcome the worker can report.
                     db.execute(
                         "delete from public.whatsapp_reply_groups where id=%s",
                         (group.group_id,),

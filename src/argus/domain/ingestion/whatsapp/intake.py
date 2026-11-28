@@ -57,10 +57,10 @@ from argus.domain.ingestion.whatsapp.store import (
     CapturePublisher,
     CaptureSource,
     ReplyLanguage,
-    SenderLink,
     Settlement,
     WhatsAppStore,
 )
+from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
 
 CLAIM_SECONDS = 90
 # Processing must end, and settle, while its claim is still held.
@@ -334,7 +334,7 @@ class WhatsAppIntake:
         deadline = monotonic() + self.processing_seconds
         work = asyncio.create_task(self._decide(message, sender))
         try:
-            settlement, link = await _bounded(work, self.processing_seconds)
+            settlement, pending = await _bounded(work, self.processing_seconds)
         except Exception as error:
             code = (
                 "whatsapp_processing_timeout"
@@ -357,11 +357,6 @@ class WhatsAppIntake:
             raise
         await _stop(lease, heartbeat)
         held = lease.held
-        pending = None
-        if link is not None:
-            if self.reply_codec is None:
-                raise RuntimeError("whatsapp_reply_grouping_unavailable")
-            pending = self.reply_codec.pending(message, link)
         settled = await self._settle(
             key, held, settlement, reply_failure=pending, deadline=deadline
         )
@@ -448,11 +443,14 @@ class WhatsAppIntake:
 
     async def _decide(
         self, message: InboundMessage, sender: bytes
-    ) -> tuple[Settlement, SenderLink | None]:
+    ) -> tuple[Settlement, PendingFailure | None]:
         link = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
         if link is None:
             return await self._unlinked(message, sender), None
         owner = link.destination_owner_id
+        if self.reply_codec is None:
+            raise RuntimeError("whatsapp_reply_grouping_unavailable")
+        pending = self.reply_codec.pending(message, link)
         if isinstance(message, TextMessage):
             settlement = Settlement(
                 "rejected", owner, error_code="whatsapp_receipt_missing"
@@ -462,10 +460,12 @@ class WhatsAppIntake:
                 "rejected", owner, error_code="whatsapp_message_unsupported"
             )
         else:
+            if isinstance(self.store, PostgresWhatsAppStore):
+                await asyncio.to_thread(self.store.reply_groups.start_file, pending)
             settlement = await self._capture(message, owner)
         return replace(
             settlement, reply_language=link.reply_language, sender_link_id=link.id
-        ), link
+        ), pending
 
     async def _unlinked(self, message: InboundMessage, sender: bytes) -> Settlement:
         """A sender with no active link can only link: no word is read for

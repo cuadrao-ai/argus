@@ -623,11 +623,14 @@ async def test_group_enqueue_rolls_back_with_settlement_and_replay_counts_once(
     assert world.record("wamid.GROUP-0").status == "received"
     with pool.connection() as connection:
         assert connection.execute(
-            "select count(*) from public.whatsapp_reply_groups where owner_id=%s",
+            "select member_count,samples->0->>'failure' from public.whatsapp_reply_groups where owner_id=%s",
             (world.alice,),
-        ).fetchone() == (0,)
+        ).fetchall() == [(1, "false")]
+    world.clock.now += timedelta(seconds=60)
+    assert await _worker(world).run_once()
+    assert world.transport.bodies() == []
     monkeypatch.setattr(world.store.reply_groups, "enqueue_on", original)
-    world.clock.now += timedelta(seconds=91)
+    world.clock.now += timedelta(seconds=31)
     await _failed(world, 0)
     await _failed(world, 0)
     world.clock.now += timedelta(seconds=120)

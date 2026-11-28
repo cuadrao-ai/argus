@@ -147,7 +147,7 @@ async def test_download_in_progress_keeps_its_original_forward(pool, users, monk
         await asyncio.wait_for(started.wait(), timeout=5)
         groups = world.store.reply_groups
         world.clock.now += timedelta(seconds=10)
-        assert groups.claim(now=world.clock.now, limit=10) is True
+        assert groups.claim(now=world.clock.now, limit=10) is None
     finally:
         release.set()
         await delivery
