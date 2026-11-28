@@ -12,7 +12,6 @@ import CopyCodeButton from "@/components/settings/CopyCodeButton";
 import { normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatRelativeTime, isRelativeTimestamp } from "@/components/business-app/business-format";
-import { Tooltip } from "@/components/ui/Tooltip";
 import { formatRnc } from "@/lib/rnc-status";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
@@ -117,7 +116,7 @@ function HeldFiles({ count }: { count: number }) {
   );
 }
 
-function WhatsAppLinkedDetails({ status, confirming }: { status: WhatsAppLinkStatus; confirming: boolean }) {
+function WhatsAppLinkedDetails({ status }: { status: WhatsAppLinkStatus }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage || i18n.language;
   const now = new Date();
@@ -128,14 +127,7 @@ function WhatsAppLinkedDetails({ status, confirming }: { status: WhatsAppLinkSta
     <section className="flex items-center gap-3.5 rounded-surface bg-[#F7F5EE] p-4 dark:bg-[#1f2225]">
       <span className="grid size-11 shrink-0 place-items-center"><WhatsApp size={24} aria-hidden="true" /></span>
       <div className="min-w-0 flex-1">
-        <div className="leading-6">
-          <h3 className="inline text-base leading-6 font-medium tabular-nums">{t(key("linked"), { last4: status.last4 })}</h3>
-          {!confirming && <Tooltip inlineExplanation content={t(key("reading_info"))}>
-            <button type="button" aria-label={t(key("reading_info_label"))} className="relative -my-2.5 -ml-1 inline-flex size-11 items-center justify-center rounded-full align-top text-[#56635e] dark:text-white/70">
-              <Info size={24} aria-hidden="true" />
-            </button>
-          </Tooltip>}
-        </div>
+        <h3 className="text-base leading-6 font-medium tabular-nums">{t(key("linked"), { last4: status.last4 })}</h3>
         {status.linked_at && stamp && <time dateTime={status.linked_at} className={`block ${muted}`}>
           {isRelativeTimestamp(status.linked_at, now)
             ? t(key("linked_relative"), { relativeTime: stamp })
@@ -275,12 +267,13 @@ export default function WhatsAppLinkModal(frame: Frame) {
   const cancel = <button type="button" className={secondaryButtonClass} onClick={() => { setIssued(null); setProblem(null); }}>{t(key("cancel"))}</button>;
   const create = (label: string) => <button type="button" disabled={busy || !status?.disclosure || !status.disclosure_token} className={primaryButtonClass} onClick={createCode}>{t(key(label))}</button>;
   const blocked = problem === "setup_required" || status?.receiving_businesses.length === 0;
+  const readingNotice = t(key("reading_notice"));
   let body: ReactNode;
   let footer: ReactNode;
   if (status?.linked) {
-    body = <WhatsAppLinkedDetails status={status} confirming={confirmUnlink} />;
+    body = <WhatsAppLinkedDetails status={status} />;
     footer = <>
-      {confirmUnlink && <p className={`${muted} flex-1`}>{t(key("reading_info"))}</p>}
+      {!confirmUnlink && <p className={`${muted} flex-1`}>{readingNotice}</p>}
       <button type="button" className="min-h-11 shrink-0 rounded-full border border-[#7d8a84]/60 bg-white px-5 font-medium text-[#172b26] hover:bg-[#F7F5EE] dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/10" onClick={() => setConfirmUnlink(true)}>{t(key("unlink"))}</button>
     </>;
   } else if (issued && !issued.expired) {
@@ -319,15 +312,18 @@ export default function WhatsAppLinkModal(frame: Frame) {
       {body}
       {status?.linked && confirmUnlink && <ConfirmDialog isOpen detailed tone="primary"
         title={t(key("unlink_title"), { last4: status.last4 })}
-        description={status.held_count === 0 ? <p>{t(key("unlink_empty"))}</p> : (
-          <ul className="space-y-2.5">
-            {["unlink_stop", "unlink_held", "unlink_reading", "unlink_no_message"].map(name => (
-              <li key={name} className="flex gap-2.5 before:mt-[9px] before:size-1.5 before:shrink-0 before:rounded-full before:bg-[#7d8a84] dark:before:bg-white/50">
-                {t(key(name), { count: status.held_count })}
-              </li>
-            ))}
-          </ul>
-        )}
+        description={<div className="space-y-4">
+          {status.held_count === 0 ? <p>{t(key("unlink_empty"))}</p> : (
+            <ul className="space-y-2.5">
+              {["unlink_stop", "unlink_held", "unlink_reading", "unlink_no_message"].map(name => (
+                <li key={name} className="flex gap-2.5 before:mt-[9px] before:size-1.5 before:shrink-0 before:rounded-full before:bg-[#7d8a84] dark:before:bg-white/50">
+                  {t(key(name), { count: status.held_count })}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className={muted}>{readingNotice}</p>
+        </div>}
         confirmLabel={t("workspace_setup_preview.unlink")} cancelLabel={t(key("cancel"))}
         isBusy={busy} error={problem && t(key(`problem_${problem}`))}
         onCancel={() => { if (!busy) { setConfirmUnlink(false); setProblem(null); } }}

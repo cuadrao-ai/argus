@@ -47,8 +47,10 @@ async function setup(page: Page, available: boolean, history = false, language: 
 for (const width of [1440, 390]) {
   for (const theme of ["light", "dark"] as const) test.describe(`linked number in ${theme} at ${width}px`, () => {
     test.use({ hasTouch: width === 390 });
-    test(`linked WhatsApp settings and unlink at ${width}px in ${theme}`, async ({ page }, info) => {
-      const observed = await setup(page, false, false, "es-419", theme);
+    for (const language of ["es-419", "en"] as const) test(`linked WhatsApp settings and unlink in ${language}`, async ({ page }, info) => {
+      const catalog = language === "en" ? english : spanish;
+      const words = catalog.settings.whatsapp;
+      const observed = await setup(page, false, false, language, theme);
       await page.clock.setFixedTime(new Date("2026-11-23T12:00:00Z"));
       let count = 3;
       let linked = true;
@@ -62,8 +64,8 @@ for (const width of [1440, 390]) {
           linked = false;
           return route.fulfill({ status: 204 });
         }
-        return route.fulfill({ json: { ...whatsappDisclosure["es-419"], linked, last4: "4821", linked_at: "2026-11-12T12:00:00Z",
-          reply_language: "es-419", receiving_businesses: businesses, held_count: count } });
+        return route.fulfill({ json: { ...whatsappDisclosure[language], linked, last4: "4821", linked_at: "2026-11-12T12:00:00Z",
+          reply_language: language, receiving_businesses: businesses, held_count: count } });
       });
       await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       async function openSettings() {
@@ -72,99 +74,85 @@ for (const width of [1440, 390]) {
         await page.getByTestId("profile-menu-settings").click();
         await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
       }
-      await openSettings();
-      const rows = page.getByRole("list", { name: "Negocios que reciben" }).getByRole("listitem");
-      await expect(rows).toHaveCount(3);
-      await expect(rows.nth(1)).toContainText("Cédula 001-1234567-8");
-      await expect(page.getByRole("region", { name: "Archivos sin negocio" })).toContainText("3");
-      await expect(page.getByRole("button", { name: "Desvincular número" })).toBeVisible();
-      await expect(page.locator("time").filter({ hasText: "Vinculado el 12 nov" })).toBeVisible();
-      const trigger = page.getByRole("button", { name: "Qué pasa con lo que envías" });
-      await expect(trigger).toHaveCSS("width", "44px");
-      await expect(trigger.locator("svg")).toHaveCSS("width", "24px");
-      const held = page.getByRole("region", { name: "Archivos sin negocio" });
-      const heading = page.getByRole("heading", { name: "Número que termina en 4821" });
-      const card = heading.locator("xpath=ancestor::section[1]");
-      const original = (await card.boundingBox())!;
-      const originalHeading = await heading.boundingBox();
-      const originalTrigger = await trigger.boundingBox();
       const capture = async (state: string) => {
+        if (language !== "es-419") return;
         const clip = await page.getByTestId("settings-window").boundingBox();
-        return page.screenshot({ path: info.outputPath(`whatsapp-${state}-${width}-${theme}.png`), style: FREEZE_CSS,
+        await page.screenshot({ path: info.outputPath(`whatsapp-${state}-${width}-${theme}.png`), style: FREEZE_CSS,
           ...(width === 1440 && clip ? { clip } : {}) });
       };
-      await capture("linked-closed");
-      if (width === 1440) await trigger.hover();
-      else await trigger.tap();
-      await expect(page.getByRole("tooltip")).toHaveText(spanish.settings.whatsapp.reading_info);
-      const explanation = card.getByRole("tooltip");
-      await expect(explanation).toBeVisible();
-      const bubble = (await explanation.boundingBox())!;
-      const expanded = (await card.boundingBox())!;
-      const number = (await heading.boundingBox())!;
-      expect(number).toEqual(originalHeading);
-      expect(await trigger.boundingBox()).toEqual(originalTrigger);
-      const date = (await card.locator("time").boundingBox())!;
-      const badge = (await card.locator("svg").first().boundingBox())!;
-      expect(expanded.height - original.height).toBeGreaterThanOrEqual(bubble.height);
-      expect(bubble.y).toBeGreaterThanOrEqual(number.y + number.height);
-      expect(bubble.y + bubble.height).toBeLessThanOrEqual(date.y);
-      expect(bubble.x).toBeGreaterThanOrEqual(badge.x + badge.width);
-      expect(bubble.x + bubble.width).toBeLessThanOrEqual(expanded.x + expanded.width);
-      expect(date.y + date.height).toBeLessThanOrEqual(expanded.y + expanded.height);
-      expect(expanded.y + expanded.height).toBeLessThanOrEqual((await held.boundingBox())!.y);
-      await capture("linked-open");
-      await page.keyboard.press("Escape");
-      await expect(page.getByRole("tooltip")).toHaveCount(0);
-      expect(await card.boundingBox()).toEqual(original);
-      const unlink = page.getByRole("button", { name: "Desvincular número" });
-      await trigger.focus();
-      await trigger.press("Tab");
-      await page.keyboard.press("Shift+Tab");
-      await expect(trigger).toBeFocused();
-      await expect(page.getByRole("tooltip")).toBeVisible();
-      await held.click();
-      await expect(page.getByRole("tooltip")).toHaveCount(0);
+      await openSettings();
+      const rows = page.getByRole("list", { name: words.receiving_title }).getByRole("listitem");
+      await expect(rows).toHaveCount(3);
+      await expect(rows.nth(1)).toContainText("Cédula 001-1234567-8");
+      await expect(page.getByRole("region", { name: words.held_title })).toContainText("3");
+      await expect(page.getByRole("button", { name: words.unlink })).toBeVisible();
+      await expect(page.locator('time[datetime="2026-11-12T12:00:00Z"]')).toBeVisible();
+      const held = page.getByRole("region", { name: words.held_title });
+      const heading = page.getByRole("heading", { name: words.linked.replace("{{last4}}", "4821") });
+      const card = heading.locator("xpath=ancestor::section[1]");
+      await expect(card.getByRole("button")).toHaveCount(0);
+      await expect(card.locator("svg")).toHaveCount(1);
+      await expect(card.locator("svg")).toHaveCSS("width", "24px");
+      const reading = page.getByText(words.reading_notice, { exact: true });
+      await expect(reading).toHaveCount(1);
+      await expect(reading).toBeInViewport();
+      const unlink = page.getByRole("button", { name: words.unlink });
+      const sentence = (await reading.boundingBox())!;
+      const action = (await unlink.boundingBox())!;
+      if (width === 390) {
+        expect(sentence.y + sentence.height).toBeLessThanOrEqual(action.y);
+        expect(sentence.x).toBe(action.x);
+        expect(sentence.width).toBe(action.width);
+      } else {
+        expect(sentence.x + sentence.width).toBeLessThanOrEqual(action.x);
+        expect(Math.abs(sentence.y + sentence.height / 2 - action.y - action.height / 2)).toBeLessThan(1);
+      }
+      await capture("linked");
       await unlink.click();
       const confirm = page.getByRole("alertdialog");
-      await expect(confirm.getByRole("button", { name: "Cancelar" })).toBeFocused();
+      await expect(confirm.getByRole("button", { name: words.cancel })).toBeFocused();
       await expect(confirm.getByRole("listitem")).toHaveCount(4);
+      const dialogNotice = confirm.getByText(words.reading_notice, { exact: true });
+      await expect(dialogNotice).toBeInViewport();
+      await expect(reading).toHaveCount(1);
       await capture("held-confirm");
       await page.keyboard.press("Escape");
       await expect(unlink).toBeFocused();
+      await expect(reading).toBeInViewport();
       await unlink.click();
-      await confirm.getByRole("button", { name: "Desvincular", exact: true }).click();
-      await expect(page.getByRole("button", { name: "Vincular mi WhatsApp" })).toBeVisible();
+      await confirm.getByRole("button", { name: catalog.workspace_setup_preview.unlink, exact: true }).click();
+      await expect(page.getByRole("button", { name: words.link_phone })).toBeVisible();
       await expect(held).toContainText("3");
+      await expect(reading).toHaveCount(0);
       linked = true;
+      count = 1;
+      await openSettings();
+      await unlink.click();
+      await expect(confirm.getByRole("listitem")).toHaveCount(4);
+      await expect(confirm.getByText(words.unlink_held_one, { exact: true })).toBeVisible();
+      await expect(dialogNotice).toBeInViewport();
+      await expect(reading).toHaveCount(1);
+      await capture("one-confirm");
+      await page.goBack();
+      await expect(confirm).toHaveCount(0);
       count = 0;
       await openSettings();
       await unlink.click();
-      await expect(confirm).toContainText(spanish.settings.whatsapp.unlink_empty);
+      await expect(confirm).toContainText(words.unlink_empty);
       await expect(confirm.getByRole("listitem")).toHaveCount(0);
-      await confirm.screenshot({ path: info.outputPath(`whatsapp-empty-confirm-${width}-${theme}.png`), style: FREEZE_CSS });
+      await expect(dialogNotice).toBeInViewport();
+      await expect(reading).toHaveCount(1);
+      if (language === "es-419") await confirm.screenshot({ path: info.outputPath(`whatsapp-empty-confirm-${width}-${theme}.png`), style: FREEZE_CSS });
       if (width === 390) {
-        await openSettings();
-        await expect(heading).toBeVisible();
-        const session = await page.context().newCDPSession(page);
-        const currentEntry = async () => {
-          const history = await session.send("Page.getNavigationHistory");
-          return history.entries[history.currentIndex].id;
-        };
-        const settingsEntry = await currentEntry();
-        await trigger.tap();
-        await expect(explanation).toBeVisible();
         await page.goBack();
-        await expect(explanation).toHaveCount(0);
+        await expect(confirm).toHaveCount(0);
         await expect(heading).toBeVisible();
-        expect(await currentEntry()).toBe(settingsEntry);
         await page.goBack();
         await expect(heading).toHaveCount(0);
         await expect(page.getByTestId("settings-nav-whatsapp")).toBeVisible();
         await page.goBack();
         await expect(page.getByTestId("settings-window")).toHaveCount(0);
         await expect(page.getByTestId("header-profile-trigger")).toBeVisible();
-        await session.detach();
       }
       expect(observed.errors).toEqual([]);
     });

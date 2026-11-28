@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { useOverlayBackDismiss } from "@/components/layout/useOverlayBackDismiss";
-import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { createPortal } from "react-dom";
 
 export type TooltipSide = "top" | "bottom" | "left" | "right";
@@ -14,8 +12,6 @@ type TooltipProps = {
     React.HTMLAttributes<HTMLElement> & React.RefAttributes<HTMLElement>
   >;
   side?: TooltipSide;
-  /** The tappable explanation opens in normal flow below its label and button. */
-  inlineExplanation?: boolean;
 };
 
 /** A passing cursor shows nothing; a hover that stays this long does. */
@@ -67,7 +63,7 @@ function passRef(ref: React.Ref<HTMLElement> | undefined, node: HTMLElement | nu
  * and shifts to stay on screen, and leaves on mouse leave, focus out, Escape,
  * a tap outside or a scroll. Keyboard focus shows it; a mouse click does not.
  */
-export function Tooltip({ content, children, side = "right", inlineExplanation = false }: TooltipProps) {
+export function Tooltip({ content, children, side = "right" }: TooltipProps) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<TooltipPlacement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,20 +77,6 @@ export function Tooltip({ content, children, side = "right", inlineExplanation =
     setOpen(false);
     setPlacement(null);
   }, []);
-  const explanationOpen = open && inlineExplanation;
-  useOverlayBackDismiss({ isOpen: explanationOpen, overlayId: tooltipId, onDismiss: hide });
-  useOverlayLayer({
-    isOpen: explanationOpen, overlayId: tooltipId, containerRef: triggerRef,
-    onEscape: hide, onOutsidePointerDown: event => {
-      if (!tipRef.current?.contains(event.target as Node)) hide();
-    },
-  });
-  const leave = () => {
-    if (inlineExplanation && open) {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(hide, TOOLTIP_DELAY_MS);
-    } else hide();
-  };
   const show = () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setOpen(true), TOOLTIP_DELAY_MS);
@@ -106,21 +88,18 @@ export function Tooltip({ content, children, side = "right", inlineExplanation =
 
   // Measure the real bubble, then place it; it renders hidden for that one frame.
   useLayoutEffect(() => {
-    if (!open || inlineExplanation || !triggerRef.current || !tipRef.current) return;
+    if (!open || !triggerRef.current || !tipRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const tip = tipRef.current.getBoundingClientRect();
-    const viewport = { width: window.innerWidth, height: window.innerHeight };
-    setPlacement(placeTooltip(rect, tip, viewport, side));
-  }, [open, side, content, inlineExplanation]);
+    setPlacement(placeTooltip(rect, { width: tip.width, height: tip.height }, { width: window.innerWidth, height: window.innerHeight }, side));
+  }, [open, side, content]);
 
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") hide(); };
     const onPointer = (event: PointerEvent) => { if (!triggerRef.current?.contains(event.target as Node)) hide(); };
-    if (!inlineExplanation) {
-      document.addEventListener("keydown", onKey);
-      document.addEventListener("pointerdown", onPointer, true);
-    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer, true);
     window.addEventListener("scroll", hide, true);
     window.addEventListener("resize", hide);
     return () => {
@@ -129,7 +108,7 @@ export function Tooltip({ content, children, side = "right", inlineExplanation =
       window.removeEventListener("scroll", hide, true);
       window.removeEventListener("resize", hide);
     };
-  }, [open, hide, inlineExplanation]);
+  }, [open, hide]);
 
   const child = children;
   const childProps = child.props;
@@ -149,14 +128,7 @@ export function Tooltip({ content, children, side = "right", inlineExplanation =
     },
     onMouseLeave: (event: React.MouseEvent<HTMLElement>) => {
       childProps.onMouseLeave?.(event);
-      leave();
-    },
-    onClick: (event: React.MouseEvent<HTMLElement>) => {
-      childProps.onClick?.(event);
-      if (inlineExplanation) {
-        if (timer.current) clearTimeout(timer.current);
-        setOpen(true);
-      }
+      hide();
     },
     onFocus: (event: React.FocusEvent<HTMLElement>) => {
       childProps.onFocus?.(event);
@@ -167,16 +139,6 @@ export function Tooltip({ content, children, side = "right", inlineExplanation =
       hide();
     },
   });
-
-  if (inlineExplanation) return <>
-    {trigger}
-    {open && <div id={tooltipId} role="tooltip" ref={tipRef}
-      onMouseEnter={() => { if (timer.current) clearTimeout(timer.current); }}
-      onMouseLeave={leave}
-      className="mt-1.5 w-fit max-w-[324px] rounded-item bg-[#172b26] px-3 py-2 text-[13px] leading-[19px] text-[#F7F5EE] shadow-md">
-      {content}
-    </div>}
-  </>;
 
   const arrowSide = placement ? OPPOSITE[placement.side] : "bottom";
   const arrowStyle: React.CSSProperties = !placement ? {} : placement.side === "top" || placement.side === "bottom"

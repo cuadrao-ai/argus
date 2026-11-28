@@ -312,19 +312,26 @@ test.each([
   expect(host.textContent).not.toContain("Número vinculado");
 });
 
-test("tapping info puts the explanation between the linked number and date inside the card", async () => {
-  const { host } = await open({ linked: true, linkedAt: "2026-11-12T12:00:00Z" });
-  const trigger = host.querySelector<HTMLButtonElement>('button[aria-label="Qué pasa con lo que envías"]');
-  expect(trigger).toBeTruthy();
-  await act(async () => trigger!.click());
-  const bubble = document.getElementById(trigger!.getAttribute("aria-describedby") ?? "");
-  expect(bubble?.textContent).toBe("Mientras esté vinculado, la foto o el PDF que envíes se lee con IA para saber a qué negocio va.");
-  const card = trigger!.closest("section")!;
-  expect(card.contains(bubble)).toBe(true);
-  expect([...card.querySelectorAll('h3, [role="tooltip"], time')].map(node => node.tagName))
-    .toEqual(["H3", "DIV", "TIME"]);
-  await act(async () => trigger!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-  expect(document.querySelector('[role="tooltip"]')).toBeNull();
+test.each([
+  ["es-419", "Lo que envíes por WhatsApp se lee con IA para saber a qué negocio va."],
+  ["en", "What you send by WhatsApp is read by AI to find which business it goes to."],
+] as const)("the reading notice moves from the footer into the confirmation in %s", async (language, notice) => {
+  await i18n.changeLanguage(language);
+  const { host, click } = await open({ linked: true, linkedAt: "2026-11-12T12:00:00Z" });
+  const words = (language === "en" ? english : spanish).settings.whatsapp;
+  const card = host.querySelector("time")!.closest("section")!;
+  expect(card.querySelectorAll("button")).toHaveLength(0);
+  expect(card.querySelectorAll("svg")).toHaveLength(1);
+  expect(card.querySelector("h3")?.textContent).toContain("4821");
+  const unlink = [...host.querySelectorAll("button")].find(button => button.textContent === words.unlink)!;
+  expect(unlink.previousElementSibling?.textContent).toBe(notice);
+  expect(document.body.textContent?.split(notice)).toHaveLength(2);
+  await click(words.unlink);
+  const dialog = document.querySelector('[role="alertdialog"]')!;
+  expect(document.getElementById(dialog.getAttribute("aria-describedby")!)?.textContent).toContain(notice);
+  expect(document.body.textContent?.split(notice)).toHaveLength(2);
+  await click(words.cancel);
+  expect(unlink.previousElementSibling?.textContent).toBe(notice);
 });
 
 test.each([true, false])("held files survive unlink with setup blocked = %s", async blocked => {
