@@ -66,6 +66,7 @@ export function businessDeadlineParts(value: string, locale: string) {
 
 export function businessLifecycleErrorKey(error: unknown, fallback: string): string {
   const code = typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : "";
+  if (code === "business_rnc_registered") return "business.dgii.error.business_rnc_registered";
   const known: Record<string, string> = {
     business_name_mismatch: "name_mismatch",
     business_record_not_found: "business_unavailable",

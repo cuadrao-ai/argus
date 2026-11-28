@@ -29,7 +29,15 @@ export async function businessSettingsRequest<T>(path: string, options: RequestI
   const body = text ? JSON.parse(text) : undefined;
   check();
   if (!response.ok) {
-    throw Object.assign(new Error("Business settings unavailable"), { status: response.status, code: body.code ?? "unknown", requestId: serverRequestId(response, body), fieldErrors: body.context?.field_errors, retryAfterSeconds: parseRetryAfterDelaySeconds(response.headers.get("Retry-After")) });
+    const grant = body.context?.existing_grant_id;
+    throw Object.assign(new Error("Business settings unavailable"), {
+      status: response.status,
+      code: body.code ?? "unknown",
+      requestId: serverRequestId(response, body),
+      context: typeof grant === "string" ? { existing_grant_id: grant } : undefined,
+      fieldErrors: body.context?.field_errors,
+      retryAfterSeconds: parseRetryAfterDelaySeconds(response.headers.get("Retry-After")),
+    });
   }
   return body;
 }

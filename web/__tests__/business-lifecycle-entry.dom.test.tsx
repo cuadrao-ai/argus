@@ -5,6 +5,7 @@ import { act } from "react";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
+import english from "@/public/locales/en/common.json";
 import { createRoot } from "react-dom/client";
 import BusinessLifecycleEntry from "@/components/business-app/BusinessLifecycleEntry";
 import BusinessLifecycleControls from "@/components/business-app/BusinessLifecycleControls";
@@ -20,7 +21,9 @@ const businesses = [
 beforeAll(() => { GlobalRegistrator.register({ url: "https://app.example.test/biz" }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; });
 afterAll(async () => { globalThis.fetch = originalFetch; setChosenGrant(null); if (originalAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalAuth; await GlobalRegistrator.unregister(); });
 
-async function mount(element: React.ReactNode, failCommand = false, deny = false, failExportOnce = false) {
+async function mount(element: React.ReactNode, {
+  commandFailure, deny = false, failExportOnce = false, locale = "es-419",
+}: { commandFailure?: Response; deny?: boolean; failExportOnce?: boolean; locale?: "en" | "es-419" } = {}) {
   const calls: { path: string; method: string; key: string | null; grant: string | null; query: string; body?: unknown }[] = [];
   let failedExport = false;
   globalThis.fetch = async (url, init) => {
@@ -34,13 +37,13 @@ async function mount(element: React.ReactNode, failCommand = false, deny = false
       return new Response("synthetic zip", { headers: { "Content-Type": "application/zip" } });
     }
     if (deny) return Response.json({ detail: { code: "business_unavailable" } }, { status: 404 });
-    if (method === "POST") return failCommand ? Response.json({ detail: { code: "unavailable" } }, { status: 503 }) : Response.json({ space_id: businesses[0].space_id, name: businesses[0].name, closed_at: "2026-10-18T05:00:00Z", reopen_until: "2026-11-17T05:00:00Z" });
+    if (method === "POST") return commandFailure?.clone() ?? Response.json({ space_id: businesses[0].space_id, name: businesses[0].name, closed_at: "2026-10-18T05:00:00Z", reopen_until: "2026-11-17T05:00:00Z" });
     if (path.endsWith("/ownership-transfers")) return Response.json({ transfers: [] });
     if (path.endsWith("/closed-spaces")) return Response.json({ spaces: [{ space_id: businesses[1].space_id, name: businesses[1].name, closed_at: "2026-10-18T05:00:00Z", reopen_until: "2026-11-17T05:00:00Z" }] });
     return Response.json({ spaces: businesses });
   };
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
-  const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const i18n = i18next.createInstance(); await i18n.init({ lng: locale, resources: { "es-419": { translation: spanish }, en: { translation: english } } });
   await act(async () => { root.render(<I18nextProvider i18n={i18n}>{element}</I18nextProvider>); });
   return { calls, close: async () => { await act(async () => root.unmount()); host.remove(); } };
 }
@@ -48,7 +51,7 @@ function button(label: string) { const found = [...document.querySelectorAll("bu
 async function enter(value: string) { const input = document.querySelector('input:not([type="date"])'); assert.ok(input); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }); }
 
 test("close entry binds server export windows and stable retry key without nested forms", async () => {
-  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} />, true);
+  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} />, { commandFailure: Response.json({ detail: { code: "unavailable" } }, { status: 503 }) });
   try {
     assert.equal(getChosenGrant(), businesses[0].grant_id);
     assert.equal(document.querySelectorAll("form form").length, 0);
@@ -78,6 +81,34 @@ test("closed listing reopens the selected Business once", async () => {
   } finally { reload.mockRestore(); await view.close(); }
 });
 
+test.each([
+  ["es-419", "business_rnc_registered", "Este RNC ya está registrado en Cuadrao."],
+  ["en", "business_rnc_registered", "This RNC is already registered in Cuadrao."],
+  ["es-419", "business_reopen_expired", spanish.business.lifecycle.errors.reopen_expired],
+  ["en", "unavailable", english.business.lifecycle.errors.reopen_uncertain],
+] as const)("a refused reopen keeps the Business closed and shows its error in the card (%s, %s)", async (locale, code, expected) => {
+  const space = businesses[1].space_id;
+  const copy = locale === "en" ? english : spanish;
+  const reference = "reopen-test-0001";
+  const reload = spyOn(window.location, "assign").mockImplementation(() => undefined);
+  const view = await mount(<BusinessLifecycleControls />, {
+    locale, commandFailure: Response.json({ code, request_id: reference }, { status: code === "unavailable" ? 503 : 409 }),
+  });
+  try {
+    const reopen = button(copy.business.lifecycle.reopen.action);
+    const card = reopen.closest("article");
+    assert.ok(card);
+    await act(async () => reopen.click());
+    assert.deepEqual(view.calls.filter(call => call.method === "POST").map(call => call.path), [`/api/v1/business/spaces/${space}/reopen`]);
+    const alert = card.querySelector('[role="alert"]');
+    assert.equal(alert?.querySelector("p")?.textContent, expected);
+    assert.equal(alert?.querySelector('[data-testid="error-reference"]')?.getAttribute("title"), reference);
+    assert.ok(card.textContent?.includes(copy.business.lifecycle.closed_status));
+    assert.equal(reopen.disabled, false);
+    assert.equal(reload.mock.calls.length, 0);
+  } finally { reload.mockRestore(); await view.close(); }
+});
+
 test("the Dueño card offers Transferir only when no other Dueño holds the Business", async () => {
   const view = await mount(<BusinessLifecycleControls />);
   try {
@@ -88,7 +119,7 @@ test("the Dueño card offers Transferir only when no other Dueño holds the Busi
 });
 
 test("readiness denial reveals no names or mutation controls", async () => {
-  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} />, false, true);
+  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[0].space_id} />, { deny: true });
   try { assert.equal(document.body.textContent?.includes(businesses[0].name), false); assert.equal(document.body.textContent?.includes("Cerrar negocio"), false); assert.ok(view.calls.every(call => call.method === "GET")); } finally { await view.close(); }
 });
 
@@ -98,7 +129,7 @@ test("close export uses only server windows for the selected Business and resume
   const saved: string[] = [];
   URL.createObjectURL = () => "blob:synthetic"; URL.revokeObjectURL = () => undefined;
   const save = spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) { saved.push(this.download); });
-  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[1].space_id} />, false, false, true);
+  const view = await mount(<BusinessLifecycleEntry spaceId={businesses[1].space_id} />, { failExportOnce: true });
   try {
     assert.equal(document.querySelectorAll('input[type="date"]').length, 0);
     await act(async () => { button("Descargar copia").click(); button("Descargar copia").click(); });

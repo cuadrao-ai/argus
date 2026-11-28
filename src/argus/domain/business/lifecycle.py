@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from psycopg import Connection
+from psycopg.errors import UniqueViolation
 from psycopg_pool import ConnectionPool
 
 from argus.domain.business.people import person_name
@@ -282,10 +283,17 @@ class PostgresBusinessLifecycle:
                     " where space_id=%s and status='pending'",
                     (space_id,),
                 )
-            connection.execute(
-                "update public.spaces set closed_at=%s where id=%s",
-                (closed_at, space_id),
-            )
+            try:
+                connection.execute(
+                    "update public.spaces set closed_at=%s where id=%s",
+                    (closed_at, space_id),
+                )
+            except UniqueViolation as error:
+                from argus.domain.business.fiscal_profile import OPEN_BUSINESS_RNC_INDEX
+
+                if action == "reopen" and error.diag.constraint_name == OPEN_BUSINESS_RNC_INDEX:
+                    raise BusinessLifecycleError("business_rnc_registered") from None
+                raise
             connection.execute(
                 "insert into public.business_lifecycle_commands"
                 " (space_id,owner_id,idempotency_key,action,confirmation,result_closed_at,result_name)"

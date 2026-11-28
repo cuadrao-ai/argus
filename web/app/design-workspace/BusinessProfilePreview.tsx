@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { Check, Info, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessContext, invoicingShown, useBusiness } from "@/components/business-app/BusinessWorkspace";
-import BusinessFiscalProfile, {type FiscalProfileDraft} from "@/components/business-app/BusinessFiscalProfile";
+import BusinessFiscalProfile, {focusIdentityAfterSwitch, type FiscalProfileDraft} from "@/components/business-app/BusinessFiscalProfile";
 import { useRegistryLookup } from "@/components/business-app/DgiiRegistryStatus";
 import { RowActionLabel } from "@/components/business-app/foundation/RowAction";
 import { SURFACE_CARD } from "@/components/business-app/foundation/surfaces";
@@ -204,7 +204,7 @@ function BusinessProfileContent() {
         main={<>
         <section className={SURFACE_CARD} aria-label={t("business.settings.profile_overview")}>
           <div className="mb-3 flex flex-col items-start gap-3"><BusinessMark businessId={businessId} name={title}/><div className="min-w-0"><h2 className="font-display break-words text-[21px] font-medium">{title}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}{canEdit?<><button type="button" className={`${quietButtonClass} -ml-1`} disabled={imagePending&&appearanceState!=="failed"} aria-busy={imagePending&&appearanceState!=="failed"?true:undefined} onClick={event=>{if(imagePending)retryProfile();else select({section:"appearance",trigger:event.currentTarget});}}>{t(imagePending&&appearanceState==="failed"?"common.retry":"identity.change_image")}</button>{imagePending?<p role={appearanceState==="failed"?"alert":"status"} className="text-[14px] text-[#56635e] dark:text-white/70">{t(appearanceState==="failed"?"common.error_occurred":"common.loading")}</p>:null}</>:null}</div></div>
-          <div className="-mx-3 divide-y divide-black/10 dark:divide-white/10">{sections.map(section=><button key={section.key} type="button" className="profile-section-row group focus-visible:outline-2 focus-visible:outline-offset-2" aria-expanded={selected === section.key} aria-controls={selected === section.key ? "profile-section-dossier" : undefined} onClick={event=>select({section:section.key,trigger:event.currentTarget})}>
+          <div className="-mx-3 divide-y divide-black/10 dark:divide-white/10">{sections.map(section=><button key={section.key} ref={section.key === "identity" ? row => focusIdentityAfterSwitch(row,workspace.panel,chosen?.grant_id) : undefined} type="button" className="profile-section-row group focus-visible:outline-2 focus-visible:outline-offset-2" aria-expanded={selected === section.key} aria-controls={selected === section.key ? "profile-section-dossier" : undefined} onClick={event=>select({section:section.key,trigger:event.currentTarget})}>
             <span className="profile-section-copy"><span className="text-[16px] font-medium">{section.title}</span><span className="profile-section-summary text-[14px] text-[#56635e] dark:text-white/70">{section.summary}</span></span><RowActionLabel>{t("business.reception_preview.placeholder.open")}</RowActionLabel>
           </button>)}</div>
         </section>

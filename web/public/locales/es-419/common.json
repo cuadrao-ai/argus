@@ -2161,7 +2161,8 @@
         "tax_id_all_zero": "No puede ser solo ceros.",
         "business_name_invalid": "Escribe un nombre de 1 a 80 caracteres.",
         "business_owner_required": "Solo el dueño del negocio puede cambiar este perfil.",
-        "business_permission_denied": "Puedes ver este perfil. No puedes cambiarlo."
+        "business_permission_denied": "Puedes ver este perfil. No puedes cambiarlo.",
+        "business_rnc_registered": "Este RNC ya está registrado en Cuadrao."
       },
       "profile_load_failed": "No pudimos cargar el nombre y el RNC."
     },

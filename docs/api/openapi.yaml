@@ -4541,6 +4541,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FiscalProfileSaved'
+        '409':
+          description: '`stale_version`, `business_action_conflict`, or `business_rnc_registered`
+            when another open Business holds the number. Only a caller with live access receives
+            `context.existing_grant_id` for switching.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: '`too_many_requests`: five registration checks per person per ten minutes.'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until retry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -7901,6 +7920,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessLifecycleResponse'
+        '409':
+          description: '`business_reopen_expired`, `idempotency_conflict`, or `business_rnc_registered`
+            when another open Business holds the number. A registration conflict leaves the
+            Business closed and returns no holder data.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:

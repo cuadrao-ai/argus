@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
+from math import ceil
 from threading import Lock
 from time import monotonic
 
@@ -57,7 +58,7 @@ class SlidingWindowLimiter:
                 if len(attempts) >= limit:
                     retry_after = max(
                         retry_after,
-                        int(window_seconds - (now - attempts[0])),
+                        ceil(window_seconds - (now - attempts[0])),
                     )
             if retry_after > 0:
                 return max(retry_after, 1)

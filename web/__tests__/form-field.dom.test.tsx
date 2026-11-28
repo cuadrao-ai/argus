@@ -100,6 +100,8 @@ describe("the shared form field", () => {
       await form.leave("code");
       assert.equal(form.field("code").getAttribute("aria-invalid"), "true");
       assert.equal(form.note("code")?.textContent, TOO_SHORT, "the error replaces the hint");
+      assert.equal(form.note("code")?.getAttribute("aria-live"), "polite");
+      assert.equal(form.note("code")?.getAttribute("role"), null);
       assert.equal(form.field("code").getAttribute("aria-describedby"), "ff-code-note");
 
       await form.type("code", digits(5));
