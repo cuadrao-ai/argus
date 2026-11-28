@@ -29,6 +29,7 @@ from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingesti
 from argus.domain.business import analytics as business_analytics
 from argus.domain.business.access import AccessStore, GrantedSpace, PostgresAccessStore
 from argus.domain.business.authority import ActionError
+from argus.domain.business.contracts.dgii import TaxId
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.documents.models import DocumentDraft, DocumentExtractionError
@@ -673,28 +674,33 @@ class WhatsAppSenderContext:
     link: SenderLink | None
 
 
-def _memory_has_tax_id(space_id: str) -> bool:
+def _memory_tax_id(space_id: str) -> TaxId | None:
     # Fiscal profiles are stored only in Postgres.
-    return False
+    return None
 
 
 def eligible_sender_businesses(person_id: str) -> tuple[GrantedSpace, ...]:
+    return tuple(grant for grant, _ in sender_businesses_with_tax_ids(person_id))
+
+
+def sender_businesses_with_tax_ids(person_id: str) -> tuple[tuple[GrantedSpace, TaxId], ...]:
     access = business_access()
     documents = documents_service()
     if access is None or documents is None:
         return ()
     if isinstance(access, PostgresAccessStore):
         with access.pool.connection() as db:
-            return postgres_senders(db).eligible_businesses(person_id)
+            return postgres_senders(db).with_tax_ids(person_id)
     reading = documents.business_receipt_consent
     if reading is None:
         return ()
-    grants = SenderBusinesses(
-        access, _memory_has_tax_id, lambda g: reading.status(g.space_id, g.owner_id)
-    ).eligible_businesses(person_id)
+    eligible = SenderBusinesses(
+        access, _memory_tax_id, lambda g: reading.status(g.space_id, g.owner_id)
+    ).with_tax_ids(person_id)
     spaces = business_spaces()
     return tuple(
-        replace(g, name=space.name) for g in grants if spaces and (space := spaces.get(g.space_id))
+        (replace(grant, name=space.name), tax_id)
+        for grant, tax_id in eligible if spaces and (space := spaces.get(grant.space_id))
     )
 
 

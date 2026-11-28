@@ -26,6 +26,7 @@ from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_extractor_support import StubPreparation, start_request
 from tests.document_reads_support import read_receipt
 from tests.ingestion import whatsapp_cases as cases
+from tests.ingestion.whatsapp_link_support import SYNTHETIC_TAX_ID
 from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
 
 
@@ -72,7 +73,7 @@ async def _world(*, on: bool) -> tuple[cases.World, Extractor, Callable[[bool], 
     setting = reading_setting()
     documents.business_receipt_consent = setting
     access = InMemoryAccessStore()
-    senders = SenderBusinesses(access, lambda _: True, lambda g: setting.status(g.space_id, g.owner_id))
+    senders = SenderBusinesses(access, lambda _: SYNTHETIC_TAX_ID, lambda g: setting.status(g.space_id, g.owner_id))
     spaces, store = InMemorySpaceStore(), InMemoryWhatsAppStore(connections, access, senders.eligible_businesses)
     world = cases.build_world(
         documents=documents,

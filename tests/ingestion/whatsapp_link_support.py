@@ -1,12 +1,14 @@
 """Synthetic phone-link setup and the notices used in both language fixtures."""
 
 from argus.domain.business.access import PostgresAccessStore
+from argus.domain.business.contracts.dgii import TaxId
 from argus.domain.ingestion.whatsapp.ai_consent import LINK_DISCLOSURES
 from faker import Faker
 from psycopg_pool import ConnectionPool
 
 from tests.business_reading_support import reading_setting
 
+SYNTHETIC_TAX_ID = TaxId(type="rnc", value="131456782")
 NOTICE = LINK_DISCLOSURES["es-419"]
 ENGLISH_NOTICE = LINK_DISCLOSURES["en"]
 

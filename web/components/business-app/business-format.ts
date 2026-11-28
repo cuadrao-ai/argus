@@ -150,6 +150,10 @@ export function formatDaySpan(from: string, to: string, locale: string): { from:
   return { from: label(start, !startsMonth, !sameYear), to: label(end, !endsMonth, true) };
 }
 
+export function isRelativeTimestamp(iso: string, now: Date): boolean {
+  return Math.abs(Date.parse(iso) - now.getTime()) < RELATIVE_WINDOW_DAYS * DAY_MS;
+}
+
 /** "hace 15 minutos", "ayer", "hace 3 días" under seven days; "12 Oct" from then on. */
 export function formatRelativeTime(iso: string | null, locale: string, now = new Date()): string {
   if (!iso) return "";
@@ -157,7 +161,7 @@ export function formatRelativeTime(iso: string | null, locale: string, now = new
   const then = date.getTime();
   if (Number.isNaN(then)) return "";
   const elapsed = then - now.getTime();
-  if (Math.abs(elapsed) >= RELATIVE_WINDOW_DAYS * DAY_MS) return shortDate(date, locale, now);
+  if (!isRelativeTimestamp(iso, now)) return shortDate(date, locale, now);
   const minutes = Math.round(elapsed / 60_000);
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   if (Math.abs(minutes) < 60) return rtf.format(minutes, "minute");

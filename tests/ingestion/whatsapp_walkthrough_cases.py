@@ -225,9 +225,9 @@ class SignedForward:
         await self.post(fixture("text_link_code.json", text=code["message_text"]))
         linked = await self.request("GET", LINK, headers=self.desk.auth)
         assert linked["linked"]
-        assert set(b["space_id"] for b in linked["receiving_businesses"]) == {
-            self.desk.spaces["A"],
-            self.desk.spaces["B"],
+        assert {b["space_id"]: b["tax_id"] for b in linked["receiving_businesses"]} == {
+            self.desk.spaces[key]: {"type": "rnc", "value": self.desk.rnc[key]}
+            for key in ("A", "B")
         }
 
     async def provider(

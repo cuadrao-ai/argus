@@ -6,14 +6,14 @@ import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { FREEZE_CSS, fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
-async function setup(page: Page, available: boolean, history = false, language: "es-419" | "en" = "es-419") {
+async function setup(page: Page, available: boolean, history = false, language: "es-419" | "en" = "es-419", theme: "light" | "dark" = "light") {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const requests: string[] = [];
   const historyRequests: string[] = [];
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
-  await installBreakpointFixture(page, { language, theme: "light", emptyChat: true });
+  await installBreakpointFixture(page, { language, theme, emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false, receiptReading: { can_change: false } });
   await page.route("**/api/v1/whatsapp/**", route => {
     requests.push(new URL(route.request().url()).pathname);
@@ -45,6 +45,119 @@ async function setup(page: Page, available: boolean, history = false, language: 
 }
 
 for (const width of [1440, 390]) {
+  for (const theme of ["light", "dark"] as const) test.describe(`linked number in ${theme} at ${width}px`, () => {
+    test.use({ hasTouch: width === 390 });
+    for (const language of ["es-419", "en"] as const) test(`linked WhatsApp settings and unlink in ${language}`, async ({ page }, info) => {
+      const catalog = language === "en" ? english : spanish;
+      const words = catalog.settings.whatsapp;
+      const observed = await setup(page, false, false, language, theme);
+      await page.clock.setFixedTime(new Date("2026-11-23T12:00:00Z"));
+      let count = 3;
+      let linked = true;
+      const businesses = [
+        { space_id: "ferreteria", name: "Ferretería Los Pinos", tax_id: { type: "rnc", value: "131456782" } },
+        { space_id: "colmado", name: "Colmado Doña Fefa", tax_id: { type: "cedula", value: "00112345678" } },
+        { space_id: "clinica", name: "Clínica Dental Sonrisa", tax_id: { type: "rnc", value: "130987654" } },
+      ];
+      await page.route(url => url.pathname.endsWith("/api/v1/whatsapp/link"), route => {
+        if (route.request().method() === "DELETE") {
+          linked = false;
+          return route.fulfill({ status: 204 });
+        }
+        return route.fulfill({ json: { ...whatsappDisclosure[language], linked, last4: "4821", linked_at: "2026-11-12T12:00:00Z",
+          reply_language: language, receiving_businesses: businesses, held_count: count } });
+      });
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      async function openSettings() {
+        await page.goto("/biz?view=inbox");
+        await page.getByTestId("header-profile-trigger").click();
+        await page.getByTestId("profile-menu-settings").click();
+        await page.getByRole("button", { name: "WhatsApp", exact: true }).click();
+      }
+      const capture = async (state: string) => {
+        if (language !== "es-419") return;
+        const clip = await page.getByTestId("settings-window").boundingBox();
+        await page.screenshot({ path: info.outputPath(`whatsapp-${state}-${width}-${theme}.png`), style: FREEZE_CSS,
+          ...(width === 1440 && clip ? { clip } : {}) });
+      };
+      await openSettings();
+      const rows = page.getByRole("list", { name: words.receiving_title }).getByRole("listitem");
+      await expect(rows).toHaveCount(3);
+      await expect(rows.nth(1)).toContainText("Cédula 001-1234567-8");
+      await expect(page.getByRole("region", { name: words.held_title })).toContainText("3");
+      await expect(page.getByRole("button", { name: words.unlink })).toBeVisible();
+      await expect(page.locator('time[datetime="2026-11-12T12:00:00Z"]')).toBeVisible();
+      const held = page.getByRole("region", { name: words.held_title });
+      const heading = page.getByRole("heading", { name: words.linked.replace("{{last4}}", "4821") });
+      const card = heading.locator("xpath=ancestor::section[1]");
+      await expect(card.getByRole("button")).toHaveCount(0);
+      await expect(card.locator("svg")).toHaveCount(1);
+      await expect(card.locator("svg")).toHaveCSS("width", "24px");
+      const reading = page.getByText(words.reading_notice, { exact: true });
+      await expect(reading).toHaveCount(1);
+      await expect(reading).toBeInViewport();
+      const unlink = page.getByRole("button", { name: words.unlink });
+      const sentence = (await reading.boundingBox())!;
+      const action = (await unlink.boundingBox())!;
+      if (width === 390) {
+        expect(sentence.y + sentence.height).toBeLessThanOrEqual(action.y);
+        expect(sentence.x).toBe(action.x);
+        expect(sentence.width).toBe(action.width);
+      } else {
+        expect(sentence.x + sentence.width).toBeLessThanOrEqual(action.x);
+        expect(Math.abs(sentence.y + sentence.height / 2 - action.y - action.height / 2)).toBeLessThan(1);
+      }
+      await capture("linked");
+      await unlink.click();
+      const confirm = page.getByRole("alertdialog");
+      await expect(confirm.getByRole("button", { name: words.cancel })).toBeFocused();
+      await expect(confirm.getByRole("listitem")).toHaveCount(4);
+      const dialogNotice = confirm.getByText(words.reading_notice, { exact: true });
+      await expect(dialogNotice).toBeInViewport();
+      await expect(reading).toHaveCount(1);
+      await capture("held-confirm");
+      await page.keyboard.press("Escape");
+      await expect(unlink).toBeFocused();
+      await expect(reading).toBeInViewport();
+      await unlink.click();
+      await confirm.getByRole("button", { name: catalog.workspace_setup_preview.unlink, exact: true }).click();
+      await expect(page.getByRole("button", { name: words.link_phone })).toBeVisible();
+      await expect(held).toContainText("3");
+      await expect(reading).toHaveCount(0);
+      linked = true;
+      count = 1;
+      await openSettings();
+      await unlink.click();
+      await expect(confirm.getByRole("listitem")).toHaveCount(4);
+      await expect(confirm.getByText(words.unlink_held_one, { exact: true })).toBeVisible();
+      await expect(dialogNotice).toBeInViewport();
+      await expect(reading).toHaveCount(1);
+      await capture("one-confirm");
+      await page.goBack();
+      await expect(confirm).toHaveCount(0);
+      count = 0;
+      await openSettings();
+      await unlink.click();
+      await expect(confirm).toContainText(words.unlink_empty);
+      await expect(confirm.getByRole("listitem")).toHaveCount(0);
+      await expect(dialogNotice).toBeInViewport();
+      await expect(reading).toHaveCount(1);
+      if (language === "es-419") await confirm.screenshot({ path: info.outputPath(`whatsapp-empty-confirm-${width}-${theme}.png`), style: FREEZE_CSS });
+      if (width === 390) {
+        await page.goBack();
+        await expect(confirm).toHaveCount(0);
+        await expect(heading).toBeVisible();
+        await page.goBack();
+        await expect(heading).toHaveCount(0);
+        await expect(page.getByTestId("settings-nav-whatsapp")).toBeVisible();
+        await page.goBack();
+        await expect(page.getByTestId("settings-window")).toHaveCount(0);
+        await expect(page.getByTestId("header-profile-trigger")).toBeVisible();
+      }
+      expect(observed.errors).toEqual([]);
+    });
+  });
+
   test(`unavailable channels have no intake offers or requests at ${width}px`, async ({ page }, info) => {
     const observed = await setup(page, false);
     await page.setViewportSize({ width, height: 900 });

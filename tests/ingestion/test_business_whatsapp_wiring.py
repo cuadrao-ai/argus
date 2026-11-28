@@ -16,7 +16,7 @@ from argus.domain.ingestion.whatsapp.replies import compose_reply
 from argus.domain.ingestion.whatsapp.senders import SenderBusinesses
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
-from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE
+from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE, SYNTHETIC_TAX_ID
 from tests.ingestion.whatsapp_support import ALICE_PHONE, ENV
 
 
@@ -43,7 +43,7 @@ async def test_linked_text_uses_the_ordinary_webhook_reply(
     access.ensure_owner_grant(str(uuid4()), person)
     store = InMemoryWhatsAppStore(
             Mock(), access,
-            SenderBusinesses(access, lambda _: True, lambda _: {"enabled": True}).eligible_businesses,
+            SenderBusinesses(access, lambda _: SYNTHETIC_TAX_ID, lambda _: {"enabled": True}).eligible_businesses,
         )
     pool = Mock()
     pool.connection.side_effect = AssertionError(

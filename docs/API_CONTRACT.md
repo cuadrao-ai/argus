@@ -8172,7 +8172,8 @@ Santo Domingo day. Other unlinked text is silent.
   its `disclosure_token`. The panel shows the returned text and sends the token
   when the person requests a code. Redeeming the code records that exact text
   on the new link's consent row. The response also includes `linked`, `last4`, `linked_at`,
-  `reply_language`, `receiving_businesses` (each with `space_id` and `name`),
+  `reply_language`, `receiving_businesses` (each with `space_id`, `name` and its fiscal profile’s
+  `tax_id: {type, value}`, only for Businesses where this sender can upload and reading is active),
   and `held_count` for the signed-in person. An active link or held file keeps this account panel available
   after the person loses their last prepare grant. A preparer whose Businesses still
   need setup receives an empty list. A link-code request with no eligible

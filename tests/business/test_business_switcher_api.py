@@ -25,6 +25,7 @@ from tests.business.test_business_api import (  # noqa: F401
 from tests.business.test_business_email_api import runtime  # noqa: F401
 from tests.business.test_business_whatsapp import wa_biz  # noqa: F401
 from tests.ingestion.test_whatsapp_api import UNSHOWN_LINK, link_body
+from tests.ingestion.whatsapp_link_support import SYNTHETIC_TAX_ID
 from tests.test_conversation_surfaces import client as chat_client  # noqa: F401
 
 GRANT = "X-Business-Grant"
@@ -359,7 +360,7 @@ def test_whatsapp_linking_uses_all_current_businesses(
     assert owner.start().status_code == 201
     grant = _grant(owner, editor)
     business_access().change_role(owner.scope().owner.space_id, owner.person, grant, role)
-    monkeypatch.setattr(whatsapp, "_memory_has_tax_id", lambda _space: rnc, raising=False)
+    monkeypatch.setattr(whatsapp, "_memory_tax_id", lambda _space: SYNTHETIC_TAX_ID if rnc else None)
     if reading:
         assert owner.reading(True).status_code == 200
     answer = client.post(
@@ -372,7 +373,7 @@ def test_whatsapp_linking_uses_all_current_businesses(
         assert answer.status_code == 201, answer.text
         assert answer.json()["qr_data_url"].startswith("data:image/png;base64,")
         assert status.json()["receiving_businesses"] == [
-            {"space_id": owner.scope().owner.space_id, "name": "Ferretería Prueba"}
+            {"space_id": owner.scope().owner.space_id, "name": "Ferretería Prueba", "tax_id": SYNTHETIC_TAX_ID.model_dump()}
         ]
         assert status.json()["held_count"] == 0
     else:
