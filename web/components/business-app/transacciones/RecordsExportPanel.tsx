@@ -221,6 +221,6 @@ export default function RecordsExportPanel({ panel, transport, onReviewFiscal, o
   );
 
   // A centered dialog on desktop, the shared bottom sheet on a phone.
-  if (isBelowDesktop) return <BottomSheet isOpen onClose={onClose} title={title} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" footer={footer}>{body}</BottomSheet>;
+  if (isBelowDesktop) return <BottomSheet isOpen onClose={onClose} title={title} closeLabel={t("common.close")} snaps="fit" fitUpTo="full" footer={footer}>{body}</BottomSheet>;
   return <CenteredDialog title={title} closeLabel={t("common.close")} onClose={onClose} footer={footer} testId="records-export-dialog">{body}</CenteredDialog>;
 }

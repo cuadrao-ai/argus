@@ -124,5 +124,5 @@ export default function CuadraoInvitationPreview({ invitations, onSent, onClose,
       <p className={styles.note}>{t("cuadrao_invitation.separate_business")}</p>
     </>}
   </div>;
-  return isBelowDesktop ? <BottomSheet isOpen onClose={close} title={title} titleHidden closeLabel={t("common.close")} snaps={["full"]} initialSnap="full"><div className={styles.sheet}>{content}</div></BottomSheet> : <DesktopModal title={title} onClose={close} returnFocusRef={returnFocusRef}>{content}</DesktopModal>;
+  return isBelowDesktop ? <BottomSheet isOpen onClose={close} title={title} titleHidden closeLabel={t("common.close")} snaps="fit" fitUpTo="full"><div className={styles.sheet}>{content}</div></BottomSheet> : <DesktopModal title={title} onClose={close} returnFocusRef={returnFocusRef}>{content}</DesktopModal>;
 }

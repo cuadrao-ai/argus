@@ -1,3 +1,4 @@
+import { assertDialogSheetFit } from "./helpers/assert-dialog-sheet-fit";
 import {afterAll,afterEach,beforeAll,expect,mock,test} from "bun:test";
 import {GlobalRegistrator} from "@happy-dom/global-registrator";
 import {act,useEffect,type ReactNode} from "react";
@@ -413,6 +414,25 @@ test("the desktop dialog is centered and a long list scrolls inside it",async()=
   expect(dialog.parentElement?.className).not.toContain("pt-[12dvh]");
   expect(document.querySelector('form ul')?.className).toContain("overflow-y-auto");
  }finally{await page.unmount();}
+});
+
+test.each(["Business invitation", "design-workspace invitation"])("%s fits its content at 390 px", async surface => {
+  const viewport = (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM;
+  viewport.setViewport({ width: 390, height: 844 });
+  serve();
+  try {
+    const { default: Preview } = await import("@/app/design-workspace/InvitationPreviewModal");
+    const page = surface === "Business invitation"
+      ? await mountForm()
+      : await render(close => <Preview frame={{ current: null }} onClose={close}><input type="email" /></Preview>);
+    try {
+      assertDialogSheetFit();
+      if (surface === "Business invitation") {
+        const submit = document.querySelector<HTMLButtonElement>('.argus-sheet-footer button[type="submit"]');
+        expect(submit?.form).toBe(document.querySelector("form"));
+      }
+    } finally { await page.unmount(); }
+  } finally { viewport.setViewport({ width: 1280, height: 900 }); }
 });
 
 test.each([1440,390])("the add action stays left-aligned directly below the last invite row at %s px",async width=>{
